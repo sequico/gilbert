@@ -1,0 +1,17 @@
+#!/bin/sh
+# Fast CI gate before every push: typecheck + tests (npm run prepush).
+# Enabled per clone with `git config core.hooksPath .githooks`; see
+# .codewhale/instructions.md. Bypass deliberately with `git push --no-verify`.
+set -u
+
+if [ ! -x node_modules/.bin/tsc ]; then
+    echo "pre-push: dependencies missing -- run 'npm install' first" >&2
+    exit 1
+fi
+
+echo "pre-push: running the fast CI gate (npm run prepush)…"
+if ! npm run prepush; then
+    echo "pre-push: gate failed. Fix the failure, or bypass deliberately with --no-verify." >&2
+    exit 1
+fi
+exit 0

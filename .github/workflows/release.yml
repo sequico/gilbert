@@ -1,25 +1,19 @@
-# Cut a release once a week, but only if there is something in it.
+# Cut a release when the user calls one, by hand -- never automatically.
+# Upstream's weekly schedule was removed on 2026-09-04 at the owner's request;
+# releases are manual (workflow_dispatch, with dry_run to preview).
 #
 # Releases had drifted 184 commits behind main, which made `:latest` describe
 # a build nobody was running -- the demo, prod and anyone building from source
 # were all ahead of it. Publishing on release is the right trigger only if
-# releases actually happen, so this is the part that makes that true without
-# anyone having to remember.
+# releases actually happen, so this is the workflow that makes that true when
+# one is called.
 #
-# It does nothing on a quiet week. A release with no commits in it is worse
+# It does nothing on a quiet run. A release with no commits in it is worse
 # than no release: it moves `:latest` to an identical build, spends a version
 # number, and mails everybody watching the repository about nothing.
-name: Weekly release
+name: Release
 
 on:
-  schedule:
-    # Mondays, 09:00 UTC. GitHub runs scheduled jobs on a best-effort basis and
-    # can delay a run by a good while when the queue is busy, so do not read
-    # the exact minute as a promise. Note also that GitHub disables scheduled
-    # workflows in a repository with no activity for 60 days -- not a concern
-    # while this one is being worked on weekly, but it is why a silent stop is
-    # worth checking for before assuming the file is broken.
-    - cron: "0 9 * * 1"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -30,10 +24,16 @@ on:
 # One at a time. Two overlapping runs would race to create the same tag, and
 # the loser fails noisily for a reason that has nothing to do with the code.
 concurrency:
-  group: weekly-release
+  group: release
   cancel-in-progress: false
 
 jobs:
+  # Release pre-check: the full CI stack (typecheck, tests, build, Docker
+  # smoke build) must pass before anything is cut. Nothing ships on a red
+  # check.
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   check:
     runs-on: ubuntu-latest
     permissions:
@@ -116,7 +116,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   cut:
-    needs: check
+    needs: [check, ci]
     if: needs.check.outputs.should_release == 'true' && !inputs.dry_run
     runs-on: ubuntu-latest
     permissions:

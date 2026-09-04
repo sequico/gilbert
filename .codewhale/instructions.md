@@ -23,11 +23,18 @@ account (localStorage is only a cache).
 ## Toolchain
 Node ≥ 20.10, npm workspaces. `npm run dev` · `dev:mock` (demo@example.com /
 demo) · `dev:mock:no-future-release` · `typecheck` · `test` · `build`.
+**Tests assume the runner's local timezone is UTC** (GitHub's default); on a
+non-UTC machine run them as `TZ=UTC npm test` — `prepush` already forces it so
+the local gate matches CI.
 Version from git at build time (`node scripts/version.mjs`).
 
 ## Workflow
-Read the affected area first; smallest coherent diff; verify with typecheck +
-tests and read the diff. English in all repo content; chat follows the user.
+Read the affected area first; smallest coherent diff; English in all repo
+content; chat follows the user.
+**Every push is gated by the fast CI** (`npm run prepush`: typecheck + tests);
+a pre-push hook enforces it — hook in `.githooks/pre-push`, enabled per clone
+with `git config core.hooksPath .githooks`, bypass only deliberately with
+`--no-verify`. Remote CI does not run on push: it is the release pre-check.
 No commit or push unless the user's message in the current turn says so.
 `origin/main` is **not branch-protected** (private repo): direct commit + push
 to main is the normal flow.

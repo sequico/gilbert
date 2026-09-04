@@ -1,8 +1,10 @@
 name: CI
 on:
-  push:
-    branches: [main]
-  pull_request:
+  # The release pre-check: release.yml calls this before it cuts anything, so
+  # nothing ships on a red check. There is deliberately no push/PR trigger any
+  # more -- per-push verification is the local fast gate (npm run prepush,
+  # enforced by the pre-push hook); see .codewhale/instructions.md.
+  workflow_call:
   # Lets CI be run by hand against any ref, including a specific commit.
   # Without this there is no way to re-run a check that never started: a run
   # GitHub queues and then orphans -- as it did to every run created during the
