@@ -1,6 +1,6 @@
 # Features
 
-Everything ihasmail does, in one place, at the level of detail someone
+Everything Gilbert does, in one place, at the level of detail someone
 evaluating it or working on it actually needs.
 
 This is the inventory. Three files sit beside it and answer different
@@ -8,25 +8,25 @@ questions:
 
 | | |
 | --- | --- |
-| [ROADMAP.md](ROADMAP.md) | What ihasmail deliberately does **not** do, and why |
+| [ROADMAP.md](ROADMAP.md) | What Gilbert deliberately does **not** do, and why |
 | [KNOWN-ISSUES.md](KNOWN-ISSUES.md) | What was verified live, and where Stalwart departs from a spec |
 | [docs.ihasmail.org](https://docs.ihasmail.org) | How to install, configure and drive each of these |
 
 Written against the tree at Stalwart **0.16.20**, which is the version the live
-instance runs and the one every behaviour below was checked against. ihasmail
+instance runs and the one every behaviour below was checked against. Gilbert
 requires 0.16 or newer and refuses older servers at sign-in, by name.
 
 ## The shape of it
 
-ihasmail is a single-page React app plus a small Node server that speaks JMAP
+Gilbert is a single-page React app plus a small Node server that speaks JMAP
 to Stalwart on the browser's behalf. There is no IMAP, no SMTP, no database, no
 search index and no cache tier. Every durable thing — mail, calendars,
-contacts, files, filters, and ihasmail's own settings — lives in the mail store.
+contacts, files, filters, and Gilbert's own settings — lives in the mail store.
 The container is disposable, and with `IMMUTABLE=1` it has nothing writable at
 all.
 
 That constraint decides most of what follows. Where a feature looks unusual,
-it is usually because the obvious implementation would have required ihasmail
+it is usually because the obvious implementation would have required Gilbert
 to keep something of its own.
 
 ### Capabilities, and what happens without them
@@ -49,7 +49,7 @@ capability removes its feature rather than breaking the app.
 | `urn:ietf:params:jmap:quota` | Storage bar under the folder list | The bar is not drawn |
 | `urn:ietf:params:jmap:blob` | Attachments, message source, vCards, signature images | Downloads and uploads degrade |
 | `urn:ietf:params:jmap:filenode` | Files, attach-from-Files, **synced settings** | Files hides; settings fall back to this browser |
-| `urn:ietf:params:jmap:webpush-vapid` | Notifications with ihasmail closed | Only in-tab notifications |
+| `urn:ietf:params:jmap:webpush-vapid` | Notifications with Gilbert closed | Only in-tab notifications |
 | `urn:ietf:params:jmap:emailpush` | Sender and subject inside a push payload | Push says "new mail" and nothing more |
 | `urn:stalwart:jmap` (per-account) | Password change, app passwords, 2FA state | **Sign-in is refused** — this is the 0.16 check |
 | EventSource push | Live updates | Falls back to polling |
@@ -253,14 +253,14 @@ Real JMAP mailboxes, with the server's roles honoured.
 
 Labels are **IMAP keywords** with a colour and a display name kept in settings.
 Because they are keywords, every other client that reads the mailbox sees them,
-and they survive ihasmail entirely. A message can carry any number. They are
+and they survive Gilbert entirely. A message can carry any number. They are
 managed in Settings › Labels, applied from `l` or the context menu, and
 optionally listed in the sidebar.
 
 - **Nesting.** A label can sit under another, and the sidebar indents it.
   Nesting is **display only** — the keywords stay flat on the message, so
   moving a label under another rewrites nothing in the mailbox and a client
-  that knows nothing about ihasmail sees exactly what it always did. The parent
+  that knows nothing about Gilbert sees exactly what it always did. The parent
   picker will not offer a label's own descendants, so a loop cannot be built;
   and because settings sync between devices, a label whose parent was deleted
   elsewhere comes back to the top level rather than disappearing, while a cycle
@@ -313,7 +313,7 @@ same query string — so what it builds can be read, edited and learned from.
   follows the account. Policy is one of ask (default), automatic for people in
   your contacts, or always.
 - **Privacy image proxy** (on by default): approved remote images are fetched by
-  ihasmail's server, so the sender learns nothing about the reader — no IP
+  Gilbert's server, so the sender learns nothing about the reader — no IP
   address, no user agent, no read time. With the proxy off, images load
   directly and the sender learns all three; the docs say so plainly.
 - **Inline images** (`cid:`) are resolved against the message's own parts.
@@ -361,7 +361,7 @@ same query string — so what it builds can be read, edited and learned from.
   6.7 is damning against 5 and unremarkable against 15 and the number alone is
   not something a reader can act on — where no threshold was stated, it says
   so; and where the filter recorded no verdict, none is invented from the score,
-  since the filter applies policy ihasmail cannot see. Mail that arrived without
+  since the filter applies policy Gilbert cannot see. Mail that arrived without
   these headers shows nothing.
 - **Message body theming** is off by default — sender HTML is left exactly as it
   was designed, on a light card. One setting lets mail that brings no colours of
@@ -393,7 +393,7 @@ same query string — so what it builds can be read, edited and learned from.
 
 ### Read receipts (MDN, RFC 8098)
 
-Stalwart does not implement JMAP's `MDN/send`, so ihasmail assembles the
+Stalwart does not implement JMAP's `MDN/send`, so Gilbert assembles the
 `multipart/report` itself, uploads it, imports it and submits it like any other
 message — which is why a sent receipt lands in Sent.
 
@@ -430,12 +430,12 @@ minimisable and maximisable; full-screen on mobile.
   row, so somebody with a work address and a personal one is a choice.
 - **Cc, Bcc and Reply-To** revealed as needed.
 - **Priority**.
-- **Identities**: multiple From addresses, a per-account default that ihasmail
+- **Identities**: multiple From addresses, a per-account default that Gilbert
   keeps (JMAP has no such flag), and hiding identities from the picker without
   deleting them — an account with alias domains can have every local part twice
   over while only a handful are ever used.
 - **Signatures** in HTML per identity, inserted above or below the quote.
-  Stalwart caps an identity signature at 2047 **bytes** of UTF-8, so ihasmail
+  Stalwart caps an identity signature at 2047 **bytes** of UTF-8, so Gilbert
   compacts the HTML, and where it still will not fit, stores the full signature
   in the account's Files and leaves a marker plus a plain-text fallback in the
   identity. Signature images live in Files too and are turned into inline
@@ -491,15 +491,15 @@ default) and shows a toast with a way back. Nothing has been submitted yet.
 client-settable `sendAt` — RFC 8621 makes it server-derived — so the hold is
 requested through SMTP FUTURERELEASE (RFC 4865) as a `HOLDUNTIL` parameter on
 the envelope, and the server reports back the `sendAt` it settled on. It goes
-out whether or not ihasmail is open, or ever opened again.
+out whether or not Gilbert is open, or ever opened again.
 
-Held messages wait in a **Scheduled** folder ihasmail maintains itself (JMAP has
+Held messages wait in a **Scheduled** folder Gilbert maintains itself (JMAP has
 no role for one), and reconciles when you next open it: released messages move
 to Sent, cancelled ones back to Drafts. The picker offers presets and an exact
 date and time, bounded by the maximum delay the server advertises.
 
 > If Stalwart's `futureRelease` is not configured, a "scheduled" message is sent
-> **immediately**, with no error and no sign the hold was dropped. ihasmail only
+> **immediately**, with no error and no sign the hold was dropped. Gilbert only
 > offers the feature when the account advertises the capability, and the mock
 > has a switch (`MOCK_NO_FUTURE_RELEASE=1`) that advertises it and then drops
 > every hold, so the failure can be developed against.
@@ -543,13 +543,13 @@ nothing for anybody else.
   **Nothing is stored.** The document is fetched when you open the calendar and
   parsed in the browser; the server keeps no copy, no cache and no schedule,
   which is what lets an immutable container serve this at all. There is no
-  timer either: ihasmail has nowhere to run one, so the honest guarantee is
+  timer either: Gilbert has nowhere to run one, so the honest guarantee is
   that a subscription is as current as the last time somebody looked — which is
   also when it matters.
 
   The fetch has to happen on the server, because a calendar URL belongs to
   whoever published it and almost none of them send CORS headers. That makes it
-  the second place ihasmail reaches an address a stranger chose, and it goes
+  the second place Gilbert reaches an address a stranger chose, and it goes
   through **exactly the same guard as the image proxy** — one implementation,
   not two: the name is resolved and every answer must be acceptable, the
   connection is pinned to the address that was checked, and each redirect is
@@ -570,7 +570,7 @@ nothing for anybody else.
 
   **Nothing is written anywhere.** The dates live on the cards; a second copy
   of the same fact would drift the first time somebody corrected one, and
-  keeping a calendar of its own is exactly what ihasmail does not do. An entry
+  keeping a calendar of its own is exactly what Gilbert does not do. An entry
   disappears when the contact does, or when the birthday is cleared.
 
   They cannot be edited or deleted, and that falls out of the design rather
@@ -638,7 +638,7 @@ wide that is.
 **Whoever cannot be read is drawn hatched, never blank.** Free/busy is answered
 per principal, and only accounts on this server are principals — so for a guest
 at another domain there is nothing to read. Leaving them out, which is what
-ihasmail used to do, is the one presentation that lies: a row with nothing in it
+Gilbert used to do, is the one presentation that lies: a row with nothing in it
 reads as a diary with nothing in it. A line under the grid says how many and
 why.
 
@@ -659,7 +659,7 @@ work:
 - **Not everything can differ per occurrence.** 0.16.20 sorts properties into
   three groups, and only one is honest: some are *rejected* loudly; some are
   *inherited* — dropped from the patch while the response still reports
-  success; the rest are applied. ihasmail checks the patch before sending it, so
+  success; the rest are applied. Gilbert checks the patch before sending it, so
   a rejected property is an error you can see and an inherited one is reported
   as something it could not do for one date, rather than claimed as saved.
 - **Occurrence ids are not stable across a write.** Stalwart's synthetic ids
@@ -671,7 +671,7 @@ work:
   else.
 
 *This and future* is not offered: the server refuses an occurrence that belongs
-to such a change, and where it does, ihasmail says so and offers the series.
+to such a change, and where it does, Gilbert says so and offers the series.
 
 **Events are dragged.** In the day and week grids an event moves by dragging
 it and changes length by dragging its bottom edge, both snapping to fifteen
@@ -840,7 +840,7 @@ individual rights by hand.
   what is out there.
 - Where the server will not remember that you added a share — 0.16 refuses
   `isSubscribed` on a read-only address book while accepting it on a calendar —
-  ihasmail keeps the list in the settings that already follow you between
+  Gilbert keeps the list in the settings that already follow you between
   devices, so the inconsistency does not reach the reader.
 - **Sharing a mail folder is not offered.** Stalwart accepts it, stores it, and
   never delivers it. A folder shared before that was withdrawn still offers
@@ -857,7 +857,7 @@ Preferences live in a `settings.json` in the account's own JMAP Files, beside
 the signature images. So identity, signatures, locale, date and time formats,
 theme, labels, templates, folder colours, trusted image senders and added shares
 are the same wherever you sign in, private windows included — and they are
-backed up with the mail store, because they *are* in the mail store. ihasmail
+backed up with the mail store, because they *are* in the mail store. Gilbert
 still stores nothing of its own.
 
 Settings that describe *this screen* stay local, deliberately: density, font
@@ -872,7 +872,7 @@ it for their phone and their tablet both, and the desktop that ignores them is
 the odd one out rather than the case to design around.
 
 Two limits: conflicts are last-write-wins, and a change made on one device does
-not reach another that already has ihasmail open until it signs in again.
+not reach another that already has Gilbert open until it signs in again.
 
 ## Sections
 
@@ -929,7 +929,7 @@ every message in the mailbox is from outside.
   is the destination, and the destination is not the thing in question. Links
   that are not http or https are left alone, since warning about a `mailto:` is
   noise, and noise is how a warning stops being read. Both message bodies are
-  covered — a link in a plain-text mail is linkified by ihasmail and points
+  covered — a link in a plain-text mail is linkified by Gilbert and points
   wherever it likes just as readily as marked-up one.
 
 The senders trusted with remote images are listed there and can be withdrawn
@@ -949,7 +949,7 @@ Settings **export** to a JSON file and **import** back, and reset to defaults.
 - **12- or 24-hour clock**, applied everywhere.
 - **Numerals follow the locale**, except under ISO 8601, which pins date and
   clock to Latin digits.
-- Dates are **entered** through ihasmail's own pickers rather than the browser's,
+- Dates are **entered** through Gilbert's own pickers rather than the browser's,
   because browsers render `<input type="date">` in their own locale and ignore
   the page's. Typing is lenient: `22.11.`, `221125`, `6:23pm` and bare ISO all
   parse.
@@ -1023,7 +1023,7 @@ are used, taken from each project's own repository; the values as fetched are
 recorded in `.palette-sources/palettes-upstream.md`.
 
 **The shades between those values are derived, and every one is checked.**
-ihasmail needs about thirty tokens and these projects publish between twelve
+Gilbert needs about thirty tokens and these projects publish between twelve
 and twenty, so the tiers in between are computed by
 `scripts/build-palettes.py`, which then measures every text colour against the
 surface it sits on — 4.5:1 for prose, 3:1 for borders and marks — and lifts
@@ -1041,7 +1041,7 @@ would have quietly ended the WCAG AA claim two sections down.
 
 # Live updates and notifications
 
-- **JMAP push over EventSource**, proxied by ihasmail's server so the browser
+- **JMAP push over EventSource**, proxied by Gilbert's server so the browser
   never holds credentials. State changes arrive per type, and each store
   refreshes only what changed.
 - **Polling behind it** for networks that cut long-lived connections, and
@@ -1049,10 +1049,10 @@ would have quietly ended the WCAG AA claim two sections down.
   in: connected, reconnecting, or off and polling.
 - **Unread count in the tab title and painted onto the favicon**, so the tab
   tells you before you look.
-- **Desktop notifications** while ihasmail is open and the tab is in the
+- **Desktop notifications** while Gilbert is open and the tab is in the
   background, with an optional sound.
-- **Web Push** for notifications with ihasmail **closed**, where the server
-  signs with VAPID (RFC 9749). Nothing in that path touches ihasmail's server —
+- **Web Push** for notifications with Gilbert **closed**, where the server
+  signs with VAPID (RFC 9749). Nothing in that path touches Gilbert's server —
   Stalwart talks to the browser's push service directly, so there is no relay to
   run. Where the server also implements `emailpush`, the payload carries the
   sender, subject and preview; without it the notification says only that mail
@@ -1068,7 +1068,7 @@ would have quietly ended the WCAG AA claim two sections down.
   it lapses is the client's job. Renewal can only happen with a page open:
   registering is a JMAP call and the service worker has no session to make one
   with. So the guarantee is that background notifications keep working as long
-  as ihasmail is opened now and again, and the two-day renewal window means
+  as Gilbert is opened now and again, and the two-day renewal window means
   once a week is enough. A browser that dropped or rotated its subscription on
   its own is re-subscribed at the same moment, rather than left with a switch
   that says push is on and a browser that is no longer listening.
@@ -1089,7 +1089,7 @@ would have quietly ended the WCAG AA claim two sections down.
 - **Manifest shortcuts** for Compose, Calendar and Contacts.
 - **`mailto:` handler** — registered from Settings › General for the browser
   (needs HTTPS; Safari does not support it), and declared in the manifest so an
-  installed ihasmail is offered by the operating system wherever something asks
+  installed Gilbert is offered by the operating system wherever something asks
   for a mail client. Links arrive with recipients, Cc, Bcc, subject and body
   filled in.
 - **Deep links**: `/mail/:mailboxId?/:threadId?`, `/search/:threadId?`,
@@ -1192,7 +1192,7 @@ own user agent.
 Over Stalwart's own registry objects, so there is no administrator in the loop:
 
 - **Change your password.** Where the account is backed by an external directory
-  (LDAP, SQL, OIDC) Stalwart refuses, and ihasmail shows the server's own reason
+  (LDAP, SQL, OIDC) Stalwart refuses, and Gilbert shows the server's own reason
   rather than inventing one.
 - **App passwords** — create, list and revoke a separate password per mail app
   or device.
@@ -1239,7 +1239,7 @@ into a token Stalwart issues and can revoke — the OAuth work in the roadmap.
 
 The image ships no `VOLUME` line: one would make Docker mount an anonymous
 volume whether asked for or not, and that mount stays **writable under
-`--read-only`**. ihasmail's own image carried exactly that bug until 2.16.117,
+`--read-only`**. Gilbert's own image carried exactly that bug until 2.16.117,
 found by running the check rather than trusting the flag:
 
 ```bash
@@ -1280,7 +1280,7 @@ Full documentation, including TLS and reverse proxies:
 ### Serving from a subpath
 
 `BASE_PATH` mounts the whole app under a prefix, for a host that is not
-ihasmail's alone:
+Gilbert's alone:
 
 ```bash
 docker build --build-arg BASE_PATH=/mail -t ihasmail .
@@ -1294,7 +1294,7 @@ worker's scope and the session cookie's `Path`.
 
 Two things are worth knowing before you reach for it.
 
-**The prefix must arrive intact.** Point the proxy at ihasmail without
+**The prefix must arrive intact.** Point the proxy at Gilbert without
 stripping it: `proxy_pass http://127.0.0.1:8080;` with no trailing slash in
 nginx, `reverse_proxy` without a `uri strip_prefix` in Caddy. A proxy that
 strips the prefix is talking to an app at the root, and should be paired with
@@ -1358,10 +1358,10 @@ tested.
 # What it does not do
 
 The full list with reasons is [ROADMAP.md](ROADMAP.md). In short: no snooze
-(nothing in JMAP or Stalwart supports it, and ihasmail holds no password to act
+(nothing in JMAP or Stalwart supports it, and Gilbert holds no password to act
 on a mailbox while you are away), no language yet checked by a native speaker,
 no two-factor sign-in without an app password, no sharing of mail folders (the
 server stores the share and never delivers it), no public links (JMAP shares
-with accounts on the same server, and ihasmail has no storage of its own to
+with accounts on the same server, and Gilbert has no storage of its own to
 mint a link from), and no per-occurrence *this and future* edits (the server
 refuses them).

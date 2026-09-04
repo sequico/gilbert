@@ -14,7 +14,19 @@
   <a href="https://coffeylabs.org" target="_blank" rel="noreferrer"><img alt="by Coffey Labs" src="https://img.shields.io/badge/by-Coffey%20Labs-0f766e?style=flat-square"></a>
 </p>
 
-# ihasmail
+# Gilbert
+
+**G**eneral-purpose **I**ntelligent **L**ifecycle **B**utler for **E**nterprise
+**R**esource **T**raceability.
+
+Gilbert is built on [ihasmail](https://github.com/Coffey-Labs/ihasmail), Coffey
+Labs' immutable webmail for Stalwart — this repository's code is still upstream
+ihasmail at heart. The acronym is the direction the project is being pointed
+in: a general-purpose butler that walks enterprise resources through their
+lifecycle and keeps the trace. Until that direction reaches the code, the
+operational names (images, containers, environment variables, the `ihasmail`
+folder inside each mailbox) still say `ihasmail`, while the visible name is
+already yours to set — run with `APP_NAME=Gilbert`.
 
 **Immutable webmail for [Stalwart Mail Server](https://stalw.art) — a container
 with nothing to persist, and a Gmail-class client on top of it.**
@@ -31,9 +43,9 @@ durable belongs to Stalwart; the container is disposable.
 | 📘 **[docs.ihasmail.org](https://docs.ihasmail.org)** | [Installing](https://docs.ihasmail.org/install/) · [Configuring](https://docs.ihasmail.org/configure/) · [Using it](https://docs.ihasmail.org/using/) · [Shortcuts](https://docs.ihasmail.org/shortcuts/) · [Rebranding](https://docs.ihasmail.org/rebranding/) · [Troubleshooting](https://docs.ihasmail.org/troubleshooting/) |
 | 📋 **[FEATURES.md](FEATURES.md)** | Everything it does, feature by feature, with the capability each one needs |
 | 🧪 **[KNOWN-ISSUES.md](KNOWN-ISSUES.md)** | What was verified live, and where Stalwart departs from a spec |
-| 🛣 **[ROADMAP.md](ROADMAP.md)** | What ihasmail does not do, and why |
+| 🛣 **[ROADMAP.md](ROADMAP.md)** | What Gilbert does not do, and why |
 
-This file is for people working *on* ihasmail. Everything about running it
+This file is for people working *on* Gilbert. Everything about running it
 lives in the docs.
 
 ## Screenshots
@@ -54,11 +66,11 @@ More, including the mobile layout, on [ihasmail.org](https://ihasmail.org/#scree
 - **Calendar** — JMAP Calendars / JSCalendar: month/week/day/agenda, recurrence, attendees and free-busy, colour categories
 - **Contacts** — JMAP Contacts / JSContact: address books, groups, full editor, vCard import/export
 - **Files** — JMAP FileNode: browse, upload, download, rename, move, delete
-- **Settings that follow the account**, not the browser — kept in a `settings.json` in the account's own JMAP Files, so ihasmail itself stays stateless
+- **Settings that follow the account**, not the browser — kept in a `settings.json` in the account's own JMAP Files, so Gilbert itself stays stateless
 - **Runs read-only** — one optional write path, and with it switched off the container needs no volume and no writable root. `IMMUTABLE=1` is checked at startup rather than trusted, so a half-applied switch refuses to boot instead of failing quietly. See [Running immutably](#running-immutably)
 - **Nine new interface languages** — German, Spanish, French, Dutch, Portuguese (Brazil), Russian, Ukrainian, Simplified Chinese and Japanese, alongside English and separate from the date-and-time locale. Every one is marked **Beta**: they were made by AI and no native speaker has read them yet, which Settings says plainly, with a link for reporting anything wrong
 - **On a phone** — swipe a message to archive or delete it (either direction, your choice), hold one to select it, hold a folder for its menu, pull the list to refresh, swipe back from a conversation
-- **Platform** — installable PWA, Web Push with ihasmail closed, `mailto:` handler, no credentials in the browser, strict CSP, SSRF-safe image proxy
+- **Platform** — installable PWA, Web Push with Gilbert closed, `mailto:` handler, no credentials in the browser, strict CSP, SSRF-safe image proxy
 
 The long version is on [ihasmail.org](https://ihasmail.org/#features); how to
 drive each one is in [Using ihasmail](https://docs.ihasmail.org/using/).
@@ -145,7 +157,7 @@ in [ROADMAP.md](ROADMAP.md) is for.
 
 ### Several Stalwart servers
 
-One ihasmail can front more than one Stalwart, choosing by the domain somebody
+One Gilbert can front more than one Stalwart, choosing by the domain somebody
 signs in with. **`STALWART_URL` stays required and stays the default**, so an
 installation that sets nothing else behaves exactly as it always has.
 
@@ -175,7 +187,7 @@ Read once at startup, so editing it means restarting the container. Malformed
 JSON, a duplicate domain once lower-cased, or a value that is not an `http(s)`
 URL stops the server rather than failing quietly at somebody's sign-in. The
 servers themselves are not contacted at boot — a mapping is a routing table,
-not a health check, and one customer's outage must not stop ihasmail starting
+not a health check, and one customer's outage must not stop Gilbert starting
 for everybody else.
 
 This is one server per *person*, chosen at sign-in. Several servers at once for
@@ -211,7 +223,7 @@ person and a reader who turns it back off keeps it off. It is a schema migration
 in shape, and that is deliberately whose idea it was ([#207]).
 
 Nothing is configured by default: an installation that sets none of these
-behaves exactly as ihasmail always has.
+behaves exactly as Gilbert always has.
 
 ### Passing a policy to Docker
 
@@ -290,20 +302,20 @@ Three checks worth knowing about, because they fail loudly rather than quietly:
   with no `version` or no `settings`, is a startup error.
 - **Keys this build does not have are dropped**, the same rule an imported
   settings file gets. A `changes` entry whose keys are *all* unknown is dropped
-  whole rather than recorded as applied, so it still runs on an ihasmail that
+  whole rather than recorded as applied, so it still runs on a Gilbert that
   does have the setting.
 
 Enforcement is applied in the settings store rather than only on the controls,
 so an imported settings file, a settings file synced from a device that predates
 the policy, and "reset to defaults" cannot get around it. Reset returns to your
-defaults, not to ihasmail's.
+defaults, not to Gilbert's.
 
 [#207]: https://github.com/Coffey-Labs/ihasmail/issues/207
 
 ## Architecture
 
 ```
-browser  ──(same-origin /api/*)──►  ihasmail server (Node + Hono)  ──(JMAP over HTTPS)──►  Stalwart
+browser  ──(same-origin /api/*)──►  Gilbert server (Node + Hono)  ──(JMAP over HTTPS)──►  Stalwart
   React SPA                           • session cookie ⇄ Basic auth
   JMAP client + stores                • /api/jmap, /api/blob, /api/upload, /api/events (SSE), /api/image
 ```

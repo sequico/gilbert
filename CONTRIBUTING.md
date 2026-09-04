@@ -1,6 +1,6 @@
-# Contributing to ihasmail
+# Contributing to Gilbert
 
-Thanks for your interest in contributing to **ihasmail** — a Gmail-style, JMAP-only webmail client for [Stalwart Mail Server](https://stalw.art/). Contributions of all kinds are welcome: bug reports, feature requests, code, documentation, and testing.
+Thanks for your interest in contributing to **Gilbert** — a Gmail-style, JMAP-only webmail client for [Stalwart Mail Server](https://stalw.art/). Contributions of all kinds are welcome: bug reports, feature requests, code, documentation, and testing.
 
 ## Code of Conduct
 
@@ -8,8 +8,8 @@ By participating in this project, you agree to treat other contributors with res
 
 ## Before You Start
 
-- ihasmail speaks **JMAP only** — it does not support IMAP/POP3/SMTP fallback paths. Keep this in mind when proposing features.
-- ihasmail has **no database of its own** — all state lives in Stalwart via JMAP. Contributions should not introduce a separate persistence layer without discussion first.
+- Gilbert speaks **JMAP only** — it does not support IMAP/POP3/SMTP fallback paths. Keep this in mind when proposing features.
+- Gilbert has **no database of its own** — all state lives in Stalwart via JMAP. Contributions should not introduce a separate persistence layer without discussion first.
 - This project is licensed under **AGPL-3.0**. Any code you contribute will be distributed under this license, including for hosted/SaaS deployments.
 
 ## How to Contribute
@@ -21,7 +21,7 @@ Before opening a new issue, please search [existing issues](https://github.com/C
 - A clear, descriptive title
 - Steps to reproduce the issue
 - Expected behavior vs. actual behavior
-- Your environment: browser/OS, Stalwart version, and how ihasmail is deployed (Docker, bare metal, etc.)
+- Your environment: browser/OS, Stalwart version, and how Gilbert is deployed (Docker, bare metal, etc.)
 - Relevant logs, console errors, or screenshots
 - Whether the issue is reproducible against a fresh Stalwart instance
 
@@ -30,7 +30,7 @@ Before opening a new issue, please search [existing issues](https://github.com/C
 Open an issue describing:
 
 - The problem you're trying to solve (not just the solution)
-- How it fits with ihasmail's JMAP-only, Gmail-style design philosophy
+- How it fits with Gilbert's JMAP-only, Gmail-style design philosophy
 - Any relevant JMAP RFC references (RFC 8620, RFC 8621) if the feature touches protocol behavior
 
 For larger changes, please open an issue to discuss the approach **before** submitting a pull request — this saves everyone time if the direction needs adjusting.
@@ -60,8 +60,8 @@ For larger changes, please open an issue to discuss the approach **before** subm
 
 1. Clone your fork:
    ```bash
-   git clone https://github.com/YOUR-USERNAME/ihasmail.git
-   cd ihasmail
+   git clone https://github.com/sequico/gilbert.git
+   cd gilbert
    ```
 2. Point your local instance at a running Stalwart Mail Server (a test/dev instance is strongly recommended — do not develop against a production mailbox).
 3. Follow the setup instructions in the repository's `README.md` for installing dependencies and running the app locally.
@@ -81,4 +81,4 @@ Please **do not** open a public issue for security vulnerabilities. Instead, rep
 
 If you're unsure whether something is a good fit, open an issue and ask — discussion is welcome before you invest time in a PR.
 
-Thanks again for helping improve ihasmail!
+Thanks again for helping improve Gilbert!
