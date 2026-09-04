@@ -47,8 +47,14 @@ describe("what a switch to another account keeps", () => {
   it("names every piece of per-account state", () => {
     // Add a per-account field to the store and forget it here, and this fails
     // rather than the field quietly following someone into another account.
-    expect(Object.keys(emptyForAccount(null)).sort()).toEqual(
-      ["accountId", "children", "dirIds", "draggingIds", "error", "nodes", "treeLoaded"],
-    );
+    expect(Object.keys(emptyForAccount(null)).sort()).toEqual([
+      "accountId",
+      "children",
+      "dirIds",
+      "draggingIds",
+      "error",
+      "nodes",
+      "treeLoaded",
+    ]);
   });
 });

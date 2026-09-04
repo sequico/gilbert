@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, parseDuration, zonedToDate, dateToZonedLocal, monthGrid } from "../dates";
+import {
+  dateToZonedLocal,
+  formatDuration,
+  monthGrid,
+  parseDuration,
+  zonedToDate,
+} from "../dates";
 
 describe("dates", () => {
   it("parses and formats ISO durations", () => {

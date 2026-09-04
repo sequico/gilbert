@@ -31,7 +31,10 @@ const visibilityOf = (l: Label): LabelVisibility => l.visibility ?? "always";
  *  - **A cycle** — a under b, b under a — is broken by treating the first
  *    label that closes the loop as a root. Nothing is lost and nothing hangs.
  */
-export function labelTree(labels: Label[], counts: Record<string, number> = {}): LabelNode[] {
+export function labelTree(
+  labels: Label[],
+  counts: Record<string, number> = {},
+): LabelNode[] {
   const byKeyword = new Map<string, Label>();
   for (const l of labels) byKeyword.set(l.keyword, l);
 
@@ -48,12 +51,19 @@ export function labelTree(labels: Label[], counts: Record<string, number> = {}):
   };
 
   const nodes = new Map<string, LabelNode>();
-  for (const l of labels) nodes.set(l.keyword, { label: l, depth: 0, children: [], unread: counts[l.keyword] ?? 0 });
+  for (const l of labels)
+    nodes.set(l.keyword, {
+      label: l,
+      depth: 0,
+      children: [],
+      unread: counts[l.keyword] ?? 0,
+    });
 
   const roots: LabelNode[] = [];
   for (const l of labels) {
     const node = nodes.get(l.keyword)!;
-    const parent = l.parent && l.parent !== l.keyword && rooted(l) ? nodes.get(l.parent) : undefined;
+    const parent =
+      l.parent && l.parent !== l.keyword && rooted(l) ? nodes.get(l.parent) : undefined;
     if (parent) parent.children.push(node);
     else roots.push(node);
   }

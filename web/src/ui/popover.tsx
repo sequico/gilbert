@@ -1,4 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type CSSProperties } from "react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 
 export interface Anchor {
@@ -31,9 +38,23 @@ interface PopoverProps {
 }
 
 /** Generic anchored popover rendered in a portal; closes on outside click / Escape. */
-export function Popover({ anchor, onClose, children, className, align = "start", side = "bottom", width, style, closeOnClick = true, role = "menu", ariaLabel }: PopoverProps) {
+export function Popover({
+  anchor,
+  onClose,
+  children,
+  className,
+  align = "start",
+  side = "bottom",
+  width,
+  style,
+  closeOnClick = true,
+  role = "menu",
+  ariaLabel,
+}: PopoverProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; maxHeight: number } | null>(
+    null,
+  );
 
   useLayoutEffect(() => {
     if (!anchor || !ref.current) return;
@@ -100,7 +121,14 @@ export function Popover({ anchor, onClose, children, className, align = "start",
       role={role}
       aria-label={ariaLabel}
       className={`popover ${className ?? ""}`}
-      style={{ left: pos?.left ?? -9999, top: pos?.top ?? -9999, visibility: pos ? "visible" : "hidden", width, maxHeight: pos?.maxHeight, ...style }}
+      style={{
+        left: pos?.left ?? -9999,
+        top: pos?.top ?? -9999,
+        visibility: pos ? "visible" : "hidden",
+        width,
+        maxHeight: pos?.maxHeight,
+        ...style,
+      }}
       onClick={(e) => {
         if (closeOnClick && (e.target as HTMLElement).closest(".menu-item")) onClose();
       }}
@@ -125,10 +153,25 @@ export interface MenuItemProps {
   external?: boolean;
 }
 
-export function MenuItem({ icon, label, onClick, disabled, danger, kbd, active, checked, href, external }: MenuItemProps) {
+export function MenuItem({
+  icon,
+  label,
+  onClick,
+  disabled,
+  danger,
+  kbd,
+  active,
+  checked,
+  href,
+  external,
+}: MenuItemProps) {
   const inner = (
     <>
-      {checked !== undefined ? <span style={{ width: 16, display: "inline-flex" }}>{checked ? "✓" : ""}</span> : icon}
+      {checked !== undefined ? (
+        <span style={{ width: 16, display: "inline-flex" }}>{checked ? "✓" : ""}</span>
+      ) : (
+        icon
+      )}
       <span className="grow truncate">{label}</span>
       {kbd && <span className="menu-kbd">{kbd}</span>}
     </>
@@ -156,7 +199,13 @@ export function MenuItem({ icon, label, onClick, disabled, danger, kbd, active, 
     );
   }
   return (
-    <button type="button" className={className} onClick={onClick} disabled={disabled} role="menuitem">
+    <button
+      type="button"
+      className={className}
+      onClick={onClick}
+      disabled={disabled}
+      role="menuitem"
+    >
       {inner}
     </button>
   );
@@ -175,7 +224,8 @@ export function useMenu() {
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   return {
     anchor,
-    open: (e: { currentTarget: Element } | Element) => setAnchor(anchorFromEl("currentTarget" in e ? e.currentTarget : e)),
+    open: (e: { currentTarget: Element } | Element) =>
+      setAnchor(anchorFromEl("currentTarget" in e ? e.currentTarget : e)),
     openAt: (x: number, y: number) => setAnchor({ x, y, w: 0, h: 0 }),
     close: () => setAnchor(null),
     isOpen: anchor !== null,
@@ -191,7 +241,10 @@ export function Tooltip({ text, children }: { text: string; children: ReactNode 
       style={{ display: "inline-flex" }}
       onMouseEnter={(e) => {
         const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        timer.current = window.setTimeout(() => setPos({ x: r.left + r.width / 2, y: r.bottom + 6 }), 500);
+        timer.current = window.setTimeout(
+          () => setPos({ x: r.left + r.width / 2, y: r.bottom + 6 }),
+          500,
+        );
       }}
       onMouseLeave={() => {
         if (timer.current) window.clearTimeout(timer.current);
@@ -203,7 +256,20 @@ export function Tooltip({ text, children }: { text: string; children: ReactNode 
       }}
     >
       {children}
-      {pos && createPortal(<div className="tooltip" style={{ left: Math.max(8, Math.min(pos.x, window.innerWidth - 8)), top: pos.y, transform: "translateX(-50%)" }}>{text}</div>, document.body)}
+      {pos &&
+        createPortal(
+          <div
+            className="tooltip"
+            style={{
+              left: Math.max(8, Math.min(pos.x, window.innerWidth - 8)),
+              top: pos.y,
+              transform: "translateX(-50%)",
+            }}
+          >
+            {text}
+          </div>,
+          document.body,
+        )}
     </span>
   );
 }

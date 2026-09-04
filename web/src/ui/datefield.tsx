@@ -1,6 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Calendar as CalIcon, ChevronLeft, ChevronRight, Clock } from "lucide-react";
-import { addDays, addMonths, isSameDay, isToday, monthGrid, startOfDay, toLocalDateOnly } from "@/lib/dates";
+import {
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  addDays,
+  addMonths,
+  isSameDay,
+  isToday,
+  monthGrid,
+  startOfDay,
+  toLocalDateOnly,
+} from "@/lib/dates";
 import {
   dateInputPlaceholder,
   formatClock,
@@ -12,9 +27,9 @@ import {
   parseTimeInput,
   timeInputPlaceholder,
 } from "@/lib/datetime";
-import { dateTimeKey, useSettings } from "@/store/settings";
-import { anchorFromEl, Popover, type Anchor } from "./popover";
 import { t as translate } from "@/lib/i18n";
+import { dateTimeKey, useSettings } from "@/store/settings";
+import { type Anchor, anchorFromEl, Popover } from "./popover";
 
 /*
  * Date and time fields that follow the user's configured format.
@@ -31,17 +46,29 @@ import { t as translate } from "@/lib/i18n";
 /* Calendar grid                                                       */
 /* ------------------------------------------------------------------ */
 
-function CalendarGrid({ selected, onPick, onClose }: { selected: Date | null; onPick: (d: Date) => void; onClose: () => void }) {
+function CalendarGrid({
+  selected,
+  onPick,
+  onClose,
+}: {
+  selected: Date | null;
+  onPick: (d: Date) => void;
+  onClose: () => void;
+}) {
   const weekStart = useSettings((s) => s.settings.weekStart);
   const [focus, setFocus] = useState(() => startOfDay(selected ?? new Date()));
   const [anchor, setAnchor] = useState(() => startOfDay(selected ?? new Date()));
   const gridRef = useRef<HTMLDivElement>(null);
   const grid = useMemo(() => monthGrid(anchor, weekStart), [anchor, weekStart]);
-  const dow = useMemo(() => grid.slice(0, 7).map((d) => formatWeekday(d, "narrow")), [grid]);
+  const dow = useMemo(
+    () => grid.slice(0, 7).map((d) => formatWeekday(d, "narrow")),
+    [grid],
+  );
 
   const move = (to: Date) => {
     setFocus(to);
-    if (to.getMonth() !== anchor.getMonth() || to.getFullYear() !== anchor.getFullYear()) setAnchor(startOfDay(to));
+    if (to.getMonth() !== anchor.getMonth() || to.getFullYear() !== anchor.getFullYear())
+      setAnchor(startOfDay(to));
   };
 
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -75,11 +102,29 @@ function CalendarGrid({ selected, onPick, onClose }: { selected: Date | null; on
   return (
     <div className="dp-cal">
       <div className="dp-head">
-        <button type="button" className="icon-btn xs" onClick={() => setAnchor(addMonths(anchor, -1))} aria-label={translate("Previous month")}><ChevronLeft size={16} /></button>
+        <button
+          type="button"
+          className="icon-btn xs"
+          onClick={() => setAnchor(addMonths(anchor, -1))}
+          aria-label={translate("Previous month")}
+        >
+          <ChevronLeft size={16} />
+        </button>
         <span aria-live="polite">{formatMonthYear(anchor)}</span>
-        <button type="button" className="icon-btn xs" onClick={() => setAnchor(addMonths(anchor, 1))} aria-label={translate("Next month")}><ChevronRight size={16} /></button>
+        <button
+          type="button"
+          className="icon-btn xs"
+          onClick={() => setAnchor(addMonths(anchor, 1))}
+          aria-label={translate("Next month")}
+        >
+          <ChevronRight size={16} />
+        </button>
       </div>
-      <div className="dp-dow" aria-hidden="true">{dow.map((d, i) => <span key={i}>{d}</span>)}</div>
+      <div className="dp-dow" aria-hidden="true">
+        {dow.map((d, i) => (
+          <span key={i}>{d}</span>
+        ))}
+      </div>
       <div className="dp-grid" role="grid" ref={gridRef} onKeyDown={onKey}>
         {grid.map((d) => {
           const focused = isSameDay(d, focus);
@@ -100,8 +145,16 @@ function CalendarGrid({ selected, onPick, onClose }: { selected: Date | null; on
         })}
       </div>
       <div className="dp-foot">
-        <button type="button" className="btn btn-ghost xs" onClick={() => onPick(startOfDay(new Date()))}>{translate("Today")}</button>
-        <button type="button" className="btn btn-ghost xs" onClick={onClose}>{translate("Close")}</button>
+        <button
+          type="button"
+          className="btn btn-ghost xs"
+          onClick={() => onPick(startOfDay(new Date()))}
+        >
+          {translate("Today")}
+        </button>
+        <button type="button" className="btn btn-ghost xs" onClick={onClose}>
+          {translate("Close")}
+        </button>
       </div>
     </div>
   );
@@ -113,18 +166,29 @@ function CalendarGrid({ selected, onPick, onClose }: { selected: Date | null; on
 
 const STEP_MINUTES = 30;
 
-function TimeList({ selected, onPick }: { selected: Date | null; onPick: (hours: number, minutes: number) => void }) {
+function TimeList({
+  selected,
+  onPick,
+}: {
+  selected: Date | null;
+  onPick: (hours: number, minutes: number) => void;
+}) {
   const listRef = useRef<HTMLDivElement>(null);
   const slots = useMemo(() => {
     const out: Date[] = [];
     const base = new Date(2000, 0, 1);
-    for (let m = 0; m < 24 * 60; m += STEP_MINUTES) out.push(new Date(base.getTime() + m * 60_000));
+    for (let m = 0; m < 24 * 60; m += STEP_MINUTES)
+      out.push(new Date(base.getTime() + m * 60_000));
     return out;
   }, []);
-  const currentSlot = selected ? Math.round((selected.getHours() * 60 + selected.getMinutes()) / STEP_MINUTES) : -1;
+  const currentSlot = selected
+    ? Math.round((selected.getHours() * 60 + selected.getMinutes()) / STEP_MINUTES)
+    : -1;
 
   useEffect(() => {
-    listRef.current?.querySelector<HTMLElement>(".dp-time.selected, .dp-time.near")?.scrollIntoView({ block: "center" });
+    listRef.current
+      ?.querySelector<HTMLElement>(".dp-time.selected, .dp-time.near")
+      ?.scrollIntoView({ block: "center" });
   }, []);
 
   return (
@@ -169,7 +233,11 @@ function toIsoDateTime(d: Date): string {
 }
 
 /** Shared text-box behaviour: type freely, commit on blur or Enter, revert what won't parse. */
-function useTextField(value: string, display: (v: string) => string, commit: (text: string) => boolean) {
+function useTextField(
+  value: string,
+  display: (v: string) => string,
+  commit: (text: string) => boolean,
+) {
   const [text, setText] = useState(() => display(value));
   const [editing, setEditing] = useState(false);
   const key = useSettings((s) => dateTimeKey(s.settings));
@@ -186,7 +254,15 @@ function useTextField(value: string, display: (v: string) => string, commit: (te
   return { text, setText, setEditing, onBlur };
 }
 
-export function DateField({ value, onChange, className, disabled, required, id, ...rest }: FieldProps) {
+export function DateField({
+  value,
+  onChange,
+  className,
+  disabled,
+  required,
+  id,
+  ...rest
+}: FieldProps) {
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -196,20 +272,24 @@ export function DateField({ value, onChange, className, disabled, required, id, 
     return Number.isNaN(d.getTime()) ? "" : formatDateInput(d);
   }, []);
 
-  const commit = useCallback((text: string) => {
-    if (!text.trim()) {
-      onChange("");
+  const commit = useCallback(
+    (text: string) => {
+      if (!text.trim()) {
+        onChange("");
+        return true;
+      }
+      const d = parseDateInput(text);
+      if (!d) return false;
+      onChange(toLocalDateOnly(d));
       return true;
-    }
-    const d = parseDateInput(text);
-    if (!d) return false;
-    onChange(toLocalDateOnly(d));
-    return true;
-  }, [onChange]);
+    },
+    [onChange],
+  );
 
   const field = useTextField(value, display, commit);
   const selected = value ? new Date(`${value}T00:00:00`) : null;
-  const open = () => setAnchor(anchorFromEl(inputRef.current?.parentElement ?? inputRef.current));
+  const open = () =>
+    setAnchor(anchorFromEl(inputRef.current?.parentElement ?? inputRef.current));
 
   return (
     <span className={`dp-field ${className ?? ""}`}>
@@ -228,22 +308,55 @@ export function DateField({ value, onChange, className, disabled, required, id, 
         aria-haspopup="dialog"
         aria-expanded={Boolean(anchor)}
         value={field.text}
-        onChange={(e) => { field.setEditing(true); field.setText(e.target.value); }}
+        onChange={(e) => {
+          field.setEditing(true);
+          field.setText(e.target.value);
+        }}
         onBlur={field.onBlur}
         onKeyDown={(e) => {
-          if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
-          if (e.key === "ArrowDown" && !anchor) { e.preventDefault(); open(); }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            (e.target as HTMLInputElement).blur();
+          }
+          if (e.key === "ArrowDown" && !anchor) {
+            e.preventDefault();
+            open();
+          }
         }}
       />
-      <button type="button" className="dp-open" disabled={disabled} onClick={open} aria-label={translate("Choose a date")} tabIndex={-1}>
+      <button
+        type="button"
+        className="dp-open"
+        disabled={disabled}
+        onClick={open}
+        aria-label={translate("Choose a date")}
+        tabIndex={-1}
+      >
         <CalIcon size={15} />
       </button>
       {anchor && (
-        <Popover anchor={anchor} onClose={() => { setAnchor(null); inputRef.current?.focus(); }} role="dialog" className="dp-pop" closeOnClick={false} ariaLabel="Choose a date">
+        <Popover
+          anchor={anchor}
+          onClose={() => {
+            setAnchor(null);
+            inputRef.current?.focus();
+          }}
+          role="dialog"
+          className="dp-pop"
+          closeOnClick={false}
+          ariaLabel="Choose a date"
+        >
           <CalendarGrid
             selected={selected}
-            onClose={() => { setAnchor(null); inputRef.current?.focus(); }}
-            onPick={(d) => { onChange(toLocalDateOnly(d)); setAnchor(null); inputRef.current?.focus(); }}
+            onClose={() => {
+              setAnchor(null);
+              inputRef.current?.focus();
+            }}
+            onPick={(d) => {
+              onChange(toLocalDateOnly(d));
+              setAnchor(null);
+              inputRef.current?.focus();
+            }}
           />
         </Popover>
       )}
@@ -251,7 +364,15 @@ export function DateField({ value, onChange, className, disabled, required, id, 
   );
 }
 
-export function DateTimeField({ value, onChange, className, disabled, required, id, ...rest }: FieldProps) {
+export function DateTimeField({
+  value,
+  onChange,
+  className,
+  disabled,
+  required,
+  id,
+  ...rest
+}: FieldProps) {
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const dateRef = useRef<HTMLInputElement>(null);
   const timeRef = useRef<HTMLInputElement>(null);
@@ -260,32 +381,53 @@ export function DateTimeField({ value, onChange, className, disabled, required, 
 
   const setParts = (d: Date) => onChange(toIsoDateTime(d));
 
-  const dateDisplay = useCallback((v: string) => (v ? formatDateInput(new Date(v)) : ""), []);
-  const dateCommit = useCallback((text: string) => {
-    if (!text.trim()) { onChange(""); return true; }
-    const d = parseDateInput(text);
-    if (!d) return false;
-    const keep = valid ?? new Date();
-    d.setHours(keep.getHours(), keep.getMinutes(), 0, 0);
-    setParts(d);
-    return true;
-  }, [onChange, value]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dateDisplay = useCallback(
+    (v: string) => (v ? formatDateInput(new Date(v)) : ""),
+    [],
+  );
+  const dateCommit = useCallback(
+    (text: string) => {
+      if (!text.trim()) {
+        onChange("");
+        return true;
+      }
+      const d = parseDateInput(text);
+      if (!d) return false;
+      const keep = valid ?? new Date();
+      d.setHours(keep.getHours(), keep.getMinutes(), 0, 0);
+      setParts(d);
+      return true;
+    },
+    [onChange, value],
+  ); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const timeDisplay = useCallback((v: string) => (v ? formatTimeInput(new Date(v)) : ""), []);
-  const timeCommit = useCallback((text: string) => {
-    if (!text.trim()) return Boolean(!value);
-    const t = parseTimeInput(text);
-    if (!t) return false;
-    const d = new Date(valid ?? new Date());
-    d.setHours(t.hours, t.minutes, 0, 0);
-    setParts(d);
-    return true;
-  }, [onChange, value]); // eslint-disable-line react-hooks/exhaustive-deps
+  const timeDisplay = useCallback(
+    (v: string) => (v ? formatTimeInput(new Date(v)) : ""),
+    [],
+  );
+  const timeCommit = useCallback(
+    (text: string) => {
+      if (!text.trim()) return Boolean(!value);
+      const t = parseTimeInput(text);
+      if (!t) return false;
+      const d = new Date(valid ?? new Date());
+      d.setHours(t.hours, t.minutes, 0, 0);
+      setParts(d);
+      return true;
+    },
+    [onChange, value],
+  ); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dateField = useTextField(value, dateDisplay, dateCommit);
   const timeField = useTextField(value, timeDisplay, timeCommit);
-  const open = () => setAnchor(anchorFromEl(dateRef.current?.parentElement?.parentElement ?? dateRef.current));
-  const close = () => { setAnchor(null); dateRef.current?.focus(); };
+  const open = () =>
+    setAnchor(
+      anchorFromEl(dateRef.current?.parentElement?.parentElement ?? dateRef.current),
+    );
+  const close = () => {
+    setAnchor(null);
+    dateRef.current?.focus();
+  };
 
   return (
     <span className={`dp-datetime ${className ?? ""}`}>
@@ -305,14 +447,30 @@ export function DateTimeField({ value, onChange, className, disabled, required, 
           aria-haspopup="dialog"
           aria-expanded={Boolean(anchor)}
           value={dateField.text}
-          onChange={(e) => { dateField.setEditing(true); dateField.setText(e.target.value); }}
+          onChange={(e) => {
+            dateField.setEditing(true);
+            dateField.setText(e.target.value);
+          }}
           onBlur={dateField.onBlur}
           onKeyDown={(e) => {
-            if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
-            if (e.key === "ArrowDown" && !anchor) { e.preventDefault(); open(); }
+            if (e.key === "Enter") {
+              e.preventDefault();
+              (e.target as HTMLInputElement).blur();
+            }
+            if (e.key === "ArrowDown" && !anchor) {
+              e.preventDefault();
+              open();
+            }
           }}
         />
-        <button type="button" className="dp-open" disabled={disabled} onClick={open} aria-label={translate("Choose a date and time")} tabIndex={-1}>
+        <button
+          type="button"
+          className="dp-open"
+          disabled={disabled}
+          onClick={open}
+          aria-label={translate("Choose a date and time")}
+          tabIndex={-1}
+        >
           <CalIcon size={15} />
         </button>
       </span>
@@ -328,14 +486,31 @@ export function DateTimeField({ value, onChange, className, disabled, required, 
           placeholder={timeInputPlaceholder()}
           aria-label={rest["aria-label"] ? `${rest["aria-label"]} (time)` : "Time"}
           value={timeField.text}
-          onChange={(e) => { timeField.setEditing(true); timeField.setText(e.target.value); }}
+          onChange={(e) => {
+            timeField.setEditing(true);
+            timeField.setText(e.target.value);
+          }}
           onBlur={timeField.onBlur}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
         />
-        <span className="dp-open" aria-hidden="true"><Clock size={15} /></span>
+        <span className="dp-open" aria-hidden="true">
+          <Clock size={15} />
+        </span>
       </span>
       {anchor && (
-        <Popover anchor={anchor} onClose={close} role="dialog" className="dp-pop dp-pop-wide" closeOnClick={false} ariaLabel="Choose a date and time">
+        <Popover
+          anchor={anchor}
+          onClose={close}
+          role="dialog"
+          className="dp-pop dp-pop-wide"
+          closeOnClick={false}
+          ariaLabel="Choose a date and time"
+        >
           <div className="dp-split">
             <CalendarGrid
               selected={valid}

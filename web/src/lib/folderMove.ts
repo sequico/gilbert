@@ -15,7 +15,10 @@ export function movable(m: Mailbox): boolean {
  * Written against `{ id, parentId }` rather than `Mailbox` because file nodes
  * form the same shape of tree and need the same answer -- see `canDropFileNode`.
  */
-export function descendantIds<T extends { id: Id; parentId: Id | null }>(tree: Record<Id, T>, id: Id): Set<Id> {
+export function descendantIds<T extends { id: Id; parentId: Id | null }>(
+  tree: Record<Id, T>,
+  id: Id,
+): Set<Id> {
   const out = new Set<Id>();
   const all = Object.values(tree);
   let frontier = new Set<Id>([id]);
@@ -41,7 +44,11 @@ export function descendantIds<T extends { id: Id; parentId: Id | null }>(tree: R
  * itself, into its own subtree — which would orphan the branch — or onto the
  * parent it already has, which would be a no-op dressed up as a move.
  */
-export function canDropFolder(mailboxes: Record<Id, Mailbox>, draggedId: Id, targetId: Id | null): boolean {
+export function canDropFolder(
+  mailboxes: Record<Id, Mailbox>,
+  draggedId: Id,
+  targetId: Id | null,
+): boolean {
   const dragged = mailboxes[draggedId];
   if (!dragged || !movable(dragged)) return false;
   if (targetId === null) return dragged.parentId != null;

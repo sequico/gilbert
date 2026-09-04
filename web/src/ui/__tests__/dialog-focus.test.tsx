@@ -44,7 +44,8 @@ describe("Dialog focus handling", () => {
     act(() => {
       el.focus();
       // What React's onChange sees when a character is typed.
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!
+        .set!;
       setter.call(el, value);
       el.dispatchEvent(new Event("input", { bubbles: true }));
     });

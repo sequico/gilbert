@@ -1,38 +1,70 @@
 import { describe, expect, it } from "vitest";
-import { appliesTo, comparatorsFor, isOptionalSort, MAX_LEVELS, withoutOptionalSorts } from "@/lib/listSort";
+import {
+  appliesTo,
+  comparatorsFor,
+  isOptionalSort,
+  MAX_LEVELS,
+  withoutOptionalSorts,
+} from "@/lib/listSort";
 
 describe("comparatorsFor, presets", () => {
   it("puts newest first by default, and can reverse it", () => {
-    expect(comparatorsFor("newest")).toEqual([{ property: "receivedAt", isAscending: false }]);
+    expect(comparatorsFor("newest")).toEqual([
+      { property: "receivedAt", isAscending: false },
+    ]);
     // No tiebreak appended: receivedAt already *is* the tiebreaker, and adding
     // a contradictory second one after it would say nothing.
-    expect(comparatorsFor("oldest")).toEqual([{ property: "receivedAt", isAscending: true }]);
+    expect(comparatorsFor("oldest")).toEqual([
+      { property: "receivedAt", isAscending: true },
+    ]);
   });
 
   it("sorts unread first as $seen ASCENDING, because false sorts before true", () => {
     // Getting this backwards puts exactly the mail you were looking for at the
     // bottom, which is why it is asserted rather than assumed.
-    expect(comparatorsFor("unreadFirst")[0]).toEqual({ property: "hasKeyword", keyword: "$seen", isAscending: true });
+    expect(comparatorsFor("unreadFirst")[0]).toEqual({
+      property: "hasKeyword",
+      keyword: "$seen",
+      isAscending: true,
+    });
   });
 
   it("sorts starred first as $flagged DESCENDING, which is the other way round", () => {
-    expect(comparatorsFor("starredFirst")[0]).toEqual({ property: "hasKeyword", keyword: "$flagged", isAscending: false });
+    expect(comparatorsFor("starredFirst")[0]).toEqual({
+      property: "hasKeyword",
+      keyword: "$flagged",
+      isAscending: false,
+    });
   });
 
   it("handles the plain field presets", () => {
-    expect(comparatorsFor("largest")[0]).toEqual({ property: "size", isAscending: false });
+    expect(comparatorsFor("largest")[0]).toEqual({
+      property: "size",
+      isAscending: false,
+    });
     expect(comparatorsFor("sender")[0]).toEqual({ property: "from", isAscending: true });
-    expect(comparatorsFor("subject")[0]).toEqual({ property: "subject", isAscending: true });
+    expect(comparatorsFor("subject")[0]).toEqual({
+      property: "subject",
+      isAscending: true,
+    });
   });
 
   it("falls back to newest for a preset it does not know", () => {
-    expect(comparatorsFor("nonsense" as never)).toEqual([{ property: "receivedAt", isAscending: false }]);
+    expect(comparatorsFor("nonsense" as never)).toEqual([
+      { property: "receivedAt", isAscending: false },
+    ]);
   });
 });
 
 describe("comparatorsFor, the tiebreak", () => {
   it("always ends newest-first, so a tie does not shuffle between loads", () => {
-    for (const p of ["unreadFirst", "starredFirst", "largest", "sender", "subject"] as const) {
+    for (const p of [
+      "unreadFirst",
+      "starredFirst",
+      "largest",
+      "sender",
+      "subject",
+    ] as const) {
       const out = comparatorsFor(p);
       expect(out[out.length - 1]).toEqual({ property: "receivedAt", isAscending: false });
     }
@@ -41,7 +73,9 @@ describe("comparatorsFor, the tiebreak", () => {
   it("does not add a second one when the sort already ends on receivedAt", () => {
     expect(comparatorsFor("newest")).toHaveLength(1);
     expect(comparatorsFor("oldest")).toHaveLength(1);
-    expect(comparatorsFor("custom", [{ field: "date", descending: false }])).toHaveLength(1);
+    expect(comparatorsFor("custom", [{ field: "date", descending: false }])).toHaveLength(
+      1,
+    );
   });
 });
 
@@ -81,7 +115,9 @@ describe("comparatorsFor, custom levels", () => {
   });
 
   it("falls back to the tiebreak alone when no levels were given", () => {
-    expect(comparatorsFor("custom", [])).toEqual([{ property: "receivedAt", isAscending: false }]);
+    expect(comparatorsFor("custom", [])).toEqual([
+      { property: "receivedAt", isAscending: false },
+    ]);
   });
 
   it("reverses a date level without losing the tiebreak", () => {
@@ -96,16 +132,20 @@ describe("comparatorsFor, custom levels", () => {
 describe("optional sorts, which a server is allowed to refuse", () => {
   it("recognises the keyword properties", () => {
     expect(isOptionalSort({ property: "hasKeyword", keyword: "$seen" })).toBe(true);
-    expect(isOptionalSort({ property: "someInThreadHaveKeyword", keyword: "$flagged" })).toBe(true);
+    expect(
+      isOptionalSort({ property: "someInThreadHaveKeyword", keyword: "$flagged" }),
+    ).toBe(true);
     expect(isOptionalSort({ property: "receivedAt" })).toBe(false);
     expect(isOptionalSort({ property: "size" })).toBe(false);
   });
 
   it("strips them, leaving something the server must accept", () => {
-    const out = withoutOptionalSorts(comparatorsFor("custom", [
-      { field: "unread", descending: true },
-      { field: "size", descending: true },
-    ]));
+    const out = withoutOptionalSorts(
+      comparatorsFor("custom", [
+        { field: "unread", descending: true },
+        { field: "size", descending: true },
+      ]),
+    );
     expect(out).toEqual([
       { property: "size", isAscending: false },
       { property: "receivedAt", isAscending: false },
@@ -113,7 +153,9 @@ describe("optional sorts, which a server is allowed to refuse", () => {
   });
 
   it("still ends on the tiebreak when stripping removed everything else", () => {
-    expect(withoutOptionalSorts(comparatorsFor("unreadFirst"))).toEqual([{ property: "receivedAt", isAscending: false }]);
+    expect(withoutOptionalSorts(comparatorsFor("unreadFirst"))).toEqual([
+      { property: "receivedAt", isAscending: false },
+    ]);
   });
 
   it("leaves a sort that was never optional alone", () => {

@@ -1,14 +1,24 @@
-import { useState } from "react";
 import { Plus } from "lucide-react";
-import { useSettings } from "@/store/settings";
-import { useMail } from "@/store/mail";
-import { Popover } from "@/ui/popover";
+import { useState } from "react";
 import type { Id } from "@/jmap/types";
-import { CALENDAR_COLORS } from "@/ui/misc";
 import { t } from "@/lib/i18n";
+import { useMail } from "@/store/mail";
+import { useSettings } from "@/store/settings";
+import { CALENDAR_COLORS } from "@/ui/misc";
+import { Popover } from "@/ui/popover";
 
 /** Labels are IMAP keywords on the messages; their names/colors live in settings. */
-export function LabelPicker({ ids, anchor, onClose, onApplied }: { ids: Id[]; anchor: { x: number; y: number }; onClose: () => void; onApplied?: () => void }) {
+export function LabelPicker({
+  ids,
+  anchor,
+  onClose,
+  onApplied,
+}: {
+  ids: Id[];
+  anchor: { x: number; y: number };
+  onClose: () => void;
+  onApplied?: () => void;
+}) {
   const labels = useSettings((s) => s.settings.labels);
   const update = useSettings((s) => s.update);
   const emails = useMail((s) => s.emails);
@@ -23,7 +33,11 @@ export function LabelPicker({ ids, anchor, onClose, onApplied }: { ids: Id[]; an
   const create = () => {
     const name = q.trim();
     if (!name) return;
-    const keyword = name.toLowerCase().replace(/[^a-z0-9_.-]+/g, "_").replace(/^_+|_+$/g, "") || `label${Date.now()}`;
+    const keyword =
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9_.-]+/g, "_")
+        .replace(/^_+|_+$/g, "") || `label${Date.now()}`;
     if (labels.some((l) => l.keyword === keyword)) return;
     const color = CALENDAR_COLORS[labels.length % CALENDAR_COLORS.length]!;
     update({ labels: [...labels, { keyword, name, color }] });
@@ -33,12 +47,16 @@ export function LabelPicker({ ids, anchor, onClose, onApplied }: { ids: Id[]; an
   };
 
   return (
-    <Popover anchor={{ x: anchor.x, y: anchor.y, w: 0, h: 0 }} onClose={onClose} width={260} closeOnClick={false}>
+    <Popover
+      anchor={{ x: anchor.x, y: anchor.y, w: 0, h: 0 }}
+      onClose={onClose}
+      width={260}
+      closeOnClick={false}
+    >
       <div className="menu-title">{t("Label as")}</div>
       <div className="menu-search">
         <input
           className="input sm"
-          autoFocus
           placeholder={labels.length ? t("Search or create label") : t("New label name")}
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -64,7 +82,9 @@ export function LabelPicker({ ids, anchor, onClose, onApplied }: { ids: Id[]; an
               ref={(el) => {
                 if (el) el.indeterminate = partial;
               }}
-              onChange={(e) => void setKeyword(ids, l.keyword, e.target.checked).then(onApplied)}
+              onChange={(e) =>
+                void setKeyword(ids, l.keyword, e.target.checked).then(onApplied)
+              }
               style={{ accentColor: l.color }}
             />
             <span className="label-dot" style={{ background: l.color }} />
@@ -72,13 +92,18 @@ export function LabelPicker({ ids, anchor, onClose, onApplied }: { ids: Id[]; an
           </label>
         );
       })}
-      {q.trim() && !labels.some((l) => l.name.toLowerCase() === q.trim().toLowerCase()) && (
-        <button className="menu-item" onClick={create}>
-          <Plus size={16} />
-          <span>{t("Create “{name}”", { name: q.trim() })}</span>
-        </button>
+      {q.trim() &&
+        !labels.some((l) => l.name.toLowerCase() === q.trim().toLowerCase()) && (
+          <button className="menu-item" onClick={create}>
+            <Plus size={16} />
+            <span>{t("Create “{name}”", { name: q.trim() })}</span>
+          </button>
+        )}
+      {!labels.length && !q && (
+        <div className="hint" style={{ padding: "4px 10px 8px" }}>
+          {t("Type a name to create your first label.")}
+        </div>
       )}
-      {!labels.length && !q && <div className="hint" style={{ padding: "4px 10px 8px" }}>{t("Type a name to create your first label.")}</div>}
     </Popover>
   );
 }

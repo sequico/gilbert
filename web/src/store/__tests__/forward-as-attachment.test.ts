@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import type { Email } from "@/jmap/types";
 import { useCompose } from "@/store/compose";
 import { useMail } from "@/store/mail";
-import type { Email } from "@/jmap/types";
 
 /**
  * Forwarding a message whole rather than quoted. The point of the
@@ -30,11 +30,14 @@ beforeEach(() => {
   useCompose.setState({ drafts: [], activeKey: null, pendingSends: {} });
   useMail.setState({
     accountId: "a1",
-    identities: [{ id: "i1", name: "John", email: "john@example.org", replyTo: null }] as never,
+    identities: [
+      { id: "i1", name: "John", email: "john@example.org", replyTo: null },
+    ] as never,
   });
 });
 
-const draftFor = (key: string) => useCompose.getState().drafts.find((d) => d.key === key)!;
+const draftFor = (key: string) =>
+  useCompose.getState().drafts.find((d) => d.key === key)!;
 
 describe("forwardAsAttachment", () => {
   it("attaches the message itself, by reference, with no upload", () => {
@@ -51,11 +54,15 @@ describe("forwardAsAttachment", () => {
   });
 
   it("names the attachment from the subject", () => {
-    expect(draftFor(useCompose.getState().forwardAsAttachment(email())).attachments[0]!.name).toBe("Quarterly_report.eml");
+    expect(
+      draftFor(useCompose.getState().forwardAsAttachment(email())).attachments[0]!.name,
+    ).toBe("Quarterly_report.eml");
   });
 
   it("names it from a subject in any script, not a row of underscores", () => {
-    const key = useCompose.getState().forwardAsAttachment(email({ subject: "四半期報告" }));
+    const key = useCompose
+      .getState()
+      .forwardAsAttachment(email({ subject: "四半期報告" }));
     expect(draftFor(key).attachments[0]!.name).toBe("四半期報告.eml");
   });
 
@@ -65,8 +72,12 @@ describe("forwardAsAttachment", () => {
   });
 
   it("prefixes the subject once, and does not double it on a forward of a forward", () => {
-    expect(draftFor(useCompose.getState().forwardAsAttachment(email())).subject).toBe("Fwd: Quarterly report");
-    const again = useCompose.getState().forwardAsAttachment(email({ subject: "Fwd: Quarterly report" }));
+    expect(draftFor(useCompose.getState().forwardAsAttachment(email())).subject).toBe(
+      "Fwd: Quarterly report",
+    );
+    const again = useCompose
+      .getState()
+      .forwardAsAttachment(email({ subject: "Fwd: Quarterly report" }));
     expect(draftFor(again).subject).toBe("Fwd: Quarterly report");
   });
 

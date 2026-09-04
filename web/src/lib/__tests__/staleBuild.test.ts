@@ -1,5 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { reloadIfServerRebuilt, makeConnectionWatcher, startBuildWatch } from "@/lib/staleBuild";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  makeConnectionWatcher,
+  reloadIfServerRebuilt,
+  startBuildWatch,
+} from "@/lib/staleBuild";
 import { APP_VERSION } from "@/lib/version";
 
 function healthReplies(body: unknown, ok = true) {
@@ -86,7 +90,11 @@ describe("noticing without being asked", () => {
   it("asks the server once when several things notice at the same moment", async () => {
     const fetchMock = healthReplies({ ok: true, version: APP_VERSION });
     vi.stubGlobal("fetch", fetchMock);
-    await Promise.all([reloadIfServerRebuilt(), reloadIfServerRebuilt(), reloadIfServerRebuilt()]);
+    await Promise.all([
+      reloadIfServerRebuilt(),
+      reloadIfServerRebuilt(),
+      reloadIfServerRebuilt(),
+    ]);
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 });
@@ -96,7 +104,10 @@ describe("the poll is what the guarantee rests on", () => {
     vi.useFakeTimers();
     const fetchMock = healthReplies({ ok: true, version: "9.9.9" });
     vi.stubGlobal("fetch", fetchMock);
-    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
 
     startBuildWatch();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -111,7 +122,10 @@ describe("the poll is what the guarantee rests on", () => {
     const fetchMock = healthReplies({ ok: true, version: APP_VERSION });
     vi.stubGlobal("fetch", fetchMock);
     let visibility = "hidden";
-    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => visibility });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibility,
+    });
 
     startBuildWatch();
     await vi.advanceTimersByTimeAsync(180_000);

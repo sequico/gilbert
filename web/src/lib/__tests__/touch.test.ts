@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { AXIS_SLOP, PULL_MAX, PULL_TRIGGER, lockAxis, pullDistance, swipeOffset, swipeThreshold } from "../touch";
+import {
+  AXIS_SLOP,
+  lockAxis,
+  PULL_MAX,
+  PULL_TRIGGER,
+  pullDistance,
+  swipeOffset,
+  swipeThreshold,
+} from "../touch";
 
 /**
  * The arithmetic behind the touch gestures, checked without a touchscreen.

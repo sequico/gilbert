@@ -31,6 +31,9 @@ export function visibleIdentities<T extends Pick<Identity, "id">>(
 }
 
 /** Whether hiding this one would be refused, so the UI can say so. */
-export function isAlwaysVisible(id: string, keep: Array<string | null | undefined>): boolean {
+export function isAlwaysVisible(
+  id: string,
+  keep: Array<string | null | undefined>,
+): boolean {
   return keep.some((k) => k === id);
 }

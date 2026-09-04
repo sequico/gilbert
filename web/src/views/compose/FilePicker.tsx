@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
 import { ChevronRight, File as FileIcon, Folder, HardDrive, Users } from "lucide-react";
-import { Dialog } from "@/ui/dialog";
-import { Spinner } from "@/ui/misc";
-import { useFiles } from "@/store/files";
-import type { AttachableFile } from "@/store/compose";
+import { useEffect, useState } from "react";
 import type { FileNode } from "@/jmap/types";
 import { formatSize } from "@/lib/format";
 import { t } from "@/lib/i18n";
+import type { AttachableFile } from "@/store/compose";
+import { useFiles } from "@/store/files";
+import { Dialog } from "@/ui/dialog";
+import { Spinner } from "@/ui/misc";
 
 /**
  * Pick something already in Files to attach.
@@ -21,7 +21,13 @@ import { t } from "@/lib/i18n";
  * a detour through somebody's shared folder to find an attachment should not
  * leave the file manager somewhere else afterwards.
  */
-export function FilePicker({ onPick, onClose }: { onPick: (files: AttachableFile[]) => void; onClose: () => void }) {
+export function FilePicker({
+  onPick,
+  onClose,
+}: {
+  onPick: (files: AttachableFile[]) => void;
+  onClose: () => void;
+}) {
   const files = useFiles();
   const [cur, setCur] = useState<string | null>(null);
   const [picked, setPicked] = useState<Record<string, FileNode>>({});
@@ -43,7 +49,9 @@ export function FilePicker({ onPick, onClose }: { onPick: (files: AttachableFile
     setPicked({});
   };
 
-  const nodes = (files.children[cur ?? "root"] ?? []).map((id) => files.nodes[id]).filter((n): n is FileNode => Boolean(n));
+  const nodes = (files.children[cur ?? "root"] ?? [])
+    .map((id) => files.nodes[id])
+    .filter((n): n is FileNode => Boolean(n));
   const path = files.pathTo(cur);
   const chosen = Object.values(picked);
   const viewingShare = files.accountId !== files.ownAccountId;
@@ -56,12 +64,22 @@ export function FilePicker({ onPick, onClose }: { onPick: (files: AttachableFile
       size="md"
       footer={
         <>
-          <button className="btn" onClick={close}>{t("Cancel")}</button>
+          <button className="btn" onClick={close}>
+            {t("Cancel")}
+          </button>
           <button
             className="btn btn-primary"
             disabled={!chosen.length}
             onClick={() => {
-              onPick(chosen.map((n) => ({ accountId: files.accountId!, name: n.name, type: n.type, size: n.size, blobId: n.blobId! })));
+              onPick(
+                chosen.map((n) => ({
+                  accountId: files.accountId!,
+                  name: n.name,
+                  type: n.type,
+                  size: n.size,
+                  blobId: n.blobId!,
+                })),
+              );
               close();
             }}
           >
@@ -72,11 +90,18 @@ export function FilePicker({ onPick, onClose }: { onPick: (files: AttachableFile
     >
       {files.sharedAccounts.length > 0 && (
         <div className="row wrap gap-4" style={{ marginBottom: 10 }}>
-          <button className={`btn btn-sm ${viewingShare ? "" : "btn-primary"}`} onClick={() => openAccount(files.ownAccountId)}>
-            <HardDrive size={14} />  {t("My files")}
+          <button
+            className={`btn btn-sm ${viewingShare ? "" : "btn-primary"}`}
+            onClick={() => openAccount(files.ownAccountId)}
+          >
+            <HardDrive size={14} /> {t("My files")}
           </button>
           {files.sharedAccounts.map((a) => (
-            <button key={a.id} className={`btn btn-sm ${files.accountId === a.id ? "btn-primary" : ""}`} onClick={() => openAccount(a.id)}>
+            <button
+              key={a.id}
+              className={`btn btn-sm ${files.accountId === a.id ? "btn-primary" : ""}`}
+              onClick={() => openAccount(a.id)}
+            >
               <Users size={14} /> {a.name}
             </button>
           ))}
@@ -84,7 +109,9 @@ export function FilePicker({ onPick, onClose }: { onPick: (files: AttachableFile
       )}
 
       <div className="breadcrumb mb-8">
-        <button onClick={() => setCur(null)}><HardDrive size={14} /></button>
+        <button onClick={() => setCur(null)}>
+          <HardDrive size={14} />
+        </button>
         {path.map((n) => (
           <span key={n.id} className="row gap-4">
             <ChevronRight size={12} />
@@ -106,7 +133,14 @@ export function FilePicker({ onPick, onClose }: { onPick: (files: AttachableFile
               <ChevronRight size={14} />
             </button>
           ) : (
-            <label key={n.id} className="menu-item" style={{ cursor: n.blobId ? "pointer" : "not-allowed", opacity: n.blobId ? 1 : 0.5 }}>
+            <label
+              key={n.id}
+              className="menu-item"
+              style={{
+                cursor: n.blobId ? "pointer" : "not-allowed",
+                opacity: n.blobId ? 1 : 0.5,
+              }}
+            >
               <input
                 type="checkbox"
                 disabled={!n.blobId}
@@ -132,7 +166,9 @@ export function FilePicker({ onPick, onClose }: { onPick: (files: AttachableFile
         // Blobs belong to the account holding them, so one from a share has to
         // be copied into yours before a draft can reference it. Worth saying,
         // because it is the difference between instant and a wait.
-        <p className="hint" style={{ marginTop: 10 }}>{t("Shared files are copied to your account when attached.")}</p>
+        <p className="hint" style={{ marginTop: 10 }}>
+          {t("Shared files are copied to your account when attached.")}
+        </p>
       )}
     </Dialog>
   );

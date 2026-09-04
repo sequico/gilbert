@@ -52,6 +52,7 @@ For larger changes, please open an issue to discuss the approach **before** subm
 ### Code Style
 
 - Match the existing formatting and naming conventions used elsewhere in the codebase.
+- **Formatting and linting are Biome's** (`biome.jsonc`, calibrated to this repo's style): run `npm run lint` to check and `npm run lint:fix` to apply before committing.
 - Keep functions small and single-purpose where practical.
 - Prefer clarity over cleverness — this is a mail client people rely on for their inbox.
 - Comment non-obvious JMAP interactions, especially around state/`changes` handling, since JMAP's delta-sync model can be easy to get subtly wrong.

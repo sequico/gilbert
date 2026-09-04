@@ -1,7 +1,12 @@
-import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { createServer, request as httpRequest, type IncomingMessage, type Server } from "node:http";
-import { AddressInfo } from "node:net";
+import {
+  createServer,
+  request as httpRequest,
+  type IncomingMessage,
+  type Server,
+} from "node:http";
+import type { AddressInfo } from "node:net";
+import { after, before, test } from "node:test";
 
 process.env.STALWART_URL = "http://127.0.0.1:1";
 process.env.APP_SECRET = "test-secret-for-image-proxy";
@@ -17,10 +22,20 @@ const { createApp } = await import("./app.js");
 
 test("addresses we must never reach are recognised", () => {
   for (const a of [
-    "127.0.0.1", "10.1.2.3", "172.16.0.1", "172.31.255.255", "192.168.1.1",
+    "127.0.0.1",
+    "10.1.2.3",
+    "172.16.0.1",
+    "172.31.255.255",
+    "192.168.1.1",
     "169.254.169.254", // cloud metadata, the classic SSRF target
-    "100.64.0.1", "0.0.0.0", "224.0.0.1",
-    "::1", "::", "fe80::1", "fd00::1", "fc00::1",
+    "100.64.0.1",
+    "0.0.0.0",
+    "224.0.0.1",
+    "::1",
+    "::",
+    "fe80::1",
+    "fd00::1",
+    "fc00::1",
     "ff02::1", // multicast
     "::ffff:127.0.0.1", // IPv4-mapped loopback
     "64:ff9b::7f00:1", // NAT64, which reaches IPv4 space
@@ -86,7 +101,11 @@ test("plain resolution reaches the host the name points at", async () => {
 
 test("a pinned request goes to the address we checked, not to DNS", async () => {
   const res = await fetchPinned(new URL(`http://localhost:${PORT}/who`), PINNED);
-  assert.equal(await read(res), "reached-by-pin", "the socket followed the pin, not the name");
+  assert.equal(
+    await read(res),
+    "reached-by-pin",
+    "the socket followed the pin, not the name",
+  );
 });
 
 test("a pinned request still presents the real hostname", async () => {
@@ -112,7 +131,11 @@ test("the proxy refuses a private target and needs a session", async () => {
 
 test("the proxy rejects unusable URLs before resolving anything", async () => {
   const app = createApp();
-  for (const u of ["file:///etc/passwd", "gopher://x/1", "http://user:pw@example.com/x.png"]) {
+  for (const u of [
+    "file:///etc/passwd",
+    "gopher://x/1",
+    "http://user:pw@example.com/x.png",
+  ]) {
     const res = await app.request(`/api/image?url=${encodeURIComponent(u)}`);
     // Still behind the session check, but the point is it never reaches the network.
     assert.equal(res.status, 401);

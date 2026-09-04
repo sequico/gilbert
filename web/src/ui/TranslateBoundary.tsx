@@ -36,7 +36,9 @@ export function isDomMutationError(err: unknown): boolean {
   // localised, so matching on it alone would work in English Chrome and
   // nowhere else, which for a translation bug would be a poor joke.
   if (err.name === "NotFoundError" || err.name === "HierarchyRequestError") return true;
-  return /removeChild|insertBefore|replaceChild|not a child of this node/i.test(err.message);
+  return /removeChild|insertBefore|replaceChild|not a child of this node/i.test(
+    err.message,
+  );
 }
 
 interface Props {
@@ -77,7 +79,11 @@ export class TranslateBoundary extends Component<Props, State> {
     if (!isDomMutationError(error)) throw error;
     this.recoveries += 1;
     if (this.recoveries > MAX_RECOVERIES) {
-      console.error("[ihasmail] giving up re-rendering after repeated DOM errors", error, info.componentStack);
+      console.error(
+        "[ihasmail] giving up re-rendering after repeated DOM errors",
+        error,
+        info.componentStack,
+      );
       return;
     }
     /*
@@ -94,7 +100,11 @@ export class TranslateBoundary extends Component<Props, State> {
   }
 
   render(): ReactNode {
-    if (this.state.failed) return null;   // one frame, while the remount lands
-    return <div key={this.state.generation} className="translate-boundary">{this.props.children}</div>;
+    if (this.state.failed) return null; // one frame, while the remount lands
+    return (
+      <div key={this.state.generation} className="translate-boundary">
+        {this.props.children}
+      </div>
+    );
   }
 }

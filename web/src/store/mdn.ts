@@ -1,8 +1,8 @@
 import { client, setErrorMessage } from "@/jmap/client";
 import type { Email, EmailAddress, Id, SetResponse } from "@/jmap/types";
 import { sameAddress } from "@/lib/address";
-import { buildMdn, mdnDecision, MDN_SENT_KEYWORD } from "@/lib/mdn";
 import { uid } from "@/lib/format";
+import { buildMdn, MDN_SENT_KEYWORD, mdnDecision } from "@/lib/mdn";
 import { useMail } from "./mail";
 
 /**
@@ -21,14 +21,16 @@ export async function sendReadReceipt(email: Email): Promise<void> {
   if (!accountId) throw new Error("Not signed in");
 
   const decision = mdnDecision(email);
-  if (!decision.offer || !decision.to) throw new Error("No read receipt is due for this message");
+  if (!decision.offer || !decision.to)
+    throw new Error("No read receipt is due for this message");
 
   // Answer as whichever identity the message was addressed to, so the receipt
   // comes from the address the sender wrote to rather than a default that may
   // be a different persona entirely.
   const addressed = [...(email.to ?? []), ...(email.cc ?? []), ...(email.bcc ?? [])];
   const identity =
-    mail.identities.find((i) => addressed.some((a) => sameAddress(a.email, i.email))) ?? mail.identities[0];
+    mail.identities.find((i) => addressed.some((a) => sameAddress(a.email, i.email))) ??
+    mail.identities[0];
   if (!identity) throw new Error("No sending identity available");
 
   const from: EmailAddress = { name: identity.name || null, email: identity.email };
@@ -63,7 +65,10 @@ export async function sendReadReceipt(email: Email): Promise<void> {
             s: {
               identityId: identity.id,
               emailId: mdnId,
-              envelope: { mailFrom: { email: identity.email }, rcptTo: [{ email: decision.to.email }] },
+              envelope: {
+                mailFrom: { email: identity.email },
+                rcptTo: [{ email: decision.to.email }],
+              },
             },
           },
         },
@@ -71,12 +76,18 @@ export async function sendReadReceipt(email: Email): Promise<void> {
       ],
       // RFC 3503's keyword, set on the original rather than remembered locally,
       // so a second look -- or another client entirely -- knows not to ask again.
-      ["Email/set", { accountId, update: { [email.id]: { [`keywords/${MDN_SENT_KEYWORD}`]: true } } }, "k"],
+      [
+        "Email/set",
+        { accountId, update: { [email.id]: { [`keywords/${MDN_SENT_KEYWORD}`]: true } } },
+        "k",
+      ],
     ],
     { allowErrors: true },
   );
 
-  const sub = res.get("s")?.[0] as unknown as SetResponse & { __error?: { type: string; description?: string } };
+  const sub = res.get("s")?.[0] as unknown as SetResponse & {
+    __error?: { type: string; description?: string };
+  };
   if (sub.__error) throw new Error(setErrorMessage(sub.__error));
   if (sub.notCreated?.s) {
     // Do not leave an unsent receipt sitting in Sent looking like it went.
@@ -93,6 +104,11 @@ function markSent(emailId: Id): void {
   useMail.setState((s) => {
     const cur = s.emails[emailId];
     if (!cur) return {};
-    return { emails: { ...s.emails, [emailId]: { ...cur, keywords: { ...cur.keywords, [MDN_SENT_KEYWORD]: true } } } };
+    return {
+      emails: {
+        ...s.emails,
+        [emailId]: { ...cur, keywords: { ...cur.keywords, [MDN_SENT_KEYWORD]: true } },
+      },
+    };
   });
 }

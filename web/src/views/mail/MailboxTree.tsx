@@ -1,22 +1,48 @@
-import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
+import {
+  AlertOctagon,
+  Archive,
+  CheckCheck,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Eraser,
+  Eye,
+  EyeOff,
+  File,
+  Folder,
+  FolderPlus,
+  Inbox,
+  Mail,
+  MoreVertical,
+  Palette,
+  Pencil,
+  Plus,
+  Send,
+  Share2,
+  Star,
+  Tag,
+  Trash2,
+  X,
+} from "lucide-react";
+import { type DragEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { AlertOctagon, Archive, ChevronDown, ChevronLeft, Clock, ChevronRight, File, Folder, FolderPlus, Inbox, Mail, MoreVertical, Palette, Send, Star, Tag, Trash2, Plus, Pencil, Eye, EyeOff, CheckCheck, Eraser, Share2, X } from "lucide-react";
-import { useMail } from "@/store/mail";
+import type { Id, Mailbox } from "@/jmap/types";
 import { canEmpty, confirmAndEmpty, emptyLabel } from "@/lib/emptyFolder";
+import { canDropFolder, folderColor, movable } from "@/lib/folderMove";
+import { plural, t } from "@/lib/i18n";
 import { labelTree, visibleLabels } from "@/lib/labelTree";
+import { mailboxDisplayName } from "@/lib/mailboxName";
+import { loadRaw, saveJson } from "@/lib/storage";
+import { haptic, useTouchRow } from "@/lib/touch";
+import { useMail } from "@/store/mail";
 import { isScheduledMailbox } from "@/store/scheduled";
 import { useSettings } from "@/store/settings";
-import type { Id, Mailbox } from "@/jmap/types";
-import { MenuItem, MenuSep, MenuTitle, Popover, useMenu } from "@/ui/popover";
-import { CALENDAR_COLORS, useIsMobile, useIsTouch } from "@/ui/misc";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
+import { CALENDAR_COLORS, useIsMobile, useIsTouch } from "@/ui/misc";
+import { MenuItem, MenuSep, MenuTitle, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
 import { ShareDialog } from "../settings/ShareDialog";
-import { loadRaw, saveJson } from "@/lib/storage";
-import { canDropFolder, folderColor, movable } from "@/lib/folderMove";
-import { haptic, useTouchRow } from "@/lib/touch";
-import { plural, t } from "@/lib/i18n";
-import { mailboxDisplayName } from "@/lib/mailboxName";
 
 const ROLE_ICONS: Record<string, ReactNode> = {
   inbox: <Inbox size={20} />,
@@ -42,7 +68,10 @@ export function MailboxTree() {
   const labels = useSettings((s) => s.settings.labels);
   const labelsSidebar = useSettings((s) => s.settings.labelsSidebar);
   const labelCounts = useMail((s) => s.labelCounts);
-  const shownLabels = useMemo(() => visibleLabels(labelTree(labels, labelCounts)), [labels, labelCounts]);
+  const shownLabels = useMemo(
+    () => visibleLabels(labelTree(labels, labelCounts)),
+    [labels, labelCounts],
+  );
   const menu = useMenu();
   const [menuTarget, setMenuTarget] = useState<Mailbox | null>(null);
   const [shareTarget, setShareTarget] = useState<Mailbox | null>(null);
@@ -54,7 +83,8 @@ export function MailboxTree() {
   const [draggingId, setDraggingId] = useState<Id | null>(null);
   const [rootDrop, setRootDrop] = useState(false);
   /** Whether the folder in flight may be dropped on this folder, or on the root. */
-  const canDropOn = (targetId: Id | null): boolean => Boolean(draggingId) && canDropFolder(mailboxes, draggingId!, targetId);
+  const canDropOn = (targetId: Id | null): boolean =>
+    Boolean(draggingId) && canDropFolder(mailboxes, draggingId!, targetId);
 
   const moveFolder = async (id: Id, parentId: Id | null) => {
     const m = mailboxes[id];
@@ -67,45 +97,87 @@ export function MailboxTree() {
         setExpanded(next);
         saveJson("mbx-expanded", next);
       }
-      toast.success(parentId ? t("“{name}” moved into “{parent}”", { name: mailboxDisplayName(m), parent: mailboxDisplayName(mailboxes[parentId]) }) : t("“{name}” moved to the top level", { name: mailboxDisplayName(m) }));
+      toast.success(
+        parentId
+          ? t("“{name}” moved into “{parent}”", {
+              name: mailboxDisplayName(m),
+              parent: mailboxDisplayName(mailboxes[parentId]),
+            })
+          : t("“{name}” moved to the top level", { name: mailboxDisplayName(m) }),
+      );
     } catch (err) {
-      toast.error(t("Could not move “{name}”: {reason}", { name: mailboxDisplayName(m), reason: (err as Error).message }));
+      toast.error(
+        t("Could not move “{name}”: {reason}", {
+          name: mailboxDisplayName(m),
+          reason: (err as Error).message,
+        }),
+      );
     }
   };
 
   // Tree: A–Z at every level (Inbox pinned to the top of the root), subfolders nested and
   // collapsed by default. Expansion state is remembered per folder.
-  const [expanded, setExpanded] = useState<Record<Id, boolean>>(() => loadRaw("mbx-expanded", {}));
+  const [expanded, setExpanded] = useState<Record<Id, boolean>>(() =>
+    loadRaw("mbx-expanded", {}),
+  );
   const toggle = (id: Id) => {
     const next = { ...expanded, [id]: !expanded[id] };
     setExpanded(next);
     saveJson("mbx-expanded", next);
   };
   const { rows, childrenOf, subtreeUnread } = useMemo(() => {
-    const all = Object.values(mailboxes).filter((m) => showHidden || m.isSubscribed || m.role === "inbox");
+    const all = Object.values(mailboxes).filter(
+      (m) => showHidden || m.isSubscribed || m.role === "inbox",
+    );
     const byParent = new Map<Id | null, Mailbox[]>();
     for (const m of all) {
       const p = m.parentId && mailboxes[m.parentId] ? m.parentId : null;
       byParent.set(p, [...(byParent.get(p) ?? []), m]);
     }
     const cmp = (a: Mailbox, b: Mailbox) => {
-      if ((a.role === "inbox") !== (b.role === "inbox")) return a.role === "inbox" ? -1 : 1;
-      return a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true });
+      if ((a.role === "inbox") !== (b.role === "inbox"))
+        return a.role === "inbox" ? -1 : 1;
+      return a.name.localeCompare(b.name, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
     };
     for (const list of byParent.values()) list.sort(cmp);
-    const out: Array<{ m: Mailbox; depth: number; hasChildren: boolean; open: boolean; hiddenUnread: number; childUnread: number }> = [];
-    const unreadBelow = (id: Id): number => (byParent.get(id) ?? []).reduce((n, c) => n + c.unreadEmails + unreadBelow(c.id), 0);
+    const out: Array<{
+      m: Mailbox;
+      depth: number;
+      hasChildren: boolean;
+      open: boolean;
+      hiddenUnread: number;
+      childUnread: number;
+    }> = [];
+    const unreadBelow = (id: Id): number =>
+      (byParent.get(id) ?? []).reduce(
+        (n, c) => n + c.unreadEmails + unreadBelow(c.id),
+        0,
+      );
     const walk = (parent: Id | null, depth: number) => {
       for (const m of byParent.get(parent) ?? []) {
         const kids = byParent.get(m.id) ?? [];
         const open = Boolean(expanded[m.id]);
         const childUnread = kids.length ? unreadBelow(m.id) : 0;
-        out.push({ m, depth, hasChildren: kids.length > 0, open, hiddenUnread: kids.length && !open ? childUnread : 0, childUnread });
+        out.push({
+          m,
+          depth,
+          hasChildren: kids.length > 0,
+          open,
+          hiddenUnread: kids.length && !open ? childUnread : 0,
+          childUnread,
+        });
         if (kids.length && open) walk(m.id, depth + 1);
       }
     };
     walk(null, 0);
-    return { rows: out, childrenOf: (id: Id | null) => byParent.get(id) ?? [], subtreeUnread: unreadBelow };
+    return {
+      rows: out,
+      childrenOf: (id: Id | null) => byParent.get(id) ?? [],
+      subtreeUnread: unreadBelow,
+    };
   }, [mailboxes, showHidden, expanded]);
 
   /*
@@ -131,7 +203,10 @@ export function MailboxTree() {
   }, [isMobile, currentId, mailboxes]);
 
   const createFolder = async (parentId: Id | null) => {
-    const name = await promptDialog({ title: parentId ? t("New subfolder") : t("New folder"), placeholder: t("Folder name") });
+    const name = await promptDialog({
+      title: parentId ? t("New subfolder") : t("New folder"),
+      placeholder: t("Folder name"),
+    });
     if (!name?.trim()) return;
     try {
       await useMail.getState().createMailbox(name.trim(), parentId);
@@ -143,9 +218,15 @@ export function MailboxTree() {
 
   if (!loaded) {
     return (
-      <div style={{ padding: "8px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div
+        style={{ padding: "8px 12px", display: "flex", flexDirection: "column", gap: 8 }}
+      >
         {[...Array(6)].map((_, i) => (
-          <div key={i} className="skeleton" style={{ height: 28, width: `${70 + (i % 3) * 10}%` }} />
+          <div
+            key={i}
+            className="skeleton"
+            style={{ height: 28, width: `${70 + (i % 3) * 10}%` }}
+          />
         ))}
       </div>
     );
@@ -153,7 +234,11 @@ export function MailboxTree() {
 
   return (
     <>
-      <nav aria-label={t("Folders")} className={isMobile ? "folder-drill" : undefined} style={{ marginTop: 6 }}>
+      <nav
+        aria-label={t("Folders")}
+        className={isMobile ? "folder-drill" : undefined}
+        style={{ marginTop: 6 }}
+      >
         <div
           className={`nav-section${rootDrop ? " drop-target" : ""}`}
           onDragOver={(e) => {
@@ -170,19 +255,41 @@ export function MailboxTree() {
             if (id) void moveFolder(id, null);
           }}
         >
-          <span>{draggingId && canDropOn(null) ? t("Drop here for the top level") : drill ? mailboxDisplayName(drill) : t("Folders")}</span>
+          <span>
+            {draggingId && canDropOn(null)
+              ? t("Drop here for the top level")
+              : drill
+                ? mailboxDisplayName(drill)
+                : t("Folders")}
+          </span>
           {/* Drilled in, the + makes a subfolder of the folder on screen --
               which is the one place in the app where "new folder here" has an
               unambiguous here. */}
-          <button className="icon-btn" title={drill ? t("New subfolder") : t("New folder")} aria-label={drill ? t("New subfolder") : t("New folder")} onClick={() => void createFolder(drill?.id ?? null)}>
+          <button
+            className="icon-btn"
+            title={drill ? t("New subfolder") : t("New folder")}
+            aria-label={drill ? t("New subfolder") : t("New folder")}
+            onClick={() => void createFolder(drill?.id ?? null)}
+          >
             <Plus size={16} />
           </button>
         </div>
         {drill && (
           <>
-            <button className="nav-item drill-back" onClick={() => setDrillId(drill.parentId && mailboxes[drill.parentId] ? drill.parentId : null)}>
+            <button
+              className="nav-item drill-back"
+              onClick={() =>
+                setDrillId(
+                  drill.parentId && mailboxes[drill.parentId] ? drill.parentId : null,
+                )
+              }
+            >
               <ChevronLeft size={20} />
-              <span className="nav-label">{drill.parentId && mailboxes[drill.parentId] ? mailboxDisplayName(mailboxes[drill.parentId]) : t("Folders")}</span>
+              <span className="nav-label">
+                {drill.parentId && mailboxes[drill.parentId]
+                  ? mailboxDisplayName(mailboxes[drill.parentId])
+                  : t("Folders")}
+              </span>
             </button>
             {/* The folder you drilled into is still a folder you can open. */}
             <FolderRow
@@ -196,7 +303,10 @@ export function MailboxTree() {
               childUnread={subtreeUnread(drill.id)}
               onToggle={() => {}}
               currentId={currentId}
-              onMenu={(mb, e) => { setMenuTarget(mb); menu.open(e); }}
+              onMenu={(mb, e) => {
+                setMenuTarget(mb);
+                menu.open(e);
+              }}
               dragging={false}
               acceptsFolder={false}
               onFolderDragStart={() => {}}
@@ -205,7 +315,17 @@ export function MailboxTree() {
             />
           </>
         )}
-        {(isMobile ? childrenOf(drill?.id ?? null).map((m) => ({ m, depth: 0, hasChildren: childrenOf(m.id).length > 0, open: false, hiddenUnread: subtreeUnread(m.id), childUnread: subtreeUnread(m.id) })) : rows).map(({ m, depth, hasChildren, open, hiddenUnread, childUnread }) => (
+        {(isMobile
+          ? childrenOf(drill?.id ?? null).map((m) => ({
+              m,
+              depth: 0,
+              hasChildren: childrenOf(m.id).length > 0,
+              open: false,
+              hiddenUnread: subtreeUnread(m.id),
+              childUnread: subtreeUnread(m.id),
+            }))
+          : rows
+        ).map(({ m, depth, hasChildren, open, hiddenUnread, childUnread }) => (
           <FolderRow
             key={m.id}
             mailbox={m}
@@ -218,11 +338,17 @@ export function MailboxTree() {
             onToggle={() => toggle(m.id)}
             onDrillIn={isMobile && hasChildren ? () => setDrillId(m.id) : undefined}
             currentId={currentId}
-            onMenu={(mb, e) => { setMenuTarget(mb); menu.open(e); }}
+            onMenu={(mb, e) => {
+              setMenuTarget(mb);
+              menu.open(e);
+            }}
             dragging={draggingId === m.id}
             acceptsFolder={canDropOn(m.id)}
             onFolderDragStart={() => setDraggingId(m.id)}
-            onFolderDragEnd={() => { setDraggingId(null); setRootDrop(false); }}
+            onFolderDragEnd={() => {
+              setDraggingId(null);
+              setRootDrop(false);
+            }}
             onFolderDrop={(id) => void moveFolder(id, m.id)}
           />
         ))}
@@ -232,7 +358,12 @@ export function MailboxTree() {
           <>
             <div className="nav-section">
               <span>{t("Labels")}</span>
-              <Link href="/settings/labels" className="icon-btn" title={t("Manage labels")} aria-label={t("Manage labels")}>
+              <Link
+                href="/settings/labels"
+                className="icon-btn"
+                title={t("Manage labels")}
+                aria-label={t("Manage labels")}
+              >
                 <Pencil size={14} />
               </Link>
             </div>
@@ -246,7 +377,10 @@ export function MailboxTree() {
                    list of links and a nested one would break keyboard order. */
                 style={{ paddingLeft: 12 + n.depth * 14 }}
               >
-                <span className="nav-label-color" style={{ "--label-color": n.label.color } as React.CSSProperties} />
+                <span
+                  className="nav-label-color"
+                  style={{ "--label-color": n.label.color } as React.CSSProperties}
+                />
                 <span className="nav-label">{n.label.name}</span>
                 {n.unread > 0 && <span className="nav-count">{n.unread}</span>}
               </Link>
@@ -255,14 +389,63 @@ export function MailboxTree() {
         )}
       </nav>
       <Popover anchor={menu.anchor} onClose={menu.close} width={300}>
-        {menuTarget && <MailboxMenu mailbox={menuTarget} onClose={menu.close} onCreateChild={() => void createFolder(menuTarget.id)} onShare={() => setShareTarget(menuTarget)} />}
+        {menuTarget && (
+          <MailboxMenu
+            mailbox={menuTarget}
+            onClose={menu.close}
+            onCreateChild={() => void createFolder(menuTarget.id)}
+            onShare={() => setShareTarget(menuTarget)}
+          />
+        )}
       </Popover>
-      {shareTarget && <ShareDialog kind="Mailbox" id={shareTarget.id} name={shareTarget.name} shareWith={shareTarget.shareWith ?? null} onClose={() => setShareTarget(null)} />}
+      {shareTarget && (
+        <ShareDialog
+          kind="Mailbox"
+          id={shareTarget.id}
+          name={shareTarget.name}
+          shareWith={shareTarget.shareWith ?? null}
+          onClose={() => setShareTarget(null)}
+        />
+      )}
     </>
   );
 }
 
-function FolderRow({ mailbox: m, label, depth, hasChildren, open, hiddenUnread, childUnread, onToggle, onDrillIn, currentId, onMenu, dragging, acceptsFolder, onFolderDragStart, onFolderDragEnd, onFolderDrop }: { mailbox: Mailbox; label: string; depth: number; hasChildren: boolean; open: boolean; hiddenUnread: number; childUnread: number; onToggle: () => void; onDrillIn?: () => void; currentId?: string; onMenu: (m: Mailbox, e: { currentTarget: Element }) => void; dragging: boolean; acceptsFolder: boolean; onFolderDragStart: () => void; onFolderDragEnd: () => void; onFolderDrop: (id: Id) => void }) {
+function FolderRow({
+  mailbox: m,
+  label,
+  depth,
+  hasChildren,
+  open,
+  hiddenUnread,
+  childUnread,
+  onToggle,
+  onDrillIn,
+  currentId,
+  onMenu,
+  dragging,
+  acceptsFolder,
+  onFolderDragStart,
+  onFolderDragEnd,
+  onFolderDrop,
+}: {
+  mailbox: Mailbox;
+  label: string;
+  depth: number;
+  hasChildren: boolean;
+  open: boolean;
+  hiddenUnread: number;
+  childUnread: number;
+  onToggle: () => void;
+  onDrillIn?: () => void;
+  currentId?: string;
+  onMenu: (m: Mailbox, e: { currentTarget: Element }) => void;
+  dragging: boolean;
+  acceptsFolder: boolean;
+  onFolderDragStart: () => void;
+  onFolderDragEnd: () => void;
+  onFolderDrop: (id: Id) => void;
+}) {
   const [dropping, setDropping] = useState(false);
   /** Expanding in place and drilling in are the same relationship; only one shows. */
   const twisty = hasChildren && !onDrillIn;
@@ -272,8 +455,22 @@ function FolderRow({ mailbox: m, label, depth, hasChildren, open, hiddenUnread, 
   const own = m.role === "drafts" || scheduled ? m.totalEmails : m.unreadEmails;
   const count = own + hiddenUnread;
   // Bold when this folder has unread mail, or any folder beneath it does (parent + child both bold).
-  const unread = m.role !== "drafts" && m.role !== "trash" && m.role !== "junk" && m.role !== "sent" && !scheduled ? m.unreadEmails + childUnread > 0 : m.unreadEmails > 0 && m.role !== "drafts" && !scheduled;
-  const icon = m.role && ROLE_ICONS[m.role] ? ROLE_ICONS[m.role] : scheduled ? <Clock size={20} /> : <Folder size={20} />;
+  const unread =
+    m.role !== "drafts" &&
+    m.role !== "trash" &&
+    m.role !== "junk" &&
+    m.role !== "sent" &&
+    !scheduled
+      ? m.unreadEmails + childUnread > 0
+      : m.unreadEmails > 0 && m.role !== "drafts" && !scheduled;
+  const icon =
+    m.role && ROLE_ICONS[m.role] ? (
+      ROLE_ICONS[m.role]
+    ) : scheduled ? (
+      <Clock size={20} />
+    ) : (
+      <Folder size={20} />
+    );
   // A chosen colour tints the icon only; the label keeps the tree's own
   // contrast, which a dozen arbitrary colours would not reliably give it.
   // Subscribed, not read once: picking a colour has to repaint the row.
@@ -281,7 +478,12 @@ function FolderRow({ mailbox: m, label, depth, hasChildren, open, hiddenUnread, 
 
   const onDragOver = (e: DragEvent) => {
     const folder = e.dataTransfer.types.includes(FOLDER_MIME);
-    if (folder ? !acceptsFolder : !e.dataTransfer.types.includes("application/x-ihasmail-emails")) return;
+    if (
+      folder
+        ? !acceptsFolder
+        : !e.dataTransfer.types.includes("application/x-ihasmail-emails")
+    )
+      return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     if (!dropping) setDropping(true);
@@ -367,9 +569,21 @@ function FolderRow({ mailbox: m, label, depth, hasChildren, open, hiddenUnread, 
       >
         {twisty ? open ? <ChevronDown size={14} /> : <ChevronRight size={14} /> : null}
       </span>
-      <span className="folder-icon" style={tint ? ({ "--folder-color": tint } as React.CSSProperties) : undefined}>{icon}</span>
+      <span
+        className="folder-icon"
+        style={tint ? ({ "--folder-color": tint } as React.CSSProperties) : undefined}
+      >
+        {icon}
+      </span>
       <span className="nav-label">{label}</span>
-      {count > 0 && <span className="nav-count" title={hiddenUnread ? `${own} here, ${hiddenUnread} in subfolders` : undefined}>{count > 9999 ? "9999+" : count}</span>}
+      {count > 0 && (
+        <span
+          className="nav-count"
+          title={hiddenUnread ? `${own} here, ${hiddenUnread} in subfolders` : undefined}
+        >
+          {count > 9999 ? "9999+" : count}
+        </span>
+      )}
       {count > 0 && <span className="nav-dot" />}
       <button
         className="icon-btn nav-more"
@@ -406,12 +620,24 @@ function FolderRow({ mailbox: m, label, depth, hasChildren, open, hiddenUnread, 
   );
 }
 
-function MailboxMenu({ mailbox: m, onClose, onCreateChild, onShare }: { mailbox: Mailbox; onClose: () => void; onCreateChild: () => void; onShare: () => void }) {
+function MailboxMenu({
+  mailbox: m,
+  onClose,
+  onCreateChild,
+  onShare,
+}: {
+  mailbox: Mailbox;
+  onClose: () => void;
+  onCreateChild: () => void;
+  onShare: () => void;
+}) {
   const shared = Object.keys(m.shareWith ?? {}).length > 0;
   const [, navigate] = useLocation();
   const colors = useSettings((s) => s.settings.folderColors);
   const update = useSettings((s) => s.update);
-  const hasChildren = useMail((s) => Object.values(s.mailboxes).some((x) => (x.parentId ?? null) === m.id));
+  const hasChildren = useMail((s) =>
+    Object.values(s.mailboxes).some((x) => (x.parentId ?? null) === m.id),
+  );
   const subUnread = useMail((s) => {
     const all = Object.values(s.mailboxes);
     let n = 0;
@@ -437,7 +663,15 @@ function MailboxMenu({ mailbox: m, onClose, onCreateChild, onShare }: { mailbox:
     }
   };
   const remove = async () => {
-    const ok = await confirmDialog({ title: t("Delete “{name}”?", { name: mailboxDisplayName(m) }), message: plural(m.totalEmails, { one: "This permanently deletes the folder and its {n} message.", other: "This permanently deletes the folder and its {n} messages." }), confirmLabel: t("Delete"), danger: true });
+    const ok = await confirmDialog({
+      title: t("Delete “{name}”?", { name: mailboxDisplayName(m) }),
+      message: plural(m.totalEmails, {
+        one: "This permanently deletes the folder and its {n} message.",
+        other: "This permanently deletes the folder and its {n} messages.",
+      }),
+      confirmLabel: t("Delete"),
+      danger: true,
+    });
     if (!ok) return;
     try {
       await useMail.getState().destroyMailbox(m.id, true);
@@ -447,7 +681,13 @@ function MailboxMenu({ mailbox: m, onClose, onCreateChild, onShare }: { mailbox:
       toast.error((err as Error).message);
     }
   };
-  const empty = () => confirmAndEmpty({ id: m.id, name: mailboxDisplayName(m), role: m.role, totalEmails: m.totalEmails });
+  const empty = () =>
+    confirmAndEmpty({
+      id: m.id,
+      name: mailboxDisplayName(m),
+      role: m.role,
+      totalEmails: m.totalEmails,
+    });
   const isSpecial = Boolean(m.role) && m.role !== "subscribed";
   const color = folderColor(colors, m.id);
   const setColor = (c: string | null) => {
@@ -459,43 +699,106 @@ function MailboxMenu({ mailbox: m, onClose, onCreateChild, onShare }: { mailbox:
   };
   return (
     <>
-      <MenuItem icon={<CheckCheck size={16} />} label={t("Mark all as read")} onClick={() => void useMail.getState().markMailboxRead(m.id)} disabled={!m.unreadEmails} />
+      <MenuItem
+        icon={<CheckCheck size={16} />}
+        label={t("Mark all as read")}
+        onClick={() => void useMail.getState().markMailboxRead(m.id)}
+        disabled={!m.unreadEmails}
+      />
       {hasChildren && (
         <MenuItem
           icon={<CheckCheck size={16} />}
           label={t("Mark all as read, incl. subfolders")}
-          kbd={m.unreadEmails + subUnread ? String(m.unreadEmails + subUnread) : undefined}
+          kbd={
+            m.unreadEmails + subUnread ? String(m.unreadEmails + subUnread) : undefined
+          }
           onClick={() => void useMail.getState().markMailboxRead(m.id, true)}
           disabled={!m.unreadEmails && !subUnread}
         />
       )}
-      <MenuItem icon={<FolderPlus size={16} />} label={t("New subfolder")} onClick={onCreateChild} disabled={!m.myRights.mayCreateChild} />
-      <MenuItem icon={<Pencil size={16} />} label={t("Rename")} onClick={() => void rename()} disabled={isSpecial || !m.myRights.mayRename} />
-      <MenuItem icon={m.isSubscribed ? <EyeOff size={16} /> : <Eye size={16} />} label={m.isSubscribed ? "Hide from list" : "Show in list"} onClick={() => void useMail.getState().updateMailbox(m.id, { isSubscribed: !m.isSubscribed })} disabled={m.role === "inbox"} />
+      <MenuItem
+        icon={<FolderPlus size={16} />}
+        label={t("New subfolder")}
+        onClick={onCreateChild}
+        disabled={!m.myRights.mayCreateChild}
+      />
+      <MenuItem
+        icon={<Pencil size={16} />}
+        label={t("Rename")}
+        onClick={() => void rename()}
+        disabled={isSpecial || !m.myRights.mayRename}
+      />
+      <MenuItem
+        icon={m.isSubscribed ? <EyeOff size={16} /> : <Eye size={16} />}
+        label={m.isSubscribed ? "Hide from list" : "Show in list"}
+        onClick={() =>
+          void useMail.getState().updateMailbox(m.id, { isSubscribed: !m.isSubscribed })
+        }
+        disabled={m.role === "inbox"}
+      />
       {/* Sharing a mail folder is withdrawn, not removed: Stalwart accepts and
           stores the share, and it never reaches the other account -- its own
           docs list calendars, address books and files as shareable and not mail
           folders. Offering it produced shares that looked real and did nothing.
           One that already exists can still be cleared here, which is the only
           reason this entry survives at all. */}
-      {shared && <MenuItem icon={<Share2 size={16} />} label={t("Stop sharing")} onClick={onShare} />}
+      {shared && (
+        <MenuItem
+          icon={<Share2 size={16} />}
+          label={t("Stop sharing")}
+          onClick={onShare}
+        />
+      )}
       <MenuSep />
-      <MenuTitle><span className="row gap-4"><Palette size={12} />  {t("Colour")}</span></MenuTitle>
-      <div className="color-grid" style={{ gridTemplateColumns: "repeat(6, 26px)", padding: "4px 10px 8px" }}>
+      <MenuTitle>
+        <span className="row gap-4">
+          <Palette size={12} /> {t("Colour")}
+        </span>
+      </MenuTitle>
+      <div
+        className="color-grid"
+        style={{ gridTemplateColumns: "repeat(6, 26px)", padding: "4px 10px 8px" }}
+      >
         {CALENDAR_COLORS.map((c) => (
           <button
             key={c}
             type="button"
-            style={{ background: c, width: 26, height: 26, outline: color?.toLowerCase() === c ? "2px solid var(--fg)" : undefined, outlineOffset: 1 }}
+            style={{
+              background: c,
+              width: 26,
+              height: 26,
+              outline: color?.toLowerCase() === c ? "2px solid var(--fg)" : undefined,
+              outlineOffset: 1,
+            }}
             aria-label={c}
             onClick={() => setColor(c)}
           />
         ))}
       </div>
-      {color && <MenuItem icon={<X size={16} />} label={t("Use the default colour")} onClick={() => setColor(null)} />}
+      {color && (
+        <MenuItem
+          icon={<X size={16} />}
+          label={t("Use the default colour")}
+          onClick={() => setColor(null)}
+        />
+      )}
       <MenuSep />
-      {canEmpty(m.role) && <MenuItem icon={<Eraser size={16} />} label={emptyLabel(m)} onClick={() => void empty()} danger disabled={!m.totalEmails} />}
-      <MenuItem icon={<Trash2 size={16} />} label={t("Delete folder")} onClick={() => void remove()} danger disabled={isSpecial || !m.myRights.mayDelete} />
+      {canEmpty(m.role) && (
+        <MenuItem
+          icon={<Eraser size={16} />}
+          label={emptyLabel(m)}
+          onClick={() => void empty()}
+          danger
+          disabled={!m.totalEmails}
+        />
+      )}
+      <MenuItem
+        icon={<Trash2 size={16} />}
+        label={t("Delete folder")}
+        onClick={() => void remove()}
+        danger
+        disabled={isSpecial || !m.myRights.mayDelete}
+      />
     </>
   );
 }

@@ -1,7 +1,7 @@
 import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
 import { request as httpRequest, type IncomingMessage } from "node:http";
 import { request as httpsRequest } from "node:https";
+import { isIP } from "node:net";
 import { Readable } from "node:stream";
 import type { Context } from "hono";
 import { config } from "./config.js";
@@ -24,7 +24,8 @@ export function isPrivateAddress(addr: string): boolean {
   if (v === 6) {
     const lower = addr.toLowerCase();
     if (lower === "::1" || lower === "::") return true;
-    if (lower.startsWith("fe80") || lower.startsWith("fc") || lower.startsWith("fd")) return true;
+    if (lower.startsWith("fe80") || lower.startsWith("fc") || lower.startsWith("fd"))
+      return true;
     if (lower.startsWith("ff")) return true; // multicast
     if (lower.startsWith("::ffff:")) return isPrivateAddress(lower.slice(7));
     if (lower.startsWith("64:ff9b:")) return true; // NAT64, reaches IPv4 space
@@ -49,7 +50,8 @@ async function resolveAllowed(hostname: string): Promise<string> {
   if (!addrs.length) throw new BlockedTarget(host);
   // Every answer has to be acceptable: one bad record is enough to mean the
   // name is not something we should be fetching at all.
-  for (const a of addrs) if (isPrivateAddress(a.address)) throw new BlockedTarget(a.address);
+  for (const a of addrs)
+    if (isPrivateAddress(a.address)) throw new BlockedTarget(a.address);
   return addrs[0]!.address;
 }
 
@@ -64,7 +66,11 @@ async function resolveAllowed(hostname: string): Promise<string> {
  * the certificate is still validated against the hostname, which is what
  * `servername` and the Host header carry.
  */
-export function fetchPinned(url: URL, addr: string, signal?: AbortSignal): Promise<IncomingMessage> {
+export function fetchPinned(
+  url: URL,
+  addr: string,
+  signal?: AbortSignal,
+): Promise<IncomingMessage> {
   const family = isIP(addr) === 6 ? 6 : 4;
   const send = url.protocol === "https:" ? httpsRequest : httpRequest;
   return new Promise((resolve, reject) => {
@@ -77,14 +83,25 @@ export function fetchPinned(url: URL, addr: string, signal?: AbortSignal): Promi
          * picking a family itself (autoSelectFamily), and for a single one
          * otherwise; answer in whichever shape was asked for.
          */
-        lookup: (_hostname: string, opts: { all?: boolean }, cb: (err: Error | null, address: string | { address: string; family: number }[], family?: number) => void) =>
-          opts?.all ? cb(null, [{ address: addr, family }]) : cb(null, addr, family),
+        lookup: (
+          _hostname: string,
+          opts: { all?: boolean },
+          cb: (
+            err: Error | null,
+            address: string | { address: string; family: number }[],
+            family?: number,
+          ) => void,
+        ) => (opts?.all ? cb(null, [{ address: addr, family }]) : cb(null, addr, family)),
         servername: isIP(url.hostname) ? undefined : url.hostname,
         // A pooled socket is keyed by host and port, not by the address we
         // pinned, so a connection opened earlier would be reused and the pin
         // never consulted. Take a fresh socket every time.
         agent: false,
-        headers: { accept: "image/avif,image/webp,image/*,*/*;q=0.8", "user-agent": UA, host: url.host },
+        headers: {
+          accept: "image/avif,image/webp,image/*,*/*;q=0.8",
+          "user-agent": UA,
+          host: url.host,
+        },
         signal,
       },
       resolve,
@@ -99,7 +116,13 @@ export function fetchPinned(url: URL, addr: string, signal?: AbortSignal): Promi
  * user-agent from tracking pixels, and blocks SSRF to internal networks.
  */
 /** Why a guarded fetch refused, in the words the handlers answer with. */
-export type SafeFetchError = "bad_url" | "bad_scheme" | "forbidden_target" | "dns_failure" | "fetch_failed" | "bad_redirect";
+export type SafeFetchError =
+  | "bad_url"
+  | "bad_scheme"
+  | "forbidden_target"
+  | "dns_failure"
+  | "fetch_failed"
+  | "bad_redirect";
 
 export interface SafeFetchResult {
   res: IncomingMessage;
@@ -117,7 +140,10 @@ export interface SafeFetchResult {
  * connection is pinned to the address that was checked, and each redirect hop
  * is re-resolved and re-pinned rather than handed to the socket library.
  */
-export async function safeFetch(raw: string, timeoutMs = 15_000): Promise<SafeFetchResult | SafeFetchError> {
+export async function safeFetch(
+  raw: string,
+  timeoutMs = 15_000,
+): Promise<SafeFetchResult | SafeFetchError> {
   let url: URL;
   try {
     url = new URL(raw);
@@ -125,7 +151,8 @@ export async function safeFetch(raw: string, timeoutMs = 15_000): Promise<SafeFe
     return "bad_url";
   }
   // webcal: is an http URL wearing a different word; nothing else is allowed.
-  if (url.protocol === "webcal:") url = new URL(`https:${raw.slice(raw.indexOf(":") + 1)}`);
+  if (url.protocol === "webcal:")
+    url = new URL(`https:${raw.slice(raw.indexOf(":") + 1)}`);
   if (url.protocol !== "http:" && url.protocol !== "https:") return "bad_scheme";
   if (url.username || url.password) return "bad_url";
 
@@ -143,7 +170,11 @@ export async function safeFetch(raw: string, timeoutMs = 15_000): Promise<SafeFe
     let res = await fetchPinned(url, addr, controller.signal);
 
     let hops = 0;
-    while (res.statusCode && [301, 302, 303, 307, 308].includes(res.statusCode) && hops < 3) {
+    while (
+      res.statusCode &&
+      [301, 302, 303, 307, 308].includes(res.statusCode) &&
+      hops < 3
+    ) {
       const loc = res.headers.location;
       if (!loc) break;
       res.resume(); // discard the redirect body

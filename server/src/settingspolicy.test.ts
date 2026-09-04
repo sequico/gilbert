@@ -1,6 +1,6 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -13,7 +13,9 @@ import { fileURLToPath } from "node:url";
  * rules it checks are restated here, and both are short enough that saying them
  * twice is cheaper than the machinery to say them once.
  */
-const EXAMPLE = fileURLToPath(new URL("../../settings-policy.example.json", import.meta.url));
+const EXAMPLE = fileURLToPath(
+  new URL("../../settings-policy.example.json", import.meta.url),
+);
 
 test("the example policy is valid JSON", () => {
   assert.doesNotThrow(() => JSON.parse(readFileSync(EXAMPLE, "utf8")));
@@ -23,20 +25,31 @@ test("the example policy has the three sections, in the shapes the server reads"
   const p = JSON.parse(readFileSync(EXAMPLE, "utf8")) as Record<string, unknown>;
   for (const section of ["defaults", "enforced"]) {
     const v = p[section];
-    assert.ok(v && typeof v === "object" && !Array.isArray(v), `${section} must be an object`);
+    assert.ok(
+      v && typeof v === "object" && !Array.isArray(v),
+      `${section} must be an object`,
+    );
   }
   assert.ok(Array.isArray(p.changes), "changes must be a list");
 });
 
 test("every change in the example has a unique version and settings", () => {
-  const p = JSON.parse(readFileSync(EXAMPLE, "utf8")) as { changes: Array<{ version?: unknown; settings?: unknown }> };
+  const p = JSON.parse(readFileSync(EXAMPLE, "utf8")) as {
+    changes: Array<{ version?: unknown; settings?: unknown }>;
+  };
   const seen = new Set<string>();
   for (const [i, c] of p.changes.entries()) {
     assert.equal(typeof c.version, "string", `changes[${i}] needs a string version`);
     assert.ok((c.version as string).trim(), `changes[${i}] needs a non-empty version`);
-    assert.ok(!seen.has(c.version as string), `changes[${i}] repeats version ${String(c.version)}`);
+    assert.ok(
+      !seen.has(c.version as string),
+      `changes[${i}] repeats version ${String(c.version)}`,
+    );
     seen.add(c.version as string);
-    assert.ok(c.settings && typeof c.settings === "object" && !Array.isArray(c.settings), `changes[${i}] needs a settings object`);
+    assert.ok(
+      c.settings && typeof c.settings === "object" && !Array.isArray(c.settings),
+      `changes[${i}] needs a settings object`,
+    );
   }
 });
 
@@ -59,7 +72,9 @@ test("the example's commentary cannot be mistaken for a section", () => {
  * reason: an example that no longer loads is worse than no example, because
  * the first experience of the feature is a server that refuses to start.
  */
-const SERVERS = fileURLToPath(new URL("../../stalwart-servers.example.json", import.meta.url));
+const SERVERS = fileURLToPath(
+  new URL("../../stalwart-servers.example.json", import.meta.url),
+);
 
 test("the example server mapping is valid JSON", () => {
   assert.doesNotThrow(() => JSON.parse(readFileSync(SERVERS, "utf8")));
@@ -76,7 +91,10 @@ test("every entry in the example mapping is a domain and an http(s) URL", () => 
     seen.add(domain);
     assert.equal(typeof value, "string", `${domain} is not a string`);
     const url = new URL(value as string);
-    assert.ok(url.protocol === "http:" || url.protocol === "https:", `${domain} must be http or https`);
+    assert.ok(
+      url.protocol === "http:" || url.protocol === "https:",
+      `${domain} must be http or https`,
+    );
   }
   assert.ok(seen.size > 0, "the example should show at least one mapping");
 });

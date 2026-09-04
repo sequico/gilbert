@@ -1,14 +1,28 @@
+import {
+  Book,
+  BookOpen,
+  Download,
+  MoreVertical,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Share2,
+  Trash2,
+  Upload,
+  UserMinus,
+  Users,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Book, BookOpen, Download, MoreVertical, Pencil, Plus, RefreshCw, Share2, Trash2, Upload, UserMinus, Users, X } from "lucide-react";
+import type { AddressBook } from "@/jmap/types";
+import { plural, t } from "@/lib/i18n";
 import { useContacts } from "@/store/contacts";
 import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
-import type { AddressBook } from "@/jmap/types";
-import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
+import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
 import { ShareDialog } from "../settings/ShareDialog";
-import { plural, t } from "@/lib/i18n";
 
 /**
  * Re-read the session so newly shared books appear without a sign-in.
@@ -45,8 +59,14 @@ export function ContactsSidebar() {
      they are asked for by event rather than reaching across into it. What has
      changed is that the event now names the book, instead of meaning "whatever
      is selected". */
-  const onImport = (file: File, bookId: string) => window.dispatchEvent(new CustomEvent("ihm:contacts-import", { detail: { file, bookId } }));
-  const onExport = (accountId: string | null, bookId: string) => window.dispatchEvent(new CustomEvent("ihm:contacts-export", { detail: { accountId, bookId } }));
+  const onImport = (file: File, bookId: string) =>
+    window.dispatchEvent(
+      new CustomEvent("ihm:contacts-import", { detail: { file, bookId } }),
+    );
+  const onExport = (accountId: string | null, bookId: string) =>
+    window.dispatchEvent(
+      new CustomEvent("ihm:contacts-export", { detail: { accountId, bookId } }),
+    );
   const contacts = useContacts();
   const settings = useSettings((s) => s.settings);
   /*
@@ -72,8 +92,17 @@ export function ContactsSidebar() {
    */
   const fileRef = useRef<HTMLInputElement>(null);
   const importInto = useRef<string | null>(null);
-  const openMenu = (e: React.MouseEvent, t: MenuTarget) => { e.stopPropagation(); e.preventDefault(); setTarget(t); menu.open(e); };
-  const openMenuAt = (e: React.MouseEvent, t: MenuTarget) => { e.preventDefault(); setTarget(t); menu.openAt(e.clientX, e.clientY); };
+  const openMenu = (e: React.MouseEvent, t: MenuTarget) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setTarget(t);
+    menu.open(e);
+  };
+  const openMenuAt = (e: React.MouseEvent, t: MenuTarget) => {
+    e.preventDefault();
+    setTarget(t);
+    menu.openAt(e.clientX, e.clientY);
+  };
   const [share, setShare] = useState<AddressBook | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const menu = useMenu();
@@ -84,19 +113,29 @@ export function ContactsSidebar() {
 
   if (!contacts.available) return null;
 
-  const own = Object.values(contacts.books).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+  const own = Object.values(contacts.books).sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
+  );
   const sel = contacts.selection;
-  const isOn = (accountId: string | null, bookId: string) => sel.accountId === accountId && sel.bookId === bookId;
+  const isOn = (accountId: string | null, bookId: string) =>
+    sel.accountId === accountId && sel.bookId === bookId;
   /* Added if the server says so or the reader's settings do -- Stalwart will
      not take the flag on a book shared read-only, so the settings carry it. */
   const added = new Set(settings.addedShares);
-  const isAdded = (accountId: string, bookId: string) => added.has(`${accountId}:${bookId}`);
-  const subscribed = contacts.sharedBooks.filter((b) => b.book.isSubscribed || isAdded(b.accountId, b.book.id));
-  const available = contacts.sharedBooks.filter((b) => !(b.book.isSubscribed || isAdded(b.accountId, b.book.id)));
+  const isAdded = (accountId: string, bookId: string) =>
+    added.has(`${accountId}:${bookId}`);
+  const subscribed = contacts.sharedBooks.filter(
+    (b) => b.book.isSubscribed || isAdded(b.accountId, b.book.id),
+  );
+  const available = contacts.sharedBooks.filter(
+    (b) => !(b.book.isSubscribed || isAdded(b.accountId, b.book.id)),
+  );
 
   return (
     <>
-      <div className="nav-section"><span>{t("Contacts")}</span></div>
+      <div className="nav-section">
+        <span>{t("Contacts")}</span>
+      </div>
       <div
         className={`nav-item ${isOn(null, "all") ? "active" : ""}`}
         onClick={() => contacts.select({ accountId: null, bookId: "all" })}
@@ -104,7 +143,13 @@ export function ContactsSidebar() {
       >
         <Users size={17} />
         <span className="grow truncate">{t("All contacts")}</span>
-        <button className="icon-btn xs nav-more" onClick={(e) => openMenu(e, { kind: "all" })} aria-label={t("Contact options")}><MoreVertical size={14} /></button>
+        <button
+          className="icon-btn xs nav-more"
+          onClick={(e) => openMenu(e, { kind: "all" })}
+          aria-label={t("Contact options")}
+        >
+          <MoreVertical size={14} />
+        </button>
       </div>
 
       <div className="nav-section">
@@ -114,7 +159,10 @@ export function ContactsSidebar() {
           title={t("New address book")}
           aria-label={t("New address book")}
           onClick={async () => {
-            const name = await promptDialog({ title: t("New address book"), placeholder: t("Name") });
+            const name = await promptDialog({
+              title: t("New address book"),
+              placeholder: t("Name"),
+            });
             if (!name?.trim()) return;
             try {
               await contacts.createBook(name.trim());
@@ -135,8 +183,16 @@ export function ContactsSidebar() {
         >
           <Book size={17} />
           <span className="grow truncate">{b.name}</span>
-          {Object.keys(b.shareWith ?? {}).length > 0 && <Share2 size={12} className="faint" aria-label={t("Shared")} />}
-          <button className="icon-btn xs nav-more" onClick={(e) => openMenu(e, { kind: "own", book: b })} aria-label={t("Address book options")}><MoreVertical size={14} /></button>
+          {Object.keys(b.shareWith ?? {}).length > 0 && (
+            <Share2 size={12} className="faint" aria-label={t("Shared")} />
+          )}
+          <button
+            className="icon-btn xs nav-more"
+            onClick={(e) => openMenu(e, { kind: "own", book: b })}
+            aria-label={t("Address book options")}
+          >
+            <MoreVertical size={14} />
+          </button>
         </div>
       ))}
 
@@ -146,7 +202,11 @@ export function ContactsSidebar() {
           className="icon-btn sm"
           title={t("Check for new shares")}
           aria-label={t("Check for new shares")}
-          onClick={async () => { setRefreshing(true); await refreshShares(true); setRefreshing(false); }}
+          onClick={async () => {
+            setRefreshing(true);
+            await refreshShares(true);
+            setRefreshing(false);
+          }}
         >
           <RefreshCw size={14} className={refreshing ? "spin" : ""} />
         </button>
@@ -164,7 +224,13 @@ export function ContactsSidebar() {
           {/* A menu rather than the bare X it replaces: somebody else's book can
               still be exported, and losing that when the sidebar's export button
               went would have been a regression dressed as a tidy-up. */}
-          <button className="icon-btn xs nav-more" onClick={(e) => openMenu(e, { kind: "shared", accountId, book })} aria-label={t("Address book options")}><MoreVertical size={14} /></button>
+          <button
+            className="icon-btn xs nav-more"
+            onClick={(e) => openMenu(e, { kind: "shared", accountId, book })}
+            aria-label={t("Address book options")}
+          >
+            <MoreVertical size={14} />
+          </button>
         </div>
       ))}
       {!subscribed.length && (
@@ -178,16 +244,25 @@ export function ContactsSidebar() {
           guess made on their behalf. */}
       {available.length > 0 && (
         <>
-          <div className="nav-section"><span>{t("Available to add")}</span></div>
+          <div className="nav-section">
+            <span>{t("Available to add")}</span>
+          </div>
           {available.map(({ accountId, accountName, book }) => (
-            <div key={`${accountId}:${book.id}`} className="nav-item" title={`${book.name} — from ${accountName}`}>
+            <div
+              key={`${accountId}:${book.id}`}
+              className="nav-item"
+              title={`${book.name} — from ${accountName}`}
+            >
               <BookOpen size={17} className="faint" />
               <span className="grow truncate faint">{book.name}</span>
               <button
                 className="icon-btn sm"
                 title={t("Add to my contacts")}
                 aria-label={t("Add to my contacts")}
-                onClick={(e) => { e.stopPropagation(); void contacts.setBookSubscribed(accountId, book.id, true); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void contacts.setBookSubscribed(accountId, book.id, true);
+                }}
               >
                 <Plus size={13} />
               </button>
@@ -201,7 +276,12 @@ export function ContactsSidebar() {
         type="file"
         accept=".vcf,.vcard,.ldif,.ldi,text/vcard,text/directory"
         hidden
-        onChange={(e) => { const f = e.target.files?.[0]; const into = importInto.current; if (f && into) onImport(f, into); e.target.value = ""; }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          const into = importInto.current;
+          if (f && into) onImport(f, into);
+          e.target.value = "";
+        }}
       />
 
       <Popover anchor={menu.anchor} onClose={menu.close} width={230}>
@@ -211,8 +291,17 @@ export function ContactsSidebar() {
                 somebody else's, and the whole lot together. */}
             <MenuItem
               icon={<Download size={16} />}
-              label={target.kind === "all" ? t("Export all contacts") : t("Export address book")}
-              onClick={() => onExport(target.kind === "shared" ? target.accountId : null, target.kind === "all" ? "all" : target.book.id)}
+              label={
+                target.kind === "all"
+                  ? t("Export all contacts")
+                  : t("Export address book")
+              }
+              onClick={() =>
+                onExport(
+                  target.kind === "shared" ? target.accountId : null,
+                  target.kind === "all" ? "all" : target.book.id,
+                )
+              }
             />
             {/* Importing needs somewhere to put them. "All contacts" is not a
                 book, so it files into the default one, which is what the button
@@ -221,7 +310,10 @@ export function ContactsSidebar() {
               <MenuItem
                 icon={<Upload size={16} />}
                 label={t("Import contacts…")}
-                onClick={() => { importInto.current = target.kind === "all" ? "all" : target.book.id; fileRef.current?.click(); }}
+                onClick={() => {
+                  importInto.current = target.kind === "all" ? "all" : target.book.id;
+                  fileRef.current?.click();
+                }}
               />
             )}
             {target.kind === "shared" && (
@@ -230,7 +322,13 @@ export function ContactsSidebar() {
                 <MenuItem
                   icon={<X size={16} />}
                   label={t("Remove from my contacts")}
-                  onClick={() => void contacts.setBookSubscribed(target.accountId, target.book.id, false)}
+                  onClick={() =>
+                    void contacts.setBookSubscribed(
+                      target.accountId,
+                      target.book.id,
+                      false,
+                    )
+                  }
                 />
               </>
             )}
@@ -243,7 +341,10 @@ export function ContactsSidebar() {
               icon={<Pencil size={16} />}
               label={t("Rename")}
               onClick={async () => {
-                const name = await promptDialog({ title: t("Rename address book"), defaultValue: menuBook.name });
+                const name = await promptDialog({
+                  title: t("Rename address book"),
+                  defaultValue: menuBook.name,
+                });
                 if (!name?.trim() || name === menuBook.name) return;
                 try {
                   await contacts.updateBook(menuBook.id, { name: name.trim() });
@@ -252,7 +353,12 @@ export function ContactsSidebar() {
                 }
               }}
             />
-            <MenuItem icon={<Share2 size={16} />} label={t("Share…")} disabled={!menuBook.myRights?.mayShare} onClick={() => setShare(menuBook)} />
+            <MenuItem
+              icon={<Share2 size={16} />}
+              label={t("Share…")}
+              disabled={!menuBook.myRights?.mayShare}
+              onClick={() => setShare(menuBook)}
+            />
             {/* Revoking the lot, rather than removing people one at a time in
                 the dialog. Only shown when there is something to revoke. */}
             {Object.keys(menuBook.shareWith ?? {}).length > 0 && (
@@ -262,12 +368,19 @@ export function ContactsSidebar() {
                 disabled={!menuBook.myRights?.mayShare}
                 onClick={async () => {
                   const who = Object.keys(menuBook.shareWith ?? {}).length;
-                  if (!(await confirmDialog({
-                    title: t("Stop sharing “{name}”?", { name: menuBook.name }),
-                    message: plural(who, { one: "{n} person will lose access. The contacts in it are not affected.", other: "{n} people will lose access. The contacts in it are not affected." }),
-                    confirmLabel: t("Stop sharing"),
-                    danger: true,
-                  }))) return;
+                  if (
+                    !(await confirmDialog({
+                      title: t("Stop sharing “{name}”?", { name: menuBook.name }),
+                      message: plural(who, {
+                        one: "{n} person will lose access. The contacts in it are not affected.",
+                        other:
+                          "{n} people will lose access. The contacts in it are not affected.",
+                      }),
+                      confirmLabel: t("Stop sharing"),
+                      danger: true,
+                    }))
+                  )
+                    return;
                   try {
                     await contacts.updateBook(menuBook.id, { shareWith: null });
                     toast.success(t("No longer shared"));
@@ -284,10 +397,19 @@ export function ContactsSidebar() {
               label={t("Delete")}
               disabled={menuBook.isDefault}
               onClick={async () => {
-                if (!(await confirmDialog({ title: t("Delete “{name}”?", { name: menuBook.name }), message: t("The contacts in it go too."), confirmLabel: t("Delete"), danger: true }))) return;
+                if (
+                  !(await confirmDialog({
+                    title: t("Delete “{name}”?", { name: menuBook.name }),
+                    message: t("The contacts in it go too."),
+                    confirmLabel: t("Delete"),
+                    danger: true,
+                  }))
+                )
+                  return;
                 try {
                   await contacts.destroyBook(menuBook.id);
-                  if (sel.bookId === menuBook.id) contacts.select({ accountId: null, bookId: "all" });
+                  if (sel.bookId === menuBook.id)
+                    contacts.select({ accountId: null, bookId: "all" });
                 } catch (err) {
                   toast.error((err as Error).message);
                 }
@@ -296,7 +418,15 @@ export function ContactsSidebar() {
           </>
         )}
       </Popover>
-      {share && <ShareDialog kind="AddressBook" id={share.id} name={share.name} shareWith={share.shareWith} onClose={() => setShare(null)} />}
+      {share && (
+        <ShareDialog
+          kind="AddressBook"
+          id={share.id}
+          name={share.name}
+          shareWith={share.shareWith}
+          onClose={() => setShare(null)}
+        />
+      )}
     </>
   );
 }

@@ -1,4 +1,8 @@
-import type { ContactCard, JSContactAddress, JSContactAddressComponent } from "@/jmap/types";
+import type {
+  ContactCard,
+  JSContactAddress,
+  JSContactAddressComponent,
+} from "@/jmap/types";
 import { buildName, newKey } from "@/lib/contacts";
 import type { LdifRecord } from "@/lib/ldif";
 
@@ -16,7 +20,10 @@ import type { LdifRecord } from "@/lib/ldif";
  */
 
 /** The work and home address, which the schema keeps in two separate sets of attributes. */
-const ADDRESSES: { context: "work" | "private"; parts: Array<[kind: string, attr: string]> }[] = [
+const ADDRESSES: {
+  context: "work" | "private";
+  parts: Array<[kind: string, attr: string]>;
+}[] = [
   {
     context: "work",
     parts: [
@@ -45,7 +52,11 @@ const ADDRESSES: { context: "work" | "private"; parts: Array<[kind: string, attr
 ];
 
 /** Every phone attribute, and what kind of phone it is. */
-const PHONES: Array<{ attr: string; features?: Record<string, boolean>; contexts?: Record<string, boolean> }> = [
+const PHONES: Array<{
+  attr: string;
+  features?: Record<string, boolean>;
+  contexts?: Record<string, boolean>;
+}> = [
   { attr: "telephonenumber", contexts: { work: true } },
   { attr: "homephone", contexts: { private: true } },
   { attr: "mobile", features: { mobile: true } },
@@ -53,11 +64,15 @@ const PHONES: Array<{ attr: string; features?: Record<string, boolean>; contexts
   { attr: "pager", features: { pager: true } },
 ];
 
-function address(rec: LdifRecord, spec: (typeof ADDRESSES)[number]): JSContactAddress | null {
+function address(
+  rec: LdifRecord,
+  spec: (typeof ADDRESSES)[number],
+): JSContactAddress | null {
   const components: JSContactAddressComponent[] = [];
   for (const [kind, attr] of spec.parts) {
     for (const value of rec.attrs[attr] ?? []) {
-      if (value.trim()) components.push({ "@type": "AddressComponent", kind, value: value.trim() });
+      if (value.trim())
+        components.push({ "@type": "AddressComponent", kind, value: value.trim() });
     }
   }
   if (!components.length) return null;
@@ -73,7 +88,8 @@ function address(rec: LdifRecord, spec: (typeof ADDRESSES)[number]): JSContactAd
  */
 export function cardFromLdif(rec: LdifRecord): Partial<ContactCard> | null {
   const first = (attr: string) => rec.attrs[attr]?.[0]?.trim() ?? "";
-  const all = (attr: string) => (rec.attrs[attr] ?? []).map((v) => v.trim()).filter(Boolean);
+  const all = (attr: string) =>
+    (rec.attrs[attr] ?? []).map((v) => v.trim()).filter(Boolean);
 
   const given = first("givenname");
   const surname = first("sn");
@@ -92,7 +108,8 @@ export function cardFromLdif(rec: LdifRecord): Partial<ContactCard> | null {
   else if (full) card.name = { "@type": "Name", full };
 
   const nickname = first("mozillanickname");
-  if (nickname) card.nicknames = { [newKey("n")]: { "@type": "Nickname", name: nickname } };
+  if (nickname)
+    card.nicknames = { [newKey("n")]: { "@type": "Nickname", name: nickname } };
 
   const org = first("o");
   const units = all("ou");
@@ -101,26 +118,38 @@ export function cardFromLdif(rec: LdifRecord): Partial<ContactCard> | null {
       [newKey("o")]: {
         "@type": "Organization",
         ...(org ? { name: org } : {}),
-        ...(units.length ? { units: units.map((name) => ({ "@type": "OrgUnit" as const, name })) } : {}),
+        ...(units.length
+          ? { units: units.map((name) => ({ "@type": "OrgUnit" as const, name })) }
+          : {}),
       },
     };
   }
 
   const title = first("title");
-  if (title) card.titles = { [newKey("t")]: { "@type": "Title", name: title, kind: "title" } };
+  if (title)
+    card.titles = { [newKey("t")]: { "@type": "Title", name: title, kind: "title" } };
 
   if (emails.length) {
     card.emails = {};
     emails.forEach((address, i) => {
       // The first is `mail`, which the schema means as the address to use.
-      card.emails![newKey("e")] = { "@type": "EmailAddress", address, ...(i === 0 ? { pref: 1 } : {}) };
+      card.emails![newKey("e")] = {
+        "@type": "EmailAddress",
+        address,
+        ...(i === 0 ? { pref: 1 } : {}),
+      };
     });
   }
 
   const phones: NonNullable<ContactCard["phones"]> = {};
   for (const spec of PHONES) {
     for (const number of all(spec.attr)) {
-      phones[newKey("p")] = { "@type": "Phone", number, ...(spec.features ? { features: spec.features } : {}), ...(spec.contexts ? { contexts: spec.contexts } : {}) };
+      phones[newKey("p")] = {
+        "@type": "Phone",
+        number,
+        ...(spec.features ? { features: spec.features } : {}),
+        ...(spec.contexts ? { contexts: spec.contexts } : {}),
+      };
     }
   }
   if (Object.keys(phones).length) card.phones = phones;
@@ -139,7 +168,10 @@ export function cardFromLdif(rec: LdifRecord): Partial<ContactCard> | null {
   if (Object.keys(links).length) card.links = links;
 
   const aim = first("nsaimid");
-  if (aim) card.onlineServices = { [newKey("s")]: { "@type": "OnlineService", service: "AIM", user: aim } };
+  if (aim)
+    card.onlineServices = {
+      [newKey("s")]: { "@type": "OnlineService", service: "AIM", user: aim },
+    };
 
   /*
    * The four custom fields have nowhere of their own to go: JSContact has no
@@ -152,7 +184,8 @@ export function cardFromLdif(rec: LdifRecord): Partial<ContactCard> | null {
   [1, 2, 3, 4].forEach((n) => {
     for (const value of all(`mozillacustom${n}`)) notes.push(`Custom ${n}: ${value}`);
   });
-  if (notes.length) card.notes = { [newKey("x")]: { "@type": "Note", note: notes.join("\n") } };
+  if (notes.length)
+    card.notes = { [newKey("x")]: { "@type": "Note", note: notes.join("\n") } };
 
   return card;
 }

@@ -14,7 +14,15 @@
  */
 import type { Comparator } from "@/jmap/types";
 
-export type SortField = "date" | "sent" | "from" | "to" | "subject" | "size" | "unread" | "starred";
+export type SortField =
+  | "date"
+  | "sent"
+  | "from"
+  | "to"
+  | "subject"
+  | "size"
+  | "unread"
+  | "starred";
 
 export interface SortLevel {
   field: SortField;
@@ -26,7 +34,15 @@ export interface SortLevel {
   descending: boolean;
 }
 
-export type SortPreset = "newest" | "oldest" | "unreadFirst" | "starredFirst" | "largest" | "sender" | "subject" | "custom";
+export type SortPreset =
+  | "newest"
+  | "oldest"
+  | "unreadFirst"
+  | "starredFirst"
+  | "largest"
+  | "sender"
+  | "subject"
+  | "custom";
 
 /** The last word in every sort, so rows inside a tie do not shuffle between loads. */
 const TIEBREAK: Comparator = { property: "receivedAt", isAscending: false };
@@ -70,13 +86,21 @@ function comparator(level: SortLevel): Comparator {
     case "unread":
       return { property: "hasKeyword", keyword: "$seen", isAscending: level.descending };
     case "starred":
-      return { property: "hasKeyword", keyword: "$flagged", isAscending: !level.descending };
+      return {
+        property: "hasKeyword",
+        keyword: "$flagged",
+        isAscending: !level.descending,
+      };
   }
 }
 
 /** Whether a comparator asks for something a server is allowed to refuse. */
 export function isOptionalSort(c: Comparator): boolean {
-  return c.property === "hasKeyword" || c.property === "allInThreadHaveKeyword" || c.property === "someInThreadHaveKeyword";
+  return (
+    c.property === "hasKeyword" ||
+    c.property === "allInThreadHaveKeyword" ||
+    c.property === "someInThreadHaveKeyword"
+  );
 }
 
 /**
@@ -87,11 +111,19 @@ export function isOptionalSort(c: Comparator): boolean {
  * changes between two loads of the same folder for no reason the reader can
  * see.
  */
-export function comparatorsFor(preset: SortPreset, levels: SortLevel[] = []): Comparator[] {
-  const chosen = preset === "custom" ? levels.slice(0, MAX_LEVELS) : (PRESETS[preset] ?? PRESETS.newest);
-  const out = chosen.filter((l, i) => chosen.findIndex((o) => o.field === l.field) === i).map(comparator);
+export function comparatorsFor(
+  preset: SortPreset,
+  levels: SortLevel[] = [],
+): Comparator[] {
+  const chosen =
+    preset === "custom"
+      ? levels.slice(0, MAX_LEVELS)
+      : (PRESETS[preset] ?? PRESETS.newest);
+  const out = chosen
+    .filter((l, i) => chosen.findIndex((o) => o.field === l.field) === i)
+    .map(comparator);
   const last = out[out.length - 1];
-  if (!last || last.property !== "receivedAt") out.push(TIEBREAK);
+  if (last?.property !== "receivedAt") out.push(TIEBREAK);
   return out;
 }
 
@@ -99,7 +131,7 @@ export function comparatorsFor(preset: SortPreset, levels: SortLevel[] = []): Co
 export function withoutOptionalSorts(sort: Comparator[]): Comparator[] {
   const kept = sort.filter((c) => !isOptionalSort(c));
   const last = kept[kept.length - 1];
-  if (!last || last.property !== "receivedAt") kept.push(TIEBREAK);
+  if (last?.property !== "receivedAt") kept.push(TIEBREAK);
   return kept;
 }
 
@@ -110,6 +142,9 @@ export function withoutOptionalSorts(sort: Comparator[]): Comparator[] {
  * what people want in the folder they triage, and confusing in Sent, where
  * everything is read and the order that matters is when it went.
  */
-export function appliesTo(scope: "inbox" | "all", role: string | null | undefined): boolean {
+export function appliesTo(
+  scope: "inbox" | "all",
+  role: string | null | undefined,
+): boolean {
   return scope === "all" || role === "inbox";
 }

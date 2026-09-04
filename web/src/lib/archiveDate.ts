@@ -27,7 +27,10 @@ export type ArchiveGranularity = "year" | "month";
  * a message whose date cannot be read belongs in Archive itself rather than in
  * a folder named after a guess.
  */
-export function archiveSegments(when: string | null | undefined, granularity: ArchiveGranularity): string[] {
+export function archiveSegments(
+  when: string | null | undefined,
+  granularity: ArchiveGranularity,
+): string[] {
   if (!when) return [];
   const d = new Date(when);
   if (Number.isNaN(d.getTime())) return [];

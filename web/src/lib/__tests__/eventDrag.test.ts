@@ -1,26 +1,28 @@
 import { describe, expect, it } from "vitest";
+import type { CalendarEvent } from "@/jmap/types";
+import { BIRTHDAY_ID_PREFIX } from "@/lib/birthdays";
 import {
   canDragEvent,
+  dayDelta,
   formatDuration,
   MIN_DURATION_MINUTES,
+  moveByDaysPatch,
   movedBy,
   movedToDay,
+  movePatch,
   pixelsToMinutes,
   resizedBy,
-  snap,
-  movePatch,
-  moveByDaysPatch,
-  dayDelta,
   resizePatch,
   SNAP_MINUTES,
+  snap,
 } from "@/lib/eventDrag";
-import { BIRTHDAY_ID_PREFIX } from "@/lib/birthdays";
-import type { CalendarEvent } from "@/jmap/types";
 
 const at = (h: number, m = 0, d = 4) => new Date(2026, 8, d, h, m, 0, 0);
 const span = (from: Date, to: Date) => ({ start: from, end: to });
-const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const hhmm = (d: Date) =>
+  `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+const ymd = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 describe("snap", () => {
   it("rounds to the nearest quarter hour", () => {
@@ -130,13 +132,19 @@ describe("the patch a drag sends, computed in the event's own frame", () => {
    * None of these functions touches a zone at all.
    */
   it("moves the stored start by the snapped delta", () => {
-    expect(movePatch("2026-09-04T14:00:00", 30)).toEqual({ start: "2026-09-04T14:30:00" });
-    expect(movePatch("2026-09-04T14:00:00", -60)).toEqual({ start: "2026-09-04T13:00:00" });
+    expect(movePatch("2026-09-04T14:00:00", 30)).toEqual({
+      start: "2026-09-04T14:30:00",
+    });
+    expect(movePatch("2026-09-04T14:00:00", -60)).toEqual({
+      start: "2026-09-04T13:00:00",
+    });
     expect(movePatch("2026-09-04T14:00:00", 7)).toEqual({ start: "2026-09-04T14:00:00" });
   });
 
   it("carries a move across midnight and across a month", () => {
-    expect(movePatch("2026-09-30T23:30:00", 60)).toEqual({ start: "2026-10-01T00:30:00" });
+    expect(movePatch("2026-09-30T23:30:00", 60)).toEqual({
+      start: "2026-10-01T00:30:00",
+    });
   });
 
   it("never sends a duration for a move, so the length is left alone", () => {
@@ -144,8 +152,12 @@ describe("the patch a drag sends, computed in the event's own frame", () => {
   });
 
   it("keeps the time of day when moving by whole days", () => {
-    expect(moveByDaysPatch("2026-09-04T14:30:00", 6)).toEqual({ start: "2026-09-10T14:30:00" });
-    expect(moveByDaysPatch("2026-09-04T14:30:00", -3)).toEqual({ start: "2026-09-01T14:30:00" });
+    expect(moveByDaysPatch("2026-09-04T14:30:00", 6)).toEqual({
+      start: "2026-09-10T14:30:00",
+    });
+    expect(moveByDaysPatch("2026-09-04T14:30:00", -3)).toEqual({
+      start: "2026-09-01T14:30:00",
+    });
   });
 
   it("moves by the delta the hand made, not to the date that was dropped on", () => {
@@ -198,7 +210,9 @@ describe("canDragEvent", () => {
   });
 
   it("refuses a birthday, which is derived and has nothing to move", () => {
-    expect(canDragEvent({ id: `${BIRTHDAY_ID_PREFIX}c1:2026` } as CalendarEvent, writable)).toBe(false);
+    expect(
+      canDragEvent({ id: `${BIRTHDAY_ID_PREFIX}c1:2026` } as CalendarEvent, writable),
+    ).toBe(false);
   });
 
   it("refuses a calendar you cannot write to, and one that is not there", () => {

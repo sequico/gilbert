@@ -17,7 +17,10 @@ import { marked } from "marked";
 
 marked.use({ gfm: true, breaks: false });
 
-export function isMarkdown(type: string | null | undefined, name: string | null | undefined): boolean {
+export function isMarkdown(
+  type: string | null | undefined,
+  name: string | null | undefined,
+): boolean {
   const t = (type ?? "").split(";")[0]!.trim().toLowerCase();
   if (t === "text/markdown" || t === "text/x-markdown") return true;
   // A .md upload usually arrives as application/octet-stream, so the name is
@@ -31,7 +34,33 @@ export function renderMarkdown(source: string): string {
     WHOLE_DOCUMENT: false,
     RETURN_DOM: true,
     USE_PROFILES: { html: true },
-    FORBID_TAGS: ["script", "iframe", "frame", "frameset", "object", "embed", "applet", "form", "input", "button", "textarea", "select", "meta", "link", "base", "svg", "math", "video", "audio", "source", "track", "canvas", "template", "noscript", "style"],
+    FORBID_TAGS: [
+      "script",
+      "iframe",
+      "frame",
+      "frameset",
+      "object",
+      "embed",
+      "applet",
+      "form",
+      "input",
+      "button",
+      "textarea",
+      "select",
+      "meta",
+      "link",
+      "base",
+      "svg",
+      "math",
+      "video",
+      "audio",
+      "source",
+      "track",
+      "canvas",
+      "template",
+      "noscript",
+      "style",
+    ],
     FORBID_ATTR: ["srcdoc", "formaction", "action", "ping", "autofocus", "style"],
     ALLOW_DATA_ATTR: false,
     ADD_ATTR: ["target", "rel"],

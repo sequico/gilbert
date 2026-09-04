@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
-import { useCompose, type AttachableFile } from "@/store/compose";
-import { useMail } from "@/store/mail";
 import type { JmapSession } from "@/jmap/types";
+import { type AttachableFile, useCompose } from "@/store/compose";
+import { useMail } from "@/store/mail";
 
 /**
  * `maxSizeUpload` is what the server will accept for a single *upload*
@@ -28,7 +28,8 @@ const file = (over: Partial<AttachableFile> = {}): AttachableFile => ({
   ...over,
 });
 
-const attachments = (key: string) => useCompose.getState().drafts.find((d) => d.key === key)!.attachments;
+const attachments = (key: string) =>
+  useCompose.getState().drafts.find((d) => d.key === key)!.attachments;
 
 beforeEach(() => {
   client.session = {
@@ -40,13 +41,18 @@ beforeEach(() => {
   useCompose.setState({ drafts: [], activeKey: null, pendingSends: {} });
   useMail.setState({
     accountId: OURS,
-    identities: [{ id: "i1", name: "John", email: "john@example.org", replyTo: null }] as never,
+    identities: [
+      { id: "i1", name: "John", email: "john@example.org", replyTo: null },
+    ] as never,
   });
   // Nothing here should reach the network; a call would mean an upload was
   // attempted for a file that is only being referenced.
-  vi.stubGlobal("fetch", vi.fn(async () => {
-    throw new Error("no upload should happen");
-  }));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => {
+      throw new Error("no upload should happen");
+    }),
+  );
 });
 
 describe("attaching a blob this account already holds", () => {
@@ -70,7 +76,9 @@ describe("attaching a blob this account already holds", () => {
 describe("attaching a blob from somebody else's account", () => {
   it("refuses one larger than the server will accept, since it must be uploaded", async () => {
     const key = useCompose.getState().open();
-    await useCompose.getState().addFromFiles(key, [file({ accountId: THEIRS, size: MAX + 1 })]);
+    await useCompose
+      .getState()
+      .addFromFiles(key, [file({ accountId: THEIRS, size: MAX + 1 })]);
     const a = attachments(key)[0]!;
     expect(a.error).toMatch(/Larger than/);
     expect(a.blobId).toBeNull();
@@ -78,7 +86,9 @@ describe("attaching a blob from somebody else's account", () => {
 
   it("allows one within the limit, and marks it as still needing the upload", async () => {
     const key = useCompose.getState().open();
-    await useCompose.getState().addFromFiles(key, [file({ accountId: THEIRS, size: 1000, blobId: "b-small" })]);
+    await useCompose
+      .getState()
+      .addFromFiles(key, [file({ accountId: THEIRS, size: 1000, blobId: "b-small" })]);
     const a = attachments(key)[0]!;
     // The upload itself fails here because fetch is stubbed to throw; what
     // matters is that it was attempted rather than refused up front.
@@ -91,7 +101,12 @@ describe("a mixture in one drop", () => {
     const key = useCompose.getState().open();
     await useCompose.getState().addFromFiles(key, [
       file({ name: "ours.bin", size: MAX * 3 }),
-      file({ name: "theirs.bin", accountId: THEIRS, size: MAX * 3, blobId: "b-theirs" }),
+      file({
+        name: "theirs.bin",
+        accountId: THEIRS,
+        size: MAX * 3,
+        blobId: "b-theirs",
+      }),
     ]);
     const [ours, theirs] = attachments(key);
     expect(ours!.error).toBeNull();

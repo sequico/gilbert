@@ -33,13 +33,32 @@ describe("isTextEntry", () => {
   };
 
   it("is false for the inputs you cannot type into", () => {
-    for (const type of ["checkbox", "radio", "button", "submit", "reset", "file", "color", "range"]) {
+    for (const type of [
+      "checkbox",
+      "radio",
+      "button",
+      "submit",
+      "reset",
+      "file",
+      "color",
+      "range",
+    ]) {
       expect(isTextEntry(input(type)), type).toBe(false);
     }
   });
 
   it("is true for the ones you can", () => {
-    for (const type of ["text", "search", "email", "url", "tel", "password", "number", "date", "time"]) {
+    for (const type of [
+      "text",
+      "search",
+      "email",
+      "url",
+      "tel",
+      "password",
+      "number",
+      "date",
+      "time",
+    ]) {
       expect(isTextEntry(input(type)), type).toBe(true);
     }
   });
@@ -68,7 +87,9 @@ describe("isTextEntry", () => {
 describe("shortcuts with a checkbox focused", () => {
   it("still fire — the reported bug", () => {
     const handler = vi.fn();
-    pop = keyboard.pushScope("test", [{ keys: "e", description: "Archive", group: "Mail", handler }]);
+    pop = keyboard.pushScope("test", [
+      { keys: "e", description: "Archive", group: "Mail", handler },
+    ]);
 
     const box = document.createElement("input");
     box.type = "checkbox";
@@ -81,7 +102,9 @@ describe("shortcuts with a checkbox focused", () => {
 
   it("still do not fire from a text field", () => {
     const handler = vi.fn();
-    pop = keyboard.pushScope("test", [{ keys: "e", description: "Archive", group: "Mail", handler }]);
+    pop = keyboard.pushScope("test", [
+      { keys: "e", description: "Archive", group: "Mail", handler },
+    ]);
 
     const field = document.createElement("input");
     field.type = "search";

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.12/schema.json",
+  // Code style is calibrated to how this codebase is actually written
+  // (measured 2026-09-04): two-space indentation, double quotes, semicolons,
+  // lines wrapped near 90 columns, LF endings. No markdown/css/html on
+  // purpose: docs prose is hand-wrapped and upstream-managed.
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "includes": [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.mts",
+      "**/*.cts",
+      "**/*.js",
+      "**/*.mjs",
+      "**/*.cjs",
+      "**/*.json",
+      // npm-managed; never reformat it.
+      "!**/package-lock.json"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 90,
+    "lineEnding": "lf"
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "jsxQuoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      // Recommended set, with deliberate exceptions that match how this repo
+      // is written. Each off-rule below is a documented idiom, not a gap:
+      "preset": "recommended",
+      "a11y": "off",
+      "style": {
+        // 696 deliberate non-null assertions across the stores and JMAP
+        // code (data shapes the server has already validated). Banning them
+        // would fight the codebase's own idiom.
+        "noNonNullAssertion": "off"
+      },
+      "correctness": {
+        // React/zustand effect deps are written to fire on store snapshots
+        // and refs, not on every bound variable; exhaustive-deps churn
+        // against that (80 sites today).
+        "useExhaustiveDependencies": "off"
+      },
+      "suspicious": {
+        // Idiomatic regex-exec / ??= loops used throughout the parsers
+        // (sieve, search, ldif, i18n placeholders).
+        "noAssignInExpressions": "off",
+        // Stable, ordered lists where an index key is the honest key
+        // (31 sites, virtualised rows).
+        "noArrayIndexKey": "off",
+        // KeyHandler deliberately unions void with boolean; the rule's fix
+        // rewrites it to `undefined | boolean`, which breaks assignability
+        // of plain `() => void` handlers. Kept off because of that fix.
+        "noConfusingVoidType": "off",
+        // The i18n catalogs carry a translation key literally named "then"
+        // (rule-sentence builder); a data key, not a thenable.
+        "noThenProperty": "off",
+        // map/forEach shapes here are already guarded by tsc; the rule adds
+        // noise without catching anything tsc misses (15 sites).
+        "useIterableCallbackReturn": "off"
+      }
+    }
+  }
+}

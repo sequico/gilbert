@@ -21,13 +21,21 @@ export function handlerUrl(): string {
 }
 
 export function mailtoHandlerSupport(): HandlerSupport {
-  if (typeof navigator === "undefined" || typeof navigator.registerProtocolHandler !== "function") return "unsupported";
+  if (
+    typeof navigator === "undefined" ||
+    typeof navigator.registerProtocolHandler !== "function"
+  )
+    return "unsupported";
   if (!window.isSecureContext) return "insecure";
   return "ok";
 }
 
 export function canUnregisterMailtoHandler(): boolean {
-  return typeof navigator !== "undefined" && typeof (navigator as Navigator & { unregisterProtocolHandler?: unknown }).unregisterProtocolHandler === "function";
+  return (
+    typeof navigator !== "undefined" &&
+    typeof (navigator as Navigator & { unregisterProtocolHandler?: unknown })
+      .unregisterProtocolHandler === "function"
+  );
 }
 
 /** Whether we have asked this browser — not whether the user accepted. */
@@ -46,7 +54,9 @@ export function registerMailtoHandler(): void {
 }
 
 export function unregisterMailtoHandler(): void {
-  const nav = navigator as Navigator & { unregisterProtocolHandler?: (scheme: string, url: string) => void };
+  const nav = navigator as Navigator & {
+    unregisterProtocolHandler?: (scheme: string, url: string) => void;
+  };
   nav.unregisterProtocolHandler?.(SCHEME, handlerUrl());
   setMailtoHandlerRequested(false);
 }
@@ -54,7 +64,10 @@ export function unregisterMailtoHandler(): void {
 /** True when the app is running as an installed PWA. */
 export function isInstalledApp(): boolean {
   try {
-    return window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true
+    );
   } catch {
     return false;
   }

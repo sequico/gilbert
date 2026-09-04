@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { plural, setCatalog } from "@/lib/i18n";
 import { catalog as uk } from "@/locales/uk";
 
@@ -19,8 +19,8 @@ describe("Ukrainian plurals", () => {
     expect(plural(2, FORMS)).toBe("2 листи");
     expect(plural(4, FORMS)).toBe("4 листи");
     expect(plural(5, FORMS)).toBe("5 листів");
-    expect(plural(11, FORMS)).toBe("11 листів");   // many, despite ending in 1
-    expect(plural(21, FORMS)).toBe("21 лист");     // one again
+    expect(plural(11, FORMS)).toBe("11 листів"); // many, despite ending in 1
+    expect(plural(21, FORMS)).toBe("21 лист"); // one again
     expect(plural(0, FORMS)).toBe("0 листів");
   });
 

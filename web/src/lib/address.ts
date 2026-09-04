@@ -40,7 +40,8 @@ export function parseOne(raw: string): EmailAddress | null {
   const m = /^(.*?)\s*<([^<>]+)>\s*$/.exec(s);
   if (m) {
     let name = m[1]!.trim();
-    if (name.startsWith('"') && name.endsWith('"')) name = name.slice(1, -1).replace(/\\(.)/g, "$1");
+    if (name.startsWith('"') && name.endsWith('"'))
+      name = name.slice(1, -1).replace(/\\(.)/g, "$1");
     return { name: name || null, email: m[2]!.trim() };
   }
   return { name: null, email: s.replace(/^<|>$/g, "") };
@@ -58,7 +59,10 @@ export function formatAddressList(list: EmailAddress[] | null | undefined): stri
   return (list ?? []).map(formatAddress).join(", ");
 }
 
-export function displayName(a: EmailAddress | null | undefined, fallback = "(unknown)"): string {
+export function displayName(
+  a: EmailAddress | null | undefined,
+  fallback = "(unknown)",
+): string {
   if (!a) return fallback;
   if (a.name?.trim()) return a.name.trim();
   return a.email || fallback;
@@ -71,7 +75,9 @@ export function shortName(a: EmailAddress | null | undefined): string {
   return n.split(/\s+/)[0]!;
 }
 
-export function initials(a: EmailAddress | { name?: string | null; email?: string } | string | null | undefined): string {
+export function initials(
+  a: EmailAddress | { name?: string | null; email?: string } | string | null | undefined,
+): string {
   const name = typeof a === "string" ? a : a?.name || a?.email || "";
   const parts = name
     .replace(/[<>"]/g, "")
@@ -83,8 +89,18 @@ export function initials(a: EmailAddress | { name?: string | null; email?: strin
 }
 
 const PALETTE = [
-  "#0f766e", "#b45309", "#7c3aed", "#be185d", "#1d4ed8", "#047857",
-  "#c2410c", "#4338ca", "#a21caf", "#0e7490", "#b91c1c", "#15803d",
+  "#0f766e",
+  "#b45309",
+  "#7c3aed",
+  "#be185d",
+  "#1d4ed8",
+  "#047857",
+  "#c2410c",
+  "#4338ca",
+  "#a21caf",
+  "#0e7490",
+  "#b91c1c",
+  "#15803d",
 ];
 
 export function avatarColor(seed: string | null | undefined): string {
@@ -94,7 +110,10 @@ export function avatarColor(seed: string | null | undefined): string {
   return PALETTE[h % PALETTE.length]!;
 }
 
-export function sameAddress(a: string | null | undefined, b: string | null | undefined): boolean {
+export function sameAddress(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
   return (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
 }
 

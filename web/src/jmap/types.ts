@@ -272,10 +272,16 @@ export interface EmailSubmission {
   identityId: Id;
   emailId: Id;
   threadId: Id;
-  envelope: { mailFrom: { email: string; parameters?: Record<string, unknown> | null }; rcptTo: { email: string }[] } | null;
+  envelope: {
+    mailFrom: { email: string; parameters?: Record<string, unknown> | null };
+    rcptTo: { email: string }[];
+  } | null;
   sendAt: UTCDate;
   undoStatus: "pending" | "final" | "canceled";
-  deliveryStatus: Record<string, { smtpReply: string; delivered: string; displayed: string }> | null;
+  deliveryStatus: Record<
+    string,
+    { smtpReply: string; delivered: string; displayed: string }
+  > | null;
 }
 
 export interface VacationResponse {
@@ -405,7 +411,15 @@ export interface AddressBook {
 
 export interface JSContactNameComponent {
   "@type"?: "NameComponent";
-  kind: "title" | "given" | "given2" | "surname" | "surname2" | "credential" | "generation" | "separator";
+  kind:
+    | "title"
+    | "given"
+    | "given2"
+    | "surname"
+    | "surname2"
+    | "credential"
+    | "generation"
+    | "separator";
   value: string;
 }
 
@@ -472,7 +486,13 @@ export interface JSContactTitle {
 export interface JSContactAnniversary {
   "@type"?: "Anniversary";
   kind: "birth" | "death" | "wedding" | string;
-  date: { "@type"?: "PartialDate" | "Timestamp"; year?: number; month?: number; day?: number; utc?: string };
+  date: {
+    "@type"?: "PartialDate" | "Timestamp";
+    year?: number;
+    month?: number;
+    day?: number;
+    utc?: string;
+  };
   place?: JSContactAddress;
 }
 
@@ -522,7 +542,15 @@ export interface ContactCard {
   prodId?: string;
   members?: Record<string, boolean>;
   name?: JSContactName;
-  nicknames?: Record<string, { "@type"?: "Nickname"; name: string; contexts?: Record<string, boolean>; pref?: number }>;
+  nicknames?: Record<
+    string,
+    {
+      "@type"?: "Nickname";
+      name: string;
+      contexts?: Record<string, boolean>;
+      pref?: number;
+    }
+  >;
   organizations?: Record<string, JSContactOrganization>;
   titles?: Record<string, JSContactTitle>;
   emails?: Record<string, JSContactEmail>;
@@ -534,12 +562,30 @@ export interface ContactCard {
   keywords?: Record<string, boolean>;
   media?: Record<string, JSContactMedia>;
   relatedTo?: Record<string, JSContactRelation>;
-  links?: Record<string, { "@type"?: "Link"; uri: string; kind?: string; label?: string }>;
-  preferredLanguages?: Record<string, { "@type"?: "LanguagePref"; language: string; pref?: number; contexts?: Record<string, boolean> }>;
-  speakToAs?: { "@type"?: "SpeakToAs"; grammaticalGender?: string; pronouns?: Record<string, { pronouns: string }> };
+  links?: Record<
+    string,
+    { "@type"?: "Link"; uri: string; kind?: string; label?: string }
+  >;
+  preferredLanguages?: Record<
+    string,
+    {
+      "@type"?: "LanguagePref";
+      language: string;
+      pref?: number;
+      contexts?: Record<string, boolean>;
+    }
+  >;
+  speakToAs?: {
+    "@type"?: "SpeakToAs";
+    grammaticalGender?: string;
+    pronouns?: Record<string, { pronouns: string }>;
+  };
   calendars?: Record<string, { "@type"?: "Calendar"; kind?: string; uri: string }>;
   schedulingAddresses?: Record<string, { "@type"?: "SchedulingAddress"; uri: string }>;
-  personalInfo?: Record<string, { "@type"?: "PersonalInfo"; kind: string; value: string; level?: string }>;
+  personalInfo?: Record<
+    string,
+    { "@type"?: "PersonalInfo"; kind: string; value: string; level?: string }
+  >;
 }
 
 /* ------------------------------------------------------------------ */
@@ -592,7 +638,14 @@ export interface JSCalendarNDay {
 
 export interface JSCalendarRecurrenceRule {
   "@type"?: "RecurrenceRule";
-  frequency: "yearly" | "monthly" | "weekly" | "daily" | "hourly" | "minutely" | "secondly";
+  frequency:
+    | "yearly"
+    | "monthly"
+    | "weekly"
+    | "daily"
+    | "hourly"
+    | "minutely"
+    | "secondly";
   interval?: number;
   rscale?: string;
   skip?: string;
@@ -622,7 +675,12 @@ export interface JSCalendarParticipant {
   roles: Record<string, boolean>;
   locationId?: string;
   language?: string;
-  participationStatus?: "needs-action" | "accepted" | "declined" | "tentative" | "delegated";
+  participationStatus?:
+    | "needs-action"
+    | "accepted"
+    | "declined"
+    | "tentative"
+    | "delegated";
   participationComment?: string;
   expectReply?: boolean;
   scheduleAgent?: "server" | "client" | "none";
@@ -674,7 +732,18 @@ export interface JSCalendarEvent {
   showWithoutTime?: boolean;
   locations?: Record<string, JSCalendarLocation>;
   virtualLocations?: Record<string, JSCalendarVirtualLocation>;
-  links?: Record<string, { "@type"?: "Link"; href: string; contentType?: string; size?: number; rel?: string; display?: string; title?: string }>;
+  links?: Record<
+    string,
+    {
+      "@type"?: "Link";
+      href: string;
+      contentType?: string;
+      size?: number;
+      rel?: string;
+      display?: string;
+      title?: string;
+    }
+  >;
   locale?: string;
   keywords?: Record<string, boolean>;
   categories?: Record<string, boolean>;
@@ -729,7 +798,12 @@ export interface ParticipantIdentity {
 export interface CalendarEventNotification {
   id: Id;
   created: UTCDate;
-  changedBy: { name: string; email: string | null; principalId: Id | null; calendarAddress?: string | null };
+  changedBy: {
+    name: string;
+    email: string | null;
+    principalId: Id | null;
+    calendarAddress?: string | null;
+  };
   comment: string | null;
   type: "created" | "updated" | "destroyed";
   calendarEventId: Id;

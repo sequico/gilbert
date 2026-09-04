@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
+import type { JmapSession } from "@/jmap/types";
 import { useMail } from "@/store/mail";
 import { useToasts } from "@/ui/toast";
-import type { JmapSession } from "@/jmap/types";
 
 /**
  * Emptying a full folder used to back-reference one Email/query straight into
@@ -26,24 +26,92 @@ function server(count: number, opts: { refuseDestroy?: boolean; mailbox?: string
   const live = new Set(Array.from({ length: count }, (_, i) => `e${i}`));
   const destroyBatches: number[] = [];
   const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as { methodCalls: [string, Record<string, unknown>, string][] };
-    const methodResponses = body.methodCalls.map(([name, args, id]: [string, Record<string, unknown>, string]) => {
-      if (name === "Email/query" && (args.filter as { inMailbox?: string })?.inMailbox === (opts.mailbox ?? TRASH)) {
-        const limit = Math.min((args.limit as number) ?? 50, MAX);
-        return [name, { accountId: "a1", queryState: "q", canCalculateChanges: false, position: 0, ids: [...live].slice(0, limit), total: live.size }, id];
-      }
-      if (name === "Email/set" && Array.isArray(args.destroy)) {
-        const destroy = args.destroy as string[];
-        destroyBatches.push(destroy.length);
-        if (destroy.length > MAX) return ["error", { type: "requestTooLarge", description: "The number of ids requested by the client exceeds the maximum number the server is willing to process in a single method call." }, id];
-        if (opts.refuseDestroy) return [name, { accountId: "a1", oldState: "1", newState: "2", destroyed: [], notDestroyed: Object.fromEntries(destroy.map((x) => [x, { type: "forbidden", description: "no" }])) }, id];
-        for (const x of destroy) live.delete(x);
-        return [name, { accountId: "a1", oldState: "1", newState: "2", destroyed: destroy, notDestroyed: {} }, id];
-      }
-      // Everything the store refreshes afterwards; shape fits get and query.
-      return [name, { accountId: "a1", state: "1", list: [], notFound: [], ids: [], total: 0, queryState: "q", position: 0, canCalculateChanges: false }, id];
-    }) as unknown as Call[];
-    return { ok: true, status: 200, json: async () => ({ methodResponses, sessionState: "1" }) } as Response;
+    const body = JSON.parse(init.body as string) as {
+      methodCalls: [string, Record<string, unknown>, string][];
+    };
+    const methodResponses = body.methodCalls.map(
+      ([name, args, id]: [string, Record<string, unknown>, string]) => {
+        if (
+          name === "Email/query" &&
+          (args.filter as { inMailbox?: string })?.inMailbox === (opts.mailbox ?? TRASH)
+        ) {
+          const limit = Math.min((args.limit as number) ?? 50, MAX);
+          return [
+            name,
+            {
+              accountId: "a1",
+              queryState: "q",
+              canCalculateChanges: false,
+              position: 0,
+              ids: [...live].slice(0, limit),
+              total: live.size,
+            },
+            id,
+          ];
+        }
+        if (name === "Email/set" && Array.isArray(args.destroy)) {
+          const destroy = args.destroy as string[];
+          destroyBatches.push(destroy.length);
+          if (destroy.length > MAX)
+            return [
+              "error",
+              {
+                type: "requestTooLarge",
+                description:
+                  "The number of ids requested by the client exceeds the maximum number the server is willing to process in a single method call.",
+              },
+              id,
+            ];
+          if (opts.refuseDestroy)
+            return [
+              name,
+              {
+                accountId: "a1",
+                oldState: "1",
+                newState: "2",
+                destroyed: [],
+                notDestroyed: Object.fromEntries(
+                  destroy.map((x) => [x, { type: "forbidden", description: "no" }]),
+                ),
+              },
+              id,
+            ];
+          for (const x of destroy) live.delete(x);
+          return [
+            name,
+            {
+              accountId: "a1",
+              oldState: "1",
+              newState: "2",
+              destroyed: destroy,
+              notDestroyed: {},
+            },
+            id,
+          ];
+        }
+        // Everything the store refreshes afterwards; shape fits get and query.
+        return [
+          name,
+          {
+            accountId: "a1",
+            state: "1",
+            list: [],
+            notFound: [],
+            ids: [],
+            total: 0,
+            queryState: "q",
+            position: 0,
+            canCalculateChanges: false,
+          },
+          id,
+        ];
+      },
+    ) as unknown as Call[];
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ methodResponses, sessionState: "1" }),
+    } as Response;
   });
   vi.stubGlobal("fetch", fetchMock);
   return { live, destroyBatches, fetchMock };
@@ -53,7 +121,10 @@ const messages = () => useToasts.getState().toasts.map((t) => t.message);
 
 beforeEach(() => {
   client.session = {
-    capabilities: { [CAP.core]: { maxObjectsInGet: MAX, maxObjectsInSet: MAX }, [CAP.mail]: {} },
+    capabilities: {
+      [CAP.core]: { maxObjectsInGet: MAX, maxObjectsInSet: MAX },
+      [CAP.mail]: {},
+    },
     accounts: {},
     primaryAccounts: {},
     state: "s1",
@@ -105,7 +176,9 @@ describe("emptyMailbox", () => {
     expect(messages()).toContain("Deleted 1200 messages");
     // Nothing was moved anywhere: every mutating call was a destroy.
     const sets = s.fetchMock.mock.calls.flatMap(([, init]) => {
-      const body = JSON.parse((init as RequestInit).body as string) as { methodCalls: [string, Record<string, unknown>, string][] };
+      const body = JSON.parse((init as RequestInit).body as string) as {
+        methodCalls: [string, Record<string, unknown>, string][];
+      };
       return body.methodCalls.filter(([n]) => n === "Email/set").map(([, a]) => a);
     });
     expect(sets.length).toBeGreaterThan(0);

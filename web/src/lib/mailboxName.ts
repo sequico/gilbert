@@ -1,5 +1,5 @@
-import { tc } from "@/lib/i18n";
 import type { Mailbox } from "@/jmap/types";
+import { tc } from "@/lib/i18n";
 
 /**
  * What to call a folder on screen.
@@ -46,7 +46,9 @@ const ROLE_NAMES: Record<string, () => string> = {
 };
 
 /** The folder's name as the reader should see it. */
-export function mailboxDisplayName(mailbox: { name: string; role?: string | null } | null | undefined): string {
+export function mailboxDisplayName(
+  mailbox: { name: string; role?: string | null } | null | undefined,
+): string {
   if (!mailbox) return "";
   const localised = mailbox.role ? ROLE_NAMES[mailbox.role] : undefined;
   return localised ? localised() : mailbox.name;
@@ -61,12 +63,17 @@ export function mailboxDisplayName(mailbox: { name: string; role?: string | null
  * they were only looking at. Renaming a role folder is refused anyway, but
  * relying on that would be relying on a rule enforced somewhere else.
  */
-export function isLocalisedName(mailbox: { role?: string | null } | null | undefined): boolean {
+export function isLocalisedName(
+  mailbox: { role?: string | null } | null | undefined,
+): boolean {
   return Boolean(mailbox?.role && mailbox.role in ROLE_NAMES);
 }
 
 /** A path of folder names, for a picker that shows where a folder sits. */
-export function mailboxDisplayPath(mailbox: Mailbox, all: Record<string, Mailbox>): string {
+export function mailboxDisplayPath(
+  mailbox: Mailbox,
+  all: Record<string, Mailbox>,
+): string {
   const parts: string[] = [];
   let cur: Mailbox | undefined = mailbox;
   const seen = new Set<string>();

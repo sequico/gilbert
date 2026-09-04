@@ -18,7 +18,11 @@
  * would be worse than one that shows the first occurrence and says so.
  */
 
-import type { JSCalendarEvent, JSCalendarParticipant, JSCalendarRecurrenceRule } from "@/jmap/types";
+import type {
+  JSCalendarEvent,
+  JSCalendarParticipant,
+  JSCalendarRecurrenceRule,
+} from "@/jmap/types";
 
 export interface IcsEvent {
   uid: string;
@@ -39,7 +43,8 @@ export interface IcsEvent {
 export function unfold(text: string): string[] {
   const out: string[] = [];
   for (const raw of text.split(/\r\n|\n|\r/)) {
-    if ((raw.startsWith(" ") || raw.startsWith("\t")) && out.length) out[out.length - 1] += raw.slice(1);
+    if ((raw.startsWith(" ") || raw.startsWith("\t")) && out.length)
+      out[out.length - 1] += raw.slice(1);
     else out.push(raw);
   }
   return out;
@@ -97,7 +102,9 @@ export function parseLine(line: string): Line | null {
 
 /** `\n`, `\,`, `\;` and `\\` are escapes in a TEXT value; nothing else is. */
 export function unescapeText(value: string): string {
-  return value.replace(/\\([nN,;\\])/g, (_, ch: string) => (ch === "n" || ch === "N" ? "\n" : ch));
+  return value.replace(/\\([nN,;\\])/g, (_, ch: string) =>
+    ch === "n" || ch === "N" ? "\n" : ch,
+  );
 }
 
 /**
@@ -116,7 +123,10 @@ export function unescapeText(value: string): string {
  *    reader's own zone, and wrong by the offset otherwise. That limit is
  *    stated rather than hidden.
  */
-export function parseDateValue(value: string, params: Record<string, string> = {}): { date: Date; allDay: boolean } | null {
+export function parseDateValue(
+  value: string,
+  params: Record<string, string> = {},
+): { date: Date; allDay: boolean } | null {
   const v = value.trim();
   const dateOnly = /^(\d{4})(\d{2})(\d{2})$/.exec(v);
   if (dateOnly || params.VALUE === "DATE") {
@@ -128,17 +138,40 @@ export function parseDateValue(value: string, params: Record<string, string> = {
   if (!m) return null;
   const [, y, mo, d, h, mi, se, z] = m;
   if (z) {
-    return { date: new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(se))), allDay: false };
+    return {
+      date: new Date(
+        Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(se)),
+      ),
+      allDay: false,
+    };
   }
-  return { date: new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(se)), allDay: false };
+  return {
+    date: new Date(
+      Number(y),
+      Number(mo) - 1,
+      Number(d),
+      Number(h),
+      Number(mi),
+      Number(se),
+    ),
+    allDay: false,
+  };
 }
 
 /** An RFC 5545 DURATION, as seconds. Only the forms a DTEND substitute uses. */
 export function parseIcsDuration(value: string): number | null {
-  const m = /^([+-])?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/.exec(value.trim());
+  const m =
+    /^([+-])?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/.exec(
+      value.trim(),
+    );
   if (!m) return null;
   const [, sign, w, d, h, mi, s] = m;
-  const total = (Number(w ?? 0) * 604800) + (Number(d ?? 0) * 86400) + (Number(h ?? 0) * 3600) + (Number(mi ?? 0) * 60) + Number(s ?? 0);
+  const total =
+    Number(w ?? 0) * 604800 +
+    Number(d ?? 0) * 86400 +
+    Number(h ?? 0) * 3600 +
+    Number(mi ?? 0) * 60 +
+    Number(s ?? 0);
   return sign === "-" ? -total : total;
 }
 
@@ -167,7 +200,9 @@ export function parseIcs(text: string): ParseResult {
   let name: string | null = null;
   let recurringCount = 0;
 
-  let current: Partial<IcsEvent> & { dtend?: Date; duration?: number; endAllDay?: boolean } | null = null;
+  let current:
+    | (Partial<IcsEvent> & { dtend?: Date; duration?: number; endAllDay?: boolean })
+    | null = null;
   /** Depth of any component that is not a VEVENT, so its properties are ignored. */
   let skipping = 0;
 
@@ -245,16 +280,21 @@ export function parseIcs(text: string): ParseResult {
   return { events, name, recurringCount };
 }
 
-function finish(e: Partial<IcsEvent> & { dtend?: Date; duration?: number }): IcsEvent | null {
+function finish(
+  e: Partial<IcsEvent> & { dtend?: Date; duration?: number },
+): IcsEvent | null {
   if (!e.start || Number.isNaN(e.start.getTime())) return null;
   const allDay = Boolean(e.allDay);
   let end: Date;
   if (e.dtend && !Number.isNaN(e.dtend.getTime())) end = e.dtend;
-  else if (typeof e.duration === "number") end = new Date(e.start.getTime() + e.duration * 1000);
+  else if (typeof e.duration === "number")
+    end = new Date(e.start.getTime() + e.duration * 1000);
   // No end and no duration: a date is the whole day, an instant is a moment.
-  else end = allDay ? new Date(e.start.getTime() + 86400_000) : new Date(e.start.getTime());
+  else
+    end = allDay ? new Date(e.start.getTime() + 86400_000) : new Date(e.start.getTime());
   // An end at or before the start is a document being wrong about itself.
-  if (end.getTime() < e.start.getTime()) end = new Date(e.start.getTime() + (allDay ? 86400_000 : 0));
+  if (end.getTime() < e.start.getTime())
+    end = new Date(e.start.getTime() + (allDay ? 86400_000 : 0));
   return {
     uid: e.uid || `${e.start.getTime()}-${e.summary ?? ""}`,
     summary: e.summary || "(untitled)",
@@ -290,12 +330,18 @@ function finish(e: Partial<IcsEvent> & { dtend?: Date; duration?: number }): Ics
  *   in ihasmail sets them.
  */
 export function toIcs(events: JSCalendarEvent[], calendarName?: string): string {
-  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//ihasmail//EN", "CALSCALE:GREGORIAN"];
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//ihasmail//EN",
+    "CALSCALE:GREGORIAN",
+  ];
   if (calendarName) lines.push(`X-WR-CALNAME:${escText(calendarName)}`);
-  for (const zone of zonesUsed(events)) lines.push(...vtimezone(zone, ...windowFor(events)));
+  for (const zone of zonesUsed(events))
+    lines.push(...vtimezone(zone, ...windowFor(events)));
   for (const e of events) lines.push(...vevent(e));
   lines.push("END:VCALENDAR");
-  return lines.map(foldLine).join("\r\n") + "\r\n";
+  return `${lines.map(foldLine).join("\r\n")}\r\n`;
 }
 
 /** Every named zone the events refer to; UTC needs no definition. */
@@ -319,7 +365,9 @@ function zonesUsed(events: JSCalendarEvent[]): string[] {
  * meeting for as long as anyone plans around one.
  */
 function windowFor(events: JSCalendarEvent[]): [number, number] {
-  const years = events.map((e) => Number(e.start.slice(0, 4))).filter((y) => Number.isFinite(y) && y > 1000);
+  const years = events
+    .map((e) => Number(e.start.slice(0, 4)))
+    .filter((y) => Number.isFinite(y) && y > 1000);
   const now = new Date().getUTCFullYear();
   const first = years.length ? Math.min(...years) : now;
   const last = Math.max(now, years.length ? Math.max(...years) : now);
@@ -328,7 +376,11 @@ function windowFor(events: JSCalendarEvent[]): [number, number] {
 
 /** RFC 5545 escaping. A comma and a semicolon separate values, so both go. */
 function escText(s: string): string {
-  return s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+  return s
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\r?\n/g, "\\n");
 }
 
 /** 75 octets is the limit; a continuation begins with one space. */
@@ -361,26 +413,47 @@ function utcStamp(iso: string): string {
  * means "whatever clock the reader is on", UTC carries the Z, and everything
  * else names an IANA zone in TZID.
  */
-function dateProp(name: string, local: string, timeZone: string | null | undefined, allDay: boolean): string {
+function dateProp(
+  name: string,
+  local: string,
+  timeZone: string | null | undefined,
+  allDay: boolean,
+): string {
   if (allDay) return `${name};VALUE=DATE:${stamp(local, true)}`;
   if (!timeZone) return `${name}:${stamp(local)}`;
   if (timeZone === "Etc/UTC" || timeZone === "UTC") return `${name}:${stamp(local)}Z`;
   return `${name};TZID=${timeZone}:${stamp(local)}`;
 }
 
-const STATUS: Record<string, string> = { confirmed: "CONFIRMED", cancelled: "CANCELLED", tentative: "TENTATIVE" };
-const CLASS: Record<string, string> = { public: "PUBLIC", private: "PRIVATE", secret: "CONFIDENTIAL" };
+const STATUS: Record<string, string> = {
+  confirmed: "CONFIRMED",
+  cancelled: "CANCELLED",
+  tentative: "TENTATIVE",
+};
+const CLASS: Record<string, string> = {
+  public: "PUBLIC",
+  private: "PRIVATE",
+  secret: "CONFIDENTIAL",
+};
 const PARTSTAT: Record<string, string> = {
-  "needs-action": "NEEDS-ACTION", accepted: "ACCEPTED", declined: "DECLINED",
-  tentative: "TENTATIVE", delegated: "DELEGATED",
+  "needs-action": "NEEDS-ACTION",
+  accepted: "ACCEPTED",
+  declined: "DECLINED",
+  tentative: "TENTATIVE",
+  delegated: "DELEGATED",
 };
 
 /** A participant's address, wherever this server keeps it. */
 function participantAddress(p: JSCalendarParticipant): string | null {
-  return p.calendarAddress ?? p.sendTo?.imip ?? (p.email ? `mailto:${p.email}` : null) ?? null;
+  return (
+    p.calendarAddress ?? p.sendTo?.imip ?? (p.email ? `mailto:${p.email}` : null) ?? null
+  );
 }
 
-function vevent(e: JSCalendarEvent, recurrenceId?: { local: string; timeZone: string | null | undefined; allDay: boolean }): string[] {
+function vevent(
+  e: JSCalendarEvent,
+  recurrenceId?: { local: string; timeZone: string | null | undefined; allDay: boolean },
+): string[] {
   const allDay = Boolean(e.showWithoutTime);
   const tz = allDay ? null : e.timeZone;
   const out = ["BEGIN:VEVENT", `UID:${e.uid}`];
@@ -392,25 +465,43 @@ function vevent(e: JSCalendarEvent, recurrenceId?: { local: string; timeZone: st
   /* DURATION rather than DTEND, because that is what JSCalendar holds and
      converting would mean doing the zone arithmetic here to no purpose. */
   if (e.duration && e.duration !== "PT0S") out.push(`DURATION:${e.duration}`);
-  if (recurrenceId) out.push(dateProp("RECURRENCE-ID", recurrenceId.local, recurrenceId.timeZone, recurrenceId.allDay));
+  if (recurrenceId)
+    out.push(
+      dateProp(
+        "RECURRENCE-ID",
+        recurrenceId.local,
+        recurrenceId.timeZone,
+        recurrenceId.allDay,
+      ),
+    );
 
   if (e.title) out.push(`SUMMARY:${escText(e.title)}`);
   if (e.description) out.push(`DESCRIPTION:${escText(e.description)}`);
-  const location = Object.values(e.locations ?? {}).map((l) => l.name).filter(Boolean)[0];
+  const location = Object.values(e.locations ?? {})
+    .map((l) => l.name)
+    .filter(Boolean)[0];
   if (location) out.push(`LOCATION:${escText(location)}`);
   /* A virtual location is a URL and belongs in URL, not LOCATION: putting a
      video link where a room name goes is what makes an agenda unreadable. */
-  const virtual = Object.values(e.virtualLocations ?? {}).map((v) => v.uri).filter(Boolean)[0];
-  const link = Object.values(e.links ?? {}).map((l) => l.href).filter(Boolean)[0];
+  const virtual = Object.values(e.virtualLocations ?? {})
+    .map((v) => v.uri)
+    .filter(Boolean)[0];
+  const link = Object.values(e.links ?? {})
+    .map((l) => l.href)
+    .filter(Boolean)[0];
   if (virtual ?? link) out.push(`URL:${virtual ?? link}`);
 
-  const categories = [...Object.keys(e.keywords ?? {}), ...Object.keys(e.categories ?? {})];
+  const categories = [
+    ...Object.keys(e.keywords ?? {}),
+    ...Object.keys(e.categories ?? {}),
+  ];
   if (categories.length) out.push(`CATEGORIES:${categories.map(escText).join(",")}`);
   if (e.status && STATUS[e.status]) out.push(`STATUS:${STATUS[e.status]}`);
   if (e.privacy && CLASS[e.privacy]) out.push(`CLASS:${CLASS[e.privacy]}`);
   /* TRANSP is about whether the time is busy, which is the same question
      freeBusyStatus answers and the opposite word for it. */
-  if (e.freeBusyStatus) out.push(`TRANSP:${e.freeBusyStatus === "free" ? "TRANSPARENT" : "OPAQUE"}`);
+  if (e.freeBusyStatus)
+    out.push(`TRANSP:${e.freeBusyStatus === "free" ? "TRANSPARENT" : "OPAQUE"}`);
   if (e.priority != null) out.push(`PRIORITY:${e.priority}`);
   if (e.sequence != null) out.push(`SEQUENCE:${e.sequence}`);
   if (e.created) out.push(`CREATED:${utcStamp(e.created)}`);
@@ -424,7 +515,9 @@ function vevent(e: JSCalendarEvent, recurrenceId?: { local: string; timeZone: st
     if (!address) continue;
     const params = [
       p.name ? `CN=${escText(p.name)}` : "",
-      p.participationStatus && PARTSTAT[p.participationStatus] ? `PARTSTAT=${PARTSTAT[p.participationStatus]}` : "",
+      p.participationStatus && PARTSTAT[p.participationStatus]
+        ? `PARTSTAT=${PARTSTAT[p.participationStatus]}`
+        : "",
       p.roles?.chair ? "ROLE=CHAIR" : p.roles?.optional ? "ROLE=OPT-PARTICIPANT" : "",
       p.expectReply ? "RSVP=TRUE" : "",
     ].filter(Boolean);
@@ -433,21 +526,27 @@ function vevent(e: JSCalendarEvent, recurrenceId?: { local: string; timeZone: st
 
   /* Stalwart 0.16 names a single rule `recurrenceRule`; RFC 8984 says
      `recurrenceRules`. Both are read, because both turn up. */
-  for (const rule of [...(e.recurrenceRules ?? []), ...(e.recurrenceRule ? [e.recurrenceRule] : [])]) {
+  for (const rule of [
+    ...(e.recurrenceRules ?? []),
+    ...(e.recurrenceRule ? [e.recurrenceRule] : []),
+  ]) {
     out.push(`RRULE:${rrule(rule, allDay)}`);
   }
   const excluded: string[] = [];
   const modified: Array<[string, Record<string, unknown>]> = [];
   for (const [when, patch] of Object.entries(e.recurrenceOverrides ?? {})) {
-    if (patch === null || (patch as Record<string, unknown>).excluded === true) excluded.push(when);
+    if (patch === null || (patch as Record<string, unknown>).excluded === true)
+      excluded.push(when);
     else modified.push([when, patch as Record<string, unknown>]);
   }
   if (excluded.length) {
-    out.push(allDay
-      ? `EXDATE;VALUE=DATE:${excluded.map((d) => stamp(d, true)).join(",")}`
-      : tz
-        ? `EXDATE;TZID=${tz}:${excluded.map((d) => stamp(d)).join(",")}`
-        : `EXDATE:${excluded.map((d) => stamp(d)).join(",")}`);
+    out.push(
+      allDay
+        ? `EXDATE;VALUE=DATE:${excluded.map((d) => stamp(d, true)).join(",")}`
+        : tz
+          ? `EXDATE;TZID=${tz}:${excluded.map((d) => stamp(d)).join(",")}`
+          : `EXDATE:${excluded.map((d) => stamp(d)).join(",")}`,
+    );
   }
   /*
    * An alarm is a component, not a property, so it nests inside the event. Only
@@ -456,10 +555,17 @@ function vevent(e: JSCalendarEvent, recurrenceId?: { local: string; timeZone: st
    * is this reader's business, not the file's.
    */
   for (const a of Object.values(e.alerts ?? {})) {
-    const trigger = "offset" in a.trigger
-      ? `TRIGGER${a.trigger.relativeTo === "end" ? ";RELATED=END" : ""}:${a.trigger.offset}`
-      : `TRIGGER;VALUE=DATE-TIME:${utcStamp(a.trigger.when)}`;
-    out.push("BEGIN:VALARM", trigger, `ACTION:${a.action === "email" ? "EMAIL" : "DISPLAY"}`, `DESCRIPTION:${escText(e.title ?? "")}`, "END:VALARM");
+    const trigger =
+      "offset" in a.trigger
+        ? `TRIGGER${a.trigger.relativeTo === "end" ? ";RELATED=END" : ""}:${a.trigger.offset}`
+        : `TRIGGER;VALUE=DATE-TIME:${utcStamp(a.trigger.when)}`;
+    out.push(
+      "BEGIN:VALARM",
+      trigger,
+      `ACTION:${a.action === "email" ? "EMAIL" : "DISPLAY"}`,
+      `DESCRIPTION:${escText(e.title ?? "")}`,
+      "END:VALARM",
+    );
   }
   out.push("END:VEVENT");
 
@@ -477,10 +583,23 @@ function vevent(e: JSCalendarEvent, recurrenceId?: { local: string; timeZone: st
 }
 
 const FREQ: Record<string, string> = {
-  yearly: "YEARLY", monthly: "MONTHLY", weekly: "WEEKLY", daily: "DAILY",
-  hourly: "HOURLY", minutely: "MINUTELY", secondly: "SECONDLY",
+  yearly: "YEARLY",
+  monthly: "MONTHLY",
+  weekly: "WEEKLY",
+  daily: "DAILY",
+  hourly: "HOURLY",
+  minutely: "MINUTELY",
+  secondly: "SECONDLY",
 };
-const DAYS: Record<string, string> = { mo: "MO", tu: "TU", we: "WE", th: "TH", fr: "FR", sa: "SA", su: "SU" };
+const DAYS: Record<string, string> = {
+  mo: "MO",
+  tu: "TU",
+  we: "WE",
+  th: "TH",
+  fr: "FR",
+  sa: "SA",
+  su: "SU",
+};
 
 function rrule(r: JSCalendarRecurrenceRule, allDay: boolean): string {
   const parts = [`FREQ=${FREQ[r.frequency] ?? r.frequency.toUpperCase()}`];
@@ -489,8 +608,12 @@ function rrule(r: JSCalendarRecurrenceRule, allDay: boolean): string {
   /* UNTIL has to match DTSTART's kind: a date for an all-day series, and a UTC
      instant otherwise. Sending a local time here is the classic way to make a
      series stop on the wrong day in another zone. */
-  if (r.until) parts.push(`UNTIL=${allDay ? stamp(r.until, true) : `${stamp(r.until)}Z`}`);
-  if (r.byDay?.length) parts.push(`BYDAY=${r.byDay.map((d) => `${d.nthOfPeriod ?? ""}${DAYS[d.day] ?? d.day.toUpperCase()}`).join(",")}`);
+  if (r.until)
+    parts.push(`UNTIL=${allDay ? stamp(r.until, true) : `${stamp(r.until)}Z`}`);
+  if (r.byDay?.length)
+    parts.push(
+      `BYDAY=${r.byDay.map((d) => `${d.nthOfPeriod ?? ""}${DAYS[d.day] ?? d.day.toUpperCase()}`).join(",")}`,
+    );
   if (r.byMonthDay?.length) parts.push(`BYMONTHDAY=${r.byMonthDay.join(",")}`);
   if (r.byMonth?.length) parts.push(`BYMONTH=${r.byMonth.join(",")}`);
   if (r.byYearDay?.length) parts.push(`BYYEARDAY=${r.byYearDay.join(",")}`);
@@ -499,7 +622,8 @@ function rrule(r: JSCalendarRecurrenceRule, allDay: boolean): string {
   if (r.byMinute?.length) parts.push(`BYMINUTE=${r.byMinute.join(",")}`);
   if (r.bySecond?.length) parts.push(`BYSECOND=${r.bySecond.join(",")}`);
   if (r.bySetPosition?.length) parts.push(`BYSETPOS=${r.bySetPosition.join(",")}`);
-  if (r.firstDayOfWeek) parts.push(`WKST=${DAYS[r.firstDayOfWeek] ?? r.firstDayOfWeek.toUpperCase()}`);
+  if (r.firstDayOfWeek)
+    parts.push(`WKST=${DAYS[r.firstDayOfWeek] ?? r.firstDayOfWeek.toUpperCase()}`);
   return parts.join(";");
 }
 
@@ -569,23 +693,30 @@ export function vtimezone(tzid: string, fromYear: number, toYear: number): strin
   if (!transitions.length) {
     /* A zone that does not change -- Phoenix, Tokyo, UTC+X -- is one standing
        rule, and RFC 5545 still wants a sub-component to hang it on. */
-    out.push("BEGIN:STANDARD", `DTSTART:${localStamp(new Date(start), firstOffset)}`,
-      `TZOFFSETFROM:${offsetText(firstOffset)}`, `TZOFFSETTO:${offsetText(firstOffset)}`,
-      ...tzNameLine(tzid, new Date(start)), "END:STANDARD");
+    out.push(
+      "BEGIN:STANDARD",
+      `DTSTART:${localStamp(new Date(start), firstOffset)}`,
+      `TZOFFSETFROM:${offsetText(firstOffset)}`,
+      `TZOFFSETTO:${offsetText(firstOffset)}`,
+      ...tzNameLine(tzid, new Date(start)),
+      "END:STANDARD",
+    );
   } else {
     for (const tr of transitions) {
       /* Daylight is the side with the larger offset from UTC; the names are
          only labels, but a reader that shows them should not show them
          backwards. */
       const kind = tr.to > tr.from ? "DAYLIGHT" : "STANDARD";
-      out.push(`BEGIN:${kind}`,
+      out.push(
+        `BEGIN:${kind}`,
         /* DTSTART is local time read in the *old* offset, which is what
            TZOFFSETFROM is there to say. */
         `DTSTART:${localStamp(new Date(tr.at), tr.from)}`,
         `TZOFFSETFROM:${offsetText(tr.from)}`,
         `TZOFFSETTO:${offsetText(tr.to)}`,
         ...tzNameLine(tzid, new Date(tr.at + 60_000)),
-        `END:${kind}`);
+        `END:${kind}`,
+      );
     }
   }
   out.push("END:VTIMEZONE");
@@ -602,16 +733,28 @@ export function vtimezone(tzid: string, fromYear: number, toYear: number): strin
  */
 function offsetFinder(tzid: string): (d: Date) => number {
   const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone: tzid, hourCycle: "h23",
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    timeZone: tzid,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
   });
   // Throws RangeError here, on construction, if the zone is not known.
   dtf.format(new Date());
   return (d: Date) => {
     const p: Record<string, string> = {};
     for (const part of dtf.formatToParts(d)) p[part.type] = part.value;
-    const asUTC = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), Number(p.hour) % 24, Number(p.minute), Number(p.second));
+    const asUTC = Date.UTC(
+      Number(p.year),
+      Number(p.month) - 1,
+      Number(p.day),
+      Number(p.hour) % 24,
+      Number(p.minute),
+      Number(p.second),
+    );
     return Math.round((asUTC - d.getTime()) / 60_000);
   };
 }
@@ -625,8 +768,14 @@ function tzNameLine(tzid: string, at: Date): string[] {
 /** The zone's short label at an instant -- "MST", "CEST" -- or "" if it has none. */
 function zoneName(tzid: string, at: Date): string {
   try {
-    const parts = new Intl.DateTimeFormat("en-US", { timeZone: tzid, timeZoneName: "short" }).formatToParts(at);
-    const name = parts.find((p) => p.type === "timeZoneName")?.value.replace(/[^A-Za-z0-9+-]/g, "") ?? "";
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tzid,
+      timeZoneName: "short",
+    }).formatToParts(at);
+    const name =
+      parts
+        .find((p) => p.type === "timeZoneName")
+        ?.value.replace(/[^A-Za-z0-9+-]/g, "") ?? "";
     /* Where a zone has no abbreviation in common use, `Intl` answers "GMT+9",
        which repeats the offset beside it and reads as a mistake. */
     return /^(GMT|UTC)[+-]?/.test(name) ? "" : name;

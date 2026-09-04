@@ -1,5 +1,12 @@
-import type { Id, Invocation, JmapResponse, JmapSession, MethodError, UploadResponse } from "./types";
 import { withBase } from "@/lib/basePath";
+import type {
+  Id,
+  Invocation,
+  JmapResponse,
+  JmapSession,
+  MethodError,
+  UploadResponse,
+} from "./types";
 
 export const CAP = {
   core: "urn:ietf:params:jmap:core",
@@ -24,7 +31,9 @@ export class JmapMethodError extends Error {
     public readonly method: string,
     public readonly error: MethodError,
   ) {
-    super(`${method}: ${error.type}${error.description ? ` - ${error.description}` : ""}`);
+    super(
+      `${method}: ${error.type}${error.description ? ` - ${error.description}` : ""}`,
+    );
     this.name = "JmapMethodError";
   }
   get type() {
@@ -61,7 +70,11 @@ interface Pending {
 
 export type ResultRef = { resultOf: string; name: string; path: string };
 
-const HEADERS = { "content-type": "application/json", accept: "application/json", "x-requested-with": "ihasmail" };
+const HEADERS = {
+  "content-type": "application/json",
+  accept: "application/json",
+  "x-requested-with": "ihasmail",
+};
 
 /**
  * Generic fetch against our same-origin API with CSRF header + auth handling.
@@ -71,7 +84,10 @@ const HEADERS = { "content-type": "application/json", accept: "application/json"
  * the `startsWith` below keeps working on the path as written rather than on
  * whatever the deployment happens to be called.
  */
-export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
+export async function apiFetch<T = unknown>(
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
   const res = await fetch(withBase(path), {
     ...init,
     headers: { ...HEADERS, ...(init.headers as Record<string, string> | undefined) },
@@ -79,7 +95,11 @@ export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}
   });
   if (res.status === 401 && !path.startsWith("/api/auth/login")) {
     client.handleUnauthenticated();
-    throw new ApiError(401, "unauthenticated", "Your session has expired. Please sign in again.");
+    throw new ApiError(
+      401,
+      "unauthenticated",
+      "Your session has expired. Please sign in again.",
+    );
   }
   if (!res.ok) {
     let body: ApiErrorBody = {};
@@ -88,7 +108,11 @@ export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}
     } catch {
       /* ignore */
     }
-    throw new ApiError(res.status, body.error ?? body.type ?? "error", body.message ?? body.detail ?? body.title ?? res.statusText);
+    throw new ApiError(
+      res.status,
+      body.error ?? body.type ?? "error",
+      body.message ?? body.detail ?? body.title ?? res.statusText,
+    );
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -103,22 +127,30 @@ export class JmapClient {
   private stateHandlers = new Set<(sessionState: string) => void>();
 
   get maxCallsInRequest(): number {
-    const core = this.session?.capabilities[CAP.core] as { maxCallsInRequest?: number } | undefined;
+    const core = this.session?.capabilities[CAP.core] as
+      | { maxCallsInRequest?: number }
+      | undefined;
     return core?.maxCallsInRequest ?? 16;
   }
 
   get maxObjectsInGet(): number {
-    const core = this.session?.capabilities[CAP.core] as { maxObjectsInGet?: number } | undefined;
+    const core = this.session?.capabilities[CAP.core] as
+      | { maxObjectsInGet?: number }
+      | undefined;
     return core?.maxObjectsInGet ?? 500;
   }
 
   get maxObjectsInSet(): number {
-    const core = this.session?.capabilities[CAP.core] as { maxObjectsInSet?: number } | undefined;
+    const core = this.session?.capabilities[CAP.core] as
+      | { maxObjectsInSet?: number }
+      | undefined;
     return core?.maxObjectsInSet ?? 500;
   }
 
   get maxSizeUpload(): number {
-    const core = this.session?.capabilities[CAP.core] as { maxSizeUpload?: number } | undefined;
+    const core = this.session?.capabilities[CAP.core] as
+      | { maxSizeUpload?: number }
+      | undefined;
     return core?.maxSizeUpload ?? 50_000_000;
   }
 
@@ -142,7 +174,9 @@ export class JmapClient {
   hasCapabilityAnywhere(cap: string): boolean {
     if (this.hasCapability(cap)) return true;
     if (this.session?.primaryAccounts && cap in this.session.primaryAccounts) return true;
-    return Object.values(this.session?.accounts ?? {}).some((a) => cap in (a.accountCapabilities ?? {}));
+    return Object.values(this.session?.accounts ?? {}).some(
+      (a) => cap in (a.accountCapabilities ?? {}),
+    );
   }
 
   /**
@@ -177,7 +211,11 @@ export class JmapClient {
    * Queue a single method call; calls made within the same tick are batched
    * into one HTTP request (up to maxCallsInRequest).
    */
-  call<T = Record<string, unknown>>(method: string, args: Record<string, unknown>, using: string[] = []): Promise<T> {
+  call<T = Record<string, unknown>>(
+    method: string,
+    args: Record<string, unknown>,
+    using: string[] = [],
+  ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       this.pending.push({
         method,
@@ -221,10 +259,16 @@ export class JmapClient {
         const responses = byId.get(calls[idx]![2]);
         const first = responses?.[0];
         if (!first) {
-          p.reject(new JmapMethodError(p.method, { type: "serverFail", description: "No response for call" }));
+          p.reject(
+            new JmapMethodError(p.method, {
+              type: "serverFail",
+              description: "No response for call",
+            }),
+          );
           return;
         }
-        if (first[0] === "error") p.reject(new JmapMethodError(p.method, first[1] as MethodError));
+        if (first[0] === "error")
+          p.reject(new JmapMethodError(p.method, first[1] as MethodError));
         else p.resolve(first[1]);
       });
     } catch (err) {
@@ -248,10 +292,20 @@ export class JmapClient {
   }
 
   /** Low-level request: send invocations verbatim, return raw response. */
-  async request(methodCalls: Invocation[], using: string[] = [CAP.core, CAP.mail], createdIds?: Record<string, Id>): Promise<JmapResponse> {
-    const body: Record<string, unknown> = { using: this.supportedUsing(using), methodCalls };
+  async request(
+    methodCalls: Invocation[],
+    using: string[] = [CAP.core, CAP.mail],
+    createdIds?: Record<string, Id>,
+  ): Promise<JmapResponse> {
+    const body: Record<string, unknown> = {
+      using: this.supportedUsing(using),
+      methodCalls,
+    };
     if (createdIds) body.createdIds = createdIds;
-    const res = await apiFetch<JmapResponse>("/api/jmap", { method: "POST", body: JSON.stringify(body) });
+    const res = await apiFetch<JmapResponse>("/api/jmap", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
     if (res.sessionState && this.session && res.sessionState !== this.session.state) {
       for (const fn of this.stateHandlers) fn(res.sessionState);
     }
@@ -287,9 +341,17 @@ export class JmapClient {
     return withBase(`/api/upload/${encodeURIComponent(accountId)}`);
   }
 
-  downloadUrl(accountId: Id, blobId: Id, name: string, type: string, inline = false): string {
+  downloadUrl(
+    accountId: Id,
+    blobId: Id,
+    name: string,
+    type: string,
+    inline = false,
+  ): string {
     const safeName = (name || "attachment").replace(/[/\\?#%]/g, "_");
-    const u = withBase(`/api/blob/${encodeURIComponent(accountId)}/${encodeURIComponent(blobId)}/${encodeURIComponent(safeName)}?accept=${encodeURIComponent(type || "application/octet-stream")}`);
+    const u = withBase(
+      `/api/blob/${encodeURIComponent(accountId)}/${encodeURIComponent(blobId)}/${encodeURIComponent(safeName)}?accept=${encodeURIComponent(type || "application/octet-stream")}`,
+    );
     return inline ? `${u}&inline=1` : u;
   }
 
@@ -297,12 +359,19 @@ export class JmapClient {
   upload(
     accountId: Id,
     data: Blob,
-    opts: { type?: string; onProgress?: (loaded: number, total: number) => void; signal?: AbortSignal } = {},
+    opts: {
+      type?: string;
+      onProgress?: (loaded: number, total: number) => void;
+      signal?: AbortSignal;
+    } = {},
   ): Promise<UploadResponse> {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open("POST", this.uploadUrl(accountId));
-      xhr.setRequestHeader("content-type", opts.type || data.type || "application/octet-stream");
+      xhr.setRequestHeader(
+        "content-type",
+        opts.type || data.type || "application/octet-stream",
+      );
       xhr.setRequestHeader("x-requested-with", "ihasmail");
       xhr.responseType = "json";
       xhr.upload.onprogress = (e) => {
@@ -314,10 +383,19 @@ export class JmapClient {
           reject(new ApiError(401, "unauthenticated"));
           return;
         }
-        if (xhr.status >= 200 && xhr.status < 300 && xhr.response) resolve(xhr.response as UploadResponse);
-        else reject(new ApiError(xhr.status, (xhr.response as ApiErrorBody)?.error ?? "upload_failed", (xhr.response as ApiErrorBody)?.message ?? "Upload failed"));
+        if (xhr.status >= 200 && xhr.status < 300 && xhr.response)
+          resolve(xhr.response as UploadResponse);
+        else
+          reject(
+            new ApiError(
+              xhr.status,
+              (xhr.response as ApiErrorBody)?.error ?? "upload_failed",
+              (xhr.response as ApiErrorBody)?.message ?? "Upload failed",
+            ),
+          );
       };
-      xhr.onerror = () => reject(new ApiError(0, "network_error", "Network error during upload"));
+      xhr.onerror = () =>
+        reject(new ApiError(0, "network_error", "Network error during upload"));
       xhr.onabort = () => reject(new ApiError(0, "aborted", "Upload cancelled"));
       opts.signal?.addEventListener("abort", () => xhr.abort());
       xhr.send(data);
@@ -326,7 +404,9 @@ export class JmapClient {
 
   /** Fetch a blob's content as text (via the download proxy). */
   async fetchBlobText(accountId: Id, blobId: Id, type = "text/plain"): Promise<string> {
-    const res = await fetch(this.downloadUrl(accountId, blobId, "blob.txt", type), { credentials: "same-origin" });
+    const res = await fetch(this.downloadUrl(accountId, blobId, "blob.txt", type), {
+      credentials: "same-origin",
+    });
     if (res.status === 401) {
       this.handleUnauthenticated();
       throw new ApiError(401, "unauthenticated");
@@ -335,8 +415,14 @@ export class JmapClient {
     return await res.text();
   }
 
-  async fetchBlob(accountId: Id, blobId: Id, type = "application/octet-stream"): Promise<Blob> {
-    const res = await fetch(this.downloadUrl(accountId, blobId, "blob", type), { credentials: "same-origin" });
+  async fetchBlob(
+    accountId: Id,
+    blobId: Id,
+    type = "application/octet-stream",
+  ): Promise<Blob> {
+    const res = await fetch(this.downloadUrl(accountId, blobId, "blob", type), {
+      credentials: "same-origin",
+    });
     if (res.status === 401) {
       this.handleUnauthenticated();
       throw new ApiError(401, "unauthenticated");
@@ -411,7 +497,9 @@ export function chunk<T>(arr: T[], size: number): T[][] {
  * answer to "why was this rejected" — Stalwart's description alone is often
  * just "Invalid property or value." Keep both.
  */
-export function setErrorMessage(err: { type: string; description?: string; properties?: string[] } | null | undefined): string {
+export function setErrorMessage(
+  err: { type: string; description?: string; properties?: string[] } | null | undefined,
+): string {
   if (!err) return "Unknown error";
   const base = err.description ?? err.type;
   const props = err.properties?.length ? ` (${err.properties.join(", ")})` : "";

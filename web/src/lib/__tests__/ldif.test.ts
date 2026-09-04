@@ -28,7 +28,11 @@ describe("parseLdif", () => {
     const [r] = parseLdif(SOGO);
     expect(r!.dn).toBe("cn=Jane Doe");
     expect(r!.attrs.cn).toEqual(["Jane Doe"]);
-    expect(r!.attrs.objectclass).toEqual(["top", "inetOrgPerson", "mozillaAbPersonAlpha"]);
+    expect(r!.attrs.objectclass).toEqual([
+      "top",
+      "inetOrgPerson",
+      "mozillaAbPersonAlpha",
+    ]);
     expect(r!.attrs.mail).toEqual(["jane.doe@example.com"]);
   });
 
@@ -80,7 +84,9 @@ describe("parseLdif", () => {
   });
 
   it("ignores comments and the version header", () => {
-    const rs = parseLdif("version: 1\n# exported by something\n# a comment\n  that folds\n\ndn: cn=X\ncn: X\n");
+    const rs = parseLdif(
+      "version: 1\n# exported by something\n# a comment\n  that folds\n\ndn: cn=X\ncn: X\n",
+    );
     expect(rs).toHaveLength(1);
     expect(rs[0]!.attrs.version).toBeUndefined();
   });

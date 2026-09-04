@@ -1,5 +1,5 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import { holdUntilOf, undoStatusOf } from "./futurerelease.js";
 
 const NOW = Date.parse("2026-08-24T12:00:00Z");
@@ -19,7 +19,10 @@ describe("FUTURERELEASE parameters", () => {
   });
 
   it("matches the parameter name whatever its case, as an SMTP parser does", () => {
-    assert.equal(holdUntilOf(envelope({ holduntil: "2026-11-20T05:00:00Z" }), NOW), Date.parse("2026-11-20T05:00:00Z"));
+    assert.equal(
+      holdUntilOf(envelope({ holduntil: "2026-11-20T05:00:00Z" }), NOW),
+      Date.parse("2026-11-20T05:00:00Z"),
+    );
   });
 
   it("means send now when neither parameter is present", () => {
@@ -29,7 +32,11 @@ describe("FUTURERELEASE parameters", () => {
   });
 
   it("refuses both parameters at once, as Stalwart does with a 501", () => {
-    assert.ok(Number.isNaN(holdUntilOf(envelope({ HOLDUNTIL: "2026-11-20T05:00:00Z", HOLDFOR: "600" }), NOW)));
+    assert.ok(
+      Number.isNaN(
+        holdUntilOf(envelope({ HOLDUNTIL: "2026-11-20T05:00:00Z", HOLDFOR: "600" }), NOW),
+      ),
+    );
   });
 
   it("refuses values that will not parse", () => {
@@ -47,7 +54,10 @@ describe("FUTURERELEASE parameters", () => {
 });
 
 describe("undoStatus", () => {
-  const sub = (sendAt: string, undoStatus: string | null = null) => ({ sendAt, undoStatus });
+  const sub = (sendAt: string, undoStatus: string | null = null) => ({
+    sendAt,
+    undoStatus,
+  });
 
   it("is pending while the release time is still ahead", () => {
     assert.equal(undoStatusOf(sub("2026-11-20T05:00:00Z"), NOW), "pending");

@@ -9,16 +9,37 @@ import { useMail } from "@/store/mail";
  */
 function draft(over: Partial<Draft> = {}): Draft {
   return {
-    key: "k", draftId: null, identityId: "i1",
+    key: "k",
+    draftId: null,
+    identityId: "i1",
     to: [{ name: null, email: "ann@example.com" }],
-    cc: [], bcc: [], replyTo: [],
-    subject: "Hello", html: "", text: "Hi there", format: "text",
-    attachments: [], inReplyTo: null, references: null,
-    relatedEmailId: null, relatedKeyword: null,
-    requestReceipt: false, priority: "normal",
-    showCc: false, showBcc: false, showReplyTo: false,
-    minimized: false, maximized: false, dirty: false, savedAt: null,
-    saving: false, sending: false, error: null, signatureHtml: "", replyMode: null, sendAt: null,
+    cc: [],
+    bcc: [],
+    replyTo: [],
+    subject: "Hello",
+    html: "",
+    text: "Hi there",
+    format: "text",
+    attachments: [],
+    inReplyTo: null,
+    references: null,
+    relatedEmailId: null,
+    relatedKeyword: null,
+    requestReceipt: false,
+    priority: "normal",
+    showCc: false,
+    showBcc: false,
+    showReplyTo: false,
+    minimized: false,
+    maximized: false,
+    dirty: false,
+    savedAt: null,
+    saving: false,
+    sending: false,
+    error: null,
+    signatureHtml: "",
+    replyMode: null,
+    sendAt: null,
     ...over,
   };
 }
@@ -26,8 +47,13 @@ function draft(over: Partial<Draft> = {}): Draft {
 beforeEach(() => {
   useMail.setState({
     accountId: "a1",
-    identities: [{ id: "i1", name: "John", email: "john@example.org", replyTo: null }] as never,
-    mailboxes: { mb1: { id: "mb1", role: "sent", name: "Sent" }, mb2: { id: "mb2", role: "drafts", name: "Drafts" } } as never,
+    identities: [
+      { id: "i1", name: "John", email: "john@example.org", replyTo: null },
+    ] as never,
+    mailboxes: {
+      mb1: { id: "mb1", role: "sent", name: "Sent" },
+      mb2: { id: "mb2", role: "drafts", name: "Drafts" },
+    } as never,
   });
 });
 
@@ -70,7 +96,11 @@ describe("buildEmailObject", () => {
   });
 
   it("files a sent message in Sent and a draft in Drafts", async () => {
-    expect((await buildEmailObject(draft(), { forSend: true })).mailboxIds).toEqual({ mb1: true });
-    expect((await buildEmailObject(draft(), { forSend: false })).mailboxIds).toEqual({ mb2: true });
+    expect((await buildEmailObject(draft(), { forSend: true })).mailboxIds).toEqual({
+      mb1: true,
+    });
+    expect((await buildEmailObject(draft(), { forSend: false })).mailboxIds).toEqual({
+      mb2: true,
+    });
   });
 });

@@ -1,24 +1,7 @@
-import { Hono } from "hono";
-import type { Context, MiddlewareHandler } from "hono";
-import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { getConnInfo } from "@hono/node-server/conninfo";
-import { config } from "./config.js";
-import { SessionStore, type SessionBackend, type LiveSession } from "./sessions.js";
-import { RateLimiter } from "./ratelimit.js";
-import { resolveClientIp } from "./clientip.js";
-import {
-  type AccountInfo,
-  UpstreamError,
-  absoluteUpstream,
-  expandTemplate,
-  fetchUpstreamSession,
-  hasStalwartRegistry,
-  forgetUpstreamSession,
-  getAccountInfo,
-  getUpstreamSession,
-  upstreamFor,
-  localizeSession,
-} from "./upstream.js";
+import type { Context, MiddlewareHandler } from "hono";
+import { Hono } from "hono";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import {
   AccountError,
   assertEnrolmentCode,
@@ -30,9 +13,26 @@ import {
   getState,
   revokeAppPassword,
 } from "./account.js";
-import { imageProxyHandler } from "./imageproxy.js";
+import { resolveClientIp } from "./clientip.js";
+import { config } from "./config.js";
 import { icsProxyHandler } from "./icsproxy.js";
+import { imageProxyHandler } from "./imageproxy.js";
+import { RateLimiter } from "./ratelimit.js";
+import { type LiveSession, type SessionBackend, SessionStore } from "./sessions.js";
 import { staticHandler } from "./static.js";
+import {
+  type AccountInfo,
+  absoluteUpstream,
+  expandTemplate,
+  fetchUpstreamSession,
+  forgetUpstreamSession,
+  getAccountInfo,
+  getUpstreamSession,
+  hasStalwartRegistry,
+  localizeSession,
+  UpstreamError,
+  upstreamFor,
+} from "./upstream.js";
 
 type Env = { Variables: { session: LiveSession } };
 
@@ -60,7 +60,7 @@ const loginFloodLimiter = new RateLimiter(config.loginRateLimit * 20, 15 * 60_00
  */
 const accountLimiter = new RateLimiter(10, 15 * 60_000);
 
-const HOP_BY_HOP = new Set([
+const _HOP_BY_HOP = new Set([
   "connection",
   "keep-alive",
   "proxy-authenticate",
@@ -80,7 +80,11 @@ export function clientIp(c: Context): string {
   } catch {
     /* no socket information available */
   }
-  return resolveClientIp(peer, { forwardedFor: c.req.header("x-forwarded-for"), realIp: c.req.header("x-real-ip") }, config);
+  return resolveClientIp(
+    peer,
+    { forwardedFor: c.req.header("x-forwarded-for"), realIp: c.req.header("x-real-ip") },
+    config,
+  );
 }
 
 function isSecureRequest(c: Context): boolean {
@@ -102,10 +106,14 @@ const securityHeaders: MiddlewareHandler = async (c, next) => {
      route is the only one, and only for PDFs -- see the note there. */
   if (!h.has("X-Frame-Options")) h.set("X-Frame-Options", "DENY");
   h.set("Referrer-Policy", "no-referrer");
-  h.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+  h.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+  );
   h.set("Cross-Origin-Opener-Policy", "same-origin");
   if (!h.has("Cache-Control")) h.set("Cache-Control", "no-store");
-  if (isSecureRequest(c)) h.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  if (isSecureRequest(c))
+    h.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
 };
 
 /** CSRF: require our custom header on all API calls; reject cross-site fetches. */
@@ -160,14 +168,34 @@ function setSessionCookie(c: Context, value: string, remember: boolean) {
 
 function upstreamFailure(c: Context, err: unknown) {
   if (err instanceof UpstreamError) {
-    return c.json({ error: err.status === 401 ? "invalid_credentials" : "upstream_error", message: err.message }, err.status as 401 | 502);
+    return c.json(
+      {
+        error: err.status === 401 ? "invalid_credentials" : "upstream_error",
+        message: err.message,
+      },
+      err.status as 401 | 502,
+    );
   }
   const name = (err as Error)?.name ?? "";
   if (name === "TimeoutError" || name === "AbortError") {
-    return c.json({ error: "upstream_timeout", message: "The mail server did not respond in time. This is not a problem with your password." }, 504);
+    return c.json(
+      {
+        error: "upstream_timeout",
+        message:
+          "The mail server did not respond in time. This is not a problem with your password.",
+      },
+      504,
+    );
   }
   console.error("[ihasmail] upstream failure:", err);
-  return c.json({ error: "upstream_error", message: "Could not reach the mail server. This is not a problem with your password." }, 502);
+  return c.json(
+    {
+      error: "upstream_error",
+      message:
+        "Could not reach the mail server. This is not a problem with your password.",
+    },
+    502,
+  );
 }
 
 /**
@@ -182,7 +210,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   const api = new Hono<Env>();
   api.use("*", csrfGuard);
 
-  api.get("/health", (c) => c.json({ ok: true, name: config.appName, version: config.version }));
+  api.get("/health", (c) =>
+    c.json({ ok: true, name: config.appName, version: config.version }),
+  );
 
   api.get("/config", (c) =>
     c.json({
@@ -209,7 +239,8 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const password = body.password ?? "";
     const totp = (body.totp ?? "").trim();
     if (!username || !password) return c.json({ error: "missing_credentials" }, 400);
-    if (username.length > 320 || password.length > 1024) return c.json({ error: "bad_request" }, 400);
+    if (username.length > 320 || password.length > 1024)
+      return c.json({ error: "bad_request" }, 400);
 
     /*
      * Three checks, answering different questions.
@@ -227,11 +258,23 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const limitKey = `${ip}|${username.toLowerCase()}`;
     if (!loginFloodLimiter.check(ip)) {
       c.header("Retry-After", String(loginFloodLimiter.retryAfterSeconds(ip)));
-      return c.json({ error: "rate_limited", message: "Too many login attempts. Please wait and try again." }, 429);
+      return c.json(
+        {
+          error: "rate_limited",
+          message: "Too many login attempts. Please wait and try again.",
+        },
+        429,
+      );
     }
     if (!loginLimiter.check(limitKey) || !loginLimiter.check(ip)) {
       c.header("Retry-After", String(loginLimiter.retryAfterSeconds(limitKey)));
-      return c.json({ error: "rate_limited", message: "Too many login attempts. Please wait and try again." }, 429);
+      return c.json(
+        {
+          error: "rate_limited",
+          message: "Too many login attempts. Please wait and try again.",
+        },
+        429,
+      );
     }
 
     // Stalwart accepts TOTP codes appended to the password as "password$123456".
@@ -312,7 +355,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   api.get("/auth/session", requireSession, async (c) => {
     const session = c.get("session");
     try {
-      const upstream = await getUpstreamSession(session.id, session.authorization, upstreamFor(session.username), c.req.query("refresh") === "1");
+      const upstream = await getUpstreamSession(
+        session.id,
+        session.authorization,
+        upstreamFor(session.username),
+        c.req.query("refresh") === "1",
+      );
       const info = await getAccountInfo(session.id, session.authorization, upstream);
       return c.json(localizeSession(upstream, sessionExtras(session, info)));
     } catch (err) {
@@ -337,7 +385,10 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   api.get("/auth/sessions", requireSession, (c) => {
     const session = c.get("session");
-    return c.json({ current: session.id, sessions: sessions.listForUser(session.username) });
+    return c.json({
+      current: session.id,
+      sessions: sessions.listForUser(session.username),
+    });
   });
 
   api.post("/auth/sessions/revoke-others", requireSession, (c) => {
@@ -355,7 +406,11 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   const accountCtx = async (c: Context<Env>) => {
     const session = c.get("session");
     const upstream = await getUpstreamSession(session.id, session.authorization);
-    return { authorization: session.authorization, session: upstream, username: session.username };
+    return {
+      authorization: session.authorization,
+      session: upstream,
+      username: session.username,
+    };
   };
 
   const accountFailure = (c: Context, err: unknown) => {
@@ -370,11 +425,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const key = `account|${c.get("session").username.toLowerCase()}`;
     if (accountLimiter.check(key)) return null;
     c.header("Retry-After", String(accountLimiter.retryAfterSeconds(key)));
-    return c.json({ error: "rate_limited", message: "Too many attempts. Please wait and try again." }, 429);
+    return c.json(
+      { error: "rate_limited", message: "Too many attempts. Please wait and try again." },
+      429,
+    );
   };
 
   api.get("/account/security", requireSession, async (c) => {
-    const session = c.get("session");
+    const _session = c.get("session");
     try {
       return c.json(await getState(await accountCtx(c)));
     } catch (err) {
@@ -390,27 +448,41 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     if (!body) return c.json({ error: "bad_request" }, 400);
     const current = body.current ?? "";
     const next = body.next ?? "";
-    if (!current || !next) return c.json({ error: "missing_fields", message: "Both passwords are required." }, 400);
+    if (!current || !next)
+      return c.json(
+        { error: "missing_fields", message: "Both passwords are required." },
+        400,
+      );
     if (next.length > 1024) return c.json({ error: "bad_request" }, 400);
     if (next === current) {
-      return c.json({ error: "unchanged", message: "The new password matches the old one." }, 400);
+      return c.json(
+        { error: "unchanged", message: "The new password matches the old one." },
+        400,
+      );
     }
     try {
-      await changePassword(await accountCtx(c), { current, next, otpCode: body.otpCode?.trim() || undefined });
+      await changePassword(await accountCtx(c), {
+        current,
+        next,
+        otpCode: body.otpCode?.trim() || undefined,
+      });
     } catch (err) {
       return accountFailure(c, err);
     }
     // The old password is now dead: re-seal this session with the new one and
     // drop the others, whose sealed copies would fail on their next call.
     const otpCode = body.otpCode?.trim();
-    sessions.reseal(getCookie(c, config.cookieName), otpCode ? `${next}$${otpCode}` : next);
+    sessions.reseal(
+      getCookie(c, config.cookieName),
+      otpCode ? `${next}$${otpCode}` : next,
+    );
     forgetUpstreamSession(session.id);
     const revoked = sessions.destroyAllForUser(session.username, session.id);
     return c.json({ ok: true, revokedSessions: revoked });
   });
 
   api.get("/account/app-passwords", requireSession, async (c) => {
-    const session = c.get("session");
+    const _session = c.get("session");
     try {
       const state = await getState(await accountCtx(c));
       return c.json({ appPasswords: state.appPasswords });
@@ -420,11 +492,15 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   api.post("/account/app-passwords", requireSession, async (c) => {
-    const session = c.get("session");
+    const _session = c.get("session");
     const body = await readJson<{ description?: string }>(c);
     if (!body) return c.json({ error: "bad_request" }, 400);
     const description = (body.description ?? "").trim().slice(0, 120);
-    if (!description) return c.json({ error: "missing_fields", message: "Give the app password a name." }, 400);
+    if (!description)
+      return c.json(
+        { error: "missing_fields", message: "Give the app password a name." },
+        400,
+      );
     try {
       return c.json(await createAppPassword(await accountCtx(c), { description }));
     } catch (err) {
@@ -433,7 +509,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   api.post("/account/app-passwords/revoke", requireSession, async (c) => {
-    const session = c.get("session");
+    const _session = c.get("session");
     const body = await readJson<{ id?: string }>(c);
     if (!body?.id) return c.json({ error: "bad_request" }, 400);
     try {
@@ -458,7 +534,8 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     if (limited) return limited;
     const session = c.get("session");
     const body = await readJson<{ url?: string; code?: string; current?: string }>(c);
-    if (!body?.url || !body.code || !body.current) return c.json({ error: "bad_request" }, 400);
+    if (!body?.url || !body.code || !body.current)
+      return c.json({ error: "bad_request" }, 400);
     const ctx = await accountCtx(c);
     const code = body.code.trim();
     /*
@@ -482,7 +559,10 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     } catch (err) {
       // Out of app-password quota, say. 2FA is still worth having; the user
       // just has to sign in again afterwards.
-      console.warn("[ihasmail] could not mint a session app password:", (err as Error).message);
+      console.warn(
+        "[ihasmail] could not mint a session app password:",
+        (err as Error).message,
+      );
     }
     try {
       await enableOtp(ctx, { url: body.url, code, current: body.current });
@@ -510,7 +590,10 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const body = await readJson<{ current?: string; code?: string }>(c);
     if (!body?.current || !body.code) return c.json({ error: "bad_request" }, 400);
     try {
-      await disableOtp(await accountCtx(c), { current: body.current, code: body.code.trim() });
+      await disableOtp(await accountCtx(c), {
+        current: body.current,
+        code: body.code.trim(),
+      });
     } catch (err) {
       return accountFailure(c, err);
     }
@@ -529,7 +612,11 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       return c.json({ error: "unsupported_media_type" }, 415);
     }
     try {
-      const upstream = await getUpstreamSession(session.id, session.authorization, upstreamFor(session.username));
+      const upstream = await getUpstreamSession(
+        session.id,
+        session.authorization,
+        upstreamFor(session.username),
+      );
       const res = await fetch(absoluteUpstream(upstream.apiUrl, upstream.baseUrl), {
         method: "POST",
         headers: {
@@ -561,10 +648,19 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     if (len > config.maxUploadBytes) return c.json({ error: "too_large" }, 413);
     // content-length is absent on a chunked request, so the header alone is a
     // suggestion; count the bytes as they go past.
-    const body = c.req.raw.body ? c.req.raw.body.pipeThrough(byteCap(config.maxUploadBytes)) : null;
+    const body = c.req.raw.body
+      ? c.req.raw.body.pipeThrough(byteCap(config.maxUploadBytes))
+      : null;
     try {
-      const upstream = await getUpstreamSession(session.id, session.authorization, upstreamFor(session.username));
-      const url = absoluteUpstream(expandTemplate(upstream.uploadUrl, { accountId }), upstream.baseUrl);
+      const upstream = await getUpstreamSession(
+        session.id,
+        session.authorization,
+        upstreamFor(session.username),
+      );
+      const url = absoluteUpstream(
+        expandTemplate(upstream.uploadUrl, { accountId }),
+        upstream.baseUrl,
+      );
       const res = await fetch(url, {
         method: "POST",
         headers: {
@@ -589,8 +685,15 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const accept = c.req.query("accept") ?? "application/octet-stream";
     const inline = c.req.query("inline") === "1";
     try {
-      const upstream = await getUpstreamSession(session.id, session.authorization, upstreamFor(session.username));
-      const url = absoluteUpstream(expandTemplate(upstream.downloadUrl, { accountId, blobId, name, type: accept }), upstream.baseUrl);
+      const upstream = await getUpstreamSession(
+        session.id,
+        session.authorization,
+        upstreamFor(session.username),
+      );
+      const url = absoluteUpstream(
+        expandTemplate(upstream.downloadUrl, { accountId, blobId, name, type: accept }),
+        upstream.baseUrl,
+      );
       const res = await fetch(url, {
         // Ask for the bytes as they are. undici would otherwise negotiate gzip
         // on our behalf and hand back a decompressed body whose content-length
@@ -624,7 +727,10 @@ export function createApp(basePath = config.basePath): Hono<Env> {
          */
         headers.set("X-Frame-Options", "SAMEORIGIN");
       } else {
-        headers.set("Content-Security-Policy", "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:");
+        headers.set(
+          "Content-Security-Policy",
+          "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:",
+        );
       }
       headers.set("Cache-Control", "private, max-age=3600");
       return new Response(res.body, { status: 200, headers });
@@ -640,8 +746,15 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const closeafter = c.req.query("closeafter") ?? "no";
     const ping = c.req.query("ping") ?? "30";
     try {
-      const upstream = await getUpstreamSession(session.id, session.authorization, upstreamFor(session.username));
-      const url = absoluteUpstream(expandTemplate(upstream.eventSourceUrl, { types, closeafter, ping }), upstream.baseUrl);
+      const upstream = await getUpstreamSession(
+        session.id,
+        session.authorization,
+        upstreamFor(session.username),
+      );
+      const url = absoluteUpstream(
+        expandTemplate(upstream.eventSourceUrl, { types, closeafter, ping }),
+        upstream.baseUrl,
+      );
       const controller = new AbortController();
       c.req.raw.signal.addEventListener("abort", () => controller.abort());
       const res = await fetch(url, {
@@ -663,9 +776,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   // ---------- Remote image privacy proxy ----------
   api.get("/image", requireSession, imageProxyHandler);
-// Behind the session for the same reason the image proxy is: an open fetcher
-// on someone else's server is a gift to whoever finds it.
-api.get("/ics", requireSession, icsProxyHandler);
+  // Behind the session for the same reason the image proxy is: an open fetcher
+  // on someone else's server is a gift to whoever finds it.
+  api.get("/ics", requireSession, icsProxyHandler);
 
   api.notFound((c) => c.json({ error: "not_found" }, 404));
   api.onError((err, c) => {
@@ -703,11 +816,22 @@ async function readJson<T>(c: Context): Promise<T | null> {
 /** Name the app password after the browser it will live in. */
 function appPasswordName(c: Context): string {
   const ua = c.req.header("user-agent") ?? "";
-  const browser = /Firefox\//.test(ua) ? "Firefox" : /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "browser";
+  const browser = /Firefox\//.test(ua)
+    ? "Firefox"
+    : /Edg\//.test(ua)
+      ? "Edge"
+      : /Chrome\//.test(ua)
+        ? "Chrome"
+        : /Safari\//.test(ua)
+          ? "Safari"
+          : "browser";
   return `${config.appName} (${browser})`;
 }
 
-function sessionExtras(session: LiveSession, info: AccountInfo = { locale: null, edition: null }) {
+function sessionExtras(
+  session: LiveSession,
+  info: AccountInfo = { locale: null, edition: null },
+) {
   return {
     ihasmail: {
       appName: config.appName,
@@ -730,7 +854,14 @@ function sessionExtras(session: LiveSession, info: AccountInfo = { locale: null,
  * denylist: everything else it might set — cookies, auth challenges, CORS
  * grants — would be landing on *our* origin, where it means something else.
  */
-const PASSTHROUGH_HEADERS = new Set(["content-type", "content-disposition", "content-language", "etag", "last-modified", "retry-after"]);
+const PASSTHROUGH_HEADERS = new Set([
+  "content-type",
+  "content-disposition",
+  "content-language",
+  "etag",
+  "last-modified",
+  "retry-after",
+]);
 
 function passthrough(res: Response): Response {
   const headers = new Headers();
@@ -790,8 +921,13 @@ function sanitizeContentType(ct: string): string {
  * testable without standing up an upstream: a PDF served inline may be framed
  * by us and nothing else may be framed at all.
  */
-export function securityHeadersFor(type: string, safeInline: boolean): "SAMEORIGIN" | "DENY" {
-  return safeInline && type.split(";")[0]!.trim() === "application/pdf" ? "SAMEORIGIN" : "DENY";
+export function securityHeadersFor(
+  type: string,
+  safeInline: boolean,
+): "SAMEORIGIN" | "DENY" {
+  return safeInline && type.split(";")[0]!.trim() === "application/pdf"
+    ? "SAMEORIGIN"
+    : "DENY";
 }
 
 function isInlineSafe(type: string): boolean {

@@ -1,6 +1,6 @@
-import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
-import { dirname } from "node:path";
 import { randomBytes } from "node:crypto";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { config } from "./config.js";
 import { deriveKey, open, randomToken, safeEqual, seal, sha256 } from "./crypto.js";
 
@@ -170,7 +170,10 @@ export class SessionStore implements SessionBackend {
       id,
       secretHash: sha256(secret),
       salt: salt.toString("base64"),
-      sealedCredentials: seal(JSON.stringify({ u: params.username, p: params.password }), key),
+      sealedCredentials: seal(
+        JSON.stringify({ u: params.username, p: params.password }),
+        key,
+      ),
       username: params.username,
       createdAt: now,
       lastSeenAt: now,
@@ -213,7 +216,8 @@ export class SessionStore implements SessionBackend {
     // Sliding expiry: bump every few minutes, not on every request.
     if (now - stored.lastSeenAt > 60_000) {
       stored.lastSeenAt = now;
-      const ttl = (stored.remember ? config.sessionRememberTtl : config.sessionTtl) * 1000;
+      const ttl =
+        (stored.remember ? config.sessionRememberTtl : config.sessionTtl) * 1000;
       stored.expiresAt = now + ttl;
       this.scheduleSave();
     }
@@ -239,7 +243,10 @@ export class SessionStore implements SessionBackend {
     if (!stored) return false;
     if (!safeEqual(stored.secretHash, sha256(secret))) return false;
     const key = deriveKey(secret, config.appSecret, Buffer.from(stored.salt, "base64"));
-    stored.sealedCredentials = seal(JSON.stringify({ u: stored.username, p: password }), key);
+    stored.sealedCredentials = seal(
+      JSON.stringify({ u: stored.username, p: password }),
+      key,
+    );
     this.scheduleSave();
     return true;
   }

@@ -1,5 +1,5 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
+import { test } from "node:test";
 import { inRange, isTrustedProxy, resolveClientIp } from "./clientip.js";
 
 /**
@@ -27,7 +27,14 @@ test("CIDR matching covers both families and single addresses", () => {
 });
 
 test("loopback and private peers are trusted by default", () => {
-  for (const p of ["127.0.0.1", "::1", "10.0.0.5", "172.17.0.1", "192.168.1.9", "fd00::2"]) {
+  for (const p of [
+    "127.0.0.1",
+    "::1",
+    "10.0.0.5",
+    "172.17.0.1",
+    "192.168.1.9",
+    "fd00::2",
+  ]) {
     assert.equal(isTrustedProxy(p, cfg), true, p);
   }
   for (const p of ["8.8.8.8", "2001:db8::1"]) {
@@ -43,13 +50,23 @@ test("the real client is taken from the right, not the left", () => {
 
 test("a forged chain cannot move the rate-limit key", () => {
   const forged = ["9.9.9.9", "8.8.8.8, 7.7.7.7", "203.0.113.1, 203.0.113.2, 203.0.113.3"];
-  const seen = forged.map((f) => resolveClientIp("127.0.0.1", { forwardedFor: `${f}, 198.51.100.7` }, cfg));
-  assert.deepEqual(seen, ["198.51.100.7", "198.51.100.7", "198.51.100.7"], "always the same real client");
+  const seen = forged.map((f) =>
+    resolveClientIp("127.0.0.1", { forwardedFor: `${f}, 198.51.100.7` }, cfg),
+  );
+  assert.deepEqual(
+    seen,
+    ["198.51.100.7", "198.51.100.7", "198.51.100.7"],
+    "always the same real client",
+  );
 });
 
 test("hops we run ourselves are skipped over", () => {
   // client → our edge proxy → our app proxy → us
-  const ip = resolveClientIp("127.0.0.1", { forwardedFor: "198.51.100.7, 10.0.0.2, 10.0.0.3" }, cfg);
+  const ip = resolveClientIp(
+    "127.0.0.1",
+    { forwardedFor: "198.51.100.7, 10.0.0.2, 10.0.0.3" },
+    cfg,
+  );
   assert.equal(ip, "198.51.100.7");
 });
 
@@ -59,36 +76,72 @@ test("a peer we do not run is believed only about itself", () => {
 });
 
 test("forwarding headers are ignored entirely when the proxy is not trusted", () => {
-  assert.equal(resolveClientIp("203.0.113.5", { forwardedFor: "1.2.3.4", realIp: "5.6.7.8" }, direct), "203.0.113.5");
+  assert.equal(
+    resolveClientIp(
+      "203.0.113.5",
+      { forwardedFor: "1.2.3.4", realIp: "5.6.7.8" },
+      direct,
+    ),
+    "203.0.113.5",
+  );
 });
 
 test("X-Real-IP is a fallback, never an override", () => {
-  assert.equal(resolveClientIp("127.0.0.1", { realIp: "198.51.100.7" }, cfg), "198.51.100.7");
   assert.equal(
-    resolveClientIp("127.0.0.1", { forwardedFor: "198.51.100.7", realIp: "1.2.3.4" }, cfg),
+    resolveClientIp("127.0.0.1", { realIp: "198.51.100.7" }, cfg),
+    "198.51.100.7",
+  );
+  assert.equal(
+    resolveClientIp(
+      "127.0.0.1",
+      { forwardedFor: "198.51.100.7", realIp: "1.2.3.4" },
+      cfg,
+    ),
     "198.51.100.7",
     "the chain wins where there is one",
   );
 });
 
 test("junk in the chain is discarded rather than used as a key", () => {
-  assert.equal(resolveClientIp("127.0.0.1", { forwardedFor: "not-an-ip, 198.51.100.7" }, cfg), "198.51.100.7");
-  assert.equal(resolveClientIp("127.0.0.1", { forwardedFor: "not-an-ip" }, cfg), "127.0.0.1", "falls back to the peer");
+  assert.equal(
+    resolveClientIp("127.0.0.1", { forwardedFor: "not-an-ip, 198.51.100.7" }, cfg),
+    "198.51.100.7",
+  );
+  assert.equal(
+    resolveClientIp("127.0.0.1", { forwardedFor: "not-an-ip" }, cfg),
+    "127.0.0.1",
+    "falls back to the peer",
+  );
   assert.equal(resolveClientIp("127.0.0.1", { forwardedFor: "" }, cfg), "127.0.0.1");
 });
 
 test("bracketed and IPv4-mapped forms are normalised", () => {
-  assert.equal(resolveClientIp("::1", { forwardedFor: "[2001:db8::5]" }, cfg), "2001:db8::5");
-  assert.equal(resolveClientIp("::1", { forwardedFor: "::ffff:198.51.100.7" }, cfg), "198.51.100.7");
+  assert.equal(
+    resolveClientIp("::1", { forwardedFor: "[2001:db8::5]" }, cfg),
+    "2001:db8::5",
+  );
+  assert.equal(
+    resolveClientIp("::1", { forwardedFor: "::ffff:198.51.100.7" }, cfg),
+    "198.51.100.7",
+  );
 });
 
 test("an explicit trusted list replaces the defaults", () => {
   const only = { trustProxy: true, trustedProxies: ["203.0.113.0/24"] };
-  assert.equal(resolveClientIp("203.0.113.9", { forwardedFor: "198.51.100.7" }, only), "198.51.100.7");
+  assert.equal(
+    resolveClientIp("203.0.113.9", { forwardedFor: "198.51.100.7" }, only),
+    "198.51.100.7",
+  );
   // Loopback is no longer trusted once a list is given.
-  assert.equal(resolveClientIp("127.0.0.1", { forwardedFor: "198.51.100.7" }, only), "127.0.0.1");
+  assert.equal(
+    resolveClientIp("127.0.0.1", { forwardedFor: "198.51.100.7" }, only),
+    "127.0.0.1",
+  );
 });
 
 test("a chain of nothing but our own proxies still yields an address", () => {
-  assert.equal(resolveClientIp("127.0.0.1", { forwardedFor: "10.0.0.2, 10.0.0.3" }, cfg), "10.0.0.2");
+  assert.equal(
+    resolveClientIp("127.0.0.1", { forwardedFor: "10.0.0.2, 10.0.0.3" }, cfg),
+    "10.0.0.2",
+  );
 });

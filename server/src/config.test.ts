@@ -1,8 +1,8 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
 import { chmodSync, existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { test } from "node:test";
 import { assertImmutable } from "./config.js";
 
 function tempRoot(): string {
@@ -12,7 +12,10 @@ function tempRoot(): string {
 test("IMMUTABLE refuses a configured SESSION_FILE", () => {
   const root = tempRoot();
   try {
-    assert.throws(() => assertImmutable("/data/sessions.json", root), /SESSION_FILE is \/data\/sessions\.json/);
+    assert.throws(
+      () => assertImmutable("/data/sessions.json", root),
+      /SESSION_FILE is \/data\/sessions\.json/,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

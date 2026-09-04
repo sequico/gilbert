@@ -1,9 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles/app.css";
-import { App } from "./App";
-import { startBuildWatch } from "@/lib/staleBuild";
 import { BASE_PATH, withBase } from "@/lib/basePath";
+import { startBuildWatch } from "@/lib/staleBuild";
+import { App } from "./App";
 
 startBuildWatch();
 
@@ -24,8 +24,10 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
      * applications would intercept their navigations too, and its offline
      * fallback would answer them with ihasmail's shell.
      */
-    navigator.serviceWorker.register(withBase("/sw.js"), { scope: `${BASE_PATH}/` }).catch(() => {
-      /* ignore */
-    });
+    navigator.serviceWorker
+      .register(withBase("/sw.js"), { scope: `${BASE_PATH}/` })
+      .catch(() => {
+        /* ignore */
+      });
   });
 }

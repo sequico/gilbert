@@ -1,7 +1,12 @@
-import { choiceDialog, confirmDialog } from "@/ui/dialog";
-import { isOccurrence, isRecurring, isThisAndFutureRefusal, type EventScope } from "@/store/calendar";
 import type { CalendarEvent } from "@/jmap/types";
 import { plural, t } from "@/lib/i18n";
+import {
+  type EventScope,
+  isOccurrence,
+  isRecurring,
+  isThisAndFutureRefusal,
+} from "@/store/calendar";
+import { choiceDialog, confirmDialog } from "@/ui/dialog";
 
 /**
  * Ask which of a series a change is meant for, when there is a choice.
@@ -17,14 +22,31 @@ import { plural, t } from "@/lib/i18n";
  */
 export async function askScope(
   event: CalendarEvent,
-  opts: { title: string; occurrenceLabel: string; seriesLabel: string; danger?: boolean; occurrenceHint?: string; seriesHint?: string },
+  opts: {
+    title: string;
+    occurrenceLabel: string;
+    seriesLabel: string;
+    danger?: boolean;
+    occurrenceHint?: string;
+    seriesHint?: string;
+  },
 ): Promise<EventScope | null> {
   if (!isRecurring(event) || !isOccurrence(event)) return "series";
   const answer = await choiceDialog({
     title: opts.title,
     choices: [
-      { value: "occurrence", label: opts.occurrenceLabel, hint: opts.occurrenceHint, danger: opts.danger },
-      { value: "series", label: opts.seriesLabel, hint: opts.seriesHint, danger: opts.danger },
+      {
+        value: "occurrence",
+        label: opts.occurrenceLabel,
+        hint: opts.occurrenceHint,
+        danger: opts.danger,
+      },
+      {
+        value: "series",
+        label: opts.seriesLabel,
+        hint: opts.seriesHint,
+        danger: opts.danger,
+      },
     ],
   });
   return answer === "occurrence" || answer === "series" ? answer : null;
@@ -60,12 +82,16 @@ export function droppedMessage(dropped: string[]): string | null {
   const names = dropped.map((d) => d.replace(/^@/, "")).join(", ");
   // One sentence per branch rather than a verb slot: which words agree with
   // the count, and where they sit, is not the same in every language.
-  return plural(dropped.length, {
-    one: "Saved for this date. {names} applies to the whole series and was left unchanged.",
-    other: "Saved for this date. {names} apply to the whole series and were left unchanged.",
-  }, { names });
+  return plural(
+    dropped.length,
+    {
+      one: "Saved for this date. {names} applies to the whole series and was left unchanged.",
+      other:
+        "Saved for this date. {names} apply to the whole series and were left unchanged.",
+    },
+    { names },
+  );
 }
-
 
 /**
  * Run a scoped change, and offer the series if the server will not do one date.
@@ -80,14 +106,19 @@ export function droppedMessage(dropped: string[]): string | null {
  * date, and doing the larger thing without saying so is the failure this whole
  * area exists to avoid.
  */
-export async function runScoped<T>(scope: EventScope, run: (scope: EventScope) => Promise<T>): Promise<T | null> {
+export async function runScoped<T>(
+  scope: EventScope,
+  run: (scope: EventScope) => Promise<T>,
+): Promise<T | null> {
   try {
     return await run(scope);
   } catch (err) {
     if (scope !== "occurrence" || !isThisAndFutureRefusal(err)) throw err;
     const ok = await confirmDialog({
       title: t("This date cannot be changed on its own"),
-      message: t("It belongs to a change that was applied to this and all later occurrences, which the server will only edit as a whole. Apply to the entire series instead?"),
+      message: t(
+        "It belongs to a change that was applied to this and all later occurrences, which the server will only edit as a whole. Apply to the entire series instead?",
+      ),
       confirmLabel: t("Apply to series"),
     });
     return ok ? await run("series") : null;

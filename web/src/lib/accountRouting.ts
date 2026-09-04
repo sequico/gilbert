@@ -47,7 +47,11 @@ const advertises = (account: AccountLike | undefined, cap: string): boolean =>
  * Use for anything the reader is looking at: their mail, a shared calendar,
  * somebody's files. Not for anything of the reader's own — see below.
  */
-export function accountForCapability(session: SessionLike | null, selectedId: Id | null, cap: string): Id | null {
+export function accountForCapability(
+  session: SessionLike | null,
+  selectedId: Id | null,
+  cap: string,
+): Id | null {
   if (!session) return null;
   const selected = selectedId ? session.accounts[selectedId] : undefined;
   if (selected && advertises(selected, cap)) return selectedId;
@@ -56,7 +60,7 @@ export function accountForCapability(session: SessionLike | null, selectedId: Id
   // No primary, and the selection cannot serve this. Falling back to the
   // selection would aim the request at a shared account for something nobody
   // shared; only one of the reader's own accounts may stand in.
-  if (selected && selected.isPersonal) return selectedId;
+  if (selected?.isPersonal) return selectedId;
   return null;
 }
 
@@ -67,12 +71,17 @@ export function accountForCapability(session: SessionLike | null, selectedId: Id
  * registration. These belong to them and follow them, and must not land in an
  * account somebody shared just because it happens to be on screen.
  */
-export function ownAccountForCapability(session: SessionLike | null, cap: string): Id | null {
+export function ownAccountForCapability(
+  session: SessionLike | null,
+  cap: string,
+): Id | null {
   if (!session) return null;
   const primary = session.primaryAccounts[cap];
   // A primary account is the reader's own by definition, but check rather than
   // assume: a server that named a shared one here would otherwise be trusted.
   if (primary && session.accounts[primary]?.isPersonal !== false) return primary;
-  const own = Object.entries(session.accounts).find(([, a]) => a.isPersonal && advertises(a, cap));
+  const own = Object.entries(session.accounts).find(
+    ([, a]) => a.isPersonal && advertises(a, cap),
+  );
   return own?.[0] ?? null;
 }

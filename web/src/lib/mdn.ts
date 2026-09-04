@@ -53,15 +53,18 @@ export interface MdnDecision {
 export function mdnDecision(email: Email): MdnDecision {
   const to = email["header:Disposition-Notification-To:asAddresses"]?.[0];
   if (!to?.email) return { offer: false, refusal: "not-requested" };
-  if (email.keywords?.[MDN_SENT_KEYWORD]) return { offer: false, refusal: "already-sent", to };
+  if (email.keywords?.[MDN_SENT_KEYWORD])
+    return { offer: false, refusal: "already-sent", to };
   if (email.keywords?.$draft) return { offer: false, refusal: "draft-or-sent", to };
 
   const auto = (email["header:Auto-Submitted:asText"] ?? "").trim().toLowerCase();
   // "auto-submitted: no" is the only value that means a person sent it.
-  if (auto && !auto.startsWith("no")) return { offer: false, refusal: "auto-submitted", to };
+  if (auto && !auto.startsWith("no"))
+    return { offer: false, refusal: "auto-submitted", to };
 
   const precedence = (email["header:Precedence:asText"] ?? "").trim().toLowerCase();
-  if (["bulk", "list", "junk"].includes(precedence)) return { offer: false, refusal: "bulk", to };
+  if (["bulk", "list", "junk"].includes(precedence))
+    return { offer: false, refusal: "bulk", to };
   if (email["header:List-Id:asText"]) return { offer: false, refusal: "bulk", to };
 
   const from = email.from?.[0];
@@ -90,7 +93,20 @@ function pad(n: number): string {
 }
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 /** RFC 5322 date-time, which is not what toUTCString produces. */
 export function rfc5322Date(d: Date): string {
@@ -171,10 +187,15 @@ export function buildMdn(opts: MdnOptions): string {
     headerLine("To", formatAddressHeader(to)),
     headerLine("Subject", encodeHeaderWord(`Read: ${subject}`)),
     headerLine("Message-ID", messageId),
-    ...(originalId ? [headerLine("In-Reply-To", originalId), headerLine("References", originalId)] : []),
+    ...(originalId
+      ? [headerLine("In-Reply-To", originalId), headerLine("References", originalId)]
+      : []),
     headerLine("Auto-Submitted", "auto-replied"),
     headerLine("MIME-Version", "1.0"),
-    headerLine("Content-Type", `multipart/report; report-type=disposition-notification;\r\n\tboundary="${boundary}"`),
+    headerLine(
+      "Content-Type",
+      `multipart/report; report-type=disposition-notification;\r\n\tboundary="${boundary}"`,
+    ),
   ].join("\r\n");
 
   return [
@@ -201,7 +222,7 @@ export function buildMdn(opts: MdnOptions): string {
  * base64, which is always safe and costs nothing here.
  */
 function encodedPart(contentType: string, body: string): string[] {
-  // eslint-disable-next-line no-control-regex
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: deliberate ASCII-only check
   if (/^[\x00-\x7F]*$/.test(body)) {
     return [`Content-Type: ${contentType}`, "Content-Transfer-Encoding: 7bit", "", body];
   }

@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
+import type { JmapSession } from "@/jmap/types";
 import { useMail } from "@/store/mail";
 import { useScheduled } from "@/store/scheduled";
 import { useToasts } from "@/ui/toast";
-import type { JmapSession } from "@/jmap/types";
 
 /**
  * Nothing on the server moves a message out of Scheduled when its hold
@@ -29,34 +29,100 @@ function server(inFolder: string[], subs: Sub[]) {
   const updates: Record<string, Record<string, unknown>>[] = [];
   const submissionUpdates: Record<string, Record<string, unknown>>[] = [];
   const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as { methodCalls: [string, Record<string, unknown>, string][] };
+    const body = JSON.parse(init.body as string) as {
+      methodCalls: [string, Record<string, unknown>, string][];
+    };
     let queried: string[] = [];
     const methodResponses = body.methodCalls.map(([name, args, id]) => {
       if (name === "Email/query") {
-        return [name, { accountId: "a1", queryState: "q", canCalculateChanges: false, position: 0, ids: inFolder, total: inFolder.length }, id];
+        return [
+          name,
+          {
+            accountId: "a1",
+            queryState: "q",
+            canCalculateChanges: false,
+            position: 0,
+            ids: inFolder,
+            total: inFolder.length,
+          },
+          id,
+        ];
       }
       if (name === "EmailSubmission/query") {
         const f = (args.filter ?? {}) as { undoStatus?: string; emailIds?: string[] };
         queried = subs
-          .filter((s) => (!f.undoStatus || s.undoStatus === f.undoStatus) && (!f.emailIds || f.emailIds.includes(s.emailId)))
+          .filter(
+            (s) =>
+              (!f.undoStatus || s.undoStatus === f.undoStatus) &&
+              (!f.emailIds || f.emailIds.includes(s.emailId)),
+          )
           .map((s) => s.id);
-        return [name, { accountId: "a1", queryState: "q", canCalculateChanges: false, position: 0, ids: queried, total: queried.length }, id];
+        return [
+          name,
+          {
+            accountId: "a1",
+            queryState: "q",
+            canCalculateChanges: false,
+            position: 0,
+            ids: queried,
+            total: queried.length,
+          },
+          id,
+        ];
       }
       if (name === "EmailSubmission/get") {
         const ids = (args.ids as string[] | null) ?? queried;
-        return [name, { accountId: "a1", state: "1", list: subs.filter((s) => ids.includes(s.id)), notFound: [] }, id];
+        return [
+          name,
+          {
+            accountId: "a1",
+            state: "1",
+            list: subs.filter((s) => ids.includes(s.id)),
+            notFound: [],
+          },
+          id,
+        ];
       }
       if (name === "EmailSubmission/set") {
         submissionUpdates.push(args.update as Record<string, Record<string, unknown>>);
-        return [name, { accountId: "a1", oldState: "1", newState: "2", updated: Object.fromEntries(Object.keys((args.update ?? {}) as object).map((k) => [k, null])) }, id];
+        return [
+          name,
+          {
+            accountId: "a1",
+            oldState: "1",
+            newState: "2",
+            updated: Object.fromEntries(
+              Object.keys((args.update ?? {}) as object).map((k) => [k, null]),
+            ),
+          },
+          id,
+        ];
       }
       if (name === "Email/set" && args.update) {
         updates.push(args.update as Record<string, Record<string, unknown>>);
         return [name, { accountId: "a1", oldState: "1", newState: "2", updated: {} }, id];
       }
-      return [name, { accountId: "a1", state: "1", list: [], notFound: [], ids: [], total: 0, queryState: "q", position: 0, canCalculateChanges: false }, id];
+      return [
+        name,
+        {
+          accountId: "a1",
+          state: "1",
+          list: [],
+          notFound: [],
+          ids: [],
+          total: 0,
+          queryState: "q",
+          position: 0,
+          canCalculateChanges: false,
+        },
+        id,
+      ];
     });
-    return { ok: true, status: 200, json: async () => ({ methodResponses, sessionState: "1" }) } as Response;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ methodResponses, sessionState: "1" }),
+    } as Response;
   });
   vi.stubGlobal("fetch", fetchMock);
   return { updates, submissionUpdates };
@@ -64,15 +130,35 @@ function server(inFolder: string[], subs: Sub[]) {
 
 /** The mailbox a patch files a message into, and the one it takes it out of. */
 function moved(patch: Record<string, unknown>) {
-  const into = Object.keys(patch).find((k) => k.startsWith("mailboxIds/") && patch[k] === true);
-  const outOf = Object.keys(patch).find((k) => k.startsWith("mailboxIds/") && patch[k] === null);
-  return { into: into?.slice("mailboxIds/".length), outOf: outOf?.slice("mailboxIds/".length) };
+  const into = Object.keys(patch).find(
+    (k) => k.startsWith("mailboxIds/") && patch[k] === true,
+  );
+  const outOf = Object.keys(patch).find(
+    (k) => k.startsWith("mailboxIds/") && patch[k] === null,
+  );
+  return {
+    into: into?.slice("mailboxIds/".length),
+    outOf: outOf?.slice("mailboxIds/".length),
+  };
 }
 
 beforeEach(() => {
   client.session = {
-    capabilities: { [CAP.core]: { maxObjectsInGet: 500, maxObjectsInSet: 500 }, [CAP.mail]: {}, [CAP.submission]: {} },
-    accounts: { a1: { accountCapabilities: { [CAP.submission]: { maxDelayedSend: 2592000, submissionExtensions: { FUTURERELEASE: [] } } } } },
+    capabilities: {
+      [CAP.core]: { maxObjectsInGet: 500, maxObjectsInSet: 500 },
+      [CAP.mail]: {},
+      [CAP.submission]: {},
+    },
+    accounts: {
+      a1: {
+        accountCapabilities: {
+          [CAP.submission]: {
+            maxDelayedSend: 2592000,
+            submissionExtensions: { FUTURERELEASE: [] },
+          },
+        },
+      },
+    },
     primaryAccounts: {},
     state: "s1",
   } as unknown as JmapSession;
@@ -97,14 +183,20 @@ afterEach(() => {
 
 describe("reconcile", () => {
   it("leaves a message alone while its hold is still ahead", async () => {
-    const s = server(["e1"], [{ id: "s1", emailId: "e1", sendAt: FUTURE, undoStatus: "pending" }]);
+    const s = server(
+      ["e1"],
+      [{ id: "s1", emailId: "e1", sendAt: FUTURE, undoStatus: "pending" }],
+    );
     await useScheduled.getState().reconcile();
     expect(s.updates).toEqual([]);
     expect(useScheduled.getState().pending.e1?.id).toBe("s1");
   });
 
   it("moves a released message to Sent, where it actually is", async () => {
-    const s = server(["e1"], [{ id: "s1", emailId: "e1", sendAt: "2026-01-01T00:00:00Z", undoStatus: "final" }]);
+    const s = server(
+      ["e1"],
+      [{ id: "s1", emailId: "e1", sendAt: "2026-01-01T00:00:00Z", undoStatus: "final" }],
+    );
     await useScheduled.getState().reconcile();
     expect(s.updates).toHaveLength(1);
     expect(moved(s.updates[0]!.e1!)).toEqual({ into: SENT, outOf: SCHED });
@@ -112,7 +204,10 @@ describe("reconcile", () => {
   });
 
   it("returns a message cancelled elsewhere to Drafts, as a draft again", async () => {
-    const s = server(["e1"], [{ id: "s1", emailId: "e1", sendAt: FUTURE, undoStatus: "canceled" }]);
+    const s = server(
+      ["e1"],
+      [{ id: "s1", emailId: "e1", sendAt: FUTURE, undoStatus: "canceled" }],
+    );
     await useScheduled.getState().reconcile();
     expect(moved(s.updates[0]!.e1!)).toEqual({ into: DRAFTS, outOf: SCHED });
     expect(s.updates[0]!.e1!["keywords/$draft"]).toBe(true);
@@ -129,7 +224,12 @@ describe("reconcile", () => {
       ["held", "gone", "dropped"],
       [
         { id: "s1", emailId: "held", sendAt: FUTURE, undoStatus: "pending" },
-        { id: "s2", emailId: "gone", sendAt: "2026-01-01T00:00:00Z", undoStatus: "final" },
+        {
+          id: "s2",
+          emailId: "gone",
+          sendAt: "2026-01-01T00:00:00Z",
+          undoStatus: "final",
+        },
         { id: "s3", emailId: "dropped", sendAt: FUTURE, undoStatus: "canceled" },
       ],
     );
@@ -146,7 +246,12 @@ describe("reconcile", () => {
     const s = server(
       ["e1"],
       [
-        { id: "old", emailId: "e1", sendAt: "2026-01-01T00:00:00Z", undoStatus: "canceled" },
+        {
+          id: "old",
+          emailId: "e1",
+          sendAt: "2026-01-01T00:00:00Z",
+          undoStatus: "canceled",
+        },
         { id: "new", emailId: "e1", sendAt: FUTURE, undoStatus: "pending" },
       ],
     );
@@ -162,7 +267,12 @@ describe("reconcile", () => {
     const s = server(
       ["e1"],
       [
-        { id: "old", emailId: "e1", sendAt: "2099-06-01T00:00:00Z", undoStatus: "canceled" },
+        {
+          id: "old",
+          emailId: "e1",
+          sendAt: "2099-06-01T00:00:00Z",
+          undoStatus: "canceled",
+        },
         { id: "new", emailId: "e1", sendAt: FUTURE, undoStatus: "pending" },
       ],
     );
@@ -172,7 +282,11 @@ describe("reconcile", () => {
   });
 
   it("does nothing at all when there is no Scheduled folder", async () => {
-    useMail.setState({ mailboxes: { [SENT]: { id: SENT, role: "sent", parentId: null, name: "Sent" } } as never });
+    useMail.setState({
+      mailboxes: {
+        [SENT]: { id: SENT, role: "sent", parentId: null, name: "Sent" },
+      } as never,
+    });
     const s = server(["e1"], []);
     await useScheduled.getState().reconcile();
     expect(s.updates).toEqual([]);
@@ -181,7 +295,10 @@ describe("reconcile", () => {
 
 describe("cancel", () => {
   it("cancels the submission and puts the message back in Drafts", async () => {
-    const s = server(["e1"], [{ id: "s1", emailId: "e1", sendAt: FUTURE, undoStatus: "pending" }]);
+    const s = server(
+      ["e1"],
+      [{ id: "s1", emailId: "e1", sendAt: FUTURE, undoStatus: "pending" }],
+    );
     await useScheduled.getState().load();
     expect(useScheduled.getState().pending.e1?.id).toBe("s1");
     await useScheduled.getState().cancel("e1");
@@ -192,6 +309,8 @@ describe("cancel", () => {
 
   it("refuses to cancel a message that is no longer waiting", async () => {
     server([], []);
-    await expect(useScheduled.getState().cancel("e1")).rejects.toThrow(/no longer waiting/);
+    await expect(useScheduled.getState().cancel("e1")).rejects.toThrow(
+      /no longer waiting/,
+    );
   });
 });

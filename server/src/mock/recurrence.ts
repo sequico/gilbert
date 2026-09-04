@@ -54,7 +54,8 @@ export function parseSyntheticId(id: string): { baseId: string; slot: number } |
 
 /** How far the id numbering has been rotated away from the series order. */
 function rotation(base: Obj): number {
-  return Object.keys((base.recurrenceOverrides as Record<string, Obj> | undefined) ?? {}).length;
+  return Object.keys((base.recurrenceOverrides as Record<string, Obj> | undefined) ?? {})
+    .length;
 }
 
 /** The id slot this occurrence currently answers to. */
@@ -119,7 +120,8 @@ export function expandOccurrences(base: Obj, from: Date, to: Date): Occurrence[]
      * the one name for this instance that neither a renumbering nor a move
      * changes.
      */
-    const start = (typeof override?.start === "string" ? override.start : null) ?? recurrenceId;
+    const start =
+      (typeof override?.start === "string" ? override.start : null) ?? recurrenceId;
     const shown = parseLocal(start);
     if (shown >= from && shown < to) {
       out.push({ index, recurrenceId, start, ...(override ? { override } : {}) });
@@ -134,7 +136,9 @@ export function expandOccurrences(base: Obj, from: Date, to: Date): Occurrence[]
 
   const interval = Math.max(1, rule.interval ?? 1);
   const until = rule.until ? parseLocal(rule.until) : null;
-  const byDay = rule.byDay?.length ? new Set(rule.byDay.map((d) => d.day.toLowerCase())) : null;
+  const byDay = rule.byDay?.length
+    ? new Set(rule.byDay.map((d) => d.day.toLowerCase()))
+    : null;
 
   let index = 0;
   let emitted = 0;
@@ -158,14 +162,20 @@ export function expandOccurrences(base: Obj, from: Date, to: Date): Occurrence[]
     else if (rule.frequency === "daily") cursor.setDate(cursor.getDate() + interval);
     else if (rule.frequency === "weekly") cursor.setDate(cursor.getDate() + 7 * interval);
     else if (rule.frequency === "monthly") cursor.setMonth(cursor.getMonth() + interval);
-    else if (rule.frequency === "yearly") cursor.setFullYear(cursor.getFullYear() + interval);
+    else if (rule.frequency === "yearly")
+      cursor.setFullYear(cursor.getFullYear() + interval);
     else break;
   }
   return out;
 }
 
 /** Fields that describe the series and never travel down to one instance. */
-const SERIES_ONLY = ["recurrenceRule", "recurrenceRules", "excludedRecurrenceRules", "recurrenceOverrides"];
+const SERIES_ONLY = [
+  "recurrenceRule",
+  "recurrenceRules",
+  "excludedRecurrenceRules",
+  "recurrenceOverrides",
+];
 
 /**
  * The object a `CalendarEvent/get` returns for one occurrence.
@@ -192,8 +202,16 @@ export function occurrenceView(base: Obj, occ: Occurrence): Obj {
 
 /** Refused outright, with `invalidProperties`. */
 export const OCCURRENCE_REJECTED = new Set([
-  "baseEventId", "calendarIds", "isDraft", "isOrigin", "utcStart", "utcEnd",
-  "useDefaultAlerts", "mayInviteSelf", "mayInviteOthers", "hideAttendees",
+  "baseEventId",
+  "calendarIds",
+  "isDraft",
+  "isOrigin",
+  "utcStart",
+  "utcEnd",
+  "useDefaultAlerts",
+  "mayInviteSelf",
+  "mayInviteOthers",
+  "hideAttendees",
 ]);
 
 /**
@@ -204,9 +222,18 @@ export const OCCURRENCE_REJECTED = new Set([
  * would ship — which is exactly the road #26 took to a live server.
  */
 export const OCCURRENCE_INHERITED = new Set([
-  "@type", "method", "organizerCalendarAddress", "privacy", "prodId",
-  "recurrenceId", "recurrenceIdTimeZone", "sentBy", "uid",
-  "recurrenceOverrides", "recurrenceRule", "relatedTo",
+  "@type",
+  "method",
+  "organizerCalendarAddress",
+  "privacy",
+  "prodId",
+  "recurrenceId",
+  "recurrenceIdTimeZone",
+  "sentBy",
+  "uid",
+  "recurrenceOverrides",
+  "recurrenceRule",
+  "relatedTo",
 ]);
 
 /**

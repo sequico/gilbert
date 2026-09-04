@@ -6,14 +6,30 @@
  * Sieve below each comment is what the server actually runs.
  */
 
-import { formatList } from "./datetime";
 import { t } from "@/lib/i18n";
+import { formatList } from "./datetime";
 
-export type HeaderOp = "contains" | "notcontains" | "is" | "notis" | "matches" | "notmatches" | "regex" | "notregex" | "exists" | "notexists";
+export type HeaderOp =
+  | "contains"
+  | "notcontains"
+  | "is"
+  | "notis"
+  | "matches"
+  | "notmatches"
+  | "regex"
+  | "notregex"
+  | "exists"
+  | "notexists";
 
 export type SieveTest =
   | { type: "header"; header: string; op: HeaderOp; value: string }
-  | { type: "address"; header: string; part: "all" | "localpart" | "domain"; op: HeaderOp; value: string }
+  | {
+      type: "address";
+      header: string;
+      part: "all" | "localpart" | "domain";
+      op: HeaderOp;
+      value: string;
+    }
   | { type: "size"; op: "over" | "under"; value: number }
   | { type: "body"; op: "contains" | "notcontains"; value: string }
   | { type: "true" };
@@ -71,7 +87,19 @@ export function sieveString(s: string): string {
 function opToSieve(op: HeaderOp): { neg: boolean; match: string } {
   const neg = op.startsWith("not");
   const base = neg ? op.slice(3) : op;
-  return { neg, match: base === "regex" ? ":regex" : base === "matches" ? ":matches" : base === "is" ? ":is" : base === "exists" ? "exists" : ":contains" };
+  return {
+    neg,
+    match:
+      base === "regex"
+        ? ":regex"
+        : base === "matches"
+          ? ":matches"
+          : base === "is"
+            ? ":is"
+            : base === "exists"
+              ? "exists"
+              : ":contains",
+  };
 }
 
 export function testToSieve(t: SieveTest): string {
@@ -80,13 +108,20 @@ export function testToSieve(t: SieveTest): string {
       return "true";
     case "header": {
       const { neg, match } = opToSieve(t.op);
-      const inner = match === "exists" ? `exists ${sieveString(t.header)}` : `header ${match} ${sieveString(t.header)} ${sieveString(t.value)}`;
+      const inner =
+        match === "exists"
+          ? `exists ${sieveString(t.header)}`
+          : `header ${match} ${sieveString(t.header)} ${sieveString(t.value)}`;
       return neg ? `not ${inner}` : inner;
     }
     case "address": {
       const { neg, match } = opToSieve(t.op);
-      const part = t.part === "all" ? ":all" : t.part === "localpart" ? ":localpart" : ":domain";
-      const inner = match === "exists" ? `exists ${sieveString(t.header)}` : `address ${part} ${match} ${sieveString(t.header)} ${sieveString(t.value)}`;
+      const part =
+        t.part === "all" ? ":all" : t.part === "localpart" ? ":localpart" : ":domain";
+      const inner =
+        match === "exists"
+          ? `exists ${sieveString(t.header)}`
+          : `address ${part} ${match} ${sieveString(t.header)} ${sieveString(t.value)}`;
       return neg ? `not ${inner}` : inner;
     }
     case "size":
@@ -130,7 +165,11 @@ export function requiredExtensions(rules: SieveRule[]): string[] {
   for (const r of rules) {
     for (const t of r.tests) {
       if (t.type === "body") req.add("body");
-      if ((t.type === "header" || t.type === "address") && (t.op === "regex" || t.op === "notregex")) req.add("regex");
+      if (
+        (t.type === "header" || t.type === "address") &&
+        (t.op === "regex" || t.op === "notregex")
+      )
+        req.add("regex");
       if (t.type === "address") req.add("envelope");
     }
     for (const a of r.actions) {
@@ -140,14 +179,16 @@ export function requiredExtensions(rules: SieveRule[]): string[] {
       }
       if (a.type === "redirect" && a.copy) req.add("copy");
       if (a.type === "reject") req.add("reject");
-      if (["addflag", "setflag", "removeflag", "markread", "flag"].includes(a.type)) req.add("imap4flags");
+      if (["addflag", "setflag", "removeflag", "markread", "flag"].includes(a.type))
+        req.add("imap4flags");
     }
   }
   req.delete("envelope");
   return [...req].sort();
 }
 
-export const SCRIPT_HEADER = "# ihasmail filters v1 - edit with care; rules are stored in the `# rule:` comments";
+export const SCRIPT_HEADER =
+  "# ihasmail filters v1 - edit with care; rules are stored in the `# rule:` comments";
 
 export function rulesToSieve(rules: SieveRule[]): string {
   const ext = requiredExtensions(rules);
@@ -204,7 +245,8 @@ export function scriptDamage(content: string): string | null {
     // as a very short hand-written script -- and that reading is the one that
     // offers to replace it.
     const head = content.replace(/\n+$/, "");
-    if (head !== "" && SCRIPT_HEADER.startsWith(head)) return "breaks off inside its first line";
+    if (head !== "" && SCRIPT_HEADER.startsWith(head))
+      return "breaks off inside its first line";
     return null;
   }
   // Every generated script ends with a newline, so a body that stops mid-line
@@ -236,7 +278,13 @@ export function scriptDamage(content: string): string | null {
     let rule: SieveRule | null = null;
     try {
       const parsed = JSON.parse(line.slice(7)) as SieveRule;
-      if (parsed && typeof parsed === "object" && Array.isArray(parsed.tests) && Array.isArray(parsed.actions)) rule = parsed;
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        Array.isArray(parsed.tests) &&
+        Array.isArray(parsed.actions)
+      )
+        rule = parsed;
     } catch {
       /* reported below */
     }
@@ -257,7 +305,8 @@ export function scriptDamage(content: string): string | null {
       if (i >= lines.length) return cut(rule, "whose body never closes");
       i++;
     } else {
-      if (!lines[i]?.startsWith("# (disabled) ")) return cut(rule, "with nothing below it");
+      if (!lines[i]?.startsWith("# (disabled) "))
+        return cut(rule, "with nothing below it");
       i++;
     }
     // Each block is followed by a blank line, the last one included: it is the
@@ -273,13 +322,20 @@ export function scriptDamage(content: string): string | null {
 
 /** Returns rules if the script was generated by ihasmail, else null (raw script). */
 export function sieveToRules(script: string): SieveRule[] | null {
-  if (!script.includes("# rule:")) return script.trim() === "" || script.includes(SCRIPT_HEADER) ? [] : null;
+  if (!script.includes("# rule:"))
+    return script.trim() === "" || script.includes(SCRIPT_HEADER) ? [] : null;
   const out: SieveRule[] = [];
   for (const line of script.split(/\r?\n/)) {
     if (!line.startsWith("# rule:")) continue;
     try {
       const r = JSON.parse(line.slice(7)) as SieveRule;
-      if (r && typeof r === "object" && Array.isArray(r.tests) && Array.isArray(r.actions)) out.push(r);
+      if (
+        r &&
+        typeof r === "object" &&
+        Array.isArray(r.tests) &&
+        Array.isArray(r.actions)
+      )
+        out.push(r);
     } catch {
       /* skip */
     }
@@ -304,14 +360,21 @@ export function newRule(partial: Partial<SieveRule> = {}): SieveRule {
  * Order is evaluation order in Sieve, so an edited rule has to keep its seat.
  */
 export function upsertRule(rules: SieveRule[], rule: SieveRule): SieveRule[] {
-  return rules.some((x) => x.id === rule.id) ? rules.map((x) => (x.id === rule.id ? rule : x)) : [...rules, rule];
+  return rules.some((x) => x.id === rule.id)
+    ? rules.map((x) => (x.id === rule.id ? rule : x))
+    : [...rules, rule];
 }
 
 /**
  * Moves the rule `fromId` to sit either side of `toId`. `below` says which,
  * decided by which half of the target card the pointer was over.
  */
-export function reorderRules(rules: SieveRule[], fromId: string, toId: string, below: boolean): SieveRule[] {
+export function reorderRules(
+  rules: SieveRule[],
+  fromId: string,
+  toId: string,
+  below: boolean,
+): SieveRule[] {
   if (fromId === toId) return rules;
   const moved = rules.find((r) => r.id === fromId);
   const rest = rules.filter((r) => r.id !== fromId);
@@ -335,15 +398,25 @@ export function reorderRules(rules: SieveRule[], fromId: string, toId: string, b
  * for an anyof rule, the disjunction the language actually uses.
  */
 export function describeRule(r: SieveRule): string {
-  const headerLabel = (h: string): string => t(HEADER_CHOICES.find((c) => c.value === h)?.label ?? h);
-  const opLabel = (op: string): string => t(HEADER_OPS.find((o) => o.value === op)?.label ?? op);
+  const headerLabel = (h: string): string =>
+    t(HEADER_CHOICES.find((c) => c.value === h)?.label ?? h);
+  const opLabel = (op: string): string =>
+    t(HEADER_OPS.find((o) => o.value === op)?.label ?? op);
 
   const tests = r.tests.map((test) => {
     switch (test.type) {
       case "header":
-        return t('{header} {op} "{value}"', { header: headerLabel(test.header), op: opLabel(test.op), value: test.value });
+        return t('{header} {op} "{value}"', {
+          header: headerLabel(test.header),
+          op: opLabel(test.op),
+          value: test.value,
+        });
       case "address":
-        return t('{header} address {op} "{value}"', { header: headerLabel(test.header), op: opLabel(test.op), value: test.value });
+        return t('{header} address {op} "{value}"', {
+          header: headerLabel(test.header),
+          op: opLabel(test.op),
+          value: test.value,
+        });
       case "size":
         return test.op === "over"
           ? t("size is over {n} KB", { n: Math.round(test.value / 1024) })
@@ -359,22 +432,34 @@ export function describeRule(r: SieveRule): string {
 
   const actions = r.actions.map((a) => {
     switch (a.type) {
-      case "fileinto":   return t("move to {folder}", { folder: a.mailbox });
-      case "redirect":   return t("forward to {address}", { address: a.address });
-      case "discard":    return t("delete it");
-      case "keep":       return t("keep it");
-      case "reject":     return t("reject it");
-      case "markread":   return t("mark it read");
-      case "flag":       return t("star it");
+      case "fileinto":
+        return t("move to {folder}", { folder: a.mailbox });
+      case "redirect":
+        return t("forward to {address}", { address: a.address });
+      case "discard":
+        return t("delete it");
+      case "keep":
+        return t("keep it");
+      case "reject":
+        return t("reject it");
+      case "markread":
+        return t("mark it read");
+      case "flag":
+        return t("star it");
       case "addflag":
-      case "setflag":    return t("add {flag}", { flag: a.flag });
-      case "removeflag": return t("remove {flag}", { flag: a.flag });
-      case "stop":       return t("stop");
+      case "setflag":
+        return t("add {flag}", { flag: a.flag });
+      case "removeflag":
+        return t("remove {flag}", { flag: a.flag });
+      case "stop":
+        return t("stop");
     }
   });
 
   return t("{tests} → {actions}", {
-    tests: tests.length ? formatList(tests, r.join === "allof" ? "conjunction" : "disjunction") : t("always"),
+    tests: tests.length
+      ? formatList(tests, r.join === "allof" ? "conjunction" : "disjunction")
+      : t("always"),
     actions: formatList(actions, "conjunction"),
   });
 }

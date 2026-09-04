@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
-import { Dialog } from "@/ui/dialog";
-import { useContacts } from "@/store/contacts";
-import { useMail } from "@/store/mail";
-import { useCalendar } from "@/store/calendar";
-import { useFiles } from "@/store/files";
+import { useEffect, useState } from "react";
 import { client, setErrorMessage } from "@/jmap/client";
-import { toast } from "@/ui/toast";
 import type { Id, Principal } from "@/jmap/types";
 import { t } from "@/lib/i18n";
+import { useCalendar } from "@/store/calendar";
+import { useContacts } from "@/store/contacts";
+import { useFiles } from "@/store/files";
+import { useMail } from "@/store/mail";
+import { Dialog } from "@/ui/dialog";
+import { toast } from "@/ui/toast";
 
 /* The JMAP type name, used verbatim as the `/set` method prefix. */
 type Kind = "Mailbox" | "Calendar" | "AddressBook" | "FileNode";
@@ -53,19 +53,49 @@ const RIGHTS: Record<Kind, Array<{ key: string; label: string }>> = {
 };
 
 const PRESETS: Record<Kind, { reader: string[]; editor: string[] }> = {
-  Mailbox: { reader: ["mayReadItems"], editor: ["mayReadItems", "mayAddItems", "mayRemoveItems", "maySetSeen", "maySetKeywords", "mayCreateChild"] },
-  Calendar: { reader: ["mayReadFreeBusy", "mayReadItems"], editor: ["mayReadFreeBusy", "mayReadItems", "mayWriteAll", "mayRSVP"] },
+  Mailbox: {
+    reader: ["mayReadItems"],
+    editor: [
+      "mayReadItems",
+      "mayAddItems",
+      "mayRemoveItems",
+      "maySetSeen",
+      "maySetKeywords",
+      "mayCreateChild",
+    ],
+  },
+  Calendar: {
+    reader: ["mayReadFreeBusy", "mayReadItems"],
+    editor: ["mayReadFreeBusy", "mayReadItems", "mayWriteAll", "mayRSVP"],
+  },
   AddressBook: { reader: ["mayRead"], editor: ["mayRead", "mayWrite"] },
   // An editor can fill a folder and change what is in it, but not rename or
   // delete the folder they were given -- those stay with whoever shared it.
-  FileNode: { reader: ["mayRead"], editor: ["mayRead", "mayAddChildren", "mayModifyContent"] },
+  FileNode: {
+    reader: ["mayRead"],
+    editor: ["mayRead", "mayAddChildren", "mayModifyContent"],
+  },
 };
 
 /** Share a mailbox / calendar / address book / file node with other principals (JMAP Sharing, RFC 9670). */
-export function ShareDialog({ kind, id, name, shareWith, onClose }: { kind: Kind; id: Id; name: string; shareWith: Record<Id, object> | null; onClose: () => void }) {
+export function ShareDialog({
+  kind,
+  id,
+  name,
+  shareWith,
+  onClose,
+}: {
+  kind: Kind;
+  id: Id;
+  name: string;
+  shareWith: Record<Id, object> | null;
+  onClose: () => void;
+}) {
   const principals = useContacts((s) => s.principals);
   const loadPrincipals = useContacts((s) => s.loadPrincipals);
-  const [rights, setRights] = useState<Record<Id, Record<string, boolean>>>(() => ({ ...((shareWith ?? {}) as Record<Id, Record<string, boolean>>) }));
+  const [rights, setRights] = useState<Record<Id, Record<string, boolean>>>(() => ({
+    ...((shareWith ?? {}) as Record<Id, Record<string, boolean>>),
+  }));
   const [pick, setPick] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -83,11 +113,19 @@ export function ShareDialog({ kind, id, name, shareWith, onClose }: { kind: Kind
     setBusy(true);
     try {
       const accountId =
-        kind === "Mailbox" ? useMail.getState().accountId
-        : kind === "Calendar" ? useCalendar.getState().accountId
-        : kind === "FileNode" ? useFiles.getState().accountId
-        : useContacts.getState().accountId;
-      const res = await client.call<{ notUpdated?: Record<string, { type: string; description?: string }> }>(`${kind}/set`, { accountId, update: { [id]: { shareWith: Object.keys(rights).length ? rights : null } } });
+        kind === "Mailbox"
+          ? useMail.getState().accountId
+          : kind === "Calendar"
+            ? useCalendar.getState().accountId
+            : kind === "FileNode"
+              ? useFiles.getState().accountId
+              : useContacts.getState().accountId;
+      const res = await client.call<{
+        notUpdated?: Record<string, { type: string; description?: string }>;
+      }>(`${kind}/set`, {
+        accountId,
+        update: { [id]: { shareWith: Object.keys(rights).length ? rights : null } },
+      });
       const err = res.notUpdated?.[id];
       if (err) throw new Error(setErrorMessage(err));
       toast.success(t("Sharing updated"));
@@ -104,7 +142,22 @@ export function ShareDialog({ kind, id, name, shareWith, onClose }: { kind: Kind
   };
 
   return (
-    <Dialog open onClose={onClose} title={t("Share “{name}”", { name })} size="lg" footer={<><button className="btn" onClick={onClose}>{t("Cancel")}</button><button className="btn btn-primary" disabled={busy} onClick={() => void save()}>{t("Save")}</button></>}>
+    <Dialog
+      open
+      onClose={onClose}
+      title={t("Share “{name}”", { name })}
+      size="lg"
+      footer={
+        <>
+          <button className="btn" onClick={onClose}>
+            {t("Cancel")}
+          </button>
+          <button className="btn btn-primary" disabled={busy} onClick={() => void save()}>
+            {t("Save")}
+          </button>
+        </>
+      }
+    >
       {/* The list of who it is shared with is rendered whether or not anybody
           can be *added*. It used to sit inside the branch below, so a server
           with directory queries switched off -- which is the default, and which
@@ -112,44 +165,97 @@ export function ShareDialog({ kind, id, name, shareWith, onClose }: { kind: Kind
           share could not be seen, let alone removed. */}
       {!principals.length && (
         <p className="hint" style={{ marginBottom: 12 }}>
-          
-          {t("No other users found in the directory, so nobody new can be added. Sharing already in place is listed below and can still be removed.")}
+          {t(
+            "No other users found in the directory, so nobody new can be added. Sharing already in place is listed below and can still be removed.",
+          )}
         </p>
       )}
       {principals.length > 0 && (
-        <>
-          <div className="row" style={{ marginBottom: 12 }}>
-            <select className="select" value={pick} onChange={(e) => setPick(e.target.value)}>
-              <option value="">{t("Add a person or group…")}</option>
-              {available.map((p) => (
-                <option key={p.id} value={p.id}>{`${p.name}${p.email ? ` <${p.email}>` : ""}${p.type !== "individual" ? ` (${p.type})` : ""}`}</option>
-              ))}
-            </select>
-            <button className="btn" disabled={!pick} onClick={() => { const p = principals.find((x) => x.id === pick); if (p) add(p, "reader"); }}>{t("Viewer")}</button>
-            <button className="btn btn-primary" disabled={!pick} onClick={() => { const p = principals.find((x) => x.id === pick); if (p) add(p, "editor"); }}>{t("Editor")}</button>
-          </div>
-        </>
+        <div className="row" style={{ marginBottom: 12 }}>
+          <select
+            className="select"
+            value={pick}
+            onChange={(e) => setPick(e.target.value)}
+          >
+            <option value="">{t("Add a person or group…")}</option>
+            {available.map((p) => (
+              <option
+                key={p.id}
+                value={p.id}
+              >{`${p.name}${p.email ? ` <${p.email}>` : ""}${p.type !== "individual" ? ` (${p.type})` : ""}`}</option>
+            ))}
+          </select>
+          <button
+            className="btn"
+            disabled={!pick}
+            onClick={() => {
+              const p = principals.find((x) => x.id === pick);
+              if (p) add(p, "reader");
+            }}
+          >
+            {t("Viewer")}
+          </button>
+          <button
+            className="btn btn-primary"
+            disabled={!pick}
+            onClick={() => {
+              const p = principals.find((x) => x.id === pick);
+              if (p) add(p, "editor");
+            }}
+          >
+            {t("Editor")}
+          </button>
+        </div>
       )}
       {Object.entries(rights).map(([pid, r]) => {
-            const p = principals.find((x) => x.id === pid);
-            return (
-              <div key={pid} className="card">
-                <div className="card-head">
-                  <h3><span>{p?.name ?? pid}</span>{p?.email ? <span className="hint" style={{ fontWeight: 400 }}> · {p.email}</span> : null}</h3>
-                  <button className="icon-btn sm danger" onClick={() => { const n = { ...rights }; delete n[pid]; setRights(n); }} aria-label={t("Remove")}><Trash2 size={16} /></button>
-                </div>
-                <div className="row wrap" style={{ marginTop: 8 }}>
-                  {RIGHTS[kind].map((rt) => (
-                    <label key={rt.key} className="check" style={{ padding: "2px 6px" }}>
-                      <input type="checkbox" checked={Boolean(r[rt.key])} onChange={(e) => setRights({ ...rights, [pid]: { ...r, [rt.key]: e.target.checked } })} />
-                      <span className="small">{t(rt.label)}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            );
+        const p = principals.find((x) => x.id === pid);
+        return (
+          <div key={pid} className="card">
+            <div className="card-head">
+              <h3>
+                <span>{p?.name ?? pid}</span>
+                {p?.email ? (
+                  <span className="hint" style={{ fontWeight: 400 }}>
+                    {" "}
+                    · {p.email}
+                  </span>
+                ) : null}
+              </h3>
+              <button
+                className="icon-btn sm danger"
+                onClick={() => {
+                  const n = { ...rights };
+                  delete n[pid];
+                  setRights(n);
+                }}
+                aria-label={t("Remove")}
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+            <div className="row wrap" style={{ marginTop: 8 }}>
+              {RIGHTS[kind].map((rt) => (
+                <label key={rt.key} className="check" style={{ padding: "2px 6px" }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(r[rt.key])}
+                    onChange={(e) =>
+                      setRights({
+                        ...rights,
+                        [pid]: { ...r, [rt.key]: e.target.checked },
+                      })
+                    }
+                  />
+                  <span className="small">{t(rt.label)}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        );
       })}
-      {!Object.keys(rights).length && <p className="hint">{t("Not shared with anyone yet.")}</p>}
+      {!Object.keys(rights).length && (
+        <p className="hint">{t("Not shared with anyone yet.")}</p>
+      )}
     </Dialog>
   );
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { toIcs, parseIcs } from "@/lib/ics";
 import type { JSCalendarEvent } from "@/jmap/types";
+import { parseIcs, toIcs } from "@/lib/ics";
 
 /*
  * Writing iCalendar out of the server's RFC 8984 objects.
@@ -12,8 +12,12 @@ import type { JSCalendarEvent } from "@/jmap/types";
  */
 
 const base: JSCalendarEvent = {
-  "@type": "Event", uid: "kickoff@example.org", title: "Kickoff",
-  start: "2026-09-02T09:00:00", duration: "PT1H", timeZone: "Europe/Berlin",
+  "@type": "Event",
+  uid: "kickoff@example.org",
+  title: "Kickoff",
+  start: "2026-09-02T09:00:00",
+  duration: "PT1H",
+  timeZone: "Europe/Berlin",
 };
 
 const lines = (e: JSCalendarEvent[], name?: string) => toIcs(e, name).split("\r\n");
@@ -26,7 +30,8 @@ const eventLines = (e: JSCalendarEvent[]) => {
   const all = lines(e);
   return all.slice(all.indexOf("BEGIN:VEVENT"));
 };
-const find = (e: JSCalendarEvent[], prefix: string) => eventLines(e).filter((l) => l.startsWith(prefix));
+const find = (e: JSCalendarEvent[], prefix: string) =>
+  eventLines(e).filter((l) => l.startsWith(prefix));
 const one = (e: JSCalendarEvent, prefix: string) => find([e], prefix)[0];
 
 describe("the document around the events", () => {
@@ -54,7 +59,9 @@ describe("times and zones", () => {
   });
 
   it("writes UTC as UTC", () => {
-    expect(one({ ...base, timeZone: "Etc/UTC" }, "DTSTART")).toBe("DTSTART:20260902T090000Z");
+    expect(one({ ...base, timeZone: "Etc/UTC" }, "DTSTART")).toBe(
+      "DTSTART:20260902T090000Z",
+    );
   });
 
   it("leaves a floating time floating, with no zone at all", () => {
@@ -78,7 +85,10 @@ describe("times and zones", () => {
 });
 
 describe("recurrence", () => {
-  const weekly = { ...base, recurrenceRule: { frequency: "weekly" as const, byDay: [{ day: "we" as const }] } };
+  const weekly = {
+    ...base,
+    recurrenceRule: { frequency: "weekly" as const, byDay: [{ day: "we" as const }] },
+  };
 
   it("writes the rule rather than expanding it into a year of events", () => {
     expect(one(weekly, "RRULE")).toBe("RRULE:FREQ=WEEKLY;BYDAY=WE");
@@ -86,22 +96,38 @@ describe("recurrence", () => {
   });
 
   it("reads the array form as well as the single rule Stalwart stores", () => {
-    const e = { ...base, recurrenceRules: [{ frequency: "monthly" as const, interval: 2, count: 5 }] };
+    const e = {
+      ...base,
+      recurrenceRules: [{ frequency: "monthly" as const, interval: 2, count: 5 }],
+    };
     expect(one(e, "RRULE")).toBe("RRULE:FREQ=MONTHLY;INTERVAL=2;COUNT=5");
   });
 
   it("measures UNTIL in UTC, so a series does not stop a day early elsewhere", () => {
-    const e = { ...base, recurrenceRule: { frequency: "weekly" as const, until: "2026-12-30T09:00:00" } };
+    const e = {
+      ...base,
+      recurrenceRule: { frequency: "weekly" as const, until: "2026-12-30T09:00:00" },
+    };
     expect(one(e, "RRULE")).toBe("RRULE:FREQ=WEEKLY;UNTIL=20261230T090000Z");
   });
 
   it("measures UNTIL as a date when the series is all-day", () => {
-    const e = { ...base, showWithoutTime: true, recurrenceRule: { frequency: "daily" as const, until: "2026-12-30T00:00:00" } };
+    const e = {
+      ...base,
+      showWithoutTime: true,
+      recurrenceRule: { frequency: "daily" as const, until: "2026-12-30T00:00:00" },
+    };
     expect(one(e, "RRULE")).toBe("RRULE:FREQ=DAILY;UNTIL=20261230");
   });
 
   it("keeps the nth-weekday form that BYDAY carries a number for", () => {
-    const e = { ...base, recurrenceRule: { frequency: "monthly" as const, byDay: [{ day: "th" as const, nthOfPeriod: -1 }] } };
+    const e = {
+      ...base,
+      recurrenceRule: {
+        frequency: "monthly" as const,
+        byDay: [{ day: "th" as const, nthOfPeriod: -1 }],
+      },
+    };
     expect(one(e, "RRULE")).toBe("RRULE:FREQ=MONTHLY;BYDAY=-1TH");
   });
 
@@ -112,7 +138,10 @@ describe("recurrence", () => {
   });
 
   it("treats an override marked excluded the same way", () => {
-    const e = { ...weekly, recurrenceOverrides: { "2026-09-09T09:00:00": { excluded: true } } };
+    const e = {
+      ...weekly,
+      recurrenceOverrides: { "2026-09-09T09:00:00": { excluded: true } },
+    };
     expect(one(e, "EXDATE")).toBe("EXDATE;TZID=Europe/Berlin:20260909T090000");
   });
 
@@ -122,7 +151,10 @@ describe("recurrence", () => {
      * RECURRENCE-ID of the slot being replaced. The master keeps its rule and
      * the override must not.
      */
-    const e = { ...weekly, recurrenceOverrides: { "2026-09-09T09:00:00": { title: "Kickoff (moved)" } } };
+    const e = {
+      ...weekly,
+      recurrenceOverrides: { "2026-09-09T09:00:00": { title: "Kickoff (moved)" } },
+    };
     const l = lines([e]);
     expect(l.filter((x) => x === "BEGIN:VEVENT")).toHaveLength(2);
     expect(l.filter((x) => x === "UID:kickoff@example.org")).toHaveLength(2);
@@ -160,7 +192,12 @@ describe("the rest of an event", () => {
   });
 
   it("maps the words the two formats spell differently", () => {
-    const e = { ...base, status: "tentative" as const, privacy: "secret" as const, freeBusyStatus: "free" as const };
+    const e = {
+      ...base,
+      status: "tentative" as const,
+      privacy: "secret" as const,
+      freeBusyStatus: "free" as const,
+    };
     expect(one(e, "STATUS")).toBe("STATUS:TENTATIVE");
     expect(one(e, "CLASS")).toBe("CLASS:CONFIDENTIAL");
     expect(one(e, "TRANSP")).toBe("TRANSP:TRANSPARENT");
@@ -171,23 +208,43 @@ describe("the rest of an event", () => {
       ...base,
       organizerCalendarAddress: "mailto:chair@example.org",
       participants: {
-        p1: { roles: { attendee: true }, name: "Ada", calendarAddress: "mailto:ada@example.org", participationStatus: "accepted" as const, expectReply: true },
-        p2: { roles: { optional: true }, sendTo: { imip: "mailto:alan@example.org" }, participationStatus: "needs-action" as const },
+        p1: {
+          roles: { attendee: true },
+          name: "Ada",
+          calendarAddress: "mailto:ada@example.org",
+          participationStatus: "accepted" as const,
+          expectReply: true,
+        },
+        p2: {
+          roles: { optional: true },
+          sendTo: { imip: "mailto:alan@example.org" },
+          participationStatus: "needs-action" as const,
+        },
       },
     } as JSCalendarEvent;
     expect(one(e, "ORGANIZER")).toBe("ORGANIZER:mailto:chair@example.org");
     const att = find([e], "ATTENDEE");
-    expect(att[0]).toBe("ATTENDEE;CN=Ada;PARTSTAT=ACCEPTED;RSVP=TRUE:mailto:ada@example.org");
-    expect(att[1]).toBe("ATTENDEE;PARTSTAT=NEEDS-ACTION;ROLE=OPT-PARTICIPANT:mailto:alan@example.org");
+    expect(att[0]).toBe(
+      "ATTENDEE;CN=Ada;PARTSTAT=ACCEPTED;RSVP=TRUE:mailto:ada@example.org",
+    );
+    expect(att[1]).toBe(
+      "ATTENDEE;PARTSTAT=NEEDS-ACTION;ROLE=OPT-PARTICIPANT:mailto:alan@example.org",
+    );
   });
 
   it("skips a participant with no address at all rather than writing a broken line", () => {
-    const e = { ...base, participants: { p1: { roles: { attendee: true }, name: "Nobody" } } } as JSCalendarEvent;
+    const e = {
+      ...base,
+      participants: { p1: { roles: { attendee: true }, name: "Nobody" } },
+    } as JSCalendarEvent;
     expect(find([e], "ATTENDEE")).toEqual([]);
   });
 
   it("nests an alarm inside the event it belongs to", () => {
-    const e = { ...base, alerts: { a1: { trigger: { offset: "-PT15M" } } } } as JSCalendarEvent;
+    const e = {
+      ...base,
+      alerts: { a1: { trigger: { offset: "-PT15M" } } },
+    } as JSCalendarEvent;
     const l = lines([e]);
     expect(l).toContain("BEGIN:VALARM");
     expect(l).toContain("TRIGGER:-PT15M");
@@ -196,7 +253,10 @@ describe("the rest of an event", () => {
   });
 
   it("says when an alarm hangs off the end rather than the start", () => {
-    const e = { ...base, alerts: { a1: { trigger: { offset: "PT5M", relativeTo: "end" as const } } } } as JSCalendarEvent;
+    const e = {
+      ...base,
+      alerts: { a1: { trigger: { offset: "PT5M", relativeTo: "end" as const } } },
+    } as JSCalendarEvent;
     expect(one(e, "TRIGGER")).toBe("TRIGGER;RELATED=END:PT5M");
   });
 });
@@ -207,9 +267,15 @@ describe("what comes back out of the parser", () => {
    * less than the writer emits -- but what it does read should be what went in.
    */
   it("reads back the events it wrote", () => {
-    const two = [base, { ...base, uid: "retro@example.org", title: "Retro", start: "2026-09-09T14:00:00" }];
+    const two = [
+      base,
+      { ...base, uid: "retro@example.org", title: "Retro", start: "2026-09-09T14:00:00" },
+    ];
     const back = parseIcs(toIcs(two));
-    expect(back.events.map((e) => e.uid)).toEqual(["kickoff@example.org", "retro@example.org"]);
+    expect(back.events.map((e) => e.uid)).toEqual([
+      "kickoff@example.org",
+      "retro@example.org",
+    ]);
     expect(back.events.map((e) => e.summary)).toEqual(["Kickoff", "Retro"]);
   });
 
@@ -239,16 +305,26 @@ describe("the zones an export names", () => {
   });
 
   it("defines a zone once however many events use it", () => {
-    const l = lines([inZone("a", "Europe/Berlin"), inZone("b", "Europe/Berlin"), inZone("c", "Europe/Berlin")]);
+    const l = lines([
+      inZone("a", "Europe/Berlin"),
+      inZone("b", "Europe/Berlin"),
+      inZone("c", "Europe/Berlin"),
+    ]);
     expect(l.filter((x) => x === "BEGIN:VTIMEZONE")).toHaveLength(1);
   });
 
   it("says nothing about UTC, which needs no definition", () => {
-    expect(lines([inZone("a", "Etc/UTC")]).filter((x) => x === "BEGIN:VTIMEZONE")).toHaveLength(0);
+    expect(
+      lines([inZone("a", "Etc/UTC")]).filter((x) => x === "BEGIN:VTIMEZONE"),
+    ).toHaveLength(0);
   });
 
   it("says nothing about an all-day event, which has no zone to define", () => {
-    const e = { ...base, showWithoutTime: true, timeZone: "Europe/Berlin" } as JSCalendarEvent;
+    const e = {
+      ...base,
+      showWithoutTime: true,
+      timeZone: "Europe/Berlin",
+    } as JSCalendarEvent;
     expect(lines([e]).filter((x) => x === "BEGIN:VTIMEZONE")).toHaveLength(0);
   });
 
@@ -278,7 +354,9 @@ describe("the zones an export names", () => {
     // definition that stopped at that year would leave later occurrences
     // undefined.
     const l = lines([inZone("a", "Europe/Berlin")]);
-    const years = new Set(l.filter((x) => x.startsWith("DTSTART:")).map((x) => x.slice(8, 12)));
+    const years = new Set(
+      l.filter((x) => x.startsWith("DTSTART:")).map((x) => x.slice(8, 12)),
+    );
     expect(years.size).toBeGreaterThan(5);
     expect([...years].some((y) => Number(y) > 2030)).toBe(true);
   });

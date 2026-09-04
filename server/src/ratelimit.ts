@@ -51,7 +51,7 @@ export class RateLimiter {
 
   retryAfterSeconds(key: string): number {
     const arr = this.hits.get(key);
-    if (!arr || !arr.length) return 0;
+    if (!arr?.length) return 0;
     const oldest = arr[0]!;
     return Math.max(1, Math.ceil((this.windowMs - (Date.now() - oldest)) / 1000));
   }

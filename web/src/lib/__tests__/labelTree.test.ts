@@ -1,11 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { labelTree, visibleLabels, descendantKeywords } from "@/lib/labelTree";
+import { descendantKeywords, labelTree, visibleLabels } from "@/lib/labelTree";
 import type { Label } from "@/store/settings";
 
-const L = (keyword: string, over: Partial<Label> = {}): Label => ({ keyword, name: keyword, color: "#000", ...over });
+const L = (keyword: string, over: Partial<Label> = {}): Label => ({
+  keyword,
+  name: keyword,
+  color: "#000",
+  ...over,
+});
 
 const flat = (labels: Label[], counts: Record<string, number> = {}) =>
-  visibleLabels(labelTree(labels, counts)).map((n) => `${"  ".repeat(n.depth)}${n.label.keyword}`);
+  visibleLabels(labelTree(labels, counts)).map(
+    (n) => `${"  ".repeat(n.depth)}${n.label.keyword}`,
+  );
 
 describe("labelTree", () => {
   it("nests a label under its parent and indents it", () => {
@@ -17,7 +24,11 @@ describe("labelTree", () => {
   });
 
   it("nests three deep", () => {
-    expect(flat([L("a"), L("b", { parent: "a" }), L("c", { parent: "b" })])).toEqual(["a", "  b", "    c"]);
+    expect(flat([L("a"), L("b", { parent: "a" }), L("c", { parent: "b" })])).toEqual([
+      "a",
+      "  b",
+      "    c",
+    ]);
   });
 
   it("puts a label back at the top when its parent no longer exists", () => {
@@ -62,12 +73,18 @@ describe("visibleLabels", () => {
     // A child cannot be drawn under a parent that is not there, and promoting
     // it would silently rearrange the tree. The parent comes back as a
     // container instead.
-    const labels = [L("work", { visibility: "unread" }), L("work_urgent", { parent: "work" })];
+    const labels = [
+      L("work", { visibility: "unread" }),
+      L("work_urgent", { parent: "work" }),
+    ];
     expect(flat(labels, { work: 0 })).toEqual(["work", "  work_urgent"]);
   });
 
   it("keeps a hidden parent too, when a child survives", () => {
-    const labels = [L("work", { visibility: "hidden" }), L("work_urgent", { parent: "work" })];
+    const labels = [
+      L("work", { visibility: "hidden" }),
+      L("work_urgent", { parent: "work" }),
+    ];
     expect(flat(labels, {})).toEqual(["work", "  work_urgent"]);
   });
 
@@ -98,7 +115,12 @@ describe("visibleLabels", () => {
 
 describe("descendantKeywords", () => {
   it("names everything below a label, so the parent picker cannot offer a cycle", () => {
-    const roots = labelTree([L("a"), L("b", { parent: "a" }), L("c", { parent: "b" }), L("d")]);
+    const roots = labelTree([
+      L("a"),
+      L("b", { parent: "a" }),
+      L("c", { parent: "b" }),
+      L("d"),
+    ]);
     expect([...descendantKeywords(roots, "a")].sort()).toEqual(["b", "c"]);
     expect([...descendantKeywords(roots, "d")]).toEqual([]);
   });

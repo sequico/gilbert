@@ -1,5 +1,8 @@
+import type {
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+} from "react";
 import { useCallback, useEffect, useRef } from "react";
-import type { PointerEvent as ReactPointerEvent, MouseEvent as ReactMouseEvent } from "react";
 
 /**
  * The gestures a phone expects, and the arithmetic behind them.
@@ -155,8 +158,20 @@ export interface RowGesture {
  * itself, at its own frame rate, and hands us the horizontal movement it now
  * knows it is not going to use.
  */
-export function useTouchRow({ enabled, onLongPress, canSwipe, onSwipeMove, onSwipeEnd }: RowGesture) {
-  const start = useRef<{ x: number; y: number; width: number; id: number; target: Element } | null>(null);
+export function useTouchRow({
+  enabled,
+  onLongPress,
+  canSwipe,
+  onSwipeMove,
+  onSwipeEnd,
+}: RowGesture) {
+  const start = useRef<{
+    x: number;
+    y: number;
+    width: number;
+    id: number;
+    target: Element;
+  } | null>(null);
   const axis = useRef<Axis>(null);
   const dir = useRef<-1 | 1>(1);
   const armed = useRef(false);
@@ -190,7 +205,13 @@ export function useTouchRow({ enabled, onLongPress, canSwipe, onSwipeMove, onSwi
       // Read out now: `currentTarget` is only meaningful during dispatch, and
       // the long-press timer runs long after this handler has returned.
       const target = e.currentTarget;
-      start.current = { x: e.clientX, y: e.clientY, width: target.getBoundingClientRect().width, id: e.pointerId, target };
+      start.current = {
+        x: e.clientX,
+        y: e.clientY,
+        width: target.getBoundingClientRect().width,
+        id: e.pointerId,
+        target,
+      };
       axis.current = null;
       armed.current = false;
       swallowClick.current = false;
@@ -314,7 +335,14 @@ export function useTouchRow({ enabled, onLongPress, canSwipe, onSwipeMove, onSwi
     [enabled],
   );
 
-  return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onClickCapture, onContextMenuCapture };
+  return {
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    onPointerCancel,
+    onClickCapture,
+    onContextMenuCapture,
+  };
 }
 
 /**
@@ -328,7 +356,13 @@ export function useTouchRow({ enabled, onLongPress, canSwipe, onSwipeMove, onSwi
 export function usePullToRefresh(
   el: HTMLElement | null,
   onRefresh: () => Promise<void> | void,
-  { enabled, onPull }: { enabled: boolean; onPull: (distance: number, armed: boolean, live: boolean) => void },
+  {
+    enabled,
+    onPull,
+  }: {
+    enabled: boolean;
+    onPull: (distance: number, armed: boolean, live: boolean) => void;
+  },
 ) {
   const refresh = useRef(onRefresh);
   refresh.current = onRefresh;
@@ -417,7 +451,11 @@ export const EDGE_ZONE = 28;
  * horizontal scrolling that wide HTML mail needs, and mail is exactly the
  * content nobody controls the width of.
  */
-export function useEdgeBack(el: HTMLElement | null, onBack: () => void, enabled: boolean) {
+export function useEdgeBack(
+  el: HTMLElement | null,
+  onBack: () => void,
+  enabled: boolean,
+) {
   const back = useRef(onBack);
   back.current = onBack;
 

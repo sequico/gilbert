@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { canEmpty, emptyLabel } from "@/lib/emptyFolder";
 import type { MailboxRole } from "@/jmap/types";
+import { canEmpty, emptyLabel } from "@/lib/emptyFolder";
 
 /**
  * Emptying destroys everything in a folder in one action, with no undo and no
@@ -16,7 +16,16 @@ describe("which folders may be emptied", () => {
   });
 
   it("refuses folders holding mail someone meant to keep", () => {
-    const keep: MailboxRole[] = ["inbox", "archive", "sent", "drafts", "all", "flagged", "important", "subscribed"];
+    const keep: MailboxRole[] = [
+      "inbox",
+      "archive",
+      "sent",
+      "drafts",
+      "all",
+      "flagged",
+      "important",
+      "subscribed",
+    ];
     for (const role of keep) expect(canEmpty(role), String(role)).toBe(false);
   });
 
@@ -35,7 +44,9 @@ describe("what the action is called", () => {
   });
 
   it("names the folder for Deleted Items, whatever the server calls it", () => {
-    expect(emptyLabel({ name: "Deleted Items", role: "trash" })).toBe("Empty Deleted Items");
+    expect(emptyLabel({ name: "Deleted Items", role: "trash" })).toBe(
+      "Empty Deleted Items",
+    );
     expect(emptyLabel({ name: "Trash", role: "trash" })).toBe("Empty Trash");
   });
 });

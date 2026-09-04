@@ -1,12 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { effectiveMode, legacyTheme, migrateTheme, paletteMeta, PALETTES, toggleTarget } from "@/lib/palette";
+import {
+  effectiveMode,
+  legacyTheme,
+  migrateTheme,
+  PALETTES,
+  paletteMeta,
+  toggleTarget,
+} from "@/lib/palette";
 
 describe("the palettes themselves", () => {
   it("has a light and a dark half for every one of them", () => {
     // The reason there is no "this palette is dark only" machinery: there is
     // no such palette. ihasmail's own gained a light half, and the override,
     // the toggle's memory and a greyed-out control all went with it.
-    expect(PALETTES.map((p) => p.id)).toEqual(["default", "ihasmail", "dracula", "gruvbox", "rose-pine", "tokyo-night"]);
+    expect(PALETTES.map((p) => p.id)).toEqual([
+      "default",
+      "ihasmail",
+      "dracula",
+      "gruvbox",
+      "rose-pine",
+      "tokyo-night",
+    ]);
   });
 
   it("credits every borrowed palette and neither of ihasmail's own", () => {
@@ -73,9 +87,22 @@ describe("legacyTheme, read by a device still on an older build", () => {
 
 describe("toggleTarget", () => {
   it("flips the mode and keeps the colours, whatever the palette", () => {
-    for (const palette of ["default", "ihasmail", "gruvbox", "dracula", "rose-pine", "tokyo-night"] as const) {
-      expect(toggleTarget({ palette, mode: "dark" }, false)).toEqual({ palette, mode: "light" });
-      expect(toggleTarget({ palette, mode: "light" }, false)).toEqual({ palette, mode: "dark" });
+    for (const palette of [
+      "default",
+      "ihasmail",
+      "gruvbox",
+      "dracula",
+      "rose-pine",
+      "tokyo-night",
+    ] as const) {
+      expect(toggleTarget({ palette, mode: "dark" }, false)).toEqual({
+        palette,
+        mode: "light",
+      });
+      expect(toggleTarget({ palette, mode: "light" }, false)).toEqual({
+        palette,
+        mode: "dark",
+      });
     }
   });
 

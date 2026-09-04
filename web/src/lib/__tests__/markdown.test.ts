@@ -27,7 +27,9 @@ describe("renderMarkdown", () => {
   });
 
   it("renders GitHub tables and fenced code", () => {
-    const html = renderMarkdown("| a | b |\n| - | - |\n| 1 | 2 |\n\n```js\nconst x = 1;\n```\n");
+    const html = renderMarkdown(
+      "| a | b |\n| - | - |\n| 1 | 2 |\n\n```js\nconst x = 1;\n```\n",
+    );
     expect(html).toContain("<table>");
     expect(html).toContain("<pre>");
   });
@@ -38,7 +40,9 @@ describe("renderMarkdown", () => {
    * these renders as a script tag without a sanitiser.
    */
   it("takes out anything that would execute", () => {
-    const html = renderMarkdown("<script>alert(1)</script>\n\n<img src=x onerror=alert(1)>\n\n<iframe src='https://evil.example'></iframe>\n");
+    const html = renderMarkdown(
+      "<script>alert(1)</script>\n\n<img src=x onerror=alert(1)>\n\n<iframe src='https://evil.example'></iframe>\n",
+    );
     expect(html).not.toContain("<script");
     expect(html).not.toContain("onerror");
     expect(html).not.toContain("<iframe");

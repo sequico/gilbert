@@ -1,16 +1,14 @@
 import { create } from "zustand";
-import type { FolderRef } from "@/lib/sieveFolders";
-import { SPAM_HEADER_PROPS } from "@/lib/spamScore";
-import { groupByArchivePath, archivePath, type ArchiveGranularity } from "@/lib/archiveDate";
-import { isOptionalSort, withoutOptionalSorts } from "@/lib/listSort";
-import { JmapMethodError, chunk, client, setErrorMessage } from "@/jmap/client";
+import { chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
 import type {
+  ChangesResponse,
   Comparator,
   Email,
   EmailFilter,
   GetResponse,
   Id,
   Identity,
+  Invocation,
   Mailbox,
   MailboxRole,
   QueryResponse,
@@ -19,15 +17,21 @@ import type {
   SetResponse,
   Thread,
   VacationResponse,
-  ChangesResponse,
-  Invocation,
 } from "@/jmap/types";
-import { toast } from "@/ui/toast";
-import { settings, useSettings } from "./settings";
-import { useSession } from "./session";
-import { mailboxDisplayName } from "@/lib/mailboxName";
-import { plural, t } from "@/lib/i18n";
+import {
+  type ArchiveGranularity,
+  archivePath,
+  groupByArchivePath,
+} from "@/lib/archiveDate";
 import { withBase } from "@/lib/basePath";
+import { plural, t } from "@/lib/i18n";
+import { isOptionalSort, withoutOptionalSorts } from "@/lib/listSort";
+import { mailboxDisplayName } from "@/lib/mailboxName";
+import type { FolderRef } from "@/lib/sieveFolders";
+import { SPAM_HEADER_PROPS } from "@/lib/spamScore";
+import { toast } from "@/ui/toast";
+import { useSession } from "./session";
+import { settings, useSettings } from "./settings";
 
 /*
  * Named explicitly so `shareWith` comes back, which it does not otherwise --
@@ -97,7 +101,20 @@ export const FULL_PROPS = [
   ...SPAM_HEADER_PROPS,
 ];
 
-export const BODY_PROPS = ["partId", "blobId", "size", "name", "type", "charset", "disposition", "cid", "language", "location", "subParts", "headers"];
+export const BODY_PROPS = [
+  "partId",
+  "blobId",
+  "size",
+  "name",
+  "type",
+  "charset",
+  "disposition",
+  "cid",
+  "language",
+  "location",
+  "subParts",
+  "headers",
+];
 
 export interface ListQuery {
   key: string;
@@ -164,7 +181,11 @@ export interface MailState {
   setKeyword(ids: Id[], keyword: string, value: boolean): Promise<void>;
   markRead(ids: Id[], read: boolean): Promise<void>;
   star(ids: Id[], on: boolean): Promise<void>;
-  move(ids: Id[], toMailboxId: Id, opts?: { fromMailboxId?: Id | null; silent?: boolean; label?: string }): Promise<void>;
+  move(
+    ids: Id[],
+    toMailboxId: Id,
+    opts?: { fromMailboxId?: Id | null; silent?: boolean; label?: string },
+  ): Promise<void>;
   addToMailbox(ids: Id[], mailboxId: Id, add: boolean): Promise<void>;
   trash(ids: Id[]): Promise<void>;
   destroy(ids: Id[]): Promise<void>;
@@ -206,14 +227,24 @@ export interface MailState {
   setAnchor(id: Id | null): void;
 
   applyChanges(types: Set<string>): Promise<void>;
-  importEml(blobId: Id, mailboxId: Id, keywords?: Record<string, boolean>): Promise<Id | null>;
+  importEml(
+    blobId: Id,
+    mailboxId: Id,
+    keywords?: Record<string, boolean>,
+  ): Promise<Id | null>;
 }
 
-function listKey(q: { filter: EmailFilter; sort: Comparator[]; collapseThreads: boolean }): string {
+function listKey(q: {
+  filter: EmailFilter;
+  sort: Comparator[];
+  collapseThreads: boolean;
+}): string {
   return JSON.stringify([q.filter, q.sort, q.collapseThreads]);
 }
 
-export const DEFAULT_SORT: Comparator[] = [{ property: "receivedAt", isAscending: false }];
+export const DEFAULT_SORT: Comparator[] = [
+  { property: "receivedAt", isAscending: false },
+];
 
 /**
  * Nothing carries the Archive role, so offer to fix it rather than explain it.
@@ -236,7 +267,11 @@ function offerArchiveFolder(retry: () => Promise<void>): void {
           await useMail.getState().ensureArchiveFolder();
           await retry();
         } catch (err) {
-          toast.error(t("Could not set up an Archive folder: {error}", { error: (err as Error).message }));
+          toast.error(
+            t("Could not set up an Archive folder: {error}", {
+              error: (err as Error).message,
+            }),
+          );
         }
       },
     },
@@ -293,7 +328,11 @@ export const useMail = create<MailState>((set, get) => ({
   async loadMailboxes() {
     const accountId = get().accountId;
     if (!accountId) return;
-    const res = await client.call<GetResponse<Mailbox>>("Mailbox/get", { accountId, ids: null, properties: MAILBOX_PROPS });
+    const res = await client.call<GetResponse<Mailbox>>("Mailbox/get", {
+      accountId,
+      ids: null,
+      properties: MAILBOX_PROPS,
+    });
     const mailboxes: Record<Id, Mailbox> = {};
     for (const m of res.list) mailboxes[m.id] = m;
     set({ mailboxes, mailboxState: res.state, mailboxesLoaded: true });
@@ -339,18 +378,48 @@ export const useMail = create<MailState>((set, get) => ({
       return;
     }
     set({
-      list: { ...q, key, ids: reuse ? cur.ids : [], total: reuse ? cur.total : 0, queryState: null, loading: true, loadingMore: false, error: null, exhausted: false },
+      list: {
+        ...q,
+        key,
+        ids: reuse ? cur.ids : [],
+        total: reuse ? cur.total : 0,
+        queryState: null,
+        loading: true,
+        loadingMore: false,
+        error: null,
+        exhausted: false,
+      },
       selected: {},
       selectedAll: false,
       anchorId: null,
     });
     try {
-      const { ids, total, queryState } = await runQuery(accountId, q, 0, settings().pageSize);
+      const { ids, total, queryState } = await runQuery(
+        accountId,
+        q,
+        0,
+        settings().pageSize,
+      );
       if (get().list?.key !== key) return;
-      set((s) => ({ list: s.list ? { ...s.list, ids, total, queryState, loading: false, exhausted: ids.length >= total } : s.list }));
+      set((s) => ({
+        list: s.list
+          ? {
+              ...s.list,
+              ids,
+              total,
+              queryState,
+              loading: false,
+              exhausted: ids.length >= total,
+            }
+          : s.list,
+      }));
     } catch (err) {
       if (get().list?.key !== key) return;
-      set((s) => ({ list: s.list ? { ...s.list, loading: false, error: (err as Error).message } : s.list }));
+      set((s) => ({
+        list: s.list
+          ? { ...s.list, loading: false, error: (err as Error).message }
+          : s.list,
+      }));
     }
   },
 
@@ -360,16 +429,31 @@ export const useMail = create<MailState>((set, get) => ({
     if (!accountId || !l || l.loading || l.loadingMore || l.exhausted) return;
     set({ list: { ...l, loadingMore: true } });
     try {
-      const { ids, total, queryState } = await runQuery(accountId, l, l.ids.length, settings().pageSize);
+      const { ids, total, queryState } = await runQuery(
+        accountId,
+        l,
+        l.ids.length,
+        settings().pageSize,
+      );
       const cur = get().list;
       if (!cur || cur.key !== l.key) return;
       const merged = [...cur.ids];
       const seen = new Set(merged);
       for (const id of ids) if (!seen.has(id)) merged.push(id);
-      set({ list: { ...cur, ids: merged, total, queryState, loadingMore: false, exhausted: ids.length === 0 || merged.length >= total } });
+      set({
+        list: {
+          ...cur,
+          ids: merged,
+          total,
+          queryState,
+          loadingMore: false,
+          exhausted: ids.length === 0 || merged.length >= total,
+        },
+      });
     } catch (err) {
       const cur = get().list;
-      if (cur && cur.key === l.key) set({ list: { ...cur, loadingMore: false, error: (err as Error).message } });
+      if (cur && cur.key === l.key)
+        set({ list: { ...cur, loadingMore: false, error: (err as Error).message } });
     }
   },
 
@@ -382,7 +466,17 @@ export const useMail = create<MailState>((set, get) => ({
       const { ids, total, queryState } = await runQuery(accountId, l, 0, limit);
       const cur = get().list;
       if (!cur || cur.key !== l.key) return;
-      set({ list: { ...cur, ids, total, queryState, loading: false, error: null, exhausted: ids.length >= total } });
+      set({
+        list: {
+          ...cur,
+          ids,
+          total,
+          queryState,
+          loading: false,
+          error: null,
+          exhausted: ids.length >= total,
+        },
+      });
     } catch {
       /* keep old list */
     }
@@ -400,7 +494,14 @@ export const useMail = create<MailState>((set, get) => ({
             accountId,
             ids: part,
             properties: full ? FULL_PROPS : LIST_PROPS,
-            ...(full ? { fetchHTMLBodyValues: true, fetchTextBodyValues: true, maxBodyValueBytes: 2 * 1024 * 1024, bodyProperties: BODY_PROPS } : {}),
+            ...(full
+              ? {
+                  fetchHTMLBodyValues: true,
+                  fetchTextBodyValues: true,
+                  maxBodyValueBytes: 2 * 1024 * 1024,
+                  bodyProperties: BODY_PROPS,
+                }
+              : {}),
           }),
         ),
       );
@@ -443,7 +544,8 @@ export const useMail = create<MailState>((set, get) => ({
           "e",
         ],
       ]);
-      const thread = (res.get("t")?.[0] as unknown as GetResponse<Thread>).list[0];
+      const [t] = res.get("t") ?? [];
+      const thread = (t as unknown as GetResponse<Thread>).list[0];
       const emailsRes = res.get("e")?.[0] as unknown as GetResponse<Email>;
       if (!thread) return [];
       set((s) => {
@@ -454,7 +556,12 @@ export const useMail = create<MailState>((set, get) => ({
           nextFull[e.id] = true;
         }
         const { [threadId]: _drop, ...rest } = s.loadingThreads;
-        return { emails: next, fullIds: nextFull, threads: { ...s.threads, [threadId]: thread }, loadingThreads: rest };
+        return {
+          emails: next,
+          fullIds: nextFull,
+          threads: { ...s.threads, [threadId]: thread },
+          loadingThreads: rest,
+        };
       });
       return get().threadEmails(threadId);
     } catch (err) {
@@ -539,7 +646,8 @@ export const useMail = create<MailState>((set, get) => ({
     // optimistic
     set((s) => {
       const next = { ...s.emails };
-      for (const id of ids) if (next[id]) next[id] = { ...next[id]!, mailboxIds: { [toMailboxId]: true } };
+      for (const id of ids)
+        if (next[id]) next[id] = { ...next[id]!, mailboxIds: { [toMailboxId]: true } };
       return { emails: next, selected: {}, selectedAll: false };
     });
     removeFromList(ids, set, get, toMailboxId);
@@ -553,24 +661,31 @@ export const useMail = create<MailState>((set, get) => ({
         // exist, in the one message whose job is saying where it went.
         // Through the display name, so the message names the folder the reader
         // is looking at in the sidebar rather than the server's own word for it.
-        const name = mailboxDisplayName(mailboxes[toMailboxId]) || opts.label || t("folder");
-        toast.show(`${ids.length === 1 ? "Conversation" : `${ids.length} conversations`} moved to ${name}`, {
-          action: !undoable ? undefined : {
-            label: "Undo",
-            onClick: async () => {
-              const undo: Record<Id, Record<string, unknown>> = {};
-              for (const id of ids) undo[id] = { mailboxIds: prev[id] };
-              await setEmails(accountId, undo);
-              set((s) => {
-                const next = { ...s.emails };
-                for (const id of ids) if (next[id]) next[id] = { ...next[id]!, mailboxIds: prev[id]! };
-                return { emails: next };
-              });
-              void get().refreshList();
-              void get().loadMailboxes();
-            },
+        const name =
+          mailboxDisplayName(mailboxes[toMailboxId]) || opts.label || t("folder");
+        toast.show(
+          `${ids.length === 1 ? "Conversation" : `${ids.length} conversations`} moved to ${name}`,
+          {
+            action: !undoable
+              ? undefined
+              : {
+                  label: "Undo",
+                  onClick: async () => {
+                    const undo: Record<Id, Record<string, unknown>> = {};
+                    for (const id of ids) undo[id] = { mailboxIds: prev[id] };
+                    await setEmails(accountId, undo);
+                    set((s) => {
+                      const next = { ...s.emails };
+                      for (const id of ids)
+                        if (next[id]) next[id] = { ...next[id]!, mailboxIds: prev[id]! };
+                      return { emails: next };
+                    });
+                    void get().refreshList();
+                    void get().loadMailboxes();
+                  },
+                },
           },
-        });
+        );
       }
       void get().loadMailboxes();
     } catch (err) {
@@ -601,7 +716,9 @@ export const useMail = create<MailState>((set, get) => ({
       await setEmails(accountId, update);
       void get().loadMailboxes();
     } catch (err) {
-      toast.error(t("Could not update labels: {error}", { error: (err as Error).message }));
+      toast.error(
+        t("Could not update labels: {error}", { error: (err as Error).message }),
+      );
       void get().getEmails(ids);
     }
   },
@@ -609,10 +726,15 @@ export const useMail = create<MailState>((set, get) => ({
   async trash(ids) {
     const { roleId, emails } = get();
     const trashId = roleId("trash");
-    const inTrash = ids.filter((id) => (trashId && emails[id]?.mailboxIds[trashId]) || (roleId("junk") && emails[id]?.mailboxIds[roleId("junk")!]));
+    const inTrash = ids.filter(
+      (id) =>
+        (trashId && emails[id]?.mailboxIds[trashId]) ||
+        (roleId("junk") && emails[id]?.mailboxIds[roleId("junk")!]),
+    );
     const toMove = ids.filter((id) => !inTrash.includes(id));
     if (inTrash.length) await get().destroy(inTrash);
-    if (toMove.length && trashId) await get().move(toMove, trashId, { label: "Deleted Items" });
+    if (toMove.length && trashId)
+      await get().move(toMove, trashId, { label: "Deleted Items" });
     else if (toMove.length) await get().destroy(toMove);
   },
 
@@ -628,8 +750,17 @@ export const useMail = create<MailState>((set, get) => ({
     try {
       const { notDestroyed } = await destroyEmails(accountId, ids);
       const failed = Object.keys(notDestroyed);
-      if (failed.length) toast.error(plural(failed.length, { one: "{n} message could not be deleted", other: "{n} messages could not be deleted" }));
-      else toast.show(`${ids.length === 1 ? "Message" : `${ids.length} messages`} deleted forever`);
+      if (failed.length)
+        toast.error(
+          plural(failed.length, {
+            one: "{n} message could not be deleted",
+            other: "{n} messages could not be deleted",
+          }),
+        );
+      else
+        toast.show(
+          `${ids.length === 1 ? "Message" : `${ids.length} messages`} deleted forever`,
+        );
       void get().loadMailboxes();
     } catch (err) {
       toast.error(t("Delete failed: {error}", { error: (err as Error).message }));
@@ -655,7 +786,10 @@ export const useMail = create<MailState>((set, get) => ({
       return;
     }
     const { emails } = get();
-    const groups = groupByArchivePath(ids.map((id) => ({ id, receivedAt: emails[id]?.receivedAt })), granularity);
+    const groups = groupByArchivePath(
+      ids.map((id) => ({ id, receivedAt: emails[id]?.receivedAt })),
+      granularity,
+    );
 
     // Where everything came from, captured before anything moves, so one Undo
     // can put back a selection that went to several folders.
@@ -675,7 +809,9 @@ export const useMail = create<MailState>((set, get) => ({
         // Silent: each group would otherwise raise its own toast with its own
         // Undo, and undoing one third of a move is not what anybody meant.
         await get().move(group.ids, target, { silent: true });
-        moved.push(group.segments.length ? `Archive/${archivePath(group.segments)}` : "Archive");
+        moved.push(
+          group.segments.length ? `Archive/${archivePath(group.segments)}` : "Archive",
+        );
       }
     } catch (err) {
       toast.error(t("Archive failed: {error}", { error: (err as Error).message }));
@@ -686,27 +822,36 @@ export const useMail = create<MailState>((set, get) => ({
 
     // One message naming every destination, because a selection that split
     // across months should say so rather than claiming a single folder.
-    const where = moved.length === 1 ? moved[0]! : t("{count} folders", { count: String(moved.length) });
+    const where =
+      moved.length === 1
+        ? moved[0]!
+        : t("{count} folders", { count: String(moved.length) });
     toast.show(
       ids.length === 1
         ? t("Conversation moved to {folder}", { folder: where })
-        : t("{count} conversations moved to {folder}", { count: String(ids.length), folder: where }),
+        : t("{count} conversations moved to {folder}", {
+            count: String(ids.length),
+            folder: where,
+          }),
       {
-        action: !undoable ? undefined : {
-          label: "Undo",
-          onClick: async () => {
-            const undo: Record<Id, Record<string, unknown>> = {};
-            for (const id of ids) undo[id] = { mailboxIds: prev[id] };
-            await setEmails(accountId, undo);
-            set((st) => {
-              const next = { ...st.emails };
-              for (const id of ids) if (next[id]) next[id] = { ...next[id]!, mailboxIds: prev[id]! };
-              return { emails: next };
-            });
-            void get().refreshList();
-            void get().loadMailboxes();
-          },
-        },
+        action: !undoable
+          ? undefined
+          : {
+              label: "Undo",
+              onClick: async () => {
+                const undo: Record<Id, Record<string, unknown>> = {};
+                for (const id of ids) undo[id] = { mailboxIds: prev[id] };
+                await setEmails(accountId, undo);
+                set((st) => {
+                  const next = { ...st.emails };
+                  for (const id of ids)
+                    if (next[id]) next[id] = { ...next[id]!, mailboxIds: prev[id]! };
+                  return { emails: next };
+                });
+                void get().refreshList();
+                void get().loadMailboxes();
+              },
+            },
       },
     );
     void get().loadMailboxes();
@@ -717,7 +862,11 @@ export const useMail = create<MailState>((set, get) => ({
     const target = isSpam ? roleId("junk") : roleId("inbox");
     if (!target) return;
     const kw: Record<Id, Record<string, unknown>> = {};
-    for (const id of ids) kw[id] = { "keywords/$junk": isSpam ? true : null, "keywords/$notjunk": isSpam ? null : true };
+    for (const id of ids)
+      kw[id] = {
+        "keywords/$junk": isSpam ? true : null,
+        "keywords/$notjunk": isSpam ? null : true,
+      };
     const accountId = get().accountId!;
     try {
       await setEmails(accountId, kw);
@@ -751,7 +900,11 @@ export const useMail = create<MailState>((set, get) => ({
     let progress: number | null = null;
     try {
       for (;;) {
-        const q = await client.call<QueryResponse>("Email/query", { accountId, filter: { inMailbox: mailboxId }, limit: page });
+        const q = await client.call<QueryResponse>("Email/query", {
+          accountId,
+          filter: { inMailbox: mailboxId },
+          limit: page,
+        });
         if (!q.ids.length) break;
         if (progress === null && (q.total ?? q.ids.length) > page) {
           progress = toast.show(t("Emptying folder…"), { duration: 0 });
@@ -762,14 +915,34 @@ export const useMail = create<MailState>((set, get) => ({
         // would ask for the same ids forever.
         if (!destroyed.length) {
           const [, err] = Object.entries(notDestroyed)[0] ?? [];
-          throw new Error(err ? setErrorMessage(err) : "the server refused to delete these messages");
+          throw new Error(
+            err ? setErrorMessage(err) : "the server refused to delete these messages",
+          );
         }
       }
-      toast.show(plural(deleted, { one: "Deleted {n} message", other: "Deleted {n} messages" }));
-      set({ list: get().list ? { ...get().list!, ids: get().list!.mailboxId === mailboxId ? [] : get().list!.ids, total: 0 } : null });
+      toast.show(
+        plural(deleted, { one: "Deleted {n} message", other: "Deleted {n} messages" }),
+      );
+      set({
+        list: get().list
+          ? {
+              ...get().list!,
+              ids: get().list!.mailboxId === mailboxId ? [] : get().list!.ids,
+              total: 0,
+            }
+          : null,
+      });
     } catch (err) {
-      toast.error(t("Could not empty folder: {error}", { error: (err as Error).message })
-        + (deleted ? " " + plural(deleted, { one: "({n} deleted first)", other: "({n} deleted first)" }) : ""));
+      toast.error(
+        t("Could not empty folder: {error}", { error: (err as Error).message }) +
+          (deleted
+            ? " " +
+              plural(deleted, {
+                one: "({n} deleted first)",
+                other: "({n} deleted first)",
+              })
+            : ""),
+      );
     } finally {
       if (progress !== null) toast.dismiss(progress);
       void get().loadMailboxes();
@@ -800,16 +973,31 @@ export const useMail = create<MailState>((set, get) => ({
     // back only risks blowing past maxObjectsInGet on a very full folder.
     const page = client.maxObjectsInSet;
     const unreadIn = async (filter: EmailFilter): Promise<Id[]> => {
-      const res = await client.call<QueryResponse>("Email/query", { accountId, filter, limit: page });
+      const res = await client.call<QueryResponse>("Email/query", {
+        accountId,
+        filter,
+        limit: page,
+      });
       return res.ids;
     };
     const nextUnread = async (): Promise<Id[]> => {
-      if (boxes.length === 1) return unreadIn({ inMailbox: boxes[0]!, notKeyword: "$seen" });
+      if (boxes.length === 1)
+        return unreadIn({ inMailbox: boxes[0]!, notKeyword: "$seen" });
       try {
-        return await unreadIn({ operator: "AND", conditions: [{ notKeyword: "$seen" }, { operator: "OR", conditions: boxes.map((id) => ({ inMailbox: id })) }] });
+        return await unreadIn({
+          operator: "AND",
+          conditions: [
+            { notKeyword: "$seen" },
+            { operator: "OR", conditions: boxes.map((id) => ({ inMailbox: id })) },
+          ],
+        });
       } catch {
         // Server without filter-operator support: one query per folder.
-        const per = await Promise.all(boxes.map((id) => unreadIn({ inMailbox: id, notKeyword: "$seen" }).catch(() => [] as Id[])));
+        const per = await Promise.all(
+          boxes.map((id) =>
+            unreadIn({ inMailbox: id, notKeyword: "$seen" }).catch(() => [] as Id[]),
+          ),
+        );
         return [...new Set(per.flat())];
       }
     };
@@ -830,12 +1018,20 @@ export const useMail = create<MailState>((set, get) => ({
         return;
       }
       toast.success(
-        plural(marked, { one: "Marked {n} message as read", other: "Marked {n} messages as read" })
-        + (includeChildren && boxes.length > 1 ? " " + plural(boxes.length, { one: "in {n} folder", other: "in {n} folders" }) : ""),
+        plural(marked, {
+          one: "Marked {n} message as read",
+          other: "Marked {n} messages as read",
+        }) +
+          (includeChildren && boxes.length > 1
+            ? " " +
+              plural(boxes.length, { one: "in {n} folder", other: "in {n} folders" })
+            : ""),
       );
       void get().loadMailboxes();
     } catch (err) {
-      toast.error(t("Could not mark as read: {error}", { error: (err as Error).message }));
+      toast.error(
+        t("Could not mark as read: {error}", { error: (err as Error).message }),
+      );
     }
   },
 
@@ -845,7 +1041,10 @@ export const useMail = create<MailState>((set, get) => ({
     // Only when asked. Sending `role: null` on every create would be harmless
     // and would still say something the caller did not.
     if (role) n.role = role;
-    const res = await client.call<SetResponse<Mailbox>>("Mailbox/set", { accountId, create: { n } });
+    const res = await client.call<SetResponse<Mailbox>>("Mailbox/set", {
+      accountId,
+      create: { n },
+    });
     const err = res.notCreated?.n;
     if (err) throw new Error(setErrorMessage(err));
     await get().loadMailboxes();
@@ -871,7 +1070,9 @@ export const useMail = create<MailState>((set, get) => ({
    * German session must not create "Archiv" that an English one cannot find.
    */
   async ensureArchiveFolder() {
-    const existing = Object.values(get().mailboxes).find((m) => !m.role && m.name.trim().toLowerCase() === "archive");
+    const existing = Object.values(get().mailboxes).find(
+      (m) => !m.role && m.name.trim().toLowerCase() === "archive",
+    );
     if (existing) {
       await get().updateMailbox(existing.id, { role: "archive" });
       return existing.id;
@@ -882,8 +1083,14 @@ export const useMail = create<MailState>((set, get) => ({
   async updateMailbox(id, patch) {
     const accountId = get().accountId!;
     // Paths as the filter rules currently spell them, before the move.
-    const before = patch.name !== undefined || patch.parentId !== undefined ? folderRefs(get(), id) : [];
-    const res = await client.call<SetResponse>("Mailbox/set", { accountId, update: { [id]: patch } });
+    const before =
+      patch.name !== undefined || patch.parentId !== undefined
+        ? folderRefs(get(), id)
+        : [];
+    const res = await client.call<SetResponse>("Mailbox/set", {
+      accountId,
+      update: { [id]: patch },
+    });
     const err = res.notUpdated?.[id];
     if (err) throw new Error(setErrorMessage(err));
     await get().loadMailboxes();
@@ -896,7 +1103,11 @@ export const useMail = create<MailState>((set, get) => ({
   async destroyMailbox(id, removeEmails = true) {
     const accountId = get().accountId!;
     const before = folderRefs(get(), id);
-    const res = await client.call<SetResponse>("Mailbox/set", { accountId, destroy: [id], onDestroyRemoveEmails: removeEmails });
+    const res = await client.call<SetResponse>("Mailbox/set", {
+      accountId,
+      destroy: [id],
+      onDestroyRemoveEmails: removeEmails,
+    });
     const err = res.notDestroyed?.[id];
     if (err) throw new Error(setErrorMessage(err));
     await get().loadMailboxes();
@@ -906,16 +1117,33 @@ export const useMail = create<MailState>((set, get) => ({
   async loadIdentities() {
     const accountId = get().accountId;
     if (!accountId) return [];
-    const res = await client.call<GetResponse<Identity>>("Identity/get", { accountId, ids: null });
+    const res = await client.call<GetResponse<Identity>>("Identity/get", {
+      accountId,
+      ids: null,
+    });
     set({ identities: sortIdentities(res.list, accountId) });
     // Long signatures live in Files; swap the stored marker for the full HTML.
     const { markerOf } = await import("@/lib/signatureHtml");
     const pending = res.list.filter((i) => markerOf(i.htmlSignature));
     if (pending.length) {
       const { loadStoredSignature } = await import("@/lib/signatureImages");
-      const full = await Promise.all(pending.map(async (i) => { const m = markerOf(i.htmlSignature)!; try { return [i.id, await loadStoredSignature(m.blobId, m.type)] as const; } catch { return [i.id, null] as const; } }));
+      const full = await Promise.all(
+        pending.map(async (i) => {
+          const m = markerOf(i.htmlSignature)!;
+          try {
+            return [i.id, await loadStoredSignature(m.blobId, m.type)] as const;
+          } catch {
+            return [i.id, null] as const;
+          }
+        }),
+      );
       if (get().accountId === accountId) {
-        set((s) => ({ identities: s.identities.map((i) => { const f = full.find(([id]) => id === i.id)?.[1]; return f ? { ...i, htmlSignature: f } : i; }) }));
+        set((s) => ({
+          identities: s.identities.map((i) => {
+            const f = full.find(([id]) => id === i.id)?.[1];
+            return f ? { ...i, htmlSignature: f } : i;
+          }),
+        }));
       }
     }
     return get().identities;
@@ -930,15 +1158,26 @@ export const useMail = create<MailState>((set, get) => ({
   setDefaultIdentity(id) {
     const accountId = get().accountId;
     if (!accountId) return;
-    useSettings.getState().update({ defaultIdentityByAccount: { ...settings().defaultIdentityByAccount, [accountId]: id } });
+    useSettings.getState().update({
+      defaultIdentityByAccount: {
+        ...settings().defaultIdentityByAccount,
+        [accountId]: id,
+      },
+    });
     set({ identities: sortIdentities(get().identities, accountId) });
   },
 
   async saveIdentity(id, patch) {
     const accountId = get().accountId!;
     const res = id
-      ? await client.call<SetResponse<Identity>>("Identity/set", { accountId, update: { [id]: patch } })
-      : await client.call<SetResponse<Identity>>("Identity/set", { accountId, create: { n: patch } });
+      ? await client.call<SetResponse<Identity>>("Identity/set", {
+          accountId,
+          update: { [id]: patch },
+        })
+      : await client.call<SetResponse<Identity>>("Identity/set", {
+          accountId,
+          create: { n: patch },
+        });
     const err = id ? res.notUpdated?.[id] : res.notCreated?.n;
     if (err) throw new Error(setErrorMessage(err));
     await get().loadIdentities();
@@ -946,7 +1185,10 @@ export const useMail = create<MailState>((set, get) => ({
 
   async destroyIdentity(id) {
     const accountId = get().accountId!;
-    const res = await client.call<SetResponse>("Identity/set", { accountId, destroy: [id] });
+    const res = await client.call<SetResponse>("Identity/set", {
+      accountId,
+      destroy: [id],
+    });
     const err = res.notDestroyed?.[id];
     if (err) throw new Error(setErrorMessage(err));
     await get().loadIdentities();
@@ -956,7 +1198,10 @@ export const useMail = create<MailState>((set, get) => ({
     const accountId = get().accountId;
     if (!accountId) return;
     try {
-      const res = await client.call<GetResponse<VacationResponse>>("VacationResponse/get", { accountId, ids: null });
+      const res = await client.call<GetResponse<VacationResponse>>(
+        "VacationResponse/get",
+        { accountId, ids: null },
+      );
       set({ vacation: res.list[0] ?? null });
     } catch {
       set({ vacation: null });
@@ -965,7 +1210,10 @@ export const useMail = create<MailState>((set, get) => ({
 
   async saveVacation(patch) {
     const accountId = get().accountId!;
-    const res = await client.call<SetResponse>("VacationResponse/set", { accountId, update: { singleton: patch } });
+    const res = await client.call<SetResponse>("VacationResponse/set", {
+      accountId,
+      update: { singleton: patch },
+    });
     const err = res.notUpdated?.singleton;
     if (err) throw new Error(setErrorMessage(err));
     await get().loadVacation();
@@ -975,7 +1223,10 @@ export const useMail = create<MailState>((set, get) => ({
     const accountId = get().accountId;
     if (!accountId || !client.hasCapability("urn:ietf:params:jmap:quota")) return;
     try {
-      const res = await client.call<GetResponse<Quota>>("Quota/get", { accountId, ids: null });
+      const res = await client.call<GetResponse<Quota>>("Quota/get", {
+        accountId,
+        ids: null,
+      });
       set({ quotas: res.list });
     } catch {
       set({ quotas: [] });
@@ -1008,7 +1259,10 @@ export const useMail = create<MailState>((set, get) => ({
       "Email/query",
       {
         accountId,
-        filter: { operator: "AND", conditions: [{ hasKeyword: l.keyword }, { notKeyword: "$seen" }] },
+        filter: {
+          operator: "AND",
+          conditions: [{ hasKeyword: l.keyword }, { notKeyword: "$seen" }],
+        },
         limit: 0,
         calculateTotal: true,
       },
@@ -1104,7 +1358,11 @@ export const useMail = create<MailState>((set, get) => ({
           const destroyed = new Set<Id>();
           // Page through Email/changes.
           while (guard++ < 10) {
-            const ch = await client.call<ChangesResponse>("Email/changes", { accountId, sinceState: since, maxChanges: 500 });
+            const ch = await client.call<ChangesResponse>("Email/changes", {
+              accountId,
+              sinceState: since,
+              maxChanges: 500,
+            });
             ch.created.forEach((id) => created.add(id));
             ch.updated.forEach((id) => updated.add(id));
             ch.destroyed.forEach((id) => destroyed.add(id));
@@ -1145,11 +1403,18 @@ export const useMail = create<MailState>((set, get) => ({
           const cached = [...updated].filter((id) => get().emails[id]);
           if (cached.length) {
             const results = await Promise.all(
-              chunk(cached, client.maxObjectsInGet).map((part) => client.call<GetResponse<Email>>("Email/get", { accountId, ids: part, properties: LIST_PROPS })),
+              chunk(cached, client.maxObjectsInGet).map((part) =>
+                client.call<GetResponse<Email>>("Email/get", {
+                  accountId,
+                  ids: part,
+                  properties: LIST_PROPS,
+                }),
+              ),
             );
             set((s) => {
               const next = { ...s.emails };
-              for (const r of results) for (const e of r.list) next[e.id] = { ...next[e.id], ...e };
+              for (const r of results)
+                for (const e of r.list) next[e.id] = { ...next[e.id], ...e };
               return { emails: next };
             });
           }
@@ -1165,7 +1430,10 @@ export const useMail = create<MailState>((set, get) => ({
     }
     if (types.has("Thread") || types.has("Email")) {
       const open = get().openThreadId;
-      if (open) void get().loadThread(open).catch(() => undefined);
+      if (open)
+        void get()
+          .loadThread(open)
+          .catch(() => undefined);
     }
     if (types.has("Identity")) void get().loadIdentities();
     if (types.has("VacationResponse")) void get().loadVacation();
@@ -1175,7 +1443,10 @@ export const useMail = create<MailState>((set, get) => ({
   async importEml(blobId, mailboxId, keywords = {}) {
     const accountId = get().accountId;
     if (!accountId) return null;
-    const res = await client.call<{ created?: Record<string, Email>; notCreated?: Record<string, { type: string; description?: string }> }>("Email/import", {
+    const res = await client.call<{
+      created?: Record<string, Email>;
+      notCreated?: Record<string, { type: string; description?: string }>;
+    }>("Email/import", {
       accountId,
       emails: { i: { blobId, mailboxIds: { [mailboxId]: true }, keywords } },
     });
@@ -1188,7 +1459,9 @@ export const useMail = create<MailState>((set, get) => ({
 
 function sortIdentities(list: Identity[], accountId: Id): Identity[] {
   const pref = settings().defaultIdentityByAccount[accountId];
-  return [...list].sort((a, b) => (a.id === pref ? -1 : b.id === pref ? 1 : a.email.localeCompare(b.email)));
+  return [...list].sort((a, b) =>
+    a.id === pref ? -1 : b.id === pref ? 1 : a.email.localeCompare(b.email),
+  );
 }
 
 /**
@@ -1218,7 +1491,12 @@ async function runQuery(accountId: Id, q: ListQuery, position: number, limit: nu
     const optional = query.sort.some(isOptionalSort);
     if (!optional || !isUnsupportedSort(err)) throw err;
     sortRefused = true;
-    return await runQueryOnce(accountId, { ...q, sort: withoutOptionalSorts(q.sort) }, position, limit);
+    return await runQueryOnce(
+      accountId,
+      { ...q, sort: withoutOptionalSorts(q.sort) },
+      position,
+      limit,
+    );
   }
 }
 
@@ -1229,14 +1507,54 @@ function isUnsupportedSort(err: unknown): boolean {
   return type === "unsupportedSort" || /unsupportedSort/i.test(message);
 }
 
-async function runQueryOnce(accountId: Id, q: ListQuery, position: number, limit: number) {
+async function runQueryOnce(
+  accountId: Id,
+  q: ListQuery,
+  position: number,
+  limit: number,
+) {
   const calls: Array<[string, Record<string, unknown>, string]> = [
-    ["Email/query", { accountId, filter: q.filter, sort: q.sort, collapseThreads: q.collapseThreads, position, limit, calculateTotal: true }, "q"],
-    ["Email/get", { accountId, "#ids": { resultOf: "q", name: "Email/query", path: "/ids" }, properties: LIST_PROPS }, "e"],
+    [
+      "Email/query",
+      {
+        accountId,
+        filter: q.filter,
+        sort: q.sort,
+        collapseThreads: q.collapseThreads,
+        position,
+        limit,
+        calculateTotal: true,
+      },
+      "q",
+    ],
+    [
+      "Email/get",
+      {
+        accountId,
+        "#ids": { resultOf: "q", name: "Email/query", path: "/ids" },
+        properties: LIST_PROPS,
+      },
+      "e",
+    ],
   ];
   if (q.collapseThreads) {
-    calls.push(["Thread/get", { accountId, "#ids": { resultOf: "e", name: "Email/get", path: "/list/*/threadId" } }, "t"]);
-    calls.push(["Email/get", { accountId, "#ids": { resultOf: "t", name: "Thread/get", path: "/list/*/emailIds" }, properties: LIST_PROPS }, "te"]);
+    calls.push([
+      "Thread/get",
+      {
+        accountId,
+        "#ids": { resultOf: "e", name: "Email/get", path: "/list/*/threadId" },
+      },
+      "t",
+    ]);
+    calls.push([
+      "Email/get",
+      {
+        accountId,
+        "#ids": { resultOf: "t", name: "Thread/get", path: "/list/*/emailIds" },
+        properties: LIST_PROPS,
+      },
+      "te",
+    ]);
   }
   const res = await client.chain(calls);
   const query = res.get("q")?.[0] as unknown as QueryResponse;
@@ -1251,7 +1569,11 @@ async function runQueryOnce(accountId: Id, q: ListQuery, position: number, limit
     for (const t of threadsRes?.list ?? []) threads[t.id] = t;
     return { emails, threads, emailState: s.emailState ?? emailsRes.state };
   });
-  return { ids: query.ids, total: query.total ?? query.ids.length, queryState: query.queryState };
+  return {
+    ids: query.ids,
+    total: query.total ?? query.ids.length,
+    queryState: query.queryState,
+  };
 }
 
 /**
@@ -1260,7 +1582,10 @@ async function runQueryOnce(accountId: Id, q: ListQuery, position: number, limit
  * Handing Email/set more ids than `maxObjectsInSet` fails the whole call with
  * requestTooLarge — nothing is deleted — so split first and merge the results.
  */
-async function destroyEmails(accountId: Id, ids: Id[]): Promise<{ destroyed: Id[]; notDestroyed: Record<Id, SetError> }> {
+async function destroyEmails(
+  accountId: Id,
+  ids: Id[],
+): Promise<{ destroyed: Id[]; notDestroyed: Record<Id, SetError> }> {
   const destroyed: Id[] = [];
   const notDestroyed: Record<Id, SetError> = {};
   for (const part of chunk(ids, client.maxObjectsInSet)) {
@@ -1280,13 +1605,20 @@ async function setEmails(accountId: Id, update: Record<Id, Record<string, unknow
     const failed = Object.entries(res.notUpdated ?? {});
     if (failed.length) {
       const [, err] = failed[0]!;
-      throw new Error(`${err.type}${err.description ? `: ${err.description}` : ""}${failed.length > 1 ? ` (+${failed.length - 1} more)` : ""}`);
+      throw new Error(
+        `${err.type}${err.description ? `: ${err.description}` : ""}${failed.length > 1 ? ` (+${failed.length - 1} more)` : ""}`,
+      );
     }
   }
 }
 
 /** Remove given email ids (and threads they represent) from the current list optimistically. */
-function removeFromList(ids: Id[], set: (fn: (s: MailState) => Partial<MailState>) => void, get: () => MailState, targetMailboxId: Id | null) {
+function removeFromList(
+  ids: Id[],
+  set: (fn: (s: MailState) => Partial<MailState>) => void,
+  get: () => MailState,
+  targetMailboxId: Id | null,
+) {
   const l = get().list;
   if (!l) return;
   // If the list is showing the mailbox we're moving into, don't remove.
@@ -1302,14 +1634,24 @@ function removeFromList(ids: Id[], set: (fn: (s: MailState) => Partial<MailState
     if (!t) return false;
     // Row goes away if no email of the thread remains in this mailbox after the move.
     if (l.mailboxId) {
-      const remaining = t.emailIds.filter((id) => !idSet.has(id) && emails[id]?.mailboxIds[l.mailboxId!]);
+      const remaining = t.emailIds.filter(
+        (id) => !idSet.has(id) && emails[id]?.mailboxIds[l.mailboxId!],
+      );
       return remaining.length === 0;
     }
     return t.emailIds.every((id) => idSet.has(id));
   };
   const nextIds = l.ids.filter((id) => !removeRow(id));
   if (nextIds.length !== l.ids.length) {
-    set((s) => ({ list: s.list ? { ...s.list, ids: nextIds, total: Math.max(0, s.list.total - (l.ids.length - nextIds.length)) } : s.list }));
+    set((s) => ({
+      list: s.list
+        ? {
+            ...s.list,
+            ids: nextIds,
+            total: Math.max(0, s.list.total - (l.ids.length - nextIds.length)),
+          }
+        : s.list,
+    }));
   }
 }
 
@@ -1318,7 +1660,9 @@ async function notifyNewMail(created: Id[], get: () => MailState) {
   const inbox = get().roleId("inbox");
   if (!inbox) return;
   const emails = await get().getEmails(created);
-  const fresh = emails.filter((e) => e.mailboxIds[inbox] && !e.keywords.$seen && !e.keywords.$draft);
+  const fresh = emails.filter(
+    (e) => e.mailboxIds[inbox] && !e.keywords.$seen && !e.keywords.$draft,
+  );
   if (!fresh.length) return;
   const { showNotification, playNewMailSound } = await import("@/lib/notify");
   if (s.notificationSound) playNewMailSound();
@@ -1371,7 +1715,17 @@ export function mailboxIcon(role: MailboxRole): string {
   }
 }
 
-export const ROLE_ORDER: Record<string, number> = { inbox: 0, flagged: 1, important: 2, drafts: 3, sent: 4, archive: 5, all: 6, junk: 7, trash: 8 };
+export const ROLE_ORDER: Record<string, number> = {
+  inbox: 0,
+  flagged: 1,
+  important: 2,
+  drafts: 3,
+  sent: 4,
+  archive: 5,
+  all: 6,
+  junk: 7,
+  trash: 8,
+};
 
 /**
  * Resolve `parentId/segments...` to a mailbox id, creating what is missing.
@@ -1385,10 +1739,16 @@ export const ROLE_ORDER: Record<string, number> = { inbox: 0, flagged: 1, import
  * `createMailbox` reloads the tree, so the lookup for `09` can see the `2026`
  * that was just created.
  */
-async function ensureFolderPath(state: () => MailState, parentId: Id, segments: string[]): Promise<Id> {
+async function ensureFolderPath(
+  state: () => MailState,
+  parentId: Id,
+  segments: string[],
+): Promise<Id> {
   let current = parentId;
   for (const name of segments) {
-    const existing = Object.values(state().mailboxes).find((m) => m.parentId === current && m.name === name);
+    const existing = Object.values(state().mailboxes).find(
+      (m) => m.parentId === current && m.name === name,
+    );
     current = existing ? existing.id : await state().createMailbox(name, current);
   }
   return current;
@@ -1439,25 +1799,38 @@ async function followFolders(before: FolderRef[]): Promise<void> {
     const moves: Array<FolderRef & { newPath: string }> = [];
     const gone: FolderRef[] = [];
     for (const ref of before) {
-      if (state.mailboxes[ref.id]) moves.push({ ...ref, newPath: state.mailboxPath(ref.id) });
+      if (state.mailboxes[ref.id])
+        moves.push({ ...ref, newPath: state.mailboxPath(ref.id) });
       else gone.push(ref);
     }
 
     const { retargetRules, detachFolders } = await import("@/lib/sieveFolders");
     const retargeted = retargetRules(rules, moves);
     const detached = detachFolders(retargeted.rules, gone);
-    if (!retargeted.changed && !detached.edited.length && !detached.removed.length) return;
+    if (!retargeted.changed && !detached.edited.length && !detached.removed.length)
+      return;
 
     await useSieve.getState().saveRules(detached.rules);
     const { toast } = await import("@/ui/toast");
     const plural = (n: number) => (n === 1 ? "" : "s");
     const said: string[] = [];
-    if (retargeted.changed) said.push(`${retargeted.changed} filter rule${plural(retargeted.changed)} updated`);
-    if (detached.edited.length) said.push(`${detached.edited.length} filter rule${plural(detached.edited.length)} no longer file${detached.edited.length === 1 ? "s" : ""} there`);
-    if (detached.removed.length) said.push(`${detached.removed.length} filter rule${plural(detached.removed.length)} removed, having nothing left to do: ${detached.removed.map((r) => `“${r.name}”`).join(", ")}`);
+    if (retargeted.changed)
+      said.push(`${retargeted.changed} filter rule${plural(retargeted.changed)} updated`);
+    if (detached.edited.length)
+      said.push(
+        `${detached.edited.length} filter rule${plural(detached.edited.length)} no longer file${detached.edited.length === 1 ? "s" : ""} there`,
+      );
+    if (detached.removed.length)
+      said.push(
+        `${detached.removed.length} filter rule${plural(detached.removed.length)} removed, having nothing left to do: ${detached.removed.map((r) => `“${r.name}”`).join(", ")}`,
+      );
     toast.show(said.join(" · "), { duration: 8000 });
   } catch (err) {
     const { toast } = await import("@/ui/toast");
-    toast.error(t("Folder changed, but its filter rules could not be updated: {error}", { error: (err as Error).message }));
+    toast.error(
+      t("Folder changed, but its filter rules could not be updated: {error}", {
+        error: (err as Error).message,
+      }),
+    );
   }
 }

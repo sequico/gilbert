@@ -1,8 +1,8 @@
-import { defineConfig } from "vitest/config";
-import react from "@vitejs/plugin-react";
 import { fileURLToPath, URL } from "node:url";
-import { resolveVersion } from "../scripts/version.mjs";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vitest/config";
 import { baseUrlOf } from "../scripts/basePath.mjs";
+import { resolveVersion } from "../scripts/version.mjs";
 
 // Resolved here, at build time: the browser has no git to ask, and neither does
 // the Docker build, which is handed the answer as IHASMAIL_VERSION instead.

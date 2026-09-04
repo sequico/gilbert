@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
+import type { JmapSession } from "@/jmap/types";
 import { useMail } from "@/store/mail";
 import { useToasts } from "@/ui/toast";
-import type { JmapSession } from "@/jmap/types";
 
 /**
  * Selecting a whole folder rather than the rows that happen to be loaded.
@@ -20,35 +20,75 @@ const ARCHIVE = "mbArchive";
 
 function server(totalIds: number) {
   const all = Array.from({ length: totalIds }, (_, i) => `e${i}`);
-  const queries: Array<{ position: number; limit: number; collapseThreads: unknown }> = [];
+  const queries: Array<{ position: number; limit: number; collapseThreads: unknown }> =
+    [];
   const updates: Array<Record<string, unknown>> = [];
 
   const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as { methodCalls: [string, Record<string, unknown>, string][] };
+    const body = JSON.parse(init.body as string) as {
+      methodCalls: [string, Record<string, unknown>, string][];
+    };
     const methodResponses = body.methodCalls.map(([name, args, id]) => {
       if (name === "Email/query") {
         const position = (args.position as number) ?? 0;
         const limit = (args.limit as number) ?? PAGE;
         queries.push({ position, limit, collapseThreads: args.collapseThreads });
-        return [name, { accountId: "a1", queryState: "q", canCalculateChanges: false, position, ids: all.slice(position, position + limit), total: all.length }, id];
+        return [
+          name,
+          {
+            accountId: "a1",
+            queryState: "q",
+            canCalculateChanges: false,
+            position,
+            ids: all.slice(position, position + limit),
+            total: all.length,
+          },
+          id,
+        ];
       }
       if (name === "Email/set" && args.update) {
         updates.push(args.update as Record<string, unknown>);
-        return [name, { accountId: "a1", oldState: "1", newState: "2", updated: {}, notUpdated: {} }, id];
+        return [
+          name,
+          { accountId: "a1", oldState: "1", newState: "2", updated: {}, notUpdated: {} },
+          id,
+        ];
       }
-      return [name, { accountId: "a1", state: "1", list: [], notFound: [], ids: [], total: 0, queryState: "q", position: 0, canCalculateChanges: false }, id];
+      return [
+        name,
+        {
+          accountId: "a1",
+          state: "1",
+          list: [],
+          notFound: [],
+          ids: [],
+          total: 0,
+          queryState: "q",
+          position: 0,
+          canCalculateChanges: false,
+        },
+        id,
+      ];
     });
-    return { ok: true, status: 200, json: async () => ({ methodResponses, sessionState: "1" }) } as Response;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ methodResponses, sessionState: "1" }),
+    } as Response;
   });
   vi.stubGlobal("fetch", fetchMock);
   return { all, queries, updates };
 }
 
-const toastActions = () => useToasts.getState().toasts.map((t) => t.action?.label ?? null);
+const toastActions = () =>
+  useToasts.getState().toasts.map((t) => t.action?.label ?? null);
 
 beforeEach(() => {
   client.session = {
-    capabilities: { [CAP.core]: { maxObjectsInGet: PAGE, maxObjectsInSet: PAGE }, [CAP.mail]: {} },
+    capabilities: {
+      [CAP.core]: { maxObjectsInGet: PAGE, maxObjectsInSet: PAGE },
+      [CAP.mail]: {},
+    },
     accounts: {},
     primaryAccounts: {},
     state: "s1",
@@ -160,7 +200,11 @@ describe("Undo, once the selection reaches messages that were never loaded", () 
 
   it("is withheld when any message is not loaded", async () => {
     server(2);
-    useMail.setState({ emails: { e0: { id: "e0", mailboxIds: { [INBOX]: true }, keywords: {}, threadId: "t0" } } as never });
+    useMail.setState({
+      emails: {
+        e0: { id: "e0", mailboxIds: { [INBOX]: true }, keywords: {}, threadId: "t0" },
+      } as never,
+    });
     // e1 was never loaded: its previous folders are unknown, and an Undo built
     // from them would write an empty mailboxIds.
     await useMail.getState().move(["e0", "e1"], ARCHIVE);
@@ -174,7 +218,9 @@ describe("Undo, once the selection reaches messages that were never loaded", () 
     const moved = s.updates.flatMap((u) => Object.entries(u));
     expect(moved.map(([id]) => id).sort()).toEqual(["e0", "e1"]);
     for (const [, patch] of moved) {
-      expect((patch as { mailboxIds: Record<string, boolean> }).mailboxIds).toEqual({ [ARCHIVE]: true });
+      expect((patch as { mailboxIds: Record<string, boolean> }).mailboxIds).toEqual({
+        [ARCHIVE]: true,
+      });
     }
   });
 });

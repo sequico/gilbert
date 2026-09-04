@@ -14,7 +14,14 @@ import { isIP } from "node:net";
  */
 
 /** Peers whose forwarding headers are believed when none are configured. */
-const DEFAULT_TRUSTED = ["127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"];
+const DEFAULT_TRUSTED = [
+  "127.0.0.0/8",
+  "::1/128",
+  "10.0.0.0/8",
+  "172.16.0.0/12",
+  "192.168.0.0/16",
+  "fc00::/7",
+];
 
 export interface TrustConfig {
   trustProxy: boolean;
@@ -26,7 +33,8 @@ function toBits(addr: string): { value: bigint; width: number } | null {
   const v = isIP(addr);
   if (v === 4) {
     const parts = addr.split(".").map(Number);
-    if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return null;
+    if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255))
+      return null;
     return { value: parts.reduce((acc, n) => (acc << 8n) | BigInt(n), 0n), width: 32 };
   }
   if (v === 6) {
@@ -39,8 +47,12 @@ function toBits(addr: string): { value: bigint; width: number } | null {
     }
     const [head, rest] = text.split("::");
     const left = head ? head.split(":").filter(Boolean) : [];
-    const right = rest !== undefined ? (rest ? rest.split(":").filter(Boolean) : []) : null;
-    const groups = right === null ? left : [...left, ...Array<string>(8 - left.length - right.length).fill("0"), ...right];
+    const right =
+      rest !== undefined ? (rest ? rest.split(":").filter(Boolean) : []) : null;
+    const groups =
+      right === null
+        ? left
+        : [...left, ...Array<string>(8 - left.length - right.length).fill("0"), ...right];
     if (groups.length !== 8) return null;
     let value = 0n;
     for (const g of groups) {
@@ -80,13 +92,22 @@ export interface ForwardHeaders {
  * The client address to attribute a request to. `peer` is the socket address,
  * which is the only part nobody downstream can forge.
  */
-export function resolveClientIp(peer: string, headers: ForwardHeaders, cfg: TrustConfig): string {
+export function resolveClientIp(
+  peer: string,
+  headers: ForwardHeaders,
+  cfg: TrustConfig,
+): string {
   if (!cfg.trustProxy || !peer || peer === "unknown") return peer || "unknown";
   // A peer we do not run is not allowed to tell us who its client is.
   if (!isTrustedProxy(peer, cfg)) return peer;
   const chain = (headers.forwardedFor ?? "")
     .split(",")
-    .map((s) => s.trim().replace(/^\[|\]$/g, "").replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/i, ""))
+    .map((s) =>
+      s
+        .trim()
+        .replace(/^\[|\]$/g, "")
+        .replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/i, ""),
+    )
     .filter((s) => isIP(s) !== 0);
   // Rightmost first: the last hop we trust is ours, anything left of the first
   // untrusted entry was written by someone we have no reason to believe.

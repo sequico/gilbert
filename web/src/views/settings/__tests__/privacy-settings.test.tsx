@@ -1,9 +1,9 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { PrivacySettings } from "../PrivacySettings";
+import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
 import { GeneralSettings } from "../GeneralSettings";
-import { useSettings, DEFAULT_SETTINGS } from "@/store/settings";
+import { PrivacySettings } from "../PrivacySettings";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -87,7 +87,9 @@ describe("Privacy & safety", () => {
     expect(host.textContent).not.toContain("Always showing images from");
 
     await act(async () => {
-      useSettings.setState({ settings: { ...DEFAULT_SETTINGS, trustedImageSenders: ["ada@example.com"] } });
+      useSettings.setState({
+        settings: { ...DEFAULT_SETTINGS, trustedImageSenders: ["ada@example.com"] },
+      });
     });
     await render(<PrivacySettings />);
     expect(host.textContent).toContain("Always showing images from");
@@ -95,14 +97,23 @@ describe("Privacy & safety", () => {
   });
 
   it("removes a trusted sender, which nothing outside a message could do before", async () => {
-    useSettings.setState({ settings: { ...DEFAULT_SETTINGS, trustedImageSenders: ["ada@example.com", "bob@example.com"] } });
+    useSettings.setState({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        trustedImageSenders: ["ada@example.com", "bob@example.com"],
+      },
+    });
     await render(<PrivacySettings />);
-    const remove = host.querySelector<HTMLButtonElement>('button[aria-label*="ada@example.com"]');
+    const remove = host.querySelector<HTMLButtonElement>(
+      'button[aria-label*="ada@example.com"]',
+    );
     expect(remove, "remove button").toBeTruthy();
     await act(async () => {
       remove!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
-    expect(useSettings.getState().settings.trustedImageSenders).toEqual(["bob@example.com"]);
+    expect(useSettings.getState().settings.trustedImageSenders).toEqual([
+      "bob@example.com",
+    ]);
   });
 
   it("offers the three warnings, all switched off", async () => {
@@ -126,7 +137,13 @@ describe("Privacy & safety", () => {
     expect(host.textContent).not.toContain("Open links to these domains without asking");
 
     await act(async () => {
-      useSettings.setState({ settings: { ...DEFAULT_SETTINGS, externalSenderBanner: true, externalLinkWarning: true } });
+      useSettings.setState({
+        settings: {
+          ...DEFAULT_SETTINGS,
+          externalSenderBanner: true,
+          externalLinkWarning: true,
+        },
+      });
     });
     await render(<PrivacySettings />);
     expect(host.textContent).toContain("Also count these domains as inside");
@@ -135,20 +152,31 @@ describe("Privacy & safety", () => {
 
   it("normalises a typed domain, so the list holds something that can match", async () => {
     await act(async () => {
-      useSettings.setState({ settings: { ...DEFAULT_SETTINGS, externalLinkWarning: true } });
+      useSettings.setState({
+        settings: { ...DEFAULT_SETTINGS, externalLinkWarning: true },
+      });
     });
     await render(<PrivacySettings />);
-    const input = host.querySelector<HTMLInputElement>('input.input');
+    const input = host.querySelector<HTMLInputElement>("input.input");
     expect(input, "domain input").toBeTruthy();
 
-    for (const [typed, stored] of [["@Example.com", "example.com"], ["ada@Partner.ORG", "partner.org"], ["https://third.net/path", "third.net"]]) {
+    for (const [typed, stored] of [
+      ["@Example.com", "example.com"],
+      ["ada@Partner.ORG", "partner.org"],
+      ["https://third.net/path", "third.net"],
+    ]) {
       await act(async () => {
-        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
+        const setter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        )!.set!;
         setter.call(input!, typed);
         input!.dispatchEvent(new Event("input", { bubbles: true }));
       });
       await act(async () => {
-        input!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+        input!.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+        );
       });
       expect(useSettings.getState().settings.trustedLinkDomains).toContain(stored);
     }

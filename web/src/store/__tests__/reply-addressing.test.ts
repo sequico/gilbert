@@ -1,7 +1,7 @@
-import { beforeEach, afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { Email, Identity } from "@/jmap/types";
 import { useCompose } from "@/store/compose";
 import { useMail } from "@/store/mail";
-import type { Email, Identity } from "@/jmap/types";
 
 /*
  * Who a reply is addressed to.
@@ -22,10 +22,19 @@ import type { Email, Identity } from "@/jmap/types";
  */
 
 const body = {
-  messageId: ["<x@example.org>"], subject: "Numbers", references: [], inReplyTo: [],
-  keywords: {}, htmlBody: [{ partId: "1", type: "text/html" }], textBody: [{ partId: "1", type: "text/html" }],
-  bodyValues: { "1": { value: "<p>hi</p>", isEncodingProblem: false, isTruncated: false } },
-  attachments: [], receivedAt: "2026-09-04T10:00:00Z", mailboxIds: {},
+  messageId: ["<x@example.org>"],
+  subject: "Numbers",
+  references: [],
+  inReplyTo: [],
+  keywords: {},
+  htmlBody: [{ partId: "1", type: "text/html" }],
+  textBody: [{ partId: "1", type: "text/html" }],
+  bodyValues: {
+    "1": { value: "<p>hi</p>", isEncodingProblem: false, isTruncated: false },
+  },
+  attachments: [],
+  receivedAt: "2026-09-04T10:00:00Z",
+  mailboxIds: {},
 };
 
 const ME = { name: "John", email: "john@example.org" };
@@ -37,12 +46,18 @@ const MINE = { ...body, id: "m1", from: [ME], to: [ANN], cc: [BOB] } as unknown 
 /** The same conversation, but Ann's message to me. */
 const HERS = { ...body, id: "m2", from: [ANN], to: [ME], cc: [BOB] } as unknown as Email;
 
-const IDENTITIES = [{ id: "i1", name: "John", email: "john@example.org", replyTo: null }] as unknown as Identity[];
+const IDENTITIES = [
+  { id: "i1", name: "John", email: "john@example.org", replyTo: null },
+] as unknown as Identity[];
 
 /** In Sent, which is the signal that survives an unlisted alias. */
 const inSent = (e: Email) => ({ ...e, mailboxIds: { sent1: true } }) as Email;
 
-function draftFor(email: Email, mode: "reply" | "replyAll" | "forward", opts: { identities?: Identity[] } = {}) {
+function draftFor(
+  email: Email,
+  mode: "reply" | "replyAll" | "forward",
+  opts: { identities?: Identity[] } = {},
+) {
   const identities = opts.identities ?? IDENTITIES;
   useMail.setState({
     accountId: "a1",
@@ -52,7 +67,10 @@ function draftFor(email: Email, mode: "reply" | "replyAll" | "forward", opts: { 
     loadIdentities: (async () => identities) as never,
     roleId: ((role: string) => (role === "sent" ? "sent1" : null)) as never,
   });
-  return useCompose.getState().reply(email, mode).then((key) => useCompose.getState().drafts.find((d) => d.key === key)!);
+  return useCompose
+    .getState()
+    .reply(email, mode)
+    .then((key) => useCompose.getState().drafts.find((d) => d.key === key)!);
 }
 
 const addrs = (list: { email: string }[]) => list.map((a) => a.email);
@@ -74,7 +92,10 @@ describe("replying to a message somebody sent me", () => {
   });
 
   it("honours the sender's Reply-To, which is what it is for", async () => {
-    const d = await draftFor({ ...HERS, replyTo: [{ name: null, email: "desk@example.com" }] } as Email, "reply");
+    const d = await draftFor(
+      { ...HERS, replyTo: [{ name: null, email: "desk@example.com" }] } as Email,
+      "reply",
+    );
     expect(addrs(d.to)).toEqual(["desk@example.com"]);
   });
 });
@@ -94,7 +115,10 @@ describe("replying to a message I sent", () => {
 
   it("does not follow my own Reply-To back to my own desk", async () => {
     // The address replies to *me* belong at. My reply is not one of them.
-    const d = await draftFor({ ...MINE, replyTo: [{ name: null, email: "desk@example.org" }] } as Email, "replyAll");
+    const d = await draftFor(
+      { ...MINE, replyTo: [{ name: null, email: "desk@example.org" }] } as Email,
+      "replyAll",
+    );
     expect(addrs(d.to)).toEqual([ANN.email]);
     expect(addrs(d.cc)).toEqual([BOB.email]);
   });
@@ -108,7 +132,9 @@ describe("replying to a message I sent", () => {
   it("recognises my address however the identity stored it", async () => {
     // A hand-typed identity address can carry whitespace, and comparing
     // strings rather than addresses made that enough to break the reply.
-    const padded = [{ id: "i1", name: "John", email: "  John@Example.ORG " }] as unknown as Identity[];
+    const padded = [
+      { id: "i1", name: "John", email: "  John@Example.ORG " },
+    ] as unknown as Identity[];
     const d = await draftFor(MINE, "replyAll", { identities: padded });
     expect(addrs(d.to)).toEqual([ANN.email]);
   });
@@ -117,7 +143,10 @@ describe("replying to a message I sent", () => {
 describe("when the identity list cannot answer", () => {
   it("takes a message in Sent as mine, whatever address it went out as", async () => {
     // An alias or a shared mailbox the server does not list as an identity.
-    const alias = inSent({ ...MINE, from: [{ name: "Sales", email: "sales@example.org" }] } as Email);
+    const alias = inSent({
+      ...MINE,
+      from: [{ name: "Sales", email: "sales@example.org" }],
+    } as Email);
     const d = await draftFor(alias, "replyAll");
     expect(addrs(d.to)).toEqual([ANN.email]);
     expect(addrs(d.cc)).toEqual([BOB.email]);

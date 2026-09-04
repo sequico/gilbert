@@ -56,7 +56,12 @@ describe("externalRecipients", () => {
 
   it("returns only those outside, in the order addressed", () => {
     const out = externalRecipients(
-      [addr("a@example.com"), addr("b@outside.net"), addr("c@mail.example.com"), addr("d@other.org")],
+      [
+        addr("a@example.com"),
+        addr("b@outside.net"),
+        addr("c@mail.example.com"),
+        addr("d@other.org"),
+      ],
       internal,
     );
     expect(out.map((a) => a.email)).toEqual(["b@outside.net", "d@other.org"]);
@@ -113,8 +118,12 @@ describe("linkVerdict", () => {
   const trusted = ["example.com"];
 
   it("says nothing about a trusted destination", () => {
-    expect(linkVerdict("https://example.com/a", "example.com", trusted)).toEqual({ warn: false });
-    expect(linkVerdict("https://mail.example.com/a", null, trusted)).toEqual({ warn: false });
+    expect(linkVerdict("https://example.com/a", "example.com", trusted)).toEqual({
+      warn: false,
+    });
+    expect(linkVerdict("https://mail.example.com/a", null, trusted)).toEqual({
+      warn: false,
+    });
   });
 
   it("warns about an untrusted destination", () => {
@@ -136,7 +145,9 @@ describe("linkVerdict", () => {
   });
 
   it("treats a subdomain of the claimed domain as no mismatch", () => {
-    expect(linkVerdict("https://login.yourbank.com/", "yourbank.com", ["yourbank.com"])).toEqual({ warn: false });
+    expect(
+      linkVerdict("https://login.yourbank.com/", "yourbank.com", ["yourbank.com"]),
+    ).toEqual({ warn: false });
   });
 
   it("leaves alone anything that is not http or https", () => {

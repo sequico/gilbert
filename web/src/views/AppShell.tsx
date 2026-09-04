@@ -1,25 +1,44 @@
-import { useEffect, useState, type ReactNode } from "react";
+import {
+  BookOpen,
+  Calendar,
+  ChevronsUpDown,
+  FolderOpen,
+  Globe,
+  HelpCircle,
+  LogOut,
+  Mail,
+  Menu as MenuIcon,
+  Moon,
+  PenSquare,
+  Plus,
+  RefreshCw,
+  Settings,
+  Sun,
+  Upload,
+  Users,
+  X,
+} from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { BookOpen, Calendar, ChevronsUpDown, FolderOpen, Globe, HelpCircle, LogOut, Mail, Menu as MenuIcon, Moon, PenSquare, Plus, RefreshCw, Settings, Sun, Upload, Users, X } from "lucide-react";
-import { useSession } from "@/store/session";
 import { withBase } from "@/lib/basePath";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
-import { useEffectiveTheme, useSettings } from "@/store/settings";
+import { formatSize } from "@/lib/format";
+import { t } from "@/lib/i18n";
 import { toggleTarget } from "@/lib/palette";
-import { useMail } from "@/store/mail";
 import { draftFromMailto, useCompose } from "@/store/compose";
+import { useMail } from "@/store/mail";
+import { useSession } from "@/store/session";
+import { useEffectiveTheme, useSettings } from "@/store/settings";
 import { Avatar, useIsMobile } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
-import { SearchBar } from "./SearchBar";
-import { MailboxTree } from "./mail/MailboxTree";
-import { FilesTree } from "./files/FilesTree";
-import { ContactsSidebar } from "./contacts/ContactsSidebar";
-import { CalendarSidebar } from "./calendar/CalendarSidebar";
-import { ShortcutsDialog, useGlobalShortcuts } from "./Shortcuts";
-import { MailboxPicker } from "./mail/MailboxPicker";
-import { formatSize } from "@/lib/format";
 import { TranslateBoundary } from "@/ui/TranslateBoundary";
-import { t } from "@/lib/i18n";
+import { CalendarSidebar } from "./calendar/CalendarSidebar";
+import { ContactsSidebar } from "./contacts/ContactsSidebar";
+import { FilesTree } from "./files/FilesTree";
+import { MailboxPicker } from "./mail/MailboxPicker";
+import { MailboxTree } from "./mail/MailboxTree";
+import { SearchBar } from "./SearchBar";
+import { ShortcutsDialog, useGlobalShortcuts } from "./Shortcuts";
 
 const PUSH_LABEL = {
   connected: "Live updates connected",
@@ -48,13 +67,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [goFolder, setGoFolder] = useState(false);
   const section = location.split("/")[1] || "mail";
 
-  useGlobalShortcuts({ onHelp: () => setHelpOpen(true), onGoToFolder: () => setGoFolder(true) });
+  useGlobalShortcuts({
+    onHelp: () => setHelpOpen(true),
+    onGoToFolder: () => setGoFolder(true),
+  });
   useEffect(() => setDrawer(false), [location]);
 
   // Escape closes it too, for the tablet with a keyboard attached.
   useEffect(() => {
     if (!drawer) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setDrawer(false); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrawer(false);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [drawer]);
@@ -87,7 +111,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="app">
       <header className="topbar">
-        <button className="icon-btn" aria-label={t("Menu")} onClick={() => (isMobile ? setDrawer((d) => !d) : update({ sidebarCollapsed: !collapsed }))}>
+        <button
+          className="icon-btn"
+          aria-label={t("Menu")}
+          onClick={() =>
+            isMobile ? setDrawer((d) => !d) : update({ sidebarCollapsed: !collapsed })
+          }
+        >
           <MenuIcon size={22} />
         </button>
         <Link href="/mail" className="brand">
@@ -102,44 +132,106 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Link>
         <SearchBar />
         <div className="topbar-actions">
-          <span className="push-status hide-mobile" role="img" aria-label={t(PUSH_LABEL[pushState])} title={t(PUSH_LABEL[pushState])}>
+          <span
+            className="push-status hide-mobile"
+            role="img"
+            aria-label={t(PUSH_LABEL[pushState])}
+            title={t(PUSH_LABEL[pushState])}
+          >
             <span className={`push-dot ${pushState}`} />
           </span>
-          <button className="icon-btn hide-mobile" aria-label={t("Keyboard shortcuts")} title={t("Keyboard shortcuts (?)")} onClick={() => setHelpOpen(true)}>
+          <button
+            className="icon-btn hide-mobile"
+            aria-label={t("Keyboard shortcuts")}
+            title={t("Keyboard shortcuts (?)")}
+            onClick={() => setHelpOpen(true)}
+          >
             <HelpCircle size={21} />
           </button>
           <ThemeToggle />
-          <Link href="/settings" className={`icon-btn ${section === "settings" ? "active" : ""}`} aria-label={t("Settings")} title={t("Settings")}>
+          <Link
+            href="/settings"
+            className={`icon-btn ${section === "settings" ? "active" : ""}`}
+            aria-label={t("Settings")}
+            title={t("Settings")}
+          >
             <Settings size={21} />
           </Link>
-          <button className="icon-btn" style={{ width: "auto", padding: "0 2px", borderRadius: 999 }} onClick={acctMenu.open} aria-label={t("Account")}>
-            <Avatar who={{ name: session?.username, email: session?.username }} size="sm" />
+          <button
+            className="icon-btn"
+            style={{ width: "auto", padding: "0 2px", borderRadius: 999 }}
+            onClick={acctMenu.open}
+            aria-label={t("Account")}
+          >
+            <Avatar
+              who={{ name: session?.username, email: session?.username }}
+              size="sm"
+            />
           </button>
-          <Popover anchor={acctMenu.anchor} onClose={acctMenu.close} align="end" width={280}>
-            <div style={{ padding: "10px 10px 6px", display: "flex", gap: 10, alignItems: "center" }}>
+          <Popover
+            anchor={acctMenu.anchor}
+            onClose={acctMenu.close}
+            align="end"
+            width={280}
+          >
+            <div
+              style={{
+                padding: "10px 10px 6px",
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+              }}
+            >
               <Avatar who={{ name: session?.username, email: session?.username }} />
               <div className="grow">
                 <div style={{ fontWeight: 600 }} className="truncate">
                   {session?.username}
                 </div>
-                <div className="hint truncate notranslate" translate="no">{session?.ihasmail?.loginName}</div>
+                <div className="hint truncate notranslate" translate="no">
+                  {session?.ihasmail?.loginName}
+                </div>
               </div>
             </div>
             <MenuSep />
-            <MenuItem icon={<BookOpen size={16} />} label={t("Documentation")} href="https://docs.ihasmail.org" external />
+            <MenuItem
+              icon={<BookOpen size={16} />}
+              label={t("Documentation")}
+              href="https://docs.ihasmail.org"
+              external
+            />
             {/* The project site. It is linked from the login screen footer, which
                 is a page a signed-in user never sees again -- so from inside the
                 app there was no way back to it. */}
-            <MenuItem icon={<Globe size={16} />} label={t("About ihasmail")} href="https://ihasmail.org" external />
-            <MenuItem icon={<Settings size={16} />} label={t("Settings")} onClick={() => navigate("/settings")} />
-            <MenuItem icon={<RefreshCw size={16} />} label={t("Refresh")} onClick={() => window.location.reload()} />
-            <MenuItem icon={<LogOut size={16} />} label={t("Sign out")} onClick={() => void logout()} />
+            <MenuItem
+              icon={<Globe size={16} />}
+              label={t("About ihasmail")}
+              href="https://ihasmail.org"
+              external
+            />
+            <MenuItem
+              icon={<Settings size={16} />}
+              label={t("Settings")}
+              onClick={() => navigate("/settings")}
+            />
+            <MenuItem
+              icon={<RefreshCw size={16} />}
+              label={t("Refresh")}
+              onClick={() => window.location.reload()}
+            />
+            <MenuItem
+              icon={<LogOut size={16} />}
+              label={t("Sign out")}
+              onClick={() => void logout()}
+            />
           </Popover>
         </div>
       </header>
 
       <div className={`app-body ${collapsed && !isMobile ? "collapsed" : ""}`}>
-        <div className={`drawer-backdrop ${drawer ? "open" : ""}`} onClick={() => setDrawer(false)} />
+        <div
+          className={`drawer-backdrop ${drawer ? "open" : ""}`}
+          onClick={() => setDrawer(false)}
+        />
         <aside className={`sidebar ${drawer ? "open" : ""}`}>
           {/*
             The way back out.
@@ -156,7 +248,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           */}
           {isMobile && (
             <div className="drawer-head">
-              <button className="icon-btn" aria-label={t("Close menu")} onClick={() => setDrawer(false)}>
+              <button
+                className="icon-btn"
+                aria-label={t("Close menu")}
+                onClick={() => setDrawer(false)}
+              >
                 <X size={22} />
               </button>
             </div>
@@ -166,28 +262,69 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button
             className="compose-btn"
             onClick={() => {
-              if (section === "calendar") window.dispatchEvent(new CustomEvent("ihm:new-event"));
-              else if (section === "contacts") window.dispatchEvent(new CustomEvent("ihm:new-contact"));
-              else if (section === "files") window.dispatchEvent(new CustomEvent("ihm:files-upload"));
+              if (section === "calendar")
+                window.dispatchEvent(new CustomEvent("ihm:new-event"));
+              else if (section === "contacts")
+                window.dispatchEvent(new CustomEvent("ihm:new-contact"));
+              else if (section === "files")
+                window.dispatchEvent(new CustomEvent("ihm:files-upload"));
               else openCompose();
             }}
           >
-            {section === "files" ? <Upload size={22} /> : section === "calendar" || section === "contacts" ? <Plus size={22} /> : <PenSquare size={22} />}
-            <span>{section === "calendar" ? t("New event") : section === "contacts" ? t("New contact") : section === "files" ? t("Upload") : t("Compose")}</span>
+            {section === "files" ? (
+              <Upload size={22} />
+            ) : section === "calendar" || section === "contacts" ? (
+              <Plus size={22} />
+            ) : (
+              <PenSquare size={22} />
+            )}
+            <span>
+              {section === "calendar"
+                ? t("New event")
+                : section === "contacts"
+                  ? t("New contact")
+                  : section === "files"
+                    ? t("Upload")
+                    : t("Compose")}
+            </span>
           </button>
           <div className="sidebar-scroll">
             {(section === "mail" || section === "search") && <MailboxTree />}
             {section === "calendar" && <CalendarSidebar />}
             {section === "contacts" && <ContactsSidebar />}
             {section === "files" && <FilesTree />}
-            {section === "settings" && <div className="nav-section"><span>{t("Settings")}</span></div>}
+            {section === "settings" && (
+              <div className="nav-section">
+                <span>{t("Settings")}</span>
+              </div>
+            )}
           </div>
           {(section === "mail" || section === "search") && <QuotaBar />}
           <nav className="module-bar" aria-label={t("Go to")}>
-            <ModuleLink href="/mail" icon={<Mail size={20} />} label={t("Mail")} active={section === "mail" || section === "search"} />
-            <ModuleLink href="/calendar" icon={<Calendar size={20} />} label={t("Calendar")} active={section === "calendar"} />
-            <ModuleLink href="/contacts" icon={<Users size={20} />} label={t("Contacts")} active={section === "contacts"} />
-            <ModuleLink href="/files" icon={<FolderOpen size={20} />} label={t("Files")} active={section === "files"} />
+            <ModuleLink
+              href="/mail"
+              icon={<Mail size={20} />}
+              label={t("Mail")}
+              active={section === "mail" || section === "search"}
+            />
+            <ModuleLink
+              href="/calendar"
+              icon={<Calendar size={20} />}
+              label={t("Calendar")}
+              active={section === "calendar"}
+            />
+            <ModuleLink
+              href="/contacts"
+              icon={<Users size={20} />}
+              label={t("Contacts")}
+              active={section === "contacts"}
+            />
+            <ModuleLink
+              href="/files"
+              icon={<FolderOpen size={20} />}
+              label={t("Files")}
+              active={section === "files"}
+            />
           </nav>
         </aside>
         {/*
@@ -196,35 +333,44 @@ export function AppShell({ children }: { children: ReactNode }) {
           outside this and carry on -- so recovery is a pane blinking rather
           than the app disappearing.
         */}
-        <main className="main"><TranslateBoundary>{children}</TranslateBoundary></main>
+        <main className="main">
+          <TranslateBoundary>{children}</TranslateBoundary>
+        </main>
       </div>
 
       {isMobile && (
         <>
           {(section === "mail" || section === "search") && !location.split("/")[3] && (
-            <button className="fab" aria-label={t("Compose")} onClick={() => openCompose()}>
+            <button
+              className="fab"
+              aria-label={t("Compose")}
+              onClick={() => openCompose()}
+            >
               <PenSquare size={24} />
             </button>
           )}
           <nav className="mobile-tabbar" aria-label={t("Sections")}>
-            <Link href="/mail" className={section === "mail" || section === "search" ? "active" : ""}>
+            <Link
+              href="/mail"
+              className={section === "mail" || section === "search" ? "active" : ""}
+            >
               <Mail size={22} />
-              
+
               {t("Mail")}
             </Link>
             <Link href="/calendar" className={section === "calendar" ? "active" : ""}>
               <Calendar size={22} />
-              
+
               {t("Calendar")}
             </Link>
             <Link href="/contacts" className={section === "contacts" ? "active" : ""}>
               <Users size={22} />
-              
+
               {t("Contacts")}
             </Link>
             <Link href="/files" className={section === "files" ? "active" : ""}>
               <FolderOpen size={22} />
-              
+
               {t("Files")}
             </Link>
           </nav>
@@ -238,7 +384,10 @@ export function AppShell({ children }: { children: ReactNode }) {
              still somewhere worth going. */
           need="mayReadItems"
           onClose={() => setGoFolder(false)}
-          onPick={(id) => { setGoFolder(false); navigate(`/mail/${id}`); }}
+          onPick={(id) => {
+            setGoFolder(false);
+            navigate(`/mail/${id}`);
+          }}
         />
       )}
     </div>
@@ -246,9 +395,25 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 /** Outlook-style module switcher at the bottom of the folder pane. */
-function ModuleLink({ href, icon, label, active }: { href: string; icon: ReactNode; label: string; active: boolean }) {
+function ModuleLink({
+  href,
+  icon,
+  label,
+  active,
+}: {
+  href: string;
+  icon: ReactNode;
+  label: string;
+  active: boolean;
+}) {
   return (
-    <Link href={href} className={`module-link ${active ? "active" : ""}`} title={label} aria-label={label} aria-current={active ? "page" : undefined}>
+    <Link
+      href={href}
+      className={`module-link ${active ? "active" : ""}`}
+      title={label}
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
+    >
       {icon}
       <span className="module-label">{label}</span>
     </Link>
@@ -257,19 +422,30 @@ function ModuleLink({ href, icon, label, active }: { href: string; icon: ReactNo
 
 function QuotaBar() {
   const quotas = useMail((s) => s.quotas);
-  const q = quotas.find((x) => x.resourceType === "octets" && x.types.includes("Email")) ?? quotas.find((x) => x.resourceType === "octets");
-  if (!q || !q.hardLimit) return null;
+  const q =
+    quotas.find((x) => x.resourceType === "octets" && x.types.includes("Email")) ??
+    quotas.find((x) => x.resourceType === "octets");
+  if (!q?.hardLimit) return null;
   const pct = Math.min(100, Math.round((q.used / q.hardLimit) * 100));
   return (
-    <div className="quota" title={`${formatSize(q.used)} of ${formatSize(q.hardLimit)} used`}>
+    <div
+      className="quota"
+      title={`${formatSize(q.used)} of ${formatSize(q.hardLimit)} used`}
+    >
       <div className="row" style={{ justifyContent: "space-between" }}>
         <span>
-          {t("{used} of {total}", { used: formatSize(q.used), total: formatSize(q.hardLimit) })}
+          {t("{used} of {total}", {
+            used: formatSize(q.used),
+            total: formatSize(q.hardLimit),
+          })}
         </span>
         <ChevronsUpDown size={12} style={{ opacity: 0 }} />
       </div>
       <div className="quota-bar">
-        <span className={pct > 95 ? "danger" : pct > 80 ? "warn" : ""} style={{ width: `${pct}%` }} />
+        <span
+          className={pct > 95 ? "danger" : pct > 80 ? "warn" : ""}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   );
@@ -292,8 +468,13 @@ function ThemeToggle() {
   const effective = useEffectiveTheme();
   const settings = useSettings((s) => s.settings);
   const update = useSettings((s) => s.update);
-  const prefersDark = Boolean(window.matchMedia?.("(prefers-color-scheme: dark)").matches);
-  const next = toggleTarget({ palette: settings.palette, mode: settings.mode }, prefersDark);
+  const prefersDark = Boolean(
+    window.matchMedia?.("(prefers-color-scheme: dark)").matches,
+  );
+  const next = toggleTarget(
+    { palette: settings.palette, mode: settings.mode },
+    prefersDark,
+  );
   // Name where it is going, and by the palette when the palette is changing --
   // going back to ihasmail's own colours is not the same as "dark mode".
   // The palette never changes now, so the label is only ever the side.

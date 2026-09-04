@@ -18,15 +18,31 @@ const VERSION = "ihasmail-v2";
  * eventually would.
  */
 const BASE = new URL("./", self.location).pathname.replace(/\/$/, "");
-const SHELL = [`${BASE}/`, `${BASE}/manifest.webmanifest`, `${BASE}/img/logo.png`, `${BASE}/img/icon-192.png`, `${BASE}/favicon.ico`];
+const SHELL = [
+  `${BASE}/`,
+  `${BASE}/manifest.webmanifest`,
+  `${BASE}/img/logo.png`,
+  `${BASE}/img/icon-192.png`,
+  `${BASE}/favicon.ico`,
+];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(
+    caches
+      .open(VERSION)
+      .then((c) => c.addAll(SHELL))
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k)))).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))),
+      )
+      .then(() => self.clients.claim()),
   );
 });
 
@@ -40,11 +56,15 @@ self.addEventListener("fetch", (event) => {
   // Hashed build assets: cache-first.
   if (url.pathname.startsWith(`${BASE}/assets/`)) {
     event.respondWith(
-      caches.match(req).then((hit) => hit || fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(VERSION).then((c) => c.put(req, copy));
-        return res;
-      }))
+      caches.match(req).then(
+        (hit) =>
+          hit ||
+          fetch(req).then((res) => {
+            const copy = res.clone();
+            caches.open(VERSION).then((c) => c.put(req, copy));
+            return res;
+          }),
+      ),
     );
     return;
   }
@@ -56,7 +76,6 @@ self.addEventListener("fetch", (event) => {
   }
   event.respondWith(fetch(req).catch(() => caches.match(req)));
 });
-
 
 /* ------------------------------------------------------------------ */
 /* Web Push                                                            */
@@ -105,61 +124,83 @@ self.addEventListener("push", (event) => {
   // The verification handshake. No credentials here, so hand it to a tab —
   // an open one now, or the next one to start.
   if (data && data["@type"] === "PushVerification") {
-    event.waitUntil((async () => {
-      const payload = { id: data.pushSubscriptionId, code: data.verificationCode };
-      const clients = await self.clients.matchAll({ includeUncontrolled: true, type: "window" });
-      if (clients.length) {
-        for (const c of clients) c.postMessage({ type: "push-verification", ...payload });
-      } else {
-        const cache = await caches.open(VERSION);
-        await cache.put(VERIFY_KEY, new Response(JSON.stringify(payload)));
-      }
-    })());
+    event.waitUntil(
+      (async () => {
+        const payload = { id: data.pushSubscriptionId, code: data.verificationCode };
+        const clients = await self.clients.matchAll({
+          includeUncontrolled: true,
+          type: "window",
+        });
+        if (clients.length) {
+          for (const c of clients)
+            c.postMessage({ type: "push-verification", ...payload });
+        } else {
+          const cache = await caches.open(VERSION);
+          await cache.put(VERIFY_KEY, new Response(JSON.stringify(payload)));
+        }
+      })(),
+    );
     return;
   }
 
-  const emails = (data && data["@type"] === "EmailPush" && Array.isArray(data.emails)) ? data.emails : [];
-  event.waitUntil((async () => {
-    if (!emails.length) {
-      // A StateChange, or a payload too large to carry the message. Say
-      // something true rather than inventing a sender.
-      await self.registration.showNotification("New mail", {
-        icon: `${BASE}/img/icon-192.png`, badge: `${BASE}/img/favicon-64.png`, tag: "ihasmail-mail", data: { url: `${BASE}/mail` },
-      });
-      return;
-    }
-    // One notification per message, collapsing repeats of the same message by
-    // tag so a re-push does not stack.
-    for (const email of emails.slice(0, 5)) {
-      const { title, body, preview } = textOf(email);
-      await self.registration.showNotification(title, {
-        body: preview ? `${body}\n${preview}` : body,
-        icon: `${BASE}/img/icon-192.png`,
-        badge: `${BASE}/img/favicon-64.png`,
-        tag: `ihasmail-${email.id || body}`,
-        data: { url: email.id ? `${BASE}/mail/inbox/${email.id}` : `${BASE}/mail` },
-      });
-    }
-  })());
+  const emails =
+    data && data["@type"] === "EmailPush" && Array.isArray(data.emails)
+      ? data.emails
+      : [];
+  event.waitUntil(
+    (async () => {
+      if (!emails.length) {
+        // A StateChange, or a payload too large to carry the message. Say
+        // something true rather than inventing a sender.
+        await self.registration.showNotification("New mail", {
+          icon: `${BASE}/img/icon-192.png`,
+          badge: `${BASE}/img/favicon-64.png`,
+          tag: "ihasmail-mail",
+          data: { url: `${BASE}/mail` },
+        });
+        return;
+      }
+      // One notification per message, collapsing repeats of the same message by
+      // tag so a re-push does not stack.
+      for (const email of emails.slice(0, 5)) {
+        const { title, body, preview } = textOf(email);
+        await self.registration.showNotification(title, {
+          body: preview ? `${body}\n${preview}` : body,
+          icon: `${BASE}/img/icon-192.png`,
+          badge: `${BASE}/img/favicon-64.png`,
+          tag: `ihasmail-${email.id || body}`,
+          data: { url: email.id ? `${BASE}/mail/inbox/${email.id}` : `${BASE}/mail` },
+        });
+      }
+    })(),
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = event.notification.data?.url || `${BASE}/mail`;
-  event.waitUntil((async () => {
-    const clients = await self.clients.matchAll({ includeUncontrolled: true, type: "window" });
-    // Reuse a tab if one is open rather than piling up windows. Same origin is
-    // not enough under a prefix: `includeUncontrolled` widens the match to the
-    // whole origin, so on a host that also serves something else this would
-    // navigate a stranger's tab to our inbox.
-    for (const c of clients) {
-      const at = new URL(c.url);
-      if (at.origin === self.location.origin && (at.pathname === BASE || at.pathname.startsWith(`${BASE}/`))) {
-        await c.focus();
-        if ("navigate" in c) await c.navigate(url).catch(() => {});
-        return;
+  event.waitUntil(
+    (async () => {
+      const clients = await self.clients.matchAll({
+        includeUncontrolled: true,
+        type: "window",
+      });
+      // Reuse a tab if one is open rather than piling up windows. Same origin is
+      // not enough under a prefix: `includeUncontrolled` widens the match to the
+      // whole origin, so on a host that also serves something else this would
+      // navigate a stranger's tab to our inbox.
+      for (const c of clients) {
+        const at = new URL(c.url);
+        if (
+          at.origin === self.location.origin &&
+          (at.pathname === BASE || at.pathname.startsWith(`${BASE}/`))
+        ) {
+          await c.focus();
+          if ("navigate" in c) await c.navigate(url).catch(() => {});
+          return;
+        }
       }
-    }
-    await self.clients.openWindow(url);
-  })());
+      await self.clients.openWindow(url);
+    })(),
+  );
 });

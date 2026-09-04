@@ -1,7 +1,7 @@
 import { useMemo } from "react";
+import { t, tNode } from "@/lib/i18n";
 import { keyboard } from "@/lib/keyboard";
 import { Kbd } from "@/ui/misc";
-import { t, tNode } from "@/lib/i18n";
 
 export function ShortcutsSettings() {
   const list = useMemo(() => keyboard.list(), []);
@@ -17,7 +17,12 @@ export function ShortcutsSettings() {
   return (
     <div>
       <h1>{t("Keyboard shortcuts")}</h1>
-      <p className="lead">{tNode("Gmail-style shortcuts are always on. Press {key} anywhere to see this list.", { key: <kbd className="kbd">?</kbd> })}</p>
+      <p className="lead">
+        {tNode(
+          "Gmail-style shortcuts are always on. Press {key} anywhere to see this list.",
+          { key: <kbd className="kbd">?</kbd> },
+        )}
+      </p>
       <div className="shortcut-grid">
         {groups.map(([group, items]) => (
           <div key={group}>
@@ -29,11 +34,16 @@ export function ShortcutsSettings() {
                 registrar knowing about i18n. */}
             <h3>{t(group)}</h3>
             {items.map((b) => (
-              <div key={b.keys} className="shortcut-row"><span>{t(b.description)}</span><Kbd keys={b.keys} /></div>
+              <div key={b.keys} className="shortcut-row">
+                <span>{t(b.description)}</span>
+                <Kbd keys={b.keys} />
+              </div>
             ))}
           </div>
         ))}
-        {!groups.length && <p className="hint">{t("Open the Mail view to see all shortcuts.")}</p>}
+        {!groups.length && (
+          <p className="hint">{t("Open the Mail view to see all shortcuts.")}</p>
+        )}
       </div>
     </div>
   );

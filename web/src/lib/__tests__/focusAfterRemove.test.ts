@@ -18,7 +18,11 @@ import { describe, expect, it } from "vitest";
  */
 
 /** Where focus lands after the row at `wasAt` is removed. */
-function focusAfterRemove(freshIds: string[], wasAt: number, autoAdvance: "newer" | "older" | "list"): string | null {
+function focusAfterRemove(
+  freshIds: string[],
+  wasAt: number,
+  autoAdvance: "newer" | "older" | "list",
+): string | null {
   if (!freshIds.length) return null;
   if (wasAt < 0) return undefined as unknown as string;
   const want = autoAdvance === "newer" ? wasAt - 1 : wasAt;
@@ -26,10 +30,18 @@ function focusAfterRemove(freshIds: string[], wasAt: number, autoAdvance: "newer
 }
 
 /** What moveFocus resolves to, given a focus id that may no longer exist. */
-function nextIndex(ids: string[], focus: string | null, listIndex: number, delta: number): number {
+function nextIndex(
+  ids: string[],
+  focus: string | null,
+  listIndex: number,
+  delta: number,
+): number {
   const fromFocus = focus ? ids.indexOf(focus) : -1;
   const cur = fromFocus >= 0 ? fromFocus : listIndex;
-  return Math.max(0, Math.min(ids.length - 1, (cur < 0 ? (delta > 0 ? -1 : 0) : cur) + delta));
+  return Math.max(
+    0,
+    Math.min(ids.length - 1, (cur < 0 ? (delta > 0 ? -1 : 0) : cur) + delta),
+  );
 }
 
 describe("focus after deleting a row", () => {

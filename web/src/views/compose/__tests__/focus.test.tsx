@@ -1,8 +1,8 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { RichEditor } from "../RichEditor";
 import { initialFocusTarget } from "../Composer";
+import { RichEditor } from "../RichEditor";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -11,10 +11,14 @@ describe("initialFocusTarget", () => {
     expect(initialFocusTarget({ to: [], subject: "" })).toBe("to");
   });
   it("moves on to the subject once there are recipients", () => {
-    expect(initialFocusTarget({ to: [{ name: null, email: "a@b.c" }], subject: "" })).toBe("subject");
+    expect(
+      initialFocusTarget({ to: [{ name: null, email: "a@b.c" }], subject: "" }),
+    ).toBe("subject");
   });
   it("starts a reply — addressed and titled — in the body", () => {
-    expect(initialFocusTarget({ to: [{ name: null, email: "a@b.c" }], subject: "Re: hi" })).toBe("body");
+    expect(
+      initialFocusTarget({ to: [{ name: null, email: "a@b.c" }], subject: "Re: hi" }),
+    ).toBe("body");
   });
 });
 
@@ -35,7 +39,14 @@ describe("RichEditor autoFocus", () => {
 
   const render = (autoFocus: boolean) =>
     act(() => {
-      root.render(<RichEditor html="" onChange={() => {}} showToolbar={false} autoFocus={autoFocus} />);
+      root.render(
+        <RichEditor
+          html=""
+          onChange={() => {}}
+          showToolbar={false}
+          autoFocus={autoFocus}
+        />,
+      );
     });
 
   const editor = () => host.querySelector<HTMLElement>('[contenteditable="true"]');

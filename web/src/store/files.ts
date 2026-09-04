@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import { CAP, client, setErrorMessage } from "@/jmap/client";
-import { directoryCreate, fileCreate, fileNodeProps } from "@/lib/filenode";
-import { foldersNeeded, type PlannedUpload } from "@/lib/dropUpload";
-import { isAppFolder } from "@/lib/appFolder";
 import type { FileNode, GetResponse, Id, QueryResponse, SetResponse } from "@/jmap/types";
-import { useSession } from "./session";
+import { isAppFolder } from "@/lib/appFolder";
+import { foldersNeeded, type PlannedUpload } from "@/lib/dropUpload";
+import { directoryCreate, fileCreate, fileNodeProps } from "@/lib/filenode";
 import { t as translate } from "@/lib/i18n";
+import { useSession } from "./session";
 
 interface SharedAccount {
   id: Id;
@@ -77,8 +77,6 @@ interface FilesState {
   applyChanges(types: Set<string>): void;
 }
 
-
-
 /**
  * Drop the client's own `ihasmail` folder, and everything inside it, from a
  * listing. It holds signature images and the synced settings file — real nodes
@@ -117,7 +115,15 @@ export function withoutAppFolder(nodes: FileNode[]): FileNode[] {
  * accounts.
  */
 export function emptyForAccount(accountId: Id | null) {
-  return { accountId, nodes: {}, children: {}, dirIds: [], treeLoaded: false, draggingIds: [], error: null };
+  return {
+    accountId,
+    nodes: {},
+    children: {},
+    dirIds: [],
+    treeLoaded: false,
+    draggingIds: [],
+    error: null,
+  };
 }
 
 export const useFiles = create<FilesState>((set, get) => ({
@@ -152,20 +158,24 @@ export const useFiles = create<FilesState>((set, get) => ({
      * account that shares no files does not belong in a list of shared files.
      */
     const s = session.session;
-    const candidates = Object.entries(s?.accounts ?? {}).filter(([, a]) => a.isPersonal === false);
+    const candidates = Object.entries(s?.accounts ?? {}).filter(
+      ([, a]) => a.isPersonal === false,
+    );
     const sharedAccounts: SharedAccount[] = [];
     for (const [id, a] of candidates) {
       try {
-        const res = await client.call<QueryResponse>("FileNode/query", { accountId: id, limit: 1 });
+        const res = await client.call<QueryResponse>("FileNode/query", {
+          accountId: id,
+          limit: 1,
+        });
         if (res.ids.length) sharedAccounts.push({ id, name: a.name });
-      } catch {
-        // Refused means nothing here is ours to see, which is the same answer.
-        continue;
-      }
+      } catch {}
     }
     // Stay where the reader is if they are reading a share that still exists.
     const browsing = get().accountId;
-    const keep = browsing && (browsing === ownAccountId || sharedAccounts.some((a) => a.id === browsing));
+    const keep =
+      browsing &&
+      (browsing === ownAccountId || sharedAccounts.some((a) => a.id === browsing));
     if (!keep) set(emptyForAccount(ownAccountId));
     set({ available, ownAccountId, sharedAccounts });
   },
@@ -194,8 +204,25 @@ export const useFiles = create<FilesState>((set, get) => ({
     if (!accountId) return;
     try {
       const res = await client.chain([
-        ["FileNode/query", { accountId, filter: { nodeType: "directory" }, sort: [{ property: "name", isAscending: true }], limit: 1000 }, "q"],
-        ["FileNode/get", { accountId, "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" }, properties: fileNodeProps() }, "g"],
+        [
+          "FileNode/query",
+          {
+            accountId,
+            filter: { nodeType: "directory" },
+            sort: [{ property: "name", isAscending: true }],
+            limit: 1000,
+          },
+          "q",
+        ],
+        [
+          "FileNode/get",
+          {
+            accountId,
+            "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
+            properties: fileNodeProps(),
+          },
+          "g",
+        ],
       ]);
       const g = res.get("g")?.[0] as unknown as GetResponse<FileNode>;
       // Filtered again here rather than trusted: a server that ignores the
@@ -220,8 +247,28 @@ export const useFiles = create<FilesState>((set, get) => ({
     try {
       const filter = parentId ? { parentId } : { isTopLevel: true };
       const res = await client.chain([
-        ["FileNode/query", { accountId, filter, sort: [{ property: "nodeType", isAscending: false }, { property: "name", isAscending: true }], limit: 1000 }, "q"],
-        ["FileNode/get", { accountId, "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" }, properties: fileNodeProps() }, "g"],
+        [
+          "FileNode/query",
+          {
+            accountId,
+            filter,
+            sort: [
+              { property: "nodeType", isAscending: false },
+              { property: "name", isAscending: true },
+            ],
+            limit: 1000,
+          },
+          "q",
+        ],
+        [
+          "FileNode/get",
+          {
+            accountId,
+            "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
+            properties: fileNodeProps(),
+          },
+          "g",
+        ],
       ]);
       const q = res.get("q")?.[0] as unknown as QueryResponse;
       const g = res.get("g")?.[0] as unknown as GetResponse<FileNode>;
@@ -230,7 +277,15 @@ export const useFiles = create<FilesState>((set, get) => ({
       set((s) => {
         const nodes = { ...s.nodes };
         for (const n of listed) nodes[n.id] = n;
-        return { nodes, children: { ...s.children, [parentId ?? "root"]: q.ids.filter((id) => keep.has(id)) }, loading: false, error: null };
+        return {
+          nodes,
+          children: {
+            ...s.children,
+            [parentId ?? "root"]: q.ids.filter((id) => keep.has(id)),
+          },
+          loading: false,
+          error: null,
+        };
       });
     } catch (err) {
       // There used to be a fallback here that abandoned filters and fetched
@@ -243,7 +298,10 @@ export const useFiles = create<FilesState>((set, get) => ({
 
   async mkdir(parentId, name) {
     const accountId = get().accountId!;
-    const res = await client.call<SetResponse<FileNode>>("FileNode/set", { accountId, create: { d: directoryCreate(parentId, name) } });
+    const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
+      accountId,
+      create: { d: directoryCreate(parentId, name) },
+    });
     const err = res.notCreated?.d;
     if (err) throw new Error(setErrorMessage(err));
     await get().loadChildren(parentId);
@@ -255,21 +313,39 @@ export const useFiles = create<FilesState>((set, get) => ({
     const accountId = get().accountId!;
     for (const f of files) {
       const id = `${Date.now()}-${f.name}`;
-      set((s) => ({ uploads: [...s.uploads, { id, name: f.name, progress: 0, error: null }] }));
+      set((s) => ({
+        uploads: [...s.uploads, { id, name: f.name, progress: 0, error: null }],
+      }));
       try {
         const up = await client.upload(accountId, f, {
           type: f.type || "application/octet-stream",
-          onProgress: (l, t) => set((s) => ({ uploads: s.uploads.map((u) => (u.id === id ? { ...u, progress: Math.round((l / t) * 100) } : u)) })),
+          onProgress: (l, t) =>
+            set((s) => ({
+              uploads: s.uploads.map((u) =>
+                u.id === id ? { ...u, progress: Math.round((l / t) * 100) } : u,
+              ),
+            })),
         });
         const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
           accountId,
-          create: { f: fileCreate(parentId, f.name, up.blobId, f.type || "application/octet-stream") },
+          create: {
+            f: fileCreate(
+              parentId,
+              f.name,
+              up.blobId,
+              f.type || "application/octet-stream",
+            ),
+          },
         });
         const err = res.notCreated?.f;
         if (err) throw new Error(setErrorMessage(err));
         set((s) => ({ uploads: s.uploads.filter((u) => u.id !== id) }));
       } catch (err) {
-        set((s) => ({ uploads: s.uploads.map((u) => (u.id === id ? { ...u, error: (err as Error).message } : u)) }));
+        set((s) => ({
+          uploads: s.uploads.map((u) =>
+            u.id === id ? { ...u, error: (err as Error).message } : u,
+          ),
+        }));
       }
     }
     await get().loadChildren(parentId);
@@ -285,7 +361,11 @@ export const useFiles = create<FilesState>((set, get) => ({
   async refresh(ids) {
     const accountId = get().accountId;
     if (!accountId || !ids.length) return;
-    const res = await client.call<GetResponse<FileNode>>("FileNode/get", { accountId, ids, properties: fileNodeProps() });
+    const res = await client.call<GetResponse<FileNode>>("FileNode/get", {
+      accountId,
+      ids,
+      properties: fileNodeProps(),
+    });
     set((s) => {
       const nodes = { ...s.nodes };
       for (const n of res.list) nodes[n.id] = n;
@@ -312,7 +392,8 @@ export const useFiles = create<FilesState>((set, get) => ({
       const key = item.path.join(" ");
       byFolder.set(key, [...(byFolder.get(key) ?? []), item.file]);
     }
-    for (const [key, files] of byFolder) await get().upload(dirIds.get(key) ?? parentId, files);
+    for (const [key, files] of byFolder)
+      await get().upload(dirIds.get(key) ?? parentId, files);
     void get().loadTree();
   },
 
@@ -327,10 +408,19 @@ export const useFiles = create<FilesState>((set, get) => ({
      * it" when nobody did learns to click through the warning. The node's own
      * blobId is the thing that actually answers the question.
      */
-    const fresh = await client.call<GetResponse<FileNode>>("FileNode/get", { accountId, ids: [id], properties: fileNodeProps() });
+    const fresh = await client.call<GetResponse<FileNode>>("FileNode/get", {
+      accountId,
+      ids: [id],
+      properties: fileNodeProps(),
+    });
     const now = fresh.list[0];
     if (!now) throw new Error(translate("That file is no longer there."));
-    if (now.blobId !== seenBlobId) throw new Error(translate("Somebody else saved this file while it was open. Copy your changes, close it, and start again."));
+    if (now.blobId !== seenBlobId)
+      throw new Error(
+        translate(
+          "Somebody else saved this file while it was open. Copy your changes, close it, and start again.",
+        ),
+      );
 
     const type = now.type || "text/plain";
     const blob = new Blob([text], { type });
@@ -347,7 +437,10 @@ export const useFiles = create<FilesState>((set, get) => ({
 
   async rename(id, name) {
     const accountId = get().accountId!;
-    const res = await client.call<SetResponse>("FileNode/set", { accountId, update: { [id]: { name } } });
+    const res = await client.call<SetResponse>("FileNode/set", {
+      accountId,
+      update: { [id]: { name } },
+    });
     const err = res.notUpdated?.[id];
     if (err) throw new Error(setErrorMessage(err));
     await get().loadChildren(get().nodes[id]?.parentId ?? null);
@@ -382,7 +475,11 @@ export const useFiles = create<FilesState>((set, get) => ({
   async destroy(ids) {
     const accountId = get().accountId!;
     const parents = new Set(ids.map((id) => get().nodes[id]?.parentId ?? null));
-    const res = await client.call<SetResponse>("FileNode/set", { accountId, destroy: ids, onDestroyRemoveChildren: true });
+    const res = await client.call<SetResponse>("FileNode/set", {
+      accountId,
+      destroy: ids,
+      onDestroyRemoveChildren: true,
+    });
     const failed = Object.values(res.notDestroyed ?? {})[0];
     if (failed) throw new Error(setErrorMessage(failed));
     for (const p of parents) await get().loadChildren(p);
@@ -402,11 +499,13 @@ export const useFiles = create<FilesState>((set, get) => ({
 
   applyChanges(types) {
     if (types.has("FileNode")) {
-      for (const key of Object.keys(get().children)) void get().loadChildren(key === "root" ? null : key);
+      for (const key of Object.keys(get().children))
+        void get().loadChildren(key === "root" ? null : key);
     }
   },
 }));
 
 useSession.subscribe((s) => {
-  if (s.status !== "authenticated") useFiles.setState({ accountId: null, nodes: {}, children: {} });
+  if (s.status !== "authenticated")
+    useFiles.setState({ accountId: null, nodes: {}, children: {} });
 });

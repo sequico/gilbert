@@ -26,7 +26,13 @@ function parseSize(s: string): number | undefined {
   if (!m) return undefined;
   const n = Number(m[1]);
   const unit = (m[2] ?? "").toLowerCase();
-  const mult = unit.startsWith("k") ? 1024 : unit.startsWith("m") ? 1024 ** 2 : unit.startsWith("g") ? 1024 ** 3 : 1;
+  const mult = unit.startsWith("k")
+    ? 1024
+    : unit.startsWith("m")
+      ? 1024 ** 2
+      : unit.startsWith("g")
+        ? 1024 ** 3
+        : 1;
   return Math.round(n * mult);
 }
 
@@ -140,7 +146,11 @@ export function parseQuery(q: string): ParsedQuery {
   return p;
 }
 
-export function buildFilter(p: ParsedQuery, mailboxes: Record<string, Mailbox>, currentMailbox?: string | null): EmailFilter {
+export function buildFilter(
+  p: ParsedQuery,
+  mailboxes: Record<string, Mailbox>,
+  currentMailbox?: string | null,
+): EmailFilter {
   const conds: EmailFilterCondition[] = [];
   const c: EmailFilterCondition = {};
   if (p.text.length) c.text = p.text.join(" ");
@@ -170,13 +180,25 @@ export function buildFilter(p: ParsedQuery, mailboxes: Record<string, Mailbox>, 
   return { operator: "AND", conditions: conds };
 }
 
-export function resolveMailbox(name: string, mailboxes: Record<string, Mailbox>): Mailbox | undefined {
+export function resolveMailbox(
+  name: string,
+  mailboxes: Record<string, Mailbox>,
+): Mailbox | undefined {
   const n = name.toLowerCase();
   const list = Object.values(mailboxes);
-  const byRole = list.find((m) => m.role === n || (n === "spam" && m.role === "junk") || (n === "starred" && m.role === "flagged") || (n === "anywhere" && m.role === "all"));
+  const byRole = list.find(
+    (m) =>
+      m.role === n ||
+      (n === "spam" && m.role === "junk") ||
+      (n === "starred" && m.role === "flagged") ||
+      (n === "anywhere" && m.role === "all"),
+  );
   if (byRole) return byRole;
   if (n === "anywhere" || n === "all") return undefined;
-  return list.find((m) => m.name.toLowerCase() === n) ?? list.find((m) => m.name.toLowerCase().includes(n));
+  return (
+    list.find((m) => m.name.toLowerCase() === n) ??
+    list.find((m) => m.name.toLowerCase().includes(n))
+  );
 }
 
 export function describeFilter(p: ParsedQuery): string {

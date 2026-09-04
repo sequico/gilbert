@@ -65,7 +65,11 @@ function spacing(days: number): { every: number; label: number } {
   return { every: 24, label: 24 };
 }
 
-export function availabilityWindow(start: Date, end: Date, opts: { maxDays?: number; offsetDays?: number } = {}): AvailabilityWindow {
+export function availabilityWindow(
+  start: Date,
+  end: Date,
+  opts: { maxDays?: number; offsetDays?: number } = {},
+): AvailabilityWindow {
   const maxDays = opts.maxDays ?? 7;
   /*
    * Days moved from where the event sits, for looking around it without
@@ -77,8 +81,14 @@ export function availabilityWindow(start: Date, end: Date, opts: { maxDays?: num
   // The last day is the one the event ends *on*. An event ending exactly at
   // midnight ends on the day before, not at the start of a day it never
   // touches -- that is the whole of what all-day events do.
-  const lastDay = addDays(startOfDay(new Date(Math.max(end.getTime() - 1, start.getTime()))), opts.offsetDays ?? 0);
-  const total = Math.max(1, Math.round((lastDay.getTime() - from.getTime()) / DAY_MS) + 1);
+  const lastDay = addDays(
+    startOfDay(new Date(Math.max(end.getTime() - 1, start.getTime()))),
+    opts.offsetDays ?? 0,
+  );
+  const total = Math.max(
+    1,
+    Math.round((lastDay.getTime() - from.getTime()) / DAY_MS) + 1,
+  );
   const days = Math.min(total, maxDays);
   const to = addDays(from, days);
   const span = to.getTime() - from.getTime();
@@ -88,8 +98,20 @@ export function availabilityWindow(start: Date, end: Date, opts: { maxDays?: num
   for (let hour = 0; ; hour += every) {
     const time = new Date(from.getTime() + hour * 3600_000);
     if (time.getTime() >= to.getTime()) break;
-    ticks.push({ at: (time.getTime() - from.getTime()) / span, time, major: hour % label === 0 });
+    ticks.push({
+      at: (time.getTime() - from.getTime()) / span,
+      time,
+      major: hour % label === 0,
+    });
   }
 
-  return { start: from, end: to, span, days, ticks, scale: days <= 2 ? "hours" : "days", daysHidden: total - days };
+  return {
+    start: from,
+    end: to,
+    span,
+    days,
+    ticks,
+    scale: days <= 2 ? "hours" : "days",
+    daysHidden: total - days,
+  };
 }

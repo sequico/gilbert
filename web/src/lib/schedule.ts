@@ -11,9 +11,10 @@
  * the capability has to be read out of `accountCapabilities`, not the
  * top-level `capabilities` (where it is an empty object).
  */
+
+import { plural, t } from "@/lib/i18n";
 import { addDays, startOfDay } from "./dates";
 import { formatFullDateTime } from "./datetime";
-import { plural, t } from "@/lib/i18n";
 
 export const SUBMISSION_CAP = "urn:ietf:params:jmap:submission";
 
@@ -32,7 +33,7 @@ export function canScheduleSend(cap: SubmissionCapability | undefined | null): b
   if (!cap) return false;
   const max = typeof cap.maxDelayedSend === "number" ? cap.maxDelayedSend : 0;
   const exts = cap.submissionExtensions ?? {};
-  return max > 0 && Object.prototype.hasOwnProperty.call(exts, "FUTURERELEASE");
+  return max > 0 && Object.hasOwn(exts, "FUTURERELEASE");
 }
 
 /** How far ahead this server will hold a message, in milliseconds. */
@@ -51,7 +52,9 @@ export function maxDelayMs(cap: SubmissionCapability | undefined | null): number
  * with what we asked for.
  */
 export function holdUntil(at: Date): string {
-  return new Date(Math.floor(at.getTime() / 1000) * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
+  return new Date(Math.floor(at.getTime() / 1000) * 1000)
+    .toISOString()
+    .replace(/\.\d{3}Z$/, "Z");
 }
 
 export interface SchedulePreset {
@@ -83,7 +86,11 @@ export function schedulePresets(now: Date, maxMs: number): SchedulePreset[] {
   const all: SchedulePreset[] = [
     { id: "later-today", label: "Later today", at: at(now, 17) },
     { id: "tomorrow-morning", label: "Tomorrow morning", at: at(addDays(now, 1), 8) },
-    { id: "tomorrow-afternoon", label: "Tomorrow afternoon", at: at(addDays(now, 1), 13) },
+    {
+      id: "tomorrow-afternoon",
+      label: "Tomorrow afternoon",
+      at: at(addDays(now, 1), 13),
+    },
     { id: "monday-morning", label: "Monday morning", at: monday },
   ];
   const floor = now.getTime() + MIN_LEAD_MS;
@@ -99,9 +106,12 @@ export function schedulePresets(now: Date, maxMs: number): SchedulePreset[] {
 export function scheduleError(at: Date, now: Date, maxMs: number): string | null {
   const ms = at.getTime();
   if (Number.isNaN(ms)) return t("Pick a date and time.");
-  if (ms < now.getTime() + MIN_LEAD_MS) return t("Pick a time at least a minute from now.");
+  if (ms < now.getTime() + MIN_LEAD_MS)
+    return t("Pick a time at least a minute from now.");
   if (maxMs > 0 && ms > now.getTime() + maxMs) {
-    return t("This server will not hold a message longer than {span}.", { span: describeSpan(maxMs) });
+    return t("This server will not hold a message longer than {span}.", {
+      span: describeSpan(maxMs),
+    });
   }
   return null;
 }

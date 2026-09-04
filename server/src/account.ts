@@ -1,6 +1,6 @@
 import { config } from "./config.js";
-import { absoluteUpstream, UpstreamError, type UpstreamSession } from "./upstream.js";
 import { generateSecret, otpauthUrl, parseOtpauthUrl, verifyTotp } from "./totp.js";
+import { absoluteUpstream, UpstreamError, type UpstreamSession } from "./upstream.js";
 
 /**
  * Self-service credential management, over Stalwart's JMAP registry:
@@ -64,15 +64,24 @@ function accountId(ctx: Ctx): string {
 
 type Invocation = [string, Record<string, unknown>, string];
 
-async function jmap(ctx: Ctx, methodCalls: Invocation[]): Promise<{ methodResponses?: [string, unknown, string][] }> {
+async function jmap(
+  ctx: Ctx,
+  methodCalls: Invocation[],
+): Promise<{ methodResponses?: [string, unknown, string][] }> {
   const res = await fetch(absoluteUpstream(ctx.session.apiUrl, ctx.session.baseUrl), {
     method: "POST",
-    headers: { authorization: ctx.authorization, "content-type": "application/json", accept: "application/json" },
+    headers: {
+      authorization: ctx.authorization,
+      "content-type": "application/json",
+      accept: "application/json",
+    },
     body: JSON.stringify({ using: [JMAP_CORE, STALWART_CAP], methodCalls }),
     signal: AbortSignal.timeout(config.upstreamTimeout),
   });
-  if (res.status === 401 || res.status === 403) throw new UpstreamError("Invalid credentials", 401);
-  if (!res.ok) throw new UpstreamError(`Stalwart rejected the request (${res.status})`, 502);
+  if (res.status === 401 || res.status === 403)
+    throw new UpstreamError("Invalid credentials", 401);
+  if (!res.ok)
+    throw new UpstreamError(`Stalwart rejected the request (${res.status})`, 502);
   return (await res.json()) as { methodResponses?: [string, unknown, string][] };
 }
 
@@ -80,34 +89,61 @@ async function jmap(ctx: Ctx, methodCalls: Invocation[]): Promise<{ methodRespon
  * Pull the single result out of a /set, turning JMAP's several failure shapes
  * into one error carrying whatever the server was willing to explain.
  */
-function setResult(res: { methodResponses?: [string, unknown, string][] }, kind: "created" | "updated" | "destroyed"): Record<string, unknown> | null {
+function setResult(
+  res: { methodResponses?: [string, unknown, string][] },
+  kind: "created" | "updated" | "destroyed",
+): Record<string, unknown> | null {
   const [name, args] = res.methodResponses?.[0] ?? [];
   if (!name) throw new AccountError("The mail server sent no response.", 502, "upstream");
   if (name === "error") {
     const err = args as { type?: string; description?: string };
     if (err.type === "unknownMethod") {
-      throw new AccountError("This mail server does not offer self-service credential management.", 501, "unsupported");
+      throw new AccountError(
+        "This mail server does not offer self-service credential management.",
+        501,
+        "unsupported",
+      );
     }
-    throw new AccountError(err.description ?? `The mail server refused the request (${err.type ?? "error"}).`, 502, err.type ?? "upstream");
+    throw new AccountError(
+      err.description ?? `The mail server refused the request (${err.type ?? "error"}).`,
+      502,
+      err.type ?? "upstream",
+    );
   }
   const body = args as Record<string, Record<string, unknown> | undefined>;
-  const notKind = kind === "created" ? "notCreated" : kind === "updated" ? "notUpdated" : "notDestroyed";
+  const notKind =
+    kind === "created"
+      ? "notCreated"
+      : kind === "updated"
+        ? "notUpdated"
+        : "notDestroyed";
   const failures = body[notKind];
   const failure = failures && Object.values(failures)[0];
   if (failure) {
     const err = failure as { type?: string; description?: string; properties?: string[] };
-    throw new AccountError(describeSetError(err), err.type === "forbidden" ? 403 : 400, err.type ?? "invalid");
+    throw new AccountError(
+      describeSetError(err),
+      err.type === "forbidden" ? 403 : 400,
+      err.type ?? "invalid",
+    );
   }
   const ok = body[kind];
   return ok ? ((Object.values(ok)[0] ?? {}) as Record<string, unknown>) : null;
 }
 
-function describeSetError(err: { type?: string; description?: string; properties?: string[] }): string {
+function describeSetError(err: {
+  type?: string;
+  description?: string;
+  properties?: string[];
+}): string {
   if (err.description) return err.description;
   if (err.type === "forbidden") return "The mail server refused the change.";
-  if (err.type === "overQuota") return "You have reached the number of app passwords this account allows.";
+  if (err.type === "overQuota")
+    return "You have reached the number of app passwords this account allows.";
   if (err.type === "invalidProperties") {
-    return err.properties?.length ? `The mail server rejected ${err.properties.join(", ")}.` : "The mail server rejected the value.";
+    return err.properties?.length
+      ? `The mail server rejected ${err.properties.join(", ")}.`
+      : "The mail server rejected the value.";
   }
   return `The mail server refused the change (${err.type ?? "error"}).`;
 }
@@ -136,35 +172,69 @@ export async function getState(ctx: Ctx): Promise<SecurityState> {
   };
 }
 
-function listOf(res: { methodResponses?: [string, unknown, string][] }, callId: string): Record<string, unknown>[] {
+function listOf(
+  res: { methodResponses?: [string, unknown, string][] },
+  callId: string,
+): Record<string, unknown>[] {
   const call = res.methodResponses?.find((r) => r[2] === callId);
   if (!call || call[0] === "error") return [];
   const list = (call[1] as { list?: unknown }).list;
   return Array.isArray(list) ? (list as Record<string, unknown>[]) : [];
 }
 
-function firstListItem(res: { methodResponses?: [string, unknown, string][] }, callId: string): Record<string, unknown> | null {
+function firstListItem(
+  res: { methodResponses?: [string, unknown, string][] },
+  callId: string,
+): Record<string, unknown> | null {
   return listOf(res, callId)[0] ?? null;
 }
 
-export async function changePassword(ctx: Ctx, opts: { current: string; next: string; otpCode?: string }): Promise<void> {
-  const update: Record<string, unknown> = { currentSecret: opts.current, secret: opts.next };
+export async function changePassword(
+  ctx: Ctx,
+  opts: { current: string; next: string; otpCode?: string },
+): Promise<void> {
+  const update: Record<string, unknown> = {
+    currentSecret: opts.current,
+    secret: opts.next,
+  };
   if (opts.otpCode) update["otpAuth/otpCode"] = opts.otpCode;
-  const res = await jmap(ctx, [["x:AccountPassword/set", { accountId: accountId(ctx), update: { [SINGLETON]: update } }, "s"]]);
+  const res = await jmap(ctx, [
+    [
+      "x:AccountPassword/set",
+      { accountId: accountId(ctx), update: { [SINGLETON]: update } },
+      "s",
+    ],
+  ]);
   setResult(res, "updated");
 }
 
-export async function createAppPassword(ctx: Ctx, opts: { description: string }): Promise<{ id: string; secret: string }> {
+export async function createAppPassword(
+  ctx: Ctx,
+  opts: { description: string },
+): Promise<{ id: string; secret: string }> {
   const description = opts.description.trim() || "App password";
-  const res = await jmap(ctx, [["x:AppPassword/set", { accountId: accountId(ctx), create: { n: { description } } }, "s"]]);
+  const res = await jmap(ctx, [
+    [
+      "x:AppPassword/set",
+      { accountId: accountId(ctx), create: { n: { description } } },
+      "s",
+    ],
+  ]);
   const created = setResult(res, "created");
   const secret = created && typeof created.secret === "string" ? created.secret : "";
-  if (!secret) throw new AccountError("The mail server created the app password but did not return it.", 502, "upstream");
+  if (!secret)
+    throw new AccountError(
+      "The mail server created the app password but did not return it.",
+      502,
+      "upstream",
+    );
   return { id: String(created?.id ?? description), secret };
 }
 
 export async function revokeAppPassword(ctx: Ctx, id: string): Promise<void> {
-  const res = await jmap(ctx, [["x:AppPassword/set", { accountId: accountId(ctx), destroy: [id] }, "s"]]);
+  const res = await jmap(ctx, [
+    ["x:AppPassword/set", { accountId: accountId(ctx), destroy: [id] }, "s"],
+  ]);
   setResult(res, "destroyed");
 }
 
@@ -174,7 +244,14 @@ export async function revokeAppPassword(ctx: Ctx, id: string): Promise<void> {
  */
 export function beginOtpEnrolment(ctx: Ctx): { secret: string; url: string } {
   const secret = generateSecret();
-  return { secret, url: otpauthUrl({ secret, account: ctx.username, issuer: config.appName || "ihasmail" }) };
+  return {
+    secret,
+    url: otpauthUrl({
+      secret,
+      account: ctx.username,
+      issuer: config.appName || "ihasmail",
+    }),
+  };
 }
 
 /**
@@ -186,31 +263,53 @@ export function beginOtpEnrolment(ctx: Ctx): { secret: string; url: string } {
  */
 export function assertEnrolmentCode(url: string, code: string): void {
   const params = parseOtpauthUrl(url);
-  if (!params) throw new AccountError("That two-factor secret is not usable.", 400, "bad_otp_url");
+  if (!params)
+    throw new AccountError("That two-factor secret is not usable.", 400, "bad_otp_url");
   if (!verifyTotp(params, code)) {
-    throw new AccountError("That code doesn't match. Check your authenticator app and try the next code.", 400, "bad_code");
+    throw new AccountError(
+      "That code doesn't match. Check your authenticator app and try the next code.",
+      400,
+      "bad_code",
+    );
   }
 }
 
-export async function enableOtp(ctx: Ctx, opts: { url: string; code: string; current: string }): Promise<void> {
+export async function enableOtp(
+  ctx: Ctx,
+  opts: { url: string; code: string; current: string },
+): Promise<void> {
   assertEnrolmentCode(opts.url, opts.code);
   const res = await jmap(ctx, [
     [
       "x:AccountPassword/set",
-      { accountId: accountId(ctx), update: { [SINGLETON]: { currentSecret: opts.current, "otpAuth/otpUrl": opts.url } } },
+      {
+        accountId: accountId(ctx),
+        update: {
+          [SINGLETON]: { currentSecret: opts.current, "otpAuth/otpUrl": opts.url },
+        },
+      },
       "s",
     ],
   ]);
   setResult(res, "updated");
 }
 
-export async function disableOtp(ctx: Ctx, opts: { current: string; code: string }): Promise<void> {
+export async function disableOtp(
+  ctx: Ctx,
+  opts: { current: string; code: string },
+): Promise<void> {
   const res = await jmap(ctx, [
     [
       "x:AccountPassword/set",
       {
         accountId: accountId(ctx),
-        update: { [SINGLETON]: { currentSecret: opts.current, "otpAuth/otpCode": opts.code, "otpAuth/otpUrl": null } },
+        update: {
+          [SINGLETON]: {
+            currentSecret: opts.current,
+            "otpAuth/otpCode": opts.code,
+            "otpAuth/otpUrl": null,
+          },
+        },
       },
       "s",
     ],

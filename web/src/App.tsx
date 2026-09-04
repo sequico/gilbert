@@ -1,35 +1,49 @@
 import { Fragment, lazy, Suspense, useEffect, useState } from "react";
-import { Route, Switch, Redirect, useLocation, Router } from "wouter";
-import { useSession } from "@/store/session";
-import { useMail } from "@/store/mail";
-import { scheduleSupported, useScheduled } from "@/store/scheduled";
-import { useContacts } from "@/store/contacts";
-import { useCalendar } from "@/store/calendar";
-import { useFiles } from "@/store/files";
-import { useSieve } from "@/store/sieve";
-import { push } from "@/jmap/push";
+import { Redirect, Route, Router, Switch, useLocation } from "wouter";
 import { client } from "@/jmap/client";
-import { ToastHost, toast } from "@/ui/toast";
-import { ConfirmHost } from "@/ui/dialog";
-import { Spinner } from "@/ui/misc";
-import { LoginPage } from "@/views/Login";
-import { AppShell } from "@/views/AppShell";
-import { MailView } from "@/views/mail/MailView";
-import { ComposerDock } from "@/views/compose/ComposerDock";
-import { setUnreadBadge } from "@/lib/notify";
-import { PAINTED_FROM_CACHE, useSettings, syncedPart } from "@/store/settings";
-import { armSettingsSync, loadRemoteSettings, queueSettingsPush, settingsAlreadyLoadedFor, settingsSyncAvailable } from "@/lib/settingsSync";
-import { loadSettingsPolicy } from "@/lib/settingsPolicy";
-import { listenForVerification, renewWebPush } from "@/lib/webpushEnable";
-import { plural, t, useLanguageVersion, whenLanguageReady } from "@/lib/i18n";
-import { confirmLeaveUnsaved, hasUnsavedChanges } from "@/lib/unsavedChanges";
+import { push } from "@/jmap/push";
 import { BASE_PATH, withBase } from "@/lib/basePath";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
+import { plural, t, useLanguageVersion, whenLanguageReady } from "@/lib/i18n";
+import { setUnreadBadge } from "@/lib/notify";
+import { loadSettingsPolicy } from "@/lib/settingsPolicy";
+import {
+  armSettingsSync,
+  loadRemoteSettings,
+  queueSettingsPush,
+  settingsAlreadyLoadedFor,
+  settingsSyncAvailable,
+} from "@/lib/settingsSync";
+import { confirmLeaveUnsaved, hasUnsavedChanges } from "@/lib/unsavedChanges";
+import { listenForVerification, renewWebPush } from "@/lib/webpushEnable";
+import { useCalendar } from "@/store/calendar";
+import { useContacts } from "@/store/contacts";
+import { useFiles } from "@/store/files";
+import { useMail } from "@/store/mail";
+import { scheduleSupported, useScheduled } from "@/store/scheduled";
+import { useSession } from "@/store/session";
+import { PAINTED_FROM_CACHE, syncedPart, useSettings } from "@/store/settings";
+import { useSieve } from "@/store/sieve";
+import { ConfirmHost } from "@/ui/dialog";
+import { Spinner } from "@/ui/misc";
+import { ToastHost, toast } from "@/ui/toast";
+import { AppShell } from "@/views/AppShell";
+import { ComposerDock } from "@/views/compose/ComposerDock";
+import { LoginPage } from "@/views/Login";
+import { MailView } from "@/views/mail/MailView";
 
-const ContactsView = lazy(() => import("@/views/contacts/ContactsView").then((m) => ({ default: m.ContactsView })));
-const CalendarView = lazy(() => import("@/views/calendar/CalendarView").then((m) => ({ default: m.CalendarView })));
-const FilesView = lazy(() => import("@/views/files/FilesView").then((m) => ({ default: m.FilesView })));
-const SettingsView = lazy(() => import("@/views/settings/SettingsView").then((m) => ({ default: m.SettingsView })));
+const ContactsView = lazy(() =>
+  import("@/views/contacts/ContactsView").then((m) => ({ default: m.ContactsView })),
+);
+const CalendarView = lazy(() =>
+  import("@/views/calendar/CalendarView").then((m) => ({ default: m.CalendarView })),
+);
+const FilesView = lazy(() =>
+  import("@/views/files/FilesView").then((m) => ({ default: m.FilesView })),
+);
+const SettingsView = lazy(() =>
+  import("@/views/settings/SettingsView").then((m) => ({ default: m.SettingsView })),
+);
 
 export function App() {
   const status = useSession((s) => s.status);
@@ -63,7 +77,9 @@ export function App() {
   useEffect(() => {
     let live = true;
     void whenLanguageReady().finally(() => live && setLanguageReady(true));
-    return () => { live = false; };
+    return () => {
+      live = false;
+    };
   }, []);
 
   if (status === "loading" || !languageReady) {
@@ -107,7 +123,9 @@ export function App() {
         });
       }}
     >
-      <Fragment key={languageVersion}>{status === "anonymous" ? <LoginPage /> : <AuthedApp />}</Fragment>
+      <Fragment key={languageVersion}>
+        {status === "anonymous" ? <LoginPage /> : <AuthedApp />}
+      </Fragment>
       <ToastHost />
       <ConfirmHost />
     </Router>
@@ -166,10 +184,20 @@ function AuthedApp() {
        */
       const applied = useSettings.getState().applyPolicyChanges();
       if (applied.length) {
-        toast.show(plural(applied.length, {
-          one: "Your administrator changed {n} setting",
-          other: "Your administrator changed {n} settings",
-        }), { action: { label: t("Settings"), onClick: () => { window.location.href = withBase("/settings/general"); } } });
+        toast.show(
+          plural(applied.length, {
+            one: "Your administrator changed {n} setting",
+            other: "Your administrator changed {n} settings",
+          }),
+          {
+            action: {
+              label: t("Settings"),
+              onClick: () => {
+                window.location.href = withBase("/settings/general");
+              },
+            },
+          },
+        );
       }
       // The catalogue for whatever language that turned out to be. Hydrating
       // asks for it; this is waiting for the answer.
@@ -181,7 +209,8 @@ function AuthedApp() {
       armSettingsSync();
       // No file yet — seed one from what this browser has, so the next device
       // to sign in starts from these rather than from the defaults.
-      if (!remote && settingsSyncAvailable()) queueSettingsPush(syncedPart(useSettings.getState().settings));
+      if (!remote && settingsSyncAvailable())
+        queueSettingsPush(syncedPart(useSettings.getState().settings));
     })();
     return () => {
       cancelled = true;
@@ -226,11 +255,16 @@ function AuthedApp() {
       timer = window.setTimeout(() => {
         timer = null;
         for (const [a, types] of pending) {
-          if (a === useMail.getState().accountId) void useMail.getState().applyChanges(types);
-          if (a === useContacts.getState().accountId) useContacts.getState().applyChanges(types);
-          if (a === useCalendar.getState().accountId) useCalendar.getState().applyChanges(types);
-          if (a === useFiles.getState().accountId) useFiles.getState().applyChanges(types);
-          if (a === useSieve.getState().accountId) useSieve.getState().applyChanges(types);
+          if (a === useMail.getState().accountId)
+            void useMail.getState().applyChanges(types);
+          if (a === useContacts.getState().accountId)
+            useContacts.getState().applyChanges(types);
+          if (a === useCalendar.getState().accountId)
+            useCalendar.getState().applyChanges(types);
+          if (a === useFiles.getState().accountId)
+            useFiles.getState().applyChanges(types);
+          if (a === useSieve.getState().accountId)
+            useSieve.getState().applyChanges(types);
         }
         pending.clear();
       }, 400);
@@ -283,16 +317,26 @@ function AuthedApp() {
     <AppShell>
       <Suspense fallback={<Spinner size="lg" />}>
         <Switch>
-          <Route path="/mail/:mailboxId?/:threadId?">{(p) => <MailView mailboxId={p.mailboxId} threadId={p.threadId} />}</Route>
-          <Route path="/search/:threadId?">{(p) => <MailView search threadId={p.threadId} />}</Route>
+          <Route path="/mail/:mailboxId?/:threadId?">
+            {(p) => <MailView mailboxId={p.mailboxId} threadId={p.threadId} />}
+          </Route>
+          <Route path="/search/:threadId?">
+            {(p) => <MailView search threadId={p.threadId} />}
+          </Route>
           <Route path="/contacts/:id?">{(p) => <ContactsView id={p.id} />}</Route>
-          <Route path="/calendar/:view?/:date?">{(p) => <CalendarView view={p.view} date={p.date} />}</Route>
+          <Route path="/calendar/:view?/:date?">
+            {(p) => <CalendarView view={p.view} date={p.date} />}
+          </Route>
           <Route path="/files/:nodeId?">{(p) => <FilesView nodeId={p.nodeId} />}</Route>
-          <Route path="/settings/:section?">{(p) => <SettingsView section={p.section} />}</Route>
+          <Route path="/settings/:section?">
+            {(p) => <SettingsView section={p.section} />}
+          </Route>
           <Route path="/login">
             <Redirect to="/mail" />
           </Route>
-          <Route>{location === "/" ? <Redirect to="/mail" /> : <Redirect to="/mail" />}</Route>
+          <Route>
+            {location === "/" ? <Redirect to="/mail" /> : <Redirect to="/mail" />}
+          </Route>
         </Switch>
       </Suspense>
       <ComposerDock />

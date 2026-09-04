@@ -1,5 +1,5 @@
-import { useMemo } from "react";
 import qrcode from "qrcode-generator";
+import { useMemo } from "react";
 import { t } from "@/lib/i18n";
 
 /**
@@ -10,7 +10,15 @@ import { t } from "@/lib/i18n";
  * rendering path. Error correction is set to M: enough tolerance for a phone
  * camera pointed at a screen, without inflating the module count.
  */
-export function QrCode({ value, size = 200, title }: { value: string; size?: number; title?: string }) {
+export function QrCode({
+  value,
+  size = 200,
+  title,
+}: {
+  value: string;
+  size?: number;
+  title?: string;
+}) {
   const { path, count } = useMemo(() => {
     const qr = qrcode(0, "M");
     qr.addData(value);

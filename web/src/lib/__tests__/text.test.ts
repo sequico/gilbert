@@ -12,7 +12,9 @@ describe("text helpers", () => {
     expect(textToHtml("> hi\n>> there")).toContain('class="q2"');
   });
   it("converts html to text", () => {
-    const t = htmlToText("<p>Hello <b>world</b></p><ul><li>one</li><li>two</li></ul><blockquote>q</blockquote><a href='https://a.b'>link</a>");
+    const t = htmlToText(
+      "<p>Hello <b>world</b></p><ul><li>one</li><li>two</li></ul><blockquote>q</blockquote><a href='https://a.b'>link</a>",
+    );
     expect(t).toContain("Hello world");
     expect(t).toContain("- one");
     expect(t).toContain("> q");

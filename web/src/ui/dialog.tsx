@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { create } from "zustand";
 import { t } from "@/lib/i18n";
 
@@ -15,7 +15,16 @@ interface DialogProps {
   className?: string;
 }
 
-export function Dialog({ open, onClose, title, children, footer, size = "md", closeOnBackdrop = true, className }: DialogProps) {
+export function Dialog({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  size = "md",
+  closeOnBackdrop = true,
+  className,
+}: DialogProps) {
   const ref = useRef<HTMLDivElement>(null);
   /*
    * Callers almost always pass an inline arrow for onClose, so its identity
@@ -36,7 +45,9 @@ export function Dialog({ open, onClose, title, children, footer, size = "md", cl
         onCloseRef.current();
       }
       if (e.key === "Tab" && ref.current) {
-        const focusables = ref.current.querySelectorAll<HTMLElement>('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"]),[contenteditable="true"]');
+        const focusables = ref.current.querySelectorAll<HTMLElement>(
+          'button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"]),[contenteditable="true"]',
+        );
         if (!focusables.length) return;
         const first = focusables[0]!;
         const last = focusables[focusables.length - 1]!;
@@ -52,7 +63,9 @@ export function Dialog({ open, onClose, title, children, footer, size = "md", cl
     document.addEventListener("keydown", onKey, true);
     // autofocus first input
     window.setTimeout(() => {
-      const el = ref.current?.querySelector<HTMLElement>("[autofocus],input,textarea,select,button.btn-primary");
+      const el = ref.current?.querySelector<HTMLElement>(
+        "[autofocus],input,textarea,select,button.btn-primary",
+      );
       el?.focus();
     }, 10);
     return () => {
@@ -68,7 +81,12 @@ export function Dialog({ open, onClose, title, children, footer, size = "md", cl
         if (closeOnBackdrop && e.target === e.currentTarget) onClose();
       }}
     >
-      <div className={`dialog ${size} ${className ?? ""}`} role="dialog" aria-modal="true" ref={ref}>
+      <div
+        className={`dialog ${size} ${className ?? ""}`}
+        role="dialog"
+        aria-modal="true"
+        ref={ref}
+      >
         {title !== undefined && (
           <div className="dialog-head">
             <h2>{title}</h2>
@@ -120,7 +138,11 @@ interface ConfirmRequest {
   resolve: (v: boolean | string | null) => void;
 }
 
-const useConfirmStore = create<{ queue: ConfirmRequest[]; push(r: ConfirmRequest): void; pop(): void }>((set, get) => ({
+const useConfirmStore = create<{
+  queue: ConfirmRequest[];
+  push(r: ConfirmRequest): void;
+  pop(): void;
+}>((set, get) => ({
   queue: [],
   push: (r) => set({ queue: [...get().queue, r] }),
   pop: () => set({ queue: get().queue.slice(1) }),
@@ -128,15 +150,37 @@ const useConfirmStore = create<{ queue: ConfirmRequest[]; push(r: ConfirmRequest
 
 let reqId = 1;
 
-export function confirmDialog(opts: { title: string; message?: ReactNode; confirmLabel?: string; cancelLabel?: string; danger?: boolean }): Promise<boolean> {
+export function confirmDialog(opts: {
+  title: string;
+  message?: ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  danger?: boolean;
+}): Promise<boolean> {
   return new Promise((resolve) => {
-    useConfirmStore.getState().push({ id: reqId++, kind: "confirm", ...opts, resolve: (v) => resolve(Boolean(v)) });
+    useConfirmStore.getState().push({
+      id: reqId++,
+      kind: "confirm",
+      ...opts,
+      resolve: (v) => resolve(Boolean(v)),
+    });
   });
 }
 
-export function promptDialog(opts: { title: string; message?: ReactNode; defaultValue?: string; placeholder?: string; confirmLabel?: string }): Promise<string | null> {
+export function promptDialog(opts: {
+  title: string;
+  message?: ReactNode;
+  defaultValue?: string;
+  placeholder?: string;
+  confirmLabel?: string;
+}): Promise<string | null> {
   return new Promise((resolve) => {
-    useConfirmStore.getState().push({ id: reqId++, kind: "prompt", ...opts, resolve: (v) => resolve(typeof v === "string" ? v : null) });
+    useConfirmStore.getState().push({
+      id: reqId++,
+      kind: "prompt",
+      ...opts,
+      resolve: (v) => resolve(typeof v === "string" ? v : null),
+    });
   });
 }
 
@@ -146,9 +190,19 @@ export function promptDialog(opts: { title: string; message?: ReactNode; default
  * Resolves to the chosen `value`, or `null` if the dialog is dismissed —
  * dismissing is not one of the choices, so a caller cannot mistake it for one.
  */
-export function choiceDialog(opts: { title: string; message?: ReactNode; choices: DialogChoice[]; cancelLabel?: string }): Promise<string | null> {
+export function choiceDialog(opts: {
+  title: string;
+  message?: ReactNode;
+  choices: DialogChoice[];
+  cancelLabel?: string;
+}): Promise<string | null> {
   return new Promise((resolve) => {
-    useConfirmStore.getState().push({ id: reqId++, kind: "choice", ...opts, resolve: (v) => resolve(typeof v === "string" ? v : null) });
+    useConfirmStore.getState().push({
+      id: reqId++,
+      kind: "choice",
+      ...opts,
+      resolve: (v) => resolve(typeof v === "string" ? v : null),
+    });
   });
 }
 
@@ -175,10 +229,16 @@ export function ConfirmHost() {
           </button>
         ) : (
           <>
-            <button className="btn" onClick={() => done(req.kind === "prompt" ? null : false)}>
+            <button
+              className="btn"
+              onClick={() => done(req.kind === "prompt" ? null : false)}
+            >
               {req.cancelLabel ?? "Cancel"}
             </button>
-            <button className={`btn ${req.danger ? "btn-danger" : "btn-primary"}`} onClick={() => done(req.kind === "prompt" ? value : true)}>
+            <button
+              className={`btn ${req.danger ? "btn-danger" : "btn-primary"}`}
+              onClick={() => done(req.kind === "prompt" ? value : true)}
+            >
               {req.confirmLabel ?? (req.kind === "prompt" ? "OK" : "Confirm")}
             </button>
           </>
@@ -189,7 +249,11 @@ export function ConfirmHost() {
       {req.kind === "choice" && (
         <div className="dialog-choices">
           {req.choices?.map((c) => (
-            <button key={c.value} className={`btn dialog-choice ${c.primary ? "btn-primary" : ""} ${c.danger ? "danger" : ""}`} onClick={() => done(c.value)}>
+            <button
+              key={c.value}
+              className={`btn dialog-choice ${c.primary ? "btn-primary" : ""} ${c.danger ? "danger" : ""}`}
+              onClick={() => done(c.value)}
+            >
               <span>{c.label}</span>
               {c.hint && <small>{c.hint}</small>}
             </button>
@@ -203,7 +267,13 @@ export function ConfirmHost() {
             done(value);
           }}
         >
-          <input className="input" autoFocus value={value} placeholder={req.placeholder} onChange={(e) => setValue(e.target.value)} />
+          <input
+            className="input"
+            autoFocus
+            value={value}
+            placeholder={req.placeholder}
+            onChange={(e) => setValue(e.target.value)}
+          />
         </form>
       )}
     </Dialog>

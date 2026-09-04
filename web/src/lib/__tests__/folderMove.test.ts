@@ -1,21 +1,39 @@
 import { describe, expect, it } from "vitest";
-import { canDropFolder, descendantIds, folderColor, movable } from "../folderMove";
 import type { Id, Mailbox } from "@/jmap/types";
+import { canDropFolder, descendantIds, folderColor, movable } from "../folderMove";
 
-const mb = (id: string, name: string, parentId: string | null, role: Mailbox["role"] = null): Mailbox =>
-  ({ id, name, parentId, role, sortOrder: 0, totalEmails: 0, unreadEmails: 0, totalThreads: 0, unreadThreads: 0, isSubscribed: true, myRights: {} as Mailbox["myRights"] });
+const mb = (
+  id: string,
+  name: string,
+  parentId: string | null,
+  role: Mailbox["role"] = null,
+): Mailbox => ({
+  id,
+  name,
+  parentId,
+  role,
+  sortOrder: 0,
+  totalEmails: 0,
+  unreadEmails: 0,
+  totalThreads: 0,
+  unreadThreads: 0,
+  isSubscribed: true,
+  myRights: {} as Mailbox["myRights"],
+});
 
 /**  root ── Work ── Clients ── EU
  *        └─ Archive (role)
  *        └─ Inbox   (role)                                          */
-const tree: Record<Id, Mailbox> = Object.fromEntries([
-  mb("inbox", "Inbox", null, "inbox"),
-  mb("arch", "Archive", null, "archive"),
-  mb("work", "Work", null),
-  mb("clients", "Clients", "work"),
-  mb("eu", "EU", "clients"),
-  mb("news", "Newsletters", null),
-].map((m) => [m.id, m]));
+const tree: Record<Id, Mailbox> = Object.fromEntries(
+  [
+    mb("inbox", "Inbox", null, "inbox"),
+    mb("arch", "Archive", null, "archive"),
+    mb("work", "Work", null),
+    mb("clients", "Clients", "work"),
+    mb("eu", "EU", "clients"),
+    mb("news", "Newsletters", null),
+  ].map((m) => [m.id, m]),
+);
 
 describe("movable", () => {
   it("refuses folders the server gave a role", () => {

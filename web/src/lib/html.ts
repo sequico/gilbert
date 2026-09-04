@@ -54,25 +54,32 @@ function ensureHooks() {
  * CSS would otherwise reach the host element.
  */
 function hardenCss(css: string): string {
-  return css
-    // `:host` / `:host-context` become a selector that matches nothing; where
-    // they took an argument the rule is left invalid, and so dropped.
-    .replace(/:host(-context)?/gi, ":not(*)")
-    .replace(/position\s*:\s*(fixed|sticky)/gi, "position:static");
+  return (
+    css
+      // `:host` / `:host-context` become a selector that matches nothing; where
+      // they took an argument the rule is left invalid, and so dropped.
+      .replace(/:host(-context)?/gi, ":not(*)")
+      .replace(/position\s*:\s*(fixed|sticky)/gi, "position:static")
+  );
 }
 
 export function proxiedImageUrl(url: string): string {
   return withBase(`/api/image?url=${encodeURIComponent(url)}`);
 }
 
-export function sanitizeEmailHtml(input: string, opts: SanitizeOptions = {}): SanitizeResult {
+export function sanitizeEmailHtml(
+  input: string,
+  opts: SanitizeOptions = {},
+): SanitizeResult {
   ensureHooks();
   let bodyStyle = "";
   const bodyMatch = /<body([^>]*)>/i.exec(input);
   if (bodyMatch) {
     const attrs = bodyMatch[1]!;
     const bg = /bgcolor\s*=\s*["']?([#\w()%,.\s-]+)["']?/i.exec(attrs)?.[1];
-    const style = /style\s*=\s*"([^"]*)"/i.exec(attrs)?.[1] ?? /style\s*=\s*'([^']*)'/i.exec(attrs)?.[1];
+    const style =
+      /style\s*=\s*"([^"]*)"/i.exec(attrs)?.[1] ??
+      /style\s*=\s*'([^']*)'/i.exec(attrs)?.[1];
     if (bg) bodyStyle += `background-color:${bg.trim()};`;
     if (style) bodyStyle += style;
   }
@@ -80,13 +87,65 @@ export function sanitizeEmailHtml(input: string, opts: SanitizeOptions = {}): Sa
   const clean = DOMPurify.sanitize(input, {
     WHOLE_DOCUMENT: false,
     RETURN_DOM: true,
-    FORBID_TAGS: ["script", "iframe", "frame", "frameset", "object", "embed", "applet", "form", "input", "button", "textarea", "select", "option", "meta", "link", "base", "svg", "math", "video", "audio", "source", "track", "canvas", "template", "slot", "dialog", "noscript"],
-    FORBID_ATTR: ["srcdoc", "formaction", "action", "ping", "autofocus", "autoplay", "contenteditable", "draggable", "tabindex"],
+    FORBID_TAGS: [
+      "script",
+      "iframe",
+      "frame",
+      "frameset",
+      "object",
+      "embed",
+      "applet",
+      "form",
+      "input",
+      "button",
+      "textarea",
+      "select",
+      "option",
+      "meta",
+      "link",
+      "base",
+      "svg",
+      "math",
+      "video",
+      "audio",
+      "source",
+      "track",
+      "canvas",
+      "template",
+      "slot",
+      "dialog",
+      "noscript",
+    ],
+    FORBID_ATTR: [
+      "srcdoc",
+      "formaction",
+      "action",
+      "ping",
+      "autofocus",
+      "autoplay",
+      "contenteditable",
+      "draggable",
+      "tabindex",
+    ],
     ALLOW_DATA_ATTR: false,
     ALLOW_ARIA_ATTR: false,
     USE_PROFILES: { html: true },
     ADD_TAGS: ["style", "center", "font", "marquee"],
-    ADD_ATTR: ["bgcolor", "background", "valign", "align", "border", "cellpadding", "cellspacing", "width", "height", "color", "face", "size", "target"],
+    ADD_ATTR: [
+      "bgcolor",
+      "background",
+      "valign",
+      "align",
+      "border",
+      "cellpadding",
+      "cellspacing",
+      "width",
+      "height",
+      "color",
+      "face",
+      "size",
+      "target",
+    ],
   }) as unknown as HTMLElement;
 
   let remoteCount = 0;
@@ -163,9 +222,36 @@ export function sanitizeEditorHtml(input: string): string {
   ensureHooks();
   return DOMPurify.sanitize(input, {
     USE_PROFILES: { html: true },
-    FORBID_TAGS: ["script", "iframe", "object", "embed", "form", "input", "button", "style", "meta", "link", "base", "svg", "math"],
+    FORBID_TAGS: [
+      "script",
+      "iframe",
+      "object",
+      "embed",
+      "form",
+      "input",
+      "button",
+      "style",
+      "meta",
+      "link",
+      "base",
+      "svg",
+      "math",
+    ],
     FORBID_ATTR: ["srcdoc", "formaction", "ping", "onerror", "onload"],
-    ADD_ATTR: ["target", "bgcolor", "align", "valign", "border", "cellpadding", "cellspacing", "width", "height", "color", "face", "size"],
+    ADD_ATTR: [
+      "target",
+      "bgcolor",
+      "align",
+      "valign",
+      "border",
+      "cellpadding",
+      "cellspacing",
+      "width",
+      "height",
+      "color",
+      "face",
+      "size",
+    ],
   }) as string;
 }
 

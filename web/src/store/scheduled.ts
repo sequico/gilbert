@@ -1,10 +1,22 @@
 import { create } from "zustand";
 import { client, ref, setErrorMessage } from "@/jmap/client";
-import type { EmailSubmission, GetResponse, Id, Mailbox, QueryResponse, SetResponse } from "@/jmap/types";
+import type {
+  EmailSubmission,
+  GetResponse,
+  Id,
+  Mailbox,
+  QueryResponse,
+  SetResponse,
+} from "@/jmap/types";
+import { t } from "@/lib/i18n";
+import {
+  canScheduleSend,
+  maxDelayMs,
+  SUBMISSION_CAP,
+  type SubmissionCapability,
+} from "@/lib/schedule";
 import { toast } from "@/ui/toast";
 import { useMail } from "./mail";
-import { canScheduleSend, maxDelayMs, SUBMISSION_CAP, type SubmissionCapability } from "@/lib/schedule";
-import { t } from "@/lib/i18n";
 
 /**
  * A held message lives in a folder of its own, the way Gmail's does, because
@@ -36,8 +48,12 @@ export function scheduleWindowMs(): number {
 }
 
 /** Whether this folder is the one held messages wait in. */
-export function isScheduledMailbox(m: Pick<Mailbox, "role" | "parentId" | "name">): boolean {
-  return !m.role && !m.parentId && m.name.toLowerCase() === SCHEDULED_MAILBOX.toLowerCase();
+export function isScheduledMailbox(
+  m: Pick<Mailbox, "role" | "parentId" | "name">,
+): boolean {
+  return (
+    !m.role && !m.parentId && m.name.toLowerCase() === SCHEDULED_MAILBOX.toLowerCase()
+  );
 }
 
 /** The Scheduled folder in a given set of mailboxes, if one exists yet. */
@@ -92,14 +108,27 @@ interface ScheduledState {
 const SUB_PROPS = ["id", "emailId", "sendAt", "undoStatus"];
 
 function toPending(s: EmailSubmission): PendingSend {
-  return { id: s.id, emailId: s.emailId, sendAt: Date.parse(s.sendAt), undoStatus: s.undoStatus };
+  return {
+    id: s.id,
+    emailId: s.emailId,
+    sendAt: Date.parse(s.sendAt),
+    undoStatus: s.undoStatus,
+  };
 }
 
 /** Every submission still sitting in the server's queue. */
 async function loadPending(accountId: Id): Promise<PendingSend[]> {
   const res = await client.chain([
     ["EmailSubmission/query", { accountId, filter: { undoStatus: "pending" } }, "q"],
-    ["EmailSubmission/get", { accountId, "#ids": ref("q", "EmailSubmission/query", "/ids"), properties: SUB_PROPS }, "g"],
+    [
+      "EmailSubmission/get",
+      {
+        accountId,
+        "#ids": ref("q", "EmailSubmission/query", "/ids"),
+        properties: SUB_PROPS,
+      },
+      "g",
+    ],
   ]);
   const got = res.get("g")?.[0] as unknown as GetResponse<EmailSubmission> | undefined;
   return (got?.list ?? []).map(toPending);
@@ -110,7 +139,15 @@ async function loadFor(accountId: Id, emailIds: Id[]): Promise<PendingSend[]> {
   if (!emailIds.length) return [];
   const res = await client.chain([
     ["EmailSubmission/query", { accountId, filter: { emailIds } }, "q"],
-    ["EmailSubmission/get", { accountId, "#ids": ref("q", "EmailSubmission/query", "/ids"), properties: SUB_PROPS }, "g"],
+    [
+      "EmailSubmission/get",
+      {
+        accountId,
+        "#ids": ref("q", "EmailSubmission/query", "/ids"),
+        properties: SUB_PROPS,
+      },
+      "g",
+    ],
   ]);
   const got = res.get("g")?.[0] as unknown as GetResponse<EmailSubmission> | undefined;
   return (got?.list ?? []).map(toPending);
@@ -143,24 +180,33 @@ export const useScheduled = create<ScheduledState>((set, get) => ({
     // Not `onSuccessUpdateEmail`: RFC 8621 keys it by submission id, but
     // Stalwart takes a plain key as an Email id and would patch the wrong
     // object. Moving the message back is a separate call in the same request.
-    const res = await client.chain([
-      ["EmailSubmission/set", { accountId, update: { [sub.id]: { undoStatus: "canceled" } } }, "s"],
+    const res = await client.chain(
       [
-        "Email/set",
-        {
-          accountId,
-          update: {
-            [emailId]: {
-              "keywords/$draft": true,
-              ...(draftsId ? { [`mailboxIds/${draftsId}`]: true } : {}),
-              ...(scheduledId ? { [`mailboxIds/${scheduledId}`]: null } : {}),
+        [
+          "EmailSubmission/set",
+          { accountId, update: { [sub.id]: { undoStatus: "canceled" } } },
+          "s",
+        ],
+        [
+          "Email/set",
+          {
+            accountId,
+            update: {
+              [emailId]: {
+                "keywords/$draft": true,
+                ...(draftsId ? { [`mailboxIds/${draftsId}`]: true } : {}),
+                ...(scheduledId ? { [`mailboxIds/${scheduledId}`]: null } : {}),
+              },
             },
           },
-        },
-        "e",
+          "e",
+        ],
       ],
-    ], { allowErrors: true });
-    const setRes = res.get("s")?.[0] as unknown as SetResponse & { __error?: { type: string; description?: string } };
+      { allowErrors: true },
+    );
+    const setRes = res.get("s")?.[0] as unknown as SetResponse & {
+      __error?: { type: string; description?: string };
+    };
     if (setRes.__error) throw new Error(setErrorMessage(setRes.__error));
     const err = setRes.notUpdated?.[sub.id];
     if (err) throw new Error(setErrorMessage(err));
@@ -201,9 +247,13 @@ export const useScheduled = create<ScheduledState>((set, get) => ({
       const latest = new Map<Id, PendingSend>();
       for (const s of subs) {
         const prev = latest.get(s.emailId);
-        if (!prev) { latest.set(s.emailId, s); continue; }
+        if (!prev) {
+          latest.set(s.emailId, s);
+          continue;
+        }
         if (prev.undoStatus === "pending") continue;
-        if (s.undoStatus === "pending" || s.sendAt >= prev.sendAt) latest.set(s.emailId, s);
+        if (s.undoStatus === "pending" || s.sendAt >= prev.sendAt)
+          latest.set(s.emailId, s);
       }
       const sentId = mail.roleId("sent");
       const draftsId = mail.roleId("drafts");
@@ -233,7 +283,11 @@ export const useScheduled = create<ScheduledState>((set, get) => ({
         void mail.refreshList();
       }
     } catch (err) {
-      toast.error(t("Could not update the Scheduled folder: {error}", { error: (err as Error).message }));
+      toast.error(
+        t("Could not update the Scheduled folder: {error}", {
+          error: (err as Error).message,
+        }),
+      );
     }
   },
 }));

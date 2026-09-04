@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, DEVICE_KEYS, acceptRemote, mergeRemote, syncedPart, type Settings } from "@/store/settings";
+import {
+  acceptRemote,
+  DEFAULT_SETTINGS,
+  DEVICE_KEYS,
+  mergeRemote,
+  type Settings,
+  syncedPart,
+} from "@/store/settings";
 import { isAppFolder } from "../appFolder";
 import { settingsAlreadyLoadedFor, stopSettingsSync } from "../settingsSync";
 
@@ -17,7 +24,9 @@ import { settingsAlreadyLoadedFor, stopSettingsSync } from "../settingsSync";
 describe("which settings follow the account", () => {
   it("syncs everything that is not explicitly device-local", () => {
     const synced = syncedPart(DEFAULT_SETTINGS);
-    const expected = (Object.keys(DEFAULT_SETTINGS) as Array<keyof Settings>).filter((k) => !DEVICE_KEYS.has(k));
+    const expected = (Object.keys(DEFAULT_SETTINGS) as Array<keyof Settings>).filter(
+      (k) => !DEVICE_KEYS.has(k),
+    );
     expect(Object.keys(synced).sort()).toEqual(expected.sort());
   });
 
@@ -25,18 +34,33 @@ describe("which settings follow the account", () => {
     const synced = syncedPart(DEFAULT_SETTINGS);
     // A pane width picked on a monitor is wrong on a laptop, and the
     // notification toggles track a per-browser permission grant.
-    for (const key of ["listPaneWidth", "listPaneHeight", "density", "fontSize", "sidebarCollapsed", "desktopNotifications", "notificationSound"]) {
+    for (const key of [
+      "listPaneWidth",
+      "listPaneHeight",
+      "density",
+      "fontSize",
+      "sidebarCollapsed",
+      "desktopNotifications",
+      "notificationSound",
+    ]) {
       expect(synced, key).not.toHaveProperty(key);
     }
   });
 
   it("syncs the default identity, which is what #54 was actually about", () => {
-    const settings: Settings = { ...DEFAULT_SETTINGS, defaultIdentityByAccount: { a1: "i7" } };
+    const settings: Settings = {
+      ...DEFAULT_SETTINGS,
+      defaultIdentityByAccount: { a1: "i7" },
+    };
     expect(syncedPart(settings).defaultIdentityByAccount).toEqual({ a1: "i7" });
   });
 
   it("syncs theme and reading pane", () => {
-    const synced = syncedPart({ ...DEFAULT_SETTINGS, theme: "dark", readingPane: "bottom" });
+    const synced = syncedPart({
+      ...DEFAULT_SETTINGS,
+      theme: "dark",
+      readingPane: "bottom",
+    });
     expect(synced.theme).toBe("dark");
     expect(synced.readingPane).toBe("bottom");
   });
@@ -63,7 +87,9 @@ describe("applying a settings file", () => {
   it("refuses device keys even when the file carries them", () => {
     // An earlier build wrote the whole settings object up; that file must not
     // now drag one machine's pane width onto every other one.
-    expect(acceptRemote({ theme: "dark", listPaneWidth: 900, fontSize: "large" })).toEqual(MIGRATED_DARK);
+    expect(
+      acceptRemote({ theme: "dark", listPaneWidth: 900, fontSize: "large" }),
+    ).toEqual(MIGRATED_DARK);
   });
 
   it("does not invent keys from an empty file", () => {
@@ -78,15 +104,21 @@ describe("applying a settings file", () => {
 
 describe("the client's own folder", () => {
   it("is the top-level ihasmail directory", () => {
-    expect(isAppFolder({ name: "ihasmail", parentId: null, nodeType: "directory" })).toBe(true);
+    expect(isAppFolder({ name: "ihasmail", parentId: null, nodeType: "directory" })).toBe(
+      true,
+    );
   });
 
   it("is not a folder of that name someone made inside another one", () => {
-    expect(isAppFolder({ name: "ihasmail", parentId: "n1", nodeType: "directory" })).toBe(false);
+    expect(isAppFolder({ name: "ihasmail", parentId: "n1", nodeType: "directory" })).toBe(
+      false,
+    );
   });
 
   it("is not a file that happens to be called that", () => {
-    expect(isAppFolder({ name: "ihasmail", parentId: null, nodeType: "file" })).toBe(false);
+    expect(isAppFolder({ name: "ihasmail", parentId: null, nodeType: "file" })).toBe(
+      false,
+    );
   });
 });
 

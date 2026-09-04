@@ -23,12 +23,21 @@ export type PreviewKind = "image" | "pdf" | "text";
  * unusual is one of these -- `files.ts` stores `f.type || "application/octet-stream"`.
  * A generic type is not evidence about the file, so fall through to the name.
  */
-const GENERIC = new Set(["", "application/octet-stream", "binary/octet-stream", "application/unknown", "unknown/unknown"]);
+const GENERIC = new Set([
+  "",
+  "application/octet-stream",
+  "binary/octet-stream",
+  "application/unknown",
+  "unknown/unknown",
+]);
 
 const BY_EXTENSION: Array<[RegExp, PreviewKind]> = [
   [/\.(png|jpe?g|gif|webp|avif|bmp|ico|heic|heif)$/i, "image"],
   [/\.pdf$/i, "pdf"],
-  [/\.(txt|text|md|markdown|log|csv|tsv|json|ya?ml|toml|ini|cfg|conf|env|sh|bash|zsh|fish|ps1|bat|js|mjs|cjs|jsx|ts|tsx|css|scss|less|html?|xhtml|xml|sql|py|rb|rs|go|c|h|cc|cpp|hpp|java|kt|swift|php|pl|lua|r|diff|patch|gitignore|dockerfile|makefile)$/i, "text"],
+  [
+    /\.(txt|text|md|markdown|log|csv|tsv|json|ya?ml|toml|ini|cfg|conf|env|sh|bash|zsh|fish|ps1|bat|js|mjs|cjs|jsx|ts|tsx|css|scss|less|html?|xhtml|xml|sql|py|rb|rs|go|c|h|cc|cpp|hpp|java|kt|swift|php|pl|lua|r|diff|patch|gitignore|dockerfile|makefile)$/i,
+    "text",
+  ],
 ];
 
 function textish(type: string): boolean {
@@ -36,7 +45,9 @@ function textish(type: string): boolean {
     type.startsWith("text/") ||
     type.endsWith("+json") ||
     type.endsWith("+xml") ||
-    /^application\/(json|xml|javascript|ecmascript|sql|toml|x-yaml|yaml|x-sh|x-shellscript|x-httpd-php)$/.test(type)
+    /^application\/(json|xml|javascript|ecmascript|sql|toml|x-yaml|yaml|x-sh|x-shellscript|x-httpd-php)$/.test(
+      type,
+    )
   );
 }
 
@@ -46,7 +57,10 @@ function textish(type: string): boolean {
  * question of its own rather than something to settle inside a file lister.
  * An SVG falls through to a download, which is what it did before.
  */
-export function previewKind(type: string | null | undefined, name: string | null | undefined): PreviewKind | null {
+export function previewKind(
+  type: string | null | undefined,
+  name: string | null | undefined,
+): PreviewKind | null {
   const t = (type ?? "").split(";")[0]!.trim().toLowerCase();
   if (t && !GENERIC.has(t)) {
     if (t === "image/svg+xml") return null;

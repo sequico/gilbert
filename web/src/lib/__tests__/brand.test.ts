@@ -12,7 +12,9 @@ import { DEFAULT_APP_NAME } from "@/lib/brand";
  */
 
 const nameFrom = (config: { appName?: unknown } | null) =>
-  config && typeof config.appName === "string" && config.appName.trim() ? config.appName.trim() : DEFAULT_APP_NAME;
+  config && typeof config.appName === "string" && config.appName.trim()
+    ? config.appName.trim()
+    : DEFAULT_APP_NAME;
 
 describe("resolving the instance name", () => {
   it("uses what the server says", () => {

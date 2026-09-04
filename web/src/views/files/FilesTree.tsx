@@ -1,17 +1,29 @@
+import {
+  ChevronDown,
+  ChevronRight,
+  Folder,
+  FolderOpen,
+  FolderPlus,
+  HardDrive,
+  Pencil,
+  RefreshCw,
+  Share2,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { ChevronDown, ChevronRight, Folder, FolderOpen, FolderPlus, HardDrive, Pencil, RefreshCw, Share2, Trash2, Users } from "lucide-react";
+import type { FileNode, Id } from "@/jmap/types";
+import { entriesFromDrop, hasDirectory, planUpload } from "@/lib/dropUpload";
+import { canDropFileNodes, isShared, NODE_MIME, readDraggedIds } from "@/lib/filenode";
+import { t } from "@/lib/i18n";
+import { loadRaw, saveJson } from "@/lib/storage";
 import { useFiles } from "@/store/files";
 import { useSession } from "@/store/session";
-import type { FileNode, Id } from "@/jmap/types";
-import { canDropFileNodes, NODE_MIME, readDraggedIds, isShared } from "@/lib/filenode";
-import { entriesFromDrop, hasDirectory, planUpload } from "@/lib/dropUpload";
-import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
+import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
-import { loadRaw, saveJson } from "@/lib/storage";
 import { ShareDialog } from "../settings/ShareDialog";
-import { t } from "@/lib/i18n";
 
 /**
  * Re-read the session, so the shared accounts on offer are current.
@@ -34,7 +46,6 @@ async function refreshShares(force = false): Promise<void> {
   await useFiles.getState().init();
 }
 
-
 /**
  * The folder tree beside the file list.
  *
@@ -55,8 +66,15 @@ export function FilesTree() {
   const [refreshing, setRefreshing] = useState(false);
   const viewingShare = Boolean(accountId && accountId !== ownAccountId);
   // Kept across sessions, the way the mailbox tree keeps its own.
-  const [expanded, setExpandedState] = useState<Record<Id, boolean>>(() => loadRaw("files-expanded", {}));
-  const setExpanded = (fn: (x: Record<Id, boolean>) => Record<Id, boolean>) => setExpandedState((x) => { const next = fn(x); saveJson("files-expanded", next); return next; });
+  const [expanded, setExpandedState] = useState<Record<Id, boolean>>(() =>
+    loadRaw("files-expanded", {}),
+  );
+  const setExpanded = (fn: (x: Record<Id, boolean>) => Record<Id, boolean>) =>
+    setExpandedState((x) => {
+      const next = fn(x);
+      saveJson("files-expanded", next);
+      return next;
+    });
   const [menuNode, setMenuNode] = useState<FileNode | null>(null);
   const [shareNode, setShareNode] = useState<FileNode | null>(null);
   const [rootDrop, setRootDrop] = useState(false);
@@ -86,22 +104,31 @@ export function FilesTree() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const currentId = location.startsWith("/files/") ? location.slice("/files/".length) : null;
+  const currentId = location.startsWith("/files/")
+    ? location.slice("/files/".length)
+    : null;
 
   // Open the branch the reader is looking at, so the current folder is visible
   // without them having to find it.
   useEffect(() => {
     if (!currentId) return;
     const open: Record<Id, boolean> = {};
-    for (let id: Id | null | undefined = nodes[currentId]?.parentId; id; id = nodes[id]?.parentId) open[id] = true;
+    for (
+      let id: Id | null | undefined = nodes[currentId]?.parentId;
+      id;
+      id = nodes[id]?.parentId
+    )
+      open[id] = true;
     if (Object.keys(open).length) setExpanded((x) => ({ ...x, ...open }));
   }, [currentId, nodes]);
 
   if (!available) return null;
 
   const dirs = dirIds.map((id) => nodes[id]).filter((n): n is FileNode => Boolean(n));
-  const childrenOf = (parentId: Id | null) => dirs.filter((d) => (d.parentId ?? null) === parentId);
-  const canDropOn = (targetId: Id | null) => canDropFileNodes(nodes, draggingIds, targetId);
+  const childrenOf = (parentId: Id | null) =>
+    dirs.filter((d) => (d.parentId ?? null) === parentId);
+  const canDropOn = (targetId: Id | null) =>
+    canDropFileNodes(nodes, draggingIds, targetId);
 
   const moveTo = async (ids: Id[], parentId: Id | null) => {
     setDragging([]);
@@ -154,9 +181,17 @@ export function FilesTree() {
           className={`nav-item ${currentId === d.id ? "active" : ""} ${draggingIds.length && canDropOn(d.id) ? "drop-target" : ""}`}
           style={{ paddingLeft: 8 + depth * 14 }}
           onClick={() => navigate(`/files/${d.id}`)}
-          onContextMenu={(e) => { e.preventDefault(); setMenuNode(d); menu.openAt(e.clientX, e.clientY); }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setMenuNode(d);
+            menu.openAt(e.clientX, e.clientY);
+          }}
           draggable
-          onDragStart={(e) => { e.dataTransfer.setData(NODE_MIME, d.id); e.dataTransfer.effectAllowed = "move"; setDragging([d.id]); }}
+          onDragStart={(e) => {
+            e.dataTransfer.setData(NODE_MIME, d.id);
+            e.dataTransfer.effectAllowed = "move";
+            setDragging([d.id]);
+          }}
           onDragEnd={() => setDragging([])}
           onDragOver={onDragOver(d.id)}
           onDrop={onDrop(d.id)}
@@ -165,7 +200,10 @@ export function FilesTree() {
             className="nav-twisty"
             aria-label={open ? "Collapse" : "Expand"}
             style={{ visibility: kids.length ? "visible" : "hidden" }}
-            onClick={(e) => { e.stopPropagation(); setExpanded((x) => ({ ...x, [d.id]: !open })); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded((x) => ({ ...x, [d.id]: !open }));
+            }}
           >
             {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           </button>
@@ -180,21 +218,39 @@ export function FilesTree() {
 
   return (
     <>
-      <div className="nav-section"><span>{viewingShare ? "Shared folder" : "Files"}</span></div>
+      <div className="nav-section">
+        <span>{viewingShare ? "Shared folder" : "Files"}</span>
+      </div>
       <div
         className={`nav-item ${currentId === null ? "active" : ""} ${rootDrop ? "drop-target" : ""}`}
         onClick={() => navigate("/files")}
-        onContextMenu={(e) => { e.preventDefault(); setMenuNode(null); menu.openAt(e.clientX, e.clientY); }}
-        onDragOver={(e) => { onDragOver(null)(e); if (!e.defaultPrevented) return; setRootDrop(true); }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setMenuNode(null);
+          menu.openAt(e.clientX, e.clientY);
+        }}
+        onDragOver={(e) => {
+          onDragOver(null)(e);
+          if (!e.defaultPrevented) return;
+          setRootDrop(true);
+        }}
         onDragLeave={() => setRootDrop(false)}
         onDrop={onDrop(null)}
       >
         <span className="nav-twisty" aria-hidden="true" />
         <HardDrive size={17} />
-        <span className="grow truncate">{viewingShare ? sharedAccounts.find((a) => a.id === accountId)?.name ?? "Shared files" : "All files"}</span>
+        <span className="grow truncate">
+          {viewingShare
+            ? (sharedAccounts.find((a) => a.id === accountId)?.name ?? "Shared files")
+            : "All files"}
+        </span>
       </div>
       {childrenOf(null).map((d) => row(d, 1))}
-      {treeLoaded && !dirs.length && <p className="hint" style={{ padding: "4px 12px" }}>{viewingShare ? "Nothing shared here." : "No folders yet."}</p>}
+      {treeLoaded && !dirs.length && (
+        <p className="hint" style={{ padding: "4px 12px" }}>
+          {viewingShare ? "Nothing shared here." : "No folders yet."}
+        </p>
+      )}
 
       {/* Reaching a share used to mean switching the whole app to the other
           account from the profile menu, which pointed mail, calendar and
@@ -208,13 +264,23 @@ export function FilesTree() {
               className="icon-btn sm"
               title={t("Check for new shares")}
               aria-label={t("Check for new shares")}
-              onClick={async () => { setRefreshing(true); await refreshShares(true); setRefreshing(false); }}
+              onClick={async () => {
+                setRefreshing(true);
+                await refreshShares(true);
+                setRefreshing(false);
+              }}
             >
               <RefreshCw size={14} className={refreshing ? "spin" : ""} />
             </button>
           </div>
           {viewingShare && (
-            <div className="nav-item" onClick={() => { useFiles.getState().openAccount(ownAccountId); navigate("/files"); }}>
+            <div
+              className="nav-item"
+              onClick={() => {
+                useFiles.getState().openAccount(ownAccountId);
+                navigate("/files");
+              }}
+            >
               <span className="nav-twisty" aria-hidden="true" />
               <HardDrive size={17} />
               <span className="grow truncate">{t("Back to my files")}</span>
@@ -224,14 +290,21 @@ export function FilesTree() {
             <div
               key={a.id}
               className={`nav-item ${accountId === a.id ? "active" : ""}`}
-              onClick={() => { useFiles.getState().openAccount(a.id); navigate("/files"); }}
+              onClick={() => {
+                useFiles.getState().openAccount(a.id);
+                navigate("/files");
+              }}
             >
               <span className="nav-twisty" aria-hidden="true" />
               <Users size={17} />
               <span className="grow truncate">{a.name}</span>
             </div>
           ))}
-          {!sharedAccounts.length && <p className="hint" style={{ padding: "4px 12px" }}>{t("Nothing is shared with you.")}</p>}
+          {!sharedAccounts.length && (
+            <p className="hint" style={{ padding: "4px 12px" }}>
+              {t("Nothing is shared with you.")}
+            </p>
+          )}
         </>
       )}
 
@@ -240,7 +313,10 @@ export function FilesTree() {
           icon={<FolderPlus size={16} />}
           label={t("New folder")}
           onClick={async () => {
-            const name = await promptDialog({ title: t("New folder"), placeholder: t("Folder name") });
+            const name = await promptDialog({
+              title: t("New folder"),
+              placeholder: t("Folder name"),
+            });
             if (!name?.trim()) return;
             try {
               await useFiles.getState().mkdir(menuNode?.id ?? null, name.trim());
@@ -257,7 +333,10 @@ export function FilesTree() {
               label={t("Rename")}
               disabled={!menuNode.myRights?.mayRename}
               onClick={async () => {
-                const name = await promptDialog({ title: t("Rename"), defaultValue: menuNode.name });
+                const name = await promptDialog({
+                  title: t("Rename"),
+                  defaultValue: menuNode.name,
+                });
                 if (!name?.trim() || name === menuNode.name) return;
                 try {
                   await useFiles.getState().rename(menuNode.id, name.trim());
@@ -266,7 +345,12 @@ export function FilesTree() {
                 }
               }}
             />
-            <MenuItem icon={<Share2 size={16} />} label={t("Share…")} disabled={!menuNode.myRights?.mayShare} onClick={() => setShareNode(menuNode)} />
+            <MenuItem
+              icon={<Share2 size={16} />}
+              label={t("Share…")}
+              disabled={!menuNode.myRights?.mayShare}
+              onClick={() => setShareNode(menuNode)}
+            />
             <MenuSep />
             <MenuItem
               danger
@@ -274,7 +358,15 @@ export function FilesTree() {
               label={t("Delete")}
               disabled={!menuNode.myRights?.mayDelete}
               onClick={async () => {
-                if (!(await confirmDialog({ title: t("Delete “{name}”?", { name: menuNode.name }), message: t("Everything inside it goes too."), confirmLabel: t("Delete"), danger: true }))) return;
+                if (
+                  !(await confirmDialog({
+                    title: t("Delete “{name}”?", { name: menuNode.name }),
+                    message: t("Everything inside it goes too."),
+                    confirmLabel: t("Delete"),
+                    danger: true,
+                  }))
+                )
+                  return;
                 try {
                   await useFiles.getState().destroy([menuNode.id]);
                   if (currentId === menuNode.id) navigate("/files");
@@ -287,7 +379,15 @@ export function FilesTree() {
           </>
         )}
       </Popover>
-      {shareNode && <ShareDialog kind="FileNode" id={shareNode.id} name={shareNode.name} shareWith={shareNode.shareWith ?? null} onClose={() => setShareNode(null)} />}
+      {shareNode && (
+        <ShareDialog
+          kind="FileNode"
+          id={shareNode.id}
+          name={shareNode.name}
+          shareWith={shareNode.shareWith ?? null}
+          onClose={() => setShareNode(null)}
+        />
+      )}
     </>
   );
 }

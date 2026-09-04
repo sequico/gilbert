@@ -10,9 +10,12 @@ export function setBaseTitle(t: string) {
 
 /** Update document title and favicon badge with unread count. */
 export function setUnreadBadge(count: number): void {
-  document.title = count > 0 ? `(${count > 999 ? "999+" : count}) ${baseTitle}` : baseTitle;
+  document.title =
+    count > 0 ? `(${count > 999 ? "999+" : count}) ${baseTitle}` : baseTitle;
   try {
-    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"][type="image/png"]');
+    const link = document.querySelector<HTMLLinkElement>(
+      'link[rel="icon"][type="image/png"]',
+    );
     if (!link) return;
     if (!baseFavicon) {
       baseFavicon = new Image();
@@ -58,11 +61,18 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   }
 }
 
-export function showNotification(title: string, opts: NotificationOptions & { onClick?: () => void } = {}): void {
+export function showNotification(
+  title: string,
+  opts: NotificationOptions & { onClick?: () => void } = {},
+): void {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   if (document.visibilityState === "visible" && document.hasFocus()) return;
   try {
-    const n = new Notification(title, { icon: withBase("/img/icon-192.png"), badge: withBase("/img/favicon-64.png"), ...opts });
+    const n = new Notification(title, {
+      icon: withBase("/img/icon-192.png"),
+      badge: withBase("/img/favicon-64.png"),
+      ...opts,
+    });
     n.onclick = () => {
       window.focus();
       opts.onClick?.();

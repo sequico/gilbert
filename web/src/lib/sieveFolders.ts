@@ -17,7 +17,9 @@ export interface FolderRef {
  */
 function filesInto(rule: SieveRule, ref: FolderRef): boolean {
   return rule.actions.some(
-    (a) => a.type === "fileinto" && (a.mailboxId === ref.id || a.mailbox.toLowerCase() === ref.path.toLowerCase()),
+    (a) =>
+      a.type === "fileinto" &&
+      (a.mailboxId === ref.id || a.mailbox.toLowerCase() === ref.path.toLowerCase()),
   );
 }
 
@@ -26,7 +28,10 @@ function filesInto(rule: SieveRule, ref: FolderRef): boolean {
  * renamed. Returns the rules unchanged, and `changed: 0`, when none match, so
  * callers can skip saving.
  */
-export function retargetRules(rules: SieveRule[], moves: Array<FolderRef & { newPath: string }>): { rules: SieveRule[]; changed: number } {
+export function retargetRules(
+  rules: SieveRule[],
+  moves: Array<FolderRef & { newPath: string }>,
+): { rules: SieveRule[]; changed: number } {
   const wanted = moves.filter((m) => m.newPath !== m.path);
   if (!wanted.length) return { rules, changed: 0 };
   let changed = 0;
@@ -37,7 +42,8 @@ export function retargetRules(rules: SieveRule[], moves: Array<FolderRef & { new
     return {
       ...rule,
       actions: rule.actions.map((a) =>
-        a.type === "fileinto" && (a.mailboxId === move.id || a.mailbox.toLowerCase() === move.path.toLowerCase())
+        a.type === "fileinto" &&
+        (a.mailboxId === move.id || a.mailbox.toLowerCase() === move.path.toLowerCase())
           ? { ...a, mailbox: move.newPath, mailboxId: move.id }
           : a,
       ),
@@ -54,10 +60,17 @@ export function retargetRules(rules: SieveRule[], moves: Array<FolderRef & { new
  * whether the rest of the rule was still wanted. A rule left with no actions at
  * all has nothing to do, so that one goes.
  */
-export function detachFolders(rules: SieveRule[], gone: FolderRef[]): { rules: SieveRule[]; edited: SieveRule[]; removed: SieveRule[] } {
+export function detachFolders(
+  rules: SieveRule[],
+  gone: FolderRef[],
+): { rules: SieveRule[]; edited: SieveRule[]; removed: SieveRule[] } {
   if (!gone.length) return { rules, edited: [], removed: [] };
   const targets = (a: SieveRule["actions"][number]) =>
-    a.type === "fileinto" && gone.some((ref) => a.mailboxId === ref.id || a.mailbox.toLowerCase() === ref.path.toLowerCase());
+    a.type === "fileinto" &&
+    gone.some(
+      (ref) =>
+        a.mailboxId === ref.id || a.mailbox.toLowerCase() === ref.path.toLowerCase(),
+    );
 
   const edited: SieveRule[] = [];
   const removed: SieveRule[] = [];

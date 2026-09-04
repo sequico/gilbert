@@ -18,7 +18,7 @@ describe("emlFilename", () => {
   });
 
   it("drops path separators and the characters Windows reserves", () => {
-    expect(emlFilename("a/b\\c:d*e?f\"g<h>i|j")).toBe("abcdefghij.eml");
+    expect(emlFilename('a/b\\c:d*e?f"g<h>i|j')).toBe("abcdefghij.eml");
   });
 
   it("drops control characters", () => {

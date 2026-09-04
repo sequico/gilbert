@@ -88,7 +88,11 @@ function parseSpamAssassin(raw: string): SpamReport | null {
     }
   }
   return {
-    verdict: verdictWord ? (verdictWord[1]!.toLowerCase() === "yes" ? "spam" : "clean") : null,
+    verdict: verdictWord
+      ? verdictWord[1]!.toLowerCase() === "yes"
+        ? "spam"
+        : "clean"
+      : null,
     score,
     threshold,
     rules: byWeight(rules),
@@ -112,13 +116,23 @@ function parseRspamd(raw: string): SpamReport | null {
     const value = num(m[2]);
     if (value === null) continue;
     const detail = m[3]?.trim();
-    rules.push(detail ? { name: m[1]!, score: value, detail } : { name: m[1]!, score: value });
+    rules.push(
+      detail ? { name: m[1]!, score: value, detail } : { name: m[1]!, score: value },
+    );
   }
   return {
     // "False" is Rspamd saying the message is not spam; "True", and the named
     // actions that reject or bin it, are it saying the opposite. Anything else
     // -- greylisting, for one -- is not a verdict about the message.
-    verdict: action === "false" ? "clean" : action === "true" || action === "reject" || action === "add_header" || action === "rewrite_subject" ? "spam" : null,
+    verdict:
+      action === "false"
+        ? "clean"
+        : action === "true" ||
+            action === "reject" ||
+            action === "add_header" ||
+            action === "rewrite_subject"
+          ? "spam"
+          : null,
     score: num(head[2]),
     threshold: num(head[3]),
     rules: byWeight(rules),
@@ -140,7 +154,15 @@ export function spamReport(e: HeaderBag): SpamReport | null {
   if (rspamd) return rspamd;
   // Last resort: a bare score with nothing to read it against. Worth showing,
   // because the alternative is hiding the only thing the filter said.
-  const bare = num(flatten(e["header:X-Spam-Score:asText"]).replace(/^\+/, "") || undefined);
+  const bare = num(
+    flatten(e["header:X-Spam-Score:asText"]).replace(/^\+/, "") || undefined,
+  );
   if (bare === null) return null;
-  return { verdict: null, score: bare, threshold: null, rules: [], source: "spamassassin" };
+  return {
+    verdict: null,
+    score: bare,
+    threshold: null,
+    rules: [],
+    source: "spamassassin",
+  };
 }

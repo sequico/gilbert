@@ -50,7 +50,11 @@ const SESSION_CACHE_MS = 5 * 60_000;
 export function upstreamFor(username: string): string {
   const at = username.lastIndexOf("@");
   if (at < 0) return config.stalwartUrl;
-  const domain = username.slice(at + 1).trim().toLowerCase().replace(/\.$/, "");
+  const domain = username
+    .slice(at + 1)
+    .trim()
+    .toLowerCase()
+    .replace(/\.$/, "");
   return config.stalwartServers[domain] ?? config.stalwartUrl;
 }
 
@@ -62,7 +66,10 @@ export function wellKnownUrl(base: string = config.stalwartUrl): string {
  * Fetch the JMAP session resource from Stalwart using the given Authorization
  * header. Throws UpstreamError(401) on bad credentials.
  */
-export async function fetchUpstreamSession(authorization: string, base: string = config.stalwartUrl): Promise<UpstreamSession> {
+export async function fetchUpstreamSession(
+  authorization: string,
+  base: string = config.stalwartUrl,
+): Promise<UpstreamSession> {
   const res = await fetch(wellKnownUrl(base), {
     headers: { authorization, accept: "application/json" },
     redirect: "follow",
@@ -75,13 +82,20 @@ export async function fetchUpstreamSession(authorization: string, base: string =
     throw new UpstreamError(`Upstream session request failed (${res.status})`, 502);
   }
   const session = (await res.json()) as UpstreamSession;
-  if (!session.apiUrl) throw new UpstreamError("Upstream returned an invalid JMAP session", 502);
+  if (!session.apiUrl)
+    throw new UpstreamError("Upstream returned an invalid JMAP session", 502);
   return { ...session, baseUrl: base };
 }
 
-export async function getUpstreamSession(sessionId: string, authorization: string, base: string = config.stalwartUrl, force = false) {
+export async function getUpstreamSession(
+  sessionId: string,
+  authorization: string,
+  base: string = config.stalwartUrl,
+  force = false,
+) {
   const cached = sessionCache.get(sessionId);
-  if (!force && cached && Date.now() - cached.fetchedAt < SESSION_CACHE_MS) return cached.session;
+  if (!force && cached && Date.now() - cached.fetchedAt < SESSION_CACHE_MS)
+    return cached.session;
   const session = await fetchUpstreamSession(authorization, base);
   sessionCache.set(sessionId, { session, fetchedAt: Date.now() });
   return session;
@@ -117,11 +131,16 @@ const JMAP_CORE = "urn:ietf:params:jmap:core";
  * all, so the same mistake would lock every user out of a working server
  * rather than merely misroute them.
  */
-export function hasStalwartRegistry(session: Pick<UpstreamSession, "capabilities" | "accounts" | "primaryAccounts"> | undefined): boolean {
+export function hasStalwartRegistry(
+  session:
+    | Pick<UpstreamSession, "capabilities" | "accounts" | "primaryAccounts">
+    | undefined,
+): boolean {
   if (!session) return false;
   if (session.primaryAccounts && STALWART_CAP in session.primaryAccounts) return true;
   for (const account of Object.values(session.accounts ?? {})) {
-    const caps = (account as { accountCapabilities?: Record<string, unknown> } | null)?.accountCapabilities;
+    const caps = (account as { accountCapabilities?: Record<string, unknown> } | null)
+      ?.accountCapabilities;
     if (caps && STALWART_CAP in caps) return true;
   }
   return Boolean(session.capabilities && STALWART_CAP in session.capabilities);
@@ -172,7 +191,9 @@ export function normalizeLocale(raw: unknown): string | null {
     // Adding the script only helps when it differs from the one the locale
     // already implies (ru-RU is Cyrillic, so "ru_RU@cyrillic" is just ru-RU).
     const implied = loc.script ?? loc.maximize().script;
-    return implied === script ? canonical : new Intl.Locale(canonical, { script }).toString();
+    return implied === script
+      ? canonical
+      : new Intl.Locale(canonical, { script }).toString();
   } catch {
     return null;
   }
@@ -189,7 +210,10 @@ export function normalizeLocale(raw: unknown): string | null {
  * Ask for both in one request and take whichever the server allows, which also
  * tells us which generation we are talking to.
  */
-async function fetchAccountInfo(authorization: string, session: UpstreamSession): Promise<AccountInfo> {
+async function fetchAccountInfo(
+  authorization: string,
+  session: UpstreamSession,
+): Promise<AccountInfo> {
   // Sign-in refuses a server without the registry, so this should not happen —
   // but a session we cannot read capabilities from is not one to ask.
   if (!session.capabilities || !hasStalwartRegistry(session)) return EMPTY_INFO;
@@ -200,11 +224,19 @@ async function fetchAccountInfo(authorization: string, session: UpstreamSession)
   if (!accountId) return EMPTY_INFO;
   const res = await fetch(absoluteUpstream(session.apiUrl), {
     method: "POST",
-    headers: { authorization, "content-type": "application/json", accept: "application/json" },
+    headers: {
+      authorization,
+      "content-type": "application/json",
+      accept: "application/json",
+    },
     body: JSON.stringify({
       using: [JMAP_CORE, STALWART_CAP],
       methodCalls: [
-        ["x:AccountSettings/get", { accountId, ids: ["singleton"], properties: ["locale"] }, "s"],
+        [
+          "x:AccountSettings/get",
+          { accountId, ids: ["singleton"], properties: ["locale"] },
+          "s",
+        ],
         ["x:Account/get", { accountId, ids: [accountId], properties: ["locale"] }, "a"],
       ],
     }),
@@ -213,7 +245,9 @@ async function fetchAccountInfo(authorization: string, session: UpstreamSession)
   // A locale request that fails — a permission we lack, a hiccup upstream —
   // costs us the locale and nothing else.
   if (!res.ok) return EMPTY_INFO;
-  const body = (await res.json()) as { methodResponses?: [string, Record<string, unknown>, string][] };
+  const body = (await res.json()) as {
+    methodResponses?: [string, Record<string, unknown>, string][];
+  };
   return interpretAccountInfo(body.methodResponses ?? []);
 }
 
@@ -223,13 +257,17 @@ async function fetchAccountInfo(authorization: string, session: UpstreamSession)
  * accounts allowed the admin-only `sysAccountGet` instead. Both are 0.16
  * methods; this is a permissions fallback, not a version one.
  */
-export function interpretAccountInfo(responses: [string, Record<string, unknown>, string][]): AccountInfo {
+export function interpretAccountInfo(
+  responses: [string, Record<string, unknown>, string][],
+): AccountInfo {
   const settings = responses.find((r) => r[2] === "s");
   const account = responses.find((r) => r[2] === "a");
   return { locale: localeOf(settings) ?? localeOf(account), edition: null };
 }
 
-function localeOf(call: [string, Record<string, unknown>, string] | undefined): string | null {
+function localeOf(
+  call: [string, Record<string, unknown>, string] | undefined,
+): string | null {
   if (!call || call[0] === "error") return null;
   const list = call[1]?.list;
   if (!Array.isArray(list) || !list.length) return null;
@@ -254,7 +292,11 @@ async function fetchEdition(authorization: string, base: string): Promise<string
   }
 }
 
-export async function getAccountInfo(sessionId: string, authorization: string, session: UpstreamSession): Promise<AccountInfo> {
+export async function getAccountInfo(
+  sessionId: string,
+  authorization: string,
+  session: UpstreamSession,
+): Promise<AccountInfo> {
   const cached = infoCache.get(sessionId);
   if (cached && Date.now() - cached.fetchedAt < INFO_CACHE_MS) return cached.info;
   let info = EMPTY_INFO;
@@ -272,7 +314,10 @@ export async function getAccountInfo(sessionId: string, authorization: string, s
  * Rewrite the upstream session so the browser talks to our same-origin proxy
  * endpoints instead of Stalwart directly (no CORS, no credentials in browser).
  */
-export function localizeSession(s: UpstreamSession, extras: Record<string, unknown>): Record<string, unknown> {
+export function localizeSession(
+  s: UpstreamSession,
+  extras: Record<string, unknown>,
+): Record<string, unknown> {
   const caps = { ...s.capabilities };
   // We proxy push as Server-Sent Events; hide the upstream websocket endpoint.
   delete caps["urn:ietf:params:jmap:websocket"];
@@ -297,5 +342,7 @@ export function absoluteUpstream(url: string, base: string = config.stalwartUrl)
 }
 
 export function expandTemplate(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (_m, k: string) => encodeURIComponent(vars[k] ?? ""));
+  return template.replace(/\{(\w+)\}/g, (_m, k: string) =>
+    encodeURIComponent(vars[k] ?? ""),
+  );
 }

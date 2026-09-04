@@ -11,11 +11,18 @@ import { isAlwaysVisible, visibleIdentities } from "@/lib/identityVisibility";
  * cluttered one.
  */
 
-const ids = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `i${i + 1}`, email: `a${i + 1}@example.com` }));
+const ids = (n: number) =>
+  Array.from({ length: n }, (_, i) => ({
+    id: `i${i + 1}`,
+    email: `a${i + 1}@example.com`,
+  }));
 
 describe("hiding identities from the picker", () => {
   it("removes the hidden ones", () => {
-    expect(visibleIdentities(ids(4), ["i2", "i4"]).map((i) => i.id)).toEqual(["i1", "i3"]);
+    expect(visibleIdentities(ids(4), ["i2", "i4"]).map((i) => i.id)).toEqual([
+      "i1",
+      "i3",
+    ]);
   });
 
   it("changes nothing when none are hidden", () => {
@@ -28,16 +35,26 @@ describe("what it refuses to hide", () => {
   it("keeps the identity the draft is already using", () => {
     // Otherwise the select has no matching option and the From line moves
     // under the writer.
-    expect(visibleIdentities(ids(3), ["i2"], ["i2"]).map((i) => i.id)).toEqual(["i1", "i2", "i3"]);
+    expect(visibleIdentities(ids(3), ["i2"], ["i2"]).map((i) => i.id)).toEqual([
+      "i1",
+      "i2",
+      "i3",
+    ]);
   });
 
   it("keeps the default, which a new draft starts on", () => {
-    expect(visibleIdentities(ids(3), ["i1", "i3"], [null, "i1"]).map((i) => i.id)).toEqual(["i1", "i2"]);
+    expect(
+      visibleIdentities(ids(3), ["i1", "i3"], [null, "i1"]).map((i) => i.id),
+    ).toEqual(["i1", "i2"]);
   });
 
   it("shows everything rather than nothing when all are hidden", () => {
     const all = ids(3);
-    expect(visibleIdentities(all, ["i1", "i2", "i3"]).map((i) => i.id)).toEqual(["i1", "i2", "i3"]);
+    expect(visibleIdentities(all, ["i1", "i2", "i3"]).map((i) => i.id)).toEqual([
+      "i1",
+      "i2",
+      "i3",
+    ]);
   });
 
   it("ignores an id for an identity that no longer exists", () => {
@@ -47,7 +64,9 @@ describe("what it refuses to hide", () => {
   });
 
   it("tolerates nulls among the ids to keep", () => {
-    expect(visibleIdentities(ids(2), ["i1"], [null, undefined]).map((i) => i.id)).toEqual(["i2"]);
+    expect(visibleIdentities(ids(2), ["i1"], [null, undefined]).map((i) => i.id)).toEqual(
+      ["i2"],
+    );
   });
 });
 

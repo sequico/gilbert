@@ -1,8 +1,8 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { RuleDialog } from "../RuleDialog";
 import { newRule } from "@/lib/sieve";
+import { RuleDialog } from "../RuleDialog";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -16,12 +16,16 @@ describe("RuleDialog custom headers", () => {
   let root: Root;
 
   /** The condition row's own selects: [field, comparator]. */
-  const selects = () => Array.from(document.querySelectorAll<HTMLSelectElement>(".rule-row:not(.actions) select"));
+  const selects = () =>
+    Array.from(
+      document.querySelectorAll<HTMLSelectElement>(".rule-row:not(.actions) select"),
+    );
   const find = (sel: string) => document.querySelector(sel);
-  const pick = (el: HTMLSelectElement, value: string) => act(() => {
-    el.value = value;
-    el.dispatchEvent(new Event("change", { bubbles: true }));
-  });
+  const pick = (el: HTMLSelectElement, value: string) =>
+    act(() => {
+      el.value = value;
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    });
 
   beforeEach(() => {
     host = document.createElement("div");
@@ -33,9 +37,16 @@ describe("RuleDialog custom headers", () => {
     host.remove();
   });
 
-  const render = () => act(() => {
-    root.render(<RuleDialog rule={newRule({ id: "r1" })} onClose={() => undefined} onSave={() => undefined} />);
-  });
+  const render = () =>
+    act(() => {
+      root.render(
+        <RuleDialog
+          rule={newRule({ id: "r1" })}
+          onClose={() => undefined}
+          onSave={() => undefined}
+        />,
+      );
+    });
 
   it("keeps the comparator when a header is typed by hand", () => {
     render();

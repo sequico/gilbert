@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { stat, readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
 import type { Context, Handler } from "hono";
@@ -93,7 +93,8 @@ export function staticHandler(root: string, basePath = ""): Handler {
   }
 
   return async (c) => {
-    if (c.req.method !== "GET" && c.req.method !== "HEAD") return c.text("Method Not Allowed", 405);
+    if (c.req.method !== "GET" && c.req.method !== "HEAD")
+      return c.text("Method Not Allowed", 405);
     /*
      * Everything below works in paths relative to the mount, so the prefix
      * comes off once, here. Anything outside it is a 404 and not the app

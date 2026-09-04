@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildMarkerSignature, byteLength, compactHtml, markerOf, signatureTooLong, SIGNATURE_LIMIT } from "../signatureHtml";
+import {
+  buildMarkerSignature,
+  byteLength,
+  compactHtml,
+  markerOf,
+  SIGNATURE_LIMIT,
+  signatureTooLong,
+} from "../signatureHtml";
 
 describe("signature compaction", () => {
   it("strips office cruft and non-essential styles but keeps colours and links", () => {
@@ -52,8 +59,12 @@ describe("signature size is measured in bytes", () => {
   it("keeps a marker signature within the byte limit for non-ASCII text", () => {
     for (const filler of ["ü", "日", "🎉", "x"]) {
       const m = sigOf(`<div>${filler.repeat(3000)}</div>`);
-      expect(byteLength(m.htmlSignature), `html for ${filler}`).toBeLessThanOrEqual(SIGNATURE_LIMIT);
-      expect(byteLength(m.textSignature), `text for ${filler}`).toBeLessThanOrEqual(SIGNATURE_LIMIT);
+      expect(byteLength(m.htmlSignature), `html for ${filler}`).toBeLessThanOrEqual(
+        SIGNATURE_LIMIT,
+      );
+      expect(byteLength(m.textSignature), `text for ${filler}`).toBeLessThanOrEqual(
+        SIGNATURE_LIMIT,
+      );
       expect(markerOf(m.htmlSignature)).toEqual({ blobId: "blob123", type: "text/html" });
     }
   });

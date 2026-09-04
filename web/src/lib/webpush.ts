@@ -37,13 +37,17 @@ export interface JmapPushSubscription {
 
 /** The VAPID key this server signs with, or null if it does not do Web Push. */
 export function applicationServerKey(): string | null {
-  const cap = client.session?.capabilities?.[VAPID_CAP] as { applicationServerKey?: string } | undefined;
+  const cap = client.session?.capabilities?.[VAPID_CAP] as
+    | { applicationServerKey?: string }
+    | undefined;
   return typeof cap?.applicationServerKey === "string" ? cap.applicationServerKey : null;
 }
 
 /** Whether the payload can carry the message, rather than only "something changed". */
 export function supportsEmailPush(): boolean {
-  return Boolean(client.session?.capabilities && EMAILPUSH_CAP in client.session.capabilities);
+  return Boolean(
+    client.session?.capabilities && EMAILPUSH_CAP in client.session.capabilities,
+  );
 }
 
 /** Whether this browser and this server can do Web Push at all. */
@@ -65,7 +69,8 @@ export function webPushAvailable(): boolean {
  * sort of thing worth doing in one place with a name.
  */
 export function decodeApplicationServerKey(key: string): ArrayBuffer {
-  const padded = key.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (key.length % 4)) % 4);
+  const padded =
+    key.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (key.length % 4)) % 4);
   const raw = atob(padded);
   // An ArrayBuffer rather than a Uint8Array: TypeScript 5.7 types the latter
   // over ArrayBufferLike, which no longer satisfies BufferSource, and
@@ -120,12 +125,19 @@ export function deviceClientId(): string {
  * whole subscription. Without an id the filter simply leaves `inMailbox` out
  * and notifies more widely, which is a worse default but a working one.
  */
-export function subscriptionPayload(sub: PushSubscription, accountId: Id | null, inboxId: Id | null = null): Record<string, unknown> {
+export function subscriptionPayload(
+  sub: PushSubscription,
+  accountId: Id | null,
+  inboxId: Id | null = null,
+): Record<string, unknown> {
   const json = sub.toJSON();
   const body: Record<string, unknown> = {
     deviceClientId: deviceClientId(),
     url: sub.endpoint,
-    keys: { p256dh: json.keys?.p256dh ?? encodeKey(sub.getKey("p256dh")), auth: json.keys?.auth ?? encodeKey(sub.getKey("auth")) },
+    keys: {
+      p256dh: json.keys?.p256dh ?? encodeKey(sub.getKey("p256dh")),
+      auth: json.keys?.auth ?? encodeKey(sub.getKey("auth")),
+    },
     // StateChange notifications are not wanted: the app already has EventSource
     // while it is open, and this channel exists for when it is not.
     types: ["Email"],
@@ -186,7 +198,10 @@ export function setPushEnabledHere(on: boolean): void {
 export const RENEW_WITHIN_MS = 2 * 24 * 60 * 60 * 1000;
 
 /** This browser's registered subscription, out of everything the account has. */
-export function findSubscription(subs: JmapPushSubscription[], deviceId: string): JmapPushSubscription | null {
+export function findSubscription(
+  subs: JmapPushSubscription[],
+  deviceId: string,
+): JmapPushSubscription | null {
   return subs.find((s) => s.deviceClientId === deviceId) ?? null;
 }
 
@@ -204,7 +219,11 @@ export function findSubscription(subs: JmapPushSubscription[], deviceId: string)
  * An expiry that will not parse counts as needing renewal. It should never
  * happen; if it does, one extra write is the cheaper way to be wrong.
  */
-export function needsRenewal(subs: JmapPushSubscription[], deviceId: string, now: number = Date.now()): boolean {
+export function needsRenewal(
+  subs: JmapPushSubscription[],
+  deviceId: string,
+  now: number = Date.now(),
+): boolean {
   const mine = findSubscription(subs, deviceId);
   if (!mine) return true;
   // No expiry: the server is not going to take it away, so leave it alone.
@@ -215,17 +234,24 @@ export function needsRenewal(subs: JmapPushSubscription[], deviceId: string, now
 }
 
 export async function listSubscriptions(): Promise<JmapPushSubscription[]> {
-  const res = await client.call<GetResponse<JmapPushSubscription>>("PushSubscription/get", { ids: null }, [CAP.core, VAPID_CAP]);
+  const res = await client.call<GetResponse<JmapPushSubscription>>(
+    "PushSubscription/get",
+    { ids: null },
+    [CAP.core, VAPID_CAP],
+  );
   return res.list;
 }
 
-export async function createSubscription(body: Record<string, unknown>): Promise<Id | null> {
+export async function createSubscription(
+  body: Record<string, unknown>,
+): Promise<Id | null> {
   const res = await client.call<SetResponse<JmapPushSubscription>>(
     "PushSubscription/set",
     { create: { s: body } },
     [CAP.core, VAPID_CAP, EMAILPUSH_CAP],
   );
-  if (res.notCreated?.s) throw new Error(String(res.notCreated.s.description ?? res.notCreated.s.type));
+  if (res.notCreated?.s)
+    throw new Error(String(res.notCreated.s.description ?? res.notCreated.s.type));
   return (res.created?.s as { id?: Id } | undefined)?.id ?? null;
 }
 
@@ -237,7 +263,10 @@ export async function createSubscription(body: Record<string, unknown>): Promise
  * the client echoes it. A subscription left unverified looks registered and is
  * silent, which is the confusing failure worth being explicit about.
  */
-export async function verifySubscription(id: Id, verificationCode: string): Promise<void> {
+export async function verifySubscription(
+  id: Id,
+  verificationCode: string,
+): Promise<void> {
   const res = await client.call<SetResponse<JmapPushSubscription>>(
     "PushSubscription/set",
     { update: { [id]: { verificationCode } } },
@@ -248,7 +277,11 @@ export async function verifySubscription(id: Id, verificationCode: string): Prom
 }
 
 export async function destroySubscription(id: Id): Promise<void> {
-  await client.call<SetResponse<JmapPushSubscription>>("PushSubscription/set", { destroy: [id] }, [CAP.core, VAPID_CAP]);
+  await client.call<SetResponse<JmapPushSubscription>>(
+    "PushSubscription/set",
+    { destroy: [id] },
+    [CAP.core, VAPID_CAP],
+  );
 }
 
 /** Remove every subscription this browser registered. Used when signing out. */

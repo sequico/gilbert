@@ -1,26 +1,75 @@
-import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Archive, ArrowLeft, CalendarDays, CalendarRange, CalendarPlus, CheckSquare, FolderInput, PanelRight, PanelBottom, PanelTop, Filter, Inbox, Mail, MailOpen, MailPlus, MoreVertical, Paperclip, RefreshCw, Reply, Search, Star, Tag, Trash2, AlertOctagon, Forward, Eraser, ShieldCheck, X } from "lucide-react";
+import {
+  AlertOctagon,
+  Archive,
+  ArrowLeft,
+  CalendarDays,
+  CalendarPlus,
+  CalendarRange,
+  CheckSquare,
+  Eraser,
+  Filter,
+  FolderInput,
+  Forward,
+  Inbox,
+  Mail,
+  MailOpen,
+  MailPlus,
+  MoreVertical,
+  PanelBottom,
+  PanelRight,
+  PanelTop,
+  Paperclip,
+  RefreshCw,
+  Reply,
+  Search,
+  ShieldCheck,
+  Star,
+  Tag,
+  Trash2,
+  X,
+} from "lucide-react";
+import {
+  type DragEvent,
+  Fragment,
+  type MouseEvent,
+  memo,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useLocation } from "wouter";
-import { useMail, type ListState } from "@/store/mail";
-import { dateTimeKey, useSettings } from "@/store/settings";
 import type { Email, Id } from "@/jmap/types";
-import { formatListDate } from "@/lib/format";
-import { mailboxDisplayName } from "@/lib/mailboxName";
-import { groupByArchivePath, archivePath, type ArchiveGranularity } from "@/lib/archiveDate";
-import { canEmpty, confirmAndEmpty, emptyLabel } from "@/lib/emptyFolder";
 import { displayName, shortName } from "@/lib/address";
-import { Avatar, Empty, useIsMobile, useIsTouch } from "@/ui/misc";
-import { rowClick } from "@/lib/listSelection";
-import { MenuItem, MenuSep, MenuTitle, Popover, useMenu } from "@/ui/popover";
-import { useCompose } from "@/store/compose";
-import { useCalendar } from "@/store/calendar";
 import { startAppointment } from "@/lib/appointment";
-import { toast } from "@/ui/toast";
-import { haptic, usePullToRefresh, useTouchRow, PULL_TRIGGER } from "@/lib/touch";
-import { describeSwipe, type SwipeAction, type SwipeDescriptor, type SwipeIcon } from "@/lib/swipe";
-import { FilterFromMessageDialog } from "./FilterFromMessage";
+import {
+  type ArchiveGranularity,
+  archivePath,
+  groupByArchivePath,
+} from "@/lib/archiveDate";
+import { canEmpty, confirmAndEmpty, emptyLabel } from "@/lib/emptyFolder";
+import { formatListDate } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
+import { rowClick } from "@/lib/listSelection";
+import { mailboxDisplayName } from "@/lib/mailboxName";
+import {
+  describeSwipe,
+  type SwipeAction,
+  type SwipeDescriptor,
+  type SwipeIcon,
+} from "@/lib/swipe";
+import { haptic, PULL_TRIGGER, usePullToRefresh, useTouchRow } from "@/lib/touch";
+import { useCalendar } from "@/store/calendar";
+import { useCompose } from "@/store/compose";
+import { type ListState, useMail } from "@/store/mail";
+import { dateTimeKey, useSettings } from "@/store/settings";
+import { Avatar, Empty, useIsMobile, useIsTouch } from "@/ui/misc";
+import { MenuItem, MenuSep, MenuTitle, Popover, useMenu } from "@/ui/popover";
+import { toast } from "@/ui/toast";
+import { FilterFromMessageDialog } from "./FilterFromMessage";
 
 /**
  * The glyph on the strip a swipe reveals. Sized larger than the toolbar's
@@ -61,7 +110,17 @@ interface Props {
   isSearch: boolean;
 }
 
-export function MessageList({ title, list, openThreadId, focusId, setFocusId, onOpen, actions, mailboxId, isSearch }: Props) {
+export function MessageList({
+  title,
+  list,
+  openThreadId,
+  focusId,
+  setFocusId,
+  onOpen,
+  actions,
+  mailboxId,
+  isSearch,
+}: Props) {
   const [, navigate] = useLocation();
   const emails = useMail((s) => s.emails);
   const threads = useMail((s) => s.threads);
@@ -103,9 +162,18 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
   const lastClick = useRef<Id | null>(null);
   const selMenu = useMenu();
   /** The one row currently under a finger, and what letting go would do. */
-  const [swiping, setSwiping] = useState<{ id: Id; dir: -1 | 1; armed: boolean; desc: SwipeDescriptor } | null>(null);
+  const [swiping, setSwiping] = useState<{
+    id: Id;
+    dir: -1 | 1;
+    armed: boolean;
+    desc: SwipeDescriptor;
+  } | null>(null);
   /** How far the list has been pulled down, and whether that is far enough. */
-  const [pull, setPull] = useState<{ y: number; armed: boolean; live: boolean }>({ y: 0, armed: false, live: false });
+  const [pull, setPull] = useState<{ y: number; armed: boolean; live: boolean }>({
+    y: 0,
+    armed: false,
+    live: false,
+  });
 
   const ids = list?.ids ?? [];
   const selCount = Object.keys(selected).length;
@@ -113,7 +181,17 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
   const isTrashOrJunk = mailbox?.role === "trash" || mailbox?.role === "junk";
   const isDrafts = mailbox?.role === "drafts";
 
-  const rowHeight = twoLine ? (settings.density === "compact" ? 56 : settings.density === "comfortable" ? 78 : 66) : settings.density === "compact" ? 36 : settings.density === "comfortable" ? 52 : 44;
+  const rowHeight = twoLine
+    ? settings.density === "compact"
+      ? 56
+      : settings.density === "comfortable"
+        ? 78
+        : 66
+    : settings.density === "compact"
+      ? 36
+      : settings.density === "comfortable"
+        ? 52
+        : 44;
   const virtualizer = useVirtualizer({
     count: ids.length + (list && !list.exhausted ? 1 : 0),
     getScrollElement: () => parentRef.current,
@@ -132,7 +210,13 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
   useEffect(() => {
     const last = items[items.length - 1];
     if (!last || !list) return;
-    if (last.index >= ids.length - 5 && !list.loadingMore && !list.exhausted && !list.loading) void loadMore();
+    if (
+      last.index >= ids.length - 5 &&
+      !list.loadingMore &&
+      !list.exhausted &&
+      !list.loading
+    )
+      void loadMore();
   }, [items, ids.length, list, loadMore]);
 
   const doRefresh = useCallback(async () => {
@@ -151,13 +235,19 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
    */
   usePullToRefresh(scrollEl, doRefresh, {
     enabled: isTouch,
-    onPull: useCallback((y: number, armed: boolean, live: boolean) => setPull({ y, armed, live }), []),
+    onPull: useCallback(
+      (y: number, armed: boolean, live: boolean) => setPull({ y, armed, live }),
+      [],
+    ),
   });
 
   const onRowClick = useCallback(
     (e: MouseEvent, rowId: Id) => {
       const action = rowClick({
-        rowId, ids, anchor: lastClick.current, selected,
+        rowId,
+        ids,
+        anchor: lastClick.current,
+        selected,
         modifiers: { shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey },
         isMobile,
       });
@@ -204,28 +294,48 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
     [select, setFocusId],
   );
 
-  const onSwipeState = useCallback((rowId: Id, state: { dir: -1 | 1; armed: boolean; desc: SwipeDescriptor } | null) => {
-    // A row clearing itself must not clear a gesture that has since moved on
-    // to another row -- rows unmount as the list scrolls, at any moment.
-    setSwiping((cur) => (state ? { id: rowId, ...state } : cur?.id === rowId ? null : cur));
-  }, []);
+  const onSwipeState = useCallback(
+    (rowId: Id, state: { dir: -1 | 1; armed: boolean; desc: SwipeDescriptor } | null) => {
+      // A row clearing itself must not clear a gesture that has since moved on
+      // to another row -- rows unmount as the list scrolls, at any moment.
+      setSwiping((cur) =>
+        state ? { id: rowId, ...state } : cur?.id === rowId ? null : cur,
+      );
+    },
+    [],
+  );
 
   const fireSwipe = useCallback(
     async (rowId: Id, d: SwipeDescriptor) => {
       switch (d.action) {
-        case "archive": await actions.archive([rowId]); break;
-        case "delete": await actions.trash([rowId]); break;
-        case "spam": await actions.spam([rowId]); break;
+        case "archive":
+          await actions.archive([rowId]);
+          break;
+        case "delete":
+          await actions.trash([rowId]);
+          break;
+        case "spam":
+          await actions.spam([rowId]);
+          break;
         // `on` rather than a fresh look at the row: fire what the strip said.
-        case "read": await actions.read(d.on === true, [rowId]); break;
-        case "star": await actions.star(d.on === true, [rowId]); break;
-        case "move": actions.move([rowId]); break;
+        case "read":
+          await actions.read(d.on === true, [rowId]);
+          break;
+        case "star":
+          await actions.star(d.on === true, [rowId]);
+          break;
+        case "move":
+          actions.move([rowId]);
+          break;
       }
     },
     [actions],
   );
 
-  const ctxTargets = useMemo(() => (ctxRow ? (selected[ctxRow] ? Object.keys(selected) : [ctxRow]) : []), [ctxRow, selected]);
+  const ctxTargets = useMemo(
+    () => (ctxRow ? (selected[ctxRow] ? Object.keys(selected) : [ctxRow]) : []),
+    [ctxRow, selected],
+  );
 
   /*
    * Name the destination where there is only one, so the menu says where the
@@ -235,9 +345,13 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
    */
   const archiveDateLabel = useCallback(
     (granularity: ArchiveGranularity) => {
-      const groups = groupByArchivePath(ctxTargets.map((id) => ({ id, receivedAt: emails[id]?.receivedAt })), granularity);
+      const groups = groupByArchivePath(
+        ctxTargets.map((id) => ({ id, receivedAt: emails[id]?.receivedAt })),
+        granularity,
+      );
       const only = groups.length === 1 ? groups[0]! : null;
-      if (only?.segments.length) return t("Archive to {folder}", { folder: archivePath(only.segments) });
+      if (only?.segments.length)
+        return t("Archive to {folder}", { folder: archivePath(only.segments) });
       return granularity === "year" ? t("Archive by year") : t("Archive by month");
     },
     [ctxTargets, emails],
@@ -252,7 +366,11 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
     <div className="mail-list-pane">
       <div className="list-toolbar">
         {isMobile && isSearch && (
-          <button className="icon-btn" onClick={() => navigate("/mail")} aria-label={t("Back")}>
+          <button
+            className="icon-btn"
+            onClick={() => navigate("/mail")}
+            aria-label={t("Back")}
+          >
             <ArrowLeft size={20} />
           </button>
         )}
@@ -268,16 +386,67 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
         />
         {selCount > 0 ? (
           <>
-            <span className="tb-count">{plural(selectedAll ? (list?.total ?? selCount) : selCount, { one: "{n} selected", other: "{n} selected" })}</span>
+            <span className="tb-count">
+              {plural(selectedAll ? (list?.total ?? selCount) : selCount, {
+                one: "{n} selected",
+                other: "{n} selected",
+              })}
+            </span>
             <span className="tb-sep" />
-            <button className="icon-btn" title={t("Archive (e)")} onClick={() => void actions.archive()}><Archive size={19} /></button>
-            <button className="icon-btn" title={isTrashOrJunk ? t("Delete forever") : t("Delete (#)")} onClick={() => void actions.trash()}><Trash2 size={19} /></button>
-            <button className="icon-btn hide-mobile" title={mailbox?.role === "junk" ? t("Not spam") : t("Report spam (!)")} onClick={() => void actions.spam()}>{mailbox?.role === "junk" ? <ShieldCheck size={19} /> : <AlertOctagon size={19} />}</button>
+            <button
+              className="icon-btn"
+              title={t("Archive (e)")}
+              onClick={() => void actions.archive()}
+            >
+              <Archive size={19} />
+            </button>
+            <button
+              className="icon-btn"
+              title={isTrashOrJunk ? t("Delete forever") : t("Delete (#)")}
+              onClick={() => void actions.trash()}
+            >
+              <Trash2 size={19} />
+            </button>
+            <button
+              className="icon-btn hide-mobile"
+              title={mailbox?.role === "junk" ? t("Not spam") : t("Report spam (!)")}
+              onClick={() => void actions.spam()}
+            >
+              {mailbox?.role === "junk" ? (
+                <ShieldCheck size={19} />
+              ) : (
+                <AlertOctagon size={19} />
+              )}
+            </button>
             <span className="tb-sep" />
-            <button className="icon-btn" title={t("Mark as read (Shift+I)")} onClick={() => void actions.read(true)}><MailOpen size={19} /></button>
-            <button className="icon-btn hide-mobile" title={t("Mark as unread (Shift+U)")} onClick={() => void actions.read(false)}><Mail size={19} /></button>
-            <button className="icon-btn" title={t("Move to (v)")} onClick={() => actions.move()}><FolderInput size={19} /></button>
-            <button className="icon-btn hide-mobile" title={t("Labels (l)")} onClick={(e) => actions.label(undefined, { x: e.clientX, y: e.clientY })}><Tag size={19} /></button>
+            <button
+              className="icon-btn"
+              title={t("Mark as read (Shift+I)")}
+              onClick={() => void actions.read(true)}
+            >
+              <MailOpen size={19} />
+            </button>
+            <button
+              className="icon-btn hide-mobile"
+              title={t("Mark as unread (Shift+U)")}
+              onClick={() => void actions.read(false)}
+            >
+              <Mail size={19} />
+            </button>
+            <button
+              className="icon-btn"
+              title={t("Move to (v)")}
+              onClick={() => actions.move()}
+            >
+              <FolderInput size={19} />
+            </button>
+            <button
+              className="icon-btn hide-mobile"
+              title={t("Labels (l)")}
+              onClick={(e) => actions.label(undefined, { x: e.clientX, y: e.clientY })}
+            >
+              <Tag size={19} />
+            </button>
             {/*
               The three buttons above marked hide-mobile have nowhere to go on
               a phone, and used to simply not exist there: selecting mail on a
@@ -288,15 +457,42 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
             {isMobile && (
               <>
                 <span className="spacer" />
-                <button className="icon-btn" onClick={selMenu.open} aria-label={t("More actions")}><MoreVertical size={19} /></button>
-                <Popover anchor={selMenu.anchor} onClose={selMenu.close} align="end" width={240}>
+                <button
+                  className="icon-btn"
+                  onClick={selMenu.open}
+                  aria-label={t("More actions")}
+                >
+                  <MoreVertical size={19} />
+                </button>
+                <Popover
+                  anchor={selMenu.anchor}
+                  onClose={selMenu.close}
+                  align="end"
+                  width={240}
+                >
                   <MenuItem
-                    icon={mailbox?.role === "junk" ? <ShieldCheck size={16} /> : <AlertOctagon size={16} />}
+                    icon={
+                      mailbox?.role === "junk" ? (
+                        <ShieldCheck size={16} />
+                      ) : (
+                        <AlertOctagon size={16} />
+                      )
+                    }
                     label={mailbox?.role === "junk" ? "Not spam" : "Report spam"}
                     onClick={() => void actions.spam()}
                   />
-                  <MenuItem icon={<Mail size={16} />} label={t("Mark as unread")} onClick={() => void actions.read(false)} />
-                  <MenuItem icon={<Tag size={16} />} label={t("Label…")} onClick={() => actions.label(undefined, { x: window.innerWidth / 2, y: 100 })} />
+                  <MenuItem
+                    icon={<Mail size={16} />}
+                    label={t("Mark as unread")}
+                    onClick={() => void actions.read(false)}
+                  />
+                  <MenuItem
+                    icon={<Tag size={16} />}
+                    label={t("Label…")}
+                    onClick={() =>
+                      actions.label(undefined, { x: window.innerWidth / 2, y: 100 })
+                    }
+                  />
                   {/*
                     A phone reaches this menu by holding a row, which is also
                     the only way it reaches per-message actions at all -- there
@@ -308,12 +504,26 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
                     <MenuItem
                       icon={<CalendarPlus size={16} />}
                       label={t("Create event…")}
-                      onClick={() => { const e = emails[Object.keys(selected)[0] as Id]; if (e) void startAppointment(e, navigate).catch((err: unknown) => toast.error((err as Error).message)); }}
+                      onClick={() => {
+                        const e = emails[Object.keys(selected)[0] as Id];
+                        if (e)
+                          void startAppointment(e, navigate).catch((err: unknown) =>
+                            toast.error((err as Error).message),
+                          );
+                      }}
                     />
                   )}
                   <MenuSep />
-                  <MenuItem icon={<CheckSquare size={16} />} label={t("Select all")} onClick={selectAll} />
-                  <MenuItem icon={<X size={16} />} label={t("Clear selection")} onClick={clearSelection} />
+                  <MenuItem
+                    icon={<CheckSquare size={16} />}
+                    label={t("Select all")}
+                    onClick={selectAll}
+                  />
+                  <MenuItem
+                    icon={<X size={16} />}
+                    label={t("Clear selection")}
+                    onClick={clearSelection}
+                  />
                 </Popover>
               </>
             )}
@@ -321,22 +531,64 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
         ) : (
           <>
             <span className="tb-title">{title}</span>
-            {list && !list.loading && <span className="tb-count">{list.total.toLocaleString()}</span>}
+            {list && !list.loading && (
+              <span className="tb-count">{list.total.toLocaleString()}</span>
+            )}
             <span className="spacer" />
-            <button className={`icon-btn ${refreshing ? "active" : ""}`} title={t("Refresh")} onClick={() => void doRefresh()} aria-label={t("Refresh")}>
-              <RefreshCw size={18} className={refreshing ? "spin" : ""} style={refreshing ? { animation: "spin .8s linear infinite" } : undefined} />
+            <button
+              className={`icon-btn ${refreshing ? "active" : ""}`}
+              title={t("Refresh")}
+              onClick={() => void doRefresh()}
+              aria-label={t("Refresh")}
+            >
+              <RefreshCw
+                size={18}
+                className={refreshing ? "spin" : ""}
+                style={refreshing ? { animation: "spin .8s linear infinite" } : undefined}
+              />
             </button>
             <button className="icon-btn" onClick={moreMenu.open} aria-label={t("More")}>
               <MoreVertical size={18} />
             </button>
-            <Popover anchor={moreMenu.anchor} onClose={moreMenu.close} align="end" width={240}>
+            <Popover
+              anchor={moreMenu.anchor}
+              onClose={moreMenu.close}
+              align="end"
+              width={240}
+            >
               <MenuTitle>{t("Reading pane")}</MenuTitle>
-              <MenuItem icon={<PanelRight size={16} />} label={t("Right of the list")} checked={settings.readingPane === "right"} onClick={() => updateSettings({ readingPane: "right" })} />
-              <MenuItem icon={<PanelBottom size={16} />} label={t("Below the list")} checked={settings.readingPane === "bottom"} onClick={() => updateSettings({ readingPane: "bottom" })} />
-              <MenuItem icon={<PanelTop size={16} />} label={t("Hidden (open full width)")} checked={settings.readingPane === "off"} onClick={() => updateSettings({ readingPane: "off" })} />
+              <MenuItem
+                icon={<PanelRight size={16} />}
+                label={t("Right of the list")}
+                checked={settings.readingPane === "right"}
+                onClick={() => updateSettings({ readingPane: "right" })}
+              />
+              <MenuItem
+                icon={<PanelBottom size={16} />}
+                label={t("Below the list")}
+                checked={settings.readingPane === "bottom"}
+                onClick={() => updateSettings({ readingPane: "bottom" })}
+              />
+              <MenuItem
+                icon={<PanelTop size={16} />}
+                label={t("Hidden (open full width)")}
+                checked={settings.readingPane === "off"}
+                onClick={() => updateSettings({ readingPane: "off" })}
+              />
               <MenuSep />
-              <MenuItem icon={<CheckSquare size={16} />} label={t("Select all")} onClick={selectAll} />
-              <MenuItem icon={<MailOpen size={16} />} label={t("Mark all as read")} onClick={() => mailboxId && void useMail.getState().markMailboxRead(mailboxId)} disabled={!mailboxId} />
+              <MenuItem
+                icon={<CheckSquare size={16} />}
+                label={t("Select all")}
+                onClick={selectAll}
+              />
+              <MenuItem
+                icon={<MailOpen size={16} />}
+                label={t("Mark all as read")}
+                onClick={() =>
+                  mailboxId && void useMail.getState().markMailboxRead(mailboxId)
+                }
+                disabled={!mailboxId}
+              />
               {mailbox && canEmpty(mailbox.role) && (
                 <>
                   <MenuSep />
@@ -362,23 +614,33 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
       */}
       {allSelected && !selectedAll && (list?.total ?? 0) > ids.length && (
         <div className="list-hint select-all-hint">
-          <span className="grow">{t("All {n} on this page are selected.", { n: String(ids.length) })}</span>
+          <span className="grow">
+            {t("All {n} on this page are selected.", { n: String(ids.length) })}
+          </span>
           <button onClick={() => selectAllMatching()}>
-            {t("Select all {n} in {folder}", { n: String(list!.total), folder: mailbox ? mailboxDisplayName(mailbox) : t("this view") })}
+            {t("Select all {n} in {folder}", {
+              n: String(list!.total),
+              folder: mailbox ? mailboxDisplayName(mailbox) : t("this view"),
+            })}
           </button>
         </div>
       )}
       {selectedAll && (
         <div className="list-hint select-all-hint">
           <span className="grow">
-            {t("All {n} in {folder} are selected.", { n: String(list?.total ?? 0), folder: mailbox ? mailboxDisplayName(mailbox) : t("this view") })}
+            {t("All {n} in {folder} are selected.", {
+              n: String(list?.total ?? 0),
+              folder: mailbox ? mailboxDisplayName(mailbox) : t("this view"),
+            })}
           </span>
           <button onClick={() => clearSelection()}>{t("Clear selection")}</button>
         </div>
       )}
       {list?.error && (
         <div className="list-hint">
-          <span className="grow" style={{ color: "var(--danger)" }}>{list.error}</span>
+          <span className="grow" style={{ color: "var(--danger)" }}>
+            {list.error}
+          </span>
           <button onClick={() => void doRefresh()}>{t("Retry")}</button>
         </div>
       )}
@@ -394,10 +656,11 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
       {mailbox?.role === "junk" && !!mailbox.totalEmails && !selCount && (
         <div className="list-hint">
           <span className="grow">
-            
             {t("Deleting spam is permanent — it does not go to Deleted Items first.")}
           </span>
-          <button onClick={() => void confirmAndEmpty(mailbox)}>{t("Delete all spam now")}</button>
+          <button onClick={() => void confirmAndEmpty(mailbox)}>
+            {t("Delete all spam now")}
+          </button>
         </div>
       )}
       <div
@@ -418,21 +681,51 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
           <div className="ptr" aria-hidden="true">
             <span
               className={`ptr-dial ${pull.armed || refreshing ? "armed" : ""}`}
-              style={{ transform: `translate(-50%, ${Math.max(0, pull.y - 36)}px)`, opacity: Math.min(1, pull.y / 20), transition: pull.live ? "none" : "transform .22s var(--ease), opacity .22s" }}
+              style={{
+                transform: `translate(-50%, ${Math.max(0, pull.y - 36)}px)`,
+                opacity: Math.min(1, pull.y / 20),
+                transition: pull.live
+                  ? "none"
+                  : "transform .22s var(--ease), opacity .22s",
+              }}
             >
-              <RefreshCw size={18} className={refreshing ? "spin" : ""} style={refreshing ? undefined : { transform: `rotate(${Math.round((pull.y / PULL_TRIGGER) * 270)}deg)` }} />
+              <RefreshCw
+                size={18}
+                className={refreshing ? "spin" : ""}
+                style={
+                  refreshing
+                    ? undefined
+                    : {
+                        transform: `rotate(${Math.round((pull.y / PULL_TRIGGER) * 270)}deg)`,
+                      }
+                }
+              />
             </span>
           </div>
         )}
         <div
           className="mail-list-pull"
-          style={pull.y ? { transform: `translateY(${pull.y}px)`, transition: pull.live ? "none" : "transform .22s var(--ease)" } : { transition: "transform .22s var(--ease)" }}
+          style={
+            pull.y
+              ? {
+                  transform: `translateY(${pull.y}px)`,
+                  transition: pull.live ? "none" : "transform .22s var(--ease)",
+                }
+              : { transition: "transform .22s var(--ease)" }
+          }
         >
           {list?.loading && ids.length === 0 ? (
             <div style={{ padding: 8 }}>
               {[...Array(12)].map((_, i) => (
-                <div key={i} className="row" style={{ height: rowHeight, padding: "0 8px", gap: 12 }}>
-                  <span className="skeleton" style={{ width: 32, height: 32, borderRadius: 16 }} />
+                <div
+                  key={i}
+                  className="row"
+                  style={{ height: rowHeight, padding: "0 8px", gap: 12 }}
+                >
+                  <span
+                    className="skeleton"
+                    style={{ width: 32, height: 32, borderRadius: 16 }}
+                  />
                   <span className="skeleton" style={{ width: 140, height: 14 }} />
                   <span className="skeleton grow" style={{ height: 14 }} />
                   <span className="skeleton" style={{ width: 50, height: 12 }} />
@@ -440,22 +733,58 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
               ))}
             </div>
           ) : ids.length === 0 && list && !list.loading ? (
-            <Empty icon={isSearch ? <Search size={40} /> : <Inbox size={40} />} title={isSearch ? t("No results") : mailbox?.role === "inbox" ? t("You're all caught up") : t("Nothing here")}>
-              {isSearch ? t("Try different keywords or filters.") : mailbox?.role === "inbox" ? t("No new mail in your inbox.") : t("This folder is empty.")}
+            <Empty
+              icon={isSearch ? <Search size={40} /> : <Inbox size={40} />}
+              title={
+                isSearch
+                  ? t("No results")
+                  : mailbox?.role === "inbox"
+                    ? t("You're all caught up")
+                    : t("Nothing here")
+              }
+            >
+              {isSearch
+                ? t("Try different keywords or filters.")
+                : mailbox?.role === "inbox"
+                  ? t("No new mail in your inbox.")
+                  : t("This folder is empty.")}
             </Empty>
           ) : (
-            <div className="mail-list-inner" style={{ height: virtualizer.getTotalSize() }}>
+            <div
+              className="mail-list-inner"
+              style={{ height: virtualizer.getTotalSize() }}
+            >
               {items.map((vi) => {
                 const id = ids[vi.index];
                 if (!id) {
                   return (
-                    <div key="loader" className="list-footer" style={{ position: "absolute", top: vi.start, left: 0, right: 0, height: vi.size }}>
-                      {list?.loadingMore ? <span className="spinner" style={{ display: "inline-block" }} /> : ""}
+                    <div
+                      key="loader"
+                      className="list-footer"
+                      style={{
+                        position: "absolute",
+                        top: vi.start,
+                        left: 0,
+                        right: 0,
+                        height: vi.size,
+                      }}
+                    >
+                      {list?.loadingMore ? (
+                        <span className="spinner" style={{ display: "inline-block" }} />
+                      ) : (
+                        ""
+                      )}
                     </div>
                   );
                 }
                 const e = emails[id];
-                if (!e) return <div key={id} style={{ position: "absolute", top: vi.start, height: vi.size }} />;
+                if (!e)
+                  return (
+                    <div
+                      key={id}
+                      style={{ position: "absolute", top: vi.start, height: vi.size }}
+                    />
+                  );
                 const thread = list?.collapseThreads ? threads[e.threadId] : undefined;
                 const strip = swiping?.id === id ? swiping : null;
                 return (
@@ -480,7 +809,13 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
                     )}
                     <Row
                       email={e}
-                      threadEmails={thread ? thread.emailIds.map((x) => emails[x]).filter((x): x is Email => Boolean(x)) : undefined}
+                      threadEmails={
+                        thread
+                          ? thread.emailIds
+                              .map((x) => emails[x])
+                              .filter((x): x is Email => Boolean(x))
+                          : undefined
+                      }
                       top={vi.start}
                       height={vi.size}
                       selected={Boolean(selected[id])}
@@ -494,7 +829,10 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
                       isSent={mailbox?.role === "sent"}
                       onClick={onRowClick}
                       onContext={onContext}
-                      onSelect={(rowId, on) => { select([rowId], on); lastClick.current = rowId; }}
+                      onSelect={(rowId, on) => {
+                        select([rowId], on);
+                        lastClick.current = rowId;
+                      }}
                       onStar={(rowId, on) => void actions.star(on, [rowId])}
                       onArchive={(rowId) => void actions.archive([rowId])}
                       onTrash={(rowId) => void actions.trash([rowId])}
@@ -516,26 +854,121 @@ export function MessageList({ title, list, openThreadId, focusId, setFocusId, on
         </div>
       </div>
       <Popover anchor={ctxMenu.anchor} onClose={ctxMenu.close} width={250}>
-        <MenuItem icon={<Reply size={16} />} label={t("Reply")} onClick={() => { const e = ctxRow ? emails[ctxRow] : undefined; if (e) void useCompose.getState().reply(e, "reply"); }} />
-        <MenuItem icon={<Forward size={16} />} label={t("Forward")} onClick={() => { const e = ctxRow ? emails[ctxRow] : undefined; if (e) void useCompose.getState().reply(e, "forward"); }} />
-        <MenuItem icon={<Paperclip size={16} />} label={t("Forward as attachment")} onClick={() => { const e = ctxRow ? emails[ctxRow] : undefined; if (e) useCompose.getState().forwardAsAttachment(e); }} />
-        <MenuItem icon={<MailPlus size={16} />} label={t("Compose as new")} onClick={() => { const e = ctxRow ? emails[ctxRow] : undefined; if (e) void useCompose.getState().composeAsNew(e); }} />
+        <MenuItem
+          icon={<Reply size={16} />}
+          label={t("Reply")}
+          onClick={() => {
+            const e = ctxRow ? emails[ctxRow] : undefined;
+            if (e) void useCompose.getState().reply(e, "reply");
+          }}
+        />
+        <MenuItem
+          icon={<Forward size={16} />}
+          label={t("Forward")}
+          onClick={() => {
+            const e = ctxRow ? emails[ctxRow] : undefined;
+            if (e) void useCompose.getState().reply(e, "forward");
+          }}
+        />
+        <MenuItem
+          icon={<Paperclip size={16} />}
+          label={t("Forward as attachment")}
+          onClick={() => {
+            const e = ctxRow ? emails[ctxRow] : undefined;
+            if (e) useCompose.getState().forwardAsAttachment(e);
+          }}
+        />
+        <MenuItem
+          icon={<MailPlus size={16} />}
+          label={t("Compose as new")}
+          onClick={() => {
+            const e = ctxRow ? emails[ctxRow] : undefined;
+            if (e) void useCompose.getState().composeAsNew(e);
+          }}
+        />
         <MenuSep />
-        <MenuItem icon={<Archive size={16} />} label={t("Archive")} kbd="e" onClick={() => void actions.archive(ctxTargets)} />
-        <MenuItem icon={<CalendarRange size={16} />} label={archiveDateLabel("year")} onClick={() => void useMail.getState().archiveByDate(ctxTargets, "year")} />
-        <MenuItem icon={<CalendarDays size={16} />} label={archiveDateLabel("month")} onClick={() => void useMail.getState().archiveByDate(ctxTargets, "month")} />
-        <MenuItem icon={<Trash2 size={16} />} label={t("Delete")} kbd="#" onClick={() => void actions.trash(ctxTargets)} />
-        <MenuItem icon={<AlertOctagon size={16} />} label={mailbox?.role === "junk" ? "Not spam" : "Report spam"} kbd="!" onClick={() => void actions.spam(ctxTargets)} />
+        <MenuItem
+          icon={<Archive size={16} />}
+          label={t("Archive")}
+          kbd="e"
+          onClick={() => void actions.archive(ctxTargets)}
+        />
+        <MenuItem
+          icon={<CalendarRange size={16} />}
+          label={archiveDateLabel("year")}
+          onClick={() => void useMail.getState().archiveByDate(ctxTargets, "year")}
+        />
+        <MenuItem
+          icon={<CalendarDays size={16} />}
+          label={archiveDateLabel("month")}
+          onClick={() => void useMail.getState().archiveByDate(ctxTargets, "month")}
+        />
+        <MenuItem
+          icon={<Trash2 size={16} />}
+          label={t("Delete")}
+          kbd="#"
+          onClick={() => void actions.trash(ctxTargets)}
+        />
+        <MenuItem
+          icon={<AlertOctagon size={16} />}
+          label={mailbox?.role === "junk" ? "Not spam" : "Report spam"}
+          kbd="!"
+          onClick={() => void actions.spam(ctxTargets)}
+        />
         <MenuSep />
-        <MenuItem icon={someUnread ? <MailOpen size={16} /> : <Mail size={16} />} label={someUnread ? "Mark as read" : "Mark as unread"} onClick={() => void actions.read(someUnread, ctxTargets)} />
-        <MenuItem icon={<Star size={16} />} label={someUnstarred ? "Add star" : "Remove star"} kbd="s" onClick={() => void actions.star(someUnstarred, ctxTargets)} />
-        <MenuItem icon={<FolderInput size={16} />} label={t("Move to…")} kbd="v" onClick={() => actions.move(ctxTargets)} />
-        <MenuItem icon={<Tag size={16} />} label={t("Label…")} kbd="l" onClick={() => actions.label(ctxTargets, ctxMenu.anchor ?? { x: 0, y: 0 })} />
+        <MenuItem
+          icon={someUnread ? <MailOpen size={16} /> : <Mail size={16} />}
+          label={someUnread ? "Mark as read" : "Mark as unread"}
+          onClick={() => void actions.read(someUnread, ctxTargets)}
+        />
+        <MenuItem
+          icon={<Star size={16} />}
+          label={someUnstarred ? "Add star" : "Remove star"}
+          kbd="s"
+          onClick={() => void actions.star(someUnstarred, ctxTargets)}
+        />
+        <MenuItem
+          icon={<FolderInput size={16} />}
+          label={t("Move to…")}
+          kbd="v"
+          onClick={() => actions.move(ctxTargets)}
+        />
+        <MenuItem
+          icon={<Tag size={16} />}
+          label={t("Label…")}
+          kbd="l"
+          onClick={() => actions.label(ctxTargets, ctxMenu.anchor ?? { x: 0, y: 0 })}
+        />
         <MenuSep />
-        <MenuItem icon={<Filter size={16} />} label={t("Filter messages like this…")} onClick={() => { const e = ctxRow ? emails[ctxRow] : undefined; if (e) setFilterFrom(e); }} />
-        {hasCalendar && <MenuItem icon={<CalendarPlus size={16} />} label={t("Create event…")} onClick={() => { const e = ctxRow ? emails[ctxRow] : undefined; if (e) void startAppointment(e, navigate).catch((err: unknown) => toast.error((err as Error).message)); }} />}
+        <MenuItem
+          icon={<Filter size={16} />}
+          label={t("Filter messages like this…")}
+          onClick={() => {
+            const e = ctxRow ? emails[ctxRow] : undefined;
+            if (e) setFilterFrom(e);
+          }}
+        />
+        {hasCalendar && (
+          <MenuItem
+            icon={<CalendarPlus size={16} />}
+            label={t("Create event…")}
+            onClick={() => {
+              const e = ctxRow ? emails[ctxRow] : undefined;
+              if (e)
+                void startAppointment(e, navigate).catch((err: unknown) =>
+                  toast.error((err as Error).message),
+                );
+            }}
+          />
+        )}
       </Popover>
-      {filterFrom && <FilterFromMessageDialog email={filterFrom} mailboxId={mailboxId} onClose={() => setFilterFrom(null)} />}
+      {filterFrom && (
+        <FilterFromMessageDialog
+          email={filterFrom}
+          mailboxId={mailboxId}
+          onClose={() => setFilterFrom(null)}
+        />
+      )}
     </div>
   );
 }
@@ -568,15 +1001,49 @@ interface RowProps {
   swipeLeft: SwipeAction;
   swipeRight: SwipeAction;
   onLongPress: (id: Id) => void;
-  onSwipeState: (id: Id, state: { dir: -1 | 1; armed: boolean; desc: SwipeDescriptor } | null) => void;
+  onSwipeState: (
+    id: Id,
+    state: { dir: -1 | 1; armed: boolean; desc: SwipeDescriptor } | null,
+  ) => void;
   onSwipeFire: (id: Id, desc: SwipeDescriptor) => Promise<void>;
 }
 
-const Row = memo(function Row({ email: e, threadEmails, top, height, selected, focused, open, twoLine, showAvatar, showPreview, isDrafts, isSent, mailboxId, selectedIds, onClick, onContext, onSelect, onStar, onArchive, onTrash, onRead, touch, role, swipeLeft, swipeRight, onLongPress, onSwipeState, onSwipeFire }: RowProps) {
+const Row = memo(function Row({
+  email: e,
+  threadEmails,
+  top,
+  height,
+  selected,
+  focused,
+  open,
+  twoLine,
+  showAvatar,
+  showPreview,
+  isDrafts,
+  isSent,
+  mailboxId,
+  selectedIds,
+  onClick,
+  onContext,
+  onSelect,
+  onStar,
+  onArchive,
+  onTrash,
+  onRead,
+  touch,
+  role,
+  swipeLeft,
+  swipeRight,
+  onLongPress,
+  onSwipeState,
+  onSwipeFire,
+}: RowProps) {
   const labels = useSettings((s) => s.settings.labels);
   // Subscribed purely so the row re-renders when the date format changes.
   useSettings((s) => dateTimeKey(s.settings));
-  const inScope = threadEmails ? threadEmails.filter((x) => (mailboxId ? x.mailboxIds[mailboxId] : true)) : [e];
+  const inScope = threadEmails
+    ? threadEmails.filter((x) => (mailboxId ? x.mailboxIds[mailboxId] : true))
+    : [e];
   const scope = inScope.length ? inScope : [e];
   const unread = scope.some((x) => !x.keywords.$seen);
   const starred = scope.some((x) => x.keywords.$flagged);
@@ -589,7 +1056,10 @@ const Row = memo(function Row({ email: e, threadEmails, top, height, selected, f
   const names = useMemo(() => {
     const out: string[] = [];
     const seen = new Set<string>();
-    const src = isSent || isDrafts ? scope.flatMap((x) => x.to ?? []) : scope.map((x) => x.from?.[0]).filter(Boolean);
+    const src =
+      isSent || isDrafts
+        ? scope.flatMap((x) => x.to ?? [])
+        : scope.map((x) => x.from?.[0]).filter(Boolean);
     for (const a of src) {
       if (!a) continue;
       const k = a.email.toLowerCase();
@@ -599,7 +1069,12 @@ const Row = memo(function Row({ email: e, threadEmails, top, height, selected, f
     }
     return out;
   }, [scope, isSent, isDrafts, count]);
-  const who = (isSent || isDrafts ? (names.length ? `To: ${names.join(", ")}` : "(no recipients)") : names.join(", ")) || "(unknown)";
+  const who =
+    (isSent || isDrafts
+      ? names.length
+        ? `To: ${names.join(", ")}`
+        : "(no recipients)"
+      : names.join(", ")) || "(unknown)";
   const rowLabels = labels.filter((l) => scope.some((x) => x.keywords[l.keyword]));
 
   /*
@@ -613,7 +1088,8 @@ const Row = memo(function Row({ email: e, threadEmails, top, height, selected, f
   const [gliding, setGliding] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
   const descFor = useCallback(
-    (dir: -1 | 1) => describeSwipe(dir === 1 ? swipeRight : swipeLeft, { role, unread, starred }),
+    (dir: -1 | 1) =>
+      describeSwipe(dir === 1 ? swipeRight : swipeLeft, { role, unread, starred }),
     [swipeLeft, swipeRight, role, unread, starred],
   );
   // A row that scrolls out from under a live gesture takes its strip with it.
@@ -675,7 +1151,10 @@ const Row = memo(function Row({ email: e, threadEmails, top, height, selected, f
     ev.dataTransfer.effectAllowed = "move";
     const ghost = document.createElement("div");
     ghost.className = "drag-ghost";
-    ghost.textContent = ids.length > 1 ? plural(ids.length, { one: "{n} conversation", other: "{n} conversations" }) : e.subject || t("(no subject)");
+    ghost.textContent =
+      ids.length > 1
+        ? plural(ids.length, { one: "{n} conversation", other: "{n} conversations" })
+        : e.subject || t("(no subject)");
     document.body.appendChild(ghost);
     ev.dataTransfer.setDragImage(ghost, 10, 10);
     setTimeout(() => ghost.remove(), 0);
@@ -685,7 +1164,12 @@ const Row = memo(function Row({ email: e, threadEmails, top, height, selected, f
     <div
       ref={rowRef}
       className={`msg-row ${unread ? "unread" : ""} ${selected ? "selected" : ""} ${focused ? "focused" : ""} ${open ? "open" : ""} ${dx ? "swiping" : ""}`}
-      style={{ top, height, ...(dx ? { transform: `translateX(${dx}px)` } : {}), transition: gliding ? "transform .18s var(--ease)" : "none" }}
+      style={{
+        top,
+        height,
+        ...(dx ? { transform: `translateX(${dx}px)` } : {}),
+        transition: gliding ? "transform .18s var(--ease)" : "none",
+      }}
       data-row-id={e.id}
       onClick={(ev) => onClick(ev, e.id)}
       onContextMenu={(ev) => onContext(ev, e.id)}
@@ -700,13 +1184,31 @@ const Row = memo(function Row({ email: e, threadEmails, top, height, selected, f
       role="row"
       aria-selected={selected}
     >
-      <input type="checkbox" className="msg-check" checked={selected} onClick={(ev) => ev.stopPropagation()} onChange={(ev) => onSelect(e.id, ev.target.checked)} aria-label={t("Select")} />
+      <input
+        type="checkbox"
+        className="msg-check"
+        checked={selected}
+        onClick={(ev) => ev.stopPropagation()}
+        onChange={(ev) => onSelect(e.id, ev.target.checked)}
+        aria-label={t("Select")}
+      />
       {!twoLine && (
-        <button className={`msg-star ${starred ? "on" : ""}`} onClick={(ev) => { ev.stopPropagation(); onStar(e.id, !starred); }} aria-label={starred ? "Unstar" : "Star"}>
+        <button
+          className={`msg-star ${starred ? "on" : ""}`}
+          onClick={(ev) => {
+            ev.stopPropagation();
+            onStar(e.id, !starred);
+          }}
+          aria-label={starred ? "Unstar" : "Star"}
+        >
           <Star size={18} fill={starred ? "currentColor" : "none"} />
         </button>
       )}
-      {showAvatar && <Avatar who={isSent || isDrafts ? (e.to?.[0] ?? null) : (latest.from?.[0] ?? null)} />}
+      {showAvatar && (
+        <Avatar
+          who={isSent || isDrafts ? (e.to?.[0] ?? null) : (latest.from?.[0] ?? null)}
+        />
+      )}
       {twoLine ? (
         <div className="msg-body">
           <div className="msg-line1">
@@ -721,13 +1223,35 @@ const Row = memo(function Row({ email: e, threadEmails, top, height, selected, f
           </div>
           <div className="msg-main">
             {isDrafts && <span style={{ color: "var(--danger)" }}>{t("Draft")}</span>}
-            <span className="msg-subject notranslate" translate="no">{e.subject || t("(no subject)")}</span>
-            {showPreview && <span className="msg-preview notranslate" translate="no">{latest.preview}</span>}
-            <button className={`msg-star ${starred ? "on" : ""}`} style={{ marginLeft: "auto" }} onClick={(ev) => { ev.stopPropagation(); onStar(e.id, !starred); }} aria-label={t("Star")}>
+            <span className="msg-subject notranslate" translate="no">
+              {e.subject || t("(no subject)")}
+            </span>
+            {showPreview && (
+              <span className="msg-preview notranslate" translate="no">
+                {latest.preview}
+              </span>
+            )}
+            <button
+              className={`msg-star ${starred ? "on" : ""}`}
+              style={{ marginLeft: "auto" }}
+              onClick={(ev) => {
+                ev.stopPropagation();
+                onStar(e.id, !starred);
+              }}
+              aria-label={t("Star")}
+            >
               <Star size={16} fill={starred ? "currentColor" : "none"} />
             </button>
           </div>
-          {rowLabels.length > 0 && <div className="msg-labels">{rowLabels.map((l) => <span key={l.keyword} className="tag" style={{ background: l.color }}>{l.name}</span>)}</div>}
+          {rowLabels.length > 0 && (
+            <div className="msg-labels">
+              {rowLabels.map((l) => (
+                <span key={l.keyword} className="tag" style={{ background: l.color }}>
+                  {l.name}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -736,19 +1260,71 @@ const Row = memo(function Row({ email: e, threadEmails, top, height, selected, f
             {count > 1 && <span className="thread-count">{count}</span>}
           </span>
           <span className="msg-main">
-            {isDrafts && <span style={{ color: "var(--danger)", flex: "0 0 auto" }}>{t("Draft")}</span>}
-            {rowLabels.length > 0 && <span className="msg-labels">{rowLabels.map((l) => <span key={l.keyword} className="tag" style={{ background: l.color }}>{l.name}</span>)}</span>}
-            <span className="msg-subject notranslate" translate="no">{e.subject || t("(no subject)")}</span>
-            {showPreview && <span className="msg-preview notranslate" translate="no">{latest.preview}</span>}
+            {isDrafts && (
+              <span style={{ color: "var(--danger)", flex: "0 0 auto" }}>
+                {t("Draft")}
+              </span>
+            )}
+            {rowLabels.length > 0 && (
+              <span className="msg-labels">
+                {rowLabels.map((l) => (
+                  <span key={l.keyword} className="tag" style={{ background: l.color }}>
+                    {l.name}
+                  </span>
+                ))}
+              </span>
+            )}
+            <span className="msg-subject notranslate" translate="no">
+              {e.subject || t("(no subject)")}
+            </span>
+            {showPreview && (
+              <span className="msg-preview notranslate" translate="no">
+                {latest.preview}
+              </span>
+            )}
           </span>
           <span className="msg-meta">
-            {(answered || forwarded) && <span className="msg-answered" title={answered ? t("Replied") : t("Forwarded")}>{answered ? <Reply size={14} /> : <Forward size={14} />}</span>}
+            {(answered || forwarded) && (
+              <span
+                className="msg-answered"
+                title={answered ? t("Replied") : t("Forwarded")}
+              >
+                {answered ? <Reply size={14} /> : <Forward size={14} />}
+              </span>
+            )}
             {hasAtt && <Paperclip size={14} className="msg-attach" />}
             <span className="msg-date">{formatListDate(latest.receivedAt)}</span>
             <span className="msg-actions">
-              <button className="icon-btn sm" title={t("Archive")} onClick={(ev) => { ev.stopPropagation(); onArchive(e.id); }}><Archive size={16} /></button>
-              <button className="icon-btn sm" title={t("Delete")} onClick={(ev) => { ev.stopPropagation(); onTrash(e.id); }}><Trash2 size={16} /></button>
-              <button className="icon-btn sm" title={unread ? t("Mark as read") : t("Mark as unread")} onClick={(ev) => { ev.stopPropagation(); onRead(e.id, unread); }}>{unread ? <MailOpen size={16} /> : <Mail size={16} />}</button>
+              <button
+                className="icon-btn sm"
+                title={t("Archive")}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  onArchive(e.id);
+                }}
+              >
+                <Archive size={16} />
+              </button>
+              <button
+                className="icon-btn sm"
+                title={t("Delete")}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  onTrash(e.id);
+                }}
+              >
+                <Trash2 size={16} />
+              </button>
+              <button
+                className="icon-btn sm"
+                title={unread ? t("Mark as read") : t("Mark as unread")}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  onRead(e.id, unread);
+                }}
+              >
+                {unread ? <MailOpen size={16} /> : <Mail size={16} />}
+              </button>
             </span>
           </span>
         </>

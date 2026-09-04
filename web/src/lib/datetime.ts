@@ -22,7 +22,11 @@ export interface DateTimePrefs {
   timeFormat: TimeFormat;
 }
 
-const DEFAULT_PREFS: DateTimePrefs = { locale: "", dateFormat: "auto", timeFormat: "auto" };
+const DEFAULT_PREFS: DateTimePrefs = {
+  locale: "",
+  dateFormat: "auto",
+  timeFormat: "auto",
+};
 
 /**
  * The interface language, when one has been chosen over the default.
@@ -106,7 +110,9 @@ export function normalizeLocale(raw: string | null | undefined): string | null {
     // Adding the script only helps when it differs from the one the locale
     // already implies (ru-RU is Cyrillic, so "ru_RU@cyrillic" is just ru-RU).
     const implied = loc.script ?? loc.maximize().script;
-    return implied === script ? canonical : new Intl.Locale(canonical, { script }).toString();
+    return implied === script
+      ? canonical
+      : new Intl.Locale(canonical, { script }).toString();
   } catch {
     return null;
   }
@@ -164,7 +170,9 @@ function formattingLocale(): string | undefined {
   const loc = resolvedLocale();
   if (prefs.dateFormat !== "ymd-dash") return loc;
   try {
-    return new Intl.Locale(loc ?? browserLocale(), { numberingSystem: "latn" }).toString();
+    return new Intl.Locale(loc ?? browserLocale(), {
+      numberingSystem: "latn",
+    }).toString();
   } catch {
     return loc;
   }
@@ -210,7 +218,9 @@ export function uses24Hour(): boolean {
   if (prefs.timeFormat === "24") return true;
   if (prefs.timeFormat === "12") return false;
   try {
-    const hc = new Intl.DateTimeFormat(formattingLocale(), { hour: "numeric" }).resolvedOptions().hourCycle;
+    const hc = new Intl.DateTimeFormat(formattingLocale(), {
+      hour: "numeric",
+    }).resolvedOptions().hourCycle;
     return hc === "h23" || hc === "h24";
   } catch {
     return false;
@@ -237,7 +247,6 @@ function numeric(d: Date, withYear: boolean): string {
       return withYear ? `${mm}/${dd}/${yy}` : `${mm}/${dd}`;
     case "ymd-dash":
       return withYear ? `${yy}-${mm}-${dd}` : `${mm}-${dd}`;
-    case "dmy-dot":
     default:
       return withYear ? `${dd}.${mm}.${yy}` : `${dd}.${mm}.`;
   }
@@ -256,23 +265,33 @@ export function formatHourLabel(hour: number): string {
 
 /** Day and month, no year: "22 Aug" / "22.08." / "08-22". */
 export function formatDayMonth(d: Date): string {
-  return isAutoDateFormat() ? intl({ month: "short", day: "numeric" }).format(d) : numeric(d, false);
+  return isAutoDateFormat()
+    ? intl({ month: "short", day: "numeric" }).format(d)
+    : numeric(d, false);
 }
 
 /** Day, month and year: "22 Aug 2026" / "22.08.2026" / "2026-08-22". */
 export function formatDate(d: Date): string {
-  return isAutoDateFormat() ? intl({ year: "numeric", month: "short", day: "numeric" }).format(d) : numeric(d, true);
+  return isAutoDateFormat()
+    ? intl({ year: "numeric", month: "short", day: "numeric" }).format(d)
+    : numeric(d, true);
 }
 
 /** All-numeric date, even in "auto" mode: "8/22/2026" / "22.08.2026". */
 export function formatNumericDate(d: Date): string {
-  return isAutoDateFormat() ? intl({ year: "numeric", month: "numeric", day: "numeric" }).format(d) : numeric(d, true);
+  return isAutoDateFormat()
+    ? intl({ year: "numeric", month: "numeric", day: "numeric" }).format(d)
+    : numeric(d, true);
 }
 
 /** Spelled-out month, no weekday: "22 August 2026" / "22.08.2026". */
 export function formatDateLong(d: Date, withYear = true): string {
   if (isAutoDateFormat()) {
-    return intl({ month: "long", day: "numeric", ...(withYear ? { year: "numeric" as const } : {}) }).format(d);
+    return intl({
+      month: "long",
+      day: "numeric",
+      ...(withYear ? { year: "numeric" as const } : {}),
+    }).format(d);
   }
   return numeric(d, withYear);
 }
@@ -280,12 +299,20 @@ export function formatDateLong(d: Date, withYear = true): string {
 /** Long form for headings: "Saturday, 22 August" / "Saturday, 22.08.2026". */
 export function formatWeekdayDate(d: Date, withYear = false): string {
   if (isAutoDateFormat()) {
-    return intl({ weekday: "long", month: "long", day: "numeric", ...(withYear ? { year: "numeric" as const } : {}) }).format(d);
+    return intl({
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      ...(withYear ? { year: "numeric" as const } : {}),
+    }).format(d);
   }
   return `${formatWeekday(d, "long")}, ${numeric(d, true)}`;
 }
 
-export function formatWeekday(d: Date, style: "short" | "long" | "narrow" = "short"): string {
+export function formatWeekday(
+  d: Date,
+  style: "short" | "long" | "narrow" = "short",
+): string {
   return intl({ weekday: style }).format(d);
 }
 
@@ -297,7 +324,12 @@ export function formatMonthYear(d: Date): string {
 /** Date plus time: "22 Aug 2026, 18:23" / "2026-08-22 18:23". */
 export function formatDateTime(d: Date): string {
   if (isAutoDateFormat()) {
-    return intl({ year: "numeric", month: "short", day: "numeric", ...timeOptions() }).format(d);
+    return intl({
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      ...timeOptions(),
+    }).format(d);
   }
   return `${numeric(d, true)} ${formatClock(d)}`;
 }
@@ -313,7 +345,13 @@ export function formatDayMonthTime(d: Date): string {
 /** Weekday, full date and time — the message header format. */
 export function formatFullDateTime(d: Date): string {
   if (isAutoDateFormat()) {
-    return intl({ weekday: "short", year: "numeric", month: "short", day: "numeric", ...timeOptions() }).format(d);
+    return intl({
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      ...timeOptions(),
+    }).format(d);
   }
   return `${formatWeekday(d, "short")}, ${numeric(d, true)} ${formatClock(d)}`;
 }
@@ -352,7 +390,10 @@ function localePattern(): DatePattern {
     }).formatToParts(new Date(2025, 10, 22));
     const order = parts
       .filter((p) => p.type === "day" || p.type === "month" || p.type === "year")
-      .map((p) => (p.type === "day" ? "d" : p.type === "month" ? "m" : "y") as "d" | "m" | "y");
+      .map(
+        (p) =>
+          (p.type === "day" ? "d" : p.type === "month" ? "m" : "y") as "d" | "m" | "y",
+      );
     const literal = parts.find((p) => p.type === "literal")?.value.trim();
     if (order.length === 3) pattern = { order, separator: literal || "/" };
   } catch {
@@ -398,9 +439,13 @@ export function formatDateInput(d: Date): string {
 
 /** Map Arabic-Indic, Persian, Devanagari … digits onto ASCII. */
 function latinDigits(text: string): string {
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: deliberate digit map over non-ASCII
   return text.replace(/[^\x00-\x7F]/g, (ch) => {
     const code = ch.codePointAt(0)!;
-    for (const zero of [0x0660, 0x06f0, 0x0966, 0x09e6, 0x0a66, 0x0ae6, 0x0b66, 0x0be6, 0x0c66, 0x0ce6, 0x0d66, 0x0e50, 0x0ed0, 0x0f20, 0x1040, 0x17e0]) {
+    for (const zero of [
+      0x0660, 0x06f0, 0x0966, 0x09e6, 0x0a66, 0x0ae6, 0x0b66, 0x0be6, 0x0c66, 0x0ce6,
+      0x0d66, 0x0e50, 0x0ed0, 0x0f20, 0x1040, 0x17e0,
+    ]) {
       if (code >= zero && code <= zero + 9) return String(code - zero);
     }
     return ch;
@@ -431,7 +476,10 @@ export function parseDateInput(text: string): Date | null {
   let nums: number[];
   if (groups.length === 3) {
     nums = groups.map(Number);
-  } else if (groups.length === 1 && (groups[0]!.length === 6 || groups[0]!.length === 8)) {
+  } else if (
+    groups.length === 1 &&
+    (groups[0]!.length === 6 || groups[0]!.length === 8)
+  ) {
     const digits = groups[0]!;
     const yLen = digits.length === 8 ? 4 : 2;
     const widths = order.map((f) => (f === "y" ? yLen : 2));
@@ -453,10 +501,12 @@ export function parseDateInput(text: string): Date | null {
 }
 
 function validDate(year: number, month: number, day: number): Date | null {
-  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1 || year > 9999) return null;
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1 || year > 9999)
+    return null;
   const d = new Date(year, month - 1, day);
   // Rejects overflow like 31 February, which Date would roll into March.
-  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day)
+    return null;
   return d;
 }
 
@@ -552,7 +602,10 @@ export function localeOptions(): LocaleOption[] {
   if (serverLocale) tags.add(serverLocale);
   if (prefs.locale) tags.add(prefs.locale);
   const list = [...tags].map((tag) => ({ tag, label: localeLabel(tag) }));
-  list.sort((a, b) => a.label.localeCompare(b.label, resolvedLocale()) || a.tag.localeCompare(b.tag));
+  list.sort(
+    (a, b) =>
+      a.label.localeCompare(b.label, resolvedLocale()) || a.tag.localeCompare(b.tag),
+  );
   optionsCache = list;
   optionsExtras = extras;
   return list;
@@ -576,14 +629,21 @@ export type WeekdayKey = "mo" | "tu" | "we" | "th" | "fr" | "sa" | "su";
 const WEEKDAY_ORDER: WeekdayKey[] = ["mo", "tu", "we", "th", "fr", "sa", "su"];
 const WEEKDAY_BASE = Date.UTC(2026, 5, 1); // a Monday
 
-export function weekdayName(day: WeekdayKey, width: "long" | "short" | "narrow" = "long"): string {
+export function weekdayName(
+  day: WeekdayKey,
+  width: "long" | "short" | "narrow" = "long",
+): string {
   const i = WEEKDAY_ORDER.indexOf(day);
   if (i < 0) return day;
-  return intl({ weekday: width, timeZone: "UTC" }).format(new Date(WEEKDAY_BASE + i * 86_400_000));
+  return intl({ weekday: width, timeZone: "UTC" }).format(
+    new Date(WEEKDAY_BASE + i * 86_400_000),
+  );
 }
 
 /** Every weekday, Monday first, for pickers that show all seven. */
-export function weekdayNames(width: "long" | "short" | "narrow" = "long"): Array<{ key: WeekdayKey; name: string }> {
+export function weekdayNames(
+  width: "long" | "short" | "narrow" = "long",
+): Array<{ key: WeekdayKey; name: string }> {
   return WEEKDAY_ORDER.map((key) => ({ key, name: weekdayName(key, width) }));
 }
 
@@ -594,7 +654,10 @@ export function weekdayNames(width: "long" | "short" | "narrow" = "long"): Array
  * list items with a word, and the last separator differs from the others in
  * English. Intl.ListFormat knows all of that.
  */
-export function formatList(items: string[], type: "conjunction" | "disjunction" = "conjunction"): string {
+export function formatList(
+  items: string[],
+  type: "conjunction" | "disjunction" = "conjunction",
+): string {
   if (items.length < 2) return items[0] ?? "";
   try {
     return new Intl.ListFormat(resolvedLocale(), { style: "long", type }).format(items);

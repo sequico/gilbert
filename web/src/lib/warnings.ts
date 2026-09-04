@@ -11,8 +11,9 @@
  * against a list of domains that count as yours, and with nothing configured
  * every message in the mailbox is from outside.
  */
-import { domainOf } from "./address";
+
 import type { EmailAddress } from "@/jmap/types";
+import { domainOf } from "./address";
 
 /**
  * The domains that count as inside.
@@ -24,7 +25,10 @@ import type { EmailAddress } from "@/jmap/types";
  * Anything in `configured` is additional -- a parent company, a sister domain,
  * a contractor.
  */
-export function internalDomains(identityEmails: Iterable<string>, configured: Iterable<string>): Set<string> {
+export function internalDomains(
+  identityEmails: Iterable<string>,
+  configured: Iterable<string>,
+): Set<string> {
   const out = new Set<string>();
   for (const e of identityEmails) {
     const d = domainOf(e);
@@ -53,7 +57,10 @@ export function domainCovered(domain: string, internal: Set<string>): boolean {
 }
 
 /** Recipients outside the internal domains, in the order they were addressed. */
-export function externalRecipients(addrs: Iterable<EmailAddress>, internal: Set<string>): EmailAddress[] {
+export function externalRecipients(
+  addrs: Iterable<EmailAddress>,
+  internal: Set<string>,
+): EmailAddress[] {
   const out: EmailAddress[] = [];
   for (const a of addrs) {
     if (!a?.email) continue;
@@ -63,7 +70,10 @@ export function externalRecipients(addrs: Iterable<EmailAddress>, internal: Set<
 }
 
 /** Whether the message came from outside. A message with no sender is not claimed either way. */
-export function isExternalSender(from: EmailAddress[] | null | undefined, internal: Set<string>): boolean {
+export function isExternalSender(
+  from: EmailAddress[] | null | undefined,
+  internal: Set<string>,
+): boolean {
   const first = from?.[0]?.email;
   if (!first) return false;
   return !domainCovered(domainOf(first), internal);
@@ -75,7 +85,10 @@ export function isExternalSender(from: EmailAddress[] | null | undefined, intern
  * A threshold of 0 is off. The count is people, not headers -- one address in
  * To and nine in Cc is a message to ten.
  */
-export function crossesRecipientThreshold(recipientCount: number, threshold: number): boolean {
+export function crossesRecipientThreshold(
+  recipientCount: number,
+  threshold: number,
+): boolean {
   return threshold > 0 && recipientCount >= threshold;
 }
 
@@ -100,7 +113,11 @@ export type LinkVerdict =
  * in-page anchors go nowhere; warning about those would be noise, and noise is
  * how a warning stops being read.
  */
-export function linkVerdict(href: string, text: string | null | undefined, trusted: Iterable<string>): LinkVerdict {
+export function linkVerdict(
+  href: string,
+  text: string | null | undefined,
+  trusted: Iterable<string>,
+): LinkVerdict {
   let url: URL;
   try {
     url = new URL(href);

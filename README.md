@@ -28,6 +28,16 @@ operational names (images, containers, environment variables, the `ihasmail`
 folder inside each mailbox) still say `ihasmail`, while the visible name is
 already yours to set — run with `APP_NAME=Gilbert`.
 
+> **The goal, in one parenthesis.** Gilbert is being pointed at managing
+> enterprise *resources* — mail, contacts, calendars, files and the documents
+> that move between people — through their whole lifecycle, with Stalwart as
+> the single store that keeps the trace. Concretely, in rough order: shared
+> group accounts on Stalwart, for mail, contacts and calendars; chat between
+> the members of a group; AI agents that act inside mail and file storage, for
+> a person or a group — Gilbert's own agents now, external agent fleets later;
+> and a workflow engine for delivery orders with checklists and to-do lists.
+> None of this ships yet: the code below is still upstream ihasmail.
+
 **Immutable webmail for [Stalwart Mail Server](https://stalw.art) — a container
 with nothing to persist, and a Gmail-class client on top of it.**
 

@@ -42,7 +42,8 @@ function onVisibility(): void {
 export function startIdleLogout(expire: () => void): void {
   stopIdleLogout();
   onExpire = expire;
-  for (const ev of ACTIVITY) window.addEventListener(ev, arm, { passive: true, capture: true });
+  for (const ev of ACTIVITY)
+    window.addEventListener(ev, arm, { passive: true, capture: true });
   document.addEventListener("visibilitychange", onVisibility);
   arm();
 }

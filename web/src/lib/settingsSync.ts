@@ -37,7 +37,10 @@ let loadedFor: string | null = null;
 let listenersBound = false;
 
 export function settingsSyncAvailable(): boolean {
-  return client.hasCapability(CAP.filenode) && Boolean(useSession.getState().ownAccountFor(CAP.filenode));
+  return (
+    client.hasCapability(CAP.filenode) &&
+    Boolean(useSession.getState().ownAccountFor(CAP.filenode))
+  );
 }
 
 /**
@@ -153,7 +156,9 @@ export async function flushSettingsPush(): Promise<void> {
   const body = pending;
   pending = null;
   // Serialise: two overlapping writes could land in either order.
-  inFlight = (inFlight ?? Promise.resolve()).then(() => writeSettings(body)).catch(() => undefined);
+  inFlight = (inFlight ?? Promise.resolve())
+    .then(() => writeSettings(body))
+    .catch(() => undefined);
   await inFlight;
 }
 
@@ -183,7 +188,10 @@ async function writeSettings(body: Record<string, unknown>): Promise<void> {
   const err = res.notCreated?.s;
   if (err) throw new Error(setErrorMessage(err));
   // Some servers hand back no blobId on create; ask, so the next read finds it.
-  await nodeBlobId(accountId, (res.created?.s as Partial<FileNode> | undefined)?.id as Id | undefined);
+  await nodeBlobId(
+    accountId,
+    (res.created?.s as Partial<FileNode> | undefined)?.id as Id | undefined,
+  );
 }
 
 /**

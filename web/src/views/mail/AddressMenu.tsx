@@ -1,14 +1,14 @@
-import { useCallback, useState, type MouseEvent, type ReactNode } from "react";
 import { Copy, Mail, Pencil, UserPlus } from "lucide-react";
+import { type MouseEvent, type ReactNode, useCallback, useState } from "react";
 import type { EmailAddress } from "@/jmap/types";
-import { useContacts } from "@/store/contacts";
-import { useCompose } from "@/store/compose";
-import { contactFromAddress } from "@/lib/contacts";
 import { formatAddress } from "@/lib/address";
-import { MenuItem, MenuSep, Popover, type Anchor } from "@/ui/popover";
+import { contactFromAddress } from "@/lib/contacts";
+import { t } from "@/lib/i18n";
+import { useCompose } from "@/store/compose";
+import { useContacts } from "@/store/contacts";
+import { type Anchor, MenuItem, MenuSep, Popover } from "@/ui/popover";
 import { toast } from "@/ui/toast";
 import { ContactEditor } from "../contacts/ContactEditor";
-import { t } from "@/lib/i18n";
 
 /**
  * Right-click on anyone named in a message — sender, recipients, Reply-To — to
@@ -17,8 +17,12 @@ import { t } from "@/lib/i18n";
  * email address.
  */
 export function useAddressMenu() {
-  const [menu, setMenu] = useState<{ anchor: Anchor; address: EmailAddress } | null>(null);
-  const [editing, setEditing] = useState<ReturnType<typeof contactFromAddress> | null>(null);
+  const [menu, setMenu] = useState<{ anchor: Anchor; address: EmailAddress } | null>(
+    null,
+  );
+  const [editing, setEditing] = useState<ReturnType<typeof contactFromAddress> | null>(
+    null,
+  );
   const contacts = useContacts();
   const openCompose = useCompose((s) => s.open);
 
@@ -40,16 +44,41 @@ export function useAddressMenu() {
   const node: ReactNode = (
     <>
       {menu && (
-        <Popover anchor={menu.anchor} onClose={close} width={230} ariaLabel={`Actions for ${menu.address.email}`}>
+        <Popover
+          anchor={menu.anchor}
+          onClose={close}
+          width={230}
+          ariaLabel={`Actions for ${menu.address.email}`}
+        >
           <div className="menu-title truncate">{formatAddress(menu.address)}</div>
-          {contacts.available && (
-            known ? (
-              <MenuItem icon={<Pencil size={16} />} label={t("Edit contact")} onClick={() => { setEditing(known); close(); }} />
+          {contacts.available &&
+            (known ? (
+              <MenuItem
+                icon={<Pencil size={16} />}
+                label={t("Edit contact")}
+                onClick={() => {
+                  setEditing(known);
+                  close();
+                }}
+              />
             ) : (
-              <MenuItem icon={<UserPlus size={16} />} label={t("Add to contacts")} onClick={() => { setEditing(contactFromAddress(menu.address)); close(); }} />
-            )
-          )}
-          <MenuItem icon={<Mail size={16} />} label={t("New message to this address")} onClick={() => { openCompose({ to: [menu.address] }); close(); }} />
+              <MenuItem
+                icon={<UserPlus size={16} />}
+                label={t("Add to contacts")}
+                onClick={() => {
+                  setEditing(contactFromAddress(menu.address));
+                  close();
+                }}
+              />
+            ))}
+          <MenuItem
+            icon={<Mail size={16} />}
+            label={t("New message to this address")}
+            onClick={() => {
+              openCompose({ to: [menu.address] });
+              close();
+            }}
+          />
           <MenuSep />
           <MenuItem
             icon={<Copy size={16} />}
@@ -79,14 +108,28 @@ export function useAddressMenu() {
 }
 
 /** Comma-separated addresses, each of them right-clickable. */
-export function AddressList({ list, onContext, empty = "—" }: { list: EmailAddress[] | null | undefined; onContext: (ev: MouseEvent, a: EmailAddress) => void; empty?: string }) {
+export function AddressList({
+  list,
+  onContext,
+  empty = "—",
+}: {
+  list: EmailAddress[] | null | undefined;
+  onContext: (ev: MouseEvent, a: EmailAddress) => void;
+  empty?: string;
+}) {
   if (!list?.length) return <>{empty}</>;
   return (
     <>
       {list.map((a, i) => (
         <span key={`${a.email}-${i}`}>
           {i > 0 && ", "}
-          <span className="addr" onContextMenu={(ev) => onContext(ev, a)} title={t("Right-click for options")}>{formatAddress(a)}</span>
+          <span
+            className="addr"
+            onContextMenu={(ev) => onContext(ev, a)}
+            title={t("Right-click for options")}
+          >
+            {formatAddress(a)}
+          </span>
         </span>
       ))}
     </>

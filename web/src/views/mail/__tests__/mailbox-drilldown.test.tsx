@@ -1,10 +1,10 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { MailboxTree } from "../MailboxTree";
+import type { Mailbox, MailboxRole } from "@/jmap/types";
 import { useMail } from "@/store/mail";
 import { useSettings } from "@/store/settings";
-import type { Mailbox, MailboxRole } from "@/jmap/types";
+import { MailboxTree } from "../MailboxTree";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -22,9 +22,35 @@ function setWidth(px: number) {
   })) as unknown as typeof window.matchMedia;
 }
 
-const rights = { mayReadItems: true, mayAddItems: true, mayRemoveItems: true, maySetSeen: true, maySetKeywords: true, mayCreateChild: true, mayRename: true, mayDelete: true, maySubmit: true };
-const box = (id: string, name: string, parentId: string | null, unread = 0, role: MailboxRole = null): Mailbox => ({
-  id, name, parentId, role, sortOrder: 0, totalEmails: unread, unreadEmails: unread, totalThreads: unread, unreadThreads: unread, myRights: rights, isSubscribed: true,
+const rights = {
+  mayReadItems: true,
+  mayAddItems: true,
+  mayRemoveItems: true,
+  maySetSeen: true,
+  maySetKeywords: true,
+  mayCreateChild: true,
+  mayRename: true,
+  mayDelete: true,
+  maySubmit: true,
+};
+const box = (
+  id: string,
+  name: string,
+  parentId: string | null,
+  unread = 0,
+  role: MailboxRole = null,
+): Mailbox => ({
+  id,
+  name,
+  parentId,
+  role,
+  sortOrder: 0,
+  totalEmails: unread,
+  unreadEmails: unread,
+  totalThreads: unread,
+  unreadThreads: unread,
+  myRights: rights,
+  isSubscribed: true,
 });
 
 /*
@@ -42,10 +68,22 @@ const MAILBOXES = {
 describe("folder drill-down", () => {
   let host: HTMLDivElement;
   let root: Root;
-  const rows = () => Array.from(document.querySelectorAll(".nav-item.folder-row")).map((r) => r.querySelector(".nav-label")?.textContent);
-  const rowFor = (name: string) => Array.from(document.querySelectorAll<HTMLElement>(".nav-item.folder-row")).find((r) => r.querySelector(".nav-label")?.textContent === name);
-  const drillInto = (name: string) => act(() => { rowFor(name)!.querySelector<HTMLElement>(".drill-into")!.click(); });
-  const back = () => act(() => { document.querySelector<HTMLElement>(".drill-back")!.click(); });
+  const rows = () =>
+    Array.from(document.querySelectorAll(".nav-item.folder-row")).map(
+      (r) => r.querySelector(".nav-label")?.textContent,
+    );
+  const rowFor = (name: string) =>
+    Array.from(document.querySelectorAll<HTMLElement>(".nav-item.folder-row")).find(
+      (r) => r.querySelector(".nav-label")?.textContent === name,
+    );
+  const drillInto = (name: string) =>
+    act(() => {
+      rowFor(name)!.querySelector<HTMLElement>(".drill-into")!.click();
+    });
+  const back = () =>
+    act(() => {
+      document.querySelector<HTMLElement>(".drill-back")!.click();
+    });
 
   const mount = () => {
     host = document.createElement("div");
@@ -57,9 +95,14 @@ describe("folder drill-down", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/mail/inbox");
     useMail.setState({ mailboxes: MAILBOXES, mailboxesLoaded: true });
-    useSettings.setState((s) => ({ settings: { ...s.settings, showHiddenFolders: false, labelsSidebar: false } }));
+    useSettings.setState((s) => ({
+      settings: { ...s.settings, showHiddenFolders: false, labelsSidebar: false },
+    }));
   });
-  afterEach(() => { act(() => root.unmount()); host.remove(); });
+  afterEach(() => {
+    act(() => root.unmount());
+    host.remove();
+  });
 
   it("shows the whole tree on a wide screen, and no drill controls", () => {
     setWidth(1280);
@@ -102,12 +145,18 @@ describe("folder drill-down", () => {
     setWidth(390);
     mount();
     expect(document.querySelector("nav")!.className).toContain("folder-drill");
-    const depths = Array.from(document.querySelectorAll(".nav-item.folder-row")).map((r) => r.className.match(/depth-\d/)?.[0]);
+    const depths = Array.from(document.querySelectorAll(".nav-item.folder-row")).map(
+      (r) => r.className.match(/depth-\d/)?.[0],
+    );
     expect(depths).toEqual(["depth-0", "depth-0", "depth-0"]);
 
     drillInto("Work");
     // Work has a child and Clients does not; neither may be indented for it.
-    expect(Array.from(document.querySelectorAll(".nav-item.folder-row")).map((r) => r.className.match(/depth-\d/)?.[0])).toEqual(["depth-0", "depth-0"]);
+    expect(
+      Array.from(document.querySelectorAll(".nav-item.folder-row")).map(
+        (r) => r.className.match(/depth-\d/)?.[0],
+      ),
+    ).toEqual(["depth-0", "depth-0"]);
     expect(document.querySelector(".nav-item.folder-row.has-drill")).toBeNull();
   });
 
@@ -115,7 +164,9 @@ describe("folder drill-down", () => {
     setWidth(1280);
     mount();
     expect(document.querySelector("nav")!.className).not.toContain("folder-drill");
-    act(() => { rowFor("Work")!.querySelector<HTMLElement>(".nav-twisty")!.click(); });
+    act(() => {
+      rowFor("Work")!.querySelector<HTMLElement>(".nav-twisty")!.click();
+    });
     expect(rowFor("Clients")!.className).toContain("depth-1");
   });
 

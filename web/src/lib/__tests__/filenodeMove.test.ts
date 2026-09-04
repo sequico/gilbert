@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { canDropFileNode } from "@/lib/filenode";
 import type { FileNode, Id } from "@/jmap/types";
+import { canDropFileNode } from "@/lib/filenode";
 
 /**
  * Dragging a folder into its own subtree is the move that has to be refused
@@ -9,13 +9,23 @@ import type { FileNode, Id } from "@/jmap/types";
  */
 
 const rights = (over: Partial<FileNode["myRights"]> = {}) => ({
-  mayRead: true, mayAddChildren: true, mayRename: true, mayDelete: true, mayModifyContent: true, mayShare: true, ...over,
+  mayRead: true,
+  mayAddChildren: true,
+  mayRename: true,
+  mayDelete: true,
+  mayModifyContent: true,
+  mayShare: true,
+  ...over,
 });
 
 /** a > b > c, plus a file in a and a second top-level folder. */
 const tree = (): Record<Id, FileNode> => {
-  const mk = (id: string, parentId: string | null, nodeType: "directory" | "file", over: Partial<FileNode> = {}) =>
-    ({ id, parentId, nodeType, name: id, myRights: rights(), ...over }) as FileNode;
+  const mk = (
+    id: string,
+    parentId: string | null,
+    nodeType: "directory" | "file",
+    over: Partial<FileNode> = {},
+  ) => ({ id, parentId, nodeType, name: id, myRights: rights(), ...over }) as FileNode;
   return {
     a: mk("a", null, "directory"),
     b: mk("b", "a", "directory"),

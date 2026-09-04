@@ -1,9 +1,9 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { FiltersSettings } from "../FiltersSettings";
-import { useSieve } from "@/store/sieve";
 import { newRule, rulesToSieve } from "@/lib/sieve";
+import { useSieve } from "@/store/sieve";
+import { FiltersSettings } from "../FiltersSettings";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -14,15 +14,27 @@ function dataTransfer() {
     types: [] as string[],
     effectAllowed: "",
     dropEffect: "",
-    setData(k: string, v: string) { data[k] = v; this.types.push(k); },
-    getData(k: string) { return data[k] ?? ""; },
+    setData(k: string, v: string) {
+      data[k] = v;
+      this.types.push(k);
+    },
+    getData(k: string) {
+      return data[k] ?? "";
+    },
   };
 }
-function fire(el: Element, type: string, dt: ReturnType<typeof dataTransfer>, clientY = 0) {
+function fire(
+  el: Element,
+  type: string,
+  dt: ReturnType<typeof dataTransfer>,
+  clientY = 0,
+) {
   const ev = new Event(type, { bubbles: true, cancelable: true });
   Object.defineProperty(ev, "dataTransfer", { value: dt });
   Object.defineProperty(ev, "clientY", { value: clientY });
-  act(() => { el.dispatchEvent(ev); });
+  act(() => {
+    el.dispatchEvent(ev);
+  });
 }
 /** Cards have no size in jsdom, so any positive clientY counts as the lower half. */
 const LOWER = 1;
@@ -32,13 +44,24 @@ describe("reordering rules by dragging", () => {
   let host: HTMLDivElement;
   let root: Root;
   const cards = () => Array.from(document.querySelectorAll(".rule-card"));
-  const names = () => cards().map((c) => c.querySelector('div[style*="font-weight"]')?.textContent);
-  const press = (i: number) => act(() => { cards()[i]!.querySelector(".drag-handle")!.dispatchEvent(new Event("pointerdown", { bubbles: true })); });
+  const names = () =>
+    cards().map((c) => c.querySelector('div[style*="font-weight"]')?.textContent);
+  const press = (i: number) =>
+    act(() => {
+      cards()
+        [i]!.querySelector(".drag-handle")!
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    });
 
   beforeEach(() => {
-    const rules = ["Newsletters", "From the boss", "Receipts"].map((name, i) => newRule({ id: `r${i}`, name }));
+    const rules = ["Newsletters", "From the boss", "Receipts"].map((name, i) =>
+      newRule({ id: `r${i}`, name }),
+    );
     useSieve.setState({
-      accountId: "a", available: true, loading: false, error: null,
+      accountId: "a",
+      available: true,
+      loading: false,
+      error: null,
       scripts: [{ id: "s1", name: "ihasmail", blobId: "b1", isActive: true }],
       contents: { s1: rulesToSieve(rules) },
     });
@@ -47,13 +70,24 @@ describe("reordering rules by dragging", () => {
     root = createRoot(host);
     act(() => root.render(<FiltersSettings />));
   });
-  afterEach(() => { act(() => root.unmount()); host.remove(); });
+  afterEach(() => {
+    act(() => root.unmount());
+    host.remove();
+  });
 
   it("arms dragging only from the handle of the rule pressed", () => {
     expect(cards()).toHaveLength(3);
-    expect(cards().map((c) => c.getAttribute("draggable"))).toEqual(["false", "false", "false"]);
+    expect(cards().map((c) => c.getAttribute("draggable"))).toEqual([
+      "false",
+      "false",
+      "false",
+    ]);
     press(1);
-    expect(cards().map((c) => c.getAttribute("draggable"))).toEqual(["false", "true", "false"]);
+    expect(cards().map((c) => c.getAttribute("draggable"))).toEqual([
+      "false",
+      "true",
+      "false",
+    ]);
   });
 
   it("drops a rule below the card it was dragged onto", () => {
@@ -65,7 +99,9 @@ describe("reordering rules by dragging", () => {
     expect(cards()[2]!.className).toContain("drop-below");
     fire(cards()[2]!, "drop", dt, LOWER);
     expect(names()).toEqual(["From the boss", "Receipts", "Newsletters"]);
-    expect(cards().every((c) => !/dragging|drop-(above|below)/.test(c.className))).toBe(true);
+    expect(cards().every((c) => !/dragging|drop-(above|below)/.test(c.className))).toBe(
+      true,
+    );
   });
 
   it("drops a rule above the card when the pointer is in its top half", () => {

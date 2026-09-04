@@ -60,7 +60,11 @@ export async function loadSettingsPolicy(): Promise<SettingsPolicy> {
       const res = await fetch(withBase("/api/config"), { credentials: "same-origin" });
       if (!res.ok) return EMPTY;
       const body = (await res.json()) as {
-        settingsPolicy?: { defaults?: Record<string, unknown>; enforced?: Record<string, unknown>; changes?: Array<{ version: string; settings: Record<string, unknown> }> };
+        settingsPolicy?: {
+          defaults?: Record<string, unknown>;
+          enforced?: Record<string, unknown>;
+          changes?: Array<{ version: string; settings: Record<string, unknown> }>;
+        };
       };
       policy = {
         defaults: known(body.settingsPolicy?.defaults ?? {}),
@@ -108,7 +112,10 @@ export function resetSettingsPolicyForTest(next: Partial<SettingsPolicy> = {}): 
     defaults: known((next.defaults ?? {}) as Record<string, unknown>),
     enforced: known((next.enforced ?? {}) as Record<string, unknown>),
     changes: (next.changes ?? [])
-      .map((c) => ({ version: c.version, settings: known(c.settings as Record<string, unknown>) }))
+      .map((c) => ({
+        version: c.version,
+        settings: known(c.settings as Record<string, unknown>),
+      }))
       .filter((c) => c.version && Object.keys(c.settings).length),
   };
   fetched = Promise.resolve(policy);

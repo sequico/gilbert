@@ -1,20 +1,37 @@
+import {
+  ChevronRight,
+  Download,
+  Eye,
+  File,
+  FilePen,
+  Folder,
+  FolderInput,
+  FolderOpen,
+  FolderPlus,
+  Home,
+  MoreVertical,
+  Pencil,
+  Share2,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { ChevronRight, Download, Eye, File, FilePen, Folder, FolderPlus, FolderOpen, Home, MoreVertical, Pencil, Share2, Trash2, Upload, FolderInput, X } from "lucide-react";
-import { useFiles } from "@/store/files";
 import { client } from "@/jmap/client";
 import type { FileNode, Id } from "@/jmap/types";
-import { formatSize, formatListDate } from "@/lib/format";
-import { canDropFileNodes, isShared, NODE_MIME, readDraggedIds } from "@/lib/filenode";
-import { previewKind } from "@/lib/preview";
 import { entriesFromDrop, hasDirectory, planUpload } from "@/lib/dropUpload";
-import { ShareDialog } from "../settings/ShareDialog";
+import { canDropFileNodes, isShared, NODE_MIME, readDraggedIds } from "@/lib/filenode";
+import { formatListDate, formatSize } from "@/lib/format";
+import { plural, t } from "@/lib/i18n";
+import { previewKind } from "@/lib/preview";
+import { useFiles } from "@/store/files";
+import { confirmDialog, Dialog, promptDialog } from "@/ui/dialog";
+import { FilePreviewDialog, type PreviewFile } from "@/ui/filepreview";
 import { Empty, Spinner } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
-import { confirmDialog, promptDialog, Dialog } from "@/ui/dialog";
-import { FilePreviewDialog, type PreviewFile } from "@/ui/filepreview";
 import { toast } from "@/ui/toast";
-import { plural, t } from "@/lib/i18n";
+import { ShareDialog } from "../settings/ShareDialog";
 
 export function FilesView({ nodeId }: { nodeId?: string }) {
   const [, navigate] = useLocation();
@@ -34,7 +51,9 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   /* What the open editor is editing, and the blob its text came from -- the
      baseline a save is checked against. Kept beside `preview` rather than in
      it, because the dialog is presentational and knows nothing about nodes. */
-  const [editTarget, setEditTarget] = useState<{ id: Id; blobId: Id | null } | null>(null);
+  const [editTarget, setEditTarget] = useState<{ id: Id; blobId: Id | null } | null>(
+    null,
+  );
   const [startInEdit, setStartInEdit] = useState(false);
   /* Shared with the sidebar tree, so a row dragged onto a folder there is
      recognised. See the note on `draggingId` in the store. */
@@ -80,18 +99,32 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     if (!files.available || !parentId) return;
     const n = files.nodes[parentId];
     if (!n) {
-      void client.call<{ list: FileNode[] }>("FileNode/get", { accountId: files.accountId, ids: [parentId], fetchParents: true }).then((r) => {
-        useFiles.setState((s) => {
-          const nodes = { ...s.nodes };
-          for (const x of r.list) nodes[x.id] = x;
-          return { nodes };
-        });
-      }).catch(() => undefined);
+      void client
+        .call<{ list: FileNode[] }>("FileNode/get", {
+          accountId: files.accountId,
+          ids: [parentId],
+          fetchParents: true,
+        })
+        .then((r) => {
+          useFiles.setState((s) => {
+            const nodes = { ...s.nodes };
+            for (const x of r.list) nodes[x.id] = x;
+            return { nodes };
+          });
+        })
+        .catch(() => undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parentId, files.available]);
 
-  if (!files.available) return <div className="p-16"><Empty icon={<FolderOpen size={40} />} title={t("File storage is not available")}>{t("This account does not have the JMAP file storage capability.")}</Empty></div>;
+  if (!files.available)
+    return (
+      <div className="p-16">
+        <Empty icon={<FolderOpen size={40} />} title={t("File storage is not available")}>
+          {t("This account does not have the JMAP file storage capability.")}
+        </Empty>
+      </div>
+    );
 
   const ids = files.children[parentId ?? "root"] ?? [];
   const nodes = ids.map((id) => files.nodes[id]).filter((n): n is FileNode => Boolean(n));
@@ -110,7 +143,9 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
       setDragging([]);
       if (canDropFileNodes(files.nodes, ids, into)) {
         setSelection(new Set());
-        void files.moveMany(ids, into).catch((err) => toast.error((err as Error).message));
+        void files
+          .moveMany(ids, into)
+          .catch((err) => toast.error((err as Error).message));
       }
       return;
     }
@@ -130,7 +165,13 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   const onDrop = (e: React.DragEvent) => dropOnto(parentId, e);
 
   const blobUrl = (n: FileNode, inline: boolean) =>
-    client.downloadUrl(files.accountId!, n.blobId!, n.name, n.type ?? "application/octet-stream", inline);
+    client.downloadUrl(
+      files.accountId!,
+      n.blobId!,
+      n.name,
+      n.type ?? "application/octet-stream",
+      inline,
+    );
 
   const download = (n: FileNode) => {
     if (!n.blobId) return;
@@ -151,7 +192,9 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
       const from = nodes.findIndex((x) => x.id === anchor);
       const to = nodes.findIndex((x) => x.id === n.id);
       if (from >= 0 && to >= 0) {
-        const run = nodes.slice(Math.min(from, to), Math.max(from, to) + 1).map((x) => x.id);
+        const run = nodes
+          .slice(Math.min(from, to), Math.max(from, to) + 1)
+          .map((x) => x.id);
         setSelection(new Set(ev.ctrlKey || ev.metaKey ? [...selection, ...run] : run));
         return;
       }
@@ -171,7 +214,12 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   /* Right-clicking inside the selection acts on all of it; right-clicking
      outside it means you meant that row, so the selection follows the pointer
      rather than the menu quietly applying to something off-screen. */
-  const menuFor = (n: FileNode, at: (x: number, y: number) => void, x: number, y: number) => {
+  const menuFor = (
+    n: FileNode,
+    at: (x: number, y: number) => void,
+    x: number,
+    y: number,
+  ) => {
     if (!selection.has(n.id)) {
       setSelection(new Set([n.id]));
       setAnchor(n.id);
@@ -183,14 +231,21 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   const selectedNodes = () => nodes.filter((n) => selection.has(n.id));
   /* What the menu and the bar act on: the whole selection when the row is part
      of it, and that row alone otherwise. */
-  const targets = (n: FileNode | null) => (n && selection.has(n.id) && selection.size > 1 ? selectedNodes() : n ? [n] : selectedNodes());
+  const targets = (n: FileNode | null) =>
+    n && selection.has(n.id) && selection.size > 1
+      ? selectedNodes()
+      : n
+        ? [n]
+        : selectedNodes();
 
   const removeNodes = async (list: FileNode[]) => {
     if (!list.length) return;
-    const title = list.length === 1
-      ? t("Delete “{name}”?", { name: list[0]!.name })
-      : plural(list.length, { one: "Delete {n} item?", other: "Delete {n} items?" });
-    if (!(await confirmDialog({ title, confirmLabel: t("Delete"), danger: true }))) return;
+    const title =
+      list.length === 1
+        ? t("Delete “{name}”?", { name: list[0]!.name })
+        : plural(list.length, { one: "Delete {n} item?", other: "Delete {n} items?" });
+    if (!(await confirmDialog({ title, confirmLabel: t("Delete"), danger: true })))
+      return;
     try {
       await files.destroy(list.map((n) => n.id));
       setSelection(new Set());
@@ -201,10 +256,19 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   };
 
   /* A file with nothing to show still does what it always did. */
-  const canPreview = (n: FileNode) => Boolean(n.blobId) && n.nodeType !== "directory" && previewKind(n.type, n.name) !== null;
+  const canPreview = (n: FileNode) =>
+    Boolean(n.blobId) &&
+    n.nodeType !== "directory" &&
+    previewKind(n.type, n.name) !== null;
 
   const openPreview = (n: FileNode, edit = false) => {
-    setPreview({ name: n.name, type: n.type ?? "application/octet-stream", size: n.size, url: blobUrl(n, false), inlineUrl: blobUrl(n, true) });
+    setPreview({
+      name: n.name,
+      type: n.type ?? "application/octet-stream",
+      size: n.size,
+      url: blobUrl(n, false),
+      inlineUrl: blobUrl(n, true),
+    });
     setEditTarget({ id: n.id, blobId: n.blobId });
     setStartInEdit(edit);
   };
@@ -212,7 +276,10 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   /* What the menu can tell from a row: text, and the right to write it. Whether
      it is *really* editable needs the bytes -- a truncated or non-UTF-8 file
      opens read-only and says so. */
-  const canEditFile = (n: FileNode) => canPreview(n) && previewKind(n.type, n.name) === "text" && Boolean(n.myRights?.mayModifyContent);
+  const canEditFile = (n: FileNode) =>
+    canPreview(n) &&
+    previewKind(n.type, n.name) === "text" &&
+    Boolean(n.myRights?.mayModifyContent);
 
   /*
    * Only offered where the reader may actually write: a folder shared read-only
@@ -241,35 +308,124 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   };
 
   return (
-    <div className={`files-layout ${dropping ? "dropping" : ""}`} onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setDropping(true); } else if (e.dataTransfer.types.includes(NODE_MIME) && canDropFileNodes(files.nodes, draggingIds, parentId)) { e.preventDefault(); } }} onDragLeave={() => setDropping(false)} onDrop={onDrop}>
+    <div
+      className={`files-layout ${dropping ? "dropping" : ""}`}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes("Files")) {
+          e.preventDefault();
+          setDropping(true);
+        } else if (
+          e.dataTransfer.types.includes(NODE_MIME) &&
+          canDropFileNodes(files.nodes, draggingIds, parentId)
+        ) {
+          e.preventDefault();
+        }
+      }}
+      onDragLeave={() => setDropping(false)}
+      onDrop={onDrop}
+    >
       <div className="files-toolbar">
         <div className="breadcrumb">
-          <button className={path.length ? "" : "current"} onClick={() => navigate("/files")}><Home size={16} /></button>
+          <button
+            className={path.length ? "" : "current"}
+            onClick={() => navigate("/files")}
+          >
+            <Home size={16} />
+          </button>
           {path.map((n, i) => (
             <span key={n.id} className="row gap-4">
               <ChevronRight size={14} className="faint" />
-              <button className={i === path.length - 1 ? "current" : ""} onClick={() => navigate(`/files/${n.id}`)}>{n.name}</button>
+              <button
+                className={i === path.length - 1 ? "current" : ""}
+                onClick={() => navigate(`/files/${n.id}`)}
+              >
+                {n.name}
+              </button>
             </span>
           ))}
         </div>
-        <button className="btn btn-sm" onClick={() => inputRef.current?.click()}><Upload size={16} />  {t("Upload")}</button>
-        <input ref={inputRef} type="file" multiple hidden onChange={(e) => { const l = Array.from(e.target.files ?? []); if (l.length) void files.upload(parentId, l); e.target.value = ""; }} />
-        <button className="btn btn-sm" onClick={async () => { const n = await promptDialog({ title: t("New folder"), placeholder: t("Folder name") }); if (n?.trim()) { try { await files.mkdir(parentId, n.trim()); } catch (err) { toast.error((err as Error).message); } } }}><FolderPlus size={16} />  {t("New folder")}</button>
+        <button className="btn btn-sm" onClick={() => inputRef.current?.click()}>
+          <Upload size={16} /> {t("Upload")}
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          hidden
+          onChange={(e) => {
+            const l = Array.from(e.target.files ?? []);
+            if (l.length) void files.upload(parentId, l);
+            e.target.value = "";
+          }}
+        />
+        <button
+          className="btn btn-sm"
+          onClick={async () => {
+            const n = await promptDialog({
+              title: t("New folder"),
+              placeholder: t("Folder name"),
+            });
+            if (n?.trim()) {
+              try {
+                await files.mkdir(parentId, n.trim());
+              } catch (err) {
+                toast.error((err as Error).message);
+              }
+            }
+          }}
+        >
+          <FolderPlus size={16} /> {t("New folder")}
+        </button>
       </div>
       {files.uploads.length > 0 && (
-        <div className="list-hint" style={{ flexDirection: "column", alignItems: "stretch", gap: 4 }}>
-          {files.uploads.map((u) => <div key={u.id} className="row"><span className="truncate grow">{u.name}</span>{u.error ? <span style={{ color: "var(--danger)" }}>{u.error}</span> : <span>{u.progress}%</span>}</div>)}
+        <div
+          className="list-hint"
+          style={{ flexDirection: "column", alignItems: "stretch", gap: 4 }}
+        >
+          {files.uploads.map((u) => (
+            <div key={u.id} className="row">
+              <span className="truncate grow">{u.name}</span>
+              {u.error ? (
+                <span style={{ color: "var(--danger)" }}>{u.error}</span>
+              ) : (
+                <span>{u.progress}%</span>
+              )}
+            </div>
+          ))}
         </div>
       )}
       {selection.size > 1 && (
         <div className="selection-bar">
-          <span className="grow">{plural(selection.size, { one: "{n} item selected", other: "{n} items selected" })}</span>
-          <button className="btn btn-sm" onClick={() => setMoveNodes(selectedNodes())}><FolderInput size={16} />  {t("Move to…")}</button>
-          <button className="btn btn-sm btn-danger" onClick={() => void removeNodes(selectedNodes())}><Trash2 size={16} />  {t("Delete")}</button>
-          <button className="icon-btn sm" aria-label={t("Clear selection")} title={t("Clear selection")} onClick={() => setSelection(new Set())}><X size={16} /></button>
+          <span className="grow">
+            {plural(selection.size, {
+              one: "{n} item selected",
+              other: "{n} items selected",
+            })}
+          </span>
+          <button className="btn btn-sm" onClick={() => setMoveNodes(selectedNodes())}>
+            <FolderInput size={16} /> {t("Move to…")}
+          </button>
+          <button
+            className="btn btn-sm btn-danger"
+            onClick={() => void removeNodes(selectedNodes())}
+          >
+            <Trash2 size={16} /> {t("Delete")}
+          </button>
+          <button
+            className="icon-btn sm"
+            aria-label={t("Clear selection")}
+            title={t("Clear selection")}
+            onClick={() => setSelection(new Set())}
+          >
+            <X size={16} />
+          </button>
         </div>
       )}
-      {files.error && <div className="error-box" style={{ margin: 12 }}>{files.error}</div>}
+      {files.error && (
+        <div className="error-box" style={{ margin: 12 }}>
+          {files.error}
+        </div>
+      )}
       <div
         className="files-scroll"
         /* Clicking past the last row clears the selection, the way it does in
@@ -287,11 +443,22 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
           menu.openAt(e.clientX, e.clientY);
         }}
       >
-        {files.loading && !nodes.length ? <Spinner /> : !nodes.length ? (
-          <Empty icon={<FolderOpen size={40} />} title={t("This folder is empty")}>{t("Drag files here or use Upload.")}</Empty>
+        {files.loading && !nodes.length ? (
+          <Spinner />
+        ) : !nodes.length ? (
+          <Empty icon={<FolderOpen size={40} />} title={t("This folder is empty")}>
+            {t("Drag files here or use Upload.")}
+          </Empty>
         ) : (
           <table className="files-table">
-            <thead><tr><th>{t("Name")}</th><th className="hide-mobile">{t("Size")}</th><th className="hide-mobile">{t("Modified")}</th><th /></tr></thead>
+            <thead>
+              <tr>
+                <th>{t("Name")}</th>
+                <th className="hide-mobile">{t("Size")}</th>
+                <th className="hide-mobile">{t("Modified")}</th>
+                <th />
+              </tr>
+            </thead>
             <tbody>
               {nodes.map((n) => (
                 <tr
@@ -302,7 +469,10 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                     /* Dragging a row that is part of the selection drags all of
                        it; dragging one outside the selection means that row. */
                     const ids = selection.has(n.id) ? [...selection] : [n.id];
-                    if (!selection.has(n.id)) { setSelection(new Set([n.id])); setAnchor(n.id); }
+                    if (!selection.has(n.id)) {
+                      setSelection(new Set([n.id]));
+                      setAnchor(n.id);
+                    }
                     e.dataTransfer.setData(NODE_MIME, ids.join(","));
                     e.dataTransfer.effectAllowed = "move";
                     setDragging(ids);
@@ -311,17 +481,74 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                   onDragOver={(e) => {
                     if (n.nodeType !== "directory") return;
                     const node = e.dataTransfer.types.includes(NODE_MIME);
-                    if (node ? !canDropFileNodes(files.nodes, draggingIds, n.id) : !e.dataTransfer.types.includes("Files")) return;
+                    if (
+                      node
+                        ? !canDropFileNodes(files.nodes, draggingIds, n.id)
+                        : !e.dataTransfer.types.includes("Files")
+                    )
+                      return;
                     e.preventDefault();
                     e.stopPropagation();
                     e.dataTransfer.dropEffect = node ? "move" : "copy";
                   }}
-                  onDrop={(e) => { if (n.nodeType === "directory") dropOnto(n.id, e); }}
-                  onClick={(e) => clickRow(n, e)} onDoubleClick={() => activate(n)} onContextMenu={(e) => { e.preventDefault(); menuFor(n, menu.openAt, e.clientX, e.clientY); }}>
-                  <td><div className="f-name">{n.nodeType === "directory" ? <Folder size={18} /> : <File size={18} />}<span onClick={(e) => { if (n.nodeType === "directory") { e.stopPropagation(); navigate(`/files/${n.id}`); } }} style={n.nodeType === "directory" ? { cursor: "pointer" } : undefined}>{n.name}</span>{isShared(n) && <Share2 size={13} className="faint" aria-label={t("Shared")} />}</div></td>
-                  <td className="hide-mobile muted">{n.nodeType === "directory" ? "—" : formatSize(n.size)}</td>
-                  <td className="hide-mobile muted">{formatListDate(n.modified ?? n.created)}</td>
-                  <td style={{ textAlign: "right" }}><button className="icon-btn sm" onClick={(e) => { e.stopPropagation(); if (!selection.has(n.id)) { setSelection(new Set([n.id])); setAnchor(n.id); } setMenuNode(n); menu.open(e); }} aria-label={t("Options")}><MoreVertical size={16} /></button></td>
+                  onDrop={(e) => {
+                    if (n.nodeType === "directory") dropOnto(n.id, e);
+                  }}
+                  onClick={(e) => clickRow(n, e)}
+                  onDoubleClick={() => activate(n)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    menuFor(n, menu.openAt, e.clientX, e.clientY);
+                  }}
+                >
+                  <td>
+                    <div className="f-name">
+                      {n.nodeType === "directory" ? (
+                        <Folder size={18} />
+                      ) : (
+                        <File size={18} />
+                      )}
+                      <span
+                        onClick={(e) => {
+                          if (n.nodeType === "directory") {
+                            e.stopPropagation();
+                            navigate(`/files/${n.id}`);
+                          }
+                        }}
+                        style={
+                          n.nodeType === "directory" ? { cursor: "pointer" } : undefined
+                        }
+                      >
+                        {n.name}
+                      </span>
+                      {isShared(n) && (
+                        <Share2 size={13} className="faint" aria-label={t("Shared")} />
+                      )}
+                    </div>
+                  </td>
+                  <td className="hide-mobile muted">
+                    {n.nodeType === "directory" ? "—" : formatSize(n.size)}
+                  </td>
+                  <td className="hide-mobile muted">
+                    {formatListDate(n.modified ?? n.created)}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <button
+                      className="icon-btn sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!selection.has(n.id)) {
+                          setSelection(new Set([n.id]));
+                          setAnchor(n.id);
+                        }
+                        setMenuNode(n);
+                        menu.open(e);
+                      }}
+                      aria-label={t("Options")}
+                    >
+                      <MoreVertical size={16} />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -331,47 +558,164 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
       <Popover anchor={menu.anchor} onClose={menu.close} width={200}>
         {!menuNode && (
           <>
-            <MenuItem icon={<Upload size={16} />} label={t("Upload files…")} onClick={() => inputRef.current?.click()} />
-            <MenuItem icon={<FolderPlus size={16} />} label={t("New folder")} onClick={async () => { const n = await promptDialog({ title: t("New folder"), placeholder: t("Folder name") }); if (n?.trim()) { try { await files.mkdir(parentId, n.trim()); } catch (err) { toast.error((err as Error).message); } } }} />
+            <MenuItem
+              icon={<Upload size={16} />}
+              label={t("Upload files…")}
+              onClick={() => inputRef.current?.click()}
+            />
+            <MenuItem
+              icon={<FolderPlus size={16} />}
+              label={t("New folder")}
+              onClick={async () => {
+                const n = await promptDialog({
+                  title: t("New folder"),
+                  placeholder: t("Folder name"),
+                });
+                if (n?.trim()) {
+                  try {
+                    await files.mkdir(parentId, n.trim());
+                  } catch (err) {
+                    toast.error((err as Error).message);
+                  }
+                }
+              }}
+            />
           </>
         )}
         {menuNode && targets(menuNode).length > 1 && (
           <>
-            <MenuItem icon={<FolderInput size={16} />} label={plural(targets(menuNode).length, { one: "Move {n} item…", other: "Move {n} items…" })} onClick={() => setMoveNodes(targets(menuNode))} />
+            <MenuItem
+              icon={<FolderInput size={16} />}
+              label={plural(targets(menuNode).length, {
+                one: "Move {n} item…",
+                other: "Move {n} items…",
+              })}
+              onClick={() => setMoveNodes(targets(menuNode))}
+            />
             <MenuSep />
-            <MenuItem danger icon={<Trash2 size={16} />} label={plural(targets(menuNode).length, { one: "Delete {n} item", other: "Delete {n} items" })} onClick={() => void removeNodes(targets(menuNode))} />
+            <MenuItem
+              danger
+              icon={<Trash2 size={16} />}
+              label={plural(targets(menuNode).length, {
+                one: "Delete {n} item",
+                other: "Delete {n} items",
+              })}
+              onClick={() => void removeNodes(targets(menuNode))}
+            />
           </>
         )}
         {menuNode && targets(menuNode).length <= 1 && (
           <>
-            {menuNode.nodeType === "directory" ? <MenuItem icon={<FolderOpen size={16} />} label={t("Open")} onClick={() => navigate(`/files/${menuNode.id}`)} /> : (
+            {menuNode.nodeType === "directory" ? (
+              <MenuItem
+                icon={<FolderOpen size={16} />}
+                label={t("Open")}
+                onClick={() => navigate(`/files/${menuNode.id}`)}
+              />
+            ) : (
               <>
-                {canPreview(menuNode) && <MenuItem icon={<Eye size={16} />} label={t("Preview")} onClick={() => openPreview(menuNode)} />}
-                {canEditFile(menuNode) && <MenuItem icon={<FilePen size={16} />} label={t("Edit")} onClick={() => openPreview(menuNode, true)} />}
-                <MenuItem icon={<Download size={16} />} label={t("Download")} onClick={() => download(menuNode)} />
+                {canPreview(menuNode) && (
+                  <MenuItem
+                    icon={<Eye size={16} />}
+                    label={t("Preview")}
+                    onClick={() => openPreview(menuNode)}
+                  />
+                )}
+                {canEditFile(menuNode) && (
+                  <MenuItem
+                    icon={<FilePen size={16} />}
+                    label={t("Edit")}
+                    onClick={() => openPreview(menuNode, true)}
+                  />
+                )}
+                <MenuItem
+                  icon={<Download size={16} />}
+                  label={t("Download")}
+                  onClick={() => download(menuNode)}
+                />
               </>
             )}
-            <MenuItem icon={<Pencil size={16} />} label={t("Rename")} disabled={!menuNode.myRights?.mayRename} onClick={async () => { const n = await promptDialog({ title: t("Rename"), defaultValue: menuNode.name }); if (n?.trim() && n !== menuNode.name) { try { await files.rename(menuNode.id, n.trim()); } catch (err) { toast.error((err as Error).message); } } }} />
-            <MenuItem icon={<FolderInput size={16} />} label={t("Move to…")} onClick={() => setMoveNodes([menuNode])} />
-            <MenuItem icon={<Share2 size={16} />} label={t("Share…")} disabled={!menuNode.myRights?.mayShare} onClick={() => setShareNode(menuNode)} />
+            <MenuItem
+              icon={<Pencil size={16} />}
+              label={t("Rename")}
+              disabled={!menuNode.myRights?.mayRename}
+              onClick={async () => {
+                const n = await promptDialog({
+                  title: t("Rename"),
+                  defaultValue: menuNode.name,
+                });
+                if (n?.trim() && n !== menuNode.name) {
+                  try {
+                    await files.rename(menuNode.id, n.trim());
+                  } catch (err) {
+                    toast.error((err as Error).message);
+                  }
+                }
+              }}
+            />
+            <MenuItem
+              icon={<FolderInput size={16} />}
+              label={t("Move to…")}
+              onClick={() => setMoveNodes([menuNode])}
+            />
+            <MenuItem
+              icon={<Share2 size={16} />}
+              label={t("Share…")}
+              disabled={!menuNode.myRights?.mayShare}
+              onClick={() => setShareNode(menuNode)}
+            />
             <MenuSep />
-            <MenuItem danger icon={<Trash2 size={16} />} label={t("Delete")} disabled={!menuNode.myRights?.mayDelete} onClick={() => void removeNodes([menuNode])} />
+            <MenuItem
+              danger
+              icon={<Trash2 size={16} />}
+              label={t("Delete")}
+              disabled={!menuNode.myRights?.mayDelete}
+              onClick={() => void removeNodes([menuNode])}
+            />
           </>
         )}
       </Popover>
-      {moveNodes && <MoveDialog nodes={moveNodes} onClose={() => setMoveNodes(null)} onMoved={() => setSelection(new Set())} />}
+      {moveNodes && (
+        <MoveDialog
+          nodes={moveNodes}
+          onClose={() => setMoveNodes(null)}
+          onMoved={() => setSelection(new Set())}
+        />
+      )}
       <FilePreviewDialog
         file={preview}
-        onClose={() => { setPreview(null); setEditTarget(null); setStartInEdit(false); }}
-        onSave={editTarget && canEditNode(files.nodes[editTarget.id]) ? saveEdited : undefined}
+        onClose={() => {
+          setPreview(null);
+          setEditTarget(null);
+          setStartInEdit(false);
+        }}
+        onSave={
+          editTarget && canEditNode(files.nodes[editTarget.id]) ? saveEdited : undefined
+        }
         startInEdit={startInEdit}
       />
-      {shareNode && <ShareDialog kind="FileNode" id={shareNode.id} name={shareNode.name} shareWith={shareNode.shareWith ?? null} onClose={() => setShareNode(null)} />}
+      {shareNode && (
+        <ShareDialog
+          kind="FileNode"
+          id={shareNode.id}
+          name={shareNode.name}
+          shareWith={shareNode.shareWith ?? null}
+          onClose={() => setShareNode(null)}
+        />
+      )}
     </div>
   );
 }
 
-function MoveDialog({ nodes, onClose, onMoved }: { nodes: FileNode[]; onClose: () => void; onMoved: () => void }) {
+function MoveDialog({
+  nodes,
+  onClose,
+  onMoved,
+}: {
+  nodes: FileNode[];
+  onClose: () => void;
+  onMoved: () => void;
+}) {
   const files = useFiles();
   const [cur, setCur] = useState<string | null>(null);
   useEffect(() => {
@@ -381,17 +725,68 @@ function MoveDialog({ nodes, onClose, onMoved }: { nodes: FileNode[]; onClose: (
   /* None of the folders being moved can be their own destination, and neither
      can a folder already holding all of them -- "Move here" would be a no-op. */
   const moving = new Set(nodes.map((n) => n.id));
-  const dirs = (files.children[cur ?? "root"] ?? []).map((id) => files.nodes[id]).filter((n): n is FileNode => Boolean(n && n.nodeType === "directory" && !moving.has(n.id)));
+  const dirs = (files.children[cur ?? "root"] ?? [])
+    .map((id) => files.nodes[id])
+    .filter((n): n is FileNode =>
+      Boolean(n && n.nodeType === "directory" && !moving.has(n.id)),
+    );
   const path = files.pathTo(cur);
   const already = nodes.every((n) => (n.parentId ?? null) === cur);
-  const title = nodes.length === 1 ? t("Move \u201c{name}\u201d", { name: nodes[0]!.name }) : plural(nodes.length, { one: "Move {n} item", other: "Move {n} items" });
+  const title =
+    nodes.length === 1
+      ? t("Move \u201c{name}\u201d", { name: nodes[0]!.name })
+      : plural(nodes.length, { one: "Move {n} item", other: "Move {n} items" });
   return (
-    <Dialog open onClose={onClose} title={title} size="sm" footer={<><button className="btn" onClick={onClose}>{t("Cancel")}</button><button className="btn btn-primary" disabled={already} onClick={async () => { try { await files.moveMany(nodes.map((n) => n.id), cur); toast.success(t("Moved")); onMoved(); onClose(); } catch (err) { toast.error((err as Error).message); } }}>{t("Move here")}</button></>}>
+    <Dialog
+      open
+      onClose={onClose}
+      title={title}
+      size="sm"
+      footer={
+        <>
+          <button className="btn" onClick={onClose}>
+            {t("Cancel")}
+          </button>
+          <button
+            className="btn btn-primary"
+            disabled={already}
+            onClick={async () => {
+              try {
+                await files.moveMany(
+                  nodes.map((n) => n.id),
+                  cur,
+                );
+                toast.success(t("Moved"));
+                onMoved();
+                onClose();
+              } catch (err) {
+                toast.error((err as Error).message);
+              }
+            }}
+          >
+            {t("Move here")}
+          </button>
+        </>
+      }
+    >
       <div className="breadcrumb mb-8">
-        <button onClick={() => setCur(null)}><Home size={14} /></button>
-        {path.map((n) => <span key={n.id} className="row gap-4"><ChevronRight size={12} /><button onClick={() => setCur(n.id)}>{n.name}</button></span>)}
+        <button onClick={() => setCur(null)}>
+          <Home size={14} />
+        </button>
+        {path.map((n) => (
+          <span key={n.id} className="row gap-4">
+            <ChevronRight size={12} />
+            <button onClick={() => setCur(n.id)}>{n.name}</button>
+          </span>
+        ))}
       </div>
-      {dirs.map((d) => <button key={d.id} className="menu-item" onClick={() => setCur(d.id)}><Folder size={16} /><span className="grow">{d.name}</span><ChevronRight size={14} /></button>)}
+      {dirs.map((d) => (
+        <button key={d.id} className="menu-item" onClick={() => setCur(d.id)}>
+          <Folder size={16} />
+          <span className="grow">{d.name}</span>
+          <ChevronRight size={14} />
+        </button>
+      ))}
       {!dirs.length && <p className="hint">{t("No subfolders here.")}</p>}
     </Dialog>
   );

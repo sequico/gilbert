@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, DEVICE_KEYS, acceptRemote, isDarkTheme, syncedPart, useSettings, type Theme } from "@/store/settings";
-import { toggleTarget, type Mode, type PaletteId } from "@/lib/palette";
+import { type Mode, type PaletteId, toggleTarget } from "@/lib/palette";
 import { loadJson, saveJson, setDeviceTrusted } from "@/lib/storage";
+import {
+  acceptRemote,
+  DEFAULT_SETTINGS,
+  DEVICE_KEYS,
+  isDarkTheme,
+  syncedPart,
+  type Theme,
+  useSettings,
+} from "@/store/settings";
 
 /**
  * "ihasmail" is a dark theme wearing ihasmail.org's palette. Everything that
@@ -109,7 +117,10 @@ describe("the top-bar toggle", () => {
     // deposit you on plain dark.
     const away = toggleTarget({ palette: "ihasmail", mode: "dark" }, false);
     expect(toggleTarget(away, false).palette).toBe("ihasmail");
-    expect(toggleTarget({ palette: "default", mode: "light" }, false)).toMatchObject({ palette: "default", mode: "dark" });
+    expect(toggleTarget({ palette: "default", mode: "light" }, false)).toMatchObject({
+      palette: "default",
+      mode: "dark",
+    });
   });
 });
 
@@ -162,20 +173,31 @@ describe("where the theme settings live", () => {
   });
 
   it("is applied from a settings file another device wrote", () => {
-    expect(acceptRemote({ palette: "gruvbox", mode: "light" })).toEqual({ palette: "gruvbox", mode: "light" });
+    expect(acceptRemote({ palette: "gruvbox", mode: "light" })).toEqual({
+      palette: "gruvbox",
+      mode: "light",
+    });
   });
 
   it("reads a file written before palettes existed through the old enum", () => {
     // Settings live in the account's Files and are opened by whatever version
     // runs next, so this is not a one-release migration.
-    expect(acceptRemote({ theme: "ihasmail" })).toMatchObject({ palette: "ihasmail", mode: "dark" });
-    expect(acceptRemote({ theme: "light" })).toMatchObject({ palette: "default", mode: "light" });
+    expect(acceptRemote({ theme: "ihasmail" })).toMatchObject({
+      palette: "ihasmail",
+      mode: "dark",
+    });
+    expect(acceptRemote({ theme: "light" })).toMatchObject({
+      palette: "default",
+      mode: "light",
+    });
   });
 
   it("prefers the new fields when a file carries both", () => {
     // A file with both is newer, and its `theme` is the derived copy rather
     // than the choice -- so it must not overrule the palette beside it.
-    expect(acceptRemote({ theme: "dark", palette: "rose-pine", mode: "light" })).toMatchObject({
+    expect(
+      acceptRemote({ theme: "dark", palette: "rose-pine", mode: "light" }),
+    ).toMatchObject({
       palette: "rose-pine",
       mode: "light",
     });

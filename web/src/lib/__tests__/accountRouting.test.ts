@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { accountForCapability, ownAccountForCapability, type SessionLike } from "@/lib/accountRouting";
+import {
+  accountForCapability,
+  ownAccountForCapability,
+  type SessionLike,
+} from "@/lib/accountRouting";
 
 /**
  * Found by sharing a folder between two real accounts.
@@ -20,7 +24,10 @@ const MAIL = "urn:ietf:params:jmap:mail";
 /** Mine does everything; theirs is a shared account with only files on it. */
 const shared = (): SessionLike => ({
   accounts: {
-    mine: { isPersonal: true, accountCapabilities: { [MAIL]: {}, [FILES]: {}, [CAL]: {} } },
+    mine: {
+      isPersonal: true,
+      accountCapabilities: { [MAIL]: {}, [FILES]: {}, [CAL]: {} },
+    },
     theirs: { isPersonal: false, accountCapabilities: { [FILES]: {} } },
   },
   primaryAccounts: { [MAIL]: "mine", [FILES]: "mine", [CAL]: "mine" },

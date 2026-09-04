@@ -1,12 +1,20 @@
 export function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 const URL_RE = /\b((?:https?:\/\/|www\.)[^\s<>"'()]+[^\s<>"'().,;:!?])/gi;
 const EMAIL_RE = /\b([a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})\b/gi;
 
 /** Convert plain text into safe HTML with links and quote-level coloring. */
-export function textToHtml(text: string, opts: { linkify?: boolean; quoteColors?: boolean } = {}): string {
+export function textToHtml(
+  text: string,
+  opts: { linkify?: boolean; quoteColors?: boolean } = {},
+): string {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
   const out: string[] = [];
   for (const line of lines) {
@@ -55,7 +63,10 @@ export function htmlToText(html: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   doc.querySelectorAll("script,style,head,title,noscript").forEach((n) => n.remove());
   const out: string[] = [];
-  const walk = (node: Node, ctx: { pre: boolean; listIndex: number[]; quote: number }) => {
+  const walk = (
+    node: Node,
+    ctx: { pre: boolean; listIndex: number[]; quote: number },
+  ) => {
     if (node.nodeType === Node.TEXT_NODE) {
       const t = node.textContent ?? "";
       out.push(ctx.pre ? t : t.replace(/\s+/g, " "));
@@ -64,7 +75,10 @@ export function htmlToText(html: string): string {
     if (node.nodeType !== Node.ELEMENT_NODE) return;
     const el = node as HTMLElement;
     const tag = el.tagName.toLowerCase();
-    const block = /^(p|div|section|article|header|footer|h[1-6]|ul|ol|li|table|tr|blockquote|pre|hr|br|address|center|dl|dt|dd|form|fieldset|figure|figcaption)$/.test(tag);
+    const block =
+      /^(p|div|section|article|header|footer|h[1-6]|ul|ol|li|table|tr|blockquote|pre|hr|br|address|center|dl|dt|dd|form|fieldset|figure|figcaption)$/.test(
+        tag,
+      );
     if (tag === "br") {
       out.push("\n");
       return;
@@ -112,7 +126,14 @@ export function htmlToText(html: string): string {
       el.childNodes.forEach((c) => walk(c, nextCtx));
       const inner = out.splice(start).join("");
       const text = inner.trim();
-      if (href && !href.startsWith("mailto:") && text && text !== href && !href.startsWith("#")) out.push(`${text} <${href}>`);
+      if (
+        href &&
+        !href.startsWith("mailto:") &&
+        text &&
+        text !== href &&
+        !href.startsWith("#")
+      )
+        out.push(`${text} <${href}>`);
       else out.push(inner);
       return;
     }
@@ -151,7 +172,7 @@ export function wrapText(text: string, width = 76): string {
       const lines: string[] = [];
       let cur = "";
       for (const w of words) {
-        if ((cur + " " + w).trim().length > width && cur) {
+        if (`${cur} ${w}`.trim().length > width && cur) {
           lines.push(cur);
           cur = w;
         } else cur = cur ? `${cur} ${w}` : w;
@@ -168,7 +189,10 @@ export function stripHtml(html: string): string {
 }
 
 /** Normalize a subject for reply/forward: strip existing prefixes, add new. */
-export function replySubject(subject: string | null | undefined, prefix: "Re" | "Fwd"): string {
+export function replySubject(
+  subject: string | null | undefined,
+  prefix: "Re" | "Fwd",
+): string {
   const s = (subject ?? "").trim();
   const stripped = s.replace(/^((re|fw|fwd|aw|sv|vs|tr|wg)\s*:\s*)+/i, "");
   if (prefix === "Re" && /^re\s*:/i.test(s)) return s;
@@ -180,13 +204,21 @@ export function replySubject(subject: string | null | undefined, prefix: "Re" | 
 export function findQuoteStart(lines: string[]): number {
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i]!;
-    if (/^On .+wrote:\s*$/.test(l) || /^-{3,}\s*Original Message\s*-{3,}$/i.test(l) || /^_{5,}$/.test(l) || /^From:\s.+$/.test(l) && i + 1 < lines.length && /^(Sent|Date|To):/.test(lines[i + 1] ?? "")) {
+    if (
+      /^On .+wrote:\s*$/.test(l) ||
+      /^-{3,}\s*Original Message\s*-{3,}$/i.test(l) ||
+      /^_{5,}$/.test(l) ||
+      (/^From:\s.+$/.test(l) &&
+        i + 1 < lines.length &&
+        /^(Sent|Date|To):/.test(lines[i + 1] ?? ""))
+    ) {
       return i;
     }
     if (l.startsWith(">") && i > 0) {
       // First run of quote lines after some content
       let allQuoted = true;
-      for (let j = i; j < Math.min(lines.length, i + 3); j++) if (!lines[j]!.startsWith(">") && lines[j]!.trim() !== "") allQuoted = false;
+      for (let j = i; j < Math.min(lines.length, i + 3); j++)
+        if (!lines[j]!.startsWith(">") && lines[j]!.trim() !== "") allQuoted = false;
       if (allQuoted) return i;
     }
   }

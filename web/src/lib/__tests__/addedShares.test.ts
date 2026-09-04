@@ -19,12 +19,19 @@ import { describe, expect, it } from "vitest";
 const key = (accountId: string, id: string) => `${accountId}:${id}`;
 
 /** Added if the server remembered it, or the reader's settings did. */
-function isAdded(collection: { accountId: string; id: string; isSubscribed?: boolean }, addedShares: string[]): boolean {
-  return Boolean(collection.isSubscribed) || new Set(addedShares).has(key(collection.accountId, collection.id));
+function isAdded(
+  collection: { accountId: string; id: string; isSubscribed?: boolean },
+  addedShares: string[],
+): boolean {
+  return (
+    Boolean(collection.isSubscribed) ||
+    new Set(addedShares).has(key(collection.accountId, collection.id))
+  );
 }
 
-const book = (over: Partial<{ accountId: string; id: string; isSubscribed: boolean }> = {}) =>
-  ({ accountId: "acct", id: "ab1", ...over });
+const book = (
+  over: Partial<{ accountId: string; id: string; isSubscribed: boolean }> = {},
+) => ({ accountId: "acct", id: "ab1", ...over });
 
 describe("whether a shared collection has been added", () => {
   it("is added when the server took the subscription", () => {

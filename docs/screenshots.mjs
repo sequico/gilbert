@@ -37,24 +37,39 @@
  * README came to show the same theme twice for months.
  */
 import { spawn } from "node:child_process";
-import { writeFile, mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const OUT = process.argv[2];
-if (!OUT) { console.error("usage: node shots.mjs <out-dir>"); process.exit(2); }
+if (!OUT) {
+  console.error("usage: node shots.mjs <out-dir>");
+  process.exit(2);
+}
 await mkdir(OUT, { recursive: true });
 
 const PORT = 9333;
-const chrome = spawn("google-chrome-stable", [
-  "--headless=new", `--remote-debugging-port=${PORT}`, "--hide-scrollbars",
-  "--no-first-run", "--no-default-browser-check", "--disable-gpu",
-  `--user-data-dir=/tmp/ihasmail-shots-profile`, "about:blank",
-], { stdio: "ignore" });
+const chrome = spawn(
+  "google-chrome-stable",
+  [
+    "--headless=new",
+    `--remote-debugging-port=${PORT}`,
+    "--hide-scrollbars",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--disable-gpu",
+    `--user-data-dir=/tmp/ihasmail-shots-profile`,
+    "about:blank",
+  ],
+  { stdio: "ignore" },
+);
 
 const json = async (path) => {
   for (let i = 0; i < 60; i++) {
-    try { return await (await fetch(`http://127.0.0.1:${PORT}${path}`)).json(); }
-    catch { await sleep(250); }
+    try {
+      return await (await fetch(`http://127.0.0.1:${PORT}${path}`)).json();
+    } catch {
+      await sleep(250);
+    }
   }
   throw new Error("Chrome did not come up");
 };
@@ -63,7 +78,10 @@ const version = await json("/json/version");
 let nextId = 1;
 const pending = new Map();
 const ws = new WebSocket(version.webSocketDebuggerUrl);
-await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
+await new Promise((res, rej) => {
+  ws.onopen = res;
+  ws.onerror = rej;
+});
 ws.onmessage = (m) => {
   const msg = JSON.parse(m.data);
   if (msg.id && pending.has(msg.id)) {
@@ -72,11 +90,12 @@ ws.onmessage = (m) => {
     msg.error ? reject(new Error(JSON.stringify(msg.error))) : resolve(msg.result);
   }
 };
-const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
-  const id = nextId++;
-  pending.set(id, { resolve, reject });
-  ws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
-});
+const send = (method, params = {}, sessionId) =>
+  new Promise((resolve, reject) => {
+    const id = nextId++;
+    pending.set(id, { resolve, reject });
+    ws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
+  });
 
 const { targetId } = await send("Target.createTarget", { url: "about:blank" });
 const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true });
@@ -84,10 +103,15 @@ const cmd = (m, p) => send(m, p, sessionId);
 await cmd("Page.enable");
 await cmd("Runtime.enable");
 
-let current = { width: 1420, height: 703, mobile: false };
+let _current = { width: 1420, height: 703, mobile: false };
 const metrics = (width, height, mobile = false) => {
-  current = { width, height, mobile };
-  return cmd("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile });
+  _current = { width, height, mobile };
+  return cmd("Emulation.setDeviceMetricsOverride", {
+    width,
+    height,
+    deviceScaleFactor: 1,
+    mobile,
+  });
 };
 
 /**
@@ -101,14 +125,24 @@ const metrics = (width, height, mobile = false) => {
 const repaint = async () => {
   // Detaching and reattaching the body invalidates every layer; nudging the
   // viewport did not, and the capture kept coming back with mixed themes.
-  await evaluate(`(() => { const b = document.body; b.style.display = 'none'; void b.offsetHeight; b.style.display = ''; })()`);
+  await evaluate(
+    `(() => { const b = document.body; b.style.display = 'none'; void b.offsetHeight; b.style.display = ''; })()`,
+  );
   await sleep(500);
 };
 
-const go = async (url) => { await cmd("Page.navigate", { url }); await sleep(1200); };
+const go = async (url) => {
+  await cmd("Page.navigate", { url });
+  await sleep(1200);
+};
 const evaluate = async (expression) => {
-  const r = await cmd("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
-  if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? "eval failed");
+  const r = await cmd("Runtime.evaluate", {
+    expression,
+    awaitPromise: true,
+    returnByValue: true,
+  });
+  if (r.exceptionDetails)
+    throw new Error(r.exceptionDetails.exception?.description ?? "eval failed");
   return r.result.value;
 };
 /** Polls a predicate inside the page until it is true, or gives up loudly. */
@@ -130,11 +164,12 @@ const waitFor = async (jsExpr, what, ms = 15000) => {
  *
  * The check is the rendered background colour: the attribute is what lied.
  */
-const themeTest = (want) => want === "light"
-  ? "parseInt(getComputedStyle(document.body).backgroundColor.match(/\\d+/)[0], 10) > 200"
-  : "parseInt(getComputedStyle(document.body).backgroundColor.match(/\\d+/)[0], 10) < 60";
+const themeTest = (want) =>
+  want === "light"
+    ? "parseInt(getComputedStyle(document.body).backgroundColor.match(/\\d+/)[0], 10) > 200"
+    : "parseInt(getComputedStyle(document.body).backgroundColor.match(/\\d+/)[0], 10) < 60";
 
-const setTheme = async (want) => {
+const _setTheme = async (want) => {
   await evaluate(`(() => {
     const html = document.documentElement;
     const want = ${JSON.stringify(want)};
@@ -148,8 +183,9 @@ const setTheme = async (want) => {
 };
 
 /** Refuses to write the file unless the page still looks the way it should. */
-const assertTheme = async (want) => {
-  if (!(await evaluate(themeTest(want)))) throw new Error(`page is not rendering the ${want} theme at capture time`);
+const _assertTheme = async (want) => {
+  if (!(await evaluate(themeTest(want))))
+    throw new Error(`page is not rendering the ${want} theme at capture time`);
 };
 const shot = async (name) => {
   const { data } = await cmd("Page.captureScreenshot", { format: "jpeg", quality: 82 });
@@ -184,7 +220,10 @@ try {
     window.__set(pw, 'demo');
     window.__btn('Sign in').click();
   })()`);
-  await waitFor("document.querySelector('.msg-row') || document.querySelector('.nav-item')", "the app after sign-in");
+  await waitFor(
+    "document.querySelector('.msg-row') || document.querySelector('.nav-item')",
+    "the app after sign-in",
+  );
   await sleep(1500);
 
   // --- inbox, dark, with a conversation open ---
@@ -192,7 +231,9 @@ try {
   await go("http://localhost:5173/mail");
   await evaluate(HELPERS);
   await waitFor("document.querySelectorAll('.msg-row').length > 2", "the message list");
-  await evaluate(`(() => { const r = document.querySelectorAll('.msg-row'); if (r[1]) r[1].click(); })()`);
+  await evaluate(
+    `(() => { const r = document.querySelectorAll('.msg-row'); if (r[1]) r[1].click(); })()`,
+  );
   await sleep(1800);
   await shot("inbox-dark.jpg");
 
@@ -213,25 +254,34 @@ try {
     const b = [...document.querySelectorAll('button')].find(x => x.getAttribute('aria-label') === 'Choose from address books');
     if (b) b.click();
   })()`);
-  await waitFor("/Choose recipients/.test(document.body.innerText)", "the recipient picker");
+  await waitFor(
+    "/Choose recipients/.test(document.body.innerText)",
+    "the recipient picker",
+  );
   await evaluate(`(() => {
     // Two ticked, so the shot shows a selection rather than an empty list.
     for (const b of [...document.querySelectorAll('.menu-item input[type=checkbox]')].slice(0, 2)) b.click();
   })()`);
   await sleep(1500);
   await shot("recipients.jpg");
-  await evaluate(`(() => { const c = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Cancel'); if (c) c.click(); })()`);
+  await evaluate(
+    `(() => { const c = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Cancel'); if (c) c.click(); })()`,
+  );
   await sleep(600);
 
-  await evaluate(`(() => { const c = [...document.querySelectorAll('button')].find(b => /close|discard/i.test(b.getAttribute('aria-label')||'')); if (c) c.click(); })()`);
+  await evaluate(
+    `(() => { const c = [...document.querySelectorAll('button')].find(b => /close|discard/i.test(b.getAttribute('aria-label')||'')); if (c) c.click(); })()`,
+  );
   await sleep(800);
 
   // (inbox-light is captured by docs/screenshots-light.mjs -- see the header)
 
-
   // --- calendar ---
   await go("http://localhost:5173/calendar");
-  await waitFor("document.querySelector('.cal-grid, .calendar, [class*=cal]')", "the calendar");
+  await waitFor(
+    "document.querySelector('.cal-grid, .calendar, [class*=cal]')",
+    "the calendar",
+  );
   await evaluate(HELPERS);
   // The README caption promises the month view.
   await evaluate(`(() => { const b = window.__btn('Month'); if (b) b.click(); })()`);
@@ -248,7 +298,11 @@ try {
       .sort((a, b) => a.textContent.length - b.textContent.length)[0];
     if (hit) (hit.closest('li, button, a, [class*=row], [class*=item]') || hit).click();
   })()`);
-  await waitFor("!/Select a contact/.test(document.body.innerText)", "the contact detail pane", 8000);
+  await waitFor(
+    "!/Select a contact/.test(document.body.innerText)",
+    "the contact detail pane",
+    8000,
+  );
   await sleep(1800);
   await shot("contacts.jpg");
 
@@ -258,7 +312,10 @@ try {
   // a folder is now the difference between a screenshot of a file manager and a
   // screenshot of a list.
   await go("http://localhost:5173/files");
-  await waitFor("document.querySelector('.files-table, .files-layout')", "the files view");
+  await waitFor(
+    "document.querySelector('.files-table, .files-layout')",
+    "the files view",
+  );
   await evaluate(`(() => {
     // Expand the tree and open a folder, so the shot shows the pane doing its job.
     const twisty = document.querySelector('.sidebar .nav-twisty');
@@ -272,7 +329,10 @@ try {
   // --- filters, with rules that actually say something ---
   await go("http://localhost:5173/settings/filters");
   await evaluate(HELPERS);
-  await waitFor("[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'New rule')", "the filters editor");
+  await waitFor(
+    "[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'New rule')",
+    "the filters editor",
+  );
   await evaluate(`(async () => {
     const wait = (ms=350) => new Promise(r => setTimeout(r, ms));
     const rules = [

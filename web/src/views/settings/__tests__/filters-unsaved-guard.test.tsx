@@ -1,11 +1,11 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { FiltersSettings } from "../FiltersSettings";
-import { ConfirmHost } from "@/ui/dialog";
-import { useSieve } from "@/store/sieve";
-import { hasUnsavedChanges } from "@/lib/unsavedChanges";
 import { newRule, rulesToSieve } from "@/lib/sieve";
+import { hasUnsavedChanges } from "@/lib/unsavedChanges";
+import { useSieve } from "@/store/sieve";
+import { ConfirmHost } from "@/ui/dialog";
+import { FiltersSettings } from "../FiltersSettings";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -29,7 +29,12 @@ describe("leaving the filter editors with unsaved changes", () => {
   let host: HTMLDivElement;
   let root: Root;
   let live = false;
-  const unmount = () => { if (live) { act(() => root.unmount()); live = false; } };
+  const unmount = () => {
+    if (live) {
+      act(() => root.unmount());
+      live = false;
+    }
+  };
   /**
    * The dialog queue is a module-level store, so a question nobody answered
    * outlives the test that asked it and is the one the next test finds on
@@ -42,27 +47,45 @@ describe("leaving the filter editors with unsaved changes", () => {
     }
   };
 
-  const byText = (sel: string, text: string) => Array.from(document.querySelectorAll(sel)).find((e) => e.textContent?.includes(text));
+  const byText = (sel: string, text: string) =>
+    Array.from(document.querySelectorAll(sel)).find((e) => e.textContent?.includes(text));
   const tab = (label: string) => byText(".view-switch button", label);
   const dialogChoice = (label: string) => byText(".dialog-choice", label);
-  const onScriptsTab = () => Boolean(document.body.textContent?.includes("manage raw Sieve scripts"));
+  const onScriptsTab = () =>
+    Boolean(document.body.textContent?.includes("manage raw Sieve scripts"));
   /** The first rule's on/off switch: flipping it is the smallest possible edit. */
   const firstToggle = () => document.querySelector(".rule-card .switch");
 
   beforeEach(() => {
-    const rules = ["Newsletters", "From the boss"].map((name, i) => newRule({ id: `r${i}`, name }));
+    const rules = ["Newsletters", "From the boss"].map((name, i) =>
+      newRule({ id: `r${i}`, name }),
+    );
     useSieve.setState({
-      accountId: "a", available: true, loading: false, error: null,
+      accountId: "a",
+      available: true,
+      loading: false,
+      error: null,
       scripts: [{ id: "s1", name: "ihasmail", blobId: "b1", isActive: true }],
       contents: { s1: rulesToSieve(rules) },
     });
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
-    act(() => root.render(<><FiltersSettings /><ConfirmHost /></>));
+    act(() =>
+      root.render(
+        <>
+          <FiltersSettings />
+          <ConfirmHost />
+        </>,
+      ),
+    );
     live = true;
   });
-  afterEach(async () => { await drain(); unmount(); host.remove(); });
+  afterEach(async () => {
+    await drain();
+    unmount();
+    host.remove();
+  });
 
   it("has nothing to ask about until something is edited", async () => {
     expect(hasUnsavedChanges()).toBe(false);

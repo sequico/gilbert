@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isUnknownMailbox } from "@/lib/mailboxRoute";
 import type { Mailbox } from "@/jmap/types";
+import { isUnknownMailbox } from "@/lib/mailboxRoute";
 
 /**
  * Issue #111: a folder id the account does not have rendered the ordinary
@@ -20,27 +20,44 @@ const boxes = (...ids: string[]): Record<string, Mailbox> =>
 
 describe("spotting a folder the account does not have", () => {
   it("is unknown when the list is loaded and does not contain it", () => {
-    expect(isUnknownMailbox({ mailboxId: "ghost", mailboxes: boxes("a", "b"), loaded: true })).toBe(true);
+    expect(
+      isUnknownMailbox({ mailboxId: "ghost", mailboxes: boxes("a", "b"), loaded: true }),
+    ).toBe(true);
   });
 
   it("is not unknown when the list contains it", () => {
-    expect(isUnknownMailbox({ mailboxId: "a", mailboxes: boxes("a", "b"), loaded: true })).toBe(false);
+    expect(
+      isUnknownMailbox({ mailboxId: "a", mailboxes: boxes("a", "b"), loaded: true }),
+    ).toBe(false);
   });
 });
 
 describe("what it refuses to call unknown", () => {
   it("says nothing before the folder list has arrived", () => {
     // The whole point. Every id is unknown at this moment, the real one too.
-    expect(isUnknownMailbox({ mailboxId: "a", mailboxes: {}, loaded: false })).toBe(false);
-    expect(isUnknownMailbox({ mailboxId: "ghost", mailboxes: {}, loaded: false })).toBe(false);
+    expect(isUnknownMailbox({ mailboxId: "a", mailboxes: {}, loaded: false })).toBe(
+      false,
+    );
+    expect(isUnknownMailbox({ mailboxId: "ghost", mailboxes: {}, loaded: false })).toBe(
+      false,
+    );
   });
 
   it("says nothing when there is no folder in the address", () => {
     // /mail has its own redirect to the inbox; this must not race it.
-    expect(isUnknownMailbox({ mailboxId: undefined, mailboxes: boxes("a"), loaded: true })).toBe(false);
+    expect(
+      isUnknownMailbox({ mailboxId: undefined, mailboxes: boxes("a"), loaded: true }),
+    ).toBe(false);
   });
 
   it("says nothing on a search, which has no folder to be wrong about", () => {
-    expect(isUnknownMailbox({ mailboxId: "ghost", mailboxes: boxes("a"), loaded: true, search: true })).toBe(false);
+    expect(
+      isUnknownMailbox({
+        mailboxId: "ghost",
+        mailboxes: boxes("a"),
+        loaded: true,
+        search: true,
+      }),
+    ).toBe(false);
   });
 });

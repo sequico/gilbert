@@ -21,11 +21,15 @@ function session(caps: string[]): JmapSession {
 /** Capture the `using` array of the single request a batch produces. */
 function captureUsing(): () => string[] {
   const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as { methodCalls: [string, unknown, string][] };
+    const body = JSON.parse(init.body as string) as {
+      methodCalls: [string, unknown, string][];
+    };
     return {
       ok: true,
       status: 200,
-      json: async () => ({ methodResponses: body.methodCalls.map(([, , id]) => ["ok", {}, id]) }),
+      json: async () => ({
+        methodResponses: body.methodCalls.map(([, , id]) => ["ok", {}, id]),
+      }),
     } as Response;
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -56,7 +60,10 @@ describe("request `using`", () => {
 
   it("names it for Identity/set too, so identities can be created", async () => {
     const using = captureUsing();
-    await client.call("Identity/set", { accountId: "a1", create: { n: { email: "a@b.c" } } });
+    await client.call("Identity/set", {
+      accountId: "a1",
+      create: { n: { email: "a@b.c" } },
+    });
     expect(using()).toContain(CAP.submission);
   });
 

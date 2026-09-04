@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { useSieve } from "@/store/sieve";
-import { newRule, rulesToSieve } from "@/lib/sieve";
 import type { SieveScript } from "@/jmap/types";
+import { newRule, rulesToSieve } from "@/lib/sieve";
+import { useSieve } from "@/store/sieve";
 
 /**
  * Issue #76: adding a filter from a message reported success, and the script
@@ -19,11 +19,26 @@ import type { SieveScript } from "@/jmap/types";
  * an unreadable script must never present as an empty one.
  */
 
-const SCRIPT: SieveScript = { id: "s1", name: "ihasmail", isActive: true, blobId: "b1" } as SieveScript;
-const threeRules = [newRule({ name: "One" }), newRule({ name: "Two" }), newRule({ name: "Three" })];
+const SCRIPT: SieveScript = {
+  id: "s1",
+  name: "ihasmail",
+  isActive: true,
+  blobId: "b1",
+} as SieveScript;
+const threeRules = [
+  newRule({ name: "One" }),
+  newRule({ name: "Two" }),
+  newRule({ name: "Three" }),
+];
 
 beforeEach(() => {
-  useSieve.setState({ accountId: "a1", scripts: [SCRIPT], contents: {}, loading: false, error: null });
+  useSieve.setState({
+    accountId: "a1",
+    scripts: [SCRIPT],
+    contents: {},
+    loading: false,
+    error: null,
+  });
 });
 
 describe("a script whose content could not be read", () => {
@@ -35,12 +50,16 @@ describe("a script whose content could not be read", () => {
   });
 
   it("refuses to save rather than overwriting what it cannot see", async () => {
-    await expect(useSieve.getState().saveRules([newRule({ name: "New" })])).rejects.toThrow(/could not be read/i);
+    await expect(
+      useSieve.getState().saveRules([newRule({ name: "New" })]),
+    ).rejects.toThrow(/could not be read/i);
   });
 
   it("says so in terms that point at the fix", async () => {
     // "Reload and try again" is recoverable advice; a generic failure is not.
-    await expect(useSieve.getState().saveRules([newRule({ name: "New" })])).rejects.toThrow(/reload/i);
+    await expect(
+      useSieve.getState().saveRules([newRule({ name: "New" })]),
+    ).rejects.toThrow(/reload/i);
   });
 });
 
@@ -108,7 +127,9 @@ describe("a script that was only partly read", () => {
 
   it("refuses to save over the part it never saw", async () => {
     useSieve.setState({ contents: { s1: truncate(full, 384) } });
-    await expect(useSieve.getState().saveRules([newRule({ name: "New" })])).rejects.toThrow(/overwrite the rest of it/i);
+    await expect(
+      useSieve.getState().saveRules([newRule({ name: "New" })]),
+    ).rejects.toThrow(/overwrite the rest of it/i);
   });
 
   it("catches a cut at every offset through the script, not just a lucky one", () => {
@@ -116,7 +137,8 @@ describe("a script that was only partly read", () => {
     // each is a valid shorter script and nothing in the bytes says otherwise.
     // That is the residual the proxy fix covers and this check cannot.
     const safe = new Set<number>();
-    for (let n = 0; n <= threeRules.length; n++) safe.add(rulesToSieve(threeRules.slice(0, n)).length);
+    for (let n = 0; n <= threeRules.length; n++)
+      safe.add(rulesToSieve(threeRules.slice(0, n)).length);
     let missed = 0;
     for (let at = 1; at < full.length; at++) {
       useSieve.setState({ contents: { s1: truncate(full, at) } });
@@ -140,10 +162,25 @@ describe("a script that was only partly read", () => {
     // walk has to pass everything rulesToSieve can legitimately produce.
     const varied = [
       newRule({ name: "Disabled", enabled: false }),
-      newRule({ name: "Many actions", actions: [{ type: "fileinto", mailbox: "A" }, { type: "markread" }, { type: "flag" }, { type: "stop" }] }),
-      newRule({ name: "Two tests", join: "anyof", tests: [{ type: "body", op: "contains", value: "x" }, { type: "size", op: "over", value: 1024 }] }),
+      newRule({
+        name: "Many actions",
+        actions: [
+          { type: "fileinto", mailbox: "A" },
+          { type: "markread" },
+          { type: "flag" },
+          { type: "stop" },
+        ],
+      }),
+      newRule({
+        name: "Two tests",
+        join: "anyof",
+        tests: [
+          { type: "body", op: "contains", value: "x" },
+          { type: "size", op: "over", value: 1024 },
+        ],
+      }),
       newRule({ name: "No actions at all", actions: [] }),
-      newRule({ name: "Quotes \" and \\ backslash" }),
+      newRule({ name: 'Quotes " and \\ backslash' }),
     ];
     useSieve.setState({ contents: { s1: rulesToSieve(varied) } });
     const { rules, damage } = useSieve.getState().rules();
@@ -152,10 +189,15 @@ describe("a script that was only partly read", () => {
   });
 
   it("catches a cut at every offset through that script too", () => {
-    const varied = [newRule({ name: "Disabled", enabled: false }), newRule({ name: "Live" }), newRule({ name: "Also off", enabled: false })];
+    const varied = [
+      newRule({ name: "Disabled", enabled: false }),
+      newRule({ name: "Live" }),
+      newRule({ name: "Also off", enabled: false }),
+    ];
     const full = rulesToSieve(varied);
     const safe = new Set<number>();
-    for (let n = 0; n <= varied.length; n++) safe.add(rulesToSieve(varied.slice(0, n)).length);
+    for (let n = 0; n <= varied.length; n++)
+      safe.add(rulesToSieve(varied.slice(0, n)).length);
     let missed = 0;
     for (let at = 1; at < full.length; at++) {
       useSieve.setState({ contents: { s1: full.slice(0, at) } });
@@ -165,7 +207,11 @@ describe("a script that was only partly read", () => {
   });
 
   it("does not call a hand-written script damaged", () => {
-    useSieve.setState({ contents: { s1: 'require ["fileinto"];\nif header :contains "from" "x" { fileinto "X"; }' } });
+    useSieve.setState({
+      contents: {
+        s1: 'require ["fileinto"];\nif header :contains "from" "x" { fileinto "X"; }',
+      },
+    });
     const { rules, damage } = useSieve.getState().rules();
     expect(damage).toBeNull();
     expect(rules).toBeNull(); // hand-written, which is a different refusal

@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
  * The guard's answers, and which of them the dialog leans on.
@@ -13,17 +13,30 @@ import { createRoot, type Root } from "react-dom/client";
  */
 
 const choiceDialog = vi.fn();
-vi.mock("@/ui/dialog", () => ({ choiceDialog: (...args: unknown[]) => choiceDialog(...args) }));
+vi.mock("@/ui/dialog", () => ({
+  choiceDialog: (...args: unknown[]) => choiceDialog(...args),
+}));
 
 const { confirmLeaveUnsaved, useUnsavedChanges } = await import("@/lib/unsavedChanges");
 
-interface Choice { value: string; label: string; hint?: string; danger?: boolean; primary?: boolean }
+interface Choice {
+  value: string;
+  label: string;
+  hint?: string;
+  danger?: boolean;
+  primary?: boolean;
+}
 
 const save = vi.fn(async () => true);
 const discard = vi.fn();
 
 function Editor() {
-  useUnsavedChanges({ dirty: true, save, discard, message: "Your filters have unsaved changes." });
+  useUnsavedChanges({
+    dirty: true,
+    save,
+    discard,
+    message: "Your filters have unsaved changes.",
+  });
   return null;
 }
 
@@ -38,7 +51,13 @@ function mountDirtyEditor() {
   act(() => root!.render(<Editor />));
 }
 
-const asked = () => choiceDialog.mock.calls[0]![0] as { choices: Choice[]; cancelLabel: string; title: string; message: string };
+const asked = () =>
+  choiceDialog.mock.calls[0]![0] as {
+    choices: Choice[];
+    cancelLabel: string;
+    title: string;
+    message: string;
+  };
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

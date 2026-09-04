@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { baseUrlOf, normalizeBasePath, stripBasePath } from "../../../../scripts/basePath.mjs";
 import { BASE_PATH, withBase } from "@/lib/basePath";
+import {
+  baseUrlOf,
+  normalizeBasePath,
+  stripBasePath,
+} from "../../../../scripts/basePath.mjs";
 
 /**
  * `BASE_PATH` is typed into a compose file or a `docker run` line by hand, and

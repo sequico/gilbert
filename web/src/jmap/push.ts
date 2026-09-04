@@ -1,5 +1,5 @@
-import type { Id, StateChange } from "./types";
 import { withBase } from "@/lib/basePath";
+import type { Id, StateChange } from "./types";
 
 export type PushListener = (accountId: Id, type: string, newState: string) => void;
 
@@ -61,7 +61,8 @@ class PushManager {
   }
 
   private onVisibility = () => {
-    if (document.visibilityState === "visible" && !this.es && !this.stopped) this.connect();
+    if (document.visibilityState === "visible" && !this.es && !this.stopped)
+      this.connect();
   };
 
   private onOnline = () => {
@@ -100,7 +101,10 @@ class PushManager {
     es.onerror = () => {
       es.close();
       this.es = null;
-      if (this.stopped) { this.setState("disconnected"); return; }
+      if (this.stopped) {
+        this.setState("disconnected");
+        return;
+      }
       // A retry is already scheduled below, so this is "trying", not "given up".
       this.setState("connecting");
       const delay = Math.min(this.backoff, 60_000);

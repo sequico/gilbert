@@ -1,21 +1,43 @@
-import { useMemo, useRef, useState, useEffect } from "react";
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Eye,
+  EyeOff,
+  MoreVertical,
+  Pencil,
+  Plus,
+  Share2,
+  Star,
+  Trash2,
+  Upload,
+  UserMinus,
+  X,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { ChevronLeft, ChevronRight, Download, MoreVertical, Pencil, Plus, Share2, Trash2, Eye, EyeOff, Star, Upload, UserMinus, X, AlertTriangle } from "lucide-react";
-import { useCalendar } from "@/store/calendar";
-import { dateTimeKey, useSettings } from "@/store/settings";
-import { addMonths, isSameDay, isToday, monthGrid, startOfDay, toLocalDateOnly } from "@/lib/dates";
-import { BIRTHDAY_CALENDAR_ID } from "@/lib/birthdays";
-import { subscriptionCalendarId } from "@/store/calendar";
-import { useContacts } from "@/store/contacts";
-import { formatMonthYear } from "@/lib/format";
-import { formatWeekday } from "@/lib/datetime";
-import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
-import { confirmDialog } from "@/ui/dialog";
-import { toast } from "@/ui/toast";
 import type { Calendar, Id } from "@/jmap/types";
-import { CalendarDialog } from "./CalendarDialog";
-import { ShareDialog } from "../settings/ShareDialog";
+import { BIRTHDAY_CALENDAR_ID } from "@/lib/birthdays";
+import {
+  addMonths,
+  isSameDay,
+  isToday,
+  monthGrid,
+  startOfDay,
+  toLocalDateOnly,
+} from "@/lib/dates";
+import { formatWeekday } from "@/lib/datetime";
+import { formatMonthYear } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
+import { subscriptionCalendarId, useCalendar } from "@/store/calendar";
+import { useContacts } from "@/store/contacts";
+import { dateTimeKey, useSettings } from "@/store/settings";
+import { confirmDialog } from "@/ui/dialog";
+import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
+import { toast } from "@/ui/toast";
+import { ShareDialog } from "../settings/ShareDialog";
+import { CalendarDialog } from "./CalendarDialog";
 
 export function CalendarSidebar() {
   const [location, navigate] = useLocation();
@@ -25,7 +47,10 @@ export function CalendarSidebar() {
   const parts = location.split("/");
   const view = parts[2] || "week";
   const dateStr = parts[3];
-  const selected = useMemo(() => (dateStr ? new Date(`${dateStr}T00:00:00`) : new Date()), [dateStr]);
+  const selected = useMemo(
+    () => (dateStr ? new Date(`${dateStr}T00:00:00`) : new Date()),
+    [dateStr],
+  );
   const [anchor, setAnchor] = useState(() => startOfDay(selected));
   const grid = useMemo(() => monthGrid(anchor, weekStart), [anchor, weekStart]);
   const menu = useMenu();
@@ -55,9 +80,13 @@ export function CalendarSidebar() {
       a.download = `${c.name.replace(/[^\w.-]+/g, "_") || "calendar"}.ics`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success(plural(count, { one: "Exported {n} event", other: "Exported {n} events" }));
+      toast.success(
+        plural(count, { one: "Exported {n} event", other: "Exported {n} events" }),
+      );
     } catch (err) {
-      toast.error(t("Could not export this calendar: {error}", { error: (err as Error).message }));
+      toast.error(
+        t("Could not export this calendar: {error}", { error: (err as Error).message }),
+      );
     }
   };
 
@@ -72,27 +101,47 @@ export function CalendarSidebar() {
        * here, and a re-import where everything is already here would otherwise
        * report importing nothing at all.
        */
-      if (!created) toast.success(plural(skipped, { one: "Already here: {n} event, nothing imported", other: "Already here: {n} events, nothing imported" }));
-      else if (skipped) toast.success(`${plural(created, { one: "Imported {n} event", other: "Imported {n} events" })} · ${plural(skipped, { one: "{n} was already here", other: "{n} were already here" })}`);
-      else toast.success(plural(created, { one: "Imported {n} event", other: "Imported {n} events" }));
+      if (!created)
+        toast.success(
+          plural(skipped, {
+            one: "Already here: {n} event, nothing imported",
+            other: "Already here: {n} events, nothing imported",
+          }),
+        );
+      else if (skipped)
+        toast.success(
+          `${plural(created, { one: "Imported {n} event", other: "Imported {n} events" })} · ${plural(skipped, { one: "{n} was already here", other: "{n} were already here" })}`,
+        );
+      else
+        toast.success(
+          plural(created, { one: "Imported {n} event", other: "Imported {n} events" }),
+        );
     } catch (err) {
-      toast.error(t("Could not import this file: {error}", { error: (err as Error).message }));
+      toast.error(
+        t("Could not import this file: {error}", { error: (err as Error).message }),
+      );
     }
   };
   /* Added if the server says so or the reader's settings do; Stalwart will not
      always take the flag, so the settings carry it where it refuses. */
   const addedShares = new Set(useSettings((s) => s.settings).addedShares);
-  const isAdded = (c: { accountId: string; calendar: { id: string; isSubscribed?: boolean } }) =>
-    Boolean(c.calendar.isSubscribed) || addedShares.has(`${c.accountId}:${c.calendar.id}`);
+  const isAdded = (c: {
+    accountId: string;
+    calendar: { id: string; isSubscribed?: boolean };
+  }) =>
+    Boolean(c.calendar.isSubscribed) ||
+    addedShares.has(`${c.accountId}:${c.calendar.id}`);
   const sharedSubscribed = cal.sharedCalendars.filter(isAdded);
   const sharedAvailable = cal.sharedCalendars.filter((c) => !isAdded(c));
   const [menuCal, setMenuCal] = useState<Calendar | null>(null);
   const [editCal, setEditCal] = useState<Partial<Calendar> | null>(null);
   const [share, setShare] = useState<Calendar | null>(null);
   const instances = cal.instancesIn(grid[0]!, new Date(grid[41]!.getTime() + 86400000));
-  const dow = useMemo(() => grid.slice(0, 7).map((d) => formatWeekday(d, "narrow")), [grid, locale]);
+  const dow = useMemo(
+    () => grid.slice(0, 7).map((d) => formatWeekday(d, "narrow")),
+    [grid, locale],
+  );
 
-  if (!cal.available) return null;
   const birthdaysOn = useSettings((st) => st.settings.birthdayCalendar);
   const subscriptions = useSettings((st) => st.settings.icalSubscriptions);
   /*
@@ -111,23 +160,51 @@ export function CalendarSidebar() {
    * Contacts.
    */
   useEffect(() => {
-    if (birthdaysOn && !useContacts.getState().loaded && !useContacts.getState().loading) void useContacts.getState().loadAll();
+    if (birthdaysOn && !useContacts.getState().loaded && !useContacts.getState().loading)
+      void useContacts.getState().loadAll();
   }, [birthdaysOn]);
 
-  const calendars = Object.values(cal.calendars).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+  if (!cal.available) return null;
+  const calendars = Object.values(cal.calendars).sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
+  );
 
   return (
     <div style={{ padding: "4px 8px" }}>
       <div className="mini-cal">
         <div className="mc-head">
-          <button className="icon-btn xs" onClick={() => setAnchor(addMonths(anchor, -1))} aria-label={t("Previous month")}><ChevronLeft size={16} /></button>
+          <button
+            className="icon-btn xs"
+            onClick={() => setAnchor(addMonths(anchor, -1))}
+            aria-label={t("Previous month")}
+          >
+            <ChevronLeft size={16} />
+          </button>
           <span>{formatMonthYear(anchor)}</span>
-          <button className="icon-btn xs" onClick={() => setAnchor(addMonths(anchor, 1))} aria-label={t("Next month")}><ChevronRight size={16} /></button>
+          <button
+            className="icon-btn xs"
+            onClick={() => setAnchor(addMonths(anchor, 1))}
+            aria-label={t("Next month")}
+          >
+            <ChevronRight size={16} />
+          </button>
         </div>
         <div className="mc-grid">
-          {dow.map((d, i) => <div key={i} className="mc-dow">{d}</div>)}
+          {dow.map((d, i) => (
+            <div key={i} className="mc-dow">
+              {d}
+            </div>
+          ))}
           {grid.map((d) => (
-            <div key={d.toISOString()} className={`mc-day ${d.getMonth() !== anchor.getMonth() ? "other" : ""} ${isToday(d) ? "today" : ""} ${isSameDay(d, selected) ? "selected" : ""} ${instances.some((i) => i.start < new Date(d.getTime() + 86400000) && i.end > d) ? "has-events" : ""}`} onClick={() => navigate(`/calendar/${view === "month" ? "day" : view}/${toLocalDateOnly(d)}`)}>
+            <div
+              key={d.toISOString()}
+              className={`mc-day ${d.getMonth() !== anchor.getMonth() ? "other" : ""} ${isToday(d) ? "today" : ""} ${isSameDay(d, selected) ? "selected" : ""} ${instances.some((i) => i.start < new Date(d.getTime() + 86400000) && i.end > d) ? "has-events" : ""}`}
+              onClick={() =>
+                navigate(
+                  `/calendar/${view === "month" ? "day" : view}/${toLocalDateOnly(d)}`,
+                )
+              }
+            >
               {d.getDate()}
             </div>
           ))}
@@ -135,7 +212,13 @@ export function CalendarSidebar() {
       </div>
       <div className="nav-section" style={{ paddingLeft: 4 }}>
         <span>{t("My calendars")}</span>
-        <button className="icon-btn" title={t("New calendar")} onClick={() => setEditCal({})}><Plus size={16} /></button>
+        <button
+          className="icon-btn"
+          title={t("New calendar")}
+          onClick={() => setEditCal({})}
+        >
+          <Plus size={16} />
+        </button>
       </div>
       {/* Derived, so no context menu and nothing to share or make default --
           it is a switch, and Settings is where it is turned off entirely. */}
@@ -145,7 +228,10 @@ export function CalendarSidebar() {
           onClick={() => cal.toggleHidden(BIRTHDAY_CALENDAR_ID)}
           title={t("From the birthdays on your contacts. Nothing is stored.")}
         >
-          <span className="cal-color" style={{ background: "#e0a33e", borderColor: "#e0a33e" }} />
+          <span
+            className="cal-color"
+            style={{ background: "#e0a33e", borderColor: "#e0a33e" }}
+          />
           <span className="cal-name">{t("Birthdays")}</span>
         </div>
       )}
@@ -158,24 +244,64 @@ export function CalendarSidebar() {
             key={id}
             className={`cal-list-item ${cal.hidden[id] ? "hidden-cal" : ""}`}
             onClick={() => cal.toggleHidden(id)}
-            title={failed ? t("Could not read this calendar: {reason}", { reason: failed }) : t("Subscribed to {url}", { url: sub.url })}
+            title={
+              failed
+                ? t("Could not read this calendar: {reason}", { reason: failed })
+                : t("Subscribed to {url}", { url: sub.url })
+            }
           >
-            <span className="cal-color" style={{ background: sub.color, borderColor: sub.color }} />
+            <span
+              className="cal-color"
+              style={{ background: sub.color, borderColor: sub.color }}
+            />
             <span className="cal-name">{sub.name}</span>
             {/* A subscription that cannot be read says so here rather than
                 drawing an empty calendar, which looks like a calendar with
                 nothing in it. */}
-            {failed ? <AlertTriangle size={12} className="faint" aria-label={t("Could not be read")} /> : count === 0 ? null : null}
+            {failed ? (
+              <AlertTriangle
+                size={12}
+                className="faint"
+                aria-label={t("Could not be read")}
+              />
+            ) : count === 0 ? null : null}
           </div>
         );
       })}
       {calendars.map((c) => (
-        <div key={c.id} className={`cal-list-item ${cal.hidden[c.id] ? "hidden-cal" : ""}`} onClick={() => cal.toggleHidden(c.id)} onContextMenu={(e) => { e.preventDefault(); setMenuCal(c); menu.openAt(e.clientX, e.clientY); }}>
-          <span className="cal-color" style={{ background: c.color ?? "var(--accent)", borderColor: c.color ?? "var(--accent)" }} />
+        <div
+          key={c.id}
+          className={`cal-list-item ${cal.hidden[c.id] ? "hidden-cal" : ""}`}
+          onClick={() => cal.toggleHidden(c.id)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setMenuCal(c);
+            menu.openAt(e.clientX, e.clientY);
+          }}
+        >
+          <span
+            className="cal-color"
+            style={{
+              background: c.color ?? "var(--accent)",
+              borderColor: c.color ?? "var(--accent)",
+            }}
+          />
           <span className="cal-name">{c.name}</span>
-          {Object.keys(c.shareWith ?? {}).length > 0 && <Share2 size={12} className="faint" aria-label={t("Shared")} />}
+          {Object.keys(c.shareWith ?? {}).length > 0 && (
+            <Share2 size={12} className="faint" aria-label={t("Shared")} />
+          )}
           {c.isDefault && <Star size={12} className="faint" />}
-          <button className="icon-btn xs nav-more" onClick={(e) => { e.stopPropagation(); setMenuCal(c); menu.open(e); }} aria-label={t("Calendar options")}><MoreVertical size={14} /></button>
+          <button
+            className="icon-btn xs nav-more"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuCal(c);
+              menu.open(e);
+            }}
+            aria-label={t("Calendar options")}
+          >
+            <MoreVertical size={14} />
+          </button>
         </div>
       ))}
       {/* Calendars other people shared, split by whether the reader has added
@@ -185,18 +311,34 @@ export function CalendarSidebar() {
           and adding one is a deliberate act rather than a guess on our part. */}
       {sharedSubscribed.length > 0 && (
         <>
-          <div className="nav-section"><span>{t("Shared with me")}</span></div>
+          <div className="nav-section">
+            <span>{t("Shared with me")}</span>
+          </div>
           {sharedSubscribed.map(({ accountId, accountName, calendar: c }) => {
             const key = `${accountId}:${c.id}`;
             return (
-              <div key={key} className={`cal-list-item ${cal.hidden[key] ? "hidden-cal" : ""}`} onClick={() => cal.toggleHidden(key)} title={`${c.name} — shared by ${accountName}`}>
-                <span className="cal-color" style={{ background: c.color ?? "var(--accent)", borderColor: c.color ?? "var(--accent)" }} />
+              <div
+                key={key}
+                className={`cal-list-item ${cal.hidden[key] ? "hidden-cal" : ""}`}
+                onClick={() => cal.toggleHidden(key)}
+                title={`${c.name} — shared by ${accountName}`}
+              >
+                <span
+                  className="cal-color"
+                  style={{
+                    background: c.color ?? "var(--accent)",
+                    borderColor: c.color ?? "var(--accent)",
+                  }}
+                />
                 <span className="cal-name">{c.name}</span>
                 <button
                   className="icon-btn xs nav-more"
                   title={t("Remove from my calendar")}
                   aria-label={t("Remove from my calendar")}
-                  onClick={(e) => { e.stopPropagation(); void cal.setSharedSubscribed(accountId, c.id, false); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void cal.setSharedSubscribed(accountId, c.id, false);
+                  }}
                 >
                   <X size={14} />
                 </button>
@@ -207,16 +349,31 @@ export function CalendarSidebar() {
       )}
       {sharedAvailable.length > 0 && (
         <>
-          <div className="nav-section"><span>{t("Available to add")}</span></div>
+          <div className="nav-section">
+            <span>{t("Available to add")}</span>
+          </div>
           {sharedAvailable.map(({ accountId, accountName, calendar: c }) => (
-            <div key={`${accountId}:${c.id}`} className="cal-list-item" title={`${c.name} — from ${accountName}`}>
-              <span className="cal-color" style={{ background: "transparent", borderColor: c.color ?? "var(--border-strong)" }} />
+            <div
+              key={`${accountId}:${c.id}`}
+              className="cal-list-item"
+              title={`${c.name} — from ${accountName}`}
+            >
+              <span
+                className="cal-color"
+                style={{
+                  background: "transparent",
+                  borderColor: c.color ?? "var(--border-strong)",
+                }}
+              />
               <span className="cal-name faint">{c.name}</span>
               <button
                 className="icon-btn xs nav-more"
                 title={t("Add to my calendar")}
                 aria-label={t("Add to my calendar")}
-                onClick={(e) => { e.stopPropagation(); void cal.setSharedSubscribed(accountId, c.id, true); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void cal.setSharedSubscribed(accountId, c.id, true);
+                }}
               >
                 <Plus size={14} />
               </button>
@@ -228,8 +385,16 @@ export function CalendarSidebar() {
       <Popover anchor={menu.anchor} onClose={menu.close} width={220}>
         {menuCal && (
           <>
-            <MenuItem icon={cal.hidden[menuCal.id] ? <Eye size={16} /> : <EyeOff size={16} />} label={cal.hidden[menuCal.id] ? "Show" : "Hide"} onClick={() => cal.toggleHidden(menuCal.id)} />
-            <MenuItem icon={<Pencil size={16} />} label={t("Edit")} onClick={() => setEditCal(menuCal)} />
+            <MenuItem
+              icon={cal.hidden[menuCal.id] ? <Eye size={16} /> : <EyeOff size={16} />}
+              label={cal.hidden[menuCal.id] ? "Show" : "Hide"}
+              onClick={() => cal.toggleHidden(menuCal.id)}
+            />
+            <MenuItem
+              icon={<Pencil size={16} />}
+              label={t("Edit")}
+              onClick={() => setEditCal(menuCal)}
+            />
             <MenuItem
               icon={<Upload size={16} />}
               label={t("Import iCAL file…")}
@@ -241,8 +406,17 @@ export function CalendarSidebar() {
             />
             {/* No rights test: exporting is reading, and a calendar you cannot
                 read is not in this list to begin with. */}
-            <MenuItem icon={<Download size={16} />} label={t("Export iCAL file")} onClick={() => void exportFile(menuCal)} />
-            <MenuItem icon={<Share2 size={16} />} label={t("Share…")} onClick={() => setShare(menuCal)} disabled={!menuCal.myRights.mayShare} />
+            <MenuItem
+              icon={<Download size={16} />}
+              label={t("Export iCAL file")}
+              onClick={() => void exportFile(menuCal)}
+            />
+            <MenuItem
+              icon={<Share2 size={16} />}
+              label={t("Share…")}
+              onClick={() => setShare(menuCal)}
+              disabled={!menuCal.myRights.mayShare}
+            />
             {/* Revoking every share at once, without walking the dialog and
                 removing people one at a time. Only offered when there is
                 something to revoke. */}
@@ -253,12 +427,19 @@ export function CalendarSidebar() {
                 disabled={!menuCal.myRights.mayShare}
                 onClick={async () => {
                   const who = Object.keys(menuCal.shareWith ?? {}).length;
-                  if (!(await confirmDialog({
-                    title: t("Stop sharing “{name}”?", { name: menuCal.name }),
-                    message: plural(who, { one: "{n} person will lose access. Events in it are not affected.", other: "{n} people will lose access. Events in it are not affected." }),
-                    confirmLabel: t("Stop sharing"),
-                    danger: true,
-                  }))) return;
+                  if (
+                    !(await confirmDialog({
+                      title: t("Stop sharing “{name}”?", { name: menuCal.name }),
+                      message: plural(who, {
+                        one: "{n} person will lose access. Events in it are not affected.",
+                        other:
+                          "{n} people will lose access. Events in it are not affected.",
+                      }),
+                      confirmLabel: t("Stop sharing"),
+                      danger: true,
+                    }))
+                  )
+                    return;
                   try {
                     await cal.updateCalendar(menuCal.id, { shareWith: null });
                     toast.success(t("No longer shared"));
@@ -268,9 +449,36 @@ export function CalendarSidebar() {
                 }}
               />
             )}
-            <MenuItem icon={<Star size={16} />} label={t("Make default")} disabled={menuCal.isDefault} onClick={() => void cal.updateCalendar(menuCal.id, { isDefault: true } as Partial<Calendar>).catch((err) => toast.error((err as Error).message))} />
+            <MenuItem
+              icon={<Star size={16} />}
+              label={t("Make default")}
+              disabled={menuCal.isDefault}
+              onClick={() =>
+                void cal
+                  .updateCalendar(menuCal.id, { isDefault: true } as Partial<Calendar>)
+                  .catch((err) => toast.error((err as Error).message))
+              }
+            />
             <MenuSep />
-            <MenuItem danger icon={<Trash2 size={16} />} label={t("Delete")} disabled={!menuCal.myRights.mayDelete} onClick={async () => { if (await confirmDialog({ title: t("Delete “{name}”?", { name: menuCal.name }), message: t("All events in this calendar will be deleted."), confirmLabel: t("Delete"), danger: true })) void cal.destroyCalendar(menuCal.id).catch((err) => toast.error((err as Error).message)); }} />
+            <MenuItem
+              danger
+              icon={<Trash2 size={16} />}
+              label={t("Delete")}
+              disabled={!menuCal.myRights.mayDelete}
+              onClick={async () => {
+                if (
+                  await confirmDialog({
+                    title: t("Delete “{name}”?", { name: menuCal.name }),
+                    message: t("All events in this calendar will be deleted."),
+                    confirmLabel: t("Delete"),
+                    danger: true,
+                  })
+                )
+                  void cal
+                    .destroyCalendar(menuCal.id)
+                    .catch((err) => toast.error((err as Error).message));
+              }}
+            />
           </>
         )}
       </Popover>
@@ -288,7 +496,15 @@ export function CalendarSidebar() {
         }}
       />
       {editCal && <CalendarDialog calendar={editCal} onClose={() => setEditCal(null)} />}
-      {share && <ShareDialog kind="Calendar" id={share.id} name={share.name} shareWith={share.shareWith} onClose={() => setShare(null)} />}
+      {share && (
+        <ShareDialog
+          kind="Calendar"
+          id={share.id}
+          name={share.name}
+          shareWith={share.shareWith}
+          onClose={() => setShare(null)}
+        />
+      )}
     </div>
   );
 }

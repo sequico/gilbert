@@ -34,18 +34,25 @@ export function isBirthdayEvent(id: string | null | undefined): boolean {
 }
 
 /** Month and day of a card's birth anniversary, and the year where it gave one. */
-function birthDate(card: ContactCard): { month: number; day: number; year: number | null } | null {
+function birthDate(
+  card: ContactCard,
+): { month: number; day: number; year: number | null } | null {
   for (const a of Object.values(card.anniversaries ?? {})) {
     if (a?.kind !== "birth") continue;
     const d = a.date;
     if (!d) continue;
     // A PartialDate carries the parts directly; a Timestamp carries an instant.
     if (typeof d.month === "number" && typeof d.day === "number") {
-      return { month: d.month, day: d.day, year: typeof d.year === "number" ? d.year : null };
+      return {
+        month: d.month,
+        day: d.day,
+        year: typeof d.year === "number" ? d.year : null,
+      };
     }
     if (d.utc) {
       const t = new Date(d.utc);
-      if (!Number.isNaN(t.getTime())) return { month: t.getMonth() + 1, day: t.getDate(), year: t.getFullYear() };
+      if (!Number.isNaN(t.getTime()))
+        return { month: t.getMonth() + 1, day: t.getDate(), year: t.getFullYear() };
     }
   }
   return null;
@@ -72,7 +79,10 @@ function occurrence(year: number, month: number, day: number): Date | null {
 
 const displayName = (c: ContactCard): string =>
   (c.name?.full ?? "").trim() ||
-  [c.name?.components?.find((p) => p.kind === "given")?.value, c.name?.components?.find((p) => p.kind === "surname")?.value]
+  [
+    c.name?.components?.find((p) => p.kind === "given")?.value,
+    c.name?.components?.find((p) => p.kind === "surname")?.value,
+  ]
     .filter(Boolean)
     .join(" ")
     .trim() ||
@@ -85,7 +95,11 @@ const displayName = (c: ContactCard): string =>
  * The range is walked by year rather than by day, so a month view costs one
  * pass over the contacts and a year view costs two.
  */
-export function birthdaysInRange(cards: Iterable<ContactCard>, start: Date, end: Date): Birthday[] {
+export function birthdaysInRange(
+  cards: Iterable<ContactCard>,
+  start: Date,
+  end: Date,
+): Birthday[] {
   if (!(start instanceof Date) || !(end instanceof Date) || end <= start) return [];
   const out: Birthday[] = [];
   const firstYear = start.getFullYear();

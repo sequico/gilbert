@@ -1,4 +1,9 @@
-import { formatClock, formatDayMonth, formatDayMonthTime, formatWeekdayDate } from "./datetime";
+import {
+  formatClock,
+  formatDayMonth,
+  formatDayMonthTime,
+  formatWeekdayDate,
+} from "./datetime";
 
 export const DAY_MS = 86_400_000;
 
@@ -54,7 +59,11 @@ export function startOfWeek(d: Date, weekStart = 1): Date {
 }
 
 export function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 
 export function isToday(d: Date): boolean {
@@ -94,10 +103,19 @@ export function toUTCDate(d: Date): string {
   return d.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
-export function parseLocalDateTime(s: string): { y: number; mo: number; d: number; h: number; mi: number; se: number } | null {
+export function parseLocalDateTime(
+  s: string,
+): { y: number; mo: number; d: number; h: number; mi: number; se: number } | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(s);
   if (!m) return null;
-  return { y: +m[1]!, mo: +m[2]! - 1, d: +m[3]!, h: +(m[4] ?? 0), mi: +(m[5] ?? 0), se: +(m[6] ?? 0) };
+  return {
+    y: +m[1]!,
+    mo: +m[2]! - 1,
+    d: +m[3]!,
+    h: +(m[4] ?? 0),
+    mi: +(m[5] ?? 0),
+    se: +(m[6] ?? 0),
+  };
 }
 
 const dtfCache = new Map<string, Intl.DateTimeFormat>();
@@ -128,7 +146,14 @@ export function tzOffsetMs(date: Date, tz: string): number {
   if (!f) return -date.getTimezoneOffset() * 60_000;
   const parts = f.formatToParts(date);
   const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? "0");
-  const asUTC = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour") % 24, get("minute"), get("second"));
+  const asUTC = Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour") % 24,
+    get("minute"),
+    get("second"),
+  );
   return asUTC - Math.floor(date.getTime() / 1000) * 1000;
 }
 
@@ -159,10 +184,17 @@ export function dateToZonedLocal(d: Date, tz: string | null | undefined): string
 /** Parse ISO 8601 duration (e.g. "P1DT2H30M") into seconds. */
 export function parseDuration(dur: string | null | undefined): number {
   if (!dur) return 0;
-  const m = /^([+-])?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$/.exec(dur);
+  const m =
+    /^([+-])?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$/.exec(
+      dur,
+    );
   if (!m) return 0;
   const sign = m[1] === "-" ? -1 : 1;
-  const w = Number(m[2] ?? 0), d = Number(m[3] ?? 0), h = Number(m[4] ?? 0), mi = Number(m[5] ?? 0), s = Number(m[6] ?? 0);
+  const w = Number(m[2] ?? 0),
+    d = Number(m[3] ?? 0),
+    h = Number(m[4] ?? 0),
+    mi = Number(m[5] ?? 0),
+    s = Number(m[6] ?? 0);
   return sign * (w * 7 * 86400 + d * 86400 + h * 3600 + mi * 60 + s);
 }
 
@@ -210,12 +242,25 @@ export const browserTimeZone = (() => {
 
 export function listTimeZones(): string[] {
   try {
-    const sv = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf;
+    const sv = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] })
+      .supportedValuesOf;
     if (sv) return sv("timeZone");
   } catch {
     /* ignore */
   }
-  return ["UTC", "Europe/London", "Europe/Paris", "Europe/Berlin", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Asia/Tokyo", "Asia/Kolkata", "Australia/Sydney"];
+  return [
+    "UTC",
+    "Europe/London",
+    "Europe/Paris",
+    "Europe/Berlin",
+    "America/New_York",
+    "America/Chicago",
+    "America/Denver",
+    "America/Los_Angeles",
+    "Asia/Tokyo",
+    "Asia/Kolkata",
+    "Australia/Sydney",
+  ];
 }
 
 export function formatTimeRange(start: Date, end: Date, allDay: boolean): string {

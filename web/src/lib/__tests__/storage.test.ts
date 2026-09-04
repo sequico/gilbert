@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   accountKey,
   clearAllData,
@@ -57,7 +57,10 @@ describe("device-trusted storage", () => {
   it("round-trips normally on a trusted device", () => {
     setDeviceTrusted(true);
     saveJson("settings", { theme: "dark" });
-    expect(loadJson("settings", { theme: "light", accent: "blue" })).toEqual({ theme: "dark", accent: "blue" });
+    expect(loadJson("settings", { theme: "light", accent: "blue" })).toEqual({
+      theme: "dark",
+      accent: "blue",
+    });
     expect(isDeviceTrusted()).toBe(true);
   });
 

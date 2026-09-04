@@ -13,9 +13,10 @@
  * second chance to change your mind, and the dialog says so rather than
  * leaving it to be discovered.
  */
-import { confirmDialog } from "@/ui/dialog";
-import { useMail } from "@/store/mail";
+
 import type { Id, MailboxRole } from "@/jmap/types";
+import { useMail } from "@/store/mail";
+import { confirmDialog } from "@/ui/dialog";
 
 export interface EmptyTarget {
   id: Id;

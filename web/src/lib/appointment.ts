@@ -1,5 +1,5 @@
 import type { Email, EmailAddress } from "@/jmap/types";
-import { useCalendar, type EventDraft } from "@/store/calendar";
+import { type EventDraft, useCalendar } from "@/store/calendar";
 import { useMail } from "@/store/mail";
 import { uniqueAddresses } from "./address";
 import { toLocalDateOnly } from "./dates";
@@ -62,15 +62,26 @@ function bodyText(email: Email): string {
  */
 function guests(email: Email, ownEmails: string[]): EmailAddress[] {
   const own = new Set(ownEmails.map((e) => e.toLowerCase()));
-  return uniqueAddresses([...(email.from ?? []), ...(email.to ?? []), ...(email.cc ?? [])]).filter((a) => !own.has(a.email.trim().toLowerCase()));
+  return uniqueAddresses([
+    ...(email.from ?? []),
+    ...(email.to ?? []),
+    ...(email.cc ?? []),
+  ]).filter((a) => !own.has(a.email.trim().toLowerCase()));
 }
 
-export function appointmentDraft(email: Email, now: Date = new Date(), ownEmails: string[] = []): EventDraft {
+export function appointmentDraft(
+  email: Email,
+  now: Date = new Date(),
+  ownEmails: string[] = [],
+): EventDraft {
   const start = nextHalfHour(now);
   const body = bodyText(email).trim();
   return {
     title: email.subject?.trim() ?? "",
-    description: body.length > MAX_DESCRIPTION ? `${body.slice(0, MAX_DESCRIPTION).trimEnd()}…` : body,
+    description:
+      body.length > MAX_DESCRIPTION
+        ? `${body.slice(0, MAX_DESCRIPTION).trimEnd()}…`
+        : body,
     start,
     end: new Date(start.getTime() + 3600_000),
     allDay: false,
@@ -85,13 +96,22 @@ export function appointmentDraft(email: Email, now: Date = new Date(), ownEmails
  * one is fetched first; `getEmails` serves it from the cache when the message
  * has already been read.
  */
-export async function startAppointment(email: Email, navigate: (to: string) => void): Promise<void> {
+export async function startAppointment(
+  email: Email,
+  navigate: (to: string) => void,
+): Promise<void> {
   const mail = useMail.getState();
   const full = (await mail.getEmails([email.id], true))[0] ?? email;
   // Which addresses are the reader's own decides who is a guest, so they are
   // worth a round trip when the session has not loaded them yet.
-  const identities = mail.identities.length ? mail.identities : await mail.loadIdentities();
-  const draft = appointmentDraft(full, new Date(), identities.map((i) => i.email));
+  const identities = mail.identities.length
+    ? mail.identities
+    : await mail.loadIdentities();
+  const draft = appointmentDraft(
+    full,
+    new Date(),
+    identities.map((i) => i.email),
+  );
   useCalendar.getState().setDraft(draft);
   navigate(`/calendar/day/${toLocalDateOnly(draft.start)}`);
 }

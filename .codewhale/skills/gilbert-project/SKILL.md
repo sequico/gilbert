@@ -33,9 +33,10 @@ metadata:
 - Node ≥ 20.10 (22 recommended), npm workspaces. `npm install` once.
 - `npm run dev` (real Stalwart) · `npm run dev:mock` (demo@example.com / demo, mock on :8788) · `npm run dev:mock:no-future-release` · `npm run typecheck` · `npm test` (vitest for web, node:test for server) · `npm run build` · `npm start`.
 - i18n: `npm run i18n:coverage`, `npm run i18n:check`; catalogs in `web/src/locales/*.ts`.
+- Lint + format: **Biome** (`biome.jsonc`) via `npm run lint` / `npm run lint:fix`; part of `prepush` and of the CI release pre-check. The config is calibrated to this repo's measured style and its off-rules are deliberate and commented — never re-enable a disabled rule just to silence a file; adjust the code or argue the rule.
 - Version comes from git at build time: `node scripts/version.mjs`; nothing writes a version into the tree.
 - Done means: typecheck passes, the relevant tests pass, the diff has been read, and claims are verified against tests or a live server — not exit codes alone.
-- English everywhere in the repo (code, comments, docs, commits). Chat language follows the user.
+- Code comments, documentation and every commit message are written in **English** (repo-wide rule set by the owner). Chat replies follow the user's language — the chat is not repo content.
 
 ## 5. Change workflow
 

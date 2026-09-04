@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
+import type { ContactCard } from "@/jmap/types";
 import { parseLdif } from "@/lib/ldif";
 import { cardFromLdif } from "@/lib/mozillaAb";
-import type { ContactCard } from "@/jmap/types";
 
 const card = (ldif: string) => cardFromLdif(parseLdif(ldif)[0]!);
-const values = <T,>(m: Record<string, T> | undefined) => Object.values(m ?? {});
+const values = <T>(m: Record<string, T> | undefined) => Object.values(m ?? {});
 /** Address components as `kind: value`, which is easier to assert than the array. */
-const parts = (a: NonNullable<ContactCard["addresses"]>[string]) => (a.components ?? []).map((c) => `${c.kind}: ${c.value}`);
+const parts = (a: NonNullable<ContactCard["addresses"]>[string]) =>
+  (a.components ?? []).map((c) => `${c.kind}: ${c.value}`);
 
 /** The entry from issue #174, exactly as SOGo wrote it. */
 const JANE = `dn: cn=Jane Doe
@@ -50,8 +51,12 @@ describe("the entry from the issue", () => {
 
   it("tells the work phone from the mobile", () => {
     const phones = values(c.phones);
-    expect(phones).toContainEqual(expect.objectContaining({ number: "+1-555-0199", contexts: { work: true } }));
-    expect(phones).toContainEqual(expect.objectContaining({ number: "+1-555-0188", features: { mobile: true } }));
+    expect(phones).toContainEqual(
+      expect.objectContaining({ number: "+1-555-0199", contexts: { work: true } }),
+    );
+    expect(phones).toContainEqual(
+      expect.objectContaining({ number: "+1-555-0188", features: { mobile: true } }),
+    );
   });
 
   it("splits the two addresses the schema keeps apart", () => {
@@ -59,8 +64,18 @@ describe("the entry from the issue", () => {
     expect(addrs).toHaveLength(2);
     const work = addrs.find((a) => a.contexts?.work)!;
     const home = addrs.find((a) => a.contexts?.private)!;
-    expect(parts(work)).toEqual(["name: Street Number", "locality: Examplecity", "postcode: 10000", "country: ExampleCountry"]);
-    expect(parts(home)).toEqual(["name: Street Number", "locality: Examplecity", "postcode: 10000", "country: ExampleCountry"]);
+    expect(parts(work)).toEqual([
+      "name: Street Number",
+      "locality: Examplecity",
+      "postcode: 10000",
+      "country: ExampleCountry",
+    ]);
+    expect(parts(home)).toEqual([
+      "name: Street Number",
+      "locality: Examplecity",
+      "postcode: 10000",
+      "country: ExampleCountry",
+    ]);
   });
 
   it("keeps the description as the note", () => {
@@ -70,7 +85,9 @@ describe("the entry from the issue", () => {
 
 describe("the rest of the schema", () => {
   it("reads the second email, after the first", () => {
-    const c = card("dn: cn=X\nmail: one@example.com\nmozillaSecondEmail: two@example.com\n")!;
+    const c = card(
+      "dn: cn=X\nmail: one@example.com\nmozillaSecondEmail: two@example.com\n",
+    )!;
     const emails = values(c.emails);
     expect(emails.map((e) => e.address)).toEqual(["one@example.com", "two@example.com"]);
     expect(emails[0]!.pref).toBe(1);
@@ -78,31 +95,51 @@ describe("the rest of the schema", () => {
   });
 
   it("reads every kind of phone the schema has", () => {
-    const c = card("dn: cn=X\ncn: X\nhomePhone: 1\nfacsimileTelephoneNumber: 2\npager: 3\n")!;
+    const c = card(
+      "dn: cn=X\ncn: X\nhomePhone: 1\nfacsimileTelephoneNumber: 2\npager: 3\n",
+    )!;
     const phones = values(c.phones);
-    expect(phones).toContainEqual(expect.objectContaining({ number: "1", contexts: { private: true } }));
-    expect(phones).toContainEqual(expect.objectContaining({ number: "2", features: { fax: true } }));
-    expect(phones).toContainEqual(expect.objectContaining({ number: "3", features: { pager: true } }));
+    expect(phones).toContainEqual(
+      expect.objectContaining({ number: "1", contexts: { private: true } }),
+    );
+    expect(phones).toContainEqual(
+      expect.objectContaining({ number: "2", features: { fax: true } }),
+    );
+    expect(phones).toContainEqual(
+      expect.objectContaining({ number: "3", features: { pager: true } }),
+    );
   });
 
   it("reads the organisation, its units and the job title", () => {
-    const c = card("dn: cn=X\ncn: X\no: Example Corp\nou: Research\nou: Optics\ntitle: Lens Grinder\n")!;
+    const c = card(
+      "dn: cn=X\ncn: X\no: Example Corp\nou: Research\nou: Optics\ntitle: Lens Grinder\n",
+    )!;
     expect(values(c.organizations)[0]).toMatchObject({
       name: "Example Corp",
-      units: [{ "@type": "OrgUnit", name: "Research" }, { "@type": "OrgUnit", name: "Optics" }],
+      units: [
+        { "@type": "OrgUnit", name: "Research" },
+        { "@type": "OrgUnit", name: "Optics" },
+      ],
     });
     expect(values(c.titles)[0]).toMatchObject({ name: "Lens Grinder", kind: "title" });
   });
 
   it("reads the nickname, the web pages and the messaging handle", () => {
-    const c = card("dn: cn=X\ncn: X\nmozillaNickname: Zed\nmozillaWorkUrl: https://work.example\nmozillaHomeUrl: https://home.example\nnsAIMid: zedzed\n")!;
+    const c = card(
+      "dn: cn=X\ncn: X\nmozillaNickname: Zed\nmozillaWorkUrl: https://work.example\nmozillaHomeUrl: https://home.example\nnsAIMid: zedzed\n",
+    )!;
     expect(values(c.nicknames)[0]?.name).toBe("Zed");
-    expect(values(c.links).map((l) => l.uri)).toEqual(["https://work.example", "https://home.example"]);
+    expect(values(c.links).map((l) => l.uri)).toEqual([
+      "https://work.example",
+      "https://home.example",
+    ]);
     expect(values(c.onlineServices)[0]).toMatchObject({ service: "AIM", user: "zedzed" });
   });
 
   it("keeps both street lines and the post office box", () => {
-    const c = card("dn: cn=X\ncn: X\nstreet: 1 Long Road\nmozillaWorkStreet2: Floor 4\npostOfficeBox: PO 12\n")!;
+    const c = card(
+      "dn: cn=X\ncn: X\nstreet: 1 Long Road\nmozillaWorkStreet2: Floor 4\npostOfficeBox: PO 12\n",
+    )!;
     expect(parts(values(c.addresses)[0]!)).toEqual([
       "name: 1 Long Road",
       "name: Floor 4",
@@ -111,8 +148,12 @@ describe("the rest of the schema", () => {
   });
 
   it("keeps the custom fields in the note rather than dropping them", () => {
-    const c = card("dn: cn=X\ncn: X\ndescription: A note\nmozillaCustom1: Met at a conference\nmozillaCustom3: Renewal in May\n")!;
-    expect(values(c.notes)[0]?.note).toBe("A note\nCustom 1: Met at a conference\nCustom 3: Renewal in May");
+    const c = card(
+      "dn: cn=X\ncn: X\ndescription: A note\nmozillaCustom1: Met at a conference\nmozillaCustom3: Renewal in May\n",
+    )!;
+    expect(values(c.notes)[0]?.note).toBe(
+      "A note\nCustom 1: Met at a conference\nCustom 3: Renewal in May",
+    );
   });
 
   it("prefers the directory's own rendering of a name when it differs", () => {
@@ -140,7 +181,17 @@ describe("the rest of the schema", () => {
 
   it("leaves out every section the entry said nothing about", () => {
     const c = card("dn: cn=X\ncn: X\n")!;
-    for (const empty of ["emails", "phones", "addresses", "links", "notes", "organizations", "titles", "nicknames", "onlineServices"] as const) {
+    for (const empty of [
+      "emails",
+      "phones",
+      "addresses",
+      "links",
+      "notes",
+      "organizations",
+      "titles",
+      "nicknames",
+      "onlineServices",
+    ] as const) {
       expect(c[empty], empty).toBeUndefined();
     }
   });

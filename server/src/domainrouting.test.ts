@@ -1,5 +1,5 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
+import { test } from "node:test";
 
 process.env.STALWART_URL = "https://default.example";
 
@@ -50,8 +50,16 @@ test("the domain is matched however it was typed", () => {
   config.stalwartServers["mapped.test"] = "https://mail.mapped.test";
   try {
     assert.equal(upstreamFor("Someone@MAPPED.TEST"), "https://mail.mapped.test");
-    assert.equal(upstreamFor("someone@mapped.test."), "https://mail.mapped.test", "root dot");
-    assert.equal(upstreamFor("someone@ mapped.test "), "https://mail.mapped.test", "stray spaces");
+    assert.equal(
+      upstreamFor("someone@mapped.test."),
+      "https://mail.mapped.test",
+      "root dot",
+    );
+    assert.equal(
+      upstreamFor("someone@ mapped.test "),
+      "https://mail.mapped.test",
+      "stray spaces",
+    );
   } finally {
     delete config.stalwartServers["mapped.test"];
   }

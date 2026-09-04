@@ -1,5 +1,5 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
+import { test } from "node:test";
 import { RateLimiter } from "./ratelimit.js";
 
 /**
@@ -42,9 +42,10 @@ test("a run of real failures still adds up around a refunded one", () => {
   // Refund takes one attempt back, not the key's whole history -- an outage in
   // the middle of somebody guessing must not clear what they spent before it.
   const rl = new RateLimiter(3, 60_000);
-  rl.check("k");            // a wrong password
-  rl.check("k");            // another
-  rl.check("k"); rl.refund("k"); // an outage, given back
+  rl.check("k"); // a wrong password
+  rl.check("k"); // another
+  rl.check("k");
+  rl.refund("k"); // an outage, given back
   assert.equal(rl.check("k"), true, "third real attempt");
   assert.equal(rl.check("k"), false, "and now spent");
 });

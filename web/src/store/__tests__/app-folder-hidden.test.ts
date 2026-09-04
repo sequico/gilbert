@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { withoutAppFolder } from "../files";
 import type { FileNode } from "@/jmap/types";
+import { withoutAppFolder } from "../files";
 
 /**
  * The `ihasmail` folder holds signature images and the synced settings file.
@@ -12,8 +12,21 @@ import type { FileNode } from "@/jmap/types";
  * into the top level looking like the user's own files.
  */
 
-const node = (id: string, name: string, parentId: string | null, nodeType: "file" | "directory"): FileNode =>
-  ({ id, name, parentId, nodeType, size: null, blobId: null, type: null }) as unknown as FileNode;
+const node = (
+  id: string,
+  name: string,
+  parentId: string | null,
+  nodeType: "file" | "directory",
+): FileNode =>
+  ({
+    id,
+    name,
+    parentId,
+    nodeType,
+    size: null,
+    blobId: null,
+    type: null,
+  }) as unknown as FileNode;
 
 describe("hiding the client's folder", () => {
   it("removes the folder and everything in it", () => {
@@ -37,7 +50,10 @@ describe("hiding the client's folder", () => {
   });
 
   it("leaves a folder of the same name that the user made inside another", () => {
-    const nodes = [node("d1", "Projects", null, "directory"), node("d2", "ihasmail", "d1", "directory")];
+    const nodes = [
+      node("d1", "Projects", null, "directory"),
+      node("d2", "ihasmail", "d1", "directory"),
+    ];
     expect(withoutAppFolder(nodes).map((n) => n.id)).toEqual(["d1", "d2"]);
   });
 

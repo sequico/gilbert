@@ -10,9 +10,10 @@
  * question — given an event and a gesture, what are the new start and end —
  * and the caller decides whether it is allowed to save that.
  */
-import { addMinutes } from "./dates";
-import { isBirthdayEvent } from "./birthdays";
+
 import type { CalendarEvent } from "@/jmap/types";
+import { isBirthdayEvent } from "./birthdays";
+import { addMinutes } from "./dates";
 
 /**
  * Fifteen minutes, which is the smallest slot anybody schedules against and
@@ -53,7 +54,15 @@ export function movedBy(span: Span, deltaMinutes: number): Span {
  */
 export function movedToDay(span: Span, day: Date): Span {
   const length = span.end.getTime() - span.start.getTime();
-  const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), span.start.getHours(), span.start.getMinutes(), 0, 0);
+  const start = new Date(
+    day.getFullYear(),
+    day.getMonth(),
+    day.getDate(),
+    span.start.getHours(),
+    span.start.getMinutes(),
+    0,
+    0,
+  );
   return { start, end: new Date(start.getTime() + length) };
 }
 
@@ -78,7 +87,9 @@ export function formatDuration(seconds: number): string {
   const minutes = Math.floor((total % 3600) / 60);
   const secs = total % 60;
   if (!total) return "PT0S";
-  const time = [hours && `${hours}H`, minutes && `${minutes}M`, secs && `${secs}S`].filter(Boolean).join("");
+  const time = [hours && `${hours}H`, minutes && `${minutes}M`, secs && `${secs}S`]
+    .filter(Boolean)
+    .join("");
   return `P${days ? `${days}D` : ""}${time ? `T${time}` : ""}`;
 }
 
@@ -101,7 +112,15 @@ export function formatDuration(seconds: number): string {
 function parseStored(start: string): Date | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/.exec(start ?? "");
   if (!m) return null;
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6] ?? 0), 0);
+  return new Date(
+    Number(m[1]),
+    Number(m[2]) - 1,
+    Number(m[3]),
+    Number(m[4]),
+    Number(m[5]),
+    Number(m[6] ?? 0),
+    0,
+  );
 }
 
 function formatStored(d: Date): string {
@@ -138,7 +157,15 @@ export function movePatch(storedStart: string, deltaMinutes: number): DragPatch 
 export function moveByDaysPatch(storedStart: string, days: number): DragPatch {
   const base = parseStored(storedStart);
   if (!base || !Number.isFinite(days)) return {};
-  const moved = new Date(base.getFullYear(), base.getMonth(), base.getDate() + Math.round(days), base.getHours(), base.getMinutes(), base.getSeconds(), 0);
+  const moved = new Date(
+    base.getFullYear(),
+    base.getMonth(),
+    base.getDate() + Math.round(days),
+    base.getHours(),
+    base.getMinutes(),
+    base.getSeconds(),
+    0,
+  );
   return { start: formatStored(moved) };
 }
 
@@ -154,7 +181,10 @@ export function dayDelta(from: Date, to: Date): number {
  * the whole question of zones -- is not touched at all.
  */
 export function resizePatch(currentSeconds: number, deltaMinutes: number): DragPatch {
-  const seconds = Math.max(MIN_DURATION_MINUTES * 60, currentSeconds + snap(deltaMinutes) * 60);
+  const seconds = Math.max(
+    MIN_DURATION_MINUTES * 60,
+    currentSeconds + snap(deltaMinutes) * 60,
+  );
   return { duration: formatDuration(seconds) };
 }
 
@@ -170,7 +200,10 @@ export function resizePatch(currentSeconds: number, deltaMinutes: number): DragP
  *    rights. This is the same question the popover asks before offering Edit.
  *  - **An event with no calendar** has nowhere to be saved.
  */
-export function canDragEvent(event: CalendarEvent | null | undefined, calendar: { myRights?: { mayWriteAll?: boolean; mayWriteOwn?: boolean } } | undefined): boolean {
+export function canDragEvent(
+  event: CalendarEvent | null | undefined,
+  calendar: { myRights?: { mayWriteAll?: boolean; mayWriteOwn?: boolean } } | undefined,
+): boolean {
   if (!event || isBirthdayEvent(event.id)) return false;
   if (!calendar) return false;
   return Boolean(calendar.myRights?.mayWriteAll || calendar.myRights?.mayWriteOwn);

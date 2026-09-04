@@ -41,13 +41,17 @@ const leaf = (name: string) => ({
 describe("walking a dropped folder", () => {
   it("reads a directory across as many batches as it takes", async () => {
     // Five children, two per readEntries call: a single read would find two.
-    const plan = await planUpload([dir("docs", ["a", "b", "c", "d", "e"].map(leaf))] as never[]);
+    const plan = await planUpload([
+      dir("docs", ["a", "b", "c", "d", "e"].map(leaf)),
+    ] as never[]);
     expect(plan.map((p) => p.file.name)).toEqual(["a", "b", "c", "d", "e"]);
     expect(plan.every((p) => p.path.join("/") === "docs")).toBe(true);
   });
 
   it("keeps the folder each file came from", async () => {
-    const plan = await planUpload([dir("outer", [leaf("top"), dir("inner", [leaf("deep")])])] as never[]);
+    const plan = await planUpload([
+      dir("outer", [leaf("top"), dir("inner", [leaf("deep")])]),
+    ] as never[]);
     expect(plan.map((p) => [p.path.join("/"), p.file.name])).toEqual([
       ["outer", "top"],
       ["outer/inner", "deep"],

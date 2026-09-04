@@ -1,11 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { canDropFileNodes, NODE_MIME, readDraggedIds } from "@/lib/filenode";
 import type { FileNode, Id } from "@/jmap/types";
+import { canDropFileNodes, NODE_MIME, readDraggedIds } from "@/lib/filenode";
 
-const rights = { mayRead: true, mayAddChildren: true, mayRename: true, mayDelete: true, mayModifyContent: true, mayShare: true };
+const rights = {
+  mayRead: true,
+  mayAddChildren: true,
+  mayRename: true,
+  mayDelete: true,
+  mayModifyContent: true,
+  mayShare: true,
+};
 
-function node(id: string, parentId: Id | null, nodeType: FileNode["nodeType"] = "file"): FileNode {
-  return { id, parentId, nodeType, blobId: nodeType === "file" ? `b${id}` : null, size: 1, name: id, type: "text/plain", created: "", modified: null, myRights: rights } as FileNode;
+function node(
+  id: string,
+  parentId: Id | null,
+  nodeType: FileNode["nodeType"] = "file",
+): FileNode {
+  return {
+    id,
+    parentId,
+    nodeType,
+    blobId: nodeType === "file" ? `b${id}` : null,
+    size: 1,
+    name: id,
+    type: "text/plain",
+    created: "",
+    modified: null,
+    myRights: rights,
+  } as FileNode;
 }
 
 /*
@@ -15,7 +37,8 @@ function node(id: string, parentId: Id | null, nodeType: FileNode["nodeType"] = 
  * driven synthetically, so this is what pins it.
  */
 describe("readDraggedIds", () => {
-  const dt = (value: string) => ({ getData: (type: string) => (type === NODE_MIME ? value : "") }) as DataTransfer;
+  const dt = (value: string) =>
+    ({ getData: (type: string) => (type === NODE_MIME ? value : "") }) as DataTransfer;
 
   it("reads one id as a list of one", () => {
     expect(readDraggedIds(dt("f1"))).toEqual(["f1"]);

@@ -1,20 +1,28 @@
-import { resolveVersion } from "../../scripts/version.mjs";
-import { normalizeBasePath } from "../../scripts/basePath.mjs";
 import { randomBytes } from "node:crypto";
-import { fileURLToPath } from "node:url";
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { normalizeBasePath } from "../../scripts/basePath.mjs";
+import { resolveVersion } from "../../scripts/version.mjs";
 
 /** Minimal .env loader (no dependency): first match wins, never overrides real env. */
 function loadDotEnv() {
-  const candidates = [resolve(process.cwd(), ".env"), fileURLToPath(new URL("../../.env", import.meta.url)), fileURLToPath(new URL("../.env", import.meta.url))];
+  const candidates = [
+    resolve(process.cwd(), ".env"),
+    fileURLToPath(new URL("../../.env", import.meta.url)),
+    fileURLToPath(new URL("../.env", import.meta.url)),
+  ];
   for (const file of candidates) {
     if (!existsSync(file)) continue;
     for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
       const m = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/.exec(line);
       if (!m || line.trim().startsWith("#")) continue;
       let v = m[2]!;
-      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+      if (
+        (v.startsWith('"') && v.endsWith('"')) ||
+        (v.startsWith("'") && v.endsWith("'"))
+      )
+        v = v.slice(1, -1);
       if (process.env[m[1]!] === undefined) process.env[m[1]!] = v;
     }
     break;
@@ -25,7 +33,8 @@ loadDotEnv();
 function env(name: string, fallback?: string): string {
   const v = process.env[name];
   if (v === undefined || v === "") {
-    if (fallback === undefined) throw new Error(`Missing required environment variable ${name}`);
+    if (fallback === undefined)
+      throw new Error(`Missing required environment variable ${name}`);
     return fallback;
   }
   return v;
@@ -108,8 +117,8 @@ export function assertImmutable(sessionFile: string, root: string): void {
   }
 }
 
-if (immutable) assertImmutable(sessionFile, fileURLToPath(new URL("../..", import.meta.url)));
-
+if (immutable)
+  assertImmutable(sessionFile, fileURLToPath(new URL("../..", import.meta.url)));
 
 /**
  * Settings an installation decides, rather than each reader.
@@ -133,11 +142,16 @@ if (immutable) assertImmutable(sessionFile, fileURLToPath(new URL("../..", impor
  * production runs read-only with no volume -- an installation that cannot mount
  * a file can still set a variable.
  */
-function readSettingsPolicy(): { defaults: Record<string, unknown>; enforced: Record<string, unknown>; changes: Array<{ version: string; settings: Record<string, unknown> }> } {
+function readSettingsPolicy(): {
+  defaults: Record<string, unknown>;
+  enforced: Record<string, unknown>;
+  changes: Array<{ version: string; settings: Record<string, unknown> }>;
+} {
   const parse = (raw: string, where: string): Record<string, unknown> => {
     try {
       const v = JSON.parse(raw) as unknown;
-      if (!v || typeof v !== "object" || Array.isArray(v)) throw new Error("not a JSON object");
+      if (!v || typeof v !== "object" || Array.isArray(v))
+        throw new Error("not a JSON object");
       return v as Record<string, unknown>;
     } catch (err) {
       /* Loud, and fatal. A policy that silently did not apply would look like
@@ -153,7 +167,10 @@ function readSettingsPolicy(): { defaults: Record<string, unknown>; enforced: Re
    * account stores to say it has had this one, so a duplicate would make two
    * changes indistinguishable and a missing one would apply for ever.
    */
-  const parseChanges = (v: unknown, where: string): Array<{ version: string; settings: Record<string, unknown> }> => {
+  const parseChanges = (
+    v: unknown,
+    where: string,
+  ): Array<{ version: string; settings: Record<string, unknown> }> => {
     if (v === undefined) return [];
     if (!Array.isArray(v)) throw new Error(`Invalid ${where}: "changes" must be a list`);
     const seen = new Set<string>();
@@ -161,10 +178,13 @@ function readSettingsPolicy(): { defaults: Record<string, unknown>; enforced: Re
       const e = entry as { version?: unknown; settings?: unknown };
       const version = typeof e.version === "string" ? e.version.trim() : "";
       if (!version) throw new Error(`Invalid ${where}: changes[${i}] has no "version"`);
-      if (seen.has(version)) throw new Error(`Invalid ${where}: two changes share the version "${version}"`);
+      if (seen.has(version))
+        throw new Error(`Invalid ${where}: two changes share the version "${version}"`);
       seen.add(version);
       if (!e.settings || typeof e.settings !== "object" || Array.isArray(e.settings)) {
-        throw new Error(`Invalid ${where}: changes[${i}] ("${version}") has no "settings" object`);
+        throw new Error(
+          `Invalid ${where}: changes[${i}] ("${version}") has no "settings" object`,
+        );
       }
       return { version, settings: e.settings as Record<string, unknown> };
     });
@@ -172,7 +192,8 @@ function readSettingsPolicy(): { defaults: Record<string, unknown>; enforced: Re
 
   const file = process.env.SETTINGS_POLICY_FILE;
   if (file) {
-    if (!existsSync(file)) throw new Error(`SETTINGS_POLICY_FILE does not exist: ${file}`);
+    if (!existsSync(file))
+      throw new Error(`SETTINGS_POLICY_FILE does not exist: ${file}`);
     const whole = parse(readFileSync(file, "utf8"), `SETTINGS_POLICY_FILE (${file})`);
     return {
       defaults: (whole.defaults as Record<string, unknown>) ?? {},
@@ -181,9 +202,15 @@ function readSettingsPolicy(): { defaults: Record<string, unknown>; enforced: Re
     };
   }
   return {
-    defaults: process.env.SETTINGS_DEFAULTS ? parse(process.env.SETTINGS_DEFAULTS, "SETTINGS_DEFAULTS") : {},
-    enforced: process.env.SETTINGS_ENFORCED ? parse(process.env.SETTINGS_ENFORCED, "SETTINGS_ENFORCED") : {},
-    changes: process.env.SETTINGS_CHANGES ? parseChanges(JSON.parse(process.env.SETTINGS_CHANGES), "SETTINGS_CHANGES") : [],
+    defaults: process.env.SETTINGS_DEFAULTS
+      ? parse(process.env.SETTINGS_DEFAULTS, "SETTINGS_DEFAULTS")
+      : {},
+    enforced: process.env.SETTINGS_ENFORCED
+      ? parse(process.env.SETTINGS_ENFORCED, "SETTINGS_ENFORCED")
+      : {},
+    changes: process.env.SETTINGS_CHANGES
+      ? parseChanges(JSON.parse(process.env.SETTINGS_CHANGES), "SETTINGS_CHANGES")
+      : [],
   };
 }
 
@@ -214,7 +241,9 @@ function readStalwartServers(): Record<string, string> {
     throw new Error(`Invalid STALWART_SERVERS_FILE (${file}): ${(err as Error).message}`);
   }
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error(`Invalid STALWART_SERVERS_FILE (${file}): expected an object of domain to URL`);
+    throw new Error(
+      `Invalid STALWART_SERVERS_FILE (${file}): expected an object of domain to URL`,
+    );
   }
 
   const out: Record<string, string> = {};
@@ -223,17 +252,28 @@ function readStalwartServers(): Record<string, string> {
        taken off a username will arrive and comparing them any other way means
        a mapping that silently never matches. */
     const domain = rawDomain.trim().toLowerCase().replace(/\.$/, "");
-    if (!domain) throw new Error(`Invalid STALWART_SERVERS_FILE (${file}): a domain key is empty`);
-    if (domain in out) throw new Error(`Invalid STALWART_SERVERS_FILE (${file}): "${domain}" appears twice once normalised`);
-    if (typeof rawUrl !== "string") throw new Error(`Invalid STALWART_SERVERS_FILE (${file}): "${domain}" is not a URL`);
+    if (!domain)
+      throw new Error(`Invalid STALWART_SERVERS_FILE (${file}): a domain key is empty`);
+    if (domain in out)
+      throw new Error(
+        `Invalid STALWART_SERVERS_FILE (${file}): "${domain}" appears twice once normalised`,
+      );
+    if (typeof rawUrl !== "string")
+      throw new Error(
+        `Invalid STALWART_SERVERS_FILE (${file}): "${domain}" is not a URL`,
+      );
     let parsed: URL;
     try {
       parsed = new URL(rawUrl);
     } catch {
-      throw new Error(`Invalid STALWART_SERVERS_FILE (${file}): "${domain}" is not an absolute URL`);
+      throw new Error(
+        `Invalid STALWART_SERVERS_FILE (${file}): "${domain}" is not an absolute URL`,
+      );
     }
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      throw new Error(`Invalid STALWART_SERVERS_FILE (${file}): "${domain}" must be http or https`);
+      throw new Error(
+        `Invalid STALWART_SERVERS_FILE (${file}): "${domain}" must be http or https`,
+      );
     }
     out[domain] = rawUrl.replace(/\/+$/, "");
   }
@@ -284,7 +324,10 @@ export const config = {
    * the same host or Docker network. A peer outside this is attributed by its
    * socket address whatever it claims.
    */
-  trustedProxies: (process.env.TRUSTED_PROXIES ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+  trustedProxies: (process.env.TRUSTED_PROXIES ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
   /** "auto" = Secure when the request arrived over https; "1"/"0" to force. */
   secureCookies: (process.env.SECURE_COOKIES ?? "auto").toLowerCase(),
   sessionTtl: int("SESSION_TTL", 12 * 60 * 60),
@@ -296,7 +339,8 @@ export const config = {
   maxUploadBytes: int("MAX_UPLOAD_BYTES", 50 * 1024 * 1024),
   imageProxy: bool("IMAGE_PROXY", true),
   cookieName: env("COOKIE_NAME", "ihm_session"),
-  staticDir: process.env.STATIC_DIR ?? fileURLToPath(new URL("../../web/dist", import.meta.url)),
+  staticDir:
+    process.env.STATIC_DIR ?? fileURLToPath(new URL("../../web/dist", import.meta.url)),
   loginRateLimit: int("LOGIN_RATE_LIMIT", 10),
 };
 

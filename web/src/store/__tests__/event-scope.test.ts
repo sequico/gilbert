@@ -1,7 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
-import { CalendarSetError, eventIdForScope, isOccurrence, isThisAndFutureRefusal, occurrencePatch, OccurrenceScopeError, useCalendar } from "@/store/calendar";
 import type { CalendarEvent, JmapSession } from "@/jmap/types";
+import {
+  CalendarSetError,
+  eventIdForScope,
+  isOccurrence,
+  isThisAndFutureRefusal,
+  OccurrenceScopeError,
+  occurrencePatch,
+  useCalendar,
+} from "@/store/calendar";
 
 /**
  * Through 0.16.19 the server caught a synthetic id for us: `CalendarEvent/set`
@@ -26,17 +34,35 @@ const OCCURRENCE: CalendarEvent = {
   duration: "PT30M",
   recurrenceId: "2026-09-02T09:00:00",
   participants: {
-    me: { "@type": "Participant", calendarAddress: "mailto:me@example.org", participationStatus: "needs-action", roles: { attendee: true } },
+    me: {
+      "@type": "Participant",
+      calendarAddress: "mailto:me@example.org",
+      participationStatus: "needs-action",
+      roles: { attendee: true },
+    },
   },
 } as unknown as CalendarEvent;
 
 /** A one-off, which an expanded query still hands back with a base of its own. */
-const ONE_OFF: CalendarEvent = { ...OCCURRENCE, id: "eaaaaai", baseEventId: "i", recurrenceId: undefined } as unknown as CalendarEvent;
+const ONE_OFF: CalendarEvent = {
+  ...OCCURRENCE,
+  id: "eaaaaai",
+  baseEventId: "i",
+  recurrenceId: undefined,
+} as unknown as CalendarEvent;
 
 /** A master, fetched by id rather than expanded. */
-const MASTER: CalendarEvent = { ...OCCURRENCE, id: "i", baseEventId: undefined, recurrenceId: undefined } as unknown as CalendarEvent;
+const MASTER: CalendarEvent = {
+  ...OCCURRENCE,
+  id: "i",
+  baseEventId: undefined,
+  recurrenceId: undefined,
+} as unknown as CalendarEvent;
 
-interface SetCall { update?: Record<string, unknown>; destroy?: string[] }
+interface SetCall {
+  update?: Record<string, unknown>;
+  destroy?: string[];
+}
 
 /**
  * A server that renumbers, the way 0.16.20 does.
@@ -50,7 +76,9 @@ function server(opts: { resolvesTo?: string | null } = {}) {
   const calls: SetCall[] = [];
   const resolved = opts.resolvesTo === undefined ? OCCURRENCE.id : opts.resolvesTo;
   const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as { methodCalls: [string, Record<string, unknown>, string][] };
+    const body = JSON.parse(init.body as string) as {
+      methodCalls: [string, Record<string, unknown>, string][];
+    };
     const methodResponses = body.methodCalls.map(([name, args, id]) => {
       if (name === "CalendarEvent/get" && id === "g") {
         // The re-resolution lookup: same recurrenceId, whatever id it wears now.
@@ -58,17 +86,47 @@ function server(opts: { resolvesTo?: string | null } = {}) {
         return [name, { accountId: "a1", state: "1", list, notFound: [] }, id];
       }
       if (name === "CalendarEvent/set") {
-        calls.push({ update: args.update as Record<string, unknown>, destroy: args.destroy as string[] });
-        return [name, {
-          accountId: "a1", oldState: "1", newState: "2",
-          updated: Object.fromEntries(Object.keys((args.update ?? {}) as object).map((k) => [k, null])),
-          destroyed: (args.destroy ?? []) as string[],
-          notUpdated: {}, notDestroyed: {},
-        }, id];
+        calls.push({
+          update: args.update as Record<string, unknown>,
+          destroy: args.destroy as string[],
+        });
+        return [
+          name,
+          {
+            accountId: "a1",
+            oldState: "1",
+            newState: "2",
+            updated: Object.fromEntries(
+              Object.keys((args.update ?? {}) as object).map((k) => [k, null]),
+            ),
+            destroyed: (args.destroy ?? []) as string[],
+            notUpdated: {},
+            notDestroyed: {},
+          },
+          id,
+        ];
       }
-      return [name, { accountId: "a1", state: "1", list: [], notFound: [], ids: [], total: 0, queryState: "q", position: 0, canCalculateChanges: false }, id];
+      return [
+        name,
+        {
+          accountId: "a1",
+          state: "1",
+          list: [],
+          notFound: [],
+          ids: [],
+          total: 0,
+          queryState: "q",
+          position: 0,
+          canCalculateChanges: false,
+        },
+        id,
+      ];
     });
-    return { ok: true, status: 200, json: async () => ({ methodResponses, sessionState: "1" }) } as Response;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ methodResponses, sessionState: "1" }),
+    } as Response;
   });
   vi.stubGlobal("fetch", fetchMock);
   return calls;
@@ -76,7 +134,10 @@ function server(opts: { resolvesTo?: string | null } = {}) {
 
 beforeEach(() => {
   client.session = {
-    capabilities: { [CAP.core]: { maxObjectsInGet: 500, maxObjectsInSet: 500 }, [CAP.calendars]: {} },
+    capabilities: {
+      [CAP.core]: { maxObjectsInGet: 500, maxObjectsInSet: 500 },
+      [CAP.calendars]: {},
+    },
     accounts: {},
     primaryAccounts: {},
     state: "s1",
@@ -87,7 +148,15 @@ beforeEach(() => {
     calendars: {},
     events: { [OCCURRENCE.id]: OCCURRENCE },
     ranges: {},
-    identities: [{ id: "id1", name: "Me", calendarAddress: "mailto:me@example.org", sendTo: {}, isDefault: true }],
+    identities: [
+      {
+        id: "id1",
+        name: "Me",
+        calendarAddress: "mailto:me@example.org",
+        sendTo: {},
+        isDefault: true,
+      },
+    ],
   });
 });
 
@@ -141,8 +210,9 @@ describe("destroyEvent", () => {
 
   it("refuses rather than guessing when the date is no longer in the series", async () => {
     const calls = server({ resolvesTo: null });
-    await expect(useCalendar.getState().destroyEvent(OCCURRENCE, false, "occurrence"))
-      .rejects.toThrow(/no longer part of this series/i);
+    await expect(
+      useCalendar.getState().destroyEvent(OCCURRENCE, false, "occurrence"),
+    ).rejects.toThrow(/no longer part of this series/i);
     expect(calls).toEqual([]);
   });
 
@@ -158,13 +228,17 @@ describe("destroyEvent", () => {
 describe("updateEvent", () => {
   it("patches the master for a series", async () => {
     const calls = server();
-    await useCalendar.getState().updateEvent(OCCURRENCE, { color: "#f00" }, false, "series");
+    await useCalendar
+      .getState()
+      .updateEvent(OCCURRENCE, { color: "#f00" }, false, "series");
     expect(Object.keys(calls[0]!.update!)).toEqual(["i"]);
   });
 
   it("patches the id the occurrence answers to now", async () => {
     const calls = server({ resolvesTo: "renumbered7" });
-    await useCalendar.getState().updateEvent(OCCURRENCE, { color: "#f00" }, false, "occurrence");
+    await useCalendar
+      .getState()
+      .updateEvent(OCCURRENCE, { color: "#f00" }, false, "occurrence");
     expect(Object.keys(calls[0]!.update!)).toEqual(["renumbered7"]);
   });
 });
@@ -177,16 +251,29 @@ describe("rsvp", () => {
     const calls = server();
     await useCalendar.getState().rsvp(OCCURRENCE, "accepted");
     expect(Object.keys(calls[0]!.update!)).toEqual(["i"]);
-    expect(calls[0]!.update!.i).toEqual({ "participants/me/participationStatus": "accepted" });
+    expect(calls[0]!.update!.i).toEqual({
+      "participants/me/participationStatus": "accepted",
+    });
   });
 
   it("refuses when the signed-in identity is not a participant", async () => {
     server();
-    useCalendar.setState({ identities: [{ id: "id2", name: "Someone", calendarAddress: "mailto:someone-else@example.org", sendTo: {}, isDefault: true }] });
-    await expect(useCalendar.getState().rsvp(OCCURRENCE, "accepted")).rejects.toThrow(/not a participant/i);
+    useCalendar.setState({
+      identities: [
+        {
+          id: "id2",
+          name: "Someone",
+          calendarAddress: "mailto:someone-else@example.org",
+          sendTo: {},
+          isDefault: true,
+        },
+      ],
+    });
+    await expect(useCalendar.getState().rsvp(OCCURRENCE, "accepted")).rejects.toThrow(
+      /not a participant/i,
+    );
   });
 });
-
 
 describe("occurrencePatch", () => {
   it("lets through what one date will actually take", () => {
@@ -198,30 +285,45 @@ describe("occurrencePatch", () => {
   it("throws on a property the server refuses outright", () => {
     // Loud is correct here: moving one occurrence to another calendar is not
     // something the user can be quietly given a different answer to.
-    expect(() => occurrencePatch({ calendarIds: { c2: true } })).toThrow(OccurrenceScopeError);
+    expect(() => occurrencePatch({ calendarIds: { c2: true } })).toThrow(
+      OccurrenceScopeError,
+    );
     expect(() => occurrencePatch({ useDefaultAlerts: false })).toThrow(/whole series/i);
   });
 
   it("removes an inherited property and reports it, rather than letting it vanish", () => {
     // The server would take this patch, drop `privacy`, and answer "updated".
     // Anything that believes the response believes the change landed.
-    const { patch, dropped } = occurrencePatch({ title: "x", privacy: "private", recurrenceRule: null });
+    const { patch, dropped } = occurrencePatch({
+      title: "x",
+      privacy: "private",
+      recurrenceRule: null,
+    });
     expect(patch).toEqual({ title: "x" });
     expect(dropped).toEqual(["privacy", "recurrenceRule"]);
   });
 
   it("judges a pointer patch on its first token, as the server does", () => {
-    expect(occurrencePatch({ "participants/me/participationStatus": "accepted" }).patch)
-      .toEqual({ "participants/me/participationStatus": "accepted" });
-    expect(occurrencePatch({ "participants/me/calendarAddress": "mailto:x@y" }).dropped)
-      .toEqual(["participants/me/calendarAddress"]);
+    expect(
+      occurrencePatch({ "participants/me/participationStatus": "accepted" }).patch,
+    ).toEqual({ "participants/me/participationStatus": "accepted" });
+    expect(
+      occurrencePatch({ "participants/me/calendarAddress": "mailto:x@y" }).dropped,
+    ).toEqual(["participants/me/calendarAddress"]);
   });
 });
 
 describe("updateEvent, per occurrence", () => {
   it("narrows the patch before sending it and reports what it kept back", async () => {
     const calls = server();
-    const dropped = await useCalendar.getState().updateEvent(OCCURRENCE, { title: "Just today", privacy: "private" }, false, "occurrence");
+    const dropped = await useCalendar
+      .getState()
+      .updateEvent(
+        OCCURRENCE,
+        { title: "Just today", privacy: "private" },
+        false,
+        "occurrence",
+      );
     expect(calls[0]!.update).toEqual({ iaaaaas: { title: "Just today" } });
     expect(dropped).toEqual(["privacy"]);
   });
@@ -230,27 +332,47 @@ describe("updateEvent, per occurrence", () => {
     // A request that could only be a no-op is worse than no request: the
     // response would say "updated" and mean nothing by it.
     const calls = server();
-    const dropped = await useCalendar.getState().updateEvent(OCCURRENCE, { privacy: "private" }, false, "occurrence");
+    const dropped = await useCalendar
+      .getState()
+      .updateEvent(OCCURRENCE, { privacy: "private" }, false, "occurrence");
     expect(calls).toEqual([]);
     expect(dropped).toEqual(["privacy"]);
   });
 
   it("leaves a series patch exactly as the caller wrote it", async () => {
     const calls = server();
-    await useCalendar.getState().updateEvent(OCCURRENCE, { privacy: "private", useDefaultAlerts: false }, false, "series");
+    await useCalendar
+      .getState()
+      .updateEvent(
+        OCCURRENCE,
+        { privacy: "private", useDefaultAlerts: false },
+        false,
+        "series",
+      );
     expect(calls[0]!.update!.i).toEqual({ privacy: "private", useDefaultAlerts: false });
   });
 });
 
 describe("isThisAndFutureRefusal", () => {
   it("recognises the refusal worth offering the series for", () => {
-    expect(isThisAndFutureRefusal(new CalendarSetError({
-      type: "invalidProperties",
-      description: "Occurrences of a this-and-future change cannot be modified individually.",
-    }))).toBe(true);
+    expect(
+      isThisAndFutureRefusal(
+        new CalendarSetError({
+          type: "invalidProperties",
+          description:
+            "Occurrences of a this-and-future change cannot be modified individually.",
+        }),
+      ),
+    ).toBe(true);
   });
   it("does not claim an unrelated refusal", () => {
-    expect(isThisAndFutureRefusal(new CalendarSetError({ type: "forbidden", description: "Nope." }))).toBe(false);
-    expect(isThisAndFutureRefusal(new Error("Occurrences of a this-and-future change"))).toBe(false);
+    expect(
+      isThisAndFutureRefusal(
+        new CalendarSetError({ type: "forbidden", description: "Nope." }),
+      ),
+    ).toBe(false);
+    expect(
+      isThisAndFutureRefusal(new Error("Occurrences of a this-and-future change")),
+    ).toBe(false);
   });
 });

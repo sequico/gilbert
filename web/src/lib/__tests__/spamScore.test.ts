@@ -6,7 +6,9 @@ const rs = (v: string) => spamReport({ "header:X-Spamd-Result:asText": v });
 
 describe("spamReport, SpamAssassin-shaped headers", () => {
   it("reads the verdict, score, threshold and tests", () => {
-    const r = sa("Yes, score=6.7 required=5.0 tests=[BAYES_99=3.5, HTML_MESSAGE=0.001, URIBL=2.2] autolearn=no");
+    const r = sa(
+      "Yes, score=6.7 required=5.0 tests=[BAYES_99=3.5, HTML_MESSAGE=0.001, URIBL=2.2] autolearn=no",
+    );
     expect(r).not.toBeNull();
     expect(r!.verdict).toBe("spam");
     expect(r!.score).toBe(6.7);
@@ -51,7 +53,9 @@ describe("spamReport, SpamAssassin-shaped headers", () => {
 
 describe("spamReport, Rspamd", () => {
   it("reads the action, score, threshold and rules with their notes", () => {
-    const r = rs("default: False [1.20 / 15.00]; MIME_GOOD(-0.10)[text/plain]; DKIM_ALLOW(-0.20)[example.com]; SUBJ_CAPS(2.00)[]");
+    const r = rs(
+      "default: False [1.20 / 15.00]; MIME_GOOD(-0.10)[text/plain]; DKIM_ALLOW(-0.20)[example.com]; SUBJ_CAPS(2.00)[]",
+    );
     expect(r!.verdict).toBe("clean");
     expect(r!.score).toBe(1.2);
     expect(r!.threshold).toBe(15);

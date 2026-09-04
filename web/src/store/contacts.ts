@@ -1,13 +1,23 @@
 import { create } from "zustand";
-import { accountKey, loadRaw, saveJson } from "@/lib/storage";
 import { CAP, chunk, client, setErrorMessage } from "@/jmap/client";
-import type { AddressBook, ContactCard, EmailAddress, GetResponse, Id, Principal, QueryResponse, SetError, SetResponse } from "@/jmap/types";
+import type {
+  AddressBook,
+  ContactCard,
+  EmailAddress,
+  GetResponse,
+  Id,
+  Principal,
+  QueryResponse,
+  SetError,
+  SetResponse,
+} from "@/jmap/types";
 import { contactDisplayName, contactEmails, sortKey } from "@/lib/contacts";
 import { parseLdif, uidFromDn } from "@/lib/ldif";
 import { cardFromLdif } from "@/lib/mozillaAb";
-import { useSettings } from "./settings";
-import { useSession } from "./session";
+import { accountKey, loadRaw, saveJson } from "@/lib/storage";
 import { useMail } from "./mail";
+import { useSession } from "./session";
+import { useSettings } from "./settings";
 
 /**
  * Create cards in batches the server will take.
@@ -41,18 +51,30 @@ import { useMail } from "./mail";
  * happens to be holding costs one pass over a list nobody imports into twice a
  * day.
  */
-async function scanBook(accountId: Id, addressBookId: Id): Promise<{ byUid: Map<string, Id>; likeness: Set<string> }> {
+async function scanBook(
+  accountId: Id,
+  addressBookId: Id,
+): Promise<{ byUid: Map<string, Id>; likeness: Set<string> }> {
   /* The id as well as the UID, because a card that is already here is now
      updated rather than skipped, and updating needs something to address. */
   const byUid = new Map<string, Id>();
   const likeness = new Set<string>();
   const page = client.maxObjectsInGet;
   for (let position = 0; ; ) {
-    const q = await client.call<QueryResponse>("ContactCard/query", { accountId, position, limit: page, calculateTotal: true });
+    const q = await client.call<QueryResponse>("ContactCard/query", {
+      accountId,
+      position,
+      limit: page,
+      calculateTotal: true,
+    });
     const ids = q.ids ?? [];
     if (!ids.length) break;
     for (const part of chunk(ids, page)) {
-      const g = await client.call<GetResponse<ContactCard>>("ContactCard/get", { accountId, ids: part, properties: ["uid", "addressBookIds", "name", "emails"] });
+      const g = await client.call<GetResponse<ContactCard>>("ContactCard/get", {
+        accountId,
+        ids: part,
+        properties: ["uid", "addressBookIds", "name", "emails"],
+      });
       for (const c of g.list) {
         if (!c.addressBookIds?.[addressBookId]) continue;
         if (c.uid && !byUid.has(c.uid)) byUid.set(c.uid, c.id);
@@ -86,9 +108,13 @@ async function scanBook(accountId: Id, addressBookId: Id): Promise<{ byUid: Map<
  * recognised.
  */
 function likenessKeys(c: Partial<ContactCard>): string[] {
-  const name = contactDisplayName(c as ContactCard).trim().toLowerCase();
+  const name = contactDisplayName(c as ContactCard)
+    .trim()
+    .toLowerCase();
   if (!name) return [];
-  const addresses = Object.values(c.emails ?? {}).map((e) => e.address?.trim().toLowerCase()).filter(Boolean);
+  const addresses = Object.values(c.emails ?? {})
+    .map((e) => e.address?.trim().toLowerCase())
+    .filter(Boolean);
   return addresses.map((a) => `${name}\u0000${a}`);
 }
 
@@ -120,17 +146,24 @@ async function writeCards(
     }
     let res: SetResponse<ContactCard>;
     try {
-      res = await client.call<SetResponse<ContactCard>>("ContactCard/set", { accountId, create: subCreate, update: subUpdate });
+      res = await client.call<SetResponse<ContactCard>>("ContactCard/set", {
+        accountId,
+        create: subCreate,
+        update: subUpdate,
+      });
     } catch (err) {
       // A batch that failed with earlier ones already filed: those contacts are
       // in the address book, and an error saying only that the import failed
       // sends someone looking for contacts that are already there.
       if (!created && !updated) throw err;
-      throw new Error(`${created + updated} of ${keys.length} contacts were imported before this happened: ${(err as Error).message}`);
+      throw new Error(
+        `${created + updated} of ${keys.length} contacts were imported before this happened: ${(err as Error).message}`,
+      );
     }
     created += Object.keys(res.created ?? {}).length;
     updated += Object.keys(res.updated ?? {}).length;
-    refused ??= Object.values(res.notCreated ?? {})[0] ?? Object.values(res.notUpdated ?? {})[0];
+    refused ??=
+      Object.values(res.notCreated ?? {})[0] ?? Object.values(res.notUpdated ?? {})[0];
   }
   return { created, updated, refused };
 }
@@ -150,7 +183,16 @@ export interface Suggestion {
  * against 0.16.19 on 2026-08-27 on a book that really was shared. See the note
  * on CALENDAR_PROPS; both had the same hole and Files did not.
  */
-export const ADDRESS_BOOK_PROPS = ["id", "name", "description", "sortOrder", "isDefault", "isSubscribed", "shareWith", "myRights"];
+export const ADDRESS_BOOK_PROPS = [
+  "id",
+  "name",
+  "description",
+  "sortOrder",
+  "isDefault",
+  "isSubscribed",
+  "shareWith",
+  "myRights",
+];
 
 /** A book somebody else shared, and the account it lives in. */
 export interface SharedBook {
@@ -207,7 +249,10 @@ interface ContactsState {
   updateBook(id: Id, patch: Partial<AddressBook>): Promise<void>;
   destroyBook(id: Id): Promise<void>;
   /** Import vCards, updating any whose UID this book already holds rather than duplicating it. */
-  importVCard(text: string, addressBookId: Id): Promise<{ created: number; updated: number; alike: number }>;
+  importVCard(
+    text: string,
+    addressBookId: Id,
+  ): Promise<{ created: number; updated: number; alike: number }>;
   /**
    * Import an address book in LDIF, read against Mozilla's schema.
    *
@@ -218,7 +263,10 @@ interface ContactsState {
    * which is what a changed `dn` produces. Answered in the same shape as the
    * vCard import so the caller need not know which it called.
    */
-  importLdif(text: string, addressBookId: Id): Promise<{ created: number; updated: number; alike: number }>;
+  importLdif(
+    text: string,
+    addressBookId: Id,
+  ): Promise<{ created: number; updated: number; alike: number }>;
   loadPrincipals(): Promise<void>;
   suggest(query: string, limit?: number): Promise<Suggestion[]>;
   addRecent(addrs: EmailAddress[]): void;
@@ -250,7 +298,14 @@ export const useContacts = create<ContactsState>((set, get) => ({
     // should move when the switcher does.
     const accountId = useSession.getState().ownAccountFor(CAP.contacts);
     const available = Boolean(accountId && client.hasCapability(CAP.contacts));
-    if (accountId !== get().accountId) set({ accountId, books: {}, cards: {}, loaded: false, selection: { accountId: null, bookId: "all" } });
+    if (accountId !== get().accountId)
+      set({
+        accountId,
+        books: {},
+        cards: {},
+        loaded: false,
+        selection: { accountId: null, bookId: "all" },
+      });
     set({ available });
     if (!available) return;
     await get().loadBooks();
@@ -273,7 +328,9 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const session = useSession.getState();
     const own = session.ownAccountFor(CAP.contacts);
     const s = session.session;
-    const accounts = Object.entries(s?.accounts ?? {}).filter(([id, a]) => a.isPersonal === false && id !== own);
+    const accounts = Object.entries(s?.accounts ?? {}).filter(
+      ([id, a]) => a.isPersonal === false && id !== own,
+    );
     if (!accounts.length) {
       set({ sharedBooks: [], sharedCards: {}, sharedLoaded: true });
       return;
@@ -282,8 +339,13 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const cards: Record<string, ContactCard> = {};
     for (const [accountId, account] of accounts) {
       try {
-        const res = await client.call<GetResponse<AddressBook>>("AddressBook/get", { accountId, ids: null, properties: ADDRESS_BOOK_PROPS });
-        for (const book of res.list) books.push({ accountId, accountName: account.name, book });
+        const res = await client.call<GetResponse<AddressBook>>("AddressBook/get", {
+          accountId,
+          ids: null,
+          properties: ADDRESS_BOOK_PROPS,
+        });
+        for (const book of res.list)
+          books.push({ accountId, accountName: account.name, book });
         /*
          * Cards come only from books the reader has added.
          *
@@ -295,24 +357,31 @@ export const useContacts = create<ContactsState>((set, get) => ({
          * this must not guess.
          */
         const added = new Set(useSettings.getState().settings.addedShares);
-        const wanted = new Set(res.list.filter((b) => b.isSubscribed || added.has(sharedKey(accountId, b.id))).map((b) => b.id));
+        const wanted = new Set(
+          res.list
+            .filter((b) => b.isSubscribed || added.has(sharedKey(accountId, b.id)))
+            .map((b) => b.id),
+        );
         if (!wanted.size) continue;
         // One page. A shared book is a colleague's contacts, not an archive,
         // and the alternative is holding the reader's own list hostage to it.
         const cardsRes = await client.chain([
           ["ContactCard/query", { accountId, limit: 500 }, "q"],
-          ["ContactCard/get", { accountId, "#ids": { resultOf: "q", name: "ContactCard/query", path: "/ids" } }, "g"],
+          [
+            "ContactCard/get",
+            {
+              accountId,
+              "#ids": { resultOf: "q", name: "ContactCard/query", path: "/ids" },
+            },
+            "g",
+          ],
         ]);
         const g = cardsRes.get("g")?.[0] as unknown as GetResponse<ContactCard>;
         for (const c of g.list) {
           if (!Object.keys(c.addressBookIds ?? {}).some((id) => wanted.has(id))) continue;
           cards[sharedKey(accountId, c.id)] = c;
         }
-      } catch {
-        // An account that refuses is one that shared nothing here. Not an
-        // error to show: the reader did not ask for it and cannot act on it.
-        continue;
-      }
+      } catch {}
     }
     set({ sharedBooks: books, sharedCards: cards, sharedLoaded: true });
   },
@@ -339,7 +408,10 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const key = sharedKey(accountId, bookId);
     let stored = false;
     try {
-      const res = await client.call<SetResponse>("AddressBook/set", { accountId, update: { [bookId]: { isSubscribed: subscribed } } });
+      const res = await client.call<SetResponse>("AddressBook/set", {
+        accountId,
+        update: { [bookId]: { isSubscribed: subscribed } },
+      });
       const err = res.notUpdated?.[bookId];
       if (err) throw new Error(setErrorMessage(err));
       stored = true;
@@ -353,7 +425,11 @@ export const useContacts = create<ContactsState>((set, get) => ({
       else added.delete(key);
       update({ addedShares: [...added] });
     }
-    if (!subscribed && get().selection.accountId === accountId && get().selection.bookId === bookId) {
+    if (
+      !subscribed &&
+      get().selection.accountId === accountId &&
+      get().selection.bookId === bookId
+    ) {
       set({ selection: { accountId: null, bookId: "all" } });
     }
     await get().loadShared();
@@ -373,7 +449,11 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const accountId = get().accountId;
     if (!accountId) return;
     try {
-      const res = await client.call<GetResponse<AddressBook>>("AddressBook/get", { accountId, ids: null, properties: ADDRESS_BOOK_PROPS });
+      const res = await client.call<GetResponse<AddressBook>>("AddressBook/get", {
+        accountId,
+        ids: null,
+        properties: ADDRESS_BOOK_PROPS,
+      });
       const books: Record<Id, AddressBook> = {};
       for (const b of res.list) books[b.id] = b;
       set({ books, error: null });
@@ -392,8 +472,19 @@ export const useContacts = create<ContactsState>((set, get) => ({
       const limit = 500;
       for (let guard = 0; guard < 50; guard++) {
         const res = await client.chain([
-          ["ContactCard/query", { accountId, position, limit, calculateTotal: true }, "q"],
-          ["ContactCard/get", { accountId, "#ids": { resultOf: "q", name: "ContactCard/query", path: "/ids" } }, "g"],
+          [
+            "ContactCard/query",
+            { accountId, position, limit, calculateTotal: true },
+            "q",
+          ],
+          [
+            "ContactCard/get",
+            {
+              accountId,
+              "#ids": { resultOf: "q", name: "ContactCard/query", path: "/ids" },
+            },
+            "g",
+          ],
         ]);
         const q = res.get("q")?.[0] as unknown as QueryResponse;
         const g = res.get("g")?.[0] as unknown as GetResponse<ContactCard>;
@@ -410,7 +501,10 @@ export const useContacts = create<ContactsState>((set, get) => ({
   async getCard(id) {
     const accountId = get().accountId;
     if (!accountId) return null;
-    const res = await client.call<GetResponse<ContactCard>>("ContactCard/get", { accountId, ids: [id] });
+    const res = await client.call<GetResponse<ContactCard>>("ContactCard/get", {
+      accountId,
+      ids: [id],
+    });
     const c = res.list[0];
     if (c) set((s) => ({ cards: { ...s.cards, [c.id]: c } }));
     return c ?? null;
@@ -420,7 +514,13 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const q = text.trim().toLowerCase();
     const filtered = q
       ? cards.filter((c) => {
-          const hay = [contactDisplayName(c), ...Object.values(c.emails ?? {}).map((e) => e.address), ...Object.values(c.phones ?? {}).map((p) => p.number), ...Object.values(c.organizations ?? {}).map((o) => o.name ?? ""), ...Object.values(c.nicknames ?? {}).map((n) => n.name)]
+          const hay = [
+            contactDisplayName(c),
+            ...Object.values(c.emails ?? {}).map((e) => e.address),
+            ...Object.values(c.phones ?? {}).map((p) => p.number),
+            ...Object.values(c.organizations ?? {}).map((o) => o.name ?? ""),
+            ...Object.values(c.nicknames ?? {}).map((n) => n.name),
+          ]
             .join(" ")
             .toLowerCase();
           return hay.includes(q);
@@ -435,8 +535,18 @@ export const useContacts = create<ContactsState>((set, get) => ({
 
   async createCard(card, addressBookId) {
     const accountId = get().accountId!;
-    const obj = { "@type": "Card", version: "1.0", uid: crypto.randomUUID(), kind: "individual", ...card, addressBookIds: { [addressBookId]: true } };
-    const res = await client.call<SetResponse<ContactCard>>("ContactCard/set", { accountId, create: { c: obj } });
+    const obj = {
+      "@type": "Card",
+      version: "1.0",
+      uid: crypto.randomUUID(),
+      kind: "individual",
+      ...card,
+      addressBookIds: { [addressBookId]: true },
+    };
+    const res = await client.call<SetResponse<ContactCard>>("ContactCard/set", {
+      accountId,
+      create: { c: obj },
+    });
     const err = res.notCreated?.c;
     if (err) throw new Error(setErrorMessage(err));
     const id = res.created!.c!.id;
@@ -446,7 +556,10 @@ export const useContacts = create<ContactsState>((set, get) => ({
 
   async updateCard(id, patch) {
     const accountId = get().accountId!;
-    const res = await client.call<SetResponse>("ContactCard/set", { accountId, update: { [id]: patch } });
+    const res = await client.call<SetResponse>("ContactCard/set", {
+      accountId,
+      update: { [id]: patch },
+    });
     const err = res.notUpdated?.[id];
     if (err) throw new Error(setErrorMessage(err));
     await get().getCard(id);
@@ -467,7 +580,10 @@ export const useContacts = create<ContactsState>((set, get) => ({
     let failed: SetError | undefined;
     try {
       for (const part of chunk(ids, client.maxObjectsInSet)) {
-        const res = await client.call<SetResponse>("ContactCard/set", { accountId, destroy: part });
+        const res = await client.call<SetResponse>("ContactCard/set", {
+          accountId,
+          destroy: part,
+        });
         gone.push(...(res.destroyed ?? []));
         failed ??= Object.values(res.notDestroyed ?? {})[0];
       }
@@ -485,7 +601,10 @@ export const useContacts = create<ContactsState>((set, get) => ({
 
   async createBook(name) {
     const accountId = get().accountId!;
-    const res = await client.call<SetResponse<AddressBook>>("AddressBook/set", { accountId, create: { b: { name } } });
+    const res = await client.call<SetResponse<AddressBook>>("AddressBook/set", {
+      accountId,
+      create: { b: { name } },
+    });
     const err = res.notCreated?.b;
     if (err) throw new Error(setErrorMessage(err));
     await get().loadBooks();
@@ -494,7 +613,10 @@ export const useContacts = create<ContactsState>((set, get) => ({
 
   async updateBook(id, patch) {
     const accountId = get().accountId!;
-    const res = await client.call<SetResponse>("AddressBook/set", { accountId, update: { [id]: patch } });
+    const res = await client.call<SetResponse>("AddressBook/set", {
+      accountId,
+      update: { [id]: patch },
+    });
     const err = res.notUpdated?.[id];
     if (err) throw new Error(setErrorMessage(err));
     await get().loadBooks();
@@ -502,7 +624,11 @@ export const useContacts = create<ContactsState>((set, get) => ({
 
   async destroyBook(id) {
     const accountId = get().accountId!;
-    const res = await client.call<SetResponse>("AddressBook/set", { accountId, destroy: [id], onDestroyRemoveContents: true });
+    const res = await client.call<SetResponse>("AddressBook/set", {
+      accountId,
+      destroy: [id],
+      onDestroyRemoveContents: true,
+    });
     const err = res.notDestroyed?.[id];
     if (err) throw new Error(setErrorMessage(err));
     await get().loadBooks();
@@ -511,8 +637,13 @@ export const useContacts = create<ContactsState>((set, get) => ({
 
   async importVCard(text, addressBookId) {
     const accountId = get().accountId!;
-    const up = await client.upload(accountId, new Blob([text], { type: "text/vcard" }), { type: "text/vcard" });
-    const parsed = await client.call<{ parsed?: Record<string, ContactCard[] | ContactCard>; notParsable?: Id[] }>("ContactCard/parse", { accountId, blobIds: [up.blobId] });
+    const up = await client.upload(accountId, new Blob([text], { type: "text/vcard" }), {
+      type: "text/vcard",
+    });
+    const parsed = await client.call<{
+      parsed?: Record<string, ContactCard[] | ContactCard>;
+      notParsable?: Id[];
+    }>("ContactCard/parse", { accountId, blobIds: [up.blobId] });
     const entry = parsed.parsed?.[up.blobId];
     const cards: ContactCard[] = entry ? (Array.isArray(entry) ? entry : [entry]) : [];
     if (!cards.length) throw new Error("No contacts found in file");
@@ -543,14 +674,23 @@ export const useContacts = create<ContactsState>((set, get) => ({
         delete (update[existing] as Record<string, unknown>).addressBookIds;
         return;
       }
-      create[`c${i}`] = { ...rest, uid: rest.uid || crypto.randomUUID(), addressBookIds: { [addressBookId]: true } };
+      create[`c${i}`] = {
+        ...rest,
+        uid: rest.uid || crypto.randomUUID(),
+        addressBookIds: { [addressBookId]: true },
+      };
     });
     try {
       const { created, updated, refused } = await writeCards(accountId, create, update);
       // Nothing at all got in: say why rather than report importing none as
       // though the file had been empty. The LDIF import said this already; a
       // vCard import that quietly returned 0 was the odd one out.
-      if (!created && !updated) throw new Error(refused ? setErrorMessage(refused) : "the server did not accept any of its contacts");
+      if (!created && !updated)
+        throw new Error(
+          refused
+            ? setErrorMessage(refused)
+            : "the server did not accept any of its contacts",
+        );
       /* No likeness count: a vCard carries a UID, so anything already here was
          matched on it rather than guessed at. */
       return { created, updated, alike: 0 };
@@ -574,7 +714,9 @@ export const useContacts = create<ContactsState>((set, get) => ({
        `cardFromLdif` deliberately does not carry it into the card. */
     const entries = parseLdif(text)
       .map((rec) => ({ uid: uidFromDn(rec.dn), card: cardFromLdif(rec) }))
-      .filter((e): e is { uid: string | null; card: Partial<ContactCard> } => e.card !== null);
+      .filter(
+        (e): e is { uid: string | null; card: Partial<ContactCard> } => e.card !== null,
+      );
     if (!entries.length) throw new Error("it has no contacts in it");
     /*
      * Read before anything is written, so "already had" means before this
@@ -616,11 +758,22 @@ export const useContacts = create<ContactsState>((set, get) => ({
        * a merge made on a guess cannot be undone.
        */
       if (!seen && likenessKeys(card).some((k) => before.likeness.has(k))) alike++;
-      create[key] = { "@type": "Card", version: "1.0", ...card, uid: uid ?? crypto.randomUUID(), addressBookIds: { [addressBookId]: true } };
+      create[key] = {
+        "@type": "Card",
+        version: "1.0",
+        ...card,
+        uid: uid ?? crypto.randomUUID(),
+        addressBookIds: { [addressBookId]: true },
+      };
     });
     try {
       const { created, updated, refused } = await writeCards(accountId, create, update);
-      if (!created && !updated) throw new Error(refused ? setErrorMessage(refused) : "the server did not accept any of its contacts");
+      if (!created && !updated)
+        throw new Error(
+          refused
+            ? setErrorMessage(refused)
+            : "the server did not accept any of its contacts",
+        );
       return { created, updated, alike };
     } finally {
       await get().loadAll();
@@ -637,7 +790,15 @@ export const useContacts = create<ContactsState>((set, get) => ({
     try {
       const res = await client.chain([
         ["Principal/query", { accountId, limit: 1000 }, "q"],
-        ["Principal/get", { accountId, "#ids": { resultOf: "q", name: "Principal/query", path: "/ids" }, properties: ["id", "type", "name", "description", "email", "timeZone"] }, "g"],
+        [
+          "Principal/get",
+          {
+            accountId,
+            "#ids": { resultOf: "q", name: "Principal/query", path: "/ids" },
+            properties: ["id", "type", "name", "description", "email", "timeZone"],
+          },
+          "g",
+        ],
       ]);
       const g = res.get("g")?.[0] as unknown as GetResponse<Principal>;
       set({ principals: g.list, principalsLoaded: true });
@@ -677,19 +838,35 @@ export const useContacts = create<ContactsState>((set, get) => ({
     for (const { c, penalty } of [...own, ...shared]) {
       for (const a of contactEmails(c)) {
         const sc = score(a.name, a.email);
-        if (sc < 99) candidates.push({ name: a.name, email: a.email, source: "contact", contactId: c.id, score: sc + penalty });
+        if (sc < 99)
+          candidates.push({
+            name: a.name,
+            email: a.email,
+            source: "contact",
+            contactId: c.id,
+            score: sc + penalty,
+          });
       }
     }
     for (const p of st.principals) {
       if (!p.email) continue;
       const sc = score(p.name, p.email);
-      if (sc < 99) candidates.push({ name: p.name, email: p.email, source: "gal", score: sc + 0.5 });
+      if (sc < 99)
+        candidates.push({ name: p.name, email: p.email, source: "gal", score: sc + 0.5 });
     }
     for (const r of st.recent) {
       const sc = score(r.name, r.email);
-      if (sc < 99) candidates.push({ name: r.name, email: r.email, source: "recent", score: sc + 0.25 });
+      if (sc < 99)
+        candidates.push({
+          name: r.name,
+          email: r.email,
+          source: "recent",
+          score: sc + 0.25,
+        });
     }
-    candidates.sort((a, b) => a.score - b.score || (a.name ?? a.email).localeCompare(b.name ?? b.email));
+    candidates.sort(
+      (a, b) => a.score - b.score || (a.name ?? a.email).localeCompare(b.name ?? b.email),
+    );
     for (const c of candidates) {
       add(c);
       if (out.length >= limit) break;
@@ -699,7 +876,12 @@ export const useContacts = create<ContactsState>((set, get) => ({
 
   addRecent(addrs) {
     const cur = get().recent;
-    const next = [...addrs.filter((a) => a.email), ...cur.filter((r) => !addrs.some((a) => a.email.toLowerCase() === r.email.toLowerCase()))].slice(0, 200);
+    const next = [
+      ...addrs.filter((a) => a.email),
+      ...cur.filter(
+        (r) => !addrs.some((a) => a.email.toLowerCase() === r.email.toLowerCase()),
+      ),
+    ].slice(0, 200);
     set({ recent: next });
     try {
       saveJson(accountKey(get().accountId, "recent"), next);
@@ -710,14 +892,21 @@ export const useContacts = create<ContactsState>((set, get) => ({
 
   lookupByEmail(email) {
     const e = email.toLowerCase();
-    const match = (c: ContactCard) => Object.values(c.emails ?? {}).some((x) => x.address.toLowerCase() === e);
+    const match = (c: ContactCard) =>
+      Object.values(c.emails ?? {}).some((x) => x.address.toLowerCase() === e);
     // The reader's own books first: a card they wrote themselves should win
     // over a colleague's version of the same person.
-    return Object.values(get().cards).find(match) ?? Object.values(get().sharedCards).find(match);
+    return (
+      Object.values(get().cards).find(match) ??
+      Object.values(get().sharedCards).find(match)
+    );
   },
 
   applyChanges(types) {
-    if (types.has("AddressBook")) { void get().loadBooks(); void get().loadShared(); }
+    if (types.has("AddressBook")) {
+      void get().loadBooks();
+      void get().loadShared();
+    }
     if (types.has("ContactCard") && get().loaded) void get().loadAll();
   },
 }));
@@ -733,7 +922,14 @@ useSession.subscribe((s) => {
     }
     useContacts.setState({ recent });
   } else {
-    useContacts.setState({ accountId: null, books: {}, cards: {}, loaded: false, principals: [], principalsLoaded: false });
+    useContacts.setState({
+      accountId: null,
+      books: {},
+      cards: {},
+      loaded: false,
+      principals: [],
+      principalsLoaded: false,
+    });
   }
 });
 

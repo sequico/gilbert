@@ -1,10 +1,21 @@
-import { afterEach, describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { CONTEXT_SEPARATOR, currentLanguage, interpolate, plural, setCatalog, subscribeForTest, t, tc, tNode, type Catalog } from "@/lib/i18n";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  type Catalog,
+  CONTEXT_SEPARATOR,
+  currentLanguage,
+  interpolate,
+  plural,
+  setCatalog,
+  subscribeForTest,
+  t,
+  tc,
+  tNode,
+} from "@/lib/i18n";
 
 const de: Catalog = {
   strings: {
-    "Archive": "Archivieren",
+    Archive: "Archivieren",
     "Move {n} to {folder}": "{n} nach {folder} verschieben",
     // German puts the parts in a different order, which is the whole reason
     // the element is a named hole rather than a split sentence.
@@ -16,7 +27,14 @@ const de: Catalog = {
    forms, and which one applies is not a question about the number 1. */
 const ru: Catalog = {
   strings: {},
-  plurals: { "{n} messages": { one: "{n} сообщение", few: "{n} сообщения", many: "{n} сообщений", other: "{n} сообщения" } },
+  plurals: {
+    "{n} messages": {
+      one: "{n} сообщение",
+      few: "{n} сообщения",
+      many: "{n} сообщений",
+      other: "{n} сообщения",
+    },
+  },
 };
 
 afterEach(() => setCatalog("en", { strings: {}, plurals: {} }));
@@ -42,14 +60,18 @@ describe("t", () => {
 
 describe("interpolation", () => {
   it("fills named placeholders", () => {
-    expect(interpolate("Move {n} to {folder}", { n: 3, folder: "Archive" })).toBe("Move 3 to Archive");
+    expect(interpolate("Move {n} to {folder}", { n: 3, folder: "Archive" })).toBe(
+      "Move 3 to Archive",
+    );
   });
 
   it("survives a translator reordering the sentence", () => {
     // Positional arguments would not: German moves the parts around and means
     // the same thing.
     setCatalog("de", de);
-    expect(t("Move {n} to {folder}", { n: 3, folder: "Archiv" })).toBe("3 nach Archiv verschieben");
+    expect(t("Move {n} to {folder}", { n: 3, folder: "Archiv" })).toBe(
+      "3 nach Archiv verschieben",
+    );
   });
 
   it("leaves an unknown placeholder alone rather than printing undefined", () => {
@@ -68,9 +90,9 @@ describe("plural", () => {
 
   it("uses the target language's own rule, not English's", () => {
     setCatalog("ru", ru);
-    expect(plural(1, FORMS)).toBe("1 сообщение");   // one
-    expect(plural(3, FORMS)).toBe("3 сообщения");   // few
-    expect(plural(7, FORMS)).toBe("7 сообщений");   // many
+    expect(plural(1, FORMS)).toBe("1 сообщение"); // one
+    expect(plural(3, FORMS)).toBe("3 сообщения"); // few
+    expect(plural(7, FORMS)).toBe("7 сообщений"); // many
   });
 
   it("falls back to `other` when the catalogue lacks the category", () => {
@@ -80,33 +102,44 @@ describe("plural", () => {
   });
 
   it("takes extra variables alongside the count", () => {
-    expect(plural(2, { one: "{n} message in {folder}", other: "{n} messages in {folder}" }, { folder: "Inbox" }))
-      .toBe("2 messages in Inbox");
+    expect(
+      plural(
+        2,
+        { one: "{n} message in {folder}", other: "{n} messages in {folder}" },
+        { folder: "Inbox" },
+      ),
+    ).toBe("2 messages in Inbox");
   });
 });
 
 describe("tNode", () => {
-  const render = (node: React.ReactNode) => renderToStaticMarkup(<>{node}</>);
+  const render = (node: React.ReactNode) => renderToStaticMarkup(node);
 
   it("keeps an element inside the sentence", () => {
-    expect(render(tNode("Open {scheme} links here", { scheme: <code>mailto:</code> })))
-      .toBe("Open <code>mailto:</code> links here");
+    expect(
+      render(tNode("Open {scheme} links here", { scheme: <code>mailto:</code> })),
+    ).toBe("Open <code>mailto:</code> links here");
   });
 
   it("lets a translator move the element", () => {
     // Splitting the sentence into two t() calls could not do this: the
     // fragments would render in the English order whatever the catalogue said.
     setCatalog("de", de);
-    expect(render(tNode("Open {scheme} links here", { scheme: <code>mailto:</code> })))
-      .toBe("<code>mailto:</code>-Links hier öffnen");
+    expect(
+      render(tNode("Open {scheme} links here", { scheme: <code>mailto:</code> })),
+    ).toBe("<code>mailto:</code>-Links hier öffnen");
   });
 
   it("leaves a placeholder alone when nothing is supplied for it", () => {
-    expect(render(tNode("Open {scheme} links here", {}))).toBe("Open {scheme} links here");
+    expect(render(tNode("Open {scheme} links here", {}))).toBe(
+      "Open {scheme} links here",
+    );
   });
 
   it("takes plain variables alongside elements", () => {
-    expect(render(tNode("{count} of {scheme}", { scheme: <b>x</b> }, { count: 3 }))).toBe("3 of <b>x</b>");
+    expect(render(tNode("{count} of {scheme}", { scheme: <b>x</b> }, { count: 3 }))).toBe(
+      "3 of <b>x</b>",
+    );
   });
 });
 
@@ -137,7 +170,10 @@ describe("tc", () => {
     // "Archive" is the button and the folder; German wants a different word
     // for each, and one key cannot hold both.
     setCatalog("de", {
-      strings: { "Archive": "Archivieren", [`folder${CONTEXT_SEPARATOR}Archive`]: "Archiv" },
+      strings: {
+        Archive: "Archivieren",
+        [`folder${CONTEXT_SEPARATOR}Archive`]: "Archiv",
+      },
       plurals: {},
     });
     expect(t("Archive")).toBe("Archivieren");
@@ -145,8 +181,8 @@ describe("tc", () => {
   });
 
   it("falls back to the plain translation, then to English", () => {
-    setCatalog("de", { strings: { "Drafts": "Entwürfe" }, plurals: {} });
-    expect(tc("folder", "Drafts")).toBe("Entwürfe");   // no context entry yet
-    expect(tc("folder", "Sent")).toBe("Sent");          // nothing at all
+    setCatalog("de", { strings: { Drafts: "Entwürfe" }, plurals: {} });
+    expect(tc("folder", "Drafts")).toBe("Entwürfe"); // no context entry yet
+    expect(tc("folder", "Sent")).toBe("Sent"); // nothing at all
   });
 });

@@ -35,14 +35,16 @@ const MAX = 80;
 /** The stem only, so a caller can put another extension on it. */
 export function sanitizeFilename(subject: string | null | undefined): string {
   const kept = [...(subject ?? "")].filter((ch) => !unsafe(ch)).join("");
-  return kept
-    // Whitespace becomes an underscore rather than being kept: it is what the
-    // previous rule did, and it saves a quoting question in a shell later.
-    .replace(/\s+/g, "_")
-    .slice(0, MAX)
-    // Windows refuses a name ending in a dot or a space, and a leading dot
-    // hides the file on Unix. Neither is worth inheriting from a subject.
-    .replace(/^[.\s_]+|[.\s_]+$/g, "");
+  return (
+    kept
+      // Whitespace becomes an underscore rather than being kept: it is what the
+      // previous rule did, and it saves a quoting question in a shell later.
+      .replace(/\s+/g, "_")
+      .slice(0, MAX)
+      // Windows refuses a name ending in a dot or a space, and a leading dot
+      // hides the file on Unix. Neither is worth inheriting from a subject.
+      .replace(/^[.\s_]+|[.\s_]+$/g, "")
+  );
 }
 
 export function emlFilename(subject: string | null | undefined): string {

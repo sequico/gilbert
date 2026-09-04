@@ -13,7 +13,13 @@
  * the derivation can be checked rather than taken on trust.
  */
 
-export type PaletteId = "default" | "ihasmail" | "dracula" | "gruvbox" | "rose-pine" | "tokyo-night";
+export type PaletteId =
+  | "default"
+  | "ihasmail"
+  | "dracula"
+  | "gruvbox"
+  | "rose-pine"
+  | "tokyo-night";
 export type Mode = "system" | "light" | "dark";
 /** What a mode resolves to once the system has been asked. */
 export type ResolvedMode = "light" | "dark";
@@ -38,10 +44,22 @@ export interface PaletteMeta {
 export const PALETTES: PaletteMeta[] = [
   { id: "default", name: "Classic", translatable: true },
   { id: "ihasmail", name: "ihasmail" },
-  { id: "dracula", name: "Dracula", credit: "Dracula Theme (MIT) — dark: Dracula, light: Alucard" },
+  {
+    id: "dracula",
+    name: "Dracula",
+    credit: "Dracula Theme (MIT) — dark: Dracula, light: Alucard",
+  },
   { id: "gruvbox", name: "Gruvbox", credit: "gruvbox by morhetz (MIT)" },
-  { id: "rose-pine", name: "Rosé Pine", credit: "Rosé Pine (MIT) — light variant is Dawn" },
-  { id: "tokyo-night", name: "Tokyo Night", credit: "Tokyo Night by enkia (MIT) — light variant is Day" },
+  {
+    id: "rose-pine",
+    name: "Rosé Pine",
+    credit: "Rosé Pine (MIT) — light variant is Dawn",
+  },
+  {
+    id: "tokyo-night",
+    name: "Tokyo Night",
+    credit: "Tokyo Night by enkia (MIT) — light variant is Day",
+  },
 ];
 
 const byId = new Map(PALETTES.map((p) => [p.id, p]));
@@ -102,10 +120,14 @@ export function migrateTheme(theme: string | null | undefined): ThemeChoice {
  * chose. It cannot express "Gruvbox", but it can express light or dark, which
  * is the half that matters.
  */
-export function legacyTheme(choice: ThemeChoice, prefersDark = false): "system" | "light" | "dark" | "ihasmail" {
+export function legacyTheme(
+  choice: ThemeChoice,
+  prefersDark = false,
+): "system" | "light" | "dark" | "ihasmail" {
   // Only the dark half of ihasmail's own palette has an old name; its light
   // half is new, and an older build has no word for it beyond "light".
-  if (choice.palette === "ihasmail" && effectiveMode(choice.mode, prefersDark) === "dark") return "ihasmail";
+  if (choice.palette === "ihasmail" && effectiveMode(choice.mode, prefersDark) === "dark")
+    return "ihasmail";
   if (choice.palette === "default" && choice.mode === "system") return "system";
   return effectiveMode(choice.mode, prefersDark);
 }
@@ -119,5 +141,8 @@ export function legacyTheme(choice: ThemeChoice, prefersDark = false): "system" 
  * when every palette gained both halves.
  */
 export function toggleTarget(current: ThemeChoice, prefersDark: boolean): ThemeChoice {
-  return { palette: current.palette, mode: effectiveMode(current.mode, prefersDark) === "dark" ? "light" : "dark" };
+  return {
+    palette: current.palette,
+    mode: effectiveMode(current.mode, prefersDark) === "dark" ? "light" : "dark",
+  };
 }

@@ -13,16 +13,38 @@ import { descendantIds } from "./folderMove";
 
 /** Properties to request for a node. */
 export function fileNodeProps(): string[] {
-  return ["id", "parentId", "blobId", "size", "name", "type", "created", "modified", "myRights", "shareWith", "role", "executable", "nodeType"];
+  return [
+    "id",
+    "parentId",
+    "blobId",
+    "size",
+    "name",
+    "type",
+    "created",
+    "modified",
+    "myRights",
+    "shareWith",
+    "role",
+    "executable",
+    "nodeType",
+  ];
 }
 
 /** Create-arguments for a directory. */
-export function directoryCreate(parentId: Id | null, name: string): Record<string, unknown> {
+export function directoryCreate(
+  parentId: Id | null,
+  name: string,
+): Record<string, unknown> {
   return { parentId, name, nodeType: "directory" };
 }
 
 /** Create-arguments for a file with an already-uploaded blob. */
-export function fileCreate(parentId: Id | null, name: string, blobId: Id, type: string): Record<string, unknown> {
+export function fileCreate(
+  parentId: Id | null,
+  name: string,
+  blobId: Id,
+  type: string,
+): Record<string, unknown> {
   return { parentId, name, blobId, type, nodeType: "file" };
 }
 
@@ -71,18 +93,29 @@ export function readDraggedIds(dt: DataTransfer): Id[] {
  * land, because the drop is one action: allowing a drag that would move four
  * of five files and silently skip the fifth is worse than refusing it.
  */
-export function canDropFileNodes(nodes: Record<Id, FileNode>, draggedIds: Id[], targetId: Id | null): boolean {
-  return draggedIds.length > 0 && draggedIds.every((id) => canDropFileNode(nodes, id, targetId));
+export function canDropFileNodes(
+  nodes: Record<Id, FileNode>,
+  draggedIds: Id[],
+  targetId: Id | null,
+): boolean {
+  return (
+    draggedIds.length > 0 &&
+    draggedIds.every((id) => canDropFileNode(nodes, id, targetId))
+  );
 }
 
-export function canDropFileNode(nodes: Record<Id, FileNode>, draggedId: Id, targetId: Id | null): boolean {
+export function canDropFileNode(
+  nodes: Record<Id, FileNode>,
+  draggedId: Id,
+  targetId: Id | null,
+): boolean {
   const dragged = nodes[draggedId];
   if (!dragged) return false;
   if (targetId === null) return dragged.parentId != null;
   if (targetId === draggedId) return false;
   if (dragged.parentId === targetId) return false;
   const target = nodes[targetId];
-  if (!target || target.nodeType !== "directory") return false;
+  if (target?.nodeType !== "directory") return false;
   if (target.myRights && !target.myRights.mayAddChildren) return false;
   return !descendantIds(nodes, draggedId).has(targetId);
 }

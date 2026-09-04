@@ -1,22 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { client } from "@/jmap/client";
+import type { JmapSession } from "@/jmap/types";
+import { setDeviceTrusted } from "@/lib/storage";
 import {
   applicationServerKey,
   decodeApplicationServerKey,
   encodeKey,
   findSubscription,
+  type JmapPushSubscription,
   needsRenewal,
-  RENEW_WITHIN_MS,
-  subscriptionPayload,
   pushEnabledHere,
+  RENEW_WITHIN_MS,
   setPushEnabledHere,
+  subscriptionPayload,
   supportsEmailPush,
   unsubscribeThisDevice,
   webPushAvailable,
-  type JmapPushSubscription,
 } from "@/lib/webpush";
-import { setDeviceTrusted } from "@/lib/storage";
-import type { JmapSession } from "@/jmap/types";
 
 /**
  * The key encoding is where this breaks silently. `subscribe()` fails with an
@@ -27,10 +27,16 @@ import type { JmapSession } from "@/jmap/types";
  * The real key from the live 0.16.19 is used below rather than a made-up one:
  * its length is what exercises the padding arithmetic.
  */
-const LIVE_KEY = "BBvig2GPmqohMJJHMzp6bTKviHibYiVCyAY8gdq2fPhS-9YfO9_0TnhMyZ0a0JxTsbCqd3zm1rEiXsXsL3jveJY";
+const LIVE_KEY =
+  "BBvig2GPmqohMJJHMzp6bTKviHibYiVCyAY8gdq2fPhS-9YfO9_0TnhMyZ0a0JxTsbCqd3zm1rEiXsXsL3jveJY";
 
 function session(caps: Record<string, unknown>): JmapSession {
-  return { capabilities: caps, accounts: {}, primaryAccounts: {}, state: "s" } as unknown as JmapSession;
+  return {
+    capabilities: caps,
+    accounts: {},
+    primaryAccounts: {},
+    state: "s",
+  } as unknown as JmapSession;
 }
 
 afterEach(() => {
@@ -40,7 +46,9 @@ afterEach(() => {
 
 describe("the VAPID key", () => {
   it("is read from the capability the server publishes", () => {
-    client.session = session({ "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY } });
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+    });
     expect(applicationServerKey()).toBe(LIVE_KEY);
   });
 
@@ -79,13 +87,22 @@ describe("encoding keys for the server", () => {
 
   it("round-trips through the decoder", () => {
     const bytes = new Uint8Array([0, 255, 128, 64, 32, 16]);
-    expect(new Uint8Array(decodeApplicationServerKey(encodeKey(bytes.buffer)))).toEqual(bytes);
+    expect(new Uint8Array(decodeApplicationServerKey(encodeKey(bytes.buffer)))).toEqual(
+      bytes,
+    );
   });
 
   it("gives an empty string rather than throwing on a missing key", () => {
     expect(encodeKey(null)).toBe("");
   });
 });
+
+/** Shape of what subscriptionPayload registers, for the assertions below. */
+type WebPushPayload = {
+  url: string;
+  keys: { p256dh: string; auth: string };
+  emailPush: { a1: { properties: string[]; filter: Record<string, unknown> } };
+};
 
 describe("what gets registered", () => {
   const fakeSub = {
@@ -99,7 +116,7 @@ describe("what gets registered", () => {
       "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
       "urn:ietf:params:jmap:emailpush": {},
     });
-    const body = subscriptionPayload(fakeSub, "a1") as Record<string, any>;
+    const body = subscriptionPayload(fakeSub, "a1") as WebPushPayload;
     expect(body.url).toBe("https://push.example/abc");
     expect(body.keys).toEqual({ p256dh: "cGRoLWtleQ", auth: "YXV0aA" });
     expect(body.emailPush.a1.properties).toContain("subject");
@@ -111,7 +128,9 @@ describe("what gets registered", () => {
   });
 
   it("omits emailPush entirely when the server does not support it", () => {
-    client.session = session({ "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY } });
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+    });
     expect(supportsEmailPush()).toBe(false);
     expect(subscriptionPayload(fakeSub, "a1")).not.toHaveProperty("emailPush");
   });
@@ -125,8 +144,12 @@ describe("what gets registered", () => {
   });
 
   it("subscribes to Email changes only, since EventSource covers an open tab", () => {
-    client.session = session({ "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY } });
-    expect((subscriptionPayload(fakeSub, "a1") as Record<string, unknown>).types).toEqual(["Email"]);
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+    });
+    expect((subscriptionPayload(fakeSub, "a1") as Record<string, unknown>).types).toEqual(
+      ["Email"],
+    );
   });
 });
 
@@ -160,7 +183,7 @@ describe("the emailPush filter", () => {
   it("never sends a condition with a null or undefined value", () => {
     withEmailPush();
     for (const inbox of ["mb1", null]) {
-      const body = subscriptionPayload(fakeSub, "a1", inbox) as Record<string, any>;
+      const body = subscriptionPayload(fakeSub, "a1", inbox) as WebPushPayload;
       const filter = body.emailPush.a1.filter as Record<string, unknown>;
       for (const [k, v] of Object.entries(filter)) {
         expect(v, `${k} was ${String(v)} with inbox=${String(inbox)}`).not.toBeNull();
@@ -171,13 +194,14 @@ describe("the emailPush filter", () => {
 
   it("uses the real mailbox id when it knows one", () => {
     withEmailPush();
-    const body = subscriptionPayload(fakeSub, "a1", "mbInbox") as Record<string, any>;
+    const body = subscriptionPayload(fakeSub, "a1", "mbInbox") as WebPushPayload;
     expect(body.emailPush.a1.filter.inMailbox).toBe("mbInbox");
   });
 
   it("leaves inMailbox out entirely when it does not, rather than sending null", () => {
     withEmailPush();
-    const filter = (subscriptionPayload(fakeSub, "a1", null) as Record<string, any>).emailPush.a1.filter;
+    const filter = (subscriptionPayload(fakeSub, "a1", null) as WebPushPayload).emailPush
+      .a1.filter;
     expect(filter).not.toHaveProperty("inMailbox");
     // Still narrowed to unread: notifying more widely beats not notifying.
     expect(filter.notKeyword).toBe("$seen");
@@ -193,8 +217,12 @@ describe("the emailPush filter", () => {
  * expired and nothing renewed it. Nobody reports that as a bug — they report
  * that push "doesn't really work".
  */
-const sub = (deviceClientId: string, expires: string | null): JmapPushSubscription =>
-  ({ id: `i-${deviceClientId}`, deviceClientId, url: "https://push.example/x", expires });
+const sub = (deviceClientId: string, expires: string | null): JmapPushSubscription => ({
+  id: `i-${deviceClientId}`,
+  deviceClientId,
+  url: "https://push.example/x",
+  expires,
+});
 
 const MINE = "ihasmail-this-browser";
 const NOW = Date.parse("2026-09-01T12:00:00Z");
@@ -202,7 +230,11 @@ const inDays = (n: number) => new Date(NOW + n * 24 * 60 * 60 * 1000).toISOStrin
 
 describe("finding this browser's subscription", () => {
   it("matches on the device id rather than taking the first one", () => {
-    const subs = [sub("ihasmail-desktop", null), sub(MINE, null), sub("ihasmail-tablet", null)];
+    const subs = [
+      sub("ihasmail-desktop", null),
+      sub(MINE, null),
+      sub("ihasmail-tablet", null),
+    ];
     expect(findSubscription(subs, MINE)?.deviceClientId).toBe(MINE);
   });
 

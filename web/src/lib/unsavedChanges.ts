@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import { choiceDialog } from "@/ui/dialog";
 import { t } from "@/lib/i18n";
+import { choiceDialog } from "@/ui/dialog";
 
 /**
  * Editors that would lose work if you walked away from them.
@@ -96,7 +96,12 @@ export async function confirmLeaveUnsaved(): Promise<boolean> {
         // dialog exists to prevent -- #175, after the guard shipped with the
         // emphasis the wrong way round.
         { value: "save", label: t("Save changes"), primary: true },
-        { value: "discard", label: t("Discard changes"), hint: t("What you changed here will be lost."), danger: true },
+        {
+          value: "discard",
+          label: t("Discard changes"),
+          hint: t("What you changed here will be lost."),
+          danger: true,
+        },
       ],
       cancelLabel: t("Stay here"),
     });

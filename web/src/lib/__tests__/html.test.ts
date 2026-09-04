@@ -3,14 +3,19 @@ import { htmlDeclaresColors, sanitizeEditorHtml, sanitizeEmailHtml } from "../ht
 
 describe("sanitizeEmailHtml", () => {
   it("removes scripts and event handlers", () => {
-    const r = sanitizeEmailHtml('<div onclick="x()">hi<script>alert(1)</script><iframe src="https://evil"></iframe></div>');
+    const r = sanitizeEmailHtml(
+      '<div onclick="x()">hi<script>alert(1)</script><iframe src="https://evil"></iframe></div>',
+    );
     expect(r.html).not.toContain("script");
     expect(r.html).not.toContain("onclick");
     expect(r.html).not.toContain("iframe");
   });
   it("blocks remote images until allowed and maps cid", () => {
-    const src = '<img src="https://t.example/p.gif"><img src="cid:logo@x"><div style="background:url(https://t.example/b.png)">x</div>';
-    const blocked = sanitizeEmailHtml(src, { cidMap: { "logo@x": "/api/blob/a/b/logo.png" } });
+    const src =
+      '<img src="https://t.example/p.gif"><img src="cid:logo@x"><div style="background:url(https://t.example/b.png)">x</div>';
+    const blocked = sanitizeEmailHtml(src, {
+      cidMap: { "logo@x": "/api/blob/a/b/logo.png" },
+    });
     expect(blocked.remoteCount).toBe(2);
     expect(blocked.html).toContain('data-ihm-blocked="1"');
     expect(blocked.html).toContain("/api/blob/a/b/logo.png");
@@ -36,7 +41,9 @@ describe("sanitizeEmailHtml", () => {
 describe("htmlDeclaresColors", () => {
   it("is false for mail that brings no colours", () => {
     expect(htmlDeclaresColors("<p>Hi there</p>")).toBe(false);
-    expect(htmlDeclaresColors("<div><b>bold</b> and <i>italic</i></div>", "font-family:Arial")).toBe(false);
+    expect(
+      htmlDeclaresColors("<div><b>bold</b> and <i>italic</i></div>", "font-family:Arial"),
+    ).toBe(false);
     expect(htmlDeclaresColors('<a href="https://x.io/?color=red">link</a>')).toBe(false);
     expect(htmlDeclaresColors('<div style="border-color: red">x</div>')).toBe(false);
   });
@@ -65,30 +72,43 @@ describe("mail CSS cannot climb out of its card", () => {
   const render = (html: string) => sanitizeEmailHtml(html).html;
 
   it("turns fixed and sticky positioning into static", () => {
-    const out = render(`<div><style>.x{position:fixed;inset:0;z-index:2147483647}</style><p class="x">hi</p></div>`);
+    const out = render(
+      `<div><style>.x{position:fixed;inset:0;z-index:2147483647}</style><p class="x">hi</p></div>`,
+    );
     expect(out).toContain("position:static");
     expect(out).not.toMatch(/position\s*:\s*fixed/i);
   });
 
   it("does so in style attributes too, however they are spaced", () => {
-    expect(render(`<p style="position: FIXED; color:red">x</p>`)).not.toMatch(/position\s*:\s*fixed/i);
-    expect(render(`<p style="position:sticky;top:0">x</p>`)).not.toMatch(/position\s*:\s*sticky/i);
+    expect(render(`<p style="position: FIXED; color:red">x</p>`)).not.toMatch(
+      /position\s*:\s*fixed/i,
+    );
+    expect(render(`<p style="position:sticky;top:0">x</p>`)).not.toMatch(
+      /position\s*:\s*sticky/i,
+    );
   });
 
   it("defangs :host, which is how mail CSS would reach the host element", () => {
-    const out = render(`<div><style>:host{contain:none!important;position:fixed!important}</style><p>x</p></div>`);
+    const out = render(
+      `<div><style>:host{contain:none!important;position:fixed!important}</style><p>x</p></div>`,
+    );
     expect(out).not.toContain(":host");
     expect(out).not.toMatch(/position\s*:\s*fixed/i);
   });
 
   it("leaves ordinary positioning alone", () => {
-    const out = render(`<div><style>.a{position:relative}.b{position:absolute;top:2px}</style><p>x</p></div>`);
+    const out = render(
+      `<div><style>.a{position:relative}.b{position:absolute;top:2px}</style><p>x</p></div>`,
+    );
     expect(out).toContain("position:relative");
     expect(out).toContain("position:absolute");
   });
 
   it("still rewrites url() while hardening", () => {
-    const out = sanitizeEmailHtml(`<div><style>.x{position:fixed;background:url(https://tracker.example/p.gif)}</style><p>x</p></div>`, { allowRemote: true, proxyRemote: true }).html;
+    const out = sanitizeEmailHtml(
+      `<div><style>.x{position:fixed;background:url(https://tracker.example/p.gif)}</style><p>x</p></div>`,
+      { allowRemote: true, proxyRemote: true },
+    ).html;
     expect(out).toContain("position:static");
     expect(out).toContain("/api/image?url=");
   });

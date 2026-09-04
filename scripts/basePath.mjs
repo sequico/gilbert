@@ -34,7 +34,10 @@ export function normalizeBasePath(value) {
   // Collapse repeated separators before trimming: `//mail//` is a typo, not a
   // path with empty segments in it, and `path.posix.normalize` is not
   // available to the browser bundle that also uses this.
-  const trimmed = value.trim().replace(/\/+/g, "/").replace(/^\/|\/$/g, "");
+  const trimmed = value
+    .trim()
+    .replace(/\/+/g, "/")
+    .replace(/^\/|\/$/g, "");
   if (!trimmed) return "";
   return `/${trimmed}`;
 }

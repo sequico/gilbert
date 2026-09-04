@@ -13,7 +13,14 @@
  * is one the row simply will not move in.
  */
 
-export type SwipeAction = "archive" | "delete" | "spam" | "read" | "star" | "move" | "none";
+export type SwipeAction =
+  | "archive"
+  | "delete"
+  | "spam"
+  | "read"
+  | "star"
+  | "move"
+  | "none";
 
 export interface SwipeContext {
   /** The role of the folder on screen, where it has one. */
@@ -29,7 +36,16 @@ export interface SwipeContext {
  * settings as their opposites but nothing like the same icon, and a strip that
  * says "Not spam" beside a spam icon is asking to be misread at a glance.
  */
-export type SwipeIcon = "archive" | "delete" | "spam" | "not-spam" | "read" | "unread" | "star" | "unstar" | "move";
+export type SwipeIcon =
+  | "archive"
+  | "delete"
+  | "spam"
+  | "not-spam"
+  | "read"
+  | "unread"
+  | "star"
+  | "unstar"
+  | "move";
 
 export interface SwipeDescriptor {
   action: Exclude<SwipeAction, "none">;
@@ -52,13 +68,24 @@ export interface SwipeDescriptor {
   on?: boolean;
 }
 
-export function describeSwipe(action: SwipeAction, ctx: SwipeContext): SwipeDescriptor | null {
+export function describeSwipe(
+  action: SwipeAction,
+  ctx: SwipeContext,
+): SwipeDescriptor | null {
   switch (action) {
     case "archive":
       // Archiving out of the archive is the one no-op worth refusing outright.
-      return ctx.role === "archive" ? null : { action, label: "Archive", icon: "archive", tone: "accent", removes: true };
+      return ctx.role === "archive"
+        ? null
+        : { action, label: "Archive", icon: "archive", tone: "accent", removes: true };
     case "delete":
-      return { action, label: ctx.role === "trash" ? "Delete forever" : "Delete", icon: "delete", tone: "danger", removes: true };
+      return {
+        action,
+        label: ctx.role === "trash" ? "Delete forever" : "Delete",
+        icon: "delete",
+        tone: "danger",
+        removes: true,
+      };
     case "spam":
       // Nothing you wrote is spam you received, so the gesture stays inert in
       // the two folders that hold your own mail.
@@ -67,9 +94,23 @@ export function describeSwipe(action: SwipeAction, ctx: SwipeContext): SwipeDesc
         ? { action, label: "Not spam", icon: "not-spam", tone: "warn", removes: true }
         : { action, label: "Report spam", icon: "spam", tone: "warn", removes: true };
     case "read":
-      return { action, label: ctx.unread ? "Mark as read" : "Mark as unread", icon: ctx.unread ? "read" : "unread", tone: "neutral", removes: false, on: ctx.unread };
+      return {
+        action,
+        label: ctx.unread ? "Mark as read" : "Mark as unread",
+        icon: ctx.unread ? "read" : "unread",
+        tone: "neutral",
+        removes: false,
+        on: ctx.unread,
+      };
     case "star":
-      return { action, label: ctx.starred ? "Remove star" : "Add star", icon: ctx.starred ? "unstar" : "star", tone: "warn", removes: false, on: !ctx.starred };
+      return {
+        action,
+        label: ctx.starred ? "Remove star" : "Add star",
+        icon: ctx.starred ? "unstar" : "star",
+        tone: "warn",
+        removes: false,
+        on: !ctx.starred,
+      };
     case "move":
       // The folder picker opens over the list, so the row comes home first.
       return { action, label: "Move to…", icon: "move", tone: "accent", removes: false };

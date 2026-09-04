@@ -71,7 +71,7 @@ function ownKeys(): string[] {
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith(PREFIX)) out.push(k.slice(PREFIX.length));
+      if (k?.startsWith(PREFIX)) out.push(k.slice(PREFIX.length));
     }
   } catch {
     /* ignore */

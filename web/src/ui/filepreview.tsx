@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Code2, Download, Eye, Pencil, Printer, Save, X } from "lucide-react";
-import { confirmDialog, Dialog } from "./dialog";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatSize } from "@/lib/format";
-import { previewKind, TEXT_PREVIEW_CHARS, TEXT_PREVIEW_MAX } from "@/lib/preview";
-import { isMarkdown, renderMarkdown } from "@/lib/markdown";
 import { t } from "@/lib/i18n";
+import { isMarkdown, renderMarkdown } from "@/lib/markdown";
+import { previewKind, TEXT_PREVIEW_CHARS, TEXT_PREVIEW_MAX } from "@/lib/preview";
+import { confirmDialog, Dialog } from "./dialog";
 
 /**
  * One blob, described the way both callers can describe it. The URLs are built
@@ -48,11 +48,12 @@ export function FilePreviewDialog({
   startInEdit?: boolean;
 }) {
   const kind = file ? previewKind(file.type, file.name) : null;
-  const tooBig = kind === "text" && typeof file?.size === "number" && file.size > TEXT_PREVIEW_MAX;
+  const tooBig =
+    kind === "text" && typeof file?.size === "number" && file.size > TEXT_PREVIEW_MAX;
   const markdown = Boolean(file) && kind === "text" && isMarkdown(file!.type, file!.name);
   const pdfRef = useRef<HTMLIFrameElement>(null);
 
-  const loaded = useTextFile(kind === "text" && !tooBig ? file?.url ?? null : null);
+  const loaded = useTextFile(kind === "text" && !tooBig ? (file?.url ?? null) : null);
   const [mode, setMode] = useState<Mode>("source");
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
@@ -77,7 +78,14 @@ export function FilePreviewDialog({
    *  - the caller has no way to save it, or the reader has no right to.
    */
   const lossy = loaded.text?.includes("�") ?? false;
-  const editable = Boolean(onSave) && kind === "text" && !tooBig && !loaded.truncated && !lossy && loaded.text !== null && !loaded.failed;
+  const editable =
+    Boolean(onSave) &&
+    kind === "text" &&
+    !tooBig &&
+    !loaded.truncated &&
+    !lossy &&
+    loaded.text !== null &&
+    !loaded.failed;
   const editing = mode === "edit";
   const dirty = editing && draft !== (loaded.text ?? "");
 
@@ -100,7 +108,15 @@ export function FilePreviewDialog({
   };
 
   const stopEditing = async () => {
-    if (dirty && !(await confirmDialog({ title: t("Throw away your changes?"), confirmLabel: t("Discard"), danger: true }))) return;
+    if (
+      dirty &&
+      !(await confirmDialog({
+        title: t("Throw away your changes?"),
+        confirmLabel: t("Discard"),
+        danger: true,
+      }))
+    )
+      return;
     setMode(markdown ? "rendered" : "source");
     setSaveError(null);
   };
@@ -141,7 +157,11 @@ export function FilePreviewDialog({
       onClose();
       return;
     }
-    void confirmDialog({ title: t("Close without saving?"), confirmLabel: t("Discard"), danger: true }).then((yes) => yes && onClose());
+    void confirmDialog({
+      title: t("Close without saving?"),
+      confirmLabel: t("Discard"),
+      danger: true,
+    }).then((yes) => yes && onClose());
   };
 
   /*
@@ -192,40 +212,85 @@ export function FilePreviewDialog({
       size="xl"
       closeOnBackdrop={!editing}
       footer={
-        file && (
+        file &&
+        (editing ? (
           <>
-            {editing ? (
-              <>
-                {dirty && <span className="hint left">{t("Unsaved changes")}</span>}
-                <button className="btn" onClick={() => void stopEditing()} disabled={saving}><X size={16} />  {t("Cancel")}</button>
-                <button className="btn btn-primary" onClick={() => void save()} disabled={saving || !dirty}><Save size={16} />  {saving ? t("Saving…") : t("Save")}</button>
-              </>
-            ) : (
-              <>
-                {markdown && !tooBig && (
-                  <div className="segmented left" role="group" aria-label={t("View as")}>
-                    <button className={mode === "rendered" ? "active" : ""} aria-pressed={mode === "rendered"} onClick={() => setMode("rendered")}><Eye size={14} />  {t("Rendered")}</button>
-                    <button className={mode === "source" ? "active" : ""} aria-pressed={mode === "source"} onClick={() => setMode("source")}><Code2 size={14} />  {t("Source")}</button>
-                  </div>
-                )}
-                {editable && <button className="btn" onClick={startEditing}><Pencil size={16} />  {t("Edit")}</button>}
-                {kind && !tooBig && <button className="btn" onClick={print}><Printer size={16} />  {t("Print")}</button>}
-                <a className="btn" href={file.url} download={file.name}><Download size={16} />  {t("Download")}</a>
-              </>
-            )}
+            {dirty && <span className="hint left">{t("Unsaved changes")}</span>}
+            <button className="btn" onClick={() => void stopEditing()} disabled={saving}>
+              <X size={16} /> {t("Cancel")}
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => void save()}
+              disabled={saving || !dirty}
+            >
+              <Save size={16} /> {saving ? t("Saving…") : t("Save")}
+            </button>
           </>
-        )
+        ) : (
+          <>
+            {markdown && !tooBig && (
+              <div className="segmented left" role="group" aria-label={t("View as")}>
+                <button
+                  className={mode === "rendered" ? "active" : ""}
+                  aria-pressed={mode === "rendered"}
+                  onClick={() => setMode("rendered")}
+                >
+                  <Eye size={14} /> {t("Rendered")}
+                </button>
+                <button
+                  className={mode === "source" ? "active" : ""}
+                  aria-pressed={mode === "source"}
+                  onClick={() => setMode("source")}
+                >
+                  <Code2 size={14} /> {t("Source")}
+                </button>
+              </div>
+            )}
+            {editable && (
+              <button className="btn" onClick={startEditing}>
+                <Pencil size={16} /> {t("Edit")}
+              </button>
+            )}
+            {kind && !tooBig && (
+              <button className="btn" onClick={print}>
+                <Printer size={16} /> {t("Print")}
+              </button>
+            )}
+            <a className="btn" href={file.url} download={file.name}>
+              <Download size={16} /> {t("Download")}
+            </a>
+          </>
+        ))
       }
     >
       {file && (
         <>
           {saveError && <div className="error-box mb-8">{saveError}</div>}
           {tooBig ? (
-            <p className="hint">{t("This file is too big to show here ({size}) — download it to read it.", { size: formatSize(file.size ?? 0) })}</p>
+            <p className="hint">
+              {t("This file is too big to show here ({size}) — download it to read it.", {
+                size: formatSize(file.size ?? 0),
+              })}
+            </p>
           ) : kind === "image" ? (
-            <img src={file.inlineUrl} alt={file.name} style={{ maxWidth: "100%", maxHeight: "70vh", display: "block", margin: "0 auto" }} />
+            <img
+              src={file.inlineUrl}
+              alt={file.name}
+              style={{
+                maxWidth: "100%",
+                maxHeight: "70vh",
+                display: "block",
+                margin: "0 auto",
+              }}
+            />
           ) : kind === "pdf" ? (
-            <iframe ref={pdfRef} title={file.name} src={file.inlineUrl} style={{ width: "100%", height: "70vh", border: 0 }} />
+            <iframe
+              ref={pdfRef}
+              title={file.name}
+              src={file.inlineUrl}
+              style={{ width: "100%", height: "70vh", border: 0 }}
+            />
           ) : kind === "text" ? (
             <TextPane
               loaded={loaded}
@@ -248,8 +313,12 @@ export function FilePreviewDialog({
 /** Why the file is being shown but not offered for editing, when there is a reason worth saying. */
 function readOnlyNote(loaded: LoadedText, lossy: boolean): string | null {
   if (loaded.text === null || loaded.failed) return null;
-  if (loaded.truncated) return t("Only the beginning is shown — download the file for the rest.");
-  if (lossy) return t("This file is not UTF-8 text, so editing it here would corrupt it — download it instead.");
+  if (loaded.truncated)
+    return t("Only the beginning is shown — download the file for the rest.");
+  if (lossy)
+    return t(
+      "This file is not UTF-8 text, so editing it here would corrupt it — download it instead.",
+    );
   return null;
 }
 
@@ -269,13 +338,16 @@ function TextPane({
   note: string | null;
 }) {
   /* Rendering is not free on a long file, and the toggle flips back and forth. */
-  const html = useMemo(() => (mode === "rendered" && markdown && loaded.text ? renderMarkdown(loaded.text) : null), [mode, markdown, loaded.text]);
+  const html = useMemo(
+    () =>
+      mode === "rendered" && markdown && loaded.text ? renderMarkdown(loaded.text) : null,
+    [mode, markdown, loaded.text],
+  );
   if (mode === "edit") {
     return (
       <textarea
         className="code notranslate"
         translate="no"
-        autoFocus
         spellCheck={false}
         value={draft}
         onChange={(e) => onDraft(e.target.value)}
@@ -288,9 +360,18 @@ function TextPane({
     <>
       {/* Someone else's file: not ours to translate, and not ours to reflow. */}
       {html !== null ? (
-        <div className="md-body notranslate" translate="no" dangerouslySetInnerHTML={{ __html: html }} />
+        <div
+          className="md-body notranslate"
+          translate="no"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: this HTML was sanitised by lib/html before preview
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
       ) : (
-        <pre className="code notranslate" translate="no" style={{ maxHeight: "65vh", whiteSpace: "pre-wrap" }}>
+        <pre
+          className="code notranslate"
+          translate="no"
+          style={{ maxHeight: "65vh", whiteSpace: "pre-wrap" }}
+        >
           {loaded.text ?? t("Loading…")}
         </pre>
       )}

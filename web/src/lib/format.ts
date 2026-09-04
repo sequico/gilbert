@@ -1,9 +1,9 @@
 import {
+  formatMonthYear as fmtMonthYear,
   formatClock,
   formatDate,
   formatDayMonth,
   formatFullDateTime,
-  formatMonthYear as fmtMonthYear,
   formatWeekday,
   relativeFormat,
 } from "./datetime";
@@ -22,7 +22,11 @@ export function formatSize(bytes: number | null | undefined): string {
 }
 
 export function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 
 /** Gmail-style compact date for list views. */
@@ -85,7 +89,10 @@ export function uid(prefix = "u"): string {
   return `${prefix}${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
 }
 
-export function debounce<T extends (...args: never[]) => void>(fn: T, ms: number): T & { cancel(): void } {
+export function debounce<T extends (...args: never[]) => void>(
+  fn: T,
+  ms: number,
+): T & { cancel(): void } {
   let t: number | null = null;
   const wrapped = ((...args: Parameters<T>) => {
     if (t) window.clearTimeout(t);

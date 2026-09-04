@@ -1,11 +1,24 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import type { EmailAddress } from "@/jmap/types";
 import { avatarColor, initials } from "@/lib/address";
-import { useContacts } from "@/store/contacts";
 import { contactPhoto } from "@/lib/contacts";
 import { t } from "@/lib/i18n";
+import { useContacts } from "@/store/contacts";
 
-export function Avatar({ who, size, className }: { who: EmailAddress | { name?: string | null; email?: string } | string | null | undefined; size?: "sm" | "lg" | "xl"; className?: string }) {
+export function Avatar({
+  who,
+  size,
+  className,
+}: {
+  who:
+    | EmailAddress
+    | { name?: string | null; email?: string }
+    | string
+    | null
+    | undefined;
+  size?: "sm" | "lg" | "xl";
+  className?: string;
+}) {
   const email = typeof who === "string" ? who : (who?.email ?? "");
   const name = typeof who === "string" ? who : (who?.name ?? who?.email ?? "");
   const photo = useContacts((s) => {
@@ -14,15 +27,40 @@ export function Avatar({ who, size, className }: { who: EmailAddress | { name?: 
     return c && s.accountId ? contactPhoto(c, s.accountId) : null;
   });
   return (
-    <span className={`avatar ${size ?? ""} ${className ?? ""}`} style={{ background: photo ? "transparent" : avatarColor(email || name) }} aria-hidden="true">
+    <span
+      className={`avatar ${size ?? ""} ${className ?? ""}`}
+      style={{ background: photo ? "transparent" : avatarColor(email || name) }}
+      aria-hidden="true"
+    >
       {photo ? <img src={photo} alt="" loading="lazy" /> : initials({ name, email })}
     </span>
   );
 }
 
-export function Switch({ checked, onChange, label, hint, disabled, locked }: { checked: boolean; onChange: (v: boolean) => void; label?: ReactNode; hint?: ReactNode; disabled?: boolean; locked?: boolean }) {
+export function Switch({
+  checked,
+  onChange,
+  label,
+  hint,
+  disabled,
+  locked,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label?: ReactNode;
+  hint?: ReactNode;
+  disabled?: boolean;
+  locked?: boolean;
+}) {
   const sw = (
-    <button type="button" role="switch" aria-checked={checked} className="switch" onClick={() => !disabled && !locked && onChange(!checked)} disabled={disabled || locked} />
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      className="switch"
+      onClick={() => !disabled && !locked && onChange(!checked)}
+      disabled={disabled || locked}
+    />
   );
   if (!label) return sw;
   return (
@@ -33,7 +71,11 @@ export function Switch({ checked, onChange, label, hint, disabled, locked }: { c
         {/* Shown rather than hidden, and said rather than implied: a control
             that is simply missing reads as a bug to somebody who has used
             ihasmail without a policy. Issue #207. */}
-        {locked && <span className="hint">{t("Set for everyone here. You cannot change this.")}</span>}
+        {locked && (
+          <span className="hint">
+            {t("Set for everyone here. You cannot change this.")}
+          </span>
+        )}
       </div>
       {sw}
     </div>
@@ -49,7 +91,15 @@ export function Spinner({ size = "md", label }: { size?: "md" | "lg"; label?: st
   );
 }
 
-export function Empty({ icon, title, children }: { icon?: ReactNode; title: string; children?: ReactNode }) {
+export function Empty({
+  icon,
+  title,
+  children,
+}: {
+  icon?: ReactNode;
+  title: string;
+  children?: ReactNode;
+}) {
   return (
     <div className="empty">
       {icon}
@@ -87,10 +137,24 @@ export function Kbd({ keys }: { keys: string }) {
     <span className="keys">
       {keys.split(" ").map((k, i) => (
         <span key={i}>
-          {i > 0 && <span className="muted" style={{ margin: "0 3px" }}>{t("then")}</span>}
+          {i > 0 && (
+            <span className="muted" style={{ margin: "0 3px" }}>
+              {t("then")}
+            </span>
+          )}
           {k.split("+").map((p, j) => (
             <kbd key={j} className="kbd" style={{ marginRight: 2 }}>
-              {p === "mod" ? (navigator.platform.includes("Mac") ? "⌘" : "Ctrl") : p === "shift" ? "⇧" : p === "enter" ? "↵" : p === "esc" ? "Esc" : p}
+              {p === "mod"
+                ? navigator.platform.includes("Mac")
+                  ? "⌘"
+                  : "Ctrl"
+                : p === "shift"
+                  ? "⇧"
+                  : p === "enter"
+                    ? "↵"
+                    : p === "esc"
+                      ? "Esc"
+                      : p}
             </kbd>
           ))}
         </span>
@@ -99,15 +163,43 @@ export function Kbd({ keys }: { keys: string }) {
   );
 }
 
-export function ColorSwatches({ value, onChange, colors }: { value: string | null | undefined; onChange: (c: string) => void; colors?: string[] }) {
+export function ColorSwatches({
+  value,
+  onChange,
+  colors,
+}: {
+  value: string | null | undefined;
+  onChange: (c: string) => void;
+  colors?: string[];
+}) {
   const list = colors ?? CALENDAR_COLORS;
   return (
     <div className="swatches">
       {list.map((c) => (
-        <button key={c} type="button" className={`swatch ${value?.toLowerCase() === c ? "active" : ""}`} style={{ background: c }} onClick={() => onChange(c)} aria-label={c} />
+        <button
+          key={c}
+          type="button"
+          className={`swatch ${value?.toLowerCase() === c ? "active" : ""}`}
+          style={{ background: c }}
+          onClick={() => onChange(c)}
+          aria-label={c}
+        />
       ))}
     </div>
   );
 }
 
-export const CALENDAR_COLORS = ["#0f766e", "#2563eb", "#7c3aed", "#db2777", "#dc2626", "#ea580c", "#ca8a04", "#16a34a", "#0891b2", "#4b5563", "#9333ea", "#be123c"];
+export const CALENDAR_COLORS = [
+  "#0f766e",
+  "#2563eb",
+  "#7c3aed",
+  "#db2777",
+  "#dc2626",
+  "#ea580c",
+  "#ca8a04",
+  "#16a34a",
+  "#0891b2",
+  "#4b5563",
+  "#9333ea",
+  "#be123c",
+];

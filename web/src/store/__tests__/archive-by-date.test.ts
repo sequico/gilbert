@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
+import type { JmapSession, Mailbox } from "@/jmap/types";
 import { useMail } from "@/store/mail";
 import { useToasts } from "@/ui/toast";
-import type { JmapSession, Mailbox } from "@/jmap/types";
 
 /**
  * Archiving into a dated subfolder. The parts worth testing are the ones that
@@ -28,28 +28,75 @@ function server(initial: Array<Partial<Mailbox> & { id: string; name: string }> 
   let counter = 0;
 
   const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as { methodCalls: [string, Record<string, unknown>, string][] };
+    const body = JSON.parse(init.body as string) as {
+      methodCalls: [string, Record<string, unknown>, string][];
+    };
     const methodResponses = body.methodCalls.map(([name, args, id]) => {
       if (name === "Mailbox/set" && args.create) {
-        const spec = (args.create as Record<string, { name: string; parentId: string | null }>).n!;
+        const spec = (
+          args.create as Record<string, { name: string; parentId: string | null }>
+        ).n!;
         const newId = `mb-new-${++counter}`;
         created.push({ name: spec.name, parentId: spec.parentId });
-        boxes.set(newId, { id: newId, name: spec.name, parentId: spec.parentId, role: null });
-        return [name, { accountId: "a1", oldState: "1", newState: "2", created: { n: { id: newId } }, notCreated: {} }, id];
+        boxes.set(newId, {
+          id: newId,
+          name: spec.name,
+          parentId: spec.parentId,
+          role: null,
+        });
+        return [
+          name,
+          {
+            accountId: "a1",
+            oldState: "1",
+            newState: "2",
+            created: { n: { id: newId } },
+            notCreated: {},
+          },
+          id,
+        ];
       }
       if (name === "Mailbox/get") {
-        return [name, { accountId: "a1", state: "1", list: [...boxes.values()], notFound: [] }, id];
+        return [
+          name,
+          { accountId: "a1", state: "1", list: [...boxes.values()], notFound: [] },
+          id,
+        ];
       }
       if (name === "Email/set" && args.update) {
-        for (const [emailId, patch] of Object.entries(args.update as Record<string, { mailboxIds?: Record<string, boolean> }>)) {
+        for (const [emailId, patch] of Object.entries(
+          args.update as Record<string, { mailboxIds?: Record<string, boolean> }>,
+        )) {
           const to = Object.keys(patch.mailboxIds ?? {})[0];
           if (to) moves.push({ id: emailId, to });
         }
-        return [name, { accountId: "a1", oldState: "1", newState: "2", updated: {}, notUpdated: {} }, id];
+        return [
+          name,
+          { accountId: "a1", oldState: "1", newState: "2", updated: {}, notUpdated: {} },
+          id,
+        ];
       }
-      return [name, { accountId: "a1", state: "1", list: [], notFound: [], ids: [], total: 0, queryState: "q", position: 0, canCalculateChanges: false }, id];
+      return [
+        name,
+        {
+          accountId: "a1",
+          state: "1",
+          list: [],
+          notFound: [],
+          ids: [],
+          total: 0,
+          queryState: "q",
+          position: 0,
+          canCalculateChanges: false,
+        },
+        id,
+      ];
     });
-    return { ok: true, status: 200, json: async () => ({ methodResponses, sessionState: "1" }) } as Response;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ methodResponses, sessionState: "1" }),
+    } as Response;
   });
   vi.stubGlobal("fetch", fetchMock);
   return { created, moves, boxes };
@@ -70,14 +117,19 @@ function seed() {
 
 beforeEach(() => {
   client.session = {
-    capabilities: { [CAP.core]: { maxObjectsInGet: 500, maxObjectsInSet: 500 }, [CAP.mail]: {} },
+    capabilities: {
+      [CAP.core]: { maxObjectsInGet: 500, maxObjectsInSet: 500 },
+      [CAP.mail]: {},
+    },
     accounts: {},
     primaryAccounts: {},
     state: "s1",
   } as unknown as JmapSession;
   useMail.setState({
     accountId: "a1",
-    mailboxes: { [ARCHIVE]: { id: ARCHIVE, role: "archive", name: "Archive", parentId: null } } as never,
+    mailboxes: {
+      [ARCHIVE]: { id: ARCHIVE, role: "archive", name: "Archive", parentId: null },
+    } as never,
     list: null,
     emails: {},
     selected: {},
@@ -151,7 +203,9 @@ describe("archiveByDate", () => {
 
   it("files a message with no readable date into Archive itself", async () => {
     const s = server();
-    useMail.setState({ emails: { e9: { id: "e9", receivedAt: null, mailboxIds: {} } } as never });
+    useMail.setState({
+      emails: { e9: { id: "e9", receivedAt: null, mailboxIds: {} } } as never,
+    });
     await useMail.getState().archiveByDate(["e9"], "month");
     expect(s.created).toEqual([]);
     expect(s.moves).toEqual([{ id: "e9", to: ARCHIVE }]);

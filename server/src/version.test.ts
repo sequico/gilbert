@@ -1,6 +1,11 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatVersion, resolveVersion, UNVERSIONED, versionFromGit } from "../../scripts/version.mjs";
+import { test } from "node:test";
+import {
+  formatVersion,
+  resolveVersion,
+  UNVERSIONED,
+  versionFromGit,
+} from "../../scripts/version.mjs";
 
 /**
  * The version is this build's public identity: it names the image, and it is
@@ -10,19 +15,40 @@ import { formatVersion, resolveVersion, UNVERSIONED, versionFromGit } from "../.
 
 test("a pull request merge is named by its number", () => {
   assert.equal(
-    formatVersion({ date: "2026-08-30", subject: "Merge pull request #129 from Coffey-Labs/link-project-site-v2", sha: "1fa6578" }),
+    formatVersion({
+      date: "2026-08-30",
+      subject: "Merge pull request #129 from Coffey-Labs/link-project-site-v2",
+      sha: "1fa6578",
+    }),
     "2026.8.30+pr129",
   );
 });
 
 test("a commit that did not come through a pull request carries its SHA", () => {
   // Claiming the last PR would say it *is* that PR rather than something after it.
-  assert.equal(formatVersion({ date: "2026-08-30", subject: "Fix a thing directly on main", sha: "1fa6578" }), "2026.8.30+g1fa6578");
+  assert.equal(
+    formatVersion({
+      date: "2026-08-30",
+      subject: "Fix a thing directly on main",
+      sha: "1fa6578",
+    }),
+    "2026.8.30+g1fa6578",
+  );
 });
 
 test("leading zeros are stripped, since a version field may not carry them", () => {
-  assert.equal(formatVersion({ date: "2026-09-05", subject: "Merge pull request #7 from x/y", sha: "abc1234" }), "2026.9.5+pr7");
-  assert.equal(formatVersion({ date: "2027-01-01", subject: "", sha: "abc1234" }), "2027.1.1+gabc1234");
+  assert.equal(
+    formatVersion({
+      date: "2026-09-05",
+      subject: "Merge pull request #7 from x/y",
+      sha: "abc1234",
+    }),
+    "2026.9.5+pr7",
+  );
+  assert.equal(
+    formatVersion({ date: "2027-01-01", subject: "", sha: "abc1234" }),
+    "2027.1.1+gabc1234",
+  );
 });
 
 test("it sorts forward from the versions it replaces", () => {
@@ -33,8 +59,16 @@ test("it sorts forward from the versions it replaces", () => {
 });
 
 test("two builds from the same day differ, even though they rank the same", () => {
-  const a = formatVersion({ date: "2026-08-30", subject: "Merge pull request #128 from x/y", sha: "aaaaaaa" });
-  const b = formatVersion({ date: "2026-08-30", subject: "Merge pull request #129 from x/y", sha: "bbbbbbb" });
+  const a = formatVersion({
+    date: "2026-08-30",
+    subject: "Merge pull request #128 from x/y",
+    sha: "aaaaaaa",
+  });
+  const b = formatVersion({
+    date: "2026-08-30",
+    subject: "Merge pull request #129 from x/y",
+    sha: "bbbbbbb",
+  });
   assert.notEqual(a, b);
   assert.equal(a.split("+")[0], b.split("+")[0]);
 });
@@ -42,7 +76,11 @@ test("two builds from the same day differ, even though they rank the same", () =
 test("the same commit always resolves to the same version", () => {
   // Built from the commit's own date, not today's, so an old commit rebuilt
   // now reports what it reported then.
-  const commit = { date: "2026-08-30", subject: "Merge pull request #129 from x/y", sha: "1fa6578" };
+  const commit = {
+    date: "2026-08-30",
+    subject: "Merge pull request #129 from x/y",
+    sha: "1fa6578",
+  };
   assert.equal(formatVersion(commit), formatVersion(commit));
 });
 

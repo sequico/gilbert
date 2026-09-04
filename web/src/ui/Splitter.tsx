@@ -26,7 +26,8 @@ export function Splitter({ direction, onResize, onEnd, onReset, ariaLabel }: Pro
         active.current = true;
         last.current = direction === "vertical" ? e.clientX : e.clientY;
         (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-        document.body.style.cursor = direction === "vertical" ? "col-resize" : "row-resize";
+        document.body.style.cursor =
+          direction === "vertical" ? "col-resize" : "row-resize";
         document.body.style.userSelect = "none";
       }}
       onPointerMove={(e) => {

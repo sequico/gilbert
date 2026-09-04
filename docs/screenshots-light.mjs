@@ -9,40 +9,88 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 const OUT = process.argv[2] ?? ".";
 const PORT = 9334;
-const chrome = spawn("google-chrome-stable", [
-  "--headless=new", `--remote-debugging-port=${PORT}`, "--hide-scrollbars",
-  "--no-first-run", "--no-default-browser-check",
-  "--window-size=1420,790", "--force-device-scale-factor=1",
-  "--user-data-dir=/tmp/ihasmail-light-profile", "about:blank",
-], { stdio: "ignore" });
+const chrome = spawn(
+  "google-chrome-stable",
+  [
+    "--headless=new",
+    `--remote-debugging-port=${PORT}`,
+    "--hide-scrollbars",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--window-size=1420,790",
+    "--force-device-scale-factor=1",
+    "--user-data-dir=/tmp/ihasmail-light-profile",
+    "about:blank",
+  ],
+  { stdio: "ignore" },
+);
 
-const json = async (p) => { for (let i = 0; i < 60; i++) { try { return await (await fetch(`http://127.0.0.1:${PORT}${p}`)).json(); } catch { await sleep(250); } } throw new Error("no chrome"); };
+const json = async (p) => {
+  for (let i = 0; i < 60; i++) {
+    try {
+      return await (await fetch(`http://127.0.0.1:${PORT}${p}`)).json();
+    } catch {
+      await sleep(250);
+    }
+  }
+  throw new Error("no chrome");
+};
 const version = await json("/json/version");
-let id = 1; const pending = new Map();
+let id = 1;
+const pending = new Map();
 const ws = new WebSocket(version.webSocketDebuggerUrl);
-await new Promise((r, j) => { ws.onopen = r; ws.onerror = j; });
-ws.onmessage = (m) => { const x = JSON.parse(m.data); if (x.id && pending.has(x.id)) { const { resolve, reject } = pending.get(x.id); pending.delete(x.id); x.error ? reject(new Error(JSON.stringify(x.error))) : resolve(x.result); } };
-const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => { const i = id++; pending.set(i, { resolve, reject }); ws.send(JSON.stringify({ id: i, method, params, ...(sessionId ? { sessionId } : {}) })); });
+await new Promise((r, j) => {
+  ws.onopen = r;
+  ws.onerror = j;
+});
+ws.onmessage = (m) => {
+  const x = JSON.parse(m.data);
+  if (x.id && pending.has(x.id)) {
+    const { resolve, reject } = pending.get(x.id);
+    pending.delete(x.id);
+    x.error ? reject(new Error(JSON.stringify(x.error))) : resolve(x.result);
+  }
+};
+const send = (method, params = {}, sessionId) =>
+  new Promise((resolve, reject) => {
+    const i = id++;
+    pending.set(i, { resolve, reject });
+    ws.send(
+      JSON.stringify({ id: i, method, params, ...(sessionId ? { sessionId } : {}) }),
+    );
+  });
 
 const { targetId } = await send("Target.createTarget", { url: "about:blank" });
 const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true });
 const cmd = (m, p) => send(m, p, sessionId);
-await cmd("Page.enable"); await cmd("Runtime.enable");
+await cmd("Page.enable");
+await cmd("Runtime.enable");
 const evaluate = async (expression) => {
-  const r = await cmd("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
-  if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? "eval failed");
+  const r = await cmd("Runtime.evaluate", {
+    expression,
+    awaitPromise: true,
+    returnByValue: true,
+  });
+  if (r.exceptionDetails)
+    throw new Error(r.exceptionDetails.exception?.description ?? "eval failed");
   return r.result.value;
 };
 const waitFor = async (expr, what, ms = 20000) => {
   const end = Date.now() + ms;
-  while (Date.now() < end) { if (await evaluate(`!!(${expr})`)) return; await sleep(200); }
+  while (Date.now() < end) {
+    if (await evaluate(`!!(${expr})`)) return;
+    await sleep(200);
+  }
   throw new Error(`timed out waiting for ${what}`);
 };
 
 try {
   await cmd("Page.navigate", { url: "http://localhost:5173/" });
   await sleep(1500);
-  console.log("viewport:", await evaluate(`window.innerWidth + 'x' + window.innerHeight`));
+  console.log(
+    "viewport:",
+    await evaluate(`window.innerWidth + 'x' + window.innerHeight`),
+  );
   await evaluate(`
     window.__set = (el, v) => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el, v); el.dispatchEvent(new Event('input',{bubbles:true})); };
     window.__btn = (t, r=document) => [...r.querySelectorAll('button')].find(b => b.textContent.trim() === t);
@@ -55,7 +103,9 @@ try {
   })()`);
   await waitFor("document.querySelectorAll('.msg-row').length > 2", "the message list");
   await sleep(1500);
-  await evaluate(`(() => { const r = document.querySelectorAll('.msg-row'); if (r[1]) r[1].click(); })()`);
+  await evaluate(
+    `(() => { const r = document.querySelectorAll('.msg-row'); if (r[1]) r[1].click(); })()`,
+  );
   await sleep(1500);
 
   // The app's own control, the way a user switches theme.
@@ -65,11 +115,17 @@ try {
   })()`);
   await sleep(2000);
   const bg = await evaluate(`getComputedStyle(document.body).backgroundColor`);
-  const topbar = await evaluate(`getComputedStyle(document.querySelector('.topbar')).backgroundColor`);
+  const topbar = await evaluate(
+    `getComputedStyle(document.querySelector('.topbar')).backgroundColor`,
+  );
   console.log("body:", bg, "topbar:", topbar);
-  if (parseInt(bg.match(/\d+/)[0], 10) < 200) throw new Error("page is not rendering light");
+  if (parseInt(bg.match(/\d+/)[0], 10) < 200)
+    throw new Error("page is not rendering light");
 
   const { data } = await cmd("Page.captureScreenshot", { format: "jpeg", quality: 82 });
   await writeFile(`${OUT}/inbox-light.jpg`, Buffer.from(data, "base64"));
   console.log("wrote inbox-light.jpg");
-} finally { ws.close(); chrome.kill(); }
+} finally {
+  ws.close();
+  chrome.kill();
+}

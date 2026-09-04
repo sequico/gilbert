@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { contactFromAddress, nameParts } from "../contacts";
 import type { ContactCard } from "@/jmap/types";
+import { contactFromAddress, nameParts } from "../contacts";
 
 const parts = (name: string | null, email = "a@b.io") =>
   nameParts(contactFromAddress({ name, email }) as ContactCard);
@@ -16,7 +16,11 @@ describe("contactFromAddress", () => {
 
   it("splits a display name into components", () => {
     expect(parts("Ada Lovelace")).toMatchObject({ given: "Ada", surname: "Lovelace" });
-    expect(parts("Ada King Lovelace")).toMatchObject({ given: "Ada", middle: "King", surname: "Lovelace" });
+    expect(parts("Ada King Lovelace")).toMatchObject({
+      given: "Ada",
+      middle: "King",
+      surname: "Lovelace",
+    });
     expect(parts("Prince")).toMatchObject({ given: "Prince", surname: "" });
   });
 
@@ -29,8 +33,14 @@ describe("contactFromAddress", () => {
   });
 
   it("leaves the name empty when the header carries an address, not a name", () => {
-    expect(contactFromAddress({ name: "ada@example.org", email: "ada@example.org" }).name).toBeUndefined();
-    expect(contactFromAddress({ name: null, email: "ada@example.org" }).name).toBeUndefined();
-    expect(contactFromAddress({ name: "   ", email: "ada@example.org" }).name).toBeUndefined();
+    expect(
+      contactFromAddress({ name: "ada@example.org", email: "ada@example.org" }).name,
+    ).toBeUndefined();
+    expect(
+      contactFromAddress({ name: null, email: "ada@example.org" }).name,
+    ).toBeUndefined();
+    expect(
+      contactFromAddress({ name: "   ", email: "ada@example.org" }).name,
+    ).toBeUndefined();
   });
 });

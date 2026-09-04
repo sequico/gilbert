@@ -3,14 +3,17 @@ import {
   canScheduleSend,
   describeSpan,
   holdUntil,
-  maxDelayMs,
   MIN_LEAD_MS,
-  schedulePresets,
+  maxDelayMs,
   scheduleError,
+  schedulePresets,
 } from "@/lib/schedule";
 
 /** Stalwart's own numbers, from the account capability it advertises. */
-const STALWART = { maxDelayedSend: 86400 * 30, submissionExtensions: { FUTURERELEASE: [], SIZE: [], DSN: [] } };
+const STALWART = {
+  maxDelayedSend: 86400 * 30,
+  submissionExtensions: { FUTURERELEASE: [], SIZE: [], DSN: [] },
+};
 const DAY = 86_400_000;
 
 describe("capability detection", () => {
@@ -24,7 +27,9 @@ describe("capability detection", () => {
   });
 
   it("refuses a server that offers a window but not the extension", () => {
-    expect(canScheduleSend({ maxDelayedSend: 86400, submissionExtensions: { DSN: [] } })).toBe(false);
+    expect(
+      canScheduleSend({ maxDelayedSend: 86400, submissionExtensions: { DSN: [] } }),
+    ).toBe(false);
   });
 
   it("refuses the empty capability object Stalwart puts at session level", () => {
@@ -50,11 +55,18 @@ describe("schedulePresets", () => {
 
   it("offers later today, tomorrow and next Monday from a Monday morning", () => {
     const ids = schedulePresets(monday9am, 30 * DAY).map((p) => p.id);
-    expect(ids).toEqual(["later-today", "tomorrow-morning", "tomorrow-afternoon", "monday-morning"]);
+    expect(ids).toEqual([
+      "later-today",
+      "tomorrow-morning",
+      "tomorrow-afternoon",
+      "monday-morning",
+    ]);
   });
 
   it("puts the times where the labels say", () => {
-    const by = Object.fromEntries(schedulePresets(monday9am, 30 * DAY).map((p) => [p.id, p.at]));
+    const by = Object.fromEntries(
+      schedulePresets(monday9am, 30 * DAY).map((p) => [p.id, p.at]),
+    );
     expect(by["later-today"]!.getHours()).toBe(17);
     expect(by["later-today"]!.getDate()).toBe(24);
     expect(by["tomorrow-morning"]!.getDate()).toBe(25);
@@ -63,27 +75,35 @@ describe("schedulePresets", () => {
   });
 
   it("skips a Monday for the Monday a week out, not today", () => {
-    const monday = schedulePresets(monday9am, 30 * DAY).find((p) => p.id === "monday-morning")!;
+    const monday = schedulePresets(monday9am, 30 * DAY).find(
+      (p) => p.id === "monday-morning",
+    )!;
     expect(monday.at.getDate()).toBe(31);
     expect(monday.at.getDay()).toBe(1);
   });
 
   it("finds next Monday from mid-week", () => {
     const wednesday = new Date(2026, 7, 26, 9, 0, 0, 0);
-    const monday = schedulePresets(wednesday, 30 * DAY).find((p) => p.id === "monday-morning")!;
+    const monday = schedulePresets(wednesday, 30 * DAY).find(
+      (p) => p.id === "monday-morning",
+    )!;
     expect(monday.at.getDate()).toBe(31);
     expect(monday.at.getDay()).toBe(1);
   });
 
   it("drops later today once the evening has passed", () => {
-    const ids = schedulePresets(new Date(2026, 7, 24, 18, 0, 0, 0), 30 * DAY).map((p) => p.id);
+    const ids = schedulePresets(new Date(2026, 7, 24, 18, 0, 0, 0), 30 * DAY).map(
+      (p) => p.id,
+    );
     expect(ids).not.toContain("later-today");
     expect(ids).toContain("tomorrow-morning");
   });
 
   it("offers nothing beyond what the server will hold", () => {
     // A two-hour window reaches this evening but nothing after it.
-    const ids = schedulePresets(new Date(2026, 7, 24, 16, 0, 0, 0), 2 * 3_600_000).map((p) => p.id);
+    const ids = schedulePresets(new Date(2026, 7, 24, 16, 0, 0, 0), 2 * 3_600_000).map(
+      (p) => p.id,
+    );
     expect(ids).toEqual(["later-today"]);
   });
 });
@@ -96,8 +116,12 @@ describe("scheduleError", () => {
   });
 
   it("refuses the past and the almost-now", () => {
-    expect(scheduleError(new Date(now.getTime() - 1000), now, 30 * DAY)).toMatch(/at least a minute/);
-    expect(scheduleError(new Date(now.getTime() + MIN_LEAD_MS - 1), now, 30 * DAY)).toMatch(/at least a minute/);
+    expect(scheduleError(new Date(now.getTime() - 1000), now, 30 * DAY)).toMatch(
+      /at least a minute/,
+    );
+    expect(
+      scheduleError(new Date(now.getTime() + MIN_LEAD_MS - 1), now, 30 * DAY),
+    ).toMatch(/at least a minute/);
   });
 
   it("refuses what the server would reject, naming the limit", () => {

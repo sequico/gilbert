@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { withBase, BASE_PATH } from "@/lib/basePath";
+import { BASE_PATH, withBase } from "@/lib/basePath";
 
 /**
  * The verification code a push subscription needs is written by the service

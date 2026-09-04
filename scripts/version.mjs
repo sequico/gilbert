@@ -39,8 +39,8 @@
  * whoever builds is responsible for computing it -- see ihasmail-deploy.sh.
  */
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -48,7 +48,11 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const UNVERSIONED = "0.0.0";
 
 function git(...args) {
-  return execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  return execFileSync("git", args, {
+    cwd: root,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  }).trim();
 }
 
 const PR_SUBJECT = /^Merge pull request #(\d+)\b/;
@@ -104,5 +108,5 @@ export function resolveVersion() {
 
 // `node scripts/version.mjs` prints it, for shell scripts and CI.
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  process.stdout.write(resolveVersion() + "\n");
+  process.stdout.write(`${resolveVersion()}\n`);
 }

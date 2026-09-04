@@ -47,7 +47,10 @@ export interface TnefAttachment {
 }
 
 /** Whether an attachment is worth trying to open as TNEF. */
-export function isTnef(type: string | null | undefined, name: string | null | undefined): boolean {
+export function isTnef(
+  type: string | null | undefined,
+  name: string | null | undefined,
+): boolean {
   const t = (type ?? "").split(";")[0]!.trim().toLowerCase();
   if (t === "application/ms-tnef" || t === "application/vnd.ms-tnef") return true;
   return (name ?? "").trim().toLowerCase() === "winmail.dat";
@@ -79,14 +82,19 @@ class Reader {
   }
   bytes(length: number): Uint8Array {
     this.need(length);
-    const out = new Uint8Array(this.view.buffer, this.view.byteOffset + this.offset, length);
+    const out = new Uint8Array(
+      this.view.buffer,
+      this.view.byteOffset + this.offset,
+      length,
+    );
     this.offset += length;
     // Copied, because the slice would otherwise keep the whole blob alive and
     // move underneath anyone who held it.
     return new Uint8Array(out);
   }
   private need(n: number) {
-    if (n < 0 || this.offset + n > this.view.byteLength) throw new RangeError("truncated");
+    if (n < 0 || this.offset + n > this.view.byteLength)
+      throw new RangeError("truncated");
   }
 }
 
@@ -97,8 +105,10 @@ function checksum(data: Uint8Array): number {
   return sum;
 }
 
-const decodeAscii = (b: Uint8Array) => new TextDecoder("windows-1252").decode(b).replace(/\0+$/, "");
-const decodeUtf16 = (b: Uint8Array) => new TextDecoder("utf-16le").decode(b).replace(/\0+$/, "");
+const decodeAscii = (b: Uint8Array) =>
+  new TextDecoder("windows-1252").decode(b).replace(/\0+$/, "");
+const decodeUtf16 = (b: Uint8Array) =>
+  new TextDecoder("utf-16le").decode(b).replace(/\0+$/, "");
 
 /**
  * The MAPI property stream inside `attAttachment`, read only for the two
@@ -137,14 +147,29 @@ function readMapiProps(data: Uint8Array): { name?: string; type?: string } {
           r.offset += pad;
         }
         if (first) {
-          if (id === PID_ATTACH_LONG_FILENAME) out.name = base === PT_UNICODE ? decodeUtf16(first) : decodeAscii(first);
-          if (id === PID_ATTACH_MIME_TAG) out.type = (base === PT_UNICODE ? decodeUtf16(first) : decodeAscii(first)).trim();
+          if (id === PID_ATTACH_LONG_FILENAME)
+            out.name = base === PT_UNICODE ? decodeUtf16(first) : decodeAscii(first);
+          if (id === PID_ATTACH_MIME_TAG)
+            out.type = (
+              base === PT_UNICODE ? decodeUtf16(first) : decodeAscii(first)
+            ).trim();
         }
       } else if (base === 0x0002) {
         r.offset += 2 * values + 2; // PT_SHORT is padded to four bytes
-      } else if (base === 0x0003 || base === 0x000a || base === 0x000b || base === 0x0004) {
+      } else if (
+        base === 0x0003 ||
+        base === 0x000a ||
+        base === 0x000b ||
+        base === 0x0004
+      ) {
         r.offset += 4 * values;
-      } else if (base === 0x0005 || base === 0x0006 || base === 0x0007 || base === 0x0014 || base === 0x0040) {
+      } else if (
+        base === 0x0005 ||
+        base === 0x0006 ||
+        base === 0x0007 ||
+        base === 0x0014 ||
+        base === 0x0040
+      ) {
         r.offset += 8 * values;
       } else if (base === 0x0048) {
         r.offset += 16 * values;
@@ -203,14 +228,20 @@ export function parseTnef(input: ArrayBuffer | Uint8Array): TnefAttachment[] {
 
   const r = new Reader(view, 6); // signature (4) + key (2)
   const out: TnefAttachment[] = [];
-  let current: { title?: string; mapiName?: string; mapiType?: string; data?: Uint8Array } | null = null;
+  let current: {
+    title?: string;
+    mapiName?: string;
+    mapiType?: string;
+    data?: Uint8Array;
+  } | null = null;
 
   const flush = () => {
     if (!current?.data) {
       current = null;
       return;
     }
-    const name = (current.mapiName || current.title || "attachment").trim() || "attachment";
+    const name =
+      (current.mapiName || current.title || "attachment").trim() || "attachment";
     out.push({
       name,
       type: current.mapiType || guessType(name),

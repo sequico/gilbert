@@ -1,8 +1,14 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ClipboardEvent } from "react";
 import { X } from "lucide-react";
+import {
+  type ClipboardEvent,
+  type KeyboardEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { EmailAddress } from "@/jmap/types";
-import { isValidEmail, parseAddressList, displayName } from "@/lib/address";
-import { useContacts, type Suggestion } from "@/store/contacts";
+import { displayName, isValidEmail, parseAddressList } from "@/lib/address";
+import { type Suggestion, useContacts } from "@/store/contacts";
 import { Avatar } from "@/ui/misc";
 
 interface Props {
@@ -48,7 +54,12 @@ export function RecipientInput({ value, onChange, placeholder, autoFocus, id }: 
     if (!s) return;
     const parsed = parseAddressList(s);
     if (!parsed.length) return;
-    onChange([...value, ...parsed.filter((p) => !value.some((v) => v.email.toLowerCase() === p.email.toLowerCase()))]);
+    onChange([
+      ...value,
+      ...parsed.filter(
+        (p) => !value.some((v) => v.email.toLowerCase() === p.email.toLowerCase()),
+      ),
+    ]);
     setText("");
     setOpen(false);
   };
@@ -110,9 +121,23 @@ export function RecipientInput({ value, onChange, placeholder, autoFocus, id }: 
   return (
     <div className="recipients" onClick={() => inputRef.current?.focus()}>
       {value.map((a, i) => (
-        <span key={`${a.email}-${i}`} className={`chip ${isValidEmail(a.email) ? "" : "invalid"}`} title={a.email}>
-          <span className="truncate" style={{ maxWidth: 220 }}>{a.name ? displayName(a) : a.email}</span>
-          <button type="button" className="chip-x" aria-label={`Remove ${a.email}`} onClick={(e) => { e.stopPropagation(); onChange(value.filter((_, j) => j !== i)); }}>
+        <span
+          key={`${a.email}-${i}`}
+          className={`chip ${isValidEmail(a.email) ? "" : "invalid"}`}
+          title={a.email}
+        >
+          <span className="truncate" style={{ maxWidth: 220 }}>
+            {a.name ? displayName(a) : a.email}
+          </span>
+          <button
+            type="button"
+            className="chip-x"
+            aria-label={`Remove ${a.email}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange(value.filter((_, j) => j !== i));
+            }}
+          >
             <X size={12} />
           </button>
         </span>
@@ -121,12 +146,17 @@ export function RecipientInput({ value, onChange, placeholder, autoFocus, id }: 
         id={id}
         ref={inputRef}
         value={text}
-        placeholder={value.length ? "" : placeholder}
         autoFocus={autoFocus}
+        placeholder={value.length ? "" : placeholder}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={onKey}
         onPaste={onPaste}
-        onBlur={() => { window.setTimeout(() => { setOpen(false); if (text.trim()) commit(); }, 150); }}
+        onBlur={() => {
+          window.setTimeout(() => {
+            setOpen(false);
+            if (text.trim()) commit();
+          }, 150);
+        }}
         onFocus={() => sugg.length && setOpen(true)}
         autoComplete="off"
         autoCapitalize="off"
@@ -137,13 +167,25 @@ export function RecipientInput({ value, onChange, placeholder, autoFocus, id }: 
       {open && (
         <div className="suggest-list" role="listbox">
           {sugg.map((s, i) => (
-            <div key={s.email} className={`suggest-item ${i === active ? "active" : ""}`} role="option" aria-selected={i === active} onMouseDown={(e) => { e.preventDefault(); pick(s); }} onMouseEnter={() => setActive(i)}>
+            <div
+              key={s.email}
+              className={`suggest-item ${i === active ? "active" : ""}`}
+              role="option"
+              aria-selected={i === active}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                pick(s);
+              }}
+              onMouseEnter={() => setActive(i)}
+            >
               <Avatar who={s} size="sm" />
               <div className="col" style={{ minWidth: 0 }}>
                 <span className="s-name truncate">{s.name ?? s.email}</span>
                 {s.name && <span className="s-email truncate">{s.email}</span>}
               </div>
-              <span className="s-src">{s.source === "gal" ? "Directory" : s.source === "recent" ? "Recent" : ""}</span>
+              <span className="s-src">
+                {s.source === "gal" ? "Directory" : s.source === "recent" ? "Recent" : ""}
+              </span>
             </div>
           ))}
         </div>

@@ -1,14 +1,30 @@
 import { useEffect, useState } from "react";
 import { create } from "zustand";
-import { hasCachedJson, loadJson, saveJson } from "@/lib/storage";
-import { effectiveMode, legacyTheme, migrateTheme, type Mode, type PaletteId } from "@/lib/palette";
-import type { SortLevel, SortPreset } from "@/lib/listSort";
-import { pendingSettingsKeys, queueSettingsPush } from "@/lib/settingsSync";
-import { policyChanges, policyDefaults, policyEnforced, type PolicyChange } from "@/lib/settingsPolicy";
-import { setDateTimePrefs, setUiLanguageForFormatting, type DateFormat, type TimeFormat } from "@/lib/datetime";
-import type { SwipeAction } from "@/lib/swipe";
-import { resolveUiLanguage } from "@/lib/languages";
+import {
+  type DateFormat,
+  setDateTimePrefs,
+  setUiLanguageForFormatting,
+  type TimeFormat,
+} from "@/lib/datetime";
 import { loadLanguage } from "@/lib/i18n";
+import { resolveUiLanguage } from "@/lib/languages";
+import type { SortLevel, SortPreset } from "@/lib/listSort";
+import {
+  effectiveMode,
+  legacyTheme,
+  type Mode,
+  migrateTheme,
+  type PaletteId,
+} from "@/lib/palette";
+import {
+  type PolicyChange,
+  policyChanges,
+  policyDefaults,
+  policyEnforced,
+} from "@/lib/settingsPolicy";
+import { pendingSettingsKeys, queueSettingsPush } from "@/lib/settingsSync";
+import { hasCachedJson, loadJson, saveJson } from "@/lib/storage";
+import type { SwipeAction } from "@/lib/swipe";
 
 /**
  * "ihasmail" is a dark theme carrying the palette from ihasmail.org. It is a
@@ -386,7 +402,11 @@ export function acceptRemote(remote: Record<string, unknown>): Partial<Settings>
    * Only when the new fields are absent: a file that has both is newer, and
    * its `theme` is the derived copy rather than the choice.
    */
-  if (out.palette === undefined && out.mode === undefined && typeof remote.theme === "string") {
+  if (
+    out.palette === undefined &&
+    out.mode === undefined &&
+    typeof remote.theme === "string"
+  ) {
     const migrated = migrateTheme(remote.theme);
     out.palette = migrated.palette;
     out.mode = migrated.mode;
@@ -472,8 +492,13 @@ export const useSettings = create<SettingsState>((set, get) => ({
      * forgets to check. There is one door, so the lock is on it. Issue #207.
      */
     const merged = { ...get().settings, ...patch, ...policyEnforced() };
-    const prefersDark = Boolean(window.matchMedia?.("(prefers-color-scheme: dark)").matches);
-    const settings = { ...merged, theme: legacyTheme({ palette: merged.palette, mode: merged.mode }, prefersDark) };
+    const prefersDark = Boolean(
+      window.matchMedia?.("(prefers-color-scheme: dark)").matches,
+    );
+    const settings = {
+      ...merged,
+      theme: legacyTheme({ palette: merged.palette, mode: merged.mode }, prefersDark),
+    };
     saveJson("settings", settings);
     set({ settings });
     applyTheme(settings);
@@ -512,7 +537,10 @@ export const useSettings = create<SettingsState>((set, get) => ({
     if (!pending.length) return [];
     let patch: Partial<Settings> = {};
     for (const c of pending) patch = { ...patch, ...c.settings };
-    get().update({ ...patch, appliedPolicyChanges: [...seen, ...pending.map((c) => c.version)] });
+    get().update({
+      ...patch,
+      appliedPolicyChanges: [...seen, ...pending.map((c) => c.version)],
+    });
     return pending;
   },
   reset() {
@@ -543,7 +571,10 @@ export const useSettings = create<SettingsState>((set, get) => ({
     /* Enforced values win over what the account's own file says: a policy that
        an older sign-in has already written past would otherwise stay written
        past for ever. */
-    const settings = { ...mergeRemote(get().settings, remote, pendingSettingsKeys()), ...policyEnforced() };
+    const settings = {
+      ...mergeRemote(get().settings, remote, pendingSettingsKeys()),
+      ...policyEnforced(),
+    };
     // Cache it, so the next first frame on this browser is already right.
     saveJson("settings", settings);
     set({ settings });
@@ -557,7 +588,11 @@ function applyDateTimePrefs(s: Settings): void {
   // The interface language feeds the automatic locale, so month and weekday
   // names follow the language somebody chose rather than staying English.
   setUiLanguageForFormatting(resolveUiLanguage(s.uiLanguage));
-  setDateTimePrefs({ locale: s.locale, dateFormat: s.dateFormat, timeFormat: s.timeFormat });
+  setDateTimePrefs({
+    locale: s.locale,
+    dateFormat: s.dateFormat,
+    timeFormat: s.timeFormat,
+  });
 }
 
 /**
@@ -598,7 +633,9 @@ const THEME_COLOR = { light: "#ffffff", dark: "#0b1220", ihasmail: "#0d2430" } a
 
 export function applyTheme(s: Settings = useSettings.getState().settings): void {
   const root = document.documentElement;
-  const prefersDark = Boolean(window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  const prefersDark = Boolean(
+    window.matchMedia?.("(prefers-color-scheme: dark)").matches,
+  );
   const mode = effectiveMode(s.mode, prefersDark);
   /*
    * Two attributes, because they answer two questions. `data-theme` is the
@@ -613,7 +650,9 @@ export function applyTheme(s: Settings = useSettings.getState().settings): void 
   root.dataset.density = s.density;
   root.dataset.accent = s.accent;
   root.dataset.fontsize = s.fontSize;
-  const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]:not([media])');
+  const meta = document.querySelector<HTMLMetaElement>(
+    'meta[name="theme-color"]:not([media])',
+  );
   if (meta) meta.content = paletteThemeColor(s.palette, mode);
 }
 
@@ -621,14 +660,15 @@ export function applyTheme(s: Settings = useSettings.getState().settings): void 
  * The browser chrome colour, read from the palette's own background so it does
  * not have to be listed twice and cannot drift from it.
  */
-function paletteThemeColor(palette: PaletteId, mode: "light" | "dark"): string {
+function paletteThemeColor(_palette: PaletteId, mode: "light" | "dark"): string {
   if (typeof getComputedStyle === "function") {
-    const value = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+    const value = getComputedStyle(document.documentElement)
+      .getPropertyValue("--bg")
+      .trim();
     if (value) return value;
   }
   return mode === "dark" ? THEME_COLOR.dark : THEME_COLOR.light;
 }
-
 
 /** Whether a theme paints dark, resolving "system" against the OS. */
 export function isDarkTheme(theme: Theme, prefersDark = false): boolean {
@@ -641,7 +681,9 @@ if (typeof window !== "undefined") {
   // the way in -- so the language is declared before React has produced a
   // single node, let alone painted one.
   applyLang();
-  window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener("change", () => applyTheme());
+  window
+    .matchMedia?.("(prefers-color-scheme: dark)")
+    .addEventListener("change", () => applyTheme());
 }
 
 /**
@@ -650,7 +692,9 @@ if (typeof window !== "undefined") {
  */
 export function useEffectiveTheme(): "light" | "dark" {
   const mode = useSettings((s) => s.settings.mode);
-  const [systemDark, setSystemDark] = useState(() => window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false);
+  const [systemDark, setSystemDark] = useState(
+    () => window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false,
+  );
   useEffect(() => {
     const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
     if (!mq) return;
@@ -667,4 +711,5 @@ export const settings = () => useSettings.getState().settings;
  * Primitive that changes whenever a date/time preference does, so memoised
  * components that render dates re-render when the format is switched.
  */
-export const dateTimeKey = (s: Settings): string => `${s.locale}|${s.dateFormat}|${s.timeFormat}`;
+export const dateTimeKey = (s: Settings): string =>
+  `${s.locale}|${s.dateFormat}|${s.timeFormat}`;

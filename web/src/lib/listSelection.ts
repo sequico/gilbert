@@ -37,7 +37,12 @@ export function rowClick(opts: {
       const [start, end] = from < to ? [from, to] : [to, from];
       // The anchor stays where it is, so extending the range again grows it
       // from the same place rather than from wherever it last reached.
-      return { kind: "select", ids: ids.slice(start, end + 1), on: true, moveAnchor: false };
+      return {
+        kind: "select",
+        ids: ids.slice(start, end + 1),
+        on: true,
+        moveAnchor: false,
+      };
     }
   }
 

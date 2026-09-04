@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TranslateBoundary, isDomMutationError } from "../TranslateBoundary";
+import { isDomMutationError, TranslateBoundary } from "../TranslateBoundary";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -17,7 +17,13 @@ describe("recognising the translator's damage", () => {
     const notFound = new Error("Failed to execute 'removeChild' on 'Node'");
     notFound.name = "NotFoundError";
     expect(isDomMutationError(notFound)).toBe(true);
-    expect(isDomMutationError(new Error("The node before which the new node is to be inserted is not a child of this node"))).toBe(true);
+    expect(
+      isDomMutationError(
+        new Error(
+          "The node before which the new node is to be inserted is not a child of this node",
+        ),
+      ),
+    ).toBe(true);
   });
 
   it("matches on the error name as well as the message", () => {
@@ -70,12 +76,16 @@ describe("the boundary", () => {
   }
 
   it("remounts the subtree instead of losing it", () => {
-    const fails = { left: 2 };   // the concurrent attempt and the sync retry
+    const fails = { left: 2 }; // the concurrent attempt and the sync retry
     const onRecover = vi.fn();
     vi.spyOn(console, "info").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
     act(() => {
-      root.render(<TranslateBoundary onRecover={onRecover}><Flaky fails={fails} /></TranslateBoundary>);
+      root.render(
+        <TranslateBoundary onRecover={onRecover}>
+          <Flaky fails={fails} />
+        </TranslateBoundary>,
+      );
     });
     expect(host.textContent).toBe("content");
     expect(onRecover).toHaveBeenCalledTimes(1);
@@ -89,7 +99,11 @@ describe("the boundary", () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     act(() => {
-      root.render(<TranslateBoundary><Flaky fails={fails} /></TranslateBoundary>);
+      root.render(
+        <TranslateBoundary>
+          <Flaky fails={fails} />
+        </TranslateBoundary>,
+      );
     });
     expect(info).toHaveBeenCalledOnce();
     expect(String(info.mock.calls[0]?.[0])).toContain("recovered from a DOM error");
@@ -111,7 +125,11 @@ describe("the boundary", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() => {
       act(() => {
-        root.render(<TranslateBoundary><Broken /></TranslateBoundary>);
+        root.render(
+          <TranslateBoundary>
+            <Broken />
+          </TranslateBoundary>,
+        );
       });
     }).toThrow(/genuinely broken/);
   });

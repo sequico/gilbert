@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_UI_LANGUAGE, UI_LANGUAGES, resolveUiLanguage } from "@/lib/languages";
-import { DEFAULT_SETTINGS, acceptRemote } from "@/store/settings";
+import { DEFAULT_UI_LANGUAGE, resolveUiLanguage, UI_LANGUAGES } from "@/lib/languages";
+import { acceptRemote, DEFAULT_SETTINGS } from "@/store/settings";
 
 /**
  * The interface language decides what `<html lang>` claims, and a wrong claim
@@ -24,7 +24,9 @@ describe("resolveUiLanguage", () => {
     // admits to English: it stops the reader translating it themselves.
     // Derived rather than named, so shipping another language does not turn
     // this into a failing test that is really just out of date.
-    const unshipped = ["cy", "is", "mt", "eu"].find((tag) => !UI_LANGUAGES.some((l) => l.tag === tag))!;
+    const unshipped = ["cy", "is", "mt", "eu"].find(
+      (tag) => !UI_LANGUAGES.some((l) => l.tag === tag),
+    )!;
     expect(resolveUiLanguage(unshipped)).toBe("en");
     expect(resolveUiLanguage("xx-XX")).toBe("en");
   });

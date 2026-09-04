@@ -1,5 +1,5 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
+import { test } from "node:test";
 import { getAccountInfo, hasStalwartRegistry, interpretAccountInfo } from "./upstream.js";
 
 /**
@@ -13,8 +13,16 @@ import { getAccountInfo, hasStalwartRegistry, interpretAccountInfo } from "./ups
 
 type Responses = [string, Record<string, unknown>, string][];
 
-const settingsOk = (locale: string): Responses[number] => ["x:AccountSettings/get", { list: [{ id: "singleton", locale }] }, "s"];
-const accountOk = (locale: string): Responses[number] => ["x:Account/get", { list: [{ id: "a1", locale }] }, "a"];
+const settingsOk = (locale: string): Responses[number] => [
+  "x:AccountSettings/get",
+  { list: [{ id: "singleton", locale }] },
+  "s",
+];
+const accountOk = (locale: string): Responses[number] => [
+  "x:Account/get",
+  { list: [{ id: "a1", locale }] },
+  "a",
+];
 const failed = (id: string, type: string): Responses[number] => ["error", { type }, id];
 
 test("prefers the locale a regular user is allowed to read", () => {
@@ -28,12 +36,18 @@ test("falls back to x:Account when the settings object is forbidden", () => {
 });
 
 test("an account with no locale set yields none, rather than a guess", () => {
-  const info = interpretAccountInfo([["x:AccountSettings/get", { list: [] }, "s"], failed("a", "forbidden")]);
+  const info = interpretAccountInfo([
+    ["x:AccountSettings/get", { list: [] }, "s"],
+    failed("a", "forbidden"),
+  ]);
   assert.equal(info.locale, null);
 });
 
 test("neither answering leaves the locale unknown", () => {
-  assert.deepEqual(interpretAccountInfo([failed("s", "forbidden"), failed("a", "forbidden")]), { locale: null, edition: null });
+  assert.deepEqual(
+    interpretAccountInfo([failed("s", "forbidden"), failed("a", "forbidden")]),
+    { locale: null, edition: null },
+  );
   assert.deepEqual(interpretAccountInfo([]), { locale: null, edition: null });
 });
 
@@ -46,13 +60,20 @@ test("a server without the registry is not asked for anything", async () => {
   // Sign-in refuses these, so getAccountInfo should never reach the wire for
   // one - and must not, since a server that cannot parse `urn:stalwart:jmap`
   // fails the whole request rather than the one call.
-  const session = { capabilities: { "urn:ietf:params:jmap:core": {}, "urn:ietf:params:jmap:mail": {} }, accounts: {}, primaryAccounts: {} };
+  const session = {
+    capabilities: { "urn:ietf:params:jmap:core": {}, "urn:ietf:params:jmap:mail": {} },
+    accounts: {},
+    primaryAccounts: {},
+  };
   const info = await getAccountInfo("session-unsupported", "Basic x", session as never);
   assert.deepEqual(info, { locale: null, edition: null });
 });
 
 test("no capabilities at all is treated the same way", async () => {
-  const info = await getAccountInfo("session-no-caps", "Basic x", { accounts: {}, primaryAccounts: {} } as never);
+  const info = await getAccountInfo("session-no-caps", "Basic x", {
+    accounts: {},
+    primaryAccounts: {},
+  } as never);
   assert.equal(info.locale, null);
 });
 
@@ -75,7 +96,11 @@ const baseCaps = { "urn:ietf:params:jmap:core": {}, "urn:ietf:params:jmap:mail":
 
 test("a 0.16 server is recognised from primaryAccounts, where it advertises itself", () => {
   assert.equal(
-    hasStalwartRegistry({ capabilities: baseCaps, accounts: {}, primaryAccounts: { [STALWART]: "a1" } }),
+    hasStalwartRegistry({
+      capabilities: baseCaps,
+      accounts: {},
+      primaryAccounts: { [STALWART]: "a1" },
+    }),
     true,
   );
 });
@@ -84,7 +109,9 @@ test("a 0.16 server is recognised from an account's capabilities", () => {
   assert.equal(
     hasStalwartRegistry({
       capabilities: baseCaps,
-      accounts: { a1: { accountCapabilities: { "urn:ietf:params:jmap:mail": {}, [STALWART]: {} } } },
+      accounts: {
+        a1: { accountCapabilities: { "urn:ietf:params:jmap:mail": {}, [STALWART]: {} } },
+      },
       primaryAccounts: {},
     }),
     true,
@@ -92,11 +119,25 @@ test("a 0.16 server is recognised from an account's capabilities", () => {
 });
 
 test("the session level still counts, for a server that ever advertises it there", () => {
-  assert.equal(hasStalwartRegistry({ capabilities: { ...baseCaps, [STALWART]: {} }, accounts: {}, primaryAccounts: {} }), true);
+  assert.equal(
+    hasStalwartRegistry({
+      capabilities: { ...baseCaps, [STALWART]: {} },
+      accounts: {},
+      primaryAccounts: {},
+    }),
+    true,
+  );
 });
 
 test("a server that advertises it nowhere is one we do not support", () => {
-  assert.equal(hasStalwartRegistry({ capabilities: baseCaps, accounts: { a1: { accountCapabilities: baseCaps } }, primaryAccounts: { "urn:ietf:params:jmap:mail": "a1" } }), false);
+  assert.equal(
+    hasStalwartRegistry({
+      capabilities: baseCaps,
+      accounts: { a1: { accountCapabilities: baseCaps } },
+      primaryAccounts: { "urn:ietf:params:jmap:mail": "a1" },
+    }),
+    false,
+  );
   assert.equal(hasStalwartRegistry(undefined), false);
 });
 
@@ -104,7 +145,10 @@ test("a shared account carrying the capability is enough to recognise the server
   assert.equal(
     hasStalwartRegistry({
       capabilities: baseCaps,
-      accounts: { a1: { accountCapabilities: baseCaps }, a2: { accountCapabilities: { [STALWART]: {} } } },
+      accounts: {
+        a1: { accountCapabilities: baseCaps },
+        a2: { accountCapabilities: { [STALWART]: {} } },
+      },
       primaryAccounts: {},
     }),
     true,

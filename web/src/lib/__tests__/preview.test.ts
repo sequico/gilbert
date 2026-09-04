@@ -41,7 +41,12 @@ describe("previewKind", () => {
 
   it("has nothing to show for the rest", () => {
     expect(previewKind("application/zip", "backup.zip")).toBeNull();
-    expect(previewKind("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "letter.docx")).toBeNull();
+    expect(
+      previewKind(
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "letter.docx",
+      ),
+    ).toBeNull();
   });
 });
 

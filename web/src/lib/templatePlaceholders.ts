@@ -18,9 +18,10 @@
  * so a template follows the same date order and clock the rest of the app was
  * told to use.
  */
-import { escapeHtml } from "./text";
-import { formatDate, formatClock } from "./datetime";
+
 import type { EmailAddress } from "@/jmap/types";
+import { formatClock, formatDate } from "./datetime";
+import { escapeHtml } from "./text";
 
 export interface PlaceholderContext {
   /** Where the message is addressed, in order; the first is what the singular names refer to. */
@@ -80,7 +81,11 @@ const TOKEN = /\{\{\s*([A-Za-z][A-Za-z0-9]*)\s*\}\}/g;
  * from contact cards and typed addresses -- a display name is not trusted
  * markup, and the body it lands in is inserted as HTML.
  */
-export function fillPlaceholders(input: string, ctx: PlaceholderContext, opts: { html: boolean }): string {
+export function fillPlaceholders(
+  input: string,
+  ctx: PlaceholderContext,
+  opts: { html: boolean },
+): string {
   return input.replace(TOKEN, (whole, name: string) => {
     const resolver = RESOLVERS[name];
     if (!resolver) return whole;

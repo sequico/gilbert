@@ -65,7 +65,11 @@ export function generateSecret(): string {
  * The label is "issuer:account" with the issuer repeated as a parameter, which
  * is what totp-rs (Stalwart's parser) and every common app expect.
  */
-export function otpauthUrl(opts: { secret: string; account: string; issuer: string }): string {
+export function otpauthUrl(opts: {
+  secret: string;
+  account: string;
+  issuer: string;
+}): string {
   const label = `${encodeURIComponent(opts.issuer)}:${encodeURIComponent(opts.account)}`;
   const params = new URLSearchParams({
     secret: opts.secret,
@@ -87,8 +91,11 @@ export function parseOtpauthUrl(url: string): TotpParams | null {
   if (parsed.protocol !== "otpauth:" || parsed.host.toLowerCase() !== "totp") return null;
   const secret = parsed.searchParams.get("secret");
   if (!secret || !base32Decode(secret)) return null;
-  const algorithm = (parsed.searchParams.get("algorithm") ?? DEFAULTS.algorithm).toUpperCase();
-  if (algorithm !== "SHA1" && algorithm !== "SHA256" && algorithm !== "SHA512") return null;
+  const algorithm = (
+    parsed.searchParams.get("algorithm") ?? DEFAULTS.algorithm
+  ).toUpperCase();
+  if (algorithm !== "SHA1" && algorithm !== "SHA256" && algorithm !== "SHA512")
+    return null;
   const digits = Number(parsed.searchParams.get("digits") ?? DEFAULTS.digits);
   const period = Number(parsed.searchParams.get("period") ?? DEFAULTS.period);
   if (!Number.isInteger(digits) || digits < 6 || digits > 10) return null;
@@ -109,20 +116,29 @@ function hotp(key: Buffer, counter: number, algorithm: string, digits: number): 
 /** The code an authenticator app would show at `now`. */
 export function totpCode(params: TotpParams, now = Date.now()): string {
   const key = base32Decode(params.secret);
-  if (!key || !key.length) throw new Error("unusable TOTP secret");
-  return hotp(key, Math.floor(now / 1000 / params.period), params.algorithm, params.digits);
+  if (!key?.length) throw new Error("unusable TOTP secret");
+  return hotp(
+    key,
+    Math.floor(now / 1000 / params.period),
+    params.algorithm,
+    params.digits,
+  );
 }
 
 /**
  * Check a user-supplied code, allowing `window` steps of clock skew either way
  * (one step = 30s by default, so the default tolerates ±30s).
  */
-export function verifyTotp(params: TotpParams, code: string, opts: { window?: number; now?: number } = {}): boolean {
+export function verifyTotp(
+  params: TotpParams,
+  code: string,
+  opts: { window?: number; now?: number } = {},
+): boolean {
   const digits = params.digits;
   const cleaned = code.replace(/\s/g, "");
   if (cleaned.length !== digits || !/^\d+$/.test(cleaned)) return false;
   const key = base32Decode(params.secret);
-  if (!key || !key.length) return false;
+  if (!key?.length) return false;
   const window = opts.window ?? 1;
   const counter = Math.floor((opts.now ?? Date.now()) / 1000 / params.period);
   let ok = false;

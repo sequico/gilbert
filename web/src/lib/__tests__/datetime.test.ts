@@ -1,23 +1,23 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  dateInputPattern,
+  dateInputPlaceholder,
   formatClock,
   formatDate,
+  formatDateInput,
   formatDateTime,
   formatDayMonth,
   formatFullDateTime,
-  formatDateInput,
   formatHourLabel,
   formatTimeInput,
-  dateInputPattern,
-  dateInputPlaceholder,
   localeOptions,
+  normalizeLocale,
   parseDateInput,
   parseTimeInput,
-  timeInputPlaceholder,
-  normalizeLocale,
   resolvedLocale,
   setDateTimePrefs,
   setServerLocale,
+  timeInputPlaceholder,
   uses24Hour,
   withPrefs,
 } from "../datetime";
@@ -135,7 +135,9 @@ describe("automatic date format", () => {
 describe("withPrefs", () => {
   it("formats a preview without leaking the override", () => {
     setDateTimePrefs({ locale: "en-US", dateFormat: "mdy-slash" });
-    expect(withPrefs({ dateFormat: "ymd-dash" }, () => formatDate(SAMPLE))).toBe("2025-11-22");
+    expect(withPrefs({ dateFormat: "ymd-dash" }, () => formatDate(SAMPLE))).toBe(
+      "2025-11-22",
+    );
     expect(formatDate(SAMPLE)).toBe("11/22/2025");
   });
 });
@@ -190,7 +192,15 @@ describe("locale options", () => {
     const opts = localeOptions();
     expect(opts.length).toBeGreaterThan(500);
     const tags = opts.map((o) => o.tag);
-    for (const tag of ["de-DE", "en-US", "sw-KE", "ka-GE", "yue-HK", "sr-Latn-RS", "uz-Cyrl-UZ"]) {
+    for (const tag of [
+      "de-DE",
+      "en-US",
+      "sw-KE",
+      "ka-GE",
+      "yue-HK",
+      "sr-Latn-RS",
+      "uz-Cyrl-UZ",
+    ]) {
       expect(tags).toContain(tag);
     }
     expect(opts.find((o) => o.tag === "de-DE")?.label).toBe("Deutsch (Deutschland)");
@@ -234,12 +244,25 @@ describe("editable date fields", () => {
     expect(parseDateInput(formatDateInput(SAMPLE))?.getFullYear()).toBe(2025);
   });
 
-  const iso = (d: Date | null) => (d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` : null);
+  const iso = (d: Date | null) =>
+    d
+      ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+      : null;
 
   it("parses the configured order, loosely", () => {
     setDateTimePrefs({ locale: "de-DE", dateFormat: "dmy-dot" });
-    for (const text of ["22.11.2025", "22/11/2025", "22-11-2025", "22.11.25", "2.1.2025", "22112025", "221125"]) {
-      expect(iso(parseDateInput(text))).toBe(text.includes("2.1.") ? "2025-01-02" : "2025-11-22");
+    for (const text of [
+      "22.11.2025",
+      "22/11/2025",
+      "22-11-2025",
+      "22.11.25",
+      "2.1.2025",
+      "22112025",
+      "221125",
+    ]) {
+      expect(iso(parseDateInput(text))).toBe(
+        text.includes("2.1.") ? "2025-01-02" : "2025-11-22",
+      );
     }
     // Bare ISO is unambiguous and always accepted.
     expect(iso(parseDateInput("2025-11-22"))).toBe("2025-11-22");
@@ -258,7 +281,15 @@ describe("editable date fields", () => {
 
   it("rejects what is not a date", () => {
     setDateTimePrefs({ dateFormat: "dmy-dot" });
-    for (const bad of ["", "   ", "hello", "31.02.2025", "45.11.2025", "22.13.2025", "1.2.3.4"]) {
+    for (const bad of [
+      "",
+      "   ",
+      "hello",
+      "31.02.2025",
+      "45.11.2025",
+      "22.13.2025",
+      "1.2.3.4",
+    ]) {
       expect(parseDateInput(bad)).toBeNull();
     }
   });

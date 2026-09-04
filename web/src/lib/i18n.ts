@@ -1,4 +1,4 @@
-import { createElement, Fragment, useSyncExternalStore, type ReactNode } from "react";
+import { createElement, Fragment, type ReactNode, useSyncExternalStore } from "react";
 import { DEFAULT_UI_LANGUAGE, resolveUiLanguage } from "@/lib/languages";
 
 /**
@@ -21,7 +21,9 @@ import { DEFAULT_UI_LANGUAGE, resolveUiLanguage } from "@/lib/languages";
 export type Vars = Record<string, string | number>;
 
 /** One entry per plural category the language actually uses. */
-export type PluralForms = Partial<Record<Intl.LDMLPluralRule, string>> & { other: string };
+export type PluralForms = Partial<Record<Intl.LDMLPluralRule, string>> & {
+  other: string;
+};
 
 export interface Catalog {
   /** English source → translation. */
@@ -52,7 +54,7 @@ function publish(): void {
 export function interpolate(template: string, vars?: Vars): string {
   if (!vars) return template;
   return template.replace(/\{(\w+)\}/g, (whole, key: string) =>
-    Object.prototype.hasOwnProperty.call(vars, key) ? String(vars[key]) : whole,
+    Object.hasOwn(vars, key) ? String(vars[key]) : whole,
   );
 }
 
@@ -125,14 +127,18 @@ export function plural(n: number, forms: PluralForms, vars?: Vars): string {
  * A translator sees one sentence with a named hole and can put the hole
  * wherever their language wants it.
  */
-export function tNode(source: string, parts: Record<string, ReactNode>, vars?: Vars): ReactNode {
+export function tNode(
+  source: string,
+  parts: Record<string, ReactNode>,
+  vars?: Vars,
+): ReactNode {
   const translated = interpolate(current.strings[source] ?? source, vars);
   const out: ReactNode[] = [];
   let last = 0;
   const re = /\{(\w+)\}/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(translated))) {
-    if (!Object.prototype.hasOwnProperty.call(parts, m[1]!)) continue;
+    if (!Object.hasOwn(parts, m[1]!)) continue;
     if (m.index > last) out.push(translated.slice(last, m.index));
     // Keyed, because this is an array and React asks; the index is stable for
     // a given rendering of a given sentence.

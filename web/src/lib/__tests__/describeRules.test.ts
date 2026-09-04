@@ -6,15 +6,18 @@
  * the joining is Intl's rather than a hardcoded " and ".
  */
 import { describe, expect, it } from "vitest";
-import { describeRule as describeSieve } from "../sieve";
-import { describeRule as describeRecurrence, weekdayOptions } from "../recurrence";
 import { setUiLanguageForFormatting } from "../datetime";
 import { setCatalog } from "../i18n";
+import { describeRule as describeRecurrence, weekdayOptions } from "../recurrence";
+import { describeRule as describeSieve } from "../sieve";
 
 describe("sieve describeRule", () => {
   it("names the header and operator through the catalogue", () => {
     const s = describeSieve({
-      id: "1", name: "r", join: "allof", enabled: true,
+      id: "1",
+      name: "r",
+      join: "allof",
+      enabled: true,
       tests: [{ type: "header", header: "subject", op: "contains", value: "invoice" }],
       actions: [{ type: "fileinto", mailbox: "Work" }],
     } as never);
@@ -26,7 +29,9 @@ describe("sieve describeRule", () => {
 
   it("joins an allof rule as a conjunction and anyof as a disjunction", () => {
     const base = {
-      id: "1", name: "r", enabled: true,
+      id: "1",
+      name: "r",
+      enabled: true,
       tests: [
         { type: "header", header: "from", op: "is", value: "a@b" },
         { type: "header", header: "to", op: "is", value: "c@d" },
@@ -38,7 +43,14 @@ describe("sieve describeRule", () => {
   });
 
   it("says 'always' when a rule has no tests", () => {
-    const s = describeSieve({ id: "1", name: "r", join: "allof", enabled: true, tests: [], actions: [{ type: "stop" }] } as never);
+    const s = describeSieve({
+      id: "1",
+      name: "r",
+      join: "allof",
+      enabled: true,
+      tests: [],
+      actions: [{ type: "stop" }],
+    } as never);
     expect(s).toContain("always");
   });
 });
@@ -46,13 +58,22 @@ describe("sieve describeRule", () => {
 describe("recurrence describeRule", () => {
   it("describes the simple frequencies", () => {
     expect(describeRecurrence(undefined)).toBe("Does not repeat");
-    expect(describeRecurrence({ "@type": "RecurrenceRule", frequency: "daily" } as never)).toBe("Daily");
-    expect(describeRecurrence({ "@type": "RecurrenceRule", frequency: "daily", interval: 3 } as never)).toBe("Every 3 days");
+    expect(
+      describeRecurrence({ "@type": "RecurrenceRule", frequency: "daily" } as never),
+    ).toBe("Daily");
+    expect(
+      describeRecurrence({
+        "@type": "RecurrenceRule",
+        frequency: "daily",
+        interval: 3,
+      } as never),
+    ).toBe("Every 3 days");
   });
 
   it("recognises Monday to Friday as every weekday", () => {
     const rule = {
-      "@type": "RecurrenceRule", frequency: "weekly",
+      "@type": "RecurrenceRule",
+      frequency: "weekly",
       byDay: ["mo", "tu", "we", "th", "fr"].map((day) => ({ "@type": "NDay", day })),
     };
     expect(describeRecurrence(rule as never)).toBe("Every weekday");
@@ -60,7 +81,8 @@ describe("recurrence describeRule", () => {
 
   it("uses a word, not a suffix, for the nth weekday of a month", () => {
     const s = describeRecurrence({
-      "@type": "RecurrenceRule", frequency: "monthly",
+      "@type": "RecurrenceRule",
+      frequency: "monthly",
       byDay: [{ "@type": "NDay", day: "tu", nthOfPeriod: 2 }],
     } as never);
     expect(s).toContain("second");
@@ -68,9 +90,17 @@ describe("recurrence describeRule", () => {
   });
 
   it("wraps the sentence for count and until rather than appending to it", () => {
-    const s = describeRecurrence({ "@type": "RecurrenceRule", frequency: "daily", count: 5 } as never);
+    const s = describeRecurrence({
+      "@type": "RecurrenceRule",
+      frequency: "daily",
+      count: 5,
+    } as never);
     expect(s).toBe("Daily, 5 times");
-    const u = describeRecurrence({ "@type": "RecurrenceRule", frequency: "daily", until: "2026-05-03T00:00:00" } as never);
+    const u = describeRecurrence({
+      "@type": "RecurrenceRule",
+      frequency: "daily",
+      until: "2026-05-03T00:00:00",
+    } as never);
     expect(u).toBe("Daily, until 2026-05-03");
   });
 
@@ -87,7 +117,9 @@ describe("recurrence describeRule", () => {
 
   it("renders a translated rule through the catalogue", () => {
     setCatalog("de", { strings: { Daily: "Täglich" }, plurals: {} });
-    expect(describeRecurrence({ "@type": "RecurrenceRule", frequency: "daily" } as never)).toBe("Täglich");
+    expect(
+      describeRecurrence({ "@type": "RecurrenceRule", frequency: "daily" } as never),
+    ).toBe("Täglich");
     setCatalog("en", { strings: {}, plurals: {} });
   });
 });

@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { availabilityWindow } from "@/lib/availabilityWindow";
 
 const at = (s: string) => new Date(s);
-const hours = (w: { ticks: { time: Date }[] }) => w.ticks.map((t) => `${t.time.getDate()}@${t.time.getHours()}`);
+const hours = (w: { ticks: { time: Date }[] }) =>
+  w.ticks.map((t) => `${t.time.getDate()}@${t.time.getHours()}`);
 
 describe("the span an availability bar covers", () => {
   it("covers the whole day for an event inside one", () => {
@@ -37,14 +38,34 @@ describe("the span an availability bar covers", () => {
   it("marks a single day every three hours, labelling every six", () => {
     const w = availabilityWindow(at("2026-09-02T09:00:00"), at("2026-09-02T10:00:00"));
     expect(w.scale).toBe("hours");
-    expect(hours(w)).toEqual(["2@0", "2@3", "2@6", "2@9", "2@12", "2@15", "2@18", "2@21"]);
-    expect(w.ticks.filter((t) => t.major).map((t) => t.time.getHours())).toEqual([0, 6, 12, 18]);
+    expect(hours(w)).toEqual([
+      "2@0",
+      "2@3",
+      "2@6",
+      "2@9",
+      "2@12",
+      "2@15",
+      "2@18",
+      "2@21",
+    ]);
+    expect(w.ticks.filter((t) => t.major).map((t) => t.time.getHours())).toEqual([
+      0, 6, 12, 18,
+    ]);
   });
 
   it("thins the marks out to every six hours across two days", () => {
     const w = availabilityWindow(at("2026-09-02T09:00:00"), at("2026-09-03T10:00:00"));
     expect(w.scale).toBe("hours");
-    expect(hours(w)).toEqual(["2@0", "2@6", "2@12", "2@18", "3@0", "3@6", "3@12", "3@18"]);
+    expect(hours(w)).toEqual([
+      "2@0",
+      "2@6",
+      "2@12",
+      "2@18",
+      "3@0",
+      "3@6",
+      "3@12",
+      "3@18",
+    ]);
   });
 
   it("marks day boundaries once there are more than two", () => {
@@ -68,7 +89,9 @@ describe("the span an availability bar covers", () => {
   });
 
   it("hides nothing when the event fits", () => {
-    expect(availabilityWindow(at("2026-09-02T09:00:00"), at("2026-09-04T17:00:00")).daysHidden).toBe(0);
+    expect(
+      availabilityWindow(at("2026-09-02T09:00:00"), at("2026-09-04T17:00:00")).daysHidden,
+    ).toBe(0);
   });
 
   it("lands on real midnights, and measures the span between them", () => {
@@ -92,21 +115,29 @@ describe("the span an availability bar covers", () => {
 describe("looking around the event without changing it", () => {
   it("slides the whole window forward, keeping its width", () => {
     const here = availabilityWindow(at("2026-09-02T09:00:00"), at("2026-09-04T17:00:00"));
-    const later = availabilityWindow(at("2026-09-02T09:00:00"), at("2026-09-04T17:00:00"), { offsetDays: 3 });
+    const later = availabilityWindow(
+      at("2026-09-02T09:00:00"),
+      at("2026-09-04T17:00:00"),
+      { offsetDays: 3 },
+    );
     expect(later.days).toBe(here.days);
     expect(later.start.getDate()).toBe(5);
     expect(later.end.getDate()).toBe(8);
   });
 
   it("slides backwards, across the end of a month", () => {
-    const w = availabilityWindow(at("2026-09-02T09:00:00"), at("2026-09-02T10:00:00"), { offsetDays: -3 });
+    const w = availabilityWindow(at("2026-09-02T09:00:00"), at("2026-09-02T10:00:00"), {
+      offsetDays: -3,
+    });
     expect(w.start.getMonth()).toBe(7); // August
     expect(w.start.getDate()).toBe(30);
     expect(w.days).toBe(1);
   });
 
   it("keeps the marks in step with where the window moved to", () => {
-    const w = availabilityWindow(at("2026-09-02T09:00:00"), at("2026-09-02T10:00:00"), { offsetDays: 1 });
+    const w = availabilityWindow(at("2026-09-02T09:00:00"), at("2026-09-02T10:00:00"), {
+      offsetDays: 1,
+    });
     expect(w.ticks[0]!.time.getDate()).toBe(3);
     expect(w.ticks[0]!.at).toBe(0);
   });

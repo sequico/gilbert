@@ -1,5 +1,5 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
+import { test } from "node:test";
 
 process.env.STALWART_URL = "http://127.0.0.1:1";
 process.env.APP_SECRET = "test-secret-for-ics-proxy";
@@ -34,7 +34,12 @@ test("webcal: is treated as https rather than waved through", async () => {
 });
 
 test("schemes that are not http, https or webcal are refused", async () => {
-  for (const url of ["file:///etc/passwd", "ftp://example.com/c.ics", "gopher://example.com", "data:text/calendar,BEGIN:VCALENDAR"]) {
+  for (const url of [
+    "file:///etc/passwd",
+    "ftp://example.com/c.ics",
+    "gopher://example.com",
+    "data:text/calendar,BEGIN:VCALENDAR",
+  ]) {
     const got = await safeFetch(url, 500);
     assert.equal(got, "bad_scheme", url);
   }

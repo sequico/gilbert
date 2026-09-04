@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { buildMdn, encodeHeaderWord, formatAddressHeader, mdnDecision, rfc5322Date, MDN_SENT_KEYWORD } from "@/lib/mdn";
 import type { Email, EmailAddress } from "@/jmap/types";
+import {
+  buildMdn,
+  encodeHeaderWord,
+  formatAddressHeader,
+  MDN_SENT_KEYWORD,
+  mdnDecision,
+  rfc5322Date,
+} from "@/lib/mdn";
 
 /**
  * A read receipt tells whoever asked that an address is live and was read, at
@@ -15,7 +22,9 @@ function email(over: Partial<Email> = {}): Email {
     keywords: {},
     messageId: ["<orig-1@example.com>"],
     sentAt: "2026-08-20T09:00:00Z",
-    "header:Disposition-Notification-To:asAddresses": [{ name: null, email: "ann@example.com" }],
+    "header:Disposition-Notification-To:asAddresses": [
+      { name: null, email: "ann@example.com" },
+    ],
     ...over,
   } as unknown as Email;
 }
@@ -29,7 +38,9 @@ describe("when a receipt is offered", () => {
   });
 
   it("says nothing when none was requested", () => {
-    const d = mdnDecision(email({ "header:Disposition-Notification-To:asAddresses": null }));
+    const d = mdnDecision(
+      email({ "header:Disposition-Notification-To:asAddresses": null }),
+    );
     expect(d.offer).toBe(false);
     expect(d.refusal).toBe("not-requested");
   });
@@ -44,8 +55,15 @@ describe("when a receipt is offered", () => {
 describe("what it refuses to acknowledge", () => {
   it("refuses automatic mail, so two servers cannot answer each other forever", () => {
     // RFC 3834: only "no" means a person sent it.
-    for (const v of ["auto-generated", "auto-replied", "auto-notified", "AUTO-GENERATED"]) {
-      expect(mdnDecision(email({ "header:Auto-Submitted:asText": v })).refusal).toBe("auto-submitted");
+    for (const v of [
+      "auto-generated",
+      "auto-replied",
+      "auto-notified",
+      "AUTO-GENERATED",
+    ]) {
+      expect(mdnDecision(email({ "header:Auto-Submitted:asText": v })).refusal).toBe(
+        "auto-submitted",
+      );
     }
   });
 
@@ -57,21 +75,37 @@ describe("what it refuses to acknowledge", () => {
     for (const p of ["bulk", "list", "junk", "  Bulk  "]) {
       expect(mdnDecision(email({ "header:Precedence:asText": p })).refusal).toBe("bulk");
     }
-    expect(mdnDecision(email({ "header:List-Id:asText": "<dev.example.com>" })).refusal).toBe("bulk");
+    expect(
+      mdnDecision(email({ "header:List-Id:asText": "<dev.example.com>" })).refusal,
+    ).toBe("bulk");
   });
 
   it("refuses a draft, which was never received", () => {
-    expect(mdnDecision(email({ keywords: { $draft: true } })).refusal).toBe("draft-or-sent");
+    expect(mdnDecision(email({ keywords: { $draft: true } })).refusal).toBe(
+      "draft-or-sent",
+    );
   });
 
   it("flags a receipt aimed somewhere other than the sender", () => {
-    const d = mdnDecision(email({ "header:Disposition-Notification-To:asAddresses": [{ name: null, email: "collector@elsewhere.test" }] }));
+    const d = mdnDecision(
+      email({
+        "header:Disposition-Notification-To:asAddresses": [
+          { name: null, email: "collector@elsewhere.test" },
+        ],
+      }),
+    );
     expect(d.offer).toBe(true);
     expect(d.redirected).toBe(true);
   });
 
   it("does not mistake a differently-cased sender for a redirect", () => {
-    const d = mdnDecision(email({ "header:Disposition-Notification-To:asAddresses": [{ name: null, email: "Ann@Example.COM" }] }));
+    const d = mdnDecision(
+      email({
+        "header:Disposition-Notification-To:asAddresses": [
+          { name: null, email: "Ann@Example.COM" },
+        ],
+      }),
+    );
     expect(d.redirected).toBe(false);
   });
 });
@@ -90,7 +124,9 @@ describe("the report itself", () => {
   const mime = buildMdn({ email: email(), ...OPTS });
 
   it("is a multipart/report of the kind RFC 8098 defines", () => {
-    expect(mime).toContain("Content-Type: multipart/report; report-type=disposition-notification;");
+    expect(mime).toContain(
+      "Content-Type: multipart/report; report-type=disposition-notification;",
+    );
     expect(mime).toContain('boundary="==bnd=="');
     expect(mime).toContain("Content-Type: message/disposition-notification");
   });
@@ -144,15 +180,21 @@ describe("header encoding", () => {
   });
 
   it("quotes a display name that would otherwise break the address", () => {
-    expect(formatAddressHeader({ name: "Ellis, John", email: "j@e.org" })).toBe('"Ellis, John" <j@e.org>');
+    expect(formatAddressHeader({ name: "Ellis, John", email: "j@e.org" })).toBe(
+      '"Ellis, John" <j@e.org>',
+    );
     expect(formatAddressHeader({ name: null, email: "j@e.org" })).toBe("j@e.org");
-    expect(formatAddressHeader({ name: "John", email: "j@e.org" })).toBe("John <j@e.org>");
+    expect(formatAddressHeader({ name: "John", email: "j@e.org" })).toBe(
+      "John <j@e.org>",
+    );
   });
 });
 
 describe("rfc5322Date", () => {
   it("is the format a message header wants, not toUTCString's", () => {
-    expect(rfc5322Date(new Date("2026-08-25T10:30:00Z"))).toBe("Tue, 25 Aug 2026 10:30:00 +0000");
+    expect(rfc5322Date(new Date("2026-08-25T10:30:00Z"))).toBe(
+      "Tue, 25 Aug 2026 10:30:00 +0000",
+    );
   });
 });
 
@@ -168,7 +210,7 @@ describe("transfer encoding", () => {
     const mime = buildMdn({ email: email({ subject: "Grüße" }), ...OPTS });
     expect(mime).toContain("Content-Transfer-Encoding: base64");
     // No raw non-ASCII may survive anywhere in the message.
-    // eslint-disable-next-line no-control-regex
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: deliberate ASCII-only check
     expect(/^[\x00-\x7F]*$/.test(mime)).toBe(true);
   });
 
@@ -176,7 +218,9 @@ describe("transfer encoding", () => {
     const mime = buildMdn({ email: email({ subject: "Grüße" }), ...OPTS });
     const part = mime.split("--==bnd==")[1]!;
     const b64 = part.split("\r\n\r\n")[1]!.replace(/\r\n/g, "");
-    const text = new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+    const text = new TextDecoder().decode(
+      Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)),
+    );
     expect(text).toContain("Grüße");
     expect(text).toContain("has been displayed");
   });

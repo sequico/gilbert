@@ -1,23 +1,34 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
+import { test } from "node:test";
+
 process.env.STALWART_URL = "http://127.0.0.1:1";
 const { createApp } = await import("./app.js");
 
 test("CSRF guard rejects API POSTs without the custom header", async () => {
   const app = createApp();
-  const res = await app.request("/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+  const res = await app.request("/api/auth/login", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "{}",
+  });
   assert.equal(res.status, 403);
 });
 
 test("unauthenticated JMAP calls are rejected", async () => {
   const app = createApp();
-  const res = await app.request("/api/jmap", { method: "POST", headers: { "content-type": "application/json", "x-requested-with": "ihasmail" }, body: "{}" });
+  const res = await app.request("/api/jmap", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-requested-with": "ihasmail" },
+    body: "{}",
+  });
   assert.equal(res.status, 401);
 });
 
 test("cross-site fetches are rejected", async () => {
   const app = createApp();
-  const res = await app.request("/api/health", { headers: { "sec-fetch-site": "cross-site" } });
+  const res = await app.request("/api/health", {
+    headers: { "sec-fetch-site": "cross-site" },
+  });
   assert.equal(res.status, 403);
 });
 
@@ -43,9 +54,19 @@ test("a compressed upstream blob is not forwarded with the compressed length", a
   const gz = new Headers({ "content-encoding": "gzip", "content-length": "384" });
   assert.equal(forwardedContentLength(gz), null);
   // identity, spelled out or absent: the length describes the body we send.
-  assert.equal(forwardedContentLength(new Headers({ "content-encoding": "identity", "content-length": "1157" })), "1157");
+  assert.equal(
+    forwardedContentLength(
+      new Headers({ "content-encoding": "identity", "content-length": "1157" }),
+    ),
+    "1157",
+  );
   assert.equal(forwardedContentLength(new Headers({ "content-length": "1157" })), "1157");
-  assert.equal(forwardedContentLength(new Headers({ "content-encoding": "BR", "content-length": "384" })), null);
+  assert.equal(
+    forwardedContentLength(
+      new Headers({ "content-encoding": "BR", "content-length": "384" }),
+    ),
+    null,
+  );
   // Nothing to forward is not an error.
   assert.equal(forwardedContentLength(new Headers()), null);
 });
@@ -56,7 +77,7 @@ test("a Sieve script larger than a compressing hop's threshold survives the prox
   const { forwardedContentLength } = await import("./app.js");
 
   const script =
-    "# ihasmail filters v1 - edit with care; rules are stored in the `# rule:` comments\nrequire [\"fileinto\"];\n\n" +
+    '# ihasmail filters v1 - edit with care; rules are stored in the `# rule:` comments\nrequire ["fileinto"];\n\n' +
     ["a", "b", "c"]
       .map(
         (k) =>
@@ -65,11 +86,18 @@ test("a Sieve script larger than a compressing hop's threshold survives the prox
       )
       .join("");
   const gz = zlib.gzipSync(Buffer.from(script));
-  assert.ok(gz.length < Buffer.byteLength(script), "the script has to compress for this test to mean anything");
+  assert.ok(
+    gz.length < Buffer.byteLength(script),
+    "the script has to compress for this test to mean anything",
+  );
 
   // A hop that compresses regardless of what we asked for.
   const origin = http.createServer((_req, res) => {
-    res.writeHead(200, { "content-type": "application/sieve", "content-encoding": "gzip", "content-length": String(gz.length) });
+    res.writeHead(200, {
+      "content-type": "application/sieve",
+      "content-encoding": "gzip",
+      "content-length": String(gz.length),
+    });
     res.end(gz);
   });
   await new Promise<void>((r) => origin.listen(0, () => r()));
@@ -129,7 +157,10 @@ test("an unreachable upstream does not spend login attempts", async () => {
   for (let i = 0; i < 25; i++) {
     const res = await login();
     assert.notEqual(res.status, 429, `attempt ${i + 1} was rate limited`);
-    assert.ok(res.status === 502 || res.status === 504, `attempt ${i + 1} said ${res.status}`);
+    assert.ok(
+      res.status === 502 || res.status === 504,
+      `attempt ${i + 1} said ${res.status}`,
+    );
   }
 });
 

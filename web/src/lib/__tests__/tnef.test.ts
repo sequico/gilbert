@@ -22,7 +22,12 @@ const ATT = {
 
 const sum16 = (b: number[]) => b.reduce((a, x) => (a + x) & 0xffff, 0);
 const u16 = (v: number) => [v & 0xff, (v >> 8) & 0xff];
-const u32 = (v: number) => [v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff, (v >>> 24) & 0xff];
+const u32 = (v: number) => [
+  v & 0xff,
+  (v >> 8) & 0xff,
+  (v >> 16) & 0xff,
+  (v >>> 24) & 0xff,
+];
 const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
 const utf16 = (s: string) => [...s].flatMap((c) => u16(c.charCodeAt(0)));
 
@@ -37,7 +42,13 @@ interface Attr {
 function tnef(attrs: Attr[], opts: { signature?: number } = {}): Uint8Array {
   const out: number[] = [...u32(opts.signature ?? SIGNATURE), ...u16(0x1234)];
   for (const a of attrs) {
-    out.push(a.level ?? 2, ...u32(a.id), ...u32(a.data.length), ...a.data, ...u16(a.badChecksum ? (sum16(a.data) + 1) & 0xffff : sum16(a.data)));
+    out.push(
+      a.level ?? 2,
+      ...u32(a.id),
+      ...u32(a.data.length),
+      ...a.data,
+      ...u16(a.badChecksum ? (sum16(a.data) + 1) & 0xffff : sum16(a.data)),
+    );
   }
   return new Uint8Array(out);
 }
@@ -90,45 +101,72 @@ describe("parseTnef", () => {
   });
 
   it("pulls several out, in order", () => {
-    const out = parseTnef(tnef([...file("a.txt", "one"), ...file("b.png", "two"), ...file("c.zip", "three")]));
+    const out = parseTnef(
+      tnef([...file("a.txt", "one"), ...file("b.png", "two"), ...file("c.zip", "three")]),
+    );
     expect(out.map((a) => a.name)).toEqual(["a.txt", "b.png", "c.zip"]);
     expect(out.map((a) => text(a.data))).toEqual(["one", "two", "three"]);
-    expect(out.map((a) => a.type)).toEqual(["text/plain", "image/png", "application/zip"]);
+    expect(out.map((a) => a.type)).toEqual([
+      "text/plain",
+      "image/png",
+      "application/zip",
+    ]);
   });
 
   it("prefers the long filename over the 8.3 one", () => {
     // The whole reason for reading the MAPI stream at all.
     const attrs = file("QUARTE~1.DOC", "body", [
-      { id: ATT.attachment, data: mapi([{ id: 0x3707, type: 0x001e, value: "Quarterly Report Final.docx" }]) },
+      {
+        id: ATT.attachment,
+        data: mapi([{ id: 0x3707, type: 0x001e, value: "Quarterly Report Final.docx" }]),
+      },
     ]);
     expect(parseTnef(tnef(attrs))[0]!.name).toBe("Quarterly Report Final.docx");
   });
 
   it("reads a unicode long filename", () => {
     const attrs = file("SHORT~1.DOC", "body", [
-      { id: ATT.attachment, data: mapi([{ id: 0x3707, type: 0x001f, value: "四半期報告.docx" }]) },
+      {
+        id: ATT.attachment,
+        data: mapi([{ id: 0x3707, type: 0x001f, value: "四半期報告.docx" }]),
+      },
     ]);
     expect(parseTnef(tnef(attrs))[0]!.name).toBe("四半期報告.docx");
   });
 
   it("takes the MIME type the blob states over one guessed from the name", () => {
     const attrs = file("data.bin", "body", [
-      { id: ATT.attachment, data: mapi([{ id: 0x370e, type: 0x001e, value: "image/webp" }]) },
+      {
+        id: ATT.attachment,
+        data: mapi([{ id: 0x370e, type: 0x001e, value: "image/webp" }]),
+      },
     ]);
     expect(parseTnef(tnef(attrs))[0]!.type).toBe("image/webp");
   });
 
   it("falls back to octet-stream for a name that says nothing", () => {
-    expect(parseTnef(tnef(file("mystery", "x")))[0]!.type).toBe("application/octet-stream");
+    expect(parseTnef(tnef(file("mystery", "x")))[0]!.type).toBe(
+      "application/octet-stream",
+    );
   });
 
   it("names an attachment that carries no title at all", () => {
-    const out = parseTnef(tnef([{ id: ATT.attachRenddata, data: new Array(14).fill(0) }, { id: ATT.attachData, data: ascii("x") }]));
+    const out = parseTnef(
+      tnef([
+        { id: ATT.attachRenddata, data: new Array(14).fill(0) },
+        { id: ATT.attachData, data: ascii("x") },
+      ]),
+    );
     expect(out[0]!.name).toBe("attachment");
   });
 
   it("ignores attributes it has no use for", () => {
-    const out = parseTnef(tnef([{ level: 1, id: ATT.tnefVersion, data: u32(0x00010000) }, ...file("a.txt", "one")]));
+    const out = parseTnef(
+      tnef([
+        { level: 1, id: ATT.tnefVersion, data: u32(0x00010000) },
+        ...file("a.txt", "one"),
+      ]),
+    );
     expect(out.map((a) => a.name)).toEqual(["a.txt"]);
   });
 
@@ -143,7 +181,11 @@ describe("parseTnef", () => {
   it("keeps what it read when the stream goes out of step", () => {
     // Half the attachments beats none: the alternative is a reader who can see
     // the file is there and cannot have it.
-    const bad = tnef([...file("good.txt", "kept"), { id: ATT.attachRenddata, data: new Array(14).fill(0), badChecksum: true }, ...file("lost.txt", "gone")]);
+    const bad = tnef([
+      ...file("good.txt", "kept"),
+      { id: ATT.attachRenddata, data: new Array(14).fill(0), badChecksum: true },
+      ...file("lost.txt", "gone"),
+    ]);
     const out = parseTnef(bad);
     expect(out.map((a) => a.name)).toEqual(["good.txt"]);
   });
@@ -158,20 +200,33 @@ describe("parseTnef", () => {
     // A named property carries a GUID before its value; the stream cannot be
     // trusted to stay aligned past one, so the long name is simply not found.
     const attrs = file("SHORT~1.DOC", "body", [
-      { id: ATT.attachment, data: mapi([{ id: 0x8001, type: 0x001e, value: "whatever" }, { id: 0x3707, type: 0x001e, value: "Long Name.docx" }]) },
+      {
+        id: ATT.attachment,
+        data: mapi([
+          { id: 0x8001, type: 0x001e, value: "whatever" },
+          { id: 0x3707, type: 0x001e, value: "Long Name.docx" },
+        ]),
+      },
     ]);
     expect(parseTnef(tnef(attrs))[0]!.name).toBe("SHORT~1.DOC");
   });
 
   it("survives a MAPI stream that is nonsense, keeping the attachment", () => {
-    const attrs = file("keep.txt", "body", [{ id: ATT.attachment, data: [...u32(0xffff), 1, 2, 3] }]);
+    const attrs = file("keep.txt", "body", [
+      { id: ATT.attachment, data: [...u32(0xffff), 1, 2, 3] },
+    ]);
     const out = parseTnef(tnef(attrs));
     expect(out).toHaveLength(1);
     expect(out[0]!.name).toBe("keep.txt");
   });
 
   it("drops an attachment that has a name but no data", () => {
-    const out = parseTnef(tnef([{ id: ATT.attachRenddata, data: new Array(14).fill(0) }, { id: ATT.attachTitle, data: [...ascii("empty.txt"), 0] }]));
+    const out = parseTnef(
+      tnef([
+        { id: ATT.attachRenddata, data: new Array(14).fill(0) },
+        { id: ATT.attachTitle, data: [...ascii("empty.txt"), 0] },
+      ]),
+    );
     expect(out).toEqual([]);
   });
 });

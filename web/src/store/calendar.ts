@@ -1,14 +1,39 @@
 import { create } from "zustand";
 import { CAP, chunk, client, setErrorMessage } from "@/jmap/client";
-import type { BusyPeriod, Calendar, CalendarEvent, EmailAddress, GetResponse, Id, JSCalendarParticipant, JSCalendarRecurrenceRule, ParticipantIdentity, QueryResponse, SetError, SetResponse } from "@/jmap/types";
-import { toUTCDate, toLocalDateTime, zonedToDate, parseDuration, DAY_MS, browserTimeZone } from "@/lib/dates";
-import { t } from "@/lib/i18n";
-import { useContacts } from "./contacts";
-import { BIRTHDAY_CALENDAR_ID, birthdaysInRange, isBirthdayEvent, type Birthday } from "@/lib/birthdays";
-import { looksLikeCalendar, parseIcs, toIcs, type IcsEvent } from "@/lib/ics";
+import type {
+  BusyPeriod,
+  Calendar,
+  CalendarEvent,
+  EmailAddress,
+  GetResponse,
+  Id,
+  JSCalendarParticipant,
+  JSCalendarRecurrenceRule,
+  ParticipantIdentity,
+  QueryResponse,
+  SetError,
+  SetResponse,
+} from "@/jmap/types";
 import { withBase } from "@/lib/basePath";
-import { settings, useSettings } from "./settings";
+import {
+  BIRTHDAY_CALENDAR_ID,
+  type Birthday,
+  birthdaysInRange,
+  isBirthdayEvent,
+} from "@/lib/birthdays";
+import {
+  browserTimeZone,
+  DAY_MS,
+  parseDuration,
+  toLocalDateTime,
+  toUTCDate,
+  zonedToDate,
+} from "@/lib/dates";
+import { t } from "@/lib/i18n";
+import { type IcsEvent, looksLikeCalendar, parseIcs, toIcs } from "@/lib/ics";
+import { useContacts } from "./contacts";
 import { useSession } from "./session";
+import { settings, useSettings } from "./settings";
 
 export interface EventInstance {
   /** Unique key for rendering: `${id}` (synthetic ids already unique per instance). */
@@ -111,15 +136,32 @@ export function isOccurrence(event: CalendarEvent): boolean {
  * [#26]: https://github.com/Coffey-Labs/ihasmail/issues/26
  */
 const OCCURRENCE_REJECTED = new Set([
-  "baseEventId", "calendarIds", "isDraft", "isOrigin", "utcStart", "utcEnd",
-  "useDefaultAlerts", "mayInviteSelf", "mayInviteOthers", "hideAttendees",
+  "baseEventId",
+  "calendarIds",
+  "isDraft",
+  "isOrigin",
+  "utcStart",
+  "utcEnd",
+  "useDefaultAlerts",
+  "mayInviteSelf",
+  "mayInviteOthers",
+  "hideAttendees",
 ]);
 
 /** Applied to the series and never to one date; dropped in silence if sent. */
 const OCCURRENCE_INHERITED = new Set([
-  "@type", "method", "organizerCalendarAddress", "privacy", "prodId",
-  "recurrenceId", "recurrenceIdTimeZone", "sentBy", "uid",
-  "recurrenceOverrides", "recurrenceRule", "relatedTo",
+  "@type",
+  "method",
+  "organizerCalendarAddress",
+  "privacy",
+  "prodId",
+  "recurrenceId",
+  "recurrenceIdTimeZone",
+  "sentBy",
+  "uid",
+  "recurrenceOverrides",
+  "recurrenceRule",
+  "relatedTo",
 ]);
 
 /**
@@ -131,7 +173,9 @@ const OCCURRENCE_INHERITED = new Set([
  * its text.
  */
 export class CalendarSetError extends Error {
-  constructor(readonly setError: { type: string; description?: string; properties?: string[] }) {
+  constructor(
+    readonly setError: { type: string; description?: string; properties?: string[] },
+  ) {
     super(setErrorMessage(setError));
     this.name = "CalendarSetError";
   }
@@ -139,7 +183,10 @@ export class CalendarSetError extends Error {
 
 /** Whether a refusal was "this occurrence belongs to a this-and-future change". */
 export function isThisAndFutureRefusal(err: unknown): boolean {
-  return err instanceof CalendarSetError && /this-and-future/i.test(err.setError.description ?? "");
+  return (
+    err instanceof CalendarSetError &&
+    /this-and-future/i.test(err.setError.description ?? "")
+  );
 }
 
 /**
@@ -171,22 +218,44 @@ async function currentOccurrenceId(accountId: Id, event: CalendarEvent): Promise
   const to = new Date(around.getTime() + DAY_MS);
 
   const res = await client.chain([
-    ["CalendarEvent/query", { accountId, filter: { after: toLocalDateTime(from), before: toLocalDateTime(to) }, expandRecurrences: true, limit: 200 }, "q"],
-    ["CalendarEvent/get", { accountId, "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" }, properties: ["id", "baseEventId", "recurrenceId"] }, "g"],
+    [
+      "CalendarEvent/query",
+      {
+        accountId,
+        filter: { after: toLocalDateTime(from), before: toLocalDateTime(to) },
+        expandRecurrences: true,
+        limit: 200,
+      },
+      "q",
+    ],
+    [
+      "CalendarEvent/get",
+      {
+        accountId,
+        "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" },
+        properties: ["id", "baseEventId", "recurrenceId"],
+      },
+      "g",
+    ],
   ]);
-  const list = (res.get("g")?.[0] as unknown as GetResponse<CalendarEvent> | undefined)?.list ?? [];
+  const list =
+    (res.get("g")?.[0] as unknown as GetResponse<CalendarEvent> | undefined)?.list ?? [];
   const found = list.find((e) => e.baseEventId === base && e.recurrenceId === rid);
   if (!found) {
     // The date is gone -- already excluded, or the series no longer reaches it.
     // Better to say so than to act on an id that means something else now.
-    throw new Error("That occurrence is no longer part of this series. Reload the calendar and try again.");
+    throw new Error(
+      "That occurrence is no longer part of this series. Reload the calendar and try again.",
+    );
   }
   return found.id;
 }
 
 export class OccurrenceScopeError extends Error {
   constructor(readonly property: string) {
-    super(`"${property}" applies to the whole series and cannot be changed for one occurrence.`);
+    super(
+      `"${property}" applies to the whole series and cannot be changed for one occurrence.`,
+    );
     this.name = "OccurrenceScopeError";
   }
 }
@@ -202,18 +271,30 @@ export class OccurrenceScopeError extends Error {
  * `participants/{key}/participationStatus` is allowed, and
  * `participants/{key}/calendarAddress` is one of the silent drops.
  */
-export function occurrencePatch(patch: Record<string, unknown>): { patch: Record<string, unknown>; dropped: string[] } {
+export function occurrencePatch(patch: Record<string, unknown>): {
+  patch: Record<string, unknown>;
+  dropped: string[];
+} {
   const out: Record<string, unknown> = {};
   const dropped: string[] = [];
   for (const [key, value] of Object.entries(patch)) {
     const [head, , third] = key.split("/");
     const root = head ?? key;
     if (OCCURRENCE_REJECTED.has(root)) throw new OccurrenceScopeError(root);
-    if (OCCURRENCE_INHERITED.has(root)) { dropped.push(root); continue; }
-    if (root === "participants" && third === "calendarAddress") { dropped.push(key); continue; }
+    if (OCCURRENCE_INHERITED.has(root)) {
+      dropped.push(root);
+      continue;
+    }
+    if (root === "participants" && third === "calendarAddress") {
+      dropped.push(key);
+      continue;
+    }
     // `id` is immutable; the server errors on a value that is not the event's
     // own, and ignores one that is. Neither is worth sending.
-    if (root === "id") { dropped.push(root); continue; }
+    if (root === "id") {
+      dropped.push(root);
+      continue;
+    }
     out[key] = value;
   }
   return { patch: out, dropped };
@@ -283,11 +364,28 @@ interface CalendarState {
   /** Re-fetch every subscribed calendar. */
   refreshSubscriptions(): Promise<void>;
   getEvent(id: Id): Promise<CalendarEvent | null>;
-  createEvent(event: Partial<CalendarEvent>, calendarId: Id, sendInvites: boolean): Promise<Id>;
+  createEvent(
+    event: Partial<CalendarEvent>,
+    calendarId: Id,
+    sendInvites: boolean,
+  ): Promise<Id>;
   /** Returns the properties that had to be left to the series, if any. */
-  updateEvent(event: CalendarEvent, patch: Record<string, unknown>, sendInvites: boolean, scope: EventScope): Promise<string[]>;
-  destroyEvent(event: CalendarEvent, sendInvites: boolean, scope: EventScope): Promise<void>;
-  rsvp(event: CalendarEvent, status: "accepted" | "tentative" | "declined", comment?: string): Promise<void>;
+  updateEvent(
+    event: CalendarEvent,
+    patch: Record<string, unknown>,
+    sendInvites: boolean,
+    scope: EventScope,
+  ): Promise<string[]>;
+  destroyEvent(
+    event: CalendarEvent,
+    sendInvites: boolean,
+    scope: EventScope,
+  ): Promise<void>;
+  rsvp(
+    event: CalendarEvent,
+    status: "accepted" | "tentative" | "declined",
+    comment?: string,
+  ): Promise<void>;
   createCalendar(data: Partial<Calendar>): Promise<Id>;
   updateCalendar(id: Id, patch: Partial<Calendar>): Promise<void>;
   destroyCalendar(id: Id): Promise<void>;
@@ -311,11 +409,54 @@ interface CalendarState {
  * recurring instances (synthetic ids can't be patched directly).
  */
 const EVENT_PROPS = [
-  "id", "baseEventId", "calendarIds", "isDraft", "isOrigin", "utcStart", "utcEnd", "useDefaultAlerts", "mayInviteSelf", "mayInviteOthers", "hideAttendees",
-  "uid", "relatedTo", "prodId", "created", "updated", "sequence", "title", "description", "descriptionContentType", "showWithoutTime",
-  "locations", "virtualLocations", "links", "locale", "keywords", "categories", "color", "recurrenceId", "recurrenceIdTimeZone",
-  "recurrenceRules", "recurrenceRule", "excludedRecurrenceRules", "recurrenceOverrides", "excluded", "priority", "freeBusyStatus", "privacy", "replyTo", "organizerCalendarAddress",
-  "sentBy", "participants", "requestStatus", "alerts", "timeZone", "start", "duration", "status",
+  "id",
+  "baseEventId",
+  "calendarIds",
+  "isDraft",
+  "isOrigin",
+  "utcStart",
+  "utcEnd",
+  "useDefaultAlerts",
+  "mayInviteSelf",
+  "mayInviteOthers",
+  "hideAttendees",
+  "uid",
+  "relatedTo",
+  "prodId",
+  "created",
+  "updated",
+  "sequence",
+  "title",
+  "description",
+  "descriptionContentType",
+  "showWithoutTime",
+  "locations",
+  "virtualLocations",
+  "links",
+  "locale",
+  "keywords",
+  "categories",
+  "color",
+  "recurrenceId",
+  "recurrenceIdTimeZone",
+  "recurrenceRules",
+  "recurrenceRule",
+  "excludedRecurrenceRules",
+  "recurrenceOverrides",
+  "excluded",
+  "priority",
+  "freeBusyStatus",
+  "privacy",
+  "replyTo",
+  "organizerCalendarAddress",
+  "sentBy",
+  "participants",
+  "requestStatus",
+  "alerts",
+  "timeZone",
+  "start",
+  "duration",
+  "status",
 ];
 
 /**
@@ -328,7 +469,16 @@ const EVENT_PROPS = [
  * calendar is no longer a message about anything.
  */
 function forImport(event: Partial<CalendarEvent>): Partial<CalendarEvent> {
-  const { id: _id, calendarIds: _c, baseEventId: _b, utcStart: _us, utcEnd: _ue, isOrigin: _io, method: _m, ...rest } = event as CalendarEvent & { method?: string };
+  const {
+    id: _id,
+    calendarIds: _c,
+    baseEventId: _b,
+    utcStart: _us,
+    utcEnd: _ue,
+    isOrigin: _io,
+    method: _m,
+    ...rest
+  } = event as CalendarEvent & { method?: string };
   return rest;
 }
 
@@ -348,15 +498,27 @@ function forImport(event: Partial<CalendarEvent>): Partial<CalendarEvent> {
  * calendars, and `calendarIds` says which without relying on a filter this
  * client has not confirmed the server supports.
  */
-async function eventsInCalendar(accountId: Id, calendarId: Id, properties: string[]): Promise<CalendarEvent[]> {
+async function eventsInCalendar(
+  accountId: Id,
+  calendarId: Id,
+  properties: string[],
+): Promise<CalendarEvent[]> {
   const found: CalendarEvent[] = [];
   const page = client.maxObjectsInGet;
   for (let position = 0; ; ) {
-    const q = await client.call<QueryResponse>("CalendarEvent/query", { accountId, position, limit: page });
+    const q = await client.call<QueryResponse>("CalendarEvent/query", {
+      accountId,
+      position,
+      limit: page,
+    });
     const ids = q.ids ?? [];
     if (!ids.length) break;
     for (const part of chunk(ids, page)) {
-      const g = await client.call<GetResponse<CalendarEvent>>("CalendarEvent/get", { accountId, ids: part, properties });
+      const g = await client.call<GetResponse<CalendarEvent>>("CalendarEvent/get", {
+        accountId,
+        ids: part,
+        properties,
+      });
       for (const e of g.list) if (e.calendarIds?.[calendarId]) found.push(e);
     }
     position += ids.length;
@@ -395,13 +557,17 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     // The reader's own: a shared calendar is shown beside theirs, not instead.
     const accountId = useSession.getState().ownAccountFor(CAP.calendars);
     const available = Boolean(accountId && client.hasCapability(CAP.calendars));
-    if (accountId !== get().accountId) set({ accountId, calendars: {}, events: {}, ranges: {} });
+    if (accountId !== get().accountId)
+      set({ accountId, calendars: {}, events: {}, ranges: {} });
     set({ available });
     if (!available) return;
     await get().loadCalendars();
     void get().loadSharedCalendars();
     try {
-      const res = await client.call<GetResponse<ParticipantIdentity>>("ParticipantIdentity/get", { accountId, ids: null });
+      const res = await client.call<GetResponse<ParticipantIdentity>>(
+        "ParticipantIdentity/get",
+        { accountId, ids: null },
+      );
       set({ identities: res.list });
     } catch {
       set({ identities: [] });
@@ -422,15 +588,20 @@ export const useCalendar = create<CalendarState>((set, get) => ({
   async loadSharedCalendars() {
     const session = useSession.getState();
     const own = session.ownAccountFor(CAP.calendars);
-    const accounts = Object.entries(session.session?.accounts ?? {}).filter(([id, a]) => a.isPersonal === false && id !== own);
+    const accounts = Object.entries(session.session?.accounts ?? {}).filter(
+      ([id, a]) => a.isPersonal === false && id !== own,
+    );
     const found: SharedCalendar[] = [];
     for (const [accountId, account] of accounts) {
       try {
-        const res = await client.call<GetResponse<Calendar>>("Calendar/get", { accountId, ids: null, properties: CALENDAR_PROPS });
-        for (const calendar of res.list) found.push({ accountId, accountName: account.name, calendar });
-      } catch {
-        continue;
-      }
+        const res = await client.call<GetResponse<Calendar>>("Calendar/get", {
+          accountId,
+          ids: null,
+          properties: CALENDAR_PROPS,
+        });
+        for (const calendar of res.list)
+          found.push({ accountId, accountName: account.name, calendar });
+      } catch {}
     }
     set({ sharedCalendars: found });
     // Fill in whatever windows are already on screen.
@@ -452,7 +623,10 @@ export const useCalendar = create<CalendarState>((set, get) => ({
      */
     let stored = false;
     try {
-      const res = await client.call<SetResponse>("Calendar/set", { accountId, update: { [calendarId]: { isSubscribed: subscribed } } });
+      const res = await client.call<SetResponse>("Calendar/set", {
+        accountId,
+        update: { [calendarId]: { isSubscribed: subscribed } },
+      });
       const err = res.notUpdated?.[calendarId];
       if (err) throw new Error(setErrorMessage(err));
       stored = true;
@@ -467,7 +641,9 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     }
     set((s) => ({
       sharedCalendars: s.sharedCalendars.map((c) =>
-        c.accountId === accountId && c.calendar.id === calendarId ? { ...c, calendar: { ...c.calendar, isSubscribed: subscribed } } : c,
+        c.accountId === accountId && c.calendar.id === calendarId
+          ? { ...c, calendar: { ...c.calendar, isSubscribed: subscribed } }
+          : c,
       ),
     }));
     // Its events are only fetched for calendars in view, so the windows on
@@ -490,8 +666,28 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     for (const accountId of accounts) {
       try {
         const res = await client.chain([
-          ["CalendarEvent/query", { accountId, filter: { after: toLocalDateTime(start), before: toLocalDateTime(end) }, timeZone: tz, sort: [{ property: "start", isAscending: true }], expandRecurrences: true, limit: 2000 }, "q"],
-          ["CalendarEvent/get", { accountId, "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" }, properties: EVENT_PROPS, timeZone: tz }, "g"],
+          [
+            "CalendarEvent/query",
+            {
+              accountId,
+              filter: { after: toLocalDateTime(start), before: toLocalDateTime(end) },
+              timeZone: tz,
+              sort: [{ property: "start", isAscending: true }],
+              expandRecurrences: true,
+              limit: 2000,
+            },
+            "q",
+          ],
+          [
+            "CalendarEvent/get",
+            {
+              accountId,
+              "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" },
+              properties: EVENT_PROPS,
+              timeZone: tz,
+            },
+            "g",
+          ],
         ]);
         const g = res.get("g")?.[0] as unknown as GetResponse<CalendarEvent>;
         for (const e of g.list) {
@@ -499,19 +695,23 @@ export const useCalendar = create<CalendarState>((set, get) => ({
           events[k] = e;
           ids.push(k);
         }
-      } catch {
-        // One account refusing must not empty the calendar of the others.
-        continue;
-      }
+      } catch {}
     }
-    set((s) => ({ sharedEvents: { ...s.sharedEvents, ...events }, sharedRanges: { ...s.sharedRanges, [key]: ids } }));
+    set((s) => ({
+      sharedEvents: { ...s.sharedEvents, ...events },
+      sharedRanges: { ...s.sharedRanges, [key]: ids },
+    }));
   },
 
   async loadCalendars() {
     const accountId = get().accountId;
     if (!accountId) return;
     try {
-      const res = await client.call<GetResponse<Calendar>>("Calendar/get", { accountId, ids: null, properties: CALENDAR_PROPS });
+      const res = await client.call<GetResponse<Calendar>>("Calendar/get", {
+        accountId,
+        ids: null,
+        properties: CALENDAR_PROPS,
+      });
       const calendars: Record<Id, Calendar> = {};
       for (const c of res.list) calendars[c.id] = c;
       set({ calendars, error: null });
@@ -542,14 +742,28 @@ export const useCalendar = create<CalendarState>((set, get) => ({
           },
           "q",
         ],
-        ["CalendarEvent/get", { accountId, "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" }, properties: EVENT_PROPS, timeZone: tz }, "g"],
+        [
+          "CalendarEvent/get",
+          {
+            accountId,
+            "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" },
+            properties: EVENT_PROPS,
+            timeZone: tz,
+          },
+          "g",
+        ],
       ]);
       const q = res.get("q")?.[0] as unknown as QueryResponse;
       const g = res.get("g")?.[0] as unknown as GetResponse<CalendarEvent>;
       set((s) => {
         const events = { ...s.events };
         for (const e of g.list) events[e.id] = e;
-        return { events, ranges: { ...s.ranges, [key]: q.ids }, loading: false, error: null };
+        return {
+          events,
+          ranges: { ...s.ranges, [key]: q.ids },
+          loading: false,
+          error: null,
+        };
       });
       void get().loadSharedRange(start, end);
     } catch (err) {
@@ -560,7 +774,8 @@ export const useCalendar = create<CalendarState>((set, get) => ({
   async refreshSubscriptions() {
     const subs = settings().icalSubscriptions;
     if (!subs.length) {
-      if (Object.keys(get().subscriptionEvents).length) set({ subscriptionEvents: {}, subscriptionErrors: {} });
+      if (Object.keys(get().subscriptionEvents).length)
+        set({ subscriptionEvents: {}, subscriptionErrors: {} });
       return;
     }
     set({ subscriptionsLoading: true });
@@ -573,7 +788,9 @@ export const useCalendar = create<CalendarState>((set, get) => ({
      */
     for (const sub of subs) {
       try {
-        const res = await fetch(withBase(`/api/ics?url=${encodeURIComponent(sub.url)}`), { headers: { "X-Requested-With": "ihasmail" } });
+        const res = await fetch(withBase(`/api/ics?url=${encodeURIComponent(sub.url)}`), {
+          headers: { "X-Requested-With": "ihasmail" },
+        });
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as { error?: string };
           errors[sub.id] = body.error ?? `HTTP ${res.status}`;
@@ -590,11 +807,23 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         errors[sub.id] = (err as Error).message;
       }
     }
-    set({ subscriptionEvents: events, subscriptionErrors: errors, subscriptionsLoading: false });
+    set({
+      subscriptionEvents: events,
+      subscriptionErrors: errors,
+      subscriptionsLoading: false,
+    });
   },
 
   instancesIn(start, end) {
-    const { events, ranges, calendars, hidden, sharedEvents, sharedRanges, sharedCalendars } = get();
+    const {
+      events,
+      ranges,
+      calendars,
+      hidden,
+      sharedEvents,
+      sharedRanges,
+      sharedCalendars,
+    } = get();
     /*
      * Birthdays are derived here rather than fetched, and they go through the
      * same funnel as everything else so no view has to know they are different.
@@ -604,7 +833,11 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     const birthdays: EventInstance[] = [];
     if (settings().birthdayCalendar && !hidden[BIRTHDAY_CALENDAR_ID]) {
       const cal = birthdayCalendar();
-      for (const b of birthdaysInRange(Object.values(useContacts.getState().cards), start, end)) {
+      for (const b of birthdaysInRange(
+        Object.values(useContacts.getState().cards),
+        start,
+        end,
+      )) {
         birthdays.push({
           key: b.id,
           event: synthesiseBirthdayEvent(b),
@@ -653,7 +886,8 @@ export const useCalendar = create<CalendarState>((set, get) => ({
        a shared calendar id means nothing outside the account holding it, and
        hiding one is remembered under the same account-qualified key. */
     const sharedKeys = new Set<string>();
-    for (const list of Object.values(sharedRanges)) for (const k of list) sharedKeys.add(k);
+    for (const list of Object.values(sharedRanges))
+      for (const k of list) sharedKeys.add(k);
     for (const k of sharedKeys) {
       const e = sharedEvents[k];
       if (!e) continue;
@@ -669,7 +903,8 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       const theirs: Record<Id, Calendar> = {};
       for (const c of sharedCalendars) {
         if (c.accountId !== accountId) continue;
-        if (!c.calendar.isSubscribed && !added.has(sharedKey(c.accountId, c.calendar.id))) continue;
+        if (!c.calendar.isSubscribed && !added.has(sharedKey(c.accountId, c.calendar.id)))
+          continue;
         theirs[c.calendar.id] = c.calendar;
       }
       if (calId && !theirs[calId]) continue;
@@ -677,14 +912,21 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       if (!inst) continue;
       if (inst.end > start && inst.start < end) out.push(inst);
     }
-    out.sort((a, b) => a.start.getTime() - b.start.getTime() || b.end.getTime() - a.end.getTime());
+    out.sort(
+      (a, b) =>
+        a.start.getTime() - b.start.getTime() || b.end.getTime() - a.end.getTime(),
+    );
     return [...out, ...birthdays];
   },
 
   async getEvent(id) {
     const accountId = get().accountId;
     if (!accountId) return null;
-    const res = await client.call<GetResponse<CalendarEvent>>("CalendarEvent/get", { accountId, ids: [id], properties: EVENT_PROPS });
+    const res = await client.call<GetResponse<CalendarEvent>>("CalendarEvent/get", {
+      accountId,
+      ids: [id],
+      properties: EVENT_PROPS,
+    });
     const e = res.list[0];
     if (e) set((s) => ({ events: { ...s.events, [e.id]: e } }));
     return e ?? null;
@@ -692,8 +934,17 @@ export const useCalendar = create<CalendarState>((set, get) => ({
 
   async createEvent(event, calendarId, sendInvites) {
     const accountId = get().accountId!;
-    const obj = { "@type": "Event", uid: crypto.randomUUID(), ...event, calendarIds: { [calendarId]: true } };
-    const res = await client.call<SetResponse<CalendarEvent>>("CalendarEvent/set", { accountId, create: { e: obj }, sendSchedulingMessages: sendInvites });
+    const obj = {
+      "@type": "Event",
+      uid: crypto.randomUUID(),
+      ...event,
+      calendarIds: { [calendarId]: true },
+    };
+    const res = await client.call<SetResponse<CalendarEvent>>("CalendarEvent/set", {
+      accountId,
+      create: { e: obj },
+      sendSchedulingMessages: sendInvites,
+    });
     const err = res.notCreated?.e;
     if (err) throw new Error(setErrorMessage(err));
     get().invalidate();
@@ -710,12 +961,22 @@ export const useCalendar = create<CalendarState>((set, get) => ({
      */
     if (isBirthdayEvent(event.id) || isSubscriptionEvent(event.id)) return [];
     const accountId = get().accountId!;
-    const id = scope === "occurrence" ? await currentOccurrenceId(accountId, event) : eventIdForScope(event, scope);
+    const id =
+      scope === "occurrence"
+        ? await currentOccurrenceId(accountId, event)
+        : eventIdForScope(event, scope);
     // An occurrence takes less than the series does, and says so about only
     // half of it. Narrow the patch here rather than posting it hopefully.
-    const { patch: body, dropped } = scope === "occurrence" ? occurrencePatch(patch) : { patch, dropped: [] as string[] };
+    const { patch: body, dropped } =
+      scope === "occurrence"
+        ? occurrencePatch(patch)
+        : { patch, dropped: [] as string[] };
     if (!Object.keys(body).length) return dropped;
-    const res = await client.call<SetResponse>("CalendarEvent/set", { accountId, update: { [id]: body }, sendSchedulingMessages: sendInvites });
+    const res = await client.call<SetResponse>("CalendarEvent/set", {
+      accountId,
+      update: { [id]: body },
+      sendSchedulingMessages: sendInvites,
+    });
     const err = res.notUpdated?.[id];
     if (err) throw new CalendarSetError(err);
     get().invalidate();
@@ -732,8 +993,15 @@ export const useCalendar = create<CalendarState>((set, get) => ({
      */
     if (isBirthdayEvent(event.id) || isSubscriptionEvent(event.id)) return;
     const accountId = get().accountId!;
-    const id = scope === "occurrence" ? await currentOccurrenceId(accountId, event) : eventIdForScope(event, scope);
-    const res = await client.call<SetResponse>("CalendarEvent/set", { accountId, destroy: [id], sendSchedulingMessages: sendInvites });
+    const id =
+      scope === "occurrence"
+        ? await currentOccurrenceId(accountId, event)
+        : eventIdForScope(event, scope);
+    const res = await client.call<SetResponse>("CalendarEvent/set", {
+      accountId,
+      destroy: [id],
+      sendSchedulingMessages: sendInvites,
+    });
     const err = res.notDestroyed?.[id];
     if (err) throw new CalendarSetError(err);
     set((s) => {
@@ -765,7 +1033,10 @@ export const useCalendar = create<CalendarState>((set, get) => ({
 
   async createCalendar(data) {
     const accountId = get().accountId!;
-    const res = await client.call<SetResponse<Calendar>>("Calendar/set", { accountId, create: { c: { name: "Calendar", ...data } } });
+    const res = await client.call<SetResponse<Calendar>>("Calendar/set", {
+      accountId,
+      create: { c: { name: "Calendar", ...data } },
+    });
     const err = res.notCreated?.c;
     if (err) throw new Error(setErrorMessage(err));
     await get().loadCalendars();
@@ -774,7 +1045,10 @@ export const useCalendar = create<CalendarState>((set, get) => ({
 
   async updateCalendar(id, patch) {
     const accountId = get().accountId!;
-    const res = await client.call<SetResponse>("Calendar/set", { accountId, update: { [id]: patch } });
+    const res = await client.call<SetResponse>("Calendar/set", {
+      accountId,
+      update: { [id]: patch },
+    });
     const err = res.notUpdated?.[id];
     if (err) throw new Error(setErrorMessage(err));
     await get().loadCalendars();
@@ -782,7 +1056,11 @@ export const useCalendar = create<CalendarState>((set, get) => ({
 
   async destroyCalendar(id) {
     const accountId = get().accountId!;
-    const res = await client.call<SetResponse>("Calendar/set", { accountId, destroy: [id], onDestroyRemoveEvents: true });
+    const res = await client.call<SetResponse>("Calendar/set", {
+      accountId,
+      destroy: [id],
+      onDestroyRemoveEvents: true,
+    });
     const err = res.notDestroyed?.[id];
     if (err) throw new Error(setErrorMessage(err));
     await get().loadCalendars();
@@ -801,7 +1079,17 @@ export const useCalendar = create<CalendarState>((set, get) => ({
   async availability(principalId, start, end) {
     const accountId = useSession.getState().accountFor(CAP.principals);
     if (!accountId || !client.hasCapability(CAP.availability)) return [];
-    const res = await client.call<{ list: BusyPeriod[] }>("Principal/getAvailability", { accountId, id: principalId, utcStart: toUTCDate(start), utcEnd: toUTCDate(end), showDetails: false }, [CAP.principals, CAP.availability]);
+    const res = await client.call<{ list: BusyPeriod[] }>(
+      "Principal/getAvailability",
+      {
+        accountId,
+        id: principalId,
+        utcStart: toUTCDate(start),
+        utcEnd: toUTCDate(end),
+        showDetails: false,
+      },
+      [CAP.principals, CAP.availability],
+    );
     return res.list ?? [];
   },
 
@@ -819,7 +1107,15 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     try {
       const res = await client.chain([
         ["CalendarEvent/query", { accountId, filter: { uid }, limit: 1 }, "q"],
-        ["CalendarEvent/get", { accountId, "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" }, properties: EVENT_PROPS }, "g"],
+        [
+          "CalendarEvent/get",
+          {
+            accountId,
+            "#ids": { resultOf: "q", name: "CalendarEvent/query", path: "/ids" },
+            properties: EVENT_PROPS,
+          },
+          "g",
+        ],
       ]);
       const g = res.get("g")?.[0] as unknown as GetResponse<CalendarEvent>;
       const e = g.list[0];
@@ -833,7 +1129,10 @@ export const useCalendar = create<CalendarState>((set, get) => ({
   async parseIcs(blobId) {
     const accountId = get().accountId;
     if (!accountId) return [];
-    const res = await client.call<{ parsed?: Record<string, CalendarEvent[] | CalendarEvent>; notParsable?: Id[] }>("CalendarEvent/parse", { accountId, blobIds: [blobId] });
+    const res = await client.call<{
+      parsed?: Record<string, CalendarEvent[] | CalendarEvent>;
+      notParsable?: Id[];
+    }>("CalendarEvent/parse", { accountId, blobIds: [blobId] });
     const entry = res.parsed?.[blobId];
     if (!entry) return [];
     return Array.isArray(entry) ? entry : [entry];
@@ -867,7 +1166,11 @@ export const useCalendar = create<CalendarState>((set, get) => ({
    */
   async importIcs(text, calendarId) {
     const accountId = get().accountId!;
-    const up = await client.upload(accountId, new Blob([text], { type: "text/calendar" }), { type: "text/calendar" });
+    const up = await client.upload(
+      accountId,
+      new Blob([text], { type: "text/calendar" }),
+      { type: "text/calendar" },
+    );
     const events = await get().parseIcs(up.blobId);
     if (!events.length) throw new Error("it has no events in it");
     const already = await uidsInCalendar(accountId, calendarId);
@@ -887,7 +1190,12 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         skipped++;
         return;
       }
-      create[`e${i}`] = { "@type": "Event", ...rest, uid: rest.uid || crypto.randomUUID(), calendarIds: { [calendarId]: true } };
+      create[`e${i}`] = {
+        "@type": "Event",
+        ...rest,
+        uid: rest.uid || crypto.randomUUID(),
+        calendarIds: { [calendarId]: true },
+      };
     });
     // Everything in the file was already here. Nothing to send, and nothing
     // wrong either -- say so rather than reporting an import of no events.
@@ -899,7 +1207,11 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       for (const part of chunk(keys, client.maxObjectsInSet)) {
         const sub: Record<string, unknown> = {};
         for (const k of part) sub[k] = create[k];
-        const res = await client.call<SetResponse<CalendarEvent>>("CalendarEvent/set", { accountId, create: sub, sendSchedulingMessages: false });
+        const res = await client.call<SetResponse<CalendarEvent>>("CalendarEvent/set", {
+          accountId,
+          create: sub,
+          sendSchedulingMessages: false,
+        });
         created += Object.keys(res.created ?? {}).length;
         refused ??= Object.values(res.notCreated ?? {})[0];
       }
@@ -908,13 +1220,20 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       // in the calendar, and an error saying only that the import failed sends
       // someone looking for events that are already there.
       if (!created) throw err;
-      throw new Error(`${created} of ${keys.length} events were imported before this happened: ${(err as Error).message}`);
+      throw new Error(
+        `${created} of ${keys.length} events were imported before this happened: ${(err as Error).message}`,
+      );
     } finally {
       if (created) get().invalidate();
     }
     // Nothing at all got in: say why rather than report importing zero events
     // as though the file had been empty.
-    if (!created) throw new Error(refused ? setErrorMessage(refused) : "the server did not accept any of its events");
+    if (!created)
+      throw new Error(
+        refused
+          ? setErrorMessage(refused)
+          : "the server did not accept any of its events",
+      );
     return { created, skipped };
   },
 
@@ -935,7 +1254,10 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     const accountId = get().accountId!;
     const events = await eventsInCalendar(accountId, calendarId, EVENT_PROPS);
     if (!events.length) throw new Error("there is nothing in it to export");
-    return { text: toIcs(events, get().calendars[calendarId]?.name), count: events.length };
+    return {
+      text: toIcs(events, get().calendars[calendarId]?.name),
+      count: events.length,
+    };
   },
 
   applyChanges(types) {
@@ -976,7 +1298,12 @@ export const useCalendar = create<CalendarState>((set, get) => ({
  * one. Master or occurrence, that is what makes this a series.
  */
 export function isRecurring(ev: CalendarEvent): boolean {
-  return Boolean(ev.recurrenceRule || ev.recurrenceRules?.length || ev.excludedRecurrenceRules?.length || ev.recurrenceId);
+  return Boolean(
+    ev.recurrenceRule ||
+      ev.recurrenceRules?.length ||
+      ev.excludedRecurrenceRules?.length ||
+      ev.recurrenceId,
+  );
 }
 
 /**
@@ -991,7 +1318,15 @@ function birthdayCalendar(): Calendar {
     color: "#e0a33e",
     isSubscribed: true,
     isVisible: true,
-    myRights: { mayReadItems: true, mayWriteAll: false, mayWriteOwn: false, mayUpdatePrivate: false, mayRSVP: false, mayAdmin: false, mayDelete: false },
+    myRights: {
+      mayReadItems: true,
+      mayWriteAll: false,
+      mayWriteOwn: false,
+      mayUpdatePrivate: false,
+      mayRSVP: false,
+      mayAdmin: false,
+      mayDelete: false,
+    },
   } as unknown as Calendar;
 }
 
@@ -1001,7 +1336,10 @@ function synthesiseBirthdayEvent(b: Birthday): CalendarEvent {
   return {
     id: b.id,
     calendarIds: { [BIRTHDAY_CALENDAR_ID]: true },
-    title: b.age === null ? t("{name}\u2019s birthday", { name: b.name }) : t("{name}\u2019s birthday ({age})", { name: b.name, age: String(b.age) }),
+    title:
+      b.age === null
+        ? t("{name}\u2019s birthday", { name: b.name })
+        : t("{name}\u2019s birthday ({age})", { name: b.name, age: String(b.age) }),
     start: local,
     duration: "P1D",
     showWithoutTime: true,
@@ -1018,7 +1356,11 @@ export function isSubscriptionEvent(id: string | null | undefined): boolean {
   return Boolean(id?.startsWith("ihm-ics:"));
 }
 
-function subscriptionCalendar(sub: { id: string; name: string; color: string }): Calendar {
+function subscriptionCalendar(sub: {
+  id: string;
+  name: string;
+  color: string;
+}): Calendar {
   return {
     id: subscriptionCalendarId(sub.id),
     name: sub.name,
@@ -1027,7 +1369,15 @@ function subscriptionCalendar(sub: { id: string; name: string; color: string }):
     isVisible: true,
     // Read-only, and honestly so: everything that asks before offering an edit
     // reads these rights, so nothing has to know a subscription is special.
-    myRights: { mayReadItems: true, mayWriteAll: false, mayWriteOwn: false, mayUpdatePrivate: false, mayRSVP: false, mayAdmin: false, mayDelete: false },
+    myRights: {
+      mayReadItems: true,
+      mayWriteAll: false,
+      mayWriteOwn: false,
+      mayUpdatePrivate: false,
+      mayRSVP: false,
+      mayAdmin: false,
+      mayDelete: false,
+    },
   } as unknown as Calendar;
 }
 
@@ -1045,7 +1395,10 @@ function synthesiseSubscriptionEvent(subId: string, e: IcsEvent): CalendarEvent 
   } as unknown as CalendarEvent;
 }
 
-export function toInstance(e: CalendarEvent, calendars: Record<Id, Calendar>): EventInstance | null {
+export function toInstance(
+  e: CalendarEvent,
+  calendars: Record<Id, Calendar>,
+): EventInstance | null {
   const allDay = Boolean(e.showWithoutTime);
   let start: Date;
   let end: Date;
@@ -1057,12 +1410,20 @@ export function toInstance(e: CalendarEvent, calendars: Record<Id, Calendar>): E
     start = zonedToDate(e.start, tz);
     const dur = parseDuration(e.duration);
     end = new Date(start.getTime() + (dur || (allDay ? 86400 : 0)) * 1000);
-    if (allDay && end.getTime() - start.getTime() < DAY_MS) end = new Date(start.getTime() + DAY_MS);
+    if (allDay && end.getTime() - start.getTime() < DAY_MS)
+      end = new Date(start.getTime() + DAY_MS);
   }
   if (Number.isNaN(start.getTime())) return null;
   if (end <= start) end = new Date(start.getTime() + (allDay ? DAY_MS : 30 * 60_000));
   const calId = Object.keys(e.calendarIds ?? {})[0];
-  return { key: e.id, event: e, start, end, allDay, calendar: calId ? calendars[calId] : undefined };
+  return {
+    key: e.id,
+    event: e,
+    start,
+    end,
+    allDay,
+    calendar: calId ? calendars[calId] : undefined,
+  };
 }
 
 /**
@@ -1073,7 +1434,11 @@ export function toInstance(e: CalendarEvent, calendars: Record<Id, Calendar>): E
  * hold events written by either, and by other clients besides.
  */
 export function participantAddresses(p: JSCalendarParticipant): string[] {
-  return [p.calendarAddress ?? "", ...Object.values(p.sendTo ?? {}), p.email ? `mailto:${p.email}` : ""]
+  return [
+    p.calendarAddress ?? "",
+    ...Object.values(p.sendTo ?? {}),
+    p.email ? `mailto:${p.email}` : "",
+  ]
     .filter(Boolean)
     .map((a) => a.toLowerCase());
 }
@@ -1085,7 +1450,9 @@ export function participantEmail(p: JSCalendarParticipant): string {
 
 /** Whether this participant is attending, under any of the role names in use. */
 export function isAttendee(p: JSCalendarParticipant): boolean {
-  return Boolean(p.roles?.attendee || p.roles?.required || p.roles?.optional || p.roles?.chair);
+  return Boolean(
+    p.roles?.attendee || p.roles?.required || p.roles?.optional || p.roles?.chair,
+  );
 }
 
 /** The event's recurrence rule, under either spelling. */
@@ -1099,26 +1466,40 @@ export function eventRule(ev: CalendarEvent): JSCalendarRecurrenceRule | undefin
  * keeps the event and drops the whole participant map without saying so — which
  * is how invitations came to vanish (#26).
  */
-export function makeParticipant(email: string, name: string | null | undefined, role: "owner" | "attendee", status?: string): JSCalendarParticipant {
+export function makeParticipant(
+  email: string,
+  name: string | null | undefined,
+  role: "owner" | "attendee",
+  status?: string,
+): JSCalendarParticipant {
   return {
     "@type": "Participant",
     name: name || undefined,
     calendarAddress: `mailto:${email}`,
     kind: "individual",
-    roles: role === "owner" ? { owner: true, attendee: true } : { attendee: true, required: true },
-    participationStatus: (status as JSCalendarParticipant["participationStatus"]) ?? (role === "owner" ? "accepted" : "needs-action"),
+    roles:
+      role === "owner"
+        ? { owner: true, attendee: true }
+        : { attendee: true, required: true },
+    participationStatus:
+      (status as JSCalendarParticipant["participationStatus"]) ??
+      (role === "owner" ? "accepted" : "needs-action"),
     expectReply: role !== "owner",
   };
 }
 
-export function myParticipantKeys(ev: CalendarEvent, identities: ParticipantIdentity[]): string[] {
+export function myParticipantKeys(
+  ev: CalendarEvent,
+  identities: ParticipantIdentity[],
+): string[] {
   const mine = new Set<string>();
   for (const i of identities) {
     mine.add(i.calendarAddress.toLowerCase());
     for (const v of Object.values(i.sendTo ?? {})) mine.add(v.toLowerCase());
   }
   const session = useSession.getState().session;
-  if (session?.username?.includes("@")) mine.add(`mailto:${session.username.toLowerCase()}`);
+  if (session?.username?.includes("@"))
+    mine.add(`mailto:${session.username.toLowerCase()}`);
   const keys: string[] = [];
   for (const [k, p] of Object.entries(ev.participants ?? {})) {
     if (participantAddresses(p).some((a) => mine.has(a))) keys.push(k);
@@ -1127,5 +1508,12 @@ export function myParticipantKeys(ev: CalendarEvent, identities: ParticipantIden
 }
 
 useSession.subscribe((s) => {
-  if (s.status !== "authenticated") useCalendar.setState({ accountId: null, calendars: {}, events: {}, ranges: {}, identities: [] });
+  if (s.status !== "authenticated")
+    useCalendar.setState({
+      accountId: null,
+      calendars: {},
+      events: {},
+      ranges: {},
+      identities: [],
+    });
 });

@@ -6,10 +6,7 @@
  * permission prompt, none of which exists under a test runner.
  */
 import { CAP } from "@/jmap/client";
-import { withBase } from "./basePath";
 import { isDeviceTrusted } from "@/lib/storage";
-import { useSession } from "@/store/session";
-import { useMail } from "@/store/mail";
 import {
   applicationServerKey,
   createSubscription,
@@ -25,6 +22,9 @@ import {
   verifySubscription,
   webPushAvailable,
 } from "@/lib/webpush";
+import { useMail } from "@/store/mail";
+import { useSession } from "@/store/session";
+import { withBase } from "./basePath";
 
 let listening = false;
 
@@ -36,11 +36,13 @@ let listening = false;
  * in the cache when no tab was open to forward it to.
  */
 export function listenForVerification(): void {
-  if (listening || typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+  if (listening || typeof navigator === "undefined" || !("serviceWorker" in navigator))
+    return;
   listening = true;
   navigator.serviceWorker.addEventListener("message", (e: MessageEvent) => {
     const d = e.data as { type?: string; id?: string; code?: string } | undefined;
-    if (d?.type === "push-verification" && d.id && d.code) void verifySubscription(d.id, d.code).catch(() => {});
+    if (d?.type === "push-verification" && d.id && d.code)
+      void verifySubscription(d.id, d.code).catch(() => {});
   });
   void collectStoredVerification();
 }
@@ -70,18 +72,30 @@ async function collectStoredVerification(): Promise<void> {
  * something to tell the user plainly: an old server, a browser without push, a
  * permission they declined.
  */
-export async function enableWebPush(): Promise<{ ok: true } | { ok: false; reason: string }> {
+export async function enableWebPush(): Promise<
+  { ok: true } | { ok: false; reason: string }
+> {
   if (!webPushAvailable()) {
-    return { ok: false, reason: "This browser or mail server does not support background notifications." };
+    return {
+      ok: false,
+      reason: "This browser or mail server does not support background notifications.",
+    };
   }
   if (Notification.permission === "denied") {
-    return { ok: false, reason: "Notifications are blocked for this site in your browser's settings." };
+    return {
+      ok: false,
+      reason: "Notifications are blocked for this site in your browser's settings.",
+    };
   }
   // A subscription outlives the tab and belongs to the account, not the
   // session -- so on a machine the user has told us is not theirs, it would go
   // on delivering their mail to it long after they had gone.
   if (!isDeviceTrusted()) {
-    return { ok: false, reason: "Background notifications need a device you have marked as your own. Sign in again with \u201CThis is my own device\u201D ticked." };
+    return {
+      ok: false,
+      reason:
+        "Background notifications need a device you have marked as your own. Sign in again with \u201CThis is my own device\u201D ticked.",
+    };
   }
   const key = applicationServerKey();
   if (!key) return { ok: false, reason: "This mail server does not publish a push key." };
@@ -92,7 +106,10 @@ export async function enableWebPush(): Promise<{ ok: true } | { ok: false; reaso
     listenForVerification();
     return { ok: true };
   } catch (err) {
-    return { ok: false, reason: (err as Error).message || "Could not subscribe to notifications." };
+    return {
+      ok: false,
+      reason: (err as Error).message || "Could not subscribe to notifications.",
+    };
   }
 }
 
@@ -111,11 +128,13 @@ export async function enableWebPush(): Promise<{ ok: true } | { ok: false; reaso
  */
 async function registerThisBrowser(key: string): Promise<void> {
   const reg = await navigator.serviceWorker.ready;
-  const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({
-    // Web Push requires it, and Chrome refuses a subscription without it.
-    userVisibleOnly: true,
-    applicationServerKey: decodeApplicationServerKey(key),
-  }));
+  const sub =
+    (await reg.pushManager.getSubscription()) ??
+    (await reg.pushManager.subscribe({
+      // Web Push requires it, and Chrome refuses a subscription without it.
+      userVisibleOnly: true,
+      applicationServerKey: decodeApplicationServerKey(key),
+    }));
   const accountId = useSession.getState().ownAccountFor(CAP.mail);
   const inboxId = useMail.getState().roleId("inbox");
   await createSubscription(subscriptionPayload(sub, accountId, inboxId));
@@ -136,7 +155,8 @@ async function registerThisBrowser(key: string): Promise<void> {
  */
 export async function renewWebPush(): Promise<void> {
   if (!pushEnabledHere() || !webPushAvailable()) return;
-  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  if (typeof Notification === "undefined" || Notification.permission !== "granted")
+    return;
   const key = applicationServerKey();
   if (!key) return;
   try {

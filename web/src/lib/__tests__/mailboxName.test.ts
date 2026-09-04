@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { isLocalisedName, mailboxDisplayName, mailboxDisplayPath } from "@/lib/mailboxName";
-import { setCatalog, type Catalog } from "@/lib/i18n";
 import type { Mailbox } from "@/jmap/types";
+import { type Catalog, setCatalog } from "@/lib/i18n";
+import {
+  isLocalisedName,
+  mailboxDisplayName,
+  mailboxDisplayPath,
+} from "@/lib/mailboxName";
 
 /**
  * Stalwart names the standard folders once, at account creation, and never
@@ -13,8 +17,12 @@ const de: Catalog = {
   strings: { Inbox: "Posteingang", "Deleted Items": "Papierkorb", Drafts: "Entwürfe" },
   plurals: {},
 };
-const mb = (id: string, name: string, role: string | null = null, parentId: string | null = null) =>
-  ({ id, name, role, parentId } as unknown as Mailbox);
+const mb = (
+  id: string,
+  name: string,
+  role: string | null = null,
+  parentId: string | null = null,
+) => ({ id, name, role, parentId }) as unknown as Mailbox;
 
 afterEach(() => setCatalog("en", { strings: {}, plurals: {} }));
 
@@ -62,7 +70,10 @@ describe("mailboxDisplayPath", () => {
 
   it("stops rather than looping on a parent cycle", () => {
     // A malformed tree from the server must not hang the folder picker.
-    const all: Record<string, Mailbox> = { a: mb("a", "A", null, "b"), b: mb("b", "B", null, "a") };
+    const all: Record<string, Mailbox> = {
+      a: mb("a", "A", null, "b"),
+      b: mb("b", "B", null, "a"),
+    };
     expect(mailboxDisplayPath(all.a!, all)).toBe("B / A");
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isRecurring } from "@/store/calendar";
 import type { CalendarEvent } from "@/jmap/types";
+import { isRecurring } from "@/store/calendar";
 
 /**
  * `CalendarEvent/query` runs with `expandRecurrences`, and Stalwart puts a
@@ -9,7 +9,16 @@ import type { CalendarEvent } from "@/jmap/types";
  * their changes applied to the whole series, and offered to delete "all
  * occurrences" of an event that has exactly one.
  */
-const ev = (p: Partial<CalendarEvent>): CalendarEvent => ({ id: "ev1", "@type": "Event", uid: "u1", calendarIds: { c1: true }, start: "2026-08-25T09:00:00", duration: "PT30M", ...p } as CalendarEvent);
+const ev = (p: Partial<CalendarEvent>): CalendarEvent =>
+  ({
+    id: "ev1",
+    "@type": "Event",
+    uid: "u1",
+    calendarIds: { c1: true },
+    start: "2026-08-25T09:00:00",
+    duration: "PT30M",
+    ...p,
+  }) as CalendarEvent;
 
 describe("isRecurring", () => {
   it("does not call a one-off event a series just because it has a baseEventId", () => {
@@ -20,14 +29,32 @@ describe("isRecurring", () => {
     expect(isRecurring(ev({ id: "eaaaaai", baseEventId: "i" }))).toBe(false);
   });
   it("recognises a series by its rule, under either name", () => {
-    expect(isRecurring(ev({ recurrenceRules: [{ "@type": "RecurrenceRule", frequency: "weekly" }] }))).toBe(true);
-    expect(isRecurring(ev({ excludedRecurrenceRules: [{ "@type": "RecurrenceRule", frequency: "monthly" }] }))).toBe(true);
+    expect(
+      isRecurring(
+        ev({ recurrenceRules: [{ "@type": "RecurrenceRule", frequency: "weekly" }] }),
+      ),
+    ).toBe(true);
+    expect(
+      isRecurring(
+        ev({
+          excludedRecurrenceRules: [{ "@type": "RecurrenceRule", frequency: "monthly" }],
+        }),
+      ),
+    ).toBe(true);
     // Stalwart 0.16 keeps a single rule under the singular name.
-    expect(isRecurring(ev({ recurrenceRule: { "@type": "RecurrenceRule", frequency: "weekly", count: 3 } }))).toBe(true);
+    expect(
+      isRecurring(
+        ev({
+          recurrenceRule: { "@type": "RecurrenceRule", frequency: "weekly", count: 3 },
+        }),
+      ),
+    ).toBe(true);
   });
   it("recognises an occurrence, which arrives with no rule of its own", () => {
     // A live 0.16.19 expands a weekly series into instances like this: an id
     // per occurrence, a recurrenceId, and no rule attached.
-    expect(isRecurring(ev({ id: "iaaaaas", recurrenceId: "2030-03-11T10:00:00" }))).toBe(true);
+    expect(isRecurring(ev({ id: "iaaaaas", recurrenceId: "2030-03-11T10:00:00" }))).toBe(
+      true,
+    );
   });
 });

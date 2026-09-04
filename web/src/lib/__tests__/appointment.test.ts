@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { appointmentDraft, nextHalfHour } from "@/lib/appointment";
 import type { Email, EmailBodyPart } from "@/jmap/types";
+import { appointmentDraft, nextHalfHour } from "@/lib/appointment";
 
 /**
  * A reminder made out of a mail: the subject becomes the title and the body
@@ -19,19 +19,29 @@ function email(parts: Partial<Email>): Email {
 
 function body(subject: string, type: "text/plain" | "text/html", value: string): Email {
   const key = type === "text/plain" ? "textBody" : "htmlBody";
-  return email({ subject, [key]: [part("1", type)], bodyValues: { 1: { value, isEncodingProblem: false, isTruncated: false } } });
+  return email({
+    subject,
+    [key]: [part("1", type)],
+    bodyValues: { 1: { value, isEncodingProblem: false, isTruncated: false } },
+  });
 }
 
 const text = (value: string) => body("Water bill", "text/plain", value);
 
 describe("the time an appointment starts", () => {
   it("rounds up to the next half hour", () => {
-    expect(nextHalfHour(new Date("2026-08-31T09:12:40")).toTimeString().slice(0, 5)).toBe("09:30");
-    expect(nextHalfHour(new Date("2026-08-31T09:41:00")).toTimeString().slice(0, 5)).toBe("10:00");
+    expect(nextHalfHour(new Date("2026-08-31T09:12:40")).toTimeString().slice(0, 5)).toBe(
+      "09:30",
+    );
+    expect(nextHalfHour(new Date("2026-08-31T09:41:00")).toTimeString().slice(0, 5)).toBe(
+      "10:00",
+    );
   });
 
   it("moves on from a time already on the boundary, rather than starting now", () => {
-    expect(nextHalfHour(new Date("2026-08-31T09:30:00")).toTimeString().slice(0, 5)).toBe("10:00");
+    expect(nextHalfHour(new Date("2026-08-31T09:30:00")).toTimeString().slice(0, 5)).toBe(
+      "10:00",
+    );
   });
 
   it("runs for an hour", () => {
@@ -49,7 +59,9 @@ describe("what is copied from the message", () => {
   });
 
   it("reads an HTML-only message as text, so the description is not markup", () => {
-    const d = appointmentDraft(body("Renewal", "text/html", "<p>Renews <b>Friday</b></p>"));
+    const d = appointmentDraft(
+      body("Renewal", "text/html", "<p>Renews <b>Friday</b></p>"),
+    );
     expect(d.description).toBe("Renews Friday");
   });
 
@@ -75,21 +87,39 @@ const addr = (email: string, name: string | null = null) => ({ name, email });
 describe("who is invited", () => {
   it("carries the sender and everyone it was addressed to", () => {
     const d = appointmentDraft(
-      between({ from: [addr("grace@example.org", "Grace")], to: [addr("me@example.com"), addr("alan@example.org")], cc: [addr("ada@example.org")] }),
+      between({
+        from: [addr("grace@example.org", "Grace")],
+        to: [addr("me@example.com"), addr("alan@example.org")],
+        cc: [addr("ada@example.org")],
+      }),
       new Date(),
       ["me@example.com"],
     );
-    expect(d.attendees.map((a) => a.email)).toEqual(["grace@example.org", "alan@example.org", "ada@example.org"]);
+    expect(d.attendees.map((a) => a.email)).toEqual([
+      "grace@example.org",
+      "alan@example.org",
+      "ada@example.org",
+    ]);
     expect(d.attendees[0]?.name).toBe("Grace");
   });
 
   it("leaves the reader out, whatever case their address was written in", () => {
-    const d = appointmentDraft(between({ from: [addr("grace@example.org")], to: [addr("Me@Example.com")] }), new Date(), ["me@example.com"]);
+    const d = appointmentDraft(
+      between({ from: [addr("grace@example.org")], to: [addr("Me@Example.com")] }),
+      new Date(),
+      ["me@example.com"],
+    );
     expect(d.attendees.map((a) => a.email)).toEqual(["grace@example.org"]);
   });
 
   it("counts someone once, however many headers they appear in", () => {
-    const d = appointmentDraft(between({ from: [addr("grace@example.org")], to: [addr("grace@example.org")], cc: [addr("GRACE@example.org")] }));
+    const d = appointmentDraft(
+      between({
+        from: [addr("grace@example.org")],
+        to: [addr("grace@example.org")],
+        cc: [addr("GRACE@example.org")],
+      }),
+    );
     expect(d.attendees).toHaveLength(1);
   });
 
@@ -99,7 +129,15 @@ describe("who is invited", () => {
    * hidden copy into a visible one is not something a menu item may do.
    */
   it("never turns a blind copy into a guest", () => {
-    const d = appointmentDraft(between({ from: [addr("me@example.com")], to: [addr("alan@example.org")], bcc: [addr("secret@example.org")] }), new Date(), ["me@example.com"]);
+    const d = appointmentDraft(
+      between({
+        from: [addr("me@example.com")],
+        to: [addr("alan@example.org")],
+        bcc: [addr("secret@example.org")],
+      }),
+      new Date(),
+      ["me@example.com"],
+    );
     expect(d.attendees.map((a) => a.email)).toEqual(["alan@example.org"]);
   });
 

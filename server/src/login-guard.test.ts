@@ -1,5 +1,5 @@
-import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { after, before, test } from "node:test";
 
 /**
  * ihasmail requires Stalwart 0.16 or newer. Sign-in is where that is enforced,
@@ -28,10 +28,22 @@ const { createApp } = await import("./app.js");
 const app = createApp();
 const HEADERS = { "content-type": "application/json", "x-requested-with": "ihasmail" };
 
-async function login(body: unknown): Promise<{ status: number; body: any; setCookie: string | null }> {
-  const res = await app.request("/api/auth/login", { method: "POST", headers: HEADERS, body: JSON.stringify(body) });
+async function login(body: unknown): Promise<{
+  status: number;
+  body: ReturnType<typeof JSON.parse>;
+  setCookie: string | null;
+}> {
+  const res = await app.request("/api/auth/login", {
+    method: "POST",
+    headers: HEADERS,
+    body: JSON.stringify(body),
+  });
   const text = await res.text();
-  return { status: res.status, body: text ? JSON.parse(text) : null, setCookie: res.headers.get("set-cookie") };
+  return {
+    status: res.status,
+    body: text ? JSON.parse(text) : null,
+    setCookie: res.headers.get("set-cookie"),
+  };
 }
 
 before(() => {
@@ -49,12 +61,19 @@ test("a server without the registry is refused, with good credentials", async ()
 });
 
 test("the message says the credentials were fine, and names the way out", async () => {
-  const { body } = await login({ username: "demo@example.com", password: "demo-password" });
+  const { body } = await login({
+    username: "demo@example.com",
+    password: "demo-password",
+  });
   // Someone hitting this has typed a correct password. Saying so is the
   // difference between "upgrade your server" and "try your password again".
   assert.match(body.message, /credentials are fine/i);
   assert.match(body.message, /0\.16/);
-  assert.match(body.message, /stalwart-0\.15-support/, "the tag to build from if they cannot upgrade");
+  assert.match(
+    body.message,
+    /stalwart-0\.15-support/,
+    "the tag to build from if they cannot upgrade",
+  );
 });
 
 test("no session is minted for a server we cannot talk to", async () => {

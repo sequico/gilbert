@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { plural, setCatalog } from "@/lib/i18n";
 import { catalog as ru } from "@/locales/ru";
 
@@ -14,12 +14,12 @@ afterEach(() => setCatalog("en", { strings: {}, plurals: {} }));
 describe("Russian plurals", () => {
   it("picks one, few and many by the language's own rule", () => {
     setCatalog("ru", ru);
-    expect(plural(1, FORMS)).toBe("1 письмо");     // one
-    expect(plural(2, FORMS)).toBe("2 письма");     // few
+    expect(plural(1, FORMS)).toBe("1 письмо"); // one
+    expect(plural(2, FORMS)).toBe("2 письма"); // few
     expect(plural(3, FORMS)).toBe("3 письма");
-    expect(plural(5, FORMS)).toBe("5 писем");      // many
-    expect(plural(11, FORMS)).toBe("11 писем");    // 11-14 are many, not few
-    expect(plural(21, FORMS)).toBe("21 письмо");   // 21 is one again
+    expect(plural(5, FORMS)).toBe("5 писем"); // many
+    expect(plural(11, FORMS)).toBe("11 писем"); // 11-14 are many, not few
+    expect(plural(21, FORMS)).toBe("21 письмо"); // 21 is one again
     expect(plural(22, FORMS)).toBe("22 письма");
     expect(plural(25, FORMS)).toBe("25 писем");
     expect(plural(0, FORMS)).toBe("0 писем");

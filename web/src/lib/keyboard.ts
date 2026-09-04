@@ -24,7 +24,8 @@ class Keyboard {
   enabled = true;
 
   constructor() {
-    if (typeof window !== "undefined") window.addEventListener("keydown", this.onKeyDown, true);
+    if (typeof window !== "undefined")
+      window.addEventListener("keydown", this.onKeyDown, true);
   }
 
   pushScope(name: string, bindings: Binding[]): () => void {
@@ -116,8 +117,18 @@ class Keyboard {
  * the option beginning with it, which a shortcut would steal.
  */
 const TEXT_ENTRY_TYPES = new Set([
-  "text", "search", "email", "url", "tel", "password", "number",
-  "date", "datetime-local", "month", "time", "week",
+  "text",
+  "search",
+  "email",
+  "url",
+  "tel",
+  "password",
+  "number",
+  "date",
+  "datetime-local",
+  "month",
+  "time",
+  "week",
 ]);
 
 export function isTextEntry(el: Element | null): boolean {
@@ -132,11 +143,13 @@ export function isTextEntry(el: Element | null): boolean {
   return TEXT_ENTRY_TYPES.has(type);
 }
 
-const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+const isMac =
+  typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
 export function comboOf(e: KeyboardEvent): string | null {
   const key = e.key;
-  if (key === "Shift" || key === "Control" || key === "Alt" || key === "Meta") return null;
+  if (key === "Shift" || key === "Control" || key === "Alt" || key === "Meta")
+    return null;
   const parts: string[] = [];
   const mod = isMac ? e.metaKey : e.ctrlKey;
   if (mod) parts.push("mod");
@@ -159,7 +172,35 @@ export function formatKeys(keys: string): string {
     .map((k) =>
       k
         .split("+")
-        .map((p) => (p === "mod" ? (isMac ? "⌘" : "Ctrl") : p === "shift" ? "⇧" : p === "alt" ? (isMac ? "⌥" : "Alt") : p === "enter" ? "↵" : p === "esc" ? "Esc" : p === "space" ? "Space" : p === "arrowup" ? "↑" : p === "arrowdown" ? "↓" : p === "arrowleft" ? "←" : p === "arrowright" ? "→" : p.length === 1 ? p : p[0]!.toUpperCase() + p.slice(1)))
+        .map((p) =>
+          p === "mod"
+            ? isMac
+              ? "⌘"
+              : "Ctrl"
+            : p === "shift"
+              ? "⇧"
+              : p === "alt"
+                ? isMac
+                  ? "⌥"
+                  : "Alt"
+                : p === "enter"
+                  ? "↵"
+                  : p === "esc"
+                    ? "Esc"
+                    : p === "space"
+                      ? "Space"
+                      : p === "arrowup"
+                        ? "↑"
+                        : p === "arrowdown"
+                          ? "↓"
+                          : p === "arrowleft"
+                            ? "←"
+                            : p === "arrowright"
+                              ? "→"
+                              : p.length === 1
+                                ? p
+                                : p[0]!.toUpperCase() + p.slice(1),
+        )
         .join(isMac ? "" : "+"),
     )
     .join(" then ");

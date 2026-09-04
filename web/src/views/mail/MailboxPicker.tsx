@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
 import { Folder, Inbox } from "lucide-react";
-import { useMail } from "@/store/mail";
-import { Dialog } from "@/ui/dialog";
+import { useMemo, useState } from "react";
 import type { Id, Mailbox } from "@/jmap/types";
 import { t } from "@/lib/i18n";
 import { mailboxDisplayPath } from "@/lib/mailboxName";
+import { useMail } from "@/store/mail";
+import { Dialog } from "@/ui/dialog";
 
 /**
  * @param need which right a folder has to grant to be worth offering.
@@ -14,7 +14,19 @@ import { mailboxDisplayPath } from "@/lib/mailboxName";
  *   distinction only shows up on shared mail, which is exactly where getting
  *   it wrong would be invisible to whoever wrote the code.
  */
-export function MailboxPicker({ title, onClose, onPick, exclude, need = "mayAddItems" }: { title: string; onClose: () => void; onPick: (id: Id) => void; exclude?: Id[]; need?: "mayAddItems" | "mayReadItems" }) {
+export function MailboxPicker({
+  title,
+  onClose,
+  onPick,
+  exclude,
+  need = "mayAddItems",
+}: {
+  title: string;
+  onClose: () => void;
+  onPick: (id: Id) => void;
+  exclude?: Id[];
+  need?: "mayAddItems" | "mayReadItems";
+}) {
   const mailboxes = useMail((s) => s.mailboxes);
   const mailboxPath = useMail((s) => s.mailboxPath);
   const [q, setQ] = useState("");
@@ -23,7 +35,13 @@ export function MailboxPicker({ title, onClose, onPick, exclude, need = "mayAddI
     const all = Object.values(mailboxes)
       .filter((m) => !exclude?.includes(m.id) && m.myRights[need])
       .map((m) => ({ m, path: mailboxDisplayPath(m, mailboxes) }))
-      .sort((a, b) => (a.m.role === "inbox" ? -1 : b.m.role === "inbox" ? 1 : a.path.localeCompare(b.path)));
+      .sort((a, b) =>
+        a.m.role === "inbox"
+          ? -1
+          : b.m.role === "inbox"
+            ? 1
+            : a.path.localeCompare(b.path),
+      );
     const ql = q.trim().toLowerCase();
     return ql ? all.filter((x) => x.path.toLowerCase().includes(ql)) : all;
   }, [mailboxes, mailboxPath, q, exclude]);
@@ -55,17 +73,46 @@ export function MailboxPicker({ title, onClose, onPick, exclude, need = "mayAddI
       />
       <div style={{ maxHeight: 360, overflowY: "auto", marginTop: 8 }} role="listbox">
         {list.map(({ m, path }, i) => (
-          <PickerRow key={m.id} m={m} path={path} active={i === active} onClick={() => onPick(m.id)} onHover={() => setActive(i)} />
+          <PickerRow
+            key={m.id}
+            m={m}
+            path={path}
+            active={i === active}
+            onClick={() => onPick(m.id)}
+            onHover={() => setActive(i)}
+          />
         ))}
-        {!list.length && <div className="empty" style={{ padding: 24 }}>{t("No matching folders")}</div>}
+        {!list.length && (
+          <div className="empty" style={{ padding: 24 }}>
+            {t("No matching folders")}
+          </div>
+        )}
       </div>
     </Dialog>
   );
 }
 
-function PickerRow({ m, path, active, onClick, onHover }: { m: Mailbox; path: string; active: boolean; onClick: () => void; onHover: () => void }) {
+function PickerRow({
+  m,
+  path,
+  active,
+  onClick,
+  onHover,
+}: {
+  m: Mailbox;
+  path: string;
+  active: boolean;
+  onClick: () => void;
+  onHover: () => void;
+}) {
   return (
-    <button className={`menu-item ${active ? "active" : ""}`} onClick={onClick} onMouseEnter={onHover} role="option" aria-selected={active}>
+    <button
+      className={`menu-item ${active ? "active" : ""}`}
+      onClick={onClick}
+      onMouseEnter={onHover}
+      role="option"
+      aria-selected={active}
+    >
       {m.role === "inbox" ? <Inbox size={16} /> : <Folder size={16} />}
       <span className="grow truncate">{path}</span>
       <span className="menu-kbd">{m.totalEmails}</span>

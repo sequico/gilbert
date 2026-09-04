@@ -1,7 +1,7 @@
-import { beforeEach, afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { Email } from "@/jmap/types";
 import { useCompose } from "@/store/compose";
 import { useMail } from "@/store/mail";
-import type { Email } from "@/jmap/types";
 
 /**
  * "Compose as new" is a mail sent again, not a mail passed on. What it keeps is
@@ -25,15 +25,35 @@ const SENT: Email = {
   keywords: {},
   htmlBody: [{ partId: "1", type: "text/html" }],
   textBody: [{ partId: "1", type: "text/html" }],
-  bodyValues: { "1": { value: "<p>Here they are.</p>", isEncodingProblem: false, isTruncated: false } },
+  bodyValues: {
+    "1": { value: "<p>Here they are.</p>", isEncodingProblem: false, isTruncated: false },
+  },
   attachments: [
-    { blobId: "b1", name: "numbers.pdf", type: "application/pdf", size: 1024, cid: null, disposition: "attachment" },
-    { blobId: "b2", name: "logo.png", type: "image/png", size: 64, cid: "logo@x", disposition: "inline" },
+    {
+      blobId: "b1",
+      name: "numbers.pdf",
+      type: "application/pdf",
+      size: 1024,
+      cid: null,
+      disposition: "attachment",
+    },
+    {
+      blobId: "b2",
+      name: "logo.png",
+      type: "image/png",
+      size: 64,
+      cid: "logo@x",
+      disposition: "inline",
+    },
   ],
 } as unknown as Email;
 
 /** The same mail, but from somebody else. */
-const RECEIVED: Email = { ...SENT, id: "m2", from: [{ name: "Ann", email: "ann@example.com" }] } as Email;
+const RECEIVED: Email = {
+  ...SENT,
+  id: "m2",
+  from: [{ name: "Ann", email: "ann@example.com" }],
+} as Email;
 
 const IDENTITIES = [
   { id: "i1", name: "John", email: "john@example.org", replyTo: null },
@@ -91,7 +111,9 @@ describe("compose as new", () => {
     const d = await draftFor(SENT);
     expect(d.attachments.map((a) => a.name)).toEqual(["numbers.pdf", "logo.png"]);
     // A blobId and no error is what the send path needs to accept one.
-    expect(d.attachments.every((a) => a.blobId && !a.error && a.progress === 100)).toBe(true);
+    expect(d.attachments.every((a) => a.blobId && !a.error && a.progress === 100)).toBe(
+      true,
+    );
     expect(d.attachments[1]!.inline).toBe(true);
     expect(d.attachments[0]!.inline).toBe(false);
   });

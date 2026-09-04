@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { applyLang, DEFAULT_SETTINGS } from "@/store/settings";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UI_LANGUAGES } from "@/lib/languages";
+import { applyLang, DEFAULT_SETTINGS } from "@/store/settings";
 
 /**
  * `<html lang>` has to be right *before first paint*, not after mount.
@@ -49,7 +49,9 @@ describe("applyLang", () => {
      * German and then French, each time reporting a failure that was really
      * the test being out of date.
      */
-    const unshipped = ["cy", "is", "mt", "eu"].find((tag) => !UI_LANGUAGES.some((l) => l.tag === tag));
+    const unshipped = ["cy", "is", "mt", "eu"].find(
+      (tag) => !UI_LANGUAGES.some((l) => l.tag === tag),
+    );
     expect(unshipped).toBeDefined();
     applyLang({ ...DEFAULT_SETTINGS, uiLanguage: unshipped! });
     expect(document.documentElement.lang).toBe("en");

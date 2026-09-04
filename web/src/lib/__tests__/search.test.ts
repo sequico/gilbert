@@ -1,13 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { buildFilter, parseQuery } from "../search";
 import type { Mailbox } from "@/jmap/types";
+import { buildFilter, parseQuery } from "../search";
 
-const mb = (id: string, name: string, role: Mailbox["role"] = null): Mailbox =>
-  ({ id, name, role, parentId: null, sortOrder: 0, totalEmails: 0, unreadEmails: 0, totalThreads: 0, unreadThreads: 0, isSubscribed: true, myRights: {} as Mailbox["myRights"] });
+const mb = (id: string, name: string, role: Mailbox["role"] = null): Mailbox => ({
+  id,
+  name,
+  role,
+  parentId: null,
+  sortOrder: 0,
+  totalEmails: 0,
+  unreadEmails: 0,
+  totalThreads: 0,
+  unreadThreads: 0,
+  isSubscribed: true,
+  myRights: {} as Mailbox["myRights"],
+});
 
 describe("parseQuery", () => {
   it("parses gmail-style operators", () => {
-    const p = parseQuery('from:ada subject:"q3 plan" has:attachment is:unread in:work before:2024-01-02 larger:2M hello world');
+    const p = parseQuery(
+      'from:ada subject:"q3 plan" has:attachment is:unread in:work before:2024-01-02 larger:2M hello world',
+    );
     expect(p.from).toBe("ada");
     expect(p.subject).toBe("q3 plan");
     expect(p.hasAttachment).toBe(true);
@@ -33,7 +46,14 @@ describe("buildFilter", () => {
   });
   it("resolves in: to a mailbox by name and ANDs keyword conditions", () => {
     const f = buildFilter(parseQuery("in:work is:starred label:foo"), mailboxes, "inbox");
-    expect(f).toEqual({ operator: "AND", conditions: [{ inMailbox: "work" }, { hasKeyword: "$flagged" }, { hasKeyword: "foo" }] });
+    expect(f).toEqual({
+      operator: "AND",
+      conditions: [
+        { inMailbox: "work" },
+        { hasKeyword: "$flagged" },
+        { hasKeyword: "foo" },
+      ],
+    });
   });
   it("maps is:unread to notKeyword $seen", () => {
     const f = buildFilter(parseQuery("is:unread"), mailboxes, null);

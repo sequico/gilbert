@@ -30,14 +30,19 @@ describe("buildSubmission", () => {
   it("asks for the hold with HOLDUNTIL, not by setting sendAt", () => {
     const at = new Date("2026-11-20T05:00:00Z").getTime();
     const { create } = buildSubmission({ ...base, sendAt: at });
-    const envelope = create.envelope as { mailFrom: { parameters?: Record<string, string> } };
+    const envelope = create.envelope as {
+      mailFrom: { parameters?: Record<string, string> };
+    };
     expect(envelope.mailFrom.parameters).toEqual({ HOLDUNTIL: "2026-11-20T05:00:00Z" });
     expect(create).not.toHaveProperty("sendAt");
     expect(create).not.toHaveProperty("undoStatus");
   });
 
   it("files a held message under Scheduled, and keeps it out of Sent", () => {
-    const { onSuccessUpdateEmail } = buildSubmission({ ...base, sendAt: Date.now() + 86_400_000 });
+    const { onSuccessUpdateEmail } = buildSubmission({
+      ...base,
+      sendAt: Date.now() + 86_400_000,
+    });
     expect(onSuccessUpdateEmail["mailboxIds/sched"]).toBe(true);
     // Sent would be a lie for as long as the hold lasts.
     expect(onSuccessUpdateEmail["mailboxIds/sent"]).toBeNull();
@@ -46,8 +51,14 @@ describe("buildSubmission", () => {
   });
 
   it("still sends when the server has no Scheduled folder to file it in", () => {
-    const { create, onSuccessUpdateEmail } = buildSubmission({ ...base, scheduledId: null, sendAt: Date.now() + 86_400_000 });
-    const envelope = create.envelope as { mailFrom: { parameters?: Record<string, string> } };
+    const { create, onSuccessUpdateEmail } = buildSubmission({
+      ...base,
+      scheduledId: null,
+      sendAt: Date.now() + 86_400_000,
+    });
+    const envelope = create.envelope as {
+      mailFrom: { parameters?: Record<string, string> };
+    };
     expect(envelope.mailFrom.parameters).toHaveProperty("HOLDUNTIL");
     expect(onSuccessUpdateEmail).not.toHaveProperty("mailboxIds/sched");
   });
@@ -60,6 +71,9 @@ describe("buildSubmission", () => {
     });
     expect(create.identityId).toBe("i1");
     expect(create.emailId).toBe("#m");
-    expect((create.envelope as { rcptTo: unknown[] }).rcptTo).toEqual([{ email: "ann@example.com" }, { email: "bo@example.com" }]);
+    expect((create.envelope as { rcptTo: unknown[] }).rcptTo).toEqual([
+      { email: "ann@example.com" },
+      { email: "bo@example.com" },
+    ]);
   });
 });

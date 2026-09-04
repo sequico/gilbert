@@ -27,7 +27,13 @@ const MAX_ICS_BYTES = 4 * 1024 * 1024;
  * calendar over a header the publisher chose badly helps nobody -- the parser
  * checks the content itself, which is the claim that actually matters.
  */
-const ACCEPTABLE = new Set(["text/calendar", "text/plain", "application/octet-stream", "application/ics", ""]);
+const ACCEPTABLE = new Set([
+  "text/calendar",
+  "text/plain",
+  "application/octet-stream",
+  "application/ics",
+  "",
+]);
 
 export async function icsProxyHandler(c: Context) {
   const got = await safeFetch(c.req.query("url") ?? "", 20_000);
@@ -72,7 +78,10 @@ export async function icsProxyHandler(c: Context) {
     });
   } catch (err) {
     done();
-    return c.json({ error: (err as Error).message === "too_large" ? "too_large" : "fetch_failed" }, 502);
+    return c.json(
+      { error: (err as Error).message === "too_large" ? "too_large" : "fetch_failed" },
+      502,
+    );
   }
   done();
 

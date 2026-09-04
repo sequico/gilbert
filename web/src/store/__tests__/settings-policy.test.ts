@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  isEnforced,
+  policyDefaults,
+  policyEnforced,
+  resetSettingsPolicyForTest,
+} from "@/lib/settingsPolicy";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
-import { isEnforced, policyDefaults, policyEnforced, resetSettingsPolicyForTest } from "@/lib/settingsPolicy";
 
 /*
  * Settings an installation decides, from #207.
@@ -44,7 +49,10 @@ describe("what the installation has decided", () => {
 
   it("says which settings belong to the administrator", () => {
     // The setting the issue was actually about: the outside-sender banner.
-    resetSettingsPolicyForTest({ defaults: {}, enforced: { externalSenderBanner: true } as never });
+    resetSettingsPolicyForTest({
+      defaults: {},
+      enforced: { externalSenderBanner: true } as never,
+    });
     expect(isEnforced("externalSenderBanner")).toBe(true);
     expect(isEnforced("conversationMode")).toBe(false);
   });
@@ -52,19 +60,30 @@ describe("what the installation has decided", () => {
 
 describe("defaults, for an account that has none of its own", () => {
   it("seeds them", () => {
-    resetSettingsPolicyForTest({ defaults: { conversationMode: false } as never, enforced: {} });
+    resetSettingsPolicyForTest({
+      defaults: { conversationMode: false } as never,
+      enforced: {},
+    });
     useSettings.getState().seedFromPolicy();
     expect(useSettings.getState().settings.conversationMode).toBe(false);
   });
 
   it("leaves everything it does not name alone", () => {
-    resetSettingsPolicyForTest({ defaults: { conversationMode: false } as never, enforced: {} });
+    resetSettingsPolicyForTest({
+      defaults: { conversationMode: false } as never,
+      enforced: {},
+    });
     useSettings.getState().seedFromPolicy();
-    expect(useSettings.getState().settings.showAvatars).toBe(DEFAULT_SETTINGS.showAvatars);
+    expect(useSettings.getState().settings.showAvatars).toBe(
+      DEFAULT_SETTINGS.showAvatars,
+    );
   });
 
   it("can still be changed afterwards, being a starting point and not a rule", () => {
-    resetSettingsPolicyForTest({ defaults: { conversationMode: false } as never, enforced: {} });
+    resetSettingsPolicyForTest({
+      defaults: { conversationMode: false } as never,
+      enforced: {},
+    });
     useSettings.getState().seedFromPolicy();
     useSettings.getState().update({ conversationMode: true });
     expect(useSettings.getState().settings.conversationMode).toBe(true);
@@ -79,7 +98,10 @@ describe("defaults, for an account that has none of its own", () => {
 
 describe("enforced settings, which the reader may not change", () => {
   beforeEach(() => {
-    resetSettingsPolicyForTest({ defaults: {}, enforced: { conversationMode: true } as never });
+    resetSettingsPolicyForTest({
+      defaults: {},
+      enforced: { conversationMode: true } as never,
+    });
   });
 
   it("survives an update that tries to change it", () => {
@@ -116,7 +138,10 @@ describe("enforced settings, which the reader may not change", () => {
 
 describe("reset, where the installation has chosen defaults", () => {
   it("goes back to the installation's answer rather than to ihasmail's", () => {
-    resetSettingsPolicyForTest({ defaults: { conversationMode: false } as never, enforced: {} });
+    resetSettingsPolicyForTest({
+      defaults: { conversationMode: false } as never,
+      enforced: {},
+    });
     useSettings.getState().update({ conversationMode: true });
     useSettings.getState().reset();
     expect(useSettings.getState().settings.conversationMode).toBe(false);
@@ -131,17 +156,22 @@ describe("reset, where the installation has chosen defaults", () => {
  * word, and only because the version is stored.
  */
 describe("changes an installation wants applied once", () => {
-  const change = (version: string, settings: Record<string, unknown>) => ({ version, settings } as never);
+  const change = (version: string, settings: Record<string, unknown>) =>
+    ({ version, settings }) as never;
 
   it("applies one the account has not had", () => {
-    resetSettingsPolicyForTest({ changes: [change("20260902", { conversationMode: false })] });
+    resetSettingsPolicyForTest({
+      changes: [change("20260902", { conversationMode: false })],
+    });
     const applied = useSettings.getState().applyPolicyChanges();
     expect(applied.map((c) => c.version)).toEqual(["20260902"]);
     expect(useSettings.getState().settings.conversationMode).toBe(false);
   });
 
   it("remembers it, so the next sign-in does not do it again", () => {
-    resetSettingsPolicyForTest({ changes: [change("20260902", { conversationMode: false })] });
+    resetSettingsPolicyForTest({
+      changes: [change("20260902", { conversationMode: false })],
+    });
     useSettings.getState().applyPolicyChanges();
     // The reader decides otherwise, which is the whole difference from enforcing.
     useSettings.getState().update({ conversationMode: true });
@@ -156,7 +186,9 @@ describe("changes an installation wants applied once", () => {
      * back on -- once.
      */
     useSettings.getState().update({ conversationMode: false });
-    resetSettingsPolicyForTest({ changes: [change("20260902", { conversationMode: true })] });
+    resetSettingsPolicyForTest({
+      changes: [change("20260902", { conversationMode: true })],
+    });
     useSettings.getState().applyPolicyChanges();
     expect(useSettings.getState().settings.conversationMode).toBe(true);
   });
@@ -165,7 +197,10 @@ describe("changes an installation wants applied once", () => {
     resetSettingsPolicyForTest({ changes: [change("A", { conversationMode: false })] });
     useSettings.getState().applyPolicyChanges();
     resetSettingsPolicyForTest({
-      changes: [change("A", { conversationMode: false }), change("B", { showAvatars: false })],
+      changes: [
+        change("A", { conversationMode: false }),
+        change("B", { showAvatars: false }),
+      ],
     });
     const applied = useSettings.getState().applyPolicyChanges();
     expect(applied.map((c) => c.version)).toEqual(["B"]);
@@ -175,18 +210,31 @@ describe("changes an installation wants applied once", () => {
   it("does not skip a change dated earlier than one already applied", () => {
     // Ids, not a high-water mark. An admin backfilling a change must not find
     // it silently ignored because a later one went first.
-    resetSettingsPolicyForTest({ changes: [change("20260902", { conversationMode: false })] });
+    resetSettingsPolicyForTest({
+      changes: [change("20260902", { conversationMode: false })],
+    });
     useSettings.getState().applyPolicyChanges();
     resetSettingsPolicyForTest({
-      changes: [change("20260101", { showAvatars: false }), change("20260902", { conversationMode: false })],
+      changes: [
+        change("20260101", { showAvatars: false }),
+        change("20260902", { conversationMode: false }),
+      ],
     });
-    expect(useSettings.getState().applyPolicyChanges().map((c) => c.version)).toEqual(["20260101"]);
+    expect(
+      useSettings
+        .getState()
+        .applyPolicyChanges()
+        .map((c) => c.version),
+    ).toEqual(["20260101"]);
     expect(useSettings.getState().settings.showAvatars).toBe(false);
   });
 
   it("goes out as one write however many changes are pending", () => {
     resetSettingsPolicyForTest({
-      changes: [change("A", { conversationMode: false }), change("B", { showAvatars: false })],
+      changes: [
+        change("A", { conversationMode: false }),
+        change("B", { showAvatars: false }),
+      ],
     });
     const applied = useSettings.getState().applyPolicyChanges();
     expect(applied).toHaveLength(2);

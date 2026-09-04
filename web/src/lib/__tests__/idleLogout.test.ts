@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { startIdleLogout, stopIdleLogout, IDLE_TIMEOUT_MS } from "@/lib/idleLogout";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { IDLE_TIMEOUT_MS, startIdleLogout, stopIdleLogout } from "@/lib/idleLogout";
 
 describe("idle sign-out on an untrusted device", () => {
   beforeEach(() => vi.useFakeTimers());

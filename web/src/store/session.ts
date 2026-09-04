@@ -1,14 +1,14 @@
 import { create } from "zustand";
-import { apiFetch, ApiError, CAP, client } from "@/jmap/client";
+import { ApiError, apiFetch, CAP, client } from "@/jmap/client";
+import { type PushState, push } from "@/jmap/push";
 import type { Id, JmapSession } from "@/jmap/types";
-import { push, type PushState } from "@/jmap/push";
 import { accountForCapability, ownAccountForCapability } from "@/lib/accountRouting";
 import { setServerLocale } from "@/lib/datetime";
+import { startIdleLogout, stopIdleLogout } from "@/lib/idleLogout";
 import { flushSettingsPush, stopSettingsSync } from "@/lib/settingsSync";
 import { reloadIfServerRebuilt } from "@/lib/staleBuild";
-import { unsubscribeThisDevice } from "@/lib/webpush";
 import { clearAllData, clearSignedInData, setDeviceTrusted } from "@/lib/storage";
-import { startIdleLogout, stopIdleLogout } from "@/lib/idleLogout";
+import { unsubscribeThisDevice } from "@/lib/webpush";
 
 export type AuthStatus = "loading" | "anonymous" | "authenticated";
 
@@ -22,7 +22,12 @@ interface SessionState {
   /** Finer than pushConnected: tells "reconnecting" from "not connected". */
   pushState: PushState;
   bootstrap(): Promise<void>;
-  login(username: string, password: string, totp: string, remember: boolean): Promise<void>;
+  login(
+    username: string,
+    password: string,
+    totp: string,
+    remember: boolean,
+  ): Promise<void>;
   logout(): Promise<void>;
   refresh(): Promise<void>;
   setAccount(id: Id): void;
@@ -45,7 +50,8 @@ export const useSession = create<SessionState>((set, get) => ({
       const s = await apiFetch<JmapSession>("/api/auth/session");
       applySession(s, set);
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) set({ status: "anonymous", session: null, accountId: null });
+      if (err instanceof ApiError && err.status === 401)
+        set({ status: "anonymous", session: null, accountId: null });
       else set({ status: "anonymous", error: (err as Error).message });
     }
   },
@@ -146,11 +152,14 @@ client.onUnauthenticated(() => {
   // usual reason to be signed out here, and reloading a form someone has
   // already started typing into would throw the password away.
   void reloadIfServerRebuilt().then((reloading) => {
-    if (!reloading) useSession.setState({ status: "anonymous", session: null, accountId: null });
+    if (!reloading)
+      useSession.setState({ status: "anonymous", session: null, accountId: null });
   });
 });
 
-push.onConnection((state) => useSession.setState({ pushConnected: state === "connected", pushState: state }));
+push.onConnection((state) =>
+  useSession.setState({ pushConnected: state === "connected", pushState: state }),
+);
 
 export function hasCap(cap: string): boolean {
   return client.hasCapability(cap);
