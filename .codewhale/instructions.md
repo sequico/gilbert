@@ -55,3 +55,5 @@ SECURITY.md / CONTRIBUTING.md / CODE_OF_CONDUCT.md are still upstream's process
 and contacts — ask before changing or acting on them.
 
 Full law: load skills/gilbert-project. Renames: load skills/gilbert-branding.
+UI strings & languages: load skills/gilbert-i18n. Settings & policy: load
+skills/gilbert-settings.

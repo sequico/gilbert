@@ -12,7 +12,7 @@ metadata:
 - Docs prose (README.md, FEATURES.md, KNOWN-ISSUES.md, ROADMAP.md, CONTRIBUTING.md) says "Gilbert"; URLs, identifiers, docker command lines, the `` `ihasmail` `` folder literal, the "ihasmail" palette, and historical/legal lines keep `ihasmail`. SECURITY.md was deliberately left untouched (it is upstream's process and contact).
 - The visible name is runtime-configurable already: `APP_NAME` (default constant `DEFAULT_APP_NAME = "ihasmail"` in `web/src/lib/brand.ts`; the server exposes it on `/api/config`; docker-compose and `.env.example` set the default). Running with `APP_NAME=Gilbert` brands an instance with no code change.
 
-## Rename map (verified by grep on 2026-09-04)
+## Rename map (verified by grep on 2026-09-04; re-verified 2026-09-05)
 
 Layer A — user-facing shell (safe to change together; tests may assert defaults):
 - `web/index.html` — title and meta description
