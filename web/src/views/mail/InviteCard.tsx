@@ -47,6 +47,7 @@ export function InviteCard({ email, part }: { email: Email; part: EmailBodyPart 
   const inst = toInstance(
     { ...ev, id: "tmp", calendarIds: {} } as CalendarEvent,
     cal.calendars,
+    cal.accountId ?? "",
   );
   const organizer = Object.values(ev.participants ?? {}).find((p) => p.roles?.owner);
   const location = Object.values(ev.locations ?? {})[0]?.name;

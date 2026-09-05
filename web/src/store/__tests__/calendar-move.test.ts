@@ -237,3 +237,79 @@ describe("moving an event to a calendar in another account", () => {
     expect(gets[0]!.args.accountId).toBe("a2");
   });
 });
+
+describe("when two accounts hold a same-id calendar", () => {
+  /* Calendar ids are unique only within an account, so the reader's own
+     default and a group's default can both be "c1". Every write that picked a
+     calendar has to say which account it meant, or the own one wins by
+     default and the group calendar can never be aimed at. */
+  const collide = () => {
+    setState();
+    useCalendar.setState({
+      calendars: { c1: CALENDAR("c1") },
+      sharedCalendars: [
+        {
+          accountId: "a2",
+          accountName: "Team",
+          calendar: { ...CALENDAR("c1"), name: "Team", isSubscribed: true },
+        },
+      ],
+    });
+  };
+
+  it("creates into the account of the picked calendar, not the same-id own one", async () => {
+    collide();
+    const calls = stubServer();
+    await useCalendar.getState().createEvent({ title: "Team sync" }, "c1", false, "a2");
+    const sets = calls.filter((c) => c.name === "CalendarEvent/set");
+    expect(sets).toHaveLength(1);
+    expect(sets[0]!.args.accountId).toBe("a2");
+    const made = (sets[0]!.args.create as Record<string, Record<string, unknown>>).e!;
+    expect(made.calendarIds).toEqual({ c1: true });
+  });
+
+  it("moves an event to the same-id calendar of another account when told which", async () => {
+    collide();
+    const calls = stubServer();
+    await useCalendar
+      .getState()
+      .updateEvent(
+        EVENT,
+        { calendarIds: { c1: true }, title: "Renamed" },
+        false,
+        "series",
+        { accountId: "a1", moveTo: { accountId: "a2", calendarId: "c1" } },
+      );
+    const sets = calls.filter((c) => c.name === "CalendarEvent/set");
+    // Edit on the source, re-file on the target, destroy the original.
+    expect(sets[0]!.args.accountId).toBe("a1");
+    const patch = (sets[0]!.args.update as Record<string, Record<string, unknown>>).i!;
+    expect(patch.title).toBe("Renamed");
+    expect(patch.calendarIds).toBeUndefined();
+    expect(sets[1]!.args.accountId).toBe("a2");
+    const made = (sets[1]!.args.create as Record<string, Record<string, unknown>>).e!;
+    expect(made.uid).toBe("u1");
+    expect(made.calendarIds).toEqual({ c1: true });
+    expect(sets[2]!.args.destroy).toEqual(["i"]);
+  });
+
+  it("leaves the event alone when the picked pair is its own", async () => {
+    collide();
+    const calls = stubServer();
+    const dropped = await useCalendar
+      .getState()
+      .updateEvent(
+        EVENT,
+        { calendarIds: { c1: true }, title: "Renamed" },
+        false,
+        "series",
+        { accountId: "a1", moveTo: { accountId: "a1", calendarId: "c1" } },
+      );
+    expect(dropped).toEqual([]);
+    const sets = calls.filter((c) => c.name === "CalendarEvent/set");
+    expect(sets).toHaveLength(1);
+    expect(sets[0]!.args.accountId).toBe("a1");
+    const patch = (sets[0]!.args.update as Record<string, Record<string, unknown>>).i!;
+    expect(patch.title).toBe("Renamed");
+  });
+});

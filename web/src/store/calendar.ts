@@ -38,6 +38,8 @@ import { settings, useSettings } from "./settings";
 export interface EventInstance {
   /** Unique key for rendering: `${id}` (synthetic ids already unique per instance). */
   key: string;
+  /** The account that holds this event — ids mean nothing outside it. */
+  accountId: Id;
   event: CalendarEvent;
   start: Date;
   end: Date;
@@ -369,27 +371,43 @@ interface CalendarState {
    * holds it.
    */
   getEvent(id: Id, accountId?: Id | null): Promise<CalendarEvent | null>;
+  /**
+   * `accountId` names the account that owns the target calendar. A calendar id
+   * means nothing outside its account — the reader's own and a shared or group
+   * account can both hold a calendar with the same id, and the caller that
+   * picked one of them is the only thing that knows which.
+   */
   createEvent(
     event: Partial<CalendarEvent>,
     calendarId: Id,
     sendInvites: boolean,
+    accountId?: Id | null,
   ): Promise<Id>;
-  /** Returns the properties that had to be left to the series, if any. */
+  /**
+   * Returns the properties that had to be left to the series, if any.
+   *
+   * `opts.accountId` names the account that holds `event` (a bare id is
+   * ambiguous when two accounts hold same-id events); `opts.moveTo` names the
+   * calendar the patch is moving it to, account included.
+   */
   updateEvent(
     event: CalendarEvent,
     patch: Record<string, unknown>,
     sendInvites: boolean,
     scope: EventScope,
+    opts?: { accountId?: Id | null; moveTo?: { accountId: Id; calendarId: Id } },
   ): Promise<string[]>;
   destroyEvent(
     event: CalendarEvent,
     sendInvites: boolean,
     scope: EventScope,
+    accountId?: Id | null,
   ): Promise<void>;
   rsvp(
     event: CalendarEvent,
     status: "accepted" | "tentative" | "declined",
     comment?: string,
+    accountId?: Id | null,
   ): Promise<void>;
   createCalendar(data: Partial<Calendar>): Promise<Id>;
   updateCalendar(id: Id, patch: Partial<Calendar>): Promise<void>;
@@ -836,6 +854,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
      * of the same fact would drift the first time somebody corrected one.
      */
     const birthdays: EventInstance[] = [];
+    const ownAccount = get().accountId ?? "";
     if (settings().birthdayCalendar && !hidden[BIRTHDAY_CALENDAR_ID]) {
       const cal = birthdayCalendar();
       for (const b of birthdaysInRange(
@@ -845,6 +864,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       )) {
         birthdays.push({
           key: b.id,
+          accountId: ownAccount,
           event: synthesiseBirthdayEvent(b),
           start: b.date,
           end: new Date(b.date.getTime() + DAY_MS),
@@ -866,6 +886,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         if (e.end <= start || e.start >= end) continue;
         birthdays.push({
           key: `${calId}:${e.uid}:${e.start.getTime()}`,
+          accountId: ownAccount,
           event: synthesiseSubscriptionEvent(sub.id, e),
           start: e.start,
           end: e.end,
@@ -882,7 +903,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       if (!e || e["@type"] === "Task") continue;
       const calId = Object.keys(e.calendarIds ?? {})[0];
       if (calId && hidden[calId]) continue;
-      const inst = toInstance(e, calendars);
+      const inst = toInstance(e, calendars, ownAccount);
       if (!inst) continue;
       if (inst.end > start && inst.start < end) out.push(inst);
     }
@@ -913,7 +934,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         theirs[c.calendar.id] = c.calendar;
       }
       if (calId && !theirs[calId]) continue;
-      const inst = toInstance(e, theirs);
+      const inst = toInstance(e, theirs, accountId);
       if (!inst) continue;
       // Ids are unique only within an account, so a key that is the bare id
       // would collide when the reader's own account and a shared one (own
@@ -946,21 +967,28 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     return e ?? null;
   },
 
-  async createEvent(event, calendarId, sendInvites) {
-    const accountId = accountOfCalendar(
-      calendarId,
-      get().calendars,
-      get().accountId,
-      get().sharedCalendars,
-    );
-    if (!accountId) throw new Error("Calendar is not available");
+  async createEvent(event, calendarId, sendInvites, accountId) {
+    /*
+     * `accountId` names the account that owns the target calendar — required
+     * when the same calendar id exists in more than one account. Without it,
+     * the account is guessed from the calendars the store has loaded.
+     */
+    const acc =
+      accountId ??
+      accountOfCalendar(
+        calendarId,
+        get().calendars,
+        get().accountId,
+        get().sharedCalendars,
+      );
+    if (!acc) throw new Error("Calendar is not available");
     /*
      * A shared calendar the reader may write to but has not added is still a
      * fine place for an event; the event simply would not be drawn back until
      * the calendar was added. This create is the deliberate act, so the
      * calendar is added here rather than left invisible.
      */
-    if (accountId !== get().accountId) await ensureCalendarVisible(accountId, calendarId);
+    if (acc !== get().accountId) await ensureCalendarVisible(acc, calendarId);
     const obj = {
       "@type": "Event",
       uid: crypto.randomUUID(),
@@ -968,7 +996,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       calendarIds: { [calendarId]: true },
     };
     const res = await client.call<SetResponse<CalendarEvent>>("CalendarEvent/set", {
-      accountId,
+      accountId: acc,
       create: { e: obj },
       sendSchedulingMessages: sendInvites,
     });
@@ -978,7 +1006,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     return res.created!.e!.id;
   },
 
-  async updateEvent(event, patch, sendInvites, scope) {
+  async updateEvent(event, patch, sendInvites, scope, opts) {
     /*
      * A derived birthday has no server-side existence, so there is nothing to
      * write and an id that would mean nothing if sent. The UI already keeps
@@ -988,12 +1016,21 @@ export const useCalendar = create<CalendarState>((set, get) => ({
      */
     if (isBirthdayEvent(event.id) || isSubscriptionEvent(event.id)) return [];
     const currentCalId = Object.keys(event.calendarIds ?? {})[0];
-    const accountId = accountOfCalendar(
-      currentCalId,
-      get().calendars,
-      get().accountId,
-      get().sharedCalendars,
-    );
+    /*
+     * Which account holds the event. The caller holding the instance knows
+     * (an id means nothing outside its account, and the reader's own and a
+     * shared account can both hold a same-id event), and says so through
+     * `opts.accountId`; the account is only guessed from the calendars
+     * loaded so far when nobody said.
+     */
+    const accountId =
+      opts?.accountId ??
+      accountOfCalendar(
+        currentCalId,
+        get().calendars,
+        get().accountId,
+        get().sharedCalendars,
+      );
     if (!accountId) throw new Error("Calendar is not available");
     const id =
       scope === "occurrence"
@@ -1008,82 +1045,92 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     if (!Object.keys(body).length) return dropped;
 
     /*
-     * Moving the event to a calendar in another account.
-     *
-     * The reader's own and a shared or group calendar are different JMAP
-     * accounts, and an event cannot change accounts by editing
-     * `calendarIds` — the id would name a calendar the old account does not
-     * hold, so the event would either be refused or simply stop being drawn.
-     * A move across accounts is re-filing: the reader's edits land on the
-     * event where it is, then the whole event is recreated under the target
-     * account with the same uid (so an attendee's copy updates rather than
-     * duplicating), and the original is destroyed.
+     * Where the patch is moving the event, if it moves it at all. The target
+     * account comes from the caller when it chose one of several same-id
+     * calendars (`opts.moveTo`); without that, it is guessed the same way the
+     * source is.
      */
     const targetCalId = Object.keys(
       (body.calendarIds as Record<string, true> | undefined) ?? {},
     )[0];
-    if (targetCalId && targetCalId !== currentCalId) {
-      const targetAccount = accountOfCalendar(
-        targetCalId,
-        get().calendars,
-        get().accountId,
-        get().sharedCalendars,
-      );
-      if (!targetAccount) throw new Error("Calendar is not available");
-      if (targetAccount !== accountId) {
-        // An occurrence belongs to the series that holds it and cannot leave
-        // for another account on its own; the editor already disables the
-        // picker for one, and occurrencePatch refused the id above.
-        if (scope === "occurrence") throw new OccurrenceScopeError("calendarIds");
-        /* A calendar that is not on the reader's own account is added first,
+    const targetAccount =
+      opts?.moveTo?.accountId ??
+      (targetCalId
+        ? accountOfCalendar(
+            targetCalId,
+            get().calendars,
+            get().accountId,
+            get().sharedCalendars,
+          )
+        : accountId);
+    const sameCalendar =
+      !targetCalId || (targetCalId === currentCalId && targetAccount === accountId);
+    /*
+     * Moving the event to a calendar in another account.
+     *
+     * Two accounts are two JMAP accounts, and an event cannot change accounts
+     * by editing `calendarIds` — the id would name a calendar the old account
+     * does not hold, so the event would either be refused or simply stop
+     * being drawn. A move across accounts is re-filing: the reader's edits
+     * land on the event where it is, then the whole event is recreated under
+     * the target account with the same uid (so an attendee's copy updates
+     * rather than duplicating), and the original is destroyed.
+     */
+    if (targetCalId && !sameCalendar && !targetAccount)
+      throw new Error("Calendar is not available");
+    if (targetCalId && !sameCalendar && targetAccount && targetAccount !== accountId) {
+      // An occurrence belongs to the series that holds it and cannot leave
+      // for another account on its own; the editor already disables the
+      // picker for one, and occurrencePatch refused the id above.
+      if (scope === "occurrence") throw new OccurrenceScopeError("calendarIds");
+      /* A calendar that is not on the reader's own account is added first,
            or the moved event would not be drawn back where it went. */
-        if (targetAccount !== get().accountId)
-          await ensureCalendarVisible(targetAccount, targetCalId);
-        /* 1. The reader's edits, where the event already is. Invitations wait
+      if (targetAccount !== get().accountId)
+        await ensureCalendarVisible(targetAccount, targetCalId);
+      /* 1. The reader's edits, where the event already is. Invitations wait
               for the re-filed copy, which is what guests will answer. A pure
               move edits nothing here, so there is nothing to send. */
-        const { calendarIds: _moved, ...sameAccount } = body;
-        if (Object.keys(sameAccount).length) {
-          const res0 = await client.call<SetResponse>("CalendarEvent/set", {
-            accountId,
-            update: { [id]: sameAccount },
-            sendSchedulingMessages: false,
-          });
-          const err0 = res0.notUpdated?.[id];
-          if (err0) throw new CalendarSetError(err0);
-        }
-        /* 2. The event as the source account stores it now — a fresh read, so
-              nothing of it (a recurrence and its overrides among the rest) is
-              lost on the way to the other account. */
-        const stored = await readEvent(accountId, id);
-        if (!stored)
-          throw new Error(
-            "The event could not be read again after saving, so it was not moved.",
-          );
-        /* 3. Recreate it under the target account, same uid. */
-        const res1 = await client.call<SetResponse<CalendarEvent>>("CalendarEvent/set", {
-          accountId: targetAccount,
-          create: { e: moveCopy(stored, targetCalId) },
-          sendSchedulingMessages: sendInvites,
-        });
-        const err1 = res1.notCreated?.e;
-        if (err1) throw new Error(setErrorMessage(err1));
-        /* 4. Drop the original. A failure here leaves the event in both
-              accounts — better a duplicate than a loss, and the message says
-              which half happened. */
-        const res2 = await client.call<SetResponse>("CalendarEvent/set", {
+      const { calendarIds: _moved, ...sameAccount } = body;
+      if (Object.keys(sameAccount).length) {
+        const res0 = await client.call<SetResponse>("CalendarEvent/set", {
           accountId,
-          destroy: [id],
+          update: { [id]: sameAccount },
           sendSchedulingMessages: false,
         });
-        const err2 = res2.notDestroyed?.[id];
-        get().invalidate();
-        if (err2)
-          throw new Error(
-            "The event was moved, but the copy on the old calendar could not be deleted. Delete it by hand.",
-          );
-        return dropped;
+        const err0 = res0.notUpdated?.[id];
+        if (err0) throw new CalendarSetError(err0);
       }
+      /* 2. The event as the source account stores it now — a fresh read, so
+              nothing of it (a recurrence and its overrides among the rest) is
+              lost on the way to the other account. */
+      const stored = await readEvent(accountId, id);
+      if (!stored)
+        throw new Error(
+          "The event could not be read again after saving, so it was not moved.",
+        );
+      /* 3. Recreate it under the target account, same uid. */
+      const res1 = await client.call<SetResponse<CalendarEvent>>("CalendarEvent/set", {
+        accountId: targetAccount,
+        create: { e: moveCopy(stored, targetCalId) },
+        sendSchedulingMessages: sendInvites,
+      });
+      const err1 = res1.notCreated?.e;
+      if (err1) throw new Error(setErrorMessage(err1));
+      /* 4. Drop the original. A failure here leaves the event in both
+              accounts — better a duplicate than a loss, and the message says
+              which half happened. */
+      const res2 = await client.call<SetResponse>("CalendarEvent/set", {
+        accountId,
+        destroy: [id],
+        sendSchedulingMessages: false,
+      });
+      const err2 = res2.notDestroyed?.[id];
+      get().invalidate();
+      if (err2)
+        throw new Error(
+          "The event was moved, but the copy on the old calendar could not be deleted. Delete it by hand.",
+        );
+      return dropped;
     }
     const res = await client.call<SetResponse>("CalendarEvent/set", {
       accountId,
@@ -1096,7 +1143,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     return dropped;
   },
 
-  async destroyEvent(event, sendInvites, scope) {
+  async destroyEvent(event, sendInvites, scope, accountId) {
     /*
      * A derived birthday has no server-side existence, so there is nothing to
      * write and an id that would mean nothing if sent. The UI already keeps
@@ -1105,19 +1152,21 @@ export const useCalendar = create<CalendarState>((set, get) => ({
      * it.
      */
     if (isBirthdayEvent(event.id) || isSubscriptionEvent(event.id)) return;
-    const accountId = accountOfCalendar(
-      Object.keys(event.calendarIds ?? {})[0],
-      get().calendars,
-      get().accountId,
-      get().sharedCalendars,
-    );
-    if (!accountId) throw new Error("Calendar is not available");
+    const accountId_ =
+      accountId ??
+      accountOfCalendar(
+        Object.keys(event.calendarIds ?? {})[0],
+        get().calendars,
+        get().accountId,
+        get().sharedCalendars,
+      );
+    if (!accountId_) throw new Error("Calendar is not available");
     const id =
       scope === "occurrence"
-        ? await currentOccurrenceId(accountId, event)
+        ? await currentOccurrenceId(accountId_, event)
         : eventIdForScope(event, scope);
     const res = await client.call<SetResponse>("CalendarEvent/set", {
-      accountId,
+      accountId: accountId_,
       destroy: [id],
       sendSchedulingMessages: sendInvites,
     });
@@ -1134,7 +1183,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     get().invalidate();
   },
 
-  async rsvp(event, status, comment) {
+  async rsvp(event, status, comment, accountId) {
     const mine = myParticipantKeys(event, get().identities);
     if (!mine.length) throw new Error("You are not a participant of this event");
     const patch: Record<string, unknown> = {};
@@ -1147,7 +1196,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     // pointers 0.16.20 allows on an occurrence -- so this would silently mean
     // "only that day" if it were aimed at an instance. Accepting an invitation
     // means accepting the series.
-    await get().updateEvent(event, patch, true, "series");
+    await get().updateEvent(event, patch, true, "series", { accountId });
   },
 
   async createCalendar(data) {
@@ -1617,6 +1666,7 @@ function moveCopy(stored: CalendarEvent, targetCalendarId: Id): Record<string, u
 export function toInstance(
   e: CalendarEvent,
   calendars: Record<Id, Calendar>,
+  accountId: Id,
 ): EventInstance | null {
   const allDay = Boolean(e.showWithoutTime);
   let start: Date;
@@ -1637,6 +1687,7 @@ export function toInstance(
   const calId = Object.keys(e.calendarIds ?? {})[0];
   return {
     key: e.id,
+    accountId,
     event: e,
     start,
     end,

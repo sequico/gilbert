@@ -109,7 +109,9 @@ export function EventPopover({
     if (!scope) return;
     setBusy(true);
     try {
-      await runScoped(scope, (s) => cal.destroyEvent(ev, participants.length > 1, s));
+      await runScoped(scope, (s) =>
+        cal.destroyEvent(ev, participants.length > 1, s, inst.accountId),
+      );
       toast.success(scope === "occurrence" ? "Occurrence deleted" : "Event deleted");
       onClose();
     } catch (err) {
@@ -122,7 +124,7 @@ export function EventPopover({
   const rsvp = async (status: "accepted" | "tentative" | "declined") => {
     setBusy(true);
     try {
-      await cal.rsvp(ev, status);
+      await cal.rsvp(ev, status, undefined, inst.accountId);
       toast.success(t("Response sent"));
       onClose();
     } catch (err) {

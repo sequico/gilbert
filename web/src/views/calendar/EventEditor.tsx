@@ -5,6 +5,7 @@ import type {
   BusyPeriod,
   CalendarEvent,
   EmailAddress,
+  Id,
   JSCalendarAlert,
   JSCalendarNDay,
   JSCalendarParticipant,
@@ -68,6 +69,13 @@ export interface EditorInit {
   end: Date;
   allDay: boolean;
   /**
+   * The account that holds `event`. A calendar or event id means nothing
+   * outside its account, so the caller holding the instance says where the
+   * event lives; without it (a brand-new event, an editor opened from a
+   * draft) the account is guessed.
+   */
+  accountId?: Id;
+  /**
    * Values a new event opens with, from wherever it was begun -- a message,
    * so far. Not an event: this is still a form the reader has to finish, so
    * `editing` stays false and the dialog says New event / Create.
@@ -76,6 +84,36 @@ export interface EditorInit {
 }
 
 const ALERT_OPTIONS = [0, 5, 10, 15, 30, 60, 120, 1440, 2880, 10080];
+
+/**
+ * A calendar option's select value: the account and the calendar together,
+ * encoded so no separator can ever appear inside either id.
+ *
+ * A calendar id is only unique within its account, so a select whose options
+ * carried bare ids would offer the reader's default and the group's default
+ * as two options with the same value — and a native select shows the first
+ * option that matches a value, so the group calendar could never be picked.
+ */
+const calOptionKey = (accountId: string, calendarId: string): string =>
+  JSON.stringify([accountId, calendarId]);
+
+function parseCalOptionKey(
+  key: string,
+): { accountId: string; calendarId: string } | null {
+  try {
+    const parsed = JSON.parse(key) as unknown;
+    if (
+      Array.isArray(parsed) &&
+      parsed.length === 2 &&
+      typeof parsed[0] === "string" &&
+      typeof parsed[1] === "string"
+    )
+      return { accountId: parsed[0], calendarId: parsed[1] };
+  } catch {
+    /* not one of ours */
+  }
+  return null;
+}
 
 /**
  * Fields this form always sends that a single occurrence will not take.
@@ -159,7 +197,7 @@ export function EventEditor({
         void cal
           .getEvent(
             ev.baseEventId!,
-            accountOfCalendarId(Object.keys(ev.calendarIds ?? {})[0]),
+            init.accountId ?? accountOfCalendarId(Object.keys(ev.calendarIds ?? {})[0]),
           )
           .then(setBase);
     })();
@@ -206,12 +244,21 @@ function EventForm({
   const cal = useCalendar();
   const contacts = useContacts();
   const ev = base;
-  /* Calendars the reader may write to: their own, and the ones they may write
-     into that are not their own — a colleague's writable share, or a group
-     mailbox they belong to. Whether a calendar has been added to the reader's
-     view is a question about drawing it, not about writing into it, so
-     nothing writable is withheld: the picker is where a new event is aimed,
-     and an event can be aimed at a calendar the reader has not added yet. */
+  const ownAccountId = cal.accountId ?? "";
+  /*
+   * Calendars the reader may write to: their own, and the ones they may write
+   * into that are not their own — a colleague's writable share, or a group
+   * mailbox they belong to. Whether a calendar has been added to the reader's
+   * view is a question about drawing it, not about writing into it, so
+   * nothing writable is withheld: the picker is where a new event is aimed,
+   * and an event can be aimed at a calendar the reader has not added yet.
+   *
+   * Every option carries its account as well as its calendar id: calendar ids
+   * are only unique within an account, so the reader's own default and a
+   * group's default can share an id, and a bare id cannot tell them apart —
+   * which is exactly why a select that keyed on the bare id would not let a
+   * group calendar be picked.
+   */
   const calendars = [
     ...Object.values(cal.calendars)
       .filter(
@@ -220,6 +267,7 @@ function EventForm({
           c.description !== TASKLIST_MARKER,
       )
       .map((c) => ({
+        accountId: ownAccountId,
         id: c.id,
         name: c.name,
         accountName: undefined as string | undefined,
@@ -231,16 +279,28 @@ function EventForm({
           (x.calendar.myRights.mayWriteAll || x.calendar.myRights.mayWriteOwn),
       )
       .map((x) => ({
+        accountId: x.accountId,
         id: x.calendar.id,
         name: x.calendar.name,
         accountName: x.accountName,
       })),
   ];
+  const calendarKeyOf = (accountId: string, calendarId: string) =>
+    calOptionKey(accountId, calendarId);
+  /* Where the form starts: the event's own calendar when editing (the caller
+     says which account holds the event), otherwise the reader's default. */
+  const eventAccount =
+    init.accountId ?? accountOfCalendarId(Object.keys(ev?.calendarIds ?? {})[0]);
   const initialCal = ev
-    ? Object.keys(ev.calendarIds)[0]
-    : (Object.values(cal.calendars).find(
-        (c) => (c.myRights.mayWriteAll || c.myRights.mayWriteOwn) && c.isDefault,
-      )?.id ?? calendars[0]?.id);
+    ? calendarKeyOf(eventAccount ?? "", Object.keys(ev.calendarIds)[0] ?? "")
+    : (() => {
+        const def = Object.values(cal.calendars).find(
+          (c) => (c.myRights.mayWriteAll || c.myRights.mayWriteOwn) && c.isDefault,
+        );
+        if (def) return calendarKeyOf(ownAccountId, def.id);
+        const first = calendars[0];
+        return first ? calendarKeyOf(first.accountId, first.id) : "";
+      })();
   const evTz = ev?.timeZone ?? settingsTz;
   const baseStart = ev
     ? zonedToDate(ev.start, ev.showWithoutTime ? null : evTz)
@@ -253,7 +313,7 @@ function EventForm({
     : init.end;
 
   const [title, setTitle] = useState(ev?.title ?? init.seed?.title ?? "");
-  const [calendarId, setCalendarId] = useState(initialCal ?? "");
+  const [calendarKey, setCalendarKey] = useState(initialCal);
   const [allDay, setAllDay] = useState(ev ? Boolean(ev.showWithoutTime) : init.allDay);
   const [start, setStart] = useState(baseStart);
   const [end, setEnd] = useState(baseEnd);
@@ -439,7 +499,8 @@ function EventForm({
   };
 
   const save = async () => {
-    if (!calendarId) {
+    const target = parseCalOptionKey(calendarKey);
+    if (!target) {
       toast.error(translate("Choose a calendar"));
       return;
     }
@@ -534,10 +595,23 @@ function EventForm({
         const patch: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(source))
           patch[k] = v === undefined ? null : v;
-        if (!oneDate && Object.keys(ev.calendarIds)[0] !== calendarId)
-          patch.calendarIds = { [calendarId]: true };
+        /*
+         * Moving the event is only a change of calendar when the pair
+         * (account, calendar) differs — a bare id cannot tell the reader's
+         * c1 from a group's c1. The account the event lives in comes from the
+         * instance the editor was opened from; the store routes the move to
+         * the target account by name.
+         */
+        const currentId = Object.keys(ev.calendarIds ?? {})[0];
+        const moving =
+          !oneDate &&
+          (eventAccount !== target.accountId || currentId !== target.calendarId);
+        if (moving) patch.calendarIds = { [target.calendarId]: true };
         const dropped = await runScoped(scope, (s) =>
-          cal.updateEvent(ev, patch, invites, s),
+          cal.updateEvent(ev, patch, invites, s, {
+            accountId: eventAccount ?? undefined,
+            moveTo: moving ? target : undefined,
+          }),
         );
         if (!dropped) {
           setBusy(false);
@@ -550,7 +624,14 @@ function EventForm({
       } else {
         const clean: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(obj)) if (v !== undefined) clean[k] = v;
-        await cal.createEvent(clean as Partial<CalendarEvent>, calendarId, invites);
+        /* The account is part of the choice, so the event lands where the
+           reader aimed it even when another account holds a same-id calendar. */
+        await cal.createEvent(
+          clean as Partial<CalendarEvent>,
+          target.calendarId,
+          invites,
+          target.accountId,
+        );
         toast.success(invites ? "Event created and invitations sent" : "Event created");
       }
       onClose();
@@ -830,7 +911,7 @@ function EventForm({
             <label>{translate("Calendar")}</label>
             <select
               className="select"
-              value={calendarId}
+              value={calendarKey}
               disabled={oneDate}
               title={
                 oneDate
@@ -839,10 +920,13 @@ function EventForm({
                     )
                   : undefined
               }
-              onChange={(e) => setCalendarId(e.target.value)}
+              onChange={(e) => setCalendarKey(e.target.value)}
             >
               {calendars.map((c) => (
-                <option key={c.id} value={c.id}>
+                <option
+                  key={calOptionKey(c.accountId, c.id)}
+                  value={calOptionKey(c.accountId, c.id)}
+                >
                   {c.accountName ? `${c.name} · ${c.accountName}` : c.name}
                 </option>
               ))}

@@ -122,7 +122,9 @@ export function CalendarContextMenu({ ctx, onClose, onOpen, onEdit, onCreate }: 
     const scope = await askEditScope(ev);
     if (!scope) return;
     try {
-      const dropped = await runScoped(scope, (s) => cal.updateEvent(ev, p, false, s));
+      const dropped = await runScoped(scope, (s) =>
+        cal.updateEvent(ev, p, false, s, { accountId: inst.accountId }),
+      );
       if (!dropped) return;
       // A per-occurrence change can be accepted in part. Say which part.
       toast.success(
@@ -168,6 +170,7 @@ export function CalendarContextMenu({ ctx, onClose, onOpen, onEdit, onCreate }: 
         rest as Partial<CalendarEvent>,
         Object.keys(calendarIds)[0] ?? Object.keys(cal.calendars)[0]!,
         false,
+        inst.accountId,
       );
       toast.success(t("Event duplicated"));
     } catch (err) {
@@ -190,7 +193,9 @@ export function CalendarContextMenu({ ctx, onClose, onOpen, onEdit, onCreate }: 
     }
     if (!scope) return;
     try {
-      await runScoped(scope, (s) => cal.destroyEvent(ev, participants > 1, s));
+      await runScoped(scope, (s) =>
+        cal.destroyEvent(ev, participants > 1, s, inst.accountId),
+      );
       toast.success(scope === "occurrence" ? "Occurrence deleted" : "Event deleted");
     } catch (err) {
       toast.error((err as Error).message);

@@ -187,7 +187,7 @@ export function CalendarView({
       if (!scope) return;
       try {
         const dropped = await runScoped(scope, (sc) =>
-          cal.updateEvent(ev, { ...patch }, false, sc),
+          cal.updateEvent(ev, { ...patch }, false, sc, { accountId: inst.accountId }),
         );
         if (!dropped) return;
         const message = droppedMessage(dropped);
@@ -308,6 +308,7 @@ export function CalendarView({
   const openEditor = (inst: EventInstance) => {
     setEditor({
       event: inst.event,
+      accountId: inst.accountId,
       start: inst.start,
       end: inst.end,
       allDay: inst.allDay,
