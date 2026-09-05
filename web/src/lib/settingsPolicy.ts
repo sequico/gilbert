@@ -43,9 +43,11 @@ let fetched: Promise<SettingsPolicy> | null = null;
  *
  * A policy written against a newer ihasmail, or with a typo in it, must not
  * introduce a setting that nothing reads: `update` would carry it around and
- * `syncedPart` would push it to the reader's settings file for ever. Anything
- * not in `DEFAULT_SETTINGS` is dropped, which is the same rule `importJson`
- * already applies to a settings file somebody hands us.
+ * `syncedPart` would push it to the reader's settings file. Anything not in
+ * `DEFAULT_SETTINGS` is dropped here, at the door. (Contrast `importJson`,
+ * which trusts what it is handed -- only a parse failure rejects it: an
+ * unknown key it admits rides in that browser's state and cache, and a device
+ * that reads the file back drops it through `acceptRemote`.)
  */
 function known(obj: Record<string, unknown>): Partial<Settings> {
   const out: Record<string, unknown> = {};
