@@ -874,7 +874,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     const out: EventInstance[] = [];
     for (const id of ids) {
       const e = events[id];
-      if (!e) continue;
+      if (!e || e["@type"] === "Task") continue;
       const calId = Object.keys(e.calendarIds ?? {})[0];
       if (calId && hidden[calId]) continue;
       const inst = toInstance(e, calendars);
@@ -890,7 +890,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       for (const k of list) sharedKeys.add(k);
     for (const k of sharedKeys) {
       const e = sharedEvents[k];
-      if (!e) continue;
+      if (!e || e["@type"] === "Task") continue;
       const accountId = k.slice(0, k.length - e.id.length - 1);
       const calId = Object.keys(e.calendarIds ?? {})[0];
       if (calId && hidden[sharedKey(accountId, calId)]) continue;

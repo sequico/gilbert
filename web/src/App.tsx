@@ -41,6 +41,9 @@ const CalendarView = lazy(() =>
 const FilesView = lazy(() =>
   import("@/views/files/FilesView").then((m) => ({ default: m.FilesView })),
 );
+const TasksView = lazy(() =>
+  import("@/views/tasks/TasksView").then((m) => ({ default: m.TasksView })),
+);
 const SettingsView = lazy(() =>
   import("@/views/settings/SettingsView").then((m) => ({ default: m.SettingsView })),
 );
@@ -338,6 +341,9 @@ function AuthedApp() {
             {(p) => <CalendarView view={p.view} date={p.date} />}
           </Route>
           <Route path="/files/:nodeId?">{(p) => <FilesView nodeId={p.nodeId} />}</Route>
+          <Route path="/tasks">
+            <TasksView />
+          </Route>
           <Route path="/settings/:section?">
             {(p) => <SettingsView section={p.section} />}
           </Route>

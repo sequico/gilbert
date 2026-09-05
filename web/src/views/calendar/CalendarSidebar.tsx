@@ -33,6 +33,7 @@ import { plural, t } from "@/lib/i18n";
 import { subscriptionCalendarId, useCalendar } from "@/store/calendar";
 import { useContacts } from "@/store/contacts";
 import { dateTimeKey, useSettings } from "@/store/settings";
+import { TASKLIST_MARKER } from "@/store/tasks";
 import { confirmDialog } from "@/ui/dialog";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
@@ -52,6 +53,7 @@ export function CalendarSidebar() {
     [dateStr],
   );
   const [anchor, setAnchor] = useState(() => startOfDay(selected));
+  const isTasklist = (c: Calendar) => c.description === TASKLIST_MARKER;
   const grid = useMemo(() => monthGrid(anchor, weekStart), [anchor, weekStart]);
   const menu = useMenu();
   /*
@@ -131,8 +133,12 @@ export function CalendarSidebar() {
   }) =>
     Boolean(c.calendar.isSubscribed) ||
     addedShares.has(`${c.accountId}:${c.calendar.id}`);
-  const sharedSubscribed = cal.sharedCalendars.filter(isAdded);
-  const sharedAvailable = cal.sharedCalendars.filter((c) => !isAdded(c));
+  const sharedSubscribed = cal.sharedCalendars.filter(
+    (c) => isAdded(c) && !isTasklist(c.calendar),
+  );
+  const sharedAvailable = cal.sharedCalendars.filter(
+    (c) => !isAdded(c) && !isTasklist(c.calendar),
+  );
   const [menuCal, setMenuCal] = useState<Calendar | null>(null);
   const [editCal, setEditCal] = useState<Partial<Calendar> | null>(null);
   const [share, setShare] = useState<Calendar | null>(null);
@@ -165,9 +171,11 @@ export function CalendarSidebar() {
   }, [birthdaysOn]);
 
   if (!cal.available) return null;
-  const calendars = Object.values(cal.calendars).sort(
-    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
-  );
+  /* Task lists are calendars underneath, but they live in the Tasks module
+     only: never listed among calendars, never offered in the event editor. */
+  const calendars = Object.values(cal.calendars)
+    .filter((c) => !isTasklist(c))
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 
   return (
     <div style={{ padding: "4px 8px" }}>

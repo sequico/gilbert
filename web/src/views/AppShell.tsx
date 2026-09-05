@@ -5,6 +5,7 @@ import {
   FolderOpen,
   Globe,
   HelpCircle,
+  ListChecks,
   LogOut,
   Mail,
   Menu as MenuIcon,
@@ -39,6 +40,7 @@ import { MailboxPicker } from "./mail/MailboxPicker";
 import { MailboxTree } from "./mail/MailboxTree";
 import { SearchBar } from "./SearchBar";
 import { ShortcutsDialog, useGlobalShortcuts } from "./Shortcuts";
+import { TaskSidebar } from "./tasks/TasksView";
 
 const PUSH_LABEL = {
   connected: "Live updates connected",
@@ -268,12 +270,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                 window.dispatchEvent(new CustomEvent("ihm:new-contact"));
               else if (section === "files")
                 window.dispatchEvent(new CustomEvent("ihm:files-upload"));
+              else if (section === "tasks")
+                window.dispatchEvent(new CustomEvent("ihm:new-task"));
               else openCompose();
             }}
           >
             {section === "files" ? (
               <Upload size={22} />
-            ) : section === "calendar" || section === "contacts" ? (
+            ) : section === "calendar" ||
+              section === "contacts" ||
+              section === "tasks" ? (
               <Plus size={22} />
             ) : (
               <PenSquare size={22} />
@@ -285,7 +291,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                   ? t("New contact")
                   : section === "files"
                     ? t("Upload")
-                    : t("Compose")}
+                    : section === "tasks"
+                      ? t("New task")
+                      : t("Compose")}
             </span>
           </button>
           <div className="sidebar-scroll">
@@ -293,6 +301,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {section === "calendar" && <CalendarSidebar />}
             {section === "contacts" && <ContactsSidebar />}
             {section === "files" && <FilesTree />}
+            {section === "tasks" && <TaskSidebar />}
             {section === "settings" && (
               <div className="nav-section">
                 <span>{t("Settings")}</span>
@@ -324,6 +333,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               icon={<FolderOpen size={20} />}
               label={t("Files")}
               active={section === "files"}
+            />
+            <ModuleLink
+              href="/tasks"
+              icon={<ListChecks size={20} />}
+              label={t("Tasks")}
+              active={section === "tasks"}
             />
           </nav>
         </aside>

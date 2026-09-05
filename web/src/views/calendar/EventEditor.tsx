@@ -54,6 +54,7 @@ import {
 import { useContacts } from "@/store/contacts";
 import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
+import { TASKLIST_MARKER } from "@/store/tasks";
 import { DateField, DateTimeField } from "@/ui/datefield";
 import { Dialog } from "@/ui/dialog";
 import { ColorSwatches, Switch } from "@/ui/misc";
@@ -206,7 +207,11 @@ function EventForm({
      elsewhere is not silently aimed at. */
   const calendars = [
     ...Object.values(cal.calendars)
-      .filter((c) => c.myRights.mayWriteAll || c.myRights.mayWriteOwn)
+      .filter(
+        (c) =>
+          (c.myRights.mayWriteAll || c.myRights.mayWriteOwn) &&
+          c.description !== TASKLIST_MARKER,
+      )
       .map((c) => ({
         id: c.id,
         name: c.name,
@@ -215,6 +220,7 @@ function EventForm({
     ...cal.sharedCalendars
       .filter(
         (x) =>
+          x.calendar.description !== TASKLIST_MARKER &&
           (x.calendar.myRights.mayWriteAll || x.calendar.myRights.mayWriteOwn) &&
           (x.calendar.isSubscribed ||
             settings.addedShares.includes(sharedKey(x.accountId, x.calendar.id))),

@@ -769,6 +769,22 @@ const groupCalendars: Obj[] = [
     shareWith: {},
     myRights: rightsCal(),
   },
+  {
+    id: "gt1",
+    name: "Team tasks",
+    description: "tasklist",
+    color: "#eab308",
+    sortOrder: 1,
+    isSubscribed: false,
+    isVisible: true,
+    isDefault: false,
+    includeInAvailability: "all",
+    defaultAlertsWithTime: null,
+    defaultAlertsWithoutTime: null,
+    timeZone: "UTC",
+    shareWith: {},
+    myRights: rightsCal(),
+  },
 ];
 const groupEvents: Obj[] = [];
 const eventsFor = (accountId: unknown): Obj[] =>
@@ -806,6 +822,22 @@ const calendars: Obj[] = [
     description: null,
     color: "#2563eb",
     sortOrder: 1,
+    isSubscribed: true,
+    isVisible: true,
+    isDefault: false,
+    includeInAvailability: "all",
+    defaultAlertsWithTime: null,
+    defaultAlertsWithoutTime: null,
+    timeZone: "UTC",
+    shareWith: null,
+    myRights: rightsCal(),
+  },
+  {
+    id: "t1",
+    name: "Tasks",
+    description: "tasklist",
+    color: "#7c3aed",
+    sortOrder: 2,
     isSubscribed: true,
     isVisible: true,
     isDefault: false,
@@ -975,6 +1007,26 @@ const events: Obj[] = [];
     status: "confirmed",
     freeBusyStatus: "busy",
     privacy: "public",
+  });
+  events.push({
+    id: "task1",
+    calendarIds: { t1: true },
+    "@type": "Task",
+    uid: "task1",
+    title: "Order office supplies",
+    progress: "needs-action",
+    due: `${local(d(3, 0)).slice(0, 10)}T00:00:00`,
+    priority: 5,
+  });
+  groupEvents.push({
+    id: "gtask1",
+    calendarIds: { gt1: true },
+    "@type": "Task",
+    uid: "gtask1",
+    title: "Prepare the shipping manifest",
+    progress: "in-process",
+    due: `${local(d(2, 0)).slice(0, 10)}T00:00:00`,
+    priority: 1,
   });
 }
 const participantIdentities: Obj[] = [
@@ -2570,7 +2622,12 @@ const handlers: Record<string, Handler> = {
   "CalendarEvent/query": (a) => {
     const list = eventsFor(a.accountId);
     const filter = (a.filter as Obj) ?? {};
-    const matching = list.filter((e) => !filter.uid || e.uid === filter.uid);
+    const matching = list.filter(
+      (e) =>
+        (!filter.uid || e.uid === filter.uid) &&
+        (!filter.inCalendar ||
+          Boolean((e.calendarIds as Obj | undefined)?.[filter.inCalendar as string])),
+    );
     if (!a.expandRecurrences) {
       return {
         accountId: a.accountId ?? ACCOUNT,
