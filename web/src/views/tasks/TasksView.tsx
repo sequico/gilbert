@@ -1,5 +1,5 @@
-import { GripVertical, ListTodo, Plus, Trash2, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ListTodo, Plus, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Id, TaskItem } from "@/jmap/types";
 import { t } from "@/lib/i18n";
 import { orderIndexOf, type TaskList, useTasks } from "@/store/tasks";
@@ -82,8 +82,8 @@ function isDone(task: TaskItem): boolean {
 interface RowDragProps {
   dragging: boolean;
   dropTarget: boolean;
-  onGripStart(e: React.DragEvent): void;
-  onGripEnd(): void;
+  onStart(e: React.DragEvent): void;
+  onEnd(): void;
   onRowOver(e: React.DragEvent): void;
   onRowDrop(e: React.DragEvent): void;
 }
@@ -91,6 +91,10 @@ interface RowDragProps {
 function TaskRow({ task, drag }: { task: TaskItem; drag?: RowDragProps }) {
   const done = isDone(task);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState("");
+  // Enter/Escape tear the input down, and the teardown blur must not save.
+  const skipBlur = useRef(false);
   const act = async (fn: () => Promise<void>) => {
     setBusy(true);
     try {
@@ -101,26 +105,31 @@ function TaskRow({ task, drag }: { task: TaskItem; drag?: RowDragProps }) {
       setBusy(false);
     }
   };
+  const commitTitle = async () => {
+    const next = title.trim();
+    setEditing(false);
+    if (!next || next === task.title) return;
+    await act(() => useTasks.getState().update(task, { title: next }));
+  };
+  const startEditing = () => {
+    skipBlur.current = false;
+    setTitle(task.title ?? "");
+    setEditing(true);
+  };
   const due = task.due?.slice(0, 10);
   const cls = ["task-row"];
   if (done) cls.push("done");
   if (drag?.dragging) cls.push("dragging");
   if (drag?.dropTarget) cls.push("drop-target");
   return (
-    <div className={cls.join(" ")} onDragOver={drag?.onRowOver} onDrop={drag?.onRowDrop}>
-      {drag && (
-        <button
-          className="icon-btn sm drag-handle"
-          draggable
-          title={t("Drag to reorder")}
-          aria-label={t("Drag to reorder")}
-          onDragStart={drag.onGripStart}
-          onDragEnd={drag.onGripEnd}
-          onDragOver={(e) => e.preventDefault()}
-        >
-          <GripVertical size={14} />
-        </button>
-      )}
+    <div
+      className={cls.join(" ")}
+      draggable={!done && Boolean(drag)}
+      onDragStart={drag?.onStart}
+      onDragEnd={drag?.onEnd}
+      onDragOver={drag?.onRowOver}
+      onDrop={drag?.onRowDrop}
+    >
       <button
         className="task-check"
         disabled={busy}
@@ -129,7 +138,37 @@ function TaskRow({ task, drag }: { task: TaskItem; drag?: RowDragProps }) {
       >
         <span className="task-checkbox">{done ? <X size={14} /> : null}</span>
       </button>
-      <span className="task-title">{task.title || t("(untitled)")}</span>
+      {editing ? (
+        <input
+          className="task-title input"
+          autoFocus
+          value={title}
+          disabled={busy}
+          onFocus={(e) => e.target.select()}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={() => {
+            if (!skipBlur.current) void commitTitle();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              skipBlur.current = true;
+              void commitTitle();
+            } else if (e.key === "Escape") {
+              skipBlur.current = true;
+              setEditing(false);
+            }
+          }}
+        />
+      ) : (
+        <span
+          className="task-title"
+          title={t("Double-click to rename")}
+          onDoubleClick={startEditing}
+        >
+          {task.title || t("(untitled)")}
+        </span>
+      )}
       {task.priority != null && (
         <span className="task-priority" title={t("Priority")}>
           P{task.priority}
@@ -259,12 +298,18 @@ export function TasksView() {
           const drag: RowDragProps = {
             dragging: dragId === id,
             dropTarget: !!dragId && dragId !== id && overId === id && !isDone(t),
-            onGripStart: (e) => {
+            onStart: (e) => {
+              // Buttons and the rename input must keep their own gestures;
+              // a drag that begins on one of them is a mis-drag.
+              if ((e.target as HTMLElement).closest("button, input")) {
+                e.preventDefault();
+                return;
+              }
               e.dataTransfer.effectAllowed = "move";
               e.dataTransfer.setData("text/plain", id);
               setDragId(id);
             },
-            onGripEnd: () => {
+            onEnd: () => {
               setDragId(null);
               setOverId(null);
             },
