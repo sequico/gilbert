@@ -1,0 +1,70 @@
+# Keep the `ihasmail` branch mirroring upstream's releases.
+#
+# The branch exists to track Coffey-Labs/ihasmail without dragging main
+# along: main is where Gilbert lives and diverges on purpose, and the mirror
+# is what a future sync can be checked against or merged from. The branch
+# advances only when upstream cuts a release tag -- not on every upstream
+# commit -- and only by fast-forward, so it is always exactly some upstream
+# release and nothing else.
+name: Sync upstream releases
+
+on:
+  schedule:
+    # Once a day. Upstream cuts release tags on merges, so a daily check is
+    # well inside their cadence.
+    - cron: "17 3 * * *"
+  workflow_dispatch: {}
+
+# One sync at a time; two runs racing to fast-forward the same branch would
+# both push and one would fail for a reason that has nothing to do with the
+# code.
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ihasmail
+          fetch-depth: 0
+      - name: Fetch upstream tags
+        run: |
+          git remote add upstream https://github.com/Coffey-Labs/ihasmail.git
+          git fetch --tags upstream
+      - name: Fast-forward to the newest upstream release
+        id: decide
+        run: |
+          set -euo pipefail
+          # Upstream's release tags are the versioned ones (v2026.9.3-pr272);
+          # the v2.16.* and stalwart-* tags are older shapes or branches, not
+          # releases. Newest by creation date, peeled to the commit.
+          newest="$(
+            git for-each-ref --sort=-creatordate \
+              --format '%(refname:short) %(*objectname)' \
+              'refs/tags/v20[0-9][0-9].*' | head -1
+          )"
+          tag="${newest%% *}"
+          sha="${newest##* }"
+          if [ -z "$tag" ]; then
+            echo "No upstream release tag found." >&2
+            exit 1
+          fi
+          if git merge-base --is-ancestor "$sha" HEAD; then
+            echo "Already up to date at ${tag}."
+            echo "new=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Fast-forward only. If someone ever commits on the mirror, this
+          # fails loudly instead of rewriting their work.
+          git merge --ff-only "$sha"
+          echo "new=true" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Fast-forwarded the mirror to upstream release ${tag}."
+      - name: Push the mirror
+        if: steps.decide.outputs.new == 'true'
+        run: git push origin HEAD:ihasmail
