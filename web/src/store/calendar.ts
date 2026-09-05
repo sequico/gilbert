@@ -1605,10 +1605,27 @@ function synthesiseSubscriptionEvent(subId: string, e: IcsEvent): CalendarEvent 
 }
 
 /**
- * Which account holds a calendar: the reader's own when it is one of theirs,
- * otherwise the account that shared it -- a colleague's, or a group mailbox
- * the reader belongs to. Events write to that account, never to the reader's
- * own, whatever they are looking at.
+ * Which account holds a calendar, from a bare id.
+ *
+ * A calendar id is unique only within its account: the reader's own and a
+ * group's can both be "t1", and two shared accounts can collide too. A bare
+ * id that names more than one reachable calendar is ambiguous and resolves to
+ * null -- "Calendar is not available" at every call site -- rather than to a
+ * guess, because a guess would aim an edit at the wrong account's same-id
+ * calendar. Resolution is unambiguous when exactly one side holds the id:
+ *
+ *  - only the reader's own account holds it → the reader's own account;
+ *  - exactly one shared/group account holds it → that account;
+ *  - nobody reachable holds it → the reader's own account, the historical
+ *    answer for an id whose calendar has not loaded yet (a caller that
+ *    really means a group event passes the account explicitly and never
+ *    reaches this guess);
+ *  - the own account and a shared one both hold it, or two shared accounts
+ *    do → null, since the bare id cannot tell which was meant.
+ *
+ * Callers that know the account (every view path, since an instance carries
+ * its account) pass it explicitly and never reach this guess. No id at all
+ * means a brand-new event, which starts on the reader's own account.
  */
 function accountOfCalendar(
   calendarId: string | null | undefined,
@@ -1617,16 +1634,12 @@ function accountOfCalendar(
   shared: SharedCalendar[],
 ): Id | null {
   if (!calendarId) return ownAccountId;
-  if (own[calendarId]) return ownAccountId;
-  /*
-   * A shared id resolves to the account that shared it; anything else is not
-   * on the reader's own account, and while the shared list is empty or still
-   * loading the own account is the only answer there is. (Once
-   * `loadSharedCalendars` has run, every reachable shared calendar is in the
-   * list, so this fallback is only ever a not-loaded-yet state, never a
-   * misrouted write to a calendar the reader knows about.)
-   */
-  return shared.find((c) => c.calendar.id === calendarId)?.accountId ?? ownAccountId;
+  const ownHit = Boolean(own[calendarId]);
+  const sharedHits = shared.filter((c) => c.calendar.id === calendarId);
+  if (ownHit && sharedHits.length) return null;
+  if (sharedHits.length > 1) return null;
+  if (sharedHits.length === 1) return sharedHits[0].accountId;
+  return ownAccountId;
 }
 
 /**
