@@ -10,7 +10,6 @@ import {
   Pencil,
   Phone,
   Pin,
-  Plus,
   Search,
   StickyNote,
   Trash2,
@@ -234,6 +233,7 @@ export function ContactsView({ id }: { id?: string }) {
             className="search-input"
             style={{
               flex: 1,
+              minWidth: 0,
               height: 38,
               background: "var(--bg-sunken)",
               borderRadius: 999,
@@ -245,19 +245,18 @@ export function ContactsView({ id }: { id?: string }) {
           >
             <Search size={16} className="muted" />
             <input
-              style={{ flex: 1, border: 0, background: "transparent", outline: "none" }}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                border: 0,
+                background: "transparent",
+                outline: "none",
+              }}
               placeholder={translate("Search contacts")}
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
           </div>
-          <button
-            className="icon-btn"
-            title={translate("New contact")}
-            onClick={() => setEditing({})}
-          >
-            <Plus size={20} />
-          </button>
         </div>
         <div className="contacts-scroll">
           {contacts.loading && !contacts.loaded ? (
