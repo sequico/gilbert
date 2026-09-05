@@ -36,6 +36,30 @@ import { toast } from "@/ui/toast";
 import { categoryOf, eventColor } from "./CalendarContextMenu";
 import { askDeleteScope, runScoped } from "./scope";
 
+/**
+ * Whether this event can be edited, by the same rule the popover's Edit
+ * button uses: the reader holds write-all rights on its calendar, or write-own
+ * rights and organised it, or the event has no calendar to ask.
+ *
+ * Lived here rather than in the grid so the double-click-to-edit gesture and
+ * the popover button cannot disagree about which events may be edited.
+ */
+export function canEditInstance(inst: EventInstance): boolean {
+  const ev = inst.event;
+  const cal = useCalendar.getState();
+  const myKeys = myParticipantKeys(ev, cal.identities);
+  const participants = Object.entries(ev.participants ?? {});
+  const isOrganizer =
+    ev.isOrigin !== false &&
+    (!participants.length ||
+      participants.some(([k, p]) => p.roles?.owner && myKeys.includes(k)));
+  return Boolean(
+    inst.calendar?.myRights.mayWriteAll ||
+      (inst.calendar?.myRights.mayWriteOwn && isOrganizer) ||
+      !inst.calendar,
+  );
+}
+
 export function EventPopover({
   inst,
   anchor,
@@ -54,6 +78,7 @@ export function EventPopover({
   const color = eventColor(ev, inst.calendar?.color, categories);
   const category = categoryOf(ev, categories);
   const participants = Object.entries(ev.participants ?? {});
+  const canEdit = canEditInstance(inst);
   const myKeys = myParticipantKeys(ev, cal.identities);
   const myStatus = myKeys.length
     ? ev.participants?.[myKeys[0]!]?.participationStatus
@@ -62,10 +87,6 @@ export function EventPopover({
     ev.isOrigin !== false &&
     (!participants.length ||
       participants.some(([k, p]) => p.roles?.owner && myKeys.includes(k)));
-  const canEdit =
-    inst.calendar?.myRights.mayWriteAll ||
-    (inst.calendar?.myRights.mayWriteOwn && isOrganizer) ||
-    !inst.calendar;
   const location = Object.values(ev.locations ?? {})[0];
   const vloc = Object.values(ev.virtualLocations ?? {})[0];
   const alerts = Object.values(ev.alerts ?? {});

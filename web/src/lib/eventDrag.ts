@@ -177,6 +177,26 @@ export function dayDelta(from: Date, to: Date): number {
 }
 
 /**
+ * Moved by minutes *and* whole days at once — the week grid's drag, which
+ * carries the hand sideways across the week and down the clock at the same
+ * time.
+ *
+ * The two have to compose on the same base: first the minutes on the event's
+ * own time, then the days on that result. Written as two patches from the one
+ * stored start, whichever ran second would overwrite the other and a drag that
+ * moved down an hour and across a day would keep one half and quietly lose
+ * the other.
+ */
+export function moveBothPatch(
+  storedStart: string,
+  deltaMinutes: number,
+  days: number,
+): DragPatch {
+  const byMinute = movePatch(storedStart, deltaMinutes);
+  return moveByDaysPatch(byMinute.start ?? storedStart, days);
+}
+
+/**
  * Resized from its end. Only the duration moves, so the start -- and with it
  * the whole question of zones -- is not touched at all.
  */

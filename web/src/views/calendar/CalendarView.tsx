@@ -27,6 +27,7 @@ import {
   canDragEvent,
   type DragPatch,
   dayDelta,
+  moveBothPatch,
   moveByDaysPatch,
   movePatch,
   pixelsToMinutes,
@@ -48,7 +49,7 @@ import {
   eventColor,
 } from "./CalendarContextMenu";
 import { type EditorInit, EventEditor } from "./EventEditor";
-import { EventPopover } from "./EventPopover";
+import { canEditInstance, EventPopover } from "./EventPopover";
 import { askEditScope, droppedMessage, runScoped } from "./scope";
 
 type View = "month" | "week" | "day" | "agenda";
@@ -71,6 +72,13 @@ const VIEW_LABELS: Record<View, () => string> = {
 };
 
 const HOUR_H = 48;
+
+/*
+ * How far the pointer has to move before a press counts as a drag rather than
+ * a (double) click. A double click is rarely perfectly still; below this the
+ * press is a click and must not leave the event or open an editor behind.
+ */
+const DRAG_SLOP_PX = 5;
 
 export function CalendarView({
   view: viewParam,
@@ -288,12 +296,40 @@ export function CalendarView({
     const r = el.getBoundingClientRect();
     setPopover({ inst, anchor: { x: r.left, y: r.top, w: r.width, h: r.height } });
   };
+  /*
+   * Opening the editor for an event.
+   *
+   * The one action a double click means everywhere: an empty slot asks for a
+   * new event there, an event asks to be edited. A single click no longer does
+   * either — it opens nothing, so selecting and dragging are never interrupted
+   * by a dialog — and the popover stays reachable for touch (a tap) and for
+   * the context menu's Open.
+   */
+  const openEditor = (inst: EventInstance) => {
+    setEditor({
+      event: inst.event,
+      start: inst.start,
+      end: inst.end,
+      allDay: inst.allDay,
+    });
+  };
   const onEventContext = (inst: EventInstance, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setPopover(null);
     setCtx({ kind: "event", inst, anchor: { x: e.clientX, y: e.clientY, w: 0, h: 0 } });
   };
+
+  /*
+   * Double click on an event: edit it when it can be edited, otherwise show
+   * the details it cannot change — an invitation the reader has to answer is
+   * not something editing can help with.
+   */
+  const onOpenEvent = (inst: EventInstance, el: Element) => {
+    if (canEditInstance(inst)) openEditor(inst);
+    else onEvent(inst, el);
+  };
+
   const onSlotContext = (
     start: Date,
     end: Date,
@@ -364,6 +400,7 @@ export function CalendarView({
           weekStart={weekStart}
           onDay={(d) => go("day", d)}
           onEvent={onEvent}
+          onOpenEvent={onOpenEvent}
           onEventContext={onEventContext}
           onSlotContext={onSlotContext}
           onCreate={(d) => openNew(new Date(d.getTime() + 9 * 3600_000))}
@@ -374,6 +411,7 @@ export function CalendarView({
           onDragCommit={(i, patch) => void commitDrag(i, patch)}
           days={effectiveView === "week" ? weekDays(anchor, weekStart) : [anchor]}
           onEvent={onEvent}
+          onOpenEvent={onOpenEvent}
           onEventContext={onEventContext}
           onSlotContext={onSlotContext}
           onCreate={(s, e, allDay) => openNew(s, e, allDay)}
@@ -383,21 +421,19 @@ export function CalendarView({
         />
       )}
       {effectiveView === "agenda" && (
-        <AgendaView start={anchor} onEvent={onEvent} onEventContext={onEventContext} />
+        <AgendaView
+          start={anchor}
+          onEvent={onEvent}
+          onOpenEvent={onOpenEvent}
+          onEventContext={onEventContext}
+        />
       )}
       {ctx && (
         <CalendarContextMenu
           ctx={ctx}
           onClose={() => setCtx(null)}
           onOpen={(inst, a) => setPopover({ inst, anchor: a })}
-          onEdit={(inst) =>
-            setEditor({
-              event: inst.event,
-              start: inst.start,
-              end: inst.end,
-              allDay: inst.allDay,
-            })
-          }
+          onEdit={(inst) => openEditor(inst)}
           onCreate={(s, e, allDay) => {
             setCtx(null);
             openNew(s, e, allDay);
@@ -419,12 +455,7 @@ export function CalendarView({
           anchor={popover.anchor}
           onClose={() => setPopover(null)}
           onEdit={() => {
-            setEditor({
-              event: popover.inst.event,
-              start: popover.inst.start,
-              end: popover.inst.end,
-              allDay: popover.inst.allDay,
-            });
+            openEditor(popover.inst);
             setPopover(null);
           }}
         />
@@ -444,6 +475,7 @@ function MonthView({
   weekStart,
   onDay,
   onEvent,
+  onOpenEvent,
   onEventContext,
   onSlotContext,
   onCreate,
@@ -453,6 +485,7 @@ function MonthView({
   weekStart: number;
   onDay: (d: Date) => void;
   onEvent: (i: EventInstance, el: Element) => void;
+  onOpenEvent: (i: EventInstance, el: Element) => void;
   onEventContext: EvCtx;
   onSlotContext: SlotCtx;
   onCreate: (d: Date) => void;
@@ -480,14 +513,21 @@ function MonthView({
     e.preventDefault();
     const el = e.currentTarget as HTMLElement;
     el.setPointerCapture(e.pointerId);
+    const startX = e.clientX;
+    const startY = e.clientY;
     let landedOn: string | null = null;
     const onPointerMove = (ev: PointerEvent) => {
+      if (
+        !draggedRef.current &&
+        (Math.abs(ev.clientX - startX) >= DRAG_SLOP_PX ||
+          Math.abs(ev.clientY - startY) >= DRAG_SLOP_PX)
+      )
+        draggedRef.current = true;
       const cell = document
         .elementFromPoint(ev.clientX, ev.clientY)
         ?.closest<HTMLElement>(".month-cell");
       const date = cell?.dataset.date ?? null;
       if (date) landedOn = date;
-      if (!draggedRef.current) draggedRef.current = true;
       setDraggingKey(inst.key);
     };
     const finish = () => {
@@ -509,7 +549,7 @@ function MonthView({
           : null;
       // How far the hand moved it, in local days -- see moveByDaysPatch for
       // why the target date itself is the wrong thing to write.
-      if (target && !isSameDay(target, inst.start)) {
+      if (draggedRef.current && target && !isSameDay(target, inst.start)) {
         onDragCommit(
           inst,
           moveByDaysPatch(inst.event.start, dayDelta(inst.start, target)),
@@ -567,6 +607,7 @@ function MonthView({
                     inst={i}
                     day={d}
                     onClick={(el) => onEvent(i, el)}
+                    onOpen={(el) => onOpenEvent(i, el)}
                     onContext={(e) => onEventContext(i, e)}
                     onDragStart={
                       canDragEvent(i.event, i.calendar)
@@ -625,6 +666,7 @@ function EventChip({
   inst,
   day,
   onClick,
+  onOpen,
   onContext,
   onDragStart,
   dragging,
@@ -633,12 +675,14 @@ function EventChip({
   inst: EventInstance;
   day: Date;
   onClick: (el: Element) => void;
+  onOpen?: (el: Element) => void;
   onContext?: (e: React.MouseEvent) => void;
   onDragStart?: (e: React.PointerEvent) => void;
   dragging?: boolean;
   suppressClick?: () => boolean;
 }) {
   const color = useEventColor()(inst);
+  const isTouch = useIsTouch();
   const spansDay =
     inst.allDay ||
     inst.end.getTime() - inst.start.getTime() >= DAY_MS ||
@@ -651,7 +695,16 @@ function EventChip({
       onClick={(e) => {
         e.stopPropagation();
         if (suppressClick?.()) return;
-        onClick(e.currentTarget);
+        /* Same rule as the timed blocks: a mouse click opens nothing, a touch
+           tap opens the popover, and a double click opens the editor (or the
+           popover, for an event the reader cannot edit). */
+        if (isTouch) onClick(e.currentTarget);
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        if (suppressClick?.()) return;
+        if (isTouch) onClick(e.currentTarget);
+        else onOpen?.(e.currentTarget);
       }}
       onContextMenu={onContext}
       title={inst.event.title ?? ""}
@@ -668,6 +721,7 @@ function EventChip({
 function TimeGrid({
   days,
   onEvent,
+  onOpenEvent,
   onEventContext,
   onSlotContext,
   onCreate,
@@ -678,9 +732,10 @@ function TimeGrid({
 }: {
   days: Date[];
   onEvent: (i: EventInstance, el: Element) => void;
+  onOpenEvent: (i: EventInstance, el: Element) => void;
   onEventContext: EvCtx;
   onSlotContext: SlotCtx;
-  onCreate: (s: Date, e: Date, allDay: boolean) => void;
+  onCreate: (s: Date, e: Date | undefined, allDay: boolean) => void;
   onDayHeader: (d: Date) => void;
   onDragCommit: (i: EventInstance, patch: DragPatch) => void;
   workStart: number;
@@ -688,6 +743,7 @@ function TimeGrid({
 }) {
   const cal = useCalendar();
   const colorOf = useEventColor();
+  const isTouch = useIsTouch();
   const scrollRef = useRef<HTMLDivElement>(null);
   const start = days[0]!;
   const end = addDays(days[days.length - 1]!, 1);
@@ -697,6 +753,22 @@ function TimeGrid({
     day: Date;
     startMin: number;
     endMin: number;
+  } | null>(null);
+  /*
+   * A press on empty grid only becomes a drag once the pointer has moved a
+   * few pixels; until then it is a click, and a click must do nothing (the
+   * second click of a double click included). The press itself is held here
+   * so the pointerup after a drag can read the last span even when the final
+   * move and the release arrive in quick succession.
+   */
+  const pressRef = useRef<{
+    day: Date;
+    el: HTMLElement;
+    x: number;
+    y: number;
+    startMin: number;
+    endMin: number;
+    active: boolean;
   } | null>(null);
   /*
    * Dragging an event, as opposed to dragging out a new one on empty grid --
@@ -737,7 +809,11 @@ function TimeGrid({
       dx = ev.clientX - startX;
       dy = ev.clientY - startY;
       delta = snap(pixelsToMinutes(dy, HOUR_H));
-      if (dx !== 0 || dy !== 0) draggedRef.current = true;
+      if (
+        !draggedRef.current &&
+        (Math.abs(dx) >= DRAG_SLOP_PX || Math.abs(dy) >= DRAG_SLOP_PX)
+      )
+        draggedRef.current = true;
       setMoving({
         key: inst.key,
         deltaMin: delta,
@@ -758,38 +834,40 @@ function TimeGrid({
       /* Dragging sideways across the week moves the event to another day: the
          pointer's column, not a number of pixels, decides the target, so a
          drag that ends over the next day's column moves it one day whatever
-         the mouse did in between. */
+         the mouse did in between.
+
+         The column is measured from the day columns themselves, never from the
+         body width: `.week-body` is a grid whose first column is the 56px
+         time gutter, so dividing the whole width by the day count put the
+         boundaries a gutter's width off and drops near a column edge landed a
+         day late. */
       let dayShift = 0;
       if (mode === "move") {
         const bodyEl = el.closest(".week-body");
-        if (bodyEl && days.length > 1) {
-          const rect = bodyEl.getBoundingClientRect();
-          const colW = rect.width / days.length;
-          const col = Math.max(
-            0,
-            Math.min(days.length - 1, Math.floor((ev.clientX - rect.left) / colW)),
-          );
+        const cols = bodyEl?.querySelectorAll<HTMLElement>(".day-col");
+        if (cols && days.length > 1) {
+          let col = -1;
+          cols.forEach((c, i) => {
+            const r = c.getBoundingClientRect();
+            if (ev.clientX >= r.left && ev.clientX < r.right) col = i;
+          });
           const origin = days.findIndex((d) => isSameDay(d, inst.start));
-          if (origin >= 0) dayShift = col - origin;
+          if (origin >= 0 && col >= 0) dayShift = col - origin;
         }
       }
-      const moved = delta !== 0 || dayShift !== 0 || dx !== 0;
+      const moved = draggedRef.current && (delta !== 0 || dayShift !== 0);
       setMoving(null);
       if (moved) {
         const seconds = (inst.end.getTime() - inst.start.getTime()) / 1000;
-        const byMinute =
-          mode === "move"
-            ? movePatch(inst.event.start, delta)
-            : resizePatch(seconds, delta);
-        onDragCommit(
-          inst,
-          mode === "move" && dayShift !== 0
-            ? {
-                ...byMinute,
-                ...moveByDaysPatch(inst.event.start, dayShift),
-              }
-            : byMinute,
-        );
+        if (mode === "resize") {
+          onDragCommit(inst, resizePatch(seconds, delta));
+        } else if (dayShift === 0) {
+          onDragCommit(inst, movePatch(inst.event.start, delta));
+        } else {
+          /* Both halves of the hand's move have to land — see `moveBothPatch`
+             for why the minutes come first. */
+          onDragCommit(inst, moveBothPatch(inst.event.start, delta, dayShift));
+        }
       }
       // Cleared after the click that follows this pointerup has been swallowed.
       window.setTimeout(() => (draggedRef.current = false), 0);
@@ -824,7 +902,7 @@ function TimeGrid({
         i.end > d,
     );
 
-  const minutesFromEvent = (e: React.MouseEvent, col: HTMLElement) => {
+  const minutesFromEvent = (e: { clientY: number }, col: HTMLElement) => {
     const r = col.getBoundingClientRect();
     const y = e.clientY - r.top + 0; // col is full height
     return Math.max(0, Math.min(24 * 60, Math.round(((y / HOUR_H) * 60) / 15) * 15));
@@ -861,6 +939,7 @@ function TimeGrid({
                 inst={i}
                 day={d}
                 onClick={(el) => onEvent(i, el)}
+                onOpen={(el) => onOpenEvent(i, el)}
                 onContext={(e) => onEventContext(i, e)}
               />
             ))}
@@ -890,31 +969,82 @@ function TimeGrid({
               <div
                 key={d.toISOString()}
                 className={`day-col ${today ? "today" : ""}`}
-                onMouseDown={(e) => {
+                /*
+                 * Creating an event here needs a double click, so a single
+                 * click — which is what half a double click is — does nothing.
+                 * A press that becomes a drag (past a few pixels) still draws
+                 * the span out: a drag is a deliberate gesture, the click that
+                 * starts one is not. Touch is left out of the drag — a finger
+                 * swipe scrolls the week, and the FAB is how a touch reader
+                 * adds an event.
+                 */
+                onPointerDown={(e) => {
                   if (e.button !== 0) return;
+                  if (e.pointerType === "touch") return;
                   if ((e.target as HTMLElement).closest(".ev-block")) return;
                   const m = minutesFromEvent(e, e.currentTarget);
-                  setDrag({ day: d, startMin: m, endMin: m + 30 });
+                  pressRef.current = {
+                    day: d,
+                    el: e.currentTarget,
+                    x: e.clientX,
+                    y: e.clientY,
+                    startMin: m,
+                    endMin: m + 30,
+                    active: false,
+                  };
                 }}
-                onMouseMove={(e) => {
-                  if (!drag || !isSameDay(drag.day, d)) return;
-                  const m = minutesFromEvent(e, e.currentTarget);
-                  setDrag({ ...drag, endMin: Math.max(drag.startMin + 15, m) });
-                }}
-                onMouseUp={() => {
-                  if (!drag || !isSameDay(drag.day, d)) return;
-                  const s = new Date(d.getTime() + drag.startMin * 60_000);
-                  const e2 = new Date(d.getTime() + drag.endMin * 60_000);
-                  setDrag(null);
-                  onCreate(s, e2, false);
-                }}
-                onMouseLeave={() => {
-                  if (drag && isSameDay(drag.day, d)) {
-                    const s = new Date(d.getTime() + drag.startMin * 60_000);
-                    const e2 = new Date(d.getTime() + drag.endMin * 60_000);
-                    setDrag(null);
-                    onCreate(s, e2, false);
+                onPointerMove={(e) => {
+                  const p = pressRef.current;
+                  if (!p || !isSameDay(p.day, d)) return;
+                  if (!p.active) {
+                    if (
+                      Math.abs(e.clientX - p.x) < DRAG_SLOP_PX &&
+                      Math.abs(e.clientY - p.y) < DRAG_SLOP_PX
+                    )
+                      return;
+                    p.active = true;
+                    try {
+                      p.el.setPointerCapture(e.pointerId);
+                    } catch {
+                      /* already released */
+                    }
                   }
+                  const m = minutesFromEvent(e, p.el);
+                  p.endMin = Math.max(p.startMin + 15, m);
+                  setDrag({ day: d, startMin: p.startMin, endMin: p.endMin });
+                }}
+                onPointerUp={(e) => {
+                  const p = pressRef.current;
+                  if (!p || !isSameDay(p.day, d)) return;
+                  pressRef.current = null;
+                  setDrag(null);
+                  try {
+                    p.el.releasePointerCapture(e.pointerId);
+                  } catch {
+                    /* already released */
+                  }
+                  if (!p.active) return; // a plain click: nothing happens
+                  const s = new Date(d.getTime() + p.startMin * 60_000);
+                  const en = new Date(d.getTime() + p.endMin * 60_000);
+                  onCreate(s, en, false);
+                }}
+                onPointerCancel={(e) => {
+                  const p = pressRef.current;
+                  if (!p || !isSameDay(p.day, d)) return;
+                  pressRef.current = null;
+                  setDrag(null);
+                  try {
+                    p.el.releasePointerCapture(e.pointerId);
+                  } catch {
+                    /* already released */
+                  }
+                }}
+                onDoubleClick={(e) => {
+                  if ((e.target as HTMLElement).closest(".ev-block")) return;
+                  const m = minutesFromEvent(e, e.currentTarget);
+                  const s = new Date(d.getTime() + m * 60_000);
+                  /* The end is the reader's default duration: openNew fills it. */
+                  onCreate(s, undefined, false);
                 }}
                 onContextMenu={(e) => {
                   if ((e.target as HTMLElement).closest(".ev-block")) return;
@@ -974,7 +1104,18 @@ function TimeGrid({
                       onClick={(e) => {
                         e.stopPropagation();
                         if (draggedRef.current) return;
-                        onEvent(inst, e.currentTarget);
+                        /* A mouse click opens nothing: it is how a drag
+                           starts, and how a selection is made. A touch tap
+                           still opens the popover — there is no hover to
+                           discover details with, and a tap is the touch
+                           equivalent of right-clicking. */
+                        if (isTouch) onEvent(inst, e.currentTarget);
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        if (draggedRef.current) return;
+                        if (isTouch) onEvent(inst, e.currentTarget);
+                        else onOpenEvent(inst, e.currentTarget);
                       }}
                       onContextMenu={(e) => onEventContext(inst, e)}
                       title={inst.event.title ?? ""}
@@ -1086,14 +1227,17 @@ function layoutOverlaps(
 function AgendaView({
   start,
   onEvent,
+  onOpenEvent,
   onEventContext,
 }: {
   start: Date;
   onEvent: (i: EventInstance, el: Element) => void;
+  onOpenEvent: (i: EventInstance, el: Element) => void;
   onEventContext: EvCtx;
 }) {
   const cal = useCalendar();
   const colorOf = useEventColor();
+  const isTouch = useIsTouch();
   const end = addDays(start, 60);
   const instances = cal.instancesIn(start, end);
   const byDay = useMemo(() => {
@@ -1131,7 +1275,15 @@ function AgendaView({
               <div
                 key={i.key + day.toISOString()}
                 className={`agenda-ev ${statusClass(i)}`}
-                onClick={(e) => onEvent(i, e.currentTarget)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isTouch) onEvent(i, e.currentTarget);
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  if (isTouch) onEvent(i, e.currentTarget);
+                  else onOpenEvent(i, e.currentTarget);
+                }}
                 onContextMenu={(e) => onEventContext(i, e)}
               >
                 <span className="ev-dot" style={{ background: colorOf(i) }} />

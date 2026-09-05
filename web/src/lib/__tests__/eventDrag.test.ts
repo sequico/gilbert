@@ -6,6 +6,7 @@ import {
   dayDelta,
   formatDuration,
   MIN_DURATION_MINUTES,
+  moveBothPatch,
   moveByDaysPatch,
   movedBy,
   movedToDay,
@@ -158,6 +159,28 @@ describe("the patch a drag sends, computed in the event's own frame", () => {
     expect(moveByDaysPatch("2026-09-04T14:30:00", -3)).toEqual({
       start: "2026-09-01T14:30:00",
     });
+  });
+
+  it("keeps both the minutes and the days of a drag that moved in both", () => {
+    /*
+     * The week grid drag carries the hand sideways and down at once. Composed
+     * as two patches from the one stored start, the days half overwrites the
+     * minutes half and the drop lands at the original time of day — the
+     * erratic part this function exists to stop.
+     */
+    expect(moveBothPatch("2026-09-04T14:00:00", 60, 2)).toEqual({
+      start: "2026-09-06T15:00:00",
+    });
+    expect(moveBothPatch("2026-09-04T23:30:00", -90, 1)).toEqual({
+      start: "2026-09-05T22:00:00",
+    });
+    expect(moveBothPatch("2026-09-04T14:00:00", 0, 3)).toEqual({
+      start: "2026-09-07T14:00:00",
+    });
+    expect(moveBothPatch("2026-09-04T14:00:00", 30, 0)).toEqual({
+      start: "2026-09-04T14:30:00",
+    });
+    expect(moveBothPatch("2026-09-04T14:00:00", 7, 2).start).toBe("2026-09-06T14:00:00");
   });
 
   it("moves by the delta the hand made, not to the date that was dropped on", () => {
