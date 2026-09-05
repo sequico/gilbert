@@ -41,6 +41,7 @@ import {
   weekdayOptions,
 } from "@/lib/recurrence";
 import {
+  accountOfCalendarId,
   type EventScope,
   eventRule,
   isOccurrence,
@@ -48,7 +49,6 @@ import {
   makeParticipant,
   myParticipantKeys,
   participantEmail,
-  sharedKey,
   useCalendar,
 } from "@/store/calendar";
 import { useContacts } from "@/store/contacts";
@@ -155,7 +155,13 @@ export function EventEditor({
       }
       setScope(chosen);
       if (chosen === "occurrence") setBase(ev);
-      else void cal.getEvent(ev.baseEventId!).then(setBase);
+      else
+        void cal
+          .getEvent(
+            ev.baseEventId!,
+            accountOfCalendarId(Object.keys(ev.calendarIds ?? {})[0]),
+          )
+          .then(setBase);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [init.event?.id]);
@@ -199,12 +205,13 @@ function EventForm({
   const oneDate = scope === "occurrence";
   const cal = useCalendar();
   const contacts = useContacts();
-  const settings = useSettings((s) => s.settings);
   const ev = base;
-  /* Calendars the reader may write to: their own, and the subscribed ones
-     they do not own -- a colleague's writable share, or a group mailbox they
-     belong to. Group calendars keep their account, so a same-named calendar
-     elsewhere is not silently aimed at. */
+  /* Calendars the reader may write to: their own, and the ones they may write
+     into that are not their own — a colleague's writable share, or a group
+     mailbox they belong to. Whether a calendar has been added to the reader's
+     view is a question about drawing it, not about writing into it, so
+     nothing writable is withheld: the picker is where a new event is aimed,
+     and an event can be aimed at a calendar the reader has not added yet. */
   const calendars = [
     ...Object.values(cal.calendars)
       .filter(
@@ -221,9 +228,7 @@ function EventForm({
       .filter(
         (x) =>
           x.calendar.description !== TASKLIST_MARKER &&
-          (x.calendar.myRights.mayWriteAll || x.calendar.myRights.mayWriteOwn) &&
-          (x.calendar.isSubscribed ||
-            settings.addedShares.includes(sharedKey(x.accountId, x.calendar.id))),
+          (x.calendar.myRights.mayWriteAll || x.calendar.myRights.mayWriteOwn),
       )
       .map((x) => ({
         id: x.calendar.id,

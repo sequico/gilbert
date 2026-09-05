@@ -363,7 +363,12 @@ interface CalendarState {
   instancesIn(start: Date, end: Date): EventInstance[];
   /** Re-fetch every subscribed calendar. */
   refreshSubscriptions(): Promise<void>;
-  getEvent(id: Id): Promise<CalendarEvent | null>;
+  /**
+   * `accountId` defaults to the reader's own. Pass it when the event lives in
+   * a shared or group account: an id means nothing outside the account that
+   * holds it.
+   */
+  getEvent(id: Id, accountId?: Id | null): Promise<CalendarEvent | null>;
   createEvent(
     event: Partial<CalendarEvent>,
     calendarId: Id,
@@ -924,16 +929,20 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     return [...out, ...birthdays];
   },
 
-  async getEvent(id) {
-    const accountId = get().accountId;
-    if (!accountId) return null;
+  async getEvent(id, accountId) {
+    const own = get().accountId;
+    const acc = accountId ?? own;
+    if (!acc) return null;
     const res = await client.call<GetResponse<CalendarEvent>>("CalendarEvent/get", {
-      accountId,
+      accountId: acc,
       ids: [id],
       properties: EVENT_PROPS,
     });
     const e = res.list[0];
-    if (e) set((s) => ({ events: { ...s.events, [e.id]: e } }));
+    /* Cached under the own-account map only when it is an own event: an id is
+       unique within an account, so a shared master fetched here must not
+       overwrite a same-id event of the reader's own. */
+    if (e && acc === own) set((s) => ({ events: { ...s.events, [e.id]: e } }));
     return e ?? null;
   },
 
@@ -945,6 +954,13 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       get().sharedCalendars,
     );
     if (!accountId) throw new Error("Calendar is not available");
+    /*
+     * A shared calendar the reader may write to but has not added is still a
+     * fine place for an event; the event simply would not be drawn back until
+     * the calendar was added. This create is the deliberate act, so the
+     * calendar is added here rather than left invisible.
+     */
+    if (accountId !== get().accountId) await ensureCalendarVisible(accountId, calendarId);
     const obj = {
       "@type": "Event",
       uid: crypto.randomUUID(),
@@ -971,13 +987,14 @@ export const useCalendar = create<CalendarState>((set, get) => ({
      * it.
      */
     if (isBirthdayEvent(event.id) || isSubscriptionEvent(event.id)) return [];
+    const currentCalId = Object.keys(event.calendarIds ?? {})[0];
     const accountId = accountOfCalendar(
-      Object.keys(event.calendarIds ?? {})[0],
+      currentCalId,
       get().calendars,
       get().accountId,
       get().sharedCalendars,
     );
-    if (!accountId) return [];
+    if (!accountId) throw new Error("Calendar is not available");
     const id =
       scope === "occurrence"
         ? await currentOccurrenceId(accountId, event)
@@ -989,6 +1006,85 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         ? occurrencePatch(patch)
         : { patch, dropped: [] as string[] };
     if (!Object.keys(body).length) return dropped;
+
+    /*
+     * Moving the event to a calendar in another account.
+     *
+     * The reader's own and a shared or group calendar are different JMAP
+     * accounts, and an event cannot change accounts by editing
+     * `calendarIds` — the id would name a calendar the old account does not
+     * hold, so the event would either be refused or simply stop being drawn.
+     * A move across accounts is re-filing: the reader's edits land on the
+     * event where it is, then the whole event is recreated under the target
+     * account with the same uid (so an attendee's copy updates rather than
+     * duplicating), and the original is destroyed.
+     */
+    const targetCalId = Object.keys(
+      (body.calendarIds as Record<string, true> | undefined) ?? {},
+    )[0];
+    if (targetCalId && targetCalId !== currentCalId) {
+      const targetAccount = accountOfCalendar(
+        targetCalId,
+        get().calendars,
+        get().accountId,
+        get().sharedCalendars,
+      );
+      if (!targetAccount) throw new Error("Calendar is not available");
+      if (targetAccount !== accountId) {
+        // An occurrence belongs to the series that holds it and cannot leave
+        // for another account on its own; the editor already disables the
+        // picker for one, and occurrencePatch refused the id above.
+        if (scope === "occurrence") throw new OccurrenceScopeError("calendarIds");
+        /* A calendar that is not on the reader's own account is added first,
+           or the moved event would not be drawn back where it went. */
+        if (targetAccount !== get().accountId)
+          await ensureCalendarVisible(targetAccount, targetCalId);
+        /* 1. The reader's edits, where the event already is. Invitations wait
+              for the re-filed copy, which is what guests will answer. A pure
+              move edits nothing here, so there is nothing to send. */
+        const { calendarIds: _moved, ...sameAccount } = body;
+        if (Object.keys(sameAccount).length) {
+          const res0 = await client.call<SetResponse>("CalendarEvent/set", {
+            accountId,
+            update: { [id]: sameAccount },
+            sendSchedulingMessages: false,
+          });
+          const err0 = res0.notUpdated?.[id];
+          if (err0) throw new CalendarSetError(err0);
+        }
+        /* 2. The event as the source account stores it now — a fresh read, so
+              nothing of it (a recurrence and its overrides among the rest) is
+              lost on the way to the other account. */
+        const stored = await readEvent(accountId, id);
+        if (!stored)
+          throw new Error(
+            "The event could not be read again after saving, so it was not moved.",
+          );
+        /* 3. Recreate it under the target account, same uid. */
+        const res1 = await client.call<SetResponse<CalendarEvent>>("CalendarEvent/set", {
+          accountId: targetAccount,
+          create: { e: moveCopy(stored, targetCalId) },
+          sendSchedulingMessages: sendInvites,
+        });
+        const err1 = res1.notCreated?.e;
+        if (err1) throw new Error(setErrorMessage(err1));
+        /* 4. Drop the original. A failure here leaves the event in both
+              accounts — better a duplicate than a loss, and the message says
+              which half happened. */
+        const res2 = await client.call<SetResponse>("CalendarEvent/set", {
+          accountId,
+          destroy: [id],
+          sendSchedulingMessages: false,
+        });
+        const err2 = res2.notDestroyed?.[id];
+        get().invalidate();
+        if (err2)
+          throw new Error(
+            "The event was moved, but the copy on the old calendar could not be deleted. Delete it by hand.",
+          );
+        return dropped;
+      }
+    }
     const res = await client.call<SetResponse>("CalendarEvent/set", {
       accountId,
       update: { [id]: body },
@@ -1015,7 +1111,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       get().accountId,
       get().sharedCalendars,
     );
-    if (!accountId) return;
+    if (!accountId) throw new Error("Calendar is not available");
     const id =
       scope === "occurrence"
         ? await currentOccurrenceId(accountId, event)
@@ -1432,7 +1528,83 @@ function accountOfCalendar(
 ): Id | null {
   if (!calendarId) return ownAccountId;
   if (own[calendarId]) return ownAccountId;
+  /*
+   * A shared id resolves to the account that shared it; anything else is not
+   * on the reader's own account, and while the shared list is empty or still
+   * loading the own account is the only answer there is. (Once
+   * `loadSharedCalendars` has run, every reachable shared calendar is in the
+   * list, so this fallback is only ever a not-loaded-yet state, never a
+   * misrouted write to a calendar the reader knows about.)
+   */
   return shared.find((c) => c.calendar.id === calendarId)?.accountId ?? ownAccountId;
+}
+
+/**
+ * The account that holds a calendar id, from what the store has loaded.
+ *
+ * Shared and group calendars are not the reader's own, and an id means nothing
+ * outside the account that holds it — the editor asks for an event's master
+ * with this rather than with the reader's own account.
+ */
+export function accountOfCalendarId(calendarId: string | null | undefined): Id | null {
+  const s = useCalendar.getState();
+  return accountOfCalendar(calendarId, s.calendars, s.accountId, s.sharedCalendars);
+}
+
+/**
+ * Add a shared calendar to the reader's view unless it is there already.
+ *
+ * A write aimed at a shared calendar the reader has not added would land
+ * where they cannot see it — the calendar is drawn only once subscribed or
+ * held in `addedShares`. The write itself (a create or a move) is the
+ * deliberate act, so the calendar is added here rather than left invisible.
+ */
+async function ensureCalendarVisible(accountId: Id, calendarId: Id): Promise<void> {
+  const cal = useCalendar.getState();
+  const known = cal.sharedCalendars.find(
+    (c) => c.accountId === accountId && c.calendar.id === calendarId,
+  );
+  const added = new Set(settings().addedShares);
+  if (!known?.calendar.isSubscribed && !added.has(sharedKey(accountId, calendarId)))
+    await cal.setSharedSubscribed(accountId, calendarId, true);
+}
+
+/** The event, as the account that holds it stores it. */
+async function readEvent(accountId: Id, id: Id): Promise<CalendarEvent | null> {
+  const res = await client.call<GetResponse<CalendarEvent>>("CalendarEvent/get", {
+    accountId,
+    ids: [id],
+    properties: EVENT_PROPS,
+  });
+  return res.list[0] ?? null;
+}
+
+/**
+ * Fields that say where an event sits in an account, not what the event is.
+ *
+ * Everything else — the uid, the rule and its overrides, the participants,
+ * the alerts — rides along untouched when an event is re-filed under another
+ * account.
+ */
+const MOVE_STRIP = new Set([
+  "id",
+  "baseEventId",
+  "calendarIds",
+  "recurrenceId",
+  "recurrenceIdTimeZone",
+  "utcStart",
+  "utcEnd",
+  "isOrigin",
+  "created",
+  "updated",
+]);
+
+/** The same event, aimed at another account's calendar. */
+function moveCopy(stored: CalendarEvent, targetCalendarId: Id): Record<string, unknown> {
+  const copy: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(stored)) if (!MOVE_STRIP.has(k)) copy[k] = v;
+  copy.calendarIds = { [targetCalendarId]: true };
+  return copy;
 }
 
 export function toInstance(
