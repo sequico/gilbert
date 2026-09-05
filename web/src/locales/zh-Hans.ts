@@ -321,7 +321,6 @@ export const catalog: Catalog = {
     Busy: "忙碌",
     "Free/busy": "忙闲状态",
     "Show as": "显示为",
-    "Availability on {date}": "{date} 的忙闲状态",
     "Count all events as busy": "所有日程都计为忙碌",
     "Only events I'm attending": "仅我参加的日程",
     "Don't include in availability": "不计入忙闲状态",
@@ -360,7 +359,6 @@ export const catalog: Catalog = {
     "New address book": "新建通讯录",
     "No address books yet.": "还没有通讯录。",
     "Choose from address books": "从通讯录中选择",
-    "Import vCard": "导入 vCard",
     "Export all contacts": "导出所有联系人",
     "Export address book": "导出此通讯录",
     "Import contacts…": "导入联系人…",
@@ -436,8 +434,6 @@ export const catalog: Catalog = {
     "Make ihasmail yours.": "把 ihasmail 调成您喜欢的样子。",
     Reading: "阅读",
     "Reading pane": "阅读窗格",
-    "Reading, sending and list behaviour. Settings are stored in this browser.":
-      "阅读、发送和列表行为。设置保存在此浏览器中。",
     "Right of the list": "列表右侧",
     "Below the list": "列表下方",
     "Hidden (open full width)": "隐藏（全宽打开）",
@@ -739,8 +735,6 @@ export const catalog: Catalog = {
     "Manage labels": "管理标签",
     "Create “{name}”": "创建「{name}」",
     "Type a name to create your first label.": "输入名称以创建您的第一个标签。",
-    "Labels are IMAP keywords stored on your messages, so they sync to other clients. Names and colours are kept in this browser.":
-      "标签是保存在邮件上的 IMAP 关键词，因此会同步到其他客户端。名称和颜色则保存在此浏览器中。",
     "New label": "新建标签",
     "Delete label": "删除标签",
 
@@ -874,8 +868,6 @@ export const catalog: Catalog = {
       "目录中没有找到其他用户，因此无法添加新的共享对象。已有的共享列在下方，仍可移除。",
     "Stalwart does not publish its version number to mail clients, so ihasmail reports the edition where the server gives one. ihasmail requires 0.16 or newer, and sign-in refuses anything older.":
       "Stalwart 不会向邮件客户端公布版本号，因此只有在服务器给出版本类型时，ihasmail 才会报告它。ihasmail 需要 0.16 或更高版本，更旧的版本一律无法登录。",
-    "{name} is the palette from {site}, and what a new account starts on. It is a dark theme, so it counts as dark wherever that matters, and the accent colour below still applies on top of it.":
-      "{name} 是 {site} 的配色，也是新账户的初始主题。它属于深色主题，因此在需要区分明暗的地方都算作深色，下方的强调色仍会叠加在它之上。",
     "ihasmail's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what this build needs from the server is the line above.":
       "ihasmail 自身的版本号是其构建所用提交的日期，后面跟着该提交的来源：{example} 表示由 2026 年 8 月 30 日的一个提交构建而成，而该提交来自第 129 号拉取请求。未经拉取请求的提交则改用简短 SHA 表示——{sha}。版本号刻意不包含任何关于 Stalwart 的信息；此版本对服务器的要求见上一行。",
 
@@ -975,7 +967,6 @@ export const catalog: Catalog = {
     "Contact deleted": "联系人已删除",
     "Contact saved": "联系人已保存",
     Copied: "已复制",
-    "Copy of {title}": "{title} 的副本",
     "Could not cancel: {error}": "无法取消：{error}",
     "Could not copy": "无法复制",
     "Could not copy the address": "无法复制该地址",

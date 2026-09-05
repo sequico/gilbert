@@ -52,6 +52,20 @@ for (const file of globSync("web/src/**/*.{ts,tsx}").filter(
       };
       if (n.initializer) walk(n.initializer);
     }
+    /*
+     * A keyboard scope entry carries `keys` and a `description` that the
+     * Shortcuts dialog translates where it renders -- t(b.description), a
+     * variable lookup this scan cannot see. Without the rule every such
+     * description looked stale. The `keys` sibling is what marks an object as
+     * a scope entry rather than some other description-bearing shape.
+     */
+    if (ts.isObjectLiteralExpression(n)) {
+      const props = n.properties.filter(ts.isPropertyAssignment);
+      const hasKeys = props.some((p) => p.name.getText(src) === "keys");
+      const desc = props.find((p) => p.name.getText(src) === "description");
+      if (hasKeys && desc && ts.isStringLiteral(desc.initializer))
+        wanted.add(desc.initializer.text);
+    }
     if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
       const fn = n.expression.text,
         a0 = n.arguments[0];

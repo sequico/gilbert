@@ -12,6 +12,7 @@
  * The rules in `mdnDecision` below are what keep that from being automatic.
  */
 import type { Email, EmailAddress } from "@/jmap/types";
+import { t } from "@/lib/i18n";
 import { formatAddress, sameAddress } from "./address";
 
 /** RFC 3503: set on the original once a receipt has been sent for it. */
@@ -74,17 +75,22 @@ export function mdnDecision(email: Email): MdnDecision {
 
 /** Why we are not offering, in words for the message header. */
 export function refusalText(refusal: MdnRefusal): string {
+  /* Translated here, where the words are, rather than by the caller: the
+     caller sees only a variable, so a t() in the view would leave these keys
+     invisible to the i18n stale check. */
   switch (refusal) {
     case "already-sent":
-      return "A read receipt was already sent for this message.";
+      return t("A read receipt was already sent for this message.");
     case "auto-submitted":
-      return "This message was sent automatically, so no read receipt is offered.";
+      return t("This message was sent automatically, so no read receipt is offered.");
     case "bulk":
-      return "This is bulk or list mail; read receipts for it only confirm the address is live.";
+      return t(
+        "This is bulk or list mail; read receipts for it only confirm the address is live.",
+      );
     case "draft-or-sent":
-      return "This message has not been received, so there is nothing to report.";
+      return t("This message has not been received, so there is nothing to report.");
     default:
-      return "The sender did not request a read receipt.";
+      return t("The sender did not request a read receipt.");
   }
 }
 

@@ -705,7 +705,7 @@ export const MessageView = memo(function MessageView({
                       ? translate("Requested, to {address}. Never sent automatically.", {
                           address: receipt.to!.email,
                         })
-                      : translate(refusalText(receipt.refusal!))}
+                      : refusalText(receipt.refusal!)}
                   </dd>
                 </>
               )}

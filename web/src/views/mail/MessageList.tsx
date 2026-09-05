@@ -923,7 +923,7 @@ export function MessageList({
         />
         <MenuItem
           icon={<Star size={16} />}
-          label={someUnstarred ? "Add star" : "Remove star"}
+          label={someUnstarred ? t("Add star") : t("Remove star")}
           kbd="s"
           onClick={() => void actions.star(someUnstarred, ctxTargets)}
         />

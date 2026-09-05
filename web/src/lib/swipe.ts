@@ -13,6 +13,8 @@
  * is one the row simply will not move in.
  */
 
+import { t } from "@/lib/i18n";
+
 export type SwipeAction =
   | "archive"
   | "delete"
@@ -105,7 +107,7 @@ export function describeSwipe(
     case "star":
       return {
         action,
-        label: ctx.starred ? "Remove star" : "Add star",
+        label: ctx.starred ? t("Remove star") : t("Add star"),
         icon: ctx.starred ? "unstar" : "star",
         tone: "warn",
         removes: false,

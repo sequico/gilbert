@@ -352,7 +352,7 @@ export function ThreadView({
         >
           <MenuItem
             icon={<Star size={16} />}
-            label={anyStarred ? "Remove star" : "Add star"}
+            label={anyStarred ? t("Remove star") : t("Add star")}
             onClick={() => void actions.star(!anyStarred, rowIds)}
           />
           <MenuItem

@@ -134,7 +134,7 @@ export function ShortcutsDialog({
             <h3>{group}</h3>
             {items.map((b) => (
               <div key={b.keys} className="shortcut-row">
-                <span>{b.description}</span>
+                <span>{t(b.description)}</span>
                 <Kbd keys={b.keys} />
               </div>
             ))}
