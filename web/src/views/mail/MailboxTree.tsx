@@ -216,9 +216,12 @@ export function MailboxTree() {
 
   /*
    * Whether the account on screen is a group mailbox rather than the reader's
-   * own. Its folders are read-only in the sidebar: folder management (new,
-   * rename, colour, share) belongs to whoever owns the box, and the store's
-   * folder writes aim at the active account -- which is this one.
+   * own. The folder rows of the active account stay fully manageable either
+   * way -- the store's folder writes aim at the active account, which is this
+   * one -- but the header names the account, the "new folder" button and the
+   * personal label list belong to the reader's own mailbox, and the rows of
+   * the *other* accounts below are read-only launchers: opening a folder
+   * there switches the active account to its owner.
    */
   const inGroup = Boolean(ownAccountId && accountId && accountId !== ownAccountId);
   const activeAccountName = mailAccounts.find((a) => a.accountId === accountId)?.name;
@@ -387,7 +390,6 @@ export function MailboxTree() {
               childUnread={subtreeUnread(drill.id)}
               onToggle={() => {}}
               currentId={currentId}
-              readOnly={inGroup}
               onMenu={(mb, e) => {
                 setMenuTarget(mb);
                 menu.open(e);
@@ -423,7 +425,6 @@ export function MailboxTree() {
             onToggle={() => toggle(m.id)}
             onDrillIn={isMobile && hasChildren ? () => setDrillId(m.id) : undefined}
             currentId={currentId}
-            readOnly={inGroup}
             onMenu={(mb, e) => {
               setMenuTarget(mb);
               menu.open(e);

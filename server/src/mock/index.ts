@@ -1799,7 +1799,10 @@ const handlers: Record<string, Handler> = {
       genericGet(mailboxesFor(a.accountId))(a) as { list: Obj[] },
     ) as never,
   "Mailbox/set": (a) => {
-    const r = genericSet(mailboxes, "m", (o) =>
+    /* Folder management runs on whichever account is active -- the reader's
+       own, or the group mailbox they opened -- so the set must find the
+       folder in that account's tree, not always in the demo's. */
+    const r = genericSet(mailboxesFor(a.accountId), "m", (o) =>
       Object.assign(o, {
         ...mb(o.id as string, o.name as string, null, (o.parentId as string) ?? null),
         ...o,
@@ -2945,7 +2948,9 @@ export const server = createServer(async (req, res) => {
       );
     }
     res.writeHead(200, { "content-type": "application/json" });
-    return res.end(JSON.stringify({ methodResponses: responses, sessionState: "1" }));
+    return res.end(
+      JSON.stringify({ methodResponses: responses, sessionState: String(state.n) }),
+    );
   }
   if (url.pathname.startsWith("/jmap/upload/") && req.method === "POST") {
     const data = await readBody(req);

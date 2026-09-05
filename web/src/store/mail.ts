@@ -356,35 +356,57 @@ export const useMail = create<MailState>((set, get) => ({
    * whose folder trees `Mailbox/get` answers with. Each candidate is asked for
    * its folders; an account that shares only calendars, books or files answers
    * with none and is not listed (see lib/mailAccounts).
+   *
+   * A session refresh can land at any moment, so this must be cheap when
+   * nothing changed: probing every account on every refresh would turn the
+   * session's own change beat into a loop. Skip when the candidate list is
+   * already the one on screen, and collapse overlapping runs.
    */
   async discoverMailAccounts() {
+    if (discoveringMailAccounts) return;
     const session = useSession.getState().session;
     const candidates = mailAccountCandidates(session);
-    const ownInfo = candidates.find((c) => c.kind === "own") ?? null;
-    const groups: MailAccountInfo[] = [];
-    const trees: Record<Id, Record<Id, Mailbox>> = {};
-    for (const c of candidates) {
-      if (c.kind !== "group") continue;
-      try {
-        const res = await client.call<GetResponse<Mailbox>>("Mailbox/get", {
-          accountId: c.accountId,
-          ids: null,
-          properties: MAILBOX_PROPS,
-        });
-        if (!res.list.length) continue;
-        const tree: Record<Id, Mailbox> = {};
-        for (const m of res.list) tree[m.id] = m;
-        trees[c.accountId] = tree;
-        groups.push(c);
-      } catch {
-        /* an account whose mail cannot be read is not a mailbox account */
+    const current = get().mailAccounts;
+    if (
+      candidates.length === current.length &&
+      candidates.every(
+        (c, i) =>
+          current[i]?.accountId === c.accountId &&
+          current[i]?.kind === c.kind &&
+          current[i]?.name === c.name,
+      )
+    )
+      return;
+    discoveringMailAccounts = true;
+    try {
+      const ownInfo = candidates.find((c) => c.kind === "own") ?? null;
+      const groups: MailAccountInfo[] = [];
+      const trees: Record<Id, Record<Id, Mailbox>> = {};
+      for (const c of candidates) {
+        if (c.kind !== "group") continue;
+        try {
+          const res = await client.call<GetResponse<Mailbox>>("Mailbox/get", {
+            accountId: c.accountId,
+            ids: null,
+            properties: MAILBOX_PROPS,
+          });
+          if (!res.list.length) continue;
+          const tree: Record<Id, Mailbox> = {};
+          for (const m of res.list) tree[m.id] = m;
+          trees[c.accountId] = tree;
+          groups.push(c);
+        } catch {
+          /* an account whose mail cannot be read is not a mailbox account */
+        }
       }
+      set((s) => ({
+        ownAccountId: ownInfo?.accountId ?? null,
+        mailAccounts: ownInfo ? [ownInfo, ...groups] : [],
+        accountTrees: { ...s.accountTrees, ...trees },
+      }));
+    } finally {
+      discoveringMailAccounts = false;
     }
-    set((s) => ({
-      ownAccountId: ownInfo?.accountId ?? null,
-      mailAccounts: ownInfo ? [ownInfo, ...groups] : [],
-      accountTrees: { ...s.accountTrees, ...trees },
-    }));
   },
 
   async refreshAccountTree(accountId) {
@@ -1577,6 +1599,9 @@ function sortIdentities(list: Identity[], accountId: Id): Identity[] {
  * Keyed by nothing: a refusal is about the server, and there is only one.
  */
 let sortRefused = false;
+
+/** A discovery run is in flight; collapse the next session-refresh trigger. */
+let discoveringMailAccounts = false;
 
 async function runQuery(accountId: Id, q: ListQuery, position: number, limit: number) {
   /*

@@ -222,3 +222,35 @@ test("Email/set on the folder-share account cannot touch group mail", async () =
   // a2 holds no mail of its own, so the group message is not reachable there.
   assert.deepEqual(s[1].updated, {});
 });
+
+test("Mailbox/set on the group creates a subfolder in the group's tree only", async () => {
+  const res = await post("/api/jmap", {
+    using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
+    methodCalls: [
+      [
+        "Mailbox/set",
+        {
+          accountId: "a3",
+          create: { p: { name: "Projects", parentId: "g-inbox" } },
+        },
+        "s",
+      ],
+      ["Mailbox/get", { accountId: "a3", ids: null }, "g3"],
+      ["Mailbox/get", { accountId: "a1", ids: null }, "g1"],
+    ],
+  });
+  assert.equal(res.status, 200);
+  const s = responseOf(res.body, "s");
+  assert.ok(s, "Mailbox/set should answer");
+  const newId = (s[1].created as Record<string, { id: string }>).p?.id;
+  assert.ok(newId, "the subfolder should be created");
+  const listOf = (callId: string): Obj[] => {
+    const call = responseOf(res.body, callId);
+    return call ? (call[1].list as Obj[]) : [];
+  };
+  const inGroup = listOf("g3").find((m) => m.id === newId);
+  assert.ok(inGroup, "the new folder should live in the group's tree");
+  assert.equal(inGroup.parentId, "g-inbox");
+  const inOwn = listOf("g1").some((m) => m.id === newId);
+  assert.equal(inOwn, false, "the reader's own tree must not gain the folder");
+});
