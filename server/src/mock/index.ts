@@ -41,6 +41,8 @@ const ACCOUNT = "a1";
 const PUSH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /** An account somebody has shared with the demo user. See the session below. */
 const SHARED_ACCOUNT = "a2";
+/** A group (team) mailbox the demo user is a member of. See the session below. */
+const GROUP_ACCOUNT = "a3";
 const SHARED_CAPS: Obj = {
   "urn:ietf:params:jmap:mail": {},
   "urn:ietf:params:jmap:submission": {},
@@ -243,6 +245,8 @@ function addEmail(o: {
   attach?: boolean;
   winmail?: boolean;
   inReplyTo?: string;
+  /** The list to push onto; the demo account's `emails` by default. */
+  into?: Obj[];
 }) {
   const id = `e${counter++}`;
   const received = new Date(
@@ -423,7 +427,7 @@ function addEmail(o: {
           ? "No, score=-1.8 required=5.0 tests=[BAYES_00=-1.9, DKIM_VALID=-0.7, SPF_PASS=-0.1, HTML_MESSAGE=0.9]"
           : null,
   };
-  emails.push(e);
+  (o.into ?? emails).push(e);
   return e;
 }
 // Seed
@@ -658,10 +662,110 @@ const sharedCalendars: Obj[] = [
   },
 ];
 const sharedEvents: Obj[] = [];
+/* A group (team) mailbox: its own folder tree, messages and identity, so a
+   member reading the group's mail can be exercised. Groups answer with no
+   calendars, address books or files here -- only the mailbox -- so a group
+   with a mailbox but nothing else is what the other panes discover. */
+const groupMailboxes: Obj[] = [
+  mb("g-inbox", "Inbox", "inbox"),
+  mb("g-sent", "Sent Items", "sent"),
+];
+const groupEmails: Obj[] = [
+  {
+    id: "ge1",
+    blobId: putBlob(
+      "Subject: Welcome to the team mailbox\r\n\r\nHello from the group!",
+      "message/rfc822",
+    ),
+    threadId: "gt1",
+    mailboxIds: { "g-inbox": true },
+    keywords: { $seen: false },
+    size: 128,
+    receivedAt: new Date().toISOString(),
+    subject: "Welcome to the team mailbox",
+    from: [{ name: "Ada Lovelace", email: "ada@example.org" }],
+    to: [{ name: "Team", email: "team@example.org" }],
+    preview: "Hello from the group!",
+    hasAttachment: false,
+    textBody: [],
+    htmlBody: [],
+    attachments: [],
+    bodyValues: {},
+    messageId: ["ge1@mock"],
+  },
+];
+/* More of the group's mail, through the same builder the demo account's own
+   mail uses, so opening a message shows a real body rather than an empty
+   pane. Counts are recomputed by recount() below, whichever folders the mail
+   lands in. */
+addEmail({
+  from: ["Grace Hopper", "grace@example.org"],
+  subject: "Q3 planning document",
+  daysAgo: 0.5,
+  mailbox: "g-inbox",
+  unread: true,
+  html: true,
+  into: groupEmails,
+});
+addEmail({
+  from: ["Team", "team@example.org"],
+  to: "ada@example.org",
+  subject: "Re: Q3 planning document",
+  daysAgo: 1.2,
+  mailbox: "g-sent",
+  html: true,
+  into: groupEmails,
+});
+const groupIdentities: Obj[] = [
+  {
+    id: "gi1",
+    name: "Team",
+    email: "team@example.org",
+    replyTo: null,
+    bcc: null,
+    textSignature: "",
+    htmlSignature: "",
+    mayDelete: false,
+  },
+];
+/*
+ * Mail per account. A group (team) mailbox carries its own folder tree,
+ * messages and identity; the account that shared calendars, address books and
+ * files carries none -- a person who shared a folder is not a mailbox the
+ * reader can open. Whether a real 0.16 server answers Mailbox/get on a
+ * folder-share account this way is unverified (mail folder sharing is
+ * withdrawn there, and the sharee's session lists the sharer's whole account);
+ * the mock says no so the two kinds stay apart, and the client's mailbox
+ * probe lists only the accounts that answer with a tree.
+ */
+const mailboxesFor = (accountId: unknown): Obj[] =>
+  accountId === GROUP_ACCOUNT
+    ? groupMailboxes
+    : accountId === SHARED_ACCOUNT
+      ? []
+      : mailboxes;
+const emailsFor = (accountId: unknown): Obj[] =>
+  accountId === GROUP_ACCOUNT ? groupEmails : accountId === SHARED_ACCOUNT ? [] : emails;
+const identitiesFor = (accountId: unknown): Obj[] =>
+  accountId === GROUP_ACCOUNT
+    ? groupIdentities
+    : accountId === SHARED_ACCOUNT
+      ? []
+      : identities;
+const groupEvents: Obj[] = [];
+const groupCalendars: Obj[] = [];
 const eventsFor = (accountId: unknown): Obj[] =>
-  accountId === SHARED_ACCOUNT ? sharedEvents : events;
+  accountId === SHARED_ACCOUNT
+    ? sharedEvents
+    : accountId === GROUP_ACCOUNT
+      ? groupEvents
+      : events;
 const calendarsFor = (accountId: unknown): Obj[] =>
-  accountId === SHARED_ACCOUNT ? sharedCalendars : calendars;
+  accountId === SHARED_ACCOUNT
+    ? sharedCalendars
+    : accountId === GROUP_ACCOUNT
+      ? groupCalendars
+      : calendars;
 const calendars: Obj[] = [
   {
     id: "c1",
@@ -946,8 +1050,14 @@ function compareBy(x: Obj, y: Obj, property: string, keyword?: string): number {
 /** A server that does not implement sorting on keywords, so the fallback can be developed against. */
 const NO_KEYWORD_SORT = process.env.MOCK_NO_KEYWORD_SORT === "1";
 
+const groupAddressBooks: Obj[] = [];
+const groupCards: Obj[] = [];
 const booksFor = (accountId: unknown): Obj[] =>
-  accountId === SHARED_ACCOUNT ? sharedAddressBooks : addressBooks;
+  accountId === SHARED_ACCOUNT
+    ? sharedAddressBooks
+    : accountId === GROUP_ACCOUNT
+      ? groupAddressBooks
+      : addressBooks;
 /** One per contact, by index; a gap means that card has no birthday. */
 const BIRTHDAYS: Array<{ year?: number; month: number; day: number } | null> = [
   { year: 1815, month: 12, day: 10 },
@@ -1004,6 +1114,15 @@ const principals: Obj[] = people.slice(0, 5).map((p, i) => ({
   email: p[1],
   timeZone: "UTC",
 }));
+// A group principal, so the directory and the sharing pickers can offer a team.
+principals.push({
+  id: "pr-team",
+  type: "group",
+  name: "Team",
+  description: null,
+  email: "team@example.org",
+  timeZone: "UTC",
+});
 const fileNodes: Obj[] = [
   {
     id: "f1",
@@ -1079,8 +1198,13 @@ const sharedFileNodes: Obj[] = [
   },
 ];
 /** The node list an account owns. */
+const groupFileNodes: Obj[] = [];
 const nodesFor = (accountId: unknown): Obj[] =>
-  accountId === SHARED_ACCOUNT ? sharedFileNodes : fileNodes;
+  accountId === SHARED_ACCOUNT
+    ? sharedFileNodes
+    : accountId === GROUP_ACCOUNT
+      ? groupFileNodes
+      : fileNodes;
 
 function fr() {
   return {
@@ -1093,9 +1217,9 @@ function fr() {
   };
 }
 
-function recount() {
-  for (const m of mailboxes) {
-    const inBox = emails.filter((e) => (e.mailboxIds as Obj)[m.id as string]);
+function recountMail(ms: Obj[], es: Obj[]) {
+  for (const m of ms) {
+    const inBox = es.filter((e) => (e.mailboxIds as Obj)[m.id as string]);
     m.totalEmails = inBox.length;
     m.unreadEmails = inBox.filter((e) => !(e.keywords as Obj).$seen).length;
     const threads = new Set(inBox.map((e) => e.threadId));
@@ -1104,6 +1228,11 @@ function recount() {
       inBox.filter((e) => !(e.keywords as Obj).$seen).map((e) => e.threadId),
     ).size;
   }
+}
+/* Counts follow the mail, for whichever account holds it. */
+function recount() {
+  recountMail(mailboxes, emails);
+  recountMail(groupMailboxes, groupEmails);
 }
 recount();
 
@@ -1665,7 +1794,10 @@ const handlers: Record<string, Handler> = {
     };
   },
   "Mailbox/get": (a) =>
-    hideShareWithUnlessAsked(a, genericGet(mailboxes)(a) as { list: Obj[] }) as never,
+    hideShareWithUnlessAsked(
+      a,
+      genericGet(mailboxesFor(a.accountId))(a) as { list: Obj[] },
+    ) as never,
   "Mailbox/set": (a) => {
     const r = genericSet(mailboxes, "m", (o) =>
       Object.assign(o, {
@@ -1686,7 +1818,7 @@ const handlers: Record<string, Handler> = {
     destroyed: [],
   }),
   "Email/query": (a) => {
-    let list = emails.filter((e) => matchFilter(e, a.filter as Obj));
+    let list = emailsFor(a.accountId).filter((e) => matchFilter(e, a.filter as Obj));
     /*
      * Honour the sort rather than always answering newest-first. This used to
      * ignore it entirely, which reproduced a server that silently returns a
@@ -1730,7 +1862,7 @@ const handlers: Record<string, Handler> = {
       limit,
     };
   },
-  "Email/get": (a) => genericGet(emails)(a),
+  "Email/get": (a) => genericGet(emailsFor(a.accountId))(a),
   /*
    * Real changes, not an empty answer.
    *
@@ -1758,7 +1890,8 @@ const handlers: Record<string, Handler> = {
     };
   },
   "Email/set": (a) => {
-    const r = genericSet(emails, "e", (o) => {
+    const list = emailsFor(a.accountId);
+    const r = genericSet(list, "e", (o) => {
       const bv = (o.bodyValues as Record<string, { value: string }>) ?? {};
       const walk = (p: Obj | undefined, acc: Obj[]) => {
         if (!p) return;
@@ -1784,7 +1917,7 @@ const handlers: Record<string, Handler> = {
       collect(o.bodyStructure as Obj);
       o.hasAttachment = (o.attachments as Obj[]).length > 0;
       o.threadId = o.inReplyTo
-        ? (emails.find(
+        ? (list.find(
             (e) => (e.messageId as string[] | null)?.[0] === (o.inReplyTo as string[])[0],
           )?.threadId ?? `t${o.id}`)
         : `t${o.id}`;
@@ -1847,7 +1980,7 @@ const handlers: Record<string, Handler> = {
     const list = ids
       .map((id) => ({
         id,
-        emailIds: emails
+        emailIds: emailsFor(a.accountId)
           .filter((e) => e.threadId === id)
           .sort((x, y) => String(x.receivedAt).localeCompare(String(y.receivedAt)))
           .map((e) => e.id),
@@ -2106,7 +2239,7 @@ const handlers: Record<string, Handler> = {
     state.n++;
     return setResp({ created, destroyed });
   },
-  "Identity/get": genericGet(identities),
+  "Identity/get": (a) => genericGet(identitiesFor(a.accountId))(a),
   "Identity/set": (a) => {
     // Stalwart's cap is `value.len() < 2048` on a Rust string: 2047 bytes of
     // UTF-8, not characters. Anything longer is refused by name.
@@ -2179,7 +2312,7 @@ const handlers: Record<string, Handler> = {
     for (const [cid, raw] of Object.entries((a.create as Obj) ?? {})) {
       const sub = raw as Obj;
       const emailId = sub.emailId as string;
-      const e = emails.find((x) => x.id === emailId);
+      const e = emailsFor(a.accountId).find((x) => x.id === emailId);
       if (!e) {
         notCreated[cid] = {
           type: "invalidProperties",
@@ -2467,7 +2600,12 @@ const handlers: Record<string, Handler> = {
     )(a);
   },
   "ContactCard/query": (a) => {
-    const list = a.accountId === SHARED_ACCOUNT ? sharedCards : cards;
+    const list =
+      a.accountId === SHARED_ACCOUNT
+        ? sharedCards
+        : a.accountId === GROUP_ACCOUNT
+          ? groupCards
+          : cards;
     return {
       accountId: a.accountId ?? ACCOUNT,
       queryState: "1",
@@ -2478,7 +2616,13 @@ const handlers: Record<string, Handler> = {
     };
   },
   "ContactCard/get": (a) =>
-    genericGet(a.accountId === SHARED_ACCOUNT ? sharedCards : cards)(a),
+    genericGet(
+      a.accountId === SHARED_ACCOUNT
+        ? sharedCards
+        : a.accountId === GROUP_ACCOUNT
+          ? groupCards
+          : cards,
+    )(a),
   "ContactCard/set": genericSet(cards, "cc"),
   "ContactCard/parse": (a) => {
     const parsed: Obj = {};
@@ -2628,6 +2772,12 @@ const session = () => ({
   accounts: {
     [SHARED_ACCOUNT]: {
       name: "grace@example.org",
+      isPersonal: false,
+      isReadOnly: false,
+      accountCapabilities: SHARED_CAPS,
+    },
+    [GROUP_ACCOUNT]: {
+      name: "team@example.org",
       isPersonal: false,
       isReadOnly: false,
       accountCapabilities: SHARED_CAPS,

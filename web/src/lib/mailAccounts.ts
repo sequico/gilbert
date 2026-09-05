@@ -1,0 +1,71 @@
+/**
+ * Which accounts carry a mailbox the reader can open.
+ *
+ * The session lists every account this user may reach. Their own is the
+ * primary mail account; the rest are accounts that shared something with them
+ * -- a calendar, an address book, files -- and, when the server is set up that
+ * way, the group (team) mailboxes whose members they are.
+ *
+ * Stalwart advertises the *same* capability set on every account it lists,
+ * whatever was actually shared, so capabilities cannot tell a group mailbox
+ * from a folder share. Mail is the one thing per-folder sharing cannot reach
+ * (mail folder sharing is withdrawn -- the server stores the share and never
+ * delivers it), so a non-personal account that answers `Mailbox/get` with a
+ * folder tree is a whole-account grant: a group mailbox. The store probes the
+ * candidates this module names and keeps only the ones that answer.
+ */
+import { CAP } from "@/jmap/client";
+import { ownAccountForCapability } from "./accountRouting";
+
+export interface MailAccountInfo {
+  accountId: string;
+  /** What the session calls the account: an address for a group mailbox. */
+  name: string;
+  kind: "own" | "group";
+}
+
+interface MailAccountLike {
+  name: string;
+  isPersonal: boolean;
+  accountCapabilities?: Record<string, unknown>;
+}
+
+export interface MailSessionLike {
+  accounts: Record<string, MailAccountLike>;
+  primaryAccounts: Record<string, string>;
+}
+
+const advertises = (account: MailAccountLike | undefined, cap: string): boolean =>
+  Boolean(account && cap in (account.accountCapabilities ?? {}));
+
+/**
+ * The reader's own mail account first, then every non-personal account that
+ * advertises mail, in session order. The caller probes each "group" candidate
+ * with `Mailbox/get` and keeps the ones that answer with a tree.
+ */
+export function mailAccountCandidates(
+  session: MailSessionLike | null,
+): MailAccountInfo[] {
+  if (!session) return [];
+  const own = ownAccountForCapability(session, CAP.mail);
+  const out: MailAccountInfo[] = [];
+  if (own) {
+    const account = session.accounts[own];
+    out.push({ accountId: own, name: account?.name ?? "", kind: "own" });
+  }
+  for (const [accountId, account] of Object.entries(session.accounts)) {
+    if (accountId === own || account.isPersonal !== false) continue;
+    if (!advertises(account, CAP.mail)) continue;
+    out.push({ accountId, name: account.name, kind: "group" });
+  }
+  return out;
+}
+
+/** Whether an account id is the reader's own, by this session's lights. */
+export function isOwnMailAccount(
+  session: MailSessionLike | null,
+  accountId: string | null,
+): boolean {
+  if (!session || !accountId) return false;
+  return accountId === ownAccountForCapability(session, CAP.mail);
+}

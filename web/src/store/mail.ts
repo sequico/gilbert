@@ -26,6 +26,7 @@ import {
 import { withBase } from "@/lib/basePath";
 import { plural, t } from "@/lib/i18n";
 import { isOptionalSort, withoutOptionalSorts } from "@/lib/listSort";
+import { type MailAccountInfo, mailAccountCandidates } from "@/lib/mailAccounts";
 import { mailboxDisplayName } from "@/lib/mailboxName";
 import type { FolderRef } from "@/lib/sieveFolders";
 import { SPAM_HEADER_PROPS } from "@/lib/spamScore";
@@ -137,6 +138,12 @@ export interface ListState extends ListQuery {
 
 export interface MailState {
   accountId: Id | null;
+  /** The reader's own mail account. Group mailboxes open without moving it. */
+  ownAccountId: Id | null;
+  /** Mailbox accounts the sidebar can open: own first, then groups. */
+  mailAccounts: MailAccountInfo[];
+  /** Folder trees per account, so the sidebar can show every box at once. */
+  accountTrees: Record<Id, Record<Id, Mailbox>>;
   mailboxes: Record<Id, Mailbox>;
   mailboxState: string | null;
   mailboxesLoaded: boolean;
@@ -164,6 +171,12 @@ export interface MailState {
   setOpenThread(id: Id | null): void;
 
   setAccount(accountId: Id | null): void;
+  /** Discover group mailboxes and fetch their folder trees. */
+  discoverMailAccounts(): Promise<void>;
+  /** Re-fetch one account's folder tree (a group mailbox changed elsewhere). */
+  refreshAccountTree(accountId: Id): Promise<void>;
+  /** Switch the active account to `accountId`, loading its mail and identities. */
+  openAccount(accountId: Id): Promise<void>;
   loadMailboxes(): Promise<void>;
   roleId(role: MailboxRole): Id | null;
   mailboxPath(id: Id): string;
@@ -280,6 +293,9 @@ function offerArchiveFolder(retry: () => Promise<void>): void {
 
 export const useMail = create<MailState>((set, get) => ({
   accountId: null,
+  ownAccountId: null,
+  mailAccounts: [],
+  accountTrees: {},
   mailboxes: {},
   mailboxState: null,
   mailboxesLoaded: false,
@@ -307,6 +323,16 @@ export const useMail = create<MailState>((set, get) => ({
     if (accountId === get().accountId) return;
     set({
       accountId,
+      /* The per-account state below belongs to whichever account is active.
+         The sidebar trees and the account list outlive a switch -- they are
+         what let the reader come back -- and are dropped only on sign-out. */
+      ...(accountId
+        ? {
+            ownAccountId: get().ownAccountId,
+            mailAccounts: get().mailAccounts,
+            accountTrees: get().accountTrees,
+          }
+        : { ownAccountId: null, mailAccounts: [], accountTrees: {} }),
       mailboxes: {},
       mailboxState: null,
       mailboxesLoaded: false,
@@ -325,6 +351,68 @@ export const useMail = create<MailState>((set, get) => ({
     });
   },
 
+  /*
+   * Which accounts carry a mailbox: the reader's own, then the group mailboxes
+   * whose folder trees `Mailbox/get` answers with. Each candidate is asked for
+   * its folders; an account that shares only calendars, books or files answers
+   * with none and is not listed (see lib/mailAccounts).
+   */
+  async discoverMailAccounts() {
+    const session = useSession.getState().session;
+    const candidates = mailAccountCandidates(session);
+    const ownInfo = candidates.find((c) => c.kind === "own") ?? null;
+    const groups: MailAccountInfo[] = [];
+    const trees: Record<Id, Record<Id, Mailbox>> = {};
+    for (const c of candidates) {
+      if (c.kind !== "group") continue;
+      try {
+        const res = await client.call<GetResponse<Mailbox>>("Mailbox/get", {
+          accountId: c.accountId,
+          ids: null,
+          properties: MAILBOX_PROPS,
+        });
+        if (!res.list.length) continue;
+        const tree: Record<Id, Mailbox> = {};
+        for (const m of res.list) tree[m.id] = m;
+        trees[c.accountId] = tree;
+        groups.push(c);
+      } catch {
+        /* an account whose mail cannot be read is not a mailbox account */
+      }
+    }
+    set((s) => ({
+      ownAccountId: ownInfo?.accountId ?? null,
+      mailAccounts: ownInfo ? [ownInfo, ...groups] : [],
+      accountTrees: { ...s.accountTrees, ...trees },
+    }));
+  },
+
+  async refreshAccountTree(accountId) {
+    try {
+      const res = await client.call<GetResponse<Mailbox>>("Mailbox/get", {
+        accountId,
+        ids: null,
+        properties: MAILBOX_PROPS,
+      });
+      const tree: Record<Id, Mailbox> = {};
+      for (const m of res.list) tree[m.id] = m;
+      set((s) => ({ accountTrees: { ...s.accountTrees, [accountId]: tree } }));
+    } catch {
+      /* keep the last tree we could read */
+    }
+  },
+
+  async openAccount(accountId) {
+    if (!accountId) return;
+    if (accountId === get().accountId) {
+      if (!get().mailboxesLoaded) await get().loadMailboxes();
+      return;
+    }
+    get().setAccount(accountId);
+    await Promise.all([get().loadMailboxes(), get().loadIdentities()]);
+    void get().loadQuota();
+  },
+
   async loadMailboxes() {
     const accountId = get().accountId;
     if (!accountId) return;
@@ -335,7 +423,22 @@ export const useMail = create<MailState>((set, get) => ({
     });
     const mailboxes: Record<Id, Mailbox> = {};
     for (const m of res.list) mailboxes[m.id] = m;
-    set({ mailboxes, mailboxState: res.state, mailboxesLoaded: true });
+    const accountTrees = { ...get().accountTrees, [accountId]: mailboxes };
+    // The account may have changed while the request was in flight (a quick
+    // second click in the sidebar). The tree cache still wants this account's
+    // folders, but the live state must not be clobbered by a stale answer.
+    if (get().accountId !== accountId) {
+      set({ accountTrees });
+      return;
+    }
+    // The sidebar shows every account's tree, so the active account's folders
+    // are written through to the per-account cache as well as to `mailboxes`.
+    set({
+      mailboxes,
+      mailboxState: res.state,
+      mailboxesLoaded: true,
+      accountTrees,
+    });
     // Label counts move for the same reasons folder counts do -- something was
     // read, moved or deleted -- so they are refreshed on the same beat rather
     // than on a timer of their own. Not awaited: the folder tree should not
@@ -1121,6 +1224,9 @@ export const useMail = create<MailState>((set, get) => ({
       accountId,
       ids: null,
     });
+    // Stale, like loadMailboxes: the reader may have switched accounts while
+    // the request was out, and the old account's From list must not come back.
+    if (get().accountId !== accountId) return [];
     set({ identities: sortIdentities(res.list, accountId) });
     // Long signatures live in Files; swap the stored marker for the full HTML.
     const { markerOf } = await import("@/lib/signatureHtml");
@@ -1685,9 +1791,24 @@ async function notifyNewMail(created: Id[], get: () => MailState) {
   }
 }
 
-/** Keep the store bound to the selected account. */
-useSession.subscribe((s) => {
-  useMail.getState().setAccount(s.status === "authenticated" ? s.accountId : null);
+/**
+ * The store's account is its own. Group mailboxes open without moving the
+ * session's selected account, which the other stores read to stay on the
+ * reader's own data (settings, Sieve) -- the mistake the old whole-app account
+ * switcher made. So this binds to the sign-in *state*, not to the session's
+ * account id: a session refresh must not yank the reader out of a group
+ * mailbox they are looking at.
+ */
+useSession.subscribe((s, prev) => {
+  if (s.status === prev.status) return;
+  const mail = useMail.getState();
+  if (s.status !== "authenticated") {
+    mail.setAccount(null);
+    return;
+  }
+  const own = mailAccountCandidates(s.session).find((c) => c.kind === "own");
+  mail.setAccount(own?.accountId ?? null);
+  void mail.discoverMailAccounts();
 });
 
 export function mailboxIcon(role: MailboxRole): string {

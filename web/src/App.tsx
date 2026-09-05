@@ -255,8 +255,14 @@ function AuthedApp() {
       timer = window.setTimeout(() => {
         timer = null;
         for (const [a, types] of pending) {
-          if (a === useMail.getState().accountId)
+          if (a === useMail.getState().accountId) {
             void useMail.getState().applyChanges(types);
+          } else if (useMail.getState().mailAccounts.some((x) => x.accountId === a)) {
+            // A mailbox changed while the reader is elsewhere -- a group box
+            // under their own, or their own while they are inside a group.
+            // Refresh its folder tree so the sidebar's counts stay honest.
+            void useMail.getState().refreshAccountTree(a);
+          }
           if (a === useContacts.getState().accountId)
             useContacts.getState().applyChanges(types);
           if (a === useCalendar.getState().accountId)
@@ -269,7 +275,11 @@ function AuthedApp() {
         pending.clear();
       }, 400);
     });
-    const unsubState = client.onSessionState(() => void useSession.getState().refresh());
+    const unsubState = client.onSessionState(() => {
+      void useSession.getState().refresh();
+      // A session refresh can add or drop group mailboxes; rediscover them.
+      void useMail.getState().discoverMailAccounts();
+    });
     // Poll fallback when push is disconnected (every 2 minutes)
     const poll = window.setInterval(() => {
       if (!push.connected && document.visibilityState === "visible") {

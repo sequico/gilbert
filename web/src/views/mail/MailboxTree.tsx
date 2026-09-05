@@ -25,7 +25,14 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { type DragEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  type DragEvent,
+  Fragment,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Link, useLocation } from "wouter";
 import type { Id, Mailbox } from "@/jmap/types";
 import { canEmpty, confirmAndEmpty, emptyLabel } from "@/lib/emptyFolder";
@@ -59,10 +66,87 @@ const ROLE_ICONS: Record<string, ReactNode> = {
 /** Its own drag type, so a folder can only be dropped where folders belong. */
 const FOLDER_MIME = "application/x-ihasmail-folder";
 
+interface MailTreeRow {
+  m: Mailbox;
+  depth: number;
+  hasChildren: boolean;
+  open: boolean;
+  hiddenUnread: number;
+  childUnread: number;
+}
+
+interface MailTree {
+  rows: MailTreeRow[];
+  childrenOf: (id: Id | null) => Mailbox[];
+  subtreeUnread: (id: Id) => number;
+}
+
+/**
+ * Folders as sidebar rows: one flat list, nested by depth, with the expansion
+ * state deciding what is shown. Used for the active account's tree and for the
+ * extra mailbox sections below it; `keyOf` keeps one account's expansion keys
+ * out of another's, since mailbox ids are only unique within an account.
+ */
+function buildMailTree(
+  mailboxes: Record<Id, Mailbox>,
+  expanded: Record<string, boolean>,
+  showHidden: boolean,
+  keyOf: (id: Id) => string,
+): MailTree {
+  const all = Object.values(mailboxes).filter(
+    (m) => showHidden || m.isSubscribed || m.role === "inbox",
+  );
+  const byParent = new Map<Id | null, Mailbox[]>();
+  for (const m of all) {
+    const p = m.parentId && mailboxes[m.parentId] ? m.parentId : null;
+    byParent.set(p, [...(byParent.get(p) ?? []), m]);
+  }
+  const cmp = (a: Mailbox, b: Mailbox) => {
+    if ((a.role === "inbox") !== (b.role === "inbox")) return a.role === "inbox" ? -1 : 1;
+    return a.name.localeCompare(b.name, undefined, {
+      sensitivity: "base",
+      numeric: true,
+    });
+  };
+  for (const list of byParent.values()) list.sort(cmp);
+  const rows: MailTreeRow[] = [];
+  const subtreeUnread = (id: Id): number =>
+    (byParent.get(id) ?? []).reduce(
+      (n, c) => n + c.unreadEmails + subtreeUnread(c.id),
+      0,
+    );
+  const walk = (parent: Id | null, depth: number) => {
+    for (const m of byParent.get(parent) ?? []) {
+      const kids = byParent.get(m.id) ?? [];
+      const open = Boolean(expanded[keyOf(m.id)]);
+      const childUnread = kids.length ? subtreeUnread(m.id) : 0;
+      rows.push({
+        m,
+        depth,
+        hasChildren: kids.length > 0,
+        open,
+        hiddenUnread: kids.length && !open ? childUnread : 0,
+        childUnread,
+      });
+      if (kids.length && open) walk(m.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+  return {
+    rows,
+    childrenOf: (id: Id | null) => byParent.get(id) ?? [],
+    subtreeUnread,
+  };
+}
+
 export function MailboxTree() {
   const mailboxes = useMail((s) => s.mailboxes);
   const loaded = useMail((s) => s.mailboxesLoaded);
-  const [location] = useLocation();
+  const accountId = useMail((s) => s.accountId);
+  const ownAccountId = useMail((s) => s.ownAccountId);
+  const mailAccounts = useMail((s) => s.mailAccounts);
+  const accountTrees = useMail((s) => s.accountTrees);
+  const [location, navigate] = useLocation();
   const currentId = location.startsWith("/mail/") ? location.split("/")[2] : undefined;
   const showHidden = useSettings((s) => s.settings.showHiddenFolders);
   const labels = useSettings((s) => s.settings.labels);
@@ -125,60 +209,56 @@ export function MailboxTree() {
     setExpanded(next);
     saveJson("mbx-expanded", next);
   };
-  const { rows, childrenOf, subtreeUnread } = useMemo(() => {
-    const all = Object.values(mailboxes).filter(
-      (m) => showHidden || m.isSubscribed || m.role === "inbox",
-    );
-    const byParent = new Map<Id | null, Mailbox[]>();
-    for (const m of all) {
-      const p = m.parentId && mailboxes[m.parentId] ? m.parentId : null;
-      byParent.set(p, [...(byParent.get(p) ?? []), m]);
-    }
-    const cmp = (a: Mailbox, b: Mailbox) => {
-      if ((a.role === "inbox") !== (b.role === "inbox"))
-        return a.role === "inbox" ? -1 : 1;
-      return a.name.localeCompare(b.name, undefined, {
-        sensitivity: "base",
-        numeric: true,
-      });
-    };
-    for (const list of byParent.values()) list.sort(cmp);
-    const out: Array<{
-      m: Mailbox;
-      depth: number;
-      hasChildren: boolean;
-      open: boolean;
-      hiddenUnread: number;
-      childUnread: number;
-    }> = [];
-    const unreadBelow = (id: Id): number =>
-      (byParent.get(id) ?? []).reduce(
-        (n, c) => n + c.unreadEmails + unreadBelow(c.id),
-        0,
+  const { rows, childrenOf, subtreeUnread } = useMemo(
+    () => buildMailTree(mailboxes, expanded, showHidden, (id) => id),
+    [mailboxes, expanded, showHidden],
+  );
+
+  /*
+   * Whether the account on screen is a group mailbox rather than the reader's
+   * own. Its folders are read-only in the sidebar: folder management (new,
+   * rename, colour, share) belongs to whoever owns the box, and the store's
+   * folder writes aim at the active account -- which is this one.
+   */
+  const inGroup = Boolean(ownAccountId && accountId && accountId !== ownAccountId);
+  const activeAccountName = mailAccounts.find((a) => a.accountId === accountId)?.name;
+  /*
+   * The mailbox sections under the active tree: every other mailbox account --
+   * group mailboxes under the reader's own, and the reader's own under a group
+   * they opened. Rendered from the per-account folder cache, so the main tree
+   * keeps belonging to whoever is active; opening a folder here switches the
+   * active account to its owner first.
+   */
+  const extraAccounts = useMemo(
+    () =>
+      mailAccounts
+        .filter((a) => a.accountId !== accountId)
+        .map((a) => ({ info: a, tree: accountTrees[a.accountId] ?? {} }))
+        .filter((a) => Object.keys(a.tree).length > 0),
+    [mailAccounts, accountId, accountTrees],
+  );
+  const extraTrees = useMemo(() => {
+    const out: Record<Id, MailTree> = {};
+    for (const a of extraAccounts)
+      out[a.info.accountId] = buildMailTree(
+        a.tree,
+        expanded,
+        showHidden,
+        (id) => `${a.info.accountId}/${id}`,
       );
-    const walk = (parent: Id | null, depth: number) => {
-      for (const m of byParent.get(parent) ?? []) {
-        const kids = byParent.get(m.id) ?? [];
-        const open = Boolean(expanded[m.id]);
-        const childUnread = kids.length ? unreadBelow(m.id) : 0;
-        out.push({
-          m,
-          depth,
-          hasChildren: kids.length > 0,
-          open,
-          hiddenUnread: kids.length && !open ? childUnread : 0,
-          childUnread,
-        });
-        if (kids.length && open) walk(m.id, depth + 1);
-      }
-    };
-    walk(null, 0);
-    return {
-      rows: out,
-      childrenOf: (id: Id | null) => byParent.get(id) ?? [],
-      subtreeUnread: unreadBelow,
-    };
-  }, [mailboxes, showHidden, expanded]);
+    return out;
+  }, [extraAccounts, expanded, showHidden]);
+  const toggleExtra = (accountIdOf: Id, id: Id) => {
+    const key = `${accountIdOf}/${id}`;
+    const next = { ...expanded, [key]: !expanded[key] };
+    setExpanded(next);
+    saveJson("mbx-expanded", next);
+  };
+  const openMailbox = async (toAccount: Id, mailboxId: Id) => {
+    if (useMail.getState().accountId !== toAccount)
+      await useMail.getState().openAccount(toAccount);
+    navigate(`/mail/${mailboxId}`);
+  };
 
   /*
    * On a phone the tree is a drill-down instead: one level at a time, a back
@@ -260,19 +340,23 @@ export function MailboxTree() {
               ? t("Drop here for the top level")
               : drill
                 ? mailboxDisplayName(drill)
-                : t("Folders")}
+                : inGroup && activeAccountName
+                  ? activeAccountName
+                  : t("Folders")}
           </span>
           {/* Drilled in, the + makes a subfolder of the folder on screen --
               which is the one place in the app where "new folder here" has an
               unambiguous here. */}
-          <button
-            className="icon-btn"
-            title={drill ? t("New subfolder") : t("New folder")}
-            aria-label={drill ? t("New subfolder") : t("New folder")}
-            onClick={() => void createFolder(drill?.id ?? null)}
-          >
-            <Plus size={16} />
-          </button>
+          {!inGroup && (
+            <button
+              className="icon-btn"
+              title={drill ? t("New subfolder") : t("New folder")}
+              aria-label={drill ? t("New subfolder") : t("New folder")}
+              onClick={() => void createFolder(drill?.id ?? null)}
+            >
+              <Plus size={16} />
+            </button>
+          )}
         </div>
         {drill && (
           <>
@@ -303,6 +387,7 @@ export function MailboxTree() {
               childUnread={subtreeUnread(drill.id)}
               onToggle={() => {}}
               currentId={currentId}
+              readOnly={inGroup}
               onMenu={(mb, e) => {
                 setMenuTarget(mb);
                 menu.open(e);
@@ -338,6 +423,7 @@ export function MailboxTree() {
             onToggle={() => toggle(m.id)}
             onDrillIn={isMobile && hasChildren ? () => setDrillId(m.id) : undefined}
             currentId={currentId}
+            readOnly={inGroup}
             onMenu={(mb, e) => {
               setMenuTarget(mb);
               menu.open(e);
@@ -352,9 +438,50 @@ export function MailboxTree() {
             onFolderDrop={(id) => void moveFolder(id, m.id)}
           />
         ))}
-        {/* Labels are a flat list that belongs to the mailbox, not to whichever
-            folder is on screen, so they stay at the top level of the drill. */}
-        {!drill && labelsSidebar && shownLabels.length > 0 && (
+        {/* The other mailboxes, under the account on screen: group mailboxes
+            under the reader's own, and the reader's own under a group they
+            opened. Each section is that account's folder tree from the cache;
+            opening a folder there switches the active account to its owner. */}
+        {extraAccounts.map((a) => {
+          const tree = extraTrees[a.info.accountId];
+          if (!tree) return null;
+          return (
+            <Fragment key={a.info.accountId}>
+              <div className="nav-section">
+                <span title={a.info.name}>{a.info.name}</span>
+              </div>
+              {tree.rows.map(
+                ({ m, depth, hasChildren, open, hiddenUnread, childUnread }) => (
+                  <FolderRow
+                    key={m.id}
+                    mailbox={m}
+                    label={mailboxDisplayName(m)}
+                    depth={depth}
+                    hasChildren={hasChildren}
+                    open={open}
+                    hiddenUnread={hiddenUnread}
+                    childUnread={childUnread}
+                    onToggle={() => toggleExtra(a.info.accountId, m.id)}
+                    currentId={a.info.accountId === accountId ? currentId : undefined}
+                    onMenu={() => {}}
+                    readOnly
+                    onOpen={() => void openMailbox(a.info.accountId, m.id)}
+                    dragging={false}
+                    acceptsFolder={false}
+                    onFolderDragStart={() => {}}
+                    onFolderDragEnd={() => {}}
+                    onFolderDrop={() => {}}
+                  />
+                ),
+              )}
+            </Fragment>
+          );
+        })}
+        {/* Labels are a flat list that belongs to the reader's own mailbox, not
+            to whichever folder is on screen -- and not to a group mailbox
+            either -- so they stay at the top level of the drill and stay away
+            while a group mailbox is open. */}
+        {!drill && !inGroup && labelsSidebar && shownLabels.length > 0 && (
           <>
             <div className="nav-section">
               <span>{t("Labels")}</span>
@@ -428,6 +555,8 @@ function FolderRow({
   onFolderDragStart,
   onFolderDragEnd,
   onFolderDrop,
+  readOnly,
+  onOpen,
 }: {
   mailbox: Mailbox;
   label: string;
@@ -445,6 +574,10 @@ function FolderRow({
   onFolderDragStart: () => void;
   onFolderDragEnd: () => void;
   onFolderDrop: (id: Id) => void;
+  /** Folders the reader does not own: no menu, no drag, no colour pick. */
+  readOnly?: boolean;
+  /** Replaces the row's own navigation, for folders that need an account switch first. */
+  onOpen?: () => void;
 }) {
   const [dropping, setDropping] = useState(false);
   /** Expanding in place and drilling in are the same relationship; only one shows. */
@@ -477,6 +610,7 @@ function FolderRow({
   const tint = useSettings((s) => folderColor(s.settings.folderColors, m.id));
 
   const onDragOver = (e: DragEvent) => {
+    if (readOnly) return;
     const folder = e.dataTransfer.types.includes(FOLDER_MIME);
     if (
       folder
@@ -489,6 +623,7 @@ function FolderRow({
     if (!dropping) setDropping(true);
   };
   const onDrop = (e: DragEvent) => {
+    if (readOnly) return;
     e.preventDefault();
     setDropping(false);
     const folderId = e.dataTransfer.getData(FOLDER_MIME);
@@ -516,12 +651,14 @@ function FolderRow({
   const press = useTouchRow({
     enabled: isTouch,
     onLongPress: (target) => {
+      if (readOnly) return;
       haptic(15);
       onMenu(m, { currentTarget: target });
     },
   });
 
   const onDragStart = (e: DragEvent) => {
+    if (readOnly) return;
     e.dataTransfer.setData(FOLDER_MIME, m.id);
     e.dataTransfer.effectAllowed = "move";
     // A folder row is a link, and a link drag would otherwise carry its URL.
@@ -535,18 +672,31 @@ function FolderRow({
       className={`nav-item folder-row depth-${Math.min(depth, 4)} ${currentId === m.id ? "active" : ""} ${unread ? "unread" : ""} ${dropping ? "drop-target" : ""} ${dragging ? "dragging" : ""}`}
       title={label}
       {...press}
+      onClick={
+        onOpen
+          ? (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onOpen();
+            }
+          : undefined
+      }
       // Dragging a folder is a mouse gesture; on a touchscreen the browser
       // starts it from the same long press that now opens the menu.
-      draggable={movable(m) && !isTouch}
+      draggable={!readOnly && movable(m) && !isTouch}
       onDragStart={onDragStart}
       onDragEnd={onFolderDragEnd}
       onDragOver={onDragOver}
       onDragLeave={() => setDropping(false)}
       onDrop={onDrop}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        onMenu(m, { currentTarget: e.currentTarget });
-      }}
+      onContextMenu={
+        readOnly
+          ? undefined
+          : (e) => {
+              e.preventDefault();
+              onMenu(m, { currentTarget: e.currentTarget });
+            }
+      }
     >
       {/* Drilling replaces expanding, so the twisty goes with it -- two
           controls for one relationship, on opposite ends of the same row, is
@@ -585,17 +735,19 @@ function FolderRow({
         </span>
       )}
       {count > 0 && <span className="nav-dot" />}
-      <button
-        className="icon-btn nav-more"
-        aria-label={t("Folder options")}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onMenu(m, e);
-        }}
-      >
-        <MoreVertical size={16} />
-      </button>
+      {!readOnly && (
+        <button
+          className="icon-btn nav-more"
+          aria-label={t("Folder options")}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onMenu(m, e);
+          }}
+        >
+          <MoreVertical size={16} />
+        </button>
+      )}
       {/*
         Drilling in is a separate control from opening the folder, and sits at
         the right edge where it is the same size and the same place on every
