@@ -933,7 +933,13 @@ export const useCalendar = create<CalendarState>((set, get) => ({
   },
 
   async createEvent(event, calendarId, sendInvites) {
-    const accountId = get().accountId!;
+    const accountId = accountOfCalendar(
+      calendarId,
+      get().calendars,
+      get().accountId,
+      get().sharedCalendars,
+    );
+    if (!accountId) throw new Error("Calendar is not available");
     const obj = {
       "@type": "Event",
       uid: crypto.randomUUID(),
@@ -960,7 +966,13 @@ export const useCalendar = create<CalendarState>((set, get) => ({
      * it.
      */
     if (isBirthdayEvent(event.id) || isSubscriptionEvent(event.id)) return [];
-    const accountId = get().accountId!;
+    const accountId = accountOfCalendar(
+      Object.keys(event.calendarIds ?? {})[0],
+      get().calendars,
+      get().accountId,
+      get().sharedCalendars,
+    );
+    if (!accountId) return [];
     const id =
       scope === "occurrence"
         ? await currentOccurrenceId(accountId, event)
@@ -992,7 +1004,13 @@ export const useCalendar = create<CalendarState>((set, get) => ({
      * it.
      */
     if (isBirthdayEvent(event.id) || isSubscriptionEvent(event.id)) return;
-    const accountId = get().accountId!;
+    const accountId = accountOfCalendar(
+      Object.keys(event.calendarIds ?? {})[0],
+      get().calendars,
+      get().accountId,
+      get().sharedCalendars,
+    );
+    if (!accountId) return;
     const id =
       scope === "occurrence"
         ? await currentOccurrenceId(accountId, event)
@@ -1393,6 +1411,23 @@ function synthesiseSubscriptionEvent(subId: string, e: IcsEvent): CalendarEvent 
     description: e.description,
     freeBusyStatus: "free",
   } as unknown as CalendarEvent;
+}
+
+/**
+ * Which account holds a calendar: the reader's own when it is one of theirs,
+ * otherwise the account that shared it -- a colleague's, or a group mailbox
+ * the reader belongs to. Events write to that account, never to the reader's
+ * own, whatever they are looking at.
+ */
+function accountOfCalendar(
+  calendarId: string | null | undefined,
+  own: Record<Id, Calendar>,
+  ownAccountId: Id | null,
+  shared: SharedCalendar[],
+): Id | null {
+  if (!calendarId) return ownAccountId;
+  if (own[calendarId]) return ownAccountId;
+  return shared.find((c) => c.calendar.id === calendarId)?.accountId ?? ownAccountId;
 }
 
 export function toInstance(

@@ -662,10 +662,10 @@ const sharedCalendars: Obj[] = [
   },
 ];
 const sharedEvents: Obj[] = [];
-/* A group (team) mailbox: its own folder tree, messages and identity, so a
-   member reading the group's mail can be exercised. Groups answer with no
-   calendars, address books or files here -- only the mailbox -- so a group
-   with a mailbox but nothing else is what the other panes discover. */
+/* A group (team) account the demo user is a member of: its own mailbox, and
+   -- unlike a person who shared a folder -- the calendars, address books and
+   files the team keeps. Only the mailbox is eager (sidebar counts); the other
+   panes discover the rest the way they discover a2's shares. */
 const groupMailboxes: Obj[] = [
   mb("g-inbox", "Inbox", "inbox"),
   mb("g-sent", "Sent Items", "sent"),
@@ -752,8 +752,25 @@ const identitiesFor = (accountId: unknown): Obj[] =>
     : accountId === SHARED_ACCOUNT
       ? []
       : identities;
+const groupCalendars: Obj[] = [
+  {
+    id: "gc1",
+    name: "Team calendar",
+    description: null,
+    color: "#0d9488",
+    sortOrder: 0,
+    isSubscribed: false,
+    isVisible: true,
+    isDefault: true,
+    includeInAvailability: "all",
+    defaultAlertsWithTime: null,
+    defaultAlertsWithoutTime: null,
+    timeZone: "UTC",
+    shareWith: {},
+    myRights: rightsCal(),
+  },
+];
 const groupEvents: Obj[] = [];
-const groupCalendars: Obj[] = [];
 const eventsFor = (accountId: unknown): Obj[] =>
   accountId === SHARED_ACCOUNT
     ? sharedEvents
@@ -945,6 +962,20 @@ const events: Obj[] = [];
     showWithoutTime: true,
     timeZone: null,
   });
+  groupEvents.push({
+    id: "gv1",
+    calendarIds: { gc1: true },
+    "@type": "Event",
+    uid: "gv1",
+    title: "Team sync",
+    start: local(d(2, 11)),
+    timeZone: tz,
+    duration: "PT45M",
+    showWithoutTime: false,
+    status: "confirmed",
+    freeBusyStatus: "busy",
+    privacy: "public",
+  });
 }
 const participantIdentities: Obj[] = [
   {
@@ -1050,8 +1081,44 @@ function compareBy(x: Obj, y: Obj, property: string, keyword?: string): number {
 /** A server that does not implement sorting on keywords, so the fallback can be developed against. */
 const NO_KEYWORD_SORT = process.env.MOCK_NO_KEYWORD_SORT === "1";
 
-const groupAddressBooks: Obj[] = [];
-const groupCards: Obj[] = [];
+const groupAddressBooks: Obj[] = [
+  {
+    id: "gab1",
+    name: "Team directory",
+    description: null,
+    sortOrder: 0,
+    isDefault: true,
+    isSubscribed: false,
+    shareWith: {},
+    myRights: abRights(true),
+  },
+];
+const groupCards: Obj[] = [
+  {
+    id: "gs1",
+    addressBookIds: { gab1: true },
+    name: { full: "Marie Curie" },
+    emails: { e1: { address: "marie@example.org", contexts: {} } },
+    phones: {},
+    organizations: {},
+    nicknames: {},
+    addresses: {},
+    notes: {},
+    updated: new Date().toISOString(),
+  },
+  {
+    id: "gs2",
+    addressBookIds: { gab1: true },
+    name: { full: "Niels Bohr" },
+    emails: { e1: { address: "niels@example.org", contexts: {} } },
+    phones: {},
+    organizations: {},
+    nicknames: {},
+    addresses: {},
+    notes: {},
+    updated: new Date().toISOString(),
+  },
+];
 const booksFor = (accountId: unknown): Obj[] =>
   accountId === SHARED_ACCOUNT
     ? sharedAddressBooks
@@ -1198,7 +1265,34 @@ const sharedFileNodes: Obj[] = [
   },
 ];
 /** The node list an account owns. */
-const groupFileNodes: Obj[] = [];
+const groupFileNodes: Obj[] = [
+  {
+    id: "gf1",
+    parentId: null,
+    nodeType: "directory",
+    blobId: null,
+    size: null,
+    name: "Team files",
+    type: null,
+    created: new Date().toISOString(),
+    modified: new Date().toISOString(),
+    myRights: fr(),
+    shareWith: {},
+  },
+  {
+    id: "gf2",
+    parentId: "gf1",
+    nodeType: "file",
+    blobId: putBlob("Team agenda\n", "text/plain"),
+    size: 11,
+    name: "agenda.txt",
+    type: "text/plain",
+    created: new Date().toISOString(),
+    modified: new Date().toISOString(),
+    myRights: fr(),
+    shareWith: {},
+  },
+];
 const nodesFor = (accountId: unknown): Obj[] =>
   accountId === SHARED_ACCOUNT
     ? sharedFileNodes
@@ -1593,6 +1687,9 @@ function calendarEventParse(a: Obj) {
 }
 
 function calendarEventSet(a: Obj) {
+  /* Writes go to whichever account owns the calendar, so events land in that
+     account's list (own, or a group's) rather than always the demo's. */
+  const events = eventsFor(a.accountId);
   const created: Obj = {};
   const updated: Obj = {};
   const destroyed: string[] = [];
@@ -2569,26 +2666,35 @@ const handlers: Record<string, Handler> = {
       genericGet(booksFor(a.accountId))(a) as { list: Obj[] },
     ) as never,
   "AddressBook/set": (a) => {
-    /* Stalwart refuses any update to a book shared read-only, `isSubscribed`
-       included -- "You are not allowed to modify this address book", confirmed
-       live on 0.16.19 (2026-08-27) from the account holding the share. A mock
-       that accepted it would have agreed that subscribing works, which is
-       exactly the belief that shipped. Calendars accept the same write; the
-       difference is the server's, not ours. */
-    if (a.accountId === SHARED_ACCOUNT && a.update) {
-      const notUpdated: Obj = {};
-      for (const id of Object.keys(a.update as Obj))
-        notUpdated[id] = {
-          type: "forbidden",
-          description: "You are not allowed to modify this address book.",
+    /* Stalwart refuses `isSubscribed` on a book shared read-only -- "You are
+       not allowed to modify this address book", confirmed live on 0.16.19
+       (2026-08-27) from the account holding the share -- while it accepts the
+       identical write on a writable book and on calendars. Whether the book
+       the update names can be written is the test, not which account it lives
+       in: a group's own writable book accepts, a colleague's read-only one
+       refuses, and a mock that got this wrong would agree with a belief that
+       shipped. Calendars accept the same write; the difference is the
+       server's, not ours. */
+    if (a.update) {
+      const readonly = Object.keys(a.update as Obj).some((id) => {
+        const book = booksFor(a.accountId).find((b) => b.id === id);
+        return book && !(book.myRights as Obj).mayWrite;
+      });
+      if (readonly) {
+        const notUpdated: Obj = {};
+        for (const id of Object.keys(a.update as Obj))
+          notUpdated[id] = {
+            type: "forbidden",
+            description: "You are not allowed to modify this address book.",
+          };
+        return {
+          accountId: a.accountId,
+          oldState: String(state.n),
+          newState: String(state.n),
+          updated: null,
+          notUpdated,
         };
-      return {
-        accountId: a.accountId,
-        oldState: String(state.n),
-        newState: String(state.n),
-        updated: null,
-        notUpdated,
-      };
+      }
     }
     return genericSet(booksFor(a.accountId), "ab", (o) =>
       Object.assign(o, {
@@ -2626,7 +2732,56 @@ const handlers: Record<string, Handler> = {
           ? groupCards
           : cards,
     )(a),
-  "ContactCard/set": genericSet(cards, "cc"),
+  "ContactCard/set": (a) => {
+    const list =
+      a.accountId === GROUP_ACCOUNT
+        ? groupCards
+        : a.accountId === SHARED_ACCOUNT
+          ? sharedCards
+          : cards;
+    if (a.accountId === SHARED_ACCOUNT) {
+      /* Grace's books are read-only shares, so nothing in them may be written
+         -- created, updated or destroyed. A member of a *group* writes to the
+         group's own books (GROUP_ACCOUNT), whose rights say mayWrite. */
+      const refuse = (_k: string) => ({
+        type: "forbidden",
+        description: "You are not allowed to modify this address book.",
+      });
+      const created = (a.create as Obj | undefined) ? {} : undefined;
+      const updated = (a.update as Obj | undefined) ? {} : undefined;
+      const destroyed = (a.destroy as string[] | undefined) ? [] : undefined;
+      return {
+        accountId: a.accountId,
+        oldState: String(state.n),
+        newState: String(state.n),
+        ...(created
+          ? {
+              created,
+              notCreated: Object.fromEntries(
+                Object.keys(a.create as Obj).map((k) => [k, refuse(k)]),
+              ),
+            }
+          : {}),
+        ...(updated
+          ? {
+              updated,
+              notUpdated: Object.fromEntries(
+                Object.keys(a.update as Obj).map((k) => [k, refuse(k)]),
+              ),
+            }
+          : {}),
+        ...(destroyed
+          ? {
+              destroyed,
+              notDestroyed: Object.fromEntries(
+                (a.destroy as string[]).map((id) => [id, refuse(id)]),
+              ),
+            }
+          : {}),
+      };
+    }
+    return genericSet(list, "cc")(a);
+  },
   "ContactCard/parse": (a) => {
     const parsed: Obj = {};
     for (const b of a.blobIds as string[]) {

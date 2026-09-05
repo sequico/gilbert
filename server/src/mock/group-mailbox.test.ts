@@ -254,3 +254,150 @@ test("Mailbox/set on the group creates a subfolder in the group's tree only", as
   const inOwn = listOf("g1").some((m) => m.id === newId);
   assert.equal(inOwn, false, "the reader's own tree must not gain the folder");
 });
+
+test("the group account answers with its own calendar, book and files", async () => {
+  const res = await post("/api/jmap", {
+    using: ["urn:ietf:params:jmap:core"],
+    methodCalls: [
+      ["Calendar/get", { accountId: "a3", ids: null }, "cal"],
+      ["AddressBook/get", { accountId: "a3", ids: null }, "ab"],
+      ["FileNode/query", { accountId: "a3", limit: 10 }, "fq"],
+    ],
+  });
+  assert.equal(res.status, 200);
+  const cals = responseOf(res.body, "cal");
+  assert.ok(cals, "Calendar/get should answer");
+  assert.ok(
+    (cals[1].list as Obj[]).some((c) => c.id === "gc1" && c.name === "Team calendar"),
+  );
+  const books = responseOf(res.body, "ab");
+  assert.ok(books, "AddressBook/get should answer");
+  assert.ok((books[1].list as Obj[]).some((b) => b.id === "gab1"));
+  const fq = responseOf(res.body, "fq");
+  assert.ok(fq, "FileNode/query should answer");
+  assert.ok((fq[1].ids as string[]).length > 0);
+});
+
+test("an event can be created on the group's calendar", async () => {
+  const res = await post("/api/jmap", {
+    using: [
+      "urn:ietf:params:jmap:core",
+      "urn:ietf:params:jmap:calendars",
+      "urn:ietf:params:jmap:calendars:parse",
+    ],
+    methodCalls: [
+      [
+        "CalendarEvent/set",
+        {
+          accountId: "a3",
+          create: {
+            n: {
+              "@type": "Event",
+              calendarIds: { gc1: true },
+              title: "Group standup",
+              start: "2026-09-07T09:00:00",
+              duration: "PT30M",
+            },
+          },
+        },
+        "s",
+      ],
+    ],
+  });
+  assert.equal(res.status, 200);
+  const s = responseOf(res.body, "s");
+  assert.ok(s, "CalendarEvent/set should answer");
+  const newId = (s[1].created as Record<string, { id: string }>)?.n?.id;
+  assert.ok(newId, "the event should be created");
+  const q = await post("/api/jmap", {
+    using: [
+      "urn:ietf:params:jmap:core",
+      "urn:ietf:params:jmap:calendars",
+      "urn:ietf:params:jmap:calendars:parse",
+    ],
+    methodCalls: [
+      [
+        "CalendarEvent/query",
+        { accountId: "a3", filter: { inCalendar: "gc1" }, limit: 50 },
+        "q",
+      ],
+    ],
+  });
+  const qr = responseOf(q.body, "q");
+  assert.ok(qr, "CalendarEvent/query should answer");
+  assert.ok((qr[1].ids as string[]).includes(newId));
+});
+
+test("a card can be created in the group's address book", async () => {
+  const res = await post("/api/jmap", {
+    using: [
+      "urn:ietf:params:jmap:core",
+      "urn:ietf:params:jmap:contacts",
+      "urn:ietf:params:jmap:contacts:parse",
+    ],
+    methodCalls: [
+      [
+        "ContactCard/set",
+        {
+          accountId: "a3",
+          create: {
+            n: {
+              addressBookIds: { gab1: true },
+              name: { full: "Test Person" },
+              emails: { e1: { address: "test@example.org", contexts: {} } },
+            },
+          },
+        },
+        "s",
+      ],
+    ],
+  });
+  assert.equal(res.status, 200);
+  const s = responseOf(res.body, "s");
+  assert.ok(s, "ContactCard/set should answer");
+  assert.ok(Object.keys(s[1].created ?? {}).includes("n"));
+  const g = await post("/api/jmap", {
+    using: [
+      "urn:ietf:params:jmap:core",
+      "urn:ietf:params:jmap:contacts",
+      "urn:ietf:params:jmap:contacts:parse",
+    ],
+    methodCalls: [["ContactCard/query", { accountId: "a3", filter: {}, limit: 50 }, "q"]],
+  });
+  const qr = responseOf(g.body, "q");
+  assert.ok(qr, "ContactCard/query should answer");
+  assert.ok((qr[1].ids as string[]).some((id) => id !== "gs1" && id !== "gs2"));
+});
+
+test("subscribing is accepted on the writable group book and refused on a read-only one", async () => {
+  const ok = await post("/api/jmap", {
+    using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:contacts"],
+    methodCalls: [
+      [
+        "AddressBook/set",
+        { accountId: "a3", update: { gab1: { isSubscribed: true } } },
+        "s",
+      ],
+    ],
+  });
+  const okr = responseOf(ok.body, "s");
+  assert.ok(okr, "AddressBook/set should answer");
+  assert.ok(Object.keys(okr[1].updated ?? {}).includes("gab1"));
+
+  const refused = await post("/api/jmap", {
+    using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:contacts"],
+    methodCalls: [
+      [
+        "AddressBook/set",
+        { accountId: "a2", update: { ab9: { isSubscribed: true } } },
+        "s",
+      ],
+    ],
+  });
+  const rr = responseOf(refused.body, "s");
+  assert.ok(rr, "AddressBook/set should answer");
+  assert.equal(
+    (rr[1].notUpdated as Record<string, { type: string }>).ab9?.type,
+    "forbidden",
+  );
+});

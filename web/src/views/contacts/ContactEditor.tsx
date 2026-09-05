@@ -9,7 +9,8 @@ import type {
 } from "@/jmap/types";
 import { buildName, contactDisplayName, nameParts, newKey } from "@/lib/contacts";
 import { t } from "@/lib/i18n";
-import { useContacts } from "@/store/contacts";
+import { sharedKey, useContacts } from "@/store/contacts";
+import { useSettings } from "@/store/settings";
 import { DateField } from "@/ui/datefield";
 import { Dialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
@@ -39,8 +40,7 @@ type AddrRow = {
 
 export function ContactEditor({ card, defaultBookId, onClose, onSaved }: Props) {
   const contacts = useContacts();
-  const isNew = !card.id;
-  // Read from the card whether it is saved or seeded (e.g. from a message header).
+  const isNew = !card.id; // Read from the card whether it is saved or seeded (e.g. from a message header).
   const np = nameParts(card as ContactCard);
   const [kind, setKind] = useState<"individual" | "group" | "org">(
     (card.kind as "individual" | "group" | "org") ?? "individual",
@@ -112,7 +112,23 @@ export function ContactEditor({ card, defaultBookId, onClose, onSaved }: Props) 
   const [memberUids, setMemberUids] = useState<string[]>(Object.keys(card.members ?? {}));
   const [memberQuery, setMemberQuery] = useState("");
   const [busy, setBusy] = useState(false);
-  const books = Object.values(contacts.books);
+  const books = [
+    ...Object.values(contacts.books).map((b) => ({ id: b.id, name: b.name, note: "" })),
+    /* Subscribed shared books the reader may write to -- a group's directory,
+       for example -- so a card can be added or moved there too. */
+    ...contacts.sharedBooks
+      .filter(
+        (b) =>
+          b.book.myRights.mayWrite &&
+          (b.book.isSubscribed ||
+            useSettings
+              .getState()
+              .settings.addedShares.includes(sharedKey(b.accountId, b.book.id))),
+      )
+      .map((b) => ({ id: b.book.id, name: b.book.name, note: b.accountName })),
+  ];
+  /* Photo blobs go to whichever account holds the target book. */
+  const bookAccount = contacts.accountOfBook(bookId) ?? contacts.accountId!;
   const existingPhoto =
     card.id && contacts.accountId
       ? Object.values(card.media ?? {}).find((m) => m.kind === "photo")
@@ -250,7 +266,7 @@ export function ContactEditor({ card, defaultBookId, onClose, onSaved }: Props) 
           const bytes = new Uint8Array(bin.length);
           for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
           const up = await client.upload(
-            contacts.accountId!,
+            bookAccount,
             new Blob([bytes], { type: m[1]! }),
             { type: m[1]! },
           );
@@ -402,7 +418,7 @@ export function ContactEditor({ card, defaultBookId, onClose, onSaved }: Props) 
             >
               {books.map((b) => (
                 <option key={b.id} value={b.id}>
-                  {b.name}
+                  {b.note ? `${b.name} · ${b.note}` : b.name}
                 </option>
               ))}
             </select>

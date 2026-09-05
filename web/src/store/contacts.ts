@@ -201,6 +201,23 @@ export interface SharedBook {
   book: AddressBook;
 }
 
+/**
+ * Which account holds an address book: the reader's own when it is one of
+ * theirs, otherwise the account that shared it -- a colleague's, or a group
+ * mailbox the reader belongs to. Cards write to that account, never to the
+ * reader's own.
+ */
+function accountOfBook(
+  bookId: Id | null | undefined,
+  own: Record<Id, AddressBook>,
+  ownAccountId: Id | null,
+  shared: SharedBook[],
+): Id | null {
+  if (!bookId) return ownAccountId;
+  if (own[bookId]) return ownAccountId;
+  return shared.find((b) => b.book.id === bookId)?.accountId ?? ownAccountId;
+}
+
 /** Which book the contact list is showing. `accountId` null means the reader's. */
 export interface BookSelection {
   accountId: Id | null;
@@ -238,7 +255,9 @@ interface ContactsState {
   setBookSubscribed(accountId: Id, bookId: Id, subscribed: boolean): Promise<void>;
   /** The account a card belongs to, null for the reader's own. */
   accountOfCard(id: Id): Id | null;
-  getCard(id: Id): Promise<ContactCard | null>;
+  /** The account holding an address book, null when it is not the reader's own. */
+  accountOfBook(bookId: Id): Id | null;
+  getCard(id: Id, accountId?: Id | null): Promise<ContactCard | null>;
   search(text: string): ContactCard[];
   /** The search filter itself, so a shared book can be filtered the same way. */
   filterCards(cards: ContactCard[], text: string): ContactCard[];
@@ -445,6 +464,10 @@ export const useContacts = create<ContactsState>((set, get) => ({
     return hit ? hit[0].slice(0, hit[0].length - id.length - 1) : null;
   },
 
+  accountOfBook(bookId) {
+    return accountOfBook(bookId, get().books, get().accountId, get().sharedBooks);
+  },
+
   async loadBooks() {
     const accountId = get().accountId;
     if (!accountId) return;
@@ -498,15 +521,23 @@ export const useContacts = create<ContactsState>((set, get) => ({
     }
   },
 
-  async getCard(id) {
-    const accountId = get().accountId;
-    if (!accountId) return null;
+  async getCard(id, accountId) {
+    const own = get().accountId;
+    const target =
+      accountId ?? (get().cards[id] ? own : (get().accountOfCard(id) ?? own));
+    if (!target) return null;
     const res = await client.call<GetResponse<ContactCard>>("ContactCard/get", {
-      accountId,
+      accountId: target,
       ids: [id],
     });
     const c = res.list[0];
-    if (c) set((s) => ({ cards: { ...s.cards, [c.id]: c } }));
+    if (c) {
+      if (target === own) set((s) => ({ cards: { ...s.cards, [c.id]: c } }));
+      else
+        set((s) => ({
+          sharedCards: { ...s.sharedCards, [sharedKey(target, c.id)]: c },
+        }));
+    }
     return c ?? null;
   },
 
@@ -534,7 +565,13 @@ export const useContacts = create<ContactsState>((set, get) => ({
   },
 
   async createCard(card, addressBookId) {
-    const accountId = get().accountId!;
+    const accountId = accountOfBook(
+      addressBookId,
+      get().books,
+      get().accountId,
+      get().sharedBooks,
+    );
+    if (!accountId) throw new Error("That address book is not available");
     const obj = {
       "@type": "Card",
       version: "1.0",
@@ -550,19 +587,21 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const err = res.notCreated?.c;
     if (err) throw new Error(setErrorMessage(err));
     const id = res.created!.c!.id;
-    await get().getCard(id);
+    await get().getCard(id, accountId);
     return id;
   },
 
   async updateCard(id, patch) {
-    const accountId = get().accountId!;
+    const own = get().accountId;
+    const accountId = get().cards[id] ? own : (get().accountOfCard(id) ?? own);
+    if (!accountId) return;
     const res = await client.call<SetResponse>("ContactCard/set", {
       accountId,
       update: { [id]: patch },
     });
     const err = res.notUpdated?.[id];
     if (err) throw new Error(setErrorMessage(err));
-    await get().getCard(id);
+    await get().getCard(id, accountId);
   },
 
   /*
@@ -575,25 +614,39 @@ export const useContacts = create<ContactsState>((set, get) => ({
    * not leave deleted contacts on screen, and must not take live ones off it.
    */
   async destroyCards(ids) {
-    const accountId = get().accountId!;
+    const own = get().accountId;
+    const first = ids[0];
+    const accountId = !first
+      ? null
+      : get().cards[first]
+        ? own
+        : (get().accountOfCard(first) ?? own);
     const gone: Id[] = [];
     let failed: SetError | undefined;
     try {
-      for (const part of chunk(ids, client.maxObjectsInSet)) {
-        const res = await client.call<SetResponse>("ContactCard/set", {
-          accountId,
-          destroy: part,
-        });
-        gone.push(...(res.destroyed ?? []));
-        failed ??= Object.values(res.notDestroyed ?? {})[0];
-      }
+      if (accountId)
+        for (const part of chunk(ids, client.maxObjectsInSet)) {
+          const res = await client.call<SetResponse>("ContactCard/set", {
+            accountId,
+            destroy: part,
+          });
+          gone.push(...(res.destroyed ?? []));
+          failed ??= Object.values(res.notDestroyed ?? {})[0];
+        }
     } finally {
       if (gone.length) {
-        set((s) => {
-          const cards = { ...s.cards };
-          for (const id of gone) delete cards[id];
-          return { cards };
-        });
+        if (accountId && accountId !== own)
+          set((s) => {
+            const sharedCards = { ...s.sharedCards };
+            for (const id of gone) delete sharedCards[sharedKey(accountId, id)];
+            return { sharedCards };
+          });
+        else
+          set((s) => {
+            const cards = { ...s.cards };
+            for (const id of gone) delete cards[id];
+            return { cards };
+          });
       }
     }
     if (failed) throw new Error(setErrorMessage(failed));
@@ -636,7 +689,13 @@ export const useContacts = create<ContactsState>((set, get) => ({
   },
 
   async importVCard(text, addressBookId) {
-    const accountId = get().accountId!;
+    const accountId = accountOfBook(
+      addressBookId,
+      get().books,
+      get().accountId,
+      get().sharedBooks,
+    );
+    if (!accountId) throw new Error("That address book is not available");
     const up = await client.upload(accountId, new Blob([text], { type: "text/vcard" }), {
       type: "text/vcard",
     });
@@ -695,7 +754,8 @@ export const useContacts = create<ContactsState>((set, get) => ({
          matched on it rather than guessed at. */
       return { created, updated, alike: 0 };
     } finally {
-      await get().loadAll();
+      if (accountId === get().accountId) await get().loadAll();
+      else await get().loadShared();
     }
   },
 
@@ -709,7 +769,13 @@ export const useContacts = create<ContactsState>((set, get) => ({
    * the two imports; from `ContactCard/set` down they are the same.
    */
   async importLdif(text, addressBookId) {
-    const accountId = get().accountId!;
+    const accountId = accountOfBook(
+      addressBookId,
+      get().books,
+      get().accountId,
+      get().sharedBooks,
+    );
+    if (!accountId) throw new Error("That address book is not available");
     /* The record and not just the card: the `dn` is the entry's identity and
        `cardFromLdif` deliberately does not carry it into the card. */
     const entries = parseLdif(text)
@@ -776,7 +842,8 @@ export const useContacts = create<ContactsState>((set, get) => ({
         );
       return { created, updated, alike };
     } finally {
-      await get().loadAll();
+      if (accountId === get().accountId) await get().loadAll();
+      else await get().loadShared();
     }
   },
 

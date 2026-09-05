@@ -383,6 +383,19 @@ function ContactDetail({
   const books = Object.keys(c.addressBookIds ?? {})
     .map((id) => contacts.books[id]?.name)
     .filter(Boolean);
+  /* Whether this card may be edited or deleted: anything in the reader's own
+     books is theirs, a shared book only when its rights say mayWrite -- a
+     group's writable directory, not a colleague's read-only share. */
+  const cardAccount = c.id ? contacts.accountOfCard(c.id) : null;
+  const cardBookId = Object.keys(c.addressBookIds ?? {})[0];
+  const canWrite = !cardAccount
+    ? true
+    : contacts.sharedBooks.some(
+        (b) =>
+          b.accountId === cardAccount &&
+          b.book.id === cardBookId &&
+          b.book.myRights.mayWrite,
+      );
   const members =
     c.kind === "group"
       ? Object.keys(c.members ?? {})
@@ -401,9 +414,11 @@ function ContactDetail({
           </button>
         )}
         <span className="spacer" />
-        <button className="btn btn-sm" onClick={onEdit}>
-          <Pencil size={14} /> {translate("Edit")}
-        </button>
+        {canWrite && (
+          <button className="btn btn-sm" onClick={onEdit}>
+            <Pencil size={14} /> {translate("Edit")}
+          </button>
+        )}
         <button
           className="btn btn-sm"
           onClick={() => {
@@ -415,29 +430,31 @@ function ContactDetail({
         >
           <Download size={14} /> {translate("vCard")}
         </button>
-        <button
-          className="btn btn-sm btn-ghost"
-          style={{ color: "var(--danger)" }}
-          onClick={async () => {
-            if (
-              await confirmDialog({
-                title: translate("Delete {name}?", { name }),
-                confirmLabel: translate("Delete"),
-                danger: true,
-              })
-            ) {
-              try {
-                await contacts.destroyCards([c.id]);
-                toast.success(translate("Contact deleted"));
-                navigate("/contacts");
-              } catch (err) {
-                toast.error((err as Error).message);
+        {canWrite && (
+          <button
+            className="btn btn-sm btn-ghost"
+            style={{ color: "var(--danger)" }}
+            onClick={async () => {
+              if (
+                await confirmDialog({
+                  title: translate("Delete {name}?", { name }),
+                  confirmLabel: translate("Delete"),
+                  danger: true,
+                })
+              ) {
+                try {
+                  await contacts.destroyCards([c.id]);
+                  toast.success(translate("Contact deleted"));
+                  navigate("/contacts");
+                } catch (err) {
+                  toast.error((err as Error).message);
+                }
               }
-            }
-          }}
-        >
-          <Trash2 size={14} />
-        </button>
+            }}
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
       </div>
       <div className="contact-hero">
         <span

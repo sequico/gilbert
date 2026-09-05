@@ -48,6 +48,7 @@ import {
   makeParticipant,
   myParticipantKeys,
   participantEmail,
+  sharedKey,
   useCalendar,
 } from "@/store/calendar";
 import { useContacts } from "@/store/contacts";
@@ -197,13 +198,38 @@ function EventForm({
   const oneDate = scope === "occurrence";
   const cal = useCalendar();
   const contacts = useContacts();
+  const settings = useSettings((s) => s.settings);
   const ev = base;
-  const calendars = Object.values(cal.calendars).filter(
-    (c) => c.myRights.mayWriteAll || c.myRights.mayWriteOwn,
-  );
+  /* Calendars the reader may write to: their own, and the subscribed ones
+     they do not own -- a colleague's writable share, or a group mailbox they
+     belong to. Group calendars keep their account, so a same-named calendar
+     elsewhere is not silently aimed at. */
+  const calendars = [
+    ...Object.values(cal.calendars)
+      .filter((c) => c.myRights.mayWriteAll || c.myRights.mayWriteOwn)
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        accountName: undefined as string | undefined,
+      })),
+    ...cal.sharedCalendars
+      .filter(
+        (x) =>
+          (x.calendar.myRights.mayWriteAll || x.calendar.myRights.mayWriteOwn) &&
+          (x.calendar.isSubscribed ||
+            settings.addedShares.includes(sharedKey(x.accountId, x.calendar.id))),
+      )
+      .map((x) => ({
+        id: x.calendar.id,
+        name: x.calendar.name,
+        accountName: x.accountName,
+      })),
+  ];
   const initialCal = ev
     ? Object.keys(ev.calendarIds)[0]
-    : (calendars.find((c) => c.isDefault)?.id ?? calendars[0]?.id);
+    : (Object.values(cal.calendars).find(
+        (c) => (c.myRights.mayWriteAll || c.myRights.mayWriteOwn) && c.isDefault,
+      )?.id ?? calendars[0]?.id);
   const evTz = ev?.timeZone ?? settingsTz;
   const baseStart = ev
     ? zonedToDate(ev.start, ev.showWithoutTime ? null : evTz)
@@ -806,7 +832,7 @@ function EventForm({
             >
               {calendars.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {c.accountName ? `${c.name} · ${c.accountName}` : c.name}
                 </option>
               ))}
             </select>
