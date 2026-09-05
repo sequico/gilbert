@@ -615,6 +615,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       ([id, a]) => a.isPersonal === false && id !== own,
     );
     const found: SharedCalendar[] = [];
+    let failed = false;
     for (const [accountId, account] of accounts) {
       try {
         const res = await client.call<GetResponse<Calendar>>("Calendar/get", {
@@ -624,9 +625,23 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         });
         for (const calendar of res.list)
           found.push({ accountId, accountName: account.name, calendar });
-      } catch {}
+      } catch {
+        failed = true;
+      }
     }
-    set({ sharedCalendars: found });
+    if (!found.length && accounts.length > 0 && failed) return; // transient
+    set((s) => ({
+      sharedCalendars: found,
+      /* Every shared account is gone and the server said so -- a revoke, or
+         the reader left the team. Its events must not linger in the store
+         (the tasks signature keys off the calendars, but the grid reads the
+         ranges). On a partial answer the caches stay untouched: what is not
+         in `found` is dropped by the calendar set alone. */
+      sharedEvents:
+        found.length || !Object.keys(s.sharedEvents).length ? s.sharedEvents : {},
+      sharedRanges:
+        found.length || !Object.keys(s.sharedRanges).length ? s.sharedRanges : {},
+    }));
     // Fill in whatever windows are already on screen.
     for (const key of Object.keys(get().ranges)) {
       const [from, to] = key.split("|").map((n) => new Date(Number(n)));
@@ -1816,22 +1831,30 @@ function sharedAccountsSignature(
 useSession.subscribe((s, prev) => {
   if (s.status !== "authenticated") {
     lastSharedAccounts = "";
+    // A sign-out must not leave the previous reader's shared content behind:
+    // the calendar store outlives the session, and on a shared machine the
+    // next reader would briefly see it. The tasks store keys off the same
+    // state, so an empty set here is what keeps its signature honest too.
     useCalendar.setState({
       accountId: null,
       calendars: {},
       events: {},
       ranges: {},
+      sharedCalendars: [],
+      sharedEvents: {},
+      sharedRanges: {},
       identities: [],
     });
     return;
   }
   const sig = sharedAccountsSignature(s.session);
   if (prev.status === "authenticated") {
-    if (sig !== lastSharedAccounts && sig) {
+    if (sig !== lastSharedAccounts) {
+      // Changed -- shrunk to nothing included. A revoke that empties the set
+      // must still clear what was on screen; an empty `Calendar/get` round
+      // over zero accounts is exactly that clearing.
       lastSharedAccounts = sig;
       void useCalendar.getState().loadSharedCalendars();
-    } else {
-      lastSharedAccounts = sig;
     }
   } else {
     // The store's init (driven by the app on sign-in) does the first fetch.

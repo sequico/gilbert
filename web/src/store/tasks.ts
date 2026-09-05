@@ -9,10 +9,15 @@ import { useSession } from "./session";
  *
  * A task list is a calendar whose `description` is the `tasklist` marker, and
  * a task is a JSCalendar `Task` object inside it. Reading the reader's own and
- * subscribed shared (including group) calendars through the calendar store is
- * deliberate: discovery, subscription and the account-of-a-calendar logic
- * already live there, and this store only adds the task-shaped queries and
- * writes on top.
+ * shared (including group) calendars through the calendar store is deliberate:
+ * discovery and the account-of-a-calendar logic already live there, and this
+ * store only adds the task-shaped queries and writes on top.
+ *
+ * Every tasklist calendar the calendar store knows is listed, subscribed or
+ * not. A group's task lists have no add/subscribe affordance (the calendar
+ * sidebar keeps tasklists off its add lists), yet they must be there for every
+ * member of the group, so the subscription gate the calendar grid applies to
+ * shared calendars does not apply here.
  */
 
 export const TASKLIST_MARKER = "tasklist";
@@ -62,9 +67,9 @@ export interface TaskState {
     title: string,
     opts?: { due?: string; priority?: number },
   ): Promise<Id>;
-  setDone(task: TaskItem, done: boolean): Promise<void>;
-  update(task: TaskItem, patch: Record<string, unknown>): Promise<void>;
-  destroy(task: TaskItem): Promise<void>;
+  setDone(list: TaskList, task: TaskItem, done: boolean): Promise<void>;
+  update(list: TaskList, task: TaskItem, patch: Record<string, unknown>): Promise<void>;
+  destroy(list: TaskList, task: TaskItem): Promise<void>;
   /** Persist a new manual order for the open tasks of a list. */
   reorder(list: TaskList, orderedIds: Id[]): Promise<void>;
   createList(name: string): Promise<Id>;
@@ -72,7 +77,6 @@ export interface TaskState {
   applyChanges(types: Set<string>, accountId?: Id): void;
 }
 
-/** The position a task carries in its keywords, or null when never ordered. */
 /** The position a task carries in its keywords, or null when never ordered. */
 export function orderIndexOf(task: TaskItem): number | null {
   let found: number | null = null;
@@ -169,7 +173,9 @@ export const useTasks = create<TaskState>((set, get) => ({
           for (const t of g.list) tasks[taskKey(l.accountId, t.id)] = t;
         }
       } catch {
-        /* a calendar we cannot read is simply not listed */
+        /* A list we cannot read stays listed but empty: hiding it would look
+           like the list vanished, where keeping it shows the reader what a
+           group holds even when its tasks are out of reach. */
       }
     }
     set((s) => ({
@@ -207,11 +213,9 @@ export const useTasks = create<TaskState>((set, get) => ({
     return res.created!.c!.id;
   },
 
-  async setDone(task, done) {
-    const accountId = accountOfTask(get(), task.id);
-    if (!accountId) return;
+  async setDone(list, task, done) {
     const res = await client.call<SetResponse>("CalendarEvent/set", {
-      accountId,
+      accountId: list.accountId,
       update: {
         [task.id]: {
           progress: done ? "completed" : "needs-action",
@@ -224,11 +228,9 @@ export const useTasks = create<TaskState>((set, get) => ({
     await get().load();
   },
 
-  async update(task, patch) {
-    const accountId = accountOfTask(get(), task.id);
-    if (!accountId) return;
+  async update(list, task, patch) {
     const res = await client.call<SetResponse>("CalendarEvent/set", {
-      accountId,
+      accountId: list.accountId,
       update: { [task.id]: patch },
     });
     const err = res.notUpdated?.[task.id];
@@ -236,11 +238,9 @@ export const useTasks = create<TaskState>((set, get) => ({
     await get().load();
   },
 
-  async destroy(task) {
-    const accountId = accountOfTask(get(), task.id);
-    if (!accountId) return;
+  async destroy(list, task) {
     const res = await client.call<SetResponse>("CalendarEvent/set", {
-      accountId,
+      accountId: list.accountId,
       destroy: [task.id],
     });
     const err = res.notDestroyed?.[task.id];
@@ -315,12 +315,13 @@ export const useTasks = create<TaskState>((set, get) => ({
   },
 }));
 
-/** The account a task lives in, looked up from the task id across all lists. */
-function accountOfTask(state: TaskState, id: Id): Id | null {
-  const entry = Object.entries(state.tasks).find(([, t]) => t.id === id);
-  if (!entry) return null;
-  return entry[0].slice(0, entry[0].length - id.length - 1);
-}
+/*
+ * Writes to a task are aimed by the list the reader is acting on, not by a
+ * lookup on the bare task id: an id is unique only within its account, so the
+ * same id can name a task in the reader's own list and one in a group's, and
+ * a scan across accounts would pick whichever came first -- usually the
+ * reader's own, silently completing or deleting the wrong task.
+ */
 
 /** A different sign-in must not leave the previous reader's tasks on screen. */
 useSession.subscribe((s, prev) => {
@@ -332,6 +333,9 @@ useSession.subscribe((s, prev) => {
     loaded: false,
     selectedListId: null,
   });
+  // The calendar store is cleared with the sign-out; the next signature event
+  // must set the baseline afresh rather than diff against a dead one.
+  lastTasklistSignature = null;
 });
 
 /**

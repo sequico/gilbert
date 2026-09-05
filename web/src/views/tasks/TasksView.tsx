@@ -95,7 +95,15 @@ interface RowDragProps {
   onRowDrop(e: React.DragEvent): void;
 }
 
-function TaskRow({ task, drag }: { task: TaskItem; drag?: RowDragProps }) {
+function TaskRow({
+  list,
+  task,
+  drag,
+}: {
+  list: TaskList;
+  task: TaskItem;
+  drag?: RowDragProps;
+}) {
   const done = isDone(task);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -116,7 +124,7 @@ function TaskRow({ task, drag }: { task: TaskItem; drag?: RowDragProps }) {
     const next = title.trim();
     setEditing(false);
     if (!next || next === task.title) return;
-    await act(() => useTasks.getState().update(task, { title: next }));
+    await act(() => useTasks.getState().update(list, task, { title: next }));
   };
   const startEditing = () => {
     skipBlur.current = false;
@@ -141,7 +149,7 @@ function TaskRow({ task, drag }: { task: TaskItem; drag?: RowDragProps }) {
         className="task-check"
         disabled={busy}
         aria-label={done ? t("Mark as not done") : t("Mark as done")}
-        onClick={() => void act(() => useTasks.getState().setDone(task, !done))}
+        onClick={() => void act(() => useTasks.getState().setDone(list, task, !done))}
       >
         <span className="task-checkbox">{done ? <X size={14} /> : null}</span>
       </button>
@@ -186,7 +194,7 @@ function TaskRow({ task, drag }: { task: TaskItem; drag?: RowDragProps }) {
         className="icon-btn sm task-delete"
         aria-label={t("Delete task")}
         title={t("Delete task")}
-        onClick={() => void act(() => useTasks.getState().destroy(task))}
+        onClick={() => void act(() => useTasks.getState().destroy(list, task))}
       >
         <Trash2 size={14} />
       </button>
@@ -324,39 +332,47 @@ export function TasksView() {
         />
       </div>
       <div className="task-list">
-        {ordered.map((t) => {
-          const id = t.id;
-          const drag: RowDragProps = {
-            dragging: dragId === id,
-            dropTarget: !!dragId && dragId !== id && overId === id && !isDone(t),
-            onStart: (e) => {
-              // Buttons and the rename input must keep their own gestures;
-              // a drag that begins on one of them is a mis-drag.
-              if ((e.target as HTMLElement).closest("button, input")) {
+        {list &&
+          ordered.map((t) => {
+            const id = t.id;
+            const drag: RowDragProps = {
+              dragging: dragId === id,
+              dropTarget: !!dragId && dragId !== id && overId === id && !isDone(t),
+              onStart: (e) => {
+                // Buttons and the rename input must keep their own gestures;
+                // a drag that begins on one of them is a mis-drag.
+                if ((e.target as HTMLElement).closest("button, input")) {
+                  e.preventDefault();
+                  return;
+                }
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", id);
+                setDragId(id);
+              },
+              onEnd: () => {
+                setDragId(null);
+                setOverId(null);
+              },
+              onRowOver: (e) => {
+                if (!dragId || dragId === id || isDone(t)) return;
                 e.preventDefault();
-                return;
-              }
-              e.dataTransfer.effectAllowed = "move";
-              e.dataTransfer.setData("text/plain", id);
-              setDragId(id);
-            },
-            onEnd: () => {
-              setDragId(null);
-              setOverId(null);
-            },
-            onRowOver: (e) => {
-              if (!dragId || dragId === id || isDone(t)) return;
-              e.preventDefault();
-              e.dataTransfer.dropEffect = "move";
-              setOverId(id);
-            },
-            onRowDrop: (e) => {
-              e.preventDefault();
-              finishDrag(id);
-            },
-          };
-          return <TaskRow key={id} task={t} drag={isDone(t) ? undefined : drag} />;
-        })}
+                e.dataTransfer.dropEffect = "move";
+                setOverId(id);
+              },
+              onRowDrop: (e) => {
+                e.preventDefault();
+                finishDrag(id);
+              },
+            };
+            return (
+              <TaskRow
+                key={id}
+                list={list}
+                task={t}
+                drag={isDone(t) ? undefined : drag}
+              />
+            );
+          })}
         {!ordered.length && (
           <p className="hint" style={{ padding: "12px" }}>
             {t("No tasks. Add one above.")}

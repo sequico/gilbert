@@ -12,6 +12,9 @@ import { unsubscribeThisDevice } from "@/lib/webpush";
 
 export type AuthStatus = "loading" | "anonymous" | "authenticated";
 
+/** A session probe already on its way, so two callers share one request. */
+let bootstrapInFlight: Promise<void> | null = null;
+
 interface SessionState {
   status: AuthStatus;
   session: JmapSession | null;
@@ -46,14 +49,28 @@ export const useSession = create<SessionState>((set, get) => ({
   pushState: "disconnected",
 
   async bootstrap() {
-    try {
-      const s = await apiFetch<JmapSession>("/api/auth/session");
-      applySession(s, set);
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401)
-        set({ status: "anonymous", session: null, accountId: null });
-      else set({ status: "anonymous", error: (err as Error).message });
-    }
+    /*
+     * One probe at a time. The App mounts the bootstrap effect once, but
+     * React's StrictMode (dev) mounts, unmounts and remounts it, so two
+     * calls can race out of the same first paint -- and an anonymous client
+     * answers 401, twice. Every caller wants the same session, so a call
+     * already on the way is the answer; the latch drops once it lands so a
+     * later, genuinely new probe still happens.
+     */
+    if (bootstrapInFlight) return bootstrapInFlight;
+    bootstrapInFlight = (async () => {
+      try {
+        const s = await apiFetch<JmapSession>("/api/auth/session");
+        applySession(s, set);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401)
+          set({ status: "anonymous", session: null, accountId: null });
+        else set({ status: "anonymous", error: (err as Error).message });
+      } finally {
+        bootstrapInFlight = null;
+      }
+    })();
+    return bootstrapInFlight;
   },
 
   async login(username, password, totp, remember) {
