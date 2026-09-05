@@ -1152,9 +1152,16 @@ export const useCalendar = create<CalendarState>((set, get) => ({
 
   async createCalendar(data) {
     const accountId = get().accountId!;
+    /*
+     * Subscribed from the start, the same way a new task list is: the reader
+     * made the calendar to use it, and a server that leaves a new calendar
+     * unsubscribed unless the client says otherwise (Stalwart does; the mock
+     * used to hide it by filling the flag in) would keep it invisible to
+     * every client that honours `isSubscribed`.
+     */
     const res = await client.call<SetResponse<Calendar>>("Calendar/set", {
       accountId,
-      create: { c: { name: "Calendar", ...data } },
+      create: { c: { name: "Calendar", isSubscribed: true, ...data } },
     });
     const err = res.notCreated?.c;
     if (err) throw new Error(setErrorMessage(err));

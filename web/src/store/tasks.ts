@@ -261,9 +261,16 @@ export const useTasks = create<TaskState>((set, get) => ({
   async createList(name) {
     const accountId = useCalendar.getState().accountId;
     if (!accountId) throw new Error("Calendars are not available");
+    /*
+     * Subscribed from the start: a list the reader just made is theirs to
+     * use, and a server that leaves a new calendar unsubscribed unless the
+     * client says otherwise (Stalwart does; the mock used to hide it by
+     * filling the flag in) would keep the fresh list invisible to every
+     * client that honours `isSubscribed`.
+     */
     const res = await client.call<SetResponse<{ id: Id }>>("Calendar/set", {
       accountId,
-      create: { c: { name, description: TASKLIST_MARKER } },
+      create: { c: { name, description: TASKLIST_MARKER, isSubscribed: true } },
     });
     const err = res.notCreated?.c;
     if (err) throw new Error(setErrorMessage(err));

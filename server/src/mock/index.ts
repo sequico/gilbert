@@ -2596,11 +2596,18 @@ const handlers: Record<string, Handler> = {
       a,
       genericGet(calendarsFor(a.accountId))(a) as { list: Obj[] },
     ) as never,
+  /*
+   * `isSubscribed` is deliberately not among the defaults a new calendar is
+   * filled with. Stalwart leaves a calendar the client creates unsubscribed
+   * unless the create says otherwise — a mock that set the flag for it would
+   * let a client that never sends it look correct everywhere except a real
+   * server (the task-list bug this models). The client's own create paths
+   * (a task list, a plain calendar) say `isSubscribed: true`.
+   */
   "Calendar/set": (a) =>
     genericSet(calendarsFor(a.accountId), "c", (o) =>
       Object.assign(o, {
         color: "#0f766e",
-        isSubscribed: true,
         isVisible: true,
         isDefault: false,
         includeInAvailability: "all",
