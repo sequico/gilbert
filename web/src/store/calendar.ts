@@ -1638,7 +1638,8 @@ function accountOfCalendar(
   const sharedHits = shared.filter((c) => c.calendar.id === calendarId);
   if (ownHit && sharedHits.length) return null;
   if (sharedHits.length > 1) return null;
-  if (sharedHits.length === 1) return sharedHits[0].accountId;
+  const onlyShared = sharedHits.length === 1 ? sharedHits[0] : undefined;
+  if (onlyShared) return onlyShared.accountId;
   return ownAccountId;
 }
 

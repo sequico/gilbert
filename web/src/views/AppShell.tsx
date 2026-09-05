@@ -364,6 +364,33 @@ export function AppShell({ children }: { children: ReactNode }) {
               <PenSquare size={24} />
             </button>
           )}
+          {section === "contacts" && (
+            <button
+              className="fab"
+              aria-label={t("New contact")}
+              onClick={() => window.dispatchEvent(new CustomEvent("ihm:new-contact"))}
+            >
+              <Plus size={24} />
+            </button>
+          )}
+          {section === "files" && (
+            <button
+              className="fab"
+              aria-label={t("Upload")}
+              onClick={() => window.dispatchEvent(new CustomEvent("ihm:files-upload"))}
+            >
+              <Upload size={24} />
+            </button>
+          )}
+          {section === "tasks" && (
+            <button
+              className="fab"
+              aria-label={t("New task")}
+              onClick={() => window.dispatchEvent(new CustomEvent("ihm:new-task"))}
+            >
+              <Plus size={24} />
+            </button>
+          )}
           <nav className="mobile-tabbar" aria-label={t("Sections")}>
             <Link
               href="/mail"
@@ -387,6 +414,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               <FolderOpen size={22} />
 
               {t("Files")}
+            </Link>
+            <Link href="/tasks" className={section === "tasks" ? "active" : ""}>
+              <ListChecks size={22} />
+
+              {t("Tasks")}
             </Link>
           </nav>
         </>

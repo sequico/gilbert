@@ -1510,7 +1510,7 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
   .fab { display: flex; position: fixed; right: calc(18px + env(safe-area-inset-right)); bottom: calc(78px + env(safe-area-inset-bottom)); width: 56px; height: 56px; border-radius: 18px; background: var(--accent); color: var(--accent-fg); align-items: center; justify-content: center; box-shadow: var(--shadow-2); z-index: 700; }
   /* The bar grows by the home indicator rather than hiding behind it, and
      `.main` below reserves exactly that much. */
-  .mobile-tabbar { display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; left: 0; right: 0; bottom: 0; height: calc(60px + env(safe-area-inset-bottom)); background: var(--bg-elev); border-top: 1px solid var(--border); z-index: 700; padding-bottom: env(safe-area-inset-bottom); }
+  .mobile-tabbar { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; height: calc(60px + env(safe-area-inset-bottom)); background: var(--bg-elev); border-top: 1px solid var(--border); z-index: 700; padding-bottom: env(safe-area-inset-bottom); }
   .mobile-tabbar a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--fg-muted); text-decoration: none; font-size: 11px; }
   .mobile-tabbar a.active { color: var(--accent); }
   .main { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
