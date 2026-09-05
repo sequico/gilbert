@@ -24,6 +24,7 @@ import { scheduleSupported, useScheduled } from "@/store/scheduled";
 import { useSession } from "@/store/session";
 import { PAINTED_FROM_CACHE, syncedPart, useSettings } from "@/store/settings";
 import { useSieve } from "@/store/sieve";
+import { useTasks } from "@/store/tasks";
 import { ConfirmHost } from "@/ui/dialog";
 import { Spinner } from "@/ui/misc";
 import { ToastHost, toast } from "@/ui/toast";
@@ -266,10 +267,15 @@ function AuthedApp() {
             // Refresh its folder tree so the sidebar's counts stay honest.
             void useMail.getState().refreshAccountTree(a);
           }
-          if (a === useContacts.getState().accountId)
-            useContacts.getState().applyChanges(types);
-          if (a === useCalendar.getState().accountId)
-            useCalendar.getState().applyChanges(types);
+          /*
+           * Shared data lives in an account that is not the reader's own, but
+           * these stores draw it beside their own: a change to a shared
+           * account has to reach them too. Each store routes the account — its
+           * own, or one whose shared cache it renders — and ignores the rest.
+           */
+          useContacts.getState().applyChanges(types, a);
+          useCalendar.getState().applyChanges(types, a);
+          useTasks.getState().applyChanges(types, a);
           if (a === useFiles.getState().accountId)
             useFiles.getState().applyChanges(types);
           if (a === useSieve.getState().accountId)

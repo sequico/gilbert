@@ -68,6 +68,8 @@ export interface TaskState {
   /** Persist a new manual order for the open tasks of a list. */
   reorder(list: TaskList, orderedIds: Id[]): Promise<void>;
   createList(name: string): Promise<Id>;
+  /** A task-list account (own or shared) changed its events or calendars. */
+  applyChanges(types: Set<string>, accountId?: Id): void;
 }
 
 /** The position a task carries in its keywords, or null when never ordered. */
@@ -293,6 +295,23 @@ export const useTasks = create<TaskState>((set, get) => ({
     await useCalendar.getState().loadCalendars();
     await get().load();
     return res.created!.c!.id;
+  },
+
+  applyChanges(types, accountId) {
+    /*
+     * Tasks are JSCalendar `Task` objects inside `tasklist` calendars, so a
+     * push state change for CalendarEvent (or Calendar) on the reader's own
+     * account or on any account holding a task list means the list contents
+     * may have changed out from under the open view. The calendar store's own
+     * change hook only reacts to the *set* of lists, not to their contents.
+     */
+    if (!types.has("CalendarEvent") && !types.has("Calendar")) return;
+    const own = get().accountId;
+    const relevant =
+      accountId === undefined ||
+      accountId === own ||
+      get().lists.some((l) => l.accountId === accountId);
+    if (relevant) void get().load();
   },
 }));
 

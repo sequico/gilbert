@@ -2097,7 +2097,7 @@ const handlers: Record<string, Handler> = {
        in it could not be reproduced: marking a message read went round the
        server and back on the live instance, and did nothing at all on the mock
        (#100). Announced now, the way Stalwart does. */
-    broadcast(["Email", "Mailbox", "Thread"]);
+    broadcast(["Email", "Mailbox", "Thread"], (a.accountId as string) ?? ACCOUNT);
     return r;
   },
   "Email/import": (a) => {
@@ -3080,8 +3080,8 @@ function recordEmailChange(change: {
   if (emailChanges.length > 200) emailChanges.splice(0, emailChanges.length - 200);
 }
 
-function broadcast(types: string[]) {
-  const payload = `event: state\ndata: ${JSON.stringify({ "@type": "StateChange", changed: { [ACCOUNT]: Object.fromEntries(types.map((t) => [t, String(state.n)])) } })}\n\n`;
+function broadcast(types: string[], accountId: string = ACCOUNT) {
+  const payload = `event: state\ndata: ${JSON.stringify({ "@type": "StateChange", changed: { [accountId]: Object.fromEntries(types.map((t) => [t, String(state.n)])) } })}\n\n`;
   for (const c of sseClients) c.write(payload);
 }
 
@@ -3131,7 +3131,7 @@ export const server = createServer(async (req, res) => {
       );
     }
     const responses: [string, Obj, string][] = [];
-    const touched = new Set<string>();
+    const touched = new Map<string, Set<string>>();
     const creations: Record<string, string> = {};
     for (const [name, rawArgs, id] of body.methodCalls) {
       const h = handlers[name];
@@ -3149,8 +3149,13 @@ export const server = createServer(async (req, res) => {
           const newId = (obj as Obj)?.id;
           if (typeof newId === "string") creations[cid] = newId;
         }
-        if (name.endsWith("/set") || name.endsWith("/import"))
-          touched.add(name.split("/")[0]!);
+        if (name.endsWith("/set") || name.endsWith("/import")) {
+          const type = name.split("/")[0]!;
+          const accountId = (args as Obj).accountId ?? ACCOUNT;
+          const set = touched.get(accountId as string) ?? new Set<string>();
+          set.add(type);
+          touched.set(accountId as string, set);
+        }
       } catch (err) {
         if (err instanceof MethodError)
           responses.push(["error", { type: err.type, description: err.message }, id]);
@@ -3160,11 +3165,17 @@ export const server = createServer(async (req, res) => {
     }
     if (touched.size) {
       nextState();
-      setTimeout(
-        () =>
-          broadcast([...touched, ...(touched.has("Email") ? ["Mailbox", "Thread"] : [])]),
-        50,
-      );
+      setTimeout(() => {
+        /* A state change names the account that changed, so a group write is
+           announced for the group's account — the reader's session has it too,
+           and their client refreshes the shared view from there. */
+        for (const [accountId, types] of touched) {
+          broadcast(
+            [...types, ...(types.has("Email") ? ["Mailbox", "Thread"] : [])],
+            accountId,
+          );
+        }
+      }, 50);
     }
     res.writeHead(200, { "content-type": "application/json" });
     return res.end(

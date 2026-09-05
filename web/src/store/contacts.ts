@@ -290,7 +290,7 @@ interface ContactsState {
   suggest(query: string, limit?: number): Promise<Suggestion[]>;
   addRecent(addrs: EmailAddress[]): void;
   lookupByEmail(email: string): ContactCard | undefined;
-  applyChanges(types: Set<string>): void;
+  applyChanges(types: Set<string>, accountId?: Id): void;
 }
 
 export const CARD_PROPS = undefined; // all properties
@@ -969,7 +969,20 @@ export const useContacts = create<ContactsState>((set, get) => ({
     );
   },
 
-  applyChanges(types) {
+  applyChanges(types, accountId) {
+    /*
+     * Shared books and cards live in accounts that are not the reader's own,
+     * but they are drawn beside the reader's own — so a change to a shared
+     * account has to reload the shared cache, not the own one. The account
+     * that changed is what the push dispatch hands over.
+     */
+    if (accountId && accountId !== get().accountId) {
+      const s = useSession.getState().session;
+      const shared = s?.accounts?.[accountId]?.isPersonal === false;
+      if (shared && (types.has("AddressBook") || types.has("ContactCard")))
+        void get().loadShared();
+      return;
+    }
     if (types.has("AddressBook")) {
       void get().loadBooks();
       void get().loadShared();

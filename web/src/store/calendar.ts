@@ -421,7 +421,7 @@ interface CalendarState {
   importIcs(text: string, calendarId: Id): Promise<{ created: number; skipped: number }>;
   /** The whole calendar as one .ics document, and how many events went into it. */
   exportIcs(calendarId: Id): Promise<{ text: string; count: number }>;
-  applyChanges(types: Set<string>): void;
+  applyChanges(types: Set<string>, accountId?: Id): void;
   invalidate(): void;
   setDraft(draft: EventDraft | null): void;
 }
@@ -1435,7 +1435,26 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     };
   },
 
-  applyChanges(types) {
+  applyChanges(types, accountId) {
+    /*
+     * A change to a shared account (a colleague's share, a group mailbox) is
+     * not aimed at the reader's own account, so the own-account caches do not
+     * cover it. The shared caches do: the calendars of that account and the
+     * windows of its events already on screen.
+     */
+    const own = get().accountId;
+    if (accountId && accountId !== own) {
+      if (!get().sharedCalendars.some((c) => c.accountId === accountId)) return;
+      if (types.has("Calendar")) void get().loadSharedCalendars();
+      if (types.has("CalendarEvent")) {
+        for (const key of Object.keys(get().ranges)) {
+          const [s, e] = key.split("|").map(Number) as [number, number];
+          if (Number.isFinite(s) && Number.isFinite(e))
+            void get().loadSharedRange(new Date(s), new Date(e));
+        }
+      }
+      return;
+    }
     if (types.has("Calendar")) void get().loadCalendars();
     if (types.has("CalendarEvent")) get().invalidate();
   },
