@@ -2,14 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { JmapSession } from "@/jmap/types";
 import { useCalendar } from "@/store/calendar";
-import { useTasks } from "@/store/tasks";
+import { type TaskList, useTasks } from "@/store/tasks";
 
 /**
- * A calendar the reader creates — a task list or a plain calendar — must be
- * created subscribed. Stalwart leaves a new calendar unsubscribed unless the
- * create says otherwise, so a client that omits the flag ends up with its own
- * fresh calendar invisible to every client that honours `isSubscribed`. These
- * pins keep the flag in both create payloads.
+ * Group task lists are created lazily and destroyed with their calendar: a
+ * list *is* a tasklist-marked calendar in the group account, so the group's
+ * first list and its tasklist calendar are the same object. Pressing "+" on a
+ * group that has no list writes one calendar into that account; deleting the
+ * last list destroys it, leaving nothing behind in Stalwart.
  */
 
 function stubServer() {
@@ -24,17 +24,17 @@ function stubServer() {
       for (const [name, args, id] of body.methodCalls) {
         calls.push({ name, args });
         if (name === "Calendar/set") {
-          const created: Record<string, unknown> = {};
-          for (const k of Object.keys((args.create as Record<string, unknown>) ?? {}))
-            created[k] = { id: `n${k}` };
+          const createdKeys = Object.keys(
+            (args.create as Record<string, unknown> | undefined) ?? {},
+          );
           methodResponses.push([
             name,
             {
               accountId: args.accountId,
               state: "1",
-              created,
+              created: Object.fromEntries(createdKeys.map((k) => [k, { id: "nc" }])),
               updated: {},
-              destroyed: [],
+              destroyed: (args.destroy as string[] | undefined) ?? [],
               notCreated: {},
               notUpdated: {},
               notDestroyed: {},
@@ -95,28 +95,30 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("creating a task list", () => {
-  it("creates the tasklist calendar subscribed, so the reader keeps it", async () => {
+describe("task lists in a group account", () => {
+  it("creates the group's first list as a tasklist calendar in the group account", async () => {
     const calls = stubServer();
-    const id = await useTasks.getState().createList("a1", "Grocery");
+    const id = await useTasks.getState().createList("a2", "Team chores");
     expect(id).toBe("nc");
     const set = calls.find((c) => c.name === "Calendar/set");
-    expect(set?.args.accountId).toBe("a1");
+    expect(set?.args.accountId).toBe("a2");
     expect(set?.args.create).toEqual({
-      c: { name: "Grocery", description: "tasklist", isSubscribed: true },
+      c: { name: "Team chores", description: "tasklist", isSubscribed: true },
     });
   });
-});
 
-describe("creating a plain calendar", () => {
-  it("creates the calendar subscribed, the same way a task list is", async () => {
+  it("deletes a group list by destroying its calendar in the group account", async () => {
     const calls = stubServer();
-    const id = await useCalendar.getState().createCalendar({ name: "Holidays" });
-    expect(id).toBe("nc");
+    const list: TaskList = {
+      accountId: "a2",
+      accountName: "team@example.org",
+      calendarId: "gt1",
+      name: "Team chores",
+    };
+    await useTasks.getState().destroyList(list);
     const set = calls.find((c) => c.name === "Calendar/set");
-    expect(set?.args.accountId).toBe("a1");
-    expect(set?.args.create).toEqual({
-      c: { name: "Holidays", isSubscribed: true },
-    });
+    expect(set?.args.accountId).toBe("a2");
+    expect(set?.args.destroy).toEqual(["gt1"]);
+    expect(set?.args.onDestroyRemoveEvents).toBe(true);
   });
 });

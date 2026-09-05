@@ -72,7 +72,15 @@ export interface TaskState {
   destroy(list: TaskList, task: TaskItem): Promise<void>;
   /** Persist a new manual order for the open tasks of a list. */
   reorder(list: TaskList, orderedIds: Id[]): Promise<void>;
-  createList(name: string): Promise<Id>;
+  /**
+   * Create a task list (`name`d, `tasklist`-marked) inside `accountId` — the
+   * reader's own account or a group's. A list is a calendar, so a group's
+   * first list and its tasklist calendar are the same object; creation is
+   * lazy, so a group the reader never writes to leaves nothing behind.
+   */
+  createList(accountId: Id, name: string): Promise<Id>;
+  /** Destroy a task list and its tasks — on a group, for every member. */
+  destroyList(list: TaskList): Promise<void>;
   /** A task-list account (own or shared) changed its events or calendars. */
   applyChanges(types: Set<string>, accountId?: Id): void;
 }
@@ -276,9 +284,9 @@ export const useTasks = create<TaskState>((set, get) => ({
     await get().load();
   },
 
-  async createList(name) {
-    const accountId = useCalendar.getState().accountId;
+  async createList(accountId, name) {
     if (!accountId) throw new Error("Calendars are not available");
+    const own = useCalendar.getState().accountId;
     /*
      * Subscribed from the start: a list the reader just made is theirs to
      * use, and a server that leaves a new calendar unsubscribed unless the
@@ -292,9 +300,30 @@ export const useTasks = create<TaskState>((set, get) => ({
     });
     const err = res.notCreated?.c;
     if (err) throw new Error(setErrorMessage(err));
-    await useCalendar.getState().loadCalendars();
+    if (accountId === own) await useCalendar.getState().loadCalendars();
+    else await useCalendar.getState().loadSharedCalendars();
     await get().load();
     return res.created!.c!.id;
+  },
+
+  async destroyList(list) {
+    const own = useCalendar.getState().accountId;
+    /*
+     * A task list is the calendar it lives in, so deleting the last list of
+     * a group deletes the group's tasklist calendar with it — nothing is
+     * left behind. Its tasks go with it (`onDestroyRemoveEvents`), which is
+     * what deleting a list means to every member of the group.
+     */
+    const res = await client.call<SetResponse>("Calendar/set", {
+      accountId: list.accountId,
+      destroy: [list.calendarId],
+      onDestroyRemoveEvents: true,
+    });
+    const err = res.notDestroyed?.[list.calendarId];
+    if (err) throw new Error(setErrorMessage(err));
+    if (list.accountId === own) await useCalendar.getState().loadCalendars();
+    else await useCalendar.getState().loadSharedCalendars();
+    await get().load();
   },
 
   applyChanges(types, accountId) {
