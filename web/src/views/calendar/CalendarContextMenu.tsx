@@ -158,15 +158,14 @@ export function CalendarContextMenu({ ctx, onClose, onOpen, onEdit, onCreate }: 
       recurrenceIdTimeZone: _rt,
       ...rest
     } = ev as CalendarEvent & Record<string, unknown>;
+    /* An exact copy: only the identity fields are new (the store mints a fresh
+       uid and the server stamps created/updated), everything else -- title,
+       description, guests, alerts, recurrence -- is carried over untouched. A
+       duplicate that silently renames itself "Copy of …" is a duplicate the
+       reader did not ask for. */
     try {
       await cal.createEvent(
-        {
-          ...rest,
-          title: t("Copy of {title}", { title: ev.title ?? t("event") }),
-          participants: undefined,
-          replyTo: undefined,
-          organizerCalendarAddress: undefined,
-        } as Partial<CalendarEvent>,
+        rest as Partial<CalendarEvent>,
         Object.keys(calendarIds)[0] ?? Object.keys(cal.calendars)[0]!,
         false,
       );

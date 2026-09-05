@@ -910,6 +910,11 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       if (calId && !theirs[calId]) continue;
       const inst = toInstance(e, theirs);
       if (!inst) continue;
+      // Ids are unique only within an account, so a key that is the bare id
+      // would collide when the reader's own account and a shared one (own
+      // events and the group's) both hold an event with the same id on the
+      // same day -- duplicate React keys, and a drag that grabs both.
+      inst.key = sharedKey(accountId, e.id);
       if (inst.end > start && inst.start < end) out.push(inst);
     }
     out.sort(

@@ -540,8 +540,9 @@ function MonthView({
                 key={d.toISOString()}
                 data-date={toLocalDateOnly(d)}
                 className={`month-cell ${d.getMonth() !== anchor.getMonth() ? "other" : ""} ${isToday(d) ? "today" : ""}`}
-                onClick={() => onCreate(d)}
-                onDoubleClick={() => onDay(d)}
+                /* Creating needs a deliberate double click, so a stray single
+                   click on a day never opens the editor by accident. */
+                onDoubleClick={() => onCreate(d)}
                 onContextMenu={(e) =>
                   onSlotContext(
                     new Date(d.getTime() + 9 * 3600_000),
@@ -707,6 +708,10 @@ function TimeGrid({
     key: string;
     deltaMin: number;
     mode: "move" | "resize";
+    /** Live pointer deltas, in px, so the dragged block follows the hand
+        (wysiwyg) instead of jumping column by column. */
+    dx: number;
+    dy: number;
   } | null>(null);
   /* A drag ends with a pointerup, and a pointerup on the same element is also
      a click. Without this, letting go of a moved event opens its popover. */
@@ -723,14 +728,25 @@ function TimeGrid({
     e.preventDefault();
     const el = e.currentTarget as HTMLElement;
     const startY = e.clientY;
+    const startX = e.clientX;
+    let dx = 0;
+    let dy = 0;
     let delta = 0;
     el.setPointerCapture(e.pointerId);
     const onPointerMove = (ev: PointerEvent) => {
-      delta = snap(pixelsToMinutes(ev.clientY - startY, HOUR_H));
-      if (delta !== 0) draggedRef.current = true;
-      setMoving({ key: inst.key, deltaMin: delta, mode });
+      dx = ev.clientX - startX;
+      dy = ev.clientY - startY;
+      delta = snap(pixelsToMinutes(dy, HOUR_H));
+      if (dx !== 0 || dy !== 0) draggedRef.current = true;
+      setMoving({
+        key: inst.key,
+        deltaMin: delta,
+        mode,
+        dx: mode === "resize" ? 0 : dx,
+        dy,
+      });
     };
-    const finish = () => {
+    const finish = (ev: PointerEvent) => {
       el.removeEventListener("pointermove", onPointerMove);
       el.removeEventListener("pointerup", finish);
       el.removeEventListener("pointercancel", finish);
@@ -739,14 +755,40 @@ function TimeGrid({
       } catch {
         /* already released, which is fine */
       }
+      /* Dragging sideways across the week moves the event to another day: the
+         pointer's column, not a number of pixels, decides the target, so a
+         drag that ends over the next day's column moves it one day whatever
+         the mouse did in between. */
+      let dayShift = 0;
+      if (mode === "move") {
+        const bodyEl = el.closest(".week-body");
+        if (bodyEl && days.length > 1) {
+          const rect = bodyEl.getBoundingClientRect();
+          const colW = rect.width / days.length;
+          const col = Math.max(
+            0,
+            Math.min(days.length - 1, Math.floor((ev.clientX - rect.left) / colW)),
+          );
+          const origin = days.findIndex((d) => isSameDay(d, inst.start));
+          if (origin >= 0) dayShift = col - origin;
+        }
+      }
+      const moved = delta !== 0 || dayShift !== 0 || dx !== 0;
       setMoving(null);
-      if (delta !== 0) {
+      if (moved) {
         const seconds = (inst.end.getTime() - inst.start.getTime()) / 1000;
-        onDragCommit(
-          inst,
+        const byMinute =
           mode === "move"
             ? movePatch(inst.event.start, delta)
-            : resizePatch(seconds, delta),
+            : resizePatch(seconds, delta);
+        onDragCommit(
+          inst,
+          mode === "move" && dayShift !== 0
+            ? {
+                ...byMinute,
+                ...moveByDaysPatch(inst.event.start, dayShift),
+              }
+            : byMinute,
         );
       }
       // Cleared after the click that follows this pointerup has been swallowed.
@@ -809,7 +851,8 @@ function TimeGrid({
           <div
             key={d.toISOString()}
             className="ad-cell"
-            onClick={() => onCreate(d, addDays(d, 1), true)}
+            /* Same rule as the month grid: creating is a double click. */
+            onDoubleClick={() => onCreate(d, addDays(d, 1), true)}
             onContextMenu={(e) => onSlotContext(d, addDays(d, 1), true, e)}
           >
             {allDay(d).map((i) => (
@@ -905,21 +948,27 @@ function TimeGrid({
                       key={inst.key}
                       className={`ev-block ${statusClass(inst)} ${moving?.key === inst.key ? "dragging" : ""} ${canDragEvent(inst.event, inst.calendar) ? "draggable" : ""}`}
                       style={{
-                        top:
-                          top +
-                          (moving?.key === inst.key && moving.mode === "move"
-                            ? (moving.deltaMin / 60) * HOUR_H
-                            : 0),
+                        top,
                         height: Math.max(
                           height +
                             (moving?.key === inst.key && moving.mode === "resize"
-                              ? (moving.deltaMin / 60) * HOUR_H
+                              ? moving.dy
                               : 0),
                           18,
                         ),
                         left: `${left}%`,
                         width: `calc(${width}% - 3px)`,
                         background: color,
+                        /* Wysiwyg drag: while a move is in flight the block
+                           follows the pointer in both axes (the day columns do
+                           not clip it), and sits above whatever it crosses.
+                           Releasing snaps the day by column, as before. */
+                        ...(moving?.key === inst.key && moving.mode === "move"
+                          ? {
+                              transform: `translate(${moving.dx}px, ${moving.dy}px)`,
+                              zIndex: 20,
+                            }
+                          : {}),
                       }}
                       onPointerDown={(e) => beginDrag(inst, "move", e)}
                       onClick={(e) => {
