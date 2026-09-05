@@ -1,11 +1,9 @@
 # Publish the container image to GHCR.
 #
-# The README and the docs site have told people to run
-# `ghcr.io/coffey-labs/ihasmail:latest` for a long time, and nothing ever
-# pushed it: `docker pull` answered `denied`, because the package did not
-# exist. This is the workflow that makes those instructions true. It is also
-# the prerequisite for the self-hosted app catalogues -- TrueNAS and Unraid
-# both install by pulling an image and neither builds from source.
+# This repository's own image is `ghcr.io/sequico/gilbert` -- releases are cut
+# here and point here, never at the upstream org. The README and the docs
+# site still name upstream's image for people running ihasmail itself;
+# nothing in this workflow should publish there.
 #
 # FIRST RUN: a package GHCR creates for the first time is **private**, even in
 # a public repository, and an anonymous `docker pull` will still answer
@@ -61,9 +59,9 @@ on:
 
 env:
   # Hardcoded rather than derived from github.repository: a registry path must
-  # be lowercase and the owner is spelled `Coffey-Labs`, so deriving it means
-  # remembering to lowercase it. This is the string the docs already name.
-  IMAGE: ghcr.io/coffey-labs/ihasmail
+  # be lowercase, and deriving it means remembering to lowercase it. This is
+  # this repository's own package -- never upstream's.
+  IMAGE: ghcr.io/sequico/gilbert
 
 jobs:
   # The version is worked out once and handed to both builds, so the two
@@ -149,7 +147,7 @@ jobs:
           if-no-files-found: error
 
   # Joins the per-architecture digests into a single tagged manifest, so
-  # `docker pull ghcr.io/coffey-labs/ihasmail:<tag>` resolves on both.
+  # `docker pull ghcr.io/sequico/gilbert:<tag>` resolves on both.
   publish:
     needs: [version, build]
     runs-on: ubuntu-latest

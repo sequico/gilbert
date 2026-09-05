@@ -45,8 +45,8 @@ jobs:
       # is a bad day. v1.2.2.
       - uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f
         with:
-          owner: Coffey-Labs
-          package: ihasmail
+          owner: sequico
+          package: gilbert
           token: ${{ secrets.GITHUB_TOKEN }}
           # Ten weekly releases is roughly a quarter of history, which is more
           # than enough to roll back to and far less than the year's worth that
