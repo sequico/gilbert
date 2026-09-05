@@ -1805,3 +1805,8 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .task-due { font-size: 12px; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
 .task-delete { opacity: 0; }
 .task-row:hover .task-delete, .task-delete:focus-visible { opacity: 1; }
+.task-row .drag-handle { margin-left: -4px; color: var(--fg-faint); cursor: grab; touch-action: none; opacity: 0; }
+.task-row:hover .drag-handle, .drag-handle:focus-visible { opacity: 1; }
+.task-row .drag-handle:active { cursor: grabbing; }
+.task-row.dragging { opacity: .45; }
+.task-row.drop-target { background: var(--accent-soft); outline: 1px dashed var(--accent); outline-offset: -1px; }

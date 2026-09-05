@@ -1,8 +1,8 @@
-import { ListTodo, Plus, Trash2, X } from "lucide-react";
+import { GripVertical, ListTodo, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { TaskItem } from "@/jmap/types";
+import type { Id, TaskItem } from "@/jmap/types";
 import { t } from "@/lib/i18n";
-import { type TaskList, useTasks } from "@/store/tasks";
+import { orderIndexOf, type TaskList, useTasks } from "@/store/tasks";
 import { promptDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 
@@ -75,8 +75,21 @@ export function TaskSidebar() {
   );
 }
 
-function TaskRow({ task }: { task: TaskItem }) {
-  const done = task.progress === "completed" || task.progress === "cancelled";
+function isDone(task: TaskItem): boolean {
+  return task.progress === "completed" || task.progress === "cancelled";
+}
+
+interface RowDragProps {
+  dragging: boolean;
+  dropTarget: boolean;
+  onGripStart(e: React.DragEvent): void;
+  onGripEnd(): void;
+  onRowOver(e: React.DragEvent): void;
+  onRowDrop(e: React.DragEvent): void;
+}
+
+function TaskRow({ task, drag }: { task: TaskItem; drag?: RowDragProps }) {
+  const done = isDone(task);
   const [busy, setBusy] = useState(false);
   const act = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -89,8 +102,25 @@ function TaskRow({ task }: { task: TaskItem }) {
     }
   };
   const due = task.due?.slice(0, 10);
+  const cls = ["task-row"];
+  if (done) cls.push("done");
+  if (drag?.dragging) cls.push("dragging");
+  if (drag?.dropTarget) cls.push("drop-target");
   return (
-    <div className={`task-row ${done ? "done" : ""}`}>
+    <div className={cls.join(" ")} onDragOver={drag?.onRowOver} onDrop={drag?.onRowDrop}>
+      {drag && (
+        <button
+          className="icon-btn sm drag-handle"
+          draggable
+          title={t("Drag to reorder")}
+          aria-label={t("Drag to reorder")}
+          onDragStart={drag.onGripStart}
+          onDragEnd={drag.onGripEnd}
+          onDragOver={(e) => e.preventDefault()}
+        >
+          <GripVertical size={14} />
+        </button>
+      )}
       <button
         className="task-check"
         disabled={busy}
@@ -124,6 +154,8 @@ export function TasksView() {
   const selectedId = useTasks((s) => s.selectedListId);
   const load = useTasks((s) => s.load);
   const [quick, setQuick] = useState("");
+  const [dragId, setDragId] = useState<Id | null>(null);
+  const [overId, setOverId] = useState<Id | null>(null);
 
   const list = useMemo<TaskList | null>(
     () => lists.find((l) => l.calendarId === selectedId) ?? lists[0] ?? null,
@@ -134,14 +166,55 @@ export function TasksView() {
       ? Object.values(tasks).filter((x) => x.calendarIds?.[list.calendarId])
       : [];
     return [...listTasks].sort((a, b) => {
-      if ((a.progress === "completed") !== (b.progress === "completed"))
-        return a.progress === "completed" ? 1 : -1;
+      const da = isDone(a);
+      const db = isDone(b);
+      if (da !== db) return da ? 1 : -1;
+      // Done tasks keep their place among themselves; the open block is what
+      // the drag reorders, so its keys are contiguous 0..n-1 after a drag.
+      const oa = orderIndexOf(a) ?? Infinity;
+      const ob = orderIndexOf(b) ?? Infinity;
+      if (oa !== ob) return oa - ob;
       return (
         (a.priority ?? 9) - (b.priority ?? 9) ||
         String(a.title).localeCompare(String(b.title))
       );
     });
   }, [tasks, list]);
+  const openOrder = useMemo(
+    () => ordered.filter((x) => !isDone(x)).map((x) => x.id),
+    [ordered],
+  );
+
+  const persistOrder = async (ids: Id[]) => {
+    if (!list) return;
+    try {
+      await useTasks.getState().reorder(list, ids);
+    } catch (err) {
+      toast.error((err as Error).message);
+      // The reorder was refused: put the list back to what the server holds.
+      await useTasks
+        .getState()
+        .load()
+        .catch(() => {});
+    }
+  };
+
+  const finishDrag = (targetId: Id) => {
+    const id = dragId;
+    setDragId(null);
+    setOverId(null);
+    if (!id || !list || id === targetId) return;
+    const next = [...openOrder];
+    const from = next.indexOf(id);
+    if (from < 0) return;
+    // Moving down shifts the target one slot up after removal, so re-reading
+    // its index after the splice lands the dragged task on the target's slot.
+    next.splice(from, 1);
+    const to = next.indexOf(targetId);
+    if (to < 0) return;
+    next.splice(to, 0, id);
+    void persistOrder(next);
+  };
 
   useEffect(() => {
     void load();
@@ -181,9 +254,33 @@ export function TasksView() {
         />
       </div>
       <div className="task-list">
-        {ordered.map((t) => (
-          <TaskRow key={t.id} task={t} />
-        ))}
+        {ordered.map((t) => {
+          const id = t.id;
+          const drag: RowDragProps = {
+            dragging: dragId === id,
+            dropTarget: !!dragId && dragId !== id && overId === id && !isDone(t),
+            onGripStart: (e) => {
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", id);
+              setDragId(id);
+            },
+            onGripEnd: () => {
+              setDragId(null);
+              setOverId(null);
+            },
+            onRowOver: (e) => {
+              if (!dragId || dragId === id || isDone(t)) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              setOverId(id);
+            },
+            onRowDrop: (e) => {
+              e.preventDefault();
+              finishDrag(id);
+            },
+          };
+          return <TaskRow key={id} task={t} drag={isDone(t) ? undefined : drag} />;
+        })}
         {!ordered.length && (
           <p className="hint" style={{ padding: "12px" }}>
             {t("No tasks. Add one above.")}

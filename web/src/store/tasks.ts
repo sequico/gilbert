@@ -17,6 +17,9 @@ import { useSession } from "./session";
 
 export const TASKLIST_MARKER = "tasklist";
 
+/** Keyword prefix that carries a task's position inside its list. */
+const ORDER_KEY = "order-";
+
 const TASK_PROPS = [
   "id",
   "@type",
@@ -58,7 +61,40 @@ export interface TaskState {
   setDone(task: TaskItem, done: boolean): Promise<void>;
   update(task: TaskItem, patch: Record<string, unknown>): Promise<void>;
   destroy(task: TaskItem): Promise<void>;
+  /** Persist a new manual order for the open tasks of a list. */
+  reorder(list: TaskList, orderedIds: Id[]): Promise<void>;
   createList(name: string): Promise<Id>;
+}
+
+/** The position a task carries in its keywords, or null when never ordered. */
+/** The position a task carries in its keywords, or null when never ordered. */
+export function orderIndexOf(task: TaskItem): number | null {
+  let found: number | null = null;
+  for (const [k, v] of Object.entries(task.keywords ?? {})) {
+    if (!k.startsWith(ORDER_KEY) || v !== true) continue;
+    const n = Number(k.slice(ORDER_KEY.length));
+    if (Number.isFinite(n) && (found === null || n < found)) found = n;
+  }
+  return found;
+}
+
+/*
+ * Builds the keywords patch for one task at `index`.
+ *
+ * Servers disagree on how an object-valued property patch is applied: some
+ * replace the whole map (the mock does), JMAP-style ones merge per key where
+ * `false` removes a keyword. Sending every key is correct under both -- the
+ * stale positions go out as `false` (removal when merged, inert when
+ * replaced) and only true-valued keys are ever read back as positions.
+ */
+function orderKeywords(task: TaskItem, index: number | null): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  const wanted = index === null ? null : `${ORDER_KEY}${index}`;
+  for (const [k, v] of Object.entries(task.keywords ?? {})) {
+    out[k] = k.startsWith(ORDER_KEY) ? k === wanted : v;
+  }
+  if (wanted) out[wanted] = true;
+  return out;
 }
 
 const taskKey = (accountId: Id, id: Id): string => `${accountId}/${id}`;
@@ -190,6 +226,34 @@ export const useTasks = create<TaskState>((set, get) => ({
       destroy: [task.id],
     });
     const err = res.notDestroyed?.[task.id];
+    if (err) throw new Error(setErrorMessage(err));
+    await get().load();
+  },
+
+  /*
+   * Manual order is carried in each task's `keywords` as `order-N`. Rewriting
+   * the order rewrites the keyword on every task whose place changed, in one
+   * CalendarEvent/set call, so a drag survives reloads and reaches the other
+   * members of a group list the same way any task edit does.
+   */
+  async reorder(list, orderedIds) {
+    const update: Record<Id, Record<string, unknown>> = {};
+    const mine = Object.values(get().tasks).filter(
+      (x) => x.calendarIds?.[list.calendarId],
+    );
+    const byId = new Map(mine.map((t) => [t.id, t]));
+    orderedIds.forEach((id, i) => {
+      const t = byId.get(id);
+      if (t) update[id] = { keywords: orderKeywords(t, i) };
+    });
+    // Tasks that just left the open list keep their old key, which is harmless:
+    // completed tasks sort below the open ones whatever their number is.
+    if (!Object.keys(update).length) return;
+    const res = await client.call<SetResponse>("CalendarEvent/set", {
+      accountId: list.accountId,
+      update,
+    });
+    const err = Object.values(res.notUpdated ?? {})[0];
     if (err) throw new Error(setErrorMessage(err));
     await get().load();
   },
