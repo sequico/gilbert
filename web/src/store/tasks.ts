@@ -49,9 +49,13 @@ export interface TaskState {
   lists: TaskList[];
   tasks: Record<string, TaskItem>;
   loaded: boolean;
-  /** Which list the Tasks view is showing. */
-  selectedListId: Id | null;
-  select(id: Id): void;
+  /**
+   * Which list the Tasks view is showing, as its account-qualified key — a
+   * calendar id is only unique within its account, so the reader's own list
+   * and a group's can share an id and a bare one would pick the wrong list.
+   */
+  selectedListId: string | null;
+  select(key: string): void;
   load(): Promise<void>;
   create(
     list: TaskList,
@@ -98,6 +102,15 @@ function orderKeywords(task: TaskItem, index: number | null): Record<string, boo
 }
 
 const taskKey = (accountId: Id, id: Id): string => `${accountId}/${id}`;
+
+/**
+ * A task list's stable key: account and calendar together, since a calendar
+ * id is only unique within its account. Selection and the change checks key
+ * on this, never on the bare calendar id.
+ */
+export function taskListKey(accountId: Id, calendarId: Id): string {
+  return `${accountId}/${calendarId}`;
+}
 
 function isTasklist(c: { description?: string | null }): boolean {
   return c.description === TASKLIST_MARKER;
@@ -163,9 +176,12 @@ export const useTasks = create<TaskState>((set, get) => ({
       tasks,
       loaded: true,
       selectedListId:
-        s.selectedListId && lists.some((l) => l.calendarId === s.selectedListId)
+        s.selectedListId &&
+        lists.some((l) => taskListKey(l.accountId, l.calendarId) === s.selectedListId)
           ? s.selectedListId
-          : (lists[0]?.calendarId ?? null),
+          : lists[0]
+            ? taskListKey(lists[0].accountId, lists[0].calendarId)
+            : null,
     }));
   },
 
@@ -310,9 +326,10 @@ useSession.subscribe((s, prev) => {
  */
 function tasklistSignature(): string {
   const cal = useCalendar.getState();
+  const ownAccount = cal.accountId ?? "";
   const own = Object.values(cal.calendars)
     .filter(isTasklist)
-    .map((c) => c.id)
+    .map((c) => `${ownAccount}:${c.id}`)
     .sort();
   const shared = cal.sharedCalendars
     .filter((x) => isTasklist(x.calendar))

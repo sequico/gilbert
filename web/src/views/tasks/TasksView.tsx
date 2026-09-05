@@ -2,7 +2,8 @@ import { ListTodo, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Id, TaskItem } from "@/jmap/types";
 import { t } from "@/lib/i18n";
-import { orderIndexOf, type TaskList, useTasks } from "@/store/tasks";
+import { useCalendar } from "@/store/calendar";
+import { orderIndexOf, type TaskList, taskListKey, useTasks } from "@/store/tasks";
 import { promptDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 
@@ -46,18 +47,24 @@ export function TaskSidebar() {
         </button>
       </div>
       {lists.map((l) => {
-        const open = l.calendarId === selectedId;
-        const openCount = Object.values(tasks).filter(
-          (x) =>
+        const key = taskListKey(l.accountId, l.calendarId);
+        const open = key === selectedId;
+        /* Tasks are keyed by account and task id, so a task belongs to this
+           list when its key is under the list's account *and* it names the
+           list's calendar — a group list whose calendar id matches an own one
+           must not count the own list's tasks. */
+        const openCount = Object.entries(tasks).filter(
+          ([k, x]) =>
+            k.startsWith(`${l.accountId}/`) &&
             x.calendarIds?.[l.calendarId] &&
             x.progress !== "completed" &&
             x.progress !== "cancelled",
         ).length;
         return (
           <div
-            key={`${l.accountId}:${l.calendarId}`}
+            key={key}
             className={`nav-item ${open ? "active" : ""}`}
-            onClick={() => useTasks.getState().select(l.calendarId)}
+            onClick={() => useTasks.getState().select(key)}
             title={l.accountName ? `${l.name} — ${l.accountName}` : l.name}
           >
             <ListTodo size={17} />
@@ -197,12 +204,18 @@ export function TasksView() {
   const [overId, setOverId] = useState<Id | null>(null);
 
   const list = useMemo<TaskList | null>(
-    () => lists.find((l) => l.calendarId === selectedId) ?? lists[0] ?? null,
+    () =>
+      lists.find((l) => taskListKey(l.accountId, l.calendarId) === selectedId) ??
+      lists[0] ??
+      null,
     [lists, selectedId],
   );
   const ordered = useMemo(() => {
     const listTasks = list
-      ? Object.values(tasks).filter((x) => x.calendarIds?.[list.calendarId])
+      ? Object.entries(tasks)
+          .filter(([k]) => k.startsWith(`${list.accountId}/`))
+          .map(([, t]) => t)
+          .filter((x) => x.calendarIds?.[list.calendarId])
       : [];
     return [...listTasks].sort((a, b) => {
       const da = isDone(a);
@@ -256,7 +269,25 @@ export function TasksView() {
   };
 
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    void (async () => {
+      /*
+       * Group and shared calendars are fetched when the calendar store starts
+       * up; accounts can appear in the session later than that (a group
+       * mailbox discovered by the mail pane), so opening Tasks re-asks for
+       * them — a group task list that never appeared is usually one whose
+       * calendar was never loaded, and the calendar store's own reload on
+       * session changes is the backstop.
+       */
+      await useCalendar
+        .getState()
+        .loadSharedCalendars()
+        .catch(() => {});
+      if (!cancelled) void load();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [load]);
 
   useEffect(() => {

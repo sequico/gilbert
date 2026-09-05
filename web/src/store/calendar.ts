@@ -1777,8 +1777,26 @@ export function myParticipantKeys(
   return keys;
 }
 
-useSession.subscribe((s) => {
-  if (s.status !== "authenticated")
+/*
+ * Calendars from other accounts (a colleague's share, a group mailbox) are
+ * fetched when the calendar store starts. A session refresh can add such an
+ * account later — the mail pane discovers a group mailbox after the calendar
+ * has already asked — so the fetch is repeated whenever the set of
+ * non-personal accounts changes, not only at startup.
+ */
+let lastSharedAccounts = "";
+function sharedAccountsSignature(
+  s: { accounts?: Record<string, { isPersonal?: boolean }> } | null,
+): string {
+  const own = useSession.getState().ownAccountFor(CAP.calendars);
+  return Object.keys(s?.accounts ?? {})
+    .filter((id) => s?.accounts?.[id]?.isPersonal === false && id !== own)
+    .sort()
+    .join("|");
+}
+useSession.subscribe((s, prev) => {
+  if (s.status !== "authenticated") {
+    lastSharedAccounts = "";
     useCalendar.setState({
       accountId: null,
       calendars: {},
@@ -1786,4 +1804,18 @@ useSession.subscribe((s) => {
       ranges: {},
       identities: [],
     });
+    return;
+  }
+  const sig = sharedAccountsSignature(s.session);
+  if (prev.status === "authenticated") {
+    if (sig !== lastSharedAccounts && sig) {
+      lastSharedAccounts = sig;
+      void useCalendar.getState().loadSharedCalendars();
+    } else {
+      lastSharedAccounts = sig;
+    }
+  } else {
+    // The store's init (driven by the app on sign-in) does the first fetch.
+    lastSharedAccounts = sig;
+  }
 });
