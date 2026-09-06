@@ -62,6 +62,13 @@ metadata:
 - `syncedPart`/`mergeRemote` (with `pendingSettingsKeys`) decide what is
   pushed and what wins while a push is in flight — a queued change is newer
   than the file by definition.
+- `knownSigners` (S/MIME signer pins, keyed by lowercased address, see
+  `SignerPin` in the settings module) syncs **by design**: a pin known to one
+  device only would greet the same correspondent as new on every other, which
+  trains people to click past the warning it exists to raise. It is the whole
+  trust model of signature checking (trust on first use, no CA), so it is
+  account data like any other synced key — never a `DEVICE_KEYS` entry, and
+  never touched by policy.
 
 ## The admin policy (three powers, one file)
 
