@@ -10,16 +10,30 @@ metadata:
 ## 1. Identity
 
 - The project is **Gilbert**, a backronym for **G**eneral-purpose **I**ntelligent **L**ifecycle **B**utler for **E**nterprise **R**esource **T**raceability. The canonical statement lives at the top of `README.md`; keep this skill and that file in sync.
-- History: this repo tracks [Coffey-Labs/ihasmail](https://github.com/Coffey-Labs/ihasmail) — remote `upstream` is no_push, `origin` is `sequico/gilbert`. The code is still upstream ihasmail; Gilbert is the direction the user is building toward, not yet the implementation. Ask before inventing product behaviour the acronym implies but the code does not have.
+- History: this repo descends from [Coffey-Labs/ihasmail](https://github.com/Coffey-Labs/ihasmail) — remote `upstream` is no_push, `origin` is `sequico/gilbert`. The code is a rebranded and diverging descendant (rebrand executed 2026-09-06, see `gilbert-branding`); upstream merges keep flowing in, and common work is contributed back from an upstream-shaped fork (ADR 0002). Ask before inventing product behaviour the acronym implies but the code does not have.
 - Licence AGPL-3.0-or-later; `LICENSE` and `NOTICE` keep Coffey Labs' copyright. Do not strip attribution.
 
 ## 2. Naming rule (the one that keeps every doc coherent)
 
-- **Prose** about the product may say "Gilbert".
-- **Operational identifiers still say `ihasmail`** and must not be renamed in docs alone, because docs must match the code. They stay until a coordinated code rename: env vars and build args (`IHASMAIL_VERSION`, `APP_NAME` default, `IHASMAIL_*`), images (`ghcr.io/coffey-labs/ihasmail`, `ihasmail:2`), container/service/volume names, `/etc/ihasmail` and `/srv/ihasmail` paths, the hidden `ihasmail` JMAP folder in every account (settings + signature images), the About/version string (`ihasmail v2026.8.30+pr129` is an example of APP_NAME + version), `X-Requested-With: ihasmail`, `@ihasmail/*` package names, sw.js cache keys/push-verification path/notification tags, `web/index.html` and manifest defaults.
-- **Upstream URLs are real endpoints, not ours**: ihasmail.org, docs.ihasmail.org, demo.ihasmail.com, github.com/Coffey-Labs/ihasmail (issues, PRs, releases). Link them, never present them as Gilbert's own.
-- **Historical and legal lines keep upstream's name**: "ihasmail was relicensed from GPL-3.0 to AGPL-3.0…", "If you run a modified ihasmail, set `SOURCE_URL`…".
-- Renaming an identifier is a coordinated task — load the `gilbert-branding` skill.
+- **Prose** about the product says "Gilbert".
+- **Renamed in the 2026-09-06 rebrand** — docs must match: `APP_NAME`
+  default "Gilbert", package names `gilbert`/`@gilbert/*`, `GILBERT_VERSION`
+  build arg, `X-Requested-With: gilbert`, the visible shell
+  (title/manifest/login copy) and every product-naming UI string and catalog
+  key. Full list: `gilbert-branding`.
+- **Still `ihasmail` on purpose** — data or deployed surface, renamed costs
+  real data and gains nothing: the hidden `ihasmail` folder per account and
+  its storage keys, sw.js keys, drag-drop MIME types, the sieve script name,
+  the stored `"ihasmail"` theme value, the `[ihasmail]` log prefix, the
+  `session.ihasmail` extension, docker/deploy identifiers, `/etc/ihasmail`
+  and `/srv/ihasmail` paths, upstream URLs, legal/historical lines. These are
+  never renamed in docs alone.
+- **Upstream URLs are real endpoints, not ours**: ihasmail.org,
+  docs.ihasmail.org, demo.ihasmail.com, github.com/Coffey-Labs/ihasmail
+  (issues, PRs, releases). Link them, never present them as Gilbert's own.
+- Renaming anything in the still-`ihasmail` list is a coordinated task
+  (data migration or sync cost) — load the `gilbert-branding` skill and say
+  so before doing it.
 
 ## 3. Architecture law
 

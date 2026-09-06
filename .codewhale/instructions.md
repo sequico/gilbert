@@ -3,16 +3,25 @@
 ## Identity
 The project is **Gilbert** — backronym for **G**eneral-purpose **I**ntelligent
 **L**ifecycle **B**utler for **E**nterprise **R**esource **T**raceability. The
-codebase is still upstream ihasmail (Coffey-Labs) at heart; Gilbert is the
-direction, not yet the implementation. Canonical statement: README.md top.
+codebase descends from upstream ihasmail (Coffey-Labs); the visible-shell
+rebrand and the identifier renames landed 2026-09-06, the core still syncs
+upstream, and the product direction is not yet the full implementation.
+Canonical statement: README.md top.
 
 ## Naming rule
-Prose about the product may say "Gilbert". Operational identifiers still say
-`ihasmail` (envs, images, service names, the hidden `ihasmail` mailbox folder,
-`X-Requested-With`, package names, sw.js keys, UI defaults) and must not be
-renamed in docs alone. Upstream URLs (ihasmail.org, docs.ihasmail.org,
-github.com/Coffey-Labs/ihasmail) are real endpoints, never ours. Historical and
-legal lines keep upstream's name. Details: skills/gilbert-branding.
+Prose about the product says "Gilbert". The 2026-09-06 rebrand renamed the
+visible shell and the code/build identifiers: `APP_NAME` default "Gilbert",
+packages `gilbert`/`@gilbert/*`, `GILBERT_VERSION`, `X-Requested-With: gilbert`,
+UI strings and catalogs. A second set still says `ihasmail` **on purpose** —
+it is data or deployed surface, and renaming it costs real data or a sync
+conflict: the hidden `ihasmail` folder per account and its storage keys, sw.js
+keys, drag-drop MIME types, the sieve script name, the stored `"ihasmail"`
+theme value, the `[ihasmail]` log prefix, the `session.ihasmail` extension,
+docker/deploy identifiers, `/etc/ihasmail` and `/srv/ihasmail` paths. Upstream
+URLs (ihasmail.org, docs.ihasmail.org, github.com/Coffey-Labs/ihasmail) are
+real endpoints, never ours; historical and legal lines keep upstream's name.
+The two lists and the remaining TODO (the per-account folder migration):
+skills/gilbert-branding.
 
 ## Architecture law
 JMAP only, to Stalwart; no own database; everything durable lives in Stalwart;
