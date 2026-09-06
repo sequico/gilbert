@@ -765,10 +765,12 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   afterwards.)
 - **Sharing** per file or folder, with rights per person.
 - **Attach from Files** in the composer, with no re-upload.
-- One folder is hidden on purpose: **`ihasmail`**, contents and all. It holds
-  the settings file and signature images. Hiding the folder alone would have
-  been worse than showing it — the tree attaches a node whose parent is missing
-  to the root, so signature images would have spilled into the top level.
+- One folder is hidden on purpose: **`gilbert`**, contents and all (before the
+  rebrand it was `ihasmail`; a leftover folder of that name is renamed to
+  `gilbert` on first open). It holds the settings file and signature images.
+  Hiding the folder alone would have been worse than showing it — the tree
+  attaches a node whose parent is missing to the root, so signature images
+  would have spilled into the top level.
 
 ---
 

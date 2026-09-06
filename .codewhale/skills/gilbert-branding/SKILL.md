@@ -1,6 +1,6 @@
 ---
 name: gilbert-branding
-description: The ihasmail → Gilbert rename map for the Gilbert repository: what the 2026-09-06 rebrand changed, which identifiers deliberately still say "ihasmail" (data or deployed surface) and why, what remains to do (the hidden data folder), and the upstream contribution boundary. Use for any rebranding or renaming task in this repo.
+description: The ihasmail → Gilbert rename map for the Gilbert repository: what the 2026-09-06 rebrand changed, which identifiers deliberately still say "ihasmail" (data or deployed surface) and why, the one data migration carried out (the per-account app folder → gilbert), and the upstream contribution boundary. Use for any rebranding or renaming task in this repo.
 metadata:
   short-description: ihasmail → Gilbert rename state & rules
 ---
@@ -42,17 +42,27 @@ The coordinated code rename landed in layers; these identifiers now say
   `settings-policy.example.json` prose follows. Docker runtime identifiers are
   unchanged (below).
 
+## The app folder is migrated (done 2026-09-06)
+
+The hidden per-account folder that held `settings.json` and the signature
+images now lives as `gilbert`, and the rename was a real per-account data
+migration, not a silent move: on the first open of an account that still has
+a top-level `ihasmail` folder, the client renames it to `gilbert` in place
+(`FileNode/set` update of the name; children and blobs untouched), creates
+`gilbert` when neither exists, and from then on only ever uses `gilbert`.
+The legacy name survives in exactly one place — the migration path in
+`web/src/lib/appFolder.ts` — and nothing else reads or writes it:
+`isAppFolder` matches `gilbert` only. The i18n key and the nine catalogues
+name the folder as its literal `gilbert` — the capitalised “Gilbert” is the
+product's visible name only.
+
 ## Still `ihasmail` — do not rename (data or deployed surface)
 
 Renaming any of these costs real data or breaks an external agreement, and
 none of them is brand surface. Docs must keep saying `ihasmail` for them:
 
-- the hidden `ihasmail` folder in every account's JMAP Files (holds
-  `settings.json` and the signature images) — **renaming it is still a TODO**:
-  it is a per-account data migration needing read and back-compat, never a
-  silent move;
-- its storage keys: localStorage `ihasmail:lastUser` / `ihasmail-theme` /
-  `ihasmail:deviceTrusted`, the drag-and-drop MIME types
+- device-side storage keys and formats: localStorage `ihasmail:lastUser` /
+  `ihasmail-theme` / `ihasmail:deviceTrusted`, the drag-and-drop MIME types
   (`application/x-ihasmail-emails`, `-folder`, `-sieve-rule`), the sieve
   script name "ihasmail", the stored `"ihasmail"` theme/palette value in
   `settings.json` (only the CSS palette block under

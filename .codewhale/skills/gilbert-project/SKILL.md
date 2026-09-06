@@ -22,12 +22,16 @@ metadata:
   (title/manifest/login copy) and every product-naming UI string and catalog
   key. Full list: `gilbert-branding`.
 - **Still `ihasmail` on purpose** — data or deployed surface, renamed costs
-  real data and gains nothing: the hidden `ihasmail` folder per account and
-  its storage keys, sw.js keys, drag-drop MIME types, the sieve script name,
+  real data and gains nothing: device storage keys, sw.js keys, drag-drop MIME
+  types, the sieve script name,
   the stored `"ihasmail"` theme value, the `[ihasmail]` log prefix, the
   `session.ihasmail` extension, docker/deploy identifiers, `/etc/ihasmail`
   and `/srv/ihasmail` paths, upstream URLs, legal/historical lines. These are
   never renamed in docs alone.
+- **The per-account app folder is the one rename that has happened** (done
+  2026-09-06): it is now `gilbert`; a leftover `ihasmail` folder is renamed in
+  place on first open (`web/src/lib/appFolder.ts`). Its device storage keys
+  and the signature HTML marker stay `ihasmail`.
 - **Upstream URLs are real endpoints, not ours**: ihasmail.org,
   docs.ihasmail.org, demo.ihasmail.com, github.com/Coffey-Labs/ihasmail
   (issues, PRs, releases). Link them, never present them as Gilbert's own.

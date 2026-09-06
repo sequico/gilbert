@@ -14,14 +14,16 @@ visible shell and the code/build identifiers: `APP_NAME` default "Gilbert",
 packages `gilbert`/`@gilbert/*`, `GILBERT_VERSION`, `X-Requested-With: gilbert`,
 UI strings and catalogs. A second set still says `ihasmail` **on purpose** —
 it is data or deployed surface, and renaming it costs real data or a sync
-conflict: the hidden `ihasmail` folder per account and its storage keys, sw.js
+conflict: device storage keys, sw.js
 keys, drag-drop MIME types, the sieve script name, the stored `"ihasmail"`
 theme value, the `[ihasmail]` log prefix, the `session.ihasmail` extension,
 docker/deploy identifiers, `/etc/ihasmail` and `/srv/ihasmail` paths. Upstream
 URLs (ihasmail.org, docs.ihasmail.org, github.com/Coffey-Labs/ihasmail) are
 real endpoints, never ours; historical and legal lines keep upstream's name.
-The two lists and the remaining TODO (the per-account folder migration):
-skills/gilbert-branding.
+The per-account app folder is the exception that has been renamed: it is now
+`gilbert`, migrated in place from a leftover `ihasmail` folder on first open
+(the one data migration carried out so far). The lists and the next open
+item (the single-host deploy script, ROADMAP.md): skills/gilbert-branding.
 
 ## Architecture law
 JMAP only, to Stalwart; no own database; everything durable lives in Stalwart;
@@ -85,4 +87,5 @@ and stays in this repo.
 
 Full law: load skills/gilbert-project. Renames: load skills/gilbert-branding.
 UI strings & languages: load skills/gilbert-i18n. Settings & policy: load
-skills/gilbert-settings.
+skills/gilbert-settings. Stalwart internals, quirks & integration: load
+skills/gilbert-stalwart.

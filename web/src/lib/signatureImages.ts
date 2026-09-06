@@ -1,8 +1,9 @@
 /**
  * Signature images: Stalwart caps identity signatures at 2 KB, so pictures can't
  * be embedded as data: URLs. Instead we store them in JMAP Files (persistent
- * blobs) under an "ihasmail" folder and reference them by blob URL; the composer
- * turns such references into inline cid: parts when sending.
+ * blobs) under the app folder `gilbert` (a leftover `ihasmail` folder is renamed
+ * to it on first open, see `appFolder.ts`) and reference them by blob URL; the
+ * composer turns such references into inline cid: parts when sending.
  */
 import { CAP, client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, QueryResponse, SetResponse } from "@/jmap/types";

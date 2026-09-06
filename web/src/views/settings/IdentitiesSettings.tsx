@@ -312,7 +312,7 @@ function IdentityDialog({
         <div className="row" style={{ justifyContent: "space-between" }}>
           <span className="hint">
             {t(
-              "Images are stored in your Files (folder “Gilbert”) and embedded when you send.",
+              "Images are stored in your Files (folder “gilbert”) and embedded when you send.",
             )}
           </span>
           <span

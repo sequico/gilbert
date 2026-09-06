@@ -3,7 +3,8 @@ import type { FileNode } from "@/jmap/types";
 import { withoutAppFolder } from "../files";
 
 /**
- * The `ihasmail` folder holds signature images and the synced settings file.
+ * The `gilbert` app folder (the client's own; a leftover `ihasmail` one is
+ * renamed to it on first open) holds signature images and the synced settings file.
  * They are real nodes in the account — that is what makes them travel — but
  * they are the client's housekeeping, so Files does not show them.
  *
@@ -31,7 +32,7 @@ const node = (
 describe("hiding the client's folder", () => {
   it("removes the folder and everything in it", () => {
     const nodes = [
-      node("f1", "ihasmail", null, "directory"),
+      node("f1", "gilbert", null, "directory"),
       node("f2", "signature-1.html", "f1", "file"),
       node("f3", "settings.json", "f1", "file"),
       node("d1", "Documents", null, "directory"),
@@ -42,7 +43,7 @@ describe("hiding the client's folder", () => {
 
   it("removes nested contents, not just direct children", () => {
     const nodes = [
-      node("f1", "ihasmail", null, "directory"),
+      node("f1", "gilbert", null, "directory"),
       node("f2", "images", "f1", "directory"),
       node("f3", "logo.png", "f2", "file"),
     ];
@@ -52,13 +53,13 @@ describe("hiding the client's folder", () => {
   it("leaves a folder of the same name that the user made inside another", () => {
     const nodes = [
       node("d1", "Projects", null, "directory"),
-      node("d2", "ihasmail", "d1", "directory"),
+      node("d2", "gilbert", "d1", "directory"),
     ];
     expect(withoutAppFolder(nodes).map((n) => n.id)).toEqual(["d1", "d2"]);
   });
 
-  it("leaves a top-level file that happens to be called ihasmail", () => {
-    const nodes = [node("x1", "ihasmail", null, "file")];
+  it("leaves a top-level file that happens to be called gilbert", () => {
+    const nodes = [node("x1", "gilbert", null, "file")];
     expect(withoutAppFolder(nodes).map((n) => n.id)).toEqual(["x1"]);
   });
 

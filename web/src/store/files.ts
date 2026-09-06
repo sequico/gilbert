@@ -78,7 +78,7 @@ interface FilesState {
 }
 
 /**
- * Drop the client's own `ihasmail` folder, and everything inside it, from a
+ * Drop the client's own `gilbert` app folder, and everything inside it, from a
  * listing. It holds signature images and the synced settings file — real nodes
  * in the account, but housekeeping rather than anything the user filed.
  *

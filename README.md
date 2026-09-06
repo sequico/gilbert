@@ -30,9 +30,11 @@ JMAP-only client in a disposable container, with everything durable living in
 Stalwart (see [What's in it](#whats-in-it) and
 [Architecture](#architecture)). Gilbert's own layer is the goal above; the
 rebrand renamed the visible shell and the package and build identifiers, while
-the names that are data or deployed surface — the hidden `ihasmail` folder in
-each mailbox, its storage keys, the docker service, the `[ihasmail]` log
-prefix and upstream's URLs — deliberately keep saying `ihasmail`.
+the names that are data or deployed surface — the per-account app
+folder in each mailbox (now `gilbert`; a leftover `ihasmail` folder is
+renamed on first open), its storage keys, the docker service, the
+`[ihasmail]` log prefix and upstream's URLs — stay as they are: the folder
+wears its new name, the rest still says `ihasmail`.
 
 > **Try it locally:** `npm run dev:mock` runs a complete instance against an
 > in-memory mock Stalwart — open http://localhost:5173 and sign in with
