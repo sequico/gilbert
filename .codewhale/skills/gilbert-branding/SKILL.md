@@ -76,8 +76,10 @@ none of them is brand surface. Docs must keep saying `ihasmail` for them:
 - the `[ihasmail]` server log prefix and the session extension object
   (`session.ihasmail.*` — server and client payload shape);
 - docker deployment surface: `docker-compose.yml` builds the checkout as
-  `gilbert:2` with Gilbert defaults (only the service name `ihasmail` and the
-  `ihasmail-data` volume keep the old name -- the volume is data),
+  `gilbert:2` with Gilbert defaults (the service name `ihasmail` stays; the
+  `/data` volume was renamed `gilbert-data` on 2026-09-06 — the name is
+  deployed state, so an existing host copies the old volume once or accepts
+  a re-login, since `/data` only mirrors sessions),
   `deploy.example.sh` (its `IHASMAIL_*` envs, defaults and script name are
   still ihasmail; see the TODO in ROADMAP.md), `/etc/ihasmail` and
   `/srv/ihasmail` example paths;

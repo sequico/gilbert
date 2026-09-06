@@ -20,6 +20,6 @@ services:
       TRUST_PROXY: "1"
       IMAGE_PROXY: "1"
     volumes:
-      - ihasmail-data:/data
+      - gilbert-data:/data
 volumes:
-  ihasmail-data:
+  gilbert-data:

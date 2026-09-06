@@ -46,7 +46,10 @@ HOLD="${IHASMAIL_HOLD:-$APP/.deploy-hold}"
 NAME="${IHASMAIL_NAME:-ihasmail}"
 BIND="${IHASMAIL_BIND:-127.0.0.1:8090}"
 # Named volume for /data (sessions). Unused when running immutably.
-VOLUME="${IHASMAIL_VOLUME:-ihasmail-data}"
+# Renamed ihasmail-data → gilbert-data on 2026-09-06: the name is deployed
+# state, so an existing host either copies the old volume once or accepts a
+# re-login — /data only mirrors sessions, never durable account data.
+VOLUME="${IHASMAIL_VOLUME:-gilbert-data}"
 # Run the container immutably: read-only root filesystem, no volume, sessions
 # held in memory only. See "Running immutably" in the README. The server is told
 # the same thing through IMMUTABLE=1 and checks it, so a half-applied switch --
