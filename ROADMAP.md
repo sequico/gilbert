@@ -3,7 +3,7 @@
 Things Gilbert does not do, and why. An issue number here says where the entry
 came from, not that it is tracked elsewhere — a report can be closed because the
 bug in it was fixed while the larger thing it asked for stays on this page. What
-is genuinely open lives in [the issue tracker](https://github.com/Coffey-Labs/ihasmail/issues);
+is genuinely open — where an item quotes one, the issue is upstream's historical thread; Gilbert's own open work is listed here and in this repository's tracker;
 the rest is here because the answer is "no", not "not yet".
 
 See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about.

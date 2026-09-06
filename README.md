@@ -3,15 +3,8 @@
 </p>
 
 <p align="center">
-  <strong><a href="https://demo.ihasmail.com">Try the demo</a></strong><br>
-  <sub>A working copy with an invented mailbox behind it — no sign-up, nothing real, nothing kept.</sub>
-</p>
-
-<p align="center">
   <a href="LICENSE"><img alt="Licence: AGPL-3.0-or-later" src="https://img.shields.io/badge/licence-AGPL--3.0--or--later-2dd4bf?style=flat-square"></a>
   <a href="https://stalw.art" target="_blank" rel="noreferrer"><img alt="Requires Stalwart 0.16 or newer; tested against 0.16.20" src="https://img.shields.io/badge/Stalwart-0.16.20-6366f1?style=flat-square"></a>
-  <a href="https://docs.ihasmail.org" target="_blank" rel="noreferrer"><img alt="Documentation: docs.ihasmail.org" src="https://img.shields.io/badge/docs-docs.ihasmail.org-0ea5e9?style=flat-square"></a>
-  <a href="https://coffeylabs.org" target="_blank" rel="noreferrer"><img alt="by Coffey Labs" src="https://img.shields.io/badge/by-Coffey%20Labs-0f766e?style=flat-square"></a>
 </p>
 
 # Gilbert
@@ -19,44 +12,46 @@
 **G**eneral-purpose **I**ntelligent **L**ifecycle **B**utler for **E**nterprise
 **R**esource **T**raceability.
 
-Gilbert is built on [ihasmail](https://github.com/Coffey-Labs/ihasmail), Coffey
-Labs' immutable webmail for Stalwart — the code here is a rebranded and
-diverging descendant. The acronym is the direction of the project: a
-general-purpose butler that walks enterprise resources through their lifecycle
-and keeps the trace. The rebrand has renamed the visible shell and the package
-and build identifiers; the names that are data or deployed surface — the
-hidden `ihasmail` folder inside each mailbox, its storage keys, the docker
-service, the `[ihasmail]` log prefix and upstream's URLs — deliberately keep
-saying `ihasmail` (see .codewhale/skills/gilbert-branding).
+Gilbert manages an organisation's *resources* — mail, contacts, calendars,
+files and the documents that move between people — through their whole
+lifecycle, with [Stalwart Mail Server](https://stalw.art) as the single store
+that keeps the trace. Concretely, in rough order: shared group accounts on
+Stalwart for mail, contacts and calendars; chat between the members of a
+group; AI agents that act inside mail and file storage, for a person or a
+group — Gilbert's own agents now, external agent fleets later; and a workflow
+engine for delivery orders with checklists and to-do lists. Part of this
+already ships (shared calendars, contacts, address books and task lists);
+the rest is the direction the code is being pointed.
 
-> **The goal, in one parenthesis.** Gilbert is being pointed at managing
-> enterprise *resources* — mail, contacts, calendars, files and the documents
-> that move between people — through their whole lifecycle, with Stalwart as
-> the single store that keeps the trace. Concretely, in rough order: shared
-> group accounts on Stalwart, for mail, contacts and calendars; chat between
-> the members of a group; AI agents that act inside mail and file storage, for
-> a person or a group — Gilbert's own agents now, external agent fleets later;
-> and a workflow engine for delivery orders with checklists and to-do lists.
-> None of this ships yet: the code below is still upstream ihasmail.
+What runs today is the rebranded and diverging descendant of
+[ihasmail](https://github.com/Coffey-Labs/ihasmail) — Coffey Labs' immutable
+webmail for Stalwart — and its mail core is that product: a Gmail-class,
+JMAP-only client in a disposable container, with everything durable living in
+Stalwart (see [What's in it](#whats-in-it) and
+[Architecture](#architecture)). Gilbert's own layer is the goal above; the
+rebrand renamed the visible shell and the package and build identifiers, while
+the names that are data or deployed surface — the hidden `ihasmail` folder in
+each mailbox, its storage keys, the docker service, the `[ihasmail]` log
+prefix and upstream's URLs — deliberately keep saying `ihasmail`.
 
-**Immutable webmail for [Stalwart Mail Server](https://stalw.art) — a container
-with nothing to persist, and a Gmail-class client on top of it.**
+> **Try it locally:** `npm run dev:mock` runs a complete instance against an
+> in-memory mock Stalwart — open http://localhost:5173 and sign in with
+> `demo@example.com` / `demo`.
 
-Mail, calendars, contacts, files and filters in a responsive single-page app
-that works equally well on a desktop monitor and a phone. It talks only JMAP
-(plus Stalwart's blob/upload/EventSource endpoints) — no IMAP, no SMTP, no
-database, and with `IMMUTABLE=1` no writable filesystem either. Everything
-durable belongs to Stalwart; the container is disposable.
+**Licence and lineage.** Gilbert is AGPL-3.0-or-later. It is a derivative work
+of [ihasmail](https://github.com/Coffey-Labs/ihasmail) (Coffey Labs): their
+copyright stays in `LICENSE`/`NOTICE`, upstream's code and docs are linked
+below where they are still accurate, and the source offer for *this* build
+points at this repository (Settings › About, or the sign-in page).
 
 | | |
 | --- | --- |
-| 🌐 **[ihasmail.org](https://ihasmail.org)** | What it is, what it looks like, the full feature list |
-| 📘 **[docs.ihasmail.org](https://docs.ihasmail.org)** | [Installing](https://docs.ihasmail.org/install/) · [Configuring](https://docs.ihasmail.org/configure/) · [Using it](https://docs.ihasmail.org/using/) · [Shortcuts](https://docs.ihasmail.org/shortcuts/) · [Rebranding](https://docs.ihasmail.org/rebranding/) · [Troubleshooting](https://docs.ihasmail.org/troubleshooting/) |
-| 📋 **[FEATURES.md](FEATURES.md)** | Everything it does, feature by feature, with the capability each one needs |
+| 📋 **[FEATURES.md](FEATURES.md)** | Everything the client does today, feature by feature, with the capability each one needs |
 | 🧪 **[KNOWN-ISSUES.md](KNOWN-ISSUES.md)** | What was verified live, and where Stalwart departs from a spec |
-| 🛣 **[ROADMAP.md](ROADMAP.md)** | What Gilbert does not do, and why |
+| 🛣 **[ROADMAP.md](ROADMAP.md)** | What Gilbert does not do yet, and why |
+| ⬆ **[ihasmail](https://github.com/Coffey-Labs/ihasmail) upstream** | The project Gilbert derives from — [site](https://ihasmail.org) · [docs](https://docs.ihasmail.org) · [demo](https://demo.ihasmail.com), all theirs, linked for attribution and because most install and usage detail still lives there |
 
-This file is for people working *on* Gilbert. Everything about running itlives in the docs.
+This file is for people working *on* Gilbert and for the people running it.
 
 ## Screenshots
 
@@ -68,7 +63,7 @@ This file is for people working *on* Gilbert. Everything about running itlives i
 | **Composer** ![Composer](docs/screenshots/compose.jpg) | **Calendar** ![Calendar](docs/screenshots/calendar.jpg) |
 | **Contacts** ![Contacts](docs/screenshots/contacts.jpg) | **Sieve filter builder** ![Filters](docs/screenshots/filters.jpg) |
 
-More, including the mobile layout, on [ihasmail.org](https://ihasmail.org/#screenshots).
+Screenshots are taken against the built-in mock server with sample data.
 
 ## What's in it
 
@@ -83,8 +78,10 @@ More, including the mobile layout, on [ihasmail.org](https://ihasmail.org/#scree
 - **On a phone** — swipe a message to archive or delete it (either direction, your choice), hold one to select it, hold a folder for its menu, pull the list to refresh, swipe back from a conversation
 - **Platform** — installable PWA, Web Push with Gilbert closed, `mailto:` handler, no credentials in the browser, strict CSP, SSRF-safe image proxy
 
-The long version is on [ihasmail.org](https://ihasmail.org/#features); how to
-drive each one is in [Using ihasmail](https://docs.ihasmail.org/using/).
+The long version, feature by feature, is in [FEATURES.md](FEATURES.md). How
+to drive each surface is the same as upstream's client — where this build has
+not diverged yet, [Using ihasmail](https://docs.ihasmail.org/using/) (upstream's
+docs) still applies.
 
 ## Requires Stalwart 0.16 or newer
 
@@ -113,24 +110,29 @@ settings — Stalwart accepts a TOTP code only through an OAuth flow and offers 
 password grant, so no client holding a username and password can exchange them
 plus a code for a token.
 
-Full instructions, TLS, and every environment variable:
+Full instructions, TLS, and every environment variable — upstream's docs,
+still the reference for the underlying client:
 [Installing](https://docs.ihasmail.org/install/) ·
 [Configuring](https://docs.ihasmail.org/configure/).
 
 ### Container images
 
-Published to GHCR on every release, for `linux/amd64` and `linux/arm64`.
-Releases are cut weekly — Mondays, 09:00 UTC, in a week that had changes — so
-the newest image is normally behind `main`:
+Gilbert images are published to GHCR on every release (cut by hand), for
+`linux/amd64` and `linux/arm64`:
 
 ```bash
-docker pull ghcr.io/coffey-labs/ihasmail:latest
+docker pull ghcr.io/sequico/gilbert:latest
 ```
+
+(The unmodified upstream project keeps publishing its own image as
+`ghcr.io/coffey-labs/ihasmail` — the checked-in `docker-compose.yml` still
+points at it for parity; to run a Gilbert release, point the service image at
+`ghcr.io/sequico/gilbert`.)
 
 | Tag | What it is |
 | --- | --- |
 | `latest` | The newest release. Prereleases never move it |
-| `2026.9.2-pr243` | One specific build — the [version](#version-numbers) with `+` written as `-`, because a Docker tag may not contain `+` |
+| `v2026.9.6-g8ae88bb` | One specific build — the [version](#version-numbers) with `+` written as `-`, because a Docker tag may not contain `+` |
 
 Pin the dated tag in anything you care about. `latest` is a moving target by
 definition, and rolling back to a named tag is a `docker run` rather than a
@@ -249,7 +251,7 @@ docker run -d --name ihasmail \
   -e APP_SECRET="$(openssl rand -hex 32)" \
   -e SETTINGS_POLICY_FILE=/etc/ihasmail/policy.json \
   -v /srv/ihasmail/policy.json:/etc/ihasmail/policy.json:ro \
-  -p 8080:8080 ghcr.io/coffey-labs/ihasmail:latest
+  -p 8080:8080 ghcr.io/sequico/gilbert:latest
 ```
 
 ```json
@@ -281,7 +283,7 @@ docker run -d --name ihasmail --read-only --tmpfs /tmp \
   -e SETTINGS_DEFAULTS='{"externalSenderBanner":true}' \
   -e SETTINGS_ENFORCED='{"externalRecipientConfirm":true}' \
   -e SETTINGS_CHANGES='[{"version":"20260902084513","settings":{"externalSenderBanner":true}}]' \
-  -p 8080:8080 ghcr.io/coffey-labs/ihasmail:latest
+  -p 8080:8080 ghcr.io/sequico/gilbert:latest
 ```
 
 In `docker-compose.yml`:
@@ -360,7 +362,7 @@ npm start              # serve the production build
 ```
 
 Open http://localhost:5173 in dev, or http://localhost:8080 for the production
-build. Running it for real is covered in
+build. Running it for real is covered in upstream's docs —
 [Installing](https://docs.ihasmail.org/install/) and
 [Configuring](https://docs.ihasmail.org/configure/).
 

@@ -10,7 +10,7 @@ questions:
 | --- | --- |
 | [ROADMAP.md](ROADMAP.md) | What Gilbert deliberately does **not** do, and why |
 | [KNOWN-ISSUES.md](KNOWN-ISSUES.md) | What was verified live, and where Stalwart departs from a spec |
-| [docs.ihasmail.org](https://docs.ihasmail.org) | How to install, configure and drive each of these |
+| [docs.ihasmail.org](https://docs.ihasmail.org) *(upstream)* | How to install, configure and drive the underlying client — still accurate where Gilbert has not diverged |
 
 Written against the tree at Stalwart **0.16.20**, which is the version the live
 instance runs and the one every behaviour below was checked against. Gilbert
@@ -1126,7 +1126,7 @@ Aliases exist and are left out of the in-app list on purpose: `↓`/`↑` for
 `j`/`k`, `Enter` for `o`, `y` for `e`, `Delete` for `#`. Contacts and Files
 define no shortcuts of their own; the global set still applies.
 
-The full reference is at [docs.ihasmail.org/shortcuts](https://docs.ihasmail.org/shortcuts/).
+The full reference is at [docs.ihasmail.org/shortcuts](https://docs.ihasmail.org/shortcuts/) *(upstream docs)*.
 
 ---
 

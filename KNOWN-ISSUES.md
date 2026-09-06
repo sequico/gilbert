@@ -1,7 +1,7 @@
 # Known issues and pending QA
 
 What was checked, against which server, and when. For a failure you are hitting
-right now, start with [Troubleshooting](https://docs.ihasmail.org/troubleshooting/);
+right now, start with [Troubleshooting](https://docs.ihasmail.org/troubleshooting/) *(upstream docs)*;
 for what is not built yet, see [ROADMAP.md](ROADMAP.md).
 
 The live instance runs **0.16.20**, upgraded from 0.16.19 on 2026-08-31 with
