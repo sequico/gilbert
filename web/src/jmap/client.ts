@@ -73,7 +73,7 @@ export type ResultRef = { resultOf: string; name: string; path: string };
 const HEADERS = {
   "content-type": "application/json",
   accept: "application/json",
-  "x-requested-with": "ihasmail",
+  "x-requested-with": "gilbert",
 };
 
 /**
@@ -372,7 +372,7 @@ export class JmapClient {
         "content-type",
         opts.type || data.type || "application/octet-stream",
       );
-      xhr.setRequestHeader("x-requested-with", "ihasmail");
+      xhr.setRequestHeader("x-requested-with", "gilbert");
       xhr.responseType = "json";
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) opts.onProgress?.(e.loaded, e.total);

@@ -4,7 +4,7 @@
     "Point at it with SETTINGS_POLICY_FILE=/etc/ihasmail/policy.json and mount it",
     "read-only. Read once at startup, so editing it means restarting.",
     "Delete the sections you do not want -- all three are optional, and an",
-    "installation that sets none of them behaves exactly as ihasmail always has.",
+    "installation that sets none of them behaves exactly as Gilbert always has.",
     "Keys and values are the ones a settings export uses: configure one account",
     "by hand, Settings > General > Export, and copy out what you care about.",
     "Docs: https://docs.ihasmail.org/configure/#settings-your-installation-decides"

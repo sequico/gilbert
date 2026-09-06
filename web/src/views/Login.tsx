@@ -87,7 +87,9 @@ export function LoginPage() {
             {appName}
           </h1>
           <p className="tagline">
-            {t("Fast, friendly webmail. Your mailbox, your way.")}
+            {t(
+              "General-purpose Intelligent Lifecycle Butler for Enterprise Resource Traceability",
+            )}
           </p>
         </div>
         {error && (

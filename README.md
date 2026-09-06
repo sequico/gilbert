@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="web/public/img/logo.png" alt="ihasmail" width="150">
+  <img src="web/public/img/logo.png" alt="Gilbert" width="150">
 </p>
 
 <p align="center">
@@ -20,13 +20,14 @@
 **R**esource **T**raceability.
 
 Gilbert is built on [ihasmail](https://github.com/Coffey-Labs/ihasmail), Coffey
-Labs' immutable webmail for Stalwart — this repository's code is still upstream
-ihasmail at heart. The acronym is the direction the project is being pointed
-in: a general-purpose butler that walks enterprise resources through their
-lifecycle and keeps the trace. Until that direction reaches the code, the
-operational names (images, containers, environment variables, the `ihasmail`
-folder inside each mailbox) still say `ihasmail`, while the visible name is
-already yours to set — run with `APP_NAME=Gilbert`.
+Labs' immutable webmail for Stalwart — the code here is a rebranded and
+diverging descendant. The acronym is the direction of the project: a
+general-purpose butler that walks enterprise resources through their lifecycle
+and keeps the trace. The rebrand has renamed the visible shell and the package
+and build identifiers; the names that are data or deployed surface — the
+hidden `ihasmail` folder inside each mailbox, its storage keys, the docker
+service, the `[ihasmail]` log prefix and upstream's URLs — deliberately keep
+saying `ihasmail` (see .codewhale/skills/gilbert-branding).
 
 > **The goal, in one parenthesis.** Gilbert is being pointed at managing
 > enterprise *resources* — mail, contacts, calendars, files and the documents
@@ -376,7 +377,7 @@ the sign-in refusal can be tested.
 
 ### Version numbers
 
-`ihasmail v2026.8.30+pr129` — the date of the commit this was built from, and
+`Gilbert v2026.8.30+pr129` — the date of the commit this was built from, and
 the pull request that commit arrived through. A commit that did not arrive
 through one carries its short SHA instead: `2026.8.30+g1fa6578`. It all comes
 from git at build time; nothing writes a version into the tree, and
@@ -441,6 +442,6 @@ nearly always run as a network service rather than handed to anyone as a binary,
 and the AGPL's section 13 closes that gap.
 
 That offer has to point at *your* source, not this one. If you run a modified
-ihasmail, set `SOURCE_URL` to your own repository — the sign-in page and
+Gilbert, set `SOURCE_URL` to your own repository — the sign-in page and
 Settings › About both show it. See
 [Rebranding](https://docs.ihasmail.org/rebranding/).

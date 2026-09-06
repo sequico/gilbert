@@ -18,7 +18,7 @@ test("unauthenticated JMAP calls are rejected", async () => {
   const app = createApp();
   const res = await app.request("/api/jmap", {
     method: "POST",
-    headers: { "content-type": "application/json", "x-requested-with": "ihasmail" },
+    headers: { "content-type": "application/json", "x-requested-with": "gilbert" },
     body: "{}",
   });
   assert.equal(res.status, 401);
@@ -149,7 +149,7 @@ test("an unreachable upstream does not spend login attempts", async () => {
   const login = () =>
     app.request("/api/auth/login", {
       method: "POST",
-      headers: { "content-type": "application/json", "x-requested-with": "ihasmail" },
+      headers: { "content-type": "application/json", "x-requested-with": "gilbert" },
       body: JSON.stringify({ username: "someone@example.com", password: "hunter2" }),
     });
 
@@ -168,7 +168,7 @@ test("an unreachable upstream says it is not the password", async () => {
   const app = createApp();
   const res = await app.request("/api/auth/login", {
     method: "POST",
-    headers: { "content-type": "application/json", "x-requested-with": "ihasmail" },
+    headers: { "content-type": "application/json", "x-requested-with": "gilbert" },
     body: JSON.stringify({ username: "someone-else@example.com", password: "hunter2" }),
   });
   const body = (await res.json()) as { error: string; message: string };

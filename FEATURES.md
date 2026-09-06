@@ -1173,7 +1173,7 @@ away from a signed-in screen, which is the case that matters.
   `Referrer-Policy: no-referrer`, a `Permissions-Policy` denying camera,
   microphone, geolocation, payment and USB, `Cross-Origin-Opener-Policy:
   same-origin`, HSTS over HTTPS, and `Cache-Control: no-store` by default.
-- **CSRF**: every API call must carry `X-Requested-With: ihasmail`, and any
+- **CSRF**: every API call must carry `X-Requested-With: gilbert`, and any
   request whose `Sec-Fetch-Site` is not same-origin is refused outright.
 - **Rate limiting** on sign-in, keyed by IP *and* IP+username, with
   `Retry-After`; a separate limiter guards the endpoints that check a password.
@@ -1214,7 +1214,7 @@ Over Stalwart's own registry objects, so there is no administrator in the loop:
 
 ## Checking a signature
 
-A signed message says who signed it, and ihasmail checks whether that holds up.
+A signed message says who signed it, and Gilbert checks whether that holds up.
 This is S/MIME only, and it stops at reading: nothing here signs, encrypts or
 decrypts anything.
 
@@ -1229,7 +1229,7 @@ SHA-512.
 **What a check is allowed to claim, which is the whole design.** A browser has
 no system trust store, and the certificate arrives inside the message, so anyone
 can self-sign as anyone. On its own a verified signature proves only that
-whoever wrote the message held the key attached to it — which is why ihasmail
+whoever wrote the message held the key attached to it — which is why Gilbert
 never renders the bare word *verified*.
 
 What makes it worth anything is remembering. The first signed message from an
@@ -1258,7 +1258,7 @@ agree with it.
 **What it will not do.**
 
 - **OpenPGP is not checked**, and says so by name rather than as an unknown
-  format. The signature does not carry the key, and ihasmail has nowhere to get
+  format. The signature does not carry the key, and Gilbert has nowhere to get
   a correspondent's public key from — `x:PublicKey` holds the account's *own*
   keys, and fetching from a keyserver or WKD would leak who you correspond with
   to a third party, which is the exact thing the image proxy exists to prevent.
@@ -1338,7 +1338,7 @@ wizard, because either would be state.
 | `IMAGE_PROXY` | `1` | Privacy proxy for remote images |
 | `LOGIN_RATE_LIMIT` | `10` | Attempts per window |
 | `COOKIE_NAME` | `ihm_session` | |
-| `APP_NAME` | `ihasmail` | Branding |
+| `APP_NAME` | `Gilbert` | Branding |
 | `SOURCE_URL` | this repository | Where **your** source is, for the AGPL offer |
 
 Full documentation, including TLS and reverse proxies:
@@ -1351,8 +1351,8 @@ Full documentation, including TLS and reverse proxies:
 Gilbert's alone:
 
 ```bash
-docker build --build-arg BASE_PATH=/mail -t ihasmail .
-docker run -e BASE_PATH=/mail ... ihasmail
+docker build --build-arg BASE_PATH=/mail -t gilbert .
+docker run -e BASE_PATH=/mail ... gilbert
 ```
 
 `/mail`, `mail` and `/mail/` all mean the same mount; unset means the domain
@@ -1384,7 +1384,7 @@ it was mounted. Both follow the prefix with nothing substituted into them.
 
 `APP_NAME` and `SOURCE_URL` are variables; the logo, icons and palette are
 files. See [Rebranding](https://docs.ihasmail.org/rebranding/). If you run a
-modified ihasmail, `SOURCE_URL` must point at **your** tree — the AGPL's offer
+modified Gilbert, `SOURCE_URL` must point at **your** tree — the AGPL's offer
 is for the source of the version being run, and it is shown on the sign-in page
 and in Settings › About.
 

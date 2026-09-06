@@ -39,7 +39,7 @@ ENV NODE_ENV=production \
 WORKDIR /app
 COPY package.json package-lock.json* ./
 COPY server/package.json server/
-# config.ts reads the version through this at startup. With IHASMAIL_VERSION
+# config.ts reads the version through this at startup. With GILBERT_VERSION
 # set it never looks further; without it, it falls back to package.json rather
 # than failing, since there is no git in here to ask.
 COPY scripts/ ./scripts/

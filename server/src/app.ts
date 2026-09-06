@@ -196,7 +196,7 @@ const csrfGuard: MiddlewareHandler = async (c, next) => {
     return c.json({ error: "cross_site_request" }, 403);
   }
   if (c.req.method !== "GET" && c.req.method !== "HEAD") {
-    if (c.req.header("x-requested-with") !== "ihasmail") {
+    if (c.req.header("x-requested-with") !== "gilbert") {
       return c.json({ error: "missing_csrf_header" }, 403);
     }
   }

@@ -672,11 +672,8 @@ export const catalog: Catalog = {
     "Email or username": "メールアドレスまたはユーザー名",
     "Use your usual address as the username.":
       "ユーザー名には普段のメールアドレスをお使いください。",
-    "Fast, friendly webmail. Your mailbox, your way.":
-      "軽快で使いやすいウェブメール。メールボックスを思いのままに。",
-
-    // ── Notifications ──────────────────────────────────────────────────
-    Notifications: "通知",
+    "General-purpose Intelligent Lifecycle Butler for Enterprise Resource Traceability":
+      "General-purpose Intelligent Lifecycle Butler for Enterprise Resource Traceability",
     "Notifications are blocked in your browser settings.":
       "ブラウザーの設定で通知がブロックされています。",
     "Not supported in this browser.": "このブラウザーでは利用できません。",

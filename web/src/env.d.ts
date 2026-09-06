@@ -5,4 +5,4 @@
  * git to ask from inside a browser, or inside the Docker build. See
  * `scripts/version.mjs`.
  */
-declare const __IHASMAIL_VERSION__: string;
+declare const __GILBERT_VERSION__: string;

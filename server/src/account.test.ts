@@ -22,7 +22,7 @@ const { parseOtpauthUrl, totpCode } = await import("./totp.js");
 const app = createApp();
 let cookie = "";
 
-const HEADERS = { "content-type": "application/json", "x-requested-with": "ihasmail" };
+const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
 
 async function call(
   path: string,

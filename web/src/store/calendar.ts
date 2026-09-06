@@ -827,7 +827,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     for (const sub of subs) {
       try {
         const res = await fetch(withBase(`/api/ics?url=${encodeURIComponent(sub.url)}`), {
-          headers: { "X-Requested-With": "ihasmail" },
+          headers: { "X-Requested-With": "gilbert" },
         });
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as { error?: string };

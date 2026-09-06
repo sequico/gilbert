@@ -21,7 +21,7 @@ const { createApp } = await import("../app.js");
 const app = createApp();
 let cookie = "";
 
-const HEADERS = { "content-type": "application/json", "x-requested-with": "ihasmail" };
+const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
 
 type Body = ReturnType<typeof JSON.parse>;
 

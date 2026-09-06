@@ -5,4 +5,4 @@
  * `2026.8.30+g1fa6578`. Baked in by Vite; see `scripts/version.mjs` for why the
  * parts are what they are.
  */
-export const APP_VERSION = __IHASMAIL_VERSION__;
+export const APP_VERSION = __GILBERT_VERSION__;

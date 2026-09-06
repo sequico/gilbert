@@ -133,7 +133,7 @@ test("the data path is rate limited per session, and login stays on its own budg
   for (let i = 0; i < 5; i++) {
     const res = await app.request("/api/jmap", {
       method: "POST",
-      headers: { "content-type": "application/json", "x-requested-with": "ihasmail" },
+      headers: { "content-type": "application/json", "x-requested-with": "gilbert" },
       body: "{}",
     });
     assert.equal(res.status, 401);

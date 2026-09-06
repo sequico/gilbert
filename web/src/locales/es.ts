@@ -676,10 +676,8 @@ export const catalog: Catalog = {
     "Email or username": "Correo o nombre de usuario",
     "Use your usual address as the username.":
       "Use su dirección habitual como nombre de usuario.",
-    "Fast, friendly webmail. Your mailbox, your way.":
-      "Un webmail rápido y agradable. Su buzón, a su manera.",
-
-    Notifications: "Notificaciones",
+    "General-purpose Intelligent Lifecycle Butler for Enterprise Resource Traceability":
+      "General-purpose Intelligent Lifecycle Butler for Enterprise Resource Traceability",
     "Notifications are blocked in your browser settings.":
       "Las notificaciones están bloqueadas en la configuración de su navegador.",
     "Not supported in this browser.": "No compatible con este navegador.",

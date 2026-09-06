@@ -5,7 +5,7 @@ import { baseUrlOf } from "../scripts/basePath.mjs";
 import { resolveVersion } from "../scripts/version.mjs";
 
 // Resolved here, at build time: the browser has no git to ask, and neither does
-// the Docker build, which is handed the answer as IHASMAIL_VERSION instead.
+// the Docker build, which is handed the answer as GILBERT_VERSION instead.
 const version = resolveVersion();
 
 /*
@@ -25,7 +25,7 @@ const base = baseUrlOf(process.env.BASE_PATH);
 export default defineConfig({
   base,
   plugins: [react()],
-  define: { __IHASMAIL_VERSION__: JSON.stringify(version) },
+  define: { __GILBERT_VERSION__: JSON.stringify(version) },
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
