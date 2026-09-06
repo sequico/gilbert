@@ -11,10 +11,10 @@ import type { Catalog } from "@/lib/i18n";
  *
  * ── Decisions this file is consistent about ──────────────────────────────
  *
- * Register: **Lei**, following "Sie", "vous" and "usted" — a mail client a
- * workplace deployed has no business being familiar. Most of the interface is
- * nouns and infinitives where the question does not arise at all; where a
- * sentence addresses the reader it uses the formal Lei, and the verb agrees.
+ * Register: none — the interface prefers impersonal, generic phrasing that
+ * does not address the reader ("Gilbert avviserà…", not "ti avviserà"); where
+ * a sentence genuinely has to address someone it uses the informal "tu",
+ * never the formal "Lei".
  *
  * Terminology, fixed once so it cannot drift: "cartella" for folder,
  * "Posta in arrivo" for Inbox, "Cestino" for Trash, "Spam" for Junk,
@@ -1421,7 +1421,7 @@ export const catalog: Catalog = {
       "Apri i collegamenti {scheme} — in pagine web, documenti e altre app — in Gilbert invece che in un client di posta desktop. Il browser ti chiederà conferma e potrai modificarlo nelle sue impostazioni (Chrome: Impostazioni › Privacy e sicurezza › Impostazioni sito › Gestori di protocollo; Firefox: Impostazioni › Generali › Applicazioni).",
 
     "Requested in this browser. Whether it took effect is up to the browser — check its settings if mail links still open elsewhere.":
-      "Richiesto in questo browser. Se abbia avuto effetto dipende dal browser: controlli le sue impostazioni se i collegamenti di posta continuano ad aprirsi altrove.",
+      "Richiesto in questo browser. Se abbia avuto effetto dipende dal browser: se i collegamenti di posta continuano ad aprirsi altrove, controlla le impostazioni del browser.",
 
     "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
       "Per un valore predefinito a livello di sistema, installare prima Gilbert come app (in Chrome: l'icona di installazione nella barra degli indirizzi). Il sistema operativo potrà poi offrire Gilbert direttamente ovunque chieda quale app di posta usare.",
@@ -1430,22 +1430,22 @@ export const catalog: Catalog = {
       "Serve un browser con l'API Push e un server di posta che pubblichi una chiave push.",
 
     "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
-      "Il suo server di posta le consegna direttamente nel browser, quindi arrivano senza alcuna scheda di Gilbert aperta, indicando mittente e oggetto. Il browser deve comunque essere in esecuzione: se lo chiude del tutto, le notifiche attendono e arrivano quando lo riapre.",
+      "Le notifiche arrivano direttamente dal server di posta nel browser, indicando mittente e oggetto, senza bisogno di una scheda di Gilbert aperta. Il browser deve comunque essere in esecuzione: se viene chiuso del tutto, le notifiche restano in attesa e arrivano alla riapertura.",
 
     "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.":
-      "Il suo server di posta può riattivare questo browser, ma non includerà il mittente né l'oggetto. Il browser deve comunque essere in esecuzione.",
+      "Il server di posta può riattivare questo browser, ma non includerà il mittente né l'oggetto. Il browser deve comunque essere in esecuzione.",
 
     "This is what a new-mail notification looks like.":
       "Ecco come si presenta una notifica di posta nuova.",
 
     "You're signed in as {user}. Your password is never stored in the browser; the server keeps it encrypted per-session for talking to Stalwart.":
-      "Ha effettuato l'accesso come {user}. La sua password non viene mai salvata nel browser; il server la conserva cifrata per sessione per comunicare con Stalwart.",
+      "Accesso effettuato come {user}. La password non viene mai salvata nel browser: il server la conserva cifrata per la sessione, per comunicare con Stalwart.",
 
     "App passwords are managed by your mail administrator.":
-      "Le password per le app sono gestite dal suo amministratore di posta.",
+      "Le password per le app sono gestite dall'amministratore di posta.",
 
     "Changing your password signs out your other webmail sessions. Any app passwords keep working.":
-      "La modifica della password chiude le sue altre sessioni di webmail. Le password per le app continuano a funzionare.",
+      "La modifica della password chiude le altre sessioni di webmail. Le password per le app continuano a funzionare.",
 
     "This account has two-factor authentication on. Gilbert can't sign you in with a code yet, so signing in on another device needs an app password — or you can turn two-factor authentication off here.":
       "Questo account ha l'autenticazione a due fattori attivata. Gilbert non può ancora farla accedere con un codice, quindi accedere da un altro dispositivo richiede una password per le app: oppure può disattivare qui l'autenticazione a due fattori.",
@@ -1463,19 +1463,19 @@ export const catalog: Catalog = {
       "Stalwart non comunica il numero di versione ai client di posta, quindi Gilbert riporta l'edizione quando il server ne fornisce una. Gilbert richiede la versione 0.16 o successiva e l'accesso rifiuta qualsiasi versione precedente.",
 
     "It {damage}, so the rules in it can't be shown or edited — saving what did arrive would write it back over the rest. Reload the page to try again. Your rules are still on the server; nothing here has changed them.":
-      "{damage}, quindi le regole che contiene non possono essere mostrate né modificate: salvare ciò che è arrivato lo riscriverebbe sul resto. Ricarichi la pagina per riprovare. Le sue regole sono ancora sul server; qui non è stato cambiato nulla.",
+      "{damage}, quindi le regole che contiene non possono essere mostrate né modificate: salvare ciò che è arrivato lo riscriverebbe sul resto. Ricarica la pagina per riprovare. Le regole sono ancora sul server: qui non è stato cambiato nulla.",
 
     "The visual rule editor only manages scripts it created. You can edit the script in the {tab} tab, or start fresh with rules (the existing script will be kept but deactivated).":
       "L'editor visivo delle regole gestisce solo gli script che ha creato lui stesso. Può modificare lo script nella scheda {tab} oppure ricominciare con le regole (lo script esistente verrà conservato ma disattivato).",
 
     "Your filter script {damage}, so only part of it arrived. Adding a rule would write that part back over the whole thing. Reload the page and try again.":
-      "Il suo script di filtro {damage}, quindi ne è arrivata solo una parte. L'aggiunta di una regola riscriverebbe quella parte sull'intero contenuto. Ricarichi la pagina e riprovi.",
+      "Lo script di filtro {damage}, quindi ne è arrivata solo una parte. L'aggiunta di una regola riscriverebbe quella parte sull'intero contenuto. Ricarica la pagina e riprova.",
 
     "Your filter script couldn't be read just now, so adding a rule would risk overwriting it. Reload the page and try again.":
-      "Il suo script di filtro non ha potuto essere letto in questo momento, quindi l'aggiunta di una regola rischierebbe di sovrascriverlo. Ricarichi la pagina e riprovi.",
+      "Lo script di filtro non ha potuto essere letto in questo momento: aggiungere una regola rischierebbe di sovrascriverlo. Ricarica la pagina e riprova.",
 
     "Your active Sieve script was written by hand, so rules can't be added automatically. Open {where} to edit the script or switch to managed rules.":
-      "Il suo script Sieve attivo è stato scritto a mano, quindi le regole non possono essere aggiunte automaticamente. Apri {where} per modificare lo script o passare alle regole gestite.",
+      "Lo script Sieve attivo è stato scritto a mano, quindi le regole non possono essere aggiunte automaticamente. Apri {where} per modificare lo script o passare alle regole gestite.",
 
     "Only languages Gilbert has been translated into appear here, so this list grows as translations land rather than ahead of them — a language offered without strings behind it would leave the page claiming to be in a language it is not.":
       "Qui compaiono solo le lingue in cui Gilbert è stato tradotto, quindi questo elenco cresce man mano che arrivano le traduzioni e non prima: una lingua offerta senza testi dietro farebbe credere alla pagina di essere in una lingua che non è.",
@@ -1823,7 +1823,7 @@ export const catalog: Catalog = {
     "This occurrence": "Solo questa occorrenza",
 
     "Too many attempts. Please wait a few minutes and try again.":
-      "Troppi tentativi. Attenda qualche minuto e riprovi.",
+      "Troppi tentativi. Attendi qualche minuto e riprova.",
 
     "Try another search.": "Provi con un'altra ricerca.",
 
@@ -1836,13 +1836,13 @@ export const catalog: Catalog = {
     "You're all caught up": "È tutto in pari",
 
     "Your browser refused the request: {error}":
-      "Il suo browser ha rifiutato la richiesta: {error}",
+      "Il browser ha rifiutato la richiesta: {error}",
 
     "Your browser will ask whether to open mail links in Gilbert":
-      "Il suo browser le chiederà se aprire i collegamenti di posta in Gilbert",
+      "Il browser chiederà se aprire i collegamenti di posta in Gilbert",
 
     "Your message mentions an attachment, but nothing is attached.":
-      "Il suo messaggio menziona un allegato, ma non c'è nessun allegato.",
+      "Il messaggio menziona un allegato, ma non c'è nessun allegato.",
 
     event: "evento",
     "Hide password": "Nascondi la password",
@@ -1852,7 +1852,7 @@ export const catalog: Catalog = {
     "Settings reset to defaults": "Impostazioni ripristinate ai valori predefiniti",
 
     "Removed. Mail links will open in whatever your browser falls back to.":
-      "Rimosso. I collegamenti di posta si apriranno in ciò che il suo browser usa per impostazione predefinita.",
+      "Rimosso. I collegamenti di posta si apriranno in ciò che il browser usa per impostazione predefinita.",
 
     "Edit rule": "Modifica regola",
 
@@ -1906,7 +1906,7 @@ export const catalog: Catalog = {
       "Un avviso su qualsiasi messaggio il cui mittente non sia in uno dei propri domini.",
 
     "A calendar of its own, derived from the birthdays already on your contact cards. Nothing is written anywhere — the dates stay on the cards, and an event disappears when the contact does or the birthday is cleared. It can be hidden from the calendar’s own sidebar without turning it off here.":
-      "Un calendario tutto suo, ricavato dai compleanni che figurano già sulle schede dei suoi contatti. Non viene scritto nulla da nessuna parte: le date restano sulle schede e un evento scompare quando sparisce il contatto o quando il compleanno viene cancellato. Può essere nascosto dalla barra laterale del calendario stesso senza disattivarlo qui.",
+      "Un calendario ricavato dai compleanni già presenti nelle schede dei contatti. Non viene scritto nulla da nessuna parte: le date restano sulle schede e un evento scompare quando sparisce il contatto o quando il compleanno viene cancellato. Può essere nascosto dalla barra laterale del calendario stesso senza disattivarlo qui.",
 
     "A calendar published at a URL — a timetable, a rota, a public holiday list. It is read-only, refreshed when you open the calendar, and never stored: the events are fetched and kept only for as long as this tab is open.":
       "Un calendario pubblicato a un URL: un orario, un turno, un elenco di festività. È di sola lettura, viene aggiornato all'apertura del calendario e non viene mai archiviato: gli eventi vengono scaricati e conservati solo finché questa scheda resta aperta.",
@@ -2020,7 +2020,7 @@ export const catalog: Catalog = {
     "Forward as attachment": "Inoltra come allegato",
 
     "From the birthdays on your contacts. Nothing is stored.":
-      "Dai compleanni dei suoi contatti. Non viene archiviato nulla.",
+      "Dai compleanni dei contatti. Non viene archiviato nulla.",
 
     "Go to Calendar": "Vai al Calendario",
 
@@ -2041,7 +2041,7 @@ export const catalog: Catalog = {
     "Import iCAL file…": "Importa file iCAL…",
 
     "Labels are IMAP keywords stored on your messages, so every other client sees them. Names, colours and nesting are Gilbert’s own and follow your account. Nesting is display only — it rewrites nothing in the mailbox.":
-      "Le etichette sono parole chiave IMAP archiviate sui messaggi, così ogni altro client le vede. Nomi, colori e annidamento sono propri di Gilbert e seguono il suo account. L'annidamento è solo di visualizzazione: non riscrive nulla nella casella di posta.",
+      "Le etichette sono parole chiave IMAP archiviate sui messaggi, così ogni altro client le vede. Nomi, colori e annidamento sono propri di Gilbert e seguono l'account. L'annidamento è solo di visualizzazione: non riscrive nulla nella casella di posta.",
 
     "Largest first": "Prima i più grandi",
     Later: "Dopo",
@@ -2086,7 +2086,7 @@ export const catalog: Catalog = {
 
     "Nothing (top level)": "Niente (livello superiore)",
 
-    "Now, on your clock": "Ora, secondo il suo orologio",
+    "Now, on your clock": "Ora, secondo l'orologio del dispositivo",
 
     "Oldest first": "Prima i più vecchi",
 
@@ -2139,11 +2139,11 @@ export const catalog: Catalog = {
 
     "Send message": "Invia il messaggio",
 
-    "Send outside your organisation?": "Inviare fuori dalla sua organizzazione?",
+    "Send outside your organisation?": "Inviare fuori dall'organizzazione?",
 
     "Send to {count} people?": "Inviare a {count} persone?",
 
-    "Show birthdays from your contacts": "Mostra i compleanni dei suoi contatti",
+    "Show birthdays from your contacts": "Mostra i compleanni dei contatti",
 
     "Show in the sidebar": "Mostra nella barra laterale",
 
@@ -2211,7 +2211,7 @@ export const catalog: Catalog = {
 
     "Throw away your changes?": "Scartare le modifiche?",
 
-    "Today, in your date format": "Oggi, nel suo formato data",
+    "Today, in your date format": "Oggi, nel formato data scelto",
 
     "Unread first": "Prima i non letti",
 
@@ -2232,16 +2232,16 @@ export const catalog: Catalog = {
     "Who the message is addressed to": "A chi è indirizzato il messaggio",
 
     "Working out what is selected…": "Calcolo della selezione in corso…",
-    You: "Lei",
+    You: "Tu",
 
     "Your Sieve script has changes that have not been saved.":
-      "Il suo script Sieve contiene modifiche non salvate.",
+      "Lo script Sieve contiene modifiche non salvate.",
 
     "Your filter rules have changes that have not been saved.":
-      "Le sue regole di filtro contengono modifiche non salvate.",
+      "Le regole di filtro contengono modifiche non salvate.",
 
     "Your own identity domains are always inside and do not need listing. A domain here also covers its subdomains.":
-      "I domini delle sue identità sono sempre interni e non è necessario elencarli. Un dominio qui include anche i suoi sottodomini.",
+      "I domini delle identità sono sempre interni e non è necessario elencarli. Un dominio qui include anche i suoi sottodomini.",
 
     "Your own:": "I suoi:",
 
@@ -2286,10 +2286,10 @@ export const catalog: Catalog = {
 
     "No sending identity available": "Nessuna identità di invio disponibile",
 
-    "Pick a date and time.": "Scelga una data e un'ora.",
+    "Pick a date and time.": "Scegliere una data e un'ora.",
 
     "Pick a time at least a minute from now.":
-      "Scelga un orario di almeno un minuto dopo quello attuale.",
+      "L'orario deve essere di almeno un minuto dopo quello attuale.",
 
     "Remove star": "Rimuovi stella",
 
@@ -2463,7 +2463,7 @@ export const catalog: Catalog = {
     "first seen {date}": "visto per la prima volta il {date}",
 
     "Gilbert will tell you if a later message from this address is signed by anybody else.":
-      "Gilbert Le avviserà se un messaggio successivo proveniente da questo indirizzo è firmato da un'altra persona.",
+      "Gilbert avviserà se un messaggio successivo proveniente da questo indirizzo è firmato da un'altra persona.",
 
     "itself, or an issuer it does not name": "sé stesso o un emittente che non nomina",
 
