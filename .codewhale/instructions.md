@@ -4,19 +4,21 @@
 The project is **Gilbert** — a distinct application, backronym for
 **G**eneral-purpose **I**ntelligent **L**ifecycle **B**utler for
 **E**nterprise **R**esource **T**raceability. Its mail client is based on
-upstream ihasmail (Coffey-Labs): the mail core keeps syncing upstream, and the
-ihasmail identifiers in that core were renamed to `gilbert` on 2026-09-06.
-Gilbert is not a rebrand of ihasmail — it is a different product, of which the
-mailer is one part. Canonical statement: README.md top.
+upstream ihasmail (Coffey-Labs), which is download-only (ADR 0002): releases
+sync in, nothing goes back. Canonical statement: README.md top.
+
+## Snapshot mode
+Files and comments describe the code as it is now. Never write "it used to
+be X, then it became Y", never narrate a rename, a migration or any
+before/after. If somebody wants history, it is in git.
 
 ## Naming rule
-Prose about the product says "Gilbert". The 2026-09-06 rebrand renamed the
-visible shell and every code/build identifier to `gilbert`: `APP_NAME` default
-"Gilbert", packages `gilbert`/`@gilbert/*`, `GILBERT_VERSION`,
-`X-Requested-With: gilbert`, UI strings and catalogs, the app folder, the
-sieve script name, storage keys, the `[gilbert]` log prefix, the
-`session.gilbert` extension, MIME types, docker/deploy identifiers and paths.
-`ihasmail` remains only where upstream's real name must stay: the URLs
+Prose about the product says "Gilbert", and every code and build identifier
+is `gilbert`: `APP_NAME` default "Gilbert", packages `gilbert`/`@gilbert/*`,
+`GILBERT_VERSION`, `X-Requested-With: gilbert`, UI strings and catalogs, the
+app folder, the sieve script name, storage keys, the `[gilbert]` log prefix,
+the `session.gilbert` extension, MIME types, docker/deploy identifiers and
+paths. `ihasmail` appears only where upstream's real name must stay: the URLs
 (ihasmail.org, docs.ihasmail.org, github.com/Coffey-Labs/ihasmail), the
 lineage and the AGPL attribution in `LICENSE`/`NOTICE`/`README`/ADR 0002, and
 the `ihasmail` branch that mirrors upstream releases.

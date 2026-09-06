@@ -57,9 +57,8 @@ Where the integration lives:
 - Settings that follow the account: `settings.json` inside the **`gilbert`**
   app folder in the account's own JMAP Files (`web/src/lib/appFolder.ts`),
   with signature images and over-sized signature HTML beside it. The folder is
-  a real top-level FileNode, hidden from the Files view, migrated from the
-  legacy `gilbert` name on first open. localStorage is only a first-frame
-  cache.
+  a real top-level FileNode, hidden from the Files view. localStorage is only
+  a first-frame cache.
 - Server-side JMAP objects, never client state: mailboxes/emails, identities
   (signatures capped at 2047 bytes of UTF-8 — Rust `len()`, see
   `web/src/lib/signatureHtml.ts`), calendar events, contacts, sieve scripts,

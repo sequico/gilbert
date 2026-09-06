@@ -10,21 +10,23 @@ metadata:
 ## 1. Identity
 
 - The project is **Gilbert**, a backronym for **G**eneral-purpose **I**ntelligent **L**ifecycle **B**utler for **E**nterprise **R**esource **T**raceability. The canonical statement lives at the top of `README.md`; keep this skill and that file in sync.
-- History: Gilbert is its own product, not a rebrand of ihasmail; its mail
+- Gilbert is its own product, of which the mail client is one part. The mail
   client is based on [Coffey-Labs/ihasmail](https://github.com/Coffey-Labs/ihasmail)
-  — remote `upstream` is no_push, `origin` is `sequico/gilbert`. The mail
-  core's ihasmail identifiers were renamed to `gilbert` (2026-09-06, see
-  `gilbert-branding`); upstream is download-only (ADR 0002):
-  `sync-upstream.yml` mirrors releases onto the `ihasmail` branch and the
-  mail core merges them in, and nothing is contributed back.
+  — remote `upstream` is no_push, `origin` is `sequico/gilbert`. Upstream is
+  download-only (ADR 0002): `sync-upstream.yml` mirrors releases onto the
+  `ihasmail` branch and the mail core merges them in, and nothing is
+  contributed back.
   Ask before inventing product behaviour the acronym implies but
   the code does not have.
+- **Snapshot mode**: files and comments describe the code as it is now; never
+  narrate a rename or a migration — history lives in git.
 - Licence AGPL-3.0-or-later; `LICENSE` and `NOTICE` keep Coffey Labs' copyright (the mail core is their derivative work). Do not strip attribution.
 
 ## 2. Naming rule (the one that keeps every doc coherent)
 
 - **Prose** about the product says "Gilbert".
-- **Renamed in the 2026-09-06 rebrand** — docs must match: `APP_NAME`
+- **Every code and build identifier is `gilbert`** — docs must match:
+  `APP_NAME`
   default "Gilbert", package names `gilbert`/`@gilbert/*`, `GILBERT_VERSION`
   build arg, `X-Requested-With: gilbert`, the visible shell
   (title/manifest/login copy) and every product-naming UI string and catalog
