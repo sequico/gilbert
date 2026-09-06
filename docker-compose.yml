@@ -7,16 +7,16 @@ services:
         # its own asset URLs: a build that does not know the prefix produces an
         # app that cannot load itself under one. Empty is the domain root.
         BASE_PATH: ${BASE_PATH:-}
-    image: ihasmail:2
+    image: gilbert:2
     restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
       STALWART_URL: ${STALWART_URL:?set STALWART_URL in .env}
       APP_SECRET: ${APP_SECRET:?set APP_SECRET in .env (openssl rand -base64 48)}
-      APP_NAME: ${APP_NAME:-ihasmail}
+      APP_NAME: ${APP_NAME:-Gilbert}
       BASE_PATH: ${BASE_PATH:-}
-      SOURCE_URL: ${SOURCE_URL:-https://github.com/Coffey-Labs/ihasmail}
+      SOURCE_URL: ${SOURCE_URL:-https://github.com/sequico/gilbert}
       TRUST_PROXY: "1"
       IMAGE_PROXY: "1"
     volumes:

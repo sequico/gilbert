@@ -124,10 +124,9 @@ Gilbert images are published to GHCR on every release (cut by hand), for
 docker pull ghcr.io/sequico/gilbert:latest
 ```
 
-(The unmodified upstream project keeps publishing its own image as
-`ghcr.io/coffey-labs/ihasmail` — the checked-in `docker-compose.yml` still
-points at it for parity; to run a Gilbert release, point the service image at
-`ghcr.io/sequico/gilbert`.)
+The checked-in `docker-compose.yml` builds the checkout itself (no image to
+pull); to run a published release instead of a local build, point the service
+at `ghcr.io/sequico/gilbert`.
 
 | Tag | What it is |
 | --- | --- |
@@ -291,7 +290,8 @@ In `docker-compose.yml`:
 ```yaml
 services:
   ihasmail:
-    image: ghcr.io/coffey-labs/ihasmail:latest
+    build: .
+    image: gilbert:2
     environment:
       SETTINGS_POLICY_FILE: /etc/ihasmail/policy.json
     volumes:
