@@ -773,10 +773,10 @@ export const catalog: Catalog = {
       "Su script de filtrado solo ha llegado en parte.",
     "Your active script “{name}” was written by hand.":
       "Su script activo «{name}» se escribió a mano.",
-    "Another script (“{name}”) is active. Saving rules here will activate the “ihasmail” script instead.":
-      "Hay otro script activo («{name}»). Si guarda reglas aquí, se activará el script «ihasmail» en su lugar.",
-    "“{name}” will be deactivated (not deleted) and a new “ihasmail” script will take over.":
-      "«{name}» se desactivará (no se eliminará) y un script «ihasmail» nuevo tomará el relevo.",
+    "Another script (“{name}”) is active. Saving rules here will activate the “gilbert” script instead.":
+      "Hay otro script activo («{name}»). Si guarda reglas aquí, se activará el script «gilbert» en su lugar.",
+    "“{name}” will be deactivated (not deleted) and a new “gilbert” script will take over.":
+      "«{name}» se desactivará (no se eliminará) y un script «gilbert» nuevo tomará el relevo.",
     "Sieve filtering is not available for this account.":
       "El filtrado Sieve no está disponible para esta cuenta.",
     "Sieve filtering is not enabled for this account.":

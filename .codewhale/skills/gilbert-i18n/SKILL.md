@@ -50,7 +50,7 @@ metadata:
   variables so they are not reported stale. Do not inline-translate there.
 - The app's own name appears in strings as the runtime name (`APP_NAME`), not
   a hardcoded word — check how a neighbouring string does it before writing
-  "Gilbert" or "ihasmail" into UI copy.
+  "Gilbert" or "gilbert" into UI copy.
 
 ## Adding a language
 

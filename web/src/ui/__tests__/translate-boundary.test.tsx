@@ -114,7 +114,7 @@ describe("the boundary", () => {
      * as information, so a console-reading error reporter sees React's dev
      * noise and nothing from us claiming a failure.
      */
-    const ours = error.mock.calls.filter((c) => String(c[0]).includes("[ihasmail]"));
+    const ours = error.mock.calls.filter((c) => String(c[0]).includes("[gilbert]"));
     expect(ours).toEqual([]);
   });
 

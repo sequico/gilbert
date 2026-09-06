@@ -58,7 +58,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pushState = useSession((s) => s.pushState);
   const session = useSession((s) => s.session);
   const logout = useSession((s) => s.logout);
-  const appName = useSession((s) => s.session?.ihasmail?.appName) || DEFAULT_APP_NAME;
+  const appName = useSession((s) => s.session?.gilbert?.appName) || DEFAULT_APP_NAME;
   const acctMenu = useMenu();
   /*
    * "Go to folder" (#233), hosted here rather than in the mail view because
@@ -189,7 +189,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {session?.username}
                 </div>
                 <div className="hint truncate notranslate" translate="no">
-                  {session?.ihasmail?.loginName}
+                  {session?.gilbert?.loginName}
                 </div>
               </div>
             </div>
@@ -496,10 +496,10 @@ function QuotaBar() {
  * see a dark theme, one click gives you light.
  *
  * Coming back is the part that needs remembering. There is more than one way
- * to be dark — "dark", "ihasmail", or "system" while the OS is — so the way
+ * to be dark — "dark", "gilbert", or "system" while the OS is — so the way
  * back is whichever you were on, kept in `lastDarkTheme`, rather than plain
  * "dark" for everyone. Without that, two clicks would quietly move an
- * ihasmail user onto a theme they never chose.
+ * gilbert user onto a theme they never chose.
  */
 function ThemeToggle() {
   const effective = useEffectiveTheme();

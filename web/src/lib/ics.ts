@@ -333,7 +333,7 @@ export function toIcs(events: JSCalendarEvent[], calendarName?: string): string 
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//ihasmail//EN",
+    "PRODID:-//gilbert//EN",
     "CALSCALE:GREGORIAN",
   ];
   if (calendarName) lines.push(`X-WR-CALNAME:${escText(calendarName)}`);

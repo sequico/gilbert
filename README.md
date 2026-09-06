@@ -23,28 +23,25 @@ engine for delivery orders with checklists and to-do lists. Part of this
 already ships (shared calendars, contacts, address books and task lists);
 the rest is the direction the code is being pointed.
 
-What runs today is the rebranded and diverging descendant of
-[ihasmail](https://github.com/Coffey-Labs/ihasmail) — Coffey Labs' immutable
-webmail for Stalwart — and its mail core is that product: a Gmail-class,
-JMAP-only client in a disposable container, with everything durable living in
+What runs today is Gilbert's mail client — a Gmail-class, JMAP-only webmail
+for Stalwart in a disposable container, with everything durable living in
 Stalwart (see [What's in it](#whats-in-it) and
-[Architecture](#architecture)). Gilbert's own layer is the goal above; the
-rebrand renamed the visible shell and the package and build identifiers, while
-the names that are data or deployed surface — the per-account app
-folder in each mailbox (now `gilbert`; a leftover `ihasmail` folder is
-renamed on first open), its storage keys, the docker service, the
-`[ihasmail]` log prefix and upstream's URLs — stay as they are: the folder
-wears its new name, the rest still says `ihasmail`.
+[Architecture](#architecture)). The mailer is based on
+[ihasmail](https://github.com/Coffey-Labs/ihasmail), Coffey Labs' immutable
+webmail for Stalwart; Gilbert is a distinct product around it, and its own
+layer is the goal above. `ihasmail` appears only where upstream's real name
+must stay — the URLs, the lineage and the AGPL attribution of the mail core.
 
 > **Try it locally:** `npm run dev:mock` runs a complete instance against an
 > in-memory mock Stalwart — open http://localhost:5173 and sign in with
 > `demo@example.com` / `demo`.
 
-**Licence and lineage.** Gilbert is AGPL-3.0-or-later. It is a derivative work
-of [ihasmail](https://github.com/Coffey-Labs/ihasmail) (Coffey Labs): their
-copyright stays in `LICENSE`/`NOTICE`, upstream's code and docs are linked
-below where they are still accurate, and the source offer for *this* build
-points at this repository (Settings › About, or the sign-in page).
+**Licence and lineage.** Gilbert is AGPL-3.0-or-later. Its mail client is a
+derivative work of [ihasmail](https://github.com/Coffey-Labs/ihasmail) (Coffey
+Labs): their copyright stays in `LICENSE`/`NOTICE`, upstream's code and docs
+are linked below where they are still accurate, and the source offer for
+*this* build points at this repository (Settings › About, or the sign-in
+page).
 
 | | |
 | --- | --- |
@@ -178,8 +175,8 @@ signs in with. **`STALWART_URL` stays required and stays the default**, so an
 installation that sets nothing else behaves exactly as it always has.
 
 ```bash
--e STALWART_SERVERS_FILE=/etc/ihasmail/servers.json \
--v /srv/ihasmail/servers.json:/etc/ihasmail/servers.json:ro
+-e STALWART_SERVERS_FILE=/etc/gilbert/servers.json \
+-v /srv/gilbert/servers.json:/etc/gilbert/servers.json:ro
 ```
 
 ```json
@@ -247,11 +244,11 @@ Where a file is easier to manage than JSON quoted in a unit file — and it
 usually is once there are `changes` in it — mount one and name it:
 
 ```bash
-docker run -d --name ihasmail \
+docker run -d --name gilbert \
   -e STALWART_URL=https://mail.example.org \
   -e APP_SECRET="$(openssl rand -hex 32)" \
-  -e SETTINGS_POLICY_FILE=/etc/ihasmail/policy.json \
-  -v /srv/ihasmail/policy.json:/etc/ihasmail/policy.json:ro \
+  -e SETTINGS_POLICY_FILE=/etc/gilbert/policy.json \
+  -v /srv/gilbert/policy.json:/etc/gilbert/policy.json:ro \
   -p 8080:8080 ghcr.io/sequico/gilbert:latest
 ```
 
@@ -277,7 +274,7 @@ Or without a file at all, which is what an immutable deployment with no volume
 wants:
 
 ```bash
-docker run -d --name ihasmail --read-only --tmpfs /tmp \
+docker run -d --name gilbert --read-only --tmpfs /tmp \
   -e IMMUTABLE=1 -e SESSION_FILE= \
   -e STALWART_URL=https://mail.example.org \
   -e APP_SECRET="$(openssl rand -hex 32)" \
@@ -291,13 +288,13 @@ In `docker-compose.yml`:
 
 ```yaml
 services:
-  ihasmail:
+  gilbert:
     build: .
     image: gilbert:2
     environment:
-      SETTINGS_POLICY_FILE: /etc/ihasmail/policy.json
+      SETTINGS_POLICY_FILE: /etc/gilbert/policy.json
     volumes:
-      - ./policy.json:/etc/ihasmail/policy.json:ro
+      - ./policy.json:/etc/gilbert/policy.json:ro
 ```
 
 A policy is read once at startup, so **editing it means restarting the
@@ -421,7 +418,7 @@ names a git ref.
 fetches, refuses anything held back by `.deploy-hold`, shows what is about to be
 introduced and asks, rebuilds with the right version baked in, replaces the
 container, waits for healthy, then prunes all but the newest
-`IHASMAIL_KEEP_VERSIONS` images — never the one actually running.
+`GILBERT_KEEP_VERSIONS` images — never the one actually running.
 
 ```bash
 ./deploy.sh                 # origin/main, asks before shipping new commits
@@ -441,7 +438,7 @@ container, waits for healthy, then prunes all but the newest
 Copyright (C) 2026 Coffey Labs — AGPL-3.0-or-later. See
 [LICENSE](LICENSE).
 
-ihasmail was relicensed from GPL-3.0 to AGPL-3.0 on 2026-08-25: webmail is
+gilbert was relicensed from GPL-3.0 to AGPL-3.0 on 2026-08-25: webmail is
 nearly always run as a network service rather than handed to anyone as a binary,
 and the AGPL's section 13 closes that gap.
 

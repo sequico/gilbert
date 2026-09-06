@@ -18,7 +18,7 @@ import { BASE_PATH, withBase } from "@/lib/basePath";
  * route.
  */
 
-const KEY = "/ihasmail-push-verification";
+const KEY = "/gilbert-push-verification";
 
 describe("the push verification cache key", () => {
   it("is absolute, so it does not depend on which page is open", () => {
@@ -32,7 +32,7 @@ describe("the push verification cache key", () => {
   });
 
   it("is anchored to the mount, which is what the worker anchors to", () => {
-    // The worker builds `${BASE}/ihasmail-push-verification`, where BASE comes
+    // The worker builds `${BASE}/gilbert-push-verification`, where BASE comes
     // from `new URL("./", self.location)` — the same mount this derives from.
     expect(withBase(KEY)).toBe(`${BASE_PATH}${KEY}`);
   });

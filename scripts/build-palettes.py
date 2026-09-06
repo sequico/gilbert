@@ -92,10 +92,10 @@ def toward_contrast(colour: str, bg: str, target: float, dark_ui: bool) -> str:
 # it is the identity this project is painted in, and regenerating it would
 # quietly move colours nobody asked to move. Only its light half is derived
 # here, which is why it appears in LIGHT_ONLY.
-LIGHT_ONLY = {"ihasmail"}
+LIGHT_ONLY = {"gilbert"}
 
 SOURCES = {
-    "ihasmail": {
+    "gilbert": {
         # Daylight over the same teal-navy: the dark palette's background
         # becomes the text, so the two halves are recognisably one palette read
         # from either end. The cat is still orange, so the star still is.

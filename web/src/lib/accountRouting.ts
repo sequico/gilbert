@@ -12,7 +12,7 @@
  * the file capability by definition. So the obvious rule, "use whichever
  * account is selected if it can do this", writes your settings into the other
  * person's storage the moment you change one while looking at their folder. It
- * would create the `ihasmail` folder there to do it.
+ * would create the `gilbert` folder there to do it.
  *
  * Two questions, then, and they have different answers:
  *

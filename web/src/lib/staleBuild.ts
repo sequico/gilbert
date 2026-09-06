@@ -26,7 +26,7 @@ import { APP_VERSION } from "./version";
  * running code the server no longer speaks is the worse failure, and one that
  * stays behind because someone left a draft open is not automatic at all.
  */
-const TRIED_KEY = "ihasmail:reloaded-for";
+const TRIED_KEY = "gilbert:reloaded-for";
 
 /** sessionStorage throws outright in some privacy modes; treat that as absent. */
 function tried(): string | null {

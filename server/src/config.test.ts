@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { assertImmutable } from "./config.js";
 
 function tempRoot(): string {
-  return mkdtempSync(join(tmpdir(), "ihasmail-immutable-"));
+  return mkdtempSync(join(tmpdir(), "gilbert-immutable-"));
 }
 
 test("IMMUTABLE refuses a configured SESSION_FILE", () => {

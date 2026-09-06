@@ -12,7 +12,7 @@ import { test } from "node:test";
  * which is short, plain text and rightly uncompressed. That failure looked
  * exactly like compression being broken.
  */
-const root = mkdtempSync(join(tmpdir(), "ihasmail-compress-"));
+const root = mkdtempSync(join(tmpdir(), "gilbert-compress-"));
 mkdirSync(join(root, "assets"));
 const script = `/* ${"x".repeat(40_000)} */\n`;
 writeFileSync(join(root, "assets", "app.js"), script);

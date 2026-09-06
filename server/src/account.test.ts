@@ -69,7 +69,7 @@ after(() => {
 test("the session is accepted on a server that advertises the registry per-account", async () => {
   const res = await call("/api/auth/session");
   assert.equal(res.status, 200);
-  assert.equal(res.body.ihasmail.server.edition, "oss");
+  assert.equal(res.body.gilbert.server.edition, "oss");
   assert.equal(
     res.body.capabilities["urn:stalwart:jmap"],
     undefined,

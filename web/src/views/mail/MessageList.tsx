@@ -1147,7 +1147,7 @@ const Row = memo(function Row({
       all.add(id);
     }
     for (const x of scope) all.add(x.id);
-    ev.dataTransfer.setData("application/x-ihasmail-emails", JSON.stringify([...all]));
+    ev.dataTransfer.setData("application/x-gilbert-emails", JSON.stringify([...all]));
     ev.dataTransfer.effectAllowed = "move";
     const ghost = document.createElement("div");
     ghost.className = "drag-ghost";

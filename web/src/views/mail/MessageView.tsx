@@ -205,7 +205,7 @@ export const MessageView = memo(function MessageView({
     settings.imagePolicy === "always" ||
     senderTrusted ||
     (settings.imagePolicy === "contacts" && inContacts);
-  const imageProxy = useSession((s) => s.session?.ihasmail?.imageProxy ?? true);
+  const imageProxy = useSession((s) => s.session?.gilbert?.imageProxy ?? true);
   const scheduled = useScheduled((s) => s.pending[e.id]);
   const receipt = useMemo(() => mdnDecision(e), [e]);
   const [receiptDone, setReceiptDone] = useState<"sending" | "dismissed" | null>(null);

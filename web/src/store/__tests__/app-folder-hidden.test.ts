@@ -3,8 +3,7 @@ import type { FileNode } from "@/jmap/types";
 import { withoutAppFolder } from "../files";
 
 /**
- * The `gilbert` app folder (the client's own; a leftover `ihasmail` one is
- * renamed to it on first open) holds signature images and the synced settings file.
+ * The `gilbert` app folder (the client's own) holds signature images and the synced settings file.
  * They are real nodes in the account — that is what makes them travel — but
  * they are the client's housekeeping, so Files does not show them.
  *

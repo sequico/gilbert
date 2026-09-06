@@ -1,7 +1,7 @@
 {
   "_comment": [
     "A settings policy: what this installation decides, rather than each reader.",
-    "Point at it with SETTINGS_POLICY_FILE=/etc/ihasmail/policy.json and mount it",
+    "Point at it with SETTINGS_POLICY_FILE=/etc/gilbert/policy.json and mount it",
     "read-only. Read once at startup, so editing it means restarting.",
     "Delete the sections you do not want -- all three are optional, and an",
     "installation that sets none of them behaves exactly as Gilbert always has.",

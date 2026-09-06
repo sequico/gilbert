@@ -762,10 +762,10 @@ export const catalog: Catalog = {
     "Only part of your filter script arrived.": "Скрипт фільтрації отримано не повністю.",
     "Your active script “{name}” was written by hand.":
       "Ваш активний скрипт «{name}» написано вручну.",
-    "Another script (“{name}”) is active. Saving rules here will activate the “ihasmail” script instead.":
-      "Активний інший скрипт («{name}»). Якщо зберегти правила тут, замість нього увімкнеться скрипт «ihasmail».",
-    "“{name}” will be deactivated (not deleted) and a new “ihasmail” script will take over.":
-      "«{name}» буде вимкнено (не видалено), а його місце займе новий скрипт «ihasmail».",
+    "Another script (“{name}”) is active. Saving rules here will activate the “gilbert” script instead.":
+      "Активний інший скрипт («{name}»). Якщо зберегти правила тут, замість нього увімкнеться скрипт «gilbert».",
+    "“{name}” will be deactivated (not deleted) and a new “gilbert” script will take over.":
+      "«{name}» буде вимкнено (не видалено), а його місце займе новий скрипт «gilbert».",
     "Sieve filtering is not available for this account.":
       "Фільтрація Sieve недоступна для цього облікового запису.",
     "Sieve filtering is not enabled for this account.":

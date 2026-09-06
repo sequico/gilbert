@@ -224,16 +224,16 @@ const sub = (deviceClientId: string, expires: string | null): JmapPushSubscripti
   expires,
 });
 
-const MINE = "ihasmail-this-browser";
+const MINE = "gilbert-this-browser";
 const NOW = Date.parse("2026-09-01T12:00:00Z");
 const inDays = (n: number) => new Date(NOW + n * 24 * 60 * 60 * 1000).toISOString();
 
 describe("finding this browser's subscription", () => {
   it("matches on the device id rather than taking the first one", () => {
     const subs = [
-      sub("ihasmail-desktop", null),
+      sub("gilbert-desktop", null),
       sub(MINE, null),
-      sub("ihasmail-tablet", null),
+      sub("gilbert-tablet", null),
     ];
     expect(findSubscription(subs, MINE)?.deviceClientId).toBe(MINE);
   });
@@ -241,14 +241,14 @@ describe("finding this browser's subscription", () => {
   it("finds nothing when only other devices are registered", () => {
     // The bug this replaces: any subscription at all counted as this one, so a
     // phone that had never registered read as already on and stayed silent.
-    expect(findSubscription([sub("ihasmail-desktop", null)], MINE)).toBe(null);
+    expect(findSubscription([sub("gilbert-desktop", null)], MINE)).toBe(null);
   });
 });
 
 describe("needsRenewal", () => {
   it("renews when this browser is not registered at all", () => {
     expect(needsRenewal([], MINE, NOW)).toBe(true);
-    expect(needsRenewal([sub("ihasmail-desktop", inDays(6))], MINE, NOW)).toBe(true);
+    expect(needsRenewal([sub("gilbert-desktop", inDays(6))], MINE, NOW)).toBe(true);
   });
 
   it("leaves a subscription alone while it has time on it", () => {

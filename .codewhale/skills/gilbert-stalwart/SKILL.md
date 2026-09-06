@@ -50,7 +50,7 @@ Where the integration lives:
   sessions, sign-in. The server never holds a plaintext credential longer
   than the exchange; `IMMUTABLE=1` means no writable filesystem at all.
 - `server/src/account.ts` — what sign-in learns from the account.
-- `web/src/store/sieve.ts` — `IHASMAIL_SCRIPT = "ihasmail"` (data name, kept).
+- `web/src/store/sieve.ts` — `GILBERT_SCRIPT = "gilbert"` (data name, kept).
 
 ## Where account data lives (the map that answers "where do I put this?")
 
@@ -58,7 +58,7 @@ Where the integration lives:
   app folder in the account's own JMAP Files (`web/src/lib/appFolder.ts`),
   with signature images and over-sized signature HTML beside it. The folder is
   a real top-level FileNode, hidden from the Files view, migrated from the
-  legacy `ihasmail` name on first open. localStorage is only a first-frame
+  legacy `gilbert` name on first open. localStorage is only a first-frame
   cache.
 - Server-side JMAP objects, never client state: mailboxes/emails, identities
   (signatures capped at 2047 bytes of UTF-8 — Rust `len()`, see
@@ -90,7 +90,7 @@ Where the integration lives:
   (`web/src/store/settings.ts`).
 - Identity signatures are capped at 2047 **bytes of UTF-8**; over-long rich
   signatures are stored in Files and referenced by a
-  `<!--ihasmail:sig=…-->` marker (old stored signatures must stay readable —
+  `<!--gilbert:sig=…-->` marker (old stored signatures must stay readable —
   marker text is data, not brand surface).
 - 2FA accounts sign in with an app password (Basic + `$<totp>` where needed,
   see the mock's `checkAuth`). In-product 2FA *switch-on* is not built;
@@ -147,7 +147,7 @@ Where the integration lives:
 3. Confirm server-version-sensitive behaviour against a real 0.16.x server or
    the dated comments; note the check (version + date) in the code.
 4. UI copy names data by its literal name: the folder is `gilbert`, the sieve
-   script is `ihasmail` — "Gilbert" (capitalised) is only the product's
+   script is `gilbert` — "Gilbert" (capitalised) is only the product's
    visible name. When in doubt, follow `gilbert-branding`.
 5. Server-side administration of Stalwart (accounts, domains, groups) is not
    something Gilbert does; design around it (group membership, policy docs)

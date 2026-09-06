@@ -12,7 +12,7 @@ import {
 } from "@/store/settings";
 
 /**
- * "ihasmail" is a dark theme wearing ihasmail.org's palette. Everything that
+ * "gilbert" is a dark theme wearing ihasmail.org's palette. Everything that
  * asks "is this dark?" has to say yes for it — the top-bar toggle picks its
  * icon from the answer, and the message frame decides whether mail sits on a
  * light card or follows the app. A theme that painted dark while reporting
@@ -20,9 +20,9 @@ import {
  */
 
 describe("which themes paint dark", () => {
-  it("counts ihasmail as dark, regardless of the OS", () => {
-    expect(isDarkTheme("ihasmail", false)).toBe(true);
-    expect(isDarkTheme("ihasmail", true)).toBe(true);
+  it("counts gilbert as dark, regardless of the OS", () => {
+    expect(isDarkTheme("gilbert", false)).toBe(true);
+    expect(isDarkTheme("gilbert", true)).toBe(true);
   });
 
   it("still resolves the ordinary three the way it always did", () => {
@@ -39,19 +39,19 @@ describe("which themes paint dark", () => {
 
   it("has an answer for every theme there is", () => {
     // A theme added later without a branch here would silently paint light.
-    const all: Theme[] = ["system", "light", "dark", "ihasmail"];
+    const all: Theme[] = ["system", "light", "dark", "gilbert"];
     for (const t of all) expect(typeof isDarkTheme(t, false), t).toBe("boolean");
   });
 });
 
 describe("the default theme", () => {
-  it("is ihasmail, so a new account looks like ihasmail before anyone chooses", () => {
-    expect(DEFAULT_SETTINGS.theme).toBe("ihasmail");
+  it("is gilbert, so a new account looks like gilbert before anyone chooses", () => {
+    expect(DEFAULT_SETTINGS.theme).toBe("gilbert");
   });
 
   /**
    * The guarantee that matters when a default changes: it moves nobody who
-   * already has a theme stored — which is everyone using ihasmail today, since
+   * already has a theme stored — which is everyone using gilbert today, since
    * the setting is saved whether or not they deliberately picked it.
    *
    * `localStorage` is not available in this environment, and `saveJson`
@@ -100,14 +100,14 @@ describe("the default theme", () => {
 
   it("falls back to the default when nothing is stored", () => {
     withStorage(() => {
-      expect(loadJson("theme-test-absent", DEFAULT_SETTINGS).theme).toBe("ihasmail");
+      expect(loadJson("theme-test-absent", DEFAULT_SETTINGS).theme).toBe("gilbert");
     });
   });
 });
 
 describe("the top-bar toggle", () => {
   it("goes to light from anything dark", () => {
-    expect(toggleTarget({ palette: "ihasmail", mode: "dark" }, false).mode).toBe("light");
+    expect(toggleTarget({ palette: "gilbert", mode: "dark" }, false).mode).toBe("light");
     expect(toggleTarget({ palette: "default", mode: "dark" }, false).mode).toBe("light");
     expect(toggleTarget({ palette: "default", mode: "system" }, true).mode).toBe("light");
   });
@@ -115,8 +115,8 @@ describe("the top-bar toggle", () => {
   it("comes back to the palette you were actually on", () => {
     // The whole point: two presses from Gilbert must return to Gilbert, not
     // deposit you on plain dark.
-    const away = toggleTarget({ palette: "ihasmail", mode: "dark" }, false);
-    expect(toggleTarget(away, false).palette).toBe("ihasmail");
+    const away = toggleTarget({ palette: "gilbert", mode: "dark" }, false);
+    expect(toggleTarget(away, false).palette).toBe("gilbert");
     expect(toggleTarget({ palette: "default", mode: "light" }, false)).toMatchObject({
       palette: "default",
       mode: "dark",
@@ -134,7 +134,7 @@ describe("remembering the palette you were on", () => {
     // `theme` is no longer chosen; it is kept in step so a device on an older
     // build is not stranded on a theme nobody picked.
     expect(set("default", "dark").theme).toBe("dark");
-    expect(set("ihasmail", "dark").theme).toBe("ihasmail");
+    expect(set("gilbert", "dark").theme).toBe("gilbert");
     expect(set("default", "system").theme).toBe("system");
     expect(set("gruvbox", "light").theme).toBe("light");
     expect(set("dracula", "dark").theme).toBe("dark");
@@ -143,10 +143,10 @@ describe("remembering the palette you were on", () => {
   it("survives a there-and-back through the toggle", () => {
     // Two presses return you exactly where you started, and the palette never
     // moves -- which is the whole of what the old lastDarkTheme existed for.
-    set("ihasmail", "dark");
-    const away = toggleTarget({ palette: "ihasmail", mode: "dark" }, false);
-    expect(away).toEqual({ palette: "ihasmail", mode: "light" });
-    expect(toggleTarget(away, false)).toEqual({ palette: "ihasmail", mode: "dark" });
+    set("gilbert", "dark");
+    const away = toggleTarget({ palette: "gilbert", mode: "dark" }, false);
+    expect(away).toEqual({ palette: "gilbert", mode: "light" });
+    expect(toggleTarget(away, false)).toEqual({ palette: "gilbert", mode: "dark" });
   });
 
   it("keeps the colours when the palette has both sides", () => {
@@ -182,8 +182,8 @@ describe("where the theme settings live", () => {
   it("reads a file written before palettes existed through the old enum", () => {
     // Settings live in the account's Files and are opened by whatever version
     // runs next, so this is not a one-release migration.
-    expect(acceptRemote({ theme: "ihasmail" })).toMatchObject({
-      palette: "ihasmail",
+    expect(acceptRemote({ theme: "gilbert" })).toMatchObject({
+      palette: "gilbert",
       mode: "dark",
     });
     expect(acceptRemote({ theme: "light" })).toMatchObject({

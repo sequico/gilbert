@@ -2,7 +2,7 @@
  * Helpers to fit rich signatures into Stalwart's 2 KB identity signature limit:
  *  - compactHtml(): strips Office/Gmail cruft and non-essential inline styles
  *  - marker signatures: when still too big, the full HTML lives in Files and the
- *    identity only stores `<!--ihasmail:sig=<blobId>-->` + a plain-text fallback.
+ *    identity only stores `<!--gilbert:sig=<blobId>-->` + a plain-text fallback.
  */
 import { escapeHtml, htmlToText } from "./text";
 
@@ -198,7 +198,7 @@ export function compactHtml(input: string): string {
     .trim();
 }
 
-const MARKER_RE = /<!--ihasmail:sig=([A-Za-z0-9_-]+)(?::([\w/+.-]+))?-->/;
+const MARKER_RE = /<!--gilbert:sig=([A-Za-z0-9_-]+)(?::([\w/+.-]+))?-->/;
 
 export function markerOf(
   htmlSignature: string | null | undefined,
@@ -213,7 +213,7 @@ export function buildMarkerSignature(
   fullHtml: string,
 ): { htmlSignature: string; textSignature: string } {
   const text = htmlToText(fullHtml);
-  const marker = `<!--ihasmail:sig=${blobId}:text/html-->`;
+  const marker = `<!--gilbert:sig=${blobId}:text/html-->`;
   const budget = SIGNATURE_LIMIT - byteLength(marker) - "<div></div>".length;
   const fallback = renderWithinBytes(text, budget, (t) =>
     escapeHtml(t).replace(/\n/g, "<br>"),

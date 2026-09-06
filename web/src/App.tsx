@@ -308,7 +308,7 @@ function AuthedApp() {
     const id = s.roleId("inbox");
     return id ? (s.mailboxes[id]?.unreadEmails ?? 0) : 0;
   });
-  const appName = useSession((s) => s.session?.ihasmail?.appName) || DEFAULT_APP_NAME;
+  const appName = useSession((s) => s.session?.gilbert?.appName) || DEFAULT_APP_NAME;
   useEffect(() => {
     void import("@/lib/notify").then((m) => {
       m.setBaseTitle(appName);

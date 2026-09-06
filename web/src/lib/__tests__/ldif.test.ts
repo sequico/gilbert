@@ -135,12 +135,12 @@ describe("an identity for an entry, from its distinguished name", () => {
   it("says so plainly that it came from an LDIF entry", () => {
     // It becomes the card's uid, where a vCard's own UID also lives. The
     // namespace is what keeps one from being read as the other.
-    expect(uidFromDn("cn=Jane Doe")).toMatch(/^urn:x-ihasmail:ldif:/);
+    expect(uidFromDn("cn=Jane Doe")).toMatch(/^urn:x-gilbert:ldif:/);
   });
 
   it("survives a dn a URI would otherwise choke on", () => {
     const uid = uidFromDn("cn=Ünter Straße \\+ Söhne,ou=Übersicht")!;
-    expect(uid.startsWith("urn:x-ihasmail:ldif:")).toBe(true);
+    expect(uid.startsWith("urn:x-gilbert:ldif:")).toBe(true);
     expect(uid).not.toMatch(/[\s?#]/);
   });
 

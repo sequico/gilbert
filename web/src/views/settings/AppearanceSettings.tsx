@@ -16,7 +16,7 @@ const PALETTE_PREVIEW: Record<PaletteId, { light: string; dark: string }> = {
   default: { light: "#f6f8fa", dark: "#0b1220" },
   // The ihasmail.org palette: its background, with its teal and the logo's
   // orange showing.
-  ihasmail: {
+  gilbert: {
     light:
       "linear-gradient(135deg,#f4f9f9 0%,#e7f1f2 55%,#379e98 55%,#379e98 78%,#c5813b 78%)",
     dark: "linear-gradient(135deg,#0d2430 0%,#12303e 55%,#46cac3 55%,#46cac3 78%,#f9a34b 78%)",

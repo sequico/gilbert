@@ -16,15 +16,15 @@ async function main() {
       const shown =
         info.address === "0.0.0.0" || info.address === "::" ? "localhost" : info.address;
       console.log(
-        `[ihasmail] ${config.appName} listening on http://${shown}:${info.port}`,
+        `[gilbert] ${config.appName} listening on http://${shown}:${info.port}`,
       );
-      console.log(`[ihasmail] upstream Stalwart: ${config.stalwartUrl}`);
-      console.log(`[ihasmail] static dir: ${config.staticDir}`);
+      console.log(`[gilbert] upstream Stalwart: ${config.stalwartUrl}`);
+      console.log(`[gilbert] static dir: ${config.staticDir}`);
     },
   );
 
   const shutdown = async (signal: string) => {
-    console.log(`[ihasmail] ${signal} received, shutting down`);
+    console.log(`[gilbert] ${signal} received, shutting down`);
     server.close();
     await sessions.close();
     process.exit(0);
@@ -34,6 +34,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("[ihasmail] fatal:", err);
+  console.error("[gilbert] fatal:", err);
   process.exit(1);
 });

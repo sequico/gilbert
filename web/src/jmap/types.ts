@@ -23,7 +23,7 @@ export interface JmapSession {
   uploadUrl: string;
   eventSourceUrl: string;
   state: string;
-  ihasmail?: {
+  gilbert?: {
     appName: string;
     /** Where this instance's source can be had, for the AGPL's sake. */
     sourceUrl?: string;

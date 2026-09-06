@@ -5,7 +5,7 @@
     "STALWART_URL stays required and stays the default. This file only adds",
     "domains that go somewhere else -- delete it and nothing changes.",
     "",
-    "Point at it with STALWART_SERVERS_FILE=/etc/ihasmail/servers.json and mount",
+    "Point at it with STALWART_SERVERS_FILE=/etc/gilbert/servers.json and mount",
     "it read-only. Read once at startup, so editing it means restarting.",
     "",
     "A domain that is not listed here, and a bare username with no domain at",

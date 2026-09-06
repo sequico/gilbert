@@ -92,7 +92,7 @@ export function FiltersSettings() {
 }
 
 /** Private drag type, so a rule can only be dropped on the rule list. */
-const RULE_MIME = "application/x-ihasmail-sieve-rule";
+const RULE_MIME = "application/x-gilbert-sieve-rule";
 
 function RulesEditor() {
   const sieve = useSieve();
@@ -127,7 +127,7 @@ function RulesEditor() {
     const b = el.getBoundingClientRect();
     return y > b.top + b.height / 2;
   };
-  const activeIsOther = script && script.name !== "ihasmail" && script.isActive;
+  const activeIsOther = script && script.name !== "gilbert" && script.isActive;
 
   const save = async (next: SieveRule[]): Promise<boolean> => {
     setSaving(true);
@@ -202,7 +202,7 @@ function RulesEditor() {
               await confirmDialog({
                 title: t("Switch to rules?"),
                 message: t(
-                  "“{name}” will be deactivated (not deleted) and a new “ihasmail” script will take over.",
+                  "“{name}” will be deactivated (not deleted) and a new “gilbert” script will take over.",
                   { name: script?.name ?? "" },
                 ),
                 confirmLabel: t("Continue"),
@@ -222,7 +222,7 @@ function RulesEditor() {
       {activeIsOther && (
         <div className="warn-box mb-16">
           {t(
-            "Another script (“{name}”) is active. Saving rules here will activate the “ihasmail” script instead.",
+            "Another script (“{name}”) is active. Saving rules here will activate the “gilbert” script instead.",
             { name: script?.name ?? "" },
           )}
         </div>

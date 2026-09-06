@@ -21,7 +21,7 @@ import { useSieve } from "@/store/sieve";
 
 const SCRIPT: SieveScript = {
   id: "s1",
-  name: "ihasmail",
+  name: "gilbert",
   isActive: true,
   blobId: "b1",
 } as SieveScript;

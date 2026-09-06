@@ -27,11 +27,11 @@ import { hasCachedJson, loadJson, saveJson } from "@/lib/storage";
 import type { SwipeAction } from "@/lib/swipe";
 
 /**
- * "ihasmail" is a dark theme carrying the palette from ihasmail.org. It is a
+ * "gilbert" is a dark theme carrying the palette from ihasmail.org. It is a
  * theme rather than an accent because it changes the backgrounds, borders and
  * text as well as the highlight colour — an accent could not.
  */
-export type Theme = "system" | "light" | "dark" | "ihasmail";
+export type Theme = "system" | "light" | "dark" | "gilbert";
 export type Density = "comfortable" | "cozy" | "compact";
 export type ReadingPane = "right" | "bottom" | "off";
 export type ImagePolicy = "ask" | "always" | "contacts";
@@ -302,14 +302,14 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   /**
-   * ihasmail's own palette is what a new account gets, so the app looks like
+   * gilbert's own palette is what a new account gets, so the app looks like
    * itself before anyone has chosen anything. It is only a default: a stored
    * theme always wins, so nobody who has picked one — including everyone
    * already using Gilbert, whose choice is saved even if they never changed
    * it — is moved off it.
    */
-  theme: "ihasmail",
-  palette: "ihasmail",
+  theme: "gilbert",
+  palette: "gilbert",
   mode: "dark",
   accent: "teal",
   density: "cozy",
@@ -666,7 +666,7 @@ export function applyLang(s: Settings = useSettings.getState().settings): void {
 }
 
 /** Background of each theme, for the browser chrome (`theme-color`). */
-const THEME_COLOR = { light: "#ffffff", dark: "#0b1220", ihasmail: "#0d2430" } as const;
+const THEME_COLOR = { light: "#ffffff", dark: "#0b1220", gilbert: "#0d2430" } as const;
 
 export function applyTheme(s: Settings = useSettings.getState().settings): void {
   const root = document.documentElement;
@@ -709,7 +709,7 @@ function paletteThemeColor(_palette: PaletteId, mode: "light" | "dark"): string 
 
 /** Whether a theme paints dark, resolving "system" against the OS. */
 export function isDarkTheme(theme: Theme, prefersDark = false): boolean {
-  return theme === "dark" || theme === "ihasmail" || (theme === "system" && prefersDark);
+  return theme === "dark" || theme === "gilbert" || (theme === "system" && prefersDark);
 }
 
 if (typeof window !== "undefined") {

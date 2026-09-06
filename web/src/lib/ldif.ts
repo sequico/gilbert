@@ -136,5 +136,5 @@ export function uidFromDn(dn: string): string | null {
     .toLowerCase()
     .replace(/\s+/g, " ")
     .replace(/\s*([,=])\s*/g, "$1");
-  return normalised ? `urn:x-ihasmail:ldif:${encodeURIComponent(normalised)}` : null;
+  return normalised ? `urn:x-gilbert:ldif:${encodeURIComponent(normalised)}` : null;
 }

@@ -755,10 +755,10 @@ export const catalog: Catalog = {
       "Ihr Filterskript ist nur teilweise angekommen.",
     "Your active script “{name}” was written by hand.":
       "Ihr aktives Skript „{name}“ wurde von Hand geschrieben.",
-    "Another script (“{name}”) is active. Saving rules here will activate the “ihasmail” script instead.":
-      "Ein anderes Skript („{name}“) ist aktiv. Wenn Sie hier Regeln speichern, wird stattdessen das Skript „ihasmail“ aktiviert.",
-    "“{name}” will be deactivated (not deleted) and a new “ihasmail” script will take over.":
-      "„{name}“ wird deaktiviert (nicht gelöscht) und ein neues Skript „ihasmail“ übernimmt.",
+    "Another script (“{name}”) is active. Saving rules here will activate the “gilbert” script instead.":
+      "Ein anderes Skript („{name}“) ist aktiv. Wenn Sie hier Regeln speichern, wird stattdessen das Skript „gilbert“ aktiviert.",
+    "“{name}” will be deactivated (not deleted) and a new “gilbert” script will take over.":
+      "„{name}“ wird deaktiviert (nicht gelöscht) und ein neues Skript „gilbert“ übernimmt.",
     "Sieve filtering is not available for this account.":
       "Sieve-Filterung ist für dieses Konto nicht verfügbar.",
     "Sieve filtering is not enabled for this account.":

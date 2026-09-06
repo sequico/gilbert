@@ -29,7 +29,7 @@ const SESSION = () =>
     primaryAccounts: { [CAP.mail]: "a1" },
     state: "s1",
     /* A trusted device skips the idle-logout timer this test does not want. */
-    ihasmail: { remember: true },
+    gilbert: { remember: true },
   }) as unknown as JmapSession;
 
 function stubServer() {

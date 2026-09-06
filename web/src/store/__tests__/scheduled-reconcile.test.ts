@@ -8,7 +8,7 @@ import { useToasts } from "@/ui/toast";
 /**
  * Nothing on the server moves a message out of Scheduled when its hold
  * expires: Stalwart sends it and updates the submission, but the message stays
- * in the folder ihasmail filed it in. Left alone, Scheduled slowly fills with
+ * in the folder gilbert filed it in. Left alone, Scheduled slowly fills with
  * mail that was sent days ago. Reconciling settles it on the way in.
  */
 

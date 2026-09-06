@@ -15,7 +15,7 @@ describe("the palettes themselves", () => {
     // the toggle's memory and a greyed-out control all went with it.
     expect(PALETTES.map((p) => p.id)).toEqual([
       "default",
-      "ihasmail",
+      "gilbert",
       "dracula",
       "gruvbox",
       "rose-pine",
@@ -23,9 +23,9 @@ describe("the palettes themselves", () => {
     ]);
   });
 
-  it("credits every borrowed palette and neither of ihasmail's own", () => {
+  it("credits every borrowed palette and neither of gilbert's own", () => {
     for (const p of PALETTES) {
-      if (p.id === "default" || p.id === "ihasmail") expect(p.credit).toBeUndefined();
+      if (p.id === "default" || p.id === "gilbert") expect(p.credit).toBeUndefined();
       else expect(p.credit).toMatch(/MIT/);
     }
   });
@@ -50,7 +50,7 @@ describe("effectiveMode", () => {
 
 describe("migrateTheme, which has to keep working indefinitely", () => {
   it("reads every value the old enum could hold", () => {
-    expect(migrateTheme("ihasmail")).toEqual({ palette: "ihasmail", mode: "dark" });
+    expect(migrateTheme("gilbert")).toEqual({ palette: "gilbert", mode: "dark" });
     expect(migrateTheme("light")).toEqual({ palette: "default", mode: "light" });
     expect(migrateTheme("dark")).toEqual({ palette: "default", mode: "dark" });
     expect(migrateTheme("system")).toEqual({ palette: "default", mode: "system" });
@@ -59,14 +59,14 @@ describe("migrateTheme, which has to keep working indefinitely", () => {
   it("gives a new account what it would have got anyway", () => {
     // Absent, unknown, or written by something newer.
     for (const v of [undefined, null, "", "gruvbox-ish", "whatever"]) {
-      expect(migrateTheme(v)).toEqual({ palette: "ihasmail", mode: "dark" });
+      expect(migrateTheme(v)).toEqual({ palette: "gilbert", mode: "dark" });
     }
   });
 });
 
 describe("legacyTheme, read by a device still on an older build", () => {
   it("round-trips the four values the old enum had", () => {
-    for (const v of ["ihasmail", "light", "dark", "system"] as const) {
+    for (const v of ["gilbert", "light", "dark", "system"] as const) {
       expect(legacyTheme(migrateTheme(v))).toBe(v);
     }
   });
@@ -80,8 +80,8 @@ describe("legacyTheme, read by a device still on an older build", () => {
     expect(legacyTheme({ palette: "tokyo-night", mode: "system" }, false)).toBe("light");
     // Gilbert's light half is new and has no old name, so an older build is
     // told "light" rather than being handed a word it would read as dark.
-    expect(legacyTheme({ palette: "ihasmail", mode: "light" })).toBe("light");
-    expect(legacyTheme({ palette: "ihasmail", mode: "dark" })).toBe("ihasmail");
+    expect(legacyTheme({ palette: "gilbert", mode: "light" })).toBe("light");
+    expect(legacyTheme({ palette: "gilbert", mode: "dark" })).toBe("gilbert");
   });
 });
 
@@ -89,7 +89,7 @@ describe("toggleTarget", () => {
   it("flips the mode and keeps the colours, whatever the palette", () => {
     for (const palette of [
       "default",
-      "ihasmail",
+      "gilbert",
       "gruvbox",
       "dracula",
       "rose-pine",

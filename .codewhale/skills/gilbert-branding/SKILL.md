@@ -1,16 +1,17 @@
 ---
 name: gilbert-branding
-description: The ihasmail → Gilbert rename map for the Gilbert repository: what the 2026-09-06 rebrand changed, which identifiers deliberately still say "ihasmail" (data or deployed surface) and why, the one data migration carried out (the per-account app folder → gilbert), and the upstream contribution boundary. Use for any rebranding or renaming task in this repo.
+description: The ihasmail → gilbert rename map for the Gilbert mail core: what the 2026-09-06 rename changed, where `ihasmail` still legitimately appears (upstream and AGPL attribution only), and the upstream contribution boundary. Use for any rebranding or renaming task in this repo.
 metadata:
-  short-description: ihasmail → Gilbert rename state & rules
+  short-description: mail core's ihasmail → gilbert rename state & rules
 ---
 
-# Gilbert — the ihasmail → Gilbert rename
+# Gilbert — the mail core's ihasmail → gilbert rename
 
-## Rebrand executed (2026-09-06)
+## The mail core was renamed (2026-09-06)
 
-The coordinated code rename landed in layers; these identifiers now say
-"Gilbert" and docs must match them:
+Gilbert is not a rebrand of ihasmail: it is a different product, of which the
+mail client is one part. That mail client's code and build identifiers came
+from ihasmail and now say "gilbert"; docs must match them:
 
 - Visible shell: `<title>`/meta in `web/index.html`, the manifest
   (`name`/`short_name`/`description` in `web/public/manifest.webmanifest`),
@@ -32,64 +33,36 @@ The coordinated code rename landed in layers; these identifiers now say
   `gilbert-settings.json`; the MDN reporting UA says `Gilbert 2.0`; the sieve
   script preamble says `# Gilbert filters v1`; the image-proxy UA is
   `gilbert-image-proxy`; the TOTP issuer falls back to `Gilbert`.
+- Everything internal that once said `ihasmail` now says `gilbert`: the
+  per-account app folder, the sieve script name (`GILBERT_SCRIPT`), device
+  storage keys (`gilbert:*`), drag-drop MIME types (`application/x-gilbert-*`),
+  the Web Push device-id prefix and `gilbert-push-verification` path, the
+  `[gilbert]` log prefix, the `session.gilbert` extension, the crypto sealing
+  context `gilbert-session-v1`, the stored `gilbert` theme/palette id, the
+  signature HTML marker `<!--gilbert:sig=…-->`, and the docker service/volume
+  (`gilbert`, `gilbert-data`) and deploy script (`GILBERT_*` envs).
 - The CI/CD pipeline is this repository's own since commit `6cfb614`:
   `publish.yml` publishes `ghcr.io/sequico/gilbert` (multi-arch, never
   upstream's org), `cleanup.yml` prunes `gilbert`, `release.yml` is the
   manual release flow (user calls it; it tags, creates the GitHub release and
   calls publish). `ci.yml` builds `gilbert:ci`. Only `sync-upstream.yml`
   touches upstream — it mirrors upstream releases onto the `ihasmail` branch.
-- Reverse-proxy examples and `.env.example` prose name Gilbert;
-  `settings-policy.example.json` prose follows. Docker runtime identifiers are
-  unchanged (below).
 
-## The app folder is migrated (done 2026-09-06)
+## What still says `ihasmail` (upstream and AGPL attribution only)
 
-The hidden per-account folder that held `settings.json` and the signature
-images now lives as `gilbert`, and the rename was a real per-account data
-migration, not a silent move: on the first open of an account that still has
-a top-level `ihasmail` folder, the client renames it to `gilbert` in place
-(`FileNode/set` update of the name; children and blobs untouched), creates
-`gilbert` when neither exists, and from then on only ever uses `gilbert`.
-The legacy name survives in exactly one place — the migration path in
-`web/src/lib/appFolder.ts` — and nothing else reads or writes it:
-`isAppFolder` matches `gilbert` only. The i18n key and the nine catalogues
-name the folder as its literal `gilbert` — the capitalised “Gilbert” is the
-product's visible name only.
+`ihasmail` remains only where upstream's real name must stay — it is never
+brand surface and never ours:
 
-## Still `ihasmail` — do not rename (data or deployed surface)
-
-Renaming any of these costs real data or breaks an external agreement, and
-none of them is brand surface. Docs must keep saying `ihasmail` for them:
-
-- device-side storage keys and formats: localStorage `ihasmail:lastUser` /
-  `ihasmail-theme` / `ihasmail:deviceTrusted`, the drag-and-drop MIME types
-  (`application/x-ihasmail-emails`, `-folder`, `-sieve-rule`), the sieve
-  script name "ihasmail", the stored `"ihasmail"` theme/palette value in
-  `settings.json` (only the CSS palette block under
-  `[data-palette="ihasmail"]` is visual and retunable), the crypto sealing
-  context `ihasmail-session-v1` and the Web Push device-id prefix
-  `ihasmail-<uuid>` (both would strand existing sessions/devices), and the
-  signature HTML marker `<!--ihasmail:sig=…-->` written into stored
-  identities (old stored signatures must stay readable);
-- `sw.js`: `VERSION`/`VERIFY_KEY`, the `ihasmail-push-verification` path and
-  notification tags (renaming invalidates every cached shell at once);
-- the `[ihasmail]` server log prefix and the session extension object
-  (`session.ihasmail.*` — server and client payload shape);
-- docker deployment surface: `docker-compose.yml` builds the checkout as
-  `gilbert:2` with Gilbert defaults (the service name `ihasmail` stays; the
-  `/data` volume was renamed `gilbert-data` on 2026-09-06 — the name is
-  deployed state, so an existing host copies the old volume once or accepts
-  a re-login, since `/data` only mirrors sessions),
-  `deploy.example.sh` (its `IHASMAIL_*` envs, defaults and script name are
-  still ihasmail; see the TODO in ROADMAP.md), `/etc/ihasmail` and
-  `/srv/ihasmail` example paths;
-- upstream URLs (ihasmail.org, docs.ihasmail.org, demo.ihasmail.com,
-  github.com/Coffey-Labs/ihasmail) — real endpoints, link them, never present
-  them as Gilbert's own; historical and legal lines keep upstream's name
-  ("relicensed from GPL-3.0…", "If you run a modified ihasmail, set
-  `SOURCE_URL`…" in upstream-owned docs); `LICENSE`/`NOTICE` keep Coffey Labs'
-  attribution; `SECURITY.md`/`CONTRIBUTING.md`/`CODE_OF_CONDUCT.md` stay
-  upstream's process and contacts (ask before touching).
+- upstream URLs: ihasmail.org, docs.ihasmail.org, demo.ihasmail.com,
+  github.com/Coffey-Labs/ihasmail (issues, PRs, releases);
+- the lineage and AGPL attribution in `README`, `LICENSE`, `NOTICE`,
+  `FEATURES`, `KNOWN-ISSUES`, `ROADMAP`, ADR 0002 and the legal lines in
+  upstream-owned docs ("relicensed from GPL-3.0…", "If you run a modified
+  ihasmail, set `SOURCE_URL`…");
+- `SECURITY.md`/`CONTRIBUTING.md`/`CODE_OF_CONDUCT.md` (upstream's process and
+  contacts — ask before changing or acting on them);
+- the `ihasmail` branch that `sync-upstream.yml` mirrors upstream releases
+  onto.
 
 ## Where the rename stops
 
@@ -106,7 +79,7 @@ the offer and already defaults here.
 ## Rules for any future rename
 
 1. Search first, layer by layer, judge every hit rather than assuming a
-   category: `grep -rn ihasmail .github Dockerfile docker-compose.yml
+   category: `grep -rn gilbert .github Dockerfile docker-compose.yml
    deploy.example.sh scripts server/src web/src web/index.html web/public
    .env.example Caddyfile.example nginx.example.conf settings-policy.example.json`.
 2. Identifiers move in pairs (client + server + tests + deploy + docs) inside
@@ -115,5 +88,5 @@ the offer and already defaults here.
 3. After any rename: `npm run typecheck`, `npm test`, read the diff.
    Brand/config tests may assert old defaults and must move in the same
    change.
-4. A rename that touches the "still `ihasmail`" list above is a data
-   migration or a sync conflict in the making — say so before doing it.
+4. Only the upstream/AGPL list above may keep saying `ihasmail` — everything
+   else is a rename that is simply incomplete, not "kept on purpose".

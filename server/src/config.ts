@@ -62,7 +62,7 @@ if (!appSecret || appSecret === "change-me") {
   }
   appSecret = randomBytes(32).toString("base64");
   console.warn(
-    "[ihasmail] APP_SECRET not set - using an ephemeral secret (persisted sessions will not survive restarts)",
+    "[gilbert] APP_SECRET not set - using an ephemeral secret (persisted sessions will not survive restarts)",
   );
 }
 

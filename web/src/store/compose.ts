@@ -1060,7 +1060,7 @@ export async function buildEmailObject(
       const blobId = decodeURIComponent(m[2]!);
       const name = decodeURIComponent(m[3]!);
       const type = new URLSearchParams(m[4] ?? "").get("accept") ?? "image/png";
-      const cid = `${uid("img")}@ihasmail`;
+      const cid = `${uid("img")}@gilbert`;
       img.setAttribute("src", `cid:${cid}`);
       relatedInline.push({ blobId, type, name, cid });
     }
@@ -1081,7 +1081,7 @@ export async function buildEmailObject(
       const up = await client.upload(accountId, new Blob([bytes], { type: m[1]! }), {
         type: m[1]!,
       });
-      const cid = `${uid("img")}@ihasmail`;
+      const cid = `${uid("img")}@gilbert`;
       img.setAttribute("src", `cid:${cid}`);
       relatedInline.push({
         blobId: up.blobId,
@@ -1150,7 +1150,7 @@ export async function buildEmailObject(
     sentAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
     bodyStructure,
     bodyValues,
-    "header:User-Agent:asText": "ihasmail/2.0",
+    "header:User-Agent:asText": "gilbert/2.0",
   };
   // Header properties are omitted when empty, never sent as null: JMAP servers
   // are entitled to reject null for a header field (Stalwart parses these as

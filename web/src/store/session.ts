@@ -119,7 +119,7 @@ export const useSession = create<SessionState>((set, get) => ({
     try {
       const s = await apiFetch<JmapSession>("/api/auth/session?refresh=1");
       client.session = s;
-      setServerLocale(s.ihasmail?.userLocale);
+      setServerLocale(s.gilbert?.userLocale);
       set({ session: s });
     } catch {
       /* ignore */
@@ -141,11 +141,11 @@ export const useSession = create<SessionState>((set, get) => ({
 
 function applySession(s: JmapSession, set: (p: Partial<SessionState>) => void) {
   client.session = s;
-  setServerLocale(s.ihasmail?.userLocale);
+  setServerLocale(s.gilbert?.userLocale);
   // `remember` is the answer to "is this device yours", given at sign-in and
   // carried on the session -- so a reload arrives at the same answer without
   // the client storing it, which on an untrusted device it could not do anyway.
-  const trusted = Boolean(s.ihasmail?.remember);
+  const trusted = Boolean(s.gilbert?.remember);
   setDeviceTrusted(trusted);
   if (trusted) {
     stopIdleLogout();

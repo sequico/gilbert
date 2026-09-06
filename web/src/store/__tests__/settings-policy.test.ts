@@ -137,7 +137,7 @@ describe("enforced settings, which the reader may not change", () => {
 });
 
 describe("reset, where the installation has chosen defaults", () => {
-  it("goes back to the installation's answer rather than to ihasmail's", () => {
+  it("goes back to the installation's answer rather than to gilbert's", () => {
     resetSettingsPolicyForTest({
       defaults: { conversationMode: false } as never,
       enforced: {},

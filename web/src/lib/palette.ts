@@ -1,8 +1,8 @@
 /**
  * Palettes, and the two axes they replaced.
  *
- * The theme used to be one enum — `system | light | dark | ihasmail` — where
- * "ihasmail" carried a whole palette and implied dark. That works for exactly
+ * The theme used to be one enum — `system | light | dark | gilbert` — where
+ * "gilbert" carried a whole palette and implied dark. That works for exactly
  * one palette. With several, the two questions come apart: **which palette**
  * (the colours) and **which mode** (light or dark), and they are chosen
  * separately.
@@ -15,7 +15,7 @@
 
 export type PaletteId =
   | "default"
-  | "ihasmail"
+  | "gilbert"
   | "dracula"
   | "gruvbox"
   | "rose-pine"
@@ -43,7 +43,7 @@ export interface PaletteMeta {
 
 export const PALETTES: PaletteMeta[] = [
   { id: "default", name: "Classic", translatable: true },
-  { id: "ihasmail", name: "ihasmail" },
+  { id: "gilbert", name: "gilbert" },
   {
     id: "dracula",
     name: "Dracula",
@@ -72,7 +72,7 @@ export function paletteMeta(id: PaletteId | string | null | undefined): PaletteM
  * Which of light and dark is actually being drawn.
  *
  * Every palette has both halves, so this is only ever resolving "system"
- * against the OS. That was not true while `ihasmail` was dark-only: the mode
+ * against the OS. That was not true while `gilbert` was dark-only: the mode
  * then had to be overridden by the palette, and the toggle had to remember
  * which palette it had set aside on the way to light. Giving that palette a
  * light half removed the override, the memory and the greyed-out control in
@@ -97,8 +97,8 @@ export interface ThemeChoice {
  */
 export function migrateTheme(theme: string | null | undefined): ThemeChoice {
   switch (theme) {
-    case "ihasmail":
-      return { palette: "ihasmail", mode: "dark" };
+    case "gilbert":
+      return { palette: "gilbert", mode: "dark" };
     case "light":
       return { palette: "default", mode: "light" };
     case "dark":
@@ -108,7 +108,7 @@ export function migrateTheme(theme: string | null | undefined): ThemeChoice {
     default:
       // Unknown, absent, or written by something newer: the default is what a
       // new account gets, and is never wrong in a way that hides mail.
-      return { palette: "ihasmail", mode: "dark" };
+      return { palette: "gilbert", mode: "dark" };
   }
 }
 
@@ -123,11 +123,11 @@ export function migrateTheme(theme: string | null | undefined): ThemeChoice {
 export function legacyTheme(
   choice: ThemeChoice,
   prefersDark = false,
-): "system" | "light" | "dark" | "ihasmail" {
-  // Only the dark half of ihasmail's own palette has an old name; its light
+): "system" | "light" | "dark" | "gilbert" {
+  // Only the dark half of gilbert's own palette has an old name; its light
   // half is new, and an older build has no word for it beyond "light".
-  if (choice.palette === "ihasmail" && effectiveMode(choice.mode, prefersDark) === "dark")
-    return "ihasmail";
+  if (choice.palette === "gilbert" && effectiveMode(choice.mode, prefersDark) === "dark")
+    return "gilbert";
   if (choice.palette === "default" && choice.mode === "system") return "system";
   return effectiveMode(choice.mode, prefersDark);
 }

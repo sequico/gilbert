@@ -1,5 +1,5 @@
 /* ==========================================================================
-   ihasmail design system
+   gilbert design system
    ========================================================================== */
 
 :root {
@@ -91,7 +91,7 @@
 }
 
 /*
- * The "ihasmail" theme: the palette from ihasmail.org, which is a teal-navy
+ * The "gilbert" theme: the palette from ihasmail.org, which is a teal-navy
  * rather than the blue-slate of the plain dark theme, warmed by the orange the
  * logo's cat is drawn in.
  *
@@ -105,7 +105,7 @@
  * top of this theme -- and because the default accent ("teal") has no rule of
  * its own, ihasmail.org's own accent is what shows until someone picks another.
  */
-:root[data-theme="dark"][data-palette="ihasmail"] {
+:root[data-theme="dark"][data-palette="gilbert"] {
   --bg: #0d2430;
   --bg-elev: #12303e;
   --bg-sunken: #0a1c26;
@@ -169,7 +169,7 @@
 
 /* Gilbert (light) lifted for contrast: faint #7d969c -> #62757a (2.94 -> 4.55); accent #46cac3 -> #379e98 (1.88 -> 3.04); star #f9a34b -> #c5813b (1.91 -> 3.00); border-strong #b2c5c9 -> #849295 (1.69 -> 3.03) */
 
-:root[data-palette="ihasmail"] {
+:root[data-palette="gilbert"] {
   --bg: #f4f9f9;
   --bg-elev: #ffffff;
   --bg-sunken: #e7f1f2;

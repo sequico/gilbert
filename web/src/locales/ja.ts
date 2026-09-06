@@ -792,10 +792,10 @@ export const catalog: Catalog = {
       "フィルタースクリプトの一部しか取得できませんでした。",
     "Your active script “{name}” was written by hand.":
       "有効なスクリプト「{name}」は手書きで作成されたものです。",
-    "Another script (“{name}”) is active. Saving rules here will activate the “ihasmail” script instead.":
-      "別のスクリプト（「{name}」）が有効です。ここでルールを保存すると、代わりに「ihasmail」スクリプトが有効になります。",
-    "“{name}” will be deactivated (not deleted) and a new “ihasmail” script will take over.":
-      "「{name}」は無効化され（削除はされません）、新しい「ihasmail」スクリプトが引き継ぎます。",
+    "Another script (“{name}”) is active. Saving rules here will activate the “gilbert” script instead.":
+      "別のスクリプト（「{name}」）が有効です。ここでルールを保存すると、代わりに「gilbert」スクリプトが有効になります。",
+    "“{name}” will be deactivated (not deleted) and a new “gilbert” script will take over.":
+      "「{name}」は無効化され（削除はされません）、新しい「gilbert」スクリプトが引き継ぎます。",
     "Sieve filtering is not available for this account.":
       "このアカウントでは Sieve フィルターを利用できません。",
     "Sieve filtering is not enabled for this account.":

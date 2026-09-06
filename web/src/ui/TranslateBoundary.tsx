@@ -80,7 +80,7 @@ export class TranslateBoundary extends Component<Props, State> {
     this.recoveries += 1;
     if (this.recoveries > MAX_RECOVERIES) {
       console.error(
-        "[ihasmail] giving up re-rendering after repeated DOM errors",
+        "[gilbert] giving up re-rendering after repeated DOM errors",
         error,
         info.componentStack,
       );
@@ -93,7 +93,7 @@ export class TranslateBoundary extends Component<Props, State> {
      * from. The marker is here to be counted, not alarmed at.
      */
     console.info(
-      `[ihasmail] recovered from a DOM error, most likely page translation (recovery ${this.recoveries} of ${MAX_RECOVERIES}): ${error.message}`,
+      `[gilbert] recovered from a DOM error, most likely page translation (recovery ${this.recoveries} of ${MAX_RECOVERIES}): ${error.message}`,
     );
     this.props.onRecover?.({ attempt: this.recoveries, error });
     this.setState((s) => ({ generation: s.generation + 1, failed: null }));

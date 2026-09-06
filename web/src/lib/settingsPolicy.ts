@@ -73,7 +73,7 @@ export async function loadSettingsPolicy(): Promise<SettingsPolicy> {
         enforced: known(body.settingsPolicy?.enforced ?? {}),
         /* A change whose every key this build does not have is dropped whole:
            applying nothing and then recording it as applied would mean it never
-           ran on the ihasmail that does have the setting. */
+           ran on the gilbert that does have the setting. */
         changes: (body.settingsPolicy?.changes ?? [])
           .map((c) => ({ version: c.version, settings: known(c.settings ?? {}) }))
           .filter((c) => c.version && Object.keys(c.settings).length),

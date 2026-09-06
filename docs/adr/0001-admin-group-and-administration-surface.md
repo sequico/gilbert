@@ -12,7 +12,7 @@ Status: Accepted (2026-09-06)
 > users**. The policy documents (`user-policies.json`, `profiles.json`) live
 > in the admin group's own JMAP Files — everything durable in Stalwart, no
 > file/env exception. New identifiers introduced by this work are named
-> `gilbert` (never `ihasmail`); existing ihasmail-named data stays.
+> `gilbert` (never `gilbert`); existing gilbert-named data stays.
 >
 > Stalwart-system administration (accounts, aliases, quotas, directory) is out
 > of scope: it is not JMAP-reachable, stays in Stalwart's own tooling, and
@@ -47,7 +47,7 @@ Facts from the current machinery:
   signed-in data and return to the sign-in screen by itself
   (`web/src/jmap/client.ts` `handleUnauthenticated`;
   `web/src/store/session.ts` `onUnauthenticated`).
-- The client session object carries `username` plus an `ihasmail` extension
+- The client session object carries `username` plus an `gilbert` extension
   object (`web/src/jmap/types.ts`) — the natural place for an `isAdmin` flag.
 - The settings policy is fetched once per page lifetime and cached client-side
   (`web/src/lib/settingsPolicy.ts`); enforced values are re-applied at
@@ -93,7 +93,7 @@ First-install sequence:
    is a member and only while it is. There is no permanent admin-by-identity
    account.
 
-An upgrade of an existing installation needs no migration: upstream ihasmail
+An upgrade of an existing installation needs no migration: upstream gilbert
 has no admin concept, so there is no pre-existing grant to move; the operator
 creates the group and membership defines admin from then on.
 
@@ -104,7 +104,7 @@ principal's session accounts on every relevant request (short-TTL in-memory
 cache of the account set), never sealed into the session at sign-in, so a
 demotion is effective on the very next privileged request of an already open
 session. Admin endpoints get a `requireAdmin` guard beside `requireSession`.
-The client receives only `isAdmin: boolean` on the session's `ihasmail`
+The client receives only `isAdmin: boolean` on the session's `gilbert`
 extension (added to the login and `/api/auth/session` responses), which shows
 or hides the admin entry point. UI gating is cosmetic; the server is the door.
 
@@ -206,4 +206,4 @@ scope).
 - `web/src/lib/settingsPolicy.ts` — per-page policy cache
 - `web/src/store/settings.ts` — `DEFAULT_SETTINGS`, enforcement door
 - `web/src/lib/settingsSync.ts` — `settings.json` in the account's Files
-- `web/src/jmap/types.ts` — `JmapSession.username`, `ihasmail` extension
+- `web/src/jmap/types.ts` — `JmapSession.username`, `gilbert` extension

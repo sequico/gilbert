@@ -35,7 +35,7 @@ const here = (id: string, uid: string, full: string, bookId = "book1") =>
 
 /** What `uidFromDn` makes of a `dn`, spelled out rather than imported, so a
     change to the scheme has to be a deliberate one. */
-const uidFor = (dn: string) => `urn:x-ihasmail:ldif:${encodeURIComponent(dn)}`;
+const uidFor = (dn: string) => `urn:x-gilbert:ldif:${encodeURIComponent(dn)}`;
 
 function server(existing: Array<Partial<ContactCard> & { id: string }> = []) {
   const sets: SetArgs[] = [];

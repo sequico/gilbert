@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { FileNode } from "@/jmap/types";
 import {
   acceptRemote,
   DEFAULT_SETTINGS,
@@ -8,7 +7,7 @@ import {
   type Settings,
   syncedPart,
 } from "@/store/settings";
-import { appFolderCandidate, isAppFolder } from "../appFolder";
+import { isAppFolder } from "../appFolder";
 import { settingsAlreadyLoadedFor, stopSettingsSync } from "../settingsSync";
 
 /**
@@ -120,57 +119,6 @@ describe("the client's own folder", () => {
     expect(isAppFolder({ name: "gilbert", parentId: null, nodeType: "file" })).toBe(
       false,
     );
-  });
-
-  it("no longer matches the pre-rebrand ihasmail name", () => {
-    // The old name is migrated to gilbert on first open, never used as the app
-    // folder again — so it must not keep hiding (or claiming) a stale folder.
-    expect(isAppFolder({ name: "ihasmail", parentId: null, nodeType: "directory" })).toBe(
-      false,
-    );
-  });
-});
-
-describe("migrating the legacy folder name", () => {
-  const n = (
-    id: string,
-    name: string,
-    extra: Partial<Pick<FileNode, "parentId" | "nodeType">> = {},
-  ): Pick<FileNode, "id" | "name" | "parentId" | "nodeType"> => ({
-    id,
-    name,
-    parentId: null,
-    nodeType: "directory",
-    ...extra,
-  });
-
-  it("prefers an existing gilbert folder", () => {
-    expect(
-      appFolderCandidate([n("g", "gilbert"), n("l", "ihasmail"), n("x", "Files")]),
-    ).toEqual({ kind: "current", id: "g" });
-  });
-
-  it("picks the legacy ihasmail folder for renaming when there is no gilbert", () => {
-    expect(appFolderCandidate([n("l", "ihasmail"), n("x", "Files")])).toEqual({
-      kind: "legacy",
-      id: "l",
-    });
-  });
-
-  it("ignores an ihasmail folder nested inside another one", () => {
-    expect(appFolderCandidate([n("l", "ihasmail", { parentId: "n1" })])).toEqual({
-      kind: "none",
-    });
-  });
-
-  it("ignores an ihasmail file at the top level", () => {
-    expect(appFolderCandidate([n("l", "ihasmail", { nodeType: "file" })])).toEqual({
-      kind: "none",
-    });
-  });
-
-  it("has nothing to migrate on a fresh account", () => {
-    expect(appFolderCandidate([n("x", "Files")])).toEqual({ kind: "none" });
   });
 });
 

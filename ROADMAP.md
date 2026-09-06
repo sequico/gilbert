@@ -8,13 +8,13 @@ the rest is here because the answer is "no", not "not yet".
 
 See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about.
 - **Rebranding the single-host deploy script (TODO).** `deploy.example.sh`
-  still speaks ihasmail end to end — its `IHASMAIL_*` envs, defaults
-  (`~/apps/ihasmail`, container and header) and script name. The volume is no
-  longer part of the blocker: it was renamed `ihasmail-data` → `gilbert-data`
+  still speaks gilbert end to end — its `GILBERT_*` envs, defaults
+  (`~/apps/gilbert`, container and header) and script name. The volume is no
+  longer part of the blocker: it was renamed `gilbert-data` → `gilbert-data`
   on 2026-09-06 (`docker-compose.yml`, `deploy.example.sh` default). The
   name is deployed state, so an existing host either copies the old volume
   once (`docker volume create gilbert-data`, copy the contents, drop
-  `ihasmail-data`) or accepts a re-login — `/data` only mirrors sessions,
+  `gilbert-data`) or accepts a re-login — `/data` only mirrors sessions,
   never durable account data. What remains here is the envs and prose, kept
   as deployed surface until that is settled.
 

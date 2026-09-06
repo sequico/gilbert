@@ -106,10 +106,10 @@ export class SessionStore implements SessionBackend {
         const arr = JSON.parse(raw) as StoredSession[];
         const now = Date.now();
         for (const s of arr) if (s.expiresAt > now) this.sessions.set(s.id, s);
-        console.log(`[ihasmail] restored ${this.sessions.size} session(s)`);
+        console.log(`[gilbert] restored ${this.sessions.size} session(s)`);
       } catch (err: unknown) {
         if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-          console.warn("[ihasmail] could not read session file:", (err as Error).message);
+          console.warn("[gilbert] could not read session file:", (err as Error).message);
         }
       }
     }
@@ -154,7 +154,7 @@ export class SessionStore implements SessionBackend {
       await writeFile(tmp, JSON.stringify([...this.sessions.values()]), { mode: 0o600 });
       await rename(tmp, this.file);
     } catch (err) {
-      console.warn("[ihasmail] could not persist sessions:", (err as Error).message);
+      console.warn("[gilbert] could not persist sessions:", (err as Error).message);
     }
   }
 

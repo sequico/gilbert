@@ -62,7 +62,7 @@ describe("reordering rules by dragging", () => {
       available: true,
       loading: false,
       error: null,
-      scripts: [{ id: "s1", name: "ihasmail", blobId: "b1", isActive: true }],
+      scripts: [{ id: "s1", name: "gilbert", blobId: "b1", isActive: true }],
       contents: { s1: rulesToSieve(rules) },
     });
     host = document.createElement("div");

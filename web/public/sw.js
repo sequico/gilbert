@@ -1,8 +1,8 @@
-/* ihasmail service worker.
+/* gilbert service worker.
    Two jobs: app-shell caching for installability and fast loads (API requests
-   are never cached), and Web Push, which is the only part of ihasmail that runs
+   are never cached), and Web Push, which is the only part of gilbert that runs
    when no tab is open. */
-const VERSION = "ihasmail-v2";
+const VERSION = "gilbert-v2";
 
 /*
  * The mount, worked out rather than configured.
@@ -83,7 +83,7 @@ self.addEventListener("fetch", (event) => {
 
 /*
  * Stalwart signs with VAPID and pushes straight to the browser's push service;
- * nothing here talks to ihasmail's server. The payload is an EmailPush object
+ * nothing here talks to gilbert's server. The payload is an EmailPush object
  * (draft-ietf-jmap-emailpush) carrying enough of the message to show a useful
  * notification without a round-trip — which matters, because when this fires
  * there may be no session to make one with.
@@ -104,7 +104,7 @@ self.addEventListener("fetch", (event) => {
  * with no tab open was written where the next tab would not look -- and the
  * subscription stayed silent, which is the same thing push failing looks like.
  */
-const VERIFY_KEY = `${BASE}/ihasmail-push-verification`;
+const VERIFY_KEY = `${BASE}/gilbert-push-verification`;
 
 function textOf(email) {
   const from = email?.from?.[0];
@@ -155,7 +155,7 @@ self.addEventListener("push", (event) => {
         await self.registration.showNotification("New mail", {
           icon: `${BASE}/img/icon-192.png`,
           badge: `${BASE}/img/favicon-64.png`,
-          tag: "ihasmail-mail",
+          tag: "gilbert-mail",
           data: { url: `${BASE}/mail` },
         });
         return;
@@ -168,7 +168,7 @@ self.addEventListener("push", (event) => {
           body: preview ? `${body}\n${preview}` : body,
           icon: `${BASE}/img/icon-192.png`,
           badge: `${BASE}/img/favicon-64.png`,
-          tag: `ihasmail-${email.id || body}`,
+          tag: `gilbert-${email.id || body}`,
           data: { url: email.id ? `${BASE}/mail/inbox/${email.id}` : `${BASE}/mail` },
         });
       }

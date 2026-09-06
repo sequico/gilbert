@@ -43,7 +43,7 @@ describe("device-trusted storage", () => {
   it("writes nothing at all when the device is not trusted", () => {
     saveJson("settings", { theme: "dark" });
     saveJson(accountKey("acct1", "recent"), [{ email: "someone@example.com" }]);
-    expect([...store.keys()].filter((k) => k !== "ihasmail:deviceTrusted")).toEqual([]);
+    expect([...store.keys()].filter((k) => k !== "gilbert:deviceTrusted")).toEqual([]);
   });
 
   it("does not read residue left by an earlier trusted session", () => {
@@ -66,9 +66,9 @@ describe("device-trusted storage", () => {
 
   it("remembers trust across a reload, so a trusted device still paints from cache", () => {
     setDeviceTrusted(true);
-    expect(store.get("ihasmail:deviceTrusted")).toBe("1");
+    expect(store.get("gilbert:deviceTrusted")).toBe("1");
     setDeviceTrusted(false);
-    expect(store.has("ihasmail:deviceTrusted")).toBe(false);
+    expect(store.has("gilbert:deviceTrusted")).toBe(false);
   });
 
   it("clears the account's data on sign-out but keeps the deliberate exceptions", () => {
@@ -76,18 +76,18 @@ describe("device-trusted storage", () => {
     saveJson("settings", { theme: "dark" });
     saveJson("mbx-expanded", { a: true });
     saveJson(accountKey("acct1", "recent"), [{ email: "someone@example.com" }]);
-    store.set("ihasmail:lastUser", "me@example.com");
-    store.set("ihasmail:pushDeviceId", "ihasmail-abc");
-    store.set("ihasmail:pushEnabled", "1");
+    store.set("gilbert:lastUser", "me@example.com");
+    store.set("gilbert:pushDeviceId", "gilbert-abc");
+    store.set("gilbert:pushEnabled", "1");
 
     clearSignedInData();
 
-    expect(store.has("ihasmail:settings")).toBe(false);
-    expect(store.has("ihasmail:mbx-expanded")).toBe(false);
-    expect(store.has("ihasmail:acct1:recent")).toBe(false);
+    expect(store.has("gilbert:settings")).toBe(false);
+    expect(store.has("gilbert:mbx-expanded")).toBe(false);
+    expect(store.has("gilbert:acct1:recent")).toBe(false);
     // Kept on purpose: prefills sign-in, and only a trusted device wrote it.
-    expect(store.get("ihasmail:lastUser")).toBe("me@example.com");
-    expect(store.get("ihasmail:pushDeviceId")).toBe("ihasmail-abc");
+    expect(store.get("gilbert:lastUser")).toBe("me@example.com");
+    expect(store.get("gilbert:pushDeviceId")).toBe("gilbert-abc");
     /*
      * Kept for the ending that is not a sign-out. A deploy expires every
      * session, and that path clears local data without unsubscribing -- there
@@ -95,13 +95,13 @@ describe("device-trusted storage", () => {
      * strand a live subscription with nothing renewing it, and the switch in
      * Settings would still say background notifications were on.
      */
-    expect(store.get("ihasmail:pushEnabled")).toBe("1");
+    expect(store.get("gilbert:pushEnabled")).toBe("1");
   });
 
   it("clears everything, lastUser included, for an untrusted sign-in", () => {
     setDeviceTrusted(true);
     saveJson("settings", { theme: "dark" });
-    store.set("ihasmail:lastUser", "me@example.com");
+    store.set("gilbert:lastUser", "me@example.com");
 
     clearAllData();
 

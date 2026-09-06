@@ -98,20 +98,20 @@ export function encodeKey(buffer: ArrayBuffer | null): string {
 
 /** A stable id for this browser, so a re-subscribe replaces rather than piles up. */
 export function deviceClientId(): string {
-  const KEY = "ihasmail:pushDeviceId";
+  const KEY = "gilbert:pushDeviceId";
   // An untrusted device gets a per-session id instead of a stored one. It is
   // the same trade private mode already makes below: re-subscribing will not
   // reuse it, which costs nothing when push is refused there anyway.
-  if (!isDeviceTrusted()) return `ihasmail-${crypto.randomUUID()}`;
+  if (!isDeviceTrusted()) return `gilbert-${crypto.randomUUID()}`;
   try {
     const existing = localStorage.getItem(KEY);
     if (existing) return existing;
-    const made = `ihasmail-${crypto.randomUUID()}`;
+    const made = `gilbert-${crypto.randomUUID()}`;
     localStorage.setItem(KEY, made);
     return made;
   } catch {
     // Private mode: a per-session id still works, it just will not be reused.
-    return `ihasmail-${Math.random().toString(36).slice(2)}`;
+    return `gilbert-${Math.random().toString(36).slice(2)}`;
   }
 }
 
@@ -168,7 +168,7 @@ export function subscriptionPayload(
  * `KEEP_ON_SIGN_OUT`, so signing out forgets it, which matches sign-out already
  * destroying the subscription itself.
  */
-const ENABLED_KEY = "ihasmail:pushEnabled";
+const ENABLED_KEY = "gilbert:pushEnabled";
 
 export function pushEnabledHere(): boolean {
   if (!isDeviceTrusted()) return false;

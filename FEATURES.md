@@ -765,9 +765,8 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   afterwards.)
 - **Sharing** per file or folder, with rights per person.
 - **Attach from Files** in the composer, with no re-upload.
-- One folder is hidden on purpose: **`gilbert`**, contents and all (before the
-  rebrand it was `ihasmail`; a leftover folder of that name is renamed to
-  `gilbert` on first open). It holds the settings file and signature images.
+- One folder is hidden on purpose: **`gilbert`**, contents and all. It holds
+  the settings file and signature images.
   Hiding the folder alone would have been worse than showing it — the tree
   attaches a node whose parent is missing to the root, so signature images
   would have spilled into the top level.
@@ -1016,7 +1015,7 @@ at two.
 | Palette | |
 | --- | --- |
 | **Classic** | The plain light and dark this app has always had |
-| **ihasmail** | The palette this project's site is painted in, and what a new account starts on |
+| **gilbert** | The palette this project's site is painted in, and what a new account starts on |
 | **Dracula** | Dracula, and Alucard as its light half |
 | **Gruvbox** | |
 | **Rosé Pine** | Dawn as its light half |
@@ -1403,7 +1402,7 @@ and in Settings › About.
 - **`deploy.example.sh`** is a single-host Docker deploy: it fetches, refuses
   anything held back by `.deploy-hold`, shows what is about to ship and asks,
   rebuilds with the right version baked in, replaces the container, waits for
-  healthy, and prunes all but the newest `IHASMAIL_KEEP_VERSIONS` images —
+  healthy, and prunes all but the newest `GILBERT_KEEP_VERSIONS` images —
   never the one running. `--yes` skips the prompt but never a hold.
 - **Sessions survive a restart** when `SESSION_FILE` is set; an immutable
   instance trades that away knowingly.

@@ -50,10 +50,10 @@ export function listenForVerification(): void {
 /** Pick up a code that arrived while no tab was open. */
 async function collectStoredVerification(): Promise<void> {
   try {
-    const cache = await caches.open("ihasmail-v2");
+    const cache = await caches.open("gilbert-v2");
     // The same absolute key the worker writes. Relative would be resolved
     // against this document's URL, which is a different place on every route.
-    const key = withBase("/ihasmail-push-verification");
+    const key = withBase("/gilbert-push-verification");
     const hit = await cache.match(key);
     if (!hit) return;
     const { id, code } = (await hit.json()) as { id?: string; code?: string };

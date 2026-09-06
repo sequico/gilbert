@@ -12,7 +12,7 @@ import {
  * the rule was "use the selected account if it can do this" and a shared file
  * account can, by definition, do files. Gilbert keeps its own settings in the
  * account's Files, so changing any setting while looking at somebody's shared
- * folder wrote `settings.json` into *their* storage, creating the `ihasmail`
+ * folder wrote `settings.json` into *their* storage, creating the `gilbert`
  * folder there to do it. Reading someone else's data by mistake is bad; writing
  * yours into it is worse, and it was the same one-line rule doing both.
  */

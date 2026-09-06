@@ -3,7 +3,7 @@ FROM node:22-alpine AS build
 # What this build calls itself: 2.16.<PR>, worked out by whoever runs the
 # build. It cannot be worked out in here -- .dockerignore keeps .git out of the
 # context on purpose, and git is not installed either. `node scripts/version.mjs`
-# in a checkout prints the right answer; ihasmail-deploy.sh passes it through.
+# in a checkout prints the right answer; gilbert-deploy.sh passes it through.
 # Left empty, the build falls back to the base version from package.json.
 ARG GILBERT_VERSION=""
 ENV GILBERT_VERSION=$GILBERT_VERSION

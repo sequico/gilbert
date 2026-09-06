@@ -77,7 +77,7 @@ export function isShared(node: Pick<FileNode, "shareWith">): boolean {
  * of its own, which is a better answer than a silent one.
  */
 /** The MIME a dragged node is offered under, so a target can recognise it. */
-export const NODE_MIME = "application/x-ihasmail-filenode";
+export const NODE_MIME = "application/x-gilbert-filenode";
 
 /**
  * The ids in a node drag. A multi-file selection is dragged as one payload, so

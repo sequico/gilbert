@@ -767,10 +767,10 @@ export const catalog: Catalog = {
     "Only part of your filter script arrived.": "Скрипт фильтрации получен не полностью.",
     "Your active script “{name}” was written by hand.":
       "Ваш активный скрипт «{name}» написан вручную.",
-    "Another script (“{name}”) is active. Saving rules here will activate the “ihasmail” script instead.":
-      "Активен другой скрипт («{name}»). Если сохранить правила здесь, вместо него включится скрипт «ihasmail».",
-    "“{name}” will be deactivated (not deleted) and a new “ihasmail” script will take over.":
-      "«{name}» будет отключён (не удалён), а его место займёт новый скрипт «ihasmail».",
+    "Another script (“{name}”) is active. Saving rules here will activate the “gilbert” script instead.":
+      "Активен другой скрипт («{name}»). Если сохранить правила здесь, вместо него включится скрипт «gilbert».",
+    "“{name}” will be deactivated (not deleted) and a new “gilbert” script will take over.":
+      "«{name}» будет отключён (не удалён), а его место займёт новый скрипт «gilbert».",
     "Sieve filtering is not available for this account.":
       "Фильтрация Sieve недоступна для этой учётной записи.",
     "Sieve filtering is not enabled for this account.":

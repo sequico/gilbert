@@ -260,7 +260,7 @@ function upstreamFailure(c: Context, err: unknown) {
       504,
     );
   }
-  console.error("[ihasmail] upstream failure:", err);
+  console.error("[gilbert] upstream failure:", err);
   return c.json(
     {
       error: "upstream_error",
@@ -634,7 +634,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       // Out of app-password quota, say. 2FA is still worth having; the user
       // just has to sign in again afterwards.
       console.warn(
-        "[ihasmail] could not mint a session app password:",
+        "[gilbert] could not mint a session app password:",
         (err as Error).message,
       );
     }
@@ -857,7 +857,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   api.notFound((c) => c.json({ error: "not_found" }, 404));
   api.onError((err, c) => {
-    console.error("[ihasmail] api error:", err);
+    console.error("[gilbert] api error:", err);
     return c.json({ error: "internal_error" }, 500);
   });
 
@@ -908,7 +908,7 @@ function sessionExtras(
   info: AccountInfo = { locale: null, edition: null },
 ) {
   return {
-    ihasmail: {
+    gilbert: {
       appName: config.appName,
       sourceUrl: config.sourceUrl,
       imageProxy: config.imageProxy,

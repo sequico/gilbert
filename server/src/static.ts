@@ -68,7 +68,7 @@ export function staticHandler(root: string, basePath = ""): Handler {
     if (body.includes(`src="${basePath}/assets/`)) return;
     mismatchWarned = true;
     console.warn(
-      `[ihasmail] BASE_PATH is ${basePath}, but the web build in ${absRoot} references its assets elsewhere. ` +
+      `[gilbert] BASE_PATH is ${basePath}, but the web build in ${absRoot} references its assets elsewhere. ` +
         `The prefix is baked in at build time: rebuild with BASE_PATH=${basePath} set, or the app will not load.`,
     );
   }

@@ -64,7 +64,7 @@ const ROLE_ICONS: Record<string, ReactNode> = {
 };
 
 /** Its own drag type, so a folder can only be dropped where folders belong. */
-const FOLDER_MIME = "application/x-ihasmail-folder";
+const FOLDER_MIME = "application/x-gilbert-folder";
 
 interface MailTreeRow {
   m: Mailbox;
@@ -616,7 +616,7 @@ function FolderRow({
     if (
       folder
         ? !acceptsFolder
-        : !e.dataTransfer.types.includes("application/x-ihasmail-emails")
+        : !e.dataTransfer.types.includes("application/x-gilbert-emails")
     )
       return;
     e.preventDefault();
@@ -632,7 +632,7 @@ function FolderRow({
       if (acceptsFolder) onFolderDrop(folderId);
       return;
     }
-    const raw = e.dataTransfer.getData("application/x-ihasmail-emails");
+    const raw = e.dataTransfer.getData("application/x-gilbert-emails");
     if (!raw) return;
     try {
       const ids = JSON.parse(raw) as string[];

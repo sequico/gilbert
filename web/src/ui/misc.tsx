@@ -70,7 +70,7 @@ export function Switch({
         {hint && <span className="hint">{hint}</span>}
         {/* Shown rather than hidden, and said rather than implied: a control
             that is simply missing reads as a bug to somebody who has used
-            ihasmail without a policy. Issue #207. */}
+            gilbert without a policy. Issue #207. */}
         {locked && (
           <span className="hint">
             {t("Set for everyone here. You cannot change this.")}

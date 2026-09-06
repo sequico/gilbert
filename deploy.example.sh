@@ -1,5 +1,5 @@
 #!/bin/bash
-# Redeploy ihasmail on a single-host Docker setup, from a git checkout.
+# Redeploy gilbert on a single-host Docker setup, from a git checkout.
 #
 # Copy it, or run it as-is and set the variables below in the environment.
 # Nothing here is specific to any one host: the defaults describe the shape of
@@ -35,21 +35,18 @@ set -euo pipefail
 # --- what to deploy, and where ----------------------------------------------
 # The checkout to deploy from. It must be a git clone: the version number is
 # read from its history (see scripts/version.mjs).
-APP="${IHASMAIL_APP:-$HOME/apps/ihasmail}"
+APP="${GILBERT_APP:-$HOME/apps/gilbert}"
 # Environment file passed to the container. Keep it outside the repo's tracked
 # files -- it holds APP_SECRET and the upstream URL. Never read by this script.
-ENVF="${IHASMAIL_ENV:-$APP/.env.production}"
+ENVF="${GILBERT_ENV:-$APP/.env.production}"
 # Commits held back from production, one per line; blank or missing is fine.
-HOLD="${IHASMAIL_HOLD:-$APP/.deploy-hold}"
+HOLD="${GILBERT_HOLD:-$APP/.deploy-hold}"
 # Container name, and where to publish it. The default binds to loopback only,
 # for a reverse proxy in front (see Caddyfile.example / nginx.example.conf).
-NAME="${IHASMAIL_NAME:-ihasmail}"
-BIND="${IHASMAIL_BIND:-127.0.0.1:8090}"
+NAME="${GILBERT_NAME:-gilbert}"
+BIND="${GILBERT_BIND:-127.0.0.1:8090}"
 # Named volume for /data (sessions). Unused when running immutably.
-# Renamed ihasmail-data → gilbert-data on 2026-09-06: the name is deployed
-# state, so an existing host either copies the old volume once or accepts a
-# re-login — /data only mirrors sessions, never durable account data.
-VOLUME="${IHASMAIL_VOLUME:-gilbert-data}"
+VOLUME="${GILBERT_VOLUME:-gilbert-data}"
 # Run the container immutably: read-only root filesystem, no volume, sessions
 # held in memory only. See "Running immutably" in the README. The server is told
 # the same thing through IMMUTABLE=1 and checks it, so a half-applied switch --
@@ -67,21 +64,21 @@ VOLUME="${IHASMAIL_VOLUME:-gilbert-data}"
 # The standing cost is that sessions do not outlive a deploy, because there is
 # nowhere left to keep them. Going back is this variable and nothing else:
 #
-#   IHASMAIL_IMMUTABLE=0 ./ihasmail-deploy.sh --yes
+#   GILBERT_IMMUTABLE=0 ./gilbert-deploy.sh --yes
 #
 # The named volume is never touched either way, so whatever was in it when the
 # switch was thrown is still there to come back to.
-IMMUTABLE="${IHASMAIL_IMMUTABLE:-1}"
+IMMUTABLE="${GILBERT_IMMUTABLE:-1}"
 # Image repository. Each build is tagged with its version as well, so an
 # earlier one can be run again without rebuilding it.
-IMAGE_REPO="${IHASMAIL_IMAGE:-ihasmail}"
+IMAGE_REPO="${GILBERT_IMAGE:-gilbert}"
 # How long to wait for the new container to report healthy, in seconds.
-HEALTH_TIMEOUT="${IHASMAIL_HEALTH_TIMEOUT:-30}"
+HEALTH_TIMEOUT="${GILBERT_HEALTH_TIMEOUT:-30}"
 # How many past versions to keep as images, for rolling back to. Each is around
 # 650 MB, and a deploy adds one, so left alone they accumulate a gigabyte every
 # couple of releases -- and `docker image prune` will not touch them, because
 # they are tagged. 0 keeps every version.
-KEEP_VERSIONS="${IHASMAIL_KEEP_VERSIONS:-3}"
+KEEP_VERSIONS="${GILBERT_KEEP_VERSIONS:-3}"
 
 # --- run from a copy, if this script lives in the checkout it resets ---------
 # `git reset --hard` below rewrites the working tree, and this script may be
@@ -92,15 +89,15 @@ KEEP_VERSIONS="${IHASMAIL_KEEP_VERSIONS:-3}"
 # the file being run cannot change while it runs.
 SELF="$(readlink -f "$0")"
 APP_REAL="$(readlink -f "$APP" 2>/dev/null || printf '%s' "$APP")"
-if [ -z "${IHASMAIL_REEXEC:-}" ] && [ "${SELF#"$APP_REAL"/}" != "$SELF" ]; then
-  COPY="$(mktemp "${TMPDIR:-/tmp}/ihasmail-deploy.XXXXXX")"
+if [ -z "${GILBERT_REEXEC:-}" ] && [ "${SELF#"$APP_REAL"/}" != "$SELF" ]; then
+  COPY="$(mktemp "${TMPDIR:-/tmp}/gilbert-deploy.XXXXXX")"
   cat "$SELF" > "$COPY"
   chmod +x "$COPY"
-  IHASMAIL_REEXEC=1 exec "$COPY" "$@"
+  GILBERT_REEXEC=1 exec "$COPY" "$@"
 fi
 # The copy has served its purpose once we exit; the shell has finished reading
 # it by then.
-if [ -n "${IHASMAIL_REEXEC:-}" ]; then
+if [ -n "${GILBERT_REEXEC:-}" ]; then
   trap 'rm -f "$SELF"' EXIT
 fi
 
@@ -226,7 +223,7 @@ VERSION="$(node scripts/version.mjs)"
 TAG="${VERSION//+/-}"
 echo "==> building $(git log --oneline -1) as v$VERSION"
 docker build \
-  --build-arg IHASMAIL_VERSION="$VERSION" \
+  --build-arg GILBERT_VERSION="$VERSION" \
   -t "$IMAGE_REPO:$TAG" \
   -t "$IMAGE_REPO:current" \
   .
@@ -237,7 +234,7 @@ if [ "$IMMUTABLE" = "1" ]; then
   # into the image, rather than needing the environment file edited to match.
   RUN_ARGS+=(--read-only --tmpfs /tmp -e IMMUTABLE=1 -e SESSION_FILE=)
   echo "==> restarting container -- immutable: read-only, no volume, sessions in memory"
-  echo "    (everyone signed in is signed out; IHASMAIL_IMMUTABLE=0 puts it back)"
+  echo "    (everyone signed in is signed out; GILBERT_IMMUTABLE=0 puts it back)"
 else
   RUN_ARGS+=(-v "$VOLUME:/data")
   echo "==> restarting container"

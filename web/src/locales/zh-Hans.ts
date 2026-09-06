@@ -774,10 +774,10 @@ export const catalog: Catalog = {
     "Only part of your filter script arrived.": "您的过滤脚本只收到了一部分。",
     "Your active script “{name}” was written by hand.":
       "您启用的脚本「{name}」是手动编写的。",
-    "Another script (“{name}”) is active. Saving rules here will activate the “ihasmail” script instead.":
-      "另一个脚本（「{name}」）正在启用中。在此保存规则将改为启用「ihasmail」脚本。",
-    "“{name}” will be deactivated (not deleted) and a new “ihasmail” script will take over.":
-      "「{name}」将被停用（不会删除），改由新的「ihasmail」脚本接管。",
+    "Another script (“{name}”) is active. Saving rules here will activate the “gilbert” script instead.":
+      "另一个脚本（「{name}」）正在启用中。在此保存规则将改为启用「gilbert」脚本。",
+    "“{name}” will be deactivated (not deleted) and a new “gilbert” script will take over.":
+      "「{name}」将被停用（不会删除），改由新的「gilbert」脚本接管。",
     "Sieve filtering is not available for this account.": "此账户不支持 Sieve 过滤。",
     "Sieve filtering is not enabled for this account.": "此账户未启用 Sieve 过滤。",
     "Vacation responses are not available for this account.":

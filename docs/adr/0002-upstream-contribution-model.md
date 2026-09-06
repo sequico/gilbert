@@ -22,7 +22,7 @@ What already exists and stays:
 
 - `upstream` remote with `pushurl no_push` (accidental pushes are refused at
   the remote level) and `origin` = `sequico/gilbert`;
-- the `ihasmail` branch mirroring upstream **releases** only, kept by the
+- the `gilbert` branch mirroring upstream **releases** only, kept by the
   daily `sync-upstream` workflow;
 - the habit of merging `upstream/main` into `main` ("Sync upstream: …").
 - upstream's own contribution process (`CONTRIBUTING.md`, AGPL, their branch
@@ -40,7 +40,7 @@ What already exists and stays:
    contribution, because a patch that has to be un-renamed on its way out is a
    patch that will not be maintained.
 2. **The sync direction stays upstream → Gilbert.** `upstream/main` keeps
-   being merged into `main`; the `ihasmail` release mirror keeps running.
+   being merged into `main`; the `gilbert` release mirror keeps running.
    Common fixes that upstream accepts come back into Gilbert through that
    sync, so they are written once, upstream-shaped, and merged home — not
    written twice.
@@ -75,7 +75,7 @@ What already exists and stays:
   — every PR becomes an extraction project, and the extracted code is not what
   anyone tests or maintains here.
 - **Keeping a permanent upstream-shaped branch inside this repo**: the
-  `ihasmail` branch exists for releases only; a full working line would double
+  `gilbert` branch exists for releases only; a full working line would double
   the maintenance surface inside one checkout and blur which tree is the
   product.
 - **Not contributing at all**: simplest, but the owner wants common work to
@@ -84,6 +84,6 @@ What already exists and stays:
 ## References
 
 - `.git/config` — `remote.upstream.pushurl no_push`
-- `.github/workflows/sync-upstream.yml` — the `ihasmail` release mirror
+- `.github/workflows/sync-upstream.yml` — the `gilbert` release mirror
 - `CONTRIBUTING.md` — upstream's (adapted) contribution process
 - `gilbert-branding` skill — the rename map and its sync cost

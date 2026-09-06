@@ -128,7 +128,7 @@ describe("importing an LDIF address book", () => {
     expect(new Set(uids).size).toBe(2);
     // Namespaced, so it is never mistaken for a UID a vCard author meant, and
     // stable, so importing the same file again recognises these.
-    expect(uids.every((u) => u.startsWith("urn:x-ihasmail:ldif:"))).toBe(true);
+    expect(uids.every((u) => u.startsWith("urn:x-gilbert:ldif:"))).toBe(true);
   });
 
   it("gives an entry with no usable dn an identity of its own", async () => {
@@ -137,7 +137,7 @@ describe("importing an LDIF address book", () => {
       .getState()
       .importLdif("dn:\ncn: Nameless Place\nmail: n@example.com\n", "book1");
     const uid = Object.values(sets[0]!.create!)[0]!.uid as string;
-    expect(uid).not.toContain("urn:x-ihasmail:ldif:");
+    expect(uid).not.toContain("urn:x-gilbert:ldif:");
     expect(uid.length).toBeGreaterThan(0);
   });
 

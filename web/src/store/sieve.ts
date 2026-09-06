@@ -4,7 +4,7 @@ import type { GetResponse, Id, SetResponse, SieveScript } from "@/jmap/types";
 import { rulesToSieve, type SieveRule, scriptDamage, sieveToRules } from "@/lib/sieve";
 import { useSession } from "./session";
 
-export const IHASMAIL_SCRIPT = "ihasmail";
+export const GILBERT_SCRIPT = "gilbert";
 
 interface SieveState {
   accountId: Id | null;
@@ -17,7 +17,7 @@ interface SieveState {
   init(): Promise<void>;
   load(): Promise<void>;
   getContent(id: Id): Promise<string>;
-  /** Rules derived from the "ihasmail" script (null = the active script is hand-written). */
+  /** Rules derived from the "gilbert" script (null = the active script is hand-written). */
   /** `loaded` distinguishes "this script is hand-written" from "we could not read it". */
   rules(): {
     script: SieveScript | null;
@@ -113,7 +113,7 @@ export const useSieve = create<SieveState>((set, get) => ({
   rules() {
     const { scripts, contents } = get();
     const script =
-      scripts.find((s) => s.name === IHASMAIL_SCRIPT) ??
+      scripts.find((s) => s.name === GILBERT_SCRIPT) ??
       scripts.find((s) => s.isActive) ??
       null;
     if (!script)
@@ -134,7 +134,7 @@ export const useSieve = create<SieveState>((set, get) => ({
   },
 
   async saveRules(rules) {
-    const existing = get().scripts.find((s) => s.name === IHASMAIL_SCRIPT) ?? null;
+    const existing = get().scripts.find((s) => s.name === GILBERT_SCRIPT) ?? null;
     // The last line of defence. Writing rules replaces the whole script, so
     // doing it from a baseline we never managed to read deletes whatever was
     // there. Refusing is recoverable; overwriting is not.
@@ -157,7 +157,7 @@ export const useSieve = create<SieveState>((set, get) => ({
     }
     await get().saveScript(
       existing?.id ?? null,
-      IHASMAIL_SCRIPT,
+      GILBERT_SCRIPT,
       rulesToSieve(rules),
       true,
     );

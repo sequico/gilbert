@@ -763,10 +763,10 @@ export const catalog: Catalog = {
       "Slechts een deel van uw filterscript is aangekomen.",
     "Your active script “{name}” was written by hand.":
       "Uw actieve script “{name}” is met de hand geschreven.",
-    "Another script (“{name}”) is active. Saving rules here will activate the “ihasmail” script instead.":
-      "Een ander script (“{name}”) is actief. Als u hier regels opslaat, wordt in plaats daarvan het script “ihasmail” geactiveerd.",
-    "“{name}” will be deactivated (not deleted) and a new “ihasmail” script will take over.":
-      "“{name}” wordt gedeactiveerd (niet verwijderd) en een nieuw script “ihasmail” neemt het over.",
+    "Another script (“{name}”) is active. Saving rules here will activate the “gilbert” script instead.":
+      "Een ander script (“{name}”) is actief. Als u hier regels opslaat, wordt in plaats daarvan het script “gilbert” geactiveerd.",
+    "“{name}” will be deactivated (not deleted) and a new “gilbert” script will take over.":
+      "“{name}” wordt gedeactiveerd (niet verwijderd) en een nieuw script “gilbert” neemt het over.",
     "Sieve filtering is not available for this account.":
       "Sieve-filtering is niet beschikbaar voor dit account.",
     "Sieve filtering is not enabled for this account.":

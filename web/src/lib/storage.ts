@@ -11,7 +11,7 @@
  * the residue, and honouring it would let a previous session's data surface in
  * a later untrusted one.
  */
-const PREFIX = "ihasmail:";
+const PREFIX = "gilbert:";
 
 /**
  * Kept when a session ends. Everything else is cleared, so a key added later

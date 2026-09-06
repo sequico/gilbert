@@ -48,7 +48,7 @@ const EQUALITY = new Set([
 
 /*
  * Product names, example addresses and URL scaffolding. These reach t() and
- * are deliberately absent from every catalogue -- translating "ihasmail" or
+ * are deliberately absent from every catalogue -- translating "gilbert" or
  * "name@example.com" would be a bug, not a feature -- so they would otherwise
  * be reported for ever.
  */

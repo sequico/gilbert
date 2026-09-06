@@ -10,8 +10,8 @@ export function AboutSettings() {
   const session = useSession((s) => s.session);
   const caps = Object.keys(session?.capabilities ?? {});
   // A deployment running modified code should offer its own source, not ours.
-  const sourceUrl = session?.ihasmail?.sourceUrl ?? DEFAULT_SOURCE_URL;
-  const appName = session?.ihasmail?.appName ?? DEFAULT_APP_NAME;
+  const sourceUrl = session?.gilbert?.sourceUrl ?? DEFAULT_SOURCE_URL;
+  const appName = session?.gilbert?.appName ?? DEFAULT_APP_NAME;
   return (
     <div>
       <h1>{t("About Gilbert")}</h1>
@@ -55,7 +55,7 @@ export function AboutSettings() {
           </tr>
           <tr>
             <td>{t("Stalwart")}</td>
-            <td>{describeServer(session?.ihasmail?.server)}</td>
+            <td>{describeServer(session?.gilbert?.server)}</td>
           </tr>
           <tr>
             <td>{t("Accounts")}</td>
@@ -73,7 +73,7 @@ export function AboutSettings() {
           </tr>
           <tr>
             <td>{t("Image privacy proxy")}</td>
-            <td>{session?.ihasmail?.imageProxy ? t("enabled") : t("disabled")}</td>
+            <td>{session?.gilbert?.imageProxy ? t("enabled") : t("disabled")}</td>
           </tr>
         </tbody>
       </table>

@@ -42,7 +42,7 @@ export async function sendReadReceipt(email: Email): Promise<void> {
     finalRecipient: identity.email,
     reportingUa: `${host}; Gilbert 2.0`,
     now: new Date(),
-    boundary: `==ihasmail-${uid("b")}==`,
+    boundary: `==gilbert-${uid("b")}==`,
     messageId: `<${uid("mdn")}.${Date.now()}@${host}>`,
   });
 
