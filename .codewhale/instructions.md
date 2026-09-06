@@ -20,6 +20,19 @@ container disposable; `IMMUTABLE=1` = no writable filesystem. Values: fail
 loudly, degrade gracefully by capability, sanitise HTML, settings follow the
 account (localStorage is only a cache).
 
+## Architecture decisions (ADR)
+Decisions that shape the architecture — where durable state lives, a protocol
+surface, a trust boundary, an enforcement door, or a documented invariant —
+are recorded as Architecture Decision Records under `docs/adr/`, one file per
+decision: `NNNN-kebab-case-title.md` starting at `0001`, written in English,
+with a `Status` line (Proposed / Accepted / Superseded) and Context, Decision
+and Consequences sections.
+Write the ADR when the change is designed, before or alongside the
+implementation, so the design is reviewable first; an implementation must
+match the standing (newest non-superseded) ADR that covers it. Changing a
+standing decision means a new ADR that supersedes the old one — never edit an
+accepted ADR's history. ADRs stay `Proposed` until the owner accepts them.
+
 ## Toolchain
 Node ≥ 20.10, npm workspaces. `npm run dev` · `dev:mock` (demo@example.com /
 demo) · `dev:mock:no-future-release` · `typecheck` · `test` · `build`.
