@@ -84,4 +84,4 @@ fork. Common work stays here, renamed or not.
 Full law: load skills/gilbert-project. Renames: load skills/gilbert-branding.
 UI strings & languages: load skills/gilbert-i18n. Settings & policy: load
 skills/gilbert-settings. Stalwart internals, quirks & integration: load
-skills/gilbert-stalwart.
+skills/gilbert-stalwart. Upstream merges: load skills/gilbert-upstream-rebrand.
