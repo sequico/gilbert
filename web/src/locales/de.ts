@@ -338,6 +338,7 @@ export const catalog: Catalog = {
     Busy: "Gebucht",
     "Free/busy": "Frei/Gebucht",
     "Show as": "Anzeigen als",
+    "Availability on {date}": "Verfügbarkeit am {date}",
     "Count all events as busy": "Alle Termine als gebucht zählen",
     "Only events I'm attending": "Nur Termine, an denen ich teilnehme",
     "Don't include in availability": "Nicht in die Verfügbarkeit einbeziehen",
@@ -376,6 +377,7 @@ export const catalog: Catalog = {
     "New address book": "Neues Adressbuch",
     "No address books yet.": "Noch keine Adressbücher.",
     "Choose from address books": "Aus Adressbüchern wählen",
+    "Import vCard": "vCard importieren",
     "Export all contacts": "Alle Kontakte exportieren",
     "Export address book": "Dieses Adressbuch exportieren",
     "Import contacts…": "Kontakte importieren…",
@@ -447,6 +449,8 @@ export const catalog: Catalog = {
     "Make ihasmail yours.": "Machen Sie ihasmail zu Ihrem.",
     Reading: "Lesen",
     "Reading pane": "Lesebereich",
+    "Reading, sending and list behaviour. Settings are stored in this browser.":
+      "Verhalten beim Lesen, Senden und in der Liste. Die Einstellungen werden in diesem Browser gespeichert.",
     "Right of the list": "Rechts von der Liste",
     "Below the list": "Unter der Liste",
     "Hidden (open full width)": "Ausgeblendet (in voller Breite öffnen)",
@@ -736,6 +740,8 @@ export const catalog: Catalog = {
     "Create “{name}”": "„{name}“ erstellen",
     "Type a name to create your first label.":
       "Geben Sie einen Namen ein, um Ihr erstes Label zu erstellen.",
+    "Labels are IMAP keywords stored on your messages, so they sync to other clients. Names and colours are kept in this browser.":
+      "Labels sind IMAP-Schlüsselwörter, die in Ihren Nachrichten gespeichert werden und daher mit anderen Clients synchronisiert werden. Namen und Farben bleiben in diesem Browser.",
     PDF: "PDF",
     "Large attachments may be rejected by some servers":
       "Große Anhänge werden von manchen Servern abgelehnt",
@@ -921,6 +927,8 @@ export const catalog: Catalog = {
     "Drop here for the top level": "Hierher ziehen für die oberste Ebene",
 
     // ── Remaining prose ────────────────────────────────────────────────
+    "{name} is the palette from {site}, and what a new account starts on. It is a dark theme, so it counts as dark wherever that matters, and the accent colour below still applies on top of it.":
+      "{name} ist die Farbpalette von {site} und das, womit ein neues Konto startet. Es ist ein dunkles Design und zählt daher überall dort als dunkel, wo das eine Rolle spielt; die Akzentfarbe unten wirkt weiterhin darauf.",
     "ihasmail's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what this build needs from the server is the line above.":
       "Die Version von ihasmail ist das Datum des Commits, aus dem es gebaut wurde, gefolgt davon, woher dieser Commit stammt: {example} wurde aus einem Commit vom 30. August 2026 gebaut, der über Pull Request 129 kam. Ein Commit, der nicht über einen solchen kam, trägt stattdessen seinen kurzen SHA — {sha}. Die Version sagt bewusst nichts über Stalwart aus; was dieser Build vom Server benötigt, steht in der Zeile darüber.",
 
@@ -1014,6 +1022,7 @@ export const catalog: Catalog = {
     "Contact deleted": "Kontakt gelöscht",
     "Contact saved": "Kontakt gespeichert",
     Copied: "Kopiert",
+    "Copy of {title}": "Kopie von {title}",
     "Could not cancel: {error}": "Abbrechen fehlgeschlagen: {error}",
     "Could not copy": "Kopieren fehlgeschlagen",
     "Could not copy the address": "Die Adresse konnte nicht kopiert werden",
@@ -1496,6 +1505,65 @@ export const catalog: Catalog = {
     // Sentences that lib/ and store/ were building in English, and the two
     // swipe labels that reach t() through a variable and so were invisible
     // to a scan for t("literal"). See #259.
+    // ── Emptying an address book, and deleting a selection (#277) ──
+    "This cannot be undone.": "Dies kann nicht rückgängig gemacht werden.",
+    "Some could not be deleted: {error}": "Einige konnten nicht gelöscht werden: {error}",
+    "It was not deleted": "Der Kontakt wurde nicht gelöscht",
+    "Empty address book": "Dieses Adressbuch leeren",
+    "There is nothing in it to delete": "Es ist nichts darin zum Löschen",
+    "Empty “{name}”?": "„{name}“ leeren?",
+    "Delete them": "Alle löschen",
+    "Nothing was deleted": "Es wurde nichts gelöscht",
+    // ── Checking an S/MIME signature, and what may be said about it ──
+    "Certificate covers": "Zertifikat gilt für",
+    Details: "Details",
+    "Earlier messages from this address were signed by {previous}. This one is signed by {current}.":
+      "Frühere Nachrichten von dieser Adresse wurden von {previous} signiert. Diese ist von {current} signiert.",
+    Fingerprint: "Fingerabdruck",
+    "Hide details": "Details ausblenden",
+    "Issued by": "Ausgestellt von",
+    "It is signed with OpenPGP, and ihasmail has no way to fetch the sender's public key.":
+      "Sie ist mit OpenPGP signiert, und ihasmail hat keine Möglichkeit, den öffentlichen Schlüssel des Absenders zu beschaffen.",
+    "It uses a signature algorithm ihasmail cannot check yet.":
+      "Sie verwendet ein Signaturverfahren, das ihasmail noch nicht prüfen kann.",
+    "It was made with a certificate belonging to {name}, which does not cover this address.":
+      "Sie wurde mit einem Zertifikat von {name} erstellt, das diese Adresse nicht abdeckt.",
+    "Previous fingerprint": "Vorheriger Fingerabdruck",
+    "Signed at": "Signiert am",
+    "Signed by {name} — the same signer as before.":
+      "Signiert von {name} — derselbe Unterzeichner wie zuvor.",
+    "Signed by {name}, seen here for the first time.":
+      "Signiert von {name}, hier zum ersten Mal gesehen.",
+    Signer: "Unterzeichner",
+    "That can mean a renewed certificate, and it can mean somebody else. Check with them by some other route before trusting it.":
+      "Das kann ein erneuertes Zertifikat bedeuten, und es kann jemand anderes sein. Fragen Sie auf einem anderen Weg nach, bevor Sie dem vertrauen.",
+    "The certificate has expired.": "Das Zertifikat ist abgelaufen.",
+    "The certificate is not valid yet.": "Das Zertifikat ist noch nicht gültig.",
+    "The message does not match what was signed — it was altered after signing, or damaged on the way.":
+      "Die Nachricht stimmt nicht mit dem Signierten überein — sie wurde nach dem Signieren verändert oder unterwegs beschädigt.",
+    "The signature carries no certificate that can be read.":
+      "Die Signatur enthält kein lesbares Zertifikat.",
+    "The signature could not be read.": "Die Signatur konnte nicht gelesen werden.",
+    "The signature does not match the certificate sent with it.":
+      "Die Signatur passt nicht zum mitgesendeten Zertifikat.",
+    "The signature is not for this sender.":
+      "Die Signatur gehört nicht zu diesem Absender.",
+    "The signed part is missing either the message or the signature.":
+      "Im signierten Teil fehlt entweder die Nachricht oder die Signatur.",
+    "The signer has changed.": "Der Unterzeichner hat gewechselt.",
+    "This message is signed, and ihasmail could not check the signature.":
+      "Diese Nachricht ist signiert, und ihasmail konnte die Signatur nicht prüfen.",
+    "This signature does not check out.": "Diese Signatur stimmt nicht.",
+    "Valid until": "Gültig bis",
+    "a different certificate": "einem anderen Zertifikat",
+    "an unnamed signer": "einem unbenannten Unterzeichner",
+    "as claimed by the signer": "laut Angabe des Unterzeichners",
+    "first seen {date}": "zuerst gesehen {date}",
+    "ihasmail will tell you if a later message from this address is signed by anybody else.":
+      "ihasmail weist Sie darauf hin, wenn eine spätere Nachricht von dieser Adresse von jemand anderem signiert ist.",
+    "itself, or an issuer it does not name":
+      "sich selbst, oder einem nicht genannten Aussteller",
+    "no address": "keine Adresse",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1643,6 +1711,24 @@ export const catalog: Catalog = {
     "Deleted {n} messages": {
       one: "{n} Nachricht gelöscht",
       other: "{n} Nachrichten gelöscht",
+    },
+    // ── Emptying an address book, and deleting a selection (#277) ──
+    "Delete {n} contacts?": {
+      one: "{n} Kontakt löschen?",
+      other: "{n} Kontakte löschen?",
+    },
+    "Deleted {n} contacts": {
+      one: "{n} Kontakt gelöscht",
+      other: "{n} Kontakte gelöscht",
+    },
+    "{n} contacts will be deleted. This cannot be undone.": {
+      one: "{n} Kontakt wird gelöscht. Dies kann nicht rückgängig gemacht werden.",
+      other: "{n} Kontakte werden gelöscht. Dies kann nicht rückgängig gemacht werden.",
+    },
+    "{n} were also in other address books and were only removed from this one": {
+      one: "{n} Kontakt war auch in einem anderen Adressbuch und wurde nur aus diesem entfernt",
+      other:
+        "{n} Kontakte waren auch in anderen Adressbüchern und wurden nur aus diesem entfernt",
     },
   },
 };

@@ -49,6 +49,7 @@ import { tNode, t as translate } from "@/lib/i18n";
 import { mdnDecision, refusalText } from "@/lib/mdn";
 import { openableInTab, previewKind } from "@/lib/preview";
 import { formatScheduleTime } from "@/lib/schedule";
+import { useSignature } from "@/lib/smime/useSignature";
 import { type SpamReport, spamReport } from "@/lib/spamScore";
 import { findQuoteStart, textToHtml } from "@/lib/text";
 import { isTnef, parseTnef, type TnefAttachment } from "@/lib/tnef";
@@ -70,6 +71,7 @@ import { AddressList, useAddressMenu } from "./AddressMenu";
 import { FilterFromMessageDialog } from "./FilterFromMessage";
 import { InviteCard } from "./InviteCard";
 import type { ListActions } from "./MessageList";
+import { SignatureBanner } from "./SignatureBanner";
 import { VCardCard } from "./VCardCard";
 
 interface Props {
@@ -90,6 +92,7 @@ export const MessageView = memo(function MessageView({
   actions,
 }: Props) {
   const accountId = useMail((s) => s.accountId)!;
+  const signature = useSignature(e, accountId);
   const settings = useSettings((s) => s.settings);
   const updateSettings = useSettings((s) => s.update);
 
@@ -782,6 +785,7 @@ export const MessageView = memo(function MessageView({
               </button>
             </div>
           )}
+          <SignatureBanner state={signature} />
           {externalSender && (
             <div
               className="remote-banner external-banner"

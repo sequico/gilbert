@@ -321,6 +321,7 @@ export const catalog: Catalog = {
     Busy: "忙碌",
     "Free/busy": "忙闲状态",
     "Show as": "显示为",
+    "Availability on {date}": "{date} 的忙闲状态",
     "Count all events as busy": "所有日程都计为忙碌",
     "Only events I'm attending": "仅我参加的日程",
     "Don't include in availability": "不计入忙闲状态",
@@ -359,6 +360,7 @@ export const catalog: Catalog = {
     "New address book": "新建通讯录",
     "No address books yet.": "还没有通讯录。",
     "Choose from address books": "从通讯录中选择",
+    "Import vCard": "导入 vCard",
     "Export all contacts": "导出所有联系人",
     "Export address book": "导出此通讯录",
     "Import contacts…": "导入联系人…",
@@ -434,6 +436,8 @@ export const catalog: Catalog = {
     "Make ihasmail yours.": "把 ihasmail 调成您喜欢的样子。",
     Reading: "阅读",
     "Reading pane": "阅读窗格",
+    "Reading, sending and list behaviour. Settings are stored in this browser.":
+      "阅读、发送和列表行为。设置保存在此浏览器中。",
     "Right of the list": "列表右侧",
     "Below the list": "列表下方",
     "Hidden (open full width)": "隐藏（全宽打开）",
@@ -735,6 +739,8 @@ export const catalog: Catalog = {
     "Manage labels": "管理标签",
     "Create “{name}”": "创建「{name}」",
     "Type a name to create your first label.": "输入名称以创建您的第一个标签。",
+    "Labels are IMAP keywords stored on your messages, so they sync to other clients. Names and colours are kept in this browser.":
+      "标签是保存在邮件上的 IMAP 关键词，因此会同步到其他客户端。名称和颜色则保存在此浏览器中。",
     "New label": "新建标签",
     "Delete label": "删除标签",
 
@@ -868,6 +874,8 @@ export const catalog: Catalog = {
       "目录中没有找到其他用户，因此无法添加新的共享对象。已有的共享列在下方，仍可移除。",
     "Stalwart does not publish its version number to mail clients, so ihasmail reports the edition where the server gives one. ihasmail requires 0.16 or newer, and sign-in refuses anything older.":
       "Stalwart 不会向邮件客户端公布版本号，因此只有在服务器给出版本类型时，ihasmail 才会报告它。ihasmail 需要 0.16 或更高版本，更旧的版本一律无法登录。",
+    "{name} is the palette from {site}, and what a new account starts on. It is a dark theme, so it counts as dark wherever that matters, and the accent colour below still applies on top of it.":
+      "{name} 是 {site} 的配色，也是新账户的初始主题。它属于深色主题，因此在需要区分明暗的地方都算作深色，下方的强调色仍会叠加在它之上。",
     "ihasmail's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what this build needs from the server is the line above.":
       "ihasmail 自身的版本号是其构建所用提交的日期，后面跟着该提交的来源：{example} 表示由 2026 年 8 月 30 日的一个提交构建而成，而该提交来自第 129 号拉取请求。未经拉取请求的提交则改用简短 SHA 表示——{sha}。版本号刻意不包含任何关于 Stalwart 的信息；此版本对服务器的要求见上一行。",
 
@@ -967,6 +975,7 @@ export const catalog: Catalog = {
     "Contact deleted": "联系人已删除",
     "Contact saved": "联系人已保存",
     Copied: "已复制",
+    "Copy of {title}": "{title} 的副本",
     "Could not cancel: {error}": "无法取消：{error}",
     "Could not copy": "无法复制",
     "Could not copy the address": "无法复制该地址",
@@ -1417,6 +1426,62 @@ export const catalog: Catalog = {
     // Sentences that lib/ and store/ were building in English, and the two
     // swipe labels that reach t() through a variable and so were invisible
     // to a scan for t("literal"). See #259.
+    // ── Emptying an address book, and deleting a selection (#277) ──
+    "This cannot be undone.": "此操作无法撤销。",
+    "Some could not be deleted: {error}": "部分无法删除：{error}",
+    "It was not deleted": "未被删除",
+    "Empty address book": "清空此通讯录",
+    "There is nothing in it to delete": "其中没有可删除的内容",
+    "Empty “{name}”?": "清空“{name}”？",
+    "Delete them": "删除",
+    "Nothing was deleted": "未删除任何内容",
+    // ── Checking an S/MIME signature, and what may be said about it ──
+    "Certificate covers": "证书适用于",
+    Details: "详情",
+    "Earlier messages from this address were signed by {previous}. This one is signed by {current}.":
+      "此地址以前的邮件由 {previous} 签名，而这封由 {current} 签名。",
+    Fingerprint: "指纹",
+    "Hide details": "隐藏详情",
+    "Issued by": "颁发者",
+    "It is signed with OpenPGP, and ihasmail has no way to fetch the sender's public key.":
+      "该邮件使用 OpenPGP 签名，而 ihasmail 无法获取发件人的公钥。",
+    "It uses a signature algorithm ihasmail cannot check yet.":
+      "它使用了 ihasmail 尚不能校验的签名算法。",
+    "It was made with a certificate belonging to {name}, which does not cover this address.":
+      "签名使用的是 {name} 的证书，该证书并不包含此地址。",
+    "Previous fingerprint": "以前的指纹",
+    "Signed at": "签名时间",
+    "Signed by {name} — the same signer as before.":
+      "由 {name} 签名——与此前是同一签名者。",
+    "Signed by {name}, seen here for the first time.":
+      "由 {name} 签名，这是首次在此见到。",
+    Signer: "签名者",
+    "That can mean a renewed certificate, and it can mean somebody else. Check with them by some other route before trusting it.":
+      "这可能只是更换了证书，也可能是另一个人。信任之前，请通过其他途径向对方核实。",
+    "The certificate has expired.": "证书已过期。",
+    "The certificate is not valid yet.": "证书尚未生效。",
+    "The message does not match what was signed — it was altered after signing, or damaged on the way.":
+      "邮件与所签名的内容不一致——它在签名后被改动，或在传输中损坏。",
+    "The signature carries no certificate that can be read.": "签名中没有可读取的证书。",
+    "The signature could not be read.": "无法读取签名。",
+    "The signature does not match the certificate sent with it.":
+      "签名与随附的证书不匹配。",
+    "The signature is not for this sender.": "该签名不属于此发件人。",
+    "The signed part is missing either the message or the signature.":
+      "签名部分缺少邮件正文或签名。",
+    "The signer has changed.": "签名者已更换。",
+    "This message is signed, and ihasmail could not check the signature.":
+      "此邮件带有签名，但 ihasmail 无法校验该签名。",
+    "This signature does not check out.": "此签名不成立。",
+    "Valid until": "有效期至",
+    "a different certificate": "另一份证书",
+    "an unnamed signer": "未具名的签名者",
+    "as claimed by the signer": "据签名者声称",
+    "first seen {date}": "首次见于 {date}",
+    "ihasmail will tell you if a later message from this address is signed by anybody else.":
+      "如果此地址之后的邮件由他人签名，ihasmail 会提醒您。",
+    "itself, or an issuer it does not name": "其自身，或一个未具名的颁发者",
+    "no address": "无地址",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1491,5 +1556,14 @@ export const catalog: Catalog = {
     "Marked {n} messages as read": { other: "已将 {n} 封邮件标为已读" },
     "in {n} folders": { other: "在 {n} 个文件夹中" },
     "Deleted {n} messages": { other: "已删除 {n} 封邮件" },
+    // ── Emptying an address book, and deleting a selection (#277) ──
+    "Delete {n} contacts?": { other: "删除 {n} 位联系人？" },
+    "Deleted {n} contacts": { other: "已删除 {n} 位联系人" },
+    "{n} contacts will be deleted. This cannot be undone.": {
+      other: "将删除 {n} 位联系人。此操作无法撤销。",
+    },
+    "{n} were also in other address books and were only removed from this one": {
+      other: "其中 {n} 位也在其他通讯录中，仅从此通讯录移除",
+    },
   },
 };

@@ -1,6 +1,10 @@
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
 import { getConnInfo } from "@hono/node-server/conninfo";
+import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
+import { compress } from "hono/compress";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import {
   AccountError,
@@ -59,6 +63,19 @@ const loginFloodLimiter = new RateLimiter(config.loginRateLimit * 20, 15 * 60_00
  * cannot get the whole deployment banned.
  */
 const accountLimiter = new RateLimiter(10, 15 * 60_000);
+const apiLimiter = new RateLimiter(config.apiRateLimit, 60_000);
+
+/** Per-session budget on the data path. See config.apiRateLimit. */
+const apiRateLimited: MiddlewareHandler<Env> = async (c, next) => {
+  if (config.apiRateLimit > 0) {
+    const session = c.get("session");
+    if (session && !apiLimiter.check(session.id)) {
+      c.header("Retry-After", String(apiLimiter.retryAfterSeconds(session.id)));
+      return c.json({ error: "rate_limited" }, 429);
+    }
+  }
+  await next();
+};
 
 const _HOP_BY_HOP = new Set([
   "connection",
@@ -117,6 +134,62 @@ const securityHeaders: MiddlewareHandler = async (c, next) => {
 };
 
 /** CSRF: require our custom header on all API calls; reject cross-site fetches. */
+/**
+ * Routes that forward somebody else's bytes rather than producing our own.
+ *
+ * Compression is right for the app shell, the bundle and our JSON; it is not
+ * worth the risk on the proxy paths. Those carry a content-length copied from
+ * upstream under the rules in `forwardedContentLength`, and issue #76 was a
+ * silent truncation caused by exactly that header disagreeing with the body.
+ * Re-encoding them would be safe in principle -- the length is dropped and the
+ * response goes out chunked -- but the payloads are attachments, images and
+ * calendar data that are already compressed or too small to matter, so there
+ * is nothing to win and a scar to respect.
+ *
+ * `/api/events` needs no entry here: Hono skips `text/event-stream` by content
+ * type. It is listed anyway, because a future change to that route's type
+ * should not quietly start buffering the push stream.
+ */
+const UNCOMPRESSED_ROUTES = [
+  "/api/blob/",
+  "/api/image",
+  "/api/ics",
+  "/api/upload/",
+  "/api/events",
+  /*
+   * The liveness probe, which is small enough that gzip makes it bigger: 53
+   * bytes becomes 73. Hono's size threshold cannot catch this on its own,
+   * because it only applies when the response carries a content-length and
+   * `c.json()` does not set one. Every other JSON route is left compressed --
+   * a JMAP response can run to hundreds of kilobytes and its length is just as
+   * unknown -- so this is the one place worth naming.
+   */
+  "/api/health",
+];
+
+/**
+ * gzip for what we generate.
+ *
+ * The bundle ships uncompressed otherwise: 915 KB on the wire where 307 KB
+ * would do, on every first load. `Caddyfile.example` and
+ * `nginx.example.conf` both compress at the proxy, but that only helps the
+ * deployments that use them, and the default should not depend on reading the
+ * examples.
+ *
+ * Hono's middleware declines anything already carrying `Content-Encoding` or
+ * `Transfer-Encoding`, so a proxy compressing in front of us wins and we do
+ * not double-encode.
+ */
+function compressResponses(basePath: string): MiddlewareHandler {
+  const inner = compress({ threshold: 1024 });
+  const skip = UNCOMPRESSED_ROUTES.map((r) => `${basePath}${r}`);
+  return async (c, next) => {
+    const path = new URL(c.req.url).pathname;
+    if (skip.some((prefix) => path.startsWith(prefix))) return next();
+    return inner(c, next);
+  };
+}
+
 const csrfGuard: MiddlewareHandler = async (c, next) => {
   const site = c.req.header("sec-fetch-site");
   if (site && site !== "same-origin" && site !== "none") {
@@ -206,6 +279,7 @@ function upstreamFailure(c: Context, err: unknown) {
 export function createApp(basePath = config.basePath): Hono<Env> {
   const app = new Hono<Env>();
   app.use("*", securityHeaders);
+  app.use("*", compressResponses(basePath));
 
   const api = new Hono<Env>();
   api.use("*", csrfGuard);
@@ -605,7 +679,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   // ---------- JMAP API proxy ----------
-  api.post("/jmap", requireSession, async (c) => {
+  api.post("/jmap", requireSession, apiRateLimited, async (c) => {
     const session = c.get("session");
     const ct = c.req.header("content-type") ?? "";
     if (!ct.toLowerCase().startsWith("application/json")) {
@@ -679,7 +753,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   // ---------- Blob download ----------
-  api.get("/blob/:accountId/:blobId/:name", requireSession, async (c) => {
+  api.get("/blob/:accountId/:blobId/:name", requireSession, apiRateLimited, async (c) => {
     const session = c.get("session");
     const { accountId, blobId, name } = c.req.param();
     const accept = c.req.query("accept") ?? "application/octet-stream";
@@ -755,6 +829,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         expandTemplate(upstream.eventSourceUrl, { types, closeafter, ping }),
         upstream.baseUrl,
       );
+      if (config.rawPushRelay) return relayPushRaw(c, url, session.authorization);
       const controller = new AbortController();
       c.req.raw.signal.addEventListener("abort", () => controller.abort());
       const res = await fetch(url, {
@@ -775,10 +850,10 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   // ---------- Remote image privacy proxy ----------
-  api.get("/image", requireSession, imageProxyHandler);
+  api.get("/image", requireSession, apiRateLimited, imageProxyHandler);
   // Behind the session for the same reason the image proxy is: an open fetcher
   // on someone else's server is a gift to whoever finds it.
-  api.get("/ics", requireSession, icsProxyHandler);
+  api.get("/ics", requireSession, apiRateLimited, icsProxyHandler);
 
   api.notFound((c) => c.json({ error: "not_found" }, 404));
   api.onError((err, c) => {
@@ -862,6 +937,67 @@ const PASSTHROUGH_HEADERS = new Set([
   "last-modified",
   "retry-after",
 ]);
+
+/**
+ * Hold a push stream open with the least machinery that will do it.
+ *
+ * The fetch() version above builds an undici Response, a web ReadableStream,
+ * a reader, and Hono's stream-to-Node bridge for every tab, and keeps all of
+ * it alive for as long as the tab is open. Measured against a real Stalwart
+ * that is about 44 KiB of JavaScript heap per tab -- twelve times what the
+ * session itself costs -- and a signed-in tab is otherwise nothing but this
+ * one held connection. Here the upstream socket is piped straight into the
+ * Node response, so what stays resident per tab is two sockets and their
+ * small IncomingMessage/ServerResponse pair.
+ *
+ * Returns a Response Hono treats as already sent: the raw bindings are
+ * written to directly, and the returned value is never serialised.
+ */
+function relayPushRaw(c: Context<Env>, url: string, authorization: string): Response {
+  const out = (c.env as { outgoing: import("node:http").ServerResponse }).outgoing;
+  const target = new URL(url);
+  const req = (target.protocol === "https:" ? httpsRequest : httpRequest)(target, {
+    method: "GET",
+    headers: { authorization, accept: "text/event-stream" },
+  });
+  const abort = () => req.destroy();
+  c.req.raw.signal.addEventListener("abort", abort);
+  out.on("close", abort);
+  req.on("response", (res) => {
+    if (res.statusCode !== 200) {
+      res.resume();
+      out.writeHead(502, {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+      });
+      out.end(JSON.stringify({ error: "upstream_error" }));
+      return;
+    }
+    out.writeHead(200, {
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache, no-transform",
+      connection: "keep-alive",
+      "x-accel-buffering": "no",
+    });
+    out.flushHeaders();
+    res.pipe(out);
+  });
+  req.on("error", () => {
+    if (!out.headersSent) {
+      out.writeHead(502, {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+      });
+      out.end(JSON.stringify({ error: "upstream_error" }));
+    } else {
+      out.end();
+    }
+  });
+  req.end();
+  // Tells @hono/node-server the raw ServerResponse has been written to and
+  // must be left alone.
+  return RESPONSE_ALREADY_SENT;
+}
 
 function passthrough(res: Response): Response {
   const headers = new Headers();

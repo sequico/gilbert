@@ -55,8 +55,7 @@ durable belongs to Stalwart; the container is disposable.
 | 🧪 **[KNOWN-ISSUES.md](KNOWN-ISSUES.md)** | What was verified live, and where Stalwart departs from a spec |
 | 🛣 **[ROADMAP.md](ROADMAP.md)** | What Gilbert does not do, and why |
 
-This file is for people working *on* Gilbert. Everything about running it
-lives in the docs.
+This file is for people working *on* Gilbert. Everything about running itlives in the docs.
 
 ## Screenshots
 
@@ -77,6 +76,7 @@ More, including the mobile layout, on [ihasmail.org](https://ihasmail.org/#scree
 - **Contacts** — JMAP Contacts / JSContact: address books, groups, full editor, vCard import/export
 - **Files** — JMAP FileNode: browse, upload, download, rename, move, delete
 - **Settings that follow the account**, not the browser — kept in a `settings.json` in the account's own JMAP Files, so Gilbert itself stays stateless
+- **Signature checking** — S/MIME signed mail is verified as you read it, and the signer is remembered: a later message from the same address signed by somebody else is called out loudly. No certificate authority is involved and none is bundled, so Gilbert never claims more than it can show — see [Checking a signature](FEATURES.md#checking-a-signature)
 - **Runs read-only** — one optional write path, and with it switched off the container needs no volume and no writable root. `IMMUTABLE=1` is checked at startup rather than trusted, so a half-applied switch refuses to boot instead of failing quietly. See [Running immutably](#running-immutably)
 - **Nine new interface languages** — German, Spanish, French, Dutch, Portuguese (Brazil), Russian, Ukrainian, Simplified Chinese and Japanese, alongside English and separate from the date-and-time locale. Every one is marked **Beta**: they were made by AI and no native speaker has read them yet, which Settings says plainly, with a link for reporting anything wrong
 - **On a phone** — swipe a message to archive or delete it (either direction, your choice), hold one to select it, hold a folder for its menu, pull the list to refresh, swipe back from a conversation
@@ -118,7 +118,9 @@ Full instructions, TLS, and every environment variable:
 
 ### Container images
 
-Published to GHCR on every release, for `linux/amd64` and `linux/arm64`:
+Published to GHCR on every release, for `linux/amd64` and `linux/arm64`.
+Releases are cut weekly — Mondays, 09:00 UTC, in a week that had changes — so
+the newest image is normally behind `main`:
 
 ```bash
 docker pull ghcr.io/coffey-labs/ihasmail:latest

@@ -10,13 +10,16 @@ import {
   Pencil,
   Phone,
   Pin,
+  Plus,
   Search,
   StickyNote,
   Trash2,
   Users,
+  X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import { setErrorMessage } from "@/jmap/client";
 import type { ContactCard } from "@/jmap/types";
 import { avatarColor } from "@/lib/address";
 import {
@@ -47,12 +50,31 @@ export function ContactsView({ id }: { id?: string }) {
   const bookId = sel.bookId;
   const [editing, setEditing] = useState<Partial<ContactCard> | null>(null);
   const openCompose = useCompose((s) => s.open);
+  /*
+   * Ticked rows, and the last one ticked so a shift-click has something to
+   * reach back to. Kept here rather than in the store: this is the only list
+   * of contacts there is, and nothing outside this view acts on a selection.
+   *
+   * Only ever your own cards. Deleting somebody else's contact is a write to
+   * their account, which is not a thing this client can do -- see `readOnly`.
+   */
+  const [picked, setPicked] = useState<Record<string, true>>({});
+  const lastPicked = useRef<string | null>(null);
+  const readOnly = Boolean(sel.accountId);
 
   useEffect(() => {
     if (contacts.available && !contacts.loaded && !contacts.loading)
       void contacts.loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contacts.available, contacts.loaded]);
+
+  /* A selection belongs to the book it was made in. Carrying it across to
+     another book would leave a count on screen describing rows that are no
+     longer there, and a Delete button aimed at them. */
+  useEffect(() => {
+    setPicked({});
+    lastPicked.current = null;
+  }, [bookId, sel.accountId]);
 
   useEffect(() => {
     const onNew = () => setEditing({});
@@ -115,6 +137,13 @@ export function ContactsView({ id }: { id?: string }) {
     }
     return out;
   }, [list]);
+  /* Ticked *and* on screen. A selection outlives a search box being typed
+     into, and deleting rows that scrolled out of view is not what the count
+     on the bar promised. */
+  const pickedIds = useMemo(
+    () => list.filter((c) => picked[c.id]).map((c) => c.id),
+    [list, picked],
+  );
 
   if (!contacts.available) {
     return (
@@ -225,40 +254,156 @@ export function ContactsView({ id }: { id?: string }) {
     }
   };
 
+  /* Ticking a box, with shift reaching back to the last one ticked. The range
+     is taken from `list`, so it is the rows as they are grouped and sorted on
+     screen rather than the order the store happens to hold them in. */
+  const tick = (cardId: string, on: boolean, range: boolean) => {
+    /* The anchor is read here and not inside the updater below. React runs an
+       updater when it gets round to rendering, by which time the ref has
+       already been moved to this row -- so the range would be measured from
+       the row that ended it and collapse to that one row. */
+    const anchor = range ? lastPicked.current : null;
+    const a = anchor ? list.findIndex((c) => c.id === anchor) : -1;
+    const b = list.findIndex((c) => c.id === cardId);
+    const ids =
+      a >= 0 && b >= 0
+        ? list.slice(Math.min(a, b), Math.max(a, b) + 1).map((c) => c.id)
+        : [cardId];
+    setPicked((prev) => {
+      const next = { ...prev };
+      for (const i of ids) {
+        if (on) next[i] = true;
+        else delete next[i];
+      }
+      return next;
+    });
+    lastPicked.current = cardId;
+  };
+
+  const clearPicked = () => {
+    setPicked({});
+    lastPicked.current = null;
+  };
+
+  const deletePicked = async () => {
+    const n = pickedIds.length;
+    if (!n) return;
+    if (
+      !(await confirmDialog({
+        title: plural(n, { one: "Delete {n} contact?", other: "Delete {n} contacts?" }),
+        message: translate("This cannot be undone."),
+        confirmLabel: translate("Delete"),
+        danger: true,
+      }))
+    )
+      return;
+    try {
+      /* What the server confirmed, not what was asked. A refusal that took
+         half of them still deleted the other half, and saying "it failed"
+         sends you looking for contacts that are already gone. */
+      const { destroyed, refused } = await contacts.destroyCards(pickedIds);
+      clearPicked();
+      if (destroyed)
+        toast.success(
+          plural(destroyed, {
+            one: "Deleted {n} contact",
+            other: "Deleted {n} contacts",
+          }),
+        );
+      if (refused)
+        toast.error(
+          translate("Some could not be deleted: {error}", {
+            error: setErrorMessage(refused),
+          }),
+        );
+      if (destroyed && id && pickedIds.includes(id)) navigate("/contacts");
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
   return (
     <div className={`contacts-layout ${selected || editing ? "detail" : ""}`}>
       <section className="contacts-list">
-        <div className="list-search row">
-          <div
-            className="search-input"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              height: 38,
-              background: "var(--bg-sunken)",
-              borderRadius: 999,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "0 12px",
-            }}
-          >
-            <Search size={16} className="muted" />
+        {pickedIds.length ? (
+          /* The search box gives way rather than sitting alongside: what the
+             bar counts is what the search left on screen, so leaving the box
+             where it is invites narrowing the list under your own selection. */
+          <div className="list-search row contacts-selbar">
             <input
+              type="checkbox"
+              className="contact-check"
+              checked={pickedIds.length === list.length}
+              ref={(el) => {
+                if (el)
+                  el.indeterminate =
+                    pickedIds.length > 0 && pickedIds.length < list.length;
+              }}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setPicked(Object.fromEntries(list.map((c) => [c.id, true as const])));
+                } else clearPicked();
+              }}
+              aria-label={translate("Select all")}
+            />
+            <span className="grow">
+              {plural(pickedIds.length, { one: "{n} selected", other: "{n} selected" })}
+            </span>
+            <button
+              className="icon-btn"
+              title={translate("Delete")}
+              onClick={() => void deletePicked()}
+            >
+              <Trash2 size={19} />
+            </button>
+            <button
+              className="icon-btn"
+              title={translate("Clear selection")}
+              onClick={clearPicked}
+            >
+              <X size={19} />
+            </button>
+          </div>
+        ) : (
+          <div className="list-search row">
+            <div
+              className="search-input"
               style={{
                 flex: 1,
                 minWidth: 0,
-                border: 0,
-                background: "transparent",
-                outline: "none",
+                height: 38,
+                background: "var(--bg-sunken)",
+                borderRadius: 999,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "0 12px",
               }}
-              placeholder={translate("Search contacts")}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
+            >
+              <Search size={16} className="muted" />
+              <input
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  border: 0,
+                  background: "transparent",
+                  outline: "none",
+                }}
+                placeholder={translate("Search contacts")}
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </div>
+            <button
+              className="icon-btn"
+              title={translate("New contact")}
+              onClick={() => setEditing({})}
+            >
+              <Plus size={20} />
+            </button>
           </div>
-        </div>
-        <div className="contacts-scroll">
+        )}
+        <div className={`contacts-scroll ${pickedIds.length ? "has-selection" : ""}`}>
           {contacts.loading && !contacts.loaded ? (
             <Spinner label={translate("Loading contacts…")} />
           ) : !list.length ? (
@@ -282,9 +427,22 @@ export function ContactsView({ id }: { id?: string }) {
                   return (
                     <div
                       key={c.id}
-                      className={`contact-row ${id === c.id ? "active" : ""}`}
+                      className={`contact-row ${id === c.id ? "active" : ""} ${picked[c.id] ? "picked" : ""}`}
                       onClick={() => navigate(`/contacts/${c.id}`)}
                     >
+                      {!readOnly && (
+                        <input
+                          type="checkbox"
+                          className="contact-check"
+                          checked={Boolean(picked[c.id])}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            tick(c.id, !picked[c.id], ev.shiftKey);
+                          }}
+                          onChange={() => {}}
+                          aria-label={translate("Select")}
+                        />
+                      )}
                       <span
                         className="avatar"
                         style={{
@@ -383,19 +541,6 @@ function ContactDetail({
   const books = Object.keys(c.addressBookIds ?? {})
     .map((id) => contacts.books[id]?.name)
     .filter(Boolean);
-  /* Whether this card may be edited or deleted: anything in the reader's own
-     books is theirs, a shared book only when its rights say mayWrite -- a
-     group's writable directory, not a colleague's read-only share. */
-  const cardAccount = c.id ? contacts.accountOfCard(c.id) : null;
-  const cardBookId = Object.keys(c.addressBookIds ?? {})[0];
-  const canWrite = !cardAccount
-    ? true
-    : contacts.sharedBooks.some(
-        (b) =>
-          b.accountId === cardAccount &&
-          b.book.id === cardBookId &&
-          b.book.myRights.mayWrite,
-      );
   const members =
     c.kind === "group"
       ? Object.keys(c.members ?? {})
@@ -414,11 +559,9 @@ function ContactDetail({
           </button>
         )}
         <span className="spacer" />
-        {canWrite && (
-          <button className="btn btn-sm" onClick={onEdit}>
-            <Pencil size={14} /> {translate("Edit")}
-          </button>
-        )}
+        <button className="btn btn-sm" onClick={onEdit}>
+          <Pencil size={14} /> {translate("Edit")}
+        </button>
         <button
           className="btn btn-sm"
           onClick={() => {
@@ -430,31 +573,35 @@ function ContactDetail({
         >
           <Download size={14} /> {translate("vCard")}
         </button>
-        {canWrite && (
-          <button
-            className="btn btn-sm btn-ghost"
-            style={{ color: "var(--danger)" }}
-            onClick={async () => {
-              if (
-                await confirmDialog({
-                  title: translate("Delete {name}?", { name }),
-                  confirmLabel: translate("Delete"),
-                  danger: true,
-                })
-              ) {
-                try {
-                  await contacts.destroyCards([c.id]);
-                  toast.success(translate("Contact deleted"));
-                  navigate("/contacts");
-                } catch (err) {
-                  toast.error((err as Error).message);
+        <button
+          className="btn btn-sm btn-ghost"
+          style={{ color: "var(--danger)" }}
+          onClick={async () => {
+            if (
+              await confirmDialog({
+                title: translate("Delete {name}?", { name }),
+                confirmLabel: translate("Delete"),
+                danger: true,
+              })
+            ) {
+              try {
+                const { destroyed, refused } = await contacts.destroyCards([c.id]);
+                if (!destroyed) {
+                  toast.error(
+                    refused ? setErrorMessage(refused) : translate("It was not deleted"),
+                  );
+                  return;
                 }
+                toast.success(translate("Contact deleted"));
+                navigate("/contacts");
+              } catch (err) {
+                toast.error((err as Error).message);
               }
-            }}
-          >
-            <Trash2 size={14} />
-          </button>
-        )}
+            }
+          }}
+        >
+          <Trash2 size={14} />
+        </button>
       </div>
       <div className="contact-hero">
         <span

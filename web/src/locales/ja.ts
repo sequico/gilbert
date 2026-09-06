@@ -328,6 +328,7 @@ export const catalog: Catalog = {
     Busy: "予定あり",
     "Free/busy": "空き時間",
     "Show as": "表示方法",
+    "Availability on {date}": "{date} の空き状況",
     "Count all events as busy": "すべての予定を「予定あり」とする",
     "Only events I'm attending": "参加する予定のみ",
     "Don't include in availability": "空き状況に含めない",
@@ -366,6 +367,7 @@ export const catalog: Catalog = {
     "New address book": "新しいアドレス帳",
     "No address books yet.": "アドレス帳がまだありません。",
     "Choose from address books": "アドレス帳から選択",
+    "Import vCard": "vCard をインポート",
     "Export all contacts": "すべての連絡先をエクスポート",
     "Export address book": "このアドレス帳をエクスポート",
     "Import contacts…": "連絡先をインポート…",
@@ -442,6 +444,8 @@ export const catalog: Catalog = {
     "Make ihasmail yours.": "ihasmail を自分好みに整えましょう。",
     Reading: "閲覧",
     "Reading pane": "プレビューウィンドウ",
+    "Reading, sending and list behaviour. Settings are stored in this browser.":
+      "閲覧・送信・一覧の動作。設定はこのブラウザーに保存されます。",
     "Right of the list": "一覧の右",
     "Below the list": "一覧の下",
     "Hidden (open full width)": "表示しない（全幅で開く）",
@@ -750,6 +754,8 @@ export const catalog: Catalog = {
     "Create “{name}”": "「{name}」を作成",
     "Type a name to create your first label.":
       "名前を入力すると、最初のラベルを作成できます。",
+    "Labels are IMAP keywords stored on your messages, so they sync to other clients. Names and colours are kept in this browser.":
+      "ラベルはメールに保存される IMAP キーワードなので、他のクライアントにも同期されます。名前と色はこのブラウザーに保存されます。",
     "New label": "新しいラベル",
     "Delete label": "ラベルを削除",
 
@@ -890,6 +896,8 @@ export const catalog: Catalog = {
       "ディレクトリに他のユーザーが見つからないため、新しく追加することはできません。すでに設定されている共有は下に表示され、解除はできます。",
     "Stalwart does not publish its version number to mail clients, so ihasmail reports the edition where the server gives one. ihasmail requires 0.16 or newer, and sign-in refuses anything older.":
       "Stalwart はメールクライアントにバージョン番号を公開しないため、ihasmail はサーバーが示すエディションだけを表示します。ihasmail には 0.16 以降が必要で、それより古いサーバーへのサインインは拒否されます。",
+    "{name} is the palette from {site}, and what a new account starts on. It is a dark theme, so it counts as dark wherever that matters, and the accent colour below still applies on top of it.":
+      "{name} は {site} の配色で、新しいアカウントの初期テーマです。ダークテーマなので、明暗が問われる場面ではダークとして扱われます。下のアクセントカラーはその上に重ねて適用されます。",
     "ihasmail's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what this build needs from the server is the line above.":
       "ihasmail 自身のバージョンは、ビルド元となったコミットの日付と、そのコミットの出どころを並べたものです。{example} は 2026 年 8 月 30 日付のコミットから作られ、そのコミットはプルリクエスト 129 を通って届きました。プルリクエストを経ていないコミットは、代わりに短い SHA が付きます — {sha}。バージョンには Stalwart に関する情報をあえて含めていません。このビルドがサーバーに求めるものは、上の行に示されています。",
 
@@ -992,6 +1000,7 @@ export const catalog: Catalog = {
     "Contact deleted": "連絡先を削除しました",
     "Contact saved": "連絡先を保存しました",
     Copied: "コピーしました",
+    "Copy of {title}": "{title} のコピー",
     "Could not cancel: {error}": "取り消せませんでした: {error}",
     "Could not copy": "コピーできませんでした",
     "Could not copy the address": "アドレスをコピーできませんでした",
@@ -1461,6 +1470,63 @@ export const catalog: Catalog = {
     // Sentences that lib/ and store/ were building in English, and the two
     // swipe labels that reach t() through a variable and so were invisible
     // to a scan for t("literal"). See #259.
+    // ── Emptying an address book, and deleting a selection (#277) ──
+    "This cannot be undone.": "この操作は取り消せません。",
+    "Some could not be deleted: {error}": "一部を削除できませんでした: {error}",
+    "It was not deleted": "削除されませんでした",
+    "Empty address book": "このアドレス帳を空にする",
+    "There is nothing in it to delete": "削除するものがありません",
+    "Empty “{name}”?": "「{name}」を空にしますか？",
+    "Delete them": "削除する",
+    "Nothing was deleted": "何も削除されませんでした",
+    // ── Checking an S/MIME signature, and what may be said about it ──
+    "Certificate covers": "証明書の対象",
+    Details: "詳細",
+    "Earlier messages from this address were signed by {previous}. This one is signed by {current}.":
+      "このアドレスからの以前のメールは {previous} が署名していました。このメールの署名者は {current} です。",
+    Fingerprint: "フィンガープリント",
+    "Hide details": "詳細を隠す",
+    "Issued by": "発行者",
+    "It is signed with OpenPGP, and ihasmail has no way to fetch the sender's public key.":
+      "OpenPGP で署名されており、ihasmail には送信者の公開鍵を取得する手段がありません。",
+    "It uses a signature algorithm ihasmail cannot check yet.":
+      "ihasmail がまだ検証できない署名アルゴリズムが使われています。",
+    "It was made with a certificate belonging to {name}, which does not cover this address.":
+      "{name} の証明書で署名されており、この証明書はこのアドレスを対象にしていません。",
+    "Previous fingerprint": "以前のフィンガープリント",
+    "Signed at": "署名日時",
+    "Signed by {name} — the same signer as before.":
+      "{name} による署名です。以前と同じ署名者です。",
+    "Signed by {name}, seen here for the first time.":
+      "{name} による署名です。ここで見るのは初めてです。",
+    Signer: "署名者",
+    "That can mean a renewed certificate, and it can mean somebody else. Check with them by some other route before trusting it.":
+      "証明書を更新しただけの場合もあれば、別人の場合もあります。信頼する前に、別の手段で本人に確認してください。",
+    "The certificate has expired.": "証明書の有効期限が切れています。",
+    "The certificate is not valid yet.": "証明書はまだ有効ではありません。",
+    "The message does not match what was signed — it was altered after signing, or damaged on the way.":
+      "メールが署名された内容と一致しません。署名後に変更されたか、途中で壊れています。",
+    "The signature carries no certificate that can be read.":
+      "署名に読み取れる証明書が含まれていません。",
+    "The signature could not be read.": "署名を読み取れませんでした。",
+    "The signature does not match the certificate sent with it.":
+      "署名が、一緒に送られた証明書と一致しません。",
+    "The signature is not for this sender.": "この署名はこの送信者のものではありません。",
+    "The signed part is missing either the message or the signature.":
+      "署名された部分に、本文か署名のどちらかが欠けています。",
+    "The signer has changed.": "署名者が変わりました。",
+    "This message is signed, and ihasmail could not check the signature.":
+      "このメールには署名がありますが、ihasmail は署名を検証できませんでした。",
+    "This signature does not check out.": "この署名は正しくありません。",
+    "Valid until": "有効期限",
+    "a different certificate": "別の証明書",
+    "an unnamed signer": "名前のない署名者",
+    "as claimed by the signer": "署名者の申告による",
+    "first seen {date}": "初回は {date}",
+    "ihasmail will tell you if a later message from this address is signed by anybody else.":
+      "このアドレスからの以降のメールが別の人の署名だった場合、ihasmail がお知らせします。",
+    "itself, or an issuer it does not name": "自分自身、または名前のない発行者",
+    "no address": "アドレスなし",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1548,5 +1614,14 @@ export const catalog: Catalog = {
     "Marked {n} messages as read": { other: "{n} 通のメールを既読にしました" },
     "in {n} folders": { other: "{n} 個のフォルダーで" },
     "Deleted {n} messages": { other: "{n} 通のメールを削除しました" },
+    // ── Emptying an address book, and deleting a selection (#277) ──
+    "Delete {n} contacts?": { other: "{n} 件の連絡先を削除しますか？" },
+    "Deleted {n} contacts": { other: "{n} 件の連絡先を削除しました" },
+    "{n} contacts will be deleted. This cannot be undone.": {
+      other: "{n} 件の連絡先が削除されます。この操作は取り消せません。",
+    },
+    "{n} were also in other address books and were only removed from this one": {
+      other: "{n} 件は他のアドレス帳にもあるため、このアドレス帳から外しただけです",
+    },
   },
 };

@@ -48,6 +48,18 @@ For larger changes, please open an issue to discuss the approach **before** subm
    - Related issue number(s), if any
    - Screenshots/GIFs for UI changes
    - Any manual testing you performed
+8. **Add translations** for any new user-visible string. Nine languages ship
+   alongside English in `web/src/locales/`, and a missing key renders its
+   English source rather than failing — so an untranslated string is invisible
+   until somebody reading that language finds it. `npm run i18n:check` and
+   `node scripts/i18n-catalog-check.mjs` report where you stand; the catalogue
+   key for a plural is the `other` form.
+
+`main` is not branch-protected. The gate that keeps a broken change off it is
+the fast CI check every push runs — `npm run prepush`: typecheck, Biome lint,
+and the test suite in UTC — enforced by the pre-push hook in `.githooks/`. A
+push that fails the gate is refused; bypass it with `--no-verify` only
+deliberately and knowingly.
 
 ### Code Style
 
