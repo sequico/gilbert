@@ -361,7 +361,9 @@ export const config = {
    * origin Stalwart can reach ihasmail at, with a certificate it trusts.
    * An account that cannot be verified stays on the relay.
    */
-  pushMode: (process.env.PUSH_MODE === "relay" ? "relay" : "subscribe") as "relay" | "subscribe",
+  pushMode: (process.env.PUSH_MODE === "relay" ? "relay" : "subscribe") as
+    | "relay"
+    | "subscribe",
   pushUrl: process.env.PUSH_URL || "",
   /* See relayPushRaw(): pipe the push stream socket-to-socket instead of through fetch(). */
   rawPushRelay: process.env.RAW_PUSH_RELAY !== "0",

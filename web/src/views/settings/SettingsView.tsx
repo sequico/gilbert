@@ -126,11 +126,7 @@ export function SettingsView({ section }: { section?: string }) {
       activeId={section}
       base="/settings"
       backHref={section ? "/settings" : undefined}
-      backLabel={
-        <>
-          <span>{t("All settings")}</span>
-        </>
-      }
+      backLabel={t("All settings")}
       footer={
         <>
           <div className="nav-section" style={{ paddingLeft: 8 }}>

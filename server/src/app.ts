@@ -1,6 +1,5 @@
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
-import { attach as pushAttach, attachRelay as pushAttachRelay, prepare as pushPrepare, receive as pushReceive, pushStatus } from "./push.js";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import type { Context, MiddlewareHandler } from "hono";
@@ -22,6 +21,13 @@ import { resolveClientIp } from "./clientip.js";
 import { config } from "./config.js";
 import { icsProxyHandler } from "./icsproxy.js";
 import { imageProxyHandler } from "./imageproxy.js";
+import {
+  attach as pushAttach,
+  attachRelay as pushAttachRelay,
+  prepare as pushPrepare,
+  receive as pushReceive,
+  pushStatus,
+} from "./push.js";
 import { RateLimiter } from "./ratelimit.js";
 import { type LiveSession, type SessionBackend, SessionStore } from "./sessions.js";
 import { staticHandler } from "./static.js";
@@ -296,7 +302,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   const api = new Hono<Env>();
   api.use("*", csrfGuard);
 
-  api.get("/health", (c) => c.json({ ok: true, name: config.appName, version: config.version, push: pushStatus() }));
+  api.get("/health", (c) =>
+    c.json({
+      ok: true,
+      name: config.appName,
+      version: config.version,
+      push: pushStatus(),
+    }),
+  );
 
   /*
    * Stalwart's push delivery. Authenticated by the token in the path -- 32
@@ -305,14 +318,23 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * unknown token is a 404 that looks like any other. See push.ts.
    */
   app.post(`${basePath}/api/push/:token`, async (c) => {
-    if (!(c.req.header("content-type") ?? "").toLowerCase().startsWith("application/json")) return c.body(null, 415);
+    if (
+      !(c.req.header("content-type") ?? "").toLowerCase().startsWith("application/json")
+    )
+      return c.body(null, 415);
     const len = Number(c.req.header("content-length") ?? "0");
     if (!len || len > 64 * 1024) return c.body(null, 413);
     let body: unknown;
-    try { body = await c.req.json(); } catch { return c.body(null, 400); }
-    return c.body(null, (await pushReceive(c.req.param("token"), body)) as 200 | 400 | 404 | 500);
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.body(null, 400);
+    }
+    return c.body(
+      null,
+      (await pushReceive(c.req.param("token"), body)) as 200 | 400 | 404 | 500,
+    );
   });
-
 
   api.get("/config", (c) =>
     c.json({
@@ -860,20 +882,31 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const closeafter = c.req.query("closeafter") ?? "no";
     const ping = c.req.query("ping") ?? "30";
     try {
-      const upstream = await getUpstreamSession(session.id, session.authorization, upstreamFor(session.username));
-      const url = absoluteUpstream(expandTemplate(upstream.eventSourceUrl, { types, closeafter, ping }), upstream.baseUrl);
+      const upstream = await getUpstreamSession(
+        session.id,
+        session.authorization,
+        upstreamFor(session.username),
+      );
+      const url = absoluteUpstream(
+        expandTemplate(upstream.eventSourceUrl, { types, closeafter, ping }),
+        upstream.baseUrl,
+      );
       // Subscribe mode: if this account's subscription is verified, the tab is
       // served by fan-out and holds nothing upstream. Otherwise it gets its own
       // relay, and is moved to fan-out the moment the account verifies.
       const accountId = upstream.primaryAccounts?.["urn:ietf:params:jmap:mail"];
       const out = (c.env as { outgoing: import("node:http").ServerResponse }).outgoing;
-      if (accountId && pushAttach(session.username, accountId, session.authorization, out)) {
+      if (
+        accountId &&
+        pushAttach(session.username, accountId, session.authorization, out)
+      ) {
         out.writeHead(200, SSE_HEADERS);
         out.flushHeaders();
         out.write(": subscribed\n\n");
         return RESPONSE_ALREADY_SENT;
       }
-      if (config.rawPushRelay) return relayPushRaw(c, url, session.authorization, session.username);
+      if (config.rawPushRelay)
+        return relayPushRaw(c, url, session.authorization, session.username);
       const controller = new AbortController();
       c.req.raw.signal.addEventListener("abort", () => controller.abort());
       const res = await fetch(url, {
@@ -1007,7 +1040,12 @@ const SSE_HEADERS = {
   "x-accel-buffering": "no",
 } as const;
 
-function relayPushRaw(c: Context<Env>, url: string, authorization: string, username?: string): Response {
+function relayPushRaw(
+  c: Context<Env>,
+  url: string,
+  authorization: string,
+  username?: string,
+): Response {
   const out = (c.env as { outgoing: import("node:http").ServerResponse }).outgoing;
   const target = new URL(url);
   const req = (target.protocol === "https:" ? httpsRequest : httpRequest)(target, {
@@ -1041,7 +1079,10 @@ function relayPushRaw(c: Context<Env>, url: string, authorization: string, usern
   let migrated = false;
   const migrate = () => {
     migrated = true;
-    if (!out.headersSent) { out.writeHead(200, SSE_HEADERS); out.flushHeaders(); }
+    if (!out.headersSent) {
+      out.writeHead(200, SSE_HEADERS);
+      out.flushHeaders();
+    }
     signal.removeEventListener("abort", abort);
     out.removeListener("close", abort);
     req.removeAllListeners();
@@ -1050,15 +1091,31 @@ function relayPushRaw(c: Context<Env>, url: string, authorization: string, usern
   };
   if (username) pushAttachRelay(username, out, migrate);
   req.on("response", (res) => {
-    if (migrated) { res.destroy(); return; }
-    if (res.statusCode !== 200) { res.resume(); fail(); return; }
-    if (!out.headersSent) { out.writeHead(200, SSE_HEADERS); out.flushHeaders(); }
+    if (migrated) {
+      res.destroy();
+      return;
+    }
+    if (res.statusCode !== 200) {
+      res.resume();
+      fail();
+      return;
+    }
+    if (!out.headersSent) {
+      out.writeHead(200, SSE_HEADERS);
+      out.flushHeaders();
+    }
     // end: false -- the browser stream outlives the upstream if we migrate.
     res.pipe(out, { end: false });
-    res.on("end", () => { if (!migrated) out.end(); });
-    res.on("error", () => { if (!migrated) out.end(); });
+    res.on("end", () => {
+      if (!migrated) out.end();
+    });
+    res.on("error", () => {
+      if (!migrated) out.end();
+    });
   });
-  req.on("error", () => { if (!migrated) fail(); });
+  req.on("error", () => {
+    if (!migrated) fail();
+  });
   req.end();
   // Tells @hono/node-server the raw ServerResponse has been written to and
   // must be left alone.

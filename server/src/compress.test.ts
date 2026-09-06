@@ -150,7 +150,7 @@ test("the data path is rate limited per session, and login stays on its own budg
 });
 
 test("a response to a client that offered no encoding is not touched by the compressor", async () => {
-  const res = await createApp().request("/assets/app.js");   // no Accept-Encoding at all
+  const res = await createApp().request("/assets/app.js"); // no Accept-Encoding at all
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("content-encoding"), null);
   assert.equal(res.headers.get("vary"), null, "no Vary: the middleware never ran");
