@@ -358,7 +358,7 @@ export const config = {
    * (today's behaviour). "subscribe" registers one JMAP PushSubscription per
    * account and fans Stalwart's POSTs out to that account's tabs, holding no
    * upstream connection at all -- see push.ts. It needs PUSH_URL: the https
-   * origin Stalwart can reach ihasmail at, with a certificate it trusts.
+   * origin Stalwart can reach Gilbert at, with a certificate it trusts.
    * An account that cannot be verified stays on the relay.
    */
   pushMode: (process.env.PUSH_MODE === "relay" ? "relay" : "subscribe") as

@@ -1,15 +1,15 @@
 /**
  * Push by subscription: hold no upstream connection per tab.
  *
- * Today every signed-in tab holds a Server-Sent Events stream to ihasmail,
- * and ihasmail holds a matching stream to Stalwart behind it. The upstream
+ * Today every signed-in tab holds a Server-Sent Events stream to Gilbert,
+ * and Gilbert holds a matching stream to Stalwart behind it. The upstream
  * one is most of what a tab costs -- measured, 81 KiB of TLS state plus the
  * request objects -- and it is also the only reason Stalwart's connection
- * limit applies to ihasmail at all.
+ * limit applies to Gilbert at all.
  *
  * RFC 8620 §7.2 defines the other transport: a PushSubscription, where the
  * server POSTs StateChange objects to a URL the client registers. Stalwart
- * implements it. So ihasmail registers one subscription per *account*, and
+ * implements it. So Gilbert registers one subscription per *account*, and
  * when Stalwart POSTs a change, fans it out to that account's open tabs over
  * the browser-facing streams it already holds. Nothing is held upstream.
  *
@@ -87,7 +87,7 @@ async function subscribe(entry: AccountPush) {
       {
         create: {
           s: {
-            deviceClientId: `ihasmail-${entry.token.slice(0, 8)}`,
+            deviceClientId: `gilbert-${entry.token.slice(0, 8)}`,
             url,
             types: [
               "Email",
@@ -135,10 +135,13 @@ async function verify(entry: AccountPush, code: string) {
     if (out.destroyed) continue;
     dropUpstream();
     entry.tabs.add(out);
+    out.on("close", () => {
+      entry.tabs.delete(out);
+    });
     moved++;
   }
   console.log(
-    `[ihasmail] push: subscription verified for ${entry.username}` +
+    `[gilbert] push: subscription verified for ${entry.username}` +
       (moved ? `, ${moved} tab(s) moved off the relay` : ""),
   );
 }
@@ -191,7 +194,7 @@ export function prepare(
     subscribe(entry).catch((err) => {
       entry!.state = "failed";
       console.warn(
-        `[ihasmail] push: subscribe failed for ${username}: ${(err as Error).message}; relay in use`,
+        `[gilbert] push: subscribe failed for ${username}: ${(err as Error).message}; relay in use`,
       );
     });
     startSweeper();
@@ -248,7 +251,7 @@ export async function receive(token: string, body: unknown): Promise<number> {
       await verify(entry, msg.verificationCode);
       return 200;
     } catch (err) {
-      console.warn(`[ihasmail] push: verify failed: ${(err as Error).message}`);
+      console.warn(`[gilbert] push: verify failed: ${(err as Error).message}`);
       return 500;
     }
   }
@@ -275,7 +278,7 @@ function startSweeper() {
       if (entry.state === "pending" && now - entry.since > VERIFY_TIMEOUT_MS) {
         entry.state = "failed";
         console.warn(
-          `[ihasmail] push: no verification for ${entry.username} within ${VERIFY_TIMEOUT_MS / 1000}s; relay in use`,
+          `[gilbert] push: no verification for ${entry.username} within ${VERIFY_TIMEOUT_MS / 1000}s; relay in use`,
         );
       }
       if (entry.state === "verified" && entry.expires - now < RENEW_BEFORE_MS) {

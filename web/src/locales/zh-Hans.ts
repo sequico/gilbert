@@ -533,6 +533,17 @@ export const catalog: Catalog = {
     "Reset to defaults": "恢复默认设置",
     "Default mail app": "默认邮件应用",
     Documentation: "文档",
+    Admin: "Admin",
+    Administration: "管理",
+    "Gilbert Defaults": "Gilbert 默认值",
+    "Defaults for all accounts": "所有账户的默认值",
+    "No defaults are set — new accounts start on Gilbert's own defaults.":
+      "未设置默认值 — 新账户会从 Gilbert 自身的默认值开始。",
+    "Per-group overrides": "按组覆盖",
+    "The keys every account starts on, unless an administrator overrides them for a group.":
+      "每个账户开始使用的键，除非管理员为某个组覆盖了它们。",
+    "Groups and their editable override rows arrive with the administration backend: the server endpoints and the policy documents kept in the admin group's Files (ADR 0001).":
+      "组及其可编辑的覆盖行将随管理后台一起提供：服务器端点，以及保存在 admin 组文件中的策略文档（ADR 0001）。",
     "About Gilbert": "关于 Gilbert",
     About: "关于",
     Server: "服务器",

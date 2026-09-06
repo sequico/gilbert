@@ -554,6 +554,17 @@ export const catalog: Catalog = {
     "Reset to defaults": "Rétablir les valeurs par défaut",
     "Default mail app": "Application de messagerie par défaut",
     Documentation: "Documentation",
+    Admin: "Admin",
+    Administration: "Administration",
+    "Gilbert Defaults": "Valeurs par défaut de Gilbert",
+    "Defaults for all accounts": "Valeurs par défaut pour tous les comptes",
+    "No defaults are set — new accounts start on Gilbert's own defaults.":
+      "Aucune valeur par défaut définie — les nouveaux comptes démarrent avec les valeurs propres à Gilbert.",
+    "Per-group overrides": "Remplacements par groupe",
+    "The keys every account starts on, unless an administrator overrides them for a group.":
+      "Les valeurs avec lesquelles chaque compte démarre, sauf si un administrateur les remplace pour un groupe.",
+    "Groups and their editable override rows arrive with the administration backend: the server endpoints and the policy documents kept in the admin group's Files (ADR 0001).":
+      "Les groupes et leurs lignes de remplacement modifiables arrivent avec le backend d'administration : les points d'accès du serveur et les documents de politique conservés dans les Fichiers du groupe admin (ADR 0001).",
     "About Gilbert": "À propos de Gilbert",
     About: "À propos",
     Server: "Serveur",

@@ -3,7 +3,7 @@ import { EventEmitter } from "node:events";
 import { test } from "node:test";
 
 process.env.STALWART_URL = "http://127.0.0.1:1";
-process.env.PUSH_URL = "https://ihasmail.example";
+process.env.PUSH_URL = "https://gilbert.example";
 const push = await import("./push.js");
 
 // Nothing in this file may reach the network. Background subscribe() calls

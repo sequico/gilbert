@@ -541,6 +541,17 @@ export const catalog: Catalog = {
     "Reset to defaults": "Скинути до значень за замовчуванням",
     "Default mail app": "Поштова програма за замовчуванням",
     Documentation: "Документація",
+    Admin: "Admin",
+    Administration: "Адміністрування",
+    "Gilbert Defaults": "Типові значення Gilbert",
+    "Defaults for all accounts": "Типові значення для всіх облікових записів",
+    "No defaults are set — new accounts start on Gilbert's own defaults.":
+      "Типових значень не задано — нові облікові записи починають із власних значень Gilbert.",
+    "Per-group overrides": "Перевизначення за групами",
+    "The keys every account starts on, unless an administrator overrides them for a group.":
+      "Ключі, з яких починає кожен обліковий запис, якщо адміністратор не перевизначить їх для групи.",
+    "Groups and their editable override rows arrive with the administration backend: the server endpoints and the policy documents kept in the admin group's Files (ADR 0001).":
+      "Групи та їхні редаговані рядки перевизначення з’являться з бекендом адміністрування: серверні ендпоїнти й документи політики у файлах групи admin (ADR 0001).",
     "About Gilbert": "Про Gilbert",
     About: "Про програму",
     Server: "Сервер",

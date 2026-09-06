@@ -1,12 +1,18 @@
 import { Info, ShieldCheck } from "lucide-react";
+import type { ReactNode } from "react";
 import { t } from "@/lib/i18n";
-import { SectionShell } from "@/ui/SectionShell";
+import { type SectionItem, SectionShell } from "@/ui/SectionShell";
 import { AdminDefaults } from "@/views/admin/AdminDefaults";
 import { AboutSettings } from "@/views/settings/AboutSettings";
 
-const SECTIONS = [
-  { id: "about", label: "About", icon: <Info size={18} /> },
-  { id: "defaults", label: "Gilbert Defaults", icon: <ShieldCheck size={18} /> },
+const SECTIONS: Array<SectionItem & { el: ReactNode }> = [
+  { id: "about", label: "About", icon: <Info size={18} />, el: <AboutSettings /> },
+  {
+    id: "defaults",
+    label: "Gilbert Defaults",
+    icon: <ShieldCheck size={18} />,
+    el: <AdminDefaults />,
+  },
 ];
 
 /**
@@ -17,15 +23,17 @@ const SECTIONS = [
  * (per-user policy) and ADR 0004 (rule changes reach clients by re-login).
  */
 export function AdminView({ section }: { section?: string }) {
-  const active = SECTIONS.find((s) => s.id === section)?.id ?? "about";
+  const current = SECTIONS.find((s) => s.id === section);
   return (
     <SectionShell
       heading={t("Administration")}
       items={SECTIONS}
-      activeId={active}
+      activeId={section}
       base="/admin"
+      backHref={section ? "/admin" : undefined}
+      backLabel={t("Administration")}
     >
-      {active === "about" ? <AboutSettings /> : <AdminDefaults />}
+      {current ? current.el : <AboutSettings />}
     </SectionShell>
   );
 }

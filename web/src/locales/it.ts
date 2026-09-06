@@ -849,6 +849,18 @@ export const catalog: Catalog = {
     "Default mail app": "App di posta predefinita",
     Documentation: "Documentazione",
 
+    // ── Administration ──────────────────────────────────────────────────
+    Admin: "Admin",
+    Administration: "Amministrazione",
+    "Gilbert Defaults": "Valori predefiniti di Gilbert",
+    "Defaults for all accounts": "Valori predefiniti per tutti gli account",
+    "No defaults are set — new accounts start on Gilbert's own defaults.":
+      "Nessun valore predefinito impostato: i nuovi account partono dai valori predefiniti di Gilbert.",
+    "Per-group overrides": "Sostituzioni per gruppo",
+    "The keys every account starts on, unless an administrator overrides them for a group.":
+      "Le chiavi con cui parte ogni account, a meno che un amministratore non le sostituisca per un gruppo.",
+    "Groups and their editable override rows arrive with the administration backend: the server endpoints and the policy documents kept in the admin group's Files (ADR 0001).":
+      "I gruppi e le relative righe di sostituzione modificabili arrivano con il backend di amministrazione: gli endpoint del server e i documenti di policy conservati nei File del gruppo admin (ADR 0001).",
     "About Gilbert": "Informazioni su Gilbert",
     About: "Informazioni",
 

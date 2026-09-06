@@ -540,6 +540,17 @@ export const catalog: Catalog = {
     "Reset to defaults": "Standaardwaarden herstellen",
     "Default mail app": "Standaard e-mailprogramma",
     Documentation: "Documentatie",
+    Admin: "Admin",
+    Administration: "Beheer",
+    "Gilbert Defaults": "Standaardwaarden van Gilbert",
+    "Defaults for all accounts": "Standaardwaarden voor alle accounts",
+    "No defaults are set — new accounts start on Gilbert's own defaults.":
+      "Geen standaardwaarden ingesteld — nieuwe accounts starten met de eigen standaardwaarden van Gilbert.",
+    "Per-group overrides": "Overschrijvingen per groep",
+    "The keys every account starts on, unless an administrator overrides them for a group.":
+      "De sleutels waarmee elk account start, tenzij een beheerder ze voor een groep overschrijft.",
+    "Groups and their editable override rows arrive with the administration backend: the server endpoints and the policy documents kept in the admin group's Files (ADR 0001).":
+      "Groepen en hun bewerkbare overschrijvingsregels komen met de beheerbackend: de serverendpoints en de beleidsdocumenten in de Bestanden van de admin-groep (ADR 0001).",
     "About Gilbert": "Over Gilbert",
     About: "Over",
     Server: "Server",
