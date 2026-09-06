@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   Bell,
   Calendar,
   EyeOff,
@@ -16,10 +15,11 @@ import {
   Tag,
   Users,
 } from "lucide-react";
-import { lazy, type ReactNode, Suspense } from "react";
-import { Link, useLocation } from "wouter";
+import type { ReactNode } from "react";
+import { lazy } from "react";
+import { Link } from "wouter";
 import { t } from "@/lib/i18n";
-import { Spinner } from "@/ui/misc";
+import { type SectionItem, SectionShell } from "@/ui/SectionShell";
 import { AboutSettings } from "./AboutSettings";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { CalendarSettings } from "./CalendarSettings";
@@ -40,7 +40,7 @@ const VacationSettings = lazy(() =>
   import("./VacationSettings").then((m) => ({ default: m.VacationSettings })),
 );
 
-const SECTIONS: Array<{ id: string; label: string; icon: ReactNode; el: ReactNode }> = [
+const SECTIONS: Array<SectionItem & { el: ReactNode }> = [
   {
     id: "general",
     label: "General",
@@ -118,46 +118,32 @@ const SECTIONS: Array<{ id: string; label: string; icon: ReactNode; el: ReactNod
 ];
 
 export function SettingsView({ section }: { section?: string }) {
-  const [, navigate] = useLocation();
   const current = SECTIONS.find((s) => s.id === section);
   return (
-    <div className={`settings-layout ${section ? "section" : "root"}`}>
-      <nav className="settings-nav" aria-label={t("Settings")}>
-        <div className="nav-section" style={{ paddingLeft: 8 }}>
-          <span>{t("Settings")}</span>
-        </div>
-        {SECTIONS.map((s) => (
-          <Link
-            key={s.id}
-            href={`/settings/${s.id}`}
-            className={`nav-item ${section === s.id ? "active" : ""}`}
-          >
-            {s.icon}
-            <span className="nav-label">{t(s.label)}</span>
+    <SectionShell
+      heading={t("Settings")}
+      items={SECTIONS}
+      activeId={section}
+      base="/settings"
+      backHref={section ? "/settings" : undefined}
+      backLabel={
+        <>
+          <span>{t("All settings")}</span>
+        </>
+      }
+      footer={
+        <>
+          <div className="nav-section" style={{ paddingLeft: 8 }}>
+            <span>{t("Shortcuts")}</span>
+          </div>
+          <Link href="/contacts" className="nav-item">
+            <Users size={18} />
+            <span className="nav-label">{t("Address books")}</span>
           </Link>
-        ))}
-        <div className="nav-section" style={{ paddingLeft: 8 }}>
-          <span>{t("Shortcuts")}</span>
-        </div>
-        <Link href="/contacts" className="nav-item">
-          <Users size={18} />
-          <span className="nav-label">{t("Address books")}</span>
-        </Link>
-      </nav>
-      <div className="settings-content">
-        {section && (
-          <button
-            className="btn btn-ghost btn-sm"
-            style={{ marginBottom: 8, marginLeft: -8 }}
-            onClick={() => navigate("/settings")}
-          >
-            <ArrowLeft size={16} /> {t("All settings")}
-          </button>
-        )}
-        <Suspense fallback={<Spinner />}>
-          {current ? current.el : <GeneralSettings />}
-        </Suspense>
-      </div>
-    </div>
+        </>
+      }
+    >
+      {current ? current.el : <GeneralSettings />}
+    </SectionShell>
   );
 }

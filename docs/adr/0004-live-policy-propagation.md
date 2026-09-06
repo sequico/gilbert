@@ -73,6 +73,20 @@ Facts from the current machinery:
   enforcement keeps protecting enforced keys from the user, not from whoever
   can write the account.
 
+## Client entry point (v0 scaffold, 2026-09-07)
+
+While the surface is being built, the admin entry point already has a home:
+a **shield icon in the top-bar action cluster**, immediately left of the
+Settings gear and the account avatar (top right), rendered only when the
+session carries `gilbert.isAdmin` — membership of the hardcoded
+`gilbert-admin@<domain>` group. It links to `/admin`, which is a stub page
+today (the per-user policy editor of ADR 0001 and this ADR's publish flow
+land there). One entry point only: the icon is always visible where the
+other top-bar icons are (including on mobile), so nothing duplicates it in
+the account menu. The icon is cosmetic UI; the server stays the door
+(`requireAdmin` when the publish endpoint ships). The label is the English
+word "Admin", which Italian keeps as-is.
+
 ## Alternatives considered
 
 - **Polling/refresh (previous draft of this ADR)**: mtime re-read + keep-warm

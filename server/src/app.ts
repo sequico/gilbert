@@ -33,6 +33,7 @@ import {
   getAccountInfo,
   getUpstreamSession,
   hasStalwartRegistry,
+  isAdminSession,
   localizeSession,
   UpstreamError,
   upstreamFor,
@@ -384,7 +385,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       });
       setSessionCookie(c, cookie, session.remember);
       const info = await getAccountInfo(session.id, session.authorization, upstream);
-      return c.json(localizeSession(upstream, sessionExtras(session, info)));
+      return c.json(
+        localizeSession(
+          upstream,
+          sessionExtras(session, info, isAdminSession(upstream, session.username)),
+        ),
+      );
     } catch (err) {
       // A rejected sign-in that carried a two-factor code is worth explaining
       // rather than calling "invalid credentials", because the credentials are
@@ -436,7 +442,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         c.req.query("refresh") === "1",
       );
       const info = await getAccountInfo(session.id, session.authorization, upstream);
-      return c.json(localizeSession(upstream, sessionExtras(session, info)));
+      return c.json(
+        localizeSession(
+          upstream,
+          sessionExtras(session, info, isAdminSession(upstream, session.username)),
+        ),
+      );
     } catch (err) {
       if (err instanceof UpstreamError && err.status === 401) {
         sessions.destroy(session.id);
@@ -906,6 +917,7 @@ function appPasswordName(c: Context): string {
 function sessionExtras(
   session: LiveSession,
   info: AccountInfo = { locale: null, edition: null },
+  isAdmin = false,
 ) {
   return {
     gilbert: {
@@ -916,6 +928,8 @@ function sessionExtras(
       sessionId: session.id,
       loginName: session.username,
       remember: session.remember,
+      /** Membership of the `gilbert-admin@…` group: enables the admin surface. */
+      isAdmin,
       /** Locale configured for the account in Stalwart's directory, if readable. */
       userLocale: info.locale,
       /** What the upstream server would tell us about itself. */

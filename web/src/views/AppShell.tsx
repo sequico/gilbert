@@ -13,6 +13,7 @@ import {
   Plus,
   RefreshCw,
   Settings,
+  Shield,
   Sun,
   Upload,
   Users,
@@ -150,6 +151,16 @@ export function AppShell({ children }: { children: ReactNode }) {
             <HelpCircle size={21} />
           </button>
           <ThemeToggle />
+          {session?.gilbert?.isAdmin && (
+            <Link
+              href="/admin"
+              className={`icon-btn ${section === "admin" ? "active" : ""}`}
+              aria-label={t("Admin")}
+              title={t("Admin")}
+            >
+              <Shield size={21} />
+            </Link>
+          )}
           <Link
             href="/settings"
             className={`icon-btn ${section === "settings" ? "active" : ""}`}

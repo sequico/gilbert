@@ -44,6 +44,8 @@ const PUSH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SHARED_ACCOUNT = "a2";
 /** A group (team) mailbox the demo user is a member of. See the session below. */
 const GROUP_ACCOUNT = "a3";
+/** The admin group mailbox (`gilbert-admin@…`, ADR 0001). */
+const ADMIN_ACCOUNT = "a4";
 const SHARED_CAPS: Obj = {
   "urn:ietf:params:jmap:mail": {},
   "urn:ietf:params:jmap:submission": {},
@@ -56,6 +58,21 @@ const SHARED_CAPS: Obj = {
   "urn:ietf:params:jmap:filenode": {},
 };
 const USER = process.env.MOCK_USER ?? "demo@example.com";
+/**
+ * The demo user is an admin by default: dev:mock signs in with the
+ * `gilbert-admin@<domain>` group in the session accounts, so the admin flag
+ * and the administration surface are exercisable out of the box. Set
+ * MOCK_NO_ADMIN_GROUP=1 for the non-admin case; MOCK_ADMIN_GROUP overrides
+ * the group's name.
+ */
+const ADMIN_GROUP_NAME =
+  process.env.MOCK_ADMIN_GROUP ??
+  (() => {
+    const at = USER.lastIndexOf("@");
+    return at > 0 ? `gilbert-admin@${USER.slice(at + 1)}` : "";
+  })();
+const HAS_ADMIN_GROUP =
+  process.env.MOCK_NO_ADMIN_GROUP !== "1" && Boolean(ADMIN_GROUP_NAME);
 /** Locale the fake directory reports for the account (POSIX style, as Stalwart does). */
 const MOCK_LOCALE = process.env.MOCK_LOCALE ?? "en_US";
 const PASS = process.env.MOCK_PASS ?? "demo";
@@ -3136,6 +3153,22 @@ const session = () => ({
       isReadOnly: false,
       accountCapabilities: SHARED_CAPS,
     },
+    /*
+     * The admin group (`gilbert-admin@…`) is a group mailbox like any other;
+     * membership is what makes a principal an admin (ADR 0001). The demo user
+     * is a member by default, so the admin flag can be exercised in dev:mock
+     * without a real directory.
+     */
+    ...(HAS_ADMIN_GROUP
+      ? {
+          [ADMIN_ACCOUNT]: {
+            name: ADMIN_GROUP_NAME,
+            isPersonal: false,
+            isReadOnly: false,
+            accountCapabilities: SHARED_CAPS,
+          },
+        }
+      : {}),
     [ACCOUNT]: {
       name: USER,
       isPersonal: true,

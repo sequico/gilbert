@@ -32,6 +32,8 @@ export interface JmapSession {
     sessionId: string;
     loginName: string;
     remember: boolean;
+    /** Membership of the `gilbert-admin@…` group: enables the admin surface. */
+    isAdmin: boolean;
     /** Locale configured for the account in Stalwart, if the server exposes it. */
     userLocale?: string | null;
     /** What the upstream server was willing to say about itself. */

@@ -48,6 +48,9 @@ const TasksView = lazy(() =>
 const SettingsView = lazy(() =>
   import("@/views/settings/SettingsView").then((m) => ({ default: m.SettingsView })),
 );
+const AdminView = lazy(() =>
+  import("@/views/AdminView").then((m) => ({ default: m.AdminView })),
+);
 
 export function App() {
   const status = useSession((s) => s.status);
@@ -352,6 +355,9 @@ function AuthedApp() {
           </Route>
           <Route path="/settings/:section?">
             {(p) => <SettingsView section={p.section} />}
+          </Route>
+          <Route path="/admin/:section?">
+            {(p) => <AdminView section={p.section} />}
           </Route>
           <Route path="/login">
             <Redirect to="/mail" />

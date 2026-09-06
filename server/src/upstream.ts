@@ -106,6 +106,42 @@ export function forgetUpstreamSession(sessionId: string): void {
   infoCache.delete(sessionId);
 }
 
+/**
+ * The admin group: a group mailbox named `gilbert-admin@<domain>` in the
+ * principal's own domain. Hardcoded, so the grant has one shape everywhere
+ * (ADR 0001). Membership is the grant: the group is a non-personal account
+ * that only its members can see, so it appears in the member's JMAP session
+ * accounts. Members need no external email alias — membership alone enables
+ * the admin functions.
+ */
+export const ADMIN_GROUP_LOCAL = "gilbert-admin";
+
+/** `gilbert-admin@<domain>` for a username, or null for a bare one. */
+export function adminGroupName(username: string): string | null {
+  const at = username.lastIndexOf("@");
+  if (at <= 0) return null;
+  const domain = username
+    .slice(at + 1)
+    .trim()
+    .toLowerCase()
+    .replace(/\.$/, "");
+  return domain ? `${ADMIN_GROUP_LOCAL}@${domain}` : null;
+}
+
+/** Whether this upstream session proves membership of the admin group. */
+export function isAdminSession(session: UpstreamSession, username: string): boolean {
+  const group = adminGroupName(username);
+  if (!group) return false;
+  return Object.values(session.accounts ?? {}).some((a) => {
+    const account = a as { name?: unknown; isPersonal?: unknown };
+    return (
+      account.isPersonal === false &&
+      typeof account.name === "string" &&
+      account.name.trim().toLowerCase() === group
+    );
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Account locale                                                      */
 /* ------------------------------------------------------------------ */
