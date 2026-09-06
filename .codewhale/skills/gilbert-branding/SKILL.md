@@ -7,6 +7,15 @@ metadata:
 
 # Gilbert — renaming ihasmail → Gilbert
 
+## Where the rename stops
+
+A full repo-wide rename is planned as the Gilbert layer. It stops at the
+contribution boundary: upstream-shaped work offered to Coffey-Labs/ihasmail is
+prepared on a fork branch cut from `upstream/main` with `ihasmail`
+identifiers intact (ADR 0002) — never by un-renaming patches from this tree.
+Do not fold a rename edit into a change that upstream could receive; the two
+shapes live in two places on purpose.
+
 ## What is already done
 
 - Docs prose (README.md, FEATURES.md, KNOWN-ISSUES.md, ROADMAP.md, CONTRIBUTING.md) says "Gilbert"; URLs, identifiers, docker command lines, the `` `ihasmail` `` folder literal, the "ihasmail" palette, and historical/legal lines keep `ihasmail`. SECURITY.md was deliberately left untouched (it is upstream's process and contact).

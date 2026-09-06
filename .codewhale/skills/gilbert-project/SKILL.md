@@ -47,4 +47,10 @@ Companion skills: string/i18n work loads `gilbert-i18n`; anything settings- or p
 - **Releases are manual.** The user calls releases by hand; for now there are none and none are automated. Never tag, create a release, or trigger the upstream release/publish workflows (`.github/workflows/release.yml`, `publish.yml`) on your own.
 - `SECURITY.md`, `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md` still describe upstream's process and contacts (Coffey Labs, johnellisATlinuxDOTcom). Before rewriting them or acting on them, ask the user.
 - A deep rename diverges from upstream and complicates every future sync — state that cost before doing one (see `gilbert-branding`).
+- **Upstream contributions (ADR 0002).** Common work is contributed from an
+  upstream-shaped fork branch cut from `upstream/main`, never from the
+  rebranded main and never carrying Gilbert identifiers or features; the sync
+  direction stays upstream → main, and the `ihasmail` branch mirrors upstream
+  releases. Do not fold a rebranding edit into a common change: rebranding is
+  the Gilbert layer and stays here.
 - Syncing upstream: upstream's locale catalogs are a key-superset of Gilbert's trimmed ones and more complete — when catalog files conflict, adopt the upstream catalog wholesale rather than merging entries, then run `npm run i18n:check`. Upstream's `CLAUDE.md` and `.github/FUNDING.yml` stay excluded (owner decision); monitor `CLAUDE.md` for agent guidance worth porting into this file or the skills.
