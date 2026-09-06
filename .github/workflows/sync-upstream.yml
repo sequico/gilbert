@@ -27,12 +27,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      # A push that advances the mirror carries whatever upstream's release
-      # commit contains -- including .github/workflows changes, which GitHub
-      # refuses without this permission. The mirror's workflows never run
-      # (nothing triggers on a push to the ihasmail branch), so the grant is
-      # only ever used to land upstream's exact content there.
-      workflows: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -80,4 +74,9 @@ jobs:
           echo "Fast-forwarded the mirror to upstream release ${tag}."
       - name: Push the mirror
         if: steps.decide.outputs.new == 'true'
+        # GITHUB_TOKEN cannot carry the workflows permission a PAT or App can,
+        # so GitHub refuses a push whose commits rewrite .github/workflows.
+        # If an upstream release ever changes its own workflows, this fails
+        # loudly here and the mirror has to be advanced by hand with a token
+        # that holds that scope.
         run: git push origin HEAD:ihasmail
