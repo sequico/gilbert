@@ -35,8 +35,8 @@
  * is meant to look wrong.
  *
  * `.dockerignore` excludes `.git`, so an image build cannot run any of this.
- * It takes the answer through `--build-arg IHASMAIL_VERSION=...` instead, and
- * whoever builds is responsible for computing it -- see ihasmail-deploy.sh.
+ * It takes the answer through `--build-arg GILBERT_VERSION=...` instead, and
+ * whoever builds is responsible for computing it -- see gilbert-deploy.sh.
  */
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
@@ -101,7 +101,7 @@ export function versionFromGit() {
 
 /** Whatever the environment was told, else git, else an answer that looks wrong. */
 export function resolveVersion() {
-  const fromEnv = process.env.IHASMAIL_VERSION?.trim();
+  const fromEnv = process.env.GILBERT_VERSION?.trim();
   if (fromEnv) return fromEnv;
   return versionFromGit() ?? UNVERSIONED;
 }

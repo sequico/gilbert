@@ -141,7 +141,7 @@ build by hand, pass the version in, because `.dockerignore` excludes `.git` and
 the build cannot work out what it is:
 
 ```bash
-docker build --build-arg IHASMAIL_VERSION="$(node scripts/version.mjs)" -t ihasmail:local .
+docker build --build-arg GILBERT_VERSION="$(node scripts/version.mjs)" -t gilbert:local .
 ```
 
 ### Running immutably
@@ -387,7 +387,7 @@ gives the version it had the first time.
 
 ```bash
 node scripts/version.mjs        # the version for the current checkout
-docker build --build-arg IHASMAIL_VERSION="$(node scripts/version.mjs)" -t ihasmail:2026.8.30 .
+docker build --build-arg GILBERT_VERSION="$(node scripts/version.mjs)" -t gilbert:2026.8.30 .
 ```
 
 `.dockerignore` excludes `.git` deliberately, so an image build cannot work this

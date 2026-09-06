@@ -286,7 +286,7 @@ export const config = {
   settingsPolicy: readSettingsPolicy(),
   /**
    * What this build calls itself: `2.16.57`. Set by the image build from
-   * `--build-arg IHASMAIL_VERSION`, since `.dockerignore` keeps `.git` out of
+   * `--build-arg GILBERT_VERSION`, since `.dockerignore` keeps `.git` out of
    * the build context and nothing in there could work it out. A dev checkout
    * has git, so it falls back to asking; see `scripts/version.mjs`.
    */

@@ -5,8 +5,8 @@ FROM node:22-alpine AS build
 # context on purpose, and git is not installed either. `node scripts/version.mjs`
 # in a checkout prints the right answer; ihasmail-deploy.sh passes it through.
 # Left empty, the build falls back to the base version from package.json.
-ARG IHASMAIL_VERSION=""
-ENV IHASMAIL_VERSION=$IHASMAIL_VERSION
+ARG GILBERT_VERSION=""
+ENV GILBERT_VERSION=$GILBERT_VERSION
 # The subpath the app will be served from, e.g. /mail. Empty -- the default --
 # is the domain root and is what every deployment gets unless it asks
 # otherwise. Unlike the rest of ihasmail's configuration this cannot wait for
@@ -27,14 +27,14 @@ RUN npm run build
 # ---- runtime stage ----
 FROM node:22-alpine AS runtime
 # Re-declared: an ARG does not cross stages.
-ARG IHASMAIL_VERSION=""
+ARG GILBERT_VERSION=""
 ARG BASE_PATH=""
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=8080 \
     STATIC_DIR=/app/web/dist \
     SESSION_FILE=/data/sessions.json \
-    IHASMAIL_VERSION=$IHASMAIL_VERSION \
+    GILBERT_VERSION=$GILBERT_VERSION \
     BASE_PATH=$BASE_PATH
 WORKDIR /app
 COPY package.json package-lock.json* ./

@@ -84,14 +84,14 @@ test("the same commit always resolves to the same version", () => {
   assert.equal(formatVersion(commit), formatVersion(commit));
 });
 
-test("an explicit IHASMAIL_VERSION wins, because the Docker build has no git", () => {
-  const before = process.env.IHASMAIL_VERSION;
-  process.env.IHASMAIL_VERSION = "2026.8.30+pr129";
+test("an explicit GILBERT_VERSION wins, because the Docker build has no git", () => {
+  const before = process.env.GILBERT_VERSION;
+  process.env.GILBERT_VERSION = "2026.8.30+pr129";
   try {
     assert.equal(resolveVersion(), "2026.8.30+pr129");
   } finally {
-    if (before === undefined) delete process.env.IHASMAIL_VERSION;
-    else process.env.IHASMAIL_VERSION = before;
+    if (before === undefined) delete process.env.GILBERT_VERSION;
+    else process.env.GILBERT_VERSION = before;
   }
 });
 
