@@ -261,7 +261,13 @@ interface ContactsState {
   search(text: string): ContactCard[];
   /** The search filter itself, so a shared book can be filtered the same way. */
   filterCards(cards: ContactCard[], text: string): ContactCard[];
-  createCard(card: Partial<ContactCard>, addressBookId: Id): Promise<Id>;
+  createCard(
+    card: Partial<ContactCard>,
+    addressBookId: Id,
+    accountId?: Id | null,
+  ): Promise<Id>;
+  /** Move a card between accounts (create in the target, destroy the original). */
+  moveCardTo(id: Id, fromAccountId: Id, toAccountId: Id, toBookId: Id): Promise<Id>;
   updateCard(id: Id, patch: Record<string, unknown>): Promise<void>;
   /**
    * Delete cards outright, reporting what the server actually destroyed rather
@@ -580,14 +586,17 @@ export const useContacts = create<ContactsState>((set, get) => ({
     return get().filterCards(Object.values(get().cards), text);
   },
 
-  async createCard(card, addressBookId) {
-    const accountId = accountOfBook(
-      addressBookId,
-      get().books,
-      get().accountId,
-      get().sharedBooks,
-    );
-    if (!accountId) throw new Error("That address book is not available");
+  /*
+   * `accountId` is optional and qualified by the caller when the book id alone
+   * is ambiguous: own and shared books live in different accounts and their
+   * ids collide, so a bare id always resolves to the reader's own account.
+   * Every place a human chooses a book passes the account that holds it.
+   */
+  async createCard(card, addressBookId, accountId?) {
+    const accountId_ =
+      accountId ??
+      accountOfBook(addressBookId, get().books, get().accountId, get().sharedBooks);
+    if (!accountId_) throw new Error("That address book is not available");
     const obj = {
       "@type": "Card",
       version: "1.0",
@@ -597,14 +606,58 @@ export const useContacts = create<ContactsState>((set, get) => ({
       addressBookIds: { [addressBookId]: true },
     };
     const res = await client.call<SetResponse<ContactCard>>("ContactCard/set", {
-      accountId,
+      accountId: accountId_,
       create: { c: obj },
     });
     const err = res.notCreated?.c;
     if (err) throw new Error(setErrorMessage(err));
     const id = res.created!.c!.id;
-    await get().getCard(id, accountId);
+    await get().getCard(id, accountId_);
     return id;
+  },
+
+  /*
+   * Move a card between accounts: the copy is created in the target account's
+   * book and the original destroyed where it was. Cards are per-account
+   * objects, so a cross-account move is not a patch -- the id changes too,
+   * which is why this returns the new id for the caller to navigate to.
+   */
+  async moveCardTo(id, fromAccountId, toAccountId, toBookId) {
+    const own = get().accountId;
+    if (!fromAccountId || !toAccountId)
+      throw new Error("That address book is not available");
+    if (fromAccountId === toAccountId) {
+      // Same account: a patch that adds the target book, mirroring updateCard.
+      await get().updateCard(id, { addressBookIds: { [toBookId]: true } });
+      return id;
+    }
+    const card =
+      fromAccountId === own
+        ? get().cards[id]
+        : get().sharedCards[sharedKey(fromAccountId, id)];
+    if (!card) throw new Error("Could not find the contact to move");
+    const { id: _old, addressBookIds: _books, ...rest } = card;
+    const newId = await get().createCard(
+      rest as Partial<ContactCard>,
+      toBookId,
+      toAccountId,
+    );
+    await client.call<SetResponse>("ContactCard/set", {
+      accountId: fromAccountId,
+      destroy: [id],
+    });
+    set((st) => {
+      if (fromAccountId === own) {
+        const cards = { ...st.cards };
+        delete cards[id];
+        return { cards };
+      }
+      const sharedCards = { ...st.sharedCards };
+      delete sharedCards[sharedKey(fromAccountId, id)];
+      return { sharedCards };
+    });
+    await get().getCard(newId, toAccountId);
+    return newId;
   },
 
   async updateCard(id, patch) {

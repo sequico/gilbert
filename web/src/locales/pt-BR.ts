@@ -994,6 +994,7 @@ export const catalog: Catalog = {
     "Choose an address book": "Escolha um catálogo de endereços",
     "Colour updated": "Cor atualizada",
     "Contact created": "Contato criado",
+    "Contact moved": "Contato movido",
     "Contact deleted": "Contato excluído",
     "Contact saved": "Contato salvo",
     Copied: "Copiado",

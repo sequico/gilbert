@@ -969,6 +969,7 @@ export const catalog: Catalog = {
     "Choose an address book": "请选择通讯录",
     "Colour updated": "颜色已更新",
     "Contact created": "联系人已创建",
+    "Contact moved": "联系人已移动",
     "Contact deleted": "联系人已删除",
     "Contact saved": "联系人已保存",
     Copied: "已复制",

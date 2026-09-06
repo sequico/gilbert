@@ -987,6 +987,7 @@ export const catalog: Catalog = {
     "Choose an address book": "Выберите адресную книгу",
     "Colour updated": "Цвет изменён",
     "Contact created": "Контакт создан",
+    "Contact moved": "Контакт перемещён",
     "Contact deleted": "Контакт удалён",
     "Contact saved": "Контакт сохранён",
     Copied: "Скопировано",

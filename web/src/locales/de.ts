@@ -1017,6 +1017,7 @@ export const catalog: Catalog = {
     "Choose an address book": "Wählen Sie ein Adressbuch",
     "Colour updated": "Farbe geändert",
     "Contact created": "Kontakt erstellt",
+    "Contact moved": "Kontakt verschoben",
     "Contact deleted": "Kontakt gelöscht",
     "Contact saved": "Kontakt gespeichert",
     Copied: "Kopiert",

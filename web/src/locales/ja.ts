@@ -994,6 +994,7 @@ export const catalog: Catalog = {
     "Choose an address book": "アドレス帳を選んでください",
     "Colour updated": "色を変更しました",
     "Contact created": "連絡先を作成しました",
+    "Contact moved": "連絡先を移動しました",
     "Contact deleted": "連絡先を削除しました",
     "Contact saved": "連絡先を保存しました",
     Copied: "コピーしました",

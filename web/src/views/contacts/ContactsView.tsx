@@ -322,6 +322,13 @@ export function ContactsView({ id }: { id?: string }) {
     }
   };
 
+  const accountOfEditingId = (cid: string, cs: typeof contacts): string | null => {
+    if (cs.cards[cid]) return cs.accountId;
+    for (const key of Object.keys(cs.sharedCards))
+      if (key.endsWith(`:${cid}`)) return key.slice(0, key.length - cid.length - 1);
+    return cs.accountId;
+  };
+
   return (
     <div className={`contacts-layout ${selected || editing ? "detail" : ""}`}>
       <section className="contacts-list">
@@ -508,6 +515,14 @@ export function ContactsView({ id }: { id?: string }) {
               ? bookId
               : (books.find((b) => b.isDefault)?.id ?? books[0]?.id ?? null)
           }
+          sourceAccountId={
+            editing.id
+              ? contacts.cards[editing.id]
+                ? contacts.accountId
+                : accountOfEditingId(editing.id, contacts)
+              : null
+          }
+          defaultAccountId={sel.accountId ?? contacts.accountId ?? null}
           onClose={() => setEditing(null)}
           onSaved={(cid) => {
             setEditing(null);

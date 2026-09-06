@@ -18,6 +18,10 @@ import { toast } from "@/ui/toast";
 interface Props {
   card: Partial<ContactCard>;
   defaultBookId: string | null;
+  /** The account that holds `card`; null while creating a new card. */
+  sourceAccountId: string | null;
+  /** The account a brand-new card defaults into (the book being viewed). */
+  defaultAccountId: string | null;
   onClose: () => void;
   onSaved: (id: string) => void;
 }
@@ -38,7 +42,14 @@ type AddrRow = {
   country: string;
 };
 
-export function ContactEditor({ card, defaultBookId, onClose, onSaved }: Props) {
+export function ContactEditor({
+  card,
+  defaultBookId,
+  sourceAccountId,
+  defaultAccountId,
+  onClose,
+  onSaved,
+}: Props) {
   const contacts = useContacts();
   const isNew = !card.id; // Read from the card whether it is saved or seeded (e.g. from a message header).
   const np = nameParts(card as ContactCard);
@@ -104,16 +115,36 @@ export function ContactEditor({ card, defaultBookId, onClose, onSaved }: Props) 
   });
   const [website, setWebsite] = useState(Object.values(card.links ?? {})[0]?.uri ?? "");
   const [note, setNote] = useState(Object.values(card.notes ?? {})[0]?.note ?? "");
-  const [bookId, setBookId] = useState(
-    Object.keys(card.addressBookIds ?? {})[0] ?? defaultBookId ?? "",
-  );
+  /*
+   * The target book, qualified by the account that holds it. A bare id is
+   * ambiguous: an own book and a shared book can carry the same id in their
+   * different accounts, and the id alone always resolved to the reader's own
+   * -- which is how choosing the shared book silently saved into the own one.
+   */
+  const [bookSel, setBookSel] = useState<{ accountId: string; bookId: string }>(() => {
+    const own = contacts.accountId ?? "";
+    const firstId = Object.keys(card.addressBookIds ?? {})[0];
+    const accountId =
+      firstId || !isNew ? (sourceAccountId ?? own) : (defaultAccountId ?? own);
+    const bookId =
+      firstId ??
+      defaultBookId ??
+      (!firstId && accountId === own ? (Object.values(contacts.books)[0]?.id ?? "") : "");
+    return { accountId: accountId || own, bookId };
+  });
   const [photo, setPhoto] = useState<{ dataUrl: string; type: string } | null>(null);
   const [removePhoto, setRemovePhoto] = useState(false);
   const [memberUids, setMemberUids] = useState<string[]>(Object.keys(card.members ?? {}));
   const [memberQuery, setMemberQuery] = useState("");
   const [busy, setBusy] = useState(false);
+  const own = contacts.accountId ?? "";
   const books = [
-    ...Object.values(contacts.books).map((b) => ({ id: b.id, name: b.name, note: "" })),
+    ...Object.values(contacts.books).map((b) => ({
+      accountId: own,
+      id: b.id,
+      name: b.name,
+      note: "",
+    })),
     /* Subscribed shared books the reader may write to -- a group's directory,
        for example -- so a card can be added or moved there too. */
     ...contacts.sharedBooks
@@ -125,10 +156,14 @@ export function ContactEditor({ card, defaultBookId, onClose, onSaved }: Props) 
               .getState()
               .settings.addedShares.includes(sharedKey(b.accountId, b.book.id))),
       )
-      .map((b) => ({ id: b.book.id, name: b.book.name, note: b.accountName })),
+      .map((b) => ({
+        accountId: b.accountId,
+        id: b.book.id,
+        name: b.book.name,
+        note: b.accountName,
+      })),
   ];
-  /* Photo blobs go to whichever account holds the target book. */
-  const bookAccount = contacts.accountOfBook(bookId) ?? contacts.accountId!;
+  const { accountId: bookAccount, bookId } = bookSel;
   const existingPhoto =
     card.id && contacts.accountId
       ? Object.values(card.media ?? {}).find((m) => m.kind === "photo")
@@ -281,17 +316,37 @@ export function ContactEditor({ card, defaultBookId, onClose, onSaved }: Props) 
         }
       } else if (removePhoto) obj.media = null;
       if (isNew) {
-        const id = await contacts.createCard(obj as Partial<ContactCard>, bookId);
+        const id = await contacts.createCard(
+          obj as Partial<ContactCard>,
+          bookId,
+          bookAccount,
+        );
         toast.success(t("Contact created"));
         onSaved(id);
       } else {
-        const patch: Record<string, unknown> = { ...obj };
-        const curBook = Object.keys(card.addressBookIds ?? {})[0];
-        if (curBook !== bookId) patch.addressBookIds = { [bookId]: true };
-        if (!photo && !removePhoto) delete patch.media;
-        await contacts.updateCard(card.id!, patch);
-        toast.success(t("Contact saved"));
-        onSaved(card.id!);
+        const cardAccount = sourceAccountId ?? contacts.accountId ?? "";
+        if (cardAccount === bookAccount) {
+          // Same account: a patch that adds the target book.
+          const patch: Record<string, unknown> = { ...obj };
+          const curBook = Object.keys(card.addressBookIds ?? {})[0];
+          if (curBook !== bookId) patch.addressBookIds = { [bookId]: true };
+          if (!photo && !removePhoto) delete patch.media;
+          await contacts.updateCard(card.id!, patch);
+          toast.success(t("Contact saved"));
+          onSaved(card.id!);
+        } else {
+          // A different account holds the target book: the card moves there
+          // (create the copy in that account, destroy this one). The id
+          // changes, so navigate to the new card.
+          const newId = await contacts.moveCardTo(
+            card.id!,
+            cardAccount,
+            bookAccount,
+            bookId,
+          );
+          toast.success(t("Contact moved"));
+          onSaved(newId);
+        }
       }
     } catch (err) {
       toast.error((err as Error).message);
@@ -413,11 +468,17 @@ export function ContactEditor({ card, defaultBookId, onClose, onSaved }: Props) 
             <label>{t("Address book")}</label>
             <select
               className="select"
-              value={bookId}
-              onChange={(e) => setBookId(e.target.value)}
+              value={`${bookAccount}\u0000${bookId}`}
+              onChange={(e) => {
+                const [acct, bid] = e.target.value.split("\u0000");
+                setBookSel({ accountId: acct ?? bookAccount, bookId: bid ?? "" });
+              }}
             >
               {books.map((b) => (
-                <option key={b.id} value={b.id}>
+                <option
+                  key={`${b.accountId}\u0000${b.id}`}
+                  value={`${b.accountId}\u0000${b.id}`}
+                >
                   {b.note ? `${b.name} · ${b.note}` : b.name}
                 </option>
               ))}

@@ -984,6 +984,7 @@ export const catalog: Catalog = {
     "Choose an address book": "Kies een adresboek",
     "Colour updated": "Kleur gewijzigd",
     "Contact created": "Contact aangemaakt",
+    "Contact moved": "Contact verplaatst",
     "Contact deleted": "Contact verwijderd",
     "Contact saved": "Contact opgeslagen",
     Copied: "Gekopieerd",

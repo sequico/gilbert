@@ -97,6 +97,8 @@ export function useAddressMenu() {
         <ContactEditor
           card={editing}
           defaultBookId={defaultBookId}
+          sourceAccountId={null}
+          defaultAccountId={contacts.accountId ?? null}
           onClose={() => setEditing(null)}
           onSaved={() => setEditing(null)}
         />
