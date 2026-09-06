@@ -17,13 +17,10 @@ export function LoginPage() {
   /*
    * What this instance calls itself.
    *
-   * The name was in the `/api/config` answer all along and only `sourceUrl`
-   * was taken out of it, so an instance with `APP_NAME` set still said
-   * "ihasmail" on the one page a new user meets first -- the page where the
-   * name matters most, and the one the rebranding guide had to tell people to
-   * patch themselves.
+   * The name is in the `/api/config` answer, so an instance with `APP_NAME`
+   * set shows it on the one page a new user meets first.
    *
-   * Defaults to ihasmail and stays there if the request fails, because a
+   * Defaults to Gilbert and stays there if the request fails, because a
    * sign-in form with no name on it would be worse than a wrong one.
    */
   const [appName, setAppName] = useState(DEFAULT_APP_NAME);
