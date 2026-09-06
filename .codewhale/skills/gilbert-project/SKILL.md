@@ -14,9 +14,10 @@ metadata:
   client is based on [Coffey-Labs/ihasmail](https://github.com/Coffey-Labs/ihasmail)
   — remote `upstream` is no_push, `origin` is `sequico/gilbert`. The mail
   core's ihasmail identifiers were renamed to `gilbert` (2026-09-06, see
-  `gilbert-branding`); upstream merges keep flowing into the mail core, and
-  common mail-core work is contributed back from an upstream-shaped fork
-  (ADR 0002). Ask before inventing product behaviour the acronym implies but
+  `gilbert-branding`); upstream is download-only (ADR 0002):
+  `sync-upstream.yml` mirrors releases onto the `ihasmail` branch and the
+  mail core merges them in, and nothing is contributed back.
+  Ask before inventing product behaviour the acronym implies but
   the code does not have.
 - Licence AGPL-3.0-or-later; `LICENSE` and `NOTICE` keep Coffey Labs' copyright (the mail core is their derivative work). Do not strip attribution.
 
@@ -63,10 +64,8 @@ Companion skills: string/i18n work loads `gilbert-i18n`; anything settings- or p
 - **Releases are manual.** The user calls releases by hand; for now there are none and none are automated. Never tag, create a release, or trigger the upstream release/publish workflows (`.github/workflows/release.yml`, `publish.yml`) on your own.
 - `SECURITY.md`, `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md` still describe upstream's process and contacts (Coffey Labs, johnellisATlinuxDOTcom). Before rewriting them or acting on them, ask the user.
 - A deep rename diverges from upstream and complicates every future sync — state that cost before doing one (see `gilbert-branding`).
-- **Upstream contributions (ADR 0002).** Common work is contributed from an
-  upstream-shaped fork branch cut from `upstream/main`, never from the
-  rebranded main and never carrying Gilbert identifiers or features; the sync
-  direction stays upstream → main, and the `gilbert` branch mirrors upstream
-  releases. Do not fold a rebranding edit into a common change: rebranding is
-  the Gilbert layer and stays here.
+- **Upstream is download-only (ADR 0002).** `sync-upstream.yml` mirrors
+  upstream releases onto the `ihasmail` branch and the mail core merges them
+  in. Nothing flows back — no PRs to Coffey-Labs/ihasmail, no upstream-shaped
+  fork, no un-renaming. The sync direction stays upstream → main.
 - Syncing upstream: upstream's locale catalogs are a key-superset of Gilbert's trimmed ones and more complete — when catalog files conflict, adopt the upstream catalog wholesale rather than merging entries, then run `npm run i18n:check`. Upstream's `CLAUDE.md` and `.github/FUNDING.yml` stay excluded (owner decision); monitor `CLAUDE.md` for agent guidance worth porting into this file or the skills.

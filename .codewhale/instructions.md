@@ -74,12 +74,10 @@ automated.** Never tag, publish, or trigger release/publish workflows on your
 own (see `.github/workflows/release.yml`, `publish.yml`).
 SECURITY.md / CONTRIBUTING.md / CODE_OF_CONDUCT.md are still upstream's process
 and contacts — ask before changing or acting on them.
-**Upstream contributions (ADR 0002):** common work offered to Coffey-Labs/
-gilbert is prepared on a branch cut from `upstream/main` in an upstream-shaped
-contribution fork — never from the rebranded `main`, never carrying Gilbert
-identifiers or features. The sync direction stays upstream → main; the
-`gilbert` branch mirrors upstream releases. Rebranding is the Gilbert layer
-and stays in this repo.
+**Upstream is download-only (ADR 0002):** `sync-upstream.yml` mirrors
+upstream releases onto the `ihasmail` branch and the mail core merges them
+in. Nothing flows the other way — no contributions, no PRs, no upstream-shaped
+fork. Common work stays here, renamed or not.
 
 Full law: load skills/gilbert-project. Renames: load skills/gilbert-branding.
 UI strings & languages: load skills/gilbert-i18n. Settings & policy: load

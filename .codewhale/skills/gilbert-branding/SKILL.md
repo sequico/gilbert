@@ -64,17 +64,17 @@ brand surface and never ours:
 - the `ihasmail` branch that `sync-upstream.yml` mirrors upstream releases
   onto.
 
-## Where the rename stops
+## Where upstream stops
 
-Upstream-shaped work offered to Coffey-Labs/ihasmail is prepared on a fork
-branch cut from `upstream/main` with `ihasmail` identifiers intact
-(ADR 0002) — never by un-renaming patches from this tree. Do not fold a
-rename edit into a change that upstream could receive; the two shapes live in
-two places on purpose. Upstream's rebranding guide
+Upstream is **download-only** (ADR 0002): `sync-upstream.yml` mirrors
+upstream releases onto the `ihasmail` branch, and the mail core merges them
+in. Nothing is contributed back — no upstream-shaped fork, no un-renaming
+patches, no PRs to Coffey-Labs/ihasmail; common work simply lives here.
+Upstream's rebranding guide
 (docs.ihasmail.org/rebranding/) is the reference for the licence obligations
-that survive: a rebranded Gilbert is AGPL, users are owed *this* tree's
-source, and running it as a service counts as distribution — `SOURCE_URL` is
-the offer and already defaults here.
+that survive: Gilbert is AGPL, users are owed *this* tree's source, and
+running it as a service counts as distribution — `SOURCE_URL` is the offer
+and already defaults here.
 
 ## Rules for any future rename
 
