@@ -66,7 +66,8 @@ Read the affected area first; smallest coherent diff.
 lint + tests); a pre-push hook enforces it — hook in `.githooks/pre-push`,
 enabled per clone with `git config core.hooksPath .githooks`, bypass only
 deliberately with `--no-verify`. Remote CI does not run on push: it is the
-release pre-check.
+release pre-check, with one exception -- pull requests opened by Dependabot run
+it automatically (their branches never pass through the local hook).
 No commit or push unless the user's message in the current turn says so.
 `origin/main` is **not branch-protected** (private repo): direct commit + push
 to main is the normal flow.
