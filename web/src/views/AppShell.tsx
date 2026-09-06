@@ -513,7 +513,7 @@ function ThemeToggle() {
     prefersDark,
   );
   // Name where it is going, and by the palette when the palette is changing --
-  // going back to ihasmail's own colours is not the same as "dark mode".
+  // going back to Gilbert's own colours is not the same as "dark mode".
   // The palette never changes now, so the label is only ever the side.
   const label = next.mode === "light" ? t("light mode") : t("dark mode");
   return (

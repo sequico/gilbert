@@ -22,7 +22,7 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
      * what the worker is allowed to control -- which under a prefix must stop
      * at the mount. A worker scoped to `/` on a host shared with other
      * applications would intercept their navigations too, and its offline
-     * fallback would answer them with ihasmail's shell.
+     * fallback would answer them with Gilbert's shell.
      */
     navigator.serviceWorker
       .register(withBase("/sw.js"), { scope: `${BASE_PATH}/` })

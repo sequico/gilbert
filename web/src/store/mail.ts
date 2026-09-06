@@ -263,7 +263,7 @@ export const DEFAULT_SORT: Comparator[] = [
  * Nothing carries the Archive role, so offer to fix it rather than explain it.
  *
  * The message this replaces described the problem accurately and left the
- * reader with nothing to do inside ihasmail -- roles were only ever shown, not
+ * reader with nothing to do inside Gilbert -- roles were only ever shown, not
  * set. `Mailbox/set` takes `role`, so the offer is real: one click makes the
  * folder and files the messages that were being archived when it was missing.
  *
@@ -1181,7 +1181,7 @@ export const useMail = create<MailState>((set, get) => ({
    *
    * `Mailbox/set` takes `role` -- confirmed live against 0.16.20 on 2026-09-02,
    * as an ordinary user through the proxy, no admin API -- so a missing Archive
-   * is something ihasmail can fix instead of explaining a server-side concept
+   * is something Gilbert can fix instead of explaining a server-side concept
    * and leaving. Stalwart parses the role names in `SpecialUse::parse`, of
    * which "archive" is one, and enforces that a role is held by one folder.
    *

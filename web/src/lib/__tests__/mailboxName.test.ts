@@ -11,7 +11,7 @@ import {
  * Stalwart names the standard folders once, at account creation, and never
  * renames them — so a German reader on an English-provisioned account would
  * otherwise see "Deleted Items" in an otherwise German app. The role is what
- * lets ihasmail say "Papierkorb" without writing anything to the server.
+ * lets Gilbert say "Papierkorb" without writing anything to the server.
  */
 const de: Catalog = {
   strings: { Inbox: "Posteingang", "Deleted Items": "Papierkorb", Drafts: "Entwürfe" },

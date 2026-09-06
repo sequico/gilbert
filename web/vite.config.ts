@@ -9,7 +9,7 @@ import { resolveVersion } from "../scripts/version.mjs";
 const version = resolveVersion();
 
 /*
- * Where the app is mounted. Unlike everything else ihasmail is told, this one
+ * Where the app is mounted. Unlike everything else Gilbert is told, this one
  * cannot wait until the process starts: the hashed asset URLs are written into
  * index.html when the bundle is built, so a build that does not know its prefix
  * emits `/assets/...` and the shell 404s under `/mail/`. So `BASE_PATH` is read

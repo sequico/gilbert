@@ -7,7 +7,7 @@ import { useToasts } from "@/ui/toast";
 /*
  * Giving a folder the Archive role.
  *
- * The whole of #217 was one JMAP property ihasmail never sent. `Mailbox/set`
+ * The whole of #217 was one JMAP property Gilbert never sent. `Mailbox/set`
  * takes `role` -- confirmed live against 0.16.20, as an ordinary user through
  * the proxy -- so a missing Archive is something the client can fix rather than
  * describe. These pin what it sends, and the one case that matters most: a

@@ -77,7 +77,7 @@ test("a Sieve script larger than a compressing hop's threshold survives the prox
   const { forwardedContentLength } = await import("./app.js");
 
   const script =
-    '# ihasmail filters v1 - edit with care; rules are stored in the `# rule:` comments\nrequire ["fileinto"];\n\n' +
+    '# Gilbert filters v1 - edit with care; rules are stored in the `# rule:` comments\nrequire ["fileinto"];\n\n' +
     ["a", "b", "c"]
       .map(
         (k) =>

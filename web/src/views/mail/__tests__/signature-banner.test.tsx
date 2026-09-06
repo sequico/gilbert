@@ -11,7 +11,7 @@ import { SignatureBanner } from "../SignatureBanner";
 
 /*
  * The wording is the feature here, so it is worth asserting rather than
- * eyeballing. The rule this pins down: ihasmail has no certificate authority to
+ * eyeballing. The rule this pins down: Gilbert has no certificate authority to
  * ask, so a signature that merely verifies against the certificate travelling
  * beside it must never be dressed as an endorsement. "Verified" full stop is
  * the word that would be a lie, and the tone must not be the reassuring one

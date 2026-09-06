@@ -113,7 +113,7 @@ describe("the top-bar toggle", () => {
   });
 
   it("comes back to the palette you were actually on", () => {
-    // The whole point: two presses from ihasmail must return to ihasmail, not
+    // The whole point: two presses from Gilbert must return to Gilbert, not
     // deposit you on plain dark.
     const away = toggleTarget({ palette: "ihasmail", mode: "dark" }, false);
     expect(toggleTarget(away, false).palette).toBe("ihasmail");

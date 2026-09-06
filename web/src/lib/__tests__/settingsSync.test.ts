@@ -80,7 +80,7 @@ describe("applying a settings file", () => {
   });
 
   it("ignores keys it has never heard of", () => {
-    // A newer ihasmail's settings, or a hand-edited file.
+    // A newer Gilbert's settings, or a hand-edited file.
     expect(acceptRemote({ theme: "dark", somethingNewer: 42 })).toEqual(MIGRATED_DARK);
   });
 

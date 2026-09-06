@@ -145,7 +145,7 @@ async function registerThisBrowser(key: string): Promise<void> {
  *
  * Renewal has to happen here rather than in the service worker: registering
  * with Stalwart is a JMAP call, and a JMAP call needs the session cookie that
- * only a page has. So the guarantee is "push keeps working as long as ihasmail
+ * only a page has. So the guarantee is "push keeps working as long as Gilbert
  * is opened now and again", and the renewal window is wide enough that once a
  * week is enough.
  *

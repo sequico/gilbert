@@ -297,7 +297,7 @@ function PasswordForm({
 /**
  * Only the way *out*. Setting two-factor authentication up is gone until
  * signing in with a code works: Stalwart takes a TOTP code through an OAuth
- * flow alone and offers no password grant, so ihasmail has nowhere to send one
+ * flow alone and offers no password grant, so Gilbert has nowhere to send one
  * (#75). Turning it on here would lock the account out of webmail on its next
  * sign-in. Turning it off is a plain registry write, works today, and has to
  * stay — whoever is already enrolled needs a way back.

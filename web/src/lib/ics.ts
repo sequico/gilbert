@@ -327,7 +327,7 @@ function finish(
  *   the master's value. Plain overridden properties -- a moved time, a changed
  *   title -- come across.
  * - **No localizations, no relatedTo, no per-participant delegation.** Nothing
- *   in ihasmail sets them.
+ *   in Gilbert sets them.
  */
 export function toIcs(events: JSCalendarEvent[], calendarName?: string): string {
   const lines = [

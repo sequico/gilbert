@@ -408,7 +408,7 @@ export function GeneralSettings() {
 }
 
 /**
- * Offer ihasmail as the browser's handler for `mailto:` links. The browser
+ * Offer Gilbert as the browser's handler for `mailto:` links. The browser
  * owns the decision, and nothing can read the answer back, so this states what
  * it can and points at the browser's own settings for the rest.
  */

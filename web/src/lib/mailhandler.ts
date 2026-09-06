@@ -1,14 +1,14 @@
 import { loadRaw, saveJson } from "./storage";
 
 /**
- * Registering ihasmail as the browser's `mailto:` handler.
+ * Registering Gilbert as the browser's `mailto:` handler.
  *
  * `registerProtocolHandler` is the only web API for this. It needs a secure
  * context, a same-origin URL containing `%s`, and a user gesture; the browser
  * then asks the user. There is no way to read back whether a handler is
  * registered, so we remember that we asked and keep the wording honest about
  * it. Installed PWAs get a second route via the manifest's `protocol_handlers`,
- * which is what lets the operating system itself offer ihasmail.
+ * which is what lets the operating system itself offer Gilbert.
  */
 
 const KEY = "mailtoHandler";

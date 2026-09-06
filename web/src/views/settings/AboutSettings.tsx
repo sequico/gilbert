@@ -1,5 +1,6 @@
 import { client } from "@/jmap/client";
 import { withBase } from "@/lib/basePath";
+import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { t, tNode } from "@/lib/i18n";
 import { DEFAULT_SOURCE_URL } from "@/lib/source";
 import { APP_VERSION } from "@/lib/version";
@@ -10,6 +11,7 @@ export function AboutSettings() {
   const caps = Object.keys(session?.capabilities ?? {});
   // A deployment running modified code should offer its own source, not ours.
   const sourceUrl = session?.ihasmail?.sourceUrl ?? DEFAULT_SOURCE_URL;
+  const appName = session?.ihasmail?.appName ?? DEFAULT_APP_NAME;
   return (
     <div>
       <h1>{t("About Gilbert")}</h1>
@@ -23,7 +25,7 @@ export function AboutSettings() {
         })}
       </p>
       <div className="row" style={{ gap: 16, alignItems: "center", marginBottom: 16 }}>
-        <img src={withBase("/img/logo.png")} alt={t("Gilbert")} width={96} />
+        <img src={withBase("/img/logo.png")} alt={appName} width={96} />
         <div>
           {/* A product name and a version string: neither is a word to translate. */}
           <div
@@ -31,7 +33,7 @@ export function AboutSettings() {
             className="notranslate"
             translate="no"
           >
-            ihasmail v{APP_VERSION}
+            {appName} v{APP_VERSION}
           </div>
           <div className="hint">
             {tNode("AGPL-3.0-or-later · {source}", {
@@ -108,7 +110,7 @@ export function AboutSettings() {
 /**
  * Stalwart deliberately withholds its version from clients (it reports a fixed
  * "1.0.0" wherever it publishes one at all), so the edition is all there is to
- * show. The generation used to be reported here too, back when ihasmail spoke
+ * show. The generation used to be reported here too, back when Gilbert spoke
  * to both 0.15 and 0.16; it requires 0.16 now, so signing in at all is the
  * answer to that question.
  */

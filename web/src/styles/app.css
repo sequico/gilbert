@@ -167,7 +167,7 @@
 
  */
 
-/* ihasmail (light) lifted for contrast: faint #7d969c -> #62757a (2.94 -> 4.55); accent #46cac3 -> #379e98 (1.88 -> 3.04); star #f9a34b -> #c5813b (1.91 -> 3.00); border-strong #b2c5c9 -> #849295 (1.69 -> 3.03) */
+/* Gilbert (light) lifted for contrast: faint #7d969c -> #62757a (2.94 -> 4.55); accent #46cac3 -> #379e98 (1.88 -> 3.04); star #f9a34b -> #c5813b (1.91 -> 3.00); border-strong #b2c5c9 -> #849295 (1.69 -> 3.03) */
 
 :root[data-palette="ihasmail"] {
   --bg: #f4f9f9;

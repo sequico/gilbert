@@ -27,7 +27,7 @@ export class RateLimiter {
    * Give back the attempt `check` just took.
    *
    * For an outcome that says nothing about whether the credentials were right.
-   * ihasmail runs in its own container, usually on its own host, so an upstream
+   * Gilbert runs in its own container, usually on its own host, so an upstream
    * that never answered is an ordinary Tuesday rather than an attack -- and the
    * limiter exists to slow down password guessing, which a server that refused
    * the connection has not told us anything about. Without this, retrying

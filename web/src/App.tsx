@@ -178,7 +178,7 @@ function AuthedApp() {
       if (remote) useSettings.getState().hydrate(remote);
       // No settings file: this account has never had settings of its own, so
       // the installation's defaults are what it starts on rather than
-      // ihasmail's. Issue #207.
+      // Gilbert's. Issue #207.
       else useSettings.getState().seedFromPolicy();
       /*
        * After both, and for everybody: a change the installation wants applied

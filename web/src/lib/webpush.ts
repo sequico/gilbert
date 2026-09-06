@@ -1,13 +1,13 @@
 /**
- * Web Push: notifications that arrive when ihasmail is not open.
+ * Web Push: notifications that arrive when Gilbert is not open.
  *
  * The existing EventSource channel only lives as long as a tab does, so
  * "desktop notifications" have really meant "while you are looking". Stalwart
  * 0.16 signs Web Push with VAPID (RFC 9749) and can carry the message itself in
  * the payload (draft-ietf-jmap-emailpush), so the browser's own push service
- * delivers a useful notification with ihasmail closed.
+ * delivers a useful notification with Gilbert closed.
  *
- * Nothing in this path touches ihasmail's server. Stalwart talks to the push
+ * Nothing in this path touches Gilbert's server. Stalwart talks to the push
  * service directly; the only thing proxied is the JMAP call that registers the
  * subscription. That is deliberate — it is why this needs no relay, no extra
  * service to run, and no third party beyond the browser vendor's push endpoint

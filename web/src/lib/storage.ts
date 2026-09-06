@@ -65,7 +65,7 @@ export function setDeviceTrusted(value: boolean): void {
   }
 }
 
-/** Every `ihasmail:` key currently present, without the prefix. */
+/** Every `Gilbert:` key currently present, without the prefix. */
 function ownKeys(): string[] {
   const out: string[] = [];
   try {

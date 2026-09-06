@@ -19,7 +19,7 @@ const chrome = spawn(
     "--no-default-browser-check",
     "--window-size=1420,790",
     "--force-device-scale-factor=1",
-    "--user-data-dir=/tmp/ihasmail-light-profile",
+    "--user-data-dir=/tmp/gilbert-light-profile",
     "about:blank",
   ],
   { stdio: "ignore" },

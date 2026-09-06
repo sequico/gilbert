@@ -7,7 +7,7 @@ import type { Context } from "hono";
 import { config } from "./config.js";
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
-const UA = "Mozilla/5.0 (compatible; ihasmail-image-proxy)";
+const UA = "Mozilla/5.0 (compatible; gilbert-image-proxy)";
 
 export function isPrivateAddress(addr: string): boolean {
   const v = isIP(addr);

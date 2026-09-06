@@ -57,7 +57,7 @@ const chrome = spawn(
     "--no-first-run",
     "--no-default-browser-check",
     "--disable-gpu",
-    `--user-data-dir=/tmp/ihasmail-shots-profile`,
+    `--user-data-dir=/tmp/gilbert-shots-profile`,
     "about:blank",
   ],
   { stdio: "ignore" },

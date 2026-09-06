@@ -132,13 +132,13 @@ if (immutable)
  *   rule.
  * - `enforced` are applied on every load and cannot be changed here at all. The
  *   controls stay visible and go dead, which the issue asked for by name: a
- *   missing control confuses somebody who has used ihasmail elsewhere.
+ *   missing control confuses somebody who has used Gilbert elsewhere.
  * - `changes` are applied once each, to everybody, including accounts that
  *   already exist -- and can be changed back afterwards. Each carries its own
  *   `version`, which is how an account remembers the ones it has had. The
  *   reporter's own analogy is a schema migration and this is that shape.
  *
- * Read from a file or straight from the environment, because ihasmail's own
+ * Read from a file or straight from the environment, because Gilbert's own
  * production runs read-only with no volume -- an installation that cannot mount
  * a file can still set a variable.
  */

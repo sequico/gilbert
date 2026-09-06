@@ -88,7 +88,7 @@ export function staticHandler(root: string, basePath = ""): Handler {
       return c.body(indexCache.body);
     } catch {
       c.header("Content-Type", "text/plain; charset=utf-8");
-      return c.body("ihasmail: web build not found. Run `npm run build` first.", 503);
+      return c.body("Gilbert: web build not found. Run `npm run build` first.", 503);
     }
   }
 

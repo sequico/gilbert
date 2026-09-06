@@ -115,8 +115,8 @@ test("the skew window covers a step either side and no further", () => {
 
 test("otpauth URLs round-trip through the parser", () => {
   const secret = generateSecret();
-  const url = otpauthUrl({ secret, account: "ann@example.org", issuer: "ihasmail" });
-  assert.match(url, /^otpauth:\/\/totp\/ihasmail:ann%40example\.org\?/);
+  const url = otpauthUrl({ secret, account: "ann@example.org", issuer: "Gilbert" });
+  assert.match(url, /^otpauth:\/\/totp\/Gilbert:ann%40example\.org\?/);
   const parsed = parseOtpauthUrl(url);
   assert.deepEqual(parsed, { secret, algorithm: "SHA1", digits: 6, period: 30 });
 });

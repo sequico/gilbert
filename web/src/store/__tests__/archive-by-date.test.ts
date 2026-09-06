@@ -234,7 +234,7 @@ describe("archiveByDate", () => {
     /*
      * And it offers to fix it. The folder is found by its special-use role and
      * by nothing else, so telling someone to create a folder *named* "Archive"
-     * sent them round a loop that could not end. ihasmail can set the role
+     * sent them round a loop that could not end. Gilbert can set the role
      * itself, so the toast carries the action rather than the explanation.
      * Issue #217.
      */

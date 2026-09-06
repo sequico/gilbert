@@ -28,7 +28,7 @@ const DAYS = ["su", "mo", "tu", "we", "th", "fr", "sa"];
  * The id an occurrence is addressed by, which is only true until the next write.
  *
  * Stalwart's are opaque; the mock's are parseable because it has to resolve
- * them, and nothing in ihasmail may read either.
+ * them, and nothing in Gilbert may read either.
  *
  * They are also deliberately **unstable**, because the real ones are.
  * **Confirmed live on 0.16.20 (2026-08-31):** a synthetic id encodes a position

@@ -3,7 +3,7 @@
  *
  * Nothing is written anywhere. The dates already live on the cards, and
  * copying them into real calendar events would mean two records of the same
- * fact that drift the first time somebody corrects one — and ihasmail keeping
+ * fact that drift the first time somebody corrects one — and Gilbert keeping
  * a calendar of its own is exactly what it does not do. So the events are
  * derived when a view asks for a range, and vanish when the contact does.
  */

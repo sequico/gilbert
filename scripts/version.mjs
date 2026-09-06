@@ -4,7 +4,7 @@
  *   2026.8.30  the date of the commit this was built from
  *   +pr129     the pull request it arrived through
  *
- * The date leads because ihasmail's version used to be `2.16.<pr>`, where `16`
+ * The date leads because Gilbert's version used to be `2.16.<pr>`, where `16`
  * was the Stalwart generation it targeted -- and Stalwart 1.0 will leave that
  * with nowhere to go. `2.1` would sort *below* the `2.16` already deployed, so
  * every image and About screen would read as a downgrade. Tying our

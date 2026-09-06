@@ -122,7 +122,7 @@ export interface Settings {
    * modify this address book." It accepts the same write on a shared calendar,
    * which is the inconsistency this list exists to paper over.
    *
-   * So where the server will not remember, ihasmail does, in the settings that
+   * So where the server will not remember, Gilbert does, in the settings that
    * already follow the reader between devices.
    */
   addedShares: string[];
@@ -305,7 +305,7 @@ export const DEFAULT_SETTINGS: Settings = {
    * ihasmail's own palette is what a new account gets, so the app looks like
    * itself before anyone has chosen anything. It is only a default: a stored
    * theme always wins, so nobody who has picked one — including everyone
-   * already using ihasmail, whose choice is saved even if they never changed
+   * already using Gilbert, whose choice is saved even if they never changed
    * it — is moved off it.
    */
   theme: "ihasmail",
@@ -419,7 +419,7 @@ export function syncedPart(s: Settings): Record<string, unknown> {
 
 /**
  * What of a settings file we are willing to apply: known keys only, and never
- * a device one — an older ihasmail wrote the whole object up, and that file
+ * a device one — an older Gilbert wrote the whole object up, and that file
  * should not now drag another machine's pane width across.
  */
 export function acceptRemote(remote: Record<string, unknown>): Partial<Settings> {
@@ -581,7 +581,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
     return pending;
   },
   reset() {
-    /* Back to how this installation starts an account, not to how ihasmail
+    /* Back to how this installation starts an account, not to how Gilbert
        starts one: resetting must not be a way around a policy, and the defaults
        an admin chose are the honest meaning of "reset" where there are any. */
     const base = { ...DEFAULT_SETTINGS, ...policyDefaults(), ...policyEnforced() };
@@ -647,7 +647,7 @@ function applyDateTimePrefs(s: Settings): void {
  * `lang="en"` statically, so the very first bytes are already right for the
  * default and this only ever corrects a reader who chose otherwise.
  *
- * There is no server-rendered alternative to reach for. ihasmail serves a
+ * There is no server-rendered alternative to reach for. Gilbert serves a
  * static shell and keeps no account state; the settings file lives in the
  * reader's own JMAP Files on the mail server, so the only way to read it
  * before the page existed would be to authenticate to Stalwart on every page

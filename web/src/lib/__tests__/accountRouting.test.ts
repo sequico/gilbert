@@ -10,7 +10,7 @@ import {
  *
  * Switching to the account somebody shared pointed everything at it, because
  * the rule was "use the selected account if it can do this" and a shared file
- * account can, by definition, do files. ihasmail keeps its own settings in the
+ * account can, by definition, do files. Gilbert keeps its own settings in the
  * account's Files, so changing any setting while looking at somebody's shared
  * folder wrote `settings.json` into *their* storage, creating the `ihasmail`
  * folder there to do it. Reading someone else's data by mistake is bad; writing

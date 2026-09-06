@@ -29,7 +29,15 @@ The coordinated code rename landed in layers; these identifiers now say
   is `__GILBERT_VERSION__`.
 - The CSRF header value is `X-Requested-With: gilbert` (client, server check
   and tests moved together); the settings export file is
-  `gilbert-settings.json`.
+  `gilbert-settings.json`; the MDN reporting UA says `Gilbert 2.0`; the sieve
+  script preamble says `# Gilbert filters v1`; the image-proxy UA is
+  `gilbert-image-proxy`; the TOTP issuer falls back to `Gilbert`.
+- The CI/CD pipeline is this repository's own since commit `6cfb614`:
+  `publish.yml` publishes `ghcr.io/sequico/gilbert` (multi-arch, never
+  upstream's org), `cleanup.yml` prunes `gilbert`, `release.yml` is the
+  manual release flow (user calls it; it tags, creates the GitHub release and
+  calls publish). `ci.yml` builds `gilbert:ci`. Only `sync-upstream.yml`
+  touches upstream — it mirrors upstream releases onto the `ihasmail` branch.
 - Reverse-proxy examples and `.env.example` prose name Gilbert;
   `settings-policy.example.json` prose follows. Docker runtime identifiers are
   unchanged (below).
@@ -43,11 +51,16 @@ none of them is brand surface. Docs must keep saying `ihasmail` for them:
   `settings.json` and the signature images) — **renaming it is still a TODO**:
   it is a per-account data migration needing read and back-compat, never a
   silent move;
-- its storage keys: localStorage `ihasmail:lastUser` / `ihasmail-theme`, the
-  drag-and-drop MIME types (`application/x-ihasmail-emails`, `-folder`,
-  `-sieve-rule`), the sieve script name "ihasmail", and the stored
-  `"ihasmail"` theme/palette value in `settings.json` (only the CSS palette
-  block under `[data-palette="ihasmail"]` is visual and retunable);
+- its storage keys: localStorage `ihasmail:lastUser` / `ihasmail-theme` /
+  `ihasmail:deviceTrusted`, the drag-and-drop MIME types
+  (`application/x-ihasmail-emails`, `-folder`, `-sieve-rule`), the sieve
+  script name "ihasmail", the stored `"ihasmail"` theme/palette value in
+  `settings.json` (only the CSS palette block under
+  `[data-palette="ihasmail"]` is visual and retunable), the crypto sealing
+  context `ihasmail-session-v1` and the Web Push device-id prefix
+  `ihasmail-<uuid>` (both would strand existing sessions/devices), and the
+  signature HTML marker `<!--ihasmail:sig=…-->` written into stored
+  identities (old stored signatures must stay readable);
 - `sw.js`: `VERSION`/`VERIFY_KEY`, the `ihasmail-push-verification` path and
   notification tags (renaming invalidates every cached shell at once);
 - the `[ihasmail]` server log prefix and the session extension object

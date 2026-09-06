@@ -32,7 +32,7 @@ export interface PaletteMeta {
   /**
    * Whether the name is a word rather than a name.
    *
-   * Five of these six are proper names -- ihasmail, Dracula, Gruvbox, Rosé
+   * Five of these six are proper names -- Gilbert, Dracula, Gruvbox, Rosé
    * Pine, Tokyo Night -- and are rendered translate="no" so a page translator
    * leaves them alone. "Classic" is not a name, it is an adjective describing
    * the theme, and a German reader should see "Klassisch". Reported by a

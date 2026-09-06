@@ -110,7 +110,7 @@ describe("the boundary", () => {
     /*
      * React logs every error a boundary catches to console.error itself, in
      * development, and that is not ours to suppress. What matters is that
-     * ihasmail does not add one of its own on top: the recovery is reported
+     * Gilbert does not add one of its own on top: the recovery is reported
      * as information, so a console-reading error reporter sees React's dev
      * noise and nothing from us claiming a failure.
      */

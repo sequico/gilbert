@@ -4,11 +4,11 @@ Generate the palette CSS blocks in web/src/styles/app.css.
 
 Every colour here comes from the palette's own project (all MIT); the values
 are recorded in .palette-sources/palettes-upstream.md. What this script adds is
-the *derivation*: ihasmail needs thirty-odd tokens and these projects publish
+the *derivation*: Gilbert needs thirty-odd tokens and these projects publish
 between twelve and twenty, so the tiers in between are computed rather than
 guessed, and every text colour is then checked against the surface it sits on.
 
-The check is the reason this is a script and not a hand-written block. ihasmail
+The check is the reason this is a script and not a hand-written block. Gilbert
 claims WCAG AA, and several of these palettes do not meet it as published --
 Dracula's comment grey on its own background is about 3.0:1, well under the 4.5
 that normal text needs. Lifting those tiers by eye is how a claim quietly stops
@@ -88,7 +88,7 @@ def toward_contrast(colour: str, bg: str, target: float, dark_ui: bool) -> str:
 # Roles as each project publishes them. Nothing here is invented; see
 # .palette-sources/palettes-upstream.md for where each value came from.
 
-# ihasmail's own palette has a hand-written dark block further up the file --
+# Gilbert's own palette has a hand-written dark block further up the file --
 # it is the identity this project is painted in, and regenerating it would
 # quietly move colours nobody asked to move. Only its light half is derived
 # here, which is why it appears in LIGHT_ONLY.

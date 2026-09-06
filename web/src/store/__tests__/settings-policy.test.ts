@@ -34,7 +34,7 @@ afterEach(() => {
 describe("what the installation has decided", () => {
   it("keeps to the settings this build actually has", () => {
     /*
-     * A policy written against a newer ihasmail, or with a typo in it, must not
+     * A policy written against a newer Gilbert, or with a typo in it, must not
      * introduce a key nothing reads: it would be carried around and pushed to
      * the reader's settings file for ever. Same rule an imported settings file
      * already gets.
@@ -256,7 +256,7 @@ describe("changes an installation wants applied once", () => {
   });
 
   it("drops a change whose settings this build does not have, rather than recording it", () => {
-    // Recording it as applied would mean it never runs on the ihasmail that
+    // Recording it as applied would mean it never runs on the Gilbert that
     // does have the setting.
     resetSettingsPolicyForTest({ changes: [change("A", { notARealSetting: true })] });
     expect(useSettings.getState().applyPolicyChanges()).toEqual([]);

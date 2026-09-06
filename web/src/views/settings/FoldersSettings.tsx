@@ -12,7 +12,7 @@ import { ShareDialog } from "./ShareDialog";
 /*
  * Roles a folder can be given here.
  *
- * These are the three that ihasmail's own behaviour depends on and that
+ * These are the three that Gilbert's own behaviour depends on and that
  * Stalwart will let move. Inbox, Junk and Trash are absent on purpose: 0.16.20
  * refuses them outright -- "You are not allowed to change the role of Inbox,
  * Junk or Trash folders" -- so offering them would only produce an error.

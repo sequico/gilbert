@@ -4,7 +4,7 @@
  * 2 KB), and the synced settings file.
  *
  * It is a real folder in the user's account — that is the whole point, since it
- * is what makes this state travel between devices without ihasmail storing
+ * is what makes this state travel between devices without Gilbert storing
  * anything server-side of its own — but it is housekeeping rather than
  * something anyone filed there, so the Files view hides it. See `isAppFolder`.
  *

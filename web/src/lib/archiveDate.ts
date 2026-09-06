@@ -4,12 +4,12 @@
  * The folders are **numeric and zero-padded** -- `Archive/2026`,
  * `Archive/2026/09` -- and deliberately not month names. Two reasons, both
  * about the fact that these are real server-side mailboxes rather than
- * anything of ihasmail's:
+ * anything of Gilbert's:
  *
  *  - Every other client sees them. A folder created as "September" by someone
  *    reading in English stays "September" for the same account read in
  *    Japanese, because the name is stored, not translated. A number reads the
- *    same in every language ihasmail ships.
+ *    same in every language Gilbert ships.
  *  - They sort. `09` sits between `08` and `10` in any folder list; "September"
  *    sits between "October" and nothing useful.
  *

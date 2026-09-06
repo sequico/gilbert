@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * ihasmail requires Stalwart 0.16 or newer. Sign-in is where that is enforced,
+ * Gilbert requires Stalwart 0.16 or newer. Sign-in is where that is enforced,
  * and it matters that it is enforced *there*: the alternative is signing
  * someone in and letting Files, the account locale and self-service
  * credentials each fail in their own way, with nothing to connect the three or

@@ -53,9 +53,8 @@ const EQUALITY = new Set([
  * be reported for ever.
  */
 const NEVER_TRANSLATED = new Set([
-  "ihasmail",
-  "ihasmail.org",
-  "ihasmail test",
+  "Gilbert",
+  "Gilbert test",
   "Stalwart",
   "Stalwart Mail Server",
   "AGPL-3.0-or-later · {source}",

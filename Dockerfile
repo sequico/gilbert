@@ -9,7 +9,7 @@ ARG GILBERT_VERSION=""
 ENV GILBERT_VERSION=$GILBERT_VERSION
 # The subpath the app will be served from, e.g. /mail. Empty -- the default --
 # is the domain root and is what every deployment gets unless it asks
-# otherwise. Unlike the rest of ihasmail's configuration this cannot wait for
+# otherwise. Unlike the rest of Gilbert's configuration this cannot wait for
 # the process to start: the web build writes its own asset URLs into
 # index.html, so a build that does not know the prefix produces a shell that
 # cannot load itself under one. It is therefore a build argument here and an

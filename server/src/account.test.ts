@@ -247,7 +247,7 @@ test("credential endpoints reject unauthenticated callers", async () => {
 /**
  * A sign-in carrying a two-factor code that the server rejects is almost never
  * "wrong password". Stalwart accepts TOTP only through an OAuth flow and offers
- * no password grant, so the concatenated form ihasmail sends cannot work — and
+ * no password grant, so the concatenated form Gilbert sends cannot work — and
  * saying "invalid credentials" sends the user to check a password that is fine.
  *
  * Reported as #75: 2FA sign-in failed with a bare 401 while an app password

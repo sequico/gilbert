@@ -7,7 +7,7 @@ import { absoluteUpstream, UpstreamError, type UpstreamSession } from "./upstrea
  * `x:AccountPassword` (a singleton holding the password and the otpauth URL)
  * and `x:AppPassword`.
  *
- * The registry crate arrived in 0.16, which is the oldest Stalwart ihasmail
+ * The registry crate arrived in 0.16, which is the oldest Stalwart Gilbert
  * supports. Sign-in refuses anything older, so by the time any of this runs
  * the registry is known to be there.
  */
@@ -249,7 +249,7 @@ export function beginOtpEnrolment(ctx: Ctx): { secret: string; url: string } {
     url: otpauthUrl({
       secret,
       account: ctx.username,
-      issuer: config.appName || "ihasmail",
+      issuer: config.appName || "Gilbert",
     }),
   };
 }

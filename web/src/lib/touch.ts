@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef } from "react";
 /**
  * The gestures a phone expects, and the arithmetic behind them.
  *
- * ihasmail's mail list was built for a mouse: a row is clicked, right-clicked
+ * Gilbert's mail list was built for a mouse: a row is clicked, right-clicked
  * and dragged into a folder. None of those exist on a phone, which instead has
  * three conventions so settled that their absence reads as the app being
  * broken -- swipe a row to act on it, hold a row to select it, and pull the

@@ -1,5 +1,5 @@
 /**
- * The subpath ihasmail is mounted at, from `BASE_PATH`.
+ * The subpath Gilbert is mounted at, from `BASE_PATH`.
  *
  * Plain JS, and here rather than in either package, because both halves of the
  * app have to agree on the answer: `web/vite.config.ts` bakes it into the built

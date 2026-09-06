@@ -13,7 +13,7 @@ import { tc } from "@/lib/i18n";
  * needs `sysAccountSettingsSet`, which the built-in user role does not carry.
  *
  * The role is the way out. JMAP tags the standard folders — `inbox`, `trash`,
- * `drafts` and the rest — and ihasmail already trusts the role rather than the
+ * `drafts` and the rest — and Gilbert already trusts the role rather than the
  * name everywhere it matters, so the display name can follow the interface
  * language without anything being written to the server.
  *
@@ -22,7 +22,7 @@ import { tc } from "@/lib/i18n";
  * a folder they never made.
  *
  * The cost, and it is real: another client on the same account still shows
- * "Deleted Items", because that is what the folder is called. Within ihasmail
+ * "Deleted Items", because that is what the folder is called. Within Gilbert
  * this stays consistent — everything that names a folder goes through here,
  * including the "moved to …" toast, which exists precisely so that message
  * does not name somewhere the reader cannot find.
@@ -55,7 +55,7 @@ export function mailboxDisplayName(
 }
 
 /**
- * Whether this folder's displayed name is ihasmail's rather than the server's.
+ * Whether this folder's displayed name is Gilbert's rather than the server's.
  *
  * Anything that *edits* the name has to know: a rename dialog prefilled with
  * "Papierkorb" would rename the folder to that on the server the moment

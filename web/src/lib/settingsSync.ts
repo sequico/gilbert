@@ -7,7 +7,7 @@
  * address the recipient may not know (issue #54).
  *
  * The store is a `settings.json` in the account's own JMAP Files, beside the
- * signature images that are already kept there. That keeps ihasmail itself
+ * signature images that are already kept there. That keeps Gilbert itself
  * stateless: no volume, no database, nothing to back up separately, and the
  * settings are covered by whatever backs up the mail store.
  *

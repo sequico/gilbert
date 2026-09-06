@@ -151,7 +151,7 @@ export function CalendarSidebar() {
   const birthdaysOn = useSettings((st) => st.settings.birthdayCalendar);
   const subscriptions = useSettings((st) => st.settings.icalSubscriptions);
   /*
-   * Refreshed when the calendar is opened, and not on a timer. ihasmail has
+   * Refreshed when the calendar is opened, and not on a timer. Gilbert has
    * nowhere to run a schedule -- no worker, no server-side state -- so the
    * honest guarantee is that a subscription is as current as the last time
    * somebody looked, which is also when it matters.

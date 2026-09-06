@@ -8,7 +8,7 @@ import { DEFAULT_SETTINGS, type Settings } from "@/store/settings";
  * of its own and can be changed afterwards like anything else. `enforced` are
  * applied on every load and cannot be changed here at all -- their controls stay
  * visible and go dead, which is what the issue asked for: hiding them confuses
- * somebody who has used ihasmail somewhere without a policy.
+ * somebody who has used Gilbert somewhere without a policy.
  *
  * Fetched once. `/api/config` is unauthenticated and already fetched by the
  * sign-in page, so this costs nothing on a cold load and is available before
@@ -41,7 +41,7 @@ let fetched: Promise<SettingsPolicy> | null = null;
 /**
  * Keys the installation names that this build does not have.
  *
- * A policy written against a newer ihasmail, or with a typo in it, must not
+ * A policy written against a newer Gilbert, or with a typo in it, must not
  * introduce a setting that nothing reads: `update` would carry it around and
  * `syncedPart` would push it to the reader's settings file. Anything not in
  * `DEFAULT_SETTINGS` is dropped here, at the door. (Contrast `importJson`,

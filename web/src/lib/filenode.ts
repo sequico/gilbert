@@ -5,7 +5,7 @@
  * in ways the server does not report: `nodeType` did not exist and sending it
  * failed the create outright, `FileNode/query` masked directories out of its
  * own results, and rights were a single `mayWrite` rather than the four
- * separate ones. ihasmail requires 0.16 now — sign-in refuses anything older —
+ * separate ones. Gilbert requires 0.16 now — sign-in refuses anything older —
  * so a node has one shape and there is nothing left to detect.
  */
 import type { FileNode, Id } from "@/jmap/types";

@@ -9,7 +9,7 @@ import { formatFingerprint } from "@/lib/smime/x509";
 /**
  * What a checked signature is allowed to say on screen.
  *
- * The wording here is the feature. ihasmail has no certificate authority to ask
+ * The wording here is the feature. Gilbert has no certificate authority to ask
  * and none is bundled, so the strong word — "verified", full stop — is never
  * used: the certificate arrives inside the message, and on its own a good
  * signature only shows that whoever wrote the message held the key attached to

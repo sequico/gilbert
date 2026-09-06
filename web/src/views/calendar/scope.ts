@@ -98,7 +98,7 @@ export function droppedMessage(dropped: string[]): string | null {
  *
  * Stalwart refuses an occurrence that belongs to a this-and-future override —
  * *"Occurrences of a this-and-future change cannot be modified individually."*
- * Nothing ihasmail writes creates one, but an event synced from another client
+ * Nothing Gilbert writes creates one, but an event synced from another client
  * can carry one, so the refusal is reachable and a bare error toast would leave
  * the reader with no way forward.
  *

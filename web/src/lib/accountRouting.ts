@@ -7,7 +7,7 @@
  * some requests have to follow that selection.
  *
  * Others must never follow it, and telling the two apart is the whole point of
- * this file. ihasmail keeps its own settings in the account's Files — that is
+ * this file. Gilbert keeps its own settings in the account's Files — that is
  * what makes them travel between devices — and a shared file account advertises
  * the file capability by definition. So the obvious rule, "use whichever
  * account is selected if it can do this", writes your settings into the other

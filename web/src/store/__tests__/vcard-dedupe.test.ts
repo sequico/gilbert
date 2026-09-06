@@ -211,7 +211,7 @@ describe("re-importing vCards the book already has", () => {
 
   it("leaves properties the file does not mention alone", async () => {
     /*
-     * A merge rather than a replacement: a phone number added in ihasmail after
+     * A merge rather than a replacement: a phone number added in Gilbert after
      * the first import survives a re-import of the original file. The cost is
      * that a field deleted at the source stays here, which is the better way to
      * be wrong.

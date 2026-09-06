@@ -48,7 +48,7 @@ const loginLimiter = new RateLimiter(config.loginRateLimit, 15 * 60_000);
  * `loginLimiter` guards password guessing and gives its attempts back when the
  * upstream never judged the password (#239) -- otherwise retrying through an
  * outage locks somebody out until after it has ended. But "not counted" cannot
- * mean "unlimited": each attempt still costs ihasmail an outbound connection
+ * mean "unlimited": each attempt still costs Gilbert an outbound connection
  * that may sit there until `UPSTREAM_TIMEOUT`, so a flood during an outage is
  * the one moment the endpoint is cheapest to abuse.
  *
@@ -220,7 +220,7 @@ const requireSession: MiddlewareHandler<Env> = async (c, next) => {
  * share, and a cookie at `/` would be sent to every one of them. Path scoping
  * is not a security boundary -- anything on the origin can reach the cookie
  * jar -- but it keeps the credential out of requests that have no business
- * carrying it, and it lets two ihasmail instances live at `/mail` and
+ * carrying it, and it lets two Gilbert instances live at `/mail` and
  * `/mail2` on one host without signing each other out, which a shared cookie
  * name at `/` would do.
  *
@@ -356,7 +356,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const authorization = `Basic ${Buffer.from(`${username}:${effectivePassword}`, "utf8").toString("base64")}`;
     try {
       const upstream = await fetchUpstreamSession(authorization, upstreamFor(username));
-      // ihasmail requires Stalwart 0.16 or newer. Refuse here, once and
+      // Gilbert requires Stalwart 0.16 or newer. Refuse here, once and
       // clearly, rather than signing someone in and letting Files, the account
       // locale and self-service credentials each fail in their own way with
       // nothing to connect them. The credentials were good, so say so.
@@ -369,7 +369,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           {
             error: "unsupported_server",
             message:
-              "Your credentials are fine, but this mail server is older than Stalwart 0.16, which ihasmail needs. Upgrade the server, or run the release tagged stalwart-0.15-support.",
+              "Your credentials are fine, but this mail server is older than Stalwart 0.16, which Gilbert needs. Upgrade the server, or run the release tagged stalwart-0.15-support.",
           },
           501,
         );
@@ -394,11 +394,11 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       // interface is an OAuth client, which is why signing in there works. It
       // offers no password grant, so a client holding a username and password
       // cannot exchange them plus a code for a token, and the concatenated
-      // `password$code` form ihasmail sent is not a route the server has. Its
+      // `password$code` form Gilbert sent is not a route the server has. Its
       // documented answer for clients like this one is an app password, which
       // bypasses TOTP entirely.
       //
-      // ihasmail already relies on that elsewhere: turning 2FA *on* mints an
+      // Gilbert already relies on that elsewhere: turning 2FA *on* mints an
       // app password and moves the session onto it, precisely because a plain
       // password stops working from that moment. The sign-in page was the one
       // place still pretending otherwise.

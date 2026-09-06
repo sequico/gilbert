@@ -4,7 +4,7 @@
  * **Nesting is display only.** The keywords stay flat on the message, which is
  * what keeps them readable by every other client — moving a label under
  * another rewrites nothing in the mailbox, and a client that knows nothing
- * about ihasmail still sees the same keywords it always did.
+ * about Gilbert still sees the same keywords it always did.
  */
 import type { Label, LabelVisibility } from "@/store/settings";
 

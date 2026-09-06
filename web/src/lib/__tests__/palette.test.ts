@@ -11,7 +11,7 @@ import {
 describe("the palettes themselves", () => {
   it("has a light and a dark half for every one of them", () => {
     // The reason there is no "this palette is dark only" machinery: there is
-    // no such palette. ihasmail's own gained a light half, and the override,
+    // no such palette. Gilbert's own gained a light half, and the override,
     // the toggle's memory and a greyed-out control all went with it.
     expect(PALETTES.map((p) => p.id)).toEqual([
       "default",
@@ -78,7 +78,7 @@ describe("legacyTheme, read by a device still on an older build", () => {
     expect(legacyTheme({ palette: "rose-pine", mode: "light" })).toBe("light");
     expect(legacyTheme({ palette: "tokyo-night", mode: "system" }, true)).toBe("dark");
     expect(legacyTheme({ palette: "tokyo-night", mode: "system" }, false)).toBe("light");
-    // ihasmail's light half is new and has no old name, so an older build is
+    // Gilbert's light half is new and has no old name, so an older build is
     // told "light" rather than being handed a word it would read as dark.
     expect(legacyTheme({ palette: "ihasmail", mode: "light" })).toBe("light");
     expect(legacyTheme({ palette: "ihasmail", mode: "dark" })).toBe("ihasmail");

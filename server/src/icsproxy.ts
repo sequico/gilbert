@@ -6,7 +6,7 @@ import { safeFetch, safeFetchStatus } from "./imageproxy.js";
  *
  * The browser cannot do this itself: a calendar URL belongs to whoever
  * published it and almost none of them send CORS headers, so the request has
- * to be made from here. That makes it the second place ihasmail reaches out to
+ * to be made from here. That makes it the second place Gilbert reaches out to
  * an address a stranger chose, and it goes through exactly the same guard as
  * the first — `safeFetch` resolves the name, refuses private space on every
  * answer, pins the connection to the address it checked, and re-checks each

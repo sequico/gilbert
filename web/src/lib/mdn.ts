@@ -3,7 +3,7 @@
  *
  * JMAP has an extension for this -- RFC 9007's `MDN/send` -- and Stalwart does
  * not implement it: `urn:ietf:params:jmap:mdn` is absent from its capability
- * list. So ihasmail builds the report itself and sends it like any other
+ * list. So Gilbert builds the report itself and sends it like any other
  * message: raw MIME, uploaded as a blob, imported, submitted.
  *
  * The plumbing is the easy half. A read receipt tells a stranger that a
@@ -183,7 +183,7 @@ export function buildMdn(opts: MdnOptions): string {
     `Final-Recipient: rfc822;${finalRecipient}`,
     ...(originalId ? [`Original-Message-ID: ${originalId}`] : []),
     // manual-action/MDN-sent-manually: a person chose to send this, which is
-    // the only mode ihasmail offers.
+    // the only mode Gilbert offers.
     "Disposition: manual-action/MDN-sent-manually; displayed",
   ].join("\r\n");
 

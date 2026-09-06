@@ -793,7 +793,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
        *
        * A merge, not a replacement. Properties the file carries overwrite what
        * is here; properties it does not mention are left alone, so a phone
-       * number somebody added in ihasmail after the first import survives a
+       * number somebody added in Gilbert after the first import survives a
        * re-import of the original file. The cost is that a field genuinely
        * deleted at the source stays here -- worth it, because the other way
        * round loses work nobody asked to lose.
