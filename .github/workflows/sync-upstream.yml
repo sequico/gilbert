@@ -42,18 +42,20 @@ jobs:
           set -euo pipefail
           # Upstream's release tags are the versioned ones (v2026.9.3-pr272);
           # the v2.16.* and stalwart-* tags are older shapes or branches, not
-          # releases. Newest by creation date, peeled to the commit.
-          newest="$(
+          # releases. Newest by creation date. The tag is peeled with rev-parse
+          # because it may be lightweight: for-each-ref's peeled field is only
+          # filled for annotated tags, and an empty sha took the merge down
+          # with it on 2026-09-06.
+          tag="$(
             git for-each-ref --sort=-creatordate \
-              --format '%(refname:short) %(*objectname)' \
+              --format '%(refname:short)' \
               'refs/tags/v20[0-9][0-9].*' | head -1
           )"
-          tag="${newest%% *}"
-          sha="${newest##* }"
           if [ -z "$tag" ]; then
             echo "No upstream release tag found." >&2
             exit 1
           fi
+          sha="$(git rev-parse "${tag}^{commit}")"
           if git merge-base --is-ancestor "$sha" HEAD; then
             echo "Already up to date at ${tag}."
             echo "new=false" >> "$GITHUB_OUTPUT"
