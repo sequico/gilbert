@@ -1821,6 +1821,8 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .task-row:hover { background: var(--bg-hover); }
 .task-row.done .task-title { text-decoration: line-through; opacity: 0.55; }
 .task-check { border: 0; background: transparent; padding: 0; cursor: pointer; }
+.task-grip { display: inline-flex; color: var(--fg-muted); opacity: 0.55; cursor: grab; margin-left: -4px; }
+.task-row:hover .task-grip { opacity: 0.9; }
 .task-checkbox { display: inline-flex; width: 18px; height: 18px; border: 1.5px solid var(--border-strong); border-radius: 5px; align-items: center; justify-content: center; color: var(--fg); }
 .task-title { flex: 1; }
 .task-priority { font-size: 12px; color: var(--fg-muted); }

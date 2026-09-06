@@ -1,4 +1,4 @@
-import { ListTodo, Plus, Trash2, X } from "lucide-react";
+import { GripVertical, ListTodo, Plus, Trash2, X } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { Id, TaskItem } from "@/jmap/types";
 import { t } from "@/lib/i18n";
@@ -237,6 +237,15 @@ function TaskRow({
       onDragOver={drag?.onRowOver}
       onDrop={drag?.onRowDrop}
     >
+      {/* The conventional drag affordance: a handle on the left, before the
+          checkbox. Decorative -- the whole row is the drag surface -- so it is
+          aria-hidden and hidden with the row when a finished task can no
+          longer move. */}
+      {!done && (
+        <span className="task-grip" aria-hidden="true">
+          <GripVertical size={14} />
+        </span>
+      )}
       <button
         className="task-check"
         disabled={busy}
