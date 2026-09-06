@@ -8,8 +8,15 @@ async function main() {
   const server = serve(
     { fetch: app.fetch, hostname: config.host, port: config.port },
     (info) => {
+      /* The browser will not trust 0.0.0.0: it is not a potentially
+         trustworthy origin, so security headers such as COOP are ignored and
+         cross-origin work misbehaves there. The machine the console speaks to
+         is the one the user opens, so when the server is bound to every
+         interface (the container default) the printed address is localhost. */
+      const shown =
+        info.address === "0.0.0.0" || info.address === "::" ? "localhost" : info.address;
       console.log(
-        `[ihasmail] ${config.appName} listening on http://${info.address}:${info.port}`,
+        `[ihasmail] ${config.appName} listening on http://${shown}:${info.port}`,
       );
       console.log(`[ihasmail] upstream Stalwart: ${config.stalwartUrl}`);
       console.log(`[ihasmail] static dir: ${config.staticDir}`);
