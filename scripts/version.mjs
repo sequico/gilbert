@@ -36,7 +36,7 @@
  *
  * `.dockerignore` excludes `.git`, so an image build cannot run any of this.
  * It takes the answer through `--build-arg GILBERT_VERSION=...` instead, and
- * whoever builds is responsible for computing it -- see gilbert-deploy.sh.
+ * whoever builds is responsible for computing it -- see deploy.example.sh.
  */
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";

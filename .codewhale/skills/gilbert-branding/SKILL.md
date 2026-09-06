@@ -65,10 +65,12 @@ none of them is brand surface. Docs must keep saying `ihasmail` for them:
   notification tags (renaming invalidates every cached shell at once);
 - the `[ihasmail]` server log prefix and the session extension object
   (`session.ihasmail.*` — server and client payload shape);
-- docker deployment surface, deliberately left as-is: `docker-compose.yml`
-  (service `ihasmail`, `image: ihasmail:2`/`ghcr.io/coffey-labs/ihasmail`,
-  volume `ihasmail-data`), `deploy.example.sh` (its `IHASMAIL_*` envs and
-  script names), `/etc/ihasmail` and `/srv/ihasmail` example paths;
+- docker deployment surface: `docker-compose.yml` builds the checkout as
+  `gilbert:2` with Gilbert defaults (only the service name `ihasmail` and the
+  `ihasmail-data` volume keep the old name -- the volume is data),
+  `deploy.example.sh` (its `IHASMAIL_*` envs, defaults and script name are
+  still ihasmail; see the TODO in ROADMAP.md), `/etc/ihasmail` and
+  `/srv/ihasmail` example paths;
 - upstream URLs (ihasmail.org, docs.ihasmail.org, demo.ihasmail.com,
   github.com/Coffey-Labs/ihasmail) — real endpoints, link them, never present
   them as Gilbert's own; historical and legal lines keep upstream's name

@@ -7,6 +7,12 @@ is genuinely open — where an item quotes one, the issue is upstream's historic
 the rest is here because the answer is "no", not "not yet".
 
 See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about.
+- **Rebranding the single-host deploy script (TODO).** `deploy.example.sh`
+  still speaks ihasmail end to end — its `IHASMAIL_*` envs, defaults
+  (`~/apps/ihasmail`, container and volume names) and header. It was kept as
+  deployed surface on purpose; renaming it means deciding what happens to the
+  `ihasmail-data` volume (data), so it stays here until that is settled.
+
 
 - **Sharing a mail folder.** Stalwart stores the share and never delivers it; see [KNOWN-ISSUES.md](KNOWN-ISSUES.md). Withdrawn until the server does something with it. Sharing files, calendars and address books is unaffected and works.
 - **A scheduling view of its own**, for asking "when is everyone free next week?" without an event in hand. The grid itself is built and lives in the event editor — a row per participant, steppable, and clickable to place the event — which is where the question gets asked while you are arranging something. What is not built is the same thing as a destination you can visit with nothing in progress. Came out of [#172](https://github.com/Coffey-Labs/ihasmail/issues/172), which asked for a separate view and is closed by the panel: the reasoning for putting it in the editor is that a separate surface can only ever tell you a time you then retype, whereas one beside the event can set it. It stays here rather than in the tracker because nobody has yet said they want to ask the question on its own.
