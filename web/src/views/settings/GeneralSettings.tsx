@@ -370,7 +370,7 @@ export function GeneralSettings() {
             const blob = new Blob([exportJson()], { type: "application/json" });
             const a = document.createElement("a");
             a.href = URL.createObjectURL(blob);
-            a.download = "ihasmail-settings.json";
+            a.download = "gilbert-settings.json";
             a.click();
           }}
         >
@@ -420,7 +420,7 @@ function MailHandlerSettings() {
     try {
       registerMailtoHandler();
       setRequested(true);
-      toast.success(t("Your browser will ask whether to open mail links in ihasmail"));
+      toast.success(t("Your browser will ask whether to open mail links in Gilbert"));
     } catch (err) {
       toast.error(
         t("Your browser refused the request: {error}", { error: (err as Error).message }),
@@ -440,7 +440,7 @@ function MailHandlerSettings() {
     return (
       <p className="hint">
         {tNode(
-          "This browser cannot register apps for {scheme} links. Safari, in particular, has no such API — you can still make ihasmail the default from your operating system if you install it as an app.",
+          "This browser cannot register apps for {scheme} links. Safari, in particular, has no such API — you can still make Gilbert the default from your operating system if you install it as an app.",
           { scheme: <code>mailto:</code> },
         )}
       </p>
@@ -460,13 +460,13 @@ function MailHandlerSettings() {
     <>
       <p className="hint">
         {tNode(
-          "Open {scheme} links — in web pages, documents and other apps — in ihasmail instead of a desktop mail client. Your browser will ask you to confirm, and you can change it later in its own settings (Chrome: Settings › Privacy and security › Site settings › Protocol handlers; Firefox: Settings › General › Applications).",
+          "Open {scheme} links — in web pages, documents and other apps — in Gilbert instead of a desktop mail client. Your browser will ask you to confirm, and you can change it later in its own settings (Chrome: Settings › Privacy and security › Site settings › Protocol handlers; Firefox: Settings › General › Applications).",
           { scheme: <code>mailto:</code> },
         )}
       </p>
       <div className="row wrap">
         <button className="btn btn-primary" onClick={ask}>
-          {requested ? "Ask again" : "Make ihasmail the default mail app"}
+          {requested ? "Ask again" : "Make Gilbert the default mail app"}
         </button>
         {requested && canUnregisterMailtoHandler() && (
           <button className="btn btn-ghost" onClick={remove}>
@@ -484,7 +484,7 @@ function MailHandlerSettings() {
       {!isInstalledApp() && (
         <p className="hint mt-8">
           {t(
-            "For a system-wide default, install ihasmail as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer ihasmail directly wherever it asks which mail app to use.",
+            "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.",
           )}
         </p>
       )}

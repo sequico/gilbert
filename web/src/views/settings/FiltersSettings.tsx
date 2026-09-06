@@ -202,7 +202,7 @@ function RulesEditor() {
               await confirmDialog({
                 title: t("Switch to rules?"),
                 message: t(
-                  "“{name}” will be deactivated (not deleted) and a new “ihasmail” script will take over.",
+                  "“{name}” will be deactivated (not deleted) and a new “Gilbert” script will take over.",
                   { name: script?.name ?? "" },
                 ),
                 confirmLabel: t("Continue"),
@@ -222,7 +222,7 @@ function RulesEditor() {
       {activeIsOther && (
         <div className="warn-box mb-16">
           {t(
-            "Another script (“{name}”) is active. Saving rules here will activate the “ihasmail” script instead.",
+            "Another script (“{name}”) is active. Saving rules here will activate the “Gilbert” script instead.",
             { name: script?.name ?? "" },
           )}
         </div>

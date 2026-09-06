@@ -106,7 +106,7 @@ export function ScheduleDialog({
         </p>
       ) : (
         <p className="hint">
-          {`${t("The message waits on the server, so it goes out whether or not ihasmail is open.")}${maxMs > 0 ? ` ${t("This server holds a message for up to {span}.", { span: describeSpan(maxMs) })}` : ""}`}
+          {`${t("The message waits on the server, so it goes out whether or not Gilbert is open.")}${maxMs > 0 ? ` ${t("This server holds a message for up to {span}.", { span: describeSpan(maxMs) })}` : ""}`}
         </p>
       )}
     </Dialog>

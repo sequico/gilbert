@@ -31,7 +31,7 @@ export function SignatureBanner({ state }: { state: SignatureState }) {
     return (
       <Banner tone="quiet" icon={<ShieldQuestion size={16} />}>
         <span className="grow">
-          {t("This message is signed, and ihasmail could not check the signature.")}{" "}
+          {t("This message is signed, and Gilbert could not check the signature.")}{" "}
           {explain(crypto.reason)}
           {crypto.detail && <span className="hint"> {crypto.detail}</span>}
         </span>
@@ -131,7 +131,7 @@ export function SignatureBanner({ state }: { state: SignatureState }) {
               ),
             })}{" "}
             {t(
-              "ihasmail will tell you if a later message from this address is signed by anybody else.",
+              "Gilbert will tell you if a later message from this address is signed by anybody else.",
             )}
           </>
         )}
@@ -210,10 +210,10 @@ function explain(reason: Reason): string {
   switch (reason) {
     case "openpgp":
       return t(
-        "It is signed with OpenPGP, and ihasmail has no way to fetch the sender's public key.",
+        "It is signed with OpenPGP, and Gilbert has no way to fetch the sender's public key.",
       );
     case "rsa-pss":
-      return t("It uses a signature algorithm ihasmail cannot check yet.");
+      return t("It uses a signature algorithm Gilbert cannot check yet.");
     case "no-certificate":
       return t("The signature carries no certificate that can be read.");
     case "not-signed-properly":

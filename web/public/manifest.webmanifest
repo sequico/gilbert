@@ -1,6 +1,6 @@
 {
-  "name": "ihasmail",
-  "short_name": "ihasmail",
+  "name": "Gilbert",
+  "short_name": "Gilbert",
   "description": "Fast, friendly JMAP webmail for Stalwart",
   "_comment": "JSON has no comments, so: every URL below is relative on purpose. Manifest members resolve against the manifest's own address, so these follow BASE_PATH with nothing substituted into them at build time. Root-absolute values pinned the installed app, its scope and its shortcuts to the domain root whatever the mount was.",
   "start_url": "mail",

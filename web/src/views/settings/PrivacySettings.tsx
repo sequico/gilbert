@@ -55,7 +55,7 @@ export function PrivacySettings() {
         </select>
         <p className="hint">
           {t(
-            "An image loaded from a sender's server tells them the message was opened, when, and from roughly where. Approved images are fetched by ihasmail's own server rather than the browser, so the sender learns none of those.",
+            "An image loaded from a sender's server tells them the message was opened, when, and from roughly where. Approved images are fetched by Gilbert's own server rather than the browser, so the sender learns none of those.",
           )}
         </p>
       </div>

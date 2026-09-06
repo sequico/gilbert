@@ -12,7 +12,7 @@ import type { Catalog } from "@/lib/i18n";
  * ── Decisions this file is consistent about ──────────────────────────────
  *
  * Register: **u**, throughout, following "Sie" and "vous" for the same reason
- * — ihasmail is as often a company's mail as somebody's own. Dutch leans
+ * — Gilbert is as often a company's mail as somebody's own. Dutch leans
  * informal further and faster than German or French, and "je" is what most
  * consumer software now uses, so this is the decision most likely to be
  * overturned by the first Dutch speaker who reads it. That is fine: it is one
@@ -39,7 +39,7 @@ import type { Catalog } from "@/lib/i18n";
  * Thunderbird call it in Dutch and it is what a reader will recognise. "Label"
  * stays English, as in German: no Dutch client translates it.
  *
- * Product names are never translated: ihasmail, Stalwart, JMAP, Sieve, vCard.
+ * Product names are never translated: Gilbert, Stalwart, JMAP, Sieve, vCard.
  */
 export const catalog: Catalog = {
   strings: {
@@ -205,8 +205,8 @@ export const catalog: Catalog = {
       "Wacht op de server — gaat {when} de deur uit.",
     "Scheduled — click to clear the schedule": "Gepland — klik om de planning te wissen",
     "Nothing scheduled": "Niets gepland",
-    "The message waits on the server, so it goes out whether or not ihasmail is open.":
-      "Het bericht wacht op de server en wordt verzonden, of ihasmail nu open is of niet.",
+    "The message waits on the server, so it goes out whether or not Gilbert is open.":
+      "Het bericht wacht op de server en wordt verzonden, of Gilbert nu open is of niet.",
     "This server holds a message for up to {span}.":
       "Deze server houdt een bericht tot {span} vast.",
     "Date and time to send": "Datum en tijd van verzenden",
@@ -436,7 +436,7 @@ export const catalog: Catalog = {
     Sections: "Onderdelen",
     General: "Algemeen",
     Appearance: "Weergave",
-    "Make ihasmail yours.": "Maak ihasmail van uzelf.",
+    "Make Gilbert yours.": "Maak Gilbert van uzelf.",
     Reading: "Lezen",
     "Reading pane": "Leesvenster",
     "Reading, sending and list behaviour. Settings are stored in this browser.":
@@ -544,7 +544,7 @@ export const catalog: Catalog = {
     "Reset to defaults": "Standaardwaarden herstellen",
     "Default mail app": "Standaard e-mailprogramma",
     Documentation: "Documentatie",
-    "About ihasmail": "Over ihasmail",
+    "About Gilbert": "Over Gilbert",
     About: "Over",
     Server: "Server",
     "Server capabilities": "Servermogelijkheden",
@@ -676,9 +676,9 @@ export const catalog: Catalog = {
     "Notifications are blocked in your browser settings.":
       "Meldingen zijn geblokkeerd in uw browserinstellingen.",
     "Not supported in this browser.": "Niet ondersteund in deze browser.",
-    "Desktop notifications while ihasmail is open":
-      "Systeemmeldingen terwijl ihasmail open is",
-    "Notify me even when ihasmail is closed": "Ook melden wanneer ihasmail gesloten is",
+    "Desktop notifications while Gilbert is open":
+      "Systeemmeldingen terwijl Gilbert open is",
+    "Notify me even when Gilbert is closed": "Ook melden wanneer Gilbert gesloten is",
     "Play a sound for new mail": "Geluid afspelen bij nieuwe post",
     "Test notification": "Testmelding",
     "Background notifications are on": "Achtergrondmeldingen staan aan",
@@ -878,8 +878,8 @@ export const catalog: Catalog = {
       "Wordt niet aangeboden bij het opstellen. Het adres ontvangt nog steeds post, en u kunt er weer vanaf verzenden door het opnieuw te tonen.",
     "Each identity is a sender address with its own name, Reply-To and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address.":
       "Elke identiteit is een afzenderadres met een eigen naam, antwoordadres en handtekening. De standaardidentiteit is voorgeselecteerd bij het opstellen; stel een antwoordadres in wanneer antwoorden ergens anders heen moeten dan naar het afzenderadres.",
-    "This signature is larger than the server's {limit}-byte limit. ihasmail will keep the full version in your Files and store a short text fallback on the server — other mail clients will see the plain-text version.":
-      "Deze handtekening is groter dan de limiet van {limit} bytes van de server. ihasmail bewaart de volledige versie in uw Bestanden en zet een korte tekstversie op de server — andere e-mailprogramma's zien de platte-tekstversie.",
+    "This signature is larger than the server's {limit}-byte limit. Gilbert will keep the full version in your Files and store a short text fallback on the server — other mail clients will see the plain-text version.":
+      "Deze handtekening is groter dan de limiet van {limit} bytes van de server. Gilbert bewaart de volledige versie in uw Bestanden en zet een korte tekstversie op de server — andere e-mailprogramma's zien de platte-tekstversie.",
     "Outlook-style categories you can assign to events from the right-click menu or the event editor. The category name is stored on the event, so it syncs to other clients.":
       "Categorieën in Outlook-stijl die u via het rechtsklikmenu of de afsprakeneditor aan afspraken kunt toewijzen. De categorienaam wordt in de afspraak opgeslagen en synchroniseert dus met andere clients.",
     "Plain-text mail already follows the theme. With this on, HTML mail that brings no colours of its own does as well, instead of sitting on a white card. Messages that style themselves are left exactly as the sender designed them.":
@@ -894,20 +894,20 @@ export const catalog: Catalog = {
       "Een bericht ingedrukt houden selecteert het, een map ingedrukt houden opent het menu. Trek de bovenkant van de berichtenlijst omlaag om nieuwe post op te halen.",
     "A receipt tells whoever asked that this address is live and when the message was read, and the sender chooses where it goes — so there is no automatic option. Bulk mail, mailing lists and anything marked auto-submitted are never offered one at all.":
       "Een bevestiging vertelt de aanvrager dat dit adres actief is en wanneer het bericht is gelezen, en de afzender bepaalt waar die heen gaat — daarom is er geen automatische optie. Bij bulkpost, mailinglijsten en alles wat als automatisch verzonden is gemarkeerd, wordt er nooit een aangeboden.",
-    "This browser cannot register apps for {scheme} links. Safari, in particular, has no such API — you can still make ihasmail the default from your operating system if you install it as an app.":
-      "Deze browser kan geen programma's registreren voor {scheme}-links. Safari heeft daar in het bijzonder geen voorziening voor — u kunt ihasmail nog steeds als standaard instellen via uw besturingssysteem als u het als app installeert.",
+    "This browser cannot register apps for {scheme} links. Safari, in particular, has no such API — you can still make Gilbert the default from your operating system if you install it as an app.":
+      "Deze browser kan geen programma's registreren voor {scheme}-links. Safari heeft daar in het bijzonder geen voorziening voor — u kunt Gilbert nog steeds als standaard instellen via uw besturingssysteem als u het als app installeert.",
     "Registering for {scheme} links requires a secure (HTTPS) connection.":
       "Registreren voor {scheme}-links vereist een beveiligde (HTTPS-)verbinding.",
-    "Open {scheme} links — in web pages, documents and other apps — in ihasmail instead of a desktop mail client. Your browser will ask you to confirm, and you can change it later in its own settings (Chrome: Settings › Privacy and security › Site settings › Protocol handlers; Firefox: Settings › General › Applications).":
-      "{scheme}-links — op webpagina's, in documenten en in andere programma's — openen in ihasmail in plaats van in een lokaal e-mailprogramma. Uw browser vraagt om bevestiging, en u kunt dit later wijzigen in zijn eigen instellingen (Chrome: Instellingen › Privacy en beveiliging › Site-instellingen › Protocol-handlers; Firefox: Instellingen › Algemeen › Programma's).",
+    "Open {scheme} links — in web pages, documents and other apps — in Gilbert instead of a desktop mail client. Your browser will ask you to confirm, and you can change it later in its own settings (Chrome: Settings › Privacy and security › Site settings › Protocol handlers; Firefox: Settings › General › Applications).":
+      "{scheme}-links — op webpagina's, in documenten en in andere programma's — openen in Gilbert in plaats van in een lokaal e-mailprogramma. Uw browser vraagt om bevestiging, en u kunt dit later wijzigen in zijn eigen instellingen (Chrome: Instellingen › Privacy en beveiliging › Site-instellingen › Protocol-handlers; Firefox: Instellingen › Algemeen › Programma's).",
     "Requested in this browser. Whether it took effect is up to the browser — check its settings if mail links still open elsewhere.":
       "Aangevraagd in deze browser. Of het effect heeft gehad, bepaalt de browser — controleer zijn instellingen als e-maillinks nog elders openen.",
-    "For a system-wide default, install ihasmail as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer ihasmail directly wherever it asks which mail app to use.":
-      "Installeer ihasmail eerst als app voor een systeembrede standaard (in Chrome: het installatiepictogram in de adresbalk). Uw besturingssysteem kan ihasmail dan overal direct aanbieden waar het vraagt welk e-mailprogramma gebruikt moet worden.",
+    "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
+      "Installeer Gilbert eerst als app voor een systeembrede standaard (in Chrome: het installatiepictogram in de adresbalk). Uw besturingssysteem kan Gilbert dan overal direct aanbieden waar het vraagt welk e-mailprogramma gebruikt moet worden.",
     "Needs a browser with the Push API and a mail server that publishes a push key.":
       "Vereist een browser met de Push-API en een mailserver die een push-sleutel publiceert.",
-    "Your mail server delivers these straight to your browser, so they arrive with no ihasmail tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
-      "Uw mailserver levert deze rechtstreeks bij uw browser af, dus ze komen aan zonder geopend ihasmail-tabblad, met afzender en onderwerp erbij. Uw browser moet wel draaien — sluit u hem helemaal af, dan wachten de meldingen en komen ze binnen zodra u hem weer opent.",
+    "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
+      "Uw mailserver levert deze rechtstreeks bij uw browser af, dus ze komen aan zonder geopend Gilbert-tabblad, met afzender en onderwerp erbij. Uw browser moet wel draaien — sluit u hem helemaal af, dan wachten de meldingen en komen ze binnen zodra u hem weer opent.",
     "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.":
       "Uw mailserver kan deze browser wekken, maar vermeldt geen afzender of onderwerp. Uw browser moet wel draaien.",
     "This is what a new-mail notification looks like.":
@@ -918,16 +918,16 @@ export const catalog: Catalog = {
       "App-wachtwoorden worden beheerd door uw mailbeheerder.",
     "Changing your password signs out your other webmail sessions. Any app passwords keep working.":
       "Als u uw wachtwoord wijzigt, worden uw andere webmailsessies uitgelogd. App-wachtwoorden blijven werken.",
-    "This account has two-factor authentication on. ihasmail can't sign you in with a code yet, so signing in on another device needs an app password — or you can turn two-factor authentication off here.":
-      "Voor dit account staat tweefactorauthenticatie aan. ihasmail kan u nog niet met een code inloggen, dus inloggen op een ander apparaat vereist een app-wachtwoord — of u schakelt tweefactorauthenticatie hier uit.",
+    "This account has two-factor authentication on. Gilbert can't sign you in with a code yet, so signing in on another device needs an app password — or you can turn two-factor authentication off here.":
+      "Voor dit account staat tweefactorauthenticatie aan. Gilbert kan u nog niet met een code inloggen, dus inloggen op een ander apparaat vereist een app-wachtwoord — of u schakelt tweefactorauthenticatie hier uit.",
     "A separate password for a mail app or device, which you can revoke on its own. App passwords skip two-factor codes, so they keep working in apps that can't ask for one.":
       "Een apart wachtwoord voor een e-mailprogramma of apparaat, dat u afzonderlijk kunt intrekken. App-wachtwoorden slaan tweefactorcodes over en blijven dus werken in programma's die er geen kunnen vragen.",
     "Copy it into {name} now — it isn't shown again.":
       "Neem het nu over in {name} — het wordt niet opnieuw getoond.",
     "No other users found in the directory, so nobody new can be added. Sharing already in place is listed below and can still be removed.":
       "Geen andere gebruikers gevonden in de directory, dus er kan niemand nieuws worden toegevoegd. Bestaande gedeelde items staan hieronder en kunnen nog worden verwijderd.",
-    "Stalwart does not publish its version number to mail clients, so ihasmail reports the edition where the server gives one. ihasmail requires 0.16 or newer, and sign-in refuses anything older.":
-      "Stalwart geeft zijn versienummer niet door aan e-mailprogramma's, dus ihasmail noemt de editie als de server die opgeeft. ihasmail vereist 0.16 of nieuwer; inloggen weigert alles wat ouder is.",
+    "Stalwart does not publish its version number to mail clients, so Gilbert reports the edition where the server gives one. Gilbert requires 0.16 or newer, and sign-in refuses anything older.":
+      "Stalwart geeft zijn versienummer niet door aan e-mailprogramma's, dus Gilbert noemt de editie als de server die opgeeft. Gilbert vereist 0.16 of nieuwer; inloggen weigert alles wat ouder is.",
     "It {damage}, so the rules in it can't be shown or edited — saving what did arrive would write it back over the rest. Reload the page to try again. Your rules are still on the server; nothing here has changed them.":
       "Het {damage}, dus de regels erin kunnen niet worden getoond of bewerkt — wat wél is aangekomen opslaan zou de rest overschrijven. Laad de pagina opnieuw om het nog eens te proberen. Uw regels staan nog op de server; hier is er niets aan veranderd.",
     "The visual rule editor only manages scripts it created. You can edit the script in the {tab} tab, or start fresh with rules (the existing script will be kept but deactivated).":
@@ -938,15 +938,15 @@ export const catalog: Catalog = {
       "Uw filterscript kon zojuist niet worden gelezen; een regel toevoegen zou het kunnen overschrijven. Laad de pagina opnieuw en probeer het nog eens.",
     "Your active Sieve script was written by hand, so rules can't be added automatically. Open {where} to edit the script or switch to managed rules.":
       "Uw actieve Sieve-script is met de hand geschreven, dus regels kunnen niet automatisch worden toegevoegd. Open {where} om het script te bewerken of over te stappen op beheerde regels.",
-    "Only languages ihasmail has been translated into appear here, so this list grows as translations land rather than ahead of them — a language offered without strings behind it would leave the page claiming to be in a language it is not.":
-      "Hier verschijnen alleen talen waarin ihasmail is vertaald; de lijst groeit dus mee met de vertalingen en niet erop vooruit — een taal die wordt aangeboden zonder teksten erachter zou de pagina laten beweren dat ze in een taal is die ze niet is.",
+    "Only languages Gilbert has been translated into appear here, so this list grows as translations land rather than ahead of them — a language offered without strings behind it would leave the page claiming to be in a language it is not.":
+      "Hier verschijnen alleen talen waarin Gilbert is vertaald; de lijst groeit dus mee met de vertalingen en niet erop vooruit — een taal die wordt aangeboden zonder teksten erachter zou de pagina laten beweren dat ze in een taal is die ze niet is.",
     "tell us about it": "laat het ons weten",
     "This translation was generated by AI and has not been checked by a native speaker, so it is marked Beta until somebody who speaks it signs it off. Anything that reads wrongly is worth reporting — {report}.":
       "Deze vertaling is door AI gemaakt en niet gecontroleerd door iemand met Nederlands als moedertaal; ze is daarom als Beta gemarkeerd tot iemand haar goedkeurt. Alles wat verkeerd klinkt, is een melding waard — {report}.",
     "{name} is the palette from {site}, and what a new account starts on. It is a dark theme, so it counts as dark wherever that matters, and the accent colour below still applies on top of it.":
       "{name} is het kleurenpalet van {site}, en waarmee een nieuw account begint. Het is een donker thema en telt dus overal als donker waar dat uitmaakt; de accentkleur hieronder werkt er nog steeds bovenop.",
-    "ihasmail's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what this build needs from the server is the line above.":
-      "De eigen versie van ihasmail is de datum van de commit waaruit het is gebouwd, gevolgd door waar die commit vandaan kwam: {example} is gebouwd uit een commit van 30 augustus 2026 die via pull request 129 binnenkwam. Een commit die niet via zo'n verzoek kwam, draagt in plaats daarvan zijn korte SHA — {sha}. De versie zegt bewust niets over Stalwart; wat deze build van de server nodig heeft, staat op de regel hierboven.",
+    "Gilbert's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what this build needs from the server is the line above.":
+      "De eigen versie van Gilbert is de datum van de commit waaruit het is gebouwd, gevolgd door waar die commit vandaan kwam: {example} is gebouwd uit een commit van 30 augustus 2026 die via pull request 129 binnenkwam. Een commit die niet via zo'n verzoek kwam, draagt in plaats daarvan zijn korte SHA — {sha}. De versie zegt bewust niets over Stalwart; wat deze build van de server nodig heeft, staat op de regel hierboven.",
 
     // ── Composer status, calendar title ────────────────────────────────
     "New message": "Nieuw bericht",
@@ -1147,8 +1147,8 @@ export const catalog: Catalog = {
     "You're all caught up": "U bent helemaal bij",
     "Your browser refused the request: {error}":
       "Uw browser heeft het verzoek geweigerd: {error}",
-    "Your browser will ask whether to open mail links in ihasmail":
-      "Uw browser vraagt of e-maillinks in ihasmail moeten worden geopend",
+    "Your browser will ask whether to open mail links in Gilbert":
+      "Uw browser vraagt of e-maillinks in Gilbert moeten worden geopend",
     "Your message mentions an attachment, but nothing is attached.":
       "Uw bericht noemt een bijlage, maar er is niets bijgevoegd.",
     event: "afspraak",
@@ -1207,8 +1207,8 @@ export const catalog: Catalog = {
     "Also count these domains as inside": "Deze domeinen ook als intern beschouwen",
     Always: "Altijd",
     "Always showing images from": "Afbeeldingen altijd tonen van",
-    "An image loaded from a sender's server tells them the message was opened, when, and from roughly where. Approved images are fetched by ihasmail's own server rather than the browser, so the sender learns none of those.":
-      "Een afbeelding die van de server van de afzender wordt geladen, vertelt die afzender dat het bericht is geopend, wanneer en ongeveer waarvandaan. Goedgekeurde afbeeldingen worden opgehaald door de server van ihasmail zelf en niet door de browser, dus de afzender komt daar niets van te weten.",
+    "An image loaded from a sender's server tells them the message was opened, when, and from roughly where. Approved images are fetched by Gilbert's own server rather than the browser, so the sender learns none of those.":
+      "Een afbeelding die van de server van de afzender wordt geladen, vertelt die afzender dat het bericht is geopend, wanneer en ongeveer waarvandaan. Goedgekeurde afbeeldingen worden opgehaald door de server van Gilbert zelf en niet door de browser, dus de afzender komt daar niets van te weten.",
     "Applies to": "Geldt voor",
     "Archive and next": "Archiveren en volgende",
     "Archive by month": "Archiveren per maand",
@@ -1264,8 +1264,8 @@ export const catalog: Catalog = {
     "Go to Settings": "Ga naar Instellingen",
     "Go to Starred": "Ga naar Met ster",
     "Import iCAL file…": "iCAL-bestand importeren…",
-    "Labels are IMAP keywords stored on your messages, so every other client sees them. Names, colours and nesting are ihasmail’s own and follow your account. Nesting is display only — it rewrites nothing in the mailbox.":
-      "Labels zijn IMAP-trefwoorden die op uw berichten worden opgeslagen, dus elke andere client ziet ze. Namen, kleuren en nesting zijn van ihasmail zelf en volgen uw account. Nesting is alleen weergave: er wordt niets in het postvak herschreven.",
+    "Labels are IMAP keywords stored on your messages, so every other client sees them. Names, colours and nesting are Gilbert’s own and follow your account. Nesting is display only — it rewrites nothing in the mailbox.":
+      "Labels zijn IMAP-trefwoorden die op uw berichten worden opgeslagen, dus elke andere client ziet ze. Namen, kleuren en nesting zijn van Gilbert zelf en volgen uw account. Nesting is alleen weergave: er wordt niets in het postvak herschreven.",
     "Largest first": "Grootste eerst",
     Later: "Later",
     "Light or dark": "Licht of donker",
@@ -1481,10 +1481,10 @@ export const catalog: Catalog = {
     Fingerprint: "Vingerafdruk",
     "Hide details": "Details verbergen",
     "Issued by": "Uitgegeven door",
-    "It is signed with OpenPGP, and ihasmail has no way to fetch the sender's public key.":
-      "Het is ondertekend met OpenPGP, en ihasmail kan de openbare sleutel van de afzender niet ophalen.",
-    "It uses a signature algorithm ihasmail cannot check yet.":
-      "Het gebruikt een ondertekeningsalgoritme dat ihasmail nog niet kan controleren.",
+    "It is signed with OpenPGP, and Gilbert has no way to fetch the sender's public key.":
+      "Het is ondertekend met OpenPGP, en Gilbert kan de openbare sleutel van de afzender niet ophalen.",
+    "It uses a signature algorithm Gilbert cannot check yet.":
+      "Het gebruikt een ondertekeningsalgoritme dat Gilbert nog niet kan controleren.",
     "It was made with a certificate belonging to {name}, which does not cover this address.":
       "Hij is gemaakt met een certificaat van {name}, dat dit adres niet dekt.",
     "Previous fingerprint": "Vorige vingerafdruk",
@@ -1509,16 +1509,16 @@ export const catalog: Catalog = {
     "The signed part is missing either the message or the signature.":
       "In het ondertekende deel ontbreekt het bericht of de handtekening.",
     "The signer has changed.": "De ondertekenaar is veranderd.",
-    "This message is signed, and ihasmail could not check the signature.":
-      "Dit bericht is ondertekend, en ihasmail kon de handtekening niet controleren.",
+    "This message is signed, and Gilbert could not check the signature.":
+      "Dit bericht is ondertekend, en Gilbert kon de handtekening niet controleren.",
     "This signature does not check out.": "Deze handtekening klopt niet.",
     "Valid until": "Geldig tot",
     "a different certificate": "een ander certificaat",
     "an unnamed signer": "een naamloze ondertekenaar",
     "as claimed by the signer": "volgens de ondertekenaar",
     "first seen {date}": "voor het eerst gezien op {date}",
-    "ihasmail will tell you if a later message from this address is signed by anybody else.":
-      "ihasmail laat het weten als een later bericht van dit adres door iemand anders is ondertekend.",
+    "Gilbert will tell you if a later message from this address is signed by anybody else.":
+      "Gilbert laat het weten als een later bericht van dit adres door iemand anders is ondertekend.",
     "itself, or an issuer it does not name":
       "zichzelf, of een uitgever die het niet noemt",
     "no address": "geen adres",

@@ -282,7 +282,7 @@ function readStalwartServers(): Record<string, string> {
 
 export const config = {
   isProd,
-  appName: env("APP_NAME", "ihasmail"),
+  appName: env("APP_NAME", "Gilbert"),
   settingsPolicy: readSettingsPolicy(),
   /**
    * What this build calls itself: `2.16.57`. Set by the image build from
@@ -296,9 +296,9 @@ export const config = {
    *
    * The AGPL asks whoever *runs* a modified version to offer that version's
    * source, not the one it was forked from -- so anyone deploying a patched
-   * ihasmail should point this at their own tree.
+   * Gilbert should point this at their own tree.
    */
-  sourceUrl: env("SOURCE_URL", "https://github.com/Coffey-Labs/ihasmail"),
+  sourceUrl: env("SOURCE_URL", "https://github.com/sequico/gilbert"),
   host: env("HOST", "0.0.0.0"),
   port: int("PORT", 8080),
   /**

@@ -329,7 +329,7 @@ function TwoFactorOff({ reload }: { reload: () => Promise<void> }) {
     <div>
       <p className="hint" style={{ marginBottom: 12 }}>
         {t(
-          "This account has two-factor authentication on. ihasmail can't sign you in with a code yet, so signing in on another device needs an app password — or you can turn two-factor authentication off here.",
+          "This account has two-factor authentication on. Gilbert can't sign you in with a code yet, so signing in on another device needs an app password — or you can turn two-factor authentication off here.",
         )}
       </p>
       <div className="row" style={{ alignItems: "center", gap: 10 }}>

@@ -171,13 +171,9 @@ export function LoginPage() {
             margin-top, which a second paragraph would repeat as a gap.
           */}
           <span className="notranslate" translate="no">
-            ihasmail v{APP_VERSION}
+            {appName} v{APP_VERSION}
           </span>
           <br />
-          <a href="https://ihasmail.org" target="_blank" rel="noopener noreferrer">
-            {t("ihasmail.org")}
-          </a>
-          {" · "}
           <a href={sourceUrl} target="_blank" rel="noopener noreferrer">
             {t("AGPL-3.0 source")}
           </a>

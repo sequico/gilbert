@@ -70,7 +70,7 @@ export function AppearanceSettings() {
   return (
     <div>
       <h1>{translate("Appearance")}</h1>
-      <p className="lead">{translate("Make ihasmail yours.")}</p>
+      <p className="lead">{translate("Make Gilbert yours.")}</p>
       <h2>{translate("Theme")}</h2>
       <div className="mode-switch" role="group" aria-label={translate("Light or dark")}>
         {MODES.map((m) => (
@@ -214,7 +214,7 @@ export function AppearanceSettings() {
       )}
       <p className="hint">
         {translate(
-          "Only languages ihasmail has been translated into appear here, so this list grows as translations land rather than ahead of them — a language offered without strings behind it would leave the page claiming to be in a language it is not.",
+          "Only languages Gilbert has been translated into appear here, so this list grows as translations land rather than ahead of them — a language offered without strings behind it would leave the page claiming to be in a language it is not.",
         )}
       </p>
       <p className="hint">

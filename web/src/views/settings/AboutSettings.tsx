@@ -12,7 +12,7 @@ export function AboutSettings() {
   const sourceUrl = session?.ihasmail?.sourceUrl ?? DEFAULT_SOURCE_URL;
   return (
     <div>
-      <h1>{t("About ihasmail")}</h1>
+      <h1>{t("About Gilbert")}</h1>
       <p className="lead">
         {tNode("A fast, friendly, open-source webmail for {server}, built on JMAP.", {
           server: (
@@ -23,7 +23,7 @@ export function AboutSettings() {
         })}
       </p>
       <div className="row" style={{ gap: 16, alignItems: "center", marginBottom: 16 }}>
-        <img src={withBase("/img/logo.png")} alt={t("ihasmail")} width={96} />
+        <img src={withBase("/img/logo.png")} alt={t("Gilbert")} width={96} />
         <div>
           {/* A product name and a version string: neither is a word to translate. */}
           <div
@@ -77,12 +77,12 @@ export function AboutSettings() {
       </table>
       <p className="hint" style={{ marginTop: 6 }}>
         {t(
-          "Stalwart does not publish its version number to mail clients, so ihasmail reports the edition where the server gives one. ihasmail requires 0.16 or newer, and sign-in refuses anything older.",
+          "Stalwart does not publish its version number to mail clients, so Gilbert reports the edition where the server gives one. Gilbert requires 0.16 or newer, and sign-in refuses anything older.",
         )}
       </p>
       <p className="hint">
         {tNode(
-          "ihasmail's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what this build needs from the server is the line above.",
+          "Gilbert's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what this build needs from the server is the line above.",
           {
             example: (
               <strong className="notranslate" translate="no">

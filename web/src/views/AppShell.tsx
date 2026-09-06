@@ -3,7 +3,6 @@ import {
   Calendar,
   ChevronsUpDown,
   FolderOpen,
-  Globe,
   HelpCircle,
   ListChecks,
   LogOut,
@@ -199,15 +198,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               icon={<BookOpen size={16} />}
               label={t("Documentation")}
               href="https://docs.ihasmail.org"
-              external
-            />
-            {/* The project site. It is linked from the login screen footer, which
-                is a page a signed-in user never sees again -- so from inside the
-                app there was no way back to it. */}
-            <MenuItem
-              icon={<Globe size={16} />}
-              label={t("About ihasmail")}
-              href="https://ihasmail.org"
               external
             />
             <MenuItem

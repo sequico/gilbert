@@ -47,7 +47,7 @@ export function NotificationsSettings() {
           }
           update({ desktopNotifications: v });
         }}
-        label={t("Desktop notifications while ihasmail is open")}
+        label={t("Desktop notifications while Gilbert is open")}
         hint={
           perm === "denied"
             ? t("Notifications are blocked in your browser settings.")
@@ -89,7 +89,7 @@ export function NotificationsSettings() {
             setBusy(false);
           }
         }}
-        label={t("Notify me even when ihasmail is closed")}
+        label={t("Notify me even when Gilbert is closed")}
         hint={
           !canBackground
             ? t(
@@ -97,7 +97,7 @@ export function NotificationsSettings() {
               )
             : supportsEmailPush()
               ? t(
-                  "Your mail server delivers these straight to your browser, so they arrive with no ihasmail tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.",
+                  "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.",
                 )
               : t(
                   "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.",
@@ -114,7 +114,7 @@ export function NotificationsSettings() {
         <button
           className="btn"
           onClick={() => {
-            showNotification(t("ihasmail test"), {
+            showNotification(t("Gilbert test"), {
               body: t("This is what a new-mail notification looks like."),
             });
             playNewMailSound();

@@ -46,7 +46,7 @@ import type { Catalog } from "@/lib/i18n";
  * "Marcador" for label, which is what Gmail uses in Brazil — the same rule as
  * French and Spanish, and a fourth different answer to it.
  *
- * Product names are never translated: ihasmail, Stalwart, JMAP, Sieve, vCard.
+ * Product names are never translated: Gilbert, Stalwart, JMAP, Sieve, vCard.
  */
 export const catalog: Catalog = {
   strings: {
@@ -214,8 +214,8 @@ export const catalog: Catalog = {
     "Scheduled — click to clear the schedule":
       "Programada — clique para cancelar a programação",
     "Nothing scheduled": "Nada programado",
-    "The message waits on the server, so it goes out whether or not ihasmail is open.":
-      "A mensagem aguarda no servidor, então ela é enviada com o ihasmail aberto ou não.",
+    "The message waits on the server, so it goes out whether or not Gilbert is open.":
+      "A mensagem aguarda no servidor, então ela é enviada com o Gilbert aberto ou não.",
     "This server holds a message for up to {span}.":
       "Este servidor retém uma mensagem por até {span}.",
     "Date and time to send": "Data e hora do envio",
@@ -444,7 +444,7 @@ export const catalog: Catalog = {
     Sections: "Seções",
     General: "Geral",
     Appearance: "Aparência",
-    "Make ihasmail yours.": "Deixe o ihasmail do seu jeito.",
+    "Make Gilbert yours.": "Deixe o Gilbert do seu jeito.",
     Reading: "Leitura",
     "Reading pane": "Painel de leitura",
     "Reading, sending and list behaviour. Settings are stored in this browser.":
@@ -552,7 +552,7 @@ export const catalog: Catalog = {
     "Reset to defaults": "Restaurar os padrões",
     "Default mail app": "Aplicativo de e-mail padrão",
     Documentation: "Documentação",
-    "About ihasmail": "Sobre o ihasmail",
+    "About Gilbert": "Sobre o Gilbert",
     About: "Sobre",
     Server: "Servidor",
     "Server capabilities": "Recursos do servidor",
@@ -684,10 +684,10 @@ export const catalog: Catalog = {
     "Notifications are blocked in your browser settings.":
       "As notificações estão bloqueadas nas configurações do seu navegador.",
     "Not supported in this browser.": "Sem suporte neste navegador.",
-    "Desktop notifications while ihasmail is open":
-      "Notificações do sistema enquanto o ihasmail estiver aberto",
-    "Notify me even when ihasmail is closed":
-      "Avisar mesmo quando o ihasmail estiver fechado",
+    "Desktop notifications while Gilbert is open":
+      "Notificações do sistema enquanto o Gilbert estiver aberto",
+    "Notify me even when Gilbert is closed":
+      "Avisar mesmo quando o Gilbert estiver fechado",
     "Play a sound for new mail": "Tocar um som ao chegar e-mail",
     "Test notification": "Testar a notificação",
     "Background notifications are on": "As notificações em segundo plano estão ativadas",
@@ -888,8 +888,8 @@ export const catalog: Catalog = {
       "Não é oferecida ao escrever. O endereço continua recebendo mensagens, e você pode voltar a enviar por ele mostrando-o novamente.",
     "Each identity is a sender address with its own name, Reply-To and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address.":
       "Cada identidade é um endereço de envio com nome, endereço de resposta e assinatura próprios. A identidade padrão vem pré-selecionada ao escrever; defina um endereço de resposta quando as respostas devam ir para outro lugar que não o remetente.",
-    "This signature is larger than the server's {limit}-byte limit. ihasmail will keep the full version in your Files and store a short text fallback on the server — other mail clients will see the plain-text version.":
-      "Esta assinatura passa do limite de {limit} bytes do servidor. O ihasmail guardará a versão completa nos seus Arquivos e uma versão curta em texto no servidor — os outros clientes verão a versão em texto simples.",
+    "This signature is larger than the server's {limit}-byte limit. Gilbert will keep the full version in your Files and store a short text fallback on the server — other mail clients will see the plain-text version.":
+      "Esta assinatura passa do limite de {limit} bytes do servidor. O Gilbert guardará a versão completa nos seus Arquivos e uma versão curta em texto no servidor — os outros clientes verão a versão em texto simples.",
     "Outlook-style categories you can assign to events from the right-click menu or the event editor. The category name is stored on the event, so it syncs to other clients.":
       "Categorias no estilo do Outlook que você pode atribuir aos eventos pelo menu do botão direito ou pelo editor de eventos. O nome da categoria fica guardado no evento, então sincroniza com outros clientes.",
     "Plain-text mail already follows the theme. With this on, HTML mail that brings no colours of its own does as well, instead of sitting on a white card. Messages that style themselves are left exactly as the sender designed them.":
@@ -904,20 +904,20 @@ export const catalog: Catalog = {
       "Manter uma mensagem pressionada a seleciona, e manter uma pasta pressionada abre o menu dela. Puxe o topo da lista para baixo para procurar mensagens novas.",
     "A receipt tells whoever asked that this address is live and when the message was read, and the sender chooses where it goes — so there is no automatic option. Bulk mail, mailing lists and anything marked auto-submitted are never offered one at all.":
       "Uma confirmação diz a quem pediu que este endereço está ativo e quando a mensagem foi lida, e o remetente escolhe para onde ela vai — por isso não há opção automática. Para mala direta, listas de discussão e tudo o que estiver marcado como enviado automaticamente, ela nunca é oferecida.",
-    "This browser cannot register apps for {scheme} links. Safari, in particular, has no such API — you can still make ihasmail the default from your operating system if you install it as an app.":
-      "Este navegador não consegue registrar aplicativos para links {scheme}. O Safari, em particular, não tem essa interface — mesmo assim você pode definir o ihasmail como padrão pelo seu sistema operacional se instalá-lo como aplicativo.",
+    "This browser cannot register apps for {scheme} links. Safari, in particular, has no such API — you can still make Gilbert the default from your operating system if you install it as an app.":
+      "Este navegador não consegue registrar aplicativos para links {scheme}. O Safari, em particular, não tem essa interface — mesmo assim você pode definir o Gilbert como padrão pelo seu sistema operacional se instalá-lo como aplicativo.",
     "Registering for {scheme} links requires a secure (HTTPS) connection.":
       "Registrar-se para links {scheme} exige uma conexão segura (HTTPS).",
-    "Open {scheme} links — in web pages, documents and other apps — in ihasmail instead of a desktop mail client. Your browser will ask you to confirm, and you can change it later in its own settings (Chrome: Settings › Privacy and security › Site settings › Protocol handlers; Firefox: Settings › General › Applications).":
-      "Abrir links {scheme} — em páginas da web, documentos e outros aplicativos — no ihasmail em vez de um cliente de e-mail local. Seu navegador pedirá confirmação, e você pode mudar isso depois nas configurações dele (Chrome: Configurações › Privacidade e segurança › Configurações do site › Manipuladores de protocolo; Firefox: Configurações › Geral › Aplicativos).",
+    "Open {scheme} links — in web pages, documents and other apps — in Gilbert instead of a desktop mail client. Your browser will ask you to confirm, and you can change it later in its own settings (Chrome: Settings › Privacy and security › Site settings › Protocol handlers; Firefox: Settings › General › Applications).":
+      "Abrir links {scheme} — em páginas da web, documentos e outros aplicativos — no Gilbert em vez de um cliente de e-mail local. Seu navegador pedirá confirmação, e você pode mudar isso depois nas configurações dele (Chrome: Configurações › Privacidade e segurança › Configurações do site › Manipuladores de protocolo; Firefox: Configurações › Geral › Aplicativos).",
     "Requested in this browser. Whether it took effect is up to the browser — check its settings if mail links still open elsewhere.":
       "Solicitado neste navegador. Se surtiu efeito é decisão dele — verifique as configurações se os links de e-mail ainda abrirem em outro lugar.",
-    "For a system-wide default, install ihasmail as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer ihasmail directly wherever it asks which mail app to use.":
-      "Para um padrão em todo o sistema, instale o ihasmail como aplicativo primeiro (no Chrome: o ícone de instalação na barra de endereços). Seu sistema operacional poderá então oferecer o ihasmail diretamente onde quer que pergunte qual aplicativo de e-mail usar.",
+    "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
+      "Para um padrão em todo o sistema, instale o Gilbert como aplicativo primeiro (no Chrome: o ícone de instalação na barra de endereços). Seu sistema operacional poderá então oferecer o Gilbert diretamente onde quer que pergunte qual aplicativo de e-mail usar.",
     "Needs a browser with the Push API and a mail server that publishes a push key.":
       "Exige um navegador com a API Push e um servidor de e-mail que publique uma chave push.",
-    "Your mail server delivers these straight to your browser, so they arrive with no ihasmail tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
-      "Seu servidor de e-mail as entrega direto ao navegador, então elas chegam sem nenhuma aba do ihasmail aberta, com o remetente e o assunto. Mesmo assim o navegador precisa estar em execução — se você fechá-lo por completo, as notificações esperam e chegam quando você abri-lo de novo.",
+    "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
+      "Seu servidor de e-mail as entrega direto ao navegador, então elas chegam sem nenhuma aba do Gilbert aberta, com o remetente e o assunto. Mesmo assim o navegador precisa estar em execução — se você fechá-lo por completo, as notificações esperam e chegam quando você abri-lo de novo.",
     "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.":
       "Seu servidor de e-mail consegue acordar este navegador, mas não informa o remetente nem o assunto. Mesmo assim o navegador precisa estar em execução.",
     "This is what a new-mail notification looks like.":
@@ -928,16 +928,16 @@ export const catalog: Catalog = {
       "As senhas de aplicativo são gerenciadas pelo seu administrador de e-mail.",
     "Changing your password signs out your other webmail sessions. Any app passwords keep working.":
       "Mudar sua senha encerra suas outras sessões de webmail. As senhas de aplicativo continuam funcionando.",
-    "This account has two-factor authentication on. ihasmail can't sign you in with a code yet, so signing in on another device needs an app password — or you can turn two-factor authentication off here.":
-      "Esta conta está com a autenticação em duas etapas ativada. O ihasmail ainda não consegue conectar você com um código, então entrar em outro dispositivo exige uma senha de aplicativo — ou você pode desativar a autenticação em duas etapas aqui.",
+    "This account has two-factor authentication on. Gilbert can't sign you in with a code yet, so signing in on another device needs an app password — or you can turn two-factor authentication off here.":
+      "Esta conta está com a autenticação em duas etapas ativada. O Gilbert ainda não consegue conectar você com um código, então entrar em outro dispositivo exige uma senha de aplicativo — ou você pode desativar a autenticação em duas etapas aqui.",
     "A separate password for a mail app or device, which you can revoke on its own. App passwords skip two-factor codes, so they keep working in apps that can't ask for one.":
       "Uma senha separada para um aplicativo de e-mail ou dispositivo, que você pode revogar sozinha. As senhas de aplicativo dispensam os códigos de duas etapas, então continuam funcionando em aplicativos que não conseguem pedir um.",
     "Copy it into {name} now — it isn't shown again.":
       "Copie-a para {name} agora — ela não será mostrada de novo.",
     "No other users found in the directory, so nobody new can be added. Sharing already in place is listed below and can still be removed.":
       "Nenhum outro usuário encontrado no diretório, então ninguém novo pode ser adicionado. O que já está compartilhado aparece abaixo e ainda pode ser removido.",
-    "Stalwart does not publish its version number to mail clients, so ihasmail reports the edition where the server gives one. ihasmail requires 0.16 or newer, and sign-in refuses anything older.":
-      "O Stalwart não informa seu número de versão aos clientes de e-mail, então o ihasmail indica a edição quando o servidor fornece uma. O ihasmail exige a versão 0.16 ou mais recente, e o login recusa qualquer versão anterior.",
+    "Stalwart does not publish its version number to mail clients, so Gilbert reports the edition where the server gives one. Gilbert requires 0.16 or newer, and sign-in refuses anything older.":
+      "O Stalwart não informa seu número de versão aos clientes de e-mail, então o Gilbert indica a edição quando o servidor fornece uma. O Gilbert exige a versão 0.16 ou mais recente, e o login recusa qualquer versão anterior.",
     "It {damage}, so the rules in it can't be shown or edited — saving what did arrive would write it back over the rest. Reload the page to try again. Your rules are still on the server; nothing here has changed them.":
       "Ele {damage}, então as regras nele não podem ser mostradas nem editadas — salvar o que chegou sobrescreveria o resto. Recarregue a página para tentar de novo. Suas regras continuam no servidor; nada aqui as alterou.",
     "The visual rule editor only manages scripts it created. You can edit the script in the {tab} tab, or start fresh with rules (the existing script will be kept but deactivated).":
@@ -948,15 +948,15 @@ export const catalog: Catalog = {
       "Seu script de filtragem não pôde ser lido agora, então adicionar uma regra poderia sobrescrevê-lo. Recarregue a página e tente de novo.",
     "Your active Sieve script was written by hand, so rules can't be added automatically. Open {where} to edit the script or switch to managed rules.":
       "Seu script Sieve ativo foi escrito à mão, então não dá para adicionar regras automaticamente. Abra {where} para editar o script ou mudar para regras gerenciadas.",
-    "Only languages ihasmail has been translated into appear here, so this list grows as translations land rather than ahead of them — a language offered without strings behind it would leave the page claiming to be in a language it is not.":
-      "Aqui aparecem só os idiomas para os quais o ihasmail foi traduzido, então a lista cresce conforme as traduções chegam, e não antes — um idioma oferecido sem textos por trás faria a página afirmar estar em um idioma que não é o dela.",
+    "Only languages Gilbert has been translated into appear here, so this list grows as translations land rather than ahead of them — a language offered without strings behind it would leave the page claiming to be in a language it is not.":
+      "Aqui aparecem só os idiomas para os quais o Gilbert foi traduzido, então a lista cresce conforme as traduções chegam, e não antes — um idioma oferecido sem textos por trás faria a página afirmar estar em um idioma que não é o dela.",
     "tell us about it": "conte para nós",
     "This translation was generated by AI and has not been checked by a native speaker, so it is marked Beta until somebody who speaks it signs it off. Anything that reads wrongly is worth reporting — {report}.":
       "Esta tradução foi gerada por IA e não foi revisada por uma pessoa nativa, então está marcada como Beta até que alguém a aprove. Tudo o que soar errado vale um aviso — {report}.",
     "{name} is the palette from {site}, and what a new account starts on. It is a dark theme, so it counts as dark wherever that matters, and the accent colour below still applies on top of it.":
       "{name} é a paleta de {site}, e com a qual uma conta nova começa. É um tema escuro, então conta como escuro onde isso importa, e a cor de destaque abaixo continua valendo por cima dele.",
-    "ihasmail's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what this build needs from the server is the line above.":
-      "A versão do próprio ihasmail é a data do commit a partir do qual ele foi compilado, seguida da origem desse commit: {example} foi compilado a partir de um commit de 30 de agosto de 2026 que veio pela pull request 129. Um commit que não veio por uma delas carrega no lugar o SHA curto — {sha}. A versão não diz nada sobre o Stalwart de propósito; o que esta compilação precisa do servidor está na linha acima.",
+    "Gilbert's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what this build needs from the server is the line above.":
+      "A versão do próprio Gilbert é a data do commit a partir do qual ele foi compilado, seguida da origem desse commit: {example} foi compilado a partir de um commit de 30 de agosto de 2026 que veio pela pull request 129. Um commit que não veio por uma delas carrega no lugar o SHA curto — {sha}. A versão não diz nada sobre o Stalwart de propósito; o que esta compilação precisa do servidor está na linha acima.",
 
     // ── Composer status, calendar title ────────────────────────────────
     "New message": "Nova mensagem",
@@ -1158,8 +1158,8 @@ export const catalog: Catalog = {
     "You're all caught up": "Você está em dia",
     "Your browser refused the request: {error}":
       "Seu navegador recusou a solicitação: {error}",
-    "Your browser will ask whether to open mail links in ihasmail":
-      "Seu navegador vai perguntar se os links de e-mail devem abrir no ihasmail",
+    "Your browser will ask whether to open mail links in Gilbert":
+      "Seu navegador vai perguntar se os links de e-mail devem abrir no Gilbert",
     "Your message mentions an attachment, but nothing is attached.":
       "Sua mensagem menciona um anexo, mas nada foi anexado.",
     event: "evento",
@@ -1218,8 +1218,8 @@ export const catalog: Catalog = {
     "Also count these domains as inside": "Contar também estes domínios como internos",
     Always: "Sempre",
     "Always showing images from": "Sempre exibindo imagens de",
-    "An image loaded from a sender's server tells them the message was opened, when, and from roughly where. Approved images are fetched by ihasmail's own server rather than the browser, so the sender learns none of those.":
-      "Uma imagem carregada do servidor do remetente informa a ele que a mensagem foi aberta, quando e aproximadamente de onde. As imagens aprovadas são buscadas pelo próprio servidor do ihasmail, e não pelo navegador, de modo que o remetente não fica sabendo de nada disso.",
+    "An image loaded from a sender's server tells them the message was opened, when, and from roughly where. Approved images are fetched by Gilbert's own server rather than the browser, so the sender learns none of those.":
+      "Uma imagem carregada do servidor do remetente informa a ele que a mensagem foi aberta, quando e aproximadamente de onde. As imagens aprovadas são buscadas pelo próprio servidor do Gilbert, e não pelo navegador, de modo que o remetente não fica sabendo de nada disso.",
     "Applies to": "Aplica-se a",
     "Archive and next": "Arquivar e próxima",
     "Archive by month": "Arquivar por mês",
@@ -1277,8 +1277,8 @@ export const catalog: Catalog = {
     "Go to Settings": "Ir para Configurações",
     "Go to Starred": "Ir para Favoritos",
     "Import iCAL file…": "Importar arquivo iCAL…",
-    "Labels are IMAP keywords stored on your messages, so every other client sees them. Names, colours and nesting are ihasmail’s own and follow your account. Nesting is display only — it rewrites nothing in the mailbox.":
-      "Os marcadores são palavras-chave IMAP armazenadas nas suas mensagens, então todos os outros clientes os veem. Os nomes, as cores e o aninhamento são do próprio ihasmail e acompanham a sua conta. O aninhamento é apenas de exibição: não reescreve nada na caixa postal.",
+    "Labels are IMAP keywords stored on your messages, so every other client sees them. Names, colours and nesting are Gilbert’s own and follow your account. Nesting is display only — it rewrites nothing in the mailbox.":
+      "Os marcadores são palavras-chave IMAP armazenadas nas suas mensagens, então todos os outros clientes os veem. Os nomes, as cores e o aninhamento são do próprio Gilbert e acompanham a sua conta. O aninhamento é apenas de exibição: não reescreve nada na caixa postal.",
     "Largest first": "Maiores primeiro",
     Later: "Depois",
     "Light or dark": "Claro ou escuro",
@@ -1492,10 +1492,10 @@ export const catalog: Catalog = {
     Fingerprint: "Impressão digital",
     "Hide details": "Ocultar detalhes",
     "Issued by": "Emitido por",
-    "It is signed with OpenPGP, and ihasmail has no way to fetch the sender's public key.":
-      "Está assinada com OpenPGP, e o ihasmail não tem como obter a chave pública do remetente.",
-    "It uses a signature algorithm ihasmail cannot check yet.":
-      "Usa um algoritmo de assinatura que o ihasmail ainda não consegue conferir.",
+    "It is signed with OpenPGP, and Gilbert has no way to fetch the sender's public key.":
+      "Está assinada com OpenPGP, e o Gilbert não tem como obter a chave pública do remetente.",
+    "It uses a signature algorithm Gilbert cannot check yet.":
+      "Usa um algoritmo de assinatura que o Gilbert ainda não consegue conferir.",
     "It was made with a certificate belonging to {name}, which does not cover this address.":
       "Foi feita com um certificado de {name}, que não cobre este endereço.",
     "Previous fingerprint": "Impressão digital anterior",
@@ -1520,16 +1520,16 @@ export const catalog: Catalog = {
     "The signed part is missing either the message or the signature.":
       "Falta à parte assinada ou a mensagem ou a assinatura.",
     "The signer has changed.": "O signatário mudou.",
-    "This message is signed, and ihasmail could not check the signature.":
-      "Esta mensagem está assinada, e o ihasmail não conseguiu conferir a assinatura.",
+    "This message is signed, and Gilbert could not check the signature.":
+      "Esta mensagem está assinada, e o Gilbert não conseguiu conferir a assinatura.",
     "This signature does not check out.": "Esta assinatura não confere.",
     "Valid until": "Válido até",
     "a different certificate": "um certificado diferente",
     "an unnamed signer": "um signatário sem nome",
     "as claimed by the signer": "conforme declarado pelo signatário",
     "first seen {date}": "visto pela primeira vez em {date}",
-    "ihasmail will tell you if a later message from this address is signed by anybody else.":
-      "O ihasmail avisará você se uma mensagem posterior deste endereço for assinada por outra pessoa.",
+    "Gilbert will tell you if a later message from this address is signed by anybody else.":
+      "O Gilbert avisará você se uma mensagem posterior deste endereço for assinada por outra pessoa.",
     "itself, or an issuer it does not name":
       "ele mesmo, ou um emissor que ele não nomeia",
     "no address": "nenhum endereço",

@@ -43,7 +43,7 @@ export function LabelsSettings() {
       <h1>{t("Labels")}</h1>
       <p className="lead">
         {t(
-          "Labels are IMAP keywords stored on your messages, so every other client sees them. Names, colours and nesting are ihasmail\u2019s own and follow your account. Nesting is display only \u2014 it rewrites nothing in the mailbox.",
+          "Labels are IMAP keywords stored on your messages, so every other client sees them. Names, colours and nesting are Gilbert\u2019s own and follow your account. Nesting is display only \u2014 it rewrites nothing in the mailbox.",
         )}
       </p>
       {labels.map((l) => (

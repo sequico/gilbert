@@ -10,4 +10,4 @@
  * One constant rather than the string written out at each of them, because
  * three copies of a default is how two of them end up stale.
  */
-export const DEFAULT_APP_NAME = "ihasmail";
+export const DEFAULT_APP_NAME = "Gilbert";

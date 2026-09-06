@@ -45,7 +45,7 @@ import type { Catalog } from "@/lib/i18n";
  * label, which is Gmail's word in Russian — the same rule as French, Spanish
  * and Portuguese, and a fifth answer to it.
  *
- * Product names are never translated: ihasmail, Stalwart, JMAP, Sieve, vCard.
+ * Product names are never translated: Gilbert, Stalwart, JMAP, Sieve, vCard.
  */
 export const catalog: Catalog = {
   strings: {
@@ -213,8 +213,8 @@ export const catalog: Catalog = {
       "Ожидает на сервере — будет отправлено {when}.",
     "Scheduled — click to clear the schedule": "Отложено — нажмите, чтобы отменить",
     "Nothing scheduled": "Ничего не отложено",
-    "The message waits on the server, so it goes out whether or not ihasmail is open.":
-      "Письмо ждёт на сервере и будет отправлено независимо от того, открыт ihasmail или нет.",
+    "The message waits on the server, so it goes out whether or not Gilbert is open.":
+      "Письмо ждёт на сервере и будет отправлено независимо от того, открыт Gilbert или нет.",
     "This server holds a message for up to {span}.":
       "Этот сервер удерживает письмо до {span}.",
     "Date and time to send": "Дата и время отправки",
@@ -443,7 +443,7 @@ export const catalog: Catalog = {
     Sections: "Разделы",
     General: "Общие",
     Appearance: "Внешний вид",
-    "Make ihasmail yours.": "Настройте ihasmail под себя.",
+    "Make Gilbert yours.": "Настройте Gilbert под себя.",
     Reading: "Чтение",
     "Reading pane": "Область чтения",
     "Reading, sending and list behaviour. Settings are stored in this browser.":
@@ -549,7 +549,7 @@ export const catalog: Catalog = {
     "Reset to defaults": "Сбросить к значениям по умолчанию",
     "Default mail app": "Почтовая программа по умолчанию",
     Documentation: "Документация",
-    "About ihasmail": "О программе ihasmail",
+    "About Gilbert": "О Gilbert",
     About: "О программе",
     Server: "Сервер",
     "Server capabilities": "Возможности сервера",
@@ -681,9 +681,9 @@ export const catalog: Catalog = {
     "Notifications are blocked in your browser settings.":
       "Уведомления заблокированы в настройках браузера.",
     "Not supported in this browser.": "Не поддерживается в этом браузере.",
-    "Desktop notifications while ihasmail is open":
-      "Системные уведомления, пока ihasmail открыт",
-    "Notify me even when ihasmail is closed": "Уведомлять, даже когда ihasmail закрыт",
+    "Desktop notifications while Gilbert is open":
+      "Системные уведомления, пока Gilbert открыт",
+    "Notify me even when Gilbert is closed": "Уведомлять, даже когда Gilbert закрыт",
     "Play a sound for new mail": "Звук при новом письме",
     "Test notification": "Проверить уведомление",
     "Background notifications are on": "Фоновые уведомления включены",
@@ -882,8 +882,8 @@ export const catalog: Catalog = {
       "Не предлагается при написании письма. Адрес по-прежнему принимает почту, и с него снова можно отправлять, если показать его обратно.",
     "Each identity is a sender address with its own name, Reply-To and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address.":
       "Каждый профиль — это адрес отправителя со своим именем, обратным адресом и подписью. Основной профиль подставляется при написании письма; укажите обратный адрес, если ответы должны приходить не на адрес отправителя.",
-    "This signature is larger than the server's {limit}-byte limit. ihasmail will keep the full version in your Files and store a short text fallback on the server — other mail clients will see the plain-text version.":
-      "Эта подпись больше серверного предела в {limit} байт. ihasmail сохранит полную версию в ваших Файлах, а на сервере оставит короткий текстовый вариант — другие почтовые клиенты увидят именно его.",
+    "This signature is larger than the server's {limit}-byte limit. Gilbert will keep the full version in your Files and store a short text fallback on the server — other mail clients will see the plain-text version.":
+      "Эта подпись больше серверного предела в {limit} байт. Gilbert сохранит полную версию в ваших Файлах, а на сервере оставит короткий текстовый вариант — другие почтовые клиенты увидят именно его.",
     "Outlook-style categories you can assign to events from the right-click menu or the event editor. The category name is stored on the event, so it syncs to other clients.":
       "Категории в стиле Outlook, которые можно присваивать событиям через контекстное меню или редактор события. Название категории хранится в самом событии и синхронизируется с другими клиентами.",
     "Plain-text mail already follows the theme. With this on, HTML mail that brings no colours of its own does as well, instead of sitting on a white card. Messages that style themselves are left exactly as the sender designed them.":
@@ -898,20 +898,20 @@ export const catalog: Catalog = {
       "Долгое нажатие на письме выделяет его, а на папке — открывает её меню. Потяните список писем вниз, чтобы проверить почту.",
     "A receipt tells whoever asked that this address is live and when the message was read, and the sender chooses where it goes — so there is no automatic option. Bulk mail, mailing lists and anything marked auto-submitted are never offered one at all.":
       "Уведомление сообщает запросившему, что адрес действующий и когда письмо было прочитано, а отправитель сам выбирает, куда его отправить, — поэтому автоматического варианта нет. Для массовых рассылок, списков рассылки и всего помеченного как отправленное автоматически оно не предлагается вовсе.",
-    "This browser cannot register apps for {scheme} links. Safari, in particular, has no such API — you can still make ihasmail the default from your operating system if you install it as an app.":
-      "Этот браузер не умеет регистрировать программы для ссылок {scheme}. В частности, в Safari нет такого интерфейса — но ihasmail всё равно можно сделать программой по умолчанию средствами операционной системы, установив его как приложение.",
+    "This browser cannot register apps for {scheme} links. Safari, in particular, has no such API — you can still make Gilbert the default from your operating system if you install it as an app.":
+      "Этот браузер не умеет регистрировать программы для ссылок {scheme}. В частности, в Safari нет такого интерфейса — но Gilbert всё равно можно сделать программой по умолчанию средствами операционной системы, установив его как приложение.",
     "Registering for {scheme} links requires a secure (HTTPS) connection.":
       "Для регистрации ссылок {scheme} нужно защищённое соединение (HTTPS).",
-    "Open {scheme} links — in web pages, documents and other apps — in ihasmail instead of a desktop mail client. Your browser will ask you to confirm, and you can change it later in its own settings (Chrome: Settings › Privacy and security › Site settings › Protocol handlers; Firefox: Settings › General › Applications).":
-      "Открывать ссылки {scheme} — на веб-страницах, в документах и других программах — в ihasmail, а не в почтовой программе на компьютере. Браузер попросит подтверждение, и позже это можно изменить в его настройках (Chrome: Настройки › Конфиденциальность и безопасность › Настройки сайтов › Обработчики протоколов; Firefox: Настройки › Основные › Приложения).",
+    "Open {scheme} links — in web pages, documents and other apps — in Gilbert instead of a desktop mail client. Your browser will ask you to confirm, and you can change it later in its own settings (Chrome: Settings › Privacy and security › Site settings › Protocol handlers; Firefox: Settings › General › Applications).":
+      "Открывать ссылки {scheme} — на веб-страницах, в документах и других программах — в Gilbert, а не в почтовой программе на компьютере. Браузер попросит подтверждение, и позже это можно изменить в его настройках (Chrome: Настройки › Конфиденциальность и безопасность › Настройки сайтов › Обработчики протоколов; Firefox: Настройки › Основные › Приложения).",
     "Requested in this browser. Whether it took effect is up to the browser — check its settings if mail links still open elsewhere.":
       "Запрошено в этом браузере. Сработало ли это, решает он сам — проверьте его настройки, если почтовые ссылки по-прежнему открываются в другом месте.",
-    "For a system-wide default, install ihasmail as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer ihasmail directly wherever it asks which mail app to use.":
-      "Чтобы задать программу по умолчанию для всей системы, сначала установите ihasmail как приложение (в Chrome — значок установки в адресной строке). После этого операционная система сможет предлагать ihasmail везде, где спрашивает, какой почтовой программой воспользоваться.",
+    "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
+      "Чтобы задать программу по умолчанию для всей системы, сначала установите Gilbert как приложение (в Chrome — значок установки в адресной строке). После этого операционная система сможет предлагать Gilbert везде, где спрашивает, какой почтовой программой воспользоваться.",
     "Needs a browser with the Push API and a mail server that publishes a push key.":
       "Нужен браузер с Push API и почтовый сервер, публикующий push-ключ.",
-    "Your mail server delivers these straight to your browser, so they arrive with no ihasmail tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
-      "Почтовый сервер доставляет их прямо в браузер, поэтому они приходят без открытой вкладки ihasmail и содержат отправителя и тему. Браузер при этом должен быть запущен: если закрыть его полностью, уведомления подождут и придут при следующем запуске.",
+    "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
+      "Почтовый сервер доставляет их прямо в браузер, поэтому они приходят без открытой вкладки Gilbert и содержат отправителя и тему. Браузер при этом должен быть запущен: если закрыть его полностью, уведомления подождут и придут при следующем запуске.",
     "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.":
       "Почтовый сервер может разбудить этот браузер, но не сообщит отправителя и тему. Браузер при этом должен быть запущен.",
     "This is what a new-mail notification looks like.":
@@ -922,16 +922,16 @@ export const catalog: Catalog = {
       "Паролями приложений управляет ваш почтовый администратор.",
     "Changing your password signs out your other webmail sessions. Any app passwords keep working.":
       "Смена пароля завершает остальные сеансы веб-почты. Пароли приложений продолжают работать.",
-    "This account has two-factor authentication on. ihasmail can't sign you in with a code yet, so signing in on another device needs an app password — or you can turn two-factor authentication off here.":
-      "Для этой учётной записи включена двухфакторная аутентификация. ihasmail пока не умеет входить по коду, поэтому для входа на другом устройстве нужен пароль приложения — либо двухфакторную аутентификацию можно отключить здесь.",
+    "This account has two-factor authentication on. Gilbert can't sign you in with a code yet, so signing in on another device needs an app password — or you can turn two-factor authentication off here.":
+      "Для этой учётной записи включена двухфакторная аутентификация. Gilbert пока не умеет входить по коду, поэтому для входа на другом устройстве нужен пароль приложения — либо двухфакторную аутентификацию можно отключить здесь.",
     "A separate password for a mail app or device, which you can revoke on its own. App passwords skip two-factor codes, so they keep working in apps that can't ask for one.":
       "Отдельный пароль для почтовой программы или устройства, который можно отозвать по отдельности. Пароли приложений обходят двухфакторные коды и поэтому работают там, где запросить код невозможно.",
     "Copy it into {name} now — it isn't shown again.":
       "Скопируйте его в {name} сейчас — больше он не показывается.",
     "No other users found in the directory, so nobody new can be added. Sharing already in place is listed below and can still be removed.":
       "В каталоге не найдено других пользователей, поэтому добавить некого. Уже открытый доступ перечислен ниже, и его по-прежнему можно закрыть.",
-    "Stalwart does not publish its version number to mail clients, so ihasmail reports the edition where the server gives one. ihasmail requires 0.16 or newer, and sign-in refuses anything older.":
-      "Stalwart не сообщает почтовым клиентам номер версии, поэтому ihasmail показывает редакцию, если сервер её называет. ihasmail требует версию 0.16 или новее, и вход с более старой не выполняется.",
+    "Stalwart does not publish its version number to mail clients, so Gilbert reports the edition where the server gives one. Gilbert requires 0.16 or newer, and sign-in refuses anything older.":
+      "Stalwart не сообщает почтовым клиентам номер версии, поэтому Gilbert показывает редакцию, если сервер её называет. Gilbert требует версию 0.16 или новее, и вход с более старой не выполняется.",
     "It {damage}, so the rules in it can't be shown or edited — saving what did arrive would write it back over the rest. Reload the page to try again. Your rules are still on the server; nothing here has changed them.":
       "Он {damage}, поэтому правила в нём нельзя показать или изменить: сохранение полученной части затёрло бы остальное. Перезагрузите страницу и попробуйте снова. Ваши правила остаются на сервере, здесь их ничто не меняло.",
     "The visual rule editor only manages scripts it created. You can edit the script in the {tab} tab, or start fresh with rules (the existing script will be kept but deactivated).":
@@ -942,15 +942,15 @@ export const catalog: Catalog = {
       "Скрипт фильтрации сейчас не удалось прочитать, поэтому добавление правила рискует его перезаписать. Перезагрузите страницу и попробуйте снова.",
     "Your active Sieve script was written by hand, so rules can't be added automatically. Open {where} to edit the script or switch to managed rules.":
       "Ваш активный скрипт Sieve написан вручную, поэтому правила нельзя добавить автоматически. Откройте {where}, чтобы изменить скрипт или перейти к управляемым правилам.",
-    "Only languages ihasmail has been translated into appear here, so this list grows as translations land rather than ahead of them — a language offered without strings behind it would leave the page claiming to be in a language it is not.":
-      "Здесь показаны только языки, на которые ihasmail переведён, поэтому список растёт вместе с переводами, а не опережает их: язык без текстов заставил бы страницу утверждать, что она написана на языке, которым не является.",
+    "Only languages Gilbert has been translated into appear here, so this list grows as translations land rather than ahead of them — a language offered without strings behind it would leave the page claiming to be in a language it is not.":
+      "Здесь показаны только языки, на которые Gilbert переведён, поэтому список растёт вместе с переводами, а не опережает их: язык без текстов заставил бы страницу утверждать, что она написана на языке, которым не является.",
     "tell us about it": "сообщите нам",
     "This translation was generated by AI and has not been checked by a native speaker, so it is marked Beta until somebody who speaks it signs it off. Anything that reads wrongly is worth reporting — {report}.":
       "Этот перевод сделан ИИ и не проверен носителем языка, поэтому помечен как Beta до тех пор, пока кто-нибудь его не подтвердит. Обо всём, что звучит неправильно, стоит сообщить — {report}.",
     "{name} is the palette from {site}, and what a new account starts on. It is a dark theme, so it counts as dark wherever that matters, and the accent colour below still applies on top of it.":
       "{name} — это палитра с {site}, с которой начинает новая учётная запись. Тема тёмная, поэтому везде, где это важно, считается тёмной, а акцентный цвет ниже применяется поверх неё.",
-    "ihasmail's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what this build needs from the server is the line above.":
-      "Собственная версия ihasmail — это дата коммита, из которого он собран, и указание, откуда этот коммит взялся: {example} собран из коммита от 30 августа 2026 года, пришедшего через pull request 129. Коммит, пришедший иначе, несёт вместо этого короткий SHA — {sha}. Версия намеренно ничего не сообщает о Stalwart; то, что этой сборке нужно от сервера, указано строкой выше.",
+    "Gilbert's own version is the date of the commit it was built from, followed by where that commit came from: {example} was built from a commit dated the 30th of August 2026 that arrived through pull request 129. A commit that did not come through one carries its short SHA instead — {sha}. The version deliberately says nothing about Stalwart; what this build needs from the server is the line above.":
+      "Собственная версия Gilbert — это дата коммита, из которого он собран, и указание, откуда этот коммит взялся: {example} собран из коммита от 30 августа 2026 года, пришедшего через pull request 129. Коммит, пришедший иначе, несёт вместо этого короткий SHA — {sha}. Версия намеренно ничего не сообщает о Stalwart; то, что этой сборке нужно от сервера, указано строкой выше.",
 
     // ── Composer status, calendar title ────────────────────────────────
     "New message": "Новое письмо",
@@ -1148,8 +1148,8 @@ export const catalog: Catalog = {
     "Undo window: {seconds}s": "Время на отмену: {seconds} с",
     "You're all caught up": "Всё прочитано",
     "Your browser refused the request: {error}": "Браузер отклонил запрос: {error}",
-    "Your browser will ask whether to open mail links in ihasmail":
-      "Браузер спросит, открывать ли почтовые ссылки в ihasmail",
+    "Your browser will ask whether to open mail links in Gilbert":
+      "Браузер спросит, открывать ли почтовые ссылки в Gilbert",
     "Your message mentions an attachment, but nothing is attached.":
       "В письме упомянуто вложение, но ничего не приложено.",
     event: "событие",
@@ -1208,8 +1208,8 @@ export const catalog: Catalog = {
     "Also count these domains as inside": "Считать внутренними также эти домены",
     Always: "Всегда",
     "Always showing images from": "Всегда показывать изображения от",
-    "An image loaded from a sender's server tells them the message was opened, when, and from roughly where. Approved images are fetched by ihasmail's own server rather than the browser, so the sender learns none of those.":
-      "Изображение, загруженное с сервера отправителя, сообщает ему, что письмо открыли, когда и примерно откуда. Разрешённые изображения загружает сервер ihasmail, а не браузер, поэтому отправитель не узнаёт ничего из этого.",
+    "An image loaded from a sender's server tells them the message was opened, when, and from roughly where. Approved images are fetched by Gilbert's own server rather than the browser, so the sender learns none of those.":
+      "Изображение, загруженное с сервера отправителя, сообщает ему, что письмо открыли, когда и примерно откуда. Разрешённые изображения загружает сервер Gilbert, а не браузер, поэтому отправитель не узнаёт ничего из этого.",
     "Applies to": "Применяется к",
     "Archive and next": "Архивировать и далее",
     "Archive by month": "Архивировать по месяцам",
@@ -1265,8 +1265,8 @@ export const catalog: Catalog = {
     "Go to Settings": "Перейти к настройкам",
     "Go to Starred": "Перейти к отмеченным",
     "Import iCAL file…": "Импортировать файл iCAL…",
-    "Labels are IMAP keywords stored on your messages, so every other client sees them. Names, colours and nesting are ihasmail’s own and follow your account. Nesting is display only — it rewrites nothing in the mailbox.":
-      "Ярлыки — это ключевые слова IMAP, которые хранятся на письмах, поэтому их видит любой другой клиент. Названия, цвета и вложенность принадлежат самому ihasmail и следуют за вашей учётной записью. Вложенность влияет только на отображение и ничего не переписывает в почтовом ящике.",
+    "Labels are IMAP keywords stored on your messages, so every other client sees them. Names, colours and nesting are Gilbert’s own and follow your account. Nesting is display only — it rewrites nothing in the mailbox.":
+      "Ярлыки — это ключевые слова IMAP, которые хранятся на письмах, поэтому их видит любой другой клиент. Названия, цвета и вложенность принадлежат самому Gilbert и следуют за вашей учётной записью. Вложенность влияет только на отображение и ничего не переписывает в почтовом ящике.",
     "Largest first": "Сначала большие",
     Later: "Позже",
     "Light or dark": "Светлая или тёмная",
@@ -1479,10 +1479,10 @@ export const catalog: Catalog = {
     Fingerprint: "Отпечаток",
     "Hide details": "Скрыть подробности",
     "Issued by": "Кем выдан",
-    "It is signed with OpenPGP, and ihasmail has no way to fetch the sender's public key.":
-      "Письмо подписано OpenPGP, а ihasmail не может получить открытый ключ отправителя.",
-    "It uses a signature algorithm ihasmail cannot check yet.":
-      "Использован алгоритм подписи, который ihasmail пока не умеет проверять.",
+    "It is signed with OpenPGP, and Gilbert has no way to fetch the sender's public key.":
+      "Письмо подписано OpenPGP, а Gilbert не может получить открытый ключ отправителя.",
+    "It uses a signature algorithm Gilbert cannot check yet.":
+      "Использован алгоритм подписи, который Gilbert пока не умеет проверять.",
     "It was made with a certificate belonging to {name}, which does not cover this address.":
       "Подпись сделана сертификатом, принадлежащим {name}, который не покрывает этот адрес.",
     "Previous fingerprint": "Прежний отпечаток",
@@ -1507,16 +1507,16 @@ export const catalog: Catalog = {
     "The signed part is missing either the message or the signature.":
       "В подписанной части не хватает либо письма, либо подписи.",
     "The signer has changed.": "Подписавший изменился.",
-    "This message is signed, and ihasmail could not check the signature.":
-      "Это письмо подписано, и ihasmail не смог проверить подпись.",
+    "This message is signed, and Gilbert could not check the signature.":
+      "Это письмо подписано, и Gilbert не смог проверить подпись.",
     "This signature does not check out.": "Эта подпись не сходится.",
     "Valid until": "Действует до",
     "a different certificate": "другим сертификатом",
     "an unnamed signer": "неназванным подписавшим",
     "as claimed by the signer": "по словам подписавшего",
     "first seen {date}": "впервые замечен {date}",
-    "ihasmail will tell you if a later message from this address is signed by anybody else.":
-      "ihasmail сообщит, если следующее письмо с этого адреса подпишет кто-то другой.",
+    "Gilbert will tell you if a later message from this address is signed by anybody else.":
+      "Gilbert сообщит, если следующее письмо с этого адреса подпишет кто-то другой.",
     "itself, or an issuer it does not name": "самим собой или неназванным издателем",
     "no address": "нет адреса",
   },
