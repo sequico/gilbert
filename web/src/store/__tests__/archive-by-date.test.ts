@@ -64,11 +64,15 @@ function server(initial: Array<Partial<Mailbox> & { id: string; name: string }> 
         ];
       }
       if (name === "Email/set" && args.update) {
+        // Moves arrive as per-folder patch paths now (mailboxIds/<id>: true /
+        // null); the destinations are the entries the patch sets to true.
         for (const [emailId, patch] of Object.entries(
-          args.update as Record<string, { mailboxIds?: Record<string, boolean> }>,
+          args.update as Record<string, Record<string, unknown>>,
         )) {
-          const to = Object.keys(patch.mailboxIds ?? {})[0];
-          if (to) moves.push({ id: emailId, to });
+          for (const [path, v] of Object.entries(patch)) {
+            if (!path.startsWith("mailboxIds/") || v !== true) continue;
+            moves.push({ id: emailId, to: path.slice("mailboxIds/".length) });
+          }
         }
         return [
           name,

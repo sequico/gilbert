@@ -258,10 +258,10 @@ function AuthedApp() {
     void renewWebPush();
     const pending = new Map<string, Set<string>>();
     let timer: number | null = null;
-    const unsub = push.subscribe((acct, type) => {
-      const set = pending.get(acct) ?? new Set<string>();
-      set.add(type);
-      pending.set(acct, set);
+    const queue = (acct: string, type: string) => {
+      const types = pending.get(acct) ?? new Set<string>();
+      types.add(type);
+      pending.set(acct, types);
       if (timer) return;
       timer = window.setTimeout(() => {
         timer = null;
@@ -290,6 +290,29 @@ function AuthedApp() {
         }
         pending.clear();
       }, 400);
+    };
+    const unsub = push.subscribe((acct, type) => queue(acct, type));
+    /*
+     * Catch-up when the push connection comes back after a drop — sleep, a
+     * wifi blip, a suspended tab. Push delivered nothing while it was down,
+     * and the poll below only runs while it is down, so the moment the
+     * connection returns is the one moment left to fetch what happened in the
+     * gap; without this the lists and the badge stay stale until an unrelated
+     * event arrives. Every mail account is caught up the way an Email or
+     * Mailbox state event for it would be — per-account changes from the
+     * store's last-known state, which is safe and idempotent whether or not
+     * the server replays anything on reconnect. The first connect of a
+     * session is deliberately exempt: the initial load is happening right now.
+     */
+    const unsubReconnect = push.onReconnect(() => {
+      const mail = useMail.getState();
+      const accounts = new Set<string>();
+      if (mail.accountId) accounts.add(mail.accountId);
+      for (const a of mail.mailAccounts) accounts.add(a.accountId);
+      for (const acct of accounts) {
+        queue(acct, "Email");
+        queue(acct, "Mailbox");
+      }
     });
     const unsubState = client.onSessionState(() => {
       void useSession.getState().refresh();
@@ -304,6 +327,7 @@ function AuthedApp() {
     }, 120_000);
     return () => {
       unsub();
+      unsubReconnect();
       unsubState();
       window.clearInterval(poll);
       push.stop();

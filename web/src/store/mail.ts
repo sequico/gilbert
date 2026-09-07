@@ -671,10 +671,23 @@ export const useMail = create<MailState>((set, get) => ({
           "e",
         ],
       ]);
-      const [t] = res.get("t") ?? [];
-      const thread = (t as unknown as GetResponse<Thread>).list[0];
+      const [threadRes] = res.get("t") ?? [];
+      const thread = (threadRes as unknown as GetResponse<Thread>).list[0];
       const emailsRes = res.get("e")?.[0] as unknown as GetResponse<Email>;
-      if (!thread) return [];
+      if (!thread) {
+        /*
+         * Thread/get answered list: [] — the thread is gone (destroyed on
+         * another device, or a stale deep link). The loading flag has to come
+         * down here or ThreadView's spinner never stops, and this is an error
+         * rather than an empty thread, so it is thrown for the caller's catch
+         * to say so.
+         */
+        set((s) => {
+          const { [threadId]: _drop, ...rest } = s.loadingThreads;
+          return { loadingThreads: rest };
+        });
+        throw new Error(t("This conversation no longer exists."));
+      }
       set((s) => {
         const next = { ...s.emails };
         const nextFull = { ...s.fullIds };
@@ -764,17 +777,25 @@ export const useMail = create<MailState>((set, get) => ({
      * quietly restoring something wrong.
      */
     let undoable = true;
+    // The folder the action is moving out of: the list whose rows it is acting
+    // on (or the explicit opt). Without one -- a search result, a deep link --
+    // "move" means out of every folder the message is known to sit in; see
+    // moveMailboxPatch.
+    const from = opts.fromMailboxId ?? get().list?.mailboxId ?? null;
     for (const id of ids) {
       const e = emails[id];
       if (!e) undoable = false;
       prev[id] = e?.mailboxIds ?? {};
-      update[id] = { mailboxIds: { [toMailboxId]: true } };
+      update[id] = moveMailboxPatch(prev[id]!, toMailboxId, from);
     }
     // optimistic
     set((s) => {
       const next = { ...s.emails };
-      for (const id of ids)
-        if (next[id]) next[id] = { ...next[id]!, mailboxIds: { [toMailboxId]: true } };
+      for (const id of ids) {
+        const e = next[id];
+        if (!e) continue;
+        next[id] = { ...e, mailboxIds: patchMailboxIds(e.mailboxIds, update[id]!) };
+      }
       return { emails: next, selected: {}, selectedAll: false };
     });
     removeFromList(ids, set, get, toMailboxId);
@@ -799,12 +820,22 @@ export const useMail = create<MailState>((set, get) => ({
                   label: "Undo",
                   onClick: async () => {
                     const undo: Record<Id, Record<string, unknown>> = {};
-                    for (const id of ids) undo[id] = { mailboxIds: prev[id] };
+                    for (const id of ids)
+                      undo[id] = restoreMailboxPatch(
+                        prev[id]!,
+                        get().emails[id]?.mailboxIds ?? {},
+                      );
                     await setEmails(accountId, undo);
                     set((s) => {
                       const next = { ...s.emails };
-                      for (const id of ids)
-                        if (next[id]) next[id] = { ...next[id]!, mailboxIds: prev[id]! };
+                      for (const id of ids) {
+                        const e = next[id];
+                        if (!e) continue;
+                        next[id] = {
+                          ...e,
+                          mailboxIds: patchMailboxIds(e.mailboxIds, undo[id]!),
+                        };
+                      }
                       return { emails: next };
                     });
                     void get().refreshList();
@@ -967,12 +998,22 @@ export const useMail = create<MailState>((set, get) => ({
               label: "Undo",
               onClick: async () => {
                 const undo: Record<Id, Record<string, unknown>> = {};
-                for (const id of ids) undo[id] = { mailboxIds: prev[id] };
+                for (const id of ids)
+                  undo[id] = restoreMailboxPatch(
+                    prev[id]!,
+                    get().emails[id]?.mailboxIds ?? {},
+                  );
                 await setEmails(accountId, undo);
                 set((st) => {
                   const next = { ...st.emails };
-                  for (const id of ids)
-                    if (next[id]) next[id] = { ...next[id]!, mailboxIds: prev[id]! };
+                  for (const id of ids) {
+                    const e = next[id];
+                    if (!e) continue;
+                    next[id] = {
+                      ...e,
+                      mailboxIds: patchMailboxIds(e.mailboxIds, undo[id]!),
+                    };
+                  }
                   return { emails: next };
                 });
                 void get().refreshList();
@@ -1743,6 +1784,67 @@ async function setEmails(accountId: Id, update: Record<Id, Record<string, unknow
       );
     }
   }
+}
+
+/**
+ * Folders a move takes a message out of and puts it into, as per-folder patch
+ * paths (`mailboxIds/<id>`), never a replacement of the whole map.
+ *
+ * A message can genuinely sit in several folders at once — a server-side copy
+ * rule, a filter set to “keep a copy” — and replacing the whole `mailboxIds`
+ * map throws every folder but the target away. Patching one entry leaves the
+ * rest alone; the mock's `applyPatch` applies these paths the same way a real
+ * server does.
+ *
+ * `from` is the folder the action is moving out of: the list whose rows it is
+ * acting on (or the explicit opt). Without one — a search result, a deep link
+ * — every folder the message is known to sit in is the source, which is the
+ * only reading “move” has without one.
+ */
+function moveMailboxPatch(
+  mb: Record<Id, boolean>,
+  to: Id,
+  from: Id | null,
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  if (from) {
+    if (from !== to) patch[`mailboxIds/${from}`] = null;
+  } else {
+    for (const f of Object.keys(mb)) if (f !== to) patch[`mailboxIds/${f}`] = null;
+  }
+  patch[`mailboxIds/${to}`] = true;
+  return patch;
+}
+
+/** Apply per-folder patch paths to the optimistic copy of an Email. */
+function patchMailboxIds(
+  mb: Record<Id, boolean>,
+  patch: Record<string, unknown>,
+): Record<Id, boolean> {
+  const next = { ...mb };
+  for (const [k, v] of Object.entries(patch)) {
+    if (!k.startsWith("mailboxIds/")) continue;
+    const folder = k.slice("mailboxIds/".length);
+    if (v === null) delete next[folder];
+    else next[folder] = true;
+  }
+  return next;
+}
+
+/**
+ * The per-folder patch that puts a message back in exactly the folders it had
+ * before (`prev`), undoing a move's per-folder patch over whatever it sits in
+ * now. Written as patch paths like every other writer, so the undo cannot
+ * drop a folder the move never touched.
+ */
+function restoreMailboxPatch(
+  prev: Record<Id, boolean>,
+  cur: Record<Id, boolean>,
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  for (const f of new Set([...Object.keys(prev), ...Object.keys(cur)]))
+    patch[`mailboxIds/${f}`] = prev[f] ? true : null;
+  return patch;
 }
 
 /** Remove given email ids (and threads they represent) from the current list optimistically. */

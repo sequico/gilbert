@@ -218,10 +218,76 @@ describe("Undo, once the selection reaches messages that were never loaded", () 
     const moved = s.updates.flatMap((u) => Object.entries(u));
     expect(moved.map(([id]) => id).sort()).toEqual(["e0", "e1"]);
     for (const [, patch] of moved) {
-      expect((patch as { mailboxIds: Record<string, boolean> }).mailboxIds).toEqual({
-        [ARCHIVE]: true,
+      // Per-folder patch paths, into Archive and out of the list's Inbox —
+      // never a replacement of the whole mailboxIds map.
+      expect(patch).toEqual({
+        [`mailboxIds/${ARCHIVE}`]: true,
+        [`mailboxIds/${INBOX}`]: null,
       });
     }
+  });
+});
+
+describe("a message that sits in several folders at once", () => {
+  /*
+   * A copy rule or a filter set to keep a copy can leave one message in two
+   * folders, and moving it out of one must not throw the other membership
+   * away. The whole mailboxIds map used to be replaced with the destination;
+   * now only the folder being moved out of is patched away.
+   */
+  const seed = () =>
+    useMail.setState({
+      mailboxes: {
+        [INBOX]: { id: INBOX, role: "inbox", name: "Inbox", parentId: null },
+        [ARCHIVE]: { id: ARCHIVE, role: "archive", name: "Archive", parentId: null },
+        mbProject: { id: "mbProject", role: null, name: "Project", parentId: null },
+      } as never,
+      emails: {
+        e0: {
+          id: "e0",
+          threadId: "t0",
+          keywords: {},
+          mailboxIds: { [INBOX]: true, mbProject: true },
+        },
+      } as never,
+    });
+
+  it("keeps its other folders when moved out of one", async () => {
+    const s = server(2);
+    seed();
+    await useMail.getState().move(["e0"], ARCHIVE);
+    const patch = Object.entries(s.updates[0]!)[0]![1];
+    // Out of the list's Inbox, into Archive — and nothing names Project, so
+    // the server-side copy survives the move.
+    expect(patch).toEqual({
+      [`mailboxIds/${ARCHIVE}`]: true,
+      [`mailboxIds/${INBOX}`]: null,
+    });
+    expect(useMail.getState().emails.e0?.mailboxIds).toEqual({
+      [ARCHIVE]: true,
+      mbProject: true,
+    });
+  });
+
+  it("undo puts a multi-folder message back exactly where it was", async () => {
+    const s = server(2);
+    seed();
+    await useMail.getState().move(["e0"], ARCHIVE);
+    const undo = useToasts.getState().toasts[0]?.action;
+    expect(undo?.label).toBe("Undo");
+    await undo!.onClick();
+    // The restore is a per-folder patch too: Archive away, Inbox and Project
+    // back.
+    const undoPatch = Object.entries(s.updates[1]!)[0]![1];
+    expect(undoPatch).toEqual({
+      [`mailboxIds/${ARCHIVE}`]: null,
+      [`mailboxIds/${INBOX}`]: true,
+      "mailboxIds/mbProject": true,
+    });
+    expect(useMail.getState().emails.e0?.mailboxIds).toEqual({
+      [INBOX]: true,
+      mbProject: true,
+    });
   });
 });
 
