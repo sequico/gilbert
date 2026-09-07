@@ -5,9 +5,12 @@ import { after, before, test } from "node:test";
  * The other half of the admin flag: without the `gilbert-admin@…` group in
  * the session accounts, isAdmin is false. Separate file on purpose — the mock
  * reads MOCK_ADMIN_GROUP at import, so the two cases need separate processes.
+ *
+ * Mock port: must not collide with any other test file — the runner executes
+ * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18799;
+const PORT = 18812;
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

@@ -6,9 +6,12 @@ import { after, before, test } from "node:test";
  * non-personal account that answers with its own folder tree, messages and
  * identity. This pins the mock's half of the group-mailbox feature so the
  * client can be built against it.
+ *
+ * Mock port: must not collide with any other test file — the runner executes
+ * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18798;
+const PORT = 18813;
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";
