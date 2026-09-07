@@ -2896,15 +2896,22 @@ const handlers: Record<string, Handler> = {
   // them yet. The real server also gates directory queries behind
   // allow_directory_query / a JMAP permission; the mock does not.
   "Principal/query": (a) => {
-    const types = new Set(
-      ((a.filter as Array<{ type?: unknown }> | undefined) ?? [])
-        .map((f) => f.type)
-        .filter((x): x is string => typeof x === "string"),
-    );
-    const list =
-      types.size === 0
-        ? principals
-        : principals.filter((p) => types.has(p.type as string));
+    // A real 0.16 server wants the filter as a single object and refuses an
+    // array with notRequest (verified live 2026-09-07); the mock accepts the
+    // object form, matching on type, email or name.
+    const f = a.filter as { type?: unknown; email?: unknown; name?: unknown } | undefined;
+    const type = typeof f?.type === "string" ? f.type : null;
+    const email = typeof f?.email === "string" ? f.email.toLowerCase() : null;
+    const name = typeof f?.name === "string" ? f.name.toLowerCase() : null;
+    const list = principals.filter((p) => {
+      const pType = p.type as string | undefined;
+      const pEmail = (p.email as string | undefined)?.toLowerCase() ?? "";
+      const pName = (p.name as string | undefined)?.toLowerCase() ?? "";
+      if (type && pType !== type) return false;
+      if (email && pEmail !== email) return false;
+      if (name && pName !== name && pEmail !== name) return false;
+      return true;
+    });
     return {
       accountId: ACCOUNT,
       queryState: "1",

@@ -130,6 +130,44 @@ function isTasklist(c: { description?: string | null }): boolean {
   return c.description === TASKLIST_MARKER;
 }
 
+const PRINCIPALS_CAP = "urn:ietf:params:jmap:principals";
+
+/**
+ * The directory id of the principal that owns a shared mailbox account —
+ * the thing `shareWith` names. Tried by email first, then by name; a
+ * directory that refuses the query yields null and the caller skips the
+ * share rather than failing the creation.
+ */
+async function principalIdForAccount(accountName: string): Promise<Id | null> {
+  const session = useSession.getState();
+  const own = session.ownAccountFor(PRINCIPALS_CAP);
+  if (!own || !accountName) return null;
+  // Stalwart's Principal/query filter is a single object, not an array: the
+  // array form is answered with notRequest on a real 0.16 server (verified
+  // live 2026-09-07), and the filter fields are email and name.
+  for (const field of ["email", "name"] as const) {
+    try {
+      const q = await client.call<QueryResponse>("Principal/query", {
+        accountId: own,
+        filter: { [field]: accountName },
+        limit: 20,
+      });
+      const ids = q.ids ?? [];
+      if (!ids.length) continue;
+      const g = await client.call<GetResponse<{ id: Id; name?: string; email?: string }>>(
+        "Principal/get",
+        { accountId: own, ids, properties: ["id", "name", "email"] },
+      );
+      const hit = g.list?.find((p) => (p.email ?? p.name) === accountName) ?? g.list?.[0];
+      if (hit?.id) return hit.id;
+    } catch {
+      /* a directory that refuses the query has no principal to name */
+      return null;
+    }
+  }
+  return null;
+}
+
 export const useTasks = create<TaskState>((set, get) => ({
   accountId: null,
   lists: [],
@@ -315,10 +353,51 @@ export const useTasks = create<TaskState>((set, get) => ({
     });
     const err = res.notCreated?.c;
     if (err) throw new Error(setErrorMessage(err));
+    const createdId = res.created!.c!.id;
+    /*
+     * A list created on a shared mailbox account belongs to the group, so it
+     * is shared back to the group's principal right away: Stalwart resolves
+     * access through that principal at read time, which is what makes a
+     * member added after the list exists see it without per-user ACL
+     * maintenance. Best-effort — a directory that refuses the lookup, or a
+     * server that will not take the share, leaves the list as created rather
+     * than failing the creation. (Principal id lookup and the shareWith
+     * write re-verified live with a dated comment per repo convention.)
+     */
+    if (accountId !== own) {
+      const accountName =
+        useSession.getState().session?.accounts?.[accountId]?.name ?? "";
+      const pid = await principalIdForAccount(accountName);
+      if (pid) {
+        try {
+          await client.call("Calendar/set", {
+            accountId,
+            update: {
+              [createdId]: {
+                shareWith: {
+                  [pid]: {
+                    mayReadFreeBusy: true,
+                    mayReadItems: true,
+                    mayWriteAll: true,
+                    mayWriteOwn: true,
+                    mayUpdatePrivate: true,
+                    mayRSVP: true,
+                    mayShare: false,
+                    mayDelete: false,
+                  },
+                },
+              },
+            },
+          });
+        } catch {
+          /* non-fatal: see above */
+        }
+      }
+    }
     if (accountId === own) await useCalendar.getState().loadCalendars();
     else await useCalendar.getState().loadSharedCalendars();
     await get().load();
-    return res.created!.c!.id;
+    return createdId;
   },
 
   async destroyList(list) {
