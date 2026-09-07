@@ -175,3 +175,32 @@ test("an unreachable upstream says it is not the password", async () => {
   assert.notEqual(body.error, "invalid_credentials");
   assert.match(body.message, /not a problem with your password/i);
 });
+
+/*
+ * The one unauthenticated body reader in the app is capped before anything is
+ * buffered: a login is a username and a password, so a body measured in
+ * megabytes is not a login, and parsing it would be free heap for anyone to
+ * spend. Same for the signed-in account JSON posts, which are password /
+ * app-password / 2FA operations of a few hundred bytes.
+ */
+test("an oversized login body is refused without parsing it", async () => {
+  const app = createApp();
+  const res = await app.request("/api/auth/login", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-requested-with": "gilbert" },
+    body: JSON.stringify({ username: "a@b.c", password: "x".repeat(20_000) }),
+  });
+  assert.equal(res.status, 413);
+  assert.equal(((await res.json()) as { error: string }).error, "too_large");
+});
+
+test("an oversized account body is refused before the session is checked", async () => {
+  const app = createApp();
+  const res = await app.request("/api/account/password", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-requested-with": "gilbert" },
+    body: JSON.stringify({ current: "x".repeat(70_000) }),
+  });
+  assert.equal(res.status, 413);
+  assert.equal(((await res.json()) as { error: string }).error, "too_large");
+});

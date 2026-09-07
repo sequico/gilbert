@@ -4,6 +4,7 @@ import { getConnInfo } from "@hono/node-server/conninfo";
 import { RESPONSE_ALREADY_SENT } from "@hono/node-server/utils/response";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { compress } from "hono/compress";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import {
@@ -72,6 +73,27 @@ const loginFloodLimiter = new RateLimiter(config.loginRateLimit * 20, 15 * 60_00
  */
 const accountLimiter = new RateLimiter(10, 15 * 60_000);
 const apiLimiter = new RateLimiter(config.apiRateLimit, 60_000);
+
+/*
+ * What a request body may weigh before any of it is buffered.
+ *
+ * The login payload is a username and a password — the checks on both come
+ * after the parse — and the endpoint is the one place in the app that reads a
+ * body from somebody not yet signed in, so it gets the tightest cap. The
+ * account JSON posts (password / app-password / 2FA operations) are equally
+ * small; 64 KiB is twenty times their real size and a hard stop for the
+ * multi-hundred-MB body that would otherwise sit in heap. The data path
+ * (/jmap, /upload) is exempt on purpose: it carries real mail and is capped
+ * and streamed where it is sent on.
+ */
+const loginBody = bodyLimit({
+  maxSize: 16 * 1024,
+  onError: (c) => c.json({ error: "too_large" }, 413),
+});
+const accountBody = bodyLimit({
+  maxSize: 64 * 1024,
+  onError: (c) => c.json({ error: "too_large" }, 413),
+});
 
 /** Per-session budget on the data path. See config.apiRateLimit. */
 const apiRateLimited: MiddlewareHandler<Env> = async (c, next) => {
@@ -301,6 +323,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   const api = new Hono<Env>();
   api.use("*", csrfGuard);
+  api.use("/account/*", accountBody);
 
   api.get("/health", (c) =>
     c.json({
@@ -349,7 +372,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   );
 
   // ---------- Auth ----------
-  api.post("/auth/login", async (c) => {
+  api.post("/auth/login", loginBody, async (c) => {
     const ip = clientIp(c);
     let body: { username?: string; password?: string; totp?: string; remember?: boolean };
     try {
@@ -810,6 +833,10 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       });
       return passthrough(res);
     } catch (err) {
+      // The cap fired mid-stream (no content-length, or one that lied): that
+      // is an oversized upload, not an unreachable mail server.
+      if (err instanceof Error && err.message === "upload too large")
+        return c.json({ error: "too_large" }, 413);
       return upstreamFailure(c, err);
     }
   });

@@ -78,9 +78,10 @@ export async function icsProxyHandler(c: Context) {
     });
   } catch (err) {
     done();
+    const tooLarge = (err as Error).message === "too_large";
     return c.json(
-      { error: (err as Error).message === "too_large" ? "too_large" : "fetch_failed" },
-      502,
+      { error: tooLarge ? "too_large" : "fetch_failed" },
+      tooLarge ? 413 : 502,
     );
   }
   done();
