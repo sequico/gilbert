@@ -815,12 +815,17 @@ function TimeGrid({
         (Math.abs(dx) >= DRAG_SLOP_PX || Math.abs(dy) >= DRAG_SLOP_PX)
       )
         draggedRef.current = true;
+      /* The preview is snapped the same way the commit is (15-minute
+         slots), so what is on screen when the pointer lifts is exactly what
+         lands: raw-pixel follow looked free, then the event jumped to the
+         nearest slot on release. */
+      const snappedPx = (delta * HOUR_H) / 60;
       setMoving({
         key: inst.key,
         deltaMin: delta,
         mode,
         dx: mode === "resize" ? 0 : dx,
-        dy,
+        dy: snappedPx,
       });
     };
     const finish = (ev: PointerEvent) => {

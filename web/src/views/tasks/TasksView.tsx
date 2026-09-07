@@ -205,20 +205,31 @@ export function TasksView() {
     }
   };
 
-  const finishDrag = (targetId: Id) => {
+  /*
+   * Drop placement is decided by which half of the row the pointer is over:
+   * the top half puts the dragged task before the target, the bottom half
+   * after it. The bottom half of the last row is therefore how a task lands
+   * at the very end, and a drop on the empty list area below the rows
+   * appends too (targetId === null). Everything is computed on the open
+   * order after the dragged task has been removed, so the target's own index
+   * already reflects that removal.
+   */
+  const finishDrag = (targetId: Id | null, after: boolean) => {
     const id = dragId;
     setDragId(null);
     setOverId(null);
-    if (!id || !list || id === targetId) return;
+    if (!id || !list) return;
     const next = [...openOrder];
     const from = next.indexOf(id);
     if (from < 0) return;
-    // Moving down shifts the target one slot up after removal, so re-reading
-    // its index after the splice lands the dragged task on the target's slot.
     next.splice(from, 1);
-    const to = next.indexOf(targetId);
-    if (to < 0) return;
-    next.splice(to, 0, id);
+    if (targetId === null) {
+      next.push(id);
+    } else {
+      const to = next.indexOf(targetId);
+      if (to < 0) return;
+      next.splice(after ? to + 1 : to, 0, id);
+    }
     void persistOrder(next);
   };
 
@@ -255,10 +266,32 @@ export function TasksView() {
 
   const submit = async () => {
     const title = quick.trim();
-    if (!title || !list) return;
-    setQuick("");
+    if (!title) return;
+    /* A brand-new account has no task lists at all: the quick-add still has
+       to land the task somewhere, so the reader's own first list is created
+       on the spot (named like the classic default) before the task goes
+       in. Group lists stay lazy — pressing “+” on a group makes that
+       group's first list; typing here never leaves a list behind on a group
+       the reader did not ask to write to. */
     try {
-      await useTasks.getState().create(list, title);
+      let target = list;
+      if (!target) {
+        const own = useCalendar.getState().accountId;
+        if (own) {
+          const ownList = lists.find((l) => l.accountId === own);
+          if (ownList) target = ownList;
+          else {
+            const id = await useTasks.getState().createList(own, t("My Tasks"));
+            const made = useTasks
+              .getState()
+              .lists.find((l) => l.accountId === own && l.calendarId === id);
+            if (made) target = made;
+          }
+        }
+      }
+      if (!target) return;
+      setQuick("");
+      await useTasks.getState().create(target, title);
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -277,7 +310,28 @@ export function TasksView() {
           }}
         />
       </div>
-      <div className="task-list">
+      <div
+        className="task-list"
+        onDragOver={
+          dragId
+            ? (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+              }
+            : undefined
+        }
+        onDrop={
+          dragId
+            ? (e) => {
+                // Rows handle their own drop; anything else — the gap below
+                // the last row — appends the task to the end.
+                if ((e.target as HTMLElement).closest(".task-row")) return;
+                e.preventDefault();
+                finishDrag(null, false);
+              }
+            : undefined
+        }
+      >
         {list &&
           ordered.map((t) => {
             const id = t.id;
@@ -307,7 +361,8 @@ export function TasksView() {
               },
               onRowDrop: (e) => {
                 e.preventDefault();
-                finishDrag(id);
+                const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                finishDrag(id, e.clientY > r.top + r.height / 2);
               },
             };
             return (
