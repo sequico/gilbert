@@ -13,3 +13,5 @@ coverage/
 # Codewhale runtime scratch (lock files). Tracked repo content under
 # .codewhale/ (instructions, skills) must never land here.
 .codewhale/state/
+.codewhale/workflow-runs.jsonl
+
