@@ -14,9 +14,13 @@ class PushManager {
   private es: EventSource | null = null;
   private listeners = new Set<PushListener>();
   private connectionListeners = new Set<(state: PushState) => void>();
+  /** Called when the connection comes back after a drop, never on the first connect. */
+  private reconnectListeners = new Set<() => void>();
   private backoff = 1000;
   private reconnectTimer: number | null = null;
   private stopped = true;
+  /** Whether this session has ever had a connection up (reset by stop()). */
+  private everConnected = false;
   private lastStates = new Map<string, string>();
   connected = false;
   /**
@@ -40,6 +44,7 @@ class PushManager {
     this.reconnectTimer = null;
     this.es?.close();
     this.es = null;
+    this.everConnected = false;
     this.setState("disconnected");
   }
 
@@ -51,6 +56,20 @@ class PushManager {
   onConnection(fn: (state: PushState) => void): () => void {
     this.connectionListeners.add(fn);
     return () => this.connectionListeners.delete(fn);
+  }
+
+  /**
+   * Fired once when a connection comes back after a drop.
+   *
+   * JMAP push only delivers changes that happen while the connection is up —
+   * nothing is replayed to a client that was asleep, offline or suspended — so
+   * a reconnect is the moment to catch up from the state each store last knew.
+   * Not fired on the very first connect of a session: the initial load that
+   * follows `start()` is the catch-up there, and firing too would double it.
+   */
+  onReconnect(fn: () => void): () => void {
+    this.reconnectListeners.add(fn);
+    return () => this.reconnectListeners.delete(fn);
   }
 
   private setState(v: PushState) {
@@ -78,6 +97,13 @@ class PushManager {
     es.onopen = () => {
       this.backoff = 1000;
       this.setState("connected");
+      if (!this.everConnected) {
+        this.everConnected = true;
+        return;
+      }
+      // A connection is back after a drop: everything that changed while it
+      // was down was missed, so listeners catch up from their last state.
+      for (const fn of this.reconnectListeners) fn();
     };
     es.addEventListener("state", (ev) => {
       try {
