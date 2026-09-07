@@ -19,12 +19,14 @@ Facts from the current machinery:
   and served by `GET /api/config`; the client applies it at the sign-in boot
   sequence (`web/src/App.tsx`: policy → settings file → enforced → `changes`
   with a toast). There is no server-side admin concept yet.
-- ADR 0001 (Accepted) defines the future surface: admin is membership of a
-  group mailbox, per-user policy documents live in the admin group's Files,
-  the enforcement door is client-side, and **kick** ("forced sign-out") is an
+- ADR 0001 (Accepted, revised 2026-09-07) defines the surface: admin is
+  membership of a group mailbox; **per-user policy documents and security
+  directives live in each user's own hidden `gilbert` app folder**, written
+  by the admin through impersonation (ADR 0001 §3–§4); the settings
+  enforcement door is client-side, and **kick** ("forced sign-out") is an
   existing tool (`sessions.destroyAllForUser`, 401 → sign-in screen) kept
-  distinct from refresh on purpose. 0001 §3 delivered per-user policy changes
-  at the next session/policy refresh and ruled out live push for v1.
+  distinct from refresh on purpose. Per-user policy changes reach a signed-in
+  user at the next session/policy refresh; live push is ruled out for v1.
 - An earlier draft of this ADR designed a polling/refresh mechanism
   (mtime re-read + version + keep-warm poll). The owner chose the simpler
   path instead: publish → kick → re-login.
@@ -42,10 +44,14 @@ Facts from the current machinery:
    field goes in the `gilbert` namespace, never the legacy one.
 2. **Publishing is an explicit admin action: `POST /api/admin/policy`**
    (behind a `requireAdmin` guard that re-checks group membership). It takes
-   the full policy, validates it with the same parser the boot path uses
-   (invalid → 400, no crash), persists it to `SETTINGS_POLICY_FILE` when one
-   is configured (atomic write) or keeps it in memory otherwise, and then
-   kicks every session except the caller's (`destroyAll(exceptId)`).
+   the full installation-wide policy, validates it with the same parser the
+   boot path uses (invalid → 400, no crash), persists it to
+   `SETTINGS_POLICY_FILE` when one is configured (atomic write) or keeps it
+   in memory otherwise, and then kicks every session except the caller's
+   (`destroyAll(exceptId)`). A **per-user** policy write goes through the
+   same publish step after the document lands in the user's folder (ADR 0001
+   §3): the impersonation write, then the affected sessions are kicked so
+   the next sign-in re-reads the document.
 3. **Rule changes propagate by re-login in v0.** The existing 401 → sign-in
    path does the work: the kicked client lands on the sign-in screen on its
    next request, and the fresh sign-in applies the new policy at boot (same
@@ -67,8 +73,9 @@ Facts from the current machinery:
 - No new client machinery: the propagation path is the one every logout
   already uses.
 - Granularity in v0 is every session. When ADR 0001's per-user documents
-  land, publish can kick only the affected accounts; until then the
-  installation-wide policy touches everyone by definition.
+  land (each in the owning user's hidden folder), publish can kick only the
+  affected accounts; until then the installation-wide policy touches
+  everyone by definition.
 - Policy remains client-enforced guidance, not a security boundary (ADR 0001):
   enforcement keeps protecting enforced keys from the user, not from whoever
   can write the account.
