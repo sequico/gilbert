@@ -4,6 +4,7 @@ import type { ContactCard, EmailAddress } from "@/jmap/types";
 import { contactDisplayName, contactEmails } from "@/lib/contacts";
 import { t } from "@/lib/i18n";
 import { useContacts } from "@/store/contacts";
+import { useMail } from "@/store/mail";
 import { useSettings } from "@/store/settings";
 import { Dialog } from "@/ui/dialog";
 import { Spinner } from "@/ui/misc";
@@ -58,16 +59,28 @@ export function RecipientPicker({
   useEffect(() => {
     if (contacts.available && !contacts.loaded && !contacts.loading)
       void contacts.loadAll();
+    /* Shared books must answer here too, without a prior visit to Contacts.
+       `loadShared` is idempotent and single-flight, so asking again is safe. */
+    if (contacts.available && !contacts.sharedLoaded) void contacts.loadShared();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contacts.available, contacts.loaded]);
+  }, [contacts.available, contacts.loaded, contacts.sharedLoaded]);
 
   /* Added counts whether the server remembered it or the settings did --
      Stalwart refuses the flag on a book shared read-only, so for those the
      settings are the only record and filtering on `isSubscribed` alone would
-     leave every shared book out of the picker. */
+     leave every shared book out of the picker. A group mailbox's books need
+     no adding at all: membership of the group is the subscription. */
   const addedShares = new Set(useSettings((s) => s.settings).addedShares);
+  const mailAccounts = useMail((s) => s.mailAccounts);
+  const groupIds = useMemo(
+    () => new Set(mailAccounts.filter((a) => a.kind === "group").map((a) => a.accountId)),
+    [mailAccounts],
+  );
   const subscribed = contacts.sharedBooks.filter(
-    (b) => b.book.isSubscribed || addedShares.has(`${b.accountId}:${b.book.id}`),
+    (b) =>
+      groupIds.has(b.accountId) ||
+      b.book.isSubscribed ||
+      addedShares.has(`${b.accountId}:${b.book.id}`),
   );
   const ownBooks = Object.values(contacts.books).sort(
     (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),

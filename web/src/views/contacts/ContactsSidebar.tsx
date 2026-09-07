@@ -150,7 +150,8 @@ export function ContactsSidebar() {
       !(b.book.isSubscribed || isAdded(b.accountId, b.book.id)),
   );
   const hasSubscribed = contacts.sharedBooks.some(
-    (b) => b.book.isSubscribed || isAdded(b.accountId, b.book.id),
+    (b) =>
+      groupIds.has(b.accountId) || b.book.isSubscribed || isAdded(b.accountId, b.book.id),
   );
   /* Shared rows, used under a group's section and in the read-only area for
      shares that are not a group. Keying is the caller's job. */
@@ -301,9 +302,9 @@ export function ContactsSidebar() {
             .filter((b) => b.accountId === g.accountId)
             .map((b) => (
               <Fragment key={`${b.accountId}:${b.book.id}`}>
-                {b.book.isSubscribed || isAdded(b.accountId, b.book.id)
-                  ? subscribedRow(b.accountId, b.accountName, b.book)
-                  : availableRow(b.accountId, b.accountName, b.book)}
+                {/* A group's books need no adding: membership of the group is
+                    the subscription (see the composer picker and loadShared). */}
+                {subscribedRow(b.accountId, b.accountName, b.book)}
               </Fragment>
             ))}
         </Fragment>

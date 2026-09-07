@@ -33,6 +33,13 @@ export function FilePicker({
   const [picked, setPicked] = useState<Record<string, FileNode>>({});
   const [returnTo] = useState(() => files.accountId);
 
+  /* The picker can open before the boot-time probe has finished, and the
+     shared-account list is its whole point -- "my files" only would look
+     complete. Asking once more here is idempotent and cheap. */
+  useEffect(() => {
+    if (!files.initialized) void useFiles.getState().init();
+  }, [files.initialized]);
+
   useEffect(() => {
     void files.loadChildren(cur);
     // eslint-disable-next-line react-hooks/exhaustive-deps

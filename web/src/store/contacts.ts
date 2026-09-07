@@ -324,6 +324,53 @@ interface ContactsState {
 
 export const CARD_PROPS = undefined; // all properties
 
+/*
+ * Cards of a *group* mailbox's books are loaded whether or not the reader
+ * subscribed to each book: membership of the group is the subscription, and
+ * the To field has to answer with them without a detour through Contacts
+ * first (the group-ownership rule that Files already follows). A stranger's
+ * books still stay out until the reader adds them -- `isSubscribed` or
+ * `addedShares` is the only thing separating "shared with me" from
+ * "reachable", and this must not guess there.
+ */
+
+/** Group mailboxes the reader is a member of, per the mail store's probe. */
+async function groupMailboxIds(): Promise<Set<string>> {
+  const from = () =>
+    new Set(
+      useMail
+        .getState()
+        .mailAccounts.filter((a) => a.kind === "group")
+        .map((a) => a.accountId),
+    );
+  const ids = from();
+  if (ids.size || !useMail.getState().mailAccounts.length) return ids;
+  /*
+   * The eager contact load races the mail probe at boot; wait for it once,
+   * briefly, rather than load group cards without knowing which accounts are
+   * groups (an account that only shared a folder must not be treated as one).
+   */
+  return new Promise<Set<string>>((resolve) => {
+    const unsub = useMail.subscribe((s) => {
+      if (s.mailAccounts.length) {
+        unsub();
+        resolve(
+          new Set(
+            s.mailAccounts.filter((a) => a.kind === "group").map((a) => a.accountId),
+          ),
+        );
+      }
+    });
+    setTimeout(() => {
+      unsub();
+      resolve(from());
+    }, 6000);
+  });
+}
+
+/* One shared-contacts load at a time; several callers may ask at once. */
+let sharedLoadRun: Promise<void> | null = null;
+
 export const useContacts = create<ContactsState>((set, get) => ({
   accountId: null,
   available: false,
@@ -373,65 +420,82 @@ export const useContacts = create<ContactsState>((set, get) => ({
    * field, which cannot wait for a folder to be opened first.
    */
   async loadShared() {
-    const session = useSession.getState();
-    const own = session.ownAccountFor(CAP.contacts);
-    const s = session.session;
-    const accounts = Object.entries(s?.accounts ?? {}).filter(
-      ([id, a]) => a.isPersonal === false && id !== own,
-    );
-    if (!accounts.length) {
-      set({ sharedBooks: [], sharedCards: {}, sharedLoaded: true });
-      return;
-    }
-    const books: SharedBook[] = [];
-    const cards: Record<string, ContactCard> = {};
-    for (const [accountId, account] of accounts) {
-      try {
-        const res = await client.call<GetResponse<AddressBook>>("AddressBook/get", {
-          accountId,
-          ids: null,
-          properties: ADDRESS_BOOK_PROPS,
-        });
-        for (const book of res.list)
-          books.push({ accountId, accountName: account.name, book });
-        /*
-         * Cards come only from books the reader has added.
-         *
-         * Stalwart hands back every book in a reachable account with full
-         * rights on each, shared or not -- an account linked for its files
-         * offered its address book too -- so `isSubscribed` is the only thing
-         * separating "shared with me" from "reachable". Loading the rest would
-         * put a stranger's contacts in the To field, which is the one place
-         * this must not guess.
-         */
-        const added = new Set(useSettings.getState().settings.addedShares);
-        const wanted = new Set(
-          res.list
-            .filter((b) => b.isSubscribed || added.has(sharedKey(accountId, b.id)))
-            .map((b) => b.id),
-        );
-        if (!wanted.size) continue;
-        // One page. A shared book is a colleague's contacts, not an archive,
-        // and the alternative is holding the reader's own list hostage to it.
-        const cardsRes = await client.chain([
-          ["ContactCard/query", { accountId, limit: 500 }, "q"],
-          [
-            "ContactCard/get",
-            {
-              accountId,
-              "#ids": { resultOf: "q", name: "ContactCard/query", path: "/ids" },
-            },
-            "g",
-          ],
-        ]);
-        const g = cardsRes.get("g")?.[0] as unknown as GetResponse<ContactCard>;
-        for (const c of g.list) {
-          if (!Object.keys(c.addressBookIds ?? {}).some((id) => wanted.has(id))) continue;
-          cards[sharedKey(accountId, c.id)] = c;
-        }
-      } catch {}
-    }
-    set({ sharedBooks: books, sharedCards: cards, sharedLoaded: true });
+    if (sharedLoadRun) return sharedLoadRun;
+    const run = (async () => {
+      const session = useSession.getState();
+      const own = session.ownAccountFor(CAP.contacts);
+      const s = session.session;
+      const accounts = Object.entries(s?.accounts ?? {}).filter(
+        ([id, a]) => a.isPersonal === false && id !== own,
+      );
+      if (!accounts.length) {
+        set({ sharedBooks: [], sharedCards: {}, sharedLoaded: true });
+        return;
+      }
+      const groupIds = await groupMailboxIds();
+      const books: SharedBook[] = [];
+      const cards: Record<string, ContactCard> = {};
+      for (const [accountId, account] of accounts) {
+        try {
+          const res = await client.call<GetResponse<AddressBook>>("AddressBook/get", {
+            accountId,
+            ids: null,
+            properties: ADDRESS_BOOK_PROPS,
+          });
+          for (const book of res.list)
+            books.push({ accountId, accountName: account.name, book });
+          /*
+           * Cards come only from books the reader has added -- or books of a
+           * group mailbox the reader is a member of, where membership is the
+           * subscription (see `groupMailboxIds`).
+           *
+           * Stalwart hands back every book in a reachable account with full
+           * rights on each, shared or not -- an account linked for its files
+           * offered its address book too -- so `isSubscribed` is the only thing
+           * separating "shared with me" from "reachable" for a stranger's
+           * account. Loading the rest would put a stranger's contacts in the To
+           * field, which is the one place this must not guess.
+           */
+          const added = new Set(useSettings.getState().settings.addedShares);
+          const wanted = new Set(
+            res.list
+              .filter(
+                (b) =>
+                  b.isSubscribed ||
+                  added.has(sharedKey(accountId, b.id)) ||
+                  groupIds.has(accountId),
+              )
+              .map((b) => b.id),
+          );
+          if (!wanted.size) continue;
+          // One page. A shared book is a colleague's contacts, not an archive,
+          // and the alternative is holding the reader's own list hostage to it.
+          const cardsRes = await client.chain([
+            ["ContactCard/query", { accountId, limit: 500 }, "q"],
+            [
+              "ContactCard/get",
+              {
+                accountId,
+                "#ids": { resultOf: "q", name: "ContactCard/query", path: "/ids" },
+              },
+              "g",
+            ],
+          ]);
+          const g = cardsRes.get("g")?.[0] as unknown as GetResponse<ContactCard>;
+          for (const c of g.list) {
+            if (!Object.keys(c.addressBookIds ?? {}).some((id) => wanted.has(id)))
+              continue;
+            cards[sharedKey(accountId, c.id)] = c;
+          }
+        } catch {}
+      }
+      set({ sharedBooks: books, sharedCards: cards, sharedLoaded: true });
+    })();
+    sharedLoadRun = run;
+    void run.finally(() => {
+      if (sharedLoadRun === run) sharedLoadRun = null;
+    });
+    return run;
   },
 
   async setBookSubscribed(accountId, bookId, subscribed) {

@@ -458,7 +458,9 @@ minimisable and maximisable; full-screen on mobile.
 - **Attach from Files** — anything the server already holds attaches with **no
   upload at all**, however large. A file from someone else's shared folder is
   copied to your account first, because a message can only carry blobs from the
-  account sending it; the picker says so before it does.
+  account sending it; the picker says so before it does. Your **groups' files**
+  are listed alongside your own — membership of the group is the grant, so
+  nothing needs per-user sharing first.
 
   The upload limit applies to that copy and to nothing else. `maxSizeUpload` is
   what the server will accept for a single *upload*, so it bears only on a file
@@ -520,9 +522,13 @@ are settings.
 
 ## Calendars
 
-The sidebar keeps three groups apart:
+The sidebar keeps the panes apart:
 
 - **My calendars** — yours, each with a colour, each hideable with a click.
+- **One section per group mailbox** (freight@…, the teams you belong to): that
+  group's calendars, and a **+** that creates a calendar **owned by the group**
+  — the create goes to the group's own account, so every member sees it, a
+  member added later included, with no share to maintain.
 - **Shared with me** — other people's, once added.
 - **Available to add** — shared with you but not yet added, with a plus beside
   each. An unadded calendar draws nothing. This is deliberate: the server
@@ -703,10 +709,12 @@ The editor is still there and still does everything a drag cannot.
 
 JMAP Contacts and JSContact.
 
-- **Address books**, yours under *My address books* and other people's plainly
-  separate below, with the same *Available to add* / *Shared with me* split the
-  calendar uses. Create, rename, share, stop sharing, delete; one is the default
-  for new cards.
+- **Address books**, yours under *My address books*, one section per group
+  mailbox you belong to — its books, and a **+** that creates a book **owned by
+  the group** in the group's own account — and other people's plainly separate
+  below, with the same *Available to add* / *Shared with me* split the calendar
+  uses. Create, rename, share, stop sharing, delete; one is the default for new
+  cards.
 - **Contact records**: photo, prefix, first, middle, last, suffix, nickname,
   company, job title, any number of emails, phones and addresses with types,
   birthday, website and notes.
@@ -744,8 +752,10 @@ JMAP Contacts and JSContact.
   can be addressed without being in an address book first.
 - **Recent recipients**, kept on the device — and only on a device you said was
   yours.
-- Contacts in a shared book you have added are offered when addressing a
-  message exactly like your own; your own card wins a tie.
+- Contacts in a shared book you have added — or in any book of a group you
+  belong to — are offered when addressing a message exactly like your own; your
+  own card wins a tie. A group's books need no per-member adding: membership is
+  the subscription, the same rule Files follows for a group's folders.
 
 ---
 
@@ -839,7 +849,11 @@ individual rights by hand.
   the switcher that used to exist moved the whole app into someone else's
   account, which was the wrong door.
 - **Adding is a deliberate step**, for the reason given under Calendar: the
-  server reports every collection you can reach.
+  server reports every collection you can reach. Except for **a group you
+  belong to** — its calendars, address books, task lists and files are the
+  group's own, owned by the group's account and written there at creation
+  (never created in yours and shared out), so they answer everywhere without
+  anyone adding them. The product-admin group is not offered this way.
 - **Stopping is separate from hiding** — *Stop sharing* on something you own
   withdraws access from everyone at once, after asking; *Remove from my view* on
   something shared with you changes nothing for anybody else.

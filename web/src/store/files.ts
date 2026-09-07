@@ -28,6 +28,8 @@ interface FilesState {
   /** Accounts someone else has shared, from the session. */
   sharedAccounts: SharedAccount[];
   available: boolean;
+  /** Whether `init` has probed the session's accounts for shared Files. */
+  initialized: boolean;
   nodes: Record<Id, FileNode>;
   children: Record<string, Id[]>; // parentId ("root" for null) → ids
   loading: boolean;
@@ -131,6 +133,7 @@ export const useFiles = create<FilesState>((set, get) => ({
   ownAccountId: null,
   sharedAccounts: [],
   available: false,
+  initialized: false,
   nodes: {},
   children: {},
   loading: false,
@@ -177,7 +180,7 @@ export const useFiles = create<FilesState>((set, get) => ({
       browsing &&
       (browsing === ownAccountId || sharedAccounts.some((a) => a.id === browsing));
     if (!keep) set(emptyForAccount(ownAccountId));
-    set({ available, ownAccountId, sharedAccounts });
+    set({ available, ownAccountId, sharedAccounts, initialized: true });
   },
 
   openAccount(accountId) {
