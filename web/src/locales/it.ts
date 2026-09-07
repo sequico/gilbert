@@ -2580,13 +2580,9 @@ export const catalog: Catalog = {
       one: "{n} evento importato",
       other: "{n} eventi importati",
     },
-    "Already here: {n} events, nothing imported": {
-      one: "Già presente: {n} evento, nessuno importato",
-      other: "Già presenti: {n} eventi, nessuno importato",
-    },
-    "{n} were already here": {
-      one: "{n} era già presente",
-      other: "{n} erano già presenti",
+    "Updated {n} events, nothing new": {
+      one: "{n} evento aggiornato, nessuno nuovo",
+      other: "{n} eventi aggiornati, nessuno nuovo",
     },
     "{n} messages": { one: "{n} messaggio", other: "{n} messaggi" },
     "{n} selected": { one: "{n} selezionato", other: "{n} selezionati" },

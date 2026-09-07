@@ -1622,34 +1622,12 @@ export const catalog: Catalog = {
       other: "{n} contacts mis à jour, rien de nouveau",
     },
     "{n} updated": { one: "{n} mis à jour", other: "{n} mis à jour" },
-    "Updated {n} contacts you already had": {
-      one: "Contact déjà présent mis à jour",
-      other: "{n} contacts déjà présents mis à jour",
-    },
-    "{n} of them look like contacts you already had": {
-      one: "{n} d’entre eux ressemble à un contact que vous aviez déjà",
-      other: "{n} d’entre eux ressemblent à des contacts que vous aviez déjà",
-    },
-    "Your administrator changed {n} settings": {
-      one: "Votre administration a modifié {n} paramètre",
-      other: "Votre administration a modifié {n} paramètres",
-    },
-    "Exported {n} events": {
-      one: "{n} événement exporté",
-      other: "{n} événements exportés",
-    },
-    "Imported {n} events": {
-      one: "{n} événement importé",
-      other: "{n} événements importés",
-    },
-    "Already here: {n} events, nothing imported": {
-      one: "Déjà présent : {n} événement, rien d’importé",
-      other: "Déjà présents : {n} événements, rien d’importé",
-    },
-    "{n} were already here": {
-      one: "{n} était déjà présent",
-      other: "{n} étaient déjà présents",
-    },
+    "Updated {n} contacts you already had": { one: "Contact déjà présent mis à jour", other: "{n} contacts déjà présents mis à jour" },
+    "{n} of them look like contacts you already had": { one: "{n} d’entre eux ressemble à un contact que vous aviez déjà", other: "{n} d’entre eux ressemblent à des contacts que vous aviez déjà" },
+    "Your administrator changed {n} settings": { one: "Votre administration a modifié {n} paramètre", other: "Votre administration a modifié {n} paramètres" },
+    "Exported {n} events": { one: "{n} événement exporté", other: "{n} événements exportés" },
+    "Imported {n} events": { one: "{n} événement importé", other: "{n} événements importés" },
+    "Updated {n} events, nothing new": { one: "{n} événement mis à jour, rien de nouveau", other: "{n} événements mis à jour, rien de nouveau" },
     "{n} messages": { one: "{n} message", other: "{n} messages" },
     "{n} selected": { one: "{n} sélectionné", other: "{n} sélectionnés" },
     "{n} conversations": { one: "{n} conversation", other: "{n} conversations" },

@@ -12,12 +12,10 @@ questions:
 | [KNOWN-ISSUES.md](KNOWN-ISSUES.md) | What was verified live, and where Stalwart departs from a spec |
 | [docs.ihasmail.org](https://docs.ihasmail.org) *(upstream)* | How to install, configure and drive the underlying client — still accurate where Gilbert has not diverged |
 
-<<<<<<< HEAD
 Written against the tree at Stalwart **0.16.21**, which is the version the live
 instance runs. Behaviours carrying an older version below were checked against
 that one and have not changed since; where 0.16.21 changed something, the entry
 says so and names both. Gilbert
-requires 0.16 or newer and refuses older servers at sign-in, by name.
 requires 0.16 or newer and refuses older servers at sign-in, by name.
 
 ## The shape of it
@@ -554,6 +552,24 @@ nothing for anybody else.
 - **iCal import** through `CalendarEvent/parse` (a file of any number of
   events), from the calendar's own menu, into that calendar. The events are
   filed rather than scheduled: no invitations go out to anyone named in them.
+- **Re-importing updates rather than duplicates**, as a contacts import does.
+  An event is recognised by its UID, per calendar, and what the file carries
+  wins -- so a corrected export corrects what the first attempt got wrong.
+
+  Two things are deliberately left alone: **who accepted**, and **edits to a
+  single occurrence**. Both are answers and decisions taken here after the file
+  was written, and a file that mentions them at all describes them as they were
+  at export, so writing either one over would throw away work silently and
+  return no error anywhere. A corrected export therefore fixes the time, the
+  title and the location, and leaves the RSVPs and the "just this Wednesday"
+  changes where they are.
+
+  The cost runs both ways and is worth knowing. An attendee added at the source
+  since the last import does not arrive, because nothing here can tell that
+  apart from an answer given in Gilbert. And an import still sends no
+  scheduling messages, so an event a re-import moves is moved *here* --
+  everybody else's copy still says the old time until whoever is organising
+  sends the update from the event itself.
 - **Subscribed calendars** by URL — a timetable, a rota, a public holiday list.
   Added in Settings › Calendar & contacts, read-only, and shown beside your own
   with their own colour.
@@ -686,7 +702,7 @@ work:
   different five dates. 0.16.21 identifies an occurrence by its recurrence id
   instead — confirmed live on 0.16.21 (2026-09-06): a five-week series was
   expanded, its third occurrence retitled through its own synthetic id, and all
-  five original ids re-read afterwards still named their own dates. ihasmail
+  five original ids re-read afterwards still named their own dates. Gilbert
   re-resolves an occurrence from its `recurrenceId` immediately before touching
   it anyway. That is no longer load-bearing on the current server, and it stays
   because it costs one lookup, because a vanished date still has to say so
@@ -1127,7 +1143,7 @@ published would have quietly ended the WCAG AA claim two sections down.
 Body text is lifted the same way, which it was not at first. It used to be
 checked and then either accepted or rejected, and that rule would have turned
 away five of the six palettes added in September 2026: most of them target
-around 4.5:1 for body text, their own goal, where ihasmail asks 7:1 of the text
+around 4.5:1 for body text, their own goal, where Gilbert asks 7:1 of the text
 a reader looks at all day. Rejecting a palette over a bar its designers never
 aimed at is the wrong answer when the same arithmetic already adjusts muted
 text, links and accents. Solarized Light moves 4.13 to 7.07 that way; Primer
