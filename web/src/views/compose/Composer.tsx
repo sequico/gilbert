@@ -91,6 +91,13 @@ export function Composer({ draft }: { draft: Draft }) {
   const patch = useCallback((p: Partial<Draft>) => update(key, p), [update, key]);
   const onHtml = useCallback((html: string) => update(key, { html }), [update, key]);
 
+  // The keyboard handler below is registered once per open/minimize, so it has
+  // to call through a ref: doSend validates and warns against the draft the
+  // handler was created with, and typing after that must not be judged against
+  // the stale snapshot (recipients added later would skip their send-time
+  // confirmations; fields since filled would be reported empty).
+  const doSendRef = useRef<() => void>(() => {});
+
   // Esc closes (saves draft); Ctrl+Enter sends
   useEffect(() => {
     if (d.minimized) return;
@@ -99,7 +106,7 @@ export function Composer({ draft }: { draft: Draft }) {
         keys: "mod+enter",
         description: "Send message",
         group: "Compose",
-        handler: () => void doSend(),
+        handler: () => void doSendRef.current(),
         allowInInput: true,
       },
       {
@@ -228,6 +235,8 @@ export function Composer({ draft }: { draft: Draft }) {
     }
     await send(key);
   };
+
+  doSendRef.current = doSend;
 
   const scheduleFor = (at: Date) => {
     sendMenu.close();
