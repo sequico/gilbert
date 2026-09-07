@@ -85,6 +85,15 @@ deliberately with `--no-verify`. Remote CI does not run on push: it is the
 release pre-check, with one exception -- pull requests opened by Dependabot run
 it automatically (their branches never pass through the local hook).
 No commit or push unless the user's message in the current turn says so.
+**The feature inventory stays current.** `FEATURES.md` is the inventory of
+what Gilbert does (its upstream text arrives by merge, renamed); every
+feature Gilbert implements beyond upstream is written there, in the same
+change that implements it, and updated whenever later work changes it. An
+upstream merge is not done when it compiles — it is done when the merged
+delta has been rebranded (gilbert-upstream-rebrand) **and** the inventory
+has been reconciled: features the merge adds/removes/changes are reflected
+in `FEATURES.md`, and the Gilbert-added sections survive intact. ADRs record
+the decisions behind features; the inventory records the features.
 `origin/main` is **not branch-protected** (private repo): direct commit + push
 to main is the normal flow.
 **Releases are called manually by the user — for now there are none and none are

@@ -1046,6 +1046,44 @@ would have quietly ended the WCAG AA claim two sections down.
 
 ---
 
+# Administration
+
+Product administration inside Gilbert, for members of the `gilbert-admin`
+group — the section itself is Gilbert's own, beyond the upstream client
+(ADR 0001).
+
+- **The grant**: membership of the `gilbert-admin@…` group in Stalwart's
+directory. One group per server, and it grants on **every domain that
+server serves** — the match is by local part, whatever domain the member's
+own address uses. `isAdmin` is computed server-side per request
+(`server/src/upstream.ts`), shown to the client as the shield in the top
+bar.
+- **Installation-wide policy editor**: the shield opens the administration
+surface; its Policy section edits one JSON document with upstream's
+`defaults` / `enforced` / `changes` shape (issue #207) and publishes it.
+Publishing validates with the boot path's rules, replaces the running
+policy at once (no restart), rewrites `SETTINGS_POLICY_FILE` when the
+deployment gives it a writable file, and signs the other signed-in
+clients out so their next sign-in applies it (`GET`/`POST
+/api/admin/policy`; ADR 0001 §4, ADR 0004).
+- **Forced password change**: an administrator can require a user to change
+their password (ADR 0005). The directive lives as a file in the target
+user's own hidden `gilbert` app folder; the server door answers 403 on
+every data route until the password changes, and the change clears the
+directive itself. The privileged write authenticates as Stalwart's
+composite `{target}%{admin}` (impersonation) — the same path the per-user
+policy layer will use.
+- **Where the documents live**: policy and settings documents sit in each
+account's hidden `gilbert` app folder; the per-user policy layer (values
+and enforced flags per user, named profiles, publishing per user or per
+group) is the next layer on the same document shape (ADR 0001 §5).
+
+This section is written for the state of 2026-09-07 and is kept current on
+every change that touches a feature and on every upstream merge (repo rule:
+`.codewhale/instructions.md`, "The feature inventory stays current").
+
+---
+
 # Live updates and notifications
 
 - **JMAP push over EventSource**, proxied by Gilbert's server so the browser

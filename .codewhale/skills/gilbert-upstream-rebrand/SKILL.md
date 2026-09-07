@@ -67,6 +67,12 @@ escalated to the user; do not bulk-replace.
 7. **App name in copy**: the product's own name appears as the runtime name
    (`APP_NAME`) where possible; where a key embeds "Gilbert", translations
    keep it untranslated.
+8. **Feature inventory**: a merge is not done when it compiles — reconcile
+   `FEATURES.md` with the merged delta (features the merge adds, removes or
+   changes are reflected) and make sure the Gilbert-added sections survive
+   intact. Repo rule: the inventory stays current on every change and every
+   merge (`.codewhale/instructions.md`, "The feature inventory stays
+   current").
 
 ## Verification
 
