@@ -1,5 +1,6 @@
 import { withBase } from "@/lib/basePath";
-import { DEFAULT_SETTINGS, type Settings } from "@/store/settings";
+import { pendingSettingsKeys } from "@/lib/settingsSync";
+import { DEFAULT_SETTINGS, type Settings, useSettings } from "@/store/settings";
 
 /**
  * What the installation has decided about settings, rather than the reader.
@@ -78,6 +79,16 @@ export async function loadSettingsPolicy(): Promise<SettingsPolicy> {
           .map((c) => ({ version: c.version, settings: known(c.settings ?? {}) }))
           .filter((c) => c.version && Object.keys(c.settings).length),
       };
+      /*
+       * A change made while the fetch was in flight went through `update`
+       * with no enforcement to apply, and is queued for the settings file
+       * as-is. Re-run the door over the current settings now and re-queue the
+       * corrected snapshot, so the queued write cannot land a value the
+       * policy forbids. (Without this the first flush -- which happens only
+       * after the load has settled -- writes the pre-policy value.)
+       */
+      if (Object.keys(policy.enforced).length && pendingSettingsKeys().size)
+        useSettings.getState().update({ ...policy.enforced });
       return policy;
     } catch {
       /* No policy is the ordinary case and an unreachable one must not stop a
@@ -120,5 +131,7 @@ export function resetSettingsPolicyForTest(next: Partial<SettingsPolicy> = {}): 
       }))
       .filter((c) => c.version && Object.keys(c.settings).length),
   };
-  fetched = Promise.resolve(policy);
+  // Forget the fetch too: `loadSettingsPolicy` re-runs its completion logic
+  // (the enforcement re-apply) against whatever the next test feeds it.
+  fetched = null;
 }

@@ -127,7 +127,21 @@ function RulesEditor() {
     const b = el.getBoundingClientRect();
     return y > b.top + b.height / 2;
   };
-  const activeIsOther = script && script.name !== "gilbert" && script.isActive;
+  /** The script that is actually running, which may not be the one being edited. */
+  const activeScript = sieve.scripts.find((s) => s.isActive) ?? null;
+  /*
+   * Warn when saving rules changes which script runs: the editor writes the
+   * managed script, and a save activates it, silently retiring the live one.
+   * `rules()` prefers the script named gilbert, so this used to need a
+   * managed script under another name to be active before it fired -- the
+   * case that matters, a hand-written script running while the managed one
+   * sits inactive, never warned at all.
+   */
+  const activeIsOther = Boolean(
+    activeScript &&
+      script &&
+      (activeScript.id !== script.id || (script.isActive && script.name !== "gilbert")),
+  );
 
   const save = async (next: SieveRule[]): Promise<boolean> => {
     setSaving(true);
@@ -223,7 +237,7 @@ function RulesEditor() {
         <div className="warn-box mb-16">
           {t(
             "Another script (“{name}”) is active. Saving rules here will activate the “gilbert” script instead.",
-            { name: script?.name ?? "" },
+            { name: activeScript?.name ?? script?.name ?? "" },
           )}
         </div>
       )}

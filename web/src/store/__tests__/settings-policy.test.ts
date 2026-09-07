@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   isEnforced,
+  loadSettingsPolicy,
   policyDefaults,
   policyEnforced,
   resetSettingsPolicyForTest,
@@ -16,19 +17,37 @@ import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
  * enforced settings are not.
  */
 
+/** What the settings push would write: the last full snapshot queued. */
+const syncMock = vi.hoisted(() => {
+  let last: Record<string, unknown> | null = null;
+  return {
+    push: vi.fn((synced: Record<string, unknown>) => {
+      last = synced;
+    }),
+    pendingKeys: () => new Set(Object.keys(last ?? {})),
+    latest: () => last,
+    reset: () => {
+      last = null;
+    },
+  };
+});
+
 vi.mock("@/lib/settingsSync", () => ({
-  queueSettingsPush: vi.fn(),
-  pendingSettingsKeys: () => new Set<string>(),
+  queueSettingsPush: syncMock.push,
+  pendingSettingsKeys: syncMock.pendingKeys,
 }));
 
 beforeEach(() => {
   resetSettingsPolicyForTest();
+  syncMock.reset();
   useSettings.setState({ settings: { ...DEFAULT_SETTINGS } });
 });
 
 afterEach(() => {
   resetSettingsPolicyForTest();
+  syncMock.reset();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("what the installation has decided", () => {
@@ -133,6 +152,72 @@ describe("enforced settings, which the reader may not change", () => {
   it("survives an imported settings file", () => {
     useSettings.getState().importJson(JSON.stringify({ conversationMode: false }));
     expect(useSettings.getState().settings.conversationMode).toBe(true);
+  });
+});
+
+/*
+ * The enforcement door opens only when the policy has been fetched, and the
+ * fetch is in flight while the first frames of an authed session are on
+ * screen. A change made in that window passes `update` with nothing to
+ * enforce, and sits in the push queue as-is: the first flush -- which only
+ * happens after the load has settled -- used to write the pre-policy value
+ * to the account's settings file.
+ */
+describe("a change made before the policy fetch landed", () => {
+  it("is corrected and re-queued once the policy arrives", async () => {
+    // No policy known yet: the door is open.
+    resetSettingsPolicyForTest();
+    useSettings.setState({ settings: { ...DEFAULT_SETTINGS } });
+    useSettings.getState().update({ conversationMode: false });
+    expect(useSettings.getState().settings.conversationMode).toBe(false);
+    expect(syncMock.pendingKeys().has("conversationMode")).toBe(true);
+    // The fetch lands with that setting enforced.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              settingsPolicy: { enforced: { conversationMode: true } },
+            }),
+            { status: 200 },
+          ),
+      ),
+    );
+    try {
+      await loadSettingsPolicy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    // The queued snapshot was replaced with the corrected one, so the flush
+    // cannot land a value the policy forbids.
+    expect(useSettings.getState().settings.conversationMode).toBe(true);
+    expect(syncMock.latest()?.conversationMode).toBe(true);
+    expect(syncMock.pendingKeys().has("conversationMode")).toBe(true);
+  });
+
+  it("leaves the queue alone when nothing was queued pre-policy", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              settingsPolicy: { enforced: { conversationMode: true } },
+            }),
+            { status: 200 },
+          ),
+      ),
+    );
+    try {
+      await loadSettingsPolicy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    // No phantom write: an untouched account is not pushed to because the
+    // policy merely arrived.
+    expect(syncMock.latest()).toBeNull();
+    expect(isEnforced("conversationMode")).toBe(true);
   });
 });
 

@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { client } from "@/jmap/client";
 import type { SieveScript } from "@/jmap/types";
 import { newRule, rulesToSieve } from "@/lib/sieve";
 import { useSieve } from "@/store/sieve";
@@ -215,5 +216,138 @@ describe("a script that was only partly read", () => {
     const { rules, damage } = useSieve.getState().rules();
     expect(damage).toBeNull();
     expect(rules).toBeNull(); // hand-written, which is a different refusal
+  });
+});
+
+/**
+ * A hand-written script that happens to be named "gilbert".
+ *
+ * The rules editor always saves into the script named gilbert, and "Start
+ * with rules" promises the existing script is kept and deactivated, not
+ * deleted. Updating the script in place would have kept the name and the
+ * active slot but replaced the hand-written content with the generated one —
+ * destroying the author's script while appearing to honour the promise.
+ *
+ * These pin the actual behaviour: the hand-written one is renamed aside and
+ * deactivated, content untouched, and a fresh managed script takes over.
+ */
+describe("a hand-written script named gilbert", () => {
+  const HAND = 'require ["fileinto"];\nif header :contains "from" "x" { fileinto "X"; }';
+  const scripts: Array<{ id: string; name: string; isActive: boolean; blobId: string }> =
+    [];
+  const blobs = new Map<string, string>();
+  let seq = 0;
+
+  beforeEach(() => {
+    scripts.length = 0;
+    blobs.clear();
+    seq = 0;
+    scripts.push({ id: "s1", name: "gilbert", isActive: true, blobId: "b-hand" });
+    blobs.set("b-hand", HAND);
+    useSieve.setState({
+      accountId: "a1",
+      scripts: [...scripts],
+      contents: { s1: HAND },
+      loading: false,
+      error: null,
+    });
+    vi.spyOn(client, "upload").mockImplementation(async (_accountId, blob) => {
+      // jsdom Blob has no .text(); a FileReader reads it fine.
+      const text = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = () => reject(r.error);
+        r.readAsText(blob as Blob);
+      });
+      const id = `b${++seq}`;
+      blobs.set(id, text);
+      return { blobId: id, type: "application/sieve", size: 0 } as never;
+    });
+    vi.spyOn(client, "fetchBlobText").mockImplementation(
+      async (_accountId, blobId) => blobs.get(blobId as string) ?? "",
+    );
+    vi.spyOn(client, "call").mockImplementation(async (method, args) => {
+      if (method === "SieveScript/set") {
+        const out: Record<string, unknown> = { accountId: "a1" };
+        const update = args.update as
+          | Record<string, { name?: string; blobId?: string }>
+          | undefined;
+        if (update)
+          for (const [id, patch] of Object.entries(update)) {
+            const s = scripts.find((x) => x.id === id);
+            if (!s) {
+              out.notUpdated = { [id]: { type: "notFound" } };
+              continue;
+            }
+            if (patch.name !== undefined) s.name = patch.name;
+            if (patch.blobId !== undefined) s.blobId = patch.blobId;
+            out.updated = { [id]: null };
+          }
+        const create = args.create as
+          | Record<string, { name: string; blobId: string }>
+          | undefined;
+        const created: Record<string, unknown> = {};
+        let createdId: string | null = null;
+        if (create)
+          for (const [k, o] of Object.entries(create)) {
+            createdId = `s${++seq}`;
+            scripts.push({
+              id: createdId,
+              name: o.name,
+              blobId: o.blobId,
+              isActive: false,
+            });
+            created[k] = { id: createdId };
+          }
+        const act = args.onSuccessActivateScript as string | undefined;
+        if (act) {
+          const id = act.startsWith("#") ? createdId : act;
+          for (const s of scripts) s.isActive = s.id === id;
+        }
+        if (args.onSuccessDeactivateScript) for (const s of scripts) s.isActive = false;
+        return { ...out, created };
+      }
+      if (method === "SieveScript/get")
+        return {
+          accountId: "a1",
+          state: "1",
+          list: scripts.map((s) => ({ ...s })),
+          notFound: [],
+        };
+      return { accountId: "a1" };
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("is set aside under a dated name, not overwritten, when rules take over", async () => {
+    await useSieve.getState().saveRules([newRule({ name: "Fresh" })]);
+    const scriptsNow = useSieve.getState().scripts;
+    expect(scriptsNow).toHaveLength(2);
+    const active = scriptsNow.find((s) => s.isActive);
+    expect(active?.name).toBe("gilbert");
+    expect(active?.id).not.toBe("s1");
+    const aside = scriptsNow.find((s) => s.id === "s1");
+    expect(aside?.isActive).toBe(false);
+    expect(aside?.name).toMatch(/^gilbert — saved \d{4}-\d{2}-\d{2}$/);
+    // The hand-written content survived untouched, on the same blob.
+    expect(blobs.get(aside!.blobId)).toBe(HAND);
+    // And the fresh script holds the managed rules.
+    expect(blobs.get(active!.blobId)).toContain("# rule:");
+  });
+
+  it("does not rename a managed gilbert script, which is updated in place", async () => {
+    const managed = rulesToSieve([newRule({ name: "Managed" })]);
+    scripts[0] = { id: "s1", name: "gilbert", isActive: true, blobId: "b-hand" };
+    blobs.set("b-hand", managed);
+    useSieve.setState({ scripts: [...scripts], contents: { s1: managed } });
+    await useSieve.getState().saveRules([newRule({ name: "Extra" })]);
+    const scriptsNow = useSieve.getState().scripts;
+    expect(scriptsNow).toHaveLength(1);
+    expect(scriptsNow[0]!.name).toBe("gilbert");
+    expect(scriptsNow[0]!.isActive).toBe(true);
+    expect(blobs.get(scriptsNow[0]!.blobId)).toContain('"Extra"');
   });
 });

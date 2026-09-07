@@ -2,7 +2,9 @@ import { client, setErrorMessage } from "@/jmap/client";
 import type { Email, EmailAddress, Id, SetResponse } from "@/jmap/types";
 import { sameAddress } from "@/lib/address";
 import { uid } from "@/lib/format";
+import { t as translate } from "@/lib/i18n";
 import { buildMdn, MDN_SENT_KEYWORD, mdnDecision } from "@/lib/mdn";
+import { toast } from "@/ui/toast";
 import { useMail } from "./mail";
 
 /**
@@ -20,7 +22,7 @@ export async function sendReadReceipt(email: Email): Promise<void> {
   const accountId = mail.accountId;
   if (!accountId) throw new Error("Not signed in");
 
-  const decision = mdnDecision(email);
+  const decision = mdnDecision(email, mail.roleId("sent"));
   if (!decision.offer || !decision.to)
     throw new Error("No read receipt is due for this message");
 
@@ -93,6 +95,34 @@ export async function sendReadReceipt(email: Email): Promise<void> {
     // Do not leave an unsent receipt sitting in Sent looking like it went.
     void client.call("Email/set", { accountId, destroy: [mdnId] });
     throw new Error(setErrorMessage(sub.notCreated.s));
+  }
+
+  /*
+   * The submission succeeding is only half the record: the `$mdnsent` keyword
+   * on the original is what stops a later look (or another client) from
+   * offering the receipt again. Only the submission response used to be
+   * inspected, so a failed mark sent the receipt and left it offerable -- and
+   * a reload then produced a duplicate. Try the mark again; if that also
+   * fails, say so rather than pretending the message is recorded.
+   */
+  const mark = res.get("k")?.[0] as unknown as SetResponse & {
+    __error?: { type: string; description?: string };
+  };
+  if (mark?.__error || mark?.notUpdated?.[email.id]) {
+    try {
+      const retry = await client.call<SetResponse>("Email/set", {
+        accountId,
+        update: { [email.id]: { [`keywords/${MDN_SENT_KEYWORD}`]: true } },
+      });
+      const err = retry.notUpdated?.[email.id];
+      if (err) throw new Error(setErrorMessage(err));
+    } catch {
+      toast.show(
+        translate(
+          "The receipt was sent, but recording that on the original message failed — you may be asked about it again.",
+        ),
+      );
+    }
   }
 
   markSent(email.id);

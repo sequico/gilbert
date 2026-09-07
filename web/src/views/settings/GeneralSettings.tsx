@@ -23,6 +23,7 @@ import {
 } from "@/lib/mailhandler";
 import { isEnforced } from "@/lib/settingsPolicy";
 import { useSettings } from "@/store/settings";
+import { confirmDialog } from "@/ui/dialog";
 import { Switch } from "@/ui/misc";
 import { toast } from "@/ui/toast";
 
@@ -395,7 +396,24 @@ export function GeneralSettings() {
         </label>
         <button
           className="btn btn-ghost"
-          onClick={() => {
+          onClick={async () => {
+            /*
+             * Reset is account-wide and immediate — it wipes templates,
+             * labels, trusted signers, calendar subscriptions and hidden
+             * identities, and replaces the server's copy of the settings —
+             * so it asks first, like every other destructive action here.
+             */
+            if (
+              !(await confirmDialog({
+                title: t("Reset all settings?"),
+                message: t(
+                  "Every setting for this account goes back to its defaults — templates, labels, trusted signers, calendar subscriptions, hidden identities — and the copy stored on the server is replaced. This cannot be undone.",
+                ),
+                confirmLabel: t("Reset"),
+                danger: true,
+              }))
+            )
+              return;
             reset();
             toast.show(t("Settings reset to defaults"));
           }}

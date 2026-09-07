@@ -48,6 +48,7 @@ import {
 import { tNode, t as translate } from "@/lib/i18n";
 import { mdnDecision, refusalText } from "@/lib/mdn";
 import { openableInTab, previewKind } from "@/lib/preview";
+import { remoteImagesAllowed } from "@/lib/remoteImages";
 import { formatScheduleTime } from "@/lib/schedule";
 import { useSignature } from "@/lib/smime/useSignature";
 import { type SpamReport, spamReport } from "@/lib/spamScore";
@@ -202,12 +203,21 @@ export const MessageView = memo(function MessageView({
   );
   const remoteAllowed =
     allowRemote ||
-    settings.imagePolicy === "always" ||
-    senderTrusted ||
-    (settings.imagePolicy === "contacts" && inContacts);
+    remoteImagesAllowed({
+      policy: settings.imagePolicy,
+      trustedSenders: settings.trustedImageSenders,
+      senderEmail: from?.email,
+      inContacts,
+    });
   const imageProxy = useSession((s) => s.session?.gilbert?.imageProxy ?? true);
   const scheduled = useScheduled((s) => s.pending[e.id]);
-  const receipt = useMemo(() => mdnDecision(e), [e]);
+  /*
+   * The account's Sent folder, so a copy of a message we sent is never
+   * reported on: it carries whatever receipt header we wrote into it, and
+   * answering it would send the receipt to ourselves.
+   */
+  const sentId = useMail((s) => s.roleId("sent"));
+  const receipt = useMemo(() => mdnDecision(e, sentId), [e, sentId]);
   const [receiptDone, setReceiptDone] = useState<"sending" | "dismissed" | null>(null);
   const cancelScheduled = useScheduled((s) => s.cancel);
 

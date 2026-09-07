@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { useSession } from "@/store/session";
 import {
   acceptRemote,
   DEFAULT_SETTINGS,
@@ -8,7 +9,11 @@ import {
   syncedPart,
 } from "@/store/settings";
 import { isAppFolder } from "../appFolder";
-import { settingsAlreadyLoadedFor, stopSettingsSync } from "../settingsSync";
+import {
+  armSettingsSync,
+  settingsAlreadyLoadedFor,
+  stopSettingsSync,
+} from "../settingsSync";
 
 /**
  * Settings used to live only in localStorage, so nothing followed the user
@@ -148,16 +153,27 @@ describe("a change made but not yet written up", () => {
     expect(merged.uiLanguage).toBe("en");
   });
 
-  it("reads the file again for an account after a sign-out", () => {
+  it("claims the account only once the load has settled", () => {
     stopSettingsSync();
+    useSession.setState({ accountId: "a1" });
+    // A mount starts the read...
     expect(settingsAlreadyLoadedFor("a1")).toBe(false);
-    // The remount that a language change causes must not read it a second time.
+    /*
+     * ...and a remount while it is still in flight (picking a language
+     * unmounts the reading subtree and cancels the first read) must not be
+     * told "already loaded": a claim consumed by a cancelled read made the
+     * remount skip the read and never arm sync for the session.
+     */
+    expect(settingsAlreadyLoadedFor("a1")).toBe(false);
+    // Only the read that actually settles claims the account.
+    armSettingsSync();
     expect(settingsAlreadyLoadedFor("a1")).toBe(true);
     // Signing out drops the claim, so signing back in reads the file rather
     // than trusting whatever the previous session left behind.
     stopSettingsSync();
     expect(settingsAlreadyLoadedFor("a1")).toBe(false);
     stopSettingsSync();
+    useSession.setState({ accountId: null });
   });
 
   it("treats a missing account as already loaded, so nothing is fetched", () => {

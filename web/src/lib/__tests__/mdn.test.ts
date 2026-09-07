@@ -86,6 +86,24 @@ describe("what it refuses to acknowledge", () => {
     );
   });
 
+  it("refuses our own copy in Sent, which was never received either", () => {
+    // A message we sent carries whatever receipt header we wrote into it;
+    // answering it would send the receipt to ourselves.
+    const sent = email({ mailboxIds: { sent1: true } });
+    expect(mdnDecision(sent, "sent1").offer).toBe(false);
+    expect(mdnDecision(sent, "sent1").refusal).toBe("draft-or-sent");
+  });
+
+  it("does not confuse a received message with one we sent", () => {
+    // Same id is not the test — the folder is. A message not in Sent is
+    // still offerable even when the account has a Sent folder.
+    expect(mdnDecision(email({ mailboxIds: { inbox1: true } }), "sent1").offer).toBe(
+      true,
+    );
+    // And without knowing the Sent id nothing is refused on its account.
+    expect(mdnDecision(email({ mailboxIds: { sent1: true } })).offer).toBe(true);
+  });
+
   it("flags a receipt aimed somewhere other than the sender", () => {
     const d = mdnDecision(
       email({

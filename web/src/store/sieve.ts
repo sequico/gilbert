@@ -154,6 +154,26 @@ export const useSieve = create<SieveState>((set, get) => ({
           `Your filter script ${damage}, so saving would overwrite the rest of it. Reload and try again.`,
         );
       }
+      /*
+       * A hand-written script that happens to be named "gilbert" is not a
+       * managed one to update in place: overwriting it would silently destroy
+       * what its author wrote, which is exactly what "Start with rules"
+       * promises will not happen (it says the existing script is kept and
+       * deactivated). Set it aside under a dated name instead -- the create
+       * below activates the fresh script, which deactivates this one -- and
+       * leave its content untouched.
+       */
+      if (sieveToRules(content) === null) {
+        const aside = `${GILBERT_SCRIPT} — saved ${new Date().toISOString().slice(0, 10)}`;
+        const res = await client.call<SetResponse<SieveScript>>("SieveScript/set", {
+          accountId: get().accountId,
+          update: { [existing.id]: { name: aside } },
+        });
+        const err = res.notUpdated?.[existing.id];
+        if (err) throw new Error(setErrorMessage(err));
+        await get().saveScript(null, GILBERT_SCRIPT, rulesToSieve(rules), true);
+        return;
+      }
     }
     await get().saveScript(
       existing?.id ?? null,
