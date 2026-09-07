@@ -15,7 +15,7 @@ const SECTIONS: Array<SectionItem & { el: ReactNode }> = [
   },
   {
     id: "users",
-    label: "Force passwords",
+    label: t("Force passwords"),
     icon: <Users size={18} />,
     el: <AdminUsers />,
   },

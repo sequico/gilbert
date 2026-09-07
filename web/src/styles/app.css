@@ -1836,3 +1836,9 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .task-row.dragging { opacity: .45; }
 .task-row.drop-target { background: var(--accent-soft); outline: 1px dashed var(--accent); outline-offset: -1px; }
 .task-row .task-title.input { padding: 1px 6px; flex: 1; min-width: 0; }
+
+/* The admin Force passwords state (ADR 0005): red while the directive is on. */
+.forced-state {
+  color: var(--danger, #dc2626);
+  font-weight: 600;
+}

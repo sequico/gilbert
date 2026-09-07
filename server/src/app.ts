@@ -230,6 +230,40 @@ async function sessionForcedState(
   return forced;
 }
 
+/** Batched: whether each listed account currently carries the directive (ADR 0005). */
+async function forcedFlagsFor(
+  users: Array<{ id: string; name: string }>,
+  admin: LiveSession,
+): Promise<Array<{ id: string; name: string; forced: boolean }>> {
+  const out: Array<{ id: string; name: string; forced: boolean }> = [];
+  const BATCH = 4;
+  for (let i = 0; i < users.length; i += BATCH) {
+    const batch = users.slice(i, i + BATCH);
+    const flags = await Promise.all(
+      batch.map(async (u) => {
+        try {
+          const auth = impersonationAuthorization(admin, u.name);
+          if (!auth) return false;
+          const up = await fetchUpstreamSession(auth, upstreamFor(u.name));
+          return isPasswordChangeForced({
+            authorization: auth,
+            session: up,
+            username: u.name,
+          });
+        } catch (err) {
+          console.warn(
+            `[gilbert] could not read the forced-password-change directive for ${u.name}:`,
+            (err as Error).message,
+          );
+          return false;
+        }
+      }),
+    );
+    batch.forEach((u, idx) => out.push({ ...u, forced: flags[idx] ?? false }));
+  }
+  return out;
+}
+
 /**
  * Whether a mount-relative `/api` path is a data route the door covers.
  *
@@ -1234,8 +1268,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           }
         }
       }
+      const flagged =
+        impersonation === "ok" && users.length
+          ? await forcedFlagsFor(users, session)
+          : users.map((u) => ({ ...u, forced: false }));
       return c.json({
-        users,
+        users: flagged,
         enumeration,
         enumerationMessage: "denied" in directory ? directory.denied : null,
         impersonation,
