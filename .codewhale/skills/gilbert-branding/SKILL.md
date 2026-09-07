@@ -49,6 +49,9 @@ distribution — `SOURCE_URL` is the offer and already defaults here.
    describe the current state; history lives in git.
 2. Only the upstream/AGPL mentions above may say `ihasmail`; everywhere else
    `gilbert` is simply the name.
-3. Before any future rename: search repo-wide, judge every hit, move
+3. An upstream merge delta is renamed without asking: `ihasmail` outside the
+   mentions above becomes `gilbert` during the merge, including user-visible
+   identifiers such as a shipped theme or palette id.
+4. Before any future rename: search repo-wide, judge every hit, move
    identifiers in pairs (code + tests + docs + deploy) in one change set,
    then `npm run typecheck`, `npm test`, and read the diff.

@@ -22,6 +22,10 @@ paths. `ihasmail` appears only where upstream's real name must stay: the URLs
 (ihasmail.org, docs.ihasmail.org, github.com/Coffey-Labs/ihasmail), the
 lineage and the AGPL attribution in `LICENSE`/`NOTICE`/`README`/ADR 0002, and
 the `ihasmail` branch that mirrors upstream releases.
+An upstream merge delta that introduces `ihasmail` identifiers, strings or
+prose is renamed to `gilbert`/`Gilbert` during the merge, automatically and
+without asking — including user-visible names such as a shipped theme or
+palette id. Only the upstream-name exceptions above may stay.
 
 ## Architecture law
 JMAP only, to Stalwart; no own database; everything durable lives in Stalwart;

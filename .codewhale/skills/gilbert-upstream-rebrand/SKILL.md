@@ -37,11 +37,16 @@ is that checklist.
   "upstream says X but here Y". Do not narrate the rename in a comment.
 - Keep upstream behaviour identical: this is a rename pass, not a review
   pass. If the delta needs real changes, do them separately.
+- Renames are automatic and never a question: any `ihasmail` the delta
+  introduces outside the stay-list above is renamed during the merge —
+  including user-visible identifiers such as a shipped theme or palette id.
+  Judgment applies only to the stay-list, never to the user.
 
 ## Checklist — run this before committing the merge
 
 1. **Grep the merged delta for `ihasmail`** (case-insensitive). Judge every
-   hit against the allowed list above; do not bulk-replace.
+   hit against the allowed list above — that judgment is mechanical and never
+escalated to the user; do not bulk-replace.
 2. **Log prefixes** `[ihasmail]` → `[gilbert]`. These are operator-visible;
    the naming law pins the `[gilbert]` prefix.
 3. **Wire and storage identifiers** the client/server exchange or persist:
