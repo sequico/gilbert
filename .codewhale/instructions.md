@@ -62,6 +62,18 @@ content.
 
 ## Workflow
 Read the affected area first; smallest coherent diff.
+**Dispatched sub-agents are health-checked automatically, never on request:**
+poll each running agent at least every ~60 s (steps advancing, live tool
+calls, processes, worktree writes / file mtimes). An agent with no progress
+across consecutive polls, or that dies or is cancelled, is investigated and
+replaced or recovered immediately — never left until the user notices.
+**Cost and time discipline (global user rule, active here):** agents read only
+the diff hunks under review plus the functions they directly call — targeted
+grep/sed/read slices, never whole large files; review agents do not run full
+test suites (the parent runs the gate); large reviews are split into small
+parallel reviewers by area; deep reasoning is reserved for security-critical
+surfaces. An agent that drifts into wide exploration gets a converge-now
+instruction rather than being left to widen scope.
 **Every push is gated by the fast CI** (`npm run prepush`: typecheck + Biome
 lint + tests); a pre-push hook enforces it — hook in `.githooks/pre-push`,
 enabled per clone with `git config core.hooksPath .githooks`, bypass only
