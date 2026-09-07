@@ -1156,7 +1156,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         let state: SecurityState;
         try {
           state = await getState(ctx);
-        } catch (err) {
+        } catch {
           return c.json(
             {
               error: "bad_request",

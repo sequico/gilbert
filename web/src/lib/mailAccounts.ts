@@ -69,3 +69,15 @@ export function isOwnMailAccount(
   if (!session || !accountId) return false;
   return accountId === ownAccountForCapability(session, CAP.mail);
 }
+
+/**
+ * Whether an account name is the product-admin group mailbox: local part
+ * `gilbert-admin` on whatever domain the server registered it. Mirrors the
+ * server-side membership rule in `server/src/upstream.ts` (ADR 0001) -- the
+ * admin group is an administration surface, not a working group, so surfaces
+ * that create group-owned data must not offer to create in it.
+ */
+export function isAdminGroupAccountName(name: string): boolean {
+  const at = name.indexOf("@");
+  return at > 0 && name.slice(0, at) === "gilbert-admin";
+}

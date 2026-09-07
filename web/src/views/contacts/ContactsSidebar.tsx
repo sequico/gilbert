@@ -18,6 +18,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { setErrorMessage } from "@/jmap/client";
 import type { AddressBook } from "@/jmap/types";
 import { plural, t } from "@/lib/i18n";
+import { isAdminGroupAccountName } from "@/lib/mailAccounts";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
@@ -132,7 +133,11 @@ export function ContactsSidebar() {
      there is created in the group's own account, so it belongs to the group
      and every member reaches it -- no share to maintain. Any other shared
      account (a colleague's share) stays in the read-only area below. */
-  const groups = mailAccounts.filter((a) => a.kind === "group");
+  /* The product-admin group is not a working group: it never gets a section
+     or a "+", and its books fall into the read-only area below. */
+  const groups = mailAccounts.filter(
+    (a) => a.kind === "group" && !isAdminGroupAccountName(a.name),
+  );
   const groupIds = new Set(groups.map((g) => g.accountId));
   const sharedOnlySubscribed = contacts.sharedBooks.filter(
     (b) =>
