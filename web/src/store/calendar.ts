@@ -412,6 +412,9 @@ interface CalendarState {
   ): Promise<void>;
   createCalendar(data: Partial<Calendar>): Promise<Id>;
   updateCalendar(id: Id, patch: Partial<Calendar>): Promise<void>;
+  /** Rename/colour a calendar that lives in a shared account (a group
+   *  mailbox): the write goes to that account, not the reader's own. */
+  updateSharedCalendar(accountId: Id, id: Id, patch: Partial<Calendar>): Promise<void>;
   destroyCalendar(id: Id): Promise<void>;
   toggleHidden(id: Id): void;
   availability(principalId: Id, start: Date, end: Date): Promise<BusyPeriod[]>;
@@ -1244,6 +1247,22 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     if (err) throw new Error(setErrorMessage(err));
     await get().loadCalendars();
     return res.created!.c!.id;
+  },
+
+  async updateSharedCalendar(accountId, id, patch) {
+    const res = await client.call<SetResponse>("Calendar/set", {
+      accountId,
+      update: { [id]: patch },
+    });
+    const err = res.notUpdated?.[id];
+    if (err) throw new Error(setErrorMessage(err));
+    await get().loadSharedCalendars();
+    // Its events are only fetched for calendars in view, so the windows on
+    // screen have to be asked again either way.
+    for (const key of Object.keys(get().ranges)) {
+      const [from, to] = key.split("|").map((n) => new Date(Number(n)));
+      if (from && to) void get().loadSharedRange(from, to);
+    }
   },
 
   async updateCalendar(id, patch) {

@@ -140,7 +140,10 @@ export function CalendarSidebar() {
     (c) => !isAdded(c) && !isTasklist(c.calendar),
   );
   const [menuCal, setMenuCal] = useState<Calendar | null>(null);
+  /** The account the menu's calendar lives in; own when null/equal to own. */
+  const [menuAccountId, setMenuAccountId] = useState<Id | null>(null);
   const [editCal, setEditCal] = useState<Partial<Calendar> | null>(null);
+  const [editAccountId, setEditAccountId] = useState<Id | null>(null);
   const [share, setShare] = useState<Calendar | null>(null);
   const instances = cal.instancesIn(grid[0]!, new Date(grid[41]!.getTime() + 86400000));
   const dow = useMemo(
@@ -284,6 +287,7 @@ export function CalendarSidebar() {
           onContextMenu={(e) => {
             e.preventDefault();
             setMenuCal(c);
+            setMenuAccountId(cal.accountId);
             menu.openAt(e.clientX, e.clientY);
           }}
         >
@@ -304,6 +308,7 @@ export function CalendarSidebar() {
             onClick={(e) => {
               e.stopPropagation();
               setMenuCal(c);
+              setMenuAccountId(cal.accountId);
               menu.open(e);
             }}
             aria-label={t("Calendar options")}
@@ -350,6 +355,19 @@ export function CalendarSidebar() {
                 >
                   <X size={14} />
                 </button>
+                <button
+                  className="icon-btn xs nav-more"
+                  aria-label={t("Calendar options")}
+                  title={c.name}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuCal(c);
+                    setMenuAccountId(accountId);
+                    menu.open(e);
+                  }}
+                >
+                  <MoreVertical size={14} />
+                </button>
               </div>
             );
           })}
@@ -391,104 +409,121 @@ export function CalendarSidebar() {
       )}
 
       <Popover anchor={menu.anchor} onClose={menu.close} width={220}>
-        {menuCal && (
-          <>
-            <MenuItem
-              icon={cal.hidden[menuCal.id] ? <Eye size={16} /> : <EyeOff size={16} />}
-              label={cal.hidden[menuCal.id] ? "Show" : "Hide"}
-              onClick={() => cal.toggleHidden(menuCal.id)}
-            />
-            <MenuItem
-              icon={<Pencil size={16} />}
-              label={t("Edit")}
-              onClick={() => setEditCal(menuCal)}
-            />
-            <MenuItem
-              icon={<Upload size={16} />}
-              label={t("Import iCAL file…")}
-              disabled={!menuCal.myRights.mayWriteAll && !menuCal.myRights.mayWriteOwn}
-              onClick={() => {
-                importInto.current = menuCal.id;
-                fileRef.current?.click();
-              }}
-            />
-            {/* No rights test: exporting is reading, and a calendar you cannot
-                read is not in this list to begin with. */}
-            <MenuItem
-              icon={<Download size={16} />}
-              label={t("Export iCAL file")}
-              onClick={() => void exportFile(menuCal)}
-            />
-            <MenuItem
-              icon={<Share2 size={16} />}
-              label={t("Share…")}
-              onClick={() => setShare(menuCal)}
-              disabled={!menuCal.myRights.mayShare}
-            />
-            {/* Revoking every share at once, without walking the dialog and
+        {menuCal &&
+          (() => {
+            const shared = menuAccountId !== null && menuAccountId !== cal.accountId;
+            const hidKey = shared ? `${menuAccountId}:${menuCal.id}` : menuCal.id;
+            const hidden = Boolean(cal.hidden[hidKey]);
+            return (
+              <>
+                <MenuItem
+                  icon={hidden ? <Eye size={16} /> : <EyeOff size={16} />}
+                  label={hidden ? "Show" : "Hide"}
+                  onClick={() => cal.toggleHidden(hidKey)}
+                />
+                <MenuItem
+                  icon={<Pencil size={16} />}
+                  label={t("Edit")}
+                  disabled={shared && !menuCal.myRights.mayWriteAll}
+                  onClick={() => {
+                    setEditCal(menuCal);
+                    setEditAccountId(menuAccountId);
+                  }}
+                />
+                <MenuItem
+                  icon={<Upload size={16} />}
+                  label={t("Import iCAL file…")}
+                  disabled={
+                    shared ||
+                    (!menuCal.myRights.mayWriteAll && !menuCal.myRights.mayWriteOwn)
+                  }
+                  onClick={() => {
+                    importInto.current = menuCal.id;
+                    fileRef.current?.click();
+                  }}
+                />
+                {/* No rights test: exporting is reading, and a calendar you cannot
+                read is not in this list to begin with. Shared exports would
+                need the owning account to read from, so they stay disabled. */}
+                <MenuItem
+                  icon={<Download size={16} />}
+                  label={t("Export iCAL file")}
+                  disabled={shared}
+                  onClick={() => void exportFile(menuCal)}
+                />
+                <MenuItem
+                  icon={<Share2 size={16} />}
+                  label={t("Share…")}
+                  disabled={shared || !menuCal.myRights.mayShare}
+                  onClick={() => setShare(menuCal)}
+                />
+                {/* Revoking every share at once, without walking the dialog and
                 removing people one at a time. Only offered when there is
                 something to revoke. */}
-            {Object.keys(menuCal.shareWith ?? {}).length > 0 && (
-              <MenuItem
-                icon={<UserMinus size={16} />}
-                label={t("Stop sharing")}
-                disabled={!menuCal.myRights.mayShare}
-                onClick={async () => {
-                  const who = Object.keys(menuCal.shareWith ?? {}).length;
-                  if (
-                    !(await confirmDialog({
-                      title: t("Stop sharing “{name}”?", { name: menuCal.name }),
-                      message: plural(who, {
-                        one: "{n} person will lose access. Events in it are not affected.",
-                        other:
-                          "{n} people will lose access. Events in it are not affected.",
-                      }),
-                      confirmLabel: t("Stop sharing"),
-                      danger: true,
-                    }))
-                  )
-                    return;
-                  try {
-                    await cal.updateCalendar(menuCal.id, { shareWith: null });
-                    toast.success(t("No longer shared"));
-                  } catch (err) {
-                    toast.error((err as Error).message);
+                {!shared && Object.keys(menuCal.shareWith ?? {}).length > 0 && (
+                  <MenuItem
+                    icon={<UserMinus size={16} />}
+                    label={t("Stop sharing")}
+                    disabled={!menuCal.myRights.mayShare}
+                    onClick={async () => {
+                      const who = Object.keys(menuCal.shareWith ?? {}).length;
+                      if (
+                        !(await confirmDialog({
+                          title: t("Stop sharing “{name}”?", { name: menuCal.name }),
+                          message: plural(who, {
+                            one: "{n} person will lose access. Events in it are not affected.",
+                            other:
+                              "{n} people will lose access. Events in it are not affected.",
+                          }),
+                          confirmLabel: t("Stop sharing"),
+                          danger: true,
+                        }))
+                      )
+                        return;
+                      try {
+                        await cal.updateCalendar(menuCal.id, { shareWith: null });
+                        toast.success(t("No longer shared"));
+                      } catch (err) {
+                        toast.error((err as Error).message);
+                      }
+                    }}
+                  />
+                )}
+                <MenuItem
+                  icon={<Star size={16} />}
+                  label={t("Make default")}
+                  disabled={shared || menuCal.isDefault}
+                  onClick={() =>
+                    void cal
+                      .updateCalendar(menuCal.id, {
+                        isDefault: true,
+                      } as Partial<Calendar>)
+                      .catch((err) => toast.error((err as Error).message))
                   }
-                }}
-              />
-            )}
-            <MenuItem
-              icon={<Star size={16} />}
-              label={t("Make default")}
-              disabled={menuCal.isDefault}
-              onClick={() =>
-                void cal
-                  .updateCalendar(menuCal.id, { isDefault: true } as Partial<Calendar>)
-                  .catch((err) => toast.error((err as Error).message))
-              }
-            />
-            <MenuSep />
-            <MenuItem
-              danger
-              icon={<Trash2 size={16} />}
-              label={t("Delete")}
-              disabled={!menuCal.myRights.mayDelete}
-              onClick={async () => {
-                if (
-                  await confirmDialog({
-                    title: t("Delete “{name}”?", { name: menuCal.name }),
-                    message: t("All events in this calendar will be deleted."),
-                    confirmLabel: t("Delete"),
-                    danger: true,
-                  })
-                )
-                  void cal
-                    .destroyCalendar(menuCal.id)
-                    .catch((err) => toast.error((err as Error).message));
-              }}
-            />
-          </>
-        )}
+                />
+                <MenuSep />
+                <MenuItem
+                  danger
+                  icon={<Trash2 size={16} />}
+                  label={t("Delete")}
+                  disabled={shared || !menuCal.myRights.mayDelete}
+                  onClick={async () => {
+                    if (
+                      await confirmDialog({
+                        title: t("Delete “{name}”?", { name: menuCal.name }),
+                        message: t("All events in this calendar will be deleted."),
+                        confirmLabel: t("Delete"),
+                        danger: true,
+                      })
+                    )
+                      void cal
+                        .destroyCalendar(menuCal.id)
+                        .catch((err) => toast.error((err as Error).message));
+                  }}
+                />
+              </>
+            );
+          })()}
       </Popover>
       {/* Cleared after every pick, so choosing the same file twice still counts
           as a change and fires again. */}
@@ -503,7 +538,16 @@ export function CalendarSidebar() {
           if (file) void importFile(file);
         }}
       />
-      {editCal && <CalendarDialog calendar={editCal} onClose={() => setEditCal(null)} />}
+      {editCal && (
+        <CalendarDialog
+          calendar={editCal}
+          accountId={editAccountId ?? undefined}
+          onClose={() => {
+            setEditCal(null);
+            setEditAccountId(null);
+          }}
+        />
+      )}
       {share && (
         <ShareDialog
           kind="Calendar"

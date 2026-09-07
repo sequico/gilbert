@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Calendar } from "@/jmap/types";
+import type { Calendar, Id } from "@/jmap/types";
 import { browserTimeZone, listTimeZones } from "@/lib/dates";
 import { t as translate } from "@/lib/i18n";
 import { useCalendar } from "@/store/calendar";
@@ -9,9 +9,12 @@ import { toast } from "@/ui/toast";
 
 export function CalendarDialog({
   calendar,
+  accountId,
   onClose,
 }: {
   calendar: Partial<Calendar>;
+  /** The account the calendar lives in; omitted for the reader's own. */
+  accountId?: Id;
   onClose: () => void;
 }) {
   const cal = useCalendar();
@@ -34,8 +37,11 @@ export function CalendarDialog({
         timeZone: tz || null,
         includeInAvailability: avail,
       };
-      if (calendar.id) await cal.updateCalendar(calendar.id, data);
-      else await cal.createCalendar(data);
+      if (calendar.id) {
+        if (accountId && accountId !== cal.accountId)
+          await cal.updateSharedCalendar(accountId, calendar.id, data);
+        else await cal.updateCalendar(calendar.id, data);
+      } else await cal.createCalendar(data);
       toast.success(translate("Calendar saved"));
       onClose();
     } catch (err) {
