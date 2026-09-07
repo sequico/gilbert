@@ -12,11 +12,14 @@ import {
   assertEnrolmentCode,
   beginOtpEnrolment,
   changePassword,
+  clearPasswordChangeDirective,
   createAppPassword,
   disableOtp,
   enableOtp,
   getState,
+  isPasswordChangeForced,
   revokeAppPassword,
+  setPasswordChangeDirective,
 } from "./account.js";
 import { resolveClientIp } from "./clientip.js";
 import { config } from "./config.js";
@@ -30,7 +33,12 @@ import {
   pushStatus,
 } from "./push.js";
 import { RateLimiter } from "./ratelimit.js";
-import { type LiveSession, type SessionBackend, SessionStore } from "./sessions.js";
+import {
+  impersonationAuthorization,
+  type LiveSession,
+  type SessionBackend,
+  SessionStore,
+} from "./sessions.js";
 import { staticHandler } from "./static.js";
 import {
   type AccountInfo,
@@ -44,6 +52,7 @@ import {
   isAdminSession,
   localizeSession,
   UpstreamError,
+  type UpstreamSession,
   upstreamFor,
 } from "./upstream.js";
 
@@ -145,6 +154,84 @@ const apiRateLimited: MiddlewareHandler<Env> = async (c, next) => {
   }
   await next();
 };
+
+/* ------------------------------------------------------------------ */
+/* The forced-password-change directive (ADR 0005)                     */
+/* ------------------------------------------------------------------ */
+
+interface DirectiveCheck {
+  forced: boolean;
+  checkedAt: number;
+}
+
+/**
+ * Short-TTL in-memory cache of the directive's presence, keyed by username.
+ *
+ * The door judges every data request against this, so a user forced while
+ * already signed in is stopped at their next request without every request
+ * paying for a FileNode read of their own account. Admin set/clear and the
+ * clear-on-change delete the entry, so their effect is immediate; the TTL
+ * bounds how long a directive written behind the server's back (another
+ * instance, a direct JMAP write) takes to land.
+ */
+const directiveCache = new Map<string, DirectiveCheck>();
+const DIRECTIVE_CACHE_TTL_MS = 30_000;
+
+/**
+ * Whether this session's user is currently forced to change their password.
+ *
+ * App-password sessions are never forced (ADR 0005): the wall needs the
+ * current account password, and accounts with two-factor authentication on
+ * can only sign in with an app password.
+ */
+async function sessionForcedState(
+  session: LiveSession,
+  upstream?: UpstreamSession,
+): Promise<boolean> {
+  if (session.appPassword) return false;
+  const hit = directiveCache.get(session.username);
+  if (hit && Date.now() - hit.checkedAt < DIRECTIVE_CACHE_TTL_MS) return hit.forced;
+  let forced = false;
+  try {
+    const up =
+      upstream ??
+      (await getUpstreamSession(
+        session.id,
+        session.authorization,
+        upstreamFor(session.username),
+      ));
+    forced = await isPasswordChangeForced({
+      authorization: session.authorization,
+      session: up,
+      username: session.username,
+    });
+  } catch (err) {
+    // An unreadable directive reads as absent: refusing the data path on an
+    // upstream hiccup would be a new failure mode, and the proxied call
+    // itself fails with its own error when the upstream is genuinely down.
+    console.warn(
+      `[gilbert] could not check the forced-password-change directive for ${session.username}:`,
+      (err as Error).message,
+    );
+  }
+  directiveCache.set(session.username, { forced, checkedAt: Date.now() });
+  return forced;
+}
+
+/**
+ * Whether a mount-relative `/api` path is a data route the door covers.
+ *
+ * The list is ADR 0005's: the JMAP proxy, uploads, blobs, the image and
+ * calendar proxies, the push stream and every `/account/*` route except the
+ * password change itself (the wall's one way out). Auth, config, health and
+ * the admin endpoints stay open.
+ */
+function isDoorPath(rel: string): boolean {
+  if (rel === "/jmap" || rel === "/image" || rel === "/ics" || rel === "/events")
+    return true;
+  if (rel.startsWith("/upload/") || rel.startsWith("/blob/")) return true;
+  return rel.startsWith("/account/") && rel !== "/account/password";
+}
 
 const _HOP_BY_HOP = new Set([
   "connection",
@@ -283,6 +370,9 @@ const csrfGuard: MiddlewareHandler = async (c, next) => {
 };
 
 const requireSession: MiddlewareHandler<Env> = async (c, next) => {
+  // A middleware that ran before us (the forced-password-change door) may
+  // already have resolved the cookie; one resolve per request is enough.
+  if (c.get("session")) return next();
   const cookie = getCookie(c, config.cookieName);
   const session = sessions.resolve(cookie);
   if (!session) {
@@ -363,6 +453,44 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   const api = new Hono<Env>();
   api.use("*", csrfGuard);
   api.use("/account/*", accountBody);
+
+  /*
+   * The forced-password-change door (ADR 0005).
+   *
+   * Answers 403 { error: "password_change_required" } on the data routes
+   * while the session's user carries the directive in their own app folder.
+   * /auth/login, /auth/logout, /auth/session, /api/config, /api/health,
+   * /api/account/password and the admin endpoints stay open — the wall needs
+   * the session and the change endpoint to exist. The directive is judged per
+   * request against the short-TTL cache above, so a user forced while already
+   * signed in is stopped at their next request; admin set/clear and the
+   * clear-on-change invalidate the entry at once.
+   *
+   * Enforcement lives here, not in the client: a browser that never renders
+   * the wall still cannot reach a data byte through the proxy.
+   */
+  const forcedPasswordDoor: MiddlewareHandler<Env> = async (c, next) => {
+    const path = new URL(c.req.url).pathname;
+    const prefix = `${basePath}/api`;
+    const rel = path.startsWith(prefix) ? path.slice(prefix.length) || "/" : path;
+    if (!isDoorPath(rel)) return next();
+    const cookie = getCookie(c, config.cookieName);
+    const session = c.get("session") ?? sessions.resolve(cookie);
+    if (!session) return next(); // the route's own requireSession answers 401
+    c.set("session", session);
+    if (await sessionForcedState(session)) {
+      return c.json(
+        {
+          error: "password_change_required",
+          message:
+            "Your administrator requires you to change your password before you can continue.",
+        },
+        403,
+      );
+    }
+    await next();
+  };
+  api.use("*", forcedPasswordDoor);
 
   api.get("/health", (c) =>
     c.json({
@@ -491,6 +619,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         remember: Boolean(body.remember),
         userAgent: c.req.header("user-agent") ?? "",
         ip,
+        // Whether the presented secret was an app password decides whether the
+        // forced-password-change wall can ever apply to this session (ADR 0005).
+        appPassword: upstream.authType === "app-password",
       });
       setSessionCookie(c, cookie, session.remember);
       // Start the account's push subscription now, so it is usually verified
@@ -501,7 +632,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       return c.json(
         localizeSession(
           upstream,
-          sessionExtras(session, info, isAdminSession(upstream, session.username)),
+          sessionExtras(
+            session,
+            info,
+            isAdminSession(upstream, session.username),
+            // The session document was just fetched; hand it over instead of
+            // making the directive check fetch it again.
+            await sessionForcedState(session, upstream),
+          ),
         ),
       );
     } catch (err) {
@@ -558,7 +696,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       return c.json(
         localizeSession(
           upstream,
-          sessionExtras(session, info, isAdminSession(upstream, session.username)),
+          sessionExtras(
+            session,
+            info,
+            isAdminSession(upstream, session.username),
+            await sessionForcedState(session),
+          ),
         ),
       );
     } catch (err) {
@@ -679,6 +822,39 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     );
     forgetUpstreamSession(session.id);
     const revoked = sessions.destroyAllForUser(session.username, session.id);
+    // Was this user forced? The answer must be judged after the change, with
+    // the freshly resealed credential: the door cache may still hold the
+    // pre-force answer, and the old credential is dead the moment the change
+    // lands upstream. Password changes are rare, so a fresh read is cheap.
+    const fresh = sessions.resolve(getCookie(c, config.cookieName));
+    directiveCache.delete(session.username);
+    if (fresh && (await sessionForcedState(fresh))) {
+      // ADR 0005: a successful change clears the directive in the user's own
+      // folder. The user's own (freshly resealed) session is enough — no
+      // impersonation needed for the clear.
+      try {
+        const upstream = await getUpstreamSession(
+          fresh.id,
+          fresh.authorization,
+          upstreamFor(fresh.username),
+        );
+        await clearPasswordChangeDirective({
+          authorization: fresh.authorization,
+          session: upstream,
+          username: fresh.username,
+        });
+      } catch (err) {
+        // The password change itself succeeded; the clear is a convenience and
+        // must not turn success into failure.
+        console.warn(
+          "[gilbert] password changed but the directive could not be cleared:",
+          (err as Error).message,
+        );
+      }
+      // The read above cached "forced"; the file is gone now, so the door
+      // must not answer from that entry.
+      directiveCache.delete(session.username);
+    }
     return c.json({ ok: true, revokedSessions: revoked });
   });
 
@@ -776,7 +952,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
     let sessionKept = false;
     if (app) {
-      sessionKept = sessions.reseal(getCookie(c, config.cookieName), app.secret);
+      sessionKept = sessions.reseal(getCookie(c, config.cookieName), app.secret, true);
       if (sessionKept) forgetUpstreamSession(session.id);
     }
     // Other sessions still hold the bare password and will be refused.
@@ -800,8 +976,102 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
     // This session may be running on the app password minted when 2FA went on;
     // the plain password works again now, so put it back.
-    sessions.reseal(getCookie(c, config.cookieName), body.current);
+    sessions.reseal(getCookie(c, config.cookieName), body.current, false);
     forgetUpstreamSession(session.id);
+    return c.json({ ok: true });
+  });
+
+  // ---------- Administration (ADR 0001) ----------
+  /**
+   * Membership of the `gilbert-admin@…` group is re-checked per request, so
+   * a demotion lands on the very next privileged call of an open session.
+   */
+  const requireAdmin: MiddlewareHandler<Env> = async (c, next) => {
+    const session = c.get("session");
+    try {
+      const upstream = await getUpstreamSession(
+        session.id,
+        session.authorization,
+        upstreamFor(session.username),
+      );
+      if (!isAdminSession(upstream, session.username)) {
+        return c.json(
+          {
+            error: "forbidden",
+            message: "This needs membership of the gilbert-admin@… group.",
+          },
+          403,
+        );
+      }
+    } catch (err) {
+      return upstreamFailure(c, err);
+    }
+    await next();
+  };
+
+  /**
+   * Set or clear the forced-password-change directive for a user (ADR 0005).
+   *
+   * The write authenticates to Stalwart as the composite `{target}%{admin}`
+   * — impersonation with the administrator's own credentials rebuilt from
+   * their sealed session — and performs ordinary JMAP FileNode/blob
+   * operations on the target's own `gilbert` app folder, creating it when
+   * the target has no app folder yet. The impersonation right on the admin
+   * group is the grant; there is no second secret and no Management API.
+   */
+  api.post("/admin/force-password-change", requireSession, requireAdmin, async (c) => {
+    const admin = c.get("session");
+    const body = await readJson<{ target?: string; clear?: boolean }>(c);
+    if (!body) return c.json({ error: "bad_request" }, 400);
+    const target = (body.target ?? "").trim();
+    if (!target || target.length > 320) return c.json({ error: "bad_request" }, 400);
+    const targetAuth = impersonationAuthorization(admin, target);
+    if (!targetAuth) {
+      // An admin signed in with an app password cannot impersonate: Stalwart
+      // refuses app passwords for impersonation (authentication.rs, checked
+      // 2026-09-07; still to be re-verified against a live 0.16 server with a
+      // dated comment per repo convention). A 2FA account can only sign in
+      // with an app password, so administering accounts is not available to
+      // such sessions until that is re-examined.
+      return c.json(
+        {
+          error: "forbidden",
+          message:
+            "This admin session uses an app password, which Stalwart refuses for impersonation. Sign in with your password to administer accounts.",
+        },
+        403,
+      );
+    }
+    let upstream: UpstreamSession;
+    try {
+      upstream = await fetchUpstreamSession(targetAuth, upstreamFor(target));
+    } catch (err) {
+      if (err instanceof UpstreamError && err.status === 401) {
+        // The composite credential either does not resolve to an account or
+        // the impersonation right is missing.
+        return c.json(
+          {
+            error: "target_not_found",
+            message: "No such account, or it cannot be administered by you.",
+          },
+          404,
+        );
+      }
+      return accountFailure(c, err);
+    }
+    const ctx = {
+      authorization: targetAuth,
+      session: upstream,
+      username: target,
+    };
+    try {
+      if (body.clear === true) await clearPasswordChangeDirective(ctx);
+      else await setPasswordChangeDirective(ctx, admin.username);
+    } catch (err) {
+      return accountFailure(c, err);
+    }
+    // The door's cache must not answer from before the change.
+    directiveCache.delete(target);
     return c.json({ ok: true });
   });
 
@@ -1061,6 +1331,7 @@ function sessionExtras(
   session: LiveSession,
   info: AccountInfo = { locale: null, edition: null },
   isAdmin = false,
+  mustChangePassword = false,
 ) {
   return {
     gilbert: {
@@ -1073,6 +1344,12 @@ function sessionExtras(
       remember: session.remember,
       /** Membership of the `gilbert-admin@…` group: enables the admin surface. */
       isAdmin,
+      /**
+       * ADR 0005: the account must change its password before any data route
+       * will serve it. The wall is the middleware, not this flag — the flag
+       * only tells the client which screen to show.
+       */
+      mustChangePassword,
       /** Locale configured for the account in Stalwart's directory, if readable. */
       userLocale: info.locale,
       /** What the upstream server would tell us about itself. */

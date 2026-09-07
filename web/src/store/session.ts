@@ -24,6 +24,13 @@ interface SessionState {
   pushConnected: boolean;
   /** Finer than pushConnected: tells "reconnecting" from "not connected". */
   pushState: PushState;
+  /**
+   * ADR 0005: the server is refusing the data routes until this account's
+   * password changes. True when the session says so and when a request comes
+   * back 403 password_change_required; the app renders the forced-change
+   * wall instead of itself while it is set.
+   */
+  forcedPasswordChange: boolean;
   bootstrap(): Promise<void>;
   login(
     username: string,
@@ -47,6 +54,7 @@ export const useSession = create<SessionState>((set, get) => ({
   error: null,
   pushConnected: false,
   pushState: "disconnected",
+  forcedPasswordChange: false,
 
   async bootstrap() {
     /*
@@ -64,8 +72,20 @@ export const useSession = create<SessionState>((set, get) => ({
         applySession(s, set);
       } catch (err) {
         if (err instanceof ApiError && err.status === 401)
-          set({ status: "anonymous", session: null, accountId: null });
-        else set({ status: "anonymous", error: (err as Error).message });
+          set({
+            status: "anonymous",
+            session: null,
+            accountId: null,
+            forcedPasswordChange: false,
+          });
+        else
+          set({
+            status: "anonymous",
+            session: null,
+            accountId: null,
+            forcedPasswordChange: false,
+            error: (err as Error).message,
+          });
       } finally {
         bootstrapInFlight = null;
       }
@@ -112,7 +132,12 @@ export const useSession = create<SessionState>((set, get) => ({
     // problem next -- and the address book cached here is the same argument.
     clearSignedInData();
     client.session = null;
-    set({ status: "anonymous", session: null, accountId: null });
+    set({
+      status: "anonymous",
+      session: null,
+      accountId: null,
+      forcedPasswordChange: false,
+    });
   },
 
   async refresh() {
@@ -120,7 +145,9 @@ export const useSession = create<SessionState>((set, get) => ({
       const s = await apiFetch<JmapSession>("/api/auth/session?refresh=1");
       client.session = s;
       setServerLocale(s.gilbert?.userLocale);
-      set({ session: s });
+      // A refresh after the forced-change wall was lifted is what lets the app
+      // continue; a refresh while the wall stands keeps it up.
+      set({ session: s, forcedPasswordChange: s.gilbert?.mustChangePassword === true });
     } catch {
       /* ignore */
     }
@@ -156,7 +183,13 @@ function applySession(s: JmapSession, set: (p: Partial<SessionState>) => void) {
     startIdleLogout(() => void useSession.getState().logout());
   }
   const accountId = s.primaryAccounts[CAP.mail] ?? Object.keys(s.accounts)[0] ?? null;
-  set({ status: "authenticated", session: s, accountId, error: null });
+  set({
+    status: "authenticated",
+    session: s,
+    accountId,
+    error: null,
+    forcedPasswordChange: s.gilbert?.mustChangePassword === true,
+  });
 }
 
 client.onUnauthenticated(() => {
@@ -170,8 +203,27 @@ client.onUnauthenticated(() => {
   // already started typing into would throw the password away.
   void reloadIfServerRebuilt().then((reloading) => {
     if (!reloading)
-      useSession.setState({ status: "anonymous", session: null, accountId: null });
+      useSession.setState({
+        status: "anonymous",
+        session: null,
+        accountId: null,
+        forcedPasswordChange: false,
+      });
   });
+});
+
+/**
+ * The forced-password-change door stopped a request (ADR 0005).
+ *
+ * The session is still alive — this is a wall, not a sign-out — but every
+ * loop that would hit the data path has to stop, as on 401, or it would just
+ * collect 403s. The store flip unmounts the app and mounts the wall; a
+ * successful change refreshes the session and flips it back.
+ */
+client.onForcedPasswordChange(() => {
+  push.stop();
+  stopSettingsSync();
+  useSession.setState({ forcedPasswordChange: true });
 });
 
 push.onConnection((state) =>

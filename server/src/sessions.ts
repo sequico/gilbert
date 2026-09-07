@@ -17,6 +17,15 @@ export interface StoredSession {
   lastSeenAt: number;
   expiresAt: number;
   remember: boolean;
+  /**
+   * Whether the sealed credential is an app password rather than the account
+   * password. Recorded at sign-in (the upstream tells us, see the mock) and
+   * kept in step by the 2FA switch-over flows; the forced-password-change
+   * door (ADR 0005) exempts app-password sessions, because the wall needs
+   * the current password and 2FA accounts can only authenticate with an app
+   * password. Older persisted records predate the field and mean "password".
+   */
+  appPassword: boolean;
   userAgent: string;
   ip: string;
 }
@@ -27,6 +36,8 @@ export interface LiveSession {
   /** Basic Authorization header value for upstream calls. */
   authorization: string;
   remember: boolean;
+  /** True when the sealed credential is an app password; see StoredSession. */
+  appPassword: boolean;
   createdAt: number;
   lastSeenAt: number;
   expiresAt: number;
@@ -52,6 +63,8 @@ export interface CreateSessionParams {
   remember: boolean;
   userAgent: string;
   ip: string;
+  /** Set when the presented credential was an app password (ADR 0005). */
+  appPassword?: boolean;
 }
 
 /**
@@ -83,10 +96,40 @@ export interface SessionBackend {
   close(): Promise<void>;
   create(params: CreateSessionParams): { cookie: string; session: LiveSession };
   resolve(cookie: string | undefined): LiveSession | null;
-  reseal(cookie: string | undefined, password: string): boolean;
+  reseal(cookie: string | undefined, password: string, appPassword?: boolean): boolean;
   destroy(id: string): void;
   destroyAllForUser(username: string, exceptId?: string): number;
   listForUser(username: string): SessionSummary[];
+}
+
+/**
+ * Rebuild a session's Basic authorization as Stalwart 0.16's composite
+ * impersonation username `{target}%{admin}`: authenticate as the target
+ * using the administrator's own credential, which the seal holds.
+ *
+ * App passwords are refused for impersonation by Stalwart (its source,
+ * `authentication.rs`, checked 2026-09-07; re-verify against a live server
+ * with a dated comment per repo convention), so an app-password session gets
+ * null rather than an authorization that would fail upstream. Used only by
+ * the admin write path (ADR 0001 §3, ADR 0005 §2).
+ */
+export function impersonationAuthorization(
+  session: LiveSession,
+  target: string,
+): string | null {
+  if (session.appPassword) return null;
+  // The header was built from the decrypted `{username, password}`; decoding
+  // it back is how the admin path reaches the password without a new
+  // decryption surface.
+  const raw = session.authorization.startsWith("Basic ")
+    ? session.authorization.slice("Basic ".length)
+    : "";
+  const decoded = Buffer.from(raw, "base64").toString("utf8");
+  const sep = decoded.indexOf(":");
+  if (sep < 0) return null;
+  const password = decoded.slice(sep + 1);
+  const composite = `${target}%${session.username}`;
+  return `Basic ${Buffer.from(`${composite}:${password}`, "utf8").toString("base64")}`;
 }
 
 const COOKIE_SEP = ".";
@@ -191,6 +234,7 @@ export class SessionStore implements SessionBackend {
       lastSeenAt: now,
       expiresAt: now + ttl,
       remember: params.remember,
+      appPassword: params.appPassword ?? false,
       userAgent: params.userAgent.slice(0, 200),
       ip: params.ip,
     };
@@ -246,7 +290,7 @@ export class SessionStore implements SessionBackend {
    * longer accepts. Needs the cookie: the sealing key is derived from the
    * secret half of it, which the server never keeps.
    */
-  reseal(cookie: string | undefined, password: string): boolean {
+  reseal(cookie: string | undefined, password: string, appPassword?: boolean): boolean {
     if (!cookie) return false;
     const idx = cookie.indexOf(COOKIE_SEP);
     if (idx <= 0) return false;
@@ -260,6 +304,9 @@ export class SessionStore implements SessionBackend {
       JSON.stringify({ u: stored.username, p: password }),
       key,
     );
+    // 2FA switch-over changes the kind of credential the session holds; a
+    // plain password change keeps the kind it had.
+    if (appPassword !== undefined) stored.appPassword = appPassword;
     this.scheduleSave();
     return true;
   }
@@ -288,7 +335,13 @@ export class SessionStore implements SessionBackend {
     const out = [];
     for (const s of this.sessions.values()) {
       if (s.username !== username) continue;
-      const { secretHash: _h, salt: _s, sealedCredentials: _c, ...rest } = s;
+      const {
+        secretHash: _h,
+        salt: _s,
+        sealedCredentials: _c,
+        appPassword: _a,
+        ...rest
+      } = s;
       out.push(rest);
     }
     return out;
@@ -300,6 +353,7 @@ export class SessionStore implements SessionBackend {
       username,
       authorization: `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString("base64")}`,
       remember: s.remember,
+      appPassword: s.appPassword ?? false,
       createdAt: s.createdAt,
       lastSeenAt: s.lastSeenAt,
       expiresAt: s.expiresAt,

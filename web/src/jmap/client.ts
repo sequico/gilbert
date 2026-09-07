@@ -52,6 +52,13 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The server's answer when the forced-password-change door (ADR 0005) stops
+ * a data request: 403 with this error code. The client turns it into the
+ * full-screen forced-change view, like a 401 turns into the sign-in screen.
+ */
+export const PASSWORD_CHANGE_REQUIRED = "password_change_required";
+
 export interface ApiErrorBody {
   error?: string;
   message?: string;
@@ -108,6 +115,9 @@ export async function apiFetch<T = unknown>(
     } catch {
       /* ignore */
     }
+    if (res.status === 403 && body.error === PASSWORD_CHANGE_REQUIRED) {
+      client.handleForcedPasswordChange();
+    }
     throw new ApiError(
       res.status,
       body.error ?? body.type ?? "error",
@@ -124,6 +134,7 @@ export class JmapClient {
   private flushScheduled = false;
   private callCounter = 0;
   private unauthHandlers = new Set<() => void>();
+  private forcedHandlers = new Set<() => void>();
   private stateHandlers = new Set<(sessionState: string) => void>();
 
   get maxCallsInRequest(): number {
@@ -198,6 +209,16 @@ export class JmapClient {
     return () => this.unauthHandlers.delete(fn);
   }
 
+  /**
+   * Fired when the forced-password-change door stops a request (ADR 0005).
+   * The session is still valid — this is a wall, not a sign-out — but the app
+   * must stop its data loops and show the forced-change view.
+   */
+  onForcedPasswordChange(fn: () => void): () => void {
+    this.forcedHandlers.add(fn);
+    return () => this.forcedHandlers.delete(fn);
+  }
+
   onSessionState(fn: (s: string) => void): () => void {
     this.stateHandlers.add(fn);
     return () => this.stateHandlers.delete(fn);
@@ -205,6 +226,10 @@ export class JmapClient {
 
   handleUnauthenticated(): void {
     for (const fn of this.unauthHandlers) fn();
+  }
+
+  handleForcedPasswordChange(): void {
+    for (const fn of this.forcedHandlers) fn();
   }
 
   /**
@@ -383,6 +408,12 @@ export class JmapClient {
           reject(new ApiError(401, "unauthenticated"));
           return;
         }
+        if (
+          xhr.status === 403 &&
+          (xhr.response as ApiErrorBody)?.error === PASSWORD_CHANGE_REQUIRED
+        ) {
+          this.handleForcedPasswordChange();
+        }
         if (xhr.status >= 200 && xhr.status < 300 && xhr.response)
           resolve(xhr.response as UploadResponse);
         else
@@ -411,6 +442,7 @@ export class JmapClient {
       this.handleUnauthenticated();
       throw new ApiError(401, "unauthenticated");
     }
+    await this.forcedIfNeeded(res);
     if (!res.ok) throw new ApiError(res.status, "download_failed");
     return await res.text();
   }
@@ -427,8 +459,23 @@ export class JmapClient {
       this.handleUnauthenticated();
       throw new ApiError(401, "unauthenticated");
     }
+    await this.forcedIfNeeded(res);
     if (!res.ok) throw new ApiError(res.status, "download_failed");
     return await res.blob();
+  }
+
+  /**
+   * A blob download that the forced-password-change door stopped (403) must
+   * switch the app to the wall like any other data request.
+   */
+  private async forcedIfNeeded(res: Response): Promise<void> {
+    if (res.status !== 403) return;
+    try {
+      const body = (await res.json()) as ApiErrorBody;
+      if (body.error === PASSWORD_CHANGE_REQUIRED) this.handleForcedPasswordChange();
+    } catch {
+      /* not a JSON body: nothing to learn */
+    }
   }
 }
 

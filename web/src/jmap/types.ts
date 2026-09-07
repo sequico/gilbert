@@ -34,6 +34,12 @@ export interface JmapSession {
     remember: boolean;
     /** Membership of the `gilbert-admin@…` group: enables the admin surface. */
     isAdmin: boolean;
+    /**
+     * ADR 0005: the account must change its password before any data route
+     * will serve it. Enforcement is server-side; this only tells the client
+     * which screen to show.
+     */
+    mustChangePassword?: boolean;
     /** Locale configured for the account in Stalwart, if the server exposes it. */
     userLocale?: string | null;
     /** What the upstream server was willing to say about itself. */

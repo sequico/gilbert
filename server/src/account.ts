@@ -1,6 +1,11 @@
 import { config } from "./config.js";
 import { generateSecret, otpauthUrl, parseOtpauthUrl, verifyTotp } from "./totp.js";
-import { absoluteUpstream, UpstreamError, type UpstreamSession } from "./upstream.js";
+import {
+  absoluteUpstream,
+  expandTemplate,
+  UpstreamError,
+  type UpstreamSession,
+} from "./upstream.js";
 
 /**
  * Self-service credential management, over Stalwart's JMAP registry:
@@ -67,6 +72,7 @@ type Invocation = [string, Record<string, unknown>, string];
 async function jmap(
   ctx: Ctx,
   methodCalls: Invocation[],
+  using: string[] = [],
 ): Promise<{ methodResponses?: [string, unknown, string][] }> {
   const res = await fetch(absoluteUpstream(ctx.session.apiUrl, ctx.session.baseUrl), {
     method: "POST",
@@ -75,7 +81,10 @@ async function jmap(
       "content-type": "application/json",
       accept: "application/json",
     },
-    body: JSON.stringify({ using: [JMAP_CORE, STALWART_CAP], methodCalls }),
+    body: JSON.stringify({
+      using: [...new Set([JMAP_CORE, STALWART_CAP, ...using])],
+      methodCalls,
+    }),
     signal: AbortSignal.timeout(config.upstreamTimeout),
   });
   if (res.status === 401 || res.status === 403)
@@ -318,3 +327,330 @@ export async function disableOtp(
 }
 
 export { MASKED };
+
+/* ------------------------------------------------------------------ */
+/* The forced-password-change directive (ADR 0005)                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The hidden app folder and the directive file inside it.
+ *
+ * ADR 0005: the directive is a small file `must-change-password.json` inside
+ * the user's own `gilbert` app folder in their account Files — the same
+ * folder the client keeps `settings.json` in, and deliberately a separate
+ * file, because the client whole-file-replaces `settings.json` on save and a
+ * directive inside it would not survive the next settings write. Missing
+ * file = not forced.
+ *
+ * The name match is done here, client-style, because `FileNode/query` cannot
+ * filter by `name` — a filter the server does not know fails the whole query
+ * (checked on 0.16.19, 2026-08-27; see `web/src/lib/appFolder.ts`).
+ */
+export const APP_FOLDER_NAME = "gilbert";
+export const PASSWORD_CHANGE_DIRECTIVE = "must-change-password.json";
+
+const FILENODE_CAP = "urn:ietf:params:jmap:filenode";
+/** Properties needed to find a node by name and parent. */
+const FOLDER_PROPS = ["id", "name", "nodeType", "parentId"];
+const FILE_PROPS = ["id", "name", "parentId", "blobId", "type", "nodeType"];
+
+interface FileNodeLike {
+  id?: unknown;
+  name?: unknown;
+  parentId?: unknown;
+  blobId?: unknown;
+  nodeType?: unknown;
+  type?: unknown;
+}
+
+/**
+ * The account that owns this principal's Files.
+ *
+ * The client reads and writes its own state through `ownAccountFor(CAP.filenode)`
+ * (`web/src/lib/accountRouting.ts`): the primary filenode account when it is
+ * personal, else the first personal account advertising the capability. The
+ * server resolves the same way, so the directive lands exactly where the
+ * client's settings live.
+ */
+function filesAccountId(ctx: Ctx): string {
+  const prim = ctx.session.primaryAccounts?.[FILENODE_CAP];
+  if (prim) {
+    const account = ctx.session.accounts?.[prim] as { isPersonal?: unknown } | undefined;
+    if (account?.isPersonal !== false) return prim;
+  }
+  for (const [id, acc] of Object.entries(ctx.session.accounts ?? {})) {
+    const a = acc as {
+      isPersonal?: unknown;
+      accountCapabilities?: Record<string, unknown>;
+    };
+    if (a.isPersonal !== false && a.accountCapabilities?.[FILENODE_CAP]) return id;
+  }
+  return "";
+}
+
+async function jmapFile(
+  ctx: Ctx,
+  methodCalls: Invocation[],
+): Promise<{ methodResponses?: [string, unknown, string][] }> {
+  return jmap(ctx, methodCalls, [FILENODE_CAP]);
+}
+
+/** One level of the Files tree: the top level, or the children of a folder. */
+async function fileChildren(
+  ctx: Ctx,
+  accountId: string,
+  parentId: string | null,
+  properties: string[],
+): Promise<FileNodeLike[]> {
+  const filter = parentId ? { parentId } : { isTopLevel: true };
+  const res = await jmapFile(ctx, [
+    ["FileNode/query", { accountId, filter, limit: 1000 }, "q"],
+    [
+      "FileNode/get",
+      {
+        accountId,
+        "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
+        properties,
+      },
+      "g",
+    ],
+  ]);
+  const g = res.methodResponses?.find((r) => r[2] === "g");
+  if (!g || g[0] === "error") {
+    const err = (g?.[1] as { type?: string; description?: string } | undefined) ?? {};
+    throw new AccountError(
+      err.description ?? "The mail server could not read the account's files.",
+      err.type === "forbidden" ? 403 : 502,
+      err.type ?? "upstream",
+    );
+  }
+  const list = (g[1] as { list?: unknown }).list;
+  return Array.isArray(list) ? (list as FileNodeLike[]) : [];
+}
+
+/** Upload a JSON blob for this principal and return its id. */
+async function uploadJsonBlob(
+  ctx: Ctx,
+  accountId: string,
+  value: unknown,
+): Promise<string> {
+  const url = absoluteUpstream(
+    expandTemplate(ctx.session.uploadUrl, { accountId }),
+    ctx.session.baseUrl,
+  );
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      authorization: ctx.authorization,
+      "content-type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify(value),
+    signal: AbortSignal.timeout(config.upstreamTimeout),
+  });
+  if (res.status === 401 || res.status === 403)
+    throw new UpstreamError("Invalid credentials", 401);
+  if (!res.ok)
+    throw new UpstreamError(`Stalwart rejected the upload (${res.status})`, 502);
+  const body = (await res.json()) as { blobId?: unknown };
+  if (typeof body.blobId !== "string")
+    throw new AccountError(
+      "The mail server accepted the upload but returned no blob id.",
+      502,
+      "upstream",
+    );
+  return body.blobId;
+}
+
+/** Read a blob back as text over the principal's own download path. */
+async function downloadBlobText(
+  ctx: Ctx,
+  accountId: string,
+  blobId: string,
+  type: string,
+): Promise<string> {
+  const url = absoluteUpstream(
+    expandTemplate(ctx.session.downloadUrl, {
+      accountId,
+      blobId,
+      name: PASSWORD_CHANGE_DIRECTIVE,
+      type,
+    }),
+    ctx.session.baseUrl,
+  );
+  const res = await fetch(url, {
+    headers: { authorization: ctx.authorization },
+    signal: AbortSignal.timeout(config.upstreamTimeout),
+  });
+  if (res.status === 401 || res.status === 403)
+    throw new UpstreamError("Invalid credentials", 401);
+  if (!res.ok)
+    throw new UpstreamError(
+      `Stalwart refused the download (${res.status})`,
+      res.status === 404 ? 404 : 502,
+    );
+  return await res.text();
+}
+
+/**
+ * The app folder and the directive file inside it, when both exist.
+ * `folderId` is empty when the folder does not exist; `file` is null when
+ * the file does not.
+ */
+async function findDirective(
+  ctx: Ctx,
+  accountId: string,
+): Promise<{ folderId: string; file: FileNodeLike | null }> {
+  const top = await fileChildren(ctx, accountId, null, FOLDER_PROPS);
+  const folder = top.find(
+    (n) => n.parentId == null && n.nodeType === "directory" && n.name === APP_FOLDER_NAME,
+  );
+  if (!folder?.id) return { folderId: "", file: null };
+  const folderId = String(folder.id);
+  const files = await fileChildren(ctx, accountId, folderId, FILE_PROPS);
+  const file =
+    files.find(
+      (n) =>
+        n.nodeType === "file" &&
+        n.name === PASSWORD_CHANGE_DIRECTIVE &&
+        typeof n.blobId === "string",
+    ) ?? null;
+  return { folderId, file };
+}
+
+/**
+ * Whether the principal's own account carries a valid directive.
+ *
+ * Never throws: a missing folder, a missing file, an unreadable blob or a
+ * document that will not parse all mean "not forced". ADR 0001 says a
+ * corrupt directive document must not refuse boot or sign-in — the server
+ * logs loudly and treats it as absent until it is repaired through the
+ * surface.
+ */
+export async function isPasswordChangeForced(ctx: Ctx): Promise<boolean> {
+  try {
+    const accountId = filesAccountId(ctx);
+    if (!accountId) return false;
+    const { file } = await findDirective(ctx, accountId);
+    if (!file) return false;
+    let text: string;
+    try {
+      text = await downloadBlobText(
+        ctx,
+        accountId,
+        String(file.blobId),
+        typeof file.type === "string" && file.type ? file.type : "application/json",
+      );
+    } catch (err) {
+      // The node vanished between the listing and the download: not forced.
+      if (err instanceof UpstreamError && err.status === 404) return false;
+      throw err;
+    }
+    const parsed = JSON.parse(text) as { setAt?: unknown; setBy?: unknown };
+    if (typeof parsed.setAt === "string" && typeof parsed.setBy === "string") return true;
+    console.warn(
+      `[gilbert] ${PASSWORD_CHANGE_DIRECTIVE} in ${ctx.username}'s app folder is corrupt; treating it as absent (ADR 0005)`,
+    );
+    return false;
+  } catch (err) {
+    console.warn(
+      `[gilbert] could not read the forced-password-change directive for ${ctx.username}:`,
+      (err as Error).message,
+    );
+    return false;
+  }
+}
+
+/** The account's own `gilbert` app folder, creating it when missing. */
+async function ensureAppFolder(ctx: Ctx, accountId: string): Promise<string> {
+  const top = await fileChildren(ctx, accountId, null, FOLDER_PROPS);
+  const existing = top.find(
+    (n) => n.parentId == null && n.nodeType === "directory" && n.name === APP_FOLDER_NAME,
+  );
+  if (existing?.id) return String(existing.id);
+  const res = await jmapFile(ctx, [
+    [
+      "FileNode/set",
+      {
+        accountId,
+        create: { d: { parentId: null, name: APP_FOLDER_NAME, nodeType: "directory" } },
+      },
+      "s",
+    ],
+  ]);
+  const created = setResult(res, "created");
+  if (!created || typeof created.id !== "string")
+    throw new AccountError(
+      "The mail server created the app folder but returned no id.",
+      502,
+      "upstream",
+    );
+  return created.id;
+}
+
+/**
+ * Write (or refresh) the directive naming `setBy`, the administrator who
+ * set it. Creates the account's `gilbert` app folder when it does not exist
+ * yet, exactly as the client would when saving its own state.
+ */
+export async function setPasswordChangeDirective(ctx: Ctx, setBy: string): Promise<void> {
+  const accountId = filesAccountId(ctx);
+  if (!accountId)
+    throw new AccountError(
+      "This account has no Files account to hold the directive.",
+      502,
+      "upstream",
+    );
+  const folderId = await ensureAppFolder(ctx, accountId);
+  const blobId = await uploadJsonBlob(ctx, accountId, {
+    setAt: new Date().toISOString(),
+    setBy,
+  });
+  const { file } = await findDirective(ctx, accountId);
+  const type = "application/json";
+  if (file?.id) {
+    const res = await jmapFile(ctx, [
+      [
+        "FileNode/set",
+        { accountId, update: { [String(file.id)]: { blobId, type } } },
+        "s",
+      ],
+    ]);
+    setResult(res, "updated");
+  } else {
+    const res = await jmapFile(ctx, [
+      [
+        "FileNode/set",
+        {
+          accountId,
+          create: {
+            n: {
+              parentId: folderId,
+              name: PASSWORD_CHANGE_DIRECTIVE,
+              blobId,
+              type,
+              nodeType: "file",
+            },
+          },
+        },
+        "s",
+      ],
+    ]);
+    setResult(res, "created");
+  }
+}
+
+/**
+ * Remove the directive file from the principal's own app folder. Nothing to
+ * do (and nothing done) when it is not there.
+ */
+export async function clearPasswordChangeDirective(ctx: Ctx): Promise<void> {
+  const accountId = filesAccountId(ctx);
+  if (!accountId) return;
+  const { folderId, file } = await findDirective(ctx, accountId);
+  if (!folderId || !file?.id) return;
+  const res = await jmapFile(ctx, [
+    ["FileNode/set", { accountId, destroy: [String(file.id)] }, "s"],
+  ]);
+  setResult(res, "destroyed");
+}

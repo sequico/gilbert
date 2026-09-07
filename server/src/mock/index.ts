@@ -46,6 +46,14 @@ const SHARED_ACCOUNT = "a2";
 const GROUP_ACCOUNT = "a3";
 /** The admin group mailbox (`gilbert-admin@…`, ADR 0001). */
 const ADMIN_ACCOUNT = "a4";
+/**
+ * A second principal the mock knows, so the impersonation paths (ADR 0005)
+ * have a target that is not the admin themselves. The mock has one data set
+ * per principal; the target's account starts empty, like a fresh account's.
+ */
+const TARGET_ACCOUNT = "b1";
+const TARGET_USER = process.env.MOCK_TARGET_USER ?? "bob@example.com";
+const TARGET_PASS = process.env.MOCK_TARGET_PASS ?? "bob-password";
 const SHARED_CAPS: Obj = {
   "urn:ietf:params:jmap:mail": {},
   "urn:ietf:params:jmap:submission": {},
@@ -80,10 +88,19 @@ const PASS = process.env.MOCK_PASS ?? "demo";
  * Credential state, mutable so the self-service flows can be exercised against
  * the mock the way they run against a real 0.16 server: the password changes,
  * 2FA starts demanding a code on every request, and app passwords keep working
- * without one.
+ * without one. This is the demo principal's state; the target principal has
+ * its own below. `principalState()` resolves whichever a request authenticated
+ * as, keeping the demo principal's object identical to this export so tests
+ * that read or write `account` keep working.
  */
 export const account = {
   password: PASS,
+  otpUrl: null as string | null,
+  appPasswords: [] as Obj[],
+};
+/** The target principal's credential state; see `account`. */
+export const targetAccount = {
+  password: TARGET_PASS,
   otpUrl: null as string | null,
   appPasswords: [] as Obj[],
 };
@@ -886,19 +903,26 @@ const groupIdentities: Obj[] = [
  * withdrawn there, and the sharee's session lists the sharer's whole account);
  * the mock says no so the two kinds stay apart, and the client's mailbox
  * probe lists only the accounts that answer with a tree.
+ *
+ * The target principal (ADR 0005) is a fresh account: it has its own Files
+ * (see `targetFileNodes`) and nothing else yet.
  */
 const mailboxesFor = (accountId: unknown): Obj[] =>
   accountId === GROUP_ACCOUNT
     ? groupMailboxes
-    : accountId === SHARED_ACCOUNT
+    : accountId === SHARED_ACCOUNT || accountId === TARGET_ACCOUNT
       ? []
       : mailboxes;
 const emailsFor = (accountId: unknown): Obj[] =>
-  accountId === GROUP_ACCOUNT ? groupEmails : accountId === SHARED_ACCOUNT ? [] : emails;
+  accountId === GROUP_ACCOUNT
+    ? groupEmails
+    : accountId === SHARED_ACCOUNT || accountId === TARGET_ACCOUNT
+      ? []
+      : emails;
 const identitiesFor = (accountId: unknown): Obj[] =>
   accountId === GROUP_ACCOUNT
     ? groupIdentities
-    : accountId === SHARED_ACCOUNT
+    : accountId === SHARED_ACCOUNT || accountId === TARGET_ACCOUNT
       ? []
       : identities;
 const groupCalendars: Obj[] = [
@@ -941,13 +965,17 @@ const eventsFor = (accountId: unknown): Obj[] =>
     ? sharedEvents
     : accountId === GROUP_ACCOUNT
       ? groupEvents
-      : events;
+      : accountId === TARGET_ACCOUNT
+        ? []
+        : events;
 const calendarsFor = (accountId: unknown): Obj[] =>
   accountId === SHARED_ACCOUNT
     ? sharedCalendars
     : accountId === GROUP_ACCOUNT
       ? groupCalendars
-      : calendars;
+      : accountId === TARGET_ACCOUNT
+        ? []
+        : calendars;
 const calendars: Obj[] = [
   {
     id: "c1",
@@ -1325,7 +1353,9 @@ const booksFor = (accountId: unknown): Obj[] =>
     ? sharedAddressBooks
     : accountId === GROUP_ACCOUNT
       ? groupAddressBooks
-      : addressBooks;
+      : accountId === TARGET_ACCOUNT
+        ? []
+        : addressBooks;
 /** One per contact, by index; a gap means that card has no birthday. */
 const BIRTHDAYS: Array<{ year?: number; month: number; day: number } | null> = [
   { year: 1815, month: 12, day: 10 },
@@ -1499,8 +1529,12 @@ const nodesFor = (accountId: unknown): Obj[] =>
     ? sharedFileNodes
     : accountId === GROUP_ACCOUNT
       ? groupFileNodes
-      : fileNodes;
+      : accountId === TARGET_ACCOUNT
+        ? targetFileNodes
+        : fileNodes;
 
+/** The node list the target principal (ADR 0005) owns: an empty account. */
+const targetFileNodes: Obj[] = [];
 function fr() {
   return {
     mayRead: true,
@@ -1644,7 +1678,7 @@ function applyPatch(obj: Obj, patch: Obj) {
 }
 
 /* ---------- method handlers ---------- */
-type Handler = (args: Obj) => Obj | [string, Obj][];
+type Handler = (args: Obj, who: Identity) => Obj | [string, Obj][];
 /** A method-level failure, surfaced as ["error", {type, description}, id]. */
 class MethodError extends Error {
   constructor(
@@ -2294,19 +2328,26 @@ const handlers: Record<string, Handler> = {
       notFound: ids.filter((id) => !list.some((t) => t.id === id)),
     };
   },
-  // Stalwart 0.16 registry objects backing self-service credentials.
-  "x:AccountPassword/get": () => ({
-    accountId: ACCOUNT,
-    state: String(state.n),
-    list: [
-      {
-        id: "singleton",
-        otpAuth: { otpUrl: account.otpUrl ? MASKED : null, otpCode: null },
-      },
-    ],
-    notFound: [],
-  }),
-  "x:AccountPassword/set": (a) => {
+  // Stalwart 0.16 registry objects backing self-service credentials. The
+  // object they read and write is the *authenticating principal's* — the mock
+  // knows two principals, and each has its own password, 2FA state and app
+  // passwords.
+  "x:AccountPassword/get": (_a, who) => {
+    const st = principalState(who.username);
+    return {
+      accountId: ACCOUNT,
+      state: String(state.n),
+      list: [
+        {
+          id: "singleton",
+          otpAuth: { otpUrl: st.otpUrl ? MASKED : null, otpCode: null },
+        },
+      ],
+      notFound: [],
+    };
+  },
+  "x:AccountPassword/set": (a, who) => {
+    const st = principalState(who.username);
     const patch = (a.update as Obj)?.singleton as Obj | undefined;
     if (!patch) return setResp({ updated: {} });
     const current = patch.currentSecret as string | undefined;
@@ -2323,14 +2364,14 @@ const handlers: Record<string, Handler> = {
         },
       });
     }
-    if (current !== account.password) {
+    if (current !== st.password) {
       return setResp({
         notUpdated: {
           singleton: { type: "forbidden", description: "Current secret is incorrect." },
         },
       });
     }
-    if (account.otpUrl && !code) {
+    if (st.otpUrl && !code) {
       return setResp({
         notUpdated: {
           singleton: {
@@ -2341,7 +2382,7 @@ const handlers: Record<string, Handler> = {
         },
       });
     }
-    if (account.otpUrl && !checkOtp(code!)) {
+    if (st.otpUrl && !checkOtpFor(st, code!)) {
       return setResp({
         notUpdated: {
           singleton: { type: "forbidden", description: "Current secret is incorrect." },
@@ -2361,11 +2402,11 @@ const handlers: Record<string, Handler> = {
           },
         });
       }
-      account.password = secret;
+      st.password = secret;
     }
     if ("otpAuth/otpUrl" in patch) {
       const url = patch["otpAuth/otpUrl"] as string | null;
-      if (url !== MASKED) account.otpUrl = url;
+      if (url !== MASKED) st.otpUrl = url;
     }
     state.n++;
     return setResp({ updated: { singleton: null } });
@@ -2511,8 +2552,10 @@ const handlers: Record<string, Handler> = {
     }
     return setResp({ created, notCreated, updated, notUpdated, destroyed });
   },
-  "x:AppPassword/get": (a) => genericGet(account.appPasswords)(a),
-  "x:AppPassword/set": (a) => {
+  "x:AppPassword/get": (a, who) =>
+    genericGet(principalState(who.username).appPasswords)(a),
+  "x:AppPassword/set": (a, who) => {
+    const st = principalState(who.username);
     const created: Obj = {};
     const destroyed: string[] = [];
     for (const [cid, obj] of Object.entries((a.create as Obj) ?? {})) {
@@ -2527,13 +2570,13 @@ const handlers: Record<string, Handler> = {
         expiresAt: null,
         secret,
       };
-      account.appPasswords.push(row);
+      st.appPasswords.push(row);
       created[cid] = { id, secret, createdAt: row.createdAt };
     }
     for (const id of (a.destroy as string[]) ?? []) {
-      const i = account.appPasswords.findIndex((x) => x.id === id);
+      const i = st.appPasswords.findIndex((x) => x.id === id);
       if (i >= 0) {
-        account.appPasswords.splice(i, 1);
+        st.appPasswords.splice(i, 1);
         destroyed.push(id);
       }
     }
@@ -3067,29 +3110,109 @@ function unauthorized(res: ServerResponse) {
   });
   res.end(JSON.stringify({ type: "about:blank", status: 401, title: "Unauthorized" }));
 }
-function checkOtp(code: string | undefined): boolean {
-  if (!account.otpUrl) return true;
-  const params = parseOtpauthUrl(account.otpUrl);
+
+interface Identity {
+  /** The principal the request acts as (the target under impersonation). */
+  username: string;
+  /** The principal's own (personal) account id. */
+  accountId: string;
+  /** Whether the presented secret was an app password of that principal. */
+  appPassword: boolean;
+}
+
+/** Per-principal credential state; the demo's is the exported `account`. */
+const principalState = (username: string) =>
+  username === TARGET_USER ? targetAccount : account;
+
+function checkOtpFor(state: typeof account, code: string | undefined): boolean {
+  if (!state.otpUrl) return true;
+  const params = parseOtpauthUrl(state.otpUrl);
   return Boolean(code && params && verifyTotp(params, code));
 }
 
-function checkAuth(req: IncomingMessage): boolean {
+/**
+ * Validate a principal's secret; returns the credential kind, or null.
+ * `refuseAppPassword` mirrors Stalwart refusing app passwords for
+ * impersonation. App passwords skip the second factor, which is exactly what
+ * lets a webmail session survive 2FA being switched on.
+ */
+function validCredential(
+  username: string,
+  secret: string,
+  refuseAppPassword: boolean,
+): "password" | "app-password" | null {
+  const state = principalState(username);
+  if (state.appPasswords.some((a) => a.secret === secret)) {
+    return refuseAppPassword ? null : "app-password";
+  }
+  if (!state.otpUrl) return secret === state.password ? "password" : null;
+  const at = secret.lastIndexOf("$");
+  if (at < 0) return null;
+  return secret.slice(0, at) === state.password &&
+    checkOtpFor(state, secret.slice(at + 1))
+    ? "password"
+    : null;
+}
+
+const knownPrincipal = (username: string) =>
+  username === USER || username === TARGET_USER;
+
+/**
+ * Authenticate the request and say who it acts as.
+ *
+ * Two shapes of username: a plain principal, and Stalwart 0.16's composite
+ * impersonation username `{target}%{master}`, which authenticates as the
+ * target using the *master's* credentials. The mock reproduces what the 0.16
+ * source does (checked 2026-09-07, stalwartlabs/stalwart `authentication.rs`,
+ * v0.16.21; re-verify against a live server with a dated comment per repo
+ * convention): the username splits at the first `%`; a master identical to
+ * the target is not impersonation; app passwords are refused for
+ * impersonation; and the master must hold the impersonation right, which
+ * here is membership of the admin group (the demo user is a member unless
+ * MOCK_NO_ADMIN_GROUP=1).
+ */
+function resolveIdentity(req: IncomingMessage): Identity | null {
   const h = req.headers.authorization ?? "";
-  if (!h.startsWith("Basic ")) return false;
+  if (!h.startsWith("Basic ")) return null;
   const raw = Buffer.from(h.slice(6), "base64").toString();
   const sep = raw.indexOf(":");
-  if (sep < 0) return false;
+  if (sep < 0) return null;
   const u = raw.slice(0, sep);
   const p = raw.slice(sep + 1);
-  if (u !== USER) return false;
-  // App passwords are recognised by shape and skip the second factor, which is
-  // exactly what lets a webmail session survive 2FA being switched on.
-  if (account.appPasswords.some((a) => a.secret === p)) return true;
-  if (!account.otpUrl) return p === account.password;
-  const at = p.lastIndexOf("$");
-  if (at < 0) return false;
-  return p.slice(0, at) === account.password && checkOtp(p.slice(at + 1));
+  const at = u.indexOf("%");
+  if (at >= 0) {
+    const target = u.slice(0, at);
+    const master = u.slice(at + 1);
+    if (target === master) {
+      // Stalwart drops a master identical to the target: a plain login.
+      return resolvePlain(target, p);
+    }
+    // The mock has one impersonator: the demo user, when an admin. A
+    // composite naming any other master (or target) fails like an unknown
+    // account; the impersonation right is the grant (ADR 0001).
+    if (master !== USER || !HAS_ADMIN_GROUP) return null;
+    if (!validCredential(master, p, true)) return null;
+    if (!knownPrincipal(target)) return null;
+    return {
+      username: target,
+      accountId: target === TARGET_USER ? TARGET_ACCOUNT : ACCOUNT,
+      appPassword: false,
+    };
+  }
+  return resolvePlain(u, p);
 }
+
+function resolvePlain(username: string, secret: string): Identity | null {
+  if (!knownPrincipal(username)) return null;
+  const kind = validCredential(username, secret, false);
+  if (!kind) return null;
+  return {
+    username,
+    accountId: username === TARGET_USER ? TARGET_ACCOUNT : ACCOUNT,
+    appPassword: kind === "app-password",
+  };
+}
+
 function readBody(req: IncomingMessage): Promise<Buffer> {
   return new Promise((resolve) => {
     const chunks: Buffer[] = [];
@@ -3098,103 +3221,129 @@ function readBody(req: IncomingMessage): Promise<Buffer> {
   });
 }
 
-const session = () => ({
-  capabilities: {
-    "urn:ietf:params:jmap:core": {
-      maxSizeUpload: 50000000,
-      maxConcurrentUpload: 4,
-      maxSizeRequest: 10000000,
-      maxConcurrentRequests: 4,
-      maxCallsInRequest: 16,
-      maxObjectsInGet: MAX_OBJECTS,
-      maxObjectsInSet: MAX_OBJECTS,
-      collationAlgorithms: ["i;ascii-casemap"],
-    },
-    "urn:ietf:params:jmap:mail": {},
-    "urn:ietf:params:jmap:submission": {},
-    "urn:ietf:params:jmap:vacationresponse": {},
-    "urn:ietf:params:jmap:webpush-vapid": {
-      applicationServerKey:
-        "BBvig2GPmqohMJJHMzp6bTKviHibYiVCyAY8gdq2fPhS-9YfO9_0TnhMyZ0a0JxTsbCqd3zm1rEiXsXsL3jveJY",
-    },
-    "urn:ietf:params:jmap:emailpush": {},
-    "urn:ietf:params:jmap:sieve": { implementation: "mock" },
-    "urn:ietf:params:jmap:calendars": {},
-    "urn:ietf:params:jmap:calendars:parse": {},
-    "urn:ietf:params:jmap:contacts": {},
-    "urn:ietf:params:jmap:contacts:parse": {},
-    "urn:ietf:params:jmap:principals": {},
-    "urn:ietf:params:jmap:principals:availability": {},
-    "urn:ietf:params:jmap:quota": {},
-    "urn:ietf:params:jmap:blob": {},
-    "urn:ietf:params:jmap:filenode": {},
+/** The session-level capabilities: identical for every principal. */
+const sessionCapabilities = {
+  "urn:ietf:params:jmap:core": {
+    maxSizeUpload: 50000000,
+    maxConcurrentUpload: 4,
+    maxSizeRequest: 10000000,
+    maxConcurrentRequests: 4,
+    maxCallsInRequest: 16,
+    maxObjectsInGet: MAX_OBJECTS,
+    maxObjectsInSet: MAX_OBJECTS,
+    collationAlgorithms: ["i;ascii-casemap"],
   },
-  /*
-   * Two accounts: the demo user's own, and one somebody has shared.
-   *
-   * The shared one carries the *same* capability list, because that is what
-   * Stalwart does -- checked on 0.16.19 (2026-08-27), where a shared account
-   * advertised mail, calendars, contacts and the rest, identical to a personal
-   * one, whatever had actually been shared. Giving the mock a truthful shared
-   * account is the only way to exercise the Files "Shared with me" list, and
-   * the only way this stays honest about what can be inferred from a
-   * capability, which is nothing.
-   */
+  "urn:ietf:params:jmap:mail": {},
+  "urn:ietf:params:jmap:submission": {},
+  "urn:ietf:params:jmap:vacationresponse": {},
+  "urn:ietf:params:jmap:webpush-vapid": {
+    applicationServerKey:
+      "BBvig2GPmqohMJJHMzp6bTKviHibYiVCyAY8gdq2fPhS-9YfO9_0TnhMyZ0a0JxTsbCqd3zm1rEiXsXsL3jveJY",
+  },
+  "urn:ietf:params:jmap:emailpush": {},
+  "urn:ietf:params:jmap:sieve": { implementation: "mock" },
+  "urn:ietf:params:jmap:calendars": {},
+  "urn:ietf:params:jmap:calendars:parse": {},
+  "urn:ietf:params:jmap:contacts": {},
+  "urn:ietf:params:jmap:contacts:parse": {},
+  "urn:ietf:params:jmap:principals": {},
+  "urn:ietf:params:jmap:principals:availability": {},
+  "urn:ietf:params:jmap:quota": {},
+  "urn:ietf:params:jmap:blob": {},
+  "urn:ietf:params:jmap:filenode": {},
+};
+
+/** The capabilities of a principal's own account. */
+const personalCapabilities = (): Obj => ({
+  "urn:ietf:params:jmap:mail": {},
+  "urn:ietf:params:jmap:submission": {
+    maxDelayedSend: MAX_DELAYED_SEND,
+    submissionExtensions: {
+      FUTURERELEASE: [],
+      SIZE: [],
+      DSN: [],
+      DELIVERYBY: [],
+      "MT-PRIORITY": ["MIXER"],
+      REQUIRETLS: [],
+    },
+  },
+  "urn:ietf:params:jmap:vacationresponse": {},
+  "urn:ietf:params:jmap:sieve": {},
+  "urn:ietf:params:jmap:calendars": {},
+  "urn:ietf:params:jmap:contacts": {},
+  "urn:ietf:params:jmap:principals": {},
+  "urn:ietf:params:jmap:quota": {},
+  "urn:ietf:params:jmap:filenode": {},
+  ...(NO_REGISTRY ? {} : { "urn:stalwart:jmap": {} }),
+});
+
+/**
+ * The JMAP session resource, per principal.
+ *
+ * The mock knows two principals: the demo user, whose session also lists the
+ * account somebody shared with them, the team group and — by default — the
+ * admin group, and the target principal of the impersonation flows (ADR
+ * 0005), whose session is a single fresh personal account.
+ *
+ * The shared account carries the *same* capability list as a personal one,
+ * because that is what Stalwart does -- checked on 0.16.19 (2026-08-27),
+ * where a shared account advertised mail, calendars, contacts and the rest,
+ * identical to a personal one, whatever had actually been shared. Giving the
+ * mock a truthful shared account is the only way to exercise the Files
+ * "Shared with me" list, and the only way this stays honest about what can
+ * be inferred from a capability, which is nothing.
+ *
+ * `authType` is the one thing this document carries that a real 0.16
+ * session resource does not: the proxy needs to know whether the session may
+ * be put behind the forced-password-change wall (ADR 0005), and Stalwart's
+ * session resource does not expose how the principal authenticated (checked
+ * 2026-09-07, stalwartlabs/stalwart `crates/jmap/src/api/session.rs`, v0.16.21;
+ * re-verify against a live server with a dated comment per repo convention).
+ * The mock reports it because it validates the secret itself; a real
+ * deployment cannot distinguish app-password sessions today, so they are
+ * treated as password sessions there.
+ */
+const sessionFor = (identity: Identity) => ({
+  capabilities: sessionCapabilities,
   accounts: {
-    [SHARED_ACCOUNT]: {
-      name: "grace@example.org",
-      isPersonal: false,
-      isReadOnly: false,
-      accountCapabilities: SHARED_CAPS,
-    },
-    [GROUP_ACCOUNT]: {
-      name: "team@example.org",
-      isPersonal: false,
-      isReadOnly: false,
-      accountCapabilities: SHARED_CAPS,
-    },
-    /*
-     * The admin group (`gilbert-admin@…`) is a group mailbox like any other;
-     * membership is what makes a principal an admin (ADR 0001). The demo user
-     * is a member by default, so the admin flag can be exercised in dev:mock
-     * without a real directory.
-     */
-    ...(HAS_ADMIN_GROUP
+    ...(identity.username === USER
       ? {
-          [ADMIN_ACCOUNT]: {
-            name: ADMIN_GROUP_NAME,
+          [SHARED_ACCOUNT]: {
+            name: "grace@example.org",
             isPersonal: false,
             isReadOnly: false,
             accountCapabilities: SHARED_CAPS,
           },
+          [GROUP_ACCOUNT]: {
+            name: "team@example.org",
+            isPersonal: false,
+            isReadOnly: false,
+            accountCapabilities: SHARED_CAPS,
+          },
+          /*
+           * The admin group (`gilbert-admin@…`) is a group mailbox like any
+           * other; membership is what makes a principal an admin (ADR 0001).
+           * The demo user is a member by default, so the admin flag can be
+           * exercised in dev:mock without a real directory. The target
+           * principal is never a member.
+           */
+          ...(HAS_ADMIN_GROUP
+            ? {
+                [ADMIN_ACCOUNT]: {
+                  name: ADMIN_GROUP_NAME,
+                  isPersonal: false,
+                  isReadOnly: false,
+                  accountCapabilities: SHARED_CAPS,
+                },
+              }
+            : {}),
         }
       : {}),
-    [ACCOUNT]: {
-      name: USER,
+    [identity.accountId]: {
+      name: identity.username,
       isPersonal: true,
       isReadOnly: false,
-      accountCapabilities: {
-        "urn:ietf:params:jmap:mail": {},
-        "urn:ietf:params:jmap:submission": {
-          maxDelayedSend: MAX_DELAYED_SEND,
-          submissionExtensions: {
-            FUTURERELEASE: [],
-            SIZE: [],
-            DSN: [],
-            DELIVERYBY: [],
-            "MT-PRIORITY": ["MIXER"],
-            REQUIRETLS: [],
-          },
-        },
-        "urn:ietf:params:jmap:vacationresponse": {},
-        "urn:ietf:params:jmap:sieve": {},
-        "urn:ietf:params:jmap:calendars": {},
-        "urn:ietf:params:jmap:contacts": {},
-        "urn:ietf:params:jmap:principals": {},
-        "urn:ietf:params:jmap:quota": {},
-        "urn:ietf:params:jmap:filenode": {},
-        ...(NO_REGISTRY ? {} : { "urn:stalwart:jmap": {} }),
-      },
+      accountCapabilities: personalCapabilities(),
     },
   },
   primaryAccounts: {
@@ -3210,16 +3359,17 @@ const session = () => ({
         "quota",
         "filenode",
         "blob",
-      ].map((c) => [`urn:ietf:params:jmap:${c}`, ACCOUNT]),
+      ].map((c) => [`urn:ietf:params:jmap:${c}`, identity.accountId]),
     ),
-    ...(NO_REGISTRY ? {} : { "urn:stalwart:jmap": ACCOUNT }),
+    ...(NO_REGISTRY ? {} : { "urn:stalwart:jmap": identity.accountId }),
   },
-  username: USER,
+  username: identity.username,
   apiUrl: `http://127.0.0.1:${PORT}/jmap/`,
   downloadUrl: `http://127.0.0.1:${PORT}/jmap/download/{accountId}/{blobId}/{name}?accept={type}`,
   uploadUrl: `http://127.0.0.1:${PORT}/jmap/upload/{accountId}/`,
   eventSourceUrl: `http://127.0.0.1:${PORT}/jmap/eventsource/?types={types}&closeafter={closeafter}&ping={ping}`,
   state: String(state.n),
+  ...(identity.appPassword ? { authType: "app-password" } : {}),
 });
 
 const sseClients = new Set<ServerResponse>();
@@ -3253,10 +3403,11 @@ function broadcast(types: string[], accountId: string = ACCOUNT) {
 /** Exported so tests can drive the mock in-process and shut it down. */
 export const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://127.0.0.1:${PORT}`);
-  if (!checkAuth(req)) return unauthorized(res);
+  const identity = resolveIdentity(req);
+  if (!identity) return unauthorized(res);
   if (url.pathname === "/.well-known/jmap" || url.pathname === "/jmap/session") {
     res.writeHead(200, { "content-type": "application/json" });
-    return res.end(JSON.stringify(session()));
+    return res.end(JSON.stringify(sessionFor(identity)));
   }
   // The account info endpoint; the only place a server reports its edition.
   if (url.pathname === "/api/account" && req.method === "GET") {
@@ -3281,8 +3432,8 @@ export const server = createServer(async (req, res) => {
     // `urn:stalwart:jmap` never appears in the session-level capabilities and
     // the registry calls that name it work all the same.
     const known = new Set([
-      ...Object.keys(session().capabilities),
-      ...Object.keys(session().accounts[ACCOUNT]?.accountCapabilities ?? {}),
+      ...Object.keys(sessionCapabilities),
+      ...Object.keys(personalCapabilities()),
     ]);
     const unknown = (body.using ?? []).find((u) => !known.has(u));
     if (unknown) {
@@ -3308,7 +3459,7 @@ export const server = createServer(async (req, res) => {
       try {
         const args = resolveRefs(rawArgs, responses, creations);
         enforceLimits(name, args);
-        const r = h(args);
+        const r = h(args, identity);
         responses.push([name, r as Obj, id]);
         for (const [cid, obj] of Object.entries(((r as Obj).created as Obj) ?? {})) {
           const newId = (obj as Obj)?.id;
