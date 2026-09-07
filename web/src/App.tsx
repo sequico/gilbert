@@ -5,7 +5,11 @@ import { push } from "@/jmap/push";
 import { BASE_PATH, withBase } from "@/lib/basePath";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { plural, t, useLanguageVersion, whenLanguageReady } from "@/lib/i18n";
-import { setUnreadBadge } from "@/lib/notify";
+import {
+  requestNotificationPermission,
+  setBaseTitle,
+  setUnreadBadge,
+} from "@/lib/notify";
 import { loadSettingsPolicy } from "@/lib/settingsPolicy";
 import {
   armSettingsSync,
@@ -313,16 +317,14 @@ function AuthedApp() {
   });
   const appName = useSession((s) => s.session?.gilbert?.appName) || DEFAULT_APP_NAME;
   useEffect(() => {
-    void import("@/lib/notify").then((m) => {
-      m.setBaseTitle(appName);
-      setUnreadBadge(inboxUnread);
-    });
+    setBaseTitle(appName);
+    setUnreadBadge(inboxUnread);
   }, [inboxUnread, appName]);
 
   // Request notification permission lazily when enabled
   const notif = useSettings((s) => s.settings.desktopNotifications);
   useEffect(() => {
-    if (notif) void import("@/lib/notify").then((m) => m.requestNotificationPermission());
+    if (notif) void requestNotificationPermission();
   }, [notif]);
 
   // Nothing worth painting until the account's settings are in force; see the

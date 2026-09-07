@@ -40,7 +40,7 @@ import { MailboxPicker } from "./mail/MailboxPicker";
 import { MailboxTree } from "./mail/MailboxTree";
 import { SearchBar } from "./SearchBar";
 import { ShortcutsDialog, useGlobalShortcuts } from "./Shortcuts";
-import { TaskSidebar } from "./tasks/TasksView";
+import { TaskSidebar } from "./tasks/TaskSidebar";
 
 const PUSH_LABEL = {
   connected: "Live updates connected",

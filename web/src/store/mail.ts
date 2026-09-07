@@ -28,11 +28,13 @@ import { plural, t } from "@/lib/i18n";
 import { isOptionalSort, withoutOptionalSorts } from "@/lib/listSort";
 import { type MailAccountInfo, mailAccountCandidates } from "@/lib/mailAccounts";
 import { mailboxDisplayName } from "@/lib/mailboxName";
+import { playNewMailSound, showNotification } from "@/lib/notify";
 import type { FolderRef } from "@/lib/sieveFolders";
 import { SPAM_HEADER_PROPS } from "@/lib/spamScore";
 import { toast } from "@/ui/toast";
 import { useSession } from "./session";
 import { settings, useSettings } from "./settings";
+import { useSieve } from "./sieve";
 
 /*
  * Named explicitly so `shareWith` comes back, which it does not otherwise --
@@ -1795,7 +1797,6 @@ async function notifyNewMail(created: Id[], get: () => MailState) {
     (e) => e.mailboxIds[inbox] && !e.keywords.$seen && !e.keywords.$draft,
   );
   if (!fresh.length) return;
-  const { showNotification, playNewMailSound } = await import("@/lib/notify");
   if (s.notificationSound) playNewMailSound();
   if (s.desktopNotifications) {
     for (const e of fresh.slice(0, 3)) {
@@ -1932,7 +1933,6 @@ function folderRefs(state: MailState, id: Id): FolderRef[] {
  */
 async function followFolders(before: FolderRef[]): Promise<void> {
   try {
-    const { useSieve } = await import("./sieve");
     const sieve = useSieve.getState();
     if (!sieve.available) return;
     if (!sieve.scripts.length) await sieve.load();
@@ -1957,7 +1957,6 @@ async function followFolders(before: FolderRef[]): Promise<void> {
       return;
 
     await useSieve.getState().saveRules(detached.rules);
-    const { toast } = await import("@/ui/toast");
     const plural = (n: number) => (n === 1 ? "" : "s");
     const said: string[] = [];
     if (retargeted.changed)
@@ -1972,7 +1971,6 @@ async function followFolders(before: FolderRef[]): Promise<void> {
       );
     toast.show(said.join(" · "), { duration: 8000 });
   } catch (err) {
-    const { toast } = await import("@/ui/toast");
     toast.error(
       t("Folder changed, but its filter rules could not be updated: {error}", {
         error: (err as Error).message,
