@@ -1,5 +1,6 @@
 import type { JSCalendarNDay, JSCalendarRecurrenceRule } from "@/jmap/types";
 import { plural, t } from "@/lib/i18n";
+import { zonedDay } from "./dates";
 import { formatList, weekdayName, weekdayNames } from "./datetime";
 
 /**
@@ -67,11 +68,18 @@ export function presetFor(rule: JSCalendarRecurrenceRule | undefined): Recurrenc
   return "custom";
 }
 
+/**
+ * `tz` is the zone the series will expand in (the event's own, null for an
+ * all-day event) — the rule's weekday and day-of-month are read off `start`
+ * as that zone's wall clock, since that is the calendar day the server repeats.
+ */
 export function ruleFromPreset(
   preset: RecurrencePreset,
   start: Date,
+  tz?: string | null,
 ): JSCalendarRecurrenceRule | undefined {
-  const dow = WEEKDAY_KEYS[(start.getDay() + 6) % 7]!;
+  const zoned = zonedDay(start, tz);
+  const dow = WEEKDAY_KEYS[(zoned.dow + 6) % 7]!;
   switch (preset) {
     case "daily":
       return { "@type": "RecurrenceRule", frequency: "daily" };
@@ -94,7 +102,7 @@ export function ruleFromPreset(
       return {
         "@type": "RecurrenceRule",
         frequency: "monthly",
-        byMonthDay: [start.getDate()],
+        byMonthDay: [zoned.day],
       };
     case "yearly":
       return { "@type": "RecurrenceRule", frequency: "yearly" };

@@ -24,6 +24,7 @@ import {
   parseDuration,
   toInputDateTime,
   toLocalDateOnly,
+  zonedDay,
   zonedToDate,
 } from "@/lib/dates";
 import {
@@ -31,6 +32,7 @@ import {
   formatNumericDate,
   formatWeekday,
   formatWeekdayDate,
+  weekdayName,
 } from "@/lib/datetime";
 import { plural, t as translate } from "@/lib/i18n";
 import {
@@ -96,6 +98,24 @@ const ALERT_OPTIONS = [0, 5, 10, 15, 30, 60, 120, 1440, 2880, 10080];
  */
 const calOptionKey = (accountId: string, calendarId: string): string =>
   JSON.stringify([accountId, calendarId]);
+
+/**
+ * The weekday and day-of-month a series will repeat from.
+ *
+ * The server expands RRULE in the event's own timezone, so the rule's
+ * weekday/day-of-month must be read off the start instant as that zone's wall
+ * clock — the browser's day of the same instant is a different day whenever
+ * the event's zone and the frame disagree. An all-day event carries no zone
+ * (`zone` null), so its date is the browser's, which is also the date the
+ * editor stores for it.
+ */
+function recurrenceStart(
+  start: Date,
+  zone: string | null,
+): { weekday: JSCalendarNDay["day"]; day: number } {
+  const zoned = zonedDay(start, zone);
+  return { weekday: WEEKDAY_KEYS[(zoned.dow + 6) % 7]!, day: zoned.day };
+}
 
 function parseCalOptionKey(
   key: string,
@@ -767,29 +787,40 @@ function EventForm({
               onChange={(e) => {
                 const p = e.target.value as RecurrencePreset;
                 setPreset(p);
+                /* RRULE is expanded in the event's own zone, so the weekday it
+                   starts on is the start instant's weekday there. */
+                const recZone = allDay ? null : tz;
                 if (p === "custom")
                   setRule(
                     rule ?? {
                       "@type": "RecurrenceRule",
                       frequency: "weekly",
                       byDay: [
-                        { "@type": "NDay", day: WEEKDAY_KEYS[(start.getDay() + 6) % 7]! },
+                        {
+                          "@type": "NDay",
+                          day: recurrenceStart(start, recZone).weekday,
+                        },
                       ],
                     },
                   );
-                else setRule(ruleFromPreset(p, start));
+                else setRule(ruleFromPreset(p, start, recZone));
               }}
             >
               <option value="none">{translate("Does not repeat")}</option>
               <option value="daily">{translate("Daily")}</option>
               <option value="weekly">
                 {translate("Weekly on {weekday}", {
-                  weekday: formatWeekday(start, "long"),
+                  weekday: weekdayName(
+                    recurrenceStart(start, allDay ? null : tz).weekday,
+                    "long",
+                  ),
                 })}
               </option>
               <option value="weekdays">{translate("Every weekday")}</option>
               <option value="monthly">
-                {translate("Monthly on day {day}", { day: start.getDate() })}
+                {translate("Monthly on day {day}", {
+                  day: recurrenceStart(start, allDay ? null : tz).day,
+                })}
               </option>
               <option value="yearly">{translate("Yearly")}</option>
               <option value="custom">{translate("Custom…")}</option>
@@ -823,7 +854,9 @@ function EventForm({
                     frequency: e.target.value as JSCalendarRecurrenceRule["frequency"],
                     byDay: e.target.value === "weekly" ? customRule.byDay : undefined,
                     byMonthDay:
-                      e.target.value === "monthly" ? [start.getDate()] : undefined,
+                      e.target.value === "monthly"
+                        ? [recurrenceStart(start, allDay ? null : tz).day]
+                        : undefined,
                   })
                 }
               >

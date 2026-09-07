@@ -267,7 +267,13 @@ interface ContactsState {
     accountId?: Id | null,
   ): Promise<Id>;
   /** Move a card between accounts (create in the target, destroy the original). */
-  moveCardTo(id: Id, fromAccountId: Id, toAccountId: Id, toBookId: Id): Promise<Id>;
+  moveCardTo(
+    id: Id,
+    fromAccountId: Id,
+    toAccountId: Id,
+    toBookId: Id,
+    edited?: Partial<ContactCard>,
+  ): Promise<Id>;
   updateCard(id: Id, patch: Record<string, unknown>): Promise<void>;
   /**
    * Delete cards outright, reporting what the server actually destroyed rather
@@ -621,8 +627,14 @@ export const useContacts = create<ContactsState>((set, get) => ({
    * book and the original destroyed where it was. Cards are per-account
    * objects, so a cross-account move is not a patch -- the id changes too,
    * which is why this returns the new id for the caller to navigate to.
+   *
+   * `edited` is the card as the caller holds it after its own edits (the
+   * editor's form object). The copy is built from that laid over the cached
+   * card, never from the cache alone: the editor saves a move in the same
+   * breath as its edits, and a copy made from what was cached would file the
+   * old name -- and drop a photo uploaded for the move -- into the new book.
    */
-  async moveCardTo(id, fromAccountId, toAccountId, toBookId) {
+  async moveCardTo(id, fromAccountId, toAccountId, toBookId, edited) {
     const own = get().accountId;
     if (!fromAccountId || !toAccountId)
       throw new Error("That address book is not available");
@@ -636,16 +648,26 @@ export const useContacts = create<ContactsState>((set, get) => ({
         ? get().cards[id]
         : get().sharedCards[sharedKey(fromAccountId, id)];
     if (!card) throw new Error("Could not find the contact to move");
-    const { id: _old, addressBookIds: _books, ...rest } = card;
+    const source = edited ? { ...card, ...edited } : card;
+    const { id: _old, addressBookIds: _books, ...rest } = source;
     const newId = await get().createCard(
       rest as Partial<ContactCard>,
       toBookId,
       toAccountId,
     );
-    await client.call<SetResponse>("ContactCard/set", {
+    const res = await client.call<SetResponse>("ContactCard/set", {
       accountId: fromAccountId,
       destroy: [id],
     });
+    /* A destroy can be refused while the call itself succeeds. The copy is
+       already in the target book by then, so a refusal must not take the
+       source off the list as well -- a successful create plus an ignored
+       refusal would duplicate the card on the server while hiding it locally. */
+    const err = res.notDestroyed?.[id];
+    if (err)
+      throw new Error(
+        "The contact was moved, but the copy in the old address book could not be deleted. Delete it by hand.",
+      );
     set((st) => {
       if (fromAccountId === own) {
         const cards = { ...st.cards };
@@ -1126,6 +1148,14 @@ useSession.subscribe((s) => {
     }
     useContacts.setState({ recent });
   } else {
+    /*
+     * The shared half goes with the sign-out for the same reason it is loaded
+     * with the account: a card id is only unique within its account, and the
+     * next reader on a shared machine must not briefly be offered the
+     * previous reader's shared contacts while their own load, or inherit
+     * their selection into the contact list. Calendar, tasks and files clear
+     * their shared state the same way.
+     */
     useContacts.setState({
       accountId: null,
       books: {},
@@ -1133,6 +1163,10 @@ useSession.subscribe((s) => {
       loaded: false,
       principals: [],
       principalsLoaded: false,
+      sharedBooks: [],
+      sharedCards: {},
+      sharedLoaded: false,
+      selection: { accountId: null, bookId: "all" },
     });
   }
 });

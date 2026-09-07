@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { chunk, client, setErrorMessage } from "@/jmap/client";
-import type { GetResponse, Id, SetResponse, TaskItem } from "@/jmap/types";
+import type { GetResponse, Id, QueryResponse, SetResponse, TaskItem } from "@/jmap/types";
 import { useCalendar } from "./calendar";
 import { useSession } from "./session";
 
@@ -167,18 +167,33 @@ export const useTasks = create<TaskState>((set, get) => ({
     for (const l of lists) {
       if (!l.accountId) continue;
       try {
-        const q = await client.call<{ ids: Id[] }>("CalendarEvent/query", {
-          accountId: l.accountId,
-          filter: { inCalendar: l.calendarId },
-          limit: 1000,
-        });
-        for (const part of chunk(q.ids, client.maxObjectsInGet)) {
-          const g = await client.call<GetResponse<TaskItem>>("CalendarEvent/get", {
+        /* One query page cannot hold a whole big list: `limit` stops at 1000
+           ids and the server answers the rest of the tasks to later pages,
+           so the query is paged on `position` the way the calendar and
+           contacts scans are. A list past the first thousand otherwise
+           silently lost its tail -- invisible in the view and impossible to
+           reorder by keyword. */
+        for (let position = 0; ; ) {
+          const q = await client.call<QueryResponse>("CalendarEvent/query", {
             accountId: l.accountId,
-            ids: part,
-            properties: TASK_PROPS,
+            filter: { inCalendar: l.calendarId },
+            position,
+            limit: 1000,
           });
-          for (const t of g.list) tasks[taskKey(l.accountId, t.id)] = t;
+          const ids = q.ids ?? [];
+          if (!ids.length) break;
+          for (const part of chunk(ids, client.maxObjectsInGet)) {
+            const g = await client.call<GetResponse<TaskItem>>("CalendarEvent/get", {
+              accountId: l.accountId,
+              ids: part,
+              properties: TASK_PROPS,
+            });
+            for (const t of g.list) tasks[taskKey(l.accountId, t.id)] = t;
+          }
+          position += ids.length;
+          // `total` is optional, so the empty page above is what actually ends
+          // this; the check only saves the round trip that would find it.
+          if (q.total != null && position >= q.total) break;
         }
       } catch {
         /* A list we cannot read stays listed but empty: hiding it would look

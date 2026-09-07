@@ -181,6 +181,36 @@ export function dateToZonedLocal(d: Date, tz: string | null | undefined): string
   return `${get("year")}-${get("month")}-${get("day")}T${String(Number(get("hour")) % 24).padStart(2, "0")}:${get("minute")}:${get("second")}`;
 }
 
+/**
+ * A date's calendar day as wall clock in `tz` — the shape `Date` getters
+ * answer in the browser frame, but for an instant rendered in another zone.
+ *
+ * `dow` is 0=Sunday through 6=Saturday, so a caller can branch on `tz == null`
+ * without one: that case is exactly `getDay()`/`getDate()`. Recurrence rules
+ * need this because the server expands RRULE in the event's own timezone — a
+ * weekly "repeat on this weekday" offered off the browser's day of the instant
+ * is a different weekday whenever the event's zone differs from the frame.
+ */
+export function zonedDay(
+  d: Date,
+  tz: string | null | undefined,
+): {
+  day: number;
+  dow: number;
+} {
+  if (!tz) return { day: d.getDate(), dow: d.getDay() };
+  const f = dtf(tz);
+  if (!f) return { day: d.getDate(), dow: d.getDay() };
+  const parts = f.formatToParts(d);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const y = get("year");
+  const day = get("day");
+  // The weekday of a calendar date is the weekday of that date at UTC
+  // midnight, whichever zone the wall clock was read in.
+  const dow = new Date(Date.UTC(y, get("month") - 1, day)).getUTCDay();
+  return { day, dow };
+}
+
 /** Parse ISO 8601 duration (e.g. "P1DT2H30M") into seconds. */
 export function parseDuration(dur: string | null | undefined): number {
   if (!dur) return 0;

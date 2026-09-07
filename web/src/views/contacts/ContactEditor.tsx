@@ -337,12 +337,16 @@ export function ContactEditor({
         } else {
           // A different account holds the target book: the card moves there
           // (create the copy in that account, destroy this one). The id
-          // changes, so navigate to the new card.
+          // changes, so navigate to the new card. The form's object goes
+          // along: the copy is the card as edited here, photo included -- a
+          // copy made from the cached card would silently lose every edit
+          // (the calendar move's own apply-then-re-file equivalent).
           const newId = await contacts.moveCardTo(
             card.id!,
             cardAccount,
             bookAccount,
             bookId,
+            obj as Partial<ContactCard>,
           );
           toast.success(t("Contact moved"));
           onSaved(newId);
