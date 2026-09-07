@@ -1,16 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/jmap/client";
 import { t } from "@/lib/i18n";
-import { DEFAULT_SETTINGS } from "@/store/settings";
-
-/**
- * Keys this build knows, minus the change-memory field: `appliedPolicyChanges`
- * is how an account remembers the `changes` it has had — it is bookkeeping,
- * not a preference an administrator sets.
- */
-const KEYS = Object.keys(DEFAULT_SETTINGS)
-  .filter((k) => k !== "appliedPolicyChanges")
-  .sort();
+import { SettingsKeyTable } from "@/views/admin/SettingsKeyTable";
 
 /**
  * The installation-wide policy editor (ADR 0001 §4, ADR 0004).
@@ -142,17 +133,7 @@ export function AdminPolicy() {
           {error}
         </div>
       )}
-      <details style={{ marginTop: 16 }}>
-        <summary>{t("Settings keys")}</summary>
-        <p className="hint">{t("The keys this build knows. Values are JSON.")}</p>
-        <p>
-          {KEYS.map((k) => (
-            <code key={k} style={{ marginRight: 8 }}>
-              {k}
-            </code>
-          ))}
-        </p>
-      </details>
+      <SettingsKeyTable />
     </div>
   );
 }
