@@ -18,18 +18,13 @@ export interface SanitizeResult {
 
 const REMOTE_URL_RE = /^(https?:)?\/\//i;
 const CSS_URL_RE = /url\(\s*(['"]?)([^'")]+)\1\s*\)/gi;
+const CSS_COMMENT_RE = /\/\*[\s\S]*?\*\//g;
+const IE_CSS_HOOK_RE = /expression\s*\(|behavior\s*:/i;
 
 let hooked = false;
 function ensureHooks() {
   if (hooked) return;
   hooked = true;
-  DOMPurify.addHook("uponSanitizeElement", (node, data) => {
-    // Strip <style> in dark-mode-unfriendly cases? No - keep styles, we scope them in a shadow root.
-    if (data.tagName === "style" && node.textContent) {
-      // Remove @import and remote url() references; they're handled later in processRemote().
-      node.textContent = node.textContent.replace(/@import[^;]+;?/gi, "");
-    }
-  });
   DOMPurify.addHook("afterSanitizeAttributes", (node) => {
     if (node.tagName === "A") {
       node.setAttribute("target", "_blank");
@@ -40,6 +35,105 @@ function ensureHooks() {
       if (node.hasAttribute(attr)) node.removeAttribute(attr);
     }
   });
+}
+
+/**
+ * Make CSS text look the way a CSS parser will see it, before the plain-text
+ * decisions below run on it.
+ *
+ * The drop/block/proxy and position-neutralising surgery in this file runs on
+ * raw text, and mail is welcome to disagree with the plain-text reading of it.
+ * A CSS parser resolves backslash escapes and discards comments before it
+ * tokenizes, so `u\72l(...)`, a `url(` split across a comment, and a
+ * `fixed` spelled `\66ixed` are to it `url(...)`, `url(...)` and
+ * `position:fixed`. Decoding the same way here means
+ * the surgery sees what the browser will see, and the decoded form is what is
+ * emitted -- a hostile escape sequence cannot hide a remote fetch, an @import
+ * or a `position:fixed` from it any more than it can hide them from the parser.
+ *
+ * Comments are stripped first, on the raw text: a CSS comment ends at the
+ * first literal star-slash and ignores escapes inside it, so that is also
+ * where the comment really ends. Escapes are then decoded -- a backslash
+ * before a hex code point (followed by one optional whitespace terminator)
+ * becomes that character, a backslash before a newline is a dropped line
+ * continuation, and any other backslash escapes the next character into
+ * itself.
+ */
+function decodeCss(css: string): string {
+  const noComments = css.replace(CSS_COMMENT_RE, "");
+  return noComments.replace(
+    /\\([0-9a-fA-F]{1,6}\s?|[\r\n]|.)/g,
+    (_whole, esc: string) => {
+      if (esc === "\r" || esc === "\n") return "";
+      const hex = /^[0-9a-fA-F]{1,6}/.exec(esc)?.[0];
+      if (hex == null) return esc;
+      const cp = parseInt(hex, 16);
+      // The spec maps NUL, out-of-range values and lone surrogates to U+FFFD;
+      // String.fromCodePoint would rather throw on the last of those.
+      if (cp === 0 || cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff)) return "\uFFFD";
+      return String.fromCodePoint(cp);
+    },
+  );
+}
+
+/**
+ * Decode numeric character references in an attribute value captured from raw
+ * HTML. The DOM hands the sanitizer element style attributes already
+ * entity-decoded; the `<body>` capture below reads the raw message instead, so
+ * it has to do the HTML half of the decoding itself before the CSS half, or an
+ * `&#117;rl(...)` would stay hidden from the url() surgery and then decode in
+ * the reader's browser.
+ */
+function decodeNumericEntities(s: string): string {
+  return s.replace(/&#(x[0-9a-fA-F]+|\d+);/g, (whole, ref: string) => {
+    const hex = ref[0]?.toLowerCase() === "x";
+    const cp = parseInt(hex ? ref.slice(1) : ref, hex ? 16 : 10);
+    if (!Number.isFinite(cp) || cp <= 0 || cp > 0x10ffff) return whole;
+    try {
+      return String.fromCodePoint(cp);
+    } catch {
+      return whole; // a lone surrogate: leave the reference alone
+    }
+  });
+}
+
+/**
+ * Drop every declaration or rule run that carries an expression() or
+ * behavior: hook, outright.
+ *
+ * Neither is something to rewrite away and keep: expression() and behavior:
+ * are IE-era hooks that no current engine runs, but a sanitizer that leaves
+ * them sitting in its output is one engine away from running them. A
+ * declaration is only meaningful whole, so the run from one `;` (or `}`) to
+ * the next is removed when it carries either hook. Runs inside quoted strings
+ * are walked past, so a `content:` that merely displays the words is not split
+ * on its semicolons -- it is still dropped if the words are in it, which is
+ * the point of a blacklist this blunt.
+ */
+function dropIeCssHooks(css: string): string {
+  let out = "";
+  let run = "";
+  let quote: string | null = null;
+  const flush = (terminator: string) => {
+    out += IE_CSS_HOOK_RE.test(run) ? "" : run + terminator;
+    run = "";
+  };
+  for (const ch of css) {
+    if (quote) {
+      run += ch;
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      run += ch;
+      quote = ch;
+      continue;
+    }
+    if (ch === ";" || ch === "}") flush(ch);
+    else run += ch;
+  }
+  flush("");
+  return out;
 }
 
 /**
@@ -80,8 +174,10 @@ export function sanitizeEmailHtml(
     const style =
       /style\s*=\s*"([^"]*)"/i.exec(attrs)?.[1] ??
       /style\s*=\s*'([^']*)'/i.exec(attrs)?.[1];
-    if (bg) bodyStyle += `background-color:${bg.trim()};`;
-    if (style) bodyStyle += style;
+    // This capture reads the raw message, so numeric character references have
+    // not been decoded for it the way the DOM decodes them for element styles.
+    if (bg) bodyStyle += `background-color:${decodeNumericEntities(bg.trim())};`;
+    if (style) bodyStyle += decodeNumericEntities(style);
   }
 
   const clean = DOMPurify.sanitize(input, {
@@ -201,18 +297,32 @@ export function sanitizeEmailHtml(
       const r = rewriteUrl(u);
       return r.keep ? `url(${q}${r.url}${q})` : "none";
     });
+  // One pipeline for every CSS surface the sanitizer touches: decode what a
+  // CSS parser would decode, drop the constructs that must not survive, then
+  // harden and rewrite on the decoded form.
+  const processCss = (raw: string): string => {
+    const decoded = decodeCss(raw);
+    const noImports = decoded.replace(/@import[^;]+;?/gi, "");
+    return hardenCss(rewriteCss(dropIeCssHooks(noImports)));
+  };
   clean.querySelectorAll<HTMLElement>("[style]").forEach((el) => {
     const s = el.getAttribute("style");
     if (!s) return;
-    const out = hardenCss(/url\(/i.test(s) ? rewriteCss(s) : s);
+    const out = processCss(s);
     if (out !== s) el.setAttribute("style", out);
   });
   clean.querySelectorAll("style").forEach((st) => {
     const css = st.textContent ?? "";
     if (!css) return;
-    st.textContent = hardenCss(rewriteCss(css.replace(/@import[^;]+;?/gi, "")));
+    const out = processCss(css);
+    // The decoded text is written back into a raw-text element, and that html
+    // is parsed again when it lands in the reader (MessageView sets it via
+    // innerHTML). A CSS escape that decoded to `</style` would otherwise end
+    // the element early on that second parse; escaping the `<` keeps the
+    // element intact and means the same character to the CSS parser.
+    st.textContent = out.replace(/<\/style/gi, "\\3c /style");
   });
-  if (bodyStyle && /url\(/i.test(bodyStyle)) bodyStyle = rewriteCss(bodyStyle);
+  if (bodyStyle) bodyStyle = processCss(bodyStyle);
 
   return { html: clean.innerHTML, remoteCount, bodyStyle };
 }

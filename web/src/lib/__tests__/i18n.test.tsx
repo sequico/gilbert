@@ -1,10 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type Catalog,
   CONTEXT_SEPARATOR,
   currentLanguage,
   interpolate,
+  loadLanguage,
   plural,
   setCatalog,
   subscribeForTest,
@@ -184,5 +185,70 @@ describe("tc", () => {
     setCatalog("de", { strings: { Drafts: "Entwürfe" }, plurals: {} });
     expect(tc("folder", "Drafts")).toBe("Entwürfe"); // no context entry yet
     expect(tc("folder", "Sent")).toBe("Sent"); // nothing at all
+  });
+});
+
+/**
+ * loadLanguage races two catalogue imports against each other whenever the
+ * language changes twice in quick succession. The locale modules below are
+ * replaced with promises the tests release by hand, so the order in which the
+ * imports resolve is under the test's control rather than the disk's.
+ */
+const { deGate, frGate, releaseDe, releaseFr } = vi.hoisted(() => {
+  let releaseDe!: (c: Catalog) => void;
+  let releaseFr!: (c: Catalog) => void;
+  return {
+    deGate: new Promise<Catalog>((resolve) => (releaseDe = resolve)),
+    frGate: new Promise<Catalog>((resolve) => (releaseFr = resolve)),
+    releaseDe,
+    releaseFr,
+  };
+});
+
+vi.mock("../../locales/de.ts", async () => ({ catalog: await deGate }));
+vi.mock("../../locales/fr.ts", async () => ({ catalog: await frGate }));
+vi.mock("../../locales/es.ts", () => {
+  throw new Error("simulated catalogue failure");
+});
+
+const frCatalog: Catalog = {
+  strings: { Archive: "Archiver" },
+  plurals: {},
+};
+
+describe("loadLanguage", () => {
+  it("applies a catalogue whose import is still in flight when asked", async () => {
+    const loading = loadLanguage("de");
+    releaseDe(de);
+    await loading;
+    expect(currentLanguage()).toBe("de");
+    expect(t("Archive")).toBe("Archivieren");
+  });
+
+  it("ignores an older catalogue that lands after a newer request", async () => {
+    // The older request (French) resolves last. Before the fix, the last
+    // import to resolve called setCatalog, so the stale French catalogue
+    // would win and the UI would keep the language nobody chose.
+    const stale = loadLanguage("fr");
+    const newer = loadLanguage("de");
+    releaseDe(de); // the newer request lands first
+    await newer;
+    expect(currentLanguage()).toBe("de");
+    releaseFr(frCatalog); // the stale one lands late and must be discarded
+    await stale;
+    expect(currentLanguage()).toBe("de");
+    expect(t("Archive")).toBe("Archivieren");
+  });
+
+  it("lets an older failure fall back without overriding a newer request", async () => {
+    const older = loadLanguage("es"); // fails fast and would fall back to en
+    const newer = loadLanguage("de");
+    await older;
+    // The stale failure must not have applied its English fallback while the
+    // German catalogue was still (or not yet) in force.
+    releaseDe(de);
+    await newer;
+    expect(currentLanguage()).toBe("de");
+    expect(t("Archive")).toBe("Archivieren");
   });
 });

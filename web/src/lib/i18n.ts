@@ -209,6 +209,18 @@ export function setCatalog(tag: string, catalog: Catalog): void {
  * Reported as a stale-folder toast that ignored the language setting.
  */
 let inFlight: Promise<void> = Promise.resolve();
+/**
+ * Monotonic id of the most recent loadLanguage call.
+ *
+ * Catalogue imports race: each call overwrites `inFlight`, and whoever
+ * resolves last used to win even when it was the loser of the race. Two
+ * requests where the second one loads faster than the first -- a cold cache
+ * for the newer language, a warm one for the older -- could land out of order,
+ * and a newer language choice would be overridden by the older catalogue (or
+ * by an older failure falling back to English). The id makes the last request
+ * the only one whose result is applied.
+ */
+let loadSeq = 0;
 
 /** Resolves once the chosen language is in force. English resolves at once. */
 export function whenLanguageReady(): Promise<void> {
@@ -216,24 +228,27 @@ export function whenLanguageReady(): Promise<void> {
 }
 
 export async function loadLanguage(tag: string): Promise<void> {
-  inFlight = loadLanguageNow(tag);
+  const id = ++loadSeq;
+  inFlight = loadLanguageNow(tag, id);
   return inFlight;
 }
 
-async function loadLanguageNow(tag: string): Promise<void> {
+async function loadLanguageNow(tag: string, id: number): Promise<void> {
   const resolved = resolveUiLanguage(tag);
   if (resolved === DEFAULT_UI_LANGUAGE) {
-    setCatalog(DEFAULT_UI_LANGUAGE, EMPTY);
+    if (id === loadSeq) setCatalog(DEFAULT_UI_LANGUAGE, EMPTY);
     return;
   }
   try {
     const mod = (await import(`../locales/${resolved}.ts`)) as { catalog: Catalog };
-    setCatalog(resolved, mod.catalog);
+    if (id === loadSeq) setCatalog(resolved, mod.catalog);
   } catch {
     // A catalogue that will not load leaves English in force rather than a
     // half-rendered page. `resolveUiLanguage` should already have prevented
-    // this; it being reachable at all is why it is caught.
-    setCatalog(DEFAULT_UI_LANGUAGE, EMPTY);
+    // this; it being reachable at all is why it is caught. Only the latest
+    // request may fall back -- an older failure must not override a newer
+    // language that is still (or already) loading.
+    if (id === loadSeq) setCatalog(DEFAULT_UI_LANGUAGE, EMPTY);
   }
 }
 
