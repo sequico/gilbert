@@ -114,6 +114,112 @@ describe("mail CSS cannot climb out of its card", () => {
   });
 });
 
+/**
+ * The surgery that counts, blocks, proxies and neutralises remote url()s,
+ * @imports and fixed/sticky positioning runs on plain text, but mail CSS can
+ * be written in the escapes and comments that a CSS parser resolves before it
+ * tokenizes. These pin that the two spellings of the same CSS are treated
+ * identically -- a real parser sees `u\72l(...)` and a `url(` split across a
+ * CSS comment as `url(...)`, and the sanitizer must make the same call.
+ */
+describe("CSS escapes and comments cannot hide remote content", () => {
+  it("counts, blocks and proxies an escaped url() in a style attribute like its plain spelling", () => {
+    const plain = `<p style="background-image:url(https://t.example/p.gif)">x</p>`;
+    const escaped = `<p style="background-image:u\\72l(https://t.example/p.gif)">x</p>`;
+    const comments = `<p style="background-image:u/**/rl(https://t.example/p.gif)">x</p>`;
+    for (const src of [plain, escaped, comments]) {
+      const blocked = sanitizeEmailHtml(src);
+      expect(blocked.remoteCount).toBe(1);
+      expect(blocked.html).not.toContain("https://t.example");
+      expect(blocked.html).not.toContain("url(");
+      const proxied = sanitizeEmailHtml(src, { allowRemote: true, proxyRemote: true });
+      expect(proxied.remoteCount).toBe(1);
+      expect(proxied.html).toContain("/api/image?url=https%3A%2F%2Ft.example%2Fp.gif");
+      const allowed = sanitizeEmailHtml(src, { allowRemote: true });
+      expect(allowed.html).toContain("url(https://t.example/p.gif)");
+    }
+  });
+
+  it("treats an escaped url() in a <style> block like its plain spelling", () => {
+    const plain = `<div><style>.x{background:url(https://t.example/p.gif)}</style><p>x</p></div>`;
+    const escaped = `<div><style>.x{background:u\\72l(https://t.example/p.gif)}</style><p>x</p></div>`;
+    for (const src of [plain, escaped]) {
+      const blocked = sanitizeEmailHtml(src);
+      expect(blocked.remoteCount).toBe(1);
+      expect(blocked.html).not.toContain("https://t.example");
+      expect(blocked.html).toContain("background:none");
+      const proxied = sanitizeEmailHtml(src, { allowRemote: true, proxyRemote: true });
+      expect(proxied.html).toContain("/api/image?url=https%3A%2F%2Ft.example%2Fp.gif");
+    }
+  });
+
+  it("drops an escaped or comment-split @import from a <style> block outright", () => {
+    const srcs = [
+      `<div><style>@import "https://evil.example/x.css";p{color:red}</style><p>x</p></div>`,
+      `<div><style>@\\69mport "https://evil.example/x.css";p{color:red}</style><p>x</p></div>`,
+      `<div><style>@/**/import "https://evil.example/x.css";p{color:red}</style><p>x</p></div>`,
+    ];
+    for (const src of srcs) {
+      // A stylesheet fetch cannot be proxied, so it is removed even when
+      // remote content is allowed -- and it must not count as a remote image.
+      const r = sanitizeEmailHtml(src, { allowRemote: true, proxyRemote: true });
+      expect(r.remoteCount).toBe(0);
+      expect(r.html).not.toContain("@import");
+      expect(r.html).not.toContain("evil.example");
+      expect(r.html).toContain("color:red");
+    }
+  });
+
+  it("neutralises escaped fixed/sticky positioning like its plain spelling", () => {
+    // `\78 ed` is the CSS spelling of an 'x' followed by a terminator space,
+    // so the declaration reads `position:fixed` to a parser; `\78ed` alone
+    // would be one 4-digit escape (U+78ED), which no parser reads as fixed.
+    const attr = `<p style="position:fi\\78 ed;inset:0">x</p>`;
+    const block = `<div><style>.x{position:fi\\78 ed;top:0}</style><p class="x">x</p></div>`;
+    for (const src of [attr, block]) {
+      const out = sanitizeEmailHtml(src).html;
+      expect(out).not.toMatch(/position\s*:\s*fixed/i);
+      expect(out).toContain("position:static");
+    }
+  });
+
+  it("drops expression() and behavior: hooks however they are written", () => {
+    const srcs = [
+      `<p style="width:expression(alert(1));color:red">x</p>`,
+      `<p style="width:exp\\72 ession(alert(1))">x</p>`,
+      `<p style="behavior:url(#default#time2);color:red">x</p>`,
+      `<div><style>.x{width:expression(alert(1));color:red}</style><p>x</p></div>`,
+    ];
+    for (const src of srcs) {
+      const out = sanitizeEmailHtml(src).html;
+      expect(out).not.toMatch(/expression\s*\(/i);
+      expect(out).not.toMatch(/behavior\s*:/i);
+    }
+  });
+});
+
+describe("the <body> style the sanitizer returns is hardened like any other CSS", () => {
+  it("neutralises position and rewrites url() per the remote-content option", () => {
+    const src = `<body style="position:fixed;background:url(https://t.example/p.gif)"><p>x</p></body>`;
+    const blocked = sanitizeEmailHtml(src);
+    expect(blocked.remoteCount).toBe(1);
+    expect(blocked.bodyStyle).not.toMatch(/position\s*:\s*fixed/i);
+    expect(blocked.bodyStyle).not.toContain("https://t.example");
+    expect(blocked.bodyStyle).toContain("position:static");
+    expect(blocked.bodyStyle).toContain("background:none");
+    const proxied = sanitizeEmailHtml(src, { allowRemote: true, proxyRemote: true });
+    expect(proxied.bodyStyle).toContain("position:static");
+    expect(proxied.bodyStyle).toContain("/api/image?url=https%3A%2F%2Ft.example%2Fp.gif");
+    // A body style with no url() at all must still have its position
+    // declaration neutralised (it used to bypass hardening entirely).
+    const plainFixed = sanitizeEmailHtml(
+      `<body style="position:fixed;top:0"><p>x</p></body>`,
+    );
+    expect(plainFixed.bodyStyle).not.toMatch(/position\s*:\s*fixed/i);
+    expect(plainFixed.bodyStyle).toContain("position:static");
+  });
+});
+
 describe("the containment that mail CSS cannot override", () => {
   it("is still applied to the message body container", async () => {
     // jsdom does no layout, so this asserts the control is present rather than
