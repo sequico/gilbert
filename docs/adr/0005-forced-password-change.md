@@ -45,8 +45,8 @@ Facts from the current machinery (verified 2026-09-07):
   `isAdminSession`). There are no server admin endpoints yet and no
   impersonation path in the mock.
 - The directive's home and its admin write path are the per-user surface of
-  ADR 0001 (§3: the impersonation write; §4: documents as separate files in
-  the target's hidden `gilbert` app folder) — the same mechanism the future
+  ADR 0001 (§3: the impersonation write; §5: per-user documents as separate
+  files in the target's hidden `gilbert` app folder) — the same mechanism the future
   per-user policy editor uses.
 - Any 401 makes the client return to sign-in
   (`web/src/jmap/client.ts` `handleUnauthenticated`); "kick" (ADR 0004)
@@ -188,7 +188,7 @@ or corrupt directive file behaves as the not-forced state.
   the forced view reuses
 - `web/src/lib/appFolder.ts` — the `gilbert` app folder in the account's Files
 - ADR 0001 — admin group, impersonation write path (§3), hidden app folder
-  as the home of per-user documents (§4), kick
+  as the home of per-user documents (§5), kick
 - ADR 0004 — kick (publish → destroy sessions → re-login)
 - stalwartlabs/stalwart (checked 2026-09-07) — no native force-change
   attribute; issue #3181 closed `not_planned`
