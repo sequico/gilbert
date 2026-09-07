@@ -232,7 +232,17 @@ function AuthedApp() {
   useEffect(() => {
     if (!accountId) return;
     const mail = useMail.getState();
-    void mail.loadMailboxes();
+    /*
+     * Renewal is chained onto this load on purpose: the registration's
+     * emailPush filter is built from the inbox id, which only exists once the
+     * mailbox tree has landed. A subscription made too early silently carries
+     * no filter, and Stalwart then pushes every unread message -- junk
+     * included -- for the whole life of the subscription.
+     */
+    void mail
+      .loadMailboxes()
+      .then(() => renewWebPush())
+      .catch(() => {});
     void mail.loadIdentities();
     void mail.loadQuota();
     // So a held message shows its banner wherever it is opened from, not just
@@ -247,15 +257,14 @@ function AuthedApp() {
     // back, and the code may have arrived while no tab was open.
     listenForVerification();
     /*
-     * And a subscription expires -- seven days is the ceiling JMAP puts on one,
+     * A push subscription expires -- seven days is the ceiling JMAP puts on one,
      * and re-registering before that is the client's job. Nothing did it, so
      * background notifications lapsed within a week of being switched on and
-     * only came back if somebody
-     * happened to toggle the switch. Opening the app is the only moment this
-     * can be done -- registering is a JMAP call, and the service worker has no
-     * session to make one with -- so it is done on every start.
+     * only came back if somebody happened to toggle the switch. Opening the app
+     * is the only moment this can be done -- registering is a JMAP call, and
+     * the service worker has no session to make one with -- so it is done on
+     * every start, chained onto the mailbox load above.
      */
-    void renewWebPush();
     const pending = new Map<string, Set<string>>();
     let timer: number | null = null;
     const queue = (acct: string, type: string) => {
@@ -334,10 +343,19 @@ function AuthedApp() {
     };
   }, [accountId]);
 
-  // Unread badge in title/favicon
+  // Unread badge in title/favicon. The reader's own inbox, not the active
+  // account's: browsing a group mailbox must not swap the badge for the
+  // group's unread count. Each account's tree in accountTrees is kept fresh
+  // by loadMailboxes (active) and refreshAccountTree (the others).
   const inboxUnread = useMail((s) => {
-    const id = s.roleId("inbox");
-    return id ? (s.mailboxes[id]?.unreadEmails ?? 0) : 0;
+    const ownId = s.ownAccountId;
+    const tree = ownId ? s.accountTrees[ownId] : null;
+    if (!tree) return 0;
+    for (const id in tree) {
+      const m = tree[id];
+      if (m?.role === "inbox") return m.unreadEmails ?? 0;
+    }
+    return 0;
   });
   const appName = useSession((s) => s.session?.gilbert?.appName) || DEFAULT_APP_NAME;
   useEffect(() => {

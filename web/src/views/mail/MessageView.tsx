@@ -45,7 +45,7 @@ import {
   sanitizeEmailHtml,
   TEXT_EMAIL_CSS,
 } from "@/lib/html";
-import { tNode, t as translate } from "@/lib/i18n";
+import { plural, tNode, t as translate } from "@/lib/i18n";
 import { mdnDecision, refusalText } from "@/lib/mdn";
 import { openableInTab, previewKind } from "@/lib/preview";
 import { remoteImagesAllowed } from "@/lib/remoteImages";
@@ -63,7 +63,7 @@ import { sendReadReceipt } from "@/store/mdn";
 import { useScheduled } from "@/store/scheduled";
 import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
-import { choiceDialog, Dialog } from "@/ui/dialog";
+import { choiceDialog, confirmDialog, Dialog } from "@/ui/dialog";
 import { FilePreviewDialog } from "@/ui/filepreview";
 import { Avatar } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
@@ -573,7 +573,40 @@ export const MessageView = memo(function MessageView({
         <MenuItem
           icon={<Trash2 size={16} />}
           label={translate("Delete this message")}
-          onClick={() => void useMail.getState().trash([e.id])}
+          onClick={() => {
+            const mail = useMail.getState();
+            const trashId = mail.roleId("trash");
+            const junkId = mail.roleId("junk");
+            /* The list toolbar confirms a permanent delete (the message is in
+               Deleted Items or Junk, where Trash destroys outright) and honours
+               the confirmDelete setting; this per-message menu used to skip
+               both, so one click from inside Deleted Items destroyed the
+               message forever with no question asked. Ask the same question
+               here, with the same words the toolbar uses. */
+            const permanent =
+              Boolean(trashId && e.mailboxIds[trashId]) ||
+              Boolean(junkId && e.mailboxIds[junkId]);
+            void (async () => {
+              if (permanent || settings.confirmDelete) {
+                const ok = await confirmDialog({
+                  title: permanent ? translate("Delete forever?") : translate("Delete?"),
+                  message: permanent
+                    ? plural(1, {
+                        one: "{n} message will be permanently deleted.",
+                        other: "{n} messages will be permanently deleted.",
+                      })
+                    : plural(1, {
+                        one: "Move {n} message to Trash?",
+                        other: "Move {n} messages to Trash?",
+                      }),
+                  confirmLabel: translate("Delete"),
+                  danger: permanent,
+                });
+                if (!ok) return;
+              }
+              await mail.trash([e.id]);
+            })();
+          }}
         />
         <MenuSep />
         <MenuItem
