@@ -17,6 +17,8 @@ class PushManager {
   /** Called when the connection comes back after a drop, never on the first connect. */
   private reconnectListeners = new Set<() => void>();
   private backoff = 1000;
+  /** Whether the current EventSource ever opened; see the error handler. */
+  private wasOpen = false;
   private reconnectTimer: number | null = null;
   private stopped = true;
   /** Whether this session has ever had a connection up (reset by stop()). */
@@ -79,13 +81,28 @@ class PushManager {
     for (const fn of this.connectionListeners) fn(v);
   }
 
+  /*
+   * The network is back (a wake from sleep, a tab made visible again, a
+   * network change): waiting out an accumulated backoff would make a healthy
+   * connection look dead, so the timer is dropped and the next attempt is
+   * immediate from the 1 s base.
+   */
+  private retryNow() {
+    if (this.stopped || this.es) return;
+    if (this.reconnectTimer) {
+      window.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.backoff = 1000;
+    this.connect();
+  }
+
   private onVisibility = () => {
-    if (document.visibilityState === "visible" && !this.es && !this.stopped)
-      this.connect();
+    if (document.visibilityState === "visible") this.retryNow();
   };
 
   private onOnline = () => {
-    if (!this.es && !this.stopped) this.connect();
+    this.retryNow();
   };
 
   private connect(): void {
@@ -95,6 +112,7 @@ class PushManager {
     const es = new EventSource(url, { withCredentials: true });
     this.es = es;
     es.onopen = () => {
+      this.wasOpen = true;
       this.backoff = 1000;
       this.setState("connected");
       if (!this.everConnected) {
@@ -125,12 +143,19 @@ class PushManager {
       /* keepalive */
     });
     es.onerror = () => {
+      // An error on a stream that had opened is most likely a server-side
+      // close (a deploy, a timeout): those are not the outage exponential
+      // backoff exists for, so the next attempt starts from the 1 s base.
+      // Failures while still trying to connect keep doubling, capped at 60 s.
+      const opened = this.wasOpen;
+      this.wasOpen = false;
       es.close();
       this.es = null;
       if (this.stopped) {
         this.setState("disconnected");
         return;
       }
+      if (opened) this.backoff = 1000;
       // A retry is already scheduled below, so this is "trying", not "given up".
       this.setState("connecting");
       const delay = Math.min(this.backoff, 60_000);
