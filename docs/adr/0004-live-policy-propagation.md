@@ -102,7 +102,7 @@ Facts from the current machinery:
   whoever can write the account. Security directives (ADR 0005) are the
   server-enforced exception.
 
-## Client entry point (v0 scaffold, 2026-09-07)
+## Client entry point
 
 While the surface is being built, the admin entry point already has a home:
 a **shield icon in the top-bar action cluster**, immediately left of the

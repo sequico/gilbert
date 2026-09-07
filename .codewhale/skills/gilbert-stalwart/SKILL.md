@@ -136,6 +136,40 @@ Where the integration lives:
   what a real server does; extend them (date + version) when you confirm
   something new rather than trusting memory.
 
+## FileNode state, changes and push (verified live 2026-09-07)
+
+FileNode is a first-class JMAP data type in Stalwart, not a second-class
+citizen, and its changes ride the same push rail as Email:
+
+- `DataType::FileNode` exists in the enum (value 18, serde name `"FileNode"`,
+  `crates/types/src/type_state.rs`, present at tag v0.16.19). Capability URN
+  is **`urn:ietf:params:jmap:filenode`** and must be in the request's
+  `using` — omitting it fails with `unknownMethod`.
+- `FileNode/set` returns `oldState`/`newState`; `FileNode/changes` works from
+  a `sinceState` (live: reports `created`, `hasMoreChanges: false`).
+  `FileNode/query` cannot filter by `name` (older quirk) and filters the
+  server does not know fail the whole request.
+- A `PushSubscription` accepts `types: ["FileNode"]` (no whitelist; parsed
+  from the DataType enum) and the webpush POST is filtered per subscription
+  by those types (`state_manager/push.rs: filter_types`). The event source
+  accepts `?types=FileNode` and delivers
+  `{"@type":"StateChange","changed":{<accountId>:{"FileNode": "<state>"}}}`.
+  Live probe on ops.greensley.eu (claimed 0.16.21, 2026-09-07): create two
+  nodes, `FileNode/changes` from the first state reported the second;
+  eventsource with `types=FileNode` streamed the StateChange. Source of truth
+  for details at tag v0.16.19 (`crates/jmap/src/push/set.rs`,
+  `crates/services/src/state_manager/push.rs`, `crates/jmap/src/api/event_source.rs`,
+  `tests/src/jmap/files/node.rs`).
+- Member sessions on a **group account** can create and destroy calendars and
+  address books in the group's own account (live, freight/`e` on
+  ops.greensley.eu, 2026-09-07) and can read the group account's Files
+  (`FileNode/query` answers). The **admin group account answers `FileNode/
+  query` with nothing** for members: its Files are admin-surface data, not
+  member-readable through JMAP.
+- Blobs uploaded but never referenced are not deletable through JMAP; the
+  server's GC reclaims them. `FileNode/set` returns no `blobId` on create —
+  ask with a follow-up get (`nodeBlobId`).
+
 ## Working rules
 
 1. Stalwart holds everything durable — before adding storage, decide which
