@@ -370,6 +370,90 @@ export async function getAccountInfo(
 }
 
 /**
+ * Enumerate the individual accounts on this server (ADR 0001 §5, the admin
+ * Users surface): Principal/query filtered to `type: "individual"`, then
+ * Principal/get for the names.
+ *
+ * Stalwart 0.16.21 supports the type filter (crates/jmap/src/principal/
+ * query.rs: PrincipalFilter::Type maps Individual to user accounts; checked
+ * on source 2026-09-07; re-verify against a live server with a dated
+ * comment per repo convention). Directory queries are gated server-side by
+ * `allow_directory_query` or the JmapPrincipalQuery permission; when the
+ * gate is closed the response carries an error method and this throws.
+ *
+ * Roles are deliberately not consulted: Stalwart exposes roles only through
+ * its own administration surfaces (Management API/webadmin), never over
+ * JMAP — so "is this account a Stalwart system admin" cannot be answered
+ * here. The server refuses to force an account whose session shows
+ * membership of the Gilbert admin group instead (see the endpoint).
+ */
+export async function fetchDirectoryUsers(
+  authorization: string,
+  session: UpstreamSession,
+): Promise<Array<{ id: string; name: string }>> {
+  const accountId =
+    session.primaryAccounts?.["urn:ietf:params:jmap:principals"] ??
+    Object.keys(session.accounts ?? {})[0];
+  if (!accountId) return [];
+  const post = async (
+    methodCalls: unknown[][],
+  ): Promise<[string, Record<string, unknown>][]> => {
+    const res = await fetch(absoluteUpstream(session.apiUrl), {
+      method: "POST",
+      headers: {
+        authorization,
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:principals"],
+        methodCalls,
+      }),
+      signal: AbortSignal.timeout(config.upstreamTimeout),
+    });
+    if (!res.ok) throw new Error(`directory query failed (HTTP ${res.status})`);
+    const body = (await res.json()) as {
+      methodResponses?: [string, Record<string, unknown>][];
+    };
+    return body.methodResponses ?? [];
+  };
+  const first = (
+    await post([
+      ["Principal/query", { accountId, filter: [{ type: "individual" }] }, "q"],
+    ])
+  )[0] ?? ["", {}];
+  const [queryMethod, queryBody] = first;
+  if (queryMethod !== "Principal/query")
+    throw new Error(
+      `directory query refused: ${String(queryBody.description ?? queryBody.type ?? "unknown")}`,
+    );
+  const ids = (queryBody.ids as string[] | undefined) ?? [];
+  if (!ids.length) return [];
+  const second = (
+    await post([
+      ["Principal/get", { accountId, ids, properties: ["name", "email"] }, "g"],
+    ])
+  )[0] ?? ["", {}];
+  const [getMethod, getBody] = second;
+  if (getMethod !== "Principal/get")
+    throw new Error(
+      `directory read refused: ${String(getBody.description ?? getBody.type ?? "unknown")}`,
+    );
+  const list =
+    (getBody.list as
+      | Array<{ id?: string; name?: unknown; email?: unknown }>
+      | undefined) ?? [];
+  return list
+    .map((p) => {
+      const name = String(p.email ?? p.name ?? "")
+        .trim()
+        .toLowerCase();
+      return typeof p.id === "string" && name ? { id: p.id, name } : null;
+    })
+    .filter((p): p is { id: string; name: string } => p !== null);
+}
+
+/**
  * Rewrite the upstream session so the browser talks to our same-origin proxy
  * endpoints instead of Stalwart directly (no CORS, no credentials in browser).
  */

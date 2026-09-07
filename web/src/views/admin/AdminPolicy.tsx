@@ -1,7 +1,20 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/jmap/client";
 import { t } from "@/lib/i18n";
+import { policyEnforced, refreshSettingsPolicy } from "@/lib/settingsPolicy";
+import { useSettings } from "@/store/settings";
 import { SettingsKeyTable } from "@/views/admin/SettingsKeyTable";
+
+/** A valid document the editor can be reset to, with one of each section. */
+const EXAMPLE = JSON.stringify(
+  {
+    defaults: { weekStart: 1 },
+    enforced: { imagePolicy: "always", readingPane: "right" },
+    changes: [{ version: "example-change", settings: { spellcheck: true } }],
+  },
+  null,
+  2,
+);
 
 /**
  * The installation-wide policy editor (ADR 0001 §4, ADR 0004).
@@ -52,12 +65,40 @@ export function AdminPolicy() {
         method: "POST",
         body: text,
       });
-      setNotice(t("Policy published — other signed-in clients will sign in again."));
+      /*
+       * The published policy applies to this session at once: the client
+       * caches the policy per page, and the publisher's own session is
+       * deliberately not kicked (ADR 0004), so without a refresh this tab
+       * would keep enforcing the pre-publish policy.
+       */
+      await refreshSettingsPolicy();
+      const enforced = policyEnforced();
+      if (Object.keys(enforced).length) {
+        useSettings.getState().update({ ...enforced });
+      }
+      useSettings.getState().applyPolicyChanges();
+      setNotice(
+        t("Policy published and applied — other signed-in clients will sign in again."),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSaving(false);
     }
+  }
+
+  function insertExample() {
+    if (
+      text.trim() !== EXAMPLE.trim() &&
+      text.trim() &&
+      !window.confirm(
+        t("Replace the document with the example? Unsaved edits will be lost."),
+      )
+    )
+      return;
+    setError(null);
+    setNotice(null);
+    setText(EXAMPLE);
   }
 
   if (!loaded) {
@@ -125,6 +166,9 @@ export function AdminPolicy() {
           onClick={() => void publish()}
         >
           {saving ? t("Publishing…") : t("Publish policy")}
+        </button>
+        <button className="btn btn-ghost" disabled={saving} onClick={insertExample}>
+          {t("Insert example")}
         </button>
         {notice && <span className="hint">{notice}</span>}
       </div>

@@ -37,38 +37,65 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
  * scalar `defaults`/`enforced` into an object, the surface refuses the
  * document — a policy that would corrupt settings on load is an error at
  * save time, not at sign-in.
- *
- * Returns null when the text is not a valid document, so the caller can
- * answer 400 instead of crashing.
  */
 export function parsePolicyDocument(raw: string): PolicyDocument | null {
+  const result = parsePolicyDocumentDetailed(raw);
+  return "problem" in result ? null : result.doc;
+}
+
+/**
+ * Parse and validate, saying exactly what is wrong when it fails.
+ *
+ * Returns `{ doc }` for a valid document, or `{ problem }` with a message an
+ * editor can show the administrator (the endpoint answers 400 with it).
+ */
+export function parsePolicyDocumentDetailed(
+  raw: string,
+): { doc: PolicyDocument } | { problem: string } {
   let whole: unknown;
   try {
     whole = JSON.parse(raw);
-  } catch {
-    return null;
+  } catch (err) {
+    const where = err instanceof Error ? ` (${err.message})` : "";
+    return { problem: `Not valid JSON${where}.` };
   }
-  if (!isRecord(whole)) return null;
-  const pick = (v: unknown): Record<string, unknown> | null =>
-    v == null ? {} : isRecord(v) ? v : null;
-  const defaults = pick(whole.defaults);
-  const enforced = pick(whole.enforced);
-  if (defaults === null || enforced === null) return null;
+  if (!isRecord(whole))
+    return {
+      problem: "The document must be a JSON object with defaults, enforced and changes.",
+    };
+  const pick = (name: string, v: unknown): Record<string, unknown> | string => {
+    if (v == null) return {};
+    if (isRecord(v)) return v;
+    return `"${name}" must be an object.`;
+  };
+  const defaults = pick("defaults", whole.defaults);
+  if (typeof defaults === "string") return { problem: defaults };
+  const enforced = pick("enforced", whole.enforced);
+  if (typeof enforced === "string") return { problem: enforced };
   const changes: PolicyChangeDocument[] = [];
   if (whole.changes !== undefined) {
-    if (!Array.isArray(whole.changes)) return null;
+    if (!Array.isArray(whole.changes))
+      return { problem: '"changes" must be an array of { version, settings }.' };
     const seen = new Set<string>();
-    for (const entry of whole.changes) {
-      if (!isRecord(entry)) return null;
+    for (let i = 0; i < whole.changes.length; i++) {
+      const entry = whole.changes[i];
+      if (!isRecord(entry))
+        return {
+          problem: `changes[${i}] must be an object with "version" and "settings".`,
+        };
       const version = typeof entry.version === "string" ? entry.version.trim() : "";
-      if (!version) return null;
-      if (seen.has(version)) return null;
+      if (!version) return { problem: `changes[${i}] has no "version".` };
+      if (seen.has(version))
+        return { problem: `Two changes share the version "${version}".` };
       seen.add(version);
-      if (!isRecord(entry.settings)) return null;
+      if (!isRecord(entry.settings))
+        return {
+          problem: `changes[${i}] ("${version}") has no "settings" object.`,
+        };
       changes.push({ version, settings: entry.settings });
     }
   }
-  return { defaults, enforced, changes };
+  return { doc: { defaults, enforced, changes } };
 }
 
 /** The document text the editor shows, stable keys and two-space indent. */

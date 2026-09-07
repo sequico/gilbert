@@ -1,8 +1,9 @@
-import { Info, ShieldCheck } from "lucide-react";
+import { Info, ShieldCheck, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { t } from "@/lib/i18n";
 import { type SectionItem, SectionShell } from "@/ui/SectionShell";
 import { AdminPolicy } from "@/views/admin/AdminPolicy";
+import { AdminUsers } from "@/views/admin/AdminUsers";
 import { AboutSettings } from "@/views/settings/AboutSettings";
 
 const SECTIONS: Array<SectionItem & { el: ReactNode }> = [
@@ -11,6 +12,12 @@ const SECTIONS: Array<SectionItem & { el: ReactNode }> = [
     label: "Policy",
     icon: <ShieldCheck size={18} />,
     el: <AdminPolicy />,
+  },
+  {
+    id: "users",
+    label: "Users",
+    icon: <Users size={18} />,
+    el: <AdminUsers />,
   },
   { id: "about", label: "About", icon: <Info size={18} />, el: <AboutSettings /> },
 ];

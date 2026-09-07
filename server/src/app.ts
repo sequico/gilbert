@@ -23,7 +23,7 @@ import {
   setPasswordChangeDirective,
 } from "./account.js";
 import {
-  parsePolicyDocument,
+  parsePolicyDocumentDetailed,
   persistPolicyFile,
   policyDocumentText,
 } from "./adminPolicy.js";
@@ -48,8 +48,10 @@ import {
 import { staticHandler } from "./static.js";
 import {
   type AccountInfo,
+  ADMIN_GROUP_LOCAL,
   absoluteUpstream,
   expandTemplate,
+  fetchDirectoryUsers,
   fetchUpstreamSession,
   forgetUpstreamSession,
   getAccountInfo,
@@ -1042,6 +1044,13 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     // a misleading 404, so they are refused at the boundary instead.
     if (!target || target.length > 320 || target.includes("%") || target.includes(":"))
       return c.json({ error: "bad_request" }, 400);
+    // The admin group itself is a principal (impersonation probes name it),
+    // but it is not an account to force a password on.
+    if (target.toLowerCase().split("@")[0] === ADMIN_GROUP_LOCAL)
+      return c.json(
+        { error: "bad_request", message: "The admin group is not an account to force." },
+        400,
+      );
     const targetAuth = impersonationAuthorization(admin, target);
     if (!targetAuth) {
       // An admin signed in with an app password cannot impersonate: Stalwart
@@ -1075,6 +1084,21 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         );
       }
       return accountFailure(c, err);
+    }
+    // An administrator cannot force another administrator: the target's
+    // impersonated session is their own, so membership of the admin group
+    // shows up there the same way it does in any member's session. This also
+    // covers the acting admin themselves (master == target degrades to a
+    // plain login upstream).
+    if (isAdminSession(upstream)) {
+      return c.json(
+        {
+          error: "target_is_admin",
+          message:
+            "That account is also a Gilbert administrator; administrators cannot force one another's password.",
+        },
+        403,
+      );
     }
     const ctx = {
       authorization: targetAuth,
@@ -1144,16 +1168,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   api.post("/admin/policy", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
     const raw = await c.req.text();
-    const parsed = parsePolicyDocument(raw);
-    if (!parsed) {
-      return c.json(
-        {
-          error: "invalid_policy",
-          message:
-            "The policy is not a valid settings-policy document: defaults and enforced must be objects, changes must carry unique versions.",
-        },
-        400,
-      );
+    const parsed = parsePolicyDocumentDetailed(raw);
+    if ("problem" in parsed) {
+      return c.json({ error: "invalid_policy", message: parsed.problem }, 400);
     }
     const file = process.env.SETTINGS_POLICY_FILE;
     if (file) {
@@ -1171,9 +1188,62 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         );
       }
     }
-    config.settingsPolicy = parsed;
+    config.settingsPolicy = parsed.doc;
     const kicked = sessions.destroyAllExcept(session.id);
     return c.json({ ok: true, kicked });
+  });
+
+  /**
+   * The admin Users surface (ADR 0001 §5): every individual account on this
+   * server, plus whether this session may act on accounts at all.
+   *
+   * `canImpersonate` probes the impersonation right by asking to act as the
+   * admin group itself (`{gilbert-admin@…}%{admin}`): a session that cannot
+   * (an app-password session, or a member without the directory right) gets a
+   * false here and the client shows a warning instead of dead buttons. Roles
+   * are not consulted — Stalwart does not expose them over JMAP.
+   */
+  api.get("/admin/users", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    try {
+      const upstream = await getUpstreamSession(
+        session.id,
+        session.authorization,
+        upstreamFor(session.username),
+        true,
+      );
+      const users = await fetchDirectoryUsers(session.authorization, upstream);
+      const at = session.username.lastIndexOf("@");
+      const domain = at > 0 ? session.username.slice(at + 1) : "";
+      const group = domain ? `gilbert-admin@${domain}` : null;
+      let canImpersonate = false;
+      let reason: string | null = null;
+      if (!group) {
+        reason = "no_group";
+      } else {
+        const groupAuth = impersonationAuthorization(session, group);
+        if (!groupAuth) reason = "app_password";
+        else {
+          try {
+            await fetchUpstreamSession(groupAuth, upstreamFor(group));
+            canImpersonate = true;
+          } catch (err) {
+            reason =
+              err instanceof UpstreamError && err.status === 401
+                ? "no_right"
+                : "unavailable";
+          }
+        }
+      }
+      return c.json({ users, canImpersonate, reason });
+    } catch (err) {
+      if (err instanceof UpstreamError) return upstreamFailure(c, err);
+      console.error("[gilbert] directory users query failed:", err);
+      return c.json(
+        { error: "directory_unavailable", message: (err as Error).message },
+        502,
+      );
+    }
   });
 
   // ---------- JMAP API proxy ----------

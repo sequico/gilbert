@@ -81,6 +81,9 @@ const ADMIN_GROUP_NAME =
   })();
 const HAS_ADMIN_GROUP =
   process.env.MOCK_NO_ADMIN_GROUP !== "1" && Boolean(ADMIN_GROUP_NAME);
+/** Exercise the guard that refuses to force another Gilbert admin (target is
+ *  a member of the admin group too). */
+const TARGET_IS_ADMIN = process.env.MOCK_TARGET_IS_ADMIN === "1";
 /** Locale the fake directory reports for the account (POSIX style, as Stalwart does). */
 const MOCK_LOCALE = process.env.MOCK_LOCALE ?? "en_US";
 const PASS = process.env.MOCK_PASS ?? "demo";
@@ -2885,13 +2888,31 @@ const handlers: Record<string, Handler> = {
   "CalendarEvent/set": (a) => calendarEventSet(a),
   "CalendarEvent/parse": (a) => calendarEventParse(a),
   "ParticipantIdentity/get": genericGet(participantIdentities),
-  "Principal/query": () => ({
-    accountId: ACCOUNT,
-    queryState: "1",
-    canCalculateChanges: false,
-    position: 0,
-    ids: principals.map((p) => p.id),
-  }),
+  // Principal/query honours the type filter: Stalwart 0.16.21 maps
+  // PrincipalFilter::Type Individual -> user accounts and Group -> groups
+  // (crates/jmap/src/principal/query.rs; checked on source 2026-09-07,
+  // re-verify against a live server with a dated comment per repo
+  // convention). Other filters are ignored here — nothing in Gilbert sends
+  // them yet. The real server also gates directory queries behind
+  // allow_directory_query / a JMAP permission; the mock does not.
+  "Principal/query": (a) => {
+    const types = new Set(
+      ((a.filter as Array<{ type?: unknown }> | undefined) ?? [])
+        .map((f) => f.type)
+        .filter((x): x is string => typeof x === "string"),
+    );
+    const list =
+      types.size === 0
+        ? principals
+        : principals.filter((p) => types.has(p.type as string));
+    return {
+      accountId: ACCOUNT,
+      queryState: "1",
+      canCalculateChanges: false,
+      position: 0,
+      ids: list.map((p) => p.id),
+    };
+  },
   "Principal/get": genericGet(principals),
   // One busy block a day across whatever range was asked for. It used to answer
   // with a single block on the first day whatever the range, which was all an
@@ -3155,7 +3176,11 @@ function validCredential(
 }
 
 const knownPrincipal = (username: string) =>
-  username === USER || username === TARGET_USER;
+  username === USER ||
+  username === TARGET_USER ||
+  // The admin group itself can be the target of an impersonation probe: a
+  // member proving they hold the impersonation right asks for the group.
+  (HAS_ADMIN_GROUP && username === ADMIN_GROUP_NAME);
 
 /**
  * Authenticate the request and say who it acts as.
@@ -3306,7 +3331,8 @@ const personalCapabilities = (): Obj => ({
 const sessionFor = (identity: Identity) => ({
   capabilities: sessionCapabilities,
   accounts: {
-    ...(identity.username === USER
+    ...(identity.username === USER ||
+    (TARGET_IS_ADMIN && identity.username === TARGET_USER)
       ? {
           [SHARED_ACCOUNT]: {
             name: "grace@example.org",

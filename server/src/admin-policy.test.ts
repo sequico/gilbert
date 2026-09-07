@@ -121,26 +121,35 @@ test("an admin reads the current policy as the editor document", async () => {
   );
 });
 
-test("an invalid document is refused and the running policy is untouched", async () => {
-  for (const bad of [
-    "not json at all",
-    JSON.stringify([1, 2]),
-    JSON.stringify({ defaults: 3 }),
-    JSON.stringify({ enforced: "x" }),
-    JSON.stringify({
-      changes: [
-        { version: "v1", settings: { a: 1 } },
-        { version: "v1", settings: { a: 2 } },
-      ],
-    }),
-    JSON.stringify({ changes: [{ version: "", settings: {} }] }),
-    JSON.stringify({ changes: "nope" }),
-  ]) {
+test("an invalid document is refused with a message that says what is wrong", async () => {
+  const cases: Array<[string, string]> = [
+    ["not json at all", "Not valid JSON"],
+    [JSON.stringify([1, 2]), "must be a JSON object"],
+    [JSON.stringify({ defaults: 3 }), '"defaults" must be an object'],
+    [JSON.stringify({ enforced: "x" }), '"enforced" must be an object'],
+    [
+      JSON.stringify({
+        changes: [
+          { version: "v1", settings: { a: 1 } },
+          { version: "v1", settings: { a: 2 } },
+        ],
+      }),
+      'share the version "v1"',
+    ],
+    [JSON.stringify({ changes: [{ version: "", settings: {} }] }), 'has no "version"'],
+    [JSON.stringify({ changes: "nope" }), '"changes" must be an array'],
+  ];
+  for (const [bad, expected] of cases) {
     const res = await call("/api/admin/policy", adminCookie, {
       method: "POST",
       body: bad,
     });
     assert.equal(res.status, 400, `should refuse: ${bad.slice(0, 60)}`);
+    const message = (res.body as { message: string }).message;
+    assert.ok(
+      message.includes(expected),
+      `message should say: ${expected} — got: ${message}`,
+    );
   }
   const config = await call("/api/config", "");
   const enforced = (config.body as unknown as PolicyOnConfig).settingsPolicy.enforced;
