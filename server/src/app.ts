@@ -49,7 +49,9 @@ import {
 
 type Env = { Variables: { session: LiveSession } };
 
-export const sessions: SessionBackend = new SessionStore(config.sessionFile);
+export const sessions: SessionBackend = new SessionStore(config.sessionFile, (id) =>
+  forgetUpstreamSession(id),
+);
 const loginLimiter = new RateLimiter(config.loginRateLimit, 15 * 60_000);
 /*
  * The backstop that is never refunded.
@@ -73,6 +75,43 @@ const loginFloodLimiter = new RateLimiter(config.loginRateLimit * 20, 15 * 60_00
  */
 const accountLimiter = new RateLimiter(10, 15 * 60_000);
 const apiLimiter = new RateLimiter(config.apiRateLimit, 60_000);
+
+/*
+ * How many /api/events streams one session may hold open at once.
+ *
+ * In relay mode each such stream is an upstream connection to Stalwart that
+ * lives as long as the tab (measured at ~81 KiB of TLS state, see push.ts),
+ * so without a bound one account could pin hundreds of upstream sockets by
+ * opening tabs. Fan-out streams hold nothing upstream, but they are still a
+ * live response each, so the same cap applies to every branch of the route.
+ * The browser's EventSource retries a refused stream on its own schedule, so
+ * a tab beyond the cap reconnects when an earlier one closes.
+ */
+export const EVENTS_STREAMS_LIMIT = 8;
+
+const eventsStreamCounts = new Map<string, number>();
+
+/**
+ * Reserve one of the session's /api/events slots, or return null when the
+ * session is at EVENTS_STREAMS_LIMIT. The returned release() must run when
+ * the stream ends; every branch of the route registers it on response close
+ * and on request abort, and it is idempotent because both can fire for one
+ * stream. Exported so the counting is testable without a live session.
+ */
+export function acquireEventsStreamSlot(sessionId: string): (() => void) | null {
+  const open = eventsStreamCounts.get(sessionId) ?? 0;
+  if (open >= EVENTS_STREAMS_LIMIT) return null;
+  eventsStreamCounts.set(sessionId, open + 1);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const n = eventsStreamCounts.get(sessionId);
+    if (n === undefined) return;
+    if (n <= 1) eventsStreamCounts.delete(sessionId);
+    else eventsStreamCounts.set(sessionId, n - 1);
+  };
+}
 
 /*
  * What a request body may weigh before any of it is buffered.
@@ -525,6 +564,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     } catch (err) {
       if (err instanceof UpstreamError && err.status === 401) {
         sessions.destroy(session.id);
+        // destroy() already forgets the upstream caches through the store
+        // hook; the explicit call keeps this branch self-contained.
+        forgetUpstreamSession(session.id);
         deleteCookie(c, config.cookieName, { path: cookiePath });
       }
       return upstreamFailure(c, err);
@@ -905,6 +947,15 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   // ---------- Push (Server-Sent Events) ----------
   api.get("/events", requireSession, async (c) => {
     const session = c.get("session");
+    // One session may hold only EVENTS_STREAMS_LIMIT streams; counting every
+    // branch (fan-out, raw relay, direct relay) keeps the upstream sockets a
+    // session can pin bounded. The slot is released when the response ends or
+    // the request aborts, whichever comes first.
+    const release = acquireEventsStreamSlot(session.id);
+    if (!release) return c.json({ error: "too_many_streams" }, 429);
+    const out = (c.env as { outgoing: import("node:http").ServerResponse }).outgoing;
+    out.once("close", release);
+    c.req.raw.signal.addEventListener("abort", release, { once: true });
     const types = c.req.query("types") ?? "*";
     const closeafter = c.req.query("closeafter") ?? "no";
     const ping = c.req.query("ping") ?? "30";
@@ -922,7 +973,6 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       // served by fan-out and holds nothing upstream. Otherwise it gets its own
       // relay, and is moved to fan-out the moment the account verifies.
       const accountId = upstream.primaryAccounts?.["urn:ietf:params:jmap:mail"];
-      const out = (c.env as { outgoing: import("node:http").ServerResponse }).outgoing;
       if (
         accountId &&
         pushAttach(session.username, accountId, session.authorization, out)

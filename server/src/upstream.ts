@@ -32,6 +32,16 @@ export class UpstreamError extends Error {
 
 const sessionCache = new Map<string, { session: UpstreamSession; fetchedAt: number }>();
 const SESSION_CACHE_MS = 5 * 60_000;
+/**
+ * Absolute ceiling for the caches below, aligned with the shorter session
+ * TTL (SESSION_TTL, 12 h). An entry nobody refreshed for that long cannot
+ * belong to a session that is still in use -- and some keys are not session
+ * ids at all (push.ts caches under "base username"), which no session
+ * destruction touches. Such entries are dropped on the next lookup rather
+ * than refreshed. That costs nothing for a live session: an access this old
+ * would have missed the freshness window and refetched anyway.
+ */
+const CACHE_MAX_AGE_MS = config.sessionTtl * 1000;
 
 /**
  * The Stalwart a username belongs to.
@@ -94,8 +104,15 @@ export async function getUpstreamSession(
   force = false,
 ) {
   const cached = sessionCache.get(sessionId);
-  if (!force && cached && Date.now() - cached.fetchedAt < SESSION_CACHE_MS)
-    return cached.session;
+  if (cached) {
+    if (Date.now() - cached.fetchedAt >= CACHE_MAX_AGE_MS) {
+      // The entry outlived any session that could still be using it: drop it
+      // so the map does not grow with every session that ever expired.
+      sessionCache.delete(sessionId);
+    } else if (!force && Date.now() - cached.fetchedAt < SESSION_CACHE_MS) {
+      return cached.session;
+    }
+  }
   const session = await fetchUpstreamSession(authorization, base);
   sessionCache.set(sessionId, { session, fetchedAt: Date.now() });
   return session;
@@ -334,7 +351,15 @@ export async function getAccountInfo(
   session: UpstreamSession,
 ): Promise<AccountInfo> {
   const cached = infoCache.get(sessionId);
-  if (cached && Date.now() - cached.fetchedAt < INFO_CACHE_MS) return cached.info;
+  if (cached) {
+    if (Date.now() - cached.fetchedAt >= CACHE_MAX_AGE_MS) {
+      // Same absolute ceiling as the session cache: an entry this old can
+      // only belong to a session that is gone; prune it on the way out.
+      infoCache.delete(sessionId);
+    } else if (Date.now() - cached.fetchedAt < INFO_CACHE_MS) {
+      return cached.info;
+    }
+  }
   let info = EMPTY_INFO;
   try {
     info = await fetchAccountInfo(authorization, session);

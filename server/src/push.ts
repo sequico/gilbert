@@ -32,6 +32,15 @@ const USING = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"];
 const RENEW_BEFORE_MS = 60 * 60_000; // renew an hour before Stalwart expires it
 const VERIFY_TIMEOUT_MS = 3 * 60_000; // Stalwart's first attempt waits 60 s; allow retries
 const SWEEP_MS = 30_000;
+/**
+ * How long a failed subscription stays failed before the sweeper tries to
+ * re-subscribe. A failure is never terminal while a tab still wants the
+ * account: without the retry, one failed renewal (or one lost verification
+ * POST) parked the account on per-tab relays for as long as a tab stayed
+ * open, and the fan-out tabs already attached kept a healthy-looking SSE
+ * stream whose upstream subscription was expiring unrenewed.
+ */
+const RETRY_BACKOFF_MS = 5 * 60_000;
 
 interface AccountPush {
   key: string; // upstream base + username
@@ -192,10 +201,7 @@ export function prepare(
     byKey.set(key, entry);
     byToken.set(entry.token, entry);
     subscribe(entry).catch((err) => {
-      entry!.state = "failed";
-      console.warn(
-        `[gilbert] push: subscribe failed for ${username}: ${(err as Error).message}; relay in use`,
-      );
+      fail(entry!, `subscribe failed: ${(err as Error).message}`);
     });
     startSweeper();
   } else {
@@ -241,6 +247,49 @@ export function attachRelay(
   });
 }
 
+/**
+ * A subscription attempt failed. The entry goes back to "failed" with
+ * `since` stamped now, which is what the sweeper measures the retry backoff
+ * from; verification can still lift it out of that state at any time.
+ *
+ * Fan-out tabs are deliberately left attached here: the old subscription
+ * keeps POSTing changes until its own expiry, and ending the streams early
+ * would only push the account onto relays while it may still verify. A
+ * subscription that really dies unrenewed is the sweeper's job (see
+ * endStaleFanout).
+ */
+function fail(entry: AccountPush, why: string): void {
+  entry.state = "failed";
+  entry.since = Date.now();
+  // The entry may already have been cleaned up while the attempt was in
+  // flight; nothing wants the account any more, so the failure is moot.
+  if (byKey.get(entry.key) === entry)
+    console.warn(
+      `[gilbert] push: ${why} for ${entry.username}; retry in ${Math.round(RETRY_BACKOFF_MS / 60_000)} min`,
+    );
+}
+
+/**
+ * End the fan-out streams of an account whose subscription has lapsed while
+ * tabs were still attached to it. The tabs' SSE looked healthy -- the
+ * sweeper kept pinging them -- while nothing upstream was reaching them any
+ * more, so state changes were silently going missing. Ending the response
+ * makes the browser reconnect, and the next /api/events lands on the
+ * per-tab relay until the account verifies again.
+ */
+function endStaleFanout(entry: AccountPush): void {
+  let n = 0;
+  for (const out of [...entry.tabs]) {
+    if (out.destroyed) continue;
+    out.end();
+    n++;
+  }
+  entry.tabs.clear();
+  console.warn(
+    `[gilbert] push: subscription for ${entry.username} expired while unverified; ${n} tab(s) back on the relay`,
+  );
+}
+
 /** Stalwart's POST. Returns an HTTP status. */
 export async function receive(token: string, body: unknown): Promise<number> {
   const entry = byToken.get(token);
@@ -265,41 +314,67 @@ export async function receive(token: string, body: unknown): Promise<number> {
   return 400;
 }
 
-/** One shared timer for every tab: keep-alives, renewals, and cleanup. */
+/**
+ * One sweep pass: keep-alives, renewals, retries, stale fan-out teardown,
+ * and cleanup. Runs on the shared timer below; exported so the tests can run
+ * a pass on demand without waiting out SWEEP_MS.
+ */
+export function runSweep(): void {
+  const now = Date.now();
+  for (const entry of [...byKey.values()]) {
+    for (const out of entry.tabs) {
+      if (out.destroyed) entry.tabs.delete(out);
+      else out.write(": ping\n\n");
+    }
+    if (entry.state === "pending" && now - entry.since > VERIFY_TIMEOUT_MS) {
+      fail(entry, `no verification within ${VERIFY_TIMEOUT_MS / 1000}s`);
+    } else if (
+      entry.state === "failed" &&
+      (entry.tabs.size > 0 || entry.relays.size > 0) &&
+      now - entry.since >= RETRY_BACKOFF_MS
+    ) {
+      // Someone still wants this account (a fan-out tab or a relay): try the
+      // subscription again. A failed entry nobody wants is removed below.
+      entry.state = "pending";
+      entry.since = now;
+      subscribe(entry).catch((err) => {
+        fail(entry, `re-subscribe failed: ${(err as Error).message}`);
+      });
+    } else if (entry.state === "verified" && entry.expires - now < RENEW_BEFORE_MS) {
+      entry.state = "pending";
+      entry.since = now;
+      subscribe(entry).catch((err) => {
+        fail(entry, `renewal failed: ${(err as Error).message}`);
+      });
+    }
+    // A fan-out tab past its subscription's life hears nothing once the
+    // subscription dies unrenewed: end the stream so it reconnects on a relay.
+    if (
+      entry.state !== "verified" &&
+      entry.expires > 0 &&
+      entry.expires <= now &&
+      entry.tabs.size > 0
+    ) {
+      endStaleFanout(entry);
+    }
+    if (
+      entry.tabs.size === 0 &&
+      entry.relays.size === 0 &&
+      (entry.state === "failed" || now - entry.since > 10 * 60_000)
+    ) {
+      void unsubscribe(entry);
+    }
+  }
+  if (byKey.size === 0 && sweeper) {
+    clearInterval(sweeper);
+    sweeper = null;
+  }
+}
+
+/** One shared timer for every tab: keep-alives, renewals, retries, cleanup. */
 function startSweeper() {
   if (sweeper) return;
-  sweeper = setInterval(() => {
-    const now = Date.now();
-    for (const entry of [...byKey.values()]) {
-      for (const out of entry.tabs) {
-        if (out.destroyed) entry.tabs.delete(out);
-        else out.write(": ping\n\n");
-      }
-      if (entry.state === "pending" && now - entry.since > VERIFY_TIMEOUT_MS) {
-        entry.state = "failed";
-        console.warn(
-          `[gilbert] push: no verification for ${entry.username} within ${VERIFY_TIMEOUT_MS / 1000}s; relay in use`,
-        );
-      }
-      if (entry.state === "verified" && entry.expires - now < RENEW_BEFORE_MS) {
-        entry.state = "pending";
-        entry.since = now;
-        subscribe(entry).catch(() => {
-          entry.state = "failed";
-        });
-      }
-      if (
-        entry.tabs.size === 0 &&
-        (entry.state === "failed" || now - entry.since > 10 * 60_000)
-      ) {
-        void unsubscribe(entry);
-      }
-    }
-    if (byKey.size === 0 && sweeper) {
-      clearInterval(sweeper);
-      sweeper = null;
-    }
-  }, SWEEP_MS);
+  sweeper = setInterval(() => runSweep(), SWEEP_MS);
   sweeper.unref();
 }
 

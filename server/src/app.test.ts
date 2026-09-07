@@ -204,3 +204,98 @@ test("an oversized account body is refused before the session is checked", async
   assert.equal(res.status, 413);
   assert.equal(((await res.json()) as { error: string }).error, "too_large");
 });
+
+test("a session may hold at most eight concurrent /api/events streams", async () => {
+  const { acquireEventsStreamSlot, EVENTS_STREAMS_LIMIT } = await import("./app.js");
+  const held: Array<() => void> = [];
+  const take = (sessionId: string) => {
+    const release = acquireEventsStreamSlot(sessionId);
+    if (release) held.push(release);
+    return release !== null;
+  };
+  for (let i = 0; i < EVENTS_STREAMS_LIMIT; i++) {
+    assert.ok(take("stream-session-a"), `stream ${i + 1} is within the limit`);
+  }
+  assert.equal(take("stream-session-a"), false, "the stream past the limit is refused");
+  assert.ok(take("stream-session-b"), "another session keeps its own allowance");
+  held.shift()!(); // one stream ends
+  assert.ok(take("stream-session-a"), "an ended stream frees its slot");
+  // Close and abort can both fire for one stream; releasing twice must not
+  // free two slots.
+  const release = acquireEventsStreamSlot("stream-session-b")!;
+  release();
+  release();
+  assert.ok(take("stream-session-b"), "a double release frees exactly one slot");
+  held.forEach((r) => r());
+});
+
+test("the events route answers 429 past a session's stream limit", async () => {
+  const app = createApp();
+  const { sessions, acquireEventsStreamSlot, EVENTS_STREAMS_LIMIT } = await import(
+    "./app.js"
+  );
+  const { config } = await import("./config.js");
+  const { cookie, session } = sessions.create({
+    username: "streams@example.com",
+    password: "pw",
+    remember: false,
+    userAgent: "ua",
+    ip: "127.0.0.1",
+  });
+  const held: Array<() => void> = [];
+  try {
+    for (let i = 0; i < EVENTS_STREAMS_LIMIT; i++) {
+      const release = acquireEventsStreamSlot(session.id);
+      assert.ok(release);
+      held.push(release!);
+    }
+    const res = await app.request("/api/events", {
+      headers: { cookie: `${config.cookieName}=${cookie}` },
+    });
+    assert.equal(res.status, 429);
+    assert.deepEqual(await res.json(), { error: "too_many_streams" });
+  } finally {
+    held.forEach((r) => r());
+    sessions.destroy(session.id);
+  }
+});
+
+test("destroying a session drops its cached upstream session", async () => {
+  const http = await import("node:http");
+  const { sessions } = await import("./app.js");
+  const { getUpstreamSession } = await import("./upstream.js");
+  let hits = 0;
+  const origin = http.createServer((_req, res) => {
+    hits++;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        apiUrl: "http://127.0.0.1:1/jmap/",
+        accounts: {},
+        primaryAccounts: {},
+        capabilities: {},
+        state: "s",
+      }),
+    );
+  });
+  await new Promise<void>((r) => origin.listen(0, "127.0.0.1", () => r()));
+  const port = (origin.address() as { port: number }).port;
+  const base = `http://127.0.0.1:${port}`;
+  try {
+    const { session } = sessions.create({
+      username: "cache@example.com",
+      password: "pw",
+      remember: false,
+      userAgent: "ua",
+      ip: "127.0.0.1",
+    });
+    await getUpstreamSession(session.id, "Basic x", base);
+    await getUpstreamSession(session.id, "Basic x", base);
+    assert.equal(hits, 1, "the second lookup is served from the session cache");
+    sessions.destroy(session.id);
+    await getUpstreamSession(session.id, "Basic x", base);
+    assert.equal(hits, 2, "destroying the session forgets its cached session");
+  } finally {
+    origin.close();
+  }
+});
