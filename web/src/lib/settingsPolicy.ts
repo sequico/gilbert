@@ -99,6 +99,21 @@ export async function loadSettingsPolicy(): Promise<SettingsPolicy> {
   return fetched;
 }
 
+/**
+ * Forget the fetched policy and load it again.
+ *
+ * The first fetch is cached for the page lifetime because the policy used to
+ * be deploy-static; once the administration surface can publish at runtime
+ * (ADR 0004), a session that re-signs-in on the same page — or an
+ * administrator who just published — must see the new policy, not the one
+ * fetched before the publish. The load completion logic (the enforcement
+ * re-apply) runs again exactly as it does for the first fetch.
+ */
+export async function refreshSettingsPolicy(): Promise<SettingsPolicy> {
+  fetched = null;
+  return loadSettingsPolicy();
+}
+
 /** What the installation has settled, for a reader who has none of their own. */
 export function policyDefaults(): Partial<Settings> {
   return policy.defaults;

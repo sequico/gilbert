@@ -4,6 +4,7 @@ import {
   loadSettingsPolicy,
   policyDefaults,
   policyEnforced,
+  refreshSettingsPolicy,
   resetSettingsPolicyForTest,
 } from "@/lib/settingsPolicy";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
@@ -163,6 +164,41 @@ describe("enforced settings, which the reader may not change", () => {
  * happens after the load has settled -- used to write the pre-policy value
  * to the account's settings file.
  */
+describe("refreshSettingsPolicy", () => {
+  it("re-fetches instead of serving the page-lifetime cache", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              settingsPolicy: { enforced: { readingPane: "off" } },
+            }),
+            { status: 200 },
+          ),
+      ),
+    );
+    await loadSettingsPolicy();
+    expect(policyEnforced()).toEqual({ readingPane: "off" });
+    // The policy changed while the page was open (an admin published); the
+    // next load must see it, not the cached one.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              settingsPolicy: { enforced: { readingPane: "right" } },
+            }),
+            { status: 200 },
+          ),
+      ),
+    );
+    await refreshSettingsPolicy();
+    expect(policyEnforced()).toEqual({ readingPane: "right" });
+  });
+});
+
 describe("a change made before the policy fetch landed", () => {
   it("is corrected and re-queued once the policy arrives", async () => {
     // No policy known yet: the door is open.

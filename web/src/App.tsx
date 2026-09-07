@@ -10,7 +10,7 @@ import {
   setBaseTitle,
   setUnreadBadge,
 } from "@/lib/notify";
-import { loadSettingsPolicy } from "@/lib/settingsPolicy";
+import { refreshSettingsPolicy } from "@/lib/settingsPolicy";
 import {
   armSettingsSync,
   loadRemoteSettings,
@@ -193,7 +193,7 @@ function AuthedApp() {
     void (async () => {
       /* Before the account's own settings, so both the seeding below and the
          enforcement inside `hydrate` have something to apply. */
-      await loadSettingsPolicy();
+      await refreshSettingsPolicy();
       if (cancelled) return;
       const remote = await loadRemoteSettings();
       if (cancelled) return;
