@@ -550,15 +550,6 @@ export const catalog: Catalog = {
     Documentation: "Documentação",
     Admin: "Admin",
     Administration: "Administração",
-    "Gilbert Defaults": "Padrões do Gilbert",
-    "Defaults for all accounts": "Padrões para todas as contas",
-    "No defaults are set — new accounts start on Gilbert's own defaults.":
-      "Nenhum padrão definido — as contas novas começam com os padrões próprios do Gilbert.",
-    "Per-group overrides": "Substituições por grupo",
-    "The keys every account starts on, unless an administrator overrides them for a group.":
-      "As chaves com as quais cada conta começa, a menos que um administrador as substitua para um grupo.",
-    "Groups and their editable override rows arrive with the administration backend: the server endpoints and the policy documents kept in the admin group's Files (ADR 0001).":
-      "Os grupos e suas linhas de substituição editáveis chegam com o backend de administração: os endpoints do servidor e os documentos de política guardados nos Arquivos do grupo admin (ADR 0001).",
     "About Gilbert": "Sobre o Gilbert",
     About: "Sobre",
     Server: "Servidor",

@@ -22,6 +22,11 @@ import {
   type SecurityState,
   setPasswordChangeDirective,
 } from "./account.js";
+import {
+  parsePolicyDocument,
+  persistPolicyFile,
+  policyDocumentText,
+} from "./adminPolicy.js";
 import { resolveClientIp } from "./clientip.js";
 import { config } from "./config.js";
 import { icsProxyHandler } from "./icsproxy.js";
@@ -641,7 +646,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           sessionExtras(
             session,
             info,
-            isAdminSession(upstream, session.username),
+            isAdminSession(upstream),
             // The session document was just fetched; hand it over instead of
             // making the directive check fetch it again.
             await sessionForcedState(session, upstream),
@@ -705,7 +710,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           sessionExtras(
             session,
             info,
-            isAdminSession(upstream, session.username),
+            isAdminSession(upstream),
             await sessionForcedState(session),
           ),
         ),
@@ -1002,7 +1007,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         upstreamFor(session.username),
         true,
       );
-      if (!isAdminSession(upstream, session.username)) {
+      if (!isAdminSession(upstream)) {
         return c.json(
           {
             error: "forbidden",
@@ -1120,6 +1125,55 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     // The door's cache must not answer from before the change.
     directiveCache.delete(target);
     return c.json({ ok: true });
+  });
+
+  /**
+   * The installation-wide settings policy (ADR 0001 §4, ADR 0004 §2).
+   *
+   * GET returns the current policy as the JSON document the editor shows;
+   * POST replaces it. Publishing validates with the same rules the boot path
+   * applies (invalid → 400), rewrites `SETTINGS_POLICY_FILE` when one is
+   * configured and writable (failure → 500, nothing changes), swaps the
+   * running copy — effective immediately, no restart — and kicks every other
+   * session so the next sign-in applies the new policy at boot.
+   */
+  api.get("/admin/policy", requireSession, requireAdmin, (c) =>
+    c.json({ policy: policyDocumentText(config.settingsPolicy) }),
+  );
+
+  api.post("/admin/policy", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    const raw = await c.req.text();
+    const parsed = parsePolicyDocument(raw);
+    if (!parsed) {
+      return c.json(
+        {
+          error: "invalid_policy",
+          message:
+            "The policy is not a valid settings-policy document: defaults and enforced must be objects, changes must carry unique versions.",
+        },
+        400,
+      );
+    }
+    const file = process.env.SETTINGS_POLICY_FILE;
+    if (file) {
+      try {
+        await persistPolicyFile(file, raw);
+      } catch (err) {
+        console.error("[gilbert] could not persist the settings policy:", err);
+        return c.json(
+          {
+            error: "policy_not_persisted",
+            message:
+              "SETTINGS_POLICY_FILE is set but could not be written; the policy was not changed.",
+          },
+          500,
+        );
+      }
+    }
+    config.settingsPolicy = parsed;
+    const kicked = sessions.destroyAllExcept(session.id);
+    return c.json({ ok: true, kicked });
   });
 
   // ---------- JMAP API proxy ----------

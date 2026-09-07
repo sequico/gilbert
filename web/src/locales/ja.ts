@@ -545,15 +545,6 @@ export const catalog: Catalog = {
     Documentation: "ドキュメント",
     Admin: "Admin",
     Administration: "管理",
-    "Gilbert Defaults": "Gilbert の既定値",
-    "Defaults for all accounts": "すべてのアカウントの既定値",
-    "No defaults are set — new accounts start on Gilbert's own defaults.":
-      "既定値は設定されていません — 新しいアカウントは Gilbert の既定値で始まります。",
-    "Per-group overrides": "グループごとの上書き",
-    "The keys every account starts on, unless an administrator overrides them for a group.":
-      "各アカウントが最初に使うキー。管理者がグループごとに上書きしない限り適用されます。",
-    "Groups and their editable override rows arrive with the administration backend: the server endpoints and the policy documents kept in the admin group's Files (ADR 0001).":
-      "グループと編集可能な上書き行は、管理バックエンドとともに追加されます。サーバーエンドポイントと、admin グループのファイルに置かれたポリシードキュメントです（ADR 0001）。",
     "About Gilbert": "Gilbert について",
     About: "情報",
     Server: "サーバー",

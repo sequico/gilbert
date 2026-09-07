@@ -82,9 +82,11 @@ export interface CreateSessionParams {
  * derived from the cookie secret (see `crypto.ts`), so the record can move into
  * the cookie without the server keeping a map.
  *
- * The other two cannot be. `listForUser` and `destroyAllForUser` have to reach
- * sessions other than the one presenting itself, which means something has to
- * be enumerable somewhere. `destroyAllForUser` is not only the "sign out my
+ * The other three cannot be. `listForUser` and `destroyAllForUser` have to
+ * reach sessions other than the one presenting itself, which means something
+ * has to be enumerable somewhere. `destroyAllExcept` reaches every session
+ * but one — the kick a rule publish needs (ADR 0004: publish → re-login).
+ * `destroyAllForUser` is not only the "sign out my
  * other sessions" button: `app.ts` also calls it when the password or the app
  * password changes, so it carries the guarantee that changing a credential
  * invalidates the sessions still holding the old one. A stateless backend
@@ -99,6 +101,7 @@ export interface SessionBackend {
   reseal(cookie: string | undefined, password: string, appPassword?: boolean): boolean;
   destroy(id: string): void;
   destroyAllForUser(username: string, exceptId?: string): number;
+  destroyAllExcept(exceptId?: string): number;
   listForUser(username: string): SessionSummary[];
 }
 
@@ -326,6 +329,22 @@ export class SessionStore implements SessionBackend {
         this.onDestroy?.(id);
         n++;
       }
+    }
+    if (n) this.scheduleSave();
+    return n;
+  }
+
+  /**
+   * Destroy every session but the one presenting itself (ADR 0004): what a
+   * rule publish does so the next sign-in applies the new policy at boot.
+   */
+  destroyAllExcept(exceptId?: string): number {
+    let n = 0;
+    for (const [id] of this.sessions) {
+      if (id === exceptId) continue;
+      this.sessions.delete(id);
+      this.onDestroy?.(id);
+      n++;
     }
     if (n) this.scheduleSave();
     return n;

@@ -547,15 +547,6 @@ export const catalog: Catalog = {
     Documentation: "Документация",
     Admin: "Admin",
     Administration: "Администрирование",
-    "Gilbert Defaults": "Значения по умолчанию Gilbert",
-    "Defaults for all accounts": "Значения по умолчанию для всех аккаунтов",
-    "No defaults are set — new accounts start on Gilbert's own defaults.":
-      "Значения по умолчанию не заданы — новые аккаунты начинают с собственных значений Gilbert.",
-    "Per-group overrides": "Переопределения по группам",
-    "The keys every account starts on, unless an administrator overrides them for a group.":
-      "Ключи, с которых начинает каждый аккаунт, если администратор не переопределит их для группы.",
-    "Groups and their editable override rows arrive with the administration backend: the server endpoints and the policy documents kept in the admin group's Files (ADR 0001).":
-      "Группы и их редактируемые строки переопределения появятся с бэкендом администрирования: серверные эндпоинты и документы политики в файлах группы admin (ADR 0001).",
     "About Gilbert": "О Gilbert",
     About: "О программе",
     Server: "Сервер",

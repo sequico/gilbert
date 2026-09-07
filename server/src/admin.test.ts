@@ -15,7 +15,7 @@ process.env.MOCK_ADMIN_GROUP = "gilbert-admin@example.com";
 process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.APP_SECRET = "test-secret-for-admin-flag";
 
-const { adminGroupName, isAdminSession } = await import("./upstream.js");
+const { isAdminSession } = await import("./upstream.js");
 const mock = await import("./mock/index.js");
 const { createApp } = await import("./app.js");
 
@@ -52,24 +52,21 @@ after(() => {
   (mock as { server?: { close(): void } }).server?.close();
 });
 
-test("adminGroupName builds gilbert-admin@<domain> from a username", () => {
-  assert.equal(adminGroupName("u@example.com"), "gilbert-admin@example.com");
-  assert.equal(adminGroupName("u@EXAMPLE.COM "), "gilbert-admin@example.com");
-  assert.equal(adminGroupName("u@example.com."), "gilbert-admin@example.com");
-  assert.equal(adminGroupName("bare"), null);
-});
-
-test("isAdminSession needs the exact group as a non-personal account", () => {
+test("isAdminSession matches the group by local part, on any domain", () => {
   const session = (accounts: unknown[]) =>
     ({ accounts: Object.fromEntries(accounts.map((a, i) => [`a${i}`, a])) }) as never;
-  const group = { name: "gilbert-admin@example.com", isPersonal: false };
+  const sameDomain = { name: "gilbert-admin@example.com", isPersonal: false };
+  // A member whose own address is on another domain of the same server is an
+  // admin too: the grant is server-scoped, never tied to the member's own
+  // domain (ADR 0001).
+  const otherDomain = { name: "gilbert-admin@example.org", isPersonal: false };
   const personal = { name: "gilbert-admin@example.com", isPersonal: true };
-  const wrong = { name: "gilbert-admin@other.org", isPersonal: false };
-  assert.equal(isAdminSession(session([group]), "u@example.com"), true);
-  assert.equal(isAdminSession(session([personal]), "u@example.com"), false);
-  assert.equal(isAdminSession(session([wrong]), "u@example.com"), false);
-  assert.equal(isAdminSession(session([]), "u@example.com"), false);
-  assert.equal(isAdminSession(session([group]), "bare"), false);
+  const wrong = { name: "team@example.com", isPersonal: false };
+  assert.equal(isAdminSession(session([sameDomain])), true);
+  assert.equal(isAdminSession(session([otherDomain])), true);
+  assert.equal(isAdminSession(session([personal])), false);
+  assert.equal(isAdminSession(session([wrong])), false);
+  assert.equal(isAdminSession(session([])), false);
 });
 
 test("a member of the admin group signs in with isAdmin on the session", async () => {

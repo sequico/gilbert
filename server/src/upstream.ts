@@ -132,38 +132,28 @@ export function forgetUpstreamSession(sessionId: string): void {
 }
 
 /**
- * The admin group: a group mailbox named `gilbert-admin@<domain>` in the
- * principal's own domain. Hardcoded, so the grant has one shape everywhere
- * (ADR 0001). Membership is the grant: the group is a non-personal account
- * that only its members can see, so it appears in the member's JMAP session
- * accounts. Members need no external email alias — membership alone enables
- * the admin functions.
+ * The admin group: a non-personal group account whose local part is
+ * `gilbert-admin`, one per Stalwart server, registered by the operator on any
+ * domain that server serves (ADR 0001). Membership is the grant: the group is
+ * a non-personal account that only its members can see, so it appears in the
+ * member's JMAP session accounts. Members need no external email alias —
+ * membership alone enables the admin functions.
+ *
+ * The match is by local part, whatever domain the group was registered on and
+ * whatever domain the member's own address uses: on a multi-domain server the
+ * one registration grants on every domain the server serves. The grant is
+ * server-scoped, never tied to the member's own domain.
  */
 export const ADMIN_GROUP_LOCAL = "gilbert-admin";
 
-/** `gilbert-admin@<domain>` for a username, or null for a bare one. */
-export function adminGroupName(username: string): string | null {
-  const at = username.lastIndexOf("@");
-  if (at <= 0) return null;
-  const domain = username
-    .slice(at + 1)
-    .trim()
-    .toLowerCase()
-    .replace(/\.$/, "");
-  return domain ? `${ADMIN_GROUP_LOCAL}@${domain}` : null;
-}
-
 /** Whether this upstream session proves membership of the admin group. */
-export function isAdminSession(session: UpstreamSession, username: string): boolean {
-  const group = adminGroupName(username);
-  if (!group) return false;
+export function isAdminSession(session: UpstreamSession): boolean {
   return Object.values(session.accounts ?? {}).some((a) => {
     const account = a as { name?: unknown; isPersonal?: unknown };
-    return (
-      account.isPersonal === false &&
-      typeof account.name === "string" &&
-      account.name.trim().toLowerCase() === group
-    );
+    if (account.isPersonal !== false || typeof account.name !== "string") return false;
+    const name = account.name.trim().toLowerCase();
+    const at = name.indexOf("@");
+    return at > 0 && name.slice(0, at) === ADMIN_GROUP_LOCAL;
   });
 }
 
