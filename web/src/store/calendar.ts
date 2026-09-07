@@ -24,6 +24,7 @@ import {
 import {
   browserTimeZone,
   DAY_MS,
+  dateToZonedLocal,
   parseDuration,
   toLocalDateTime,
   toUTCDate,
@@ -708,7 +709,14 @@ export const useCalendar = create<CalendarState>((set, get) => ({
             "CalendarEvent/query",
             {
               accountId,
-              filter: { after: toLocalDateTime(start), before: toLocalDateTime(end) },
+              /* after/before are wall-clock times in `timeZone`, so the window's
+                 own instants have to be written as that zone's clock -- the
+                 browser frame would shift the comparison by the offset between
+                 the two and drop the edge hours of every window. */
+              filter: {
+                after: dateToZonedLocal(start, tz),
+                before: dateToZonedLocal(end, tz),
+              },
               timeZone: tz,
               sort: [{ property: "start", isAscending: true }],
               expandRecurrences: true,
@@ -771,8 +779,13 @@ export const useCalendar = create<CalendarState>((set, get) => ({
           "CalendarEvent/query",
           {
             accountId,
-            // Stalwart treats after/before as wall-clock times in `timeZone`.
-            filter: { after: toLocalDateTime(start), before: toLocalDateTime(end) },
+            // Stalwart treats after/before as wall-clock times in `timeZone`,
+            // so the window's instants are written as that zone's clock rather
+            // than the browser's (see loadSharedRange).
+            filter: {
+              after: dateToZonedLocal(start, tz),
+              before: dateToZonedLocal(end, tz),
+            },
             timeZone: tz,
             sort: [{ property: "start", isAscending: true }],
             expandRecurrences: true,

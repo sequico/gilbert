@@ -499,6 +499,11 @@ export const useFiles = create<FilesState>((set, get) => ({
 
   applyChanges(types) {
     if (types.has("FileNode")) {
+      /* Open listings reload below; the sidebar tree must too, or a folder
+         created/renamed/deleted on another device stays wrong there until a
+         remount. Only when a tree is on screen: otherwise the first loadTree
+         (driven by the tree view) covers it. */
+      if (get().treeLoaded) void get().loadTree();
       for (const key of Object.keys(get().children))
         void get().loadChildren(key === "root" ? null : key);
     }
