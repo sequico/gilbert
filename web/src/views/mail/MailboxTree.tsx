@@ -86,15 +86,22 @@ interface MailTree {
  * state deciding what is shown. Used for the active account's tree and for the
  * extra mailbox sections below it; `keyOf` keeps one account's expansion keys
  * out of another's, since mailbox ids are only unique within an account.
+ *
+ * Subscriptions decide the reader's own tree. A shared mailbox account is
+ * different: Stalwart hands a freshly added member every folder unsubscribed
+ * (per-user state that resets on re-add), which would leave only Inbox on
+ * screen — so group trees show the whole accessible tree, and hiding a
+ * folder there is not offered per user.
  */
 function buildMailTree(
   mailboxes: Record<Id, Mailbox>,
   expanded: Record<string, boolean>,
   showHidden: boolean,
+  showUnsubscribed: boolean,
   keyOf: (id: Id) => string,
 ): MailTree {
   const all = Object.values(mailboxes).filter(
-    (m) => showHidden || m.isSubscribed || m.role === "inbox",
+    (m) => showHidden || showUnsubscribed || m.isSubscribed || m.role === "inbox",
   );
   const byParent = new Map<Id | null, Mailbox[]>();
   for (const m of all) {
@@ -210,8 +217,15 @@ export function MailboxTree() {
     saveJson("mbx-expanded", next);
   };
   const { rows, childrenOf, subtreeUnread } = useMemo(
-    () => buildMailTree(mailboxes, expanded, showHidden, (id) => id),
-    [mailboxes, expanded, showHidden],
+    () =>
+      buildMailTree(
+        mailboxes,
+        expanded,
+        showHidden,
+        Boolean(ownAccountId && accountId && accountId !== ownAccountId),
+        (id) => id,
+      ),
+    [mailboxes, expanded, showHidden, ownAccountId, accountId],
   );
 
   /*
@@ -247,10 +261,14 @@ export function MailboxTree() {
         a.tree,
         expanded,
         showHidden,
+        // The reader's own mailbox, shown as a section under a group they
+        // opened, keeps its per-user subscriptions; other accounts are
+        // shared, so their whole accessible tree is shown.
+        a.info.accountId !== ownAccountId,
         (id) => `${a.info.accountId}/${id}`,
       );
     return out;
-  }, [extraAccounts, expanded, showHidden]);
+  }, [extraAccounts, expanded, showHidden, ownAccountId]);
   const toggleExtra = (accountIdOf: Id, id: Id) => {
     const key = `${accountIdOf}/${id}`;
     const next = { ...expanded, [key]: !expanded[key] };
@@ -523,6 +541,7 @@ export function MailboxTree() {
             onClose={menu.close}
             onCreateChild={() => void createFolder(menuTarget.id)}
             onShare={() => setShareTarget(menuTarget)}
+            inGroup={inGroup}
           />
         )}
       </Popover>
@@ -778,11 +797,14 @@ function MailboxMenu({
   onClose,
   onCreateChild,
   onShare,
+  inGroup,
 }: {
   mailbox: Mailbox;
   onClose: () => void;
   onCreateChild: () => void;
   onShare: () => void;
+  /** Shared mailbox accounts: hiding a folder is not offered (see buildMailTree). */
+  inGroup: boolean;
 }) {
   const shared = Object.keys(m.shareWith ?? {}).length > 0;
   const [, navigate] = useLocation();
@@ -887,7 +909,7 @@ function MailboxMenu({
         onClick={() =>
           void useMail.getState().updateMailbox(m.id, { isSubscribed: !m.isSubscribed })
         }
-        disabled={m.role === "inbox"}
+        disabled={m.role === "inbox" || inGroup}
       />
       {/* Sharing a mail folder is withdrawn, not removed: Stalwart accepts and
           stores the share, and it never reaches the other account -- its own
