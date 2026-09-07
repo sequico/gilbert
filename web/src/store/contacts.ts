@@ -344,7 +344,14 @@ async function groupMailboxIds(): Promise<Set<string>> {
         .map((a) => a.accountId),
     );
   const ids = from();
-  if (ids.size || !useMail.getState().mailAccounts.length) return ids;
+  /*
+   * Wait only while the mail probe may still be running (mailAccounts is
+   * still empty although the session lists non-personal accounts). Once it
+   * has landed -- even with no group in it -- the answer is final: waiting
+   * on a list that already resolved would stall the eager contact load for
+   * the whole timeout on every account that belongs to no group.
+   */
+  if (ids.size || useMail.getState().mailAccounts.length) return ids;
   /*
    * The eager contact load races the mail probe at boot; wait for it once,
    * briefly, rather than load group cards without knowing which accounts are
@@ -468,24 +475,38 @@ export const useContacts = create<ContactsState>((set, get) => ({
               .map((b) => b.id),
           );
           if (!wanted.size) continue;
-          // One page. A shared book is a colleague's contacts, not an archive,
-          // and the alternative is holding the reader's own list hostage to it.
-          const cardsRes = await client.chain([
-            ["ContactCard/query", { accountId, limit: 500 }, "q"],
-            [
-              "ContactCard/get",
-              {
-                accountId,
-                "#ids": { resultOf: "q", name: "ContactCard/query", path: "/ids" },
-              },
-              "g",
-            ],
-          ]);
-          const g = cardsRes.get("g")?.[0] as unknown as GetResponse<ContactCard>;
-          for (const c of g.list) {
-            if (!Object.keys(c.addressBookIds ?? {}).some((id) => wanted.has(id)))
-              continue;
-            cards[sharedKey(accountId, c.id)] = c;
+          /*
+           * Shared contacts load by page up to a bound: 5000 is well past
+           * anything a working group keeps in its books, while still bounded
+           * so a huge shared book cannot hold the reader's own list hostage.
+           * Each get is capped at `maxObjectsInGet`, so the pages walk
+           * positions instead of asking for everything at once.
+           */
+          const sharedCardBound = 5000;
+          const page = client.maxObjectsInGet;
+          let fetched = 0;
+          for (let position = 0; fetched < sharedCardBound; ) {
+            const cardsRes = await client.chain([
+              ["ContactCard/query", { accountId, position, limit: page }, "q"],
+              [
+                "ContactCard/get",
+                {
+                  accountId,
+                  "#ids": { resultOf: "q", name: "ContactCard/query", path: "/ids" },
+                },
+                "g",
+              ],
+            ]);
+            const q = cardsRes.get("q")?.[0] as unknown as QueryResponse;
+            const g = cardsRes.get("g")?.[0] as unknown as GetResponse<ContactCard>;
+            for (const c of g.list) {
+              if (!Object.keys(c.addressBookIds ?? {}).some((id) => wanted.has(id)))
+                continue;
+              cards[sharedKey(accountId, c.id)] = c;
+            }
+            fetched += q.ids.length;
+            if (!q.ids.length || q.ids.length < page) break;
+            position += q.ids.length;
           }
         } catch {}
       }

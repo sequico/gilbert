@@ -755,7 +755,9 @@ JMAP Contacts and JSContact.
 - Contacts in a shared book you have added — or in any book of a group you
   belong to — are offered when addressing a message exactly like your own; your
   own card wins a tie. A group's books need no per-member adding: membership is
-  the subscription, the same rule Files follows for a group's folders.
+  the subscription, the same rule Files follows for a group's folders. Shared
+  cards load by page up to **5 000** per account — beyond a working group's
+  needs while still bounded.
 
 ---
 
