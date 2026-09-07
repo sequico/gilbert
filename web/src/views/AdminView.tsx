@@ -8,7 +8,7 @@ import { AboutSettings } from "@/views/settings/AboutSettings";
 const SECTIONS: Array<SectionItem & { el: ReactNode }> = [
   {
     id: "policy",
-    label: t("Policy"),
+    label: "Policy",
     icon: <ShieldCheck size={18} />,
     el: <AdminPolicy />,
   },

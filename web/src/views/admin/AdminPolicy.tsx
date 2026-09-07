@@ -30,25 +30,29 @@ export function AdminPolicy() {
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  async function load() {
+    setLoadError(null);
+    try {
+      const res = await apiFetch<{ policy: string }>("/api/admin/policy");
+      setText(res.policy);
+      setLoaded(true);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   useEffect(() => {
-    void (async () => {
-      try {
-        const res = await apiFetch<{ policy: string }>("/api/admin/policy");
-        setText(res.policy);
-        setLoaded(true);
-      } catch (err) {
-        setLoadError(err instanceof Error ? err.message : String(err));
-      }
-    })();
+    void load();
   }, []);
 
   async function publish() {
+    if (saving) return;
     setError(null);
     setNotice(null);
     try {
       JSON.parse(text);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Not valid JSON.");
+    } catch {
+      setError(t("That is not valid JSON — fix the document and publish again."));
       return;
     }
     setSaving(true);
@@ -70,7 +74,14 @@ export function AdminPolicy() {
       <div>
         <h1>{t("Installation-wide policy")}</h1>
         {loadError ? (
-          <div className="error-box">{loadError}</div>
+          <>
+            <div className="error-box">{loadError}</div>
+            <p>
+              <button className="btn" onClick={() => void load()}>
+                {t("Retry")}
+              </button>
+            </p>
+          </>
         ) : (
           <p className="hint">{t("Loading…")}</p>
         )}
@@ -111,6 +122,7 @@ export function AdminPolicy() {
         className="textarea"
         aria-label={t("Policy document")}
         spellCheck={false}
+        disabled={saving}
         style={{ minHeight: "18rem", fontFamily: "var(--font-mono, monospace)" }}
         value={text}
         onChange={(e) => setText(e.target.value)}
