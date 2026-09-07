@@ -402,3 +402,46 @@ test("the admin endpoints refuse a bad target with a clear error", async () => {
   assert.equal(res.status, 404);
   assert.equal(res.body.error, "target_not_found");
 });
+
+test("a target whose name contains '%' or ':' is refused at the boundary", async () => {
+  for (const target of ["bob%evil@example.com", "bob:port@example.com"]) {
+    const res = await call("/api/admin/force-password-change", adminCookie, {
+      method: "POST",
+      body: JSON.stringify({ target }),
+    });
+    assert.equal(res.status, 400, `${target} must be refused with 400`);
+    assert.equal(res.body.error, "bad_request");
+  }
+});
+
+test("an account with two-factor authentication cannot be forced", async () => {
+  // The guard reads the target's security state as the target would see it;
+  // give the target a TOTP URL the way switching 2FA on would, then restore.
+  const mockAny = mock as unknown as {
+    targetAccount: { otpUrl: string | null };
+  };
+  mockAny.targetAccount.otpUrl =
+    "otpauth://totp/bob@example.com?secret=JBSWY3DPEHPK3PXP&issuer=gilbert";
+  try {
+    const res = await call("/api/admin/force-password-change", adminCookie, {
+      method: "POST",
+      body: JSON.stringify({ target: BOB }),
+    });
+    assert.equal(res.status, 400, JSON.stringify(res.body));
+    assert.equal(res.body.error, "account_has_two_factor");
+  } finally {
+    mockAny.targetAccount.otpUrl = null;
+  }
+  // With 2FA off again the same admin action succeeds, and clearing still
+  // works regardless of the guard (clearing never reads security state).
+  const set = await call("/api/admin/force-password-change", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ target: BOB }),
+  });
+  assert.equal(set.status, 200);
+  const clear = await call("/api/admin/force-password-change", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ target: BOB, clear: true }),
+  });
+  assert.equal(clear.status, 200);
+});

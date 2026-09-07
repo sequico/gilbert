@@ -19,6 +19,7 @@ import {
   getState,
   isPasswordChangeForced,
   revokeAppPassword,
+  type SecurityState,
   setPasswordChangeDirective,
 } from "./account.js";
 import { resolveClientIp } from "./clientip.js";
@@ -191,6 +192,10 @@ async function sessionForcedState(
   if (session.appPassword) return false;
   const hit = directiveCache.get(session.username);
   if (hit && Date.now() - hit.checkedAt < DIRECTIVE_CACHE_TTL_MS) return hit.forced;
+  // A stale entry is dropped, not overwritten in place: the map would
+  // otherwise keep one entry per user ever checked for the life of the
+  // process, with nothing ever deleting the ones that stop requesting.
+  if (hit) directiveCache.delete(session.username);
   let forced = false;
   try {
     const up =
@@ -453,6 +458,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   const api = new Hono<Env>();
   api.use("*", csrfGuard);
   api.use("/account/*", accountBody);
+  api.use("/admin/*", accountBody);
 
   /*
    * The forced-password-change door (ADR 0005).
@@ -983,8 +989,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   // ---------- Administration (ADR 0001) ----------
   /**
-   * Membership of the `gilbert-admin@…` group is re-checked per request, so
-   * a demotion lands on the very next privileged call of an open session.
+   * Membership of the `gilbert-admin@…` group, re-checked on every privileged
+   * call. The refetch is forced past the upstream-session cache so a demotion
+   * really lands on the next call of an open session, as the ADR promises.
    */
   const requireAdmin: MiddlewareHandler<Env> = async (c, next) => {
     const session = c.get("session");
@@ -993,6 +1000,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         session.id,
         session.authorization,
         upstreamFor(session.username),
+        true,
       );
       if (!isAdminSession(upstream, session.username)) {
         return c.json(
@@ -1024,7 +1032,11 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const body = await readJson<{ target?: string; clear?: boolean }>(c);
     if (!body) return c.json({ error: "bad_request" }, 400);
     const target = (body.target ?? "").trim();
-    if (!target || target.length > 320) return c.json({ error: "bad_request" }, 400);
+    // A '%' would change who the composite `{target}%{admin}` names, and a
+    // ':' can confuse the credential parse; both fail closed today, but with
+    // a misleading 404, so they are refused at the boundary instead.
+    if (!target || target.length > 320 || target.includes("%") || target.includes(":"))
+      return c.json({ error: "bad_request" }, 400);
     const targetAuth = impersonationAuthorization(admin, target);
     if (!targetAuth) {
       // An admin signed in with an app password cannot impersonate: Stalwart
@@ -1066,7 +1078,42 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     };
     try {
       if (body.clear === true) await clearPasswordChangeDirective(ctx);
-      else await setPasswordChangeDirective(ctx, admin.username);
+      else {
+        /*
+         * A forced 2FA account would have no way out of the wall: the change
+         * endpoint validates the current account password, and a 2FA account
+         * can only ever present an app password (which the wall does not
+         * accept and Stalwart refuses for impersonation). Refuse to force
+         * such an account, reading its security state as the target through
+         * the impersonated session. The real 0.16 session resource does not
+         * say how a session authenticated (checked 2026-09-07; re-verify
+         * live), so this guard is also what keeps app-password users from
+         * being walled behind a door they cannot open.
+         */
+        let state: SecurityState;
+        try {
+          state = await getState(ctx);
+        } catch (err) {
+          return c.json(
+            {
+              error: "bad_request",
+              message:
+                "Could not read the account's security state; refusing to force until it can be checked.",
+            },
+            400,
+          );
+        }
+        if (state.otpEnabled)
+          return c.json(
+            {
+              error: "account_has_two_factor",
+              message:
+                "This account uses two-factor authentication and cannot be forced: it has no password-only way out of the change wall.",
+            },
+            400,
+          );
+        await setPasswordChangeDirective(ctx, admin.username);
+      }
     } catch (err) {
       return accountFailure(c, err);
     }

@@ -220,10 +220,24 @@ client.onUnauthenticated(() => {
  * collect 403s. The store flip unmounts the app and mounts the wall; a
  * successful change refreshes the session and flips it back.
  */
+let recheckWall: number | null = null;
 client.onForcedPasswordChange(() => {
   push.stop();
   stopSettingsSync();
   useSession.setState({ forcedPasswordChange: true });
+  /*
+   * A data request that was in flight while the wall stood can answer 403
+   * after the password change has already cleared the directive — the door
+   * judged it before the clear — and land after the refresh lowered the
+   * wall, putting it back up with nothing left to lower it. One re-probe a
+   * second after the last such 403 settles the question against the current
+   * server state; a session that is genuinely still forced stays up.
+   */
+  if (recheckWall !== null) window.clearTimeout(recheckWall);
+  recheckWall = window.setTimeout(() => {
+    recheckWall = null;
+    void useSession.getState().refresh();
+  }, 1000);
 });
 
 push.onConnection((state) =>
