@@ -14,11 +14,12 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { setErrorMessage } from "@/jmap/client";
 import type { AddressBook } from "@/jmap/types";
 import { plural, t } from "@/lib/i18n";
 import { useContacts } from "@/store/contacts";
+import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
@@ -71,6 +72,7 @@ export function ContactsSidebar() {
     );
   const contacts = useContacts();
   const settings = useSettings((s) => s.settings);
+  const mailAccounts = useMail((s) => s.mailAccounts);
   /*
    * What the open menu belongs to. One state rather than three, because the
    * rows differ in what they can offer: everything can be exported, only your
@@ -126,11 +128,64 @@ export function ContactsSidebar() {
   const added = new Set(settings.addedShares);
   const isAdded = (accountId: string, bookId: string) =>
     added.has(`${accountId}:${bookId}`);
-  const subscribed = contacts.sharedBooks.filter(
+  /* Group mailboxes get one section each, with their own "+": a book made
+     there is created in the group's own account, so it belongs to the group
+     and every member reaches it -- no share to maintain. Any other shared
+     account (a colleague's share) stays in the read-only area below. */
+  const groups = mailAccounts.filter((a) => a.kind === "group");
+  const groupIds = new Set(groups.map((g) => g.accountId));
+  const sharedOnlySubscribed = contacts.sharedBooks.filter(
+    (b) =>
+      !groupIds.has(b.accountId) &&
+      (b.book.isSubscribed || isAdded(b.accountId, b.book.id)),
+  );
+  const sharedOnlyAvailable = contacts.sharedBooks.filter(
+    (b) =>
+      !groupIds.has(b.accountId) &&
+      !(b.book.isSubscribed || isAdded(b.accountId, b.book.id)),
+  );
+  const hasSubscribed = contacts.sharedBooks.some(
     (b) => b.book.isSubscribed || isAdded(b.accountId, b.book.id),
   );
-  const available = contacts.sharedBooks.filter(
-    (b) => !(b.book.isSubscribed || isAdded(b.accountId, b.book.id)),
+  /* Shared rows, used under a group's section and in the read-only area for
+     shares that are not a group. Keying is the caller's job. */
+  const subscribedRow = (accountId: string, accountName: string, book: AddressBook) => (
+    <div
+      className={`nav-item ${isOn(accountId, book.id) ? "active" : ""}`}
+      onClick={() => contacts.select({ accountId, bookId: book.id })}
+      title={`${book.name} — shared by ${accountName}`}
+      onContextMenu={(e) => openMenuAt(e, { kind: "shared", accountId, book })}
+    >
+      <BookOpen size={17} />
+      <span className="grow truncate">{book.name}</span>
+      {/* A menu rather than the bare X it replaces: somebody else's book can
+          still be exported, and losing that when the sidebar's export button
+          went would have been a regression dressed as a tidy-up. */}
+      <button
+        className="icon-btn xs nav-more"
+        onClick={(e) => openMenu(e, { kind: "shared", accountId, book })}
+        aria-label={t("Address book options")}
+      >
+        <MoreVertical size={14} />
+      </button>
+    </div>
+  );
+  const availableRow = (accountId: string, accountName: string, book: AddressBook) => (
+    <div className="nav-item" title={`${book.name} — from ${accountName}`}>
+      <BookOpen size={17} className="faint" />
+      <span className="grow truncate faint">{book.name}</span>
+      <button
+        className="icon-btn sm"
+        title={t("Add to my contacts")}
+        aria-label={t("Add to my contacts")}
+        onClick={(e) => {
+          e.stopPropagation();
+          void contacts.setBookSubscribed(accountId, book.id, true);
+        }}
+      >
+        <Plus size={13} />
+      </button>
+    </div>
   );
 
   return (
@@ -213,29 +268,47 @@ export function ContactsSidebar() {
           <RefreshCw size={14} className={refreshing ? "spin" : ""} />
         </button>
       </div>
-      {subscribed.map(({ accountId, accountName, book }) => (
-        <div
-          key={`${accountId}:${book.id}`}
-          className={`nav-item ${isOn(accountId, book.id) ? "active" : ""}`}
-          onClick={() => contacts.select({ accountId, bookId: book.id })}
-          title={`${book.name} — shared by ${accountName}`}
-          onContextMenu={(e) => openMenuAt(e, { kind: "shared", accountId, book })}
-        >
-          <BookOpen size={17} />
-          <span className="grow truncate">{book.name}</span>
-          {/* A menu rather than the bare X it replaces: somebody else's book can
-              still be exported, and losing that when the sidebar's export button
-              went would have been a regression dressed as a tidy-up. */}
-          <button
-            className="icon-btn xs nav-more"
-            onClick={(e) => openMenu(e, { kind: "shared", accountId, book })}
-            aria-label={t("Address book options")}
-          >
-            <MoreVertical size={14} />
-          </button>
-        </div>
+      {groups.map((g) => (
+        <Fragment key={g.accountId}>
+          <div className="nav-section">
+            <span>{g.name}</span>
+            <button
+              className="icon-btn sm"
+              title={t("New address book in {group}", { group: g.name })}
+              aria-label={t("New address book in {group}", { group: g.name })}
+              onClick={async () => {
+                const name = await promptDialog({
+                  title: t("New address book"),
+                  placeholder: t("Name"),
+                });
+                if (!name?.trim()) return;
+                try {
+                  await contacts.createBook(name.trim(), g.accountId);
+                } catch (err) {
+                  toast.error((err as Error).message);
+                }
+              }}
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+          {contacts.sharedBooks
+            .filter((b) => b.accountId === g.accountId)
+            .map((b) => (
+              <Fragment key={`${b.accountId}:${b.book.id}`}>
+                {b.book.isSubscribed || isAdded(b.accountId, b.book.id)
+                  ? subscribedRow(b.accountId, b.accountName, b.book)
+                  : availableRow(b.accountId, b.accountName, b.book)}
+              </Fragment>
+            ))}
+        </Fragment>
       ))}
-      {!subscribed.length && (
+      {sharedOnlySubscribed.map(({ accountId, accountName, book }) => (
+        <Fragment key={`${accountId}:${book.id}`}>
+          {subscribedRow(accountId, accountName, book)}
+        </Fragment>
+      ))}
+      {!hasSubscribed && (
         <p className="hint" style={{ padding: "4px 12px" }}>
           {contacts.sharedLoaded ? "Nothing added yet." : "Looking…"}
         </p>
@@ -244,31 +317,15 @@ export function ContactsSidebar() {
       {/* Stalwart returns every book in a reachable account with full rights,
           shared or not, so adding one is the reader's decision rather than a
           guess made on their behalf. */}
-      {available.length > 0 && (
+      {sharedOnlyAvailable.length > 0 && (
         <>
           <div className="nav-section">
             <span>{t("Available to add")}</span>
           </div>
-          {available.map(({ accountId, accountName, book }) => (
-            <div
-              key={`${accountId}:${book.id}`}
-              className="nav-item"
-              title={`${book.name} — from ${accountName}`}
-            >
-              <BookOpen size={17} className="faint" />
-              <span className="grow truncate faint">{book.name}</span>
-              <button
-                className="icon-btn sm"
-                title={t("Add to my contacts")}
-                aria-label={t("Add to my contacts")}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void contacts.setBookSubscribed(accountId, book.id, true);
-                }}
-              >
-                <Plus size={13} />
-              </button>
-            </div>
+          {sharedOnlyAvailable.map(({ accountId, accountName, book }) => (
+            <Fragment key={`${accountId}:${book.id}`}>
+              {availableRow(accountId, accountName, book)}
+            </Fragment>
           ))}
         </>
       )}

@@ -15,7 +15,7 @@ import {
   UserMinus,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import type { Calendar, Id } from "@/jmap/types";
 import { BIRTHDAY_CALENDAR_ID } from "@/lib/birthdays";
@@ -32,6 +32,7 @@ import { formatMonthYear } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
 import { subscriptionCalendarId, useCalendar } from "@/store/calendar";
 import { useContacts } from "@/store/contacts";
+import { useMail } from "@/store/mail";
 import { dateTimeKey, useSettings } from "@/store/settings";
 import { TASKLIST_MARKER } from "@/store/tasks";
 import { confirmDialog } from "@/ui/dialog";
@@ -133,11 +134,25 @@ export function CalendarSidebar() {
   }) =>
     Boolean(c.calendar.isSubscribed) ||
     addedShares.has(`${c.accountId}:${c.calendar.id}`);
-  const sharedSubscribed = cal.sharedCalendars.filter(
-    (c) => isAdded(c) && !isTasklist(c.calendar),
+  /* Accounts that are group mailboxes get their own calendar section; any
+     other shared account (a colleague's calendar-only share) stays in the
+     read-only area below the group sections. */
+  const mailAccounts = useMail((s) => s.mailAccounts);
+  const groupIds = new Set(
+    mailAccounts.filter((a) => a.kind === "group").map((g) => g.accountId),
   );
-  const sharedAvailable = cal.sharedCalendars.filter(
-    (c) => !isAdded(c) && !isTasklist(c.calendar),
+  const sharedOnlySubscribed = cal.sharedCalendars.filter(
+    (c) => !groupIds.has(c.accountId) && isAdded(c) && !isTasklist(c.calendar),
+  );
+  const sharedOnlyAvailable = cal.sharedCalendars.filter(
+    (c) => !groupIds.has(c.accountId) && !isAdded(c) && !isTasklist(c.calendar),
+  );
+  /* One section per group mailbox, like the task list: a calendar made in a
+     group belongs to the group (the create goes to the group's own account),
+     so the group's calendars live under the group and carry its "+". */
+  const groups = useMemo(
+    () => mailAccounts.filter((a) => a.kind === "group"),
+    [mailAccounts],
   );
   const [menuCal, setMenuCal] = useState<Calendar | null>(null);
   /** The account the menu's calendar lives in; own when null/equal to own. */
@@ -145,6 +160,73 @@ export function CalendarSidebar() {
   const [editCal, setEditCal] = useState<Partial<Calendar> | null>(null);
   const [editAccountId, setEditAccountId] = useState<Id | null>(null);
   const [share, setShare] = useState<Calendar | null>(null);
+
+  /* Shared-calendar rows, used both under a group's section and in the
+     read-only area for shares that are not a group. Keying is the caller's
+     job (the row has no key of its own). */
+  const subscribedRow = (accountId: Id, accountName: string, c: Calendar) => (
+    <div
+      className={`cal-list-item ${cal.hidden[`${accountId}:${c.id}`] ? "hidden-cal" : ""}`}
+      onClick={() => cal.toggleHidden(`${accountId}:${c.id}`)}
+      title={`${c.name} — shared by ${accountName}`}
+    >
+      <span
+        className="cal-color"
+        style={{
+          background: c.color ?? "var(--accent)",
+          borderColor: c.color ?? "var(--accent)",
+        }}
+      />
+      <span className="cal-name">{c.name}</span>
+      <button
+        className="icon-btn xs nav-more"
+        title={t("Remove from my calendar")}
+        aria-label={t("Remove from my calendar")}
+        onClick={(e) => {
+          e.stopPropagation();
+          void cal.setSharedSubscribed(accountId, c.id, false);
+        }}
+      >
+        <X size={14} />
+      </button>
+      <button
+        className="icon-btn xs nav-more"
+        aria-label={t("Calendar options")}
+        title={c.name}
+        onClick={(e) => {
+          e.stopPropagation();
+          setMenuCal(c);
+          setMenuAccountId(accountId);
+          menu.open(e);
+        }}
+      >
+        <MoreVertical size={14} />
+      </button>
+    </div>
+  );
+  const availableRow = (accountId: Id, accountName: string, c: Calendar) => (
+    <div className="cal-list-item" title={`${c.name} — from ${accountName}`}>
+      <span
+        className="cal-color"
+        style={{
+          background: "transparent",
+          borderColor: c.color ?? "var(--border-strong)",
+        }}
+      />
+      <span className="cal-name faint">{c.name}</span>
+      <button
+        className="icon-btn sm"
+        title={t("Add to my calendar")}
+        aria-label={t("Add to my calendar")}
+        onClick={(e) => {
+          e.stopPropagation();
+          void cal.setSharedSubscribed(accountId, c.id, true);
+        }}
+      >
+        <Plus size={14} />
+      </button>
+    </div>
+  );
   const instances = cal.instancesIn(grid[0]!, new Date(grid[41]!.getTime() + 86400000));
   const dow = useMemo(
     () => grid.slice(0, 7).map((d) => formatWeekday(d, "narrow")),
@@ -322,88 +404,54 @@ export function CalendarSidebar() {
           rights, so "shared with me" and "there is an account here at all" look
           identical -- `isSubscribed` is the only thing that tells them apart,
           and adding one is a deliberate act rather than a guess on our part. */}
-      {sharedSubscribed.length > 0 && (
+      {groups.map((g) => (
+        <Fragment key={g.accountId}>
+          <div className="nav-section">
+            <span>{g.name}</span>
+            <button
+              className="icon-btn xs"
+              title={t("New calendar in {group}", { group: g.name })}
+              aria-label={t("New calendar in {group}", { group: g.name })}
+              onClick={() => {
+                setEditCal({});
+                setEditAccountId(g.accountId);
+              }}
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+          {cal.sharedCalendars
+            .filter((c) => c.accountId === g.accountId && !isTasklist(c.calendar))
+            .map((c) => (
+              <Fragment key={`${c.accountId}:${c.calendar.id}`}>
+                {isAdded(c)
+                  ? subscribedRow(c.accountId, c.accountName, c.calendar)
+                  : availableRow(c.accountId, c.accountName, c.calendar)}
+              </Fragment>
+            ))}
+        </Fragment>
+      ))}
+      {sharedOnlySubscribed.length > 0 && (
         <>
           <div className="nav-section">
             <span>{t("Shared with me")}</span>
           </div>
-          {sharedSubscribed.map(({ accountId, accountName, calendar: c }) => {
-            const key = `${accountId}:${c.id}`;
-            return (
-              <div
-                key={key}
-                className={`cal-list-item ${cal.hidden[key] ? "hidden-cal" : ""}`}
-                onClick={() => cal.toggleHidden(key)}
-                title={`${c.name} — shared by ${accountName}`}
-              >
-                <span
-                  className="cal-color"
-                  style={{
-                    background: c.color ?? "var(--accent)",
-                    borderColor: c.color ?? "var(--accent)",
-                  }}
-                />
-                <span className="cal-name">{c.name}</span>
-                <button
-                  className="icon-btn xs nav-more"
-                  title={t("Remove from my calendar")}
-                  aria-label={t("Remove from my calendar")}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void cal.setSharedSubscribed(accountId, c.id, false);
-                  }}
-                >
-                  <X size={14} />
-                </button>
-                <button
-                  className="icon-btn xs nav-more"
-                  aria-label={t("Calendar options")}
-                  title={c.name}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMenuCal(c);
-                    setMenuAccountId(accountId);
-                    menu.open(e);
-                  }}
-                >
-                  <MoreVertical size={14} />
-                </button>
-              </div>
-            );
-          })}
+          {sharedOnlySubscribed.map((c) => (
+            <Fragment key={`${c.accountId}:${c.calendar.id}`}>
+              {subscribedRow(c.accountId, c.accountName, c.calendar)}
+            </Fragment>
+          ))}
         </>
       )}
-      {sharedAvailable.length > 0 && (
+      {sharedOnlyAvailable.length > 0 && (
         <>
           <div className="nav-section">
             <span>{t("Available to add")}</span>
           </div>
-          {sharedAvailable.map(({ accountId, accountName, calendar: c }) => (
-            <div
-              key={`${accountId}:${c.id}`}
-              className="cal-list-item"
-              title={`${c.name} — from ${accountName}`}
-            >
-              <span
-                className="cal-color"
-                style={{
-                  background: "transparent",
-                  borderColor: c.color ?? "var(--border-strong)",
-                }}
-              />
-              <span className="cal-name faint">{c.name}</span>
-              <button
-                className="icon-btn xs nav-more"
-                title={t("Add to my calendar")}
-                aria-label={t("Add to my calendar")}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void cal.setSharedSubscribed(accountId, c.id, true);
-                }}
-              >
-                <Plus size={14} />
-              </button>
-            </div>
+          {sharedOnlyAvailable.map((c) => (
+            <Fragment key={`${c.accountId}:${c.calendar.id}`}>
+              {availableRow(c.accountId, c.accountName, c.calendar)}
+            </Fragment>
           ))}
         </>
       )}

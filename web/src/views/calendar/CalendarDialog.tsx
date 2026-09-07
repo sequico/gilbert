@@ -41,7 +41,7 @@ export function CalendarDialog({
         if (accountId && accountId !== cal.accountId)
           await cal.updateSharedCalendar(accountId, calendar.id, data);
         else await cal.updateCalendar(calendar.id, data);
-      } else await cal.createCalendar(data);
+      } else await cal.createCalendar(data, accountId);
       toast.success(translate("Calendar saved"));
       onClose();
     } catch (err) {

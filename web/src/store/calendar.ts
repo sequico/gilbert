@@ -410,7 +410,8 @@ interface CalendarState {
     comment?: string,
     accountId?: Id | null,
   ): Promise<void>;
-  createCalendar(data: Partial<Calendar>): Promise<Id>;
+  /** Create a calendar; pass `accountId` to create it in a group account, owned by the group. */
+  createCalendar(data: Partial<Calendar>, accountId?: Id): Promise<Id>;
   updateCalendar(id: Id, patch: Partial<Calendar>): Promise<void>;
   /** Rename/colour a calendar that lives in a shared account (a group
    *  mailbox): the write goes to that account, not the reader's own. */
@@ -1230,22 +1231,30 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     await get().updateEvent(event, patch, true, "series", { accountId });
   },
 
-  async createCalendar(data) {
-    const accountId = get().accountId!;
-    /*
-     * Subscribed from the start, the same way a new task list is: the reader
-     * made the calendar to use it, and a server that leaves a new calendar
-     * unsubscribed unless the client says otherwise (Stalwart does; the mock
-     * used to hide it by filling the flag in) would keep it invisible to
-     * every client that honours `isSubscribed`.
-     */
+  /**
+   * Create a calendar, owned by `accountId` when given and by the reader's
+   * own account otherwise. A calendar created on a group account belongs to
+   * the group: it is written directly into the group's own account, so every
+   * member -- including one added after the fact -- reaches it through their
+   * session on that account, and no share or per-user ACL is written.
+   *
+   * Subscribed from the start, the same way a new task list is: the reader
+   * made the calendar to use it, and a server that leaves a new calendar
+   * unsubscribed unless the client says otherwise (Stalwart does; the mock
+   * used to hide it by filling the flag in) would keep it invisible to
+   * every client that honours `isSubscribed`.
+   */
+  async createCalendar(data, accountId?: Id) {
+    const own = get().accountId!;
+    const target = accountId ?? own;
     const res = await client.call<SetResponse<Calendar>>("Calendar/set", {
-      accountId,
+      accountId: target,
       create: { c: { name: "Calendar", isSubscribed: true, ...data } },
     });
     const err = res.notCreated?.c;
     if (err) throw new Error(setErrorMessage(err));
-    await get().loadCalendars();
+    if (target === own) await get().loadCalendars();
+    else await get().loadSharedCalendars();
     return res.created!.c!.id;
   },
 

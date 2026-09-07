@@ -292,7 +292,8 @@ interface ContactsState {
   emptyBook(
     bookId: Id,
   ): Promise<{ destroyed: number; unfiled: number; refused?: SetError }>;
-  createBook(name: string): Promise<Id>;
+  /** Create an address book; pass `accountId` to create it in a group account, owned by the group. */
+  createBook(name: string, accountId?: Id): Promise<Id>;
   updateBook(id: Id, patch: Partial<AddressBook>): Promise<void>;
   destroyBook(id: Id): Promise<void>;
   /** Import vCards, updating any whose UID this book already holds rather than duplicating it. */
@@ -798,15 +799,27 @@ export const useContacts = create<ContactsState>((set, get) => ({
     return { destroyed: gone.length, unfiled, refused };
   },
 
-  async createBook(name) {
-    const accountId = get().accountId!;
+  /**
+   * Create an address book, owned by `accountId` when given and by the
+   * reader's own account otherwise. A book created on a group account
+   * belongs to the group: it is written directly into the group's own
+   * account, so every member -- including one added after the fact --
+   * reaches it through their session on that account, and no share or
+   * per-user ACL is written. Group books are created subscribed so members
+   * see them without each adding one; the reader's own books need no flag
+   * (they are theirs, listed as such).
+   */
+  async createBook(name, accountId?: Id) {
+    const own = get().accountId!;
+    const target = accountId ?? own;
     const res = await client.call<SetResponse<AddressBook>>("AddressBook/set", {
-      accountId,
-      create: { b: { name } },
+      accountId: target,
+      create: { b: target === own ? { name } : { name, isSubscribed: true } },
     });
     const err = res.notCreated?.b;
     if (err) throw new Error(setErrorMessage(err));
-    await get().loadBooks();
+    if (target === own) await get().loadBooks();
+    else await get().loadShared();
     return res.created!.b!.id;
   },
 
