@@ -34,6 +34,7 @@ import { Spinner } from "@/ui/misc";
 import { ToastHost, toast } from "@/ui/toast";
 import { AppShell } from "@/views/AppShell";
 import { ComposerDock } from "@/views/compose/ComposerDock";
+import { ForcedPasswordChange } from "@/views/ForcedPasswordChange";
 import { LoginPage } from "@/views/Login";
 import { MailView } from "@/views/mail/MailView";
 
@@ -59,6 +60,14 @@ const AdminView = lazy(() =>
 export function App() {
   const status = useSession((s) => s.status);
   const bootstrap = useSession((s) => s.bootstrap);
+  /*
+   * The forced-password-change wall (ADR 0005): while it stands, the data
+   * routes answer 403 and the only usable screen is the change form. Gating
+   * here rather than inside AuthedApp means the wall mounts instead of the
+   * app — AuthedApp's data loads and push stream never start, and its
+   * cleanup runs when a mid-session force unmounts it.
+   */
+  const forcedPasswordChange = useSession((s) => s.forcedPasswordChange);
   /*
    * Subscribed once, here, and used as a key below.
    *
@@ -135,7 +144,13 @@ export function App() {
       }}
     >
       <Fragment key={languageVersion}>
-        {status === "anonymous" ? <LoginPage /> : <AuthedApp />}
+        {status === "anonymous" ? (
+          <LoginPage />
+        ) : forcedPasswordChange ? (
+          <ForcedPasswordChange />
+        ) : (
+          <AuthedApp />
+        )}
       </Fragment>
       <ToastHost />
       <ConfirmHost />

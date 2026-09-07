@@ -11,6 +11,14 @@ export interface UpstreamSession {
   eventSourceUrl: string;
   state: string;
   /**
+   * Which credential authenticated this session, where the upstream can say.
+   * The mock reports it (it validates the secret itself); Stalwart's session
+   * resource does not carry the credential type, so against a real 0.16
+   * server the field is absent and a session counts as a password session.
+   * See the dated comment in the mock.
+   */
+  authType?: "password" | "app-password";
+  /**
    * Which Stalwart this document came from.
    *
    * Recorded rather than looked up again, because the relative URLs inside it

@@ -187,7 +187,16 @@ export function SecuritySettings() {
 
 /* ------------------------------------------------------------------ */
 
-function PasswordForm({
+/**
+ * Current + new + confirm (and the OTP code when the account has 2FA on).
+ * Exported because the forced-password-change wall (ADR 0005) is the same
+ * form with the same only way out: a successful change. The wall has no
+ * access to /api/account/security (the door gates it), and a session that
+ * can be walled at all holds the account password — 2FA accounts sign in
+ * with an app password and are never forced — so the wall always shows the
+ * form without the OTP field.
+ */
+export function PasswordForm({
   otpEnabled,
   onChanged,
 }: {
