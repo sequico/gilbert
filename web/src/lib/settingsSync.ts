@@ -69,24 +69,28 @@ export async function loadRemoteSettings(): Promise<Record<string, unknown> | nu
 /**
  * Has this account's settings file already been read on this page load?
  *
- * Claims the account as a side effect, so two callers cannot both start a
- * read. The subtree that does the reading is keyed on the language version
- * and so is deliberately remounted whenever somebody picks a language;
- * without this the remount re-reads a file written before the change and
- * applies it, putting the old language back.
+ * The subtree that does the reading is keyed on the language version and so
+ * is deliberately remounted whenever somebody picks a language. The account
+ * is claimed only once the read has actually settled (`armSettingsSync`), so
+ * a remount that cancels a read still in flight is answered "not yet" and
+ * reads again -- claiming at the start used to let a cancelled read consume
+ * the claim, after which the remount skipped the read entirely and never
+ * armed sync for that session.
  *
  * Cleared by `stopSettingsSync`, so signing out and back in reads again.
  */
 export function settingsAlreadyLoadedFor(accountId: string | null | undefined): boolean {
   if (!accountId) return true;
-  if (loadedFor === accountId) return true;
-  loadedFor = accountId;
-  return false;
+  return loadedFor === accountId;
 }
 
 /** Allow pushes. Called once the first load has settled, either way. */
 export function armSettingsSync(): void {
   armed = true;
+  // The read that just settled is what this page load will trust; claim the
+  // account for it so a later remount does not read again.
+  const accountId = useSession.getState().accountId;
+  if (accountId && !loadedFor) loadedFor = accountId;
   bindFlushListeners();
   // A change made while the read was in flight has been waiting for this.
   if (pending) void flushSettingsPush();

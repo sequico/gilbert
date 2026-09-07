@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Email } from "@/jmap/types";
 import { useCompose } from "@/store/compose";
 import { useMail } from "@/store/mail";
+import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
 
 /**
  * "Compose as new" is a mail sent again, not a mail passed on. What it keeps is
@@ -77,6 +78,67 @@ const draftFor = async (email: Email) => {
 
 beforeEach(() => useCompose.setState({ drafts: [], activeKey: null }));
 afterEach(() => useCompose.setState({ drafts: [], activeKey: null }));
+
+/** A mail whose body carries a remote (tracking) image. */
+const TRACKER = "http://tracker.example/x.gif";
+function withRemoteImage(base: Email): Email {
+  return {
+    ...base,
+    id: `${base.id}-img`,
+    bodyValues: {
+      "1": {
+        value: `<p>Here they are.</p><img src="${TRACKER}">`,
+        isEncodingProblem: false,
+        isTruncated: false,
+      },
+    },
+  } as Email;
+}
+
+/*
+ * Quoting a message used to fetch its remote images the moment the draft
+ * opened: all three "make a draft from an existing message" flows sanitised
+ * with `allowRemote: true`, no consent asked and no proxy in between, so a
+ * reply to a tracking-pixel mail loaded the pixels. The quote now asks the
+ * same question the reader does (settings + sender), and a blocked image is
+ * left as the reader's placeholder so nothing is fetched.
+ */
+describe("quoting a message with remote images", () => {
+  it("blocks them by default (ask policy), leaving the placeholder form", async () => {
+    useSettings.setState({ settings: { ...DEFAULT_SETTINGS, imagePolicy: "ask" } });
+    const d = await draftFor(withRemoteImage(RECEIVED));
+    expect(d.html).toContain("data-ihm-blocked");
+    expect(d.html).not.toContain(`src="${TRACKER}"`);
+  });
+
+  it("keeps them when the policy is to show them always", async () => {
+    useSettings.setState({ settings: { ...DEFAULT_SETTINGS, imagePolicy: "always" } });
+    const d = await draftFor(withRemoteImage(RECEIVED));
+    expect(d.html).not.toContain("data-ihm-blocked");
+    expect(d.html).toContain(`src="${TRACKER}"`);
+  });
+
+  it("keeps them for a sender the reader has trusted", async () => {
+    useSettings.setState({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        trustedImageSenders: ["ann@example.com"],
+      },
+    });
+    const d = await draftFor(withRemoteImage(RECEIVED));
+    expect(d.html).not.toContain("data-ihm-blocked");
+    expect(d.html).toContain(`src="${TRACKER}"`);
+  });
+
+  it("applies the same decision when replying", async () => {
+    useSettings.setState({ settings: { ...DEFAULT_SETTINGS, imagePolicy: "ask" } });
+    mailState(withRemoteImage(RECEIVED));
+    const key = await useCompose.getState().reply(withRemoteImage(RECEIVED), "reply");
+    const d = useCompose.getState().drafts.find((x) => x.key === key)!;
+    expect(d.html).toContain("data-ihm-blocked");
+    expect(d.html).not.toContain(`src="${TRACKER}"`);
+  });
+});
 
 describe("compose as new", () => {
   it("keeps every recipient the message had, bcc included", async () => {

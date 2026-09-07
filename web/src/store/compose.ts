@@ -14,10 +14,12 @@ import { emlFilename } from "@/lib/emlName";
 import { formatFullDate, uid } from "@/lib/format";
 import { sanitizeEditorHtml, sanitizeEmailHtml } from "@/lib/html";
 import { t as translate } from "@/lib/i18n";
+import { remoteImagesAllowed } from "@/lib/remoteImages";
 import { formatScheduleTime, holdUntil } from "@/lib/schedule";
 import { fillPlaceholders, type PlaceholderContext } from "@/lib/templatePlaceholders";
 import { escapeHtml, htmlToText, quoteText, replySubject, textToHtml } from "@/lib/text";
 import { toast } from "@/ui/toast";
+import { useContacts } from "./contacts";
 import { BODY_PROPS, FULL_PROPS, useMail } from "./mail";
 import { ensureScheduledMailbox, useScheduled } from "./scheduled";
 import { settings } from "./settings";
@@ -116,6 +118,47 @@ interface ComposeState {
 
 const AUTOSAVE_MS = 20_000;
 const autosaveTimers = new Map<string, number>();
+
+/*
+ * Draft saves, one at a time per draft.
+ *
+ * Saving a draft is Email/set create + destroy of the draft it replaces, so
+ * two saves that overlap each destroy only the id they captured and the one
+ * that finishes last leaves its create behind: an autosave that lands after
+ * Send or Discard leaves an orphan $draft of a message that is gone, and two
+ * overlapping saves leave two drafts. A save that finishes last also used to
+ * clear `dirty` over content typed while it was in flight, so a close that
+ * followed skipped its own save and dropped that content.
+ *
+ * Every save for a key therefore runs on one chain (`enqueueSave`), and send
+ * and discard wait for the chain to drain and destroy the draft the last save
+ * actually created (`lastId`), not the id they captured earlier. Completion
+ * clears `dirty` only when the draft still holds what was saved.
+ */
+const saveChains = new Map<string, { tail: Promise<unknown>; lastId: Id | null }>();
+
+/** Run `job` after every save already queued for this draft has settled. */
+function enqueueSave<T>(key: string, job: () => Promise<T>): Promise<T> {
+  let q = saveChains.get(key);
+  if (!q) {
+    q = { tail: Promise.resolve(), lastId: null };
+    saveChains.set(key, q);
+  }
+  const p = q.tail.then(job, job);
+  q.tail = p.catch(() => undefined);
+  return p;
+}
+
+/** Wait until every save queued for this draft has settled. */
+async function drainSaves(key: string): Promise<void> {
+  const q = saveChains.get(key);
+  if (!q) return;
+  try {
+    await q.tail;
+  } catch {
+    /* each job reports its own failure to whoever queued it */
+  }
+}
 
 function blankDraft(init: Partial<Draft> = {}): Draft {
   const s = settings();
@@ -276,7 +319,10 @@ export const useCompose = create<ComposeState>((set, get) => ({
       showBcc: Boolean(full.bcc?.length),
       subject: full.subject ?? "",
       html: html
-        ? sanitizeEmailHtml(html, { cidMap, allowRemote: true }).html
+        ? sanitizeEmailHtml(html, {
+            cidMap,
+            allowRemote: quoteAllowsRemote(full.from?.[0]),
+          }).html
         : textToHtml(text).replace(/\n/g, "<br>"),
       text: text || (html ? htmlToText(html) : ""),
       format: html ? "html" : settings().composeFormat,
@@ -374,7 +420,10 @@ export const useCompose = create<ComposeState>((set, get) => ({
       showBcc: Boolean(full.bcc?.length),
       subject: full.subject ?? "",
       html: html
-        ? sanitizeEmailHtml(html, { cidMap, allowRemote: true }).html
+        ? sanitizeEmailHtml(html, {
+            cidMap,
+            allowRemote: quoteAllowsRemote(full.from?.[0]),
+          }).html
         : textToHtml(text).replace(/\n/g, "<br>"),
       text: text || (html ? htmlToText(html) : ""),
       format: html ? "html" : settings().composeFormat,
@@ -493,8 +542,11 @@ export const useCompose = create<ComposeState>((set, get) => ({
     }
     // Inline images are shown via their blob URLs in the editor and converted back to cid: at send time.
     const quotedHtmlBody = origHtml
-      ? sanitizeEmailHtml(origHtml, { cidMap, allowRemote: true, proxyRemote: false })
-          .html
+      ? sanitizeEmailHtml(origHtml, {
+          cidMap,
+          allowRemote: quoteAllowsRemote(full.from?.[0]),
+          proxyRemote: false,
+        }).html
       : textToHtml(origText).replace(/\n/g, "<br>");
     const fromStr = escapeHtml((full.from ?? []).map(formatAddress).join(", "));
     const date = formatFullDate(full.receivedAt);
@@ -608,30 +660,47 @@ export const useCompose = create<ComposeState>((set, get) => ({
           : s.activeKey,
     }));
     if (opts.discard) {
-      if (d.draftId) {
-        try {
+      /*
+       * A save that was in flight when the draft closed may still create the
+       * next draft; destroying the id captured here would leave that one
+       * behind. Wait for the saves, then destroy the draft the last one
+       * actually produced.
+       */
+      try {
+        await drainSaves(key);
+        const q = saveChains.get(key);
+        const id = q?.lastId ?? d.draftId;
+        saveChains.delete(key);
+        if (id) {
           await client.call("Email/set", {
             accountId: useMail.getState().accountId,
-            destroy: [d.draftId],
+            destroy: [id],
           });
           void useMail.getState().refreshList();
           void useMail.getState().loadMailboxes();
-        } catch {
-          /* ignore */
         }
+      } catch {
+        /* ignore */
       }
       toast.show(translate("Draft discarded"));
       return;
     }
     if (d.dirty && (d.to.length || d.subject || hasContent(d))) {
       try {
-        await saveDraftInternal(d, get, set, { silent: true, final: true });
+        // Queued behind any save already running, so the final copy is written
+        // after it and replaces the draft it created rather than racing it.
+        await enqueueSave(key, () =>
+          saveDraftInternal(d, get, set, { silent: true, final: true }),
+        );
+        saveChains.delete(key);
         toast.show(translate("Draft saved"));
       } catch (err) {
         toast.error(
           translate("Could not save draft: {error}", { error: (err as Error).message }),
         );
       }
+    } else {
+      saveChains.delete(key);
     }
   },
 
@@ -786,10 +855,14 @@ export const useCompose = create<ComposeState>((set, get) => ({
   },
 
   async saveDraft(key, opts = {}) {
-    const d = get().drafts.find((x) => x.key === key);
-    if (!d) return null;
     try {
-      return await saveDraftInternal(d, get, set, { silent: opts.silent ?? false });
+      return await enqueueSave(key, async () => {
+        // Read at run time, not at queue time: whatever the user typed while an
+        // earlier save was in flight is what this one must persist.
+        const d = get().drafts.find((x) => x.key === key);
+        if (!d) return null;
+        return saveDraftInternal(d, get, set, { silent: opts.silent ?? false });
+      });
     } catch (err) {
       if (!opts.silent)
         toast.error(
@@ -946,6 +1019,27 @@ function quoteTextOf(text: string, html: string): string {
   return quoteText(base);
 }
 
+/*
+ * Whether the message being turned into a draft may keep its remote images.
+ *
+ * The reader answers this per message from the settings and the sender
+ * (lib/remoteImages); the composer used to hardcode "yes", so a reply to a
+ * tracking-pixel mail fetched the pixels the moment the draft rendered, no
+ * consent asked and no proxy in between. Ask the same question, at quote
+ * time. The address book is consulted as of now: it may not have loaded yet,
+ * and erring toward blocking is the safe direction.
+ */
+function quoteAllowsRemote(from: EmailAddress | null | undefined): boolean {
+  const s = settings();
+  const contacts = useContacts.getState();
+  return remoteImagesAllowed({
+    policy: s.imagePolicy,
+    trustedSenders: s.trustedImageSenders,
+    senderEmail: from?.email,
+    inContacts: Boolean(from && contacts.loaded && contacts.lookupByEmail(from.email)),
+  });
+}
+
 function isContentPatch(p: Partial<Draft>): boolean {
   return [
     "to",
@@ -961,6 +1055,67 @@ function isContentPatch(p: Partial<Draft>): boolean {
     "priority",
     "requestReceipt",
   ].some((k) => k in p);
+}
+
+/*
+ * Whether two drafts hold the same content, for deciding whether a save that
+ * just finished is still the newest word. Compared field by field, strictly:
+ * anything the user can change that a save persists counts, and anything that
+ * merely describes the save in progress (dirty, saving, draftId, upload
+ * progress) does not.
+ */
+function sameAddressList(a: EmailAddress[], b: EmailAddress[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((x, i) => {
+      const y = b[i];
+      return (
+        y !== undefined && x.email === y.email && (x.name ?? null) === (y.name ?? null)
+      );
+    })
+  );
+}
+
+function sameAttachments(a: ComposeAttachment[], b: ComposeAttachment[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((x, i) => {
+      const y = b[i];
+      return (
+        y !== undefined &&
+        x.id === y.id &&
+        x.name === y.name &&
+        x.type === y.type &&
+        x.size === y.size &&
+        x.blobId === y.blobId &&
+        x.cid === y.cid &&
+        x.inline === y.inline &&
+        x.error === y.error
+      );
+    })
+  );
+}
+
+function sameDraftContent(a: Draft, b: Draft): boolean {
+  return (
+    a.subject === b.subject &&
+    a.html === b.html &&
+    a.text === b.text &&
+    a.format === b.format &&
+    a.identityId === b.identityId &&
+    a.priority === b.priority &&
+    a.requestReceipt === b.requestReceipt &&
+    a.sendAt === b.sendAt &&
+    a.inReplyTo?.join("\u0000") === b.inReplyTo?.join("\u0000") &&
+    a.references?.join("\u0000") === b.references?.join("\u0000") &&
+    a.relatedEmailId === b.relatedEmailId &&
+    a.relatedKeyword === b.relatedKeyword &&
+    sameAddressList(a.to, b.to) &&
+    sameAddressList(a.cc, b.cc) &&
+    sameAddressList(a.bcc, b.bcc) &&
+    sameAddressList(a.replyTo, b.replyTo) &&
+    sameAttachments(a.attachments, b.attachments)
+  );
 }
 
 function hasContent(d: Draft): boolean {
@@ -1211,12 +1366,22 @@ async function saveDraftInternal(
     }));
   try {
     const email = await buildEmailObject(d, { forSend: false });
+    /*
+     * Destroy the draft the previous save produced, not necessarily the id
+     * this snapshot carries: when this save was queued behind one already in
+     * flight, that save has since replaced the draft, and destroying the old
+     * id would orphan its create.
+     */
+    const q = saveChains.get(d.key);
+    const destroyId = q?.lastId ?? d.draftId;
     const args: Record<string, unknown> = { accountId, create: { draft: email } };
-    if (d.draftId) args.destroy = [d.draftId];
+    if (destroyId) args.destroy = [destroyId];
     const res = await client.call<SetResponse<Email>>("Email/set", args);
     const err = res.notCreated?.draft;
     if (err) throw new Error(setErrorMessage(err));
     const newId = res.created?.draft?.id ?? null;
+    const chain = saveChains.get(d.key);
+    if (chain && newId) chain.lastId = newId;
     if (!opts.final)
       set((s) => ({
         drafts: s.drafts.map((x) =>
@@ -1225,7 +1390,14 @@ async function saveDraftInternal(
                 ...x,
                 draftId: newId,
                 saving: false,
-                dirty: false,
+                /*
+                 * `dirty` is cleared only when nothing was typed while the
+                 * save was in flight. A save finishing over newer content
+                 * must not claim to have saved it: the dirty flag is what a
+                 * later close consults before its own final save, and a save
+                 * wrongly cleared there drops the newest content.
+                 */
+                dirty: sameDraftContent(x, d) ? false : x.dirty,
                 savedAt: Date.now(),
                 error: null,
               }
@@ -1296,6 +1468,15 @@ async function sendInternal(d: Draft, _get: () => ComposeState): Promise<void> {
   if (!ident) throw new Error(translate("No sending identity available"));
   if (d.attachments.some((a) => !a.blobId && !a.error))
     throw new Error(translate("Attachments are still uploading"));
+  /*
+   * A save that was in flight when Send was clicked may still be creating the
+   * draft this message replaces. Wait for it, and destroy the draft it
+   * actually produced -- otherwise its create lands after this destroy and a
+   * $draft of the sent message is left behind.
+   */
+  await drainSaves(d.key);
+  const draftId = saveChains.get(d.key)?.lastId ?? d.draftId;
+  saveChains.delete(d.key);
   const scheduled = d.sendAt !== null && d.sendAt > Date.now();
   const scheduledId = scheduled ? await ensureScheduledMailbox() : null;
   const email = await buildEmailObject(d, { forSend: true, mailboxId: scheduledId });
@@ -1318,7 +1499,7 @@ async function sendInternal(d: Draft, _get: () => ComposeState): Promise<void> {
   const calls: Array<[string, Record<string, unknown>, string]> = [
     [
       "Email/set",
-      { accountId, create: { m: email }, ...(d.draftId ? { destroy: [d.draftId] } : {}) },
+      { accountId, create: { m: email }, ...(draftId ? { destroy: [draftId] } : {}) },
       "e",
     ],
     [

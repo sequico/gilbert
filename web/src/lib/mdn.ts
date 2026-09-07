@@ -11,7 +11,7 @@
  * a spammer wants to learn, and the sender chooses the address it goes to.
  * The rules in `mdnDecision` below are what keep that from being automatic.
  */
-import type { Email, EmailAddress } from "@/jmap/types";
+import type { Email, EmailAddress, Id } from "@/jmap/types";
 import { t } from "@/lib/i18n";
 import { formatAddress, sameAddress } from "./address";
 
@@ -49,14 +49,21 @@ export interface MdnDecision {
  *  - Bulk and list mail asks for receipts to confirm addresses, not to be
  *    polite. `Precedence: bulk/list/junk` and a `List-Id` both say so.
  *  - A message that never arrived -- our own draft or sent copy -- has no
- *    disposition to report.
+ *    disposition to report. The sent copy carries whatever receipt header we
+ *    wrote into it, so without this check opening our own message in Sent
+ *    would offer a receipt addressed to ourselves.
+ *
+ * `sentId` is the account's Sent mailbox, which only the caller can know
+ * (mailbox roles live in the mail store); a message sitting there is ours.
  */
-export function mdnDecision(email: Email): MdnDecision {
+export function mdnDecision(email: Email, sentId?: Id | null): MdnDecision {
   const to = email["header:Disposition-Notification-To:asAddresses"]?.[0];
   if (!to?.email) return { offer: false, refusal: "not-requested" };
   if (email.keywords?.[MDN_SENT_KEYWORD])
     return { offer: false, refusal: "already-sent", to };
   if (email.keywords?.$draft) return { offer: false, refusal: "draft-or-sent", to };
+  if (sentId && email.mailboxIds?.[sentId])
+    return { offer: false, refusal: "draft-or-sent", to };
 
   const auto = (email["header:Auto-Submitted:asText"] ?? "").trim().toLowerCase();
   // "auto-submitted: no" is the only value that means a person sent it.
