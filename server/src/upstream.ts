@@ -370,31 +370,44 @@ export async function getAccountInfo(
 }
 
 /**
- * Enumerate the individual accounts on this server (ADR 0001 §5, the admin
- * Users surface): Principal/query filtered to `type: "individual"`, then
- * Principal/get for the names.
+ * Enumerate the individual accounts on this server (the admin Users
+ * surface), when the server lets this session do it.
  *
- * Stalwart 0.16.21 supports the type filter (crates/jmap/src/principal/
- * query.rs: PrincipalFilter::Type maps Individual to user accounts; checked
- * on source 2026-09-07; re-verify against a live server with a dated
- * comment per repo convention). Directory queries are gated server-side by
- * `allow_directory_query` or the JmapPrincipalQuery permission; when the
- * gate is closed the response carries an error method and this throws.
+ * The query is unfiltered, exactly the shape the web client already sends to
+ * live servers (web/src/store/contacts.ts); individuals are then selected on
+ * what Principal/get returns - `type: "individual"` is how Stalwart names a
+ * user account (source-checked 2026-09-07, crates/jmap/src/principal/get.rs;
+ * re-verify against a live server with a dated comment per repo convention).
  *
- * Roles are deliberately not consulted: Stalwart exposes roles only through
- * its own administration surfaces (Management API/webadmin), never over
- * JMAP — so "is this account a Stalwart system admin" cannot be answered
- * here. The server refuses to force an account whose session shows
- * membership of the Gilbert admin group instead (see the endpoint).
+ * Directory queries are gated server-side by `allow_directory_query` or the
+ * JmapPrincipalQuery permission (crates/jmap/src/principal/query.rs). A
+ * Gilbert administrator who is not also a Stalwart system administrator hits
+ * that gate - observed live 2026-09-07, where the filtered form was refused
+ * and the whole query is refused when the gate is closed. That is not a
+ * failure of this surface: enumeration is a capability the server grants,
+ * and the client degrades to typing an address. Roles are deliberately not
+ * consulted - Stalwart exposes roles only through its own administration
+ * surfaces, never over JMAP.
  */
 export async function fetchDirectoryUsers(
   authorization: string,
   session: UpstreamSession,
-): Promise<Array<{ id: string; name: string }>> {
-  const accountId =
-    session.primaryAccounts?.["urn:ietf:params:jmap:principals"] ??
-    Object.keys(session.accounts ?? {})[0];
-  if (!accountId) return [];
+): Promise<{ users: Array<{ id: string; name: string }> } | { denied: string }> {
+  // The account that owns the principals capability, picked the way the
+  // client picks it: the personal account advertising it, then any account
+  // that does.
+  const PRINCIPALS = "urn:ietf:params:jmap:principals";
+  const accounts = Object.entries(session.accounts ?? {});
+  const withCap = accounts.filter(([, a]) => {
+    const account = a as { accountCapabilities?: Record<string, unknown> };
+    return !!account.accountCapabilities?.[PRINCIPALS];
+  });
+  const personal =
+    withCap.find(([, a]) => (a as { isPersonal?: unknown }).isPersonal === true) ??
+    withCap[0];
+  const accountId = personal?.[0] ?? accounts[0]?.[0];
+  if (!accountId) return { users: [] };
+
   const post = async (
     methodCalls: unknown[][],
   ): Promise<[string, Record<string, unknown>][]> => {
@@ -411,47 +424,74 @@ export async function fetchDirectoryUsers(
       }),
       signal: AbortSignal.timeout(config.upstreamTimeout),
     });
-    if (!res.ok) throw new Error(`directory query failed (HTTP ${res.status})`);
+    if (!res.ok) {
+      // Stalwart answers 400/403 when the directory gate is closed for this
+      // session; degrade instead of failing the whole Users surface. The
+      // upstream body rides along so a request-shape bug is diagnosable from
+      // the endpoint's message instead of a bare status.
+      const detail = (await res.text()).slice(0, 300);
+      const why = detail ? `: ${detail}` : "";
+      if (res.status === 400 || res.status === 403)
+        throw new DirectoryQueryDenied(`HTTP ${res.status}${why}`);
+      throw new Error(`directory query failed (HTTP ${res.status})${why}`);
+    }
     const body = (await res.json()) as {
       methodResponses?: [string, Record<string, unknown>][];
     };
     return body.methodResponses ?? [];
   };
-  const first = (
-    await post([
-      ["Principal/query", { accountId, filter: [{ type: "individual" }] }, "q"],
-    ])
-  )[0] ?? ["", {}];
-  const [queryMethod, queryBody] = first;
-  if (queryMethod !== "Principal/query")
-    throw new Error(
-      `directory query refused: ${String(queryBody.description ?? queryBody.type ?? "unknown")}`,
+
+  const method = async (
+    methodCalls: unknown[][],
+    expected: string,
+  ): Promise<Record<string, unknown>> => {
+    const [name, body] = (await post(methodCalls))[0] ?? ["", {}];
+    if (name !== expected)
+      throw new DirectoryQueryDenied(
+        String(body.description ?? body.type ?? "directory query refused"),
+      );
+    return body;
+  };
+
+  try {
+    const query = await method(
+      [["Principal/query", { accountId, limit: 1000 }, "q"]],
+      "Principal/query",
     );
-  const ids = (queryBody.ids as string[] | undefined) ?? [];
-  if (!ids.length) return [];
-  const second = (
-    await post([
-      ["Principal/get", { accountId, ids, properties: ["name", "email"] }, "g"],
-    ])
-  )[0] ?? ["", {}];
-  const [getMethod, getBody] = second;
-  if (getMethod !== "Principal/get")
-    throw new Error(
-      `directory read refused: ${String(getBody.description ?? getBody.type ?? "unknown")}`,
+    const ids = (query.ids as string[] | undefined) ?? [];
+    if (!ids.length) return { users: [] };
+    const got = await method(
+      [
+        [
+          "Principal/get",
+          { accountId, ids, properties: ["id", "type", "name", "email"] },
+          "g",
+        ],
+      ],
+      "Principal/get",
     );
-  const list =
-    (getBody.list as
-      | Array<{ id?: string; name?: unknown; email?: unknown }>
-      | undefined) ?? [];
-  return list
-    .map((p) => {
-      const name = String(p.email ?? p.name ?? "")
-        .trim()
-        .toLowerCase();
-      return typeof p.id === "string" && name ? { id: p.id, name } : null;
-    })
-    .filter((p): p is { id: string; name: string } => p !== null);
+    const list =
+      (got.list as
+        | Array<{ id?: string; type?: unknown; name?: unknown; email?: unknown }>
+        | undefined) ?? [];
+    const users = list
+      .filter((p) => p.type === "individual")
+      .map((p) => {
+        const name = String(p.email ?? p.name ?? "")
+          .trim()
+          .toLowerCase();
+        return typeof p.id === "string" && name ? { id: p.id, name } : null;
+      })
+      .filter((p): p is { id: string; name: string } => p !== null);
+    return { users };
+  } catch (err) {
+    if (err instanceof DirectoryQueryDenied) return { denied: err.message };
+    throw err;
+  }
 }
+
+/** The directory gate closed on this session (see fetchDirectoryUsers). */
+export class DirectoryQueryDenied extends Error {}
 
 /**
  * Rewrite the upstream session so the browser talks to our same-origin proxy

@@ -83,8 +83,10 @@ test("the directory enumeration returns individual accounts, groups excluded", a
   assert.equal(res.status, 200);
   const body = res.body as {
     users: Array<{ id: string; name: string }>;
+    enumeration: boolean;
     canImpersonate: boolean;
   };
+  assert.equal(body.enumeration, true);
   assert.ok(Array.isArray(body.users) && body.users.length > 0);
   const names = body.users.map((u) => u.name);
   assert.ok(

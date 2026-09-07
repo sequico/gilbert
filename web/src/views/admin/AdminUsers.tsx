@@ -16,6 +16,8 @@ interface DirectoryUser {
 export function AdminUsers() {
   const [target, setTarget] = useState("");
   const [users, setUsers] = useState<DirectoryUser[] | null>(null);
+  const [enumeration, setEnumeration] = useState(true);
+  const [enumerationMessage, setEnumerationMessage] = useState<string | null>(null);
   const [canImpersonate, setCanImpersonate] = useState(false);
   const [impersonateReason, setImpersonateReason] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -28,10 +30,14 @@ export function AdminUsers() {
     try {
       const res = await apiFetch<{
         users: DirectoryUser[];
+        enumeration: boolean;
+        enumerationMessage?: string | null;
         canImpersonate: boolean;
         reason?: string | null;
       }>("/api/admin/users");
       setUsers(res.users);
+      setEnumeration(res.enumeration);
+      setEnumerationMessage(res.enumerationMessage ?? null);
       setCanImpersonate(res.canImpersonate);
       setImpersonateReason(res.reason ?? null);
     } catch (err) {
@@ -98,6 +104,18 @@ export function AdminUsers() {
               {t("Retry")}
             </button>
           </p>
+        </div>
+      )}
+      {users !== null && !enumeration && (
+        <div className="warn-box" style={{ marginBottom: 12 }}>
+          {t(
+            "Listing accounts needs Stalwart server-administrator privilege, which this session does not have — being a Gilbert administrator is not enough. Type an address below instead.",
+          )}
+          {enumerationMessage && (
+            <p className="hint" style={{ marginTop: 6 }}>
+              <code>{enumerationMessage}</code>
+            </p>
+          )}
         </div>
       )}
       {users !== null && (

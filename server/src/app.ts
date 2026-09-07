@@ -1212,7 +1212,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         upstreamFor(session.username),
         true,
       );
-      const users = await fetchDirectoryUsers(session.authorization, upstream);
+      const directory = await fetchDirectoryUsers(session.authorization, upstream);
       const at = session.username.lastIndexOf("@");
       const domain = at > 0 ? session.username.slice(at + 1) : "";
       const group = domain ? `gilbert-admin@${domain}` : null;
@@ -1235,7 +1235,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           }
         }
       }
-      return c.json({ users, canImpersonate, reason });
+      const users = "denied" in directory ? [] : directory.users;
+      return c.json({
+        users,
+        enumeration: !("denied" in directory),
+        enumerationMessage: "denied" in directory ? directory.denied : null,
+        canImpersonate,
+        reason,
+      });
     } catch (err) {
       if (err instanceof UpstreamError) return upstreamFailure(c, err);
       console.error("[gilbert] directory users query failed:", err);
