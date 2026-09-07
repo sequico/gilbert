@@ -1197,11 +1197,13 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * The admin Users surface (ADR 0001 §5): every individual account on this
    * server, plus whether this session may act on accounts at all.
    *
-   * `canImpersonate` probes the impersonation right by asking to act as the
-   * admin group itself (`{gilbert-admin@…}%{admin}`): a session that cannot
-   * (an app-password session, or a member without the directory right) gets a
-   * false here and the client shows a warning instead of dead buttons. Roles
-   * are not consulted — Stalwart does not expose them over JMAP.
+   * `impersonation` probes the right the way the actions themselves use it —
+   * impersonating a real account (`{user}%{admin}`). Probing the admin group
+   * instead gave false denials, and acting checks are only meaningful on the
+   * accounts a force would target. When the directory cannot be listed there
+   * is nobody to probe with and the state is "unknown": no warning, the
+   * server still refuses at action time. Roles are not consulted — Stalwart
+   * does not expose them over JMAP.
    */
   api.get("/admin/users", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
@@ -1213,35 +1215,30 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         true,
       );
       const directory = await fetchDirectoryUsers(session.authorization, upstream);
-      const at = session.username.lastIndexOf("@");
-      const domain = at > 0 ? session.username.slice(at + 1) : "";
-      const group = domain ? `gilbert-admin@${domain}` : null;
-      let canImpersonate = false;
-      let reason: string | null = null;
-      if (!group) {
-        reason = "no_group";
-      } else {
-        const groupAuth = impersonationAuthorization(session, group);
-        if (!groupAuth) reason = "app_password";
+      const enumeration = !("denied" in directory);
+      const users = enumeration ? directory.users : [];
+      const self = session.username.trim().toLowerCase();
+      const probeName = users.find((u) => u.name !== self)?.name ?? null;
+      let impersonation: "ok" | "denied" | "unknown" = "unknown";
+      if (probeName) {
+        const probeAuth = impersonationAuthorization(session, probeName);
+        if (!probeAuth)
+          impersonation = "denied"; // an app-password session
         else {
           try {
-            await fetchUpstreamSession(groupAuth, upstreamFor(group));
-            canImpersonate = true;
+            await fetchUpstreamSession(probeAuth, upstreamFor(probeName));
+            impersonation = "ok";
           } catch (err) {
-            reason =
-              err instanceof UpstreamError && err.status === 401
-                ? "no_right"
-                : "unavailable";
+            impersonation =
+              err instanceof UpstreamError && err.status === 401 ? "denied" : "unknown";
           }
         }
       }
-      const users = "denied" in directory ? [] : directory.users;
       return c.json({
         users,
-        enumeration: !("denied" in directory),
+        enumeration,
         enumerationMessage: "denied" in directory ? directory.denied : null,
-        canImpersonate,
-        reason,
+        impersonation,
       });
     } catch (err) {
       if (err instanceof UpstreamError) return upstreamFailure(c, err);

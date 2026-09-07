@@ -18,8 +18,9 @@ export function AdminUsers() {
   const [users, setUsers] = useState<DirectoryUser[] | null>(null);
   const [enumeration, setEnumeration] = useState(true);
   const [enumerationMessage, setEnumerationMessage] = useState<string | null>(null);
-  const [canImpersonate, setCanImpersonate] = useState(false);
-  const [impersonateReason, setImpersonateReason] = useState<string | null>(null);
+  const [impersonation, setImpersonation] = useState<"ok" | "denied" | "unknown">(
+    "unknown",
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"force" | "release" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,14 +33,12 @@ export function AdminUsers() {
         users: DirectoryUser[];
         enumeration: boolean;
         enumerationMessage?: string | null;
-        canImpersonate: boolean;
-        reason?: string | null;
+        impersonation: "ok" | "denied" | "unknown";
       }>("/api/admin/users");
       setUsers(res.users);
       setEnumeration(res.enumeration);
       setEnumerationMessage(res.enumerationMessage ?? null);
-      setCanImpersonate(res.canImpersonate);
-      setImpersonateReason(res.reason ?? null);
+      setImpersonation(res.impersonation);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : String(err));
     }
@@ -75,25 +74,21 @@ export function AdminUsers() {
     }
   }
 
-  const actionsDisabled = busy !== null || !canImpersonate;
+  const actionsDisabled = busy !== null || impersonation === "denied";
 
   return (
     <div>
-      <h1>{t("Users")}</h1>
+      <h1>{t("Force passwords")}</h1>
       <p className="lead">
         {t(
           "Force a password change for one account. The requirement lives in the account's own hidden folder and is enforced by the server; administrators cannot force one another.",
         )}
       </p>
-      {users !== null && !canImpersonate && (
+      {users !== null && impersonation === "denied" && (
         <div className="warn-box" style={{ marginBottom: 12 }}>
-          {impersonateReason === "app_password"
-            ? t(
-                "This session uses an app password, which Stalwart refuses for impersonation — sign in with your password to act on accounts.",
-              )
-            : t(
-                "This session does not hold the impersonation right on the admin group, so account actions will fail. Ask the Stalwart administrator for the right.",
-              )}
+          {t(
+            "This session cannot act on accounts: either it uses an app password (which Stalwart refuses for impersonation) or it lacks the “act on behalf of other users” permission in Stalwart. Sign in with your password, or ask the Stalwart administrator to grant that permission.",
+          )}
         </div>
       )}
       {loadError && (

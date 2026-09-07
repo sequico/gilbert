@@ -3178,8 +3178,10 @@ function validCredential(
 const knownPrincipal = (username: string) =>
   username === USER ||
   username === TARGET_USER ||
-  // The admin group itself can be the target of an impersonation probe: a
-  // member proving they hold the impersonation right asks for the group.
+  // The impersonation probe acts on a real account from the directory, the
+  // way a force would; the directory individuals and the admin group itself
+  // are valid targets for a master that holds the right.
+  principals.some((p) => p.email === username) ||
   (HAS_ADMIN_GROUP && username === ADMIN_GROUP_NAME);
 
 /**

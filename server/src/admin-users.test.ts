@@ -103,7 +103,8 @@ test("the directory enumeration returns individual accounts, groups excluded", a
 
 test("the impersonation probe reports a session that may act on accounts", async () => {
   const res = await call("/api/admin/users", adminCookie);
-  const body = res.body as { canImpersonate: boolean; reason: string | null };
-  assert.equal(body.canImpersonate, true);
-  assert.equal(body.reason, null);
+  const body = res.body as {
+    impersonation: "ok" | "denied" | "unknown";
+  };
+  assert.equal(body.impersonation, "ok");
 });
