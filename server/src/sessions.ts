@@ -97,7 +97,18 @@ export class SessionStore implements SessionBackend {
   private saveTimer: NodeJS.Timeout | null = null;
   private sweepTimer: NodeJS.Timeout | null = null;
 
-  constructor(private readonly file: string) {}
+  /**
+   * @param file the optional SESSION_FILE to mirror records to.
+   * @param onDestroy called with the id of every session this store
+   *   destroys, whatever the reason (expiry sweep, lazy expiry on resolve,
+   *   logout, revocation, a rejected credential). app.ts wires it to
+   *   forgetUpstreamSession, so a session that dies here does not leave its
+   *   upstream session/info cache entries behind for the life of the process.
+   */
+  constructor(
+    private readonly file: string,
+    private readonly onDestroy?: (id: string) => void,
+  ) {}
 
   async init(): Promise<void> {
     if (this.file) {
@@ -129,6 +140,7 @@ export class SessionStore implements SessionBackend {
     for (const [id, s] of this.sessions) {
       if (s.expiresAt <= now) {
         this.sessions.delete(id);
+        this.onDestroy?.(id);
         removed++;
       }
     }
@@ -200,6 +212,7 @@ export class SessionStore implements SessionBackend {
     const now = Date.now();
     if (stored.expiresAt <= now) {
       this.sessions.delete(id);
+      this.onDestroy?.(id);
       this.scheduleSave();
       return null;
     }
@@ -252,7 +265,10 @@ export class SessionStore implements SessionBackend {
   }
 
   destroy(id: string): void {
-    if (this.sessions.delete(id)) this.scheduleSave();
+    if (this.sessions.delete(id)) {
+      this.onDestroy?.(id);
+      this.scheduleSave();
+    }
   }
 
   destroyAllForUser(username: string, exceptId?: string): number {
@@ -260,6 +276,7 @@ export class SessionStore implements SessionBackend {
     for (const [id, s] of this.sessions) {
       if (s.username === username && id !== exceptId) {
         this.sessions.delete(id);
+        this.onDestroy?.(id);
         n++;
       }
     }

@@ -19,20 +19,31 @@ process.on("exit", () => {
 function fakeOut() {
   const e = new EventEmitter() as EventEmitter & {
     destroyed: boolean;
+    ended: boolean;
     written: string[];
     write(s: string): boolean;
+    end(): void;
   };
   e.destroyed = false;
+  e.ended = false;
   e.written = [];
   e.write = (s: string) => {
     e.written.push(s);
     return true;
   };
+  e.end = () => {
+    e.ended = true;
+    e.destroyed = true;
+  };
   return e;
 }
 
-/** Answer any upstream call as Stalwart would for a successful PushSubscription/set. */
-function stubUpstream(created = true) {
+/**
+ * Answer any upstream call as Stalwart would for a successful PushSubscription/set.
+ * `expiresInMs` sets the created subscription's lifetime, so a test can put an
+ * entry on the renewal edge without waiting out a week.
+ */
+function stubUpstream(created = true, expiresInMs = 7 * 86_400_000) {
   const real = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = String(input);
@@ -60,7 +71,7 @@ function stubUpstream(created = true) {
                 created: {
                   s: {
                     id: "sub1",
-                    expires: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+                    expires: new Date(Date.now() + expiresInMs).toISOString(),
                   },
                 },
                 updated: { sub1: null },
@@ -78,6 +89,30 @@ function stubUpstream(created = true) {
   return () => {
     globalThis.fetch = real;
   };
+}
+
+/**
+ * A fresh module instance, per caller. The retry/expiry tests below drive the
+ * sweeper with a fake clock, which would otherwise age the entries the tests
+ * above left in the shared module state; each instance starts with its own
+ * empty byKey. The `?`-suffixed specifier makes Node load a separate copy.
+ */
+async function isolatedPush(tag: string): Promise<typeof import("./push.js")> {
+  return (await import(`./push.js?isolated=${tag}`)) as typeof import("./push.js");
+}
+
+/** Wrap the fetch stub to capture the push URL (and its token) in subscribe calls. */
+function captureToken(): { restore(): void; token: () => string | null } {
+  const real = globalThis.fetch;
+  let token: string | null = null;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const m = /\/api\/push\/([A-Za-z0-9_-]{20,})/.exec(
+      typeof init?.body === "string" ? init.body : "",
+    );
+    if (m) token = m[1];
+    return real(input, init);
+  }) as typeof fetch;
+  return { restore: () => (globalThis.fetch = real), token: () => token };
 }
 
 test("an unknown token is a 404", async () => {
@@ -218,5 +253,208 @@ test("a tab on the relay is moved to fan-out when its account verifies, and its 
     );
   } finally {
     restore();
+  }
+});
+
+test("a failed renewal is retried on a later sweep instead of staying failed forever", async (t) => {
+  // The retry backoff is minutes long; fake the clock so a "later sweep" can
+  // arrive, and drive sweeps through runSweep directly (the module's own
+  // timer stays real and would not fire within the test).
+  t.mock.timers.enable({ apis: ["Date"] });
+  const push = await isolatedPush("renew-retry");
+  // A 40-minute subscription: it is on the renewal edge from the start.
+  const restore = stubUpstream(true, 40 * 60_000);
+  try {
+    const tab = fakeOut();
+    const capture = captureToken();
+    push.prepare("renew-retry@example.com", "a", "Basic r");
+    await new Promise((r) => setTimeout(r, 30)); // the first subscribe lands
+    capture.restore();
+    assert.ok(capture.token(), "the subscribe call carries the push URL with the token");
+    assert.equal(
+      await push.receive(capture.token()!, {
+        "@type": "PushVerification",
+        verificationCode: "v",
+      }),
+      200,
+    );
+    assert.ok(
+      push.attach("renew-retry@example.com", "a", "Basic r", tab as never),
+      "a verified entry serves the tab by fan-out",
+    );
+    // Renewal now fails; without a retry this would park the account on
+    // per-tab relays forever while the fan-out tab stayed open.
+    const failing = stubUpstream(false);
+    push.runSweep();
+    await new Promise((r) => setTimeout(r, 30)); // the failed renewal lands
+    failing(); // back to a working upstream for the retry
+    assert.equal(
+      push.pushStatus().accounts.failed,
+      1,
+      "the failed renewal leaves the entry failed",
+    );
+    assert.ok(
+      push.attach("renew-retry@example.com", "a", "Basic r", fakeOut() as never) === null,
+      "a failed entry cannot serve fan-out",
+    );
+    // A later sweep, once the backoff has elapsed, tries again...
+    t.mock.timers.tick(5 * 60_000 + 1_000);
+    push.runSweep();
+    await new Promise((r) => setTimeout(r, 30)); // the retry's subscribe lands
+    assert.equal(push.pushStatus().accounts.failed, 0, "the retry left failed");
+    // ...and the account verifies again, with the original tab still attached.
+    assert.equal(
+      await push.receive(capture.token()!, {
+        "@type": "PushVerification",
+        verificationCode: "v2",
+      }),
+      200,
+    );
+    assert.equal(
+      await push.receive(capture.token()!, {
+        "@type": "StateChange",
+        changed: { a: { Email: "s" } },
+      }),
+      200,
+    );
+    assert.match(tab.written.at(-1) ?? "", /StateChange/, "the tab is back on fan-out");
+  } finally {
+    restore();
+    t.mock.timers.reset();
+  }
+});
+
+test("an expired subscription tears down its stale fan-out tabs, and the account recovers through a relay", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  const push = await isolatedPush("expired-fanout");
+  const restore = stubUpstream(true, 40 * 60_000);
+  try {
+    const tab1 = fakeOut();
+    const capture = captureToken();
+    push.prepare("expire@example.com", "a", "Basic e");
+    await new Promise((r) => setTimeout(r, 30)); // the first subscribe lands
+    capture.restore();
+    assert.ok(capture.token());
+    assert.equal(
+      await push.receive(capture.token()!, {
+        "@type": "PushVerification",
+        verificationCode: "v",
+      }),
+      200,
+    );
+    assert.ok(
+      push.attach("expire@example.com", "a", "Basic e", tab1 as never),
+      "fan-out tab attached",
+    );
+    // Renewal keeps failing while the subscription runs down.
+    const failing = stubUpstream(false);
+    push.runSweep();
+    await new Promise((r) => setTimeout(r, 30)); // the failed renewal lands
+    assert.equal(push.pushStatus().accounts.failed, 1);
+    assert.equal(tab1.ended, false, "a live subscription keeps its fan-out tab");
+    // A retry attempt on the way to expiry fails too; still no teardown yet.
+    t.mock.timers.tick(35 * 60_000);
+    push.runSweep();
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(tab1.ended, false, "still before the subscription's expiry");
+    // Past expiry, the sweep ends the stale fan-out stream: its SSE looked
+    // healthy while the subscription behind it was unrenewed and silent.
+    t.mock.timers.tick(6 * 60_000 + 1_000);
+    push.runSweep();
+    await new Promise((r) => setTimeout(r, 30)); // the failed retry's catch lands
+    assert.equal(tab1.ended, true, "the stale fan-out tab is ended at expiry");
+    push.runSweep(); // nothing wants the entry any more: it is cleaned up
+    await new Promise((r) => setTimeout(r, 30)); // the unsubscribe's delete lands
+    assert.equal(
+      push.pushStatus().accounts.failed,
+      0,
+      "the unwatched entry is cleaned up",
+    );
+    // The browser reconnects; nothing is verified, so the tab takes a relay.
+    failing(); // back to a working upstream
+    const tab2 = fakeOut();
+    const recapture = captureToken();
+    assert.equal(
+      push.attach("expire@example.com", "a", "Basic e", tab2 as never),
+      null,
+      "a fresh entry starts unverified: relay",
+    );
+    let dropped = 0;
+    push.attachRelay("expire@example.com", tab2 as never, () => {
+      dropped++;
+    });
+    await new Promise((r) => setTimeout(r, 30)); // the fresh subscribe lands
+    recapture.restore();
+    assert.ok(recapture.token(), "the reconnected account subscribes afresh");
+    assert.equal(
+      await push.receive(recapture.token()!, {
+        "@type": "PushVerification",
+        verificationCode: "v2",
+      }),
+      200,
+    );
+    assert.equal(dropped, 1, "the reconnected relay moved to fan-out on verification");
+    assert.equal(
+      await push.receive(recapture.token()!, {
+        "@type": "StateChange",
+        changed: { a: { Email: "s2" } },
+      }),
+      200,
+    );
+    assert.match(tab2.written.at(-1) ?? "", /StateChange/, "the tab receives fan-out");
+  } finally {
+    restore();
+    t.mock.timers.reset();
+  }
+});
+
+test("a lost verification is retried, not stuck, while a relay tab stays open", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  const push = await isolatedPush("lapsed-verify");
+  const restore = stubUpstream();
+  try {
+    const tab = fakeOut();
+    const capture = captureToken();
+    push.prepare("lapsed@example.com", "a", "Basic l"); // sign-in starts the subscription
+    await new Promise((r) => setTimeout(r, 30));
+    capture.restore();
+    assert.ok(capture.token());
+    // The tab opens while nothing is verified yet: it holds its own relay.
+    let dropped = 0;
+    assert.equal(push.attach("lapsed@example.com", "a", "Basic l", tab as never), null);
+    push.attachRelay("lapsed@example.com", tab as never, () => {
+      dropped++;
+    });
+    // No PushVerification ever arrives; the pending entry lapses to failed.
+    t.mock.timers.tick(3 * 60_000 + 1_000);
+    push.runSweep();
+    assert.equal(push.pushStatus().accounts.failed, 1, "the pending entry lapsed");
+    assert.ok(
+      push.attach("lapsed@example.com", "a", "Basic l", fakeOut() as never) === null,
+      "still unverified after the lapse",
+    );
+    // A later sweep re-subscribes, and the verification can then land.
+    t.mock.timers.tick(5 * 60_000 + 1_000);
+    push.runSweep();
+    await new Promise((r) => setTimeout(r, 30)); // the retried subscribe lands
+    assert.equal(
+      await push.receive(capture.token()!, {
+        "@type": "PushVerification",
+        verificationCode: "v",
+      }),
+      200,
+    );
+    assert.equal(dropped, 1, "the relay tab moved to fan-out once the account verified");
+    assert.equal(
+      await push.receive(capture.token()!, {
+        "@type": "StateChange",
+        changed: { a: { Email: "s" } },
+      }),
+      200,
+    );
+    assert.match(tab.written.at(-1) ?? "", /StateChange/);
+  } finally {
+    restore();
+    t.mock.timers.reset();
   }
 });
