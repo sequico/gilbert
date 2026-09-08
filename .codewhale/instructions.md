@@ -98,7 +98,7 @@ the decisions behind features; the inventory records the features.
 to main is the normal flow.
 **Releases are called manually by the user — for now there are none and none are
 automated.** Never tag, publish, or trigger release/publish workflows on your
-own (see `.github/workflows/release.yml`).
+own (see `.github/workflows/release.yml`, `publish.yml`).
 SECURITY.md / CONTRIBUTING.md / CODE_OF_CONDUCT.md are still upstream's process
 and contacts — ask before changing or acting on them.
 **Upstream is download-only (ADR 0002):** `sync-upstream.yml` mirrors

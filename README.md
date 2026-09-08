@@ -114,13 +114,32 @@ still the reference for the underlying client:
 [Installing](https://docs.ihasmail.org/install/) ·
 [Configuring](https://docs.ihasmail.org/configure/).
 
-### Building the image
+### Container images
 
-Gilbert publishes no container image: a release is the version tag and its
-notes, and the image is built wherever it runs — `docker compose up --build`
-above builds the checkout. To build the image by hand, pass the version in,
-because `.dockerignore` excludes `.git` and the build cannot work out what it
-is:
+Gilbert images are published to GHCR on every release (cut by hand), for
+`linux/amd64` and `linux/arm64`:
+
+```bash
+docker pull ghcr.io/sequico/gilbert:latest
+```
+
+The checked-in `docker-compose.yml` builds the checkout itself (no image to
+pull); to run a published release instead of a local build, point the service
+at `ghcr.io/sequico/gilbert`.
+
+| Tag | What it is |
+| --- | --- |
+| `latest` | The newest release. Prereleases never move it |
+| `v2026.9.6-g8ae88bb` | One specific build — the [version](#version-numbers) with `+` written as `-`, because a Docker tag may not contain `+` |
+
+Pin the dated tag in anything you care about. `latest` is a moving target by
+definition, and rolling back to a named tag is a `docker run` rather than a
+rebuild.
+
+Building it yourself stays fully supported and is what `docker compose up
+--build` above does — the image is a convenience, not a new requirement. If you
+build by hand, pass the version in, because `.dockerignore` excludes `.git` and
+the build cannot work out what it is:
 
 ```bash
 docker build --build-arg GILBERT_VERSION="$(node scripts/version.mjs)" -t gilbert:local .
@@ -230,7 +249,7 @@ docker run -d --name gilbert \
   -e APP_SECRET="$(openssl rand -hex 32)" \
   -e SETTINGS_POLICY_FILE=/etc/gilbert/policy.json \
   -v /srv/gilbert/policy.json:/etc/gilbert/policy.json:ro \
-  -p 8080:8080 gilbert:local
+  -p 8080:8080 ghcr.io/sequico/gilbert:latest
 ```
 
 ```json
@@ -262,7 +281,7 @@ docker run -d --name gilbert --read-only --tmpfs /tmp \
   -e SETTINGS_DEFAULTS='{"externalSenderBanner":true}' \
   -e SETTINGS_ENFORCED='{"externalRecipientConfirm":true}' \
   -e SETTINGS_CHANGES='[{"version":"20260902084513","settings":{"externalSenderBanner":true}}]' \
-  -p 8080:8080 gilbert:local
+  -p 8080:8080 ghcr.io/sequico/gilbert:latest
 ```
 
 In `docker-compose.yml`:
