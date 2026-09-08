@@ -3,13 +3,16 @@ import { createRoot } from "react-dom/client";
 import "./styles/app.css";
 import { BASE_PATH, withBase } from "@/lib/basePath";
 import { startBuildWatch } from "@/lib/staleBuild";
+import { CrashBoundary } from "@/ui/CrashBoundary";
 import { App } from "./App";
 
 startBuildWatch();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <CrashBoundary>
+      <App />
+    </CrashBoundary>
   </StrictMode>,
 );
 

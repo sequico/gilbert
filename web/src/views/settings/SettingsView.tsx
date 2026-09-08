@@ -16,9 +16,9 @@ import {
   Users,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { lazy } from "react";
 import { Link } from "wouter";
 import { t } from "@/lib/i18n";
+import { lazyView } from "@/lib/lazyView";
 import { type SectionItem, SectionShell } from "@/ui/SectionShell";
 import { AboutSettings } from "./AboutSettings";
 import { AppearanceSettings } from "./AppearanceSettings";
@@ -33,10 +33,10 @@ import { SecuritySettings } from "./SecuritySettings";
 import { ShortcutsSettings } from "./ShortcutsSettings";
 import { TemplatesSettings } from "./TemplatesSettings";
 
-const FiltersSettings = lazy(() =>
+const FiltersSettings = lazyView(() =>
   import("./FiltersSettings").then((m) => ({ default: m.FiltersSettings })),
 );
-const VacationSettings = lazy(() =>
+const VacationSettings = lazyView(() =>
   import("./VacationSettings").then((m) => ({ default: m.VacationSettings })),
 );
 

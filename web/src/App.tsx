@@ -1,10 +1,11 @@
-import { Fragment, lazy, Suspense, useEffect, useState } from "react";
+import { Fragment, Suspense, useEffect, useState } from "react";
 import { Redirect, Route, Router, Switch, useLocation } from "wouter";
 import { client } from "@/jmap/client";
 import { push } from "@/jmap/push";
 import { BASE_PATH, withBase } from "@/lib/basePath";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { plural, t, useLanguageVersion, whenLanguageReady } from "@/lib/i18n";
+import { lazyView } from "@/lib/lazyView";
 import {
   requestNotificationPermission,
   setBaseTitle,
@@ -18,6 +19,7 @@ import {
   settingsAlreadyLoadedFor,
   settingsSyncAvailable,
 } from "@/lib/settingsSync";
+import { reloadIfServerRebuilt } from "@/lib/staleBuild";
 import { confirmLeaveUnsaved, hasUnsavedChanges } from "@/lib/unsavedChanges";
 import { listenForVerification, renewWebPush } from "@/lib/webpushEnable";
 import { useCalendar } from "@/store/calendar";
@@ -38,22 +40,22 @@ import { ForcedPasswordChange } from "@/views/ForcedPasswordChange";
 import { LoginPage } from "@/views/Login";
 import { MailView } from "@/views/mail/MailView";
 
-const ContactsView = lazy(() =>
+const ContactsView = lazyView(() =>
   import("@/views/contacts/ContactsView").then((m) => ({ default: m.ContactsView })),
 );
-const CalendarView = lazy(() =>
+const CalendarView = lazyView(() =>
   import("@/views/calendar/CalendarView").then((m) => ({ default: m.CalendarView })),
 );
-const FilesView = lazy(() =>
+const FilesView = lazyView(() =>
   import("@/views/files/FilesView").then((m) => ({ default: m.FilesView })),
 );
-const TasksView = lazy(() =>
+const TasksView = lazyView(() =>
   import("@/views/tasks/TasksView").then((m) => ({ default: m.TasksView })),
 );
-const SettingsView = lazy(() =>
+const SettingsView = lazyView(() =>
   import("@/views/settings/SettingsView").then((m) => ({ default: m.SettingsView })),
 );
-const AdminView = lazy(() =>
+const AdminView = lazyView(() =>
   import("@/views/AdminView").then((m) => ({ default: m.AdminView })),
 );
 
@@ -134,12 +136,33 @@ export function App() {
        */
       base={BASE_PATH}
       aroundNav={(navigate, to, options) => {
-        if (!hasUnsavedChanges()) {
+        /*
+         * Ask whether the build moved, at the moment a move is asked for.
+         *
+         * Every view but Mail is a lazy chunk, so the way a stale tab first
+         * meets a new build is a 404 on the chunk the click just asked for
+         * -- which, with no boundary nearby, unmounts the whole tree into a
+         * blank page. The slow poll and the visibility check usually reload
+         * the tab first, but the click can beat them. Asking here, alongside
+         * the navigation, closes that window: when the server is running a
+         * different build the reload lands on the view being navigated to,
+         * and its chunk comes from the new build instead of 404ing.
+         *
+         * After the navigate rather than before, so the reload preserves the
+         * destination; and only where the navigation actually proceeds -- a
+         * reader who cancels the leave-unsaved dialog is staying on this
+         * build, and the poll still covers them.
+         */
+        const go = () => {
           navigate(to, options);
+          void reloadIfServerRebuilt();
+        };
+        if (!hasUnsavedChanges()) {
+          go();
           return;
         }
         void confirmLeaveUnsaved().then((ok) => {
-          if (ok) navigate(to, options);
+          if (ok) go();
         });
       }}
     >

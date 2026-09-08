@@ -1137,8 +1137,26 @@ every change that touches a feature and on every upstream merge (repo rule:
   make it on for the desktop, and each device tracks its own.
 - **Stale build reload** — when the server starts serving a build the open tab
   did not come from, the tab reloads itself rather than going on talking to a
-  newer server with older JavaScript. It waits for a moment that is safe: an
-  unsent draft is not thrown away.
+  newer server with older JavaScript. The reload is unconditional once the
+  versions differ: a compose window holding an unsent draft is the deliberate
+  price, because a tab running code the server no longer speaks is the worse
+  failure. The version is asked for whenever the tab could have missed a
+  deploy — a slow poll while the tab is visible, the tab becoming visible
+  again, the push stream dropping, and every navigation. The session survives
+  the reload: it lives in the sealed cookie and the server's session file,
+  not in the tab.
+- **Crash recovery** — the last line between an uncaught error and a blank
+  page. An error no boundary catches unmounts the whole tree, which is the
+  shape of a lazy view whose chunk failed to load — gone after a deploy, or
+  at the same build when the fetch died with a connection that stopped while
+  the tab sat idle. A root boundary catches it, writes the crash down where
+  the reload cannot erase it (`localStorage`, readable for support), and
+  reloads once: a new bundle, fresh connections, clean state. The reload is
+  guarded so a genuine bug cannot loop — never while the page is less than a
+  minute old, and at most once every two minutes — and lazy views carry a
+  twenty-second load timeout, so a chunk request that hangs on a dead
+  connection is treated as the same failure instead of leaving a spinner for
+  ever.
 
 ---
 
