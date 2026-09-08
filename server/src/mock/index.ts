@@ -44,6 +44,8 @@ const PUSH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SHARED_ACCOUNT = "a2";
 /** A group (team) mailbox the demo user is a member of. See the session below. */
 const GROUP_ACCOUNT = "a3";
+/** A second group (team) mailbox, so the chat switcher has two teams. */
+const GROUP2_ACCOUNT = "a5";
 /** The admin group mailbox (`gilbert-admin@…`, ADR 0001). */
 const ADMIN_ACCOUNT = "a4";
 /**
@@ -897,6 +899,47 @@ const groupIdentities: Obj[] = [
     mayDelete: false,
   },
 ];
+/* The second group (design@example.org) the demo user belongs to, so the
+   chat panel has two teams to switch between. Leaner than the first: an
+   empty folder tree that answers the mailbox probe, one welcome message, an
+   identity, and its own Files for chat. */
+const group2Mailboxes: Obj[] = [mb("d-inbox", "Inbox", "inbox")];
+const group2Emails: Obj[] = [
+  {
+    id: "de1",
+    blobId: putBlob(
+      "Subject: Welcome to the design mailbox\r\n\r\nHello from the design group!",
+      "message/rfc822",
+    ),
+    threadId: "dt1",
+    mailboxIds: { "d-inbox": true },
+    keywords: { $seen: false },
+    size: 128,
+    receivedAt: new Date().toISOString(),
+    subject: "Welcome to the design mailbox",
+    from: [{ name: "Margaret Hamilton", email: "margaret@nasa.example" }],
+    to: [{ name: "Design", email: "design@example.org" }],
+    preview: "Hello from the design group!",
+    hasAttachment: false,
+    textBody: [],
+    htmlBody: [],
+    attachments: [],
+    bodyValues: {},
+    messageId: ["de1@mock"],
+  },
+];
+const group2Identities: Obj[] = [
+  {
+    id: "di1",
+    name: "Design",
+    email: "design@example.org",
+    replyTo: null,
+    bcc: null,
+    textSignature: "",
+    htmlSignature: "",
+    mayDelete: false,
+  },
+];
 /*
  * Mail per account. A group (team) mailbox carries its own folder tree,
  * messages and identity; the account that shared calendars, address books and
@@ -913,21 +956,27 @@ const groupIdentities: Obj[] = [
 const mailboxesFor = (accountId: unknown): Obj[] =>
   accountId === GROUP_ACCOUNT
     ? groupMailboxes
-    : accountId === SHARED_ACCOUNT || accountId === TARGET_ACCOUNT
-      ? []
-      : mailboxes;
+    : accountId === GROUP2_ACCOUNT
+      ? group2Mailboxes
+      : accountId === SHARED_ACCOUNT || accountId === TARGET_ACCOUNT
+        ? []
+        : mailboxes;
 const emailsFor = (accountId: unknown): Obj[] =>
   accountId === GROUP_ACCOUNT
     ? groupEmails
-    : accountId === SHARED_ACCOUNT || accountId === TARGET_ACCOUNT
-      ? []
-      : emails;
+    : accountId === GROUP2_ACCOUNT
+      ? group2Emails
+      : accountId === SHARED_ACCOUNT || accountId === TARGET_ACCOUNT
+        ? []
+        : emails;
 const identitiesFor = (accountId: unknown): Obj[] =>
   accountId === GROUP_ACCOUNT
     ? groupIdentities
-    : accountId === SHARED_ACCOUNT || accountId === TARGET_ACCOUNT
-      ? []
-      : identities;
+    : accountId === GROUP2_ACCOUNT
+      ? group2Identities
+      : accountId === SHARED_ACCOUNT || accountId === TARGET_ACCOUNT
+        ? []
+        : identities;
 const groupCalendars: Obj[] = [
   {
     id: "gc1",
@@ -968,17 +1017,21 @@ const eventsFor = (accountId: unknown): Obj[] =>
     ? sharedEvents
     : accountId === GROUP_ACCOUNT
       ? groupEvents
-      : accountId === TARGET_ACCOUNT
+      : accountId === GROUP2_ACCOUNT
         ? []
-        : events;
+        : accountId === TARGET_ACCOUNT
+          ? []
+          : events;
 const calendarsFor = (accountId: unknown): Obj[] =>
   accountId === SHARED_ACCOUNT
     ? sharedCalendars
     : accountId === GROUP_ACCOUNT
       ? groupCalendars
-      : accountId === TARGET_ACCOUNT
+      : accountId === GROUP2_ACCOUNT
         ? []
-        : calendars;
+        : accountId === TARGET_ACCOUNT
+          ? []
+          : calendars;
 const calendars: Obj[] = [
   {
     id: "c1",
@@ -1356,9 +1409,11 @@ const booksFor = (accountId: unknown): Obj[] =>
     ? sharedAddressBooks
     : accountId === GROUP_ACCOUNT
       ? groupAddressBooks
-      : accountId === TARGET_ACCOUNT
+      : accountId === GROUP2_ACCOUNT
         ? []
-        : addressBooks;
+        : accountId === TARGET_ACCOUNT
+          ? []
+          : addressBooks;
 /** One per contact, by index; a gap means that card has no birthday. */
 const BIRTHDAYS: Array<{ year?: number; month: number; day: number } | null> = [
   { year: 1815, month: 12, day: 10 },
@@ -1532,9 +1587,14 @@ const nodesFor = (accountId: unknown): Obj[] =>
     ? sharedFileNodes
     : accountId === GROUP_ACCOUNT
       ? groupFileNodes
-      : accountId === TARGET_ACCOUNT
-        ? targetFileNodes
-        : fileNodes;
+      : accountId === GROUP2_ACCOUNT
+        ? group2FileNodes
+        : accountId === TARGET_ACCOUNT
+          ? targetFileNodes
+          : fileNodes;
+
+/** The second group's Files: chat provisions its `gilbert` folder on demand. */
+const group2FileNodes: Obj[] = [];
 
 /** The node list the target principal (ADR 0005) owns: an empty account. */
 const targetFileNodes: Obj[] = [];
@@ -1565,6 +1625,7 @@ function recountMail(ms: Obj[], es: Obj[]) {
 function recount() {
   recountMail(mailboxes, emails);
   recountMail(groupMailboxes, groupEmails);
+  recountMail(group2Mailboxes, group2Emails);
 }
 recount();
 
@@ -2998,7 +3059,9 @@ const handlers: Record<string, Handler> = {
         ? sharedCards
         : a.accountId === GROUP_ACCOUNT
           ? groupCards
-          : cards;
+          : a.accountId === GROUP2_ACCOUNT
+            ? []
+            : cards;
     return {
       accountId: a.accountId ?? ACCOUNT,
       queryState: "1",
@@ -3014,7 +3077,9 @@ const handlers: Record<string, Handler> = {
         ? sharedCards
         : a.accountId === GROUP_ACCOUNT
           ? groupCards
-          : cards,
+          : a.accountId === GROUP2_ACCOUNT
+            ? []
+            : cards,
     )(a),
   "ContactCard/set": (a) => {
     const list =
@@ -3022,7 +3087,9 @@ const handlers: Record<string, Handler> = {
         ? groupCards
         : a.accountId === SHARED_ACCOUNT
           ? sharedCards
-          : cards;
+          : a.accountId === GROUP2_ACCOUNT
+            ? []
+            : cards;
     if (a.accountId === SHARED_ACCOUNT) {
       /* Grace's books are read-only shares, so nothing in them may be written
          -- created, updated or destroyed. A member of a *group* writes to the
@@ -3393,6 +3460,12 @@ const sessionFor = (identity: Identity) => ({
             isReadOnly: false,
             accountCapabilities: SHARED_CAPS,
           },
+          [GROUP2_ACCOUNT]: {
+            name: "design@example.org",
+            isPersonal: false,
+            isReadOnly: false,
+            accountCapabilities: SHARED_CAPS,
+          },
           /*
            * The admin group (`gilbert-admin@…`) is a group mailbox like any
            * other; membership is what makes a principal an admin (ADR 0001).
@@ -3650,24 +3723,21 @@ setInterval(() => {
   broadcast(["Email", "Mailbox", "Thread"]);
 }, 120_000).unref();
 
-// Periodically post a group-chat message from another member, so the chat
-// panel's live rail has something to show in dev:mock (ADR 0006). The
-// `gilbert/chat` folders existing in the group account mean chat is
-// provisioned -- the client's warm sync creates them at every sign-in for a
-// session that holds groups -- so any signed-in demo session sees a live
-// message arrive now and then, without anyone having written one.
-setInterval(() => {
-  const gilbert = groupFileNodes.find(
-    (n) => n.nodeType === "directory" && n.name === "gilbert",
-  );
+// Post demo chat messages from other members every 30 s per group, so the
+// chat panel's live rail has something to show in dev:mock and the group
+// switcher has traffic in both teams (ADR 0006). A group's `gilbert/chat`
+// folder existing means chat is provisioned -- the client's warm sync
+// creates it at sign-in for a session that holds the group.
+function postChatDemo(nodes: Obj[], accountId: string, senders: number) {
+  const gilbert = nodes.find((n) => n.nodeType === "directory" && n.name === "gilbert");
   const chat = gilbert
-    ? groupFileNodes.find(
+    ? nodes.find(
         (n) =>
           n.nodeType === "directory" && n.parentId === gilbert.id && n.name === "chat",
       )
     : undefined;
   if (!chat) return;
-  const [name, email] = people[Math.floor(Math.random() * 3)]!;
+  const [name, email] = people[Math.floor(Math.random() * senders)]!;
   const doc = JSON.stringify({
     v: 1,
     from: email,
@@ -3675,7 +3745,7 @@ setInterval(() => {
     text: `Live message ${new Date().toLocaleTimeString()} — from ${name}`,
   });
   const id = `f${randomUUID().slice(0, 6)}`;
-  groupFileNodes.push({
+  nodes.push({
     id,
     parentId: chat.id,
     nodeType: "file",
@@ -3690,5 +3760,9 @@ setInterval(() => {
   });
   nextState();
   recordFileNodeChange([id]);
-  broadcast(["FileNode"], GROUP_ACCOUNT);
-}, 120_000).unref();
+  broadcast(["FileNode"], accountId);
+}
+setInterval(() => {
+  postChatDemo(groupFileNodes, GROUP_ACCOUNT, 2);
+  postChatDemo(group2FileNodes, GROUP2_ACCOUNT, 2);
+}, 30_000).unref();

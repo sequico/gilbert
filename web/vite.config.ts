@@ -35,8 +35,14 @@ const devUrlHint = (): Plugin => ({
   apply: "serve",
   configureServer(server) {
     server.httpServer?.once("listening", () => {
-      const { address } = server.httpServer!.address() as { address: unknown; port?: number };
-      const port = typeof address === "object" && address ? (address as { port: number }).port : 5173;
+      const { address } = server.httpServer!.address() as {
+        address: unknown;
+        port?: number;
+      };
+      const port =
+        typeof address === "object" && address
+          ? (address as { port: number }).port
+          : 5173;
       console.log(
         `\n  Web app (dev, live reload): http://localhost:${port}\n  :8080 serves the built app (npm run build) — not the live one\n`,
       );
