@@ -1151,9 +1151,10 @@ every change that touches a feature and on every upstream merge (repo rule:
   at the same build when the fetch died with a connection that stopped while
   the tab sat idle. A root boundary catches it, writes the crash down where
   the reload cannot erase it (`localStorage`, readable for support), and
-  reloads once: a new bundle, fresh connections, clean state. The reload is
-  guarded so a genuine bug cannot loop — never while the page is less than a
-  minute old, and at most once every two minutes — and lazy views carry a
+  reloads. Automatic reloads are bounded so a genuine bug cannot loop the
+  page: never while the page is less than a minute old, and at most two per
+  ten minutes per tab, remembered across reloads — a crash that survives two
+  attempts is left for a human, with the record intact. Lazy views carry a
   twenty-second load timeout, so a chunk request that hangs on a dead
   connection is treated as the same failure instead of leaving a spinner for
   ever.

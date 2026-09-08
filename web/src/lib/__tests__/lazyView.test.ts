@@ -38,6 +38,22 @@ describe("withViewTimeout", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("treats a loader that rejects after the timeout as already settled", async () => {
+    vi.useFakeTimers();
+    let rejectLoader: (e: Error) => void = () => {};
+    const loader = new Promise<string>((_, reject) => {
+      rejectLoader = reject;
+    });
+    const pending = withViewTimeout(loader, 500);
+    const assertion = expect(pending).rejects.toThrow(/did not load/);
+    vi.advanceTimersByTime(500);
+    await assertion;
+    // The loader settling late must not surface as an unhandled rejection:
+    // Promise.race attached its handler when the race started.
+    rejectLoader(new Error("late failure"));
+    await Promise.resolve();
+  });
+
   it("defaults to the view timeout", () => {
     expect(VIEW_LOAD_TIMEOUT_MS).toBe(20_000);
   });

@@ -8,17 +8,25 @@
  * the connection while the tab sat idle, or a view whose in-memory state went
  * stale over hours. `reloadIfServerRebuilt` only reloads when the version
  * moved, which is right for the first and useless for the second — so a crash
- * that reaches the root boundary is answered with one unconditional reload,
- * guarded so a genuine bug cannot loop.
+ * that reaches the root boundary is answered with an automatic reload,
+ * bounded so a genuine bug cannot loop the page.
  *
  * The reload is safe for the session: it lives in the sealed cookie and the
  * server's session file, not in the tab. What the reload would erase is the
  * evidence, so the crash is written down first, where a reload cannot reach
  * it — `localStorage` survives, and support can read it back.
+ *
+ * The bounds on automatic reloads are remembered per tab (`sessionStorage`,
+ * which survives a reload in the same tab and is private to it), so a bug
+ * that crashes again after a reload cannot cycle the page for ever: no
+ * reload while the page is less than a minute old (a boot crash would
+ * otherwise reload itself), none within two minutes of the previous attempt,
+ * and at most two attempts per ten minutes. A crash that survives two
+ * attempts is left for a human, with the record intact.
  */
 
 const CRASH_KEY = "gilbert:last-crash";
-const RELOAD_KEY = "gilbert:auto-reload-at";
+const RELOAD_MARKS_KEY = "gilbert:auto-reload-marks";
 
 /**
  * How old the page must be before a crash may trigger a reload.
@@ -36,9 +44,20 @@ const MIN_ALIVE_MS = 60_000;
  * connections, fresh state. If the same crash survives it, a second reload
  * a moment later is not another attempt, it is a loop; whatever is broken
  * will still be broken, and the record from the first crash says what it
- * was. The page is left for a human, the way it was before this existed.
+ * was.
  */
-const RELOAD_COOLDOWN_MS = 120_000;
+const COOLDOWN_MS = 120_000;
+
+/**
+ * How long the attempt marks are remembered, and therefore how many attempts
+ * may happen before the page is left alone. A crash that has survived two
+ * reloads within ten minutes is a real bug, not a stale tab; a crash ten
+ * minutes after the last attempt is a new incident and earns a new attempt.
+ */
+const REARM_MS = 600_000;
+
+/** Automatic reloads allowed within one `REARM_MS` window. */
+const MAX_AUTO_RELOADS = 2;
 
 export interface CrashRecord {
   /** When the crash happened, as an ISO string. */
@@ -51,33 +70,43 @@ export interface CrashRecord {
   componentStack?: string;
 }
 
+function readRaw(storage: Storage | null, key: string): string | null {
+  if (!storage) return null;
+  try {
+    return storage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeRaw(storage: Storage | null, key: string, value: string): void {
+  if (!storage) return;
+  try {
+    storage.setItem(key, value);
+  } catch {
+    /* best-effort, as above */
+  }
+}
+
 function storage(): Storage | null {
   try {
     return window.localStorage;
   } catch {
-    // Some privacy modes throw on access; a crash record is best-effort.
+    // Some privacy modes throw on access; the record is best-effort.
+    return null;
+  }
+}
+
+function sessionStorageOf(): Storage | null {
+  try {
+    return window.sessionStorage;
+  } catch {
     return null;
   }
 }
 
 function pageAliveMs(): number {
   return Date.now() - performance.timeOrigin;
-}
-
-function readRaw(key: string): string | null {
-  try {
-    return storage()?.getItem(key) ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function writeRaw(key: string, value: string): void {
-  try {
-    storage()?.setItem(key, value);
-  } catch {
-    /* best-effort, as above */
-  }
 }
 
 /** Write the crash down where the reload cannot erase it. */
@@ -91,9 +120,9 @@ export function recordCrash(err: unknown, componentStack?: string): CrashRecord 
     ...(e.stack ? { stack: e.stack } : {}),
     ...(componentStack ? { componentStack } : {}),
   };
-  writeRaw(CRASH_KEY, JSON.stringify(record));
+  writeRaw(storage(), CRASH_KEY, JSON.stringify(record));
   console.error(
-    "[gilbert] an uncaught error stopped the app; the crash is recorded and a reload will be attempted once",
+    "[gilbert] an uncaught error stopped the app; the crash is recorded and an automatic reload may be attempted",
     record,
   );
   return record;
@@ -101,7 +130,7 @@ export function recordCrash(err: unknown, componentStack?: string): CrashRecord 
 
 /** The last recorded crash, for support to read back after a reload. */
 export function readCrashRecord(): CrashRecord | null {
-  const raw = readRaw(CRASH_KEY);
+  const raw = readRaw(storage(), CRASH_KEY);
   if (!raw) return null;
   try {
     return JSON.parse(raw) as CrashRecord;
@@ -110,24 +139,64 @@ export function readCrashRecord(): CrashRecord | null {
   }
 }
 
-function lastAutoReloadAt(): number | null {
-  const raw = readRaw(RELOAD_KEY);
-  if (!raw) return null;
-  const at = Number(raw);
-  return Number.isFinite(at) ? at : null;
+/*
+ * The reload marks live in sessionStorage: they must survive a reload in the
+ * same tab (that is the whole point) and they must not leak across tabs (one
+ * tab's repair attempt is not another's). The memory mirror is only a
+ * fallback for environments where storage exists but refuses to answer — a
+ * privacy mode that throws on access cannot remember across reloads, but can
+ * still stop the same page from reloading in a loop. Where storage answers,
+ * it is authoritative and the mirror follows it.
+ */
+const SESSION = sessionStorageOf();
+let memoryMarks: number[] = [];
+
+function readMarks(): number[] {
+  if (SESSION) {
+    try {
+      const raw = SESSION.getItem(RELOAD_MARKS_KEY);
+      if (raw !== null) {
+        const parsed = JSON.parse(raw) as unknown;
+        if (Array.isArray(parsed)) {
+          const marks = parsed.filter((x): x is number => typeof x === "number");
+          memoryMarks = marks;
+          return marks;
+        }
+      } else {
+        // A readable empty store is authoritative: this tab has no attempts.
+        memoryMarks = [];
+        return [];
+      }
+    } catch {
+      // Storage exists but refuses to answer; fall back to the mirror.
+    }
+  }
+  return memoryMarks;
+}
+
+function writeMarks(marks: number[]): void {
+  memoryMarks = marks;
+  writeRaw(SESSION, RELOAD_MARKS_KEY, JSON.stringify(marks));
+}
+
+function withinWindow(marks: number[], now: number, ms: number): number[] {
+  return marks.filter((m) => now - m < ms);
 }
 
 /** Whether an automatic reload is safe to attempt right now. */
 export function shouldAutoReload(): boolean {
   if (pageAliveMs() < MIN_ALIVE_MS) return false;
-  const last = lastAutoReloadAt();
-  if (last !== null && Date.now() - last < RELOAD_COOLDOWN_MS) return false;
+  const now = Date.now();
+  const marks = withinWindow(readMarks(), now, REARM_MS);
+  if (marks.length >= MAX_AUTO_RELOADS) return false;
+  if (withinWindow(marks, now, COOLDOWN_MS).length > 0) return false;
   return true;
 }
 
 /** Remember that an automatic reload was attempted, before the page goes. */
 export function markAutoReload(): void {
-  writeRaw(RELOAD_KEY, String(Date.now()));
+  const now = Date.now();
+  writeMarks([...withinWindow(readMarks(), now, REARM_MS), now]);
 }
 
 /**

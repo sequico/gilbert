@@ -23,19 +23,25 @@ interface State {
  * file rather than in the tab.
  *
  * So a caught error is handed to `recoverFromCrash`, which writes it down
- * where the reload cannot erase it and reloads once, guarded so a genuine
- * bug cannot loop. Nothing is rendered while that happens: the tree is
- * already gone, and a designed error screen would be a second UI to
- * translate and maintain for the one case in a thousand.
+ * where the reload cannot erase it and reloads when the guards allow — a
+ * crash that survives its reloads is left for a human, not looped. Nothing
+ * is rendered while that happens: the tree is already gone, and a designed
+ * error screen would be a second UI to translate and maintain for the one
+ * case in a thousand.
  */
 export class CrashBoundary extends Component<Props, State> {
   state: State = { failed: null };
+  /** Set on the first catch: a follow-on error while the tree unmounts must
+      not overwrite the record of what actually broke. */
+  private recovered = false;
 
   static getDerivedStateFromError(error: Error): Partial<State> | null {
     return { failed: error };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
+    if (this.recovered) return;
+    this.recovered = true;
     recoverFromCrash(error, info.componentStack ?? undefined);
   }
 

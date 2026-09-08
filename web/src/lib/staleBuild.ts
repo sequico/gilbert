@@ -71,10 +71,21 @@ export function reloadIfServerRebuilt(): Promise<boolean> {
 
 async function check(): Promise<boolean> {
   let serverVersion: string;
+  /*
+   * A health check that hangs -- the dead connection this module exists to
+   * notice -- must not park `inFlight` for the life of the tab. Every later
+   * check joins the same latch, so one hung fetch would silently disable
+   * the whole watcher: the poll, the visibility return and each navigation
+   * would all wait on a request that never settles. Give up after a few
+   * seconds and let the next ask try again on a fresh connection.
+   */
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
   try {
     const res = await fetch(withBase("/api/health"), {
       credentials: "same-origin",
       cache: "no-store",
+      signal: controller.signal,
     });
     if (!res.ok) return false;
     const body = (await res.json()) as { version?: unknown };
@@ -82,6 +93,8 @@ async function check(): Promise<boolean> {
     serverVersion = body.version;
   } catch {
     return false;
+  } finally {
+    window.clearTimeout(timer);
   }
 
   if (serverVersion === APP_VERSION) {
@@ -124,6 +137,15 @@ async function check(): Promise<boolean> {
  * request a minute per open tab.
  */
 const POLL_MS = 60_000;
+
+/**
+ * How long a health check may take before it is given up on.
+ *
+ * Longer than any honest answer needs, short enough that a dead connection
+ * cannot park the shared `inFlight` latch for the life of the tab (see
+ * `check`). An aborted check is a "cannot tell", and the next ask retries.
+ */
+const HEALTH_TIMEOUT_MS = 8_000;
 
 export function makeConnectionWatcher(): (state: PushState) => void {
   let wasConnected = false;
