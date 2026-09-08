@@ -11,7 +11,7 @@
  */
 import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
-import { ensureFolder, findInFolder, nodeBlobId } from "@/lib/appFolder";
+import { ensureFolder, findInFolder } from "@/lib/appFolder";
 import { directoryCreate, fileCreate } from "@/lib/filenode";
 
 export const CHAT_FOLDER = "chat";
@@ -143,19 +143,22 @@ export async function readDoc(accountId: Id, blobId: Id): Promise<unknown> {
 }
 
 /**
- * Upload a JSON document and create it as a file in a chat folder.
- * Returns the new node's id. The caller asks for the node afterwards when it
- * needs `created` -- FileNode/set returns no blobId or timestamp on create.
+ * Upload a JSON document and create it as a named file in a chat folder.
+ *
+ * One writer for every chat document (messages, markers): same upload, same
+ * FileNode/set shape, same error formatter. The node's blobId is not asked
+ * for here -- FileNode/set returns none on create and the callers re-fetch
+ * the node (for its `created`) or the doc (for a marker) right after.
  */
-export async function createDoc(
+export async function writeDoc(
   accountId: Id,
   folderId: Id,
+  name: string,
   doc: Record<string, unknown>,
 ): Promise<Id> {
   const json = JSON.stringify(doc);
   const blob = new Blob([json], { type: MESSAGE_TYPE });
   const up = await client.upload(accountId, blob, { type: MESSAGE_TYPE });
-  const name = `${crypto.randomUUID()}.json`;
   const set = await client.call<SetResponse<FileNode>>("FileNode/set", {
     accountId,
     create: { m: fileCreate(folderId, name, up.blobId, MESSAGE_TYPE) },
@@ -164,8 +167,19 @@ export async function createDoc(
   if (err) throw new Error(setErrorMessage(err));
   const id = (set.created!.m as Partial<FileNode> | undefined)?.id;
   if (!id) throw new Error("chat document created without an id");
-  await nodeBlobId(accountId, id); // some servers hand back no blobId on create
   return id;
+}
+
+/**
+ * Create one message document under a random name and return its node id.
+ * The caller fetches the node afterwards when it needs `created`.
+ */
+export function createDoc(
+  accountId: Id,
+  folderId: Id,
+  doc: Record<string, unknown>,
+): Promise<Id> {
+  return writeDoc(accountId, folderId, `${crypto.randomUUID()}.json`, doc);
 }
 
 /** Fetch one message node and parse it, or null when it is not a message. */
@@ -205,6 +219,11 @@ export function unreadCount(
   if (!marker) return 0;
   if (!marker.lastRead) return nodes.length;
   const at = nodes.findIndex((n) => n.id === marker.lastRead);
+  // Known limitation, by design: once the oldest messages have been trimmed
+  // off the transcript window, a marker that pointed into the trimmed part is
+  // indistinguishable from one ahead of the window, and reads as nothing
+  // unread. The badge under-counts for a member who never reopened a chat
+  // that outgrew the window -- accepted until chat gains paging.
   if (at < 0) return 0;
   return nodes.length - at - 1;
 }

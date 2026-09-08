@@ -2,6 +2,7 @@ import { ListTodo, Plus, Trash2 } from "lucide-react";
 import { Fragment, useMemo } from "react";
 import type { Id } from "@/jmap/types";
 import { t } from "@/lib/i18n";
+import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { useCalendar } from "@/store/calendar";
 import { useMail } from "@/store/mail";
 import { type TaskList, taskListKey, useTasks } from "@/store/tasks";
@@ -24,10 +25,7 @@ export function TaskSidebar() {
   /* Derived outside the selector: a filter there would build a fresh array on
      every mail-store change and re-render the sidebar for mail it does not
      read (see MailboxTree for the same pattern). */
-  const groups = useMemo(
-    () => mailAccounts.filter((a) => a.kind === "group"),
-    [mailAccounts],
-  );
+  const groups = useMemo(() => groupMailboxAccounts(mailAccounts), [mailAccounts]);
 
   const addList = async (accountId: Id | null) => {
     if (!accountId) return;

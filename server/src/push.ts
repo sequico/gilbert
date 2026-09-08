@@ -217,9 +217,21 @@ export function prepare(
     startSweeper();
   } else {
     entry.authorization = authorization; // keep a live credential for renewals
-    // A session refresh can add a group mailbox after sign-in; the renewal
-    // after that reads the flag.
-    entry.chat = entry.chat || chat;
+    if (chat && !entry.chat) {
+      // A session refresh added a group mailbox after sign-in. The live
+      // subscription was created with the mail-only types; re-subscribe now
+      // (the same deviceClientId makes Stalwart replace it) rather than
+      // waiting out the sweeper's renewal -- FileNode changes for the new
+      // membership would otherwise never POST until then.
+      entry.chat = true;
+      entry.state = "pending";
+      entry.since = Date.now();
+      subscribe(entry).catch((err) => {
+        fail(entry!, `re-subscribe for chat failed: ${(err as Error).message}`);
+      });
+    } else {
+      entry.chat = entry.chat || chat;
+    }
   }
   return entry;
 }

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ContactCard, EmailAddress } from "@/jmap/types";
 import { contactDisplayName, contactEmails } from "@/lib/contacts";
 import { t } from "@/lib/i18n";
+import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { useSettings } from "@/store/settings";
@@ -73,7 +74,7 @@ export function RecipientPicker({
   const addedShares = new Set(useSettings((s) => s.settings).addedShares);
   const mailAccounts = useMail((s) => s.mailAccounts);
   const groupIds = useMemo(
-    () => new Set(mailAccounts.filter((a) => a.kind === "group").map((a) => a.accountId)),
+    () => new Set(groupMailboxAccounts(mailAccounts).map((a) => a.accountId)),
     [mailAccounts],
   );
   const subscribed = contacts.sharedBooks.filter(

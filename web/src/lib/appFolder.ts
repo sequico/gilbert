@@ -35,6 +35,23 @@ async function children(
   parentId: Id | null,
   properties: string[],
 ): Promise<FileNode[]> {
+  return (await listChildrenWithState(accountId, parentId, properties)).list;
+}
+
+/**
+ * List one level of the tree, with the FileNode state the read saw.
+ *
+ * The state is the change anchor: a client that then runs
+ * `FileNode/changes` from it misses nothing the list does not already have,
+ * and reports nothing twice (chat's transcript sync relies on that). The one
+ * JMAP listing primitive -- callers that only want the list use `children`
+ * or `findInFolder`.
+ */
+export async function listChildrenWithState(
+  accountId: Id,
+  parentId: Id | null,
+  properties: string[],
+): Promise<{ list: FileNode[]; state: string }> {
   const filter = parentId ? { parentId } : { isTopLevel: true };
   const res = await client.chain([
     ["FileNode/query", { accountId, filter, limit: 1000 }, "q"],
@@ -49,7 +66,8 @@ async function children(
     ],
   ]);
   const [g] = res.get("g") ?? [];
-  return (g as unknown as GetResponse<FileNode>).list;
+  const got = g as unknown as GetResponse<FileNode>;
+  return { list: got.list, state: got.state ?? "0" };
 }
 
 /** Find the app folder, or make it as `gilbert`. Returns its node id. */

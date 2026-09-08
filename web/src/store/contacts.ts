@@ -13,6 +13,7 @@ import type {
 } from "@/jmap/types";
 import { contactDisplayName, contactEmails, sortKey } from "@/lib/contacts";
 import { parseLdif, uidFromDn } from "@/lib/ldif";
+import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { cardFromLdif } from "@/lib/mozillaAb";
 import { accountKey, loadRaw, saveJson } from "@/lib/storage";
 import { useMail } from "./mail";
@@ -338,10 +339,7 @@ export const CARD_PROPS = undefined; // all properties
 async function groupMailboxIds(): Promise<Set<string>> {
   const from = () =>
     new Set(
-      useMail
-        .getState()
-        .mailAccounts.filter((a) => a.kind === "group")
-        .map((a) => a.accountId),
+      groupMailboxAccounts(useMail.getState().mailAccounts).map((a) => a.accountId),
     );
   const ids = from();
   /*
@@ -361,11 +359,7 @@ async function groupMailboxIds(): Promise<Set<string>> {
     const unsub = useMail.subscribe((s) => {
       if (s.mailAccounts.length) {
         unsub();
-        resolve(
-          new Set(
-            s.mailAccounts.filter((a) => a.kind === "group").map((a) => a.accountId),
-          ),
-        );
+        resolve(new Set(groupMailboxAccounts(s.mailAccounts).map((a) => a.accountId)));
       }
     });
     setTimeout(() => {

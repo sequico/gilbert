@@ -15,13 +15,8 @@
  */
 import { create } from "zustand";
 import { client } from "@/jmap/client";
-import type {
-  ChangesResponse,
-  FileNode,
-  GetResponse,
-  Id,
-  SetResponse,
-} from "@/jmap/types";
+import type { ChangesResponse, FileNode, GetResponse, Id } from "@/jmap/types";
+import { findInFolder, listChildrenWithState } from "@/lib/appFolder";
 import {
   type ChatMessage,
   compareMessages,
@@ -31,12 +26,13 @@ import {
   isChatMarkerDoc,
   isChatMessageDoc,
   MAX_TEXT,
+  MESSAGE_TYPE,
   markerNameFor,
   messageProps,
   readDoc,
   unreadCount,
+  writeDoc,
 } from "@/lib/chat";
-import { fileCreate } from "@/lib/filenode";
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { useMail } from "@/store/mail";
@@ -60,6 +56,8 @@ export interface ChatConversation {
   /** Draft and reply target, kept per conversation while the panel is open. */
   draft: string;
   replyTo: Id | null;
+  /** A send is in flight; the composer must not fire a second one. */
+  sending: boolean;
 }
 
 interface ChatState {
@@ -82,6 +80,8 @@ interface ChatState {
   applyChanges(accountId: Id): Promise<void>;
   /** Drop everything (sign-out). */
   reset(): void;
+  /** Re-read a conversation from the server (error retry). */
+  reload(accountId: Id): Promise<void>;
 }
 
 const empty = (accountId: Id, name: string): ChatConversation => ({
@@ -96,6 +96,7 @@ const empty = (accountId: Id, name: string): ChatConversation => ({
   marker: null,
   draft: "",
   replyTo: null,
+  sending: false,
 });
 
 function sortedInsert(nodes: ChatMessage[], m: ChatMessage): boolean {
@@ -110,31 +111,24 @@ function sortedInsert(nodes: ChatMessage[], m: ChatMessage): boolean {
 const markerTimers = new Map<Id, number>();
 const markerPending = new Map<Id, Id | null>(); // accountId -> lastRead target
 let markerChain: Promise<void> = Promise.resolve();
-
-/** Find a file by name in a folder (query cannot filter by name; see appFolder). */
-async function findInStateFolder(
-  accountId: Id,
-  folderId: Id,
-  name: string,
-): Promise<FileNode | undefined> {
-  const res = await client.chain([
-    ["FileNode/query", { accountId, filter: { parentId: folderId }, limit: 1000 }, "q"],
-    [
-      "FileNode/get",
-      {
-        accountId,
-        "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
-        properties: ["id", "name", "blobId", "parentId", "nodeType"],
-      },
-      "g",
-    ],
-  ]);
-  const [g] = res.get("g") ?? [];
-  const got = g as unknown as GetResponse<FileNode>;
-  return got.list.find((n) => n.name === name && n.parentId === folderId);
-}
+/** Transcript loads in flight, so open() can await the warm pass. */
+const transcriptLoads = new Map<Id, Promise<void>>();
 
 export const useChat = create<ChatState>((set, get) => {
+  function startLoad(accountId: Id, name: string): Promise<void> {
+    const running = transcriptLoads.get(accountId);
+    if (running) return running;
+    const load = (async () => {
+      try {
+        await loadTranscript(accountId, name);
+      } finally {
+        transcriptLoads.delete(accountId);
+      }
+    })();
+    transcriptLoads.set(accountId, load);
+    return load;
+  }
+
   async function loadTranscript(accountId: Id, name: string): Promise<void> {
     const conv = get().conversations[accountId] ?? empty(accountId, name);
     set((s) => ({
@@ -148,26 +142,13 @@ export const useChat = create<ChatState>((set, get) => {
       // One page of the newest thousand: v1 chat is a glance surface and the
       // ADR accepts unbounded append-only growth, so a transcript past that is
       // trimmed at the oldest end until chat gains paging.
-      const res = await client.chain([
-        [
-          "FileNode/query",
-          { accountId, filter: { parentId: folders.chat }, limit: 1000 },
-          "q",
-        ],
-        [
-          "FileNode/get",
-          {
-            accountId,
-            "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
-            properties: messageProps(),
-          },
-          "g",
-        ],
-      ]);
-      const [g] = res.get("g") ?? [];
-      const got = g as unknown as GetResponse<FileNode>;
+      const { list, state: readState } = await listChildrenWithState(
+        accountId,
+        folders.chat,
+        messageProps(),
+      );
       const nodes: ChatMessage[] = [];
-      for (const node of got.list) {
+      for (const node of list) {
         if (node.nodeType !== "file" || !node.blobId) continue;
         try {
           const doc = await readDoc(accountId, node.blobId);
@@ -181,7 +162,7 @@ export const useChat = create<ChatState>((set, get) => {
       // The state the server reported with that read is the change anchor for
       // everything after it: `FileNode/changes` from here misses nothing the
       // transcript does not already have, and reports nothing twice.
-      const stateToken = got.state ?? "0";
+      const stateToken = readState;
       set((s) => ({
         conversations: {
           ...s.conversations,
@@ -196,6 +177,11 @@ export const useChat = create<ChatState>((set, get) => {
           },
         },
       }));
+      // The badge must be honest without the panel being opened: read the
+      // reader's own marker as part of the warm pass, so "unread = messages
+      // newer than my marker" holds from sign-in and the first open does not
+      // silently consume messages nobody was ever shown as unread.
+      await readOwnMarker(accountId);
     } catch (err) {
       set((s) => ({
         conversations: {
@@ -215,7 +201,7 @@ export const useChat = create<ChatState>((set, get) => {
     const folders = conv?.folders;
     const me = get().me();
     if (!conv || !folders || !me || conv.marker) return;
-    const node = await findInStateFolder(accountId, folders.state, markerNameFor(me));
+    const node = await findInFolder(accountId, folders.state, markerNameFor(me));
     if (!node?.blobId) return;
     try {
       const doc = await readDoc(accountId, node.blobId);
@@ -245,33 +231,21 @@ export const useChat = create<ChatState>((set, get) => {
     if (conv.marker?.lastRead === target) return;
     try {
       const doc = { v: 1 as const, lastRead: target };
-      const json = JSON.stringify(doc);
-      const blob = new Blob([json], { type: "application/json" });
-      const up = await client.upload(accountId, blob, { type: "application/json" });
       const marker = conv.marker;
       let markerId = marker?.id ?? null;
       if (marker?.id) {
+        // Rewrite the existing marker node's blob.
+        const json = JSON.stringify(doc);
+        const blob = new Blob([json], { type: MESSAGE_TYPE });
+        const up = await client.upload(accountId, blob, { type: MESSAGE_TYPE });
         await client.call("FileNode/set", {
           accountId,
           update: {
-            [marker.id]: { blobId: up.blobId, type: "application/json", size: blob.size },
+            [marker.id]: { blobId: up.blobId, type: MESSAGE_TYPE, size: blob.size },
           },
         });
       } else {
-        const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
-          accountId,
-          create: {
-            m: fileCreate(
-              folders.state,
-              markerNameFor(me),
-              up.blobId,
-              "application/json",
-            ),
-          },
-        });
-        const err = res.notCreated?.m;
-        if (err) throw new Error(String(err.description ?? err.type));
-        markerId = (res.created?.m as { id?: Id } | undefined)?.id ?? null;
+        markerId = await writeDoc(accountId, folders.state, markerNameFor(me), doc);
       }
       set((s) => ({
         conversations: {
@@ -321,22 +295,30 @@ export const useChat = create<ChatState>((set, get) => {
         return;
       }
       const wanted = groupMailboxAccounts(useMail.getState().mailAccounts);
+      const wantedIds = new Set(wanted.map((a) => a.accountId));
       const have = get().conversations;
+      // Drop conversations the session lost (ADR: leaving removes access);
+      // keep the open conversation only while it is still a group mailbox.
       const next: Record<Id, ChatConversation> = {};
       for (const a of wanted)
         next[a.accountId] = have[a.accountId] ?? empty(a.accountId, a.name);
-      for (const id of Object.keys(have)) if (!next[id]) next[id] = have[id]!;
+      for (const id of Object.keys(have))
+        if (!wantedIds.has(id)) transcriptLoads.delete(id);
       set({ conversations: next });
+      if (get().openAccountId && !wantedIds.has(get().openAccountId!))
+        set({ openAccountId: null });
       for (const a of wanted) {
         const conv = next[a.accountId]!;
-        if (!conv.loaded && !conv.loading) void loadTranscript(a.accountId, a.name);
+        if (!conv.loaded && !conv.loading) void startLoad(a.accountId, a.name);
       }
     },
 
     async ensureAccount(accountId) {
       const conv = get().conversations[accountId];
       if (!conv) return;
-      if (!conv.loaded && !conv.loading) await loadTranscript(accountId, conv.name);
+      // Join the warm pass when it is still loading, so the first open does
+      // not race it: the badge and the transcript are ready together.
+      if (!conv.loaded) await startLoad(accountId, conv.name);
       if (!get().conversations[accountId]!.marker) await readOwnMarker(accountId);
     },
 
@@ -368,11 +350,29 @@ export const useChat = create<ChatState>((set, get) => {
       }));
     },
 
-    async send(accountId) {
+    async reload(accountId) {
       const conv = get().conversations[accountId];
       if (!conv) return;
+      set((s) => ({
+        conversations: {
+          ...s.conversations,
+          [accountId]: { ...conv, loaded: false, loading: false, error: null },
+        },
+      }));
+      await startLoad(accountId, conv.name);
+    },
+
+    async send(accountId) {
+      const conv = get().conversations[accountId];
+      if (!conv || conv.sending) return;
       const text = conv.draft.trim();
       if (!text) return;
+      set((s) => ({
+        conversations: {
+          ...s.conversations,
+          [accountId]: { ...s.conversations[accountId]!, sending: true },
+        },
+      }));
       try {
         const folders = conv.folders ?? (await ensureChatFolders(accountId));
         const me = get().me();
@@ -409,6 +409,18 @@ export const useChat = create<ChatState>((set, get) => {
         markAt(accountId);
       } catch (err) {
         toast.show(t("Message not sent — {what}", { what: (err as Error).message }));
+      } finally {
+        set((s) => {
+          const c = s.conversations[accountId];
+          return c
+            ? {
+                conversations: {
+                  ...s.conversations,
+                  [accountId]: { ...c, sending: false },
+                },
+              }
+            : {};
+        });
       }
     },
 
@@ -424,10 +436,18 @@ export const useChat = create<ChatState>((set, get) => {
           const ch = await client.call<ChangesResponse>("FileNode/changes", {
             accountId,
             sinceState: since,
+            maxChanges: 500,
           });
           created.push(...ch.created);
           since = ch.newState;
           hasMore = ch.hasMoreChanges;
+        }
+        if (hasMore) {
+          // More pages than the guard allows: rather than advancing the token
+          // past content we never fetched, reload the transcript wholesale --
+          // cheap and self-healing.
+          void get().reload(accountId);
+          return;
         }
         const nodes = [...conv.nodes];
         const known = new Set(nodes.map((n) => n.id));
