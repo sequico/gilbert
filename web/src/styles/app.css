@@ -1989,3 +1989,36 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   overflow: hidden; text-overflow: ellipsis;
 }
 .chat-older { padding: 6px; font-size: .74em; }
+
+/* Chat: emoji picker (fixed common grid; emoticons are text, ADR 0006). */
+.chat-emoji-grid {
+  display: flex; flex-wrap: wrap; gap: 2px;
+  max-height: 132px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg-elev); padding: 4px; margin-bottom: 6px;
+}
+.chat-emoji-cell {
+  border: 0; background: transparent; cursor: pointer;
+  font-size: 19px; line-height: 1; padding: 3px; border-radius: 6px;
+}
+.chat-emoji-cell:hover { background: var(--bg-hover); }
+.chat-emoji-btn { flex: 0 0 auto; }
+
+/* Emoticon images: bundled Twemoji, so chat emoticons are yellow and coloured
+   whatever fonts the OS has (see web/src/lib/emoji.ts). */
+.chat-emoji-img {
+  width: 1.2em; height: 1.2em; vertical-align: -0.22em;
+  display: inline;
+}
+.chat-emoji-cell img { width: 21px; height: 21px; display: block; pointer-events: none; }
+
+/* Chat composer is a contenteditable now (see ChatInput.tsx): placeholder on
+   empty, no outline, grows instead of scrolling a fixed box. */
+.chat-input-rich { overflow-y: auto; cursor: text; white-space: normal; }
+.chat-input-rich:focus { outline: none; }
+.chat-input-rich:empty::before {
+  content: attr(data-placeholder);
+  color: var(--fg-muted);
+  pointer-events: none;
+}
+.chat-input-rich .chat-emoji-img { vertical-align: -0.2em; }

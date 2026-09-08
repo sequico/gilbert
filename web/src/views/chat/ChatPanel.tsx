@@ -8,15 +8,17 @@
  * composer. Everything here is a view over the chat store; the durable data
  * lives in the group accounts' own Files.
  */
-import { CornerUpLeft, Search, Send, X } from "lucide-react";
+import { CornerUpLeft, Search, Send, Smile, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "@/jmap/types";
 import { type ChatMessage, MAX_TEXT } from "@/lib/chat";
+import { COMMON_EMOJI, emojiAsset } from "@/lib/emoji";
 import { formatListDate } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { unreadOf, useChat } from "@/store/chat";
 import { useSession } from "@/store/session";
+import { ChatInput, type ChatInputHandle } from "./ChatInput";
 
 interface ChatPanelProps {
   accounts: MailAccountInfo[];
@@ -35,14 +37,44 @@ function snippet(text: string): string {
   return flat.length > 120 ? `${flat.slice(0, 120)}…` : flat;
 }
 
+/**
+ * Render a message's text with its known emoticons as bundled Twemoji
+ * images (yellow, WhatsApp style) instead of the OS's glyphs; anything not
+ * in the fixed set stays text, exactly as typed. Emoticon → image is display
+ * only -- the message itself is plain text (ADR 0006).
+ */
+function EmojiText({ text }: { text: string }) {
+  const parts = useMemo(() => {
+    try {
+      return [
+        ...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text),
+      ].map((s) => s.segment);
+    } catch {
+      return [text];
+    }
+  }, [text]);
+  return (
+    <>
+      {parts.map((part, i) => {
+        const src = emojiAsset(part);
+        return src ? (
+          <img key={i} className="chat-emoji-img" src={src} alt={part} loading="lazy" />
+        ) : (
+          <span key={i}>{part}</span>
+        );
+      })}
+    </>
+  );
+}
+
 export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   const me = useSession((s) => s.session?.username ?? "");
   const conversations = useChat((s) => s.conversations);
   const openAccountId = useChat((s) => s.openAccountId);
   const open = openAccountId ? (conversations[openAccountId] ?? null) : null;
   const threadRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const atBottom = useRef(true);
+  const chatInputRef = useRef<ChatInputHandle>(null);
   /** Where the viewport was pinned before older messages were prepended. */
   const pinTop = useRef<number | null>(null);
   const searchingRef = useRef(false);
@@ -102,6 +134,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     setQuery("");
     setResults(null);
     setSearching(false);
+    setEmojiOpen(false);
   }, [openAccountId]);
 
   useEffect(() => {
@@ -154,7 +187,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
 
   // Focus the composer when a conversation opens.
   useEffect(() => {
-    if (openAccountId) inputRef.current?.focus();
+    if (openAccountId) chatInputRef.current?.focus();
   }, [openAccountId]);
 
   const byId = useMemo(() => {
@@ -162,6 +195,9 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     for (const n of open?.nodes ?? []) m.set(n.id, n);
     return m;
   }, [open?.nodes]);
+
+  // ----- emoji picker -----
+  const [emojiOpen, setEmojiOpen] = useState(false);
 
   if (!accounts.length) return null;
 
@@ -173,7 +209,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   const submit = () => {
     if (!openAccountId) return;
     void send(openAccountId);
-    inputRef.current?.focus();
+    chatInputRef.current?.focus();
   };
 
   const showHistoryNote =
@@ -351,7 +387,9 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                           <span className="chat-quote-name">
                             {reply.from === me ? t("You") : shortName(reply.from)}
                           </span>
-                          <span className="chat-quote-text">{reply.text}</span>
+                          <span className="chat-quote-text">
+                            <EmojiText text={reply.text} />
+                          </span>
                         </button>
                       )}
                       <div className="chat-bubble-meta">
@@ -369,7 +407,9 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                           <CornerUpLeft size={13} />
                         </button>
                       </div>
-                      <div className="chat-text">{m.text}</div>
+                      <div className="chat-text">
+                        <EmojiText text={m.text} />
+                      </div>
                     </div>
                   </div>
                 );
@@ -404,27 +444,43 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
               </button>
             </div>
           )}
+          {emojiOpen && (
+            <div className="chat-emoji-grid" role="listbox" aria-label={t("Emoji")}>
+              {COMMON_EMOJI.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  className="chat-emoji-cell"
+                  role="option"
+                  title={e}
+                  onClick={() => {
+                    chatInputRef.current?.insertEmoji(e);
+                    setEmojiOpen(false);
+                  }}
+                >
+                  <img src={emojiAsset(e)!} alt={e} loading="lazy" />
+                </button>
+              ))}
+            </div>
+          )}
           <div className="chat-input-row">
-            <textarea
-              ref={inputRef}
-              className="chat-input"
-              rows={1}
+            <button
+              type="button"
+              className={`icon-btn chat-emoji-btn ${emojiOpen ? "active" : ""}`}
+              aria-label={t("Emoji")}
+              title={t("Emoji")}
+              aria-expanded={emojiOpen}
+              onClick={() => setEmojiOpen((v) => !v)}
+            >
+              <Smile size={18} />
+            </button>
+            <ChatInput
+              ref={chatInputRef}
+              value={open.draft}
               maxLength={MAX_TEXT}
               placeholder={t("Message {group}", { group: shortName(open.name) })}
-              value={open.draft}
-              onChange={(e) => {
-                // Grow with the content up to a few lines, like a chat input
-                // should; height is reset first so a shorter line shrinks.
-                e.target.style.height = "auto";
-                e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
-                setDraft(open.accountId, e.target.value);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  submit();
-                }
-              }}
+              onChange={(text) => setDraft(open.accountId, text)}
+              onSend={submit}
             />
             <button
               type="button"
