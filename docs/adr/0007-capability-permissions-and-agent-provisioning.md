@@ -60,16 +60,24 @@ Facts carried over from ADR 0001/0003, unchanged by this decision:
 
 ## Decision
 
-### 1. A scoped service credential is the new door to the Management API
+### 1. The Management API client: credential, transport, and calls
 
-Gilbert's server holds one new secret: a Stalwart **API Key principal**
-(Stalwart's own principal type for external application access to the
-Management API), created once by the operator, scoped to exactly the
-operations below — principal read/attributes, principal create, ACL grant
-support calls. It is not a human admin's credential and is never an
-impersonation identity; it is a standing service identity, stored as a
-deployment secret alongside the process (same class as today's
-`STALWART_SERVERS_FILE`/mock credentials), never sent to the browser.
+This section is the full Mossa 2 implementation: not just the decision to
+use a service credential, but its shape end to end.
+
+**1a. Credential.** One Stalwart **API Key principal** per configured
+Stalwart server. `STALWART_SERVERS_FILE` already keys Gilbert's config per
+server (multi-Stalwart installs); the management credential follows the
+same keying — each server entry gains a `managementApiKey: { name: string;
+secret: string }` field, read at boot exactly where the rest of that
+server's config is read (`server/src/config.ts`). Created once by the
+operator directly in Stalwart (webadmin/Management API/CLI — Gilbert never
+creates its own service credential), scoped — if Stalwart's API Key
+principal type supports scoping, to be confirmed live — to exactly: read a
+principal's attributes, list/read principals, create a principal. Nothing
+broader is requested: no mail read, no impersonation, no settings write.
+It is a provisioning-and-introspection identity only, never a way to read
+or write user content, and never sent to the browser.
 
 This is the one new element the "no second secret" stance of ADR 0001 §4
 was written against for the *install-wide policy channel* specifically; it
@@ -79,6 +87,63 @@ credential, used only from the trusted server process for authenticated,
 audited admin actions, is a different risk shape — but it is a **new**
 standing secret, and is treated as the main new attack surface this ADR
 introduces (see Consequences).
+
+**1b. Transport — `server/src/management.ts` (new).** A thin client
+parallel to `upstream.ts`/`account.ts`, not reusing their JMAP request
+shape (this is REST, not JMAP batch calls):
+
+- `managementRequest(server, path, method, body?)` — issues the HTTP call
+  against `<stalwart-base>/api/<path>` with `Authorization: Basic
+  <base64(name:secret)>` built from that server's configured
+  `managementApiKey`. Basic is chosen over the OpenAPI-documented
+  Bearer/`POST /auth/token` flow deliberately: a long-lived service
+  identity has no user session to refresh a token against, so Basic per
+  call is simpler and matches how every other upstream call in this
+  codebase already authenticates (`account.ts`'s `jmap()`, `upstream.ts`).
+  Same `AbortSignal.timeout(config.upstreamTimeout)` as those calls.
+- `ManagementError extends Error` (mirrors `UpstreamError`/`AccountError`):
+  401/403 → the service credential is invalid, revoked, or under-scoped
+  for the call attempted; 404 → principal not found; other non-2xx →
+  wrapped with Stalwart's `description`/`type` when present, same
+  presentation `describeSetError` already gives JMAP `/set` failures.
+- `getPrincipalCapabilities(server, name): Promise<Set<string>>` — the
+  attribute/permission read behind §2's `gilbert.*` booleans. Response
+  parsing (which JSON fields carry the permission set) is the piece marked
+  in Open questions; the function's contract (name in, capability set out,
+  throws `ManagementError` on failure) is fixed regardless of that detail.
+- `createAgentPrincipal(server, { name, description }): Promise<{ id: string }>`
+  — the call behind §3's agent provisioning. Same contract-now,
+  wire-shape-later split as above.
+
+**1c. Capability resolution.** `requireCapability(name)`
+(`server/src/permissions.ts`, new) calls `getPrincipalCapabilities`, maps
+the result onto the five `gilbert.*` names in §2, and caches it per
+principal for the same short TTL the upstream session cache already uses
+(a few minutes — ADR 0001 §7's precedent), so a revoked capability lands
+within that window, matching the existing privilege-change propagation
+contract rather than inventing a new one.
+
+**1d. Failure mode.** Any failure talking to the Management API —
+timeout, 401 on the service credential itself, a malformed response —
+resolves every `gilbert.*` capability to `false` for that request and logs
+loudly server-side. This is the "fails closed" behaviour named in
+Consequences: a broken service credential takes away admin access, it
+never grants it, and it never crashes the request — the rest of Gilbert
+(mail, calendar, files) is unaffected by a dead Management API.
+
+**1e. Config.** The new `managementApiKey` field is optional per server
+entry. A deployment that omits it has no `gilbert.*` capability ever
+resolve true and therefore no admin surface — a valid, bootable
+configuration, not an error, mirroring "a missing per-user policy document
+is the normal first-boot state, not an error" (ADR 0001 §5). No crash at
+boot; a loud, one-time log line naming which servers are missing it.
+
+**1f. Mock parity.** `server/src/mock/index.ts` gains `/api/*` handlers
+for `getPrincipalCapabilities` and `createAgentPrincipal` (auth check,
+principal get/create with the capability-bearing fields), so
+`npm run dev:mock` and the test suite exercise §2/§3 without a live 0.16.x
+server — the same discipline the repo already applies to JMAP mock
+routes, extended to this REST surface.
 
 ### 2. The `gilbert-admin` group grant is removed; capabilities replace it
 
@@ -205,9 +270,11 @@ permission check). Which of the two depends on the Open question below.
   named in §2/§3 cover today's admin surface; growing the admin surface
   (e.g. a future policy-per-group feature) means adding capabilities here,
   not reviving a coarse admin flag.
-- Multi-Stalwart installs (`STALWART_SERVERS_FILE`): same open question as
-  ADR 0001/0003 — one service credential per Stalwart server, scoped to
-  the principals that server serves.
+- Multi-Stalwart installs: keying resolved in §1a (one `managementApiKey`
+  per `STALWART_SERVERS_FILE` entry); what remains open is only whether
+  Stalwart's API Key principal type can be scoped to the principals of one
+  server in a multi-tenant Stalwart deployment, or whether it is
+  inherently server-wide.
 - Whether removing `gilbert-admin` entirely (vs. leaving it inert) has any
   effect on the group-chat mechanism of ADR 0006, which explicitly
   excludes the admin group from "working group" detection by name — once
@@ -224,5 +291,9 @@ permission check). Which of the two depends on the Open question below.
   removed)
 - `server/src/app.ts` — `requireAdmin`, `/admin/force-password-change`,
   `/admin/users` (to be regated on `requireCapability`)
+- `server/src/account.ts`, `server/src/upstream.ts` — the Basic-auth
+  request/error-mapping pattern `management.ts` (§1b, new) follows
+- `server/src/config.ts` — `STALWART_SERVERS_FILE` reading, extended with
+  `managementApiKey` per server (§1a, new)
 - `web/src/views/settings/ShareDialog.tsx` — the existing `shareWith`
   JMAP write, reused unchanged for agent resource grants
