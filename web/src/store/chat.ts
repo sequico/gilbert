@@ -18,17 +18,18 @@ import { client } from "@/jmap/client";
 import type { ChangesResponse, FileNode, GetResponse, Id } from "@/jmap/types";
 import { findInFolder, listChildrenWithState } from "@/lib/appFolder";
 import {
+  CHAT_PAGE,
   type ChatMessage,
   compareMessages,
   createDoc,
   ensureChatFolders,
   fetchMessage,
   isChatMarkerDoc,
-  isChatMessageDoc,
   MAX_TEXT,
   MESSAGE_TYPE,
   markerNameFor,
   messageProps,
+  parseMessages,
   readDoc,
   unreadCount,
   writeDoc,
@@ -58,6 +59,12 @@ export interface ChatConversation {
   replyTo: Id | null;
   /** A send is in flight; the composer must not fire a second one. */
   sending: boolean;
+  /** Transcript paging: the server position of the oldest held message. */
+  earliestPos: number;
+  /** A page of older messages is being fetched (scroll-up). */
+  pagingMore: boolean;
+  /** The whole transcript is in hand: position 0 was reached. */
+  reachedStart: boolean;
 }
 
 interface ChatState {
@@ -82,6 +89,8 @@ interface ChatState {
   reset(): void;
   /** Re-read a conversation from the server (error retry). */
   reload(accountId: Id): Promise<void>;
+  /** Fetch the page of messages older than the ones held (scroll-up). */
+  loadOlder(accountId: Id): Promise<void>;
 }
 
 const empty = (accountId: Id, name: string): ChatConversation => ({
@@ -97,6 +106,9 @@ const empty = (accountId: Id, name: string): ChatConversation => ({
   draft: "",
   replyTo: null,
   sending: false,
+  earliestPos: 0,
+  pagingMore: false,
+  reachedStart: false,
 });
 
 function sortedInsert(nodes: ChatMessage[], m: ChatMessage): boolean {
@@ -139,30 +151,14 @@ export const useChat = create<ChatState>((set, get) => {
     }));
     try {
       const folders = conv.folders ?? (await ensureChatFolders(accountId));
-      // One page of the newest thousand: v1 chat is a glance surface and the
-      // ADR accepts unbounded append-only growth, so a transcript past that is
-      // trimmed at the oldest end until chat gains paging.
-      const { list, state: readState } = await listChildrenWithState(
-        accountId,
-        folders.chat,
-        messageProps(),
-      );
-      const nodes: ChatMessage[] = [];
-      for (const node of list) {
-        if (node.nodeType !== "file" || !node.blobId) continue;
-        try {
-          const doc = await readDoc(accountId, node.blobId);
-          if (!isChatMessageDoc(doc)) continue;
-          nodes.push({ id: node.id, created: node.created ?? "", ...doc });
-        } catch {
-          /* a node that is not a readable message is not part of the transcript */
-        }
-      }
-      nodes.sort(compareMessages);
-      // The state the server reported with that read is the change anchor for
-      // everything after it: `FileNode/changes` from here misses nothing the
-      // transcript does not already have, and reports nothing twice.
-      const stateToken = readState;
+      // Page the transcript from the tail: the newest messages first, older
+      // ones fetched on scroll-up (loadOlder). The chat opens at the bottom;
+      // a member added later scrolls back through the whole conversation.
+      const first = await fetchPage(accountId, folders, 0, 0);
+      const total = first.total;
+      const from = Math.max(0, total - CHAT_PAGE);
+      const page = await fetchPage(accountId, folders, from, total - from || CHAT_PAGE);
+      const nodes = page.nodes.sort(compareMessages);
       set((s) => ({
         conversations: {
           ...s.conversations,
@@ -170,7 +166,9 @@ export const useChat = create<ChatState>((set, get) => {
             ...(s.conversations[accountId] ?? empty(accountId, name)),
             folders,
             nodes,
-            stateToken,
+            stateToken: page.state,
+            earliestPos: from,
+            reachedStart: from === 0,
             loading: false,
             loaded: true,
             error: null,
@@ -191,6 +189,71 @@ export const useChat = create<ChatState>((set, get) => {
             loading: false,
             error: (err as Error).message,
           },
+        },
+      }));
+    }
+  }
+
+  /** One position window of the transcript, as ordered server-side. */
+  async function fetchPage(
+    accountId: Id,
+    folders: { chat: Id },
+    position: number,
+    limit: number,
+  ): Promise<{ nodes: ChatMessage[]; state: string; total: number }> {
+    const {
+      list,
+      state: readState,
+      total,
+    } = await listChildrenWithState(accountId, folders.chat, messageProps(), {
+      position,
+      limit,
+    });
+    return { nodes: await parseMessages(accountId, list), state: readState, total };
+  }
+
+  async function loadOlderImpl(accountId: Id): Promise<void> {
+    const conv = get().conversations[accountId];
+    if (!conv?.loaded || conv.pagingMore || conv.reachedStart) return;
+    if (conv.earliestPos <= 0) {
+      set((s) => ({
+        conversations: {
+          ...s.conversations,
+          [accountId]: { ...s.conversations[accountId]!, reachedStart: true },
+        },
+      }));
+      return;
+    }
+    set((s) => ({
+      conversations: {
+        ...s.conversations,
+        [accountId]: { ...s.conversations[accountId]!, pagingMore: true },
+      },
+    }));
+    try {
+      const folders = conv.folders!;
+      const from = Math.max(0, conv.earliestPos - CHAT_PAGE);
+      const page = await fetchPage(accountId, folders, from, conv.earliestPos - from);
+      const byId = new Set(conv.nodes.map((n) => n.id));
+      const extra = page.nodes.filter((n) => !byId.has(n.id));
+      const nodes = [...extra, ...conv.nodes].sort(compareMessages);
+      set((s) => ({
+        conversations: {
+          ...s.conversations,
+          [accountId]: {
+            ...s.conversations[accountId]!,
+            nodes,
+            earliestPos: from,
+            reachedStart: from === 0,
+            pagingMore: false,
+          },
+        },
+      }));
+    } catch {
+      set((s) => ({
+        conversations: {
+          ...s.conversations,
+          [accountId]: { ...s.conversations[accountId]!, pagingMore: false },
         },
       }));
     }
@@ -362,6 +425,10 @@ export const useChat = create<ChatState>((set, get) => {
       await startLoad(accountId, conv.name);
     },
 
+    async loadOlder(accountId) {
+      await loadOlderImpl(accountId);
+    },
+
     async send(accountId) {
       const conv = get().conversations[accountId];
       if (!conv || conv.sending) return;
@@ -427,6 +494,7 @@ export const useChat = create<ChatState>((set, get) => {
     async applyChanges(accountId) {
       const conv = get().conversations[accountId];
       if (!conv?.loaded || !conv.folders || conv.stateToken === null) return;
+      const chatFolder = conv.folders.chat;
       try {
         let since = conv.stateToken;
         const created: Id[] = [];
@@ -454,28 +522,16 @@ export const useChat = create<ChatState>((set, get) => {
         const fresh = created.filter((id) => !known.has(id));
         let changed = false;
         if (fresh.length) {
-          // One get for the batch, then a blob read per message document.
+          // One get for the batch, then the shared parser keeps only the
+          // nodes that actually live in this conversation's chat folder.
           const got = await client.call<GetResponse<FileNode>>("FileNode/get", {
             accountId,
             ids: fresh,
             properties: messageProps(),
           });
-          for (const node of got.list) {
-            if (node.nodeType !== "file" || !node.blobId) continue;
-            if (node.parentId !== conv.folders.chat) continue;
-            try {
-              const doc = await readDoc(accountId, node.blobId);
-              if (!isChatMessageDoc(doc)) continue;
-              const m: ChatMessage = {
-                id: node.id,
-                created: node.created ?? "",
-                ...doc,
-              };
-              changed = sortedInsert(nodes, m) || changed;
-            } catch {
-              /* not a readable message; skip */
-            }
-          }
+          const onlyHere = got.list.filter((n) => n.parentId === chatFolder);
+          for (const m of await parseMessages(accountId, onlyHere))
+            changed = sortedInsert(nodes, m) || changed;
         }
         if (changed || since !== conv.stateToken) {
           set((s) => ({

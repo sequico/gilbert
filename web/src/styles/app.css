@@ -1959,3 +1959,33 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   from { transform: translateY(24px); opacity: .6; }
   to { transform: none; opacity: 1; }
 }
+
+/* Chat: head actions, search, older-messages paging (ADR 0006). */
+.chat-head-actions { display: inline-flex; align-items: center; gap: 2px; }
+.chat-search-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px 2px; }
+.chat-search-input {
+  flex: 1 1 auto; min-width: 0;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--fg);
+  padding: 5px 9px; font: inherit; font-size: .85em;
+}
+.chat-search-input:focus { outline: none; border-color: var(--accent); }
+.chat-search-summary {
+  font-size: .76em; color: var(--fg-muted);
+  padding: 2px 8px 6px; text-align: center;
+}
+.chat-result-row {
+  display: flex; flex-direction: column; gap: 2px; text-align: left;
+  width: 100%; background: var(--bg); color: var(--fg);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 9px; cursor: pointer; margin-bottom: 6px;
+}
+.chat-result-row:hover { border-color: var(--accent); }
+.chat-result-meta { display: flex; align-items: baseline; gap: 8px; }
+.chat-result-who { font-weight: 700; font-size: .74em; color: var(--accent); }
+.chat-result-date { font-size: .7em; color: var(--fg-muted); }
+.chat-result-text {
+  font-size: .82em; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.chat-older { padding: 6px; font-size: .74em; }

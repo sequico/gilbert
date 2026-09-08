@@ -51,10 +51,15 @@ export async function listChildrenWithState(
   accountId: Id,
   parentId: Id | null,
   properties: string[],
-): Promise<{ list: FileNode[]; state: string }> {
+  opts: { position?: number; limit?: number } = {},
+): Promise<{ list: FileNode[]; state: string; total: number }> {
   const filter = parentId ? { parentId } : { isTopLevel: true };
   const res = await client.chain([
-    ["FileNode/query", { accountId, filter, limit: 1000 }, "q"],
+    [
+      "FileNode/query",
+      { accountId, filter, position: opts.position ?? 0, limit: opts.limit ?? 1000 },
+      "q",
+    ],
     [
       "FileNode/get",
       {
@@ -66,8 +71,14 @@ export async function listChildrenWithState(
     ],
   ]);
   const [g] = res.get("g") ?? [];
+  const [q] = res.get("q") ?? [];
   const got = g as unknown as GetResponse<FileNode>;
-  return { list: got.list, state: got.state ?? "0" };
+  const query = q as unknown as { total?: number };
+  return {
+    list: got.list,
+    state: got.state ?? "0",
+    total: query.total ?? got.list.length,
+  };
 }
 
 /** Find the app folder, or make it as `gilbert`. Returns its node id. */

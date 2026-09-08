@@ -3,16 +3,17 @@
  *
  * Shown as a popover under the top-bar launcher on desktop and a full-screen
  * sheet on mobile. It holds the conversation switcher (one entry per group
- * mailbox), the thread as bubbles with quote replies, and the composer.
- * Everything here is a view over the chat store; the durable data lives in
- * the group accounts' own Files.
+ * mailbox), the thread as bubbles with quote replies and scroll-up paging
+ * into older messages, a search over the selected group's messages, and the
+ * composer. Everything here is a view over the chat store; the durable data
+ * lives in the group accounts' own Files.
  */
-import { CornerUpLeft, Send, X } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { CornerUpLeft, Search, Send, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "@/jmap/types";
 import { type ChatMessage, MAX_TEXT } from "@/lib/chat";
-import { formatClock } from "@/lib/datetime";
-import { t } from "@/lib/i18n";
+import { formatListDate } from "@/lib/format";
+import { plural, t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
 import { unreadOf, useChat } from "@/store/chat";
 import { useSession } from "@/store/session";
@@ -28,36 +29,128 @@ function shortName(address: string): string {
   return at > 0 ? address.slice(0, at) : address;
 }
 
+/** One line of a message, for the search results list. */
+function snippet(text: string): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  return flat.length > 120 ? `${flat.slice(0, 120)}…` : flat;
+}
+
 export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   const me = useSession((s) => s.session?.username ?? "");
   const conversations = useChat((s) => s.conversations);
   const openAccountId = useChat((s) => s.openAccountId);
   const open = openAccountId ? (conversations[openAccountId] ?? null) : null;
   const threadRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const atBottom = useRef(true);
+  /** Where the viewport was pinned before older messages were prepended. */
+  const pinTop = useRef<number | null>(null);
+  const searchingRef = useRef(false);
 
   const setDraft = useChat((s) => s.setDraft);
   const setReply = useChat((s) => s.setReply);
   const send = useChat((s) => s.send);
   const reload = useChat((s) => s.reload);
+  const loadOlder = useChat((s) => s.loadOlder);
   const openConv = useChat((s) => s.open);
 
-  // Stick to the newest message unless the reader has scrolled up.
-  const onScroll = () => {
-    const el = threadRef.current;
-    if (!el) return;
-    atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-  };
+  // ----- transcript paging on scroll-up -----
   const nodeCount = open?.nodes.length ?? 0;
   useEffect(() => {
     const el = threadRef.current;
-    if (el && (atBottom.current || open?.replyTo)) {
+    if (!el) return;
+    // Paging up: keep the viewport on the same message while older ones are
+    // prepended above it. Without this the added height shoves the reader
+    // downwards with every page.
+    if (pinTop.current !== null) {
+      el.scrollTop += el.scrollHeight - pinTop.current;
+      pinTop.current = null;
+    }
+    // Stick to the newest message unless the reader has scrolled up or is
+    // mid-page. `open?.replyTo` (a reply was just composed) pins to bottom.
+    if (atBottom.current || open?.replyTo) {
       el.scrollTop = el.scrollHeight;
       atBottom.current = true;
     }
   }, [nodeCount, openAccountId, open?.replyTo]);
+
+  const older = async () => {
+    if (!openAccountId || searchingRef.current) return;
+    const conv = useChat.getState().conversations[openAccountId];
+    if (!conv?.loaded || conv.pagingMore || conv.reachedStart) return;
+    const el = threadRef.current;
+    if (el) pinTop.current = el.scrollHeight;
+    await loadOlder(openAccountId);
+  };
+
+  const onScroll = () => {
+    const el = threadRef.current;
+    if (!el) return;
+    atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    // Reaching the top of the loaded window asks for the older page.
+    if (el.scrollTop < 24) void older();
+  };
+
+  // ----- search across the selected group's messages -----
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<ChatMessage[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const seq = useRef(0);
+
+  useEffect(() => {
+    setQuery("");
+    setResults(null);
+    setSearching(false);
+  }, [openAccountId]);
+
+  useEffect(() => {
+    if (!searchOpen || !openAccountId) {
+      setResults(null);
+      return;
+    }
+    const q = query.trim().toLowerCase();
+    if (q.length < 2) {
+      setResults(null);
+      return;
+    }
+    const token = ++seq.current;
+    const timer = window.setTimeout(() => {
+      setSearching(true);
+      void (async () => {
+        // The search covers the whole history, so pull every older page in
+        // first (they are only fetched on demand). A cap keeps a runaway
+        // transcript from spinning forever on one query.
+        let guard = 0;
+        let conv = useChat.getState().conversations[openAccountId];
+        while (conv?.loaded && !conv.reachedStart && guard++ < 500) {
+          await loadOlder(openAccountId);
+          conv = useChat.getState().conversations[openAccountId];
+        }
+        if (token !== seq.current) return;
+        const all = useChat.getState().conversations[openAccountId]?.nodes ?? [];
+        const hits = all.filter((m) => m.text.toLowerCase().includes(q)).slice(0, 200);
+        if (token !== seq.current) return;
+        setResults(hits);
+        setSearching(false);
+      })();
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [searchOpen, query, openAccountId, loadOlder]);
+
+  const exitSearch = () => {
+    setSearchOpen(false);
+    setQuery("");
+    setResults(null);
+  };
+
+  const jumpTo = (id: Id) => {
+    threadRef.current
+      ?.querySelector(`[data-mid="${id}"]`)
+      ?.scrollIntoView({ block: "center" });
+  };
 
   // Focus the composer when a conversation opens.
   useEffect(() => {
@@ -77,17 +170,18 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     openConv(id);
   };
 
-  const jumpTo = (id: Id) => {
-    listRef.current
-      ?.querySelector(`[data-mid="${id}"]`)
-      ?.scrollIntoView({ block: "center" });
-  };
-
   const submit = () => {
     if (!openAccountId) return;
     void send(openAccountId);
     inputRef.current?.focus();
   };
+
+  const showHistoryNote =
+    !!open &&
+    open.loaded &&
+    open.reachedStart &&
+    !open.pagingMore &&
+    open.nodes.length >= 200;
 
   return (
     <div className="chat-panel">
@@ -104,9 +198,26 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
             t("Chat")
           )}
         </span>
-        <button className="icon-btn chat-close" aria-label={t("Close")} onClick={onClose}>
-          <X size={16} />
-        </button>
+        <span className="chat-head-actions">
+          {open && (
+            <button
+              type="button"
+              className={`icon-btn xs ${searchOpen ? "active" : ""}`}
+              aria-label={t("Search messages")}
+              title={t("Search messages")}
+              onClick={() => setSearchOpen((v) => !v)}
+            >
+              <Search size={15} />
+            </button>
+          )}
+          <button
+            className="icon-btn chat-close"
+            aria-label={t("Close")}
+            onClick={onClose}
+          >
+            <X size={16} />
+          </button>
+        </span>
       </div>
       {accounts.length > 1 && (
         <div className="chat-switcher" role="tablist" aria-label={t("Conversations")}>
@@ -128,8 +239,70 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
           })}
         </div>
       )}
+      {searchOpen && (
+        <div className="chat-search-row">
+          <input
+            className="chat-search-input"
+            autoFocus
+            value={query}
+            placeholder={t("Search in this chat")}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") exitSearch();
+            }}
+          />
+          <button
+            type="button"
+            className="icon-btn xs"
+            aria-label={t("Close")}
+            onClick={exitSearch}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
       <div className="chat-thread" ref={threadRef} onScroll={onScroll}>
-        {open ? (
+        {searchOpen ? (
+          query.trim().length >= 2 ? (
+            searching ? (
+              <div className="chat-empty">{t("Searching…")}</div>
+            ) : results && results.length > 0 ? (
+              <>
+                <div className="chat-search-summary">
+                  {plural(results.length, {
+                    one: "{n} match",
+                    other: "{n} matches",
+                  })}
+                </div>
+                {results.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className="chat-result-row"
+                    onClick={() => {
+                      exitSearch();
+                      window.setTimeout(() => jumpTo(m.id), 0);
+                    }}
+                  >
+                    <span className="chat-result-meta">
+                      <span className="chat-result-who">
+                        {m.from === me ? t("You") : shortName(m.from)}
+                      </span>
+                      <span className="chat-result-date">{formatListDate(m.at)}</span>
+                    </span>
+                    <span className="chat-result-text">{snippet(m.text)}</span>
+                  </button>
+                ))}
+              </>
+            ) : (
+              <div className="chat-empty">
+                {t("No matches for {query}", { query: query.trim() })}
+              </div>
+            )
+          ) : (
+            <div className="chat-empty">{t("Search messages")}</div>
+          )
+        ) : open ? (
           open.loading && open.nodes.length === 0 ? (
             <div className="chat-empty">{t("Loading…")}</div>
           ) : open.error && !open.loaded ? (
@@ -147,55 +320,67 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
           ) : open.nodes.length === 0 ? (
             <div className="chat-empty">{t("No messages yet")}</div>
           ) : (
-            open.nodes.map((m) => {
-              const mine = m.from === me;
-              const reply = m.replyTo ? byId.get(m.replyTo) : undefined;
-              return (
-                <div
-                  key={m.id}
-                  data-mid={m.id}
-                  className={`chat-row ${mine ? "mine" : ""}`}
-                >
-                  <div className="chat-bubble">
-                    {reply && (
-                      <button
-                        type="button"
-                        className="chat-quote"
-                        onClick={() => jumpTo(m.replyTo!)}
-                        title={t("Go to the message being answered")}
-                      >
-                        <span className="chat-quote-name">
-                          {reply.from === me ? t("You") : shortName(reply.from)}
-                        </span>
-                        <span className="chat-quote-text">{reply.text}</span>
-                      </button>
-                    )}
-                    <div className="chat-bubble-meta">
-                      <span className="chat-sender">
-                        {mine ? t("You") : shortName(m.from)}
-                      </span>
-                      <span className="chat-clock">{formatClock(new Date(m.at))}</span>
-                      <button
-                        type="button"
-                        className="icon-btn xs chat-reply"
-                        aria-label={t("Reply")}
-                        title={t("Reply")}
-                        onClick={() => setReply(open.accountId, m.id)}
-                      >
-                        <CornerUpLeft size={13} />
-                      </button>
-                    </div>
-                    <div className="chat-text">{m.text}</div>
-                  </div>
+            <>
+              {open.pagingMore && (
+                <div className="chat-empty chat-older">
+                  {t("Loading earlier messages…")}
                 </div>
-              );
-            })
+              )}
+              {!open.pagingMore && showHistoryNote && (
+                <div className="chat-empty chat-older">
+                  {t("Start of the conversation")}
+                </div>
+              )}
+              {open.nodes.map((m) => {
+                const mine = m.from === me;
+                const reply = m.replyTo ? byId.get(m.replyTo) : undefined;
+                return (
+                  <div
+                    key={m.id}
+                    data-mid={m.id}
+                    className={`chat-row ${mine ? "mine" : ""}`}
+                  >
+                    <div className="chat-bubble">
+                      {reply && (
+                        <button
+                          type="button"
+                          className="chat-quote"
+                          onClick={() => jumpTo(m.replyTo!)}
+                          title={t("Go to the message being answered")}
+                        >
+                          <span className="chat-quote-name">
+                            {reply.from === me ? t("You") : shortName(reply.from)}
+                          </span>
+                          <span className="chat-quote-text">{reply.text}</span>
+                        </button>
+                      )}
+                      <div className="chat-bubble-meta">
+                        <span className="chat-sender">
+                          {mine ? t("You") : shortName(m.from)}
+                        </span>
+                        <span className="chat-clock">{formatListDate(m.at)}</span>
+                        <button
+                          type="button"
+                          className="icon-btn xs chat-reply"
+                          aria-label={t("Reply")}
+                          title={t("Reply")}
+                          onClick={() => setReply(open.accountId, m.id)}
+                        >
+                          <CornerUpLeft size={13} />
+                        </button>
+                      </div>
+                      <div className="chat-text">{m.text}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </>
           )
         ) : (
           <div className="chat-empty">{t("Pick a conversation")}</div>
         )}
       </div>
-      {open && (
+      {open && !searchOpen && (
         <div className="chat-composer">
           {open.replyTo && (
             <div className="chat-replybar">

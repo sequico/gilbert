@@ -21,6 +21,9 @@ export const MESSAGE_TYPE = "application/json";
 /** Messages are plain text; the bound keeps the documents small (ADR 0006). */
 export const MAX_TEXT = 4000;
 
+/** How many messages one transcript page holds (scroll-up paging). */
+export const CHAT_PAGE = 200;
+
 /** One message document, immutable once created. */
 export interface ChatMessageDoc {
   v: 1;
@@ -85,6 +88,29 @@ export function isChatMarkerDoc(x: unknown): x is ChatMarkerDoc {
  */
 export function markerNameFor(member: string): string {
   return `read-${encodeURIComponent(member)}.json`;
+}
+
+/**
+ * Parse a list of file nodes into readable messages: files in the chat folder
+ * whose JSON document is a valid message. Shared by the initial tail load,
+ * the older-messages paging and the live re-sync -- one parser, one shape.
+ */
+export async function parseMessages(
+  accountId: Id,
+  nodes: Array<Pick<FileNode, "id" | "created" | "nodeType" | "blobId">>,
+): Promise<ChatMessage[]> {
+  const out: ChatMessage[] = [];
+  for (const node of nodes) {
+    if (node.nodeType !== "file" || !node.blobId) continue;
+    try {
+      const doc = await readDoc(accountId, node.blobId);
+      if (!isChatMessageDoc(doc)) continue;
+      out.push({ id: node.id, created: node.created ?? "", ...doc });
+    } catch {
+      /* a node that is not a readable message is not part of the transcript */
+    }
+  }
+  return out;
 }
 
 /**

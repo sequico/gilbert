@@ -43,6 +43,15 @@ const advertises = (account: MailAccountLike | undefined, cap: string): boolean 
  * advertises mail, in session order. The caller probes each "group" candidate
  * with `Mailbox/get` and keeps the ones that answer with a tree.
  */
+/**
+ * The accounts worth probing for a mailbox tree: the reader's own first, then
+ * every non-personal account that advertises mail -- except the product-admin
+ * group (ADR 0001). Excluding `gilbert-admin` here, at the probe, is what
+ * keeps it out of *every* surface: the mail views, the sidebar sections,
+ * chat, the composer pickers and the switchers all derive from the probed
+ * `mailAccounts`, so an account that is never probed cannot leak into any of
+ * them. The admin group is an administration surface, not a working group.
+ */
 export function mailAccountCandidates(
   session: MailSessionLike | null,
 ): MailAccountInfo[] {
@@ -56,6 +65,7 @@ export function mailAccountCandidates(
   for (const [accountId, account] of Object.entries(session.accounts)) {
     if (accountId === own || account.isPersonal !== false) continue;
     if (!advertises(account, CAP.mail)) continue;
+    if (isAdminGroupAccountName(account.name)) continue;
     out.push({ accountId, name: account.name, kind: "group" });
   }
   return out;

@@ -244,3 +244,69 @@ test("a FileNode set announces a state change on the event source", async () => 
     `event source should name account ${GROUP_ACCOUNT}: ${frame}`,
   );
 });
+
+test("FileNode/query pages by position and reports the real total", async () => {
+  // Three fresh messages, independent of the earlier tests' count.
+  const ids: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    const doc = JSON.stringify({
+      v: 1,
+      from: "ada@example.org",
+      at: new Date().toISOString(),
+      text: `page ${i}`,
+    });
+    const blobId = await upload(doc);
+    const made = await setNodes({
+      m: {
+        parentId: chatFolder,
+        name: `page-${Date.now()}-${i}.json`,
+        blobId,
+        type: "application/json",
+        nodeType: "file",
+      },
+    });
+    ids.push(made.m!.id);
+  }
+  const q = async (position: number, limit: number) => {
+    const responses = await jmap([
+      [
+        "FileNode/query",
+        { accountId: GROUP_ACCOUNT, filter: { parentId: chatFolder }, position, limit },
+        "0",
+      ],
+    ]);
+    const first = responses[0] as [
+      string,
+      { ids: string[]; total: number; position: number },
+    ];
+    return first[1];
+  };
+
+  const before = await q(0, 0);
+  const total = before.total;
+  assert.ok(total >= 3, `total should include the three new messages: ${total}`);
+
+  const first = await q(0, 2);
+  assert.equal(first.ids.length, 2, "a limit-2 page returns two ids");
+  assert.equal(first.total, total, "total is independent of the page");
+
+  const second = await q(2, 10);
+  assert.equal(
+    second.ids.length,
+    total - 2,
+    "the second page holds everything from position 2 on",
+  );
+  // Paging is over the server's own order (insertion = creation order), and
+  // the three fresh messages were appended last: they sit at the tail, so the
+  // second page -- which reaches the end -- must contain all of them, in
+  // their creation order.
+  assert.deepEqual(
+    second.ids.slice(second.ids.length - 3),
+    ids,
+    "the newest messages are the tail of the list",
+  );
+  // The two pages together cover every message exactly once, whichever end
+  // they came from.
+  const covered = new Set([...first.ids, ...second.ids]);
+  assert.equal(covered.size, total, "the pages cover every message exactly once");
+});

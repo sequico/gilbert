@@ -3167,13 +3167,23 @@ const handlers: Record<string, Handler> = {
       if (f.nodeType && n.nodeType !== f.nodeType) return false;
       return true;
     });
+    // Position/limit paging, the way a real JMAP server answers it: the ids
+    // come in the server's own order (here, insertion order = creation
+    // order), `total` counts every match regardless of the page, and the
+    // page never runs past the list. The chat transcript pages backwards
+    // from the end through this (older messages on scroll-up, ADR 0006).
+    const total = list.length;
+    const position = Number(a.position ?? 0);
+    const limit = a.limit as number | undefined;
+    const ids = list.map((n) => n.id);
+    const paged = limit == null ? ids : ids.slice(position, position + limit);
     return {
       accountId: ACCOUNT,
       queryState: "1",
       canCalculateChanges: false,
-      position: 0,
-      ids: list.map((n) => n.id),
-      total: list.length,
+      position,
+      ids: paged,
+      total,
     };
   },
   "FileNode/get": (a) => genericGet(nodesFor(a.accountId))(a),

@@ -863,6 +863,13 @@ membership.
 - **Live**: FileNode state changes ride the same push rail as mail; a
 StateChange for a group account runs `FileNode/changes` and fetches the new
 documents. When push is down it falls back to the poll with everything else.
+- **The whole history is reachable**: the thread opens at the newest messages
+and pages older ones in as you scroll up — nothing is silently trimmed, so a
+member added later can read the conversation from the start.
+- **Search the selected group's messages**: a search in the panel header
+scans the group's whole history (loading any not-yet-fetched pages) and
+lists the matching messages, newest window first; a result jumps to the
+message in the thread.
 - **The panel** is a popover under the launcher on desktop (360–400 px,
 bubbles: mine right, others left, quote replies on hover) and a full-screen
 sheet on mobile — not a sixth tab. It is transient by design: it closes when
