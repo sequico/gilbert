@@ -14,7 +14,7 @@ import { after, before, test } from "node:test";
  * it is not would send them round in circles.
  */
 
-const PORT = 18799;
+const PORT = 18803;
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";
