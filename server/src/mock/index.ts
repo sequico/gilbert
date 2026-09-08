@@ -3651,10 +3651,11 @@ setInterval(() => {
 }, 120_000).unref();
 
 // Periodically post a group-chat message from another member, so the chat
-// panel's live rail has something to show in dev:mock (ADR 0006). Only once
-// the demo has actually opened chat -- the `gilbert/chat` folders existing in
-// the group account are the sign -- so a demo that never touches chat gets no
-// traffic, and neither does the group while the feature is unused.
+// panel's live rail has something to show in dev:mock (ADR 0006). The
+// `gilbert/chat` folders existing in the group account mean chat is
+// provisioned -- the client's warm sync creates them at every sign-in for a
+// session that holds groups -- so any signed-in demo session sees a live
+// message arrive now and then, without anyone having written one.
 setInterval(() => {
   const gilbert = groupFileNodes.find(
     (n) => n.nodeType === "directory" && n.name === "gilbert",

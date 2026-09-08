@@ -41,6 +41,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   const setDraft = useChat((s) => s.setDraft);
   const setReply = useChat((s) => s.setReply);
   const send = useChat((s) => s.send);
+  const reload = useChat((s) => s.reload);
   const openConv = useChat((s) => s.open);
 
   // Stick to the newest message unless the reader has scrolled up.
@@ -118,7 +119,21 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
       )}
       <div className="chat-thread" ref={threadRef} onScroll={onScroll}>
         {open ? (
-          open.nodes.length === 0 ? (
+          open.loading && open.nodes.length === 0 ? (
+            <div className="chat-empty">{t("Loading…")}</div>
+          ) : open.error && !open.loaded ? (
+            <div className="chat-empty">
+              <div>{t("Could not load the conversation")}</div>
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{ marginTop: 8 }}
+                onClick={() => void reload(open.accountId)}
+              >
+                {t("Retry")}
+              </button>
+            </div>
+          ) : open.nodes.length === 0 ? (
             <div className="chat-empty">{t("No messages yet")}</div>
           ) : (
             open.nodes.map((m) => {

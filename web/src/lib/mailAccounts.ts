@@ -88,6 +88,12 @@ export function isAdminGroupAccountName(name: string): boolean {
  * administration surface rather than a working group. One classifier for
  * every group-owned creation surface -- calendars, contacts, chat -- so the
  * membership rule cannot drift between them.
+ *
+ * The server's push-subscription flag `hasChatGroupAccounts`
+ * (server/src/upstream.ts) is the wire-level superset of this classifier:
+ * it may count more accounts (calendar/files shares), never fewer, so chat
+ * offered here always has its FileNode rail. When the two drift, narrow the
+ * client classifier, never the server flag.
  */
 export function groupMailboxAccounts(accounts: MailAccountInfo[]): MailAccountInfo[] {
   return accounts.filter((a) => a.kind === "group" && !isAdminGroupAccountName(a.name));

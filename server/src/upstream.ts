@@ -167,6 +167,13 @@ export function isAdminSession(session: UpstreamSession): boolean {
  * cost of being generous is one subscription whose `types` includes FileNode
  * -- an extra StateChange POST when that account's own nodes change -- which
  * is the volume trade the ADR records as settled at implementation.
+ *
+ * This server-side rule is the wire-level superset of the client's
+ * `groupMailboxAccounts` (web/src/lib/mailAccounts.ts), which probes actual
+ * mailbox trees and excludes the admin group. It must never be *narrower*
+ * than the client's offer: if the client offers chat for an account this
+ * rule misses, that account's FileNode changes never POST and the chat goes
+ * silently stale. When the two drift, narrow the client, never this flag.
  */
 export function hasChatGroupAccounts(
   session: Pick<UpstreamSession, "accounts"> | null | undefined,
