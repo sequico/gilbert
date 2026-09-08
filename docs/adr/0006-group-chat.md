@@ -1,6 +1,6 @@
 # ADR 0006 — Group chat on the group's own Files
 
-Status: Proposed (2026-09-07)
+Status: Accepted (2026-09-08)
 
 ## Context
 
@@ -40,10 +40,17 @@ document per message, with the group as owner from the first second.
   marker still there.
 - **Message document.** One immutable `FileNode` per message in `chat`,
   `content-type: application/json`: `{ "v": 1, "from": <member address>,
-  "at": <ISO timestamp>, "text": "…" }`. Text only — no blob, no attachment
-  path; the UI renders it as plain text (React escaping; emoticons are text).
-  A length bound (4000 characters) keeps documents small. Mentions in v1 are a
-  rendering nicety over the text, not structured data.
+  "at": <ISO timestamp>, "text": "…", "replyTo": <message id>? }`. Text
+  only — no blob, no attachment path; the UI renders it as plain text (React
+  escaping; emoticons are text). A length bound (4000 characters) keeps
+  documents small. Mentions in v1 are a rendering nicety over the text, not
+  structured data.
+- **Quote reply.** A reply may carry the optional `replyTo` id of the message
+  it answers — another member's or the sender's own, WhatsApp-style. The
+  client renders a quoted snippet (sender + text) above the reply by looking
+  the id up in the transcript, and the composer shows the message being
+  answered while one is being written. Messages are immutable in v1, so an id
+  reference stays resolvable for as long as the chat does.
 - **Read markers.** One document per member in `chat-state`,
   `read-<member>.json`, written by that member's own session, holding the
   last-read position. Markers are group-owned data named per member (everything

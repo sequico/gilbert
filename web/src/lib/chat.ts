@@ -1,0 +1,210 @@
+/**
+ * Group chat (ADR 0006): a text conversation per group mailbox, stored as
+ * immutable JSON documents in the group account's own JMAP Files.
+ *
+ * Everything the group owns lives in the group's account -- chat included:
+ * the `gilbert/chat` folder holds one node per message, and
+ * `gilbert/chat-state` holds one read-marker per member. Membership is the
+ * grant: a member's session on the group account reads and writes them, a
+ * member added later sees the whole transcript from the start, and nothing is
+ * shared out of a personal account.
+ */
+import { client, setErrorMessage } from "@/jmap/client";
+import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
+import { ensureFolder, findInFolder, nodeBlobId } from "@/lib/appFolder";
+import { directoryCreate, fileCreate } from "@/lib/filenode";
+
+export const CHAT_FOLDER = "chat";
+export const CHAT_STATE_FOLDER = "chat-state";
+export const MESSAGE_TYPE = "application/json";
+
+/** Messages are plain text; the bound keeps the documents small (ADR 0006). */
+export const MAX_TEXT = 4000;
+
+/** One message document, immutable once created. */
+export interface ChatMessageDoc {
+  v: 1;
+  /** The member's own address, as the session reports it. */
+  from: string;
+  /** When the sender's client sent it (display only; ordering is the node's). */
+  at: string;
+  text: string;
+  /** The message this one answers, when it is a quote reply (ADR 0006). */
+  replyTo?: string;
+}
+
+/** One member's read marker: which message they have read up to. */
+export interface ChatMarkerDoc {
+  v: 1;
+  /** The id of the newest message read, or null when born on an empty chat. */
+  lastRead: Id | null;
+}
+
+/** A message as the store keeps it: the document plus its FileNode identity. */
+export interface ChatMessage extends ChatMessageDoc {
+  id: Id;
+  /** Server-side creation time of the node -- the ordering key. */
+  created: string;
+}
+
+/** Properties a message node is fetched with. */
+export const messageProps = (): string[] => [
+  "id",
+  "parentId",
+  "name",
+  "blobId",
+  "type",
+  "created",
+  "nodeType",
+];
+
+export function isChatMessageDoc(x: unknown): x is ChatMessageDoc {
+  if (!x || typeof x !== "object") return false;
+  const d = x as Record<string, unknown>;
+  return (
+    d.v === 1 &&
+    typeof d.from === "string" &&
+    typeof d.at === "string" &&
+    typeof d.text === "string" &&
+    (d.replyTo === undefined || typeof d.replyTo === "string")
+  );
+}
+
+export function isChatMarkerDoc(x: unknown): x is ChatMarkerDoc {
+  if (!x || typeof x !== "object") return false;
+  const d = x as Record<string, unknown>;
+  return d.v === 1 && (d.lastRead === null || typeof d.lastRead === "string");
+}
+
+/**
+ * The marker file name for a member.
+ *
+ * Deterministic per address, so every device of a member computes the same
+ * name and reads the same marker. The address is URL-encoded because it is
+ * the only character set a file name can rely on across servers.
+ */
+export function markerNameFor(member: string): string {
+  return `read-${encodeURIComponent(member)}.json`;
+}
+
+/**
+ * Order messages the way the transcript reads: server-side creation order.
+ *
+ * The message document carries its own `at`, but that is the sender's clock
+ * and must not decide the order. The FileNode's `created` is the server's
+ * stamp; two nodes created in the same instant tie-break on id so the order
+ * is total. Decided at implementation (2026-09-08): FileNode ids are opaque
+ * on a real server, so id alone cannot carry creation order, and the ADR's
+ * live-server confirmation of a timestamp property is what `created` is.
+ */
+export function compareMessages(a: ChatMessage, b: ChatMessage): number {
+  if (a.created !== b.created) return a.created < b.created ? -1 : 1;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/** The two chat folders under an account's `gilbert` app folder. */
+export interface ChatFolders {
+  chat: Id;
+  state: Id;
+}
+
+/**
+ * Find (or make) the chat folders in an account's app folder.
+ *
+ * Works for any account the session can write -- a member's own is not a chat
+ * account, but a group account is exactly where the folders must live. The
+ * app-folder lookup matches names client-side: Stalwart's FileNode/query
+ * cannot filter by name (checked live 2026-08-27), and a filter it does not
+ * know fails the whole query.
+ */
+export async function ensureChatFolders(accountId: Id): Promise<ChatFolders> {
+  const app = await ensureFolder(accountId);
+  const sub = async (name: string): Promise<Id> => {
+    const existing = await findInFolder(accountId, app, name);
+    if (existing && existing.parentId === app && existing.nodeType === "directory")
+      return existing.id;
+    const set = await client.call<SetResponse<FileNode>>("FileNode/set", {
+      accountId,
+      create: { d: directoryCreate(app, name) },
+    });
+    const err = set.notCreated?.d;
+    if (err) throw new Error(setErrorMessage(err));
+    return set.created!.d!.id;
+  };
+  const chat = await sub(CHAT_FOLDER);
+  const state = await sub(CHAT_STATE_FOLDER);
+  return { chat, state };
+}
+
+/** Fetch the text of a chat document node. */
+export async function readDoc(accountId: Id, blobId: Id): Promise<unknown> {
+  const text = await client.fetchBlobText(accountId, blobId, MESSAGE_TYPE);
+  return JSON.parse(text) as unknown;
+}
+
+/**
+ * Upload a JSON document and create it as a file in a chat folder.
+ * Returns the new node's id. The caller asks for the node afterwards when it
+ * needs `created` -- FileNode/set returns no blobId or timestamp on create.
+ */
+export async function createDoc(
+  accountId: Id,
+  folderId: Id,
+  doc: Record<string, unknown>,
+): Promise<Id> {
+  const json = JSON.stringify(doc);
+  const blob = new Blob([json], { type: MESSAGE_TYPE });
+  const up = await client.upload(accountId, blob, { type: MESSAGE_TYPE });
+  const name = `${crypto.randomUUID()}.json`;
+  const set = await client.call<SetResponse<FileNode>>("FileNode/set", {
+    accountId,
+    create: { m: fileCreate(folderId, name, up.blobId, MESSAGE_TYPE) },
+  });
+  const err = set.notCreated?.m;
+  if (err) throw new Error(setErrorMessage(err));
+  const id = (set.created!.m as Partial<FileNode> | undefined)?.id;
+  if (!id) throw new Error("chat document created without an id");
+  await nodeBlobId(accountId, id); // some servers hand back no blobId on create
+  return id;
+}
+
+/** Fetch one message node and parse it, or null when it is not a message. */
+export async function fetchMessage(
+  accountId: Id,
+  id: Id,
+  chatFolderId: Id,
+): Promise<ChatMessage | null> {
+  const res = await client.call<GetResponse<FileNode>>("FileNode/get", {
+    accountId,
+    ids: [id],
+    properties: messageProps(),
+  });
+  const node = res.list[0];
+  if (!node || node.parentId !== chatFolderId || !node.blobId) return null;
+  try {
+    const doc = await readDoc(accountId, node.blobId);
+    if (!isChatMessageDoc(doc)) return null;
+    return { id, created: node.created ?? "", ...doc };
+  } catch {
+    return null; // a doc that does not parse is not a message we can show
+  }
+}
+
+/**
+ * How many of a conversation's messages are unread for the reader.
+ *
+ * The ADR kind rule: unread = messages newer than my marker. No marker (never
+ * opened) reads as 0 and the transcript shows in full; a marker born on an
+ * empty chat (lastRead null) makes everything that came after it unread; a
+ * marker whose message is gone reads as nothing unread rather than flooding.
+ */
+export function unreadCount(
+  nodes: ChatMessage[],
+  marker: { lastRead: Id | null } | null,
+): number {
+  if (!marker) return 0;
+  if (!marker.lastRead) return nodes.length;
+  const at = nodes.findIndex((n) => n.id === marker.lastRead);
+  if (at < 0) return 0;
+  return nodes.length - at - 1;
+}

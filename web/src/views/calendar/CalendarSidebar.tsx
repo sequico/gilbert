@@ -30,7 +30,7 @@ import {
 import { formatWeekday } from "@/lib/datetime";
 import { formatMonthYear } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
-import { isAdminGroupAccountName } from "@/lib/mailAccounts";
+import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { subscriptionCalendarId, useCalendar } from "@/store/calendar";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
@@ -141,11 +141,7 @@ export function CalendarSidebar() {
   const mailAccounts = useMail((s) => s.mailAccounts);
   /* The product-admin group is not a working group: it never gets a section
      or a "+", and its calendars fall into the read-only area below. */
-  const groups = useMemo(
-    () =>
-      mailAccounts.filter((a) => a.kind === "group" && !isAdminGroupAccountName(a.name)),
-    [mailAccounts],
-  );
+  const groups = useMemo(() => groupMailboxAccounts(mailAccounts), [mailAccounts]);
   const groupIds = new Set(groups.map((g) => g.accountId));
   const sharedOnlySubscribed = cal.sharedCalendars.filter(
     (c) => !groupIds.has(c.accountId) && isAdded(c) && !isTasklist(c.calendar),

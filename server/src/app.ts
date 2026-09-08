@@ -56,6 +56,7 @@ import {
   forgetUpstreamSession,
   getAccountInfo,
   getUpstreamSession,
+  hasChatGroupAccounts,
   hasStalwartRegistry,
   isAdminSession,
   localizeSession,
@@ -672,9 +673,17 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       });
       setSessionCookie(c, cookie, session.remember);
       // Start the account's push subscription now, so it is usually verified
-      // by the time the browser opens its stream. See push.ts.
+      // by the time the browser opens its stream. See push.ts. A session that
+      // holds group mailboxes subscribes to FileNode as well: chat messages
+      // are FileNodes in the group account's app folder (ADR 0006).
       const mailAccount = upstream.primaryAccounts?.["urn:ietf:params:jmap:mail"];
-      if (mailAccount) pushPrepare(session.username, mailAccount, session.authorization);
+      if (mailAccount)
+        pushPrepare(
+          session.username,
+          mailAccount,
+          session.authorization,
+          hasChatGroupAccounts(upstream),
+        );
       const info = await getAccountInfo(session.id, session.authorization, upstream);
       return c.json(
         localizeSession(
@@ -1458,7 +1467,13 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       const accountId = upstream.primaryAccounts?.["urn:ietf:params:jmap:mail"];
       if (
         accountId &&
-        pushAttach(session.username, accountId, session.authorization, out)
+        pushAttach(
+          session.username,
+          accountId,
+          session.authorization,
+          out,
+          hasChatGroupAccounts(upstream),
+        )
       ) {
         out.writeHead(200, SSE_HEADERS);
         out.flushHeaders();

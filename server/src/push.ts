@@ -49,6 +49,8 @@ interface AccountPush {
   base: string;
   token: string; // what Stalwart puts in the URL
   authorization: string; // one live session's credential, for set/verify/renew
+  /** Group chat (ADR 0006) rides FileNode state changes; add the type to this session's subscription. */
+  chat: boolean;
   subscriptionId: string | null;
   state: "pending" | "verified" | "failed";
   since: number;
@@ -90,6 +92,20 @@ async function jmap(entry: AccountPush, calls: unknown[]) {
 
 async function subscribe(entry: AccountPush) {
   const url = `${config.pushUrl!.replace(/\/$/, "")}${config.basePath}/api/push/${entry.token}`;
+  // A session whose accounts include a group mailbox adds FileNode: chat
+  // messages are FileNodes in the group's app folder (ADR 0006), and without
+  // the type in the subscription their changes never POST. The mail-only
+  // list stays as it is otherwise, so a personal session's own settings.json
+  // saves do not stream.
+  const types = [
+    "Email",
+    "Mailbox",
+    "Thread",
+    "Identity",
+    "EmailSubmission",
+    "VacationResponse",
+  ];
+  if (entry.chat) types.push("FileNode");
   const r = await jmap(entry, [
     [
       "PushSubscription/set",
@@ -98,14 +114,7 @@ async function subscribe(entry: AccountPush) {
           s: {
             deviceClientId: `gilbert-${entry.token.slice(0, 8)}`,
             url,
-            types: [
-              "Email",
-              "Mailbox",
-              "Thread",
-              "Identity",
-              "EmailSubmission",
-              "VacationResponse",
-            ],
+            types,
           },
         },
       },
@@ -178,6 +187,7 @@ export function prepare(
   username: string,
   accountId: string,
   authorization: string,
+  chat = false,
 ): AccountPush | null {
   if (!pushEnabled()) return null;
   const base = upstreamFor(username);
@@ -191,6 +201,7 @@ export function prepare(
       base,
       token: randomBytes(32).toString("base64url"),
       authorization,
+      chat,
       subscriptionId: null,
       state: "pending",
       since: Date.now(),
@@ -206,6 +217,9 @@ export function prepare(
     startSweeper();
   } else {
     entry.authorization = authorization; // keep a live credential for renewals
+    // A session refresh can add a group mailbox after sign-in; the renewal
+    // after that reads the flag.
+    entry.chat = entry.chat || chat;
   }
   return entry;
 }
@@ -219,8 +233,9 @@ export function attach(
   accountId: string,
   authorization: string,
   out: ServerResponse,
+  chat = false,
 ): AccountPush | null {
-  const entry = prepare(username, accountId, authorization);
+  const entry = prepare(username, accountId, authorization, chat);
   if (entry?.state !== "verified") return null;
   entry.tabs.add(out);
   out.on("close", () => {

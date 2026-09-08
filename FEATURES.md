@@ -838,6 +838,41 @@ Also:
 
 ---
 
+# Chat
+
+A text conversation per group mailbox — the teams you belong to — owned by
+and stored in the group's own account, like its calendars and files (ADR
+0006). Offered from a **launcher in the top bar**, first of the action
+cluster, only when the session holds group mailboxes; the product-admin group
+never offers one.
+
+- **Messages are plain text** — up to 4000 characters — in immutable JSON
+documents inside the group account's hidden `gilbert/chat` folder: one node
+per message, no attachments, no blob URLs, no HTML (React renders the text;
+emoticons are text).
+- **Quote replies**: a message — someone else's or your own — can be answered
+with a quoted snippet of the original above the reply, WhatsApp-style. The
+composer shows the message being answered while the reply is being written;
+the reply stores the original's id.
+- **Read markers** — `gilbert/chat-state/read-<member>.json`, one per member,
+written by that member's own session — make **unread = messages newer than my
+marker**. A member who never opened the chat sees badge 0 and the full
+transcript; the marker is born at first open. A member added later reads the
+conversation from the start, and leaving the group removes access with the
+membership.
+- **Live**: FileNode state changes ride the same push rail as mail; a
+StateChange for a group account runs `FileNode/changes` and fetches the new
+documents. When push is down it falls back to the poll with everything else.
+- **The panel** is a popover under the launcher on desktop (360–400 px,
+bubbles: mine right, others left, quote replies on hover) and a full-screen
+sheet on mobile — not a sixth tab. It is transient by design: it closes when
+a composer is maximised, and its z-order sits below the composer dock.
+- **V1 boundaries** (ADR 0006): no attachments, no typing indicator, no
+presence, no deletion or moderation — growth is append-only; a group that
+wants to retire a chat clears the folders through Files.
+
+---
+
 # Sharing
 
 Files, calendars and address books share with other accounts on the same server

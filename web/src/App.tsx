@@ -6,6 +6,7 @@ import { BASE_PATH, withBase } from "@/lib/basePath";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { plural, t, useLanguageVersion, whenLanguageReady } from "@/lib/i18n";
 import { lazyView } from "@/lib/lazyView";
+import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import {
   requestNotificationPermission,
   setBaseTitle,
@@ -23,6 +24,7 @@ import { reloadIfServerRebuilt } from "@/lib/staleBuild";
 import { confirmLeaveUnsaved, hasUnsavedChanges } from "@/lib/unsavedChanges";
 import { listenForVerification, renewWebPush } from "@/lib/webpushEnable";
 import { useCalendar } from "@/store/calendar";
+import { useChat } from "@/store/chat";
 import { useContacts } from "@/store/contacts";
 import { useFiles } from "@/store/files";
 import { useMail } from "@/store/mail";
@@ -334,6 +336,10 @@ function AuthedApp() {
             useFiles.getState().applyChanges(types);
           if (a === useSieve.getState().accountId)
             useSieve.getState().applyChanges(types);
+          // Chat is FileNode state on the group accounts (ADR 0006); the
+          // store ignores accounts it does not hold and events it does not
+          // need, so every FileNode change can be offered to it.
+          if (types.has("FileNode")) void useChat.getState().applyChanges(a);
         }
         pending.clear();
       }, 400);
@@ -360,6 +366,10 @@ function AuthedApp() {
         queue(acct, "Email");
         queue(acct, "Mailbox");
       }
+      // Chat rides the same catch-up: FileNode changes that arrived while the
+      // connection was down are fetched from each conversation's last state.
+      for (const a of groupMailboxAccounts(mail.mailAccounts))
+        queue(a.accountId, "FileNode");
     });
     const unsubState = client.onSessionState(() => {
       void useSession.getState().refresh();
@@ -370,6 +380,8 @@ function AuthedApp() {
     const poll = window.setInterval(() => {
       if (!push.connected && document.visibilityState === "visible") {
         void useMail.getState().applyChanges(new Set(["Email", "Mailbox"]));
+        for (const a of groupMailboxAccounts(useMail.getState().mailAccounts))
+          void useChat.getState().applyChanges(a.accountId);
       }
     }, 120_000);
     return () => {

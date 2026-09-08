@@ -66,6 +66,11 @@ content.
 
 ## Workflow
 Read the affected area first; smallest coherent diff.
+**Single source of truth, no code duplication (global user rule, owner-confirmed
+2026-09-08):** every concept, constant, classifier, schema and helper has one
+canonical definition; everything else imports or derives from it. Before
+writing a new definition, search for the existing one; a found duplicate is
+deleted and routed through the canonical source in the same change.
 **Dispatched sub-agents are health-checked automatically, never on request:**
 poll each running agent at least every ~60 s (steps advancing, live tool
 calls, processes, worktree writes / file mtimes). An agent with no progress

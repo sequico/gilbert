@@ -3110,8 +3110,30 @@ const handlers: Record<string, Handler> = {
     };
   },
   "FileNode/get": (a) => genericGet(nodesFor(a.accountId))(a),
+  "FileNode/changes": (a) => {
+    // FileNode/changes on a real 0.16 server works from a `sinceState` and
+    // reports created ids (verified live 2026-09-07, see the Stalwart skill);
+    // the mock answers the same way from its own change log. Only creates
+    // are recorded -- chat is append-only (ADR 0006) and marker updates are
+    // rewrites of the same node, which a transcript does not care about.
+    const since = Number(a.sinceState ?? 0);
+    const created = [
+      ...new Set(
+        fileNodeChanges.filter((c) => c.state > since).flatMap((c) => c.created),
+      ),
+    ];
+    return {
+      accountId: ACCOUNT,
+      oldState: String(a.sinceState ?? "1"),
+      newState: String(state.n),
+      hasMoreChanges: false,
+      created,
+      updated: [],
+      destroyed: [],
+    };
+  },
   "FileNode/set": (a) => {
-    return genericSet(nodesFor(a.accountId), "f", (o) => {
+    const res = genericSet(nodesFor(a.accountId), "f", (o) => {
       Object.assign(o, {
         created: new Date().toISOString(),
         modified: new Date().toISOString(),
@@ -3127,6 +3149,22 @@ const handlers: Record<string, Handler> = {
       if (!o.nodeType)
         o.nodeType = o.blobId || o.size != null || o.type ? "file" : "directory";
     })(a);
+    /* A real server pushes a FileNode StateChange after a set, and the chat
+       client acts on it -- `FileNode/changes` runs and the store reconciles
+       what came back. Keep the mock announcing sets the way Stalwart does,
+       so the re-sync path (and the unread badge driven by it) is exercised
+       here rather than only on a live instance. */
+    const created = Object.values(
+      (res.created ?? {}) as Record<string, { id: string }>,
+    ).map((x) => x.id);
+    const updated = Object.values(res.updated ?? {}).length;
+    const destroyed = (res.destroyed as string[] | undefined)?.length ?? 0;
+    if (created.length || updated || destroyed) {
+      nextState();
+      recordFileNodeChange(created);
+      broadcast(["FileNode"], (a.accountId as string) ?? ACCOUNT);
+    }
+    return res;
   },
 };
 
@@ -3430,6 +3468,21 @@ function recordEmailChange(change: {
   if (emailChanges.length > 200) emailChanges.splice(0, emailChanges.length - 200);
 }
 
+/**
+ * What FileNodes were created and when, so `FileNode/changes` can answer
+ * honestly. Group chat (ADR 0006) rides this rail: a message is a node
+ * created in the group account's `gilbert/chat` folder, and another member's
+ * client re-syncs by asking what changed since the state it last saw -- the
+ * same shape Email/changes gives the mail stores.
+ */
+const fileNodeChanges: Array<{ state: number; created: string[] }> = [];
+function recordFileNodeChange(created: string[]) {
+  if (!created.length) return;
+  fileNodeChanges.push({ state: state.n, created });
+  if (fileNodeChanges.length > 200)
+    fileNodeChanges.splice(0, fileNodeChanges.length - 200);
+}
+
 function broadcast(types: string[], accountId: string = ACCOUNT) {
   const payload = `event: state\ndata: ${JSON.stringify({ "@type": "StateChange", changed: { [accountId]: Object.fromEntries(types.map((t) => [t, String(state.n)])) } })}\n\n`;
   for (const c of sseClients) c.write(payload);
@@ -3595,4 +3648,46 @@ setInterval(() => {
   recount();
   nextState();
   broadcast(["Email", "Mailbox", "Thread"]);
+}, 120_000).unref();
+
+// Periodically post a group-chat message from another member, so the chat
+// panel's live rail has something to show in dev:mock (ADR 0006). Only once
+// the demo has actually opened chat -- the `gilbert/chat` folders existing in
+// the group account are the sign -- so a demo that never touches chat gets no
+// traffic, and neither does the group while the feature is unused.
+setInterval(() => {
+  const gilbert = groupFileNodes.find(
+    (n) => n.nodeType === "directory" && n.name === "gilbert",
+  );
+  const chat = gilbert
+    ? groupFileNodes.find(
+        (n) =>
+          n.nodeType === "directory" && n.parentId === gilbert.id && n.name === "chat",
+      )
+    : undefined;
+  if (!chat) return;
+  const [name, email] = people[Math.floor(Math.random() * 3)]!;
+  const doc = JSON.stringify({
+    v: 1,
+    from: email,
+    at: new Date().toISOString(),
+    text: `Live message ${new Date().toLocaleTimeString()} — from ${name}`,
+  });
+  const id = `f${randomUUID().slice(0, 6)}`;
+  groupFileNodes.push({
+    id,
+    parentId: chat.id,
+    nodeType: "file",
+    blobId: putBlob(doc, "application/json"),
+    size: doc.length,
+    name: `${id}.json`,
+    type: "application/json",
+    created: new Date().toISOString(),
+    modified: new Date().toISOString(),
+    myRights: fr(),
+    shareWith: {},
+  });
+  nextState();
+  recordFileNodeChange([id]);
+  broadcast(["FileNode"], GROUP_ACCOUNT);
 }, 120_000).unref();

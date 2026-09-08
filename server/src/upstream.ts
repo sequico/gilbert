@@ -157,6 +157,30 @@ export function isAdminSession(session: UpstreamSession): boolean {
   });
 }
 
+/**
+ * Whether the session holds a group mailbox to chat in (ADR 0006): a
+ * non-personal account that is not the product-admin group. The admin group
+ * is an administration surface, not a working group, so it never counts.
+ *
+ * The match is deliberately by name only, like `isAdminSession`: a calendar
+ * or files share is a non-personal account too, and this may count it. The
+ * cost of being generous is one subscription whose `types` includes FileNode
+ * -- an extra StateChange POST when that account's own nodes change -- which
+ * is the volume trade the ADR records as settled at implementation.
+ */
+export function hasChatGroupAccounts(
+  session: Pick<UpstreamSession, "accounts"> | null | undefined,
+): boolean {
+  if (!session) return false;
+  return Object.values(session.accounts ?? {}).some((a) => {
+    const account = a as { name?: unknown; isPersonal?: unknown };
+    if (account.isPersonal !== false || typeof account.name !== "string") return false;
+    const name = account.name.trim().toLowerCase();
+    const at = name.indexOf("@");
+    return at > 0 && name.slice(0, at) !== ADMIN_GROUP_LOCAL;
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Account locale                                                      */
 /* ------------------------------------------------------------------ */

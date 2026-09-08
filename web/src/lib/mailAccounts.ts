@@ -81,3 +81,14 @@ export function isAdminGroupAccountName(name: string): boolean {
   const at = name.indexOf("@");
   return at > 0 && name.slice(0, at) === "gilbert-admin";
 }
+
+/**
+ * The group mailboxes a working surface may offer: the probed non-personal
+ * mail accounts, minus the product-admin group (ADR 0001), which is an
+ * administration surface rather than a working group. One classifier for
+ * every group-owned creation surface -- calendars, contacts, chat -- so the
+ * membership rule cannot drift between them.
+ */
+export function groupMailboxAccounts(accounts: MailAccountInfo[]): MailAccountInfo[] {
+  return accounts.filter((a) => a.kind === "group" && !isAdminGroupAccountName(a.name));
+}

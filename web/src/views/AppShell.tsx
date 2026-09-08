@@ -34,6 +34,7 @@ import { Avatar, useIsMobile } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { TranslateBoundary } from "@/ui/TranslateBoundary";
 import { CalendarSidebar } from "./calendar/CalendarSidebar";
+import { ChatLauncher } from "./chat/ChatLauncher";
 import { ContactsSidebar } from "./contacts/ContactsSidebar";
 import { FilesTree } from "./files/FilesTree";
 import { MailboxPicker } from "./mail/MailboxPicker";
@@ -158,6 +159,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
         <SearchBar />
         <div className="topbar-actions">
+          {/* Chat comes first in the action cluster, left of the push dot:
+              ADR 0006. Rendered (or not) by the launcher itself. */}
+          <ChatLauncher />
           <span
             className="push-status hide-mobile"
             role="img"
