@@ -1864,7 +1864,10 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   display: flex; align-items: center; justify-content: space-between;
   padding: 4px 6px 6px; border-bottom: 1px solid var(--border);
 }
-.chat-title { font-weight: 700; font-size: .92em; padding-left: 4px; }
+.chat-title {
+  font-weight: 700; font-size: .92em; padding-left: 4px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
 .chat-close { display: none; }
 
 .chat-switcher {

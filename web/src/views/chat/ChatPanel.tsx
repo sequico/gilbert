@@ -92,7 +92,18 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   return (
     <div className="chat-panel">
       <div className="chat-head">
-        <span className="chat-title">{t("Chat")}</span>
+        {/* Name the active conversation even when there is only one team:
+            with a single group there is no switcher, and an unnamed "Chat"
+            header would not say whose chat it is. */}
+        <span className="chat-title" title={open?.name}>
+          {open ? (
+            <span className="notranslate" translate="no">
+              {open.name}
+            </span>
+          ) : (
+            t("Chat")
+          )}
+        </span>
         <button className="icon-btn chat-close" aria-label={t("Close")} onClick={onClose}>
           <X size={16} />
         </button>
