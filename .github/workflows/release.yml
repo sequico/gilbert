@@ -2,15 +2,13 @@
 # Upstream's weekly schedule was removed on 2026-09-04 at the owner's request;
 # releases are manual (workflow_dispatch, with dry_run to preview).
 #
-# Releases had drifted 184 commits behind main, which made `:latest` describe
-# a build nobody was running -- the demo, prod and anyone building from source
-# were all ahead of it. Publishing on release is the right trigger only if
-# releases actually happen, so this is the workflow that makes that true when
-# one is called.
+# Releases had drifted 184 commits behind main, so nobody's running build was
+# the newest one. A release is the version tag and its notes -- no container
+# image is published from here (the image is built where it runs; see README).
 #
 # It does nothing on a quiet run. A release with no commits in it is worse
-# than no release: it moves `:latest` to an identical build, spends a version
-# number, and mails everybody watching the repository about nothing.
+# than no release: it spends a version number and mails everybody watching the
+# repository about nothing.
 name: Release
 
 on:
@@ -140,16 +138,3 @@ jobs:
             args+=(--notes-start-tag "${{ needs.check.outputs.previous }}")
           fi
           gh release create "${{ needs.check.outputs.tag }}" "${args[@]}"
-
-  # Called rather than left to the `release` trigger on purpose: see the note
-  # at the top of publish.yml. A release created with GITHUB_TOKEN raises no
-  # event, so without this the tag would exist and no image would follow it.
-  publish:
-    needs: [check, cut]
-    permissions:
-      contents: read
-      packages: write
-    uses: ./.github/workflows/publish.yml
-    with:
-      ref: ${{ needs.check.outputs.sha }}
-      tag_latest: true
