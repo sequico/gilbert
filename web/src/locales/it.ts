@@ -1418,8 +1418,8 @@ export const catalog: Catalog = {
     "Outlook-style categories you can assign to events from the right-click menu or the event editor. The category name is stored on the event, so it syncs to other clients.":
       "Categorie in stile Outlook da assegnare agli eventi dal menu contestuale o dall'editor dell'evento. Il nome della categoria è salvato sull'evento, quindi si sincronizza con gli altri client.",
 
-    "Plain-text mail already follows the theme. With this on, HTML mail that brings no colours of its own does as well, instead of sitting on a white card. Messages that style themselves are left exactly as the sender designed them.":
-      "La posta in testo semplice segue già il tema. Con questa opzione attiva, anche la posta HTML senza colori propri lo segue, invece di restare su una scheda bianca. I messaggi con uno stile proprio restano esattamente come li ha progettati il mittente.",
+    "Plain-text mail already follows the theme. With this on, HTML mail that brings no colours of its own does as well, instead of sitting on a white card. Mail that styles itself keeps the sender's design unless the option below is on too.":
+      "La posta in testo semplice segue già il tema. Con questa opzione attiva, anche la posta HTML senza colori propri lo segue, invece di restare su una scheda bianca. I messaggi con uno stile proprio mantengono il design del mittente, a meno che non sia attiva anche l'opzione qui sotto.",
 
     "This is separate from {setting} in General, which decides how dates, times and numbers are written. You can read an English interface with German dates, or the other way round.":
       "Questa impostazione è separata da {setting} in Generali, che decide come vengono scritti date, orari e numeri. Puoi avere un'interfaccia in italiano con date in formato tedesco, o viceversa.",

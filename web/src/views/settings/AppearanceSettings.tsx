@@ -146,10 +146,12 @@ export function AppearanceSettings() {
       </p>
       <Switch
         checked={s.themeMessageBody}
-        onChange={(v) => update({ themeMessageBody: v })}
+        onChange={(v) =>
+          update({ themeMessageBody: v, ...(v ? {} : { themeStyledMessages: false }) })
+        }
         label={translate("Apply the theme to messages too")}
         hint={translate(
-          "Plain-text mail already follows the theme. With this on, HTML mail that brings no colours of its own does as well, instead of sitting on a white card. Messages that style themselves are left exactly as the sender designed them.",
+          "Plain-text mail already follows the theme. With this on, HTML mail that brings no colours of its own does as well, instead of sitting on a white card. Mail that styles itself keeps the sender's design unless the option below is on too.",
         )}
       />
       <Switch

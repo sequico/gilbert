@@ -517,6 +517,170 @@ function declaredLuminance(el: HTMLElement): number | null {
   return relativeLuminance(declared);
 }
 
+/* ---------- colours the sender put in a <style> block ---------- */
+
+/**
+ * One compound of a stylesheet rule: an optional tag, classes and an id, the
+ * pieces of a selector that mail actually writes. Anything richer (attribute
+ * or pseudo selectors, combinators other than the descendant space) is skipped
+ * rather than guessed at — a rule we cannot match safely is one we do not
+ * match, and the element keeps its previous reading.
+ */
+interface StyleCompound {
+  tag?: string;
+  classes: string[];
+  ids: string[];
+}
+
+/** A parsed `background`/`background-color` rule, ready to match elements. */
+interface BackgroundRule {
+  spec: number;
+  compounds: StyleCompound[];
+  color: string;
+}
+
+function parseCompound(part: string): StyleCompound | null {
+  const p = part.trim().toLowerCase();
+  if (!p || p.includes("[") || p.includes(":") || p.includes("*")) return null;
+  let tag: string | undefined;
+  const classes: string[] = [];
+  const ids: string[] = [];
+  let rest = p;
+  const tagMatch = /^[a-z][a-z0-9]*/.exec(rest);
+  if (tagMatch) {
+    tag = tagMatch[0];
+    rest = rest.slice(tag.length);
+  }
+  for (const m of rest.matchAll(/[.#]([a-z0-9_-]+)/g)) {
+    if (m[0]!.startsWith("#")) ids.push(m[1]!);
+    else classes.push(m[1]!);
+  }
+  if (rest.replace(/[.#][a-z0-9_-]+/g, "").trim()) return null;
+  return { tag, classes, ids };
+}
+
+function compoundMatches(el: HTMLElement, c: StyleCompound): boolean {
+  if (c.tag && el.tagName.toLowerCase() !== c.tag) return false;
+  if (c.ids.some((id) => !el.id.split(/\s+/).includes(id))) return false;
+  return c.classes.every((k) => el.classList.contains(k));
+}
+
+/**
+ * Whether an element matches a selector chain `a b c`: `c` on the element
+ * itself and each earlier compound on some ancestor above it, in order. The
+ * nearest matching ancestor is used greedily for each step; full backtracking
+ * is not worth the code for the selectors mail writes.
+ */
+function chainMatches(el: HTMLElement, chain: StyleCompound[]): boolean {
+  if (!compoundMatches(el, chain[chain.length - 1]!)) return false;
+  let cursor: HTMLElement | null = el;
+  for (let i = chain.length - 2; i >= 0; i--) {
+    let found: HTMLElement | null = null;
+    let up: HTMLElement | null = cursor.parentElement;
+    while (up && !found) {
+      if (compoundMatches(up, chain[i]!)) found = up;
+      up = up.parentElement;
+    }
+    if (!found) return false;
+    cursor = found;
+  }
+  return true;
+}
+
+/** The colour inside a `background` shorthand, when one is there at all. */
+function colorInShorthand(value: string): string | null {
+  const clean = value.replace(/!important/i, "").trim();
+  const tokens = clean.split(/\s+/);
+  for (const t of tokens) {
+    if (t.startsWith("url(")) return null; // an image means no flat colour
+    if (relativeLuminance(t) !== null) return t;
+  }
+  return null;
+}
+
+/**
+ * The `background`/`background-color` rules a message's own `<style>` blocks
+ * declare, in source order, with specificity and chain ready to match.
+ * `@media` and other at-rules are skipped whole: the walker cannot know which
+ * branch a screen is in, and a wrong guess paints more boldly than no guess.
+ */
+function styleBackgrounds(root: ParentNode): BackgroundRule[] {
+  const rules: BackgroundRule[] = [];
+  for (const style of Array.from(root.querySelectorAll("style"))) {
+    const css = (style.textContent ?? "").replace(/\/\*[\s\S]*?\*\//g, "");
+    let depth = 0;
+    let start = -1;
+    let ruleStart = 0;
+    let head = "";
+    let atRule = false;
+    for (let i = 0; i <= css.length; i++) {
+      const ch = i < css.length ? css[i] : "}";
+      if (ch === "{") {
+        if (depth === 0) {
+          head = css.slice(ruleStart, i).trim().toLowerCase();
+          start = i + 1;
+          atRule =
+            head.startsWith("@") ||
+            head.includes(">") ||
+            head.includes("+") ||
+            head.includes("~");
+        }
+        depth++;
+      } else if (ch === "}") {
+        if (depth > 0) depth--;
+        if (depth === 0 && start !== -1) {
+          if (!atRule) {
+            const body = css.slice(start, i);
+            let color: string | null = null;
+            for (const m of body.matchAll(/background(?:-color)?\s*:\s*([^;}]+)/g)) {
+              const v = m[1]!.trim();
+              const parsed = m[0]!.startsWith("background-color")
+                ? relativeLuminance(v.replace(/!important/i, "").trim()) !== null
+                  ? v.replace(/!important/i, "").trim()
+                  : null
+                : colorInShorthand(v);
+              if (parsed) color = parsed;
+            }
+            if (color) {
+              const spec = [0, 0, 0];
+              const compounds: StyleCompound[] = [];
+              let ok = true;
+              for (const part of head.split(/\s+/)) {
+                const c = parseCompound(part);
+                if (!c) {
+                  ok = false;
+                  break;
+                }
+                compounds.push(c);
+                spec[0]! += c.ids.length * 100 + c.classes.length * 10 + (c.tag ? 1 : 0);
+              }
+              if (ok && compounds.length)
+                rules.push({ spec: spec[0]!, compounds, color });
+            }
+          }
+          start = -1;
+          atRule = false;
+          ruleStart = i + 1;
+        }
+      }
+    }
+  }
+  return rules;
+}
+
+/**
+ * The background the message's own stylesheet gives this element, honouring
+ * specificity and source order, or null when nothing matches.
+ */
+function styledLuminance(el: HTMLElement, rules: BackgroundRule[]): number | null {
+  let best: BackgroundRule | null = null;
+  for (const rule of rules) {
+    if (!chainMatches(el, rule.compounds)) continue;
+    if (!best || rule.spec >= best.spec) best = rule;
+  }
+  return best ? relativeLuminance(best.color) : null;
+}
+
 /**
  * Mark the surfaces that must survive being themed, and count them.
  *
@@ -547,6 +711,7 @@ function declaredLuminance(el: HTMLElement): number | null {
  */
 export function markKeptSurfaces(root: ParentNode): number {
   let kept = 0;
+  const rules = styleBackgrounds(root);
 
   // An explicit stack rather than recursion: this walks untrusted mail, and
   // deeply nested tables are exactly what old newsletter HTML is made of.
@@ -561,7 +726,7 @@ export function markKeptSurfaces(root: ParentNode): number {
 
   while (stack.length) {
     const { el, onPaint } = stack.pop()!;
-    const lum = declaredLuminance(el);
+    const lum = declaredLuminance(el) ?? styledLuminance(el, rules);
     let childrenOnPaint = onPaint;
 
     if (lum !== null && lum < LIGHT_SURFACE_LUMINANCE) {

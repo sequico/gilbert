@@ -866,8 +866,8 @@ export const catalog: Catalog = {
       "この署名はサーバーの上限 {limit} バイトを超えています。Gilbert は完全版を「ファイル」に保存し、サーバーには短いテキスト版を置きます。他のメールクライアントにはテキスト版が表示されます。",
     "Outlook-style categories you can assign to events from the right-click menu or the event editor. The category name is stored on the event, so it syncs to other clients.":
       "Outlook 形式の分類です。右クリックメニューや予定の編集画面から予定に割り当てられます。分類名は予定に保存されるため、他のクライアントにも同期されます。",
-    "Plain-text mail already follows the theme. With this on, HTML mail that brings no colours of its own does as well, instead of sitting on a white card. Messages that style themselves are left exactly as the sender designed them.":
-      "プレーンテキストのメールは、もともとテーマに従います。これをオンにすると、独自の配色を持たない HTML メールもテーマに従い、白いカードの上に置かれなくなります。自分でスタイルを指定しているメールは、差出人が作ったとおりに表示されます。",
+    "Plain-text mail already follows the theme. With this on, HTML mail that brings no colours of its own does as well, instead of sitting on a white card. Mail that styles itself keeps the sender's design unless the option below is on too.":
+      "プレーンテキストのメールは、もともとテーマに従います。これをオンにすると、独自の配色を持たない HTML メールもテーマに従い、白いカードの上に置かれなくなります。独自のスタイルを持つメールは、下のオプションもオンにしない限り、差出人のデザインのまま表示されます。",
     "On a touchscreen, drag a message sideways to act on it. Each direction can do one thing, or nothing. These follow your account, so a phone and a tablet agree; a mouse ignores them and keeps dragging messages into folders instead.":
       "タッチ画面では、メールを横にドラッグすると操作できます。各方向に 1 つの操作を割り当てるか、何も割り当てないかを選べます。この設定はアカウントに従うため、スマートフォンとタブレットで揃います。マウスはこの設定を無視し、これまでどおりメールをフォルダーへドラッグします。",
     "This screen has no touchscreen, so nothing here changes what it does. Your phone or tablet will pick these up.":

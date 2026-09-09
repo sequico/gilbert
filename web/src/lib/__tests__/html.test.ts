@@ -235,6 +235,45 @@ describe("markKeptSurfaces", () => {
     expect(markKeptSurfaces(d)).toBe(0);
   });
 
+  it("reads a background the message's own stylesheet declares", () => {
+    // Modern templates put their colours in a <style> block rather than in
+    // attributes. Before the stylesheet walk these painted nothing the walker
+    // could see, so a dark card was never marked and a light panel inside it
+    // inherited nothing — the #310 sheet survived in stylesheet-driven mail.
+    const d = frag(
+      '<style>.card { background-color:#2b2b2b } .sheet { background-color:#ffffff }</style>' +
+        '<div class="card"><table class="sheet"><tr><td>copy</td></tr></table></div>',
+    );
+    expect(markKeptSurfaces(d)).toBe(1);
+    expect(d.querySelector(".card")!.hasAttribute("data-ihm-keep")).toBe(true);
+    // The stylesheet light panel inside paint is a sheet like any other: it is
+    // neutralised, not exempted for sitting on the card.
+    const sheet = d.querySelector(".sheet")!;
+    expect(sheet.hasAttribute("data-ihm-keep")).toBe(false);
+    expect(sheet.hasAttribute("data-ihm-in-keep")).toBe(false);
+    expect(neutralised(sheet)).toBe(true);
+  });
+
+  it("keeps a stylesheet-coloured button on a stylesheet sheet", () => {
+    const d = frag(
+      '<style>.sheet { background-color:#ffffff } .cta { background-color:#1155CC }</style>' +
+        '<div class="sheet"><a class="cta" style="color:#FFFFFF">Buy</a></div>',
+    );
+    expect(markKeptSurfaces(d)).toBe(1);
+    expect(neutralised(d.querySelector(".sheet")!)).toBe(true);
+    expect(neutralised(d.querySelector(".cta")!)).toBe(false);
+    expect(d.querySelector(".cta")!.hasAttribute("data-ihm-keep")).toBe(true);
+  });
+
+  it("lets a later stylesheet rule beat an earlier one of equal specificity", () => {
+    const d = frag(
+      '<style>.sheet { background-color:#2b2b2b } .sheet { background-color:#ffffff }</style>' +
+        '<div class="sheet">x</div>',
+    );
+    expect(markKeptSurfaces(d)).toBe(0);
+    expect(neutralised(d.querySelector(".sheet")!)).toBe(true);
+  });
+
   it("leaves the sender's own markup alone, so the switch is reversible", () => {
     const d = frag(
       '<table><tr><td bgcolor="#1155CC" style="color:#fff">Buy</td></tr></table>',

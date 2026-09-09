@@ -845,8 +845,8 @@ export const catalog: Catalog = {
       "此签名超出了服务器 {limit} 字节的限制。Gilbert 会把完整版本保存在您的「文件」中，并在服务器上存放一段简短的文本备用版——其他邮件客户端看到的将是纯文本版本。",
     "Outlook-style categories you can assign to events from the right-click menu or the event editor. The category name is stored on the event, so it syncs to other clients.":
       "Outlook 风格的分类，可通过右键菜单或日程编辑器指定给日程。分类名称保存在日程上，因此会同步到其他客户端。",
-    "Plain-text mail already follows the theme. With this on, HTML mail that brings no colours of its own does as well, instead of sitting on a white card. Messages that style themselves are left exactly as the sender designed them.":
-      "纯文本邮件本就会跟随主题。开启后，未自带配色的 HTML 邮件也会跟随主题，而不再显示在白色卡片上。自带样式的邮件则完全保持发件人设计的样子。",
+    "Plain-text mail already follows the theme. With this on, HTML mail that brings no colours of its own does as well, instead of sitting on a white card. Mail that styles itself keeps the sender's design unless the option below is on too.":
+      "纯文本邮件本就会跟随主题。开启后，未自带配色的 HTML 邮件也会跟随主题，而不再显示在白色卡片上。自带样式的邮件会保持发件人的设计，除非下方的选项也已开启。",
     "On a touchscreen, drag a message sideways to act on it. Each direction can do one thing, or nothing. These follow your account, so a phone and a tablet agree; a mouse ignores them and keeps dragging messages into folders instead.":
       "在触摸屏上，横向拖动邮件即可对其操作。每个方向可以执行一项操作，也可以什么都不做。这些设置跟随您的账户，因此手机和平板保持一致；鼠标不受影响，仍然是把邮件拖入文件夹。",
     "This screen has no touchscreen, so nothing here changes what it does. Your phone or tablet will pick these up.":
