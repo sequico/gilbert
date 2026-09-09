@@ -116,9 +116,15 @@ record keeps its full shape as the evolution path.
 
 **Resolutions of the recorded questions (owner decisions 2026-09-09):**
 
-- *1 — app-password creation under impersonation* stays open: to be proven
-  on a real 0.16 instance, or pinned by mock-parity tests, before the
-  automatic create/rotate flow is trusted.
+- *1 — app-password creation under impersonation*: **proven live on a real
+  0.16.21 instance (2026-09-09)** — composite impersonation authentication
+  (`{target}%{master}`, master credentials) opens a session as the target,
+  and `x:AppPassword/set` create and destroy on the target's account are
+  permitted under it; Stalwart's refusal rules cover *authenticating* with
+  app passwords, not registry writes by an impersonating admin. The real
+  server also returns the secret on `x:AppPassword/get` (the product API
+  deliberately strips it), so an admin can recover a lost agent app
+  password instead of only rotating it — the admin UI may offer either.
 - *2 — automations, not rules*: an automation is built in the admin UI
   (never raw JSON) as "Quando [evento] / Se [filtri facoltativi] / Allora
   [azioni]" and stored as a JSON document validated against a standard
@@ -133,8 +139,11 @@ record keeps its full shape as the evolution path.
   agent is granted — mail, files, tasks, calendars and contacts, read and
   write — each an audited action behind the ACL scope. High-impact actions
   (sending mail) go through `awaiting_approval` unless the automation opts
-  out. The concrete schema and editor are pinned when the first use case
-  is implemented.
+  out. Sending honours the sender account's own identities: the executor
+  reads the account settings (identities in `settings.json`), uses the
+  default identity and applies its text/HTML signature exactly as the UI
+  composer does — deterministic, no model involved. The concrete schema
+  and editor are pinned when the first use case is implemented.
 - *3 — rule granularity and context*: a rule acts on the single message;
   context is assembled on demand — the thread (grouped by In-Reply-To) and
   the group's mail folders — fetched narrowly when a rule needs them, never
@@ -160,16 +169,18 @@ record keeps its full shape as the evolution path.
   level (restart policy plus a health endpoint), self-coordinated by leases
   (§2, §6) — no in-product supervisor. A supervisor is revisited only if
   operations asks for a single control point.
-- *9 — the group attention convention*: agent work in a group's mail is a
-  visible state machine over folders and labels with the reserved `G-`
-  prefix. Anything the agent cannot process with confidence, or that needs
-  a person, lands in the `G-needattention` folder with the
-  `G-needattention` label; processed work is marked `G-processed`, and the
-  convention extends (`G-awaiting`, `G-rejected`, …) as use cases need.
-  The folders and labels are created and managed with the group machinery
-  already in place (group label catalog, ADR 0006; group folders), by the
-  admin or by the agent through the same capability when granted; members
-  read the state in the group's own mailbox by construction.
+- *9 — the group attention convention*: agent work in a group's mail is
+  tracked with **labels, not folders**: the reserved `G-` prefix marks
+  Gilbert processing state on a message — `G-needattention` when the agent
+  cannot process it confidently or a person must look at it, `G-processed`
+  once handled, and the convention extends (`G-awaiting`, `G-rejected`, …)
+  as use cases need. Labeling never moves the message. Moving is a
+  separate, content-driven action: the message (with its thread as context)
+  lands in the folder its classification chose. The labels are created and
+  managed with the group machinery already in place (group label catalog,
+  ADR 0006), by the admin or by the agent through the same capability when
+  granted; members read the state in the group's own mailbox by
+  construction.
 
 ## Decision
 
@@ -387,10 +398,7 @@ candidate rule semantic (Open questions).
 
 ## Open questions (recorded; the v1-scope section and the resolutions above record what is decided)
 
-- Whether real Stalwart 0.16 permits `x:AppPassword/set` under
-  impersonation (the mock does; the refusal rules cover *authentication*
-  with app passwords, not creation). Open until proven on a real instance
-  or pinned by mock-parity tests.
+- None.
 
 ## References
 
