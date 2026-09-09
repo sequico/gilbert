@@ -11,7 +11,7 @@ are used — no code, and nothing from anyone else's reimplementation of them.
 The values as fetched from each project are recorded in
 `.palette-sources/palettes-upstream.md`, and the shades between them are
 derived by `scripts/build-palettes.py`, which also lifts any tier that would
-not meet the contrast ihasmail claims.
+not meet the contrast Gilbert claims.
 
 ### Dracula and Alucard
 

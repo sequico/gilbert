@@ -83,6 +83,25 @@ test suites (the parent runs the gate); large reviews are split into small
 parallel reviewers by area; deep reasoning is reserved for security-critical
 surfaces. An agent that drifts into wide exploration gets a converge-now
 instruction rather than being left to widen scope.
+**Reviewer dispatch (owner decision 2026-09-09, after one over-budget
+reviewer drifted):** every review is split into small parallel reviewers by
+area, each with an explicit bounded file list, a diff range limited to the
+change under review (never a stale merge-base that drags unrelated history
+in), a tool-call budget stated in the prompt (~12), and the read-only grammar
+preamble. Poll reviewer agents and act on the first anomalous poll — one past
+budget or burning tokens on wide exploration gets converge-now or cancel
+immediately; sunk cost is never a reason to let it finish. The parent runs all
+gates; reviewers never do.
+**Merge/edit hygiene (owner decision 2026-09-09, after conflict-marker lines
+were committed twice):** when resolving a conflict with the edit tool, the
+oldText span must include the full `<<<<<<<`/`=======`/`>>>>>>>` marker lines
+— never start below the opening marker; when taking a whole side wholesale,
+strip markers with sed in the same command. No file is staged or committed
+until a marker grep on that file (`<<<<<<<`, `>>>>>>>`, `^=======$`) returns
+zero in the same shell invocation. Verification is per write step, never
+batched at the end of a long run. Whole-tree rename scans (e.g. for
+`ihasmail`) are never truncated with head/tail — scan per file with bounded
+output instead.
 **Every push is gated by the fast CI** (`npm run prepush`: typecheck + Biome
 lint + tests); a pre-push hook enforces it — hook in `.githooks/pre-push`,
 enabled per clone with `git config core.hooksPath .githooks`, bypass only

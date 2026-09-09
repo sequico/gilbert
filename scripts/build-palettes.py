@@ -399,7 +399,13 @@ def main() -> int:
     else:
         css = css.rstrip() + "\n\n" + generated
     CSS.write_text(css, encoding="utf-8")
-    print(f"Wrote {len(SOURCES) * 2} palette blocks to {CSS.relative_to(ROOT)}")
+    written = sum(
+        1
+        for pid in SOURCES
+        for mode in ("light", "dark")
+        if not (pid in LIGHT_ONLY and mode == "dark")
+    )
+    print(f"Wrote {written} palette blocks to {CSS.relative_to(ROOT)}")
     return 0
 
 
