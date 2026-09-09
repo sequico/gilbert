@@ -188,7 +188,14 @@ record keeps its full shape as the evolution path.
   managed with the group machinery already in place (group label catalog,
   ADR 0006), by the admin or by the agent through the same capability when
   granted; members read the state in the group's own mailbox by
-  construction.
+  construction. State is per message in both storage and display: a reply
+  arriving in an already-processed thread is a fresh event — it starts
+  unlabelled and unread, is re-evaluated on its own, and never inherits the
+  earlier message's `G-*` label or folder (the thread is context, not
+  state). `G-*` labels are agent-owned and read-only to humans: the UI
+  renders them on the individual message, never aggregated onto the thread
+  row, and keeps them out of the manual label picker; human labels keep
+  their existing thread-scoped behaviour.
 - *10 — review policy and human approval*: every automation carries a
   review policy — `always` (every run pauses), `threshold` (auto-execute
   when the decision's confidence is at or above the threshold, else pause)
