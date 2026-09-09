@@ -1099,13 +1099,13 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       );
     const imp = await impersonateAs(admin, target);
     if (!imp.ok) {
-      return c.json(
-        {
-          error: imp.status === 404 ? "target_not_found" : "forbidden",
-          message: imp.message,
-        },
-        imp.status,
-      );
+      const error =
+        imp.status === 404
+          ? "target_not_found"
+          : imp.status === 403
+            ? "forbidden"
+            : "upstream";
+      return c.json({ error, message: imp.message }, imp.status);
     }
     // An administrator cannot force another administrator: the target's
     // impersonated session is their own, so membership of the admin group
@@ -1287,7 +1287,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         ok: true;
         ctx: { authorization: string; session: UpstreamSession; username: string };
       }
-    | { ok: false; status: 403 | 404; message: string }
+    | { ok: false; status: 403 | 404 | 502; message: string }
   > => {
     const targetAuth = impersonationAuthorization(session, target);
     if (!targetAuth)
@@ -1304,12 +1304,15 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         ctx: { authorization: targetAuth, session: upstream, username: target },
       };
     } catch (err) {
-      if (err instanceof UpstreamError && err.status === 401)
-        return {
-          ok: false,
-          status: 404,
-          message: "No such account, or it cannot be administered by you.",
-        };
+      if (err instanceof UpstreamError) {
+        if (err.status === 401)
+          return {
+            ok: false,
+            status: 404,
+            message: "No such account, or it cannot be administered by you.",
+          };
+        return { ok: false, status: 502, message: err.message };
+      }
       throw err;
     }
   };
@@ -1345,7 +1348,15 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const session = c.get("session");
     const name = c.req.param("name") ?? "";
     const imp = await impersonateAs(session, name);
-    if (!imp.ok) return c.json({ error: "forbidden", message: imp.message }, imp.status);
+    if (!imp.ok) {
+      const error =
+        imp.status === 404
+          ? "target_not_found"
+          : imp.status === 403
+            ? "forbidden"
+            : "upstream";
+      return c.json({ error, message: imp.message }, imp.status);
+    }
     const labels = await readGroupLabels(imp.ctx);
     return c.json({ labels: labels ?? [] });
   });
@@ -1357,7 +1368,15 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     if (!body || !Array.isArray(body.labels))
       return c.json({ error: "bad_request", message: "labels must be an array" }, 400);
     const imp = await impersonateAs(session, name);
-    if (!imp.ok) return c.json({ error: "forbidden", message: imp.message }, imp.status);
+    if (!imp.ok) {
+      const error =
+        imp.status === 404
+          ? "target_not_found"
+          : imp.status === 403
+            ? "forbidden"
+            : "upstream";
+      return c.json({ error, message: imp.message }, imp.status);
+    }
     await writeGroupLabels(imp.ctx, body.labels);
     return c.json({ ok: true });
   });
