@@ -30,6 +30,16 @@ export function shortName(address: string): string {
   return at > 0 ? address.slice(0, at) : address;
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** A regex matching `@` immediately followed by one of the given addresses. */
+export function mentionRegex(addresses: ReadonlyArray<string>): RegExp {
+  if (!addresses.length) return /(?!)/;
+  return new RegExp(`@(${addresses.map(escapeRegExp).join("|")})`, "g");
+}
+
 /** A principal a message is addressed to, by mention. */
 export interface ChatMention {
   kind: "principal";

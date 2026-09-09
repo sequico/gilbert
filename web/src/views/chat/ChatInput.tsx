@@ -11,14 +11,15 @@
  * conversation switch, send); typing edits the DOM directly and only syncs
  * the plain text back out.
  *
- * Mentions are plain text too: typing `@` opens a menu over the addresses
- * that may be mentioned (the transcript's authors plus the reader), and
- * picking one inserts `@address `. The structured mention list is derived
- * from the text at send time (web/src/lib/chat.ts), so this editor never
- * keeps a second copy of who was mentioned.
+ * Mentions are chips: typing `@` opens a menu over the addresses that may be
+ * mentioned, picking one inserts a chip that shows the short localpart
+ * (`@sam`) while the underlying plain text keeps the full address. The
+ * structured mention list is derived from the text at send time
+ * (web/src/lib/chat.ts), so the editor never keeps a second copy of who was
+ * mentioned.
  */
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { shortName } from "@/lib/chat";
+import { mentionRegex, shortName } from "@/lib/chat";
 import { emojiAsset } from "@/lib/emoji";
 import { t } from "@/lib/i18n";
 
@@ -38,7 +39,7 @@ interface ChatInputProps {
   onSend(): void;
 }
 
-/** The plain text a contenteditable holds: text nodes, <img alt>, <br>. */
+/** The plain text a contenteditable holds: text nodes, <img alt>, chips, <br>. */
 function serializePlain(root: HTMLElement): string {
   let out = "";
   const walk = (node: Node) => {
@@ -55,6 +56,10 @@ function serializePlain(root: HTMLElement): string {
       return;
     }
     if (node instanceof HTMLElement) {
+      if (node.dataset.address !== undefined) {
+        out += `@${node.dataset.address}`;
+        return;
+      }
       for (const c of node.childNodes) walk(c);
       if (node.tagName === "DIV" || node.tagName === "P") out += "\n";
     }
@@ -63,35 +68,53 @@ function serializePlain(root: HTMLElement): string {
   return out;
 }
 
-/** Render plain text into the editor: lines as <br>, known emoticons as images. */
-function buildRich(root: HTMLElement, text: string): void {
-  root.textContent = "";
-  let segments: string[];
+/** The grapheme clusters of a string, for stable per-character rendering. */
+function graphemes(text: string): string[] {
   try {
-    segments = [
+    return [
       ...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text),
     ].map((s) => s.segment);
   } catch {
-    segments = [text];
+    return [text];
   }
+}
+
+/** Render plain text into the editor: mention chips, <br>, emoji as images. */
+function buildRich(root: HTMLElement, text: string, addresses: string[]): void {
+  root.textContent = "";
   const frag = document.createDocumentFragment();
-  for (const part of segments) {
-    if (part === "\n") {
-      frag.append(document.createElement("br"));
-      continue;
+  const parts = text.split(mentionRegex(addresses));
+  const appendPlain = (plain: string) => {
+    for (const seg of graphemes(plain)) {
+      if (seg === "\n") {
+        frag.append(document.createElement("br"));
+        continue;
+      }
+      const src = emojiAsset(seg);
+      if (src) {
+        const img = document.createElement("img");
+        img.src = src;
+        img.alt = seg;
+        img.className = "chat-emoji-img";
+        img.draggable = false;
+        frag.append(img);
+        continue;
+      }
+      frag.append(document.createTextNode(seg));
     }
-    const src = emojiAsset(part);
-    if (src) {
-      const img = document.createElement("img");
-      img.src = src;
-      img.alt = part;
-      img.className = "chat-emoji-img";
-      img.draggable = false;
-      frag.append(img);
-      continue;
+  };
+  parts.forEach((part, i) => {
+    if (i % 2 === 1) {
+      const chip = document.createElement("span");
+      chip.className = "chat-mention-chip";
+      chip.contentEditable = "false";
+      chip.dataset.address = part;
+      chip.textContent = `@${shortName(part)}`;
+      frag.append(chip);
+    } else {
+      appendPlain(part);
     }
-    frag.append(document.createTextNode(part));
-  }
+  });
   root.append(frag);
 }
 
@@ -113,6 +136,8 @@ function caretOffsetOf(root: HTMLElement): number {
     if (node.nodeType === Node.TEXT_NODE) length += node.textContent?.length ?? 0;
     else if (node instanceof HTMLImageElement) length += 1;
     else if (node instanceof HTMLBRElement) length += 1;
+    else if (node instanceof HTMLElement && node.dataset.address !== undefined)
+      length += 1 + node.dataset.address.length;
     else if (node instanceof HTMLElement) {
       for (const c of node.childNodes) visit(c);
       if (node.tagName === "DIV" || node.tagName === "P") length += 1;
@@ -150,6 +175,23 @@ function setCaretAt(root: HTMLElement, offset: number): void {
         return;
       }
       remaining -= 1;
+      return;
+    }
+    if (node instanceof HTMLElement && node.dataset.address !== undefined) {
+      const len = 1 + node.dataset.address.length;
+      if (remaining === 0) {
+        range.setStart(parent, index);
+        range.collapse(true);
+        placed = true;
+        return;
+      }
+      if (remaining <= len) {
+        range.selectNodeContents(node);
+        range.collapse(false);
+        placed = true;
+        return;
+      }
+      remaining -= len;
       return;
     }
     if (node instanceof HTMLElement) {
@@ -255,7 +297,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     ignoreSync.current = true; // buildRich below already reflects `next`
     onChange(next);
     if (root) {
-      buildRich(root, next);
+      buildRich(root, next, participants);
       setCaretAt(root, caretNext);
       caret.current = null;
       root.focus();
@@ -274,7 +316,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
       return;
     }
     if (serializePlain(root) === value) return;
-    buildRich(root, value);
+    buildRich(root, value, participants);
     setCaretAt(root, caret.current ?? serializePlain(root).length);
     caret.current = null;
   }, [value, placeholder]);
@@ -294,7 +336,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
       ignoreSync.current = true; // buildRich below already reflects `next`
       onChange(next);
       if (root) {
-        buildRich(root, next);
+        buildRich(root, next, participants);
         setCaretAt(root, caret.current);
         caret.current = null;
         root.focus();
@@ -323,7 +365,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           if (plain.length > maxLength) {
             // Past the bound: rebuild from the last accepted value so the
             // editor cannot outgrow what the store allows.
-            buildRich(root, valueRef.current.slice(0, maxLength));
+            buildRich(root, valueRef.current.slice(0, maxLength), participants);
             setCaretAt(root, valueRef.current.length);
             return;
           }

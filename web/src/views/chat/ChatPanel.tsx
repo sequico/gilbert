@@ -15,6 +15,7 @@ import {
   type ChatMention,
   type ChatMessage,
   MAX_TEXT,
+  mentionRegex,
   participantsOf,
   shortName,
 } from "@/lib/chat";
@@ -67,10 +68,6 @@ function EmojiText({ text }: { text: string }) {
   );
 }
 
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 /** Message text with `@address` mentions highlighted; emoticons still render. */
 function MentionedText({
   text,
@@ -83,7 +80,7 @@ function MentionedText({
 }) {
   const addrs = mentions?.map((m) => m.id) ?? [];
   if (!addrs.length) return <EmojiText text={text} />;
-  const re = new RegExp(`@(${addrs.map(escapeRegExp).join("|")})`, "g");
+  const re = mentionRegex(addrs);
   const parts = text.split(re);
   return (
     <>

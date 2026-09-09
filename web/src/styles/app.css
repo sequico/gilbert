@@ -2445,6 +2445,11 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   background: color-mix(in srgb, var(--accent, #0f766e) 10%, transparent);
 }
 .chat-mention.me { color: #fff; background: var(--accent, #0f766e); }
+.chat-input-rich .chat-mention-chip {
+  display: inline; padding: 1px 4px; border-radius: 6px;
+  color: var(--accent, #0f766e); font-weight: 600;
+  background: color-mix(in srgb, var(--accent, #0f766e) 10%, transparent);
+}
 
 /* Mobile: the panel becomes a full-screen sheet, not a sixth tab. */
 .chat-sheet {
