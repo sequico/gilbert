@@ -92,6 +92,37 @@ preamble. Poll reviewer agents and act on the first anomalous poll — one past
 budget or burning tokens on wide exploration gets converge-now or cancel
 immediately; sunk cost is never a reason to let it finish. The parent runs all
 gates; reviewers never do.
+**Agent lifecycle (owner decision 2026-09-09):** never end a turn while
+turn-owned sub-agents are still running: join them first (`agent` wait with
+`until="all"` per owned id) or detach them deliberately (`detached=true`). A
+child parked as interrupted is a continuable checkpoint: resume the same lane
+with `resume_from`, never re-dispatch a fresh agent over it. Re-dispatch is
+justified only when the base has moved so far that the parked work is
+worthless — cancel the parked record then, and say so. Terminal records cost
+nothing to keep; a new wave never starts while the previous one's lanes are
+still open.
+**Reviewer budgets are input bounds (owner decision 2026-09-09):** the runtime
+config sets no per-role step/token budget (only `max_subagents`,
+`max_concurrent`, model strength), so a "~12 tool calls" limit is prose and
+will be exceeded. The enforceable guarantee is what the parent puts in front
+of the child: hand each reviewer per-file diff slices or a file list whose
+combined diff output is small — never a directory-level diff. Tool output is
+capped; a truncated diff gets re-read and re-run, which is what burns
+hundreds of k tokens. A reviewer whose output was truncated narrows with
+`read_file`/single grep — it never re-issues the same wide command.
+**Every review ends with the owner's decisions (owner decision 2026-09-09):**
+the fixed deliverable is numbered findings (BLOCKER/MAJOR/MINOR/NIT) with
+file:line evidence, a five-line summary, a VERDICT, and a closing **"Open
+decisions for the owner"** section mapping each actionable finding to a
+concrete choice with a recommendation. The parent forwards that section
+verbatim; findings without a decision line are how reviews stopped being
+actionable.
+**Rules layering (owner decision 2026-09-09):** rules that must bind
+dispatched sub-agents live, self-contained, in this file — children load the
+repo's project instructions and nothing else. Owner-global counterparts live
+in global memory and are labelled "(global user rule, active here)" when
+mirrored here. Change the global entry first, then mirror; never keep a third
+copy (skills and dispatch prompts restate the recipe by reference only).
 **Merge/edit hygiene (owner decision 2026-09-09, after conflict-marker lines
 were committed twice):** when resolving a conflict with the edit tool, the
 oldText span must include the full `<<<<<<<`/`=======`/`>>>>>>>` marker lines
