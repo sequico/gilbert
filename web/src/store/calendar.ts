@@ -1454,7 +1454,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
          *
          * The cost runs the other way: an attendee added at the source since
          * the last import does not arrive, and nothing here can tell that apart
-         * from an RSVP given in ihasmail. Losing an answer somebody gave is
+         * from an RSVP given in Gilbert. Losing an answer somebody gave is
          * worse than not gaining an attendee somebody can still be told about.
          *
          * `uid` is held back too -- it is what the two were matched on, so it
