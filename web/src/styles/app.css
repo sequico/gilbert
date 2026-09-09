@@ -2423,6 +2423,28 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .chat-input:focus { outline: none; border-color: var(--accent); }
 .chat-send { flex: 0 0 auto; height: 34px; padding: 0 10px; }
 .chat-send:disabled { opacity: .4; }
+.chat-input-shell { position: relative; flex: 1 1 auto; display: flex; min-width: 0; }
+.chat-input-shell .chat-input { flex: 1 1 auto; }
+.chat-mention-menu {
+  position: absolute; bottom: 100%; left: 0; right: 0;
+  max-height: 200px; overflow-y: auto; z-index: 5; padding: 4px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / .12);
+}
+.chat-mention-item {
+  display: block; width: 100%; text-align: left; padding: 6px 8px;
+  border: none; border-radius: 6px; background: none; color: var(--fg);
+  font: inherit; font-size: .85em; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.chat-mention-item.active { background: var(--bg-hover, #e2e8f0); }
+.chat-mention {
+  display: inline-block; padding: 0 4px; border-radius: 6px;
+  color: var(--accent, #0f766e); font-weight: 600;
+  background: rgba(15, 118, 110, .1);
+  background: color-mix(in srgb, var(--accent, #0f766e) 10%, transparent);
+}
+.chat-mention.me { color: #fff; background: var(--accent, #0f766e); }
 
 /* Mobile: the panel becomes a full-screen sheet, not a sixth tab. */
 .chat-sheet {

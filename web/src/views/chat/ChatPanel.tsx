@@ -11,7 +11,13 @@
 import { CornerUpLeft, Search, Send, Smile, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "@/jmap/types";
-import { type ChatMessage, MAX_TEXT } from "@/lib/chat";
+import {
+  type ChatMention,
+  type ChatMessage,
+  MAX_TEXT,
+  participantsOf,
+  shortName,
+} from "@/lib/chat";
 import { COMMON_EMOJI, emojiAsset } from "@/lib/emoji";
 import { formatListDate } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
@@ -23,12 +29,6 @@ import { ChatInput, type ChatInputHandle } from "./ChatInput";
 interface ChatPanelProps {
   accounts: MailAccountInfo[];
   onClose: () => void;
-}
-
-/** The part of an address a chat reader recognises, like a display name. */
-function shortName(address: string): string {
-  const at = address.indexOf("@");
-  return at > 0 ? address.slice(0, at) : address;
 }
 
 /** One line of a message, for the search results list. */
@@ -67,11 +67,48 @@ function EmojiText({ text }: { text: string }) {
   );
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Message text with `@address` mentions highlighted; emoticons still render. */
+function MentionedText({
+  text,
+  mentions,
+  me,
+}: {
+  text: string;
+  mentions?: ChatMention[];
+  me: string;
+}) {
+  const addrs = mentions?.map((m) => m.id) ?? [];
+  if (!addrs.length) return <EmojiText text={text} />;
+  const re = new RegExp(`@(${addrs.map(escapeRegExp).join("|")})`, "g");
+  const parts = text.split(re);
+  return (
+    <>
+      {parts.map((p, i) =>
+        i % 2 === 1 ? (
+          <span key={i} className={`chat-mention${p === me ? " me" : ""}`} title={p}>
+            @{shortName(p)}
+          </span>
+        ) : (
+          <EmojiText key={i} text={p} />
+        ),
+      )}
+    </>
+  );
+}
+
 export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   const me = useSession((s) => s.session?.username ?? "");
   const conversations = useChat((s) => s.conversations);
   const openAccountId = useChat((s) => s.openAccountId);
   const open = openAccountId ? (conversations[openAccountId] ?? null) : null;
+  const mentionables = useMemo(
+    () => (open ? participantsOf(open.nodes, me) : []),
+    [open, me],
+  );
   const threadRef = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
   const chatInputRef = useRef<ChatInputHandle>(null);
@@ -408,7 +445,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                         </button>
                       </div>
                       <div className="chat-text">
-                        <EmojiText text={m.text} />
+                        <MentionedText text={m.text} mentions={m.mentions} me={me} />
                       </div>
                     </div>
                   </div>
@@ -478,6 +515,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
               ref={chatInputRef}
               value={open.draft}
               maxLength={MAX_TEXT}
+              mentionables={mentionables}
               placeholder={t("Message {group}", { group: shortName(open.name) })}
               onChange={(text) => setDraft(open.accountId, text)}
               onSend={submit}

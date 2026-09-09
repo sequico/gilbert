@@ -28,8 +28,11 @@ import {
   MAX_TEXT,
   MESSAGE_TYPE,
   markerNameFor,
+  mentionsFromText,
+  messageDoc,
   messageProps,
   parseMessages,
+  participantsOf,
   readDoc,
   unreadCount,
   writeDoc,
@@ -444,13 +447,14 @@ export const useChat = create<ChatState>((set, get) => {
         const folders = conv.folders ?? (await ensureChatFolders(accountId));
         const me = get().me();
         if (!me) return;
-        const doc = {
-          v: 1 as const,
-          from: me,
-          at: new Date().toISOString(),
-          text: text.slice(0, MAX_TEXT),
-          ...(conv.replyTo ? { replyTo: conv.replyTo } : {}),
-        };
+        const body = text.slice(0, MAX_TEXT);
+        const participants = participantsOf(conv.nodes, me);
+        const doc = messageDoc(
+          me,
+          body,
+          conv.replyTo ?? undefined,
+          mentionsFromText(body, participants),
+        );
         const id = await createDoc(accountId, folders.chat, doc);
         const m = await fetchMessage(accountId, id, folders.chat);
         if (m) {

@@ -24,6 +24,19 @@ export const MAX_TEXT = 4000;
 /** How many messages one transcript page holds (scroll-up paging). */
 export const CHAT_PAGE = 200;
 
+/** The local part of an address — the chat's short display name. */
+export function shortName(address: string): string {
+  const at = address.indexOf("@");
+  return at > 0 ? address.slice(0, at) : address;
+}
+
+/** A principal a message is addressed to, by mention. */
+export interface ChatMention {
+  kind: "principal";
+  /** The principal's address — the chat's identity, the same string as `from`. */
+  id: string;
+}
+
 /** One message document, immutable once created. */
 export interface ChatMessageDoc {
   v: 1;
@@ -34,6 +47,8 @@ export interface ChatMessageDoc {
   text: string;
   /** The message this one answers, when it is a quote reply (ADR 0006). */
   replyTo?: string;
+  /** Principals the message mentions; optional so old documents stay valid. */
+  mentions?: ChatMention[];
 }
 
 /** One member's read marker: which message they have read up to. */
@@ -61,6 +76,12 @@ export const messageProps = (): string[] => [
   "nodeType",
 ];
 
+function isChatMention(x: unknown): x is ChatMention {
+  if (!x || typeof x !== "object") return false;
+  const d = x as Record<string, unknown>;
+  return d.kind === "principal" && typeof d.id === "string";
+}
+
 export function isChatMessageDoc(x: unknown): x is ChatMessageDoc {
   if (!x || typeof x !== "object") return false;
   const d = x as Record<string, unknown>;
@@ -69,7 +90,9 @@ export function isChatMessageDoc(x: unknown): x is ChatMessageDoc {
     typeof d.from === "string" &&
     typeof d.at === "string" &&
     typeof d.text === "string" &&
-    (d.replyTo === undefined || typeof d.replyTo === "string")
+    (d.replyTo === undefined || typeof d.replyTo === "string") &&
+    (d.mentions === undefined ||
+      (Array.isArray(d.mentions) && d.mentions.every(isChatMention)))
   );
 }
 
@@ -77,6 +100,57 @@ export function isChatMarkerDoc(x: unknown): x is ChatMarkerDoc {
   if (!x || typeof x !== "object") return false;
   const d = x as Record<string, unknown>;
   return d.v === 1 && (d.lastRead === null || typeof d.lastRead === "string");
+}
+
+/** Build a message document — the one writer; the store must not inline it. */
+export function messageDoc(
+  from: string,
+  text: string,
+  replyTo?: string,
+  mentions?: ChatMention[],
+): ChatMessageDoc {
+  const doc: ChatMessageDoc = { v: 1, from, at: new Date().toISOString(), text };
+  if (replyTo) doc.replyTo = replyTo;
+  if (mentions?.length) doc.mentions = mentions;
+  return doc;
+}
+
+/**
+ * The addresses a reader may mention: everyone who has posted in the
+ * transcript, plus the reader. Membership is the grant (ADR 0006) and
+ * Stalwart exposes no member list over JMAP, so the transcript is the one
+ * source the client can see; a member becomes mentionable the moment they
+ * post, and the live FileNode rail makes that visible without a refresh.
+ */
+export function participantsOf(
+  messages: ReadonlyArray<{ from: string }>,
+  me: string,
+): string[] {
+  const seen = new Set<string>();
+  if (me) seen.add(me);
+  for (const m of messages) if (m.from) seen.add(m.from);
+  return [...seen].sort();
+}
+
+/**
+ * The mentions a text carries: `@` immediately followed by a participant
+ * address. First-appearance order, each participant once. The address is the
+ * chat's identity (the `from` of a message), so matching is exact.
+ */
+export function mentionsFromText(
+  text: string,
+  participants: ReadonlyArray<string>,
+): ChatMention[] {
+  const known = new Set(participants);
+  const out: ChatMention[] = [];
+  const seen = new Set<string>();
+  for (const token of text.match(/@[^\s]+/g) ?? []) {
+    const id = token.slice(1);
+    if (!known.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ kind: "principal", id });
+  }
+  return out;
 }
 
 /**
@@ -180,7 +254,7 @@ export async function writeDoc(
   accountId: Id,
   folderId: Id,
   name: string,
-  doc: Record<string, unknown>,
+  doc: object,
 ): Promise<Id> {
   const json = JSON.stringify(doc);
   const blob = new Blob([json], { type: MESSAGE_TYPE });
@@ -200,11 +274,7 @@ export async function writeDoc(
  * Create one message document under a random name and return its node id.
  * The caller fetches the node afterwards when it needs `created`.
  */
-export function createDoc(
-  accountId: Id,
-  folderId: Id,
-  doc: Record<string, unknown>,
-): Promise<Id> {
+export function createDoc(accountId: Id, folderId: Id, doc: object): Promise<Id> {
   return writeDoc(accountId, folderId, `${crypto.randomUUID()}.json`, doc);
 }
 

@@ -4,6 +4,9 @@ import {
   isChatMarkerDoc,
   isChatMessageDoc,
   markerNameFor,
+  mentionsFromText,
+  messageDoc,
+  participantsOf,
   unreadCount,
 } from "@/lib/chat";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
@@ -97,8 +100,85 @@ describe("message document validation", () => {
     expect(isChatMessageDoc({ v: 1, from: "a", at: "t", text: "x", replyTo: 7 })).toBe(
       false,
     );
+    expect(isChatMessageDoc({ v: 1, from: "a", at: "t", text: "x", mentions: "b" })).toBe(
+      false,
+    );
+    expect(
+      isChatMessageDoc({
+        v: 1,
+        from: "a",
+        at: "t",
+        text: "x",
+        mentions: [{ kind: "principal", id: "b@x" }],
+      }),
+    ).toBe(true);
+    expect(
+      isChatMessageDoc({
+        v: 1,
+        from: "a",
+        at: "t",
+        text: "x",
+        mentions: [{ kind: "other", id: "b@x" }],
+      }),
+    ).toBe(false);
     expect(isChatMarkerDoc({ v: 1, lastRead: "m1" })).toBe(true);
     expect(isChatMarkerDoc({ v: 1, lastRead: 7 })).toBe(false);
+  });
+});
+
+describe("participantsOf — the mentionable set", () => {
+  it("is the reader plus everyone who has posted, sorted, deduped", () => {
+    const msgs = [
+      { from: "b@example.org" },
+      { from: "a@example.org" },
+      { from: "b@example.org" },
+    ];
+    expect(participantsOf(msgs, "me@example.org")).toEqual([
+      "a@example.org",
+      "b@example.org",
+      "me@example.org",
+    ]);
+  });
+
+  it("returns just the reader when nobody has posted", () => {
+    expect(participantsOf([], "me@example.org")).toEqual(["me@example.org"]);
+  });
+});
+
+describe("mentionsFromText", () => {
+  const participants = ["a@example.org", "b@example.org"];
+
+  it("finds exact @address mentions, once each, in first-appearance order", () => {
+    expect(
+      mentionsFromText(
+        "hi @b@example.org and @a@example.org @b@example.org",
+        participants,
+      ),
+    ).toEqual([
+      { kind: "principal", id: "b@example.org" },
+      { kind: "principal", id: "a@example.org" },
+    ]);
+  });
+
+  it("ignores non-participant tokens and bare @", () => {
+    expect(mentionsFromText("hi @stranger and @", participants)).toEqual([]);
+    expect(mentionsFromText("no mention here", participants)).toEqual([]);
+  });
+});
+
+describe("messageDoc — the one message writer", () => {
+  it("builds a v1 doc with optional replyTo and mentions", () => {
+    const doc = messageDoc("me@example.org", "hi", undefined, [
+      { kind: "principal", id: "a@example.org" },
+    ]);
+    expect(doc).toMatchObject({ v: 1, from: "me@example.org", text: "hi" });
+    expect(doc.mentions).toEqual([{ kind: "principal", id: "a@example.org" }]);
+    expect(typeof doc.at).toBe("string");
+    expect(doc.replyTo).toBeUndefined();
+  });
+
+  it("omits empty mentions", () => {
+    expect(messageDoc("me@example.org", "hi").mentions).toBeUndefined();
   });
 });
 

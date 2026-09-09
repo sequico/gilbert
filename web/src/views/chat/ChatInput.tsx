@@ -10,8 +10,15 @@
  * rebuilt only when the plain text changes from outside (picker insert,
  * conversation switch, send); typing edits the DOM directly and only syncs
  * the plain text back out.
+ *
+ * Mentions are plain text too: typing `@` opens a menu over the addresses
+ * that may be mentioned (the transcript's authors plus the reader), and
+ * picking one inserts `@address `. The structured mention list is derived
+ * from the text at send time (web/src/lib/chat.ts), so this editor never
+ * keeps a second copy of who was mentioned.
  */
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { shortName } from "@/lib/chat";
 import { emojiAsset } from "@/lib/emoji";
 
 export interface ChatInputHandle {
@@ -24,6 +31,8 @@ interface ChatInputProps {
   value: string;
   placeholder: string;
   maxLength: number;
+  /** Addresses the reader may mention, for the `@` menu. */
+  mentionables?: string[];
   onChange(text: string): void;
   onSend(): void;
 }
@@ -179,16 +188,79 @@ function setCaretAt(root: HTMLElement, offset: number): void {
   sel.addRange(range);
 }
 
+interface MentionState {
+  /** Plain-text offset of the `@` that opened the menu. */
+  start: number;
+  /** Plain-text offset of the caret, the end of the typed query. */
+  off: number;
+  query: string;
+  index: number;
+}
+
 export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function ChatInput(
-  { value, placeholder, maxLength, onChange, onSend },
+  { value, placeholder, maxLength, mentionables, onChange, onSend },
   ref,
 ) {
   const rootRef = useRef<HTMLDivElement>(null);
   const valueRef = useRef(value);
   const caret = useRef<number | null>(null);
   const ignoreSync = useRef(false);
+  const [mention, setMention] = useState<MentionState | null>(null);
 
   valueRef.current = value;
+  const participants = mentionables ?? [];
+
+  /** The `@word` the caret sits inside, or null when not mentioning. */
+  const activeMention = (): Omit<MentionState, "index"> | null => {
+    const root = rootRef.current;
+    if (!root) return null;
+    const plain = serializePlain(root);
+    const off = caretOffsetOf(root);
+    let start = -1;
+    for (let i = off - 1; i >= 0; i--) {
+      const c = plain[i];
+      if (c === undefined) break;
+      if (c === "@") {
+        start = i;
+        break;
+      }
+      if (/\s/.test(c)) return null;
+    }
+    if (start < 0) return null;
+    return { start, off, query: plain.slice(start + 1, off) };
+  };
+
+  const syncMention = () => {
+    const m = activeMention();
+    setMention(m ? { ...m, index: 0 } : null);
+  };
+
+  const matches =
+    mention === null
+      ? []
+      : participants
+          .filter((a) => a.toLowerCase().includes(mention.query.toLowerCase()))
+          .slice(0, 8);
+
+  const pickMention = (address: string) => {
+    const root = rootRef.current;
+    const plain = root ? serializePlain(root) : valueRef.current;
+    const m = activeMention();
+    if (!m) return;
+    const next = `${plain.slice(0, m.start)}@${address} ${plain.slice(m.off)}`;
+    if (next.length > maxLength) return;
+    const caretNext = m.start + address.length + 2;
+    caret.current = caretNext;
+    ignoreSync.current = true; // buildRich below already reflects `next`
+    onChange(next);
+    if (root) {
+      buildRich(root, next);
+      setCaretAt(root, caretNext);
+      caret.current = null;
+      root.focus();
+    }
+    setMention(null);
+  };
 
   // Rebuild the rich content only when the plain text changed from outside
   // (picker insert, conversation switch, send). Typing edits the DOM itself
@@ -235,74 +307,132 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   }));
 
   return (
-    <div
-      ref={rootRef}
-      className="chat-input chat-input-rich"
-      contentEditable
-      role="textbox"
-      aria-multiline="true"
-      data-placeholder={placeholder}
-      onInput={() => {
-        const root = rootRef.current;
-        if (!root) return;
-        const plain = serializePlain(root);
-        if (plain.length > maxLength) {
-          // Past the bound: rebuild from the last accepted value so the
-          // editor cannot outgrow what the store allows.
-          buildRich(root, valueRef.current.slice(0, maxLength));
-          setCaretAt(root, valueRef.current.length);
-          return;
-        }
-        if (plain !== valueRef.current) onChange(plain);
-        readCaret();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
+    <div className="chat-input-shell">
+      <div
+        ref={rootRef}
+        className="chat-input chat-input-rich"
+        contentEditable
+        role="textbox"
+        aria-multiline="true"
+        data-placeholder={placeholder}
+        onInput={() => {
+          const root = rootRef.current;
+          if (!root) return;
+          const plain = serializePlain(root);
+          if (plain.length > maxLength) {
+            // Past the bound: rebuild from the last accepted value so the
+            // editor cannot outgrow what the store allows.
+            buildRich(root, valueRef.current.slice(0, maxLength));
+            setCaretAt(root, valueRef.current.length);
+            return;
+          }
+          if (plain !== valueRef.current) onChange(plain);
+          readCaret();
+          syncMention();
+        }}
+        onKeyDown={(e) => {
+          if (mention) {
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              e.preventDefault();
+              if (matches.length) {
+                const step = e.key === "ArrowDown" ? 1 : -1;
+                setMention((m) =>
+                  m
+                    ? { ...m, index: (m.index + step + matches.length) % matches.length }
+                    : m,
+                );
+              }
+              return;
+            }
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setMention(null);
+              return;
+            }
+            if ((e.key === "Enter" || e.key === "Tab") && matches.length) {
+              e.preventDefault();
+              const target = matches[mention.index] ?? matches[0];
+              if (target) pickMention(target);
+              return;
+            }
+          }
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            onSend();
+            return;
+          }
+          if (e.key === "Enter" && e.shiftKey) {
+            // A newline as <br>, so serialization stays one \n per break.
+            e.preventDefault();
+            const root = rootRef.current;
+            const sel = window.getSelection();
+            if (root && sel?.rangeCount) {
+              const range = sel.getRangeAt(0);
+              range.deleteContents();
+              const br = document.createElement("br");
+              range.insertNode(br);
+              range.setStartAfter(br);
+              range.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(range);
+            }
+            return;
+          }
+          readCaret();
+        }}
+        onKeyUp={() => {
+          readCaret();
+          syncMention();
+        }}
+        onClick={() => {
+          readCaret();
+          syncMention();
+        }}
+        onBlur={() => {
+          readCaret();
+          setMention(null);
+        }}
+        onPaste={(e) => {
           e.preventDefault();
-          onSend();
-          return;
-        }
-        if (e.key === "Enter" && e.shiftKey) {
-          // A newline as <br>, so serialization stays one \n per break.
-          e.preventDefault();
+          const text = e.clipboardData?.getData("text/plain") ?? "";
           const root = rootRef.current;
           const sel = window.getSelection();
-          if (root && sel?.rangeCount) {
-            const range = sel.getRangeAt(0);
-            range.deleteContents();
-            const br = document.createElement("br");
-            range.insertNode(br);
-            range.setStartAfter(br);
-            range.collapse(true);
-            sel.removeAllRanges();
-            sel.addRange(range);
-          }
-          return;
-        }
-        readCaret();
-      }}
-      onKeyUp={readCaret}
-      onClick={readCaret}
-      onBlur={readCaret}
-      onPaste={(e) => {
-        e.preventDefault();
-        const text = e.clipboardData?.getData("text/plain") ?? "";
-        const root = rootRef.current;
-        const sel = window.getSelection();
-        if (!root || !sel?.rangeCount) return;
-        const range = sel.getRangeAt(0);
-        range.deleteContents();
-        const frag = document.createDocumentFragment();
-        const lines = text.replace(/\r\n?/g, "\n").split("\n");
-        lines.forEach((line, i) => {
-          if (i > 0) frag.append(document.createElement("br"));
-          if (line) frag.append(document.createTextNode(line));
-        });
-        range.insertNode(frag);
-        range.collapse(false);
-        sel.removeAllRanges();
-        sel.addRange(range);
-      }}
-    />
+          if (!root || !sel?.rangeCount) return;
+          const range = sel.getRangeAt(0);
+          range.deleteContents();
+          const frag = document.createDocumentFragment();
+          const lines = text.replace(/\r\n?/g, "\n").split("\n");
+          lines.forEach((line, i) => {
+            if (i > 0) frag.append(document.createElement("br"));
+            if (line) frag.append(document.createTextNode(line));
+          });
+          range.insertNode(frag);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          readCaret();
+          syncMention();
+        }}
+      />
+      {mention && matches.length > 0 && (
+        <div className="chat-mention-menu" role="listbox" aria-label="Mention a member">
+          {matches.map((a, i) => (
+            <button
+              key={a}
+              type="button"
+              role="option"
+              aria-selected={i === mention.index}
+              className={`chat-mention-item${i === mention.index ? " active" : ""}`}
+              onMouseDown={(e) => e.preventDefault()}
+              onMouseEnter={() => setMention((m) => (m ? { ...m, index: i } : m))}
+              onClick={() => pickMention(a)}
+              title={a}
+            >
+              @{shortName(a)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 });
