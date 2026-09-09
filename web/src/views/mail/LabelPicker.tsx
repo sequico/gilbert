@@ -1,7 +1,9 @@
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import type { Id } from "@/jmap/types";
+import { useEffectiveLabels, useIsGroupMailbox } from "@/lib/effectiveLabels";
 import { t } from "@/lib/i18n";
+import { labelKeywordFromName } from "@/lib/labelKeyword";
 import { useMail } from "@/store/mail";
 import { useSettings } from "@/store/settings";
 import { CALENDAR_COLORS } from "@/ui/misc";
@@ -19,7 +21,8 @@ export function LabelPicker({
   onClose: () => void;
   onApplied?: () => void;
 }) {
-  const labels = useSettings((s) => s.settings.labels);
+  const labels = useEffectiveLabels();
+  const inGroup = useIsGroupMailbox();
   const update = useSettings((s) => s.update);
   const emails = useMail((s) => s.emails);
   const setKeyword = useMail((s) => s.setKeyword);
@@ -33,11 +36,7 @@ export function LabelPicker({
   const create = () => {
     const name = q.trim();
     if (!name) return;
-    const keyword =
-      name
-        .toLowerCase()
-        .replace(/[^a-z0-9_.-]+/g, "_")
-        .replace(/^_+|_+$/g, "") || `label${Date.now()}`;
+    const keyword = labelKeywordFromName(name);
     if (labels.some((l) => l.keyword === keyword)) return;
     const color = CALENDAR_COLORS[labels.length % CALENDAR_COLORS.length]!;
     update({ labels: [...labels, { keyword, name, color }] });
@@ -66,7 +65,7 @@ export function LabelPicker({
               if (filtered.length === 1 && !creating) {
                 const l = filtered[0]!;
                 void setKeyword(ids, l.keyword, !has(l.keyword)).then(onApplied);
-              } else create();
+              } else if (!inGroup) create();
             }
           }}
         />
@@ -92,14 +91,15 @@ export function LabelPicker({
           </label>
         );
       })}
-      {q.trim() &&
+      {!inGroup &&
+        q.trim() &&
         !labels.some((l) => l.name.toLowerCase() === q.trim().toLowerCase()) && (
           <button className="menu-item" onClick={create}>
             <Plus size={16} />
             <span>{t("Create “{name}”", { name: q.trim() })}</span>
           </button>
         )}
-      {!labels.length && !q && (
+      {!inGroup && !labels.length && !q && (
         <div className="hint" style={{ padding: "4px 10px 8px" }}>
           {t("Type a name to create your first label.")}
         </div>

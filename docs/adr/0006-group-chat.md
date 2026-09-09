@@ -171,6 +171,34 @@ than anywhere a persistent work area sits.
    added to the existing one, and the volume cost of the latter (every
    settings.json save in a subscribed account would also POST).
 
+## Group label catalog (email)
+
+The same "group's own Files" rule covers the label catalog of a group
+mailbox (owner direction 2026-09-09): the labels that name a group's messages
+belong to the group, not to any member.
+
+- **Where it lives.** `labels.json` in the group account's own `gilbert` app
+  folder, beside the chat folders — the group is the owner from the start,
+  membership is the grant, no `shareWith`, no ACL maintenance.
+- **Shape.** An array of `Label` (`{ keyword, name, color, … }`), the same
+  shape as the personal `settings.labels`. The keyword is the stable identity
+  that rides on the messages; name, colour and nesting are display only.
+  Renaming a label therefore changes only the name — nothing in the mailbox
+  is rewritten, so there are no stale keywords by construction.
+- **Who does what.** Members read the catalog and apply or remove labels
+  through their own session on the group account (plain `Email/set` keywords)
+  — no impersonation, no extra privilege. Only an administrator defines or
+  changes the catalog, from the admin surface, through the existing
+  impersonation write (the same grant forced-password uses); an administrator
+  who is a member of that group needs no impersonation.
+- **Effective catalog.** Browsing a group mailbox uses the group's own
+  catalog, never the reader's personal labels; the reader's own mailbox keeps
+  the personal labels.
+- **Real-time.** `labels.json` is a FileNode, so a catalog edit rides the
+  existing FileNode push rail and re-reads on the members' side; keyword
+  changes on messages ride the Email push rail. Both are already the live
+  mechanisms.
+
 ## References
 
 - Supersedes: none. Related: ADR 0001 (admin group; ownership of group data),

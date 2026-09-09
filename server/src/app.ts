@@ -18,9 +18,11 @@ import {
   enableOtp,
   getState,
   isPasswordChangeForced,
+  readGroupLabels,
   revokeAppPassword,
   type SecurityState,
   setPasswordChangeDirective,
+  writeGroupLabels,
 } from "./account.js";
 import {
   parsePolicyDocumentDetailed,
@@ -51,6 +53,7 @@ import {
   ADMIN_GROUP_LOCAL,
   absoluteUpstream,
   expandTemplate,
+  fetchDirectoryGroups,
   fetchDirectoryUsers,
   fetchUpstreamSession,
   forgetUpstreamSession,
@@ -1094,46 +1097,22 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         { error: "bad_request", message: "The admin group is not an account to force." },
         400,
       );
-    const targetAuth = impersonationAuthorization(admin, target);
-    if (!targetAuth) {
-      // An admin signed in with an app password cannot impersonate: Stalwart
-      // refuses app passwords for impersonation (authentication.rs, checked
-      // 2026-09-07; still to be re-verified against a live 0.16 server with a
-      // dated comment per repo convention). A 2FA account can only sign in
-      // with an app password, so administering accounts is not available to
-      // such sessions until that is re-examined.
+    const imp = await impersonateAs(admin, target);
+    if (!imp.ok) {
       return c.json(
         {
-          error: "forbidden",
-          message:
-            "This admin session uses an app password, which Stalwart refuses for impersonation. Sign in with your password to administer accounts.",
+          error: imp.status === 404 ? "target_not_found" : "forbidden",
+          message: imp.message,
         },
-        403,
+        imp.status,
       );
-    }
-    let upstream: UpstreamSession;
-    try {
-      upstream = await fetchUpstreamSession(targetAuth, upstreamFor(target));
-    } catch (err) {
-      if (err instanceof UpstreamError && err.status === 401) {
-        // The composite credential either does not resolve to an account or
-        // the impersonation right is missing.
-        return c.json(
-          {
-            error: "target_not_found",
-            message: "No such account, or it cannot be administered by you.",
-          },
-          404,
-        );
-      }
-      return accountFailure(c, err);
     }
     // An administrator cannot force another administrator: the target's
     // impersonated session is their own, so membership of the admin group
     // shows up there the same way it does in any member's session. This also
     // covers the acting admin themselves (master == target degrades to a
     // plain login upstream).
-    if (isAdminSession(upstream)) {
+    if (isAdminSession(imp.ctx.session)) {
       return c.json(
         {
           error: "target_is_admin",
@@ -1143,11 +1122,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         403,
       );
     }
-    const ctx = {
-      authorization: targetAuth,
-      session: upstream,
-      username: target,
-    };
+    const ctx = imp.ctx;
     try {
       if (body.clear === true) await clearPasswordChangeDirective(ctx);
       else {
@@ -1295,6 +1270,96 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         502,
       );
     }
+  });
+
+  /**
+   * The group label catalog surface (ADR 0006): list group mailboxes and read
+   * or replace the labels.json in a group's own Files. Reading/writing a
+   * group the administrator is not a member of uses impersonation — the same
+   * grant the forced-password surface uses — so the administrator's session
+   * must be able to impersonate (an app-password sign-in cannot).
+   */
+  const impersonateAs = async (
+    session: LiveSession,
+    target: string,
+  ): Promise<
+    | {
+        ok: true;
+        ctx: { authorization: string; session: UpstreamSession; username: string };
+      }
+    | { ok: false; status: 403 | 404; message: string }
+  > => {
+    const targetAuth = impersonationAuthorization(session, target);
+    if (!targetAuth)
+      return {
+        ok: false,
+        status: 403,
+        message:
+          "This admin session uses an app password, which Stalwart refuses for impersonation. Sign in with your password to administer accounts.",
+      };
+    try {
+      const upstream = await fetchUpstreamSession(targetAuth, upstreamFor(target));
+      return {
+        ok: true,
+        ctx: { authorization: targetAuth, session: upstream, username: target },
+      };
+    } catch (err) {
+      if (err instanceof UpstreamError && err.status === 401)
+        return {
+          ok: false,
+          status: 404,
+          message: "No such account, or it cannot be administered by you.",
+        };
+      throw err;
+    }
+  };
+
+  api.get("/admin/groups", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    try {
+      const upstream = await getUpstreamSession(
+        session.id,
+        session.authorization,
+        upstreamFor(session.username),
+        true,
+      );
+      const directory = await fetchDirectoryGroups(session.authorization, upstream);
+      if ("denied" in directory)
+        return c.json({
+          groups: [],
+          enumeration: false,
+          enumerationMessage: directory.denied,
+        });
+      return c.json({ groups: directory.groups, enumeration: true });
+    } catch (err) {
+      if (err instanceof UpstreamError) return upstreamFailure(c, err);
+      console.error("[gilbert] directory groups query failed:", err);
+      return c.json(
+        { error: "directory_unavailable", message: (err as Error).message },
+        502,
+      );
+    }
+  });
+
+  api.get("/admin/groups/:name/labels", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    const name = c.req.param("name") ?? "";
+    const imp = await impersonateAs(session, name);
+    if (!imp.ok) return c.json({ error: "forbidden", message: imp.message }, imp.status);
+    const labels = await readGroupLabels(imp.ctx);
+    return c.json({ labels: labels ?? [] });
+  });
+
+  api.post("/admin/groups/:name/labels", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    const name = c.req.param("name") ?? "";
+    const body = await readJson<{ labels?: unknown }>(c);
+    if (!body || !Array.isArray(body.labels))
+      return c.json({ error: "bad_request", message: "labels must be an array" }, 400);
+    const imp = await impersonateAs(session, name);
+    if (!imp.ok) return c.json({ error: "forbidden", message: imp.message }, imp.status);
+    await writeGroupLabels(imp.ctx, body.labels);
+    return c.json({ ok: true });
   });
 
   // ---------- JMAP API proxy ----------

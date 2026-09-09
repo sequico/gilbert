@@ -81,6 +81,18 @@ export function isOwnMailAccount(
 }
 
 /**
+ * Whether the account on screen is a group mailbox rather than the reader's
+ * own. The one classifier for "is this a group context" in the mail UI: a
+ * non-own account being browsed is a group mailbox.
+ */
+export function isGroupMailbox(
+  accountId: string | null,
+  ownAccountId: string | null,
+): boolean {
+  return Boolean(accountId && ownAccountId && accountId !== ownAccountId);
+}
+
+/**
  * Whether an account name is the product-admin group mailbox: local part
  * `gilbert-admin` on whatever domain the server registered it. Mirrors the
  * server-side membership rule in `server/src/upstream.ts` (ADR 0001) -- the

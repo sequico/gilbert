@@ -1,9 +1,10 @@
-import { Info, ShieldCheck, Users } from "lucide-react";
+import { Info, ShieldCheck, Tag, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { t } from "@/lib/i18n";
 import { type SectionItem, SectionShell } from "@/ui/SectionShell";
 import { AdminPolicy } from "@/views/admin/AdminPolicy";
 import { AdminUsers } from "@/views/admin/AdminUsers";
+import { GroupLabels } from "@/views/admin/GroupLabels";
 import { AboutSettings } from "@/views/settings/AboutSettings";
 
 const SECTIONS: Array<SectionItem & { el: ReactNode }> = [
@@ -18,6 +19,12 @@ const SECTIONS: Array<SectionItem & { el: ReactNode }> = [
     label: t("Force passwords"),
     icon: <Users size={18} />,
     el: <AdminUsers />,
+  },
+  {
+    id: "group-labels",
+    label: t("Group labels"),
+    icon: <Tag size={18} />,
+    el: <GroupLabels />,
   },
   { id: "about", label: "About", icon: <Info size={18} />, el: <AboutSettings /> },
 ];

@@ -348,6 +348,7 @@ export { MASKED };
  */
 export const APP_FOLDER_NAME = "gilbert";
 export const PASSWORD_CHANGE_DIRECTIVE = "must-change-password.json";
+export const GROUP_LABELS_FILE = "labels.json";
 
 const FILENODE_CAP = "urn:ietf:params:jmap:filenode";
 /** Properties needed to find a node by name and parent. */
@@ -468,12 +469,13 @@ async function downloadBlobText(
   accountId: string,
   blobId: string,
   type: string,
+  name: string = PASSWORD_CHANGE_DIRECTIVE,
 ): Promise<string> {
   const url = absoluteUpstream(
     expandTemplate(ctx.session.downloadUrl, {
       accountId,
       blobId,
-      name: PASSWORD_CHANGE_DIRECTIVE,
+      name,
       type,
     }),
     ctx.session.baseUrl,
@@ -493,13 +495,13 @@ async function downloadBlobText(
 }
 
 /**
- * The app folder and the directive file inside it, when both exist.
- * `folderId` is empty when the folder does not exist; `file` is null when
- * the file does not.
+ * A named file in the app folder, when present. `folderId` is empty when the
+ * folder does not exist; `file` is null when the file does not.
  */
-async function findDirective(
+async function findAppFile(
   ctx: Ctx,
   accountId: string,
+  name: string,
 ): Promise<{ folderId: string; file: FileNodeLike | null }> {
   const top = await fileChildren(ctx, accountId, null, FOLDER_PROPS);
   const folder = top.find(
@@ -510,10 +512,7 @@ async function findDirective(
   const files = await fileChildren(ctx, accountId, folderId, FILE_PROPS);
   const file =
     files.find(
-      (n) =>
-        n.nodeType === "file" &&
-        n.name === PASSWORD_CHANGE_DIRECTIVE &&
-        typeof n.blobId === "string",
+      (n) => n.nodeType === "file" && n.name === name && typeof n.blobId === "string",
     ) ?? null;
   return { folderId, file };
 }
@@ -531,7 +530,7 @@ export async function isPasswordChangeForced(ctx: Ctx): Promise<boolean> {
   try {
     const accountId = filesAccountId(ctx);
     if (!accountId) return false;
-    const { file } = await findDirective(ctx, accountId);
+    const { file } = await findAppFile(ctx, accountId, PASSWORD_CHANGE_DIRECTIVE);
     if (!file) return false;
     let text: string;
     try {
@@ -589,24 +588,18 @@ async function ensureAppFolder(ctx: Ctx, accountId: string): Promise<string> {
 }
 
 /**
- * Write (or refresh) the directive naming `setBy`, the administrator who
- * set it. Creates the account's `gilbert` app folder when it does not exist
- * yet, exactly as the client would when saving its own state.
+ * Write (or replace) a named JSON document in the app folder, creating the
+ * folder when missing. `value` is serialised by the upload path.
  */
-export async function setPasswordChangeDirective(ctx: Ctx, setBy: string): Promise<void> {
-  const accountId = filesAccountId(ctx);
-  if (!accountId)
-    throw new AccountError(
-      "This account has no Files account to hold the directive.",
-      502,
-      "upstream",
-    );
+async function writeAppFile(
+  ctx: Ctx,
+  accountId: string,
+  name: string,
+  value: unknown,
+): Promise<void> {
   const folderId = await ensureAppFolder(ctx, accountId);
-  const blobId = await uploadJsonBlob(ctx, accountId, {
-    setAt: new Date().toISOString(),
-    setBy,
-  });
-  const { file } = await findDirective(ctx, accountId);
+  const blobId = await uploadJsonBlob(ctx, accountId, value);
+  const { file } = await findAppFile(ctx, accountId, name);
   const type = "application/json";
   if (file?.id) {
     const res = await jmapFile(ctx, [
@@ -626,7 +619,7 @@ export async function setPasswordChangeDirective(ctx: Ctx, setBy: string): Promi
           create: {
             n: {
               parentId: folderId,
-              name: PASSWORD_CHANGE_DIRECTIVE,
+              name,
               blobId,
               type,
               nodeType: "file",
@@ -641,16 +634,72 @@ export async function setPasswordChangeDirective(ctx: Ctx, setBy: string): Promi
 }
 
 /**
+ * Write (or refresh) the directive naming `setBy`, the administrator who
+ * set it. Creates the account's `gilbert` app folder when it does not exist
+ * yet, exactly as the client would when saving its own state.
+ */
+export async function setPasswordChangeDirective(ctx: Ctx, setBy: string): Promise<void> {
+  const accountId = filesAccountId(ctx);
+  if (!accountId)
+    throw new AccountError(
+      "This account has no Files account to hold the directive.",
+      502,
+      "upstream",
+    );
+  await writeAppFile(ctx, accountId, PASSWORD_CHANGE_DIRECTIVE, {
+    setAt: new Date().toISOString(),
+    setBy,
+  });
+}
+
+/**
  * Remove the directive file from the principal's own app folder. Nothing to
  * do (and nothing done) when it is not there.
  */
 export async function clearPasswordChangeDirective(ctx: Ctx): Promise<void> {
   const accountId = filesAccountId(ctx);
   if (!accountId) return;
-  const { folderId, file } = await findDirective(ctx, accountId);
+  const { folderId, file } = await findAppFile(ctx, accountId, PASSWORD_CHANGE_DIRECTIVE);
   if (!folderId || !file?.id) return;
   const res = await jmapFile(ctx, [
     ["FileNode/set", { accountId, destroy: [String(file.id)] }, "s"],
   ]);
   setResult(res, "destroyed");
+}
+
+/* ------------------------------------------------------------------ */
+/* Group label catalog (ADR 0006)                                     */
+/* ------------------------------------------------------------------ */
+
+/** Read a group's label catalog, or null when it has none or is unreadable. */
+export async function readGroupLabels(ctx: Ctx): Promise<unknown[] | null> {
+  const accountId = filesAccountId(ctx);
+  if (!accountId) return null;
+  const { file } = await findAppFile(ctx, accountId, GROUP_LABELS_FILE);
+  if (!file) return null;
+  try {
+    const text = await downloadBlobText(
+      ctx,
+      accountId,
+      String(file.blobId),
+      "application/json",
+      GROUP_LABELS_FILE,
+    );
+    const parsed = JSON.parse(text) as { labels?: unknown };
+    return Array.isArray(parsed?.labels) ? parsed.labels : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Write (or replace) a group's label catalog, creating the app folder as needed. */
+export async function writeGroupLabels(ctx: Ctx, labels: unknown[]): Promise<void> {
+  const accountId = filesAccountId(ctx);
+  if (!accountId)
+    throw new AccountError(
+      "This account has no Files account to hold the label catalog.",
+      502,
+      "upstream",
+    );
+  await writeAppFile(ctx, accountId, GROUP_LABELS_FILE, { labels });
 }

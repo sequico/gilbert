@@ -32,6 +32,7 @@ import { playNewMailSound, showNotification } from "@/lib/notify";
 import type { FolderRef } from "@/lib/sieveFolders";
 import { SPAM_HEADER_PROPS } from "@/lib/spamScore";
 import { toast } from "@/ui/toast";
+import { labelsForAccount } from "./groupLabels";
 import { useSession } from "./session";
 import { settings, useSettings } from "./settings";
 import { useSieve } from "./sieve";
@@ -1416,7 +1417,7 @@ export const useMail = create<MailState>((set, get) => ({
   },
   async loadLabelCounts() {
     const accountId = get().accountId;
-    const labels = settings().labels;
+    const labels = labelsForAccount(accountId, get().ownAccountId, settings().labels);
     if (!accountId || !labels.length) {
       if (Object.keys(get().labelCounts).length) set({ labelCounts: {} });
       return;

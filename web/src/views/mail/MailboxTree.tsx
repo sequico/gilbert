@@ -35,10 +35,12 @@ import {
 } from "react";
 import { Link, useLocation } from "wouter";
 import type { Id, Mailbox } from "@/jmap/types";
+import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { canEmpty, confirmAndEmpty, emptyLabel } from "@/lib/emptyFolder";
 import { canDropFolder, folderColor, movable } from "@/lib/folderMove";
 import { plural, t } from "@/lib/i18n";
 import { labelTree, visibleLabels } from "@/lib/labelTree";
+import { isGroupMailbox } from "@/lib/mailAccounts";
 import { mailboxDisplayName } from "@/lib/mailboxName";
 import { loadRaw, saveJson } from "@/lib/storage";
 import { haptic, useTouchRow } from "@/lib/touch";
@@ -156,7 +158,7 @@ export function MailboxTree() {
   const [location, navigate] = useLocation();
   const currentId = location.startsWith("/mail/") ? location.split("/")[2] : undefined;
   const showHidden = useSettings((s) => s.settings.showHiddenFolders);
-  const labels = useSettings((s) => s.settings.labels);
+  const labels = useEffectiveLabels();
   const labelsSidebar = useSettings((s) => s.settings.labelsSidebar);
   const labelCounts = useMail((s) => s.labelCounts);
   const shownLabels = useMemo(
@@ -237,7 +239,7 @@ export function MailboxTree() {
    * the *other* accounts below are read-only launchers: opening a folder
    * there switches the active account to its owner.
    */
-  const inGroup = Boolean(ownAccountId && accountId && accountId !== ownAccountId);
+  const inGroup = isGroupMailbox(accountId, ownAccountId);
   const activeAccountName = mailAccounts.find((a) => a.accountId === accountId)?.name;
   /*
    * The mailbox sections under the active tree: every other mailbox account --

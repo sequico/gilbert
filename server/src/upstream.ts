@@ -420,10 +420,11 @@ export async function getAccountInfo(
  * consulted - Stalwart exposes roles only through its own administration
  * surfaces, never over JMAP.
  */
-export async function fetchDirectoryUsers(
+export async function fetchDirectoryPrincipals(
   authorization: string,
   session: UpstreamSession,
-): Promise<{ users: Array<{ id: string; name: string }> } | { denied: string }> {
+  kind: "individual" | "group",
+): Promise<{ principals: Array<{ id: string; name: string }> } | { denied: string }> {
   // The account that owns the principals capability, picked the way the
   // client picks it: the personal account advertising it, then any account
   // that does.
@@ -437,7 +438,7 @@ export async function fetchDirectoryUsers(
     withCap.find(([, a]) => (a as { isPersonal?: unknown }).isPersonal === true) ??
     withCap[0];
   const accountId = personal?.[0] ?? accounts[0]?.[0];
-  if (!accountId) return { users: [] };
+  if (!accountId) return { principals: [] };
 
   const post = async (
     methodCalls: unknown[][],
@@ -490,7 +491,7 @@ export async function fetchDirectoryUsers(
       "Principal/query",
     );
     const ids = (query.ids as string[] | undefined) ?? [];
-    if (!ids.length) return { users: [] };
+    if (!ids.length) return { principals: [] };
     const got = await method(
       [
         [
@@ -505,8 +506,8 @@ export async function fetchDirectoryUsers(
       (got.list as
         | Array<{ id?: string; type?: unknown; name?: unknown; email?: unknown }>
         | undefined) ?? [];
-    const users = list
-      .filter((p) => p.type === "individual")
+    const principals = list
+      .filter((p) => p.type === kind)
       .map((p) => {
         const name = String(p.email ?? p.name ?? "")
           .trim()
@@ -514,11 +515,28 @@ export async function fetchDirectoryUsers(
         return typeof p.id === "string" && name ? { id: p.id, name } : null;
       })
       .filter((p): p is { id: string; name: string } => p !== null);
-    return { users };
+    return { principals };
   } catch (err) {
     if (err instanceof DirectoryQueryDenied) return { denied: err.message };
     throw err;
   }
+}
+
+export async function fetchDirectoryUsers(
+  authorization: string,
+  session: UpstreamSession,
+): Promise<{ users: Array<{ id: string; name: string }> } | { denied: string }> {
+  const result = await fetchDirectoryPrincipals(authorization, session, "individual");
+  return "denied" in result ? { denied: result.denied } : { users: result.principals };
+}
+
+/** Group mailboxes on this server (for the admin group-labels surface). */
+export async function fetchDirectoryGroups(
+  authorization: string,
+  session: UpstreamSession,
+): Promise<{ groups: Array<{ id: string; name: string }> } | { denied: string }> {
+  const result = await fetchDirectoryPrincipals(authorization, session, "group");
+  return "denied" in result ? { denied: result.denied } : { groups: result.principals };
 }
 
 /** The directory gate closed on this session (see fetchDirectoryUsers). */

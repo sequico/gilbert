@@ -1,6 +1,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { t, tNode } from "@/lib/i18n";
+import { labelKeywordFromName } from "@/lib/labelKeyword";
 import { descendantKeywords, labelTree } from "@/lib/labelTree";
 import { type LabelVisibility, useSettings } from "@/store/settings";
 import { promptDialog } from "@/ui/dialog";
@@ -19,12 +20,7 @@ export function LabelsSettings() {
       placeholder: t("Label name"),
     });
     if (!name?.trim()) return;
-    const keyword =
-      name
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9_.-]+/g, "_")
-        .replace(/^_+|_+$/g, "") || `label${Date.now()}`;
+    const keyword = labelKeywordFromName(name);
     if (labels.some((l) => l.keyword === keyword)) return;
     update({
       labels: [

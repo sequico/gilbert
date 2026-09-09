@@ -50,6 +50,7 @@ import {
   archivePath,
   groupByArchivePath,
 } from "@/lib/archiveDate";
+import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { canEmpty, confirmAndEmpty, emptyLabel } from "@/lib/emptyFolder";
 import { formatListDate } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
@@ -1038,7 +1039,7 @@ const Row = memo(function Row({
   onSwipeState,
   onSwipeFire,
 }: RowProps) {
-  const labels = useSettings((s) => s.settings.labels);
+  const labels = useEffectiveLabels();
   // Subscribed purely so the row re-renders when the date format changes.
   useSettings((s) => dateTimeKey(s.settings));
   const inScope = threadEmails

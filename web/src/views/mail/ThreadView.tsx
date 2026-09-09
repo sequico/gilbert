@@ -23,6 +23,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { client } from "@/jmap/client";
 import type { Email, Id } from "@/jmap/types";
+import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { plural, t } from "@/lib/i18n";
 import { threadScrollTarget } from "@/lib/threadScroll";
 import { useEdgeBack } from "@/lib/touch";
@@ -64,7 +65,7 @@ export function ThreadView({
   const loading = useMail((s) => Boolean(s.loadingThreads[threadId]));
   const mailboxes = useMail((s) => s.mailboxes);
   const settings = useSettings((s) => s.settings);
-  const labels = settings.labels;
+  const labels = useEffectiveLabels();
   const reply = useCompose((s) => s.reply);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<Id, boolean>>({});
