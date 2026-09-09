@@ -1182,13 +1182,39 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         );
       return dropped;
     }
-    const res = await client.call<SetResponse>("CalendarEvent/set", {
-      accountId,
-      update: { [id]: body },
-      sendSchedulingMessages: sendInvites,
-    });
-    const err = res.notUpdated?.[id];
-    if (err) throw new CalendarSetError(err);
+    // Show the change at once instead of snapping back until the refresh
+    // lands: patch the cached copy now and restore it if the server refuses.
+    // Only single events have a cached copy under `id` here; a series or an
+    // occurrence resolves to an id the cache does not hold, so this leaves
+    // them alone and the silent refresh below still picks up their result.
+    const previous = get().events[id];
+    if (previous) {
+      const optimistic = { ...previous, ...(body as object) } as CalendarEvent;
+      if (typeof body.start === "string" && previous.utcStart && previous.utcEnd) {
+        // Timed events carry utcStart/utcEnd beside the zoned start, and
+        // toInstance reads the utc pair first -- it has to move with the move.
+        const delta = new Date(body.start).getTime() - new Date(previous.start).getTime();
+        if (!Number.isNaN(delta)) {
+          const us = new Date(previous.utcStart).getTime();
+          const ue = new Date(previous.utcEnd).getTime();
+          if (!Number.isNaN(us)) optimistic.utcStart = new Date(us + delta).toISOString();
+          if (!Number.isNaN(ue)) optimistic.utcEnd = new Date(ue + delta).toISOString();
+        }
+      }
+      set((s) => ({ events: { ...s.events, [id]: optimistic } }));
+    }
+    try {
+      const res = await client.call<SetResponse>("CalendarEvent/set", {
+        accountId,
+        update: { [id]: body },
+        sendSchedulingMessages: sendInvites,
+      });
+      const err = res.notUpdated?.[id];
+      if (err) throw new CalendarSetError(err);
+    } catch (err) {
+      if (previous) set((s) => ({ events: { ...s.events, [id]: previous } }));
+      throw err;
+    }
     get().refreshWindows();
     return dropped;
   },

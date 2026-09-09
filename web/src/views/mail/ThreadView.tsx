@@ -121,6 +121,23 @@ export function ThreadView({
   }, [thread, emails, fullIds, mailboxId]);
 
   /*
+   * Keep the previous conversation on screen while a newly opened one loads:
+   * the pane must never swap to a spinner over content that was already
+   * there. The store keeps the ids of the last conversation that finished
+   * loading, and those emails are still cached, so they stand in for the
+   * moment the new one takes to arrive (stale-while-revalidate). Once the
+   * load ends, an empty thread is empty -- never the previous one.
+   */
+  const lastThreadEmailIds = useMail((s) => s.lastThreadEmailIds);
+  const shown = useMemo(() => {
+    if (messages.length) return messages;
+    if (!loading) return [];
+    return lastThreadEmailIds
+      .map((id) => emails[id])
+      .filter((e): e is Email => Boolean(e && fullIds[e.id]));
+  }, [messages, loading, lastThreadEmailIds, emails, fullIds]);
+
+  /*
    * Which messages were unread when this conversation was opened.
    *
    * Expansion and the unread bar used to read `$seen` directly, so the moment
@@ -445,8 +462,8 @@ export function ThreadView({
             {error}
           </div>
         )}
-        {loading && !messages.length && <Spinner label={t("Loading conversation…")} />}
-        {messages.map((e, i) => (
+        {loading && !shown.length && <Spinner label={t("Loading conversation…")} />}
+        {shown.map((e, i) => (
           <MessageView
             key={e.id}
             email={e}

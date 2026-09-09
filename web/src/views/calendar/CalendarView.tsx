@@ -38,7 +38,13 @@ import { formatMonthYear, formatTime } from "@/lib/format";
 import { t as translate } from "@/lib/i18n";
 import { keyboard } from "@/lib/keyboard";
 import { useSwipeNav } from "@/lib/touch";
-import { type EventInstance, participantAddresses, useCalendar } from "@/store/calendar";
+import {
+  type EventInstance,
+  isOccurrence,
+  isRecurring,
+  participantAddresses,
+  useCalendar,
+} from "@/store/calendar";
 import { useSettings } from "@/store/settings";
 import { Empty, useIsMobile, useIsTouch } from "@/ui/misc";
 import type { Anchor } from "@/ui/popover";
@@ -196,7 +202,13 @@ export function CalendarView({
     async (inst: EventInstance, patch: DragPatch) => {
       const ev = inst.event;
       if (!patch.start && !patch.duration) return;
-      const scope = await askEditScope(ev);
+      // Only a recurring occurrence has a scope question; everything else is
+      // a whole-series change answered without a dialog. Skipping the dialog
+      // round-trip keeps the drop synchronous, so the optimistic move in
+      // `updateEvent` lands in the same frame and the chip does not snap back
+      // to its old slot before jumping forward.
+      const scope =
+        isRecurring(ev) && isOccurrence(ev) ? await askEditScope(ev) : "series";
       if (!scope) return;
       try {
         const dropped = await runScoped(scope, (sc) =>

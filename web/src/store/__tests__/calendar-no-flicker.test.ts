@@ -179,3 +179,145 @@ describe("calendar writes do not clear what is on screen", () => {
     expect(state.loading).toBe(false);
   });
 });
+
+describe("calendar writes apply the optimistic copy synchronously", () => {
+  let resolveSet: (() => void) | null = null;
+
+  /** A server whose CalendarEvent/set is held until the test releases it. */
+  const holdSet = () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        const body = JSON.parse(init.body as string) as {
+          methodCalls: [string, Record<string, unknown>, string][];
+        };
+        const methodResponses: unknown[] = [];
+        for (const [name, args, id] of body.methodCalls) {
+          if (name === "CalendarEvent/set") {
+            methodResponses.push([
+              name,
+              {
+                accountId: args.accountId,
+                state: "2",
+                created: {},
+                updated: Object.fromEntries(
+                  Object.keys((args.update as Record<string, unknown>) ?? {}).map((k) => [
+                    k,
+                    null,
+                  ]),
+                ),
+                notUpdated: {},
+                notDestroyed: {},
+              },
+              id,
+            ]);
+          } else if (name === "CalendarEvent/query") {
+            methodResponses.push([name, { accountId: args.accountId, ids: ["e1"] }, id]);
+          } else {
+            methodResponses.push([
+              name,
+              { accountId: args.accountId, list: [EVENT] },
+              id,
+            ]);
+          }
+        }
+        if (body.methodCalls.some(([n]) => n === "CalendarEvent/set"))
+          return await new Promise<Response>((resolve) => {
+            resolveSet = () =>
+              resolve({
+                ok: true,
+                status: 200,
+                json: async () => ({ methodResponses }),
+              } as Response);
+          });
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ methodResponses }),
+        } as Response;
+      }),
+    );
+  };
+
+  beforeEach(() => {
+    useCalendar.setState({
+      accountId: "a1",
+      available: true,
+      calendars: { c1: CALENDAR },
+      sharedCalendars: [],
+      events: { e1: { ...EVENT, start: "2026-09-04T09:00:00" } },
+      ranges: { [KEY]: ["e1"] },
+      loading: false,
+      error: null,
+      sharedEvents: {},
+      sharedRanges: {},
+      identities: [],
+      hidden: {},
+      subscriptionEvents: {},
+      subscriptionErrors: {},
+      subscriptionsLoading: false,
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    resolveSet = null;
+  });
+
+  it("shows the new position before the server answers", async () => {
+    holdSet();
+    const saving = useCalendar
+      .getState()
+      .updateEvent(EVENT, { start: "2026-09-05T09:00:00" }, false, "series");
+    // Synchronous: no await separates the drop from the optimistic copy, so
+    // the chip never snaps back to its old slot.
+    expect(useCalendar.getState().events.e1?.start).toBe("2026-09-05T09:00:00");
+    // The set request starts on the next microtask; release it once in flight.
+    await vi.waitFor(() => expect(resolveSet).not.toBeNull());
+    resolveSet?.();
+    await saving;
+  });
+
+  it("restores the old copy when the server refuses the write", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        const body = JSON.parse(init.body as string) as {
+          methodCalls: [string, Record<string, unknown>, string][];
+        };
+        const methodResponses: unknown[] = [];
+        for (const [name, args, id] of body.methodCalls) {
+          if (name === "CalendarEvent/set")
+            methodResponses.push([
+              name,
+              {
+                accountId: args.accountId,
+                notUpdated: { e1: { type: "invalidProperties" } },
+              },
+              id,
+            ]);
+          else if (name === "CalendarEvent/query")
+            methodResponses.push([name, { accountId: args.accountId, ids: ["e1"] }, id]);
+          else
+            methodResponses.push([
+              name,
+              { accountId: args.accountId, list: [EVENT] },
+              id,
+            ]);
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ methodResponses }),
+        } as Response;
+      }),
+    );
+    await expect(
+      useCalendar
+        .getState()
+        .updateEvent(EVENT, { start: "2026-09-05T09:00:00" }, false, "series"),
+    ).rejects.toThrow();
+    expect(useCalendar.getState().events.e1?.start).toBe("2026-09-04T09:00:00");
+  });
+});

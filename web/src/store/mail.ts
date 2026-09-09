@@ -170,6 +170,8 @@ export interface MailState {
   anchorId: Id | null;
   loadingThreads: Record<Id, true>;
   lastSeenInboxEmailIds: Id[] | null;
+  /** Ids of the last conversation that finished loading (for the reading pane). */
+  lastThreadEmailIds: Id[];
   openThreadId: Id | null;
   setOpenThread(id: Id | null): void;
 
@@ -316,6 +318,7 @@ export const useMail = create<MailState>((set, get) => ({
   anchorId: null,
   loadingThreads: {},
   lastSeenInboxEmailIds: null,
+  lastThreadEmailIds: [],
   openThreadId: null,
 
   setOpenThread(id) {
@@ -702,6 +705,9 @@ export const useMail = create<MailState>((set, get) => ({
           fullIds: nextFull,
           threads: { ...s.threads, [threadId]: thread },
           loadingThreads: rest,
+          // The ids of the last conversation that finished loading: the pane
+          // keeps showing them while a newly opened one is still loading.
+          lastThreadEmailIds: thread.emailIds,
         };
       });
       return get().threadEmails(threadId);
