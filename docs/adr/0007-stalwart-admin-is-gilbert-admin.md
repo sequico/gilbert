@@ -1,6 +1,6 @@
 # ADR 0007 — Stalwart admin is the Gilbert admin (the `gilbert-admin` group is removed)
 
-Status: Proposed (2026-09-09)
+Status: Accepted (2026-09-09)
 
 > Owner direction (2026-09-09): keep it simple. A signed-in user who is a
 > Stalwart admin becomes a Gilbert admin — the shield and every admin
