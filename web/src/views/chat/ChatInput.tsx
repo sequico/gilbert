@@ -44,7 +44,7 @@ function serializePlain(root: HTMLElement): string {
   let out = "";
   const walk = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
-      out += node.textContent ?? "";
+      out += (node.textContent ?? "").replace(/\u200B/g, "");
       return;
     }
     if (node instanceof HTMLImageElement) {
@@ -116,6 +116,9 @@ function buildRich(root: HTMLElement, text: string, addresses: string[]): void {
     }
   });
   root.append(frag);
+  // Keep a trailing space alive in the contenteditable: the zero-width
+  // space is a caret anchor, stripped again by serializePlain.
+  if (text.endsWith(" ")) root.append(document.createTextNode("\u200B"));
 }
 
 /** The plain-text offset of the collapsed selection inside the editor. */
@@ -133,7 +136,8 @@ function caretOffsetOf(root: HTMLElement): number {
       stop = true;
       return;
     }
-    if (node.nodeType === Node.TEXT_NODE) length += node.textContent?.length ?? 0;
+    if (node.nodeType === Node.TEXT_NODE)
+      length += (node.textContent ?? "").replace(/\u200B/g, "").length;
     else if (node instanceof HTMLImageElement) length += 1;
     else if (node instanceof HTMLBRElement) length += 1;
     else if (node instanceof HTMLElement && node.dataset.address !== undefined)
@@ -157,7 +161,7 @@ function setCaretAt(root: HTMLElement, offset: number): void {
   const visit = (node: Node, parent: Node, index: number) => {
     if (placed) return;
     if (node.nodeType === Node.TEXT_NODE) {
-      const len = node.textContent?.length ?? 0;
+      const len = (node.textContent ?? "").replace(/\u200B/g, "").length;
       if (remaining <= len) {
         range.setStart(node, remaining);
         range.collapse(true);
@@ -339,31 +343,6 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     return hits.length === 1 ? (hits[0] ?? null) : null;
   };
 
-  /** Auto-commit `@ada ` typed inline when it resolves to exactly one member. */
-  const autoResolveMention = () => {
-    const root = rootRef.current;
-    if (!root) return;
-    const plain = serializePlain(root);
-    const off = caretOffsetOf(root);
-    if (plain[off - 1] !== " ") return;
-    let start = -1;
-    for (let i = off - 2; i >= 0; i--) {
-      const c = plain[i];
-      if (c === undefined) break;
-      if (c === "@") {
-        start = i;
-        break;
-      }
-      if (/\s/.test(c)) break;
-    }
-    if (start < 0) return;
-    const query = plain.slice(start + 1, off - 1);
-    if (!query) return;
-    const match = uniqueParticipantFor(query);
-    if (!match) return;
-    commitMention(start, off - 1, match, start + 1 + match.length + 1, "");
-  };
-
   // Rebuild the rich content only when the plain text changed from outside
   // (picker insert, conversation switch, send). Typing edits the DOM itself
   // and reports back through onInput; rebuilding there would eat the caret.
@@ -431,9 +410,19 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           if (plain !== valueRef.current) onChange(plain);
           readCaret();
           syncMention();
-          autoResolveMention();
         }}
         onKeyDown={(e) => {
+          if (e.key === " ") {
+            const m = activeMention();
+            if (m?.query) {
+              const match = uniqueParticipantFor(m.query);
+              if (match) {
+                e.preventDefault();
+                commitMention(m.start, m.off, match, m.start + match.length + 2, " ");
+                return;
+              }
+            }
+          }
           if (mention) {
             if (e.key === "ArrowDown" || e.key === "ArrowUp") {
               e.preventDefault();
@@ -515,7 +504,6 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           sel.addRange(range);
           readCaret();
           syncMention();
-          autoResolveMention();
         }}
       />
       {mention && matches.length > 0 && (
