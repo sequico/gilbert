@@ -132,48 +132,42 @@ export function forgetUpstreamSession(sessionId: string): void {
 }
 
 /**
- * The admin group: a non-personal group account whose local part is
- * `gilbert-admin`, one per Stalwart server, registered by the operator on any
- * domain that server serves (ADR 0001). Membership is the grant: the group is
- * a non-personal account that only its members can see, so it appears in the
- * member's JMAP session accounts. Members need no external email alias —
- * membership alone enables the admin functions.
+ * Whether a resolved `/api/account` permission list marks a Stalwart admin
+ * (ADR 0007).
  *
- * The match is by local part, whatever domain the group was registered on and
- * whatever domain the member's own address uses: on a multi-domain server the
- * one registration grants on every domain the server serves. The grant is
- * server-scoped, never tied to the member's own domain.
+ * JMAP exposes no role or principal attribute, so the one non-forgeable
+ * runtime signal is the account's own permission list, read by
+ * self-introspection at sign-in and re-checked on every privileged call.
+ * The marker is the configured `adminPermissionMarker`, default
+ * `sysAccountCreate` (live-verified 2026-09-09, Stalwart 0.16.21); the
+ * recovery admin token reports every permission, marker included. A list
+ * without the marker — or no list at all — resolves to non-admin: the
+ * decision fails closed.
  */
-export const ADMIN_GROUP_LOCAL = "gilbert-admin";
-
-/** Whether this upstream session proves membership of the admin group. */
-export function isAdminSession(session: UpstreamSession): boolean {
-  return Object.values(session.accounts ?? {}).some((a) => {
-    const account = a as { name?: unknown; isPersonal?: unknown };
-    if (account.isPersonal !== false || typeof account.name !== "string") return false;
-    const name = account.name.trim().toLowerCase();
-    const at = name.indexOf("@");
-    return at > 0 && name.slice(0, at) === ADMIN_GROUP_LOCAL;
-  });
+export function isStalwartAdmin(
+  permissions: readonly string[] | null | undefined,
+): boolean {
+  return !!permissions && permissions.includes(config.adminPermissionMarker);
 }
 
 /**
  * Whether the session holds a group mailbox to chat in (ADR 0006): a
- * non-personal account that is not the product-admin group. The admin group
- * is an administration surface, not a working group, so it never counts.
+ * non-personal account with an address. Any non-personal account counts for
+ * the chat push rail — there is no product-admin group to exclude since ADR
+ * 0007 removed it, and a group mailbox that shares mail is a working group.
  *
- * The match is deliberately by name only, like `isAdminSession`: a calendar
- * or files share is a non-personal account too, and this may count it. The
- * cost of being generous is one subscription whose `types` includes FileNode
- * -- an extra StateChange POST when that account's own nodes change -- which
- * is the volume trade the ADR records as settled at implementation.
+ * The match is deliberately by name shape only: a calendar or files share
+ * can be a non-personal account too, and this may count it. The cost of
+ * being generous is one subscription whose `types` includes FileNode — an
+ * extra StateChange POST when that account's own nodes change — which is
+ * the volume trade the ADR records as settled at implementation.
  *
  * This server-side rule is the wire-level superset of the client's
  * `groupMailboxAccounts` (web/src/lib/mailAccounts.ts), which probes actual
- * mailbox trees and excludes the admin group. It must never be *narrower*
- * than the client's offer: if the client offers chat for an account this
- * rule misses, that account's FileNode changes never POST and the chat goes
- * silently stale. When the two drift, narrow the client, never this flag.
+ * mailbox trees. It must never be *narrower* than the client's offer: if the
+ * client offers chat for an account this rule misses, that account's
+ * FileNode changes never POST and the chat goes silently stale. When the
+ * two drift, narrow the client, never this flag.
  */
 export function hasChatGroupAccounts(
   session: Pick<UpstreamSession, "accounts"> | null | undefined,
@@ -183,8 +177,7 @@ export function hasChatGroupAccounts(
     const account = a as { name?: unknown; isPersonal?: unknown };
     if (account.isPersonal !== false || typeof account.name !== "string") return false;
     const name = account.name.trim().toLowerCase();
-    const at = name.indexOf("@");
-    return at > 0 && name.slice(0, at) !== ADMIN_GROUP_LOCAL;
+    return name.indexOf("@") > 0;
   });
 }
 
@@ -357,21 +350,53 @@ function localeOf(
 }
 
 /**
- * Which edition the server is running. Stalwart deliberately does not publish
- * its version number to clients, but 0.16 does report its edition here.
+ * What `/api/account` reports about the authenticated account itself.
+ *
+ * Stalwart deliberately does not publish its version number to clients, but
+ * 0.16 reports its edition here; and JMAP exposes no role or principal
+ * attribute, so the same endpoint is also the one place a principal can read
+ * its own resolved permission list (ADR 0007).
  */
-async function fetchEdition(authorization: string, base: string): Promise<string | null> {
-  try {
-    const res = await fetch(`${base}/api/account`, {
-      headers: { authorization, accept: "application/json" },
-      signal: AbortSignal.timeout(config.upstreamTimeout),
-    });
-    if (!res.ok) return null;
-    const body = (await res.json()) as { edition?: unknown };
-    return typeof body.edition === "string" ? body.edition : null;
-  } catch {
-    return null;
+export interface AccountIntrospection {
+  /** "oss" | "community" | "enterprise", where the server reports it. */
+  edition: string | null;
+  /** The account's resolved permission list; empty when the server said none. */
+  permissions: string[];
+}
+
+/**
+ * Read the authenticated account's own `/api/account` introspection.
+ *
+ * Throws UpstreamError on any failure — a 401/403 means the credential was
+ * refused, anything else non-ok is an upstream failure. Callers decide what
+ * a refusal costs: the locale/edition path treats it as a nicety, the admin
+ * paths (ADR 0007) fail closed on it.
+ *
+ * App-password credentials authenticate here exactly like a password
+ * (live-verified 2026-09-09, Stalwart 0.16.21), so a session re-sealed onto
+ * an app password by the 2FA switch-over still introspects as itself.
+ */
+export async function fetchAccountIntrospection(
+  authorization: string,
+  base: string = config.stalwartUrl,
+): Promise<AccountIntrospection> {
+  const res = await fetch(`${base}/api/account`, {
+    headers: { authorization, accept: "application/json" },
+    signal: AbortSignal.timeout(config.upstreamTimeout),
+  });
+  if (res.status === 401 || res.status === 403) {
+    throw new UpstreamError("Invalid credentials", 401);
   }
+  if (!res.ok) {
+    throw new UpstreamError(`Account introspection failed (${res.status})`, 502);
+  }
+  const body = (await res.json()) as { edition?: unknown; permissions?: unknown };
+  return {
+    edition: typeof body.edition === "string" ? body.edition : null,
+    permissions: Array.isArray(body.permissions)
+      ? body.permissions.filter((p): p is string => typeof p === "string")
+      : [],
+  };
 }
 
 export async function getAccountInfo(
@@ -392,7 +417,10 @@ export async function getAccountInfo(
   let info = EMPTY_INFO;
   try {
     info = await fetchAccountInfo(authorization, session);
-    info = { ...info, edition: await fetchEdition(authorization, session.baseUrl) };
+    info = {
+      ...info,
+      edition: (await fetchAccountIntrospection(authorization, session.baseUrl)).edition,
+    };
   } catch {
     /* all of this is a nicety - never fail the session over it */
   }

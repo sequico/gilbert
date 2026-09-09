@@ -11,8 +11,9 @@ import { after, before, test } from "node:test";
  * master's credentials are what authenticate; app passwords are refused for
  * impersonation; and the impersonated session is the target's own.
  *
- * The mock knows two principals: the demo user (an admin by default) and the
- * target, bob@example.com.
+ * The mock knows two principals: the demo user (a Stalwart admin by
+ * default: its permission list carries the admin marker and the
+ * `impersonate` right, ADR 0007) and the target, bob@example.com.
  */
 
 const PORT = 18791;
@@ -21,7 +22,6 @@ process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";
 process.env.MOCK_TARGET_USER = "bob@example.com";
 process.env.MOCK_TARGET_PASS = "bob-password";
-process.env.MOCK_ADMIN_GROUP = "gilbert-admin@example.com";
 process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.APP_SECRET = "test-secret-for-mock-impersonation";
 
@@ -83,7 +83,8 @@ test("the target signs in as themselves with their own password", async () => {
     s.body.accounts[s.body.primaryAccounts["urn:ietf:params:jmap:filenode"]].isPersonal,
     true,
   );
-  // The target is not a member of the admin group: no group in the session.
+  // The target's session carries no group accounts: since ADR 0007 admin
+  // state is a permission-list fact (`/api/account`), not a session fact.
   assert.equal(
     Object.values(s.body.accounts).some(
       (a) => (a as { name?: string }).name === "gilbert-admin@example.com",

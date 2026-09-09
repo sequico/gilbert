@@ -110,15 +110,15 @@ describe("groupMailboxAccounts — one classifier for every group surface", () =
     { accountId: "a4", name: "gilbert-admin@example.org", kind: "group" as const },
   ];
 
-  it("keeps working groups and drops the own account and the admin group", () => {
+  it("keeps every group mailbox and drops the own account", () => {
     const groups = groupMailboxAccounts(accounts);
-    expect(groups.map((g) => g.accountId)).toEqual(["a2", "a3"]);
+    expect(groups.map((g) => g.accountId)).toEqual(["a2", "a3", "a4"]);
   });
 
-  it("treats the admin group on any domain as not a working group", () => {
+  it("treats a group mailbox named gilbert-admin on any domain as a working group (ADR 0007)", () => {
     const admin = [
       { accountId: "x", name: "gilbert-admin@other.example", kind: "group" as const },
     ];
-    expect(groupMailboxAccounts(admin)).toEqual([]);
+    expect(groupMailboxAccounts(admin).map((g) => g.accountId)).toEqual(["x"]);
   });
 });

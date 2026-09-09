@@ -39,18 +39,11 @@ const advertises = (account: MailAccountLike | undefined, cap: string): boolean 
   Boolean(account && cap in (account.accountCapabilities ?? {}));
 
 /**
- * The reader's own mail account first, then every non-personal account that
- * advertises mail, in session order. The caller probes each "group" candidate
- * with `Mailbox/get` and keeps the ones that answer with a tree.
- */
-/**
  * The accounts worth probing for a mailbox tree: the reader's own first, then
- * every non-personal account that advertises mail -- except the product-admin
- * group (ADR 0001). Excluding `gilbert-admin` here, at the probe, is what
- * keeps it out of *every* surface: the mail views, the sidebar sections,
- * chat, the composer pickers and the switchers all derive from the probed
- * `mailAccounts`, so an account that is never probed cannot leak into any of
- * them. The admin group is an administration surface, not a working group.
+ * every non-personal account that advertises mail, in session order. The
+ * caller probes each "group" candidate with `Mailbox/get` and keeps the ones
+ * that answer with a tree. Since ADR 0007 there is no product-admin group to
+ * exclude: a non-personal mail account is a group mailbox, full stop.
  */
 export function mailAccountCandidates(
   session: MailSessionLike | null,
@@ -65,7 +58,6 @@ export function mailAccountCandidates(
   for (const [accountId, account] of Object.entries(session.accounts)) {
     if (accountId === own || account.isPersonal !== false) continue;
     if (!advertises(account, CAP.mail)) continue;
-    if (isAdminGroupAccountName(account.name)) continue;
     out.push({ accountId, name: account.name, kind: "group" });
   }
   return out;
@@ -93,23 +85,11 @@ export function isGroupMailbox(
 }
 
 /**
- * Whether an account name is the product-admin group mailbox: local part
- * `gilbert-admin` on whatever domain the server registered it. Mirrors the
- * server-side membership rule in `server/src/upstream.ts` (ADR 0001) -- the
- * admin group is an administration surface, not a working group, so surfaces
- * that create group-owned data must not offer to create in it.
- */
-export function isAdminGroupAccountName(name: string): boolean {
-  const at = name.indexOf("@");
-  return at > 0 && name.slice(0, at) === "gilbert-admin";
-}
-
-/**
  * The group mailboxes a working surface may offer: the probed non-personal
- * mail accounts, minus the product-admin group (ADR 0001), which is an
- * administration surface rather than a working group. One classifier for
- * every group-owned creation surface -- calendars, contacts, chat -- so the
- * membership rule cannot drift between them.
+ * mail accounts. One classifier for every group-owned creation surface --
+ * calendars, contacts, chat -- so the membership rule cannot drift between
+ * them. Since ADR 0007 removed the product-admin group, every non-personal
+ * mail account is a working group.
  *
  * The server's push-subscription flag `hasChatGroupAccounts`
  * (server/src/upstream.ts) is the wire-level superset of this classifier:
@@ -118,5 +98,5 @@ export function isAdminGroupAccountName(name: string): boolean {
  * client classifier, never the server flag.
  */
 export function groupMailboxAccounts(accounts: MailAccountInfo[]): MailAccountInfo[] {
-  return accounts.filter((a) => a.kind === "group" && !isAdminGroupAccountName(a.name));
+  return accounts.filter((a) => a.kind === "group");
 }

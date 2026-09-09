@@ -32,7 +32,7 @@ export interface JmapSession {
     sessionId: string;
     loginName: string;
     remember: boolean;
-    /** Membership of the `gilbert-admin@…` group: enables the admin surface. */
+    /** Stalwart-admin state resolved at sign-in (ADR 0007): enables the admin surface. */
     isAdmin: boolean;
     /**
      * ADR 0005: the account must change its password before any data route

@@ -30,12 +30,12 @@ const SECTIONS: Array<SectionItem & { el: ReactNode }> = [
 ];
 
 /**
- * The administration surface, for members of the `gilbert-admin` group on any
- * domain of the server (ADR 0001). It shares the settings layout —
- * `SectionShell` is the one copy both surfaces render through — so the shield
- * icon in the top bar and these sections stay consistent. v1 is the
- * installation-wide policy editor (ADR 0001 §4, ADR 0004); the per-user
- * surface follows as the next layer on the same document shape.
+ * The administration surface, shown when the signed-in user is a Stalwart
+ * admin (ADR 0007). It shares the settings layout — `SectionShell` is the one
+ * copy both surfaces render through — so the shield icon in the top bar and
+ * these sections stay consistent. v1 is the installation-wide policy editor
+ * (ADR 0001 §4, ADR 0004); the per-user surface follows as the next layer on
+ * the same document shape.
  */
 export function AdminView({ section }: { section?: string }) {
   const current = SECTIONS.find((s) => s.id === section);

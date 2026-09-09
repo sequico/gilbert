@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The admin Users surface (ADR 0001 §5): the directory enumeration returns
- * individual accounts only (groups filtered out by the Principal/query type
- * filter), the impersonation probe says whether this session may act, and
- * non-admins get 403.
+ * The admin Users surface (ADR 0001 §5, ADR 0007): the directory
+ * enumeration returns individual accounts only (groups filtered out by the
+ * Principal/query type filter), the impersonation probe says whether this
+ * session may act, and non-admins get 403.
  */
 
 const PORT = 18801;
@@ -14,7 +14,6 @@ process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";
 process.env.MOCK_TARGET_USER = "bob@example.com";
 process.env.MOCK_TARGET_PASS = "bob-password";
-process.env.MOCK_ADMIN_GROUP = "gilbert-admin@example.com";
 process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.APP_SECRET = "test-secret-for-admin-users";
 process.env.LOGIN_RATE_LIMIT = "10000";

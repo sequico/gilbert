@@ -2,20 +2,21 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The admin grant: membership of the `gilbert-admin@<domain>` group mailbox
- * (ADR 0001). The unit tests pin the matching rules; the e2e half proves the
- * flag arrives on the session when the mock advertises the group.
+ * The admin grant (ADR 0007): a signed-in user whose `/api/account`
+ * permission list carries the configured admin marker is a Stalwart admin
+ * and therefore a Gilbert admin. The unit tests pin the marker rule; the
+ * e2e half proves the flag arrives on the session when the mock reports
+ * the marker.
  */
 
 const PORT = 18798;
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";
-process.env.MOCK_ADMIN_GROUP = "gilbert-admin@example.com";
 process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.APP_SECRET = "test-secret-for-admin-flag";
 
-const { isAdminSession } = await import("./upstream.js");
+const { isStalwartAdmin } = await import("./upstream.js");
 const mock = await import("./mock/index.js");
 const { createApp } = await import("./app.js");
 
@@ -52,24 +53,25 @@ after(() => {
   (mock as { server?: { close(): void } }).server?.close();
 });
 
-test("isAdminSession matches the group by local part, on any domain", () => {
-  const session = (accounts: unknown[]) =>
-    ({ accounts: Object.fromEntries(accounts.map((a, i) => [`a${i}`, a])) }) as never;
-  const sameDomain = { name: "gilbert-admin@example.com", isPersonal: false };
-  // A member whose own address is on another domain of the same server is an
-  // admin too: the grant is server-scoped, never tied to the member's own
-  // domain (ADR 0001).
-  const otherDomain = { name: "gilbert-admin@example.org", isPersonal: false };
-  const personal = { name: "gilbert-admin@example.com", isPersonal: true };
-  const wrong = { name: "team@example.com", isPersonal: false };
-  assert.equal(isAdminSession(session([sameDomain])), true);
-  assert.equal(isAdminSession(session([otherDomain])), true);
-  assert.equal(isAdminSession(session([personal])), false);
-  assert.equal(isAdminSession(session([wrong])), false);
-  assert.equal(isAdminSession(session([])), false);
+test("isStalwartAdmin reads the admin marker from the permission list", () => {
+  // The marker is `sysAccountCreate` by default (config.adminPermissionMarker,
+  // live-verified 2026-09-09); the recovery admin token reports every
+  // permission, marker included.
+  assert.equal(
+    isStalwartAdmin(["jmapEmailGet", "sysAccountCreate", "impersonate"]),
+    true,
+  );
+  // An admin role bundles `impersonate`, but the marker is what decides: a
+  // non-admin given `impersonate` alone is not a Stalwart admin.
+  assert.equal(isStalwartAdmin(["jmapEmailGet", "impersonate"]), false);
+  assert.equal(isStalwartAdmin(["jmapEmailGet", "sysAccountSettingsGet"]), false);
+  // Fail-closed: an empty or missing list is never admin.
+  assert.equal(isStalwartAdmin([]), false);
+  assert.equal(isStalwartAdmin(null), false);
+  assert.equal(isStalwartAdmin(undefined), false);
 });
 
-test("a member of the admin group signs in with isAdmin on the session", async () => {
+test("a Stalwart admin signs in with isAdmin on the session", async () => {
   const res = await call("/api/auth/session");
   assert.equal(res.status, 200);
   assert.equal((res.body as { gilbert?: { isAdmin?: boolean } }).gilbert?.isAdmin, true);

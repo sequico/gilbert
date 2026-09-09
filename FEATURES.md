@@ -843,8 +843,7 @@ Also:
 A text conversation per group mailbox — the teams you belong to — owned by
 and stored in the group's own account, like its calendars and files (ADR
 0006). Offered from a **launcher in the top bar**, first of the action
-cluster, only when the session holds group mailboxes; the product-admin group
-never offers one.
+cluster, only when the session holds group mailboxes.
 
 - **Messages are plain text** — up to 4000 characters — in immutable JSON
 documents inside the group account's hidden `gilbert/chat` folder: one node
@@ -897,7 +896,7 @@ individual rights by hand.
   belong to** — its calendars, address books, task lists and files are the
   group's own, owned by the group's account and written there at creation
   (never created in yours and shared out), so they answer everywhere without
-  anyone adding them. The product-admin group is not offered this way.
+  anyone adding them.
 - **Stopping is separate from hiding** — *Stop sharing* on something you own
   withdraws access from everyone at once, after asking; *Remove from my view* on
   something shared with you changes nothing for anybody else.
@@ -1106,16 +1105,19 @@ would have quietly ended the WCAG AA claim two sections down.
 
 # Administration
 
-Product administration inside Gilbert, for members of the `gilbert-admin`
-group — the section itself is Gilbert's own, beyond the upstream client
-(ADR 0001).
+Product administration inside Gilbert, for users who are **Stalwart admins**
+— the section itself is Gilbert's own, beyond the upstream client (ADR 0007).
 
-- **The grant**: membership of the `gilbert-admin@…` group in Stalwart's
-directory. One group per server, and it grants on **every domain that
-server serves** — the match is by local part, whatever domain the member's
-own address uses. `isAdmin` is computed server-side per request
-(`server/src/upstream.ts`), shown to the client as the shield in the top
-bar.
+- **The grant**: Gilbert admin equals Stalwart admin. At sign-in the server
+  reads the account's own `/api/account` permission list and looks for the
+  configured admin marker (`sysAccountCreate` by default, env
+  `GILBERT_ADMIN_PERMISSION`); every privileged call re-checks it freshly,
+  so a demotion lands on the next call of an open session. `isAdmin` is
+  computed server-side (`server/src/upstream.ts` + `/api/account`), shown to
+  the client as the shield in the top bar. There is no `gilbert-admin` group
+  and no Gilbert-side capability registry to forge. Admin without Stalwart's
+  `Impersonate` permission administers the install but cannot act on another
+  user: the per-user writes fail closed on the permission.
 - **Installation-wide policy editor**: the shield opens the administration
 surface; its Policy section edits one JSON document with upstream's
 `defaults` / `enforced` / `changes` shape (issue #207) and publishes it.

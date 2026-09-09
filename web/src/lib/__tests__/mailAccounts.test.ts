@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  isAdminGroupAccountName,
-  type MailSessionLike,
-  mailAccountCandidates,
-} from "@/lib/mailAccounts";
+import { type MailSessionLike, mailAccountCandidates } from "@/lib/mailAccounts";
 
 const MAIL = "urn:ietf:params:jmap:mail";
 const sessionOf = (accounts: Record<string, unknown>): MailSessionLike => ({
@@ -20,20 +16,8 @@ function account(name: string, isPersonal: boolean) {
   };
 }
 
-describe("isAdminGroupAccountName", () => {
-  it("matches the admin group on any domain", () => {
-    expect(isAdminGroupAccountName("gilbert-admin@ops.example.com")).toBe(true);
-    expect(isAdminGroupAccountName("gilbert-admin@other.example")).toBe(true);
-  });
-
-  it("leaves working groups and personal accounts alone", () => {
-    expect(isAdminGroupAccountName("freight@ops.example.com")).toBe(false);
-    expect(isAdminGroupAccountName("sam@ops.example.com")).toBe(false);
-  });
-});
-
-describe("mailAccountCandidates — the admin group never reaches the probe", () => {
-  it("lists the own account first, then the working group mailboxes", () => {
+describe("mailAccountCandidates — every non-personal mail account is a group mailbox", () => {
+  it("lists the own account first, then the group mailboxes", () => {
     const s = sessionOf({
       a1: account("sam@ops.example.com", true),
       a3: account("freight@ops.example.com", false),
@@ -44,16 +28,17 @@ describe("mailAccountCandidates — the admin group never reaches the probe", ()
     ]);
   });
 
-  it("drops gilbert-admin on any domain, whatever it advertises", () => {
+  it("offers a mailbox named gilbert-admin@… like any other group (ADR 0007)", () => {
     const s = sessionOf({
       a1: account("sam@ops.example.com", true),
       a4: account("gilbert-admin@ops.example.com", false),
       a3: account("freight@ops.example.com", false),
     });
     const ids = mailAccountCandidates(s).map((c) => c.accountId);
-    expect(ids).not.toContain("a4");
     expect(ids).toContain("a1");
     expect(ids).toContain("a3");
+    expect(ids).toContain("a4");
+    expect(ids).toHaveLength(3);
   });
 
   it("ignores non-personal accounts without mail", () => {

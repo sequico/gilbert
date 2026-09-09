@@ -353,6 +353,15 @@ export const config = {
   apiRateLimit: int("API_RATE_LIMIT", 1200),
   /* Whether JMAP responses are gzipped. Measured: see the bake-off rerun. */
   compressJmap: process.env.COMPRESS_JMAP !== "0",
+  /**
+   * The `/api/account` permission that marks a Stalwart admin (ADR 0007).
+   *
+   * Live-verified 2026-09-09 on Stalwart 0.16.21: `sysAccountCreate` appears
+   * in a principal's resolved permission list exactly when the operator
+   * grants the admin role, and `sysBootstrap*` never appears (the endpoint
+   * always strips it), so it is the non-forgeable marker to test for.
+   */
+  adminPermissionMarker: env("GILBERT_ADMIN_PERMISSION", "sysAccountCreate"),
   /*
    * How push reaches the browser. "relay" holds one upstream stream per tab
    * (today's behaviour). "subscribe" registers one JMAP PushSubscription per

@@ -65,10 +65,9 @@ sign-in.
 4. **No Management API service credential.** The only Management-API touch is
    the `/api/account` self-introspection using the user's own credentials.
    There is no `managementApiKey`, no SCIM client, no `server/src/management.ts`.
-5. **Migration.** Ship admin detection beside the current `isAdminSession`
-   (both active, the Stalwart-admin signal winning) → confirm on a live server
-   → remove `isAdminSession`, `ADMIN_GROUP_LOCAL` and the group's role; the
-   operator may then delete or repurpose the `gilbert-admin` mailbox. Nothing
+5. **Migration.** The replacement landed in one change: `isAdminSession`,
+   `ADMIN_GROUP_LOCAL` and the group's role are gone from code, and the
+   operator may now delete or repurpose the `gilbert-admin` mailbox. Nothing
    else moves: the install-wide policy is a config file
    (`SETTINGS_POLICY_FILE`), the forced-password directive lives in each
    user's own Files (ADR 0005), and ADR 0001 §5's admin-owned "profiles" were
@@ -119,7 +118,7 @@ decision; nothing below is behaviour to preserve.
 
 ### Tests
 
-- `admin-nogroup.test.ts`, `admin.test.ts`, `admin-force-guard.test.ts`,
+- `admin-nonadmin.test.ts`, `admin.test.ts`, `admin-force-guard.test.ts`,
   `admin-policy.test.ts`, `admin-users.test.ts`,
   `forced-password-admin-guard.test.ts`, `groups.test.ts`,
   `mock/impersonation.test.ts`, `web/src/lib/__tests__/mailAccounts.test.ts`
@@ -171,6 +170,13 @@ role therefore bundles `impersonate` — a Stalwart admin can force a password
 with no extra grant — while a non-admin could still be given `impersonate`
 alone. `sysBootstrap*` never appears (the endpoint always strips it), so it
 is not a usable marker.
+
+The implementation is covered by the mock suite (admin by marker, non-admin
+resolution, the refuse-to-force-another-admin guard). Live, against the same
+server, an app password authenticates to `/api/account` exactly like a
+password (verified 2026-09-09), so a session re-sealed onto an app password
+by the 2FA switch-over still introspects as itself. The operator runs the
+final sign-in-through-the-server confirmation on the deployment.
 
 ## References
 

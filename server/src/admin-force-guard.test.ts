@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The guard that refuses to force another Gilbert administrator (ADR 0001,
- * the admin Users surface): when the target is itself a member of the admin
- * group, the impersonated session shows it and the endpoint answers 403 —
- * for both setting and clearing the directive.
+ * The guard that refuses to force another Gilbert administrator (ADR 0007):
+ * when the target's own `/api/account` permission list carries the admin
+ * marker, the endpoint answers 403 — for both setting and clearing the
+ * directive.
  *
- * The mock makes the target an admin too (MOCK_TARGET_IS_ADMIN=1) so the
- * refusal path is exercised end to end.
+ * The mock makes the target hold the marker too (MOCK_TARGET_IS_ADMIN=1) so
+ * the refusal path is exercised end to end.
  */
 
 const PORT = 18802;
@@ -17,7 +17,6 @@ process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";
 process.env.MOCK_TARGET_USER = "bob@example.com";
 process.env.MOCK_TARGET_PASS = "bob-password";
-process.env.MOCK_ADMIN_GROUP = "gilbert-admin@example.com";
 process.env.MOCK_TARGET_IS_ADMIN = "1";
 process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.APP_SECRET = "test-secret-for-admin-force-guard";

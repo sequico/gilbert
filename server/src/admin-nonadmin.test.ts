@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The other half of the admin flag: without the `gilbert-admin@…` group in
- * the session accounts, isAdmin is false. Separate file on purpose — the mock
- * reads MOCK_ADMIN_GROUP at import, so the two cases need separate processes.
+ * The admin flag's other half: without the admin marker in the `/api/account`
+ * permission list, isAdmin is false. Separate file on purpose — the mock
+ * reads MOCK_ADMIN at import, so the two cases need separate processes.
  *
  * Mock port: must not collide with any other test file — the runner executes
  * files as parallel child processes, each binding its own mock.
@@ -14,7 +14,7 @@ const PORT = 18812;
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";
-process.env.MOCK_NO_ADMIN_GROUP = "1";
+process.env.MOCK_ADMIN = "0";
 process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.APP_SECRET = "test-secret-for-non-admin-flag";
 
@@ -51,7 +51,7 @@ after(() => {
   (mock as { server?: { close(): void } }).server?.close();
 });
 
-test("a user outside the admin group signs in with isAdmin false", async () => {
+test("a user without the admin marker signs in with isAdmin false", async () => {
   const res = await call("/api/auth/session");
   assert.equal(res.status, 200);
   assert.equal((res.body as { gilbert?: { isAdmin?: boolean } }).gilbert?.isAdmin, false);

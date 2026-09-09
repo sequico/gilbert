@@ -3,12 +3,12 @@ import { after, before, test } from "node:test";
 
 /**
  * The admin half of the forced-password-change endpoints (ADR 0005): without
- * the `gilbert-admin@…` group in the session accounts the guard answers 403
- * before anything touches the target. The mock also refuses the composite
- * `{target}%{admin}` impersonation username when the master is not an admin —
- * the impersonation right is the grant (ADR 0001). Separate file on purpose:
- * the mock reads MOCK_NO_ADMIN_GROUP at import, so this case needs its own
- * process.
+ * the admin marker in the session's `/api/account` permission list the guard
+ * answers 403 before anything touches the target. The mock also refuses the
+ * composite `{target}%{admin}` impersonation username when the master does
+ * not hold Stalwart's `impersonate` permission — the right the actions
+ * themselves use (ADR 0007). Separate file on purpose: the mock reads
+ * MOCK_ADMIN at import, so this case needs its own process.
  */
 
 const PORT = 18792;
@@ -17,7 +17,7 @@ process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";
 process.env.MOCK_TARGET_USER = "bob@example.com";
 process.env.MOCK_TARGET_PASS = "bob-password";
-process.env.MOCK_NO_ADMIN_GROUP = "1";
+process.env.MOCK_ADMIN = "0";
 process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.APP_SECRET = "test-secret-for-admin-guard";
 
@@ -82,13 +82,14 @@ test("the refusal happens before any target work", async () => {
 
 test("without the impersonation right the mock refuses the composite username", async () => {
   // The same request the server would make for an admin action: composite
-  // `{target}%{master}` with valid master credentials.
+  // `{target}%{master}` with valid master credentials. A non-admin master
+  // holds no `impersonate` permission (ADR 0007).
   const res = await fetch(`http://127.0.0.1:${PORT}/.well-known/jmap`, {
     headers: {
       authorization: `Basic ${Buffer.from(`${BOB}%${DEMO}:demo-password`).toString("base64")}`,
     },
   });
-  assert.equal(res.status, 401, "the impersonation right is the grant (ADR 0001)");
+  assert.equal(res.status, 401, "the impersonation right is the grant (ADR 0007)");
 });
 
 test("a non-admin's own data path is unaffected", async () => {

@@ -46,8 +46,6 @@ const SHARED_ACCOUNT = "a2";
 const GROUP_ACCOUNT = "a3";
 /** A second group (team) mailbox, so the chat switcher has two teams. */
 const GROUP2_ACCOUNT = "a5";
-/** The admin group mailbox (`gilbert-admin@…`, ADR 0001). */
-const ADMIN_ACCOUNT = "a4";
 /**
  * A second principal the mock knows, so the impersonation paths (ADR 0005)
  * have a target that is not the admin themselves. The mock has one data set
@@ -69,23 +67,37 @@ const SHARED_CAPS: Obj = {
 };
 const USER = process.env.MOCK_USER ?? "demo@example.com";
 /**
- * The demo user is an admin by default: dev:mock signs in with the
- * `gilbert-admin@<domain>` group in the session accounts, so the admin flag
- * and the administration surface are exercisable out of the box. Set
- * MOCK_NO_ADMIN_GROUP=1 for the non-admin case; MOCK_ADMIN_GROUP overrides
- * the group's name.
+ * The demo user is a Stalwart admin by default: `/api/account` reports the
+ * admin marker in the resolved permission list, so the admin flag and the
+ * administration surface are exercisable in dev:mock out of the box. Set
+ * MOCK_ADMIN=0 for the non-admin case.
+ *
+ * The marker and the impersonation right below are fixture literals matching
+ * the server's defaults (`GILBERT_ADMIN_PERMISSION`, live-verified
+ * 2026-09-09). A mock run emulates the default configuration; an operator
+ * who overrides the marker env while pointing Gilbert at the mock accepts
+ * the drift.
  */
-const ADMIN_GROUP_NAME =
-  process.env.MOCK_ADMIN_GROUP ??
-  (() => {
-    const at = USER.lastIndexOf("@");
-    return at > 0 ? `gilbert-admin@${USER.slice(at + 1)}` : "";
-  })();
-const HAS_ADMIN_GROUP =
-  process.env.MOCK_NO_ADMIN_GROUP !== "1" && Boolean(ADMIN_GROUP_NAME);
-/** Exercise the guard that refuses to force another Gilbert admin (target is
- *  a member of the admin group too). */
+const MOCK_ADMIN = process.env.MOCK_ADMIN !== "0";
+/** Exercise the guard that refuses to force another Gilbert admin (the
+ *  target principal holds the admin marker too). */
 const TARGET_IS_ADMIN = process.env.MOCK_TARGET_IS_ADMIN === "1";
+/** The user-role permissions `/api/account` reports (ADR 0007). */
+const USER_PERMISSIONS = ["jmapEmailGet", "sysAccountSettingsGet"];
+/**
+ * What `/api/account` reports for a principal: the user-role list, plus the
+ * admin marker and the rights the admin role bundles (live-verified
+ * 2026-09-09: `impersonate` and `scimAccess` ride along with
+ * `sysAccountCreate`). Groups are never admins; the target principal holds
+ * the marker only under MOCK_TARGET_IS_ADMIN=1.
+ */
+const permissionsOf = (username: string): string[] => {
+  const admin =
+    username === USER ? MOCK_ADMIN : username === TARGET_USER ? TARGET_IS_ADMIN : false;
+  return admin
+    ? [...USER_PERMISSIONS, "sysAccountCreate", "impersonate", "scimAccess"]
+    : [...USER_PERMISSIONS];
+};
 /** Locale the fake directory reports for the account (POSIX style, as Stalwart does). */
 const MOCK_LOCALE = process.env.MOCK_LOCALE ?? "en_US";
 const PASS = process.env.MOCK_PASS ?? "demo";
@@ -3301,10 +3313,9 @@ const knownPrincipal = (username: string) =>
   username === USER ||
   username === TARGET_USER ||
   // The impersonation probe acts on a real account from the directory, the
-  // way a force would; the directory individuals and the admin group itself
-  // are valid targets for a master that holds the right.
-  principals.some((p) => p.email === username) ||
-  (HAS_ADMIN_GROUP && username === ADMIN_GROUP_NAME);
+  // way a force would; the directory principals (individuals and the group
+  // mailboxes) are valid targets for a master that holds the right.
+  principals.some((p) => p.email === username);
 
 /**
  * Authenticate the request and say who it acts as.
@@ -3317,8 +3328,9 @@ const knownPrincipal = (username: string) =>
  * convention): the username splits at the first `%`; a master identical to
  * the target is not impersonation; app passwords are refused for
  * impersonation; and the master must hold the impersonation right, which
- * here is membership of the admin group (the demo user is a member unless
- * MOCK_NO_ADMIN_GROUP=1).
+ * `/api/account` reports as the `impersonate` permission (ADR 0007) — the
+ * demo holds it exactly when it is a Stalwart admin, matching the live
+ * server where the admin role bundles it.
  */
 /**
  * The account a known principal actually owns. Impersonation lands on the
@@ -3330,7 +3342,6 @@ const principalAccountId = (username: string): string => {
   if (username === TARGET_USER) return TARGET_ACCOUNT;
   if (username === "team@example.org") return GROUP_ACCOUNT;
   if (username === "design@example.org") return GROUP2_ACCOUNT;
-  if (HAS_ADMIN_GROUP && username === ADMIN_GROUP_NAME) return ADMIN_ACCOUNT;
   return ACCOUNT;
 };
 
@@ -3350,11 +3361,13 @@ function resolveIdentity(req: IncomingMessage): Identity | null {
       // Stalwart drops a master identical to the target: a plain login.
       return resolvePlain(target, p);
     }
-    // The mock has one impersonator: the demo user, when an admin. A
-    // composite naming any other master (or target) fails like an unknown
-    // account; the impersonation right is the grant (ADR 0001).
-    if (master !== USER || !HAS_ADMIN_GROUP) return null;
+    // The mock has one impersonator: the demo user. A composite naming any
+    // other master (or target) fails like an unknown account; the master
+    // must hold Stalwart's `Impersonate` permission, which the resolved
+    // permission list reports (ADR 0007).
+    if (master !== USER) return null;
     if (!validCredential(master, p, true)) return null;
+    if (!permissionsOf(master).includes("impersonate")) return null;
     if (!knownPrincipal(target)) return null;
     return {
       username: target,
@@ -3443,10 +3456,12 @@ const personalCapabilities = (): Obj => ({
 /**
  * The JMAP session resource, per principal.
  *
- * The mock knows two principals: the demo user, whose session also lists the
- * account somebody shared with them, the team group and — by default — the
- * admin group, and the target principal of the impersonation flows (ADR
- * 0005), whose session is a single fresh personal account.
+ * The mock knows two principals: the demo user, whose session also lists
+ * the account somebody shared with them and the two group mailboxes (ADR
+ * 0006), and the target principal of the impersonation flows (ADR 0005),
+ * whose session is a single fresh personal account. Admin state is not a
+ * session fact — it lives in the `/api/account` permission list (ADR 0007),
+ * which is why no account in here marks an admin.
  *
  * The shared account carries the *same* capability list as a personal one,
  * because that is what Stalwart does -- checked on 0.16.19 (2026-08-27),
@@ -3469,8 +3484,7 @@ const personalCapabilities = (): Obj => ({
 const sessionFor = (identity: Identity) => ({
   capabilities: sessionCapabilities,
   accounts: {
-    ...(identity.username === USER ||
-    (TARGET_IS_ADMIN && identity.username === TARGET_USER)
+    ...(identity.username === USER
       ? {
           [SHARED_ACCOUNT]: {
             name: "grace@example.org",
@@ -3490,23 +3504,6 @@ const sessionFor = (identity: Identity) => ({
             isReadOnly: false,
             accountCapabilities: SHARED_CAPS,
           },
-          /*
-           * The admin group (`gilbert-admin@…`) is a group mailbox like any
-           * other; membership is what makes a principal an admin (ADR 0001).
-           * The demo user is a member by default, so the admin flag can be
-           * exercised in dev:mock without a real directory. The target
-           * principal is never a member.
-           */
-          ...(HAS_ADMIN_GROUP
-            ? {
-                [ADMIN_ACCOUNT]: {
-                  name: ADMIN_GROUP_NAME,
-                  isPersonal: false,
-                  isReadOnly: false,
-                  accountCapabilities: SHARED_CAPS,
-                },
-              }
-            : {}),
         }
       : {}),
     [identity.accountId]: {
@@ -3594,12 +3591,13 @@ export const server = createServer(async (req, res) => {
     res.writeHead(200, { "content-type": "application/json" });
     return res.end(JSON.stringify(sessionFor(identity)));
   }
-  // The account info endpoint; the only place a server reports its edition.
+  // The account info endpoint; the only place a server reports its edition
+  // and the authenticated principal's resolved permission list (ADR 0007).
   if (url.pathname === "/api/account" && req.method === "GET") {
     res.writeHead(200, { "content-type": "application/json" });
     return res.end(
       JSON.stringify({
-        permissions: ["jmapEmailGet", "sysAccountSettingsGet"],
+        permissions: permissionsOf(identity.username),
         edition: "oss",
         locale: MOCK_LOCALE,
       }),

@@ -50,9 +50,9 @@ import {
 import { staticHandler } from "./static.js";
 import {
   type AccountInfo,
-  ADMIN_GROUP_LOCAL,
   absoluteUpstream,
   expandTemplate,
+  fetchAccountIntrospection,
   fetchDirectoryGroups,
   fetchDirectoryUsers,
   fetchUpstreamSession,
@@ -61,7 +61,7 @@ import {
   getUpstreamSession,
   hasChatGroupAccounts,
   hasStalwartRegistry,
-  isAdminSession,
+  isStalwartAdmin,
   localizeSession,
   UpstreamError,
   type UpstreamSession,
@@ -694,7 +694,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           sessionExtras(
             session,
             info,
-            isAdminSession(upstream),
+            await resolveAdminState(session),
             // The session document was just fetched; hand it over instead of
             // making the directive check fetch it again.
             await sessionForcedState(session, upstream),
@@ -758,7 +758,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           sessionExtras(
             session,
             info,
-            isAdminSession(upstream),
+            await resolveAdminState(session),
             await sessionForcedState(session),
           ),
         ),
@@ -1040,26 +1040,26 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     return c.json({ ok: true });
   });
 
-  // ---------- Administration (ADR 0001) ----------
+  // ---------- Administration (ADR 0007) ----------
   /**
-   * Membership of the `gilbert-admin@…` group, re-checked on every privileged
-   * call. The refetch is forced past the upstream-session cache so a demotion
-   * really lands on the next call of an open session, as the ADR promises.
+   * Stalwart admin is the Gilbert admin: the session's own `/api/account`
+   * permission list, read freshly on every privileged call so a demotion
+   * really lands on the next call of an open session. Fails closed — an
+   * unreachable introspection is an upstream failure, a list without the
+   * admin marker is a plain 403.
    */
   const requireAdmin: MiddlewareHandler<Env> = async (c, next) => {
     const session = c.get("session");
     try {
-      const upstream = await getUpstreamSession(
-        session.id,
+      const intro = await fetchAccountIntrospection(
         session.authorization,
         upstreamFor(session.username),
-        true,
       );
-      if (!isAdminSession(upstream)) {
+      if (!isStalwartAdmin(intro.permissions)) {
         return c.json(
           {
             error: "forbidden",
-            message: "This needs membership of the gilbert-admin@… group.",
+            message: "This needs Stalwart server-administrator privileges.",
           },
           403,
         );
@@ -1071,14 +1071,38 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   };
 
   /**
+   * Whether this session's credential currently resolves as a Stalwart admin,
+   * for the client's `isAdmin` flag (ADR 0007). Fail-closed and never fatal:
+   * an unreadable introspection reads as non-admin, so the shield is a
+   * cosmetic mirror of the enforcement in `requireAdmin`, which stays the
+   * authority.
+   */
+  const resolveAdminState = async (session: LiveSession): Promise<boolean> => {
+    try {
+      const intro = await fetchAccountIntrospection(
+        session.authorization,
+        upstreamFor(session.username),
+      );
+      return isStalwartAdmin(intro.permissions);
+    } catch (err) {
+      console.warn(
+        `[gilbert] admin introspection failed for ${session.username}:`,
+        (err as Error).message,
+      );
+      return false;
+    }
+  };
+
+  /**
    * Set or clear the forced-password-change directive for a user (ADR 0005).
    *
    * The write authenticates to Stalwart as the composite `{target}%{admin}`
    * — impersonation with the administrator's own credentials rebuilt from
    * their sealed session — and performs ordinary JMAP FileNode/blob
    * operations on the target's own `gilbert` app folder, creating it when
-   * the target has no app folder yet. The impersonation right on the admin
-   * group is the grant; there is no second secret and no Management API.
+   * the target has no app folder yet. The acting administrator must hold
+   * Stalwart's `Impersonate` permission, granted by the operator on the
+   * Stalwart side; there is no second secret and no Management API.
    */
   api.post("/admin/force-password-change", requireSession, requireAdmin, async (c) => {
     const admin = c.get("session");
@@ -1090,13 +1114,6 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     // a misleading 404, so they are refused at the boundary instead.
     if (!target || target.length > 320 || target.includes("%") || target.includes(":"))
       return c.json({ error: "bad_request" }, 400);
-    // The admin group itself is a principal (impersonation probes name it),
-    // but it is not an account to force a password on.
-    if (target.toLowerCase().split("@")[0] === ADMIN_GROUP_LOCAL)
-      return c.json(
-        { error: "bad_request", message: "The admin group is not an account to force." },
-        400,
-      );
     const imp = await impersonateAs(admin, target);
     if (!imp.ok) {
       const error =
@@ -1107,22 +1124,31 @@ export function createApp(basePath = config.basePath): Hono<Env> {
             : "upstream";
       return c.json({ error, message: imp.message }, imp.status);
     }
-    // An administrator cannot force another administrator: the target's
-    // impersonated session is their own, so membership of the admin group
-    // shows up there the same way it does in any member's session. This also
-    // covers the acting admin themselves (master == target degrades to a
-    // plain login upstream).
-    if (isAdminSession(imp.ctx.session)) {
-      return c.json(
-        {
-          error: "target_is_admin",
-          message:
-            "That account is also a Gilbert administrator; administrators cannot force one another's password.",
-        },
-        403,
-      );
-    }
     const ctx = imp.ctx;
+    // An administrator cannot force another administrator: resolve the
+    // target's own admin state through the impersonated session, the same
+    // way the acting admin's was resolved at sign-in (ADR 0007). This also
+    // covers the acting admin themselves (master == target degrades to a
+    // plain login upstream). A failure to introspect is an upstream failure
+    // — the same credential just fetched the target's JMAP session.
+    try {
+      const targetIntro = await fetchAccountIntrospection(
+        ctx.authorization,
+        upstreamFor(target),
+      );
+      if (isStalwartAdmin(targetIntro.permissions)) {
+        return c.json(
+          {
+            error: "target_is_admin",
+            message:
+              "That account is also a Gilbert administrator; administrators cannot force one another's password.",
+          },
+          403,
+        );
+      }
+    } catch (err) {
+      return accountFailure(c, err);
+    }
     try {
       if (body.clear === true) await clearPasswordChangeDirective(ctx);
       else {
@@ -1212,16 +1238,19 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * The admin Users surface (ADR 0001 §5): every individual account on this
-   * server, plus whether this session may act on accounts at all.
+   * The admin Users surface (ADR 0001 §5, ADR 0007): every individual
+   * account on this server, plus whether this session may act on accounts at
+   * all.
    *
    * `impersonation` probes the right the way the actions themselves use it —
-   * impersonating a real account (`{user}%{admin}`). Probing the admin group
-   * instead gave false denials, and acting checks are only meaningful on the
-   * accounts a force would target. When the directory cannot be listed there
-   * is nobody to probe with and the state is "unknown": no warning, the
-   * server still refuses at action time. Roles are not consulted — Stalwart
-   * does not expose them over JMAP.
+   * impersonating a real account (`{user}%{admin}`) — and the probe answers
+   * only what Stalwart's `Impersonate` permission allows: the acting
+   * session's own permission list decides, not membership of any Gilbert
+   * group. Acting checks are only meaningful on the accounts a force would
+   * target. When the directory cannot be listed there is nobody to probe
+   * with and the state is "unknown": no warning, the server still refuses at
+   * action time. Roles are not consulted — Stalwart does not expose them
+   * over JMAP.
    */
   api.get("/admin/users", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
@@ -1654,7 +1683,7 @@ function sessionExtras(
       sessionId: session.id,
       loginName: session.username,
       remember: session.remember,
-      /** Membership of the `gilbert-admin@…` group: enables the admin surface. */
+      /** Stalwart-admin state resolved at sign-in (ADR 0007): enables the admin surface. */
       isAdmin,
       /**
        * ADR 0005: the account must change its password before any data route

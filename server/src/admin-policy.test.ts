@@ -15,7 +15,6 @@ process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";
 process.env.MOCK_TARGET_USER = "bob@example.com";
 process.env.MOCK_TARGET_PASS = "bob-password";
-process.env.MOCK_ADMIN_GROUP = "gilbert-admin@example.com";
 process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.APP_SECRET = "test-secret-for-admin-policy";
 process.env.LOGIN_RATE_LIMIT = "10000";
