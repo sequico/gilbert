@@ -110,6 +110,10 @@ and contacts — ask before changing or acting on them.
 upstream releases onto the `ihasmail` branch and the mail core merges them
 in. Nothing flows the other way — no contributions, no PRs, no upstream-shaped
 fork. Common work stays here, renamed or not.
+**Excluded upstream files (never absorbed; Gilbert's version always wins):**
+upstream `CLAUDE.md` and `.github/FUNDING.yml` (owner decision 2026-09-06).
+`CONTRIBUTING.md`, `SECURITY.md` and `CODE_OF_CONDUCT.md` are upstream's
+process and contacts — ask before changing or acting on them.
 
 Full law: load skills/gilbert-project. Renames: load skills/gilbert-branding.
 UI strings & languages: load skills/gilbert-i18n. Settings & policy: load

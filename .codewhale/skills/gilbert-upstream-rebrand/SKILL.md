@@ -23,6 +23,9 @@ is that checklist.
 
 ## Rules of thumb
 
+- Excluded upstream files (CLAUDE.md, .github/FUNDING.yml, …) stay at
+  Gilbert's version, never absorbed: rule and ask-first list live in
+  `.codewhale/instructions.md` (Upstream section) — read it before merging.
 - Rename the delta, not the repo. Only files the merge touched need a look:
   new upstream files, files whose upstream hunks added strings, and tests
   that assert on them. `git diff <merge-base>..HEAD --stat` bounds it.
