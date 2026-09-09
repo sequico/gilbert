@@ -11,8 +11,9 @@ Status: Proposed (2026-09-06)
 > confirmed: Sieve owns delivery-time actions inside Stalwart; workers act
 > afterwards, on delivered, durable state.
 >
-> A survey of established agent-fleet orchestration repositories (2026-09-06)
-> informs Decision §7: Gilbert adopts the field's *patterns*, never its
+> A survey of established agent-fleet orchestration repositories (2026-09-06;
+> re-surveyed 2026-09-09, findings in Decision §7) informs Decision §7:
+> Gilbert adopts the field's *patterns*, never its
 > infrastructure — every surveyed engine runs on a queue/database/volume of
 > its own, which this repo's law forbids.
 
@@ -45,10 +46,59 @@ Facts from the current machinery:
   extraction, richer rules).
 - JMAP has no compare-and-set. Concurrency primitives must be built from
   owned documents and conditional patches (expected-owner update), exactly as
-  ADR 0001's policy documents are.
+  the account-owned policy documents are.
 - Architecture law: everything durable lives in Stalwart — no own database,
   no writable volume; the container is disposable. New identifiers are named
   `gilbert`.
+
+## v1 scope (owner decisions 2026-09-09)
+
+The general model below (Decisions §1–§7) describes the full design. The
+owner has since scoped v1 to a single self-hosted installation; this
+section amends or defers parts of that model for v1, and the rest of this
+record keeps its full shape as the evolution path.
+
+- **One structure agent per installation, `gilbert@`, by default.** v1 ships
+  one agent principal serving every group, created operator-side in
+  Stalwart's own administration (the same surface that creates accounts)
+  and associated to the installation from the Gilbert admin. Specialist
+  agents and "external agent fleets later" (ROADMAP) are future work on the
+  same machinery.
+- **The executor runs inside gilbertserver (the Node/Hono server in
+  `server/`) in v1.** This deliberately revisits the "workers embedded in
+  the web server container" rejection (Alternatives) for v1: the
+  disposable tier is acceptable because every durable byte stays in
+  Stalwart, the agent session is re-opened from the bootstrap secret at
+  every boot, and mid-flight work is recovered from job documents after a
+  restart. The executor is a background task isolated from the request path
+  (async, non-blocking; leases tolerate pauses far longer than the web
+  tier's). Separate worker replicas and lease-based fleet coordination (§2,
+  §6) return when availability or throughput outgrows one process (Open
+  questions).
+- **One bootstrap secret per agent principal, in the environment.** The
+  agent's app password lives in the deployment environment
+  (`GILBERT_AGENT_*`), set once at deploy, compatible with `IMMUTABLE=1`:
+  nothing needs a writable filesystem because the session is re-established
+  from the environment at every boot and sessions stay in memory. On
+  writable deployments the agent session may instead be sealed like a user
+  session (SESSION_FILE), removing even the environment secret.
+- **Management is automatic from the admin surface, via impersonation.**
+  The signed-in admin selects the agent account; gilbertserver creates and
+  rotates the agent's app passwords through JMAP `x:AppPassword/set` under
+  impersonation (live-probe item — Open questions) and manages everything
+  else through ordinary JMAP on Stalwart documents. No Management API, no
+  hand-edited files, no fields to paste secrets into. The app-password
+  secret is returned once at creation and never re-readable; rotation in an
+  immutable deployment means regenerating from the admin surface and
+  updating the environment at the next deploy.
+- **Per-group activation, rules and audit live in each group's own account**
+  (its `gilbert/` app folder), following the group-ownership law and the
+  ADR 0006 pattern (chat, `labels.json`): members see that the agent is
+  active in their group and what its automations do by construction,
+  because group Files are already readable by members. The agent's own
+  account (`gilbert@`) holds its registration record. Runtime scope is per
+  changed account: the event's `accountId` selects which group's rules
+  apply — the agent has no single global brief.
 
 ## Decision
 
@@ -65,6 +115,9 @@ that is how "tell the agent to do something by mailing it" works. Each agent
 principal has an app password as the one bootstrap secret the worker holds.
 
 ### 2. Workers are headless, stateless, disposable replicas
+
+> v1: the executor runs inside gilbertserver (v1 scope); this section is the
+> evolution path for when replicas return.
 
 A worker is a dedicated entrypoint in this repository (Node, same JMAP
 client library family as the web client but headless) that authenticates to
@@ -90,7 +143,8 @@ already lives by, minus the browser.
 
 - **Rules** ("what this agent does": move group messages, extract files,
   the open set to come) are validated documents in the agent principal's
-  Files, not code or environment. The worker is a generic interpreter plus a
+  Files, not code or environment — for v1, per-group rules live in each
+  group's own account instead (v1 scope). The worker is a generic interpreter plus a
   library of capability-gated actions; adding an agent behaviour means adding
   an action the interpreter can run, and shipping a rule is writing a
   document.
@@ -177,15 +231,40 @@ or visual canvas (Conductor, n8n) — rules are documents in v1; external
 runtime engines — a dependency that would import a queue/database and
 licence constraints (SSPL, fair-code) into a JMAP-only product.
 
+**Re-surveyed 2026-09-09 (sources in References).** The 2026 field draws a
+hard line: *checkpointing is not durable execution*. Agent frameworks —
+LangGraph, CrewAI, Google ADK (GA 2026), Microsoft Agent Framework (1.0 GA
+April 2026, the merged successor of AutoGen and Semantic Kernel), Strands,
+Dapr Agents (GA March 2026, NVIDIA-built, the runtime owning the workflow
+lifecycle) — persist state but do not detect failure, restart or
+deduplicate on their own; durable runtimes (Temporal, Restate, Inngest,
+DBOS, Dapr Workflows) do. That line validates this record's side of the
+contract — reconciliation from durable state, leases for takeover — and
+names the piece it leaves to deployment: detecting a dead replica and
+restarting it (Open questions). The Postgres-based entrants (DBOS; Kitaru
+and Absurd) run durable execution and "compute that can disappear while
+waiting" on an ordinary row store, confirming that a document store is a
+valid engine substrate — here, Stalwart Files with lease documents as the
+queue, scheduler and coordination layer. Standards are settling around the
+two seams this record keeps open: A2A (agent-to-agent) moved to the Agentic
+AI Foundation in August 2026 alongside MCP (model-to-tool); Gilbert's future
+external-fleet boundary should speak A2A, and a future LLM action should be
+exposed over MCP — neither in v1. Finally, mailbox-as-interface is a live
+product pattern: AgentMail ("Gmail for agents", 2026) gives agents their
+own inboxes, instructions by ordinary mail and thread-grouped conversation,
+independently confirming Decision §1; thread-as-conversation-unit is a
+candidate rule semantic (Open questions).
+
 ## Consequences
 
 - One bootstrap secret per agent principal (its app password, in the
-  environment), on top of the admin group secret of ADR 0001.
+  environment), on top of ADR 0007's administration model (permission
+  marker; Impersonate for per-user writes).
 - An agent's scope is exactly its grants: it sees and acts on what the
   operator granted, nothing else; a new account is served by granting the
-  agent, the same way admin membership is granted in ADR 0001. Grant
+  agent, the same way admin membership is granted in ADR 0007. Grant
   management stays in Stalwart's directory (Management API territory, not
-  JMAP — deliberately out of scope, as in ADR 0001).
+  JMAP — deliberately out of scope, as in ADR 0007).
 - Every event costs a reconcile: rules must be written as narrow queries
   (per type, from the recorded state), and the push filter must stay tight,
   or the worker spends its life re-reading mailboxes nothing changed in.
@@ -207,6 +286,11 @@ licence constraints (SSPL, fair-code) into a JMAP-only product.
 - Agent work can be slow by design: a reconcile may call an external model
   or wait on a person, so leases and heartbeat intervals must tolerate
   pauses far longer than the request/response web tier's.
+- v1's in-process executor makes gilbertserver's lifecycle the agent's
+  lifecycle: a deploy or crash pauses agent work for the downtime window,
+  and recovery is automatic — bootstrap re-auth at boot, stale-lease
+  re-claim, push catch-up and reconciliation. Nothing hangs on a dead
+  process because the state is the documents.
 
 ## Alternatives considered
 
@@ -219,7 +303,8 @@ licence constraints (SSPL, fair-code) into a JMAP-only product.
   identity unit.
 - **Workers embedded in the web server container**: rejected — it mixes the
   disposable, request-scoped web tier with long-lived claim-holding
-  processes and scales them together.
+  processes and scales them together. v1 runs the executor in-process
+  despite this general rejection (v1 scope).
 - **Cron inside the container**: rejected — disposable containers offer no
   durability or overlap guarantees; the scheduler document does.
 - **Polling as the primary trigger**: rejected; kept only as the recovery
@@ -227,22 +312,36 @@ licence constraints (SSPL, fair-code) into a JMAP-only product.
 - **Webhooks out of Stalwart**: not available — Stalwart's own event surface
   is JMAP push, and that is what this design consumes.
 
-## Open questions (recorded, not blocking v1)
+## Open questions (recorded; the v1-scope section above records what is decided)
 
-- How rules are authored and installed: v1 by editing the agent's Files
-  documents directly (operator/admin), or a management surface later —
-  probably an admin feature under ADR 0001.
+- Whether real Stalwart 0.16 permits `x:AppPassword/set` under
+  impersonation (the mock does; the refusal rules cover *authentication*
+  with app passwords, not creation). Live probe before the automatic
+  create/rotate flow closes.
+- How rule documents are authored in v1: schema/format of a rule, the
+  validation surface in the admin UI, and whether group members may only
+  see rules or also edit them — visibility is decided (group documents are
+  readable by members); edit rights are not.
 - Whether ADR 0001's per-user policy should later gate agents per user
   (e.g. "this agent is enforced off for this account"); the profile
   machinery would carry it, but nothing is decided.
 - Where "external agent fleets later" (ROADMAP) draws its boundary: an
   external fleet is not a Gilbert principal and would need a defined,
-  authenticated API surface — future ADR, not this one.
-- Multi-Stalwart installs: same open question as ADR 0001 — whether agent
-  principals and their documents are per server or per install.
+  authenticated API surface — A2A is the recorded candidate wire protocol;
+  future ADR.
+- Multi-Stalwart installs: whether agent principals and their documents are
+  per server or per install.
 - Whether v1 agents need generative steps at all (an LLM call as an action);
-  the survey's answer is to guardrail it as a capability-gated action, but
-  no agent feature in the confirmed scope requires one yet.
+  the survey's answer is to guardrail it as a capability-gated action, and
+  MCP is the recorded candidate exposure — no feature in the confirmed
+  scope requires one yet.
+- Whether extraction/response rules act on a mail thread (conversation
+  grouped by In-Reply-To) rather than single messages — the
+  thread-as-conversation-unit pattern AgentMail uses (2026).
+- What triggers the return to separate worker replicas (§2, §6): when one
+  in-process executor no longer meets availability or throughput, replicas
+  resume as separate processes coordinated by leases — same coordinator-free
+  design or an explicit supervisor, to be decided then.
 
 ## References
 
@@ -272,6 +371,17 @@ licence constraints (SSPL, fair-code) into a JMAP-only product.
   https://github.com/openai/openai-agents-python — agents, handoffs,
   guardrails, tracing
   https://github.com/microsoft/agent-framework — production agent
-  framework; successor of microsoft/autogen (maintenance mode)
+  framework; successor of microsoft/autogen (maintenance mode); 1.0 GA
+  April 2026
   https://github.com/n8n-io/n8n — workflow automation platform (fair-code;
   queue/database-backed — the rejected shape for Gilbert)
+  Re-survey 2026-09-09:
+  https://www.diagrid.io/blog/still-not-durable-how-microsoft-agent-framework-and-strands-agents-repeat-the-same-mistake — checkpointing is not durable execution
+  https://www.diagrid.io/infrastructure/10-best-temporal-alternatives-2026 — durable-execution alternatives compared
+  https://www.zenml.io/blog/where-durable-execution-is-headed — Postgres checkpoint recovery; Kitaru and Absurd
+  https://vercel.com/i/ai-agent-frameworks — choosing agent frameworks in 2026
+  https://www.axios.com/2026/08/17/a2a-agentic-ai-foundation-open-ai-standards — A2A moves to the Agentic AI Foundation (August 2026)
+  https://www.ycombinator.com/launches/NvQ-agentmail-the-api-first-email-provider-for-ai-agents — AgentMail: agents with their own inboxes
+  https://docs.agentmail.to — AgentMail docs (agent onboarding, threads)
+  ADR 0007 — Stalwart admin is the Gilbert admin (the current administration
+  model; supersedes ADR 0001's grant)
