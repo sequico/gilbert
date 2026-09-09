@@ -46,6 +46,7 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    "Mention a member": "メンバーをメンション",
     "Go to folder…": "フォルダーへ移動…",
     "Set for everyone here. You cannot change this.":
       "この環境全体で設定されています。変更できません。",

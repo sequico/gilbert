@@ -20,6 +20,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { shortName } from "@/lib/chat";
 import { emojiAsset } from "@/lib/emoji";
+import { t } from "@/lib/i18n";
 
 export interface ChatInputHandle {
   /** Insert an emoticon (plain text) at the caret and keep it in view. */
@@ -415,7 +416,11 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
         }}
       />
       {mention && matches.length > 0 && (
-        <div className="chat-mention-menu" role="listbox" aria-label="Mention a member">
+        <div
+          className="chat-mention-menu"
+          role="listbox"
+          aria-label={t("Mention a member")}
+        >
           {matches.map((a, i) => (
             <button
               key={a}

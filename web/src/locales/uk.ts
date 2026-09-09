@@ -43,6 +43,7 @@ import type { Catalog } from "@/lib/i18n";
  */
 export const catalog: Catalog = {
   strings: {
+    "Mention a member": "Згадати учасника",
     "Go to folder…": "Перейти до теки…",
     "Set for everyone here. You cannot change this.":
       "Задано для всіх тут. Змінити не можна.",
