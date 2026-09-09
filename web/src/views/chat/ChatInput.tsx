@@ -249,6 +249,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   const caret = useRef<number | null>(null);
   const ignoreSync = useRef(false);
   const [mention, setMention] = useState<MentionState | null>(null);
+  const activeRef = useRef<HTMLButtonElement | null>(null);
 
   valueRef.current = value;
   const participants = mentionables ?? [];
@@ -275,7 +276,18 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
   const syncMention = () => {
     const m = activeMention();
-    setMention(m ? { ...m, index: 0 } : null);
+    setMention((prev) => {
+      if (!m) return null;
+      if (
+        prev &&
+        prev.start === m.start &&
+        prev.off === m.off &&
+        prev.query === m.query
+      ) {
+        return prev; // keep the selected index across keyup
+      }
+      return { ...m, index: 0 };
+    });
   };
 
   const matches =
@@ -285,14 +297,21 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           .filter((a) => a.toLowerCase().includes(mention.query.toLowerCase()))
           .slice(0, 8);
 
-  const pickMention = (address: string) => {
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest" });
+  }, [mention?.index]);
+
+  const commitMention = (
+    start: number,
+    end: number,
+    address: string,
+    caretNext: number,
+    extra: string,
+  ) => {
     const root = rootRef.current;
     const plain = root ? serializePlain(root) : valueRef.current;
-    const m = activeMention();
-    if (!m) return;
-    const next = `${plain.slice(0, m.start)}@${address} ${plain.slice(m.off)}`;
+    const next = `${plain.slice(0, start)}@${address}${extra}${plain.slice(end)}`;
     if (next.length > maxLength) return;
-    const caretNext = m.start + address.length + 2;
     caret.current = caretNext;
     ignoreSync.current = true; // buildRich below already reflects `next`
     onChange(next);
@@ -303,6 +322,46 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
       root.focus();
     }
     setMention(null);
+  };
+
+  const pickMention = (address: string) => {
+    const m = activeMention();
+    if (!m) return;
+    commitMention(m.start, m.off, address, m.start + address.length + 2, " ");
+  };
+
+  /** The participant a typed query resolves to, when it is unambiguous. */
+  const uniqueParticipantFor = (query: string): string | null => {
+    const q = query.toLowerCase();
+    const hits = participants.filter(
+      (a) => a.toLowerCase() === q || shortName(a).toLowerCase() === q,
+    );
+    return hits.length === 1 ? (hits[0] ?? null) : null;
+  };
+
+  /** Auto-commit `@ada ` typed inline when it resolves to exactly one member. */
+  const autoResolveMention = () => {
+    const root = rootRef.current;
+    if (!root) return;
+    const plain = serializePlain(root);
+    const off = caretOffsetOf(root);
+    if (plain[off - 1] !== " ") return;
+    let start = -1;
+    for (let i = off - 2; i >= 0; i--) {
+      const c = plain[i];
+      if (c === undefined) break;
+      if (c === "@") {
+        start = i;
+        break;
+      }
+      if (/\s/.test(c)) break;
+    }
+    if (start < 0) return;
+    const query = plain.slice(start + 1, off - 1);
+    if (!query) return;
+    const match = uniqueParticipantFor(query);
+    if (!match) return;
+    commitMention(start, off - 1, match, start + 1 + match.length + 1, "");
   };
 
   // Rebuild the rich content only when the plain text changed from outside
@@ -372,6 +431,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           if (plain !== valueRef.current) onChange(plain);
           readCaret();
           syncMention();
+          autoResolveMention();
         }}
         onKeyDown={(e) => {
           if (mention) {
@@ -455,6 +515,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           sel.addRange(range);
           readCaret();
           syncMention();
+          autoResolveMention();
         }}
       />
       {mention && matches.length > 0 && (
@@ -469,6 +530,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
               type="button"
               role="option"
               aria-selected={i === mention.index}
+              ref={i === mention.index ? activeRef : undefined}
               className={`chat-mention-item${i === mention.index ? " active" : ""}`}
               onMouseDown={(e) => e.preventDefault()}
               onMouseEnter={() => setMention((m) => (m ? { ...m, index: i } : m))}

@@ -422,7 +422,11 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                             {reply.from === me ? t("You") : shortName(reply.from)}
                           </span>
                           <span className="chat-quote-text">
-                            <EmojiText text={reply.text} />
+                            <MentionedText
+                              text={reply.text}
+                              mentions={reply.mentions}
+                              me={me}
+                            />
                           </span>
                         </button>
                       )}

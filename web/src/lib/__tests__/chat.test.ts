@@ -4,9 +4,11 @@ import {
   isChatMarkerDoc,
   isChatMessageDoc,
   markerNameFor,
+  mentionRegex,
   mentionsFromText,
   messageDoc,
   participantsOf,
+  shortName,
   unreadCount,
 } from "@/lib/chat";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
@@ -163,6 +165,22 @@ describe("mentionsFromText", () => {
   it("ignores non-participant tokens and bare @", () => {
     expect(mentionsFromText("hi @stranger and @", participants)).toEqual([]);
     expect(mentionsFromText("no mention here", participants)).toEqual([]);
+  });
+});
+
+describe("mention round-trip", () => {
+  it("keeps the space after a mention and renders the short name", () => {
+    const participants = ["sam@ops.greensley.eu"];
+    const text = "ciao @sam@ops.greensley.eu come";
+    expect(mentionsFromText(text, participants)).toEqual([
+      { kind: "principal", id: "sam@ops.greensley.eu" },
+    ]);
+    expect(text.split(mentionRegex(["sam@ops.greensley.eu"]))).toEqual([
+      "ciao ",
+      "sam@ops.greensley.eu",
+      " come",
+    ]);
+    expect(shortName("sam@ops.greensley.eu")).toBe("sam");
   });
 });
 
