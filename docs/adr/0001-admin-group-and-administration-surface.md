@@ -1,6 +1,13 @@
 # ADR 0001 — Admin group and the administration surface
 
-Status: Accepted (2026-09-07)
+Status: Superseded (2026-09-09)
+
+> Superseded by ADR 0007 — *Stalwart admin is the Gilbert admin (the
+> `gilbert-admin` group is removed)*. The grant it describes (membership of
+> the `gilbert-admin` group mailbox) is gone from code; the administration
+> surface it scoped (the shield and the policy editor) survives unchanged
+> under the new grant. Its body below is the historical record of the
+> superseded decision.
 
 > **Scope confirmed by the owner (2026-09-07):**
 > administration here means product-level administration only — offered

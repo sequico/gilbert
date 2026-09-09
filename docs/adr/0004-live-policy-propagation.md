@@ -1,6 +1,6 @@
 # ADR 0004 — Rule changes reach signed-in clients by re-login (kick v0)
 
-Status: Proposed (2026-09-07)
+Status: Accepted (2026-09-09)
 
 > **Scope confirmed by the owner (2026-09-07):** when the admin changes the
 > rules, clients that are already open learn it by being signed out — the

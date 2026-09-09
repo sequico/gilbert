@@ -1,6 +1,6 @@
 # ADR 0005 — Forced password change: a server-enforced door, directive in the user's own Files
 
-Status: Proposed (2026-09-07)
+Status: Accepted (2026-09-09)
 
 > **Scope confirmed by the owner (2026-09-07):** the directive lives in the
 > **target user's own account Files** (its `gilbert` app folder), not in the
