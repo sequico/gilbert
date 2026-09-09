@@ -555,7 +555,12 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
           </table>
         )}
       </div>
-      <Popover anchor={menu.anchor} onClose={menu.close} width={200}>
+      <Popover
+        anchor={menu.anchor}
+        onClose={menu.close}
+        trigger={menu.trigger}
+        width={200}
+      >
         {!menuNode && (
           <>
             <MenuItem

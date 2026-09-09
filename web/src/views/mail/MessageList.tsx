@@ -468,6 +468,7 @@ export function MessageList({
                 <Popover
                   anchor={selMenu.anchor}
                   onClose={selMenu.close}
+                  trigger={selMenu.trigger}
                   align="end"
                   width={240}
                 >
@@ -554,6 +555,7 @@ export function MessageList({
             <Popover
               anchor={moreMenu.anchor}
               onClose={moreMenu.close}
+              trigger={moreMenu.trigger}
               align="end"
               width={240}
             >
@@ -854,7 +856,12 @@ export function MessageList({
           )}
         </div>
       </div>
-      <Popover anchor={ctxMenu.anchor} onClose={ctxMenu.close} width={250}>
+      <Popover
+        anchor={ctxMenu.anchor}
+        onClose={ctxMenu.close}
+        trigger={ctxMenu.trigger}
+        width={250}
+      >
         <MenuItem
           icon={<Reply size={16} />}
           label={t("Reply")}

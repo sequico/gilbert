@@ -35,6 +35,13 @@ interface PopoverProps {
   role?: string;
   /** Accessible name — dialogs need one; menus take it from their trigger. */
   ariaLabel?: string;
+  /**
+   * The trigger element, when the popover belongs to one. Presses that start
+   * on it never close the popover: the trigger's own toggle decides, so
+   * clicking a menu's button while the menu is open closes it instead of
+   * closing and reopening in the same gesture.
+   */
+  trigger?: Element | null;
 }
 
 /** Generic anchored popover rendered in a portal; closes on outside click / Escape. */
@@ -49,6 +56,7 @@ export function Popover({
   style,
   closeOnClick = true,
   role = "menu",
+  trigger,
   ariaLabel,
 }: PopoverProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -89,7 +97,12 @@ export function Popover({
   useEffect(() => {
     if (!anchor) return;
     const onDown = (e: MouseEvent | TouchEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        // The trigger's own press is not an outside press: its toggle closes
+        // the menu (see useMenu), and closing here would race it.
+        if (trigger?.contains(e.target as Node)) return;
+        onClose();
+      }
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -112,7 +125,7 @@ export function Popover({
       document.removeEventListener("keydown", onKey, true);
       window.removeEventListener("resize", onScroll);
     };
-  }, [anchor, onClose]);
+  }, [anchor, trigger, onClose]);
 
   if (!anchor) return null;
   return createPortal(
@@ -219,16 +232,35 @@ export function MenuTitle({ children }: { children: ReactNode }) {
   return <div className="menu-title">{children}</div>;
 }
 
+/** An open menu: where it is anchored and the element that opened it. */
+interface MenuState {
+  anchor: Anchor | null;
+  /** The trigger element, or null for a coordinate-opened context menu. */
+  trigger: Element | null;
+}
+
 /** Hook to manage a menu anchored to a trigger element. */
 export function useMenu() {
-  const [anchor, setAnchor] = useState<Anchor | null>(null);
+  const [menu, setMenu] = useState<MenuState | null>(null);
   return {
-    anchor,
-    open: (e: { currentTarget: Element } | Element) =>
-      setAnchor(anchorFromEl("currentTarget" in e ? e.currentTarget : e)),
-    openAt: (x: number, y: number) => setAnchor({ x, y, w: 0, h: 0 }),
-    close: () => setAnchor(null),
-    isOpen: anchor !== null,
+    anchor: menu?.anchor ?? null,
+    /** The trigger the open menu belongs to, when it was opened from one. */
+    trigger: menu?.trigger ?? null,
+    open: (e: { currentTarget: Element } | Element) => {
+      const el = "currentTarget" in e ? e.currentTarget : e;
+      // The trigger toggles: activating the element that opened the menu
+      // again closes it. The popover lets its own trigger's press through (it
+      // does not close on it), so this is the one place that decides.
+      if (menu && menu.trigger === el) {
+        setMenu(null);
+        return;
+      }
+      setMenu({ anchor: anchorFromEl(el), trigger: el });
+    },
+    openAt: (x: number, y: number) =>
+      setMenu({ anchor: { x, y, w: 0, h: 0 }, trigger: null }),
+    close: () => setMenu(null),
+    isOpen: menu !== null,
   };
 }
 

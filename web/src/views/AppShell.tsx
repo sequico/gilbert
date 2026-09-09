@@ -19,7 +19,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { withBase } from "@/lib/basePath";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
@@ -75,6 +75,14 @@ export function AppShell({ children }: { children: ReactNode }) {
    */
   const [goFolder, setGoFolder] = useState(false);
   const section = location.split("/")[1] || "mail";
+  /*
+   * Where the shield takes the reader back to: the section that was open
+   * before the last jump into /admin. Remembered on the click that leaves
+   * it -- the shield is the way back too, and "back" means "where I was",
+   * not a hard-coded section. After a reload inside /admin the memory is
+   * gone and the shield falls back to Mail, the home section.
+   */
+  const adminBackTo = useRef("/mail");
 
   useGlobalShortcuts({
     onHelp: () => setHelpOpen(true),
@@ -180,14 +188,23 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
           <ThemeToggle />
           {session?.gilbert?.isAdmin && (
-            <Link
-              href="/admin"
+            <button
+              type="button"
               className={`icon-btn ${section === "admin" ? "active" : ""}`}
               aria-label={t("Admin")}
               title={t("Admin")}
+              aria-current={section === "admin" ? "page" : undefined}
+              onClick={() => {
+                if (section === "admin") {
+                  navigate(adminBackTo.current);
+                  return;
+                }
+                adminBackTo.current = location;
+                navigate("/admin");
+              }}
             >
               <Shield size={21} />
-            </Link>
+            </button>
           )}
           <Link
             href="/settings"
@@ -211,6 +228,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Popover
             anchor={acctMenu.anchor}
             onClose={acctMenu.close}
+            trigger={acctMenu.trigger}
             align="end"
             width={280}
           >

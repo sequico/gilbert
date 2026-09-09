@@ -588,6 +588,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
       <Popover
         anchor={emojiMenu.anchor}
         onClose={emojiMenu.close}
+        trigger={emojiMenu.trigger}
         side="top"
         closeOnClick={false}
         width={290}
@@ -611,6 +612,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
       <Popover
         anchor={colorMenu.anchor}
         onClose={colorMenu.close}
+        trigger={colorMenu.trigger}
         side="top"
         closeOnClick={false}
         width={230}
@@ -634,6 +636,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
       <Popover
         anchor={hiliteMenu.anchor}
         onClose={hiliteMenu.close}
+        trigger={hiliteMenu.trigger}
         side="top"
         closeOnClick={false}
         width={230}
@@ -657,6 +660,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
       <Popover
         anchor={linkMenu.anchor}
         onClose={linkMenu.close}
+        trigger={linkMenu.trigger}
         side="top"
         closeOnClick={false}
         width={320}

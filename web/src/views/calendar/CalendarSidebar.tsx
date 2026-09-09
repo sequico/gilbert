@@ -455,7 +455,12 @@ export function CalendarSidebar() {
         </>
       )}
 
-      <Popover anchor={menu.anchor} onClose={menu.close} width={220}>
+      <Popover
+        anchor={menu.anchor}
+        onClose={menu.close}
+        trigger={menu.trigger}
+        width={220}
+      >
         {menuCal &&
           (() => {
             const shared = menuAccountId !== null && menuAccountId !== cal.accountId;

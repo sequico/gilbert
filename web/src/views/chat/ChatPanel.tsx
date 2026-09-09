@@ -219,10 +219,24 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
       ?.scrollIntoView({ block: "center" });
   };
 
-  // Focus the composer when a conversation opens.
+  // Focus the composer when a conversation opens. The editor lives in a
+  // popover that starts `visibility: hidden` until it has been positioned,
+  // and focusing a hidden element is a silent no-op, so retry on the next
+  // animation frames until the composer actually holds the focus.
   useEffect(() => {
-    if (openAccountId) chatInputRef.current?.focus();
-  }, [openAccountId]);
+    if (!openAccountId || searchOpen) return;
+    let raf = 0;
+    const tick = () => {
+      const input = chatInputRef.current;
+      if (input) {
+        input.focus();
+        if (input.isFocused()) return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+    return () => cancelAnimationFrame(raf);
+  }, [openAccountId, searchOpen, open?.loading]);
 
   const byId = useMemo(() => {
     const m = new Map<Id, ChatMessage>();
@@ -440,7 +454,15 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                           className="icon-btn xs chat-reply"
                           aria-label={t("Reply")}
                           title={t("Reply")}
-                          onClick={() => setReply(open.accountId, m.id)}
+                          // A mouse reply must not lift the caret out of the
+                          // composer (same pattern as the mention menu); when
+                          // the editor had no focus, hand it back so typing
+                          // starts at once.
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setReply(open.accountId, m.id);
+                            chatInputRef.current?.focus();
+                          }}
                         >
                           <CornerUpLeft size={13} />
                         </button>
@@ -476,7 +498,11 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                 type="button"
                 className="icon-btn xs"
                 aria-label={t("Cancel reply")}
-                onClick={() => setReply(open.accountId, null)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setReply(open.accountId, null);
+                  chatInputRef.current?.focus();
+                }}
               >
                 <X size={13} />
               </button>
@@ -491,6 +517,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                   className="chat-emoji-cell"
                   role="option"
                   title={e}
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     chatInputRef.current?.insertEmoji(e);
                     setEmojiOpen(false);
@@ -508,7 +535,15 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
               aria-label={t("Emoji")}
               title={t("Emoji")}
               aria-expanded={emojiOpen}
-              onClick={() => setEmojiOpen((v) => !v)}
+              // Toggling the picker never takes the caret out of the
+              // composer; closing it hands the focus back when it had
+              // gone elsewhere.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                const next = !emojiOpen;
+                setEmojiOpen(next);
+                if (!next) chatInputRef.current?.focus();
+              }}
             >
               <Smile size={18} />
             </button>

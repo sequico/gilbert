@@ -536,7 +536,12 @@ export function MailboxTree() {
           </>
         )}
       </nav>
-      <Popover anchor={menu.anchor} onClose={menu.close} width={300}>
+      <Popover
+        anchor={menu.anchor}
+        onClose={menu.close}
+        trigger={menu.trigger}
+        width={300}
+      >
         {menuTarget && (
           <MailboxMenu
             mailbox={menuTarget}

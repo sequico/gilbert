@@ -347,7 +347,12 @@ export function ContactsSidebar() {
         }}
       />
 
-      <Popover anchor={menu.anchor} onClose={menu.close} width={230}>
+      <Popover
+        anchor={menu.anchor}
+        onClose={menu.close}
+        trigger={menu.trigger}
+        width={230}
+      >
         {target && (
           <>
             {/* Exporting is the one thing every row can do -- your own books,

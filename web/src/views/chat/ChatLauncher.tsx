@@ -48,6 +48,21 @@ export function ChatLauncher() {
     if (maximized) setOpen(false);
   }, [maximized]);
 
+  // The popover closes itself on any outside mousedown -- including this
+  // launcher's own. That would close the panel on the press and leave the
+  // click to reopen it (the state has already flipped by then), so while
+  // the panel is open a press that starts on the launcher is swallowed at
+  // the window (capture fires before the popover's document listener) and
+  // the click's toggle is the one that closes.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (btnRef.current?.contains(e.target as Node)) e.stopPropagation();
+    };
+    window.addEventListener("mousedown", onDown, true);
+    return () => window.removeEventListener("mousedown", onDown, true);
+  }, [open]);
+
   if (!groups.length) return null;
 
   const toggle = () => {

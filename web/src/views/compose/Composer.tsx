@@ -627,6 +627,7 @@ export function Composer({ draft }: { draft: Draft }) {
           <Popover
             anchor={sendMenu.anchor}
             onClose={sendMenu.close}
+            trigger={sendMenu.trigger}
             side="top"
             width={280}
           >
@@ -752,6 +753,7 @@ export function Composer({ draft }: { draft: Draft }) {
             <Popover
               anchor={templateMenu.anchor}
               onClose={templateMenu.close}
+              trigger={templateMenu.trigger}
               side="top"
               width={260}
             >
@@ -774,6 +776,7 @@ export function Composer({ draft }: { draft: Draft }) {
             <Popover
               anchor={moreMenu.anchor}
               onClose={moreMenu.close}
+              trigger={moreMenu.trigger}
               side="top"
               width={260}
             >

@@ -348,6 +348,7 @@ export function ThreadView({
         <Popover
           anchor={moreMenu.anchor}
           onClose={moreMenu.close}
+          trigger={moreMenu.trigger}
           align="start"
           width={240}
         >
@@ -487,6 +488,7 @@ export function ThreadView({
               <Popover
                 anchor={replyMore.anchor}
                 onClose={replyMore.close}
+                trigger={replyMore.trigger}
                 align="end"
                 width={220}
               >

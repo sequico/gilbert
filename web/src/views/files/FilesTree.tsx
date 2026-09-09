@@ -308,7 +308,12 @@ export function FilesTree() {
         </>
       )}
 
-      <Popover anchor={menu.anchor} onClose={menu.close} width={210}>
+      <Popover
+        anchor={menu.anchor}
+        onClose={menu.close}
+        trigger={menu.trigger}
+        width={210}
+      >
         <MenuItem
           icon={<FolderPlus size={16} />}
           label={t("New folder")}

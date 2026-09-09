@@ -27,6 +27,8 @@ export interface ChatInputHandle {
   /** Insert an emoticon (plain text) at the caret and keep it in view. */
   insertEmoji(emoji: string): void;
   focus(): void;
+  /** Whether the editor itself currently holds the focus. */
+  isFocused(): boolean;
 }
 
 interface ChatInputProps {
@@ -367,23 +369,56 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
     insertEmoji(emoji: string) {
       const root = rootRef.current;
       const current = root ? serializePlain(root) : valueRef.current;
-      const at = caret.current ?? current.length;
-      const next = `${current.slice(0, at)}${emoji}${current.slice(at)}`;
-      if (next.length > maxLength) return;
-      caret.current = at + emoji.length;
+      if (current.length + emoji.length > maxLength) return;
+      const sel = window.getSelection();
+      const range = sel?.rangeCount ? sel.getRangeAt(0) : null;
+      if (root && sel && range && root.contains(range.startContainer)) {
+        // Insert the emoji's image right at the live caret, the way a
+        // keystroke inserts a character. This keeps the caret exactly after
+        // the emoji and never converts between DOM and plain-text offsets,
+        // which drift by one per astral emoji already rendered as an image.
+        range.deleteContents();
+        const src = emojiAsset(emoji);
+        if (src) {
+          const img = document.createElement("img");
+          img.src = src;
+          img.alt = emoji;
+          img.className = "chat-emoji-img";
+          img.draggable = false;
+          range.insertNode(img);
+          range.setStartAfter(img);
+        } else {
+          range.insertNode(document.createTextNode(emoji));
+          range.collapse(false);
+        }
+        sel.removeAllRanges();
+        sel.addRange(range);
+        caret.current = null;
+        root.focus();
+        onChange(serializePlain(root));
+        return;
+      }
+      // No caret in the editor (it never had focus): append at the end.
+      const next = `${current}${emoji}`;
       ignoreSync.current = true; // buildRich below already reflects `next`
       onChange(next);
       if (root) {
         buildRich(root, next, participants);
-        setCaretAt(root, caret.current);
-        caret.current = null;
+        setCaretAt(root, serializePlain(root).length);
         root.focus();
       }
     },
     focus() {
-      rootRef.current?.focus();
-      if (rootRef.current)
-        setCaretAt(rootRef.current, serializePlain(rootRef.current).length);
+      const root = rootRef.current;
+      if (!root) return;
+      // An editor that already holds the caret keeps it where it is: coming
+      // back from a mouse action must not jump the caret to the end.
+      if (document.activeElement === root) return;
+      root.focus();
+      setCaretAt(root, serializePlain(root).length);
+    },
+    isFocused() {
+      return rootRef.current === document.activeElement;
     },
   }));
 

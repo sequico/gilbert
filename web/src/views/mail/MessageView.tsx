@@ -542,7 +542,13 @@ export const MessageView = memo(function MessageView({
           )}
         </div>
       </header>
-      <Popover anchor={moreMenu.anchor} onClose={moreMenu.close} align="end" width={240}>
+      <Popover
+        anchor={moreMenu.anchor}
+        onClose={moreMenu.close}
+        trigger={moreMenu.trigger}
+        align="end"
+        width={240}
+      >
         <MenuItem
           icon={<Reply size={16} />}
           label={translate("Reply")}
