@@ -99,6 +99,58 @@ record keeps its full shape as the evolution path.
   account (`gilbert@`) holds its registration record. Runtime scope is per
   changed account: the event's `accountId` selects which group's rules
   apply — the agent has no single global brief.
+- **Admin surfaces.** The Gilbert admin (ADR 0007) gains an "Agents"
+  section: associate agent principals to the installation (select
+  `gilbert@`), activate or deactivate the agent per group, author and
+  version per-group rule documents, rotate app passwords, and see executor
+  status and audit across groups. Every write happens through the signed-in
+  admin's session — impersonation where acting on the agent's account,
+  ordinary JMAP on group documents otherwise; nothing is configured by
+  hand.
+- **Members see, never change.** In a group's own view, next to the group
+  chat (ADR 0006), an AI indicator opens the group's agent surface: which
+  agents are active for the group, what instructions (rule documents) they
+  carry, what they do and what they have done (the group's audit
+  documents). Members read the group's own documents by construction and
+  never edit them: authoring and every change stay in the admin UI.
+
+**Resolutions of the recorded questions (owner decisions 2026-09-09):**
+
+- *1 — app-password creation under impersonation* stays open: to be proven
+  on a real 0.16 instance, or pinned by mock-parity tests, before the
+  automatic create/rotate flow is trusted.
+- *2 — rule format*: rule documents are plain JSON validated against a
+  standard JSON Schema, reusing existing standard primitives — the JMAP
+  filter grammar (RFC 8621) for matching, and named capability-gated
+  actions from the executor's library (move, extract, notify, model call)
+  for effects. No new rule language or bespoke format is invented; Sieve
+  keeps the delivery-time boundary in Stalwart. The concrete schema and its
+  admin validation surface remain to be written.
+- *3 — rule granularity and context*: a rule acts on the single message;
+  context is assembled on demand — the thread (grouped by In-Reply-To) and
+  the group's mail folders — fetched narrowly when a rule needs them, never
+  bulk-loaded.
+- *4 — per-user gating*: out of scope for now; agents are group agents and
+  nothing else.
+- *5 — external agent fleets*: out of scope for now (future ADR; A2A stays
+  the recorded candidate wire protocol).
+- *6 — multi-Stalwart*: agent principals and documents are per cluster —
+  the one gilbertserver runs against; if the cluster replicates, it does so
+  on its own, outside this design.
+- *7 — the model's role*: for v1 the LLM called by Gilbert is the primary
+  decider and executor — Gilbert itself runs only deterministic,
+  manual catalogue-style work, and most actions go through the model. The
+  safety invariants hold: the model acts only through the same
+  capability-gated actions, inside the agent's ACL scope, with every run
+  audited; rules decide triggers, permissions and context, not every step.
+  This reverses, for v1, the "deterministic routing first" field pattern
+  (§7).
+- *8 — returning to replicas* (the owner delegated the call): when one
+  in-process executor no longer meets availability or throughput, replicas
+  return as separate processes of the same codebase, declared at deployment
+  level (restart policy plus a health endpoint), self-coordinated by leases
+  (§2, §6) — no in-product supervisor. A supervisor is revisited only if
+  operations asks for a single control point.
 
 ## Decision
 
@@ -215,7 +267,9 @@ What the survey locks in:
   observability), stored as a Stalwart document — §4.
 - **Deterministic routing first, a model only where needed** (Inngest
   agent-kit's phrasing): rule documents decide the common path; an LLM, when
-  it arrives, is a capability-gated *action*, never the interpreter.
+  it arrives, is a capability-gated *action*, never the interpreter. For v1
+  the owner reverses this for the agent's decision layer (v1 scope,
+  resolutions).
 - **Delegation by handoff**: an orchestrating agent may compose specialist
   agents (CrewAI's manager, OpenAI's handoffs, Microsoft's agents-as-tools)
   — which, with one address per agent (Decision §1), is native: an agent
@@ -312,36 +366,15 @@ candidate rule semantic (Open questions).
 - **Webhooks out of Stalwart**: not available — Stalwart's own event surface
   is JMAP push, and that is what this design consumes.
 
-## Open questions (recorded; the v1-scope section above records what is decided)
+## Open questions (recorded; the v1-scope section and the resolutions above record what is decided)
 
 - Whether real Stalwart 0.16 permits `x:AppPassword/set` under
   impersonation (the mock does; the refusal rules cover *authentication*
-  with app passwords, not creation). Live probe before the automatic
-  create/rotate flow closes.
-- How rule documents are authored in v1: schema/format of a rule, the
-  validation surface in the admin UI, and whether group members may only
-  see rules or also edit them — visibility is decided (group documents are
-  readable by members); edit rights are not.
-- Whether ADR 0001's per-user policy should later gate agents per user
-  (e.g. "this agent is enforced off for this account"); the profile
-  machinery would carry it, but nothing is decided.
-- Where "external agent fleets later" (ROADMAP) draws its boundary: an
-  external fleet is not a Gilbert principal and would need a defined,
-  authenticated API surface — A2A is the recorded candidate wire protocol;
-  future ADR.
-- Multi-Stalwart installs: whether agent principals and their documents are
-  per server or per install.
-- Whether v1 agents need generative steps at all (an LLM call as an action);
-  the survey's answer is to guardrail it as a capability-gated action, and
-  MCP is the recorded candidate exposure — no feature in the confirmed
-  scope requires one yet.
-- Whether extraction/response rules act on a mail thread (conversation
-  grouped by In-Reply-To) rather than single messages — the
-  thread-as-conversation-unit pattern AgentMail uses (2026).
-- What triggers the return to separate worker replicas (§2, §6): when one
-  in-process executor no longer meets availability or throughput, replicas
-  resume as separate processes coordinated by leases — same coordinator-free
-  design or an explicit supervisor, to be decided then.
+  with app passwords, not creation). Open until proven on a real instance
+  or pinned by mock-parity tests.
+- The concrete rule-document schema and its admin validation surface
+  (format decided — JSON Schema over the standard JMAP filter grammar plus
+  named capability actions; the fields themselves remain to be written).
 
 ## References
 
