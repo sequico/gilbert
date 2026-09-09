@@ -427,7 +427,7 @@ interface CalendarState {
   /** The whole calendar as one .ics document, and how many events went into it. */
   exportIcs(calendarId: Id): Promise<{ text: string; count: number }>;
   applyChanges(types: Set<string>, accountId?: Id): void;
-  invalidate(): void;
+  refreshWindows(): void;
   setDraft(draft: EventDraft | null): void;
 }
 
@@ -573,6 +573,10 @@ async function eventIdsByUid(accountId: Id, calendarId: Id): Promise<Map<string,
   for (const e of events) if (e.uid && !byUid.has(e.uid)) byUid.set(e.uid, e.id);
   return byUid;
 }
+
+/* Coalesces `refreshWindows` (see there): one silent refresh per burst of
+   writes/pushes instead of one per event. */
+let calendarRefreshQueued = false;
 
 export const useCalendar = create<CalendarState>((set, get) => ({
   accountId: null,
@@ -786,7 +790,10 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     if (!accountId) return;
     const key = `${start.getTime()}|${end.getTime()}`;
     if (!force && get().ranges[key]) return;
-    set({ loading: true });
+    // Loading stands in only for a window with no data yet: a background
+    // refresh (after a write or a push) must not flash "loading" over
+    // content that is already on screen.
+    if (!get().ranges[key]) set({ loading: true });
     const tz = settings().timeZone ?? browserTimeZone;
     try {
       const res = await client.chain([
@@ -1045,7 +1052,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     });
     const err = res.notCreated?.e;
     if (err) throw new Error(setErrorMessage(err));
-    get().invalidate();
+    get().refreshWindows();
     return res.created!.e!.id;
   },
 
@@ -1168,7 +1175,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         sendSchedulingMessages: false,
       });
       const err2 = res2.notDestroyed?.[id];
-      get().invalidate();
+      get().refreshWindows();
       if (err2)
         throw new Error(
           "The event was moved, but the copy on the old calendar could not be deleted. Delete it by hand.",
@@ -1182,7 +1189,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     });
     const err = res.notUpdated?.[id];
     if (err) throw new CalendarSetError(err);
-    get().invalidate();
+    get().refreshWindows();
     return dropped;
   },
 
@@ -1223,7 +1230,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       if (scope === "occurrence") delete events[event.id];
       return { events };
     });
-    get().invalidate();
+    get().refreshWindows();
   },
 
   async rsvp(event, status, comment, accountId) {
@@ -1306,7 +1313,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     const err = res.notDestroyed?.[id];
     if (err) throw new Error(setErrorMessage(err));
     await get().loadCalendars();
-    get().invalidate();
+    get().refreshWindows();
   },
 
   toggleHidden(id) {
@@ -1398,10 +1405,10 @@ export const useCalendar = create<CalendarState>((set, get) => ({
    * export -- an 800 KB file is thousands of events -- imported nothing at all
    * while this went out in a single call.
    *
-   * Batches rather than a call per event, though: `createEvent` invalidates on
-   * the way out, and invalidating re-fetches every cached range, so importing a
+   * Batches rather than a call per event, though: `createEvent` refreshes on
+   * the way out, and a refresh re-fetches every cached range, so importing a
    * year of events one at a time would refetch the calendar a few hundred
-   * times. One invalidate here, after the last batch.
+   * times. One refreshWindows here, after the last batch.
    *
    * No scheduling messages, on a create or an update. Importing a file is
    * filing something you already have, and mailing its participants would be a
@@ -1515,7 +1522,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         `${created + updated} of ${keys.length} events were imported before this happened: ${(err as Error).message}`,
       );
     } finally {
-      if (created || updated) get().invalidate();
+      if (created || updated) get().refreshWindows();
     }
     // Nothing at all got in: say why rather than report importing zero events
     // as though the file had been empty.
@@ -1572,17 +1579,27 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       return;
     }
     if (types.has("Calendar")) void get().loadCalendars();
-    if (types.has("CalendarEvent")) get().invalidate();
+    if (types.has("CalendarEvent")) get().refreshWindows();
   },
 
-  invalidate() {
-    // Force reload of all ranges currently cached.
-    const keys = Object.keys(get().ranges);
-    set({ ranges: {} });
-    for (const k of keys) {
-      const [s, e] = k.split("|").map(Number) as [number, number];
-      void get().loadRange(new Date(s), new Date(e), true);
-    }
+  refreshWindows() {
+    // Re-fetch every window that is loaded, silently: nothing is dropped
+    // first, so what is on screen stays until the fresh answer lands
+    // (stale-while-revalidate). A write or a push must never flash an empty
+    // grid over content that is already there.
+    //
+    // Coalesced: a burst of pushes -- or the reader's own write followed by
+    // its push echo -- refreshes the windows once, not once per event.
+    if (calendarRefreshQueued) return;
+    calendarRefreshQueued = true;
+    queueMicrotask(() => {
+      calendarRefreshQueued = false;
+      for (const key of Object.keys(get().ranges)) {
+        const [s, e] = key.split("|").map(Number) as [number, number];
+        if (Number.isFinite(s) && Number.isFinite(e))
+          void get().loadRange(new Date(s), new Date(e), true);
+      }
+    });
   },
 
   setDraft(draft) {

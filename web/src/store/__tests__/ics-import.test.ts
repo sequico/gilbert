@@ -174,7 +174,7 @@ function server(
 
 let uploaded: { type?: string; text: string } | null = null;
 /** Two tests stand a mock in for it; put the store's own back afterwards. */
-const realInvalidate = useCalendar.getState().invalidate;
+const realRefreshWindows = useCalendar.getState().refreshWindows;
 
 beforeEach(() => {
   client.session = {
@@ -192,7 +192,7 @@ beforeEach(() => {
     calendars: {},
     events: {},
     ranges: {},
-    invalidate: realInvalidate,
+    refreshWindows: realRefreshWindows,
   });
   uploaded = null;
   // XHR, not fetch, so it is stubbed at the client rather than at the network.
@@ -361,10 +361,10 @@ describe("importing a file bigger than the server will take at once", () => {
 
   it("re-reads the calendar once, not once per batch", async () => {
     server(many(1200), { max: MAX });
-    const invalidate = vi.fn();
-    useCalendar.setState({ invalidate });
+    const refreshWindows = vi.fn();
+    useCalendar.setState({ refreshWindows });
     await useCalendar.getState().importIcs("x", "cal1");
-    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(refreshWindows).toHaveBeenCalledTimes(1);
   });
 
   it("says how much got in when a later batch fails, rather than only that it failed", async () => {
@@ -376,10 +376,10 @@ describe("importing a file bigger than the server will take at once", () => {
 
   it("leaves what did get in visible when a later batch fails", async () => {
     server(many(1200), { max: MAX, failOn: 2 });
-    const invalidate = vi.fn();
-    useCalendar.setState({ invalidate });
+    const refreshWindows = vi.fn();
+    useCalendar.setState({ refreshWindows });
     await expect(useCalendar.getState().importIcs("x", "cal1")).rejects.toThrow();
-    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(refreshWindows).toHaveBeenCalledTimes(1);
   });
 
   it("passes the server's own words through when the very first batch fails", async () => {
