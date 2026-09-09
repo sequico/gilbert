@@ -119,13 +119,22 @@ record keeps its full shape as the evolution path.
 - *1 — app-password creation under impersonation* stays open: to be proven
   on a real 0.16 instance, or pinned by mock-parity tests, before the
   automatic create/rotate flow is trusted.
-- *2 — rule format*: rule documents are plain JSON validated against a
-  standard JSON Schema, reusing existing standard primitives — the JMAP
-  filter grammar (RFC 8621) for matching, and named capability-gated
-  actions from the executor's library (move, extract, notify, model call)
-  for effects. No new rule language or bespoke format is invented; Sieve
-  keeps the delivery-time boundary in Stalwart. The concrete schema and its
-  admin validation surface remain to be written.
+- *2 — automations, not rules*: an automation is built in the admin UI
+  (never raw JSON) as "Quando [evento] / Se [filtri facoltativi] / Allora
+  [azioni]" and stored as a JSON document validated against a standard
+  JSON Schema — reusing standard primitives only: the JMAP filter grammar
+  (RFC 8621) for matching and named capability-gated actions for effects.
+  No new rule language; Sieve keeps the delivery-time boundary. Decisions
+  are tiered so trivial work never pays for a model: T0 deterministic
+  (zero tokens, fixed actions); T1 cheap classifier (small model, one
+  structured-output call — category, then fixed per-category actions); T2
+  agent (instruction, allowed capabilities, review policy — the model
+  decides and executes). Capabilities cover the whole JMAP surface the
+  agent is granted — mail, files, tasks, calendars and contacts, read and
+  write — each an audited action behind the ACL scope. High-impact actions
+  (sending mail) go through `awaiting_approval` unless the automation opts
+  out. The concrete schema and editor are pinned when the first use case
+  is implemented.
 - *3 — rule granularity and context*: a rule acts on the single message;
   context is assembled on demand — the thread (grouped by In-Reply-To) and
   the group's mail folders — fetched narrowly when a rule needs them, never
@@ -144,13 +153,23 @@ record keeps its full shape as the evolution path.
   capability-gated actions, inside the agent's ACL scope, with every run
   audited; rules decide triggers, permissions and context, not every step.
   This reverses, for v1, the "deterministic routing first" field pattern
-  (§7).
+  (§7). Model routing and tiering: resolutions 2.
 - *8 — returning to replicas* (the owner delegated the call): when one
   in-process executor no longer meets availability or throughput, replicas
   return as separate processes of the same codebase, declared at deployment
   level (restart policy plus a health endpoint), self-coordinated by leases
   (§2, §6) — no in-product supervisor. A supervisor is revisited only if
   operations asks for a single control point.
+- *9 — the group attention convention*: agent work in a group's mail is a
+  visible state machine over folders and labels with the reserved `G-`
+  prefix. Anything the agent cannot process with confidence, or that needs
+  a person, lands in the `G-needattention` folder with the
+  `G-needattention` label; processed work is marked `G-processed`, and the
+  convention extends (`G-awaiting`, `G-rejected`, …) as use cases need.
+  The folders and labels are created and managed with the group machinery
+  already in place (group label catalog, ADR 0006; group folders), by the
+  admin or by the agent through the same capability when granted; members
+  read the state in the group's own mailbox by construction.
 
 ## Decision
 
@@ -372,9 +391,6 @@ candidate rule semantic (Open questions).
   impersonation (the mock does; the refusal rules cover *authentication*
   with app passwords, not creation). Open until proven on a real instance
   or pinned by mock-parity tests.
-- The concrete rule-document schema and its admin validation surface
-  (format decided — JSON Schema over the standard JMAP filter grammar plus
-  named capability actions; the fields themselves remain to be written).
 
 ## References
 
