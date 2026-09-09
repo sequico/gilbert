@@ -532,6 +532,9 @@ export const catalog: Catalog = {
     "Show labels in the sidebar": "サイドバーにラベルを表示する",
     "Collapse sidebar to icons": "サイドバーをアイコンだけにする",
     "Apply the theme to messages too": "メールにもテーマを適用する",
+    "Apply it even to mail that styles itself": "自分で配色を持つメールにも適用する",
+    "Most marketing and receipt mail sets a colour somewhere, so the setting above leaves nearly all of it on a white card. With this on, the theme is forced over the sender's own colours: backgrounds they laid the message on are dropped, while buttons and coloured banners are kept so their text stays readable. Some mail will not survive it intact, which is why it is separate.":
+      "宣伝メールや領収メールはほとんどがどこかで色を指定しているため、上の設定では大半が白いカードのままになります。これを有効にすると、送信者の配色の上からテーマを適用します。メッセージが載っている背景は取り除き、ボタンや色付きのバナーは文字が読めるようにそのまま残します。一部のメールは元の見た目を保てないため、別の設定として分けています。",
     Swiping: "スワイプ操作",
     "Swipe left": "左へスワイプ",
     "Swipe right": "右へスワイプ",
@@ -1263,8 +1266,8 @@ export const catalog: Catalog = {
     "Date received": "受信日時",
     "Date sent": "送信日時",
     "Day view": "日表示",
-    "Dracula, Gruvbox, Rosé Pine and Tokyo Night are the work of their own projects and are used under the MIT licence; the shades between their published colours are derived, and every one of them is checked for contrast. The accent colour below still applies over any of them.":
-      "Dracula、Gruvbox、Rosé Pine、Tokyo Night はそれぞれのプロジェクトの成果物で、MIT ライセンスのもとで利用しています。公開された色の中間の階調は派生させたもので、いずれもコントラストを確認しています。下のアクセントカラーはどの配色の上にも適用されます。",
+    "Palettes named after another project are that project's work, used under its own licence; the shades between their published colours are derived, and every one is checked for contrast. The accent colour below still applies over any of them.":
+      "他のプロジェクトの名前が付いたパレットは、そのプロジェクトの成果物であり、そのプロジェクト自身のライセンスのもとで使用しています。公開されている色の中間の階調は派生させたもので、いずれもコントラストを検証しています。下のアクセントカラーは、どのパレットの上にも適用されます。",
     Earlier: "これより前",
     "Every folder": "すべてのフォルダー",
     "Everyone addressed will receive this.": "宛先の全員がこれを受け取ります。",
@@ -1381,6 +1384,16 @@ export const catalog: Catalog = {
     "Throw away your changes?": "変更を破棄しますか？",
     "Today, in your date format": "今日（お使いの日付形式）",
     "Unread first": "未読を先頭に",
+    "Read first": "既読を先頭に",
+    "Unstarred first": "スターなしを先頭に",
+    "Smallest first": "サイズの小さい順",
+    "Z to A": "Z→A の順",
+    "A to Z": "A→Z の順",
+    "It reads {shown} but goes to {actual}.":
+      "表示は {shown} ですが、実際のリンク先は {actual} です。",
+    "The full address is {href}.": "完全なアドレスは {href} です。",
+    "This message came from {domain}, which is outside your organisation.":
+      "このメッセージは組織外の {domain} から届いています。",
     "Unsaved changes": "保存されていない変更",
     "View as": "表示形式",
     Warnings: "警告",

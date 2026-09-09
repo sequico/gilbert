@@ -42,6 +42,7 @@ import { formatFullDate, formatListDate, formatSize } from "@/lib/format";
 import {
   EMAIL_BASE_CSS,
   htmlDeclaresColors,
+  markKeptSurfaces,
   sanitizeEmailHtml,
   TEXT_EMAIL_CSS,
 } from "@/lib/html";
@@ -227,6 +228,7 @@ export const MessageView = memo(function MessageView({
   const textRaw = textPart?.partId ? e.bodyValues?.[textPart.partId]?.value : undefined;
   const showHtml = Boolean(htmlRaw);
   const themeMessageBody = settings.themeMessageBody;
+  const themeStyledMessages = settings.themeStyledMessages;
 
   // Inline images map
   const cidMap = useMemo(() => {
@@ -267,15 +269,21 @@ export const MessageView = memo(function MessageView({
     return null;
   }, [expanded, showHtml, htmlRaw, cidMap, remoteAllowed, imageProxy]);
 
-  // Mail that paints itself keeps the light card it was designed for; the rest
-  // can follow the app theme when the user has asked for that.
-  const themed = useMemo(
-    () =>
-      themeMessageBody &&
-      Boolean(rendered) &&
-      !htmlDeclaresColors(rendered!.html, rendered!.bodyStyle),
-    [themeMessageBody, rendered],
+  /*
+   * Mail that paints itself keeps the light card it was designed for, unless
+   * the reader has asked for the theme over that too.
+   *
+   * `forced` is the second switch and is narrower than `themed`: it only turns
+   * on for mail that actually declares colours, so plain mail is themed the
+   * gentle way and never pays for the override rules.
+   */
+  const declaresColors = useMemo(
+    () => Boolean(rendered) && htmlDeclaresColors(rendered!.html, rendered!.bodyStyle),
+    [rendered],
   );
+  const themed =
+    themeMessageBody && Boolean(rendered) && (!declaresColors || themeStyledMessages);
+  const forced = themed && declaresColors;
 
   const attachments = useMemo(
     () =>
@@ -884,6 +892,7 @@ export const MessageView = memo(function MessageView({
                 html={rendered.html}
                 bodyStyle={rendered.bodyStyle}
                 themed={themed}
+                forced={forced}
                 onShowImages={showImages}
                 onFollowLink={linkGuard}
               />
@@ -1048,12 +1057,14 @@ function HtmlBody({
   html,
   bodyStyle,
   themed,
+  forced,
   onShowImages,
   onFollowLink,
 }: {
   html: string;
   bodyStyle: string;
   themed: boolean;
+  forced: boolean;
   onFollowLink: ((href: string, text: string | null) => void) | null;
   onShowImages: () => void;
 }) {
@@ -1096,9 +1107,12 @@ function HtmlBody({
     if (!host) return;
     const root = host.shadowRoot ?? host.attachShadow({ mode: "open" });
     host.classList.toggle("themed", themed);
-    root.innerHTML = `<style>${EMAIL_BASE_CSS}</style><div class="ihm-email-root${themed ? " themed" : ""}" style="${bodyStyle.replace(/"/g, "'")}">${html}</div>`;
+    root.innerHTML = `<style>${EMAIL_BASE_CSS}</style><div class="ihm-email-root${themed ? " themed" : ""}${forced ? " forced" : ""}" style="${bodyStyle.replace(/"/g, "'")}">${html}</div>`;
     // Collapse quoted content
     const container = root.querySelector(".ihm-email-root") as HTMLElement | null;
+    // Tell the sender's painted surfaces apart from the sheets they sit on,
+    // before anything below reshapes the tree.
+    if (forced && container) markKeptSurfaces(container);
     let found = false;
     if (container) {
       let q: Element | null = null;
@@ -1164,7 +1178,7 @@ function HtmlBody({
      * so a changing handler now costs a listener swap and nothing else.
      */
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [html, bodyStyle, themed]);
+  }, [html, bodyStyle, themed, forced]);
 
   useEffect(() => {
     const root = hostRef.current?.shadowRoot;

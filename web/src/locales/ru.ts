@@ -534,6 +534,10 @@ export const catalog: Catalog = {
     "Show labels in the sidebar": "Показывать ярлыки на боковой панели",
     "Collapse sidebar to icons": "Свернуть боковую панель до значков",
     "Apply the theme to messages too": "Применять тему и к письмам",
+    "Apply it even to mail that styles itself":
+      "Применять даже к письмам с собственным оформлением",
+    "Most marketing and receipt mail sets a colour somewhere, so the setting above leaves nearly all of it on a white card. With this on, the theme is forced over the sender's own colours: backgrounds they laid the message on are dropped, while buttons and coloured banners are kept so their text stays readable. Some mail will not survive it intact, which is why it is separate.":
+      "Почти в каждом рекламном письме и чеке где-нибудь задан цвет, поэтому настройка выше оставляет почти все такие письма на белой карточке. С этой настройкой тема накладывается поверх цветов отправителя: фон, на котором свёрстано письмо, убирается, а кнопки и цветные плашки сохраняются, чтобы текст на них оставался читаемым. Некоторые письма это не переживут без потерь — поэтому настройка отдельная.",
     Swiping: "Жесты смахивания",
     "Swipe left": "Смахнуть влево",
     "Swipe right": "Смахнуть вправо",
@@ -1255,8 +1259,8 @@ export const catalog: Catalog = {
     "Date received": "Дата получения",
     "Date sent": "Дата отправки",
     "Day view": "День",
-    "Dracula, Gruvbox, Rosé Pine and Tokyo Night are the work of their own projects and are used under the MIT licence; the shades between their published colours are derived, and every one of them is checked for contrast. The accent colour below still applies over any of them.":
-      "Dracula, Gruvbox, Rosé Pine и Tokyo Night созданы своими проектами и используются по лицензии MIT; оттенки между опубликованными цветами выведены из них, и каждый проверен на контраст. Акцентный цвет ниже по-прежнему применяется поверх любой из тем.",
+    "Palettes named after another project are that project's work, used under its own licence; the shades between their published colours are derived, and every one is checked for contrast. The accent colour below still applies over any of them.":
+      "Палитры, названные в честь другого проекта, созданы этим проектом и используются по его собственной лицензии; оттенки между опубликованными цветами выводятся расчётом, и каждый из них проверяется на контраст. Акцентный цвет ниже по-прежнему применяется поверх любой из них.",
     Earlier: "Раньше",
     "Every folder": "Все папки",
     "Everyone addressed will receive this.": "Это получат все указанные адресаты.",
@@ -1374,6 +1378,16 @@ export const catalog: Catalog = {
     "Throw away your changes?": "Отбросить изменения?",
     "Today, in your date format": "Сегодня, в вашем формате даты",
     "Unread first": "Сначала непрочитанные",
+    "Read first": "Сначала прочитанные",
+    "Unstarred first": "Сначала неотмеченные",
+    "Smallest first": "Сначала маленькие",
+    "Z to A": "От Я до А",
+    "A to Z": "От А до Я",
+    "It reads {shown} but goes to {actual}.":
+      "Показано {shown}, но ссылка ведёт на {actual}.",
+    "The full address is {href}.": "Полный адрес: {href}.",
+    "This message came from {domain}, which is outside your organisation.":
+      "Это письмо пришло с {domain} — за пределами вашей организации.",
     "Unsaved changes": "Несохранённые изменения",
     "View as": "Показывать как",
     Warnings: "Предупреждения",

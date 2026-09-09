@@ -529,6 +529,10 @@ export const catalog: Catalog = {
     "Show labels in the sidebar": "Labels in de zijbalk tonen",
     "Collapse sidebar to icons": "Zijbalk inklappen tot pictogrammen",
     "Apply the theme to messages too": "Thema ook op berichten toepassen",
+    "Apply it even to mail that styles itself":
+      "Pas dit ook toe op e-mail met eigen vormgeving",
+    "Most marketing and receipt mail sets a colour somewhere, so the setting above leaves nearly all of it on a white card. With this on, the theme is forced over the sender's own colours: backgrounds they laid the message on are dropped, while buttons and coloured banners are kept so their text stays readable. Some mail will not survive it intact, which is why it is separate.":
+      "Bijna alle reclame- en bonmail zet ergens een kleur, waardoor de instelling hierboven vrijwel alles op een witte kaart laat staan. Met deze optie wordt het thema over de kleuren van de afzender heen gelegd: achtergronden waarop het bericht is geplaatst vervallen, terwijl knoppen en gekleurde banners blijven staan zodat hun tekst leesbaar blijft. Sommige berichten overleven dat niet ongeschonden, en daarom is dit een aparte instelling.",
     Swiping: "Vegen",
     "Swipe left": "Naar links vegen",
     "Swipe right": "Naar rechts vegen",
@@ -1254,8 +1258,8 @@ export const catalog: Catalog = {
     "Date received": "Ontvangstdatum",
     "Date sent": "Verzenddatum",
     "Day view": "Dagweergave",
-    "Dracula, Gruvbox, Rosé Pine and Tokyo Night are the work of their own projects and are used under the MIT licence; the shades between their published colours are derived, and every one of them is checked for contrast. The accent colour below still applies over any of them.":
-      "Dracula, Gruvbox, Rosé Pine en Tokyo Night zijn het werk van hun eigen projecten en worden gebruikt onder de MIT-licentie; de tinten tussen hun gepubliceerde kleuren zijn daarvan afgeleid, en elk daarvan wordt op contrast gecontroleerd. De accentkleur hieronder geldt nog steeds over elk ervan.",
+    "Palettes named after another project are that project's work, used under its own licence; the shades between their published colours are derived, and every one is checked for contrast. The accent colour below still applies over any of them.":
+      "Paletten die naar een ander project zijn genoemd, zijn het werk van dat project en worden gebruikt onder de eigen licentie daarvan; de tinten tussen de gepubliceerde kleuren zijn afgeleid en elk daarvan wordt op contrast gecontroleerd. De accentkleur hieronder geldt nog steeds over elk ervan.",
     Earlier: "Eerder",
     "Every folder": "Elke map",
     "Everyone addressed will receive this.": "Iedereen die is geadresseerd ontvangt dit.",
@@ -1373,6 +1377,16 @@ export const catalog: Catalog = {
     "Throw away your changes?": "Uw wijzigingen weggooien?",
     "Today, in your date format": "Vandaag, in uw datumnotatie",
     "Unread first": "Ongelezen eerst",
+    "Read first": "Gelezen eerst",
+    "Unstarred first": "Zonder ster eerst",
+    "Smallest first": "Kleinste eerst",
+    "Z to A": "Z tot A",
+    "A to Z": "A tot Z",
+    "It reads {shown} but goes to {actual}.":
+      "Er staat {shown}, maar de link gaat naar {actual}.",
+    "The full address is {href}.": "Het volledige adres is {href}.",
+    "This message came from {domain}, which is outside your organisation.":
+      "Dit bericht komt van {domain}, buiten uw organisatie.",
     "Unsaved changes": "Niet-opgeslagen wijzigingen",
     "View as": "Weergeven als",
     Warnings: "Waarschuwingen",

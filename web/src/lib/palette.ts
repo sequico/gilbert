@@ -19,7 +19,13 @@ export type PaletteId =
   | "dracula"
   | "gruvbox"
   | "rose-pine"
-  | "tokyo-night";
+  | "tokyo-night"
+  | "catppuccin"
+  | "solarized"
+  | "ayu"
+  | "kanagawa"
+  | "everforest"
+  | "primer";
 export type Mode = "system" | "light" | "dark";
 /** What a mode resolves to once the system has been asked. */
 export type ResolvedMode = "light" | "dark";
@@ -59,6 +65,30 @@ export const PALETTES: PaletteMeta[] = [
     id: "tokyo-night",
     name: "Tokyo Night",
     credit: "Tokyo Night by enkia (MIT) — light variant is Day",
+  },
+  {
+    id: "catppuccin",
+    name: "Catppuccin",
+    credit: "Catppuccin (MIT) — dark is Mocha, light is Latte",
+  },
+  {
+    id: "solarized",
+    name: "Solarized",
+    credit: "Solarized by Ethan Schoonover (MIT) — light and dark are both original",
+  },
+  { id: "ayu", name: "Ayu", credit: "Ayu by Konstantin Pschera (MIT)" },
+  {
+    id: "kanagawa",
+    name: "Kanagawa",
+    credit: "Kanagawa by rebelot (MIT) — dark is Wave, light is Lotus",
+  },
+  { id: "everforest", name: "Everforest", credit: "Everforest by sainnhe (MIT)" },
+  // Named for the design system rather than for GitHub: the colours are MIT,
+  // the name and the logo are trademarks, and nothing here is endorsed.
+  {
+    id: "primer",
+    name: "Primer",
+    credit: "GitHub's Primer primitives (MIT); not affiliated with or endorsed by GitHub",
   },
 ];
 

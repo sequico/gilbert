@@ -829,6 +829,10 @@ export const catalog: Catalog = {
     "Collapse sidebar to icons": "Riduci la barra laterale a icone",
 
     "Apply the theme to messages too": "Applica il tema anche ai messaggi",
+    "Apply it even to mail that styles itself":
+      "Applica il tema anche alle mail con stile proprio",
+    "Most marketing and receipt mail sets a colour somewhere, so the setting above leaves nearly all of it on a white card. With this on, the theme is forced over the sender's own colours: backgrounds they laid the message on are dropped, while buttons and coloured banners are kept so their text stays readable. Some mail will not survive it intact, which is why it is separate.":
+      "Quasi tutte le mail marketing o di ricevuta impostano un colore da qualche parte, quindi l'impostazione qui sopra ne lascia quasi tutte su una scheda bianca. Con questa opzione il tema viene forzato sui colori del mittente: gli sfondi su cui poggia il messaggio vengono rimossi, mentre pulsanti e banner colorati vengono mantenuti, così il loro testo resta leggibile. Alcune mail non lo sopportano intatto: per questo è un'impostazione separata.",
     Swiping: "Scorrimenti",
 
     "Swipe left": "Scorri a sinistra",
@@ -2024,8 +2028,15 @@ export const catalog: Catalog = {
 
     "Day view": "Vista giorno",
 
-    "Dracula, Gruvbox, Rosé Pine and Tokyo Night are the work of their own projects and are used under the MIT licence; the shades between their published colours are derived, and every one of them is checked for contrast. The accent colour below still applies over any of them.":
-      "Dracula, Gruvbox, Rosé Pine e Tokyo Night sono opera dei rispettivi progetti e sono usati con licenza MIT; le tonalità intermedie tra i loro colori pubblicati sono derivate e tutte vengono verificate per il contrasto. Il colore di accento qui sotto continua comunque ad applicarsi a ciascuno di essi.",
+    "It reads {shown} but goes to {actual}.": "Mostra {shown} ma porta a {actual}.",
+
+    "The full address is {href}.": "L'indirizzo completo è {href}.",
+
+    "This message came from {domain}, which is outside your organisation.":
+      "Questo messaggio proviene da {domain}, che è fuori dalla tua organizzazione.",
+
+    "Palettes named after another project are that project's work, used under its own licence; the shades between their published colours are derived, and every one is checked for contrast. The accent colour below still applies over any of them.":
+      "Le palette che portano il nome di un altro progetto sono opera di quel progetto e vengono usate con la sua licenza; le tonalità intermedie tra i colori pubblicati sono derivate e tutte vengono verificate per il contrasto. Il colore di accento qui sotto continua comunque ad applicarsi a ciascuna di esse.",
 
     Earlier: "Prima",
     "Every folder": "Tutte le cartelle",
@@ -2235,6 +2246,11 @@ export const catalog: Catalog = {
     "Today, in your date format": "Oggi, nel formato data scelto",
 
     "Unread first": "Prima i non letti",
+    "Read first": "Prima i letti",
+    "Unstarred first": "Prima quelli senza stella",
+    "Smallest first": "Prima i più piccoli",
+    "Z to A": "Dalla Z alla A",
+    "A to Z": "Dalla A alla Z",
 
     "Unsaved changes": "Modifiche non salvate",
 

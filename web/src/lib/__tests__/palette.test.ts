@@ -20,6 +20,12 @@ describe("the palettes themselves", () => {
       "gruvbox",
       "rose-pine",
       "tokyo-night",
+      "catppuccin",
+      "solarized",
+      "ayu",
+      "kanagawa",
+      "everforest",
+      "primer",
     ]);
   });
 

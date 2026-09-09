@@ -543,6 +543,10 @@ export const catalog: Catalog = {
     "Show labels in the sidebar": "Afficher les libellés dans la barre latérale",
     "Collapse sidebar to icons": "Réduire la barre latérale en icônes",
     "Apply the theme to messages too": "Appliquer le thème aux messages",
+    "Apply it even to mail that styles itself":
+      "L'appliquer même aux messages qui se mettent en forme",
+    "Most marketing and receipt mail sets a colour somewhere, so the setting above leaves nearly all of it on a white card. With this on, the theme is forced over the sender's own colours: backgrounds they laid the message on are dropped, while buttons and coloured banners are kept so their text stays readable. Some mail will not survive it intact, which is why it is separate.":
+      "Presque tous les courriers publicitaires et les reçus définissent une couleur quelque part, si bien que le réglage ci-dessus en laisse la quasi-totalité sur une carte blanche. Avec cette option, le thème est imposé par-dessus les couleurs de l'expéditeur : les fonds sur lesquels le message repose sont supprimés, tandis que les boutons et les bandeaux colorés sont conservés pour que leur texte reste lisible. Certains messages n'y survivront pas intacts, d'où un réglage distinct.",
     Swiping: "Balayage",
     "Swipe left": "Balayer vers la gauche",
     "Swipe right": "Balayer vers la droite",
@@ -1273,8 +1277,8 @@ export const catalog: Catalog = {
     "Date received": "Date de réception",
     "Date sent": "Date d'envoi",
     "Day view": "Vue jour",
-    "Dracula, Gruvbox, Rosé Pine and Tokyo Night are the work of their own projects and are used under the MIT licence; the shades between their published colours are derived, and every one of them is checked for contrast. The accent colour below still applies over any of them.":
-      "Dracula, Gruvbox, Rosé Pine et Tokyo Night sont l'œuvre de leurs propres projets et sont utilisés sous licence MIT ; les nuances entre leurs couleurs publiées en sont dérivées, et chacune est vérifiée pour le contraste. La couleur d'accent ci-dessous s'applique toujours par-dessus n'importe laquelle d'entre elles.",
+    "Palettes named after another project are that project's work, used under its own licence; the shades between their published colours are derived, and every one is checked for contrast. The accent colour below still applies over any of them.":
+      "Les palettes portant le nom d'un autre projet sont l'œuvre de ce projet et sont utilisées sous sa propre licence ; les nuances intermédiaires entre leurs couleurs publiées sont dérivées, et chacune est vérifiée pour le contraste. La couleur d'accentuation ci-dessous s'applique toujours par-dessus n'importe laquelle d'entre elles.",
     Earlier: "Plus tôt",
     "Every folder": "Tous les dossiers",
     "Everyone addressed will receive this.": "Tous les destinataires le recevront.",
@@ -1393,6 +1397,15 @@ export const catalog: Catalog = {
     "Throw away your changes?": "Abandonner vos modifications ?",
     "Today, in your date format": "Aujourd'hui, dans votre format de date",
     "Unread first": "Les non lus d'abord",
+    "Read first": "Les lus d'abord",
+    "Unstarred first": "Les non suivis d'abord",
+    "Smallest first": "Les moins volumineux d'abord",
+    "Z to A": "De Z à A",
+    "A to Z": "De A à Z",
+    "It reads {shown} but goes to {actual}.": "Il affiche {shown} mais mène à {actual}.",
+    "The full address is {href}.": "L'adresse complète est {href}.",
+    "This message came from {domain}, which is outside your organisation.":
+      "Ce message provient de {domain}, qui est extérieur à votre organisation.",
     "Unsaved changes": "Modifications non enregistrées",
     "View as": "Afficher comme",
     Warnings: "Avertissements",

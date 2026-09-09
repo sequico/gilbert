@@ -522,6 +522,9 @@ export const catalog: Catalog = {
     "Show labels in the sidebar": "在侧边栏中显示标签",
     "Collapse sidebar to icons": "将侧边栏收起为图标",
     "Apply the theme to messages too": "邮件也应用主题",
+    "Apply it even to mail that styles itself": "即使邮件自带配色也套用",
+    "Most marketing and receipt mail sets a colour somewhere, so the setting above leaves nearly all of it on a white card. With this on, the theme is forced over the sender's own colours: backgrounds they laid the message on are dropped, while buttons and coloured banners are kept so their text stays readable. Some mail will not survive it intact, which is why it is separate.":
+      "几乎所有营销邮件和收据邮件都会在某处设置颜色，因此上面的设置会让它们几乎全部停留在白色卡片上。启用此项后，主题会覆盖发件人的配色：邮件所依托的背景会被去掉，而按钮和彩色横幅会保留下来，使其文字仍然清晰可读。有些邮件无法完好呈现，因此这是一项单独的设置。",
     Swiping: "滑动手势",
     "Swipe left": "向左滑动",
     "Swipe right": "向右滑动",
@@ -1224,8 +1227,8 @@ export const catalog: Catalog = {
     "Date received": "接收日期",
     "Date sent": "发送日期",
     "Day view": "日视图",
-    "Dracula, Gruvbox, Rosé Pine and Tokyo Night are the work of their own projects and are used under the MIT licence; the shades between their published colours are derived, and every one of them is checked for contrast. The accent colour below still applies over any of them.":
-      "Dracula、Gruvbox、Rosé Pine 和 Tokyo Night 均由各自的项目创作，依 MIT 许可证使用；其公布配色之间的过渡色为衍生所得，且每一种都经过对比度检查。下方的强调色仍会应用于其中任意一种之上。",
+    "Palettes named after another project are that project's work, used under its own licence; the shades between their published colours are derived, and every one is checked for contrast. The accent colour below still applies over any of them.":
+      "以其他项目命名的配色方案是该项目的作品，按其自身的许可证使用；已发布颜色之间的过渡色是推导得出的，并且每一种都经过对比度检查。下方的强调色仍会应用于其中任何一种配色方案。",
     Earlier: "更早",
     "Every folder": "所有文件夹",
     "Everyone addressed will receive this.": "所有收件人都会收到此邮件。",
@@ -1340,6 +1343,15 @@ export const catalog: Catalog = {
     "Throw away your changes?": "放弃您的更改吗？",
     "Today, in your date format": "今天，按您的日期格式",
     "Unread first": "未读在前",
+    "Read first": "已读在前",
+    "Unstarred first": "未标星在前",
+    "Smallest first": "从小到大",
+    "Z to A": "Z 到 A",
+    "A to Z": "A 到 Z",
+    "It reads {shown} but goes to {actual}.": "显示的是 {shown}，实际打开的是 {actual}。",
+    "The full address is {href}.": "完整地址为 {href}。",
+    "This message came from {domain}, which is outside your organisation.":
+      "此邮件来自 {domain}，属于贵组织之外。",
     "Unsaved changes": "未保存的更改",
     "View as": "查看方式",
     Warnings: "警告",

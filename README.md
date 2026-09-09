@@ -4,7 +4,9 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="Licence: AGPL-3.0-or-later" src="https://img.shields.io/badge/licence-AGPL--3.0--or--later-2dd4bf?style=flat-square"></a>
-  <a href="https://stalw.art" target="_blank" rel="noreferrer"><img alt="Requires Stalwart 0.16 or newer; tested against 0.16.20" src="https://img.shields.io/badge/Stalwart-0.16.20-6366f1?style=flat-square"></a>
+<<<<<<< HEAD
+  <a href="https://stalw.art" target="_blank" rel="noreferrer"><img alt="Requires Stalwart 0.16 or newer; tested against 0.16.21" src="https://img.shields.io/badge/Stalwart-0.16.21-6366f1?style=flat-square"></a>
+</p>
 </p>
 
 # Gilbert
@@ -74,6 +76,7 @@ Screenshots are taken against the built-in mock server with sample data.
 - **Signature checking** — S/MIME signed mail is verified as you read it, and the signer is remembered: a later message from the same address signed by somebody else is called out loudly. No certificate authority is involved and none is bundled, so Gilbert never claims more than it can show — see [Checking a signature](FEATURES.md#checking-a-signature)
 - **Runs read-only** — one optional write path, and with it switched off the container needs no volume and no writable root. `IMMUTABLE=1` is checked at startup rather than trusted, so a half-applied switch refuses to boot instead of failing quietly. See [Running immutably](#running-immutably)
 - **Nine new interface languages** — German, Spanish, French, Dutch, Portuguese (Brazil), Russian, Ukrainian, Simplified Chinese and Japanese, alongside English and separate from the date-and-time locale. Every one is marked **Beta**: they were made by AI and no native speaker has read them yet, which Settings says plainly, with a link for reporting anything wrong
+- **Twelve themes** — Classic and ihasmail's own, plus Catppuccin, Dracula, Gruvbox, Rosé Pine, Tokyo Night, Solarized, Ayu, Kanagawa, Everforest and Primer, each with the light and dark half its own project publishes. Palette and light-or-dark are separate choices, and the accent colour still sits on top of any of them. Only published colour values are used, taken from each project's own repository; the shades between them are derived and every text colour is measured against the surface it sits on, so a palette that would not meet the contrast this app claims is not written at all — see [Themes](FEATURES.md#themes)
 - **On a phone** — swipe a message to archive or delete it (either direction, your choice), hold one to select it, hold a folder for its menu, pull the list to refresh, swipe back from a conversation
 - **Platform** — installable PWA, Web Push with Gilbert closed, `mailto:` handler, no credentials in the browser, strict CSP, SSRF-safe image proxy
 
@@ -90,6 +93,17 @@ and moved configuration into the store; supporting both generations meant a
 wrong guess had somewhere to fall back to, so it failed *quietly* — and that
 reached production. With one supported generation a wrong guess is a loud error
 on the first call.
+
+**Validated against 0.16.21**, released 6 September 2026: the app was run
+against a real instance of it and the mail, calendar and contacts paths were
+exercised by hand. Four of that release's JMAP changes are visible to a client
+— an occurrence of a recurring event is now identified by its recurrence id
+rather than by its position in the series, so an id held across a write no
+longer silently names a different date; `Calendar/get` and `AddressBook/get`
+return every property when none are named; EventSource advertises its ping
+interval in seconds rather than milliseconds; and a calendar write that asks
+for scheduling messages is refused when the account may not send them. The mock
+reproduces all four.
 
 - Still on 0.15? The last release that runs on it is tagged [`stalwart-0.15-support`](https://github.com/Coffey-Labs/ihasmail/releases/tag/stalwart-0.15-support).
 - Upgrading? [stalwart-migrator](https://github.com/Coffey-Labs/stalwart-migrator) does it in place, checkpointing every phase and validating afterwards. The live instance moved 0.15.5 → 0.16.19 with eight seconds of downtime and nothing lost.
@@ -372,9 +386,17 @@ without a real mailbox. It reproduces the things a naive fake would get wrong,
 because each cost a live debugging session: `urn:stalwart:jmap` advertised
 **per-account** rather than session-level, identity signatures capped at 2047
 **bytes**, and `CalendarEvent/set` speaking Stalwart's vocabulary rather than
-RFC 8984's. Two switches: `MOCK_NO_FUTURE_RELEASE=1` advertises FUTURERELEASE
+RFC 8984's. Three switches: `MOCK_NO_FUTURE_RELEASE=1` advertises FUTURERELEASE
 and then drops every hold; `MOCK_NO_REGISTRY=1` omits the Stalwart capability so
-the sign-in refusal can be tested.
+the sign-in refusal can be tested; and `MOCK_NO_SCHEDULING_SEND=1` refuses a
+calendar write that asks for scheduling messages, the way an account without
+that permission is refused.
+
+It tracks the current release rather than 0.16 in general, and each behaviour
+is confirmed against a real server before it is copied here — the comments say
+which version and on what date. Where a release changes something a client can
+see, the mock changes with it, and the test that pinned the old behaviour is
+rewritten rather than deleted, so the reversal stays on the record.
 
 ### Version numbers
 
