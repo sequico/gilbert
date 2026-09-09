@@ -1488,7 +1488,6 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     let refused: SetError | undefined;
     try {
       for (const part of chunk(keys, client.maxObjectsInSet)) {
-<<<<<<< HEAD
         const subCreate: Record<string, unknown> = {};
         const subUpdate: Record<string, unknown> = {};
         for (const [kind, k] of part) {
@@ -1504,7 +1503,6 @@ export const useCalendar = create<CalendarState>((set, get) => ({
             sendSchedulingMessages: false,
           },
         );
->>>>>>> 8173e22 (Update a re-imported event rather than skipping it)
         created += Object.keys(res.created ?? {}).length;
         updated += Object.keys(res.updated ?? {}).length;
         refused ??= Object.values(res.notCreated ?? {})[0] ?? Object.values(res.notUpdated ?? {})[0];
@@ -1513,18 +1511,15 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       // A batch that failed with earlier ones already written: those events are
       // in the calendar, and an error saying only that the import failed sends
       // someone looking for events that are already there.
-<<<<<<< HEAD
       if (!created && !updated) throw err;
       throw new Error(
         `${created + updated} of ${keys.length} events were imported before this happened: ${(err as Error).message}`,
       );
->>>>>>> 8173e22 (Update a re-imported event rather than skipping it)
     } finally {
       if (created || updated) get().invalidate();
     }
     // Nothing at all got in: say why rather than report importing zero events
     // as though the file had been empty.
-<<<<<<< HEAD
     if (!created && !updated)
       throw new Error(
         refused
@@ -1532,7 +1527,6 @@ export const useCalendar = create<CalendarState>((set, get) => ({
           : "the server did not accept any of its events",
       );
     return { created, updated };
->>>>>>> 8173e22 (Update a re-imported event rather than skipping it)
   },
 
   /*

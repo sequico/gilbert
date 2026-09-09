@@ -106,7 +106,6 @@ export function CalendarSidebar() {
        * -- the reason for doing this at all -- creates nothing and would
        * otherwise report importing nothing at all.
        */
-<<<<<<< HEAD
       const imported = plural(created, {
         one: "Imported {n} event",
         other: "Imported {n} events",
@@ -124,7 +123,6 @@ export function CalendarSidebar() {
         );
       else if (updated) toast.success(`${imported} · ${refreshed}`);
       else toast.success(imported);
->>>>>>> 8173e22 (Update a re-imported event rather than skipping it)
     } catch (err) {
       toast.error(
         t("Could not import this file: {error}", { error: (err as Error).message }),
