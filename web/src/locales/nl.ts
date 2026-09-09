@@ -743,6 +743,14 @@ export const catalog: Catalog = {
     "Type a name to create your first label.":
       "Typ een naam om uw eerste label te maken.",
     "New label": "Nieuw label",
+    "Choose a group…": "Kies een groep…",
+    "Group labels": "Groepslabels",
+    "Group mailbox": "Groepsmailbox",
+    "Labels a group mailbox offers are the group's own, shared by every member. Define or change them here; a rename changes only the name — the keyword on the messages stays the same.":
+      "De labels die een groepsmailbox aanbiedt, zijn van de groep en worden door alle leden gedeeld. Definieer of wijzig ze hier; een hernoeming verandert alleen de naam — het keyword op de berichten blijft hetzelfde.",
+    "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
+      "Groepsmailboxen weergeven vereist Stalwart-serverbeheerdersrechten, die deze sessie niet heeft.",
+    "No labels yet.": "Nog geen labels.",
     "Delete label": "Label verwijderen",
     PDF: "PDF",
     "Large attachments may be rejected by some servers":

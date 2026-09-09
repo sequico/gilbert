@@ -1183,6 +1183,14 @@ export const catalog: Catalog = {
       "Scrivi un nome per creare la tua prima etichetta.",
 
     "New label": "Nuova etichetta",
+    "Choose a group…": "Scegli un gruppo…",
+    "Group labels": "Etichette di gruppo",
+    "Group mailbox": "Casella di gruppo",
+    "Labels a group mailbox offers are the group's own, shared by every member. Define or change them here; a rename changes only the name — the keyword on the messages stays the same.":
+      "Le etichette di una casella di gruppo appartengono al gruppo e sono condivise da tutti i membri. Definiscele o cambiale qui; una rinomina cambia solo il nome — la keyword sui messaggi resta la stessa.",
+    "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
+      "Elencare le caselle di gruppo richiede il privilegio di amministratore del server Stalwart, che questa sessione non ha.",
+    "No labels yet.": "Ancora nessuna etichetta.",
 
     "Delete label": "Elimina etichetta",
     PDF: "PDF",

@@ -743,6 +743,14 @@ export const catalog: Catalog = {
     "Create “{name}”": "Створити «{name}»",
     "Type a name to create your first label.": "Введіть назву, щоб створити першу мітку.",
     "New label": "Нова мітка",
+    "Choose a group…": "Виберіть групу…",
+    "Group labels": "Мітки групи",
+    "Group mailbox": "Групова поштова скринька",
+    "Labels a group mailbox offers are the group's own, shared by every member. Define or change them here; a rename changes only the name — the keyword on the messages stays the same.":
+      "Мітки, які пропонує групова поштова скринька, належать групі й доступні всім її учасникам. Визначте або змініть їх тут; перейменування змінює лише назву — ключове слово на повідомленнях залишається тим самим.",
+    "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
+      "Перелік групових поштових скриньок потребує прав адміністратора сервера Stalwart, яких ця сесія не має.",
+    "No labels yet.": "Міток ще немає.",
     "Delete label": "Видалити мітку",
     PDF: "PDF",
     "Large attachments may be rejected by some servers":

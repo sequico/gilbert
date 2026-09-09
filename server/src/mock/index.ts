@@ -3320,6 +3320,20 @@ const knownPrincipal = (username: string) =>
  * here is membership of the admin group (the demo user is a member unless
  * MOCK_NO_ADMIN_GROUP=1).
  */
+/**
+ * The account a known principal actually owns. Impersonation lands on the
+ * target's own account: the demo's, the target principal's (ADR 0005), or a
+ * group mailbox's own account when the target is one of the demo groups.
+ */
+const principalAccountId = (username: string): string => {
+  if (username === USER) return ACCOUNT;
+  if (username === TARGET_USER) return TARGET_ACCOUNT;
+  if (username === "team@example.org") return GROUP_ACCOUNT;
+  if (username === "design@example.org") return GROUP2_ACCOUNT;
+  if (HAS_ADMIN_GROUP && username === ADMIN_GROUP_NAME) return ADMIN_ACCOUNT;
+  return ACCOUNT;
+};
+
 function resolveIdentity(req: IncomingMessage): Identity | null {
   const h = req.headers.authorization ?? "";
   if (!h.startsWith("Basic ")) return null;
@@ -3344,7 +3358,7 @@ function resolveIdentity(req: IncomingMessage): Identity | null {
     if (!knownPrincipal(target)) return null;
     return {
       username: target,
-      accountId: target === TARGET_USER ? TARGET_ACCOUNT : ACCOUNT,
+      accountId: principalAccountId(target),
       appPassword: false,
     };
   }

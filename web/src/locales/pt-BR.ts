@@ -753,6 +753,14 @@ export const catalog: Catalog = {
     "Type a name to create your first label.":
       "Digite um nome para criar seu primeiro marcador.",
     "New label": "Novo marcador",
+    "Choose a group…": "Escolher um grupo…",
+    "Group labels": "Marcadores do grupo",
+    "Group mailbox": "Caixa de grupo",
+    "Labels a group mailbox offers are the group's own, shared by every member. Define or change them here; a rename changes only the name — the keyword on the messages stays the same.":
+      "Os marcadores que uma caixa de grupo oferece pertencem ao grupo e são compartilhados por todos os membros. Defina-os ou altere-os aqui; renomear muda apenas o nome — a palavra-chave nas mensagens permanece a mesma.",
+    "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
+      "Listar caixas de grupo exige privilégio de administrador do servidor Stalwart, que esta sessão não possui.",
+    "No labels yet.": "Ainda não há marcadores.",
     "Delete label": "Excluir o marcador",
     PDF: "PDF",
     "Large attachments may be rejected by some servers":

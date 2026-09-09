@@ -787,6 +787,14 @@ export const catalog: Catalog = {
     "Middle name": "Zweiter Vorname",
     Minimize: "Minimieren",
     "New label": "Neues Label",
+    "Choose a group…": "Gruppe auswählen…",
+    "Group labels": "Gruppen-Labels",
+    "Group mailbox": "Gruppen-Mailbox",
+    "Labels a group mailbox offers are the group's own, shared by every member. Define or change them here; a rename changes only the name — the keyword on the messages stays the same.":
+      "Die Labels einer Gruppen-Mailbox gehören der Gruppe und werden von allen Mitgliedern geteilt. Definiere oder ändere sie hier; eine Umbenennung ändert nur den Namen — das Keyword auf den Nachrichten bleibt gleich.",
+    "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
+      "Gruppen-Mailboxen aufzulisten erfordert Stalwart-Serveradministrator-Rechte, über die diese Sitzung nicht verfügt.",
+    "No labels yet.": "Noch keine Labels.",
     "Delete label": "Label löschen",
     "Choose a date": "Datum wählen",
     "Choose a date and time": "Datum und Uhrzeit wählen",

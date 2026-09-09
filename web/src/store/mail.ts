@@ -32,7 +32,7 @@ import { playNewMailSound, showNotification } from "@/lib/notify";
 import type { FolderRef } from "@/lib/sieveFolders";
 import { SPAM_HEADER_PROPS } from "@/lib/spamScore";
 import { toast } from "@/ui/toast";
-import { labelsForAccount } from "./groupLabels";
+import { labelsForAccount, useGroupLabels } from "./groupLabels";
 import { useSession } from "./session";
 import { settings, useSettings } from "./settings";
 import { useSieve } from "./sieve";
@@ -1938,6 +1938,20 @@ useSession.subscribe((s, prev) => {
   const own = mailAccountCandidates(s.session).find((c) => c.kind === "own");
   mail.setAccount(own?.accountId ?? null);
   void mail.discoverMailAccounts();
+});
+
+/**
+ * A group's label catalog can land after the account tree — and with it the
+ * label counts — has loaded, and it re-lands when an administrator edits it.
+ * Recount when the labels of the account on screen change, so the sidebar
+ * numbers follow the catalog.
+ */
+useGroupLabels.subscribe((state, prev) => {
+  if (state.byAccount === prev.byAccount) return;
+  const { accountId } = useMail.getState();
+  if (!accountId) return;
+  if (state.byAccount[accountId] === prev.byAccount[accountId]) return;
+  void useMail.getState().loadLabelCounts();
 });
 
 export function mailboxIcon(role: MailboxRole): string {

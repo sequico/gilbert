@@ -758,6 +758,14 @@ export const catalog: Catalog = {
     "Type a name to create your first label.":
       "Saisissez un nom pour créer votre premier libellé.",
     "New label": "Nouveau libellé",
+    "Choose a group…": "Choisir un groupe…",
+    "Group labels": "Libellés de groupe",
+    "Group mailbox": "Boîte de groupe",
+    "Labels a group mailbox offers are the group's own, shared by every member. Define or change them here; a rename changes only the name — the keyword on the messages stays the same.":
+      "Les libellés qu'une boîte de groupe propose appartiennent au groupe et sont partagés par tous ses membres. Définissez-les ou modifiez-les ici ; un renommage ne change que le nom — le mot-clé présent sur les messages reste le même.",
+    "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
+      "Lister les boîtes de groupe requiert le privilège d'administrateur serveur de Stalwart, que cette session ne possède pas.",
+    "No labels yet.": "Aucun libellé pour l'instant.",
     "Delete label": "Supprimer le libellé",
     PDF: "PDF",
     "Large attachments may be rejected by some servers":

@@ -750,6 +750,14 @@ export const catalog: Catalog = {
     "Type a name to create your first label.":
       "名前を入力すると、最初のラベルを作成できます。",
     "New label": "新しいラベル",
+    "Choose a group…": "グループを選択…",
+    "Group labels": "グループラベル",
+    "Group mailbox": "グループメールボックス",
+    "Labels a group mailbox offers are the group's own, shared by every member. Define or change them here; a rename changes only the name — the keyword on the messages stays the same.":
+      "グループメールボックスが提供するラベルはグループのもので、すべてのメンバーが共有します。ここで定義または変更できます。名前の変更は表示名だけを変え、メッセージ上のキーワードは変わりません。",
+    "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
+      "グループメールボックスの一覧表示には Stalwart サーバー管理者権限が必要ですが、このセッションにはありません。",
+    "No labels yet.": "ラベルはまだありません。",
     "Delete label": "ラベルを削除",
 
     // ── Attachments, dates, search prose ───────────────────────────────

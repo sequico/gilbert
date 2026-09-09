@@ -748,6 +748,14 @@ export const catalog: Catalog = {
     "Type a name to create your first label.":
       "Введите название, чтобы создать первый ярлык.",
     "New label": "Новый ярлык",
+    "Choose a group…": "Выберите группу…",
+    "Group labels": "Ярлыки группы",
+    "Group mailbox": "Групповой почтовый ящик",
+    "Labels a group mailbox offers are the group's own, shared by every member. Define or change them here; a rename changes only the name — the keyword on the messages stays the same.":
+      "Ярлыки, которые предлагает групповой почтовый ящик, принадлежат группе и доступны всем её участникам. Определите или измените их здесь; переименование меняет только название — ключевое слово на сообщениях остаётся прежним.",
+    "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
+      "Список групповых почтовых ящиков требует прав администратора сервера Stalwart, которых у этой сессии нет.",
+    "No labels yet.": "Ярлыков пока нет.",
     "Delete label": "Удалить ярлык",
     PDF: "PDF",
     "Large attachments may be rejected by some servers":

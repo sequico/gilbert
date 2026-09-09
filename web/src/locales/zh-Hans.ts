@@ -735,6 +735,14 @@ export const catalog: Catalog = {
     "Create “{name}”": "创建「{name}」",
     "Type a name to create your first label.": "输入名称以创建您的第一个标签。",
     "New label": "新建标签",
+    "Choose a group…": "选择群组…",
+    "Group labels": "群组标签",
+    "Group mailbox": "群组邮箱",
+    "Labels a group mailbox offers are the group's own, shared by every member. Define or change them here; a rename changes only the name — the keyword on the messages stays the same.":
+      "群组邮箱提供的标签属于该群组，由所有成员共享。可在此定义或修改；重命名只会更改名称——消息上的关键字保持不变。",
+    "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
+      "列出群组邮箱需要 Stalwart 服务器管理员权限，而此会话没有该权限。",
+    "No labels yet.": "暂无标签。",
     "Delete label": "删除标签",
 
     // ── Attachments, dates, search prose ───────────────────────────────
