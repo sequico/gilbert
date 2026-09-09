@@ -112,7 +112,10 @@ record keeps its full shape as the evolution path.
   agents are active for the group, what instructions (rule documents) they
   carry, what they do and what they have done (the group's audit
   documents). Members read the group's own documents by construction and
-  never edit them: authoring and every change stay in the admin UI.
+  never edit them: authoring and configuration stay in the admin UI; the
+  one member actions are approving or rejecting a proposed action and
+  addressing the agent (mention or reply), both through the group chat
+  (resolutions 10 and 11).
 
 **Resolutions of the recorded questions (owner decisions 2026-09-09):**
 
@@ -138,11 +141,16 @@ record keeps its full shape as the evolution path.
   decides and executes). Capabilities cover the whole JMAP surface the
   agent is granted — mail, files, tasks, calendars and contacts, read and
   write — each an audited action behind the ACL scope. High-impact actions
-  (sending mail) go through `awaiting_approval` unless the automation opts
-  out. Sending honours the sender account's own identities: the executor
-  reads the account settings (identities in `settings.json`), uses the
-  default identity and applies its text/HTML signature exactly as the UI
-  composer does — deterministic, no model involved. The concrete schema
+  (sending mail) are gated by the automation's review policy (resolution
+  10); external sends keep a consent floor regardless of confidence.
+  Sending on behalf of a group uses the **group's** footer and identity:
+  the executor reads the group's own settings (identities in
+  `settings.json`), uses the group's default identity and applies its
+  text/HTML signature exactly as the UI composer does — the From is the
+  group, and the sent message lands in the group's Sent mailbox so members
+  see what went out. The exact send mechanism (the group submitting as
+  itself vs gilbert@ submitting with a sendAs identity whose address is the
+  group's) is a live probe (Open questions). The concrete schema
   and editor are pinned when the first use case is implemented.
 - *3 — rule granularity and context*: a rule acts on the single message;
   context is assembled on demand — the thread (grouped by In-Reply-To) and
@@ -181,6 +189,51 @@ record keeps its full shape as the evolution path.
   ADR 0006), by the admin or by the agent through the same capability when
   granted; members read the state in the group's own mailbox by
   construction.
+- *10 — review policy and human approval*: every automation carries a
+  review policy — `always` (every run pauses), `threshold` (auto-execute
+  when the decision's confidence is at or above the threshold, else pause)
+  or `never` (always execute). T1 and T2 both return a confidence (0–1)
+  with their decision; above the threshold the action runs unattended,
+  below it the job pauses in `awaiting_approval` with a decision document.
+  Approval is conversational: the executor posts the proposal to the group
+  chat and the human answers in words (no Approve/Reject buttons); a
+  pending outbound email is drafted in the group's Drafts mailbox (visible
+  to members) and marked `G-awaiting`, the chat proposal references that
+  draft, and only the approved draft is sent; alternatively the approver
+  opens the draft in the group's Drafts and sends it directly, and the
+  executor treats the draft leaving Drafts as the approval, closing the
+  job. Gilbert's pending drafts are kept **unread** so a human sees them.
+  The
+  decision document in the group's own account records the outcome and
+  resumes the job via push, and the admin "Approvals" queue surfaces the
+  same pending decisions for oversight and as an escape hatch. The gate is
+  deterministic where it matters: for reversible in-group actions the model
+  may interpret the reply and ask a clarifying closed question when
+  ambiguous; for irreversible or external actions (sending mail out of the
+  group) the reply must resolve to an unambiguous yes/no and only explicit
+  consent proceeds — never an LLM-guessed approval. Confidence is a model
+  signal, not a guarantee: threshold auto-approval is an owner-accepted
+  risk, and external sends keep a conservative default floor (consent
+  required unless the owner explicitly raises it).
+- *11 — chat is the human interface*: members and the agent talk in the
+  group chat. Two ways to address the agent: an `@gilbert` mention, or a
+  direct reply to a message the agent authored (a reply counts only when
+  its direct parent is the agent's message — mention covers everything
+  else). A mention may reference a message or thread to act on, or be a
+  general request with the group and chat as context — the reference is
+  optional. The agent appears in the chat as the participant `gilbert@`
+  (created operator-side; the client renders its messages and offers it in
+  the `@` picker). The agent's default context is bounded — the referenced
+  message
+  plus the last 30 messages of the conversation — and it widens only when a
+  human asks, step by step (whole thread, then a folder) under a hard
+  ceiling (200 messages / one folder slice); the agent never expands on its
+  own, it only asks for more. Instructions come from the conversation;
+  referenced mail, files and other content are data, never instructions
+  (the capability allowlist and the review policy remain the final gate).
+  The audit records who asked, so proactive automations and human requests
+  stay distinguishable. Notifications and approvals also happen in the chat
+  (resolution 10).
 
 ## Decision
 
@@ -398,7 +451,13 @@ candidate rule semantic (Open questions).
 
 ## Open questions (recorded; the v1-scope section and the resolutions above record what is decided)
 
-- None.
+- Pending probes (verify before implementing the send path): (a) whether a
+  group account can submit mail as itself, or whether gilbert@ sends with a
+  sendAs identity whose address is the group's (From = group, footer =
+  group) — and, if a grant is needed, whether granting gilbert@ that
+  privilege on a group it is a member of should be automated; (b) where the
+  group's footer lives (a `gilbert/` document in the group account, written
+  by a member-admin, vs a JMAP identity) — confirmed together with (a).
 
 ## References
 
