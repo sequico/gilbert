@@ -91,17 +91,20 @@ record keeps its full shape as the evolution path.
   secret is returned once at creation and never re-readable; rotation in an
   immutable deployment means regenerating from the admin surface and
   updating the environment at the next deploy.
-- **Per-group activation, rules and audit live in each group's own account**
-  (its `gilbert/` app folder), following the group-ownership law and the
-  ADR 0006 pattern (chat, `labels.json`): members see that the agent is
-  active in their group and what its automations do by construction,
-  because group Files are already readable by members. The agent's own
-  account (`gilbert@`) holds its registration record. Runtime scope is per
-  changed account: the event's `accountId` selects which group's rules
-  apply — the agent has no single global brief.
+- **Membership is presence; per-group rules and audit live in each group's
+  own account** (its `gilbert/` app folder), following the group-ownership
+  law and the ADR 0006 pattern (chat, `labels.json`): the agent is in a
+  group exactly when the operator granted it — no separate per-group
+  activation or worker state in v1 (the executor is a single in-process
+  service) — and members see that the agent is active and what its
+  automations do by construction, because group Files are already readable
+  by members. The agent's own account (`gilbert@`) holds its registration
+  record. Runtime scope is per changed account: the event's `accountId`
+  selects which group's rules apply — the agent has no single global
+  brief.
 - **Admin surfaces.** The Gilbert admin (ADR 0007) gains an "Agents"
   section: associate agent principals to the installation (select
-  `gilbert@`), activate or deactivate the agent per group, author and
+  `gilbert@`), grant or revoke the agent's membership per group, author and
   version per-group rule documents, rotate app passwords, and see executor
   status and audit across groups. Every write happens through the signed-in
   admin's session — impersonation where acting on the agent's account,
@@ -226,14 +229,18 @@ record keeps its full shape as the evolution path.
   group chat. Two ways to address the agent: an `@gilbert` mention, or a
   direct reply to a message the agent authored (a reply counts only when
   its direct parent is the agent's message — mention covers everything
-  else). A mention may reference a message or thread to act on, or be a
-  general request with the group and chat as context — the reference is
-  optional. The agent appears in the chat as the participant `gilbert@`
-  (created operator-side; the client renders its messages and offers it in
-  the `@` picker). The agent's default context is bounded — the referenced
-  message
-  plus the last 30 messages of the conversation — and it widens only when a
-  human asks, step by step (whole thread, then a folder) under a hard
+  else). This is the executor's deterministic pre-filter, applied before
+  any model call: a chat message that neither mentions the agent nor
+  directly replies to an agent message is ignored. A mention is a general
+  request with the group and chat as context; attaching a specific message
+  or thread reference is deferred (too complex for the first chat build)
+  and to be evaluated later. The agent appears in the chat as the
+  participant `gilbert@` exactly when it is granted on the group —
+  membership is presence — and the client renders its messages and offers
+  it in the `@` picker like any other member. The agent's default context
+  is bounded — the last 30 messages of the conversation (with their reply
+  chain) — and it widens only when a human asks, step by step (whole
+  conversation, then a folder) under a hard
   ceiling (200 messages / one folder slice); the agent never expands on its
   own, it only asks for more. Instructions come from the conversation;
   referenced mail, files and other content are data, never instructions
