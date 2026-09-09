@@ -30,6 +30,7 @@ import {
   toUTCDate,
   zonedToDate,
 } from "@/lib/dates";
+import { shiftStoredStart } from "@/lib/eventDrag";
 import { t } from "@/lib/i18n";
 import { type IcsEvent, looksLikeCalendar, parseIcs, toIcs } from "@/lib/ics";
 import { useContacts } from "./contacts";
@@ -577,6 +578,24 @@ async function eventIdsByUid(accountId: Id, calendarId: Id): Promise<Map<string,
 /* Coalesces `refreshWindows` (see there): one silent refresh per burst of
    writes/pushes instead of one per event. */
 let calendarRefreshQueued = false;
+
+/* Shift an event's cached times by `deltaMs` for the optimistic copy of a
+   move: the zoned `start`, and — when present — the utc pair that toInstance
+   reads first. */
+function shiftEvent(e: CalendarEvent, deltaMs: number): CalendarEvent {
+  const next = { ...e };
+  if (typeof e.start === "string") {
+    const s = shiftStoredStart(e.start, deltaMs);
+    if (s) next.start = s;
+  }
+  if (e.utcStart && e.utcEnd) {
+    const us = new Date(e.utcStart).getTime();
+    const ue = new Date(e.utcEnd).getTime();
+    if (!Number.isNaN(us)) next.utcStart = new Date(us + deltaMs).toISOString();
+    if (!Number.isNaN(ue)) next.utcEnd = new Date(ue + deltaMs).toISOString();
+  }
+  return next;
+}
 
 export const useCalendar = create<CalendarState>((set, get) => ({
   accountId: null,
@@ -1184,24 +1203,33 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     }
     // Show the change at once instead of snapping back until the refresh
     // lands: patch the cached copy now and restore it if the server refuses.
-    // Only single events have a cached copy under `id` here; a series or an
-    // occurrence resolves to an id the cache does not hold, so this leaves
-    // them alone and the silent refresh below still picks up their result.
+    // A move shifts every cached copy of the series (a series is cached as its
+    // occurrences, keyed under the base id), so the whole run of chips lands
+    // at once rather than one chip snapping back to its old slot.
+    const delta =
+      typeof body.start === "string" && typeof event.start === "string"
+        ? new Date(body.start).getTime() - new Date(event.start).getTime()
+        : NaN;
+    const moved = !Number.isNaN(delta) && delta !== 0;
     const previous = get().events[id];
-    if (previous) {
-      const optimistic = { ...previous, ...(body as object) } as CalendarEvent;
-      if (typeof body.start === "string" && previous.utcStart && previous.utcEnd) {
-        // Timed events carry utcStart/utcEnd beside the zoned start, and
-        // toInstance reads the utc pair first -- it has to move with the move.
-        const delta = new Date(body.start).getTime() - new Date(previous.start).getTime();
-        if (!Number.isNaN(delta)) {
-          const us = new Date(previous.utcStart).getTime();
-          const ue = new Date(previous.utcEnd).getTime();
-          if (!Number.isNaN(us)) optimistic.utcStart = new Date(us + delta).toISOString();
-          if (!Number.isNaN(ue)) optimistic.utcEnd = new Date(ue + delta).toISOString();
+    const seriesKeys = !previous
+      ? Object.keys(get().events).filter((k) => get().events[k]?.baseEventId === id)
+      : [];
+    const originals = previous
+      ? { [id]: previous }
+      : Object.fromEntries(seriesKeys.map((k) => [k, get().events[k]!]));
+    if (previous || seriesKeys.length) {
+      set((s) => {
+        const events = { ...s.events };
+        if (previous) {
+          events[id] = moved
+            ? shiftEvent(previous, delta)
+            : ({ ...previous, ...(body as object) } as CalendarEvent);
+        } else {
+          for (const k of seriesKeys) events[k] = shiftEvent(events[k]!, delta);
         }
-      }
-      set((s) => ({ events: { ...s.events, [id]: optimistic } }));
+        return { events };
+      });
     }
     try {
       const res = await client.call<SetResponse>("CalendarEvent/set", {
@@ -1212,7 +1240,8 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       const err = res.notUpdated?.[id];
       if (err) throw new CalendarSetError(err);
     } catch (err) {
-      if (previous) set((s) => ({ events: { ...s.events, [id]: previous } }));
+      if (Object.keys(originals).length)
+        set((s) => ({ events: { ...s.events, ...originals } }));
       throw err;
     }
     get().refreshWindows();

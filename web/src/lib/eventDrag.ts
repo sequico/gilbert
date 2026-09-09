@@ -128,6 +128,13 @@ function formatStored(d: Date): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
+/** Shift a stored `YYYY-MM-DDTHH:mm:ss` start by whole milliseconds. */
+export function shiftStoredStart(start: string, deltaMs: number): string | null {
+  const base = parseStored(start);
+  if (!base || Number.isNaN(deltaMs)) return null;
+  return formatStored(new Date(base.getTime() + deltaMs));
+}
+
 export interface DragPatch {
   start?: string;
   duration?: string;

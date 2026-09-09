@@ -321,3 +321,82 @@ describe("calendar writes apply the optimistic copy synchronously", () => {
     expect(useCalendar.getState().events.e1?.start).toBe("2026-09-04T09:00:00");
   });
 });
+
+describe("calendar moves shift every cached occurrence of a series", () => {
+  const occ = (id: string, start: string): CalendarEvent =>
+    ({
+      id,
+      "@type": "Event",
+      uid: "s1",
+      baseEventId: "s1",
+      recurrenceId: id,
+      calendarIds: { c1: true },
+      start,
+      duration: "PT30M",
+    }) as unknown as CalendarEvent;
+
+  beforeEach(() => {
+    useCalendar.setState({
+      accountId: "a1",
+      available: true,
+      calendars: { c1: CALENDAR },
+      sharedCalendars: [],
+      events: {
+        "s1:1": occ("s1:1", "2026-09-09T09:00:00"),
+        "s1:2": occ("s1:2", "2026-09-10T09:00:00"),
+      },
+      ranges: { [KEY]: ["s1:1", "s1:2"] },
+      loading: false,
+      error: null,
+      sharedEvents: {},
+      sharedRanges: {},
+      identities: [],
+      hidden: {},
+      subscriptionEvents: {},
+      subscriptionErrors: {},
+      subscriptionsLoading: false,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        const body = JSON.parse(init.body as string) as {
+          methodCalls: [string, Record<string, unknown>, string][];
+        };
+        const methodResponses: unknown[] = [];
+        for (const [name, args, id] of body.methodCalls) {
+          if (name === "CalendarEvent/set")
+            methodResponses.push([
+              name,
+              { accountId: args.accountId, updated: { s1: null }, notUpdated: {} },
+              id,
+            ]);
+          else if (name === "CalendarEvent/query")
+            methodResponses.push([name, { accountId: args.accountId, ids: [] }, id]);
+          else methodResponses.push([name, { accountId: args.accountId, list: [] }, id]);
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ methodResponses }),
+        } as Response;
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("moves both occurrences at once before the server answers", async () => {
+    const occurrence = useCalendar.getState().events["s1:1"]!;
+    const saving = useCalendar
+      .getState()
+      .updateEvent(occurrence, { start: "2026-09-11T09:00:00" }, false, "series");
+
+    // Synchronous: both cached occurrences already shifted.
+    expect(useCalendar.getState().events["s1:1"]?.start).toBe("2026-09-11T09:00:00");
+    expect(useCalendar.getState().events["s1:2"]?.start).toBe("2026-09-12T09:00:00");
+    await saving;
+  });
+});
