@@ -387,9 +387,12 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           img.draggable = false;
           range.insertNode(img);
           range.setStartAfter(img);
+          range.collapse(true);
         } else {
-          range.insertNode(document.createTextNode(emoji));
-          range.collapse(false);
+          const node = document.createTextNode(emoji);
+          range.insertNode(node);
+          range.setStartAfter(node);
+          range.collapse(true);
         }
         sel.removeAllRanges();
         sel.addRange(range);
