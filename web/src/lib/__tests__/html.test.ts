@@ -152,9 +152,9 @@ describe("markKeptSurfaces", () => {
     const d = frag(
       '<div style="background-color:#e7e5e2">' +
         '<div style="background-color:#2b2b2b">' +
-          '<table style="background-color:#e7e5e2"><tr><td>copy</td></tr></table>' +
-        '</div>' +
-      '</div>',
+        '<table style="background-color:#e7e5e2"><tr><td>copy</td></tr></table>' +
+        "</div>" +
+        "</div>",
     );
     expect(markKeptSurfaces(d)).toBe(1);
 
@@ -184,9 +184,9 @@ describe("markKeptSurfaces", () => {
     const d = frag(
       '<div style="background-color:#2b2b2b">' +
         '<table style="background-color:#ffffff"><tr>' +
-          '<td bgcolor="#1155CC"><a style="color:#FFFFFF">Buy</a></td>' +
-        '</tr></table>' +
-      '</div>',
+        '<td bgcolor="#1155CC"><a style="color:#FFFFFF">Buy</a></td>' +
+        "</tr></table>" +
+        "</div>",
     );
     expect(markKeptSurfaces(d)).toBe(2);
     expect(neutralised(d.querySelector("table")!)).toBe(true);
@@ -241,7 +241,7 @@ describe("markKeptSurfaces", () => {
     // could see, so a dark card was never marked and a light panel inside it
     // inherited nothing — the #310 sheet survived in stylesheet-driven mail.
     const d = frag(
-      '<style>.card { background-color:#2b2b2b } .sheet { background-color:#ffffff }</style>' +
+      "<style>.card { background-color:#2b2b2b } .sheet { background-color:#ffffff }</style>" +
         '<div class="card"><table class="sheet"><tr><td>copy</td></tr></table></div>',
     );
     expect(markKeptSurfaces(d)).toBe(1);
@@ -256,7 +256,7 @@ describe("markKeptSurfaces", () => {
 
   it("keeps a stylesheet-coloured button on a stylesheet sheet", () => {
     const d = frag(
-      '<style>.sheet { background-color:#ffffff } .cta { background-color:#1155CC }</style>' +
+      "<style>.sheet { background-color:#ffffff } .cta { background-color:#1155CC }</style>" +
         '<div class="sheet"><a class="cta" style="color:#FFFFFF">Buy</a></div>',
     );
     expect(markKeptSurfaces(d)).toBe(1);
@@ -267,7 +267,7 @@ describe("markKeptSurfaces", () => {
 
   it("lets a later stylesheet rule beat an earlier one of equal specificity", () => {
     const d = frag(
-      '<style>.sheet { background-color:#2b2b2b } .sheet { background-color:#ffffff }</style>' +
+      "<style>.sheet { background-color:#2b2b2b } .sheet { background-color:#ffffff }</style>" +
         '<div class="sheet">x</div>',
     );
     expect(markKeptSurfaces(d)).toBe(0);

@@ -1603,12 +1603,30 @@ export const catalog: Catalog = {
       other: "{n} contacten bijgewerkt, niets nieuws",
     },
     "{n} updated": { one: "{n} bijgewerkt", other: "{n} bijgewerkt" },
-    "Updated {n} contacts you already had": { one: "Bestaand contact bijgewerkt", other: "{n} bestaande contacten bijgewerkt" },
-    "{n} of them look like contacts you already had": { one: "{n} daarvan lijkt op een contact dat u al had", other: "{n} daarvan lijken op contacten die u al had" },
-    "Your administrator changed {n} settings": { one: "Uw beheerder heeft {n} instelling gewijzigd", other: "Uw beheerder heeft {n} instellingen gewijzigd" },
-    "Exported {n} events": { one: "{n} afspraak geëxporteerd", other: "{n} afspraken geëxporteerd" },
-    "Imported {n} events": { one: "{n} afspraak geïmporteerd", other: "{n} afspraken geïmporteerd" },
-    "Updated {n} events, nothing new": { one: "{n} afspraak bijgewerkt, niets nieuws", other: "{n} afspraken bijgewerkt, niets nieuws" },
+    "Updated {n} contacts you already had": {
+      one: "Bestaand contact bijgewerkt",
+      other: "{n} bestaande contacten bijgewerkt",
+    },
+    "{n} of them look like contacts you already had": {
+      one: "{n} daarvan lijkt op een contact dat u al had",
+      other: "{n} daarvan lijken op contacten die u al had",
+    },
+    "Your administrator changed {n} settings": {
+      one: "Uw beheerder heeft {n} instelling gewijzigd",
+      other: "Uw beheerder heeft {n} instellingen gewijzigd",
+    },
+    "Exported {n} events": {
+      one: "{n} afspraak geëxporteerd",
+      other: "{n} afspraken geëxporteerd",
+    },
+    "Imported {n} events": {
+      one: "{n} afspraak geïmporteerd",
+      other: "{n} afspraken geïmporteerd",
+    },
+    "Updated {n} events, nothing new": {
+      one: "{n} afspraak bijgewerkt, niets nieuws",
+      other: "{n} afspraken bijgewerkt, niets nieuws",
+    },
     "{n} messages": { one: "{n} bericht", other: "{n} berichten" },
     "{n} selected": { one: "{n} geselecteerd", other: "{n} geselecteerd" },
     "{n} conversations": { one: "{n} gesprek", other: "{n} gesprekken" },

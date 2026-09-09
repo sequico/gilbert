@@ -1648,12 +1648,30 @@ export const catalog: Catalog = {
       other: "{n} Kontakte aktualisiert, nichts Neues",
     },
     "{n} updated": { one: "{n} aktualisiert", other: "{n} aktualisiert" },
-    "Updated {n} contacts you already had": { one: "Vorhandenen Kontakt aktualisiert", other: "{n} vorhandene Kontakte aktualisiert" },
-    "{n} of them look like contacts you already had": { one: "{n} davon sieht aus wie ein Kontakt, den Sie schon hatten", other: "{n} davon sehen aus wie Kontakte, die Sie schon hatten" },
-    "Your administrator changed {n} settings": { one: "Ihre Administration hat {n} Einstellung geändert", other: "Ihre Administration hat {n} Einstellungen geändert" },
-    "Exported {n} events": { one: "{n} Termin exportiert", other: "{n} Termine exportiert" },
-    "Imported {n} events": { one: "{n} Termin importiert", other: "{n} Termine importiert" },
-    "Updated {n} events, nothing new": { one: "{n} Termin aktualisiert, nichts Neues", other: "{n} Termine aktualisiert, nichts Neues" },
+    "Updated {n} contacts you already had": {
+      one: "Vorhandenen Kontakt aktualisiert",
+      other: "{n} vorhandene Kontakte aktualisiert",
+    },
+    "{n} of them look like contacts you already had": {
+      one: "{n} davon sieht aus wie ein Kontakt, den Sie schon hatten",
+      other: "{n} davon sehen aus wie Kontakte, die Sie schon hatten",
+    },
+    "Your administrator changed {n} settings": {
+      one: "Ihre Administration hat {n} Einstellung geändert",
+      other: "Ihre Administration hat {n} Einstellungen geändert",
+    },
+    "Exported {n} events": {
+      one: "{n} Termin exportiert",
+      other: "{n} Termine exportiert",
+    },
+    "Imported {n} events": {
+      one: "{n} Termin importiert",
+      other: "{n} Termine importiert",
+    },
+    "Updated {n} events, nothing new": {
+      one: "{n} Termin aktualisiert, nichts Neues",
+      other: "{n} Termine aktualisiert, nichts Neues",
+    },
     "{n} messages": { one: "{n} Nachricht", other: "{n} Nachrichten" },
     "{n} selected": { one: "{n} ausgewählt", other: "{n} ausgewählt" },
     "{n} conversations": { one: "{n} Konversation", other: "{n} Konversationen" },

@@ -1494,18 +1494,17 @@ export const useCalendar = create<CalendarState>((set, get) => ({
           if (kind === "create") subCreate[k] = create[k];
           else subUpdate[k] = update[k];
         }
-        const res = await client.call<SetResponse<CalendarEvent>>(
-          "CalendarEvent/set",
-          {
-            accountId,
-            create: subCreate,
-            update: subUpdate,
-            sendSchedulingMessages: false,
-          },
-        );
+        const res = await client.call<SetResponse<CalendarEvent>>("CalendarEvent/set", {
+          accountId,
+          create: subCreate,
+          update: subUpdate,
+          sendSchedulingMessages: false,
+        });
         created += Object.keys(res.created ?? {}).length;
         updated += Object.keys(res.updated ?? {}).length;
-        refused ??= Object.values(res.notCreated ?? {})[0] ?? Object.values(res.notUpdated ?? {})[0];
+        refused ??=
+          Object.values(res.notCreated ?? {})[0] ??
+          Object.values(res.notUpdated ?? {})[0];
       }
     } catch (err) {
       // A batch that failed with earlier ones already written: those events are

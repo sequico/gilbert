@@ -1594,7 +1594,9 @@ export const catalog: Catalog = {
     },
     "Exported {n} events": { other: "{n} 件の予定をエクスポートしました" },
     "Imported {n} events": { other: "{n} 件の予定をインポートしました" },
-    "Updated {n} events, nothing new": { other: "{n} 件の予定を更新しました。新規はありません" },
+    "Updated {n} events, nothing new": {
+      other: "{n} 件の予定を更新しました。新規はありません",
+    },
     /*
      * One form each, because Japanese has one. Intl.PluralRules returns
      * `other` for every number, so `one`, `few` and `many` would never be

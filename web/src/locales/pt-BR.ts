@@ -1611,12 +1611,30 @@ export const catalog: Catalog = {
       other: "{n} contatos atualizados, nada novo",
     },
     "{n} updated": { one: "{n} atualizado", other: "{n} atualizados" },
-    "Updated {n} contacts you already had": { one: "Contato que você já tinha atualizado", other: "{n} contatos que você já tinha atualizados" },
-    "{n} of them look like contacts you already had": { one: "{n} deles parece um contato que você já tinha", other: "{n} deles parecem contatos que você já tinha" },
-    "Your administrator changed {n} settings": { one: "Sua administração alterou {n} configuração", other: "Sua administração alterou {n} configurações" },
-    "Exported {n} events": { one: "{n} evento exportado", other: "{n} eventos exportados" },
-    "Imported {n} events": { one: "{n} evento importado", other: "{n} eventos importados" },
-    "Updated {n} events, nothing new": { one: "{n} evento atualizado, nada novo", other: "{n} eventos atualizados, nada novo" },
+    "Updated {n} contacts you already had": {
+      one: "Contato que você já tinha atualizado",
+      other: "{n} contatos que você já tinha atualizados",
+    },
+    "{n} of them look like contacts you already had": {
+      one: "{n} deles parece um contato que você já tinha",
+      other: "{n} deles parecem contatos que você já tinha",
+    },
+    "Your administrator changed {n} settings": {
+      one: "Sua administração alterou {n} configuração",
+      other: "Sua administração alterou {n} configurações",
+    },
+    "Exported {n} events": {
+      one: "{n} evento exportado",
+      other: "{n} eventos exportados",
+    },
+    "Imported {n} events": {
+      one: "{n} evento importado",
+      other: "{n} eventos importados",
+    },
+    "Updated {n} events, nothing new": {
+      one: "{n} evento atualizado, nada novo",
+      other: "{n} eventos atualizados, nada novo",
+    },
     "{n} messages": { one: "{n} mensagem", other: "{n} mensagens" },
     "{n} selected": { one: "{n} selecionada", other: "{n} selecionadas" },
     "{n} conversations": { one: "{n} conversa", other: "{n} conversas" },
