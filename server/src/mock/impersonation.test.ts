@@ -83,13 +83,22 @@ test("the target signs in as themselves with their own password", async () => {
     s.body.accounts[s.body.primaryAccounts["urn:ietf:params:jmap:filenode"]].isPersonal,
     true,
   );
-  // The target's session carries no group accounts: since ADR 0007 admin
-  // state is a permission-list fact (`/api/account`), not a session fact.
+  // The target's session is a single fresh personal account: since ADR 0007
+  // no session marks an admin — that state lives in `/api/account` only.
+  assert.deepEqual(
+    Object.keys(s.body.accounts),
+    [s.body.primaryAccounts["urn:ietf:params:jmap:filenode"]],
+    "the target holds exactly its own account",
+  );
+  const intro = await fetch(`${BASE}/api/account`, {
+    headers: { authorization: basic(BOB, "bob-password") },
+  });
+  assert.equal(intro.status, 200);
+  const introBody = await intro.json();
   assert.equal(
-    Object.values(s.body.accounts).some(
-      (a) => (a as { name?: string }).name === "gilbert-admin@example.com",
-    ),
+    introBody.permissions.includes("sysAccountCreate"),
     false,
+    "the non-admin target lacks the admin marker (ADR 0007)",
   );
 });
 
@@ -101,6 +110,18 @@ test("the composite username authenticates as the target with the master's crede
     s.body.primaryAccounts["urn:ietf:params:jmap:filenode"],
     "b1",
     "and names the target's own account",
+  );
+  // /api/account under the composite reports the TARGET's permission list:
+  // the target_is_admin guard reads it through this exact credential.
+  const intro = await fetch(`${BASE}/api/account`, {
+    headers: { authorization: basic(`${BOB}%${DEMO}`, "demo-password") },
+  });
+  assert.equal(intro.status, 200);
+  const introBody = await intro.json();
+  assert.equal(
+    introBody.permissions.includes("sysAccountCreate"),
+    false,
+    "impersonating a non-admin target reports the target's own list",
   );
 });
 

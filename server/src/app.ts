@@ -1049,8 +1049,11 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * admin marker is a plain 403.
    */
   const requireAdmin: MiddlewareHandler<Env> = async (c, next) => {
-    const session = c.get("session");
     try {
+      // Registered behind requireSession everywhere; the deref sits inside
+      // the try so a mis-registration fails as a controlled response, not a
+      // 500 out of the accessor.
+      const session = c.get("session");
       const intro = await fetchAccountIntrospection(
         session.authorization,
         upstreamFor(session.username),
@@ -1130,7 +1133,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     // way the acting admin's was resolved at sign-in (ADR 0007). This also
     // covers the acting admin themselves (master == target degrades to a
     // plain login upstream). A failure to introspect is an upstream failure
-    // — the same credential just fetched the target's JMAP session.
+    // — the same composite credential just fetched the target's JMAP
+    // session, so a refusal here is the server failing the introspection,
+    // never the credential: report that rather than a misleading 401.
     try {
       const targetIntro = await fetchAccountIntrospection(
         ctx.authorization,
@@ -1147,7 +1152,13 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         );
       }
     } catch (err) {
-      return accountFailure(c, err);
+      return c.json(
+        {
+          error: "upstream_error",
+          message: `Could not verify the target's administrator state: ${(err as Error).message}`,
+        },
+        502,
+      );
     }
     try {
       if (body.clear === true) await clearPasswordChangeDirective(ctx);

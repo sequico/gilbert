@@ -126,7 +126,7 @@ decision; nothing below is behaviour to preserve.
   (admin by marker permission, no group in the session accounts, no
   `gilbert-admin` exclusion).
 - New coverage: `/api/account` introspection, marker-permission resolution
-  (admin and non-admin), fail-closed when the introspection is unavailable,
+  (admin and non-admin, and an empty or missing list resolving to non-admin),
   and mock parity for all of the above.
 
 ## Consequences
@@ -184,8 +184,8 @@ final sign-in-through-the-server confirmation on the deployment.
 - ADR 0003 — agent worker fleet (creation stays operator-side)
 - ADR 0005 — forced password change (the per-action impersonation probe)
 - ADR 0006 — group chat (admin-group exclusion, moot once the group is gone)
-- `server/src/upstream.ts` — `isAdminSession`, `ADMIN_GROUP_LOCAL` (to remove)
-- `server/src/app.ts` — `requireAdmin`, `/admin/*` (to regate on the new admin check)
+- `server/src/upstream.ts` — `isAdminSession`, `ADMIN_GROUP_LOCAL` (removed in this change)
+- `server/src/app.ts` — `requireAdmin`, `/admin/*` (re-gated on the new admin check)
 - `server/src/account.ts`, `server/src/app.ts` — sign-in; where the `/api/account` introspection plugs in
-- `server/src/config.ts` — new `GILBERT_ADMIN_PERMISSION` marker
-- `server/src/mock/index.ts` — admin-group emulation (to follow the new source)
+- `server/src/config.ts` — `GILBERT_ADMIN_PERMISSION` marker
+- `server/src/mock/index.ts` — admin-group emulation (replaced by the permission model)

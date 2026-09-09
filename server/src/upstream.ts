@@ -417,9 +417,18 @@ export async function getAccountInfo(
   let info = EMPTY_INFO;
   try {
     info = await fetchAccountInfo(authorization, session);
+    // Fault-isolate the edition read: the introspection throws on any
+    // failure, and an /api/account hiccup must cost the edition alone, not
+    // the locale the JMAP read just fetched. The throwing contract stays for
+    // the admin paths, which want the failure (ADR 0007).
     info = {
       ...info,
-      edition: (await fetchAccountIntrospection(authorization, session.baseUrl)).edition,
+      edition:
+        (
+          await fetchAccountIntrospection(authorization, session.baseUrl).catch(
+            () => null,
+          )
+        )?.edition ?? null,
     };
   } catch {
     /* all of this is a nicety - never fail the session over it */
