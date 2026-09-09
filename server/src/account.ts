@@ -372,8 +372,11 @@ interface FileNodeLike {
  * personal, else the first personal account advertising the capability. The
  * server resolves the same way, so the directive lands exactly where the
  * client's settings live.
+ *
+ * Exported for the admin group-label surface (ADR 0006), which resolves the
+ * account of an *impersonated* group session the same way.
  */
-function filesAccountId(ctx: Ctx): string {
+export function filesAccountId(ctx: Ctx): string {
   const prim = ctx.session.primaryAccounts?.[FILENODE_CAP];
   if (prim) {
     const account = ctx.session.accounts?.[prim] as { isPersonal?: unknown } | undefined;
@@ -672,8 +675,10 @@ export async function clearPasswordChangeDirective(ctx: Ctx): Promise<void> {
 /* ------------------------------------------------------------------ */
 
 /** Read a group's label catalog, or null when it has none or is unreadable. */
-export async function readGroupLabels(ctx: Ctx): Promise<unknown[] | null> {
-  const accountId = filesAccountId(ctx);
+export async function readGroupLabels(
+  ctx: Ctx,
+  accountId: string,
+): Promise<unknown[] | null> {
   if (!accountId) return null;
   const { file } = await findAppFile(ctx, accountId, GROUP_LABELS_FILE);
   if (!file) return null;
@@ -693,8 +698,11 @@ export async function readGroupLabels(ctx: Ctx): Promise<unknown[] | null> {
 }
 
 /** Write (or replace) a group's label catalog, creating the app folder as needed. */
-export async function writeGroupLabels(ctx: Ctx, labels: unknown[]): Promise<void> {
-  const accountId = filesAccountId(ctx);
+export async function writeGroupLabels(
+  ctx: Ctx,
+  accountId: string,
+  labels: unknown[],
+): Promise<void> {
   if (!accountId)
     throw new AccountError(
       "This account has no Files account to hold the label catalog.",

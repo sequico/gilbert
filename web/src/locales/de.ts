@@ -795,6 +795,16 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "Gruppen-Mailboxen aufzulisten erfordert Stalwart-Serveradministrator-Rechte, über die diese Sitzung nicht verfügt.",
     "No labels yet.": "Noch keine Labels.",
+    "Stalwart server configuration (Sieve editor and more) will appear here.":
+      "Hier erscheint die Stalwart-Serverkonfiguration (Sieve-Editor und mehr).",
+    "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
+      "Um den Label-Katalog einer Gruppe zu verwalten, musst du Mitglied dieser Gruppe sein: Der Katalog liegt in den eigenen Dateien der Gruppe, und der Mailserver weigert sich, im Namen einer Gruppe zu handeln.",
+    "You are a member of this group — its labels are managed here.":
+      "Du bist Mitglied dieser Gruppe — ihre Labels werden hier verwaltet.",
+    "You are not a member of this group — its label catalog cannot be managed from here.":
+      "Du bist kein Mitglied dieser Gruppe — ihr Label-Katalog kann von hier aus nicht verwaltet werden.",
+    "Forcing a password acts on another user's account: the Stalwart-admin grant is not enough — Stalwart's Impersonate permission and a password session are required too, because app passwords are refused for impersonation.":
+      "Eine Passwort-Erzwingung greift in das Konto eines anderen ein: Die Stalwart-Admin-Berechtigung allein genügt nicht — zusätzlich sind die Impersonate-Berechtigung von Stalwart und eine Passwort-Sitzung nötig, da App-Passwörter für die Impersonation abgelehnt werden.",
     "Delete label": "Label löschen",
     "Choose a date": "Datum wählen",
     "Choose a date and time": "Datum und Uhrzeit wählen",

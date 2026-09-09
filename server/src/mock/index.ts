@@ -1482,15 +1482,28 @@ const principals: Obj[] = people.slice(0, 5).map((p, i) => ({
   email: p[1],
   timeZone: "UTC",
 }));
-// A group principal, so the directory and the sharing pickers can offer a team.
-principals.push({
-  id: "pr-team",
-  type: "group",
-  name: "Team",
-  description: null,
-  email: "team@example.org",
-  timeZone: "UTC",
-});
+// Group principals, so the directory and the sharing pickers can offer
+// teams. The demo user is a member of `team@example.org` (its account is in
+// the demo session below); `legal@example.org` is a group the demo is not a
+// member of, for the surfaces that must refuse non-members (ADR 0006).
+principals.push(
+  {
+    id: "pr-team",
+    type: "group",
+    name: "Team",
+    description: null,
+    email: "team@example.org",
+    timeZone: "UTC",
+  },
+  {
+    id: "pr-legal",
+    type: "group",
+    name: "Legal",
+    description: null,
+    email: "legal@example.org",
+    timeZone: "UTC",
+  },
+);
 const fileNodes: Obj[] = [
   {
     id: "f1",
@@ -3313,8 +3326,8 @@ const knownPrincipal = (username: string) =>
   username === USER ||
   username === TARGET_USER ||
   // The impersonation probe acts on a real account from the directory, the
-  // way a force would; the directory principals (individuals and the group
-  // mailboxes) are valid targets for a master that holds the right.
+  // way a force would; the directory principals are valid targets for a
+  // master that holds the right (group principals are refused separately).
   principals.some((p) => p.email === username);
 
 /**
@@ -3331,17 +3344,27 @@ const knownPrincipal = (username: string) =>
  * `/api/account` reports as the `impersonate` permission (ADR 0007) — the
  * demo holds it exactly when it is a Stalwart admin, matching the live
  * server where the admin role bundles it.
+ *
+ * Group principals never authenticate, directly or as an impersonation
+ * target — Stalwart 0.16 has no credential for them and refuses the
+ * composite with a 403 (live-verified 2026-09-09). Members reach the
+ * group's own account through their own session instead (ADR 0006); the
+ * mock reproduces the refusal so no surface can lean on group
+ * impersonation.
  */
+const isGroupPrincipal = (username: string): boolean =>
+  principals.some((p) => p.type === "group" && p.email === username);
+
 /**
- * The account a known principal actually owns. Impersonation lands on the
- * target's own account: the demo's, the target principal's (ADR 0005), or a
- * group mailbox's own account when the target is one of the demo groups.
+ * The account a known individual actually owns. Impersonation lands on the
+ * target's own account: the demo's, the target principal's (ADR 0005).
+ * Group principals are refused before this runs; directory individuals the
+ * mock does not give an account to resolve to the demo account, matching a
+ * probe that only ever names a real account.
  */
 const principalAccountId = (username: string): string => {
   if (username === USER) return ACCOUNT;
   if (username === TARGET_USER) return TARGET_ACCOUNT;
-  if (username === "team@example.org") return GROUP_ACCOUNT;
-  if (username === "design@example.org") return GROUP2_ACCOUNT;
   return ACCOUNT;
 };
 
@@ -3364,11 +3387,12 @@ function resolveIdentity(req: IncomingMessage): Identity | null {
     // The mock has one impersonator: the demo user. A composite naming any
     // other master (or target) fails like an unknown account; the master
     // must hold Stalwart's `Impersonate` permission, which the resolved
-    // permission list reports (ADR 0007).
+    // permission list reports (ADR 0007). A group principal as target is
+    // refused like a real 0.16 server (see above).
     if (master !== USER) return null;
     if (!validCredential(master, p, true)) return null;
     if (!permissionsOf(master).includes("impersonate")) return null;
-    if (!knownPrincipal(target)) return null;
+    if (!knownPrincipal(target) || isGroupPrincipal(target)) return null;
     return {
       username: target,
       accountId: principalAccountId(target),
@@ -3379,7 +3403,7 @@ function resolveIdentity(req: IncomingMessage): Identity | null {
 }
 
 function resolvePlain(username: string, secret: string): Identity | null {
-  if (!knownPrincipal(username)) return null;
+  if (!knownPrincipal(username) || isGroupPrincipal(username)) return null;
   const kind = validCredential(username, secret, false);
   if (!kind) return null;
   return {

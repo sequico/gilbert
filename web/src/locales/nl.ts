@@ -751,6 +751,16 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "Groepsmailboxen weergeven vereist Stalwart-serverbeheerdersrechten, die deze sessie niet heeft.",
     "No labels yet.": "Nog geen labels.",
+    "Stalwart server configuration (Sieve editor and more) will appear here.":
+      "De Stalwart-serverconfiguratie (Sieve-editor en meer) verschijnt hier.",
+    "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
+      "Het labelcatalogus van een groep beheren vereist lidmaatschap van die groep: de catalogus leeft in de eigen bestanden van de groep en de mailserver weigert namens een beheerder als groepsmailbox op te treden.",
+    "You are a member of this group — its labels are managed here.":
+      "Je bent lid van deze groep — de labels worden hier beheerd.",
+    "You are not a member of this group — its label catalog cannot be managed from here.":
+      "Je bent geen lid van deze groep — het labelcatalogus kan hier niet worden beheerd.",
+    "Forcing a password acts on another user's account: the Stalwart-admin grant is not enough — Stalwart's Impersonate permission and a password session are required too, because app passwords are refused for impersonation.":
+      "Een wachtwoord afdwingen grijpt in op het account van een andere gebruiker: de Stalwart-adminrechten alleen volstaan niet — ook Stalwarts Impersonate-machtiging en een wachtwoordsessie zijn nodig, omdat app-wachtwoorden voor impersonatie worden geweigerd.",
     "Delete label": "Label verwijderen",
     PDF: "PDF",
     "Large attachments may be rejected by some servers":

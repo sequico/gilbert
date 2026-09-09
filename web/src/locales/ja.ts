@@ -758,6 +758,16 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "グループメールボックスの一覧表示には Stalwart サーバー管理者権限が必要ですが、このセッションにはありません。",
     "No labels yet.": "ラベルはまだありません。",
+    "Stalwart server configuration (Sieve editor and more) will appear here.":
+      "Stalwart サーバー設定（Sieve エディタなど）はここに表示されます。",
+    "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
+      "グループのラベルカタログを管理するには、そのグループのメンバーである必要があります。カタログはグループ自身のファイルにあり、メールサーバーは管理者に代わってグループメールボックスとして動作することを拒否するためです。",
+    "You are a member of this group — its labels are managed here.":
+      "このグループのメンバーです — ラベルはここで管理されます。",
+    "You are not a member of this group — its label catalog cannot be managed from here.":
+      "このグループのメンバーではありません — ここからラベルカタログを管理することはできません。",
+    "Forcing a password acts on another user's account: the Stalwart-admin grant is not enough — Stalwart's Impersonate permission and a password session are required too, because app passwords are refused for impersonation.":
+      "パスワードの強制は他のユーザーのアカウントに作用します。Stalwart 管理者権限だけでは不十分で、Stalwart の Impersonate 権限とパスワードセッションも必要です（アプリパスワードは impersonation に使用できないため）。",
     "Delete label": "ラベルを削除",
 
     // ── Attachments, dates, search prose ───────────────────────────────

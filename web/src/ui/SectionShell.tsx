@@ -25,9 +25,19 @@ export interface SectionItem {
   icon: ReactNode;
 }
 
+/** A labelled run of nav items; see `groups`. */
+export interface SectionGroup {
+  /** Group heading; translated by the caller. */
+  label?: ReactNode;
+  /** Rendered under the heading when the group has no items yet. */
+  emptyLabel?: ReactNode;
+  items: SectionItem[];
+}
+
 export function SectionShell({
   heading,
   items,
+  groups,
   activeId,
   base,
   children,
@@ -38,6 +48,13 @@ export function SectionShell({
   /** The nav column's label; translated by the caller. */
   heading: ReactNode;
   items: SectionItem[];
+  /**
+   * Labelled groups of items. When present they render under the heading in
+   * place of `items`, and `items` render after the groups as the ungrouped
+   * tail (About, cross-links). Settings passes plain `items`; Administration
+   * groups its surfaces by owner (Gilbert vs Stalwart, ADR 0007).
+   */
+  groups?: SectionGroup[];
   /** Which item is active; undefined renders the "root" container class. */
   activeId?: string;
   /** Prefix every item link: `${base}/${id}`. */
@@ -51,6 +68,18 @@ export function SectionShell({
   backLabel?: ReactNode;
 }) {
   const [, navigate] = useLocation();
+  const renderItems = (list: SectionItem[]) =>
+    list.map((s) => (
+      <Link
+        key={s.id}
+        href={`${base}/${s.id}`}
+        className={`nav-item ${activeId === s.id ? "active" : ""}`}
+      >
+        {s.icon}
+        <span className="nav-label">{t(s.label)}</span>
+      </Link>
+    ));
+  const grouped = groups && groups.length > 0;
   return (
     <div className={`settings-layout ${activeId ? "section" : "root"}`}>
       <nav
@@ -60,16 +89,31 @@ export function SectionShell({
         <div className="nav-section" style={{ paddingLeft: 8 }}>
           <span>{heading}</span>
         </div>
-        {items.map((s) => (
-          <Link
-            key={s.id}
-            href={`${base}/${s.id}`}
-            className={`nav-item ${activeId === s.id ? "active" : ""}`}
+        {grouped
+          ? groups!.map((g) => (
+              <div key={typeof g.label === "string" ? g.label : "group"}>
+                {g.label && (
+                  <div className="nav-section">
+                    <span>{g.label}</span>
+                  </div>
+                )}
+                {g.items.length > 0
+                  ? renderItems(g.items)
+                  : g.emptyLabel && <p className="hint nav-empty">{g.emptyLabel}</p>}
+              </div>
+            ))
+          : renderItems(items)}
+        {grouped && items.length > 0 && (
+          <div
+            style={{
+              marginTop: 8,
+              borderTop: "1px solid var(--border)",
+              paddingTop: 4,
+            }}
           >
-            {s.icon}
-            <span className="nav-label">{t(s.label)}</span>
-          </Link>
-        ))}
+            {renderItems(items)}
+          </div>
+        )}
         {footer}
       </nav>
       <div className="settings-content">

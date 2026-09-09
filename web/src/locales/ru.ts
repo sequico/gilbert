@@ -756,6 +756,16 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "Список групповых почтовых ящиков требует прав администратора сервера Stalwart, которых у этой сессии нет.",
     "No labels yet.": "Ярлыков пока нет.",
+    "Stalwart server configuration (Sieve editor and more) will appear here.":
+      "Конфигурация сервера Stalwart (редактор Sieve и другое) появится здесь.",
+    "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
+      "Управление каталогом ярлыков группы требует членства в этой группе: каталог хранится в собственных файлах группы, а почтовый сервер отказывается действовать как групповой ящик от имени администратора.",
+    "You are a member of this group — its labels are managed here.":
+      "Вы участник этой группы — её ярлыки управляются здесь.",
+    "You are not a member of this group — its label catalog cannot be managed from here.":
+      "Вы не участник этой группы — её каталог ярлыков отсюда управлять нельзя.",
+    "Forcing a password acts on another user's account: the Stalwart-admin grant is not enough — Stalwart's Impersonate permission and a password session are required too, because app passwords are refused for impersonation.":
+      "Принудительная смена пароля действует на чужую учётную запись: прав администратора Stalwart недостаточно — требуются ещё разрешение Impersonate от Stalwart и сессия с паролем, поскольку пароли приложений для impersonation не принимаются.",
     "Delete label": "Удалить ярлык",
     PDF: "PDF",
     "Large attachments may be rejected by some servers":

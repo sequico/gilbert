@@ -1191,6 +1191,16 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "Elencare le caselle di gruppo richiede il privilegio di amministratore del server Stalwart, che questa sessione non ha.",
     "No labels yet.": "Ancora nessuna etichetta.",
+    "Stalwart server configuration (Sieve editor and more) will appear here.":
+      "La configurazione del server Stalwart (editor Sieve e altro) apparirà qui.",
+    "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
+      "Gestire il catalogo etichette di un gruppo richiede di essere membri del gruppo: il catalogo vive nei file propri del gruppo e il server di posta rifiuta di agire come casella di gruppo per conto di un amministratore.",
+    "You are a member of this group — its labels are managed here.":
+      "Sei membro di questo gruppo — le sue etichette si gestiscono qui.",
+    "You are not a member of this group — its label catalog cannot be managed from here.":
+      "Non sei membro di questo gruppo — il suo catalogo etichette non può essere gestito da qui.",
+    "Forcing a password acts on another user's account: the Stalwart-admin grant is not enough — Stalwart's Impersonate permission and a password session are required too, because app passwords are refused for impersonation.":
+      "Forzare una password agisce sull'account di un altro utente: l'essere admin Stalwart non basta — servono anche il permesso Impersonate di Stalwart e una sessione con password, perché le app password sono rifiutate per l'impersonation.",
 
     "Delete label": "Elimina etichetta",
     PDF: "PDF",

@@ -743,6 +743,16 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "列出群组邮箱需要 Stalwart 服务器管理员权限，而此会话没有该权限。",
     "No labels yet.": "暂无标签。",
+    "Stalwart server configuration (Sieve editor and more) will appear here.":
+      "Stalwart 服务器配置（Sieve 编辑器等）将显示在这里。",
+    "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
+      "管理群组的标签目录需要是该群组的成员：目录存放在群组自己的文件中，而邮件服务器拒绝代表管理员充当群组邮箱。",
+    "You are a member of this group — its labels are managed here.":
+      "你是该群组的成员——其标签在此管理。",
+    "You are not a member of this group — its label catalog cannot be managed from here.":
+      "你不是该群组的成员——无法从这里管理其标签目录。",
+    "Forcing a password acts on another user's account: the Stalwart-admin grant is not enough — Stalwart's Impersonate permission and a password session are required too, because app passwords are refused for impersonation.":
+      "强制修改密码作用于其他用户的账户：仅 Stalwart 管理员身份不够——还需要 Stalwart 的 Impersonate 权限以及密码会话，因为应用密码不允许用于 impersonation。",
     "Delete label": "删除标签",
 
     // ── Attachments, dates, search prose ───────────────────────────────

@@ -16,6 +16,7 @@ import {
   createAppPassword,
   disableOtp,
   enableOtp,
+  filesAccountId,
   getState,
   isPasswordChangeForced,
   readGroupLabels,
@@ -1384,21 +1385,80 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
   });
 
+  /**
+   * Resolve the group account a catalog lives on (ADR 0006) and the session
+   * to reach it with.
+   *
+   * Membership is the grant: a member of the group already holds the group's
+   * account in their own session, so the catalog is read and written with the
+   * administrator's own credentials — no impersonation. A non-member
+   * administrator falls back to impersonation, which is what Stalwart 0.16
+   * refuses for group mailboxes (live-verified 2026-09-09: the composite
+   * `{group}%{admin}` answers 403), so the answer for them is an honest 403
+   * naming membership as the requirement.
+   */
+  const resolveGroupLabelsAccess = async (
+    session: LiveSession,
+    name: string,
+  ): Promise<
+    | {
+        ok: true;
+        ctx: {
+          authorization: string;
+          session: UpstreamSession;
+          username: string;
+        };
+        accountId: string;
+      }
+    | { ok: false; error: "group_not_accessible"; message: string }
+  > => {
+    const upstream = await getUpstreamSession(
+      session.id,
+      session.authorization,
+      upstreamFor(session.username),
+    );
+    const want = name.trim().toLowerCase();
+    for (const [accountId, account] of Object.entries(upstream.accounts ?? {})) {
+      const a = account as { name?: unknown; isPersonal?: unknown };
+      if (a.isPersonal !== false) continue;
+      if (typeof a.name !== "string") continue;
+      if (a.name.trim().toLowerCase() !== want) continue;
+      return {
+        ok: true,
+        accountId,
+        ctx: {
+          authorization: session.authorization,
+          session: upstream,
+          username: session.username,
+        },
+      };
+    }
+    const imp = await impersonateAs(session, name);
+    if (imp.ok) {
+      const accountId = filesAccountId(imp.ctx);
+      if (accountId) return { ok: true, ctx: imp.ctx, accountId };
+    }
+    return {
+      ok: false,
+      error: "group_not_accessible",
+      message:
+        "Managing a group's labels needs membership of that group: the catalog lives in the group's own files, and this mail server refuses to act as a group mailbox on an administrator's behalf.",
+    };
+  };
+
   api.get("/admin/groups/:name/labels", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
     const name = c.req.param("name") ?? "";
-    const imp = await impersonateAs(session, name);
-    if (!imp.ok) {
-      const error =
-        imp.status === 404
-          ? "target_not_found"
-          : imp.status === 403
-            ? "forbidden"
-            : "upstream";
-      return c.json({ error, message: imp.message }, imp.status);
+    try {
+      const access = await resolveGroupLabelsAccess(session, name);
+      if (!access.ok) {
+        return c.json({ error: access.error, message: access.message }, 403);
+      }
+      const labels = await readGroupLabels(access.ctx, access.accountId);
+      return c.json({ labels: labels ?? [] });
+    } catch (err) {
+      return upstreamFailure(c, err);
     }
-    const labels = await readGroupLabels(imp.ctx);
-    return c.json({ labels: labels ?? [] });
   });
 
   api.post("/admin/groups/:name/labels", requireSession, requireAdmin, async (c) => {
@@ -1407,18 +1467,16 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const body = await readJson<{ labels?: unknown }>(c);
     if (!body || !Array.isArray(body.labels))
       return c.json({ error: "bad_request", message: "labels must be an array" }, 400);
-    const imp = await impersonateAs(session, name);
-    if (!imp.ok) {
-      const error =
-        imp.status === 404
-          ? "target_not_found"
-          : imp.status === 403
-            ? "forbidden"
-            : "upstream";
-      return c.json({ error, message: imp.message }, imp.status);
+    try {
+      const access = await resolveGroupLabelsAccess(session, name);
+      if (!access.ok) {
+        return c.json({ error: access.error, message: access.message }, 403);
+      }
+      await writeGroupLabels(access.ctx, access.accountId, body.labels);
+      return c.json({ ok: true });
+    } catch (err) {
+      return upstreamFailure(c, err);
     }
-    await writeGroupLabels(imp.ctx, body.labels);
-    return c.json({ ok: true });
   });
 
   // ---------- JMAP API proxy ----------

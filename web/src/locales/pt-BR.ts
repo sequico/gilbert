@@ -761,6 +761,16 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "Listar caixas de grupo exige privilégio de administrador do servidor Stalwart, que esta sessão não possui.",
     "No labels yet.": "Ainda não há marcadores.",
+    "Stalwart server configuration (Sieve editor and more) will appear here.":
+      "A configuração do servidor Stalwart (editor Sieve e mais) aparecerá aqui.",
+    "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
+      "Gerenciar o catálogo de marcadores de um grupo exige ser membro do grupo: o catálogo vive nos arquivos próprios do grupo e o servidor de correio se recusa a agir como caixa de grupo em nome de um administrador.",
+    "You are a member of this group — its labels are managed here.":
+      "Você é membro deste grupo — os marcadores dele são gerenciados aqui.",
+    "You are not a member of this group — its label catalog cannot be managed from here.":
+      "Você não é membro deste grupo — o catálogo de marcadores dele não pode ser gerenciado daqui.",
+    "Forcing a password acts on another user's account: the Stalwart-admin grant is not enough — Stalwart's Impersonate permission and a password session are required too, because app passwords are refused for impersonation.":
+      "Forçar uma senha age sobre a conta de outro usuário: a concessão de admin do Stalwart não basta — também são necessárias a permissão Impersonate do Stalwart e uma sessão com senha, pois senhas de aplicativo são recusadas para impersonação.",
     "Delete label": "Excluir o marcador",
     PDF: "PDF",
     "Large attachments may be rejected by some servers":

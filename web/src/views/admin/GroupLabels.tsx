@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/jmap/client";
 import { t } from "@/lib/i18n";
 import { labelKeywordFromName } from "@/lib/labelKeyword";
+import { useSession } from "@/store/session";
 import type { Label } from "@/store/settings";
 import { promptDialog } from "@/ui/dialog";
 import { CALENDAR_COLORS, ColorSwatches } from "@/ui/misc";
@@ -28,6 +29,19 @@ export function GroupLabels() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  // The accounts this session may reach; a group the administrator is a
+  // member of appears here under its own address (ADR 0006).
+  const session = useSession((s) => s.session);
+  const memberOf = (name: string): boolean => {
+    const want = name.trim().toLowerCase();
+    return Object.values(session?.accounts ?? {}).some(
+      (a) =>
+        a.isPersonal === false &&
+        typeof a.name === "string" &&
+        a.name.trim().toLowerCase() === want,
+    );
+  };
+  const selectedIsMember = selected !== null && memberOf(selected);
 
   async function loadGroups() {
     setLoadError(null);
@@ -107,6 +121,11 @@ export function GroupLabels() {
           "Labels a group mailbox offers are the group's own, shared by every member. Define or change them here; a rename changes only the name — the keyword on the messages stays the same.",
         )}
       </p>
+      <p className="hint" style={{ marginBottom: 12 }}>
+        {t(
+          "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.",
+        )}
+      </p>
       {loadError && (
         <div className="error-box">
           {loadError}
@@ -147,6 +166,17 @@ export function GroupLabels() {
           </div>
           {selected && (
             <>
+              {selectedIsMember ? (
+                <p className="hint" style={{ marginTop: -8, marginBottom: 12 }}>
+                  {t("You are a member of this group — its labels are managed here.")}
+                </p>
+              ) : (
+                <div className="warn-box" style={{ marginBottom: 12 }}>
+                  {t(
+                    "You are not a member of this group — its label catalog cannot be managed from here.",
+                  )}
+                </div>
+              )}
               {labels.length === 0 ? (
                 <p className="hint">{t("No labels yet.")}</p>
               ) : (

@@ -1,48 +1,79 @@
 import { Info, ShieldCheck, Tag, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { t } from "@/lib/i18n";
-import { type SectionItem, SectionShell } from "@/ui/SectionShell";
+import { type SectionGroup, type SectionItem, SectionShell } from "@/ui/SectionShell";
 import { AdminPolicy } from "@/views/admin/AdminPolicy";
 import { AdminUsers } from "@/views/admin/AdminUsers";
 import { GroupLabels } from "@/views/admin/GroupLabels";
 import { AboutSettings } from "@/views/settings/AboutSettings";
 
-const SECTIONS: Array<SectionItem & { el: ReactNode }> = [
+type AdminSection = SectionItem & { el: ReactNode; owner: "gilbert" | "stalwart" | null };
+
+const SECTIONS: AdminSection[] = [
   {
     id: "policy",
     label: "Policy",
     icon: <ShieldCheck size={18} />,
     el: <AdminPolicy />,
+    owner: "gilbert",
   },
   {
     id: "users",
     label: t("Force passwords"),
     icon: <Users size={18} />,
     el: <AdminUsers />,
+    owner: "gilbert",
   },
   {
     id: "group-labels",
     label: t("Group labels"),
     icon: <Tag size={18} />,
     el: <GroupLabels />,
+    owner: "gilbert",
   },
-  { id: "about", label: "About", icon: <Info size={18} />, el: <AboutSettings /> },
+  {
+    id: "about",
+    label: "About",
+    icon: <Info size={18} />,
+    el: <AboutSettings />,
+    owner: null,
+  },
 ];
 
 /**
  * The administration surface, shown when the signed-in user is a Stalwart
  * admin (ADR 0007). It shares the settings layout — `SectionShell` is the one
  * copy both surfaces render through — so the shield icon in the top bar and
- * these sections stay consistent. v1 is the installation-wide policy editor
- * (ADR 0001 §4, ADR 0004); the per-user surface follows as the next layer on
- * the same document shape.
+ * these sections stay consistent. The nav groups the surfaces by owner:
+ * Gilbert's own administration (policy, forced passwords, group label
+ * catalogs) under “Gilbert”, server configuration (the future Sieve editor
+ * and its peers) under “Stalwart” — which starts empty — and About ungrouped
+ * at the tail.
  */
 export function AdminView({ section }: { section?: string }) {
   const current = SECTIONS.find((s) => s.id === section);
+  const byOwner = (owner: AdminSection["owner"]) =>
+    SECTIONS.filter((s) => s.owner === owner).map((s) => ({
+      id: s.id,
+      label: s.label,
+      icon: s.icon,
+    }));
+  const groups: SectionGroup[] = [
+    { label: "Gilbert", items: byOwner("gilbert") },
+    {
+      label: "Stalwart",
+      emptyLabel: t(
+        "Stalwart server configuration (Sieve editor and more) will appear here.",
+      ),
+      items: byOwner("stalwart"),
+    },
+  ];
+  const tail = byOwner(null);
   return (
     <SectionShell
       heading={t("Administration")}
-      items={SECTIONS}
+      groups={groups}
+      items={tail}
       activeId={section}
       base="/admin"
       backHref={section ? "/admin" : undefined}

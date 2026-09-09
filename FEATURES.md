@@ -1131,8 +1131,21 @@ their password (ADR 0005). The directive lives as a file in the target
 user's own hidden `gilbert` app folder; the server door answers 403 on
 every data route until the password changes, and the change clears the
 directive itself. The privileged write authenticates as Stalwart's
-composite `{target}%{admin}` (impersonation) — the same path the per-user
-policy layer will use.
+composite `{target}%{admin}` (impersonation) — it needs Stalwart's
+`Impersonate` permission and a password session (app passwords are refused
+for impersonation), which the surface states up front.
+- **Group label catalog**: an administrator defines the label catalog of a
+group mailbox (ADR 0006). The catalog lives in the group's own `gilbert`
+app folder; **membership is the grant** — a member administrator reads and
+writes it through their own session on the group's account, with no
+impersonation, and a non-member is refused with that reason. Stalwart 0.16
+refuses to mint a session for an impersonated group account
+(live-verified 2026-09-09), so the member path is the only one; the
+surface marks whether you are a member of each group.
+- **Nav grouping**: the administration sections are grouped by owner —
+Gilbert's own surfaces (policy, forced passwords, group label catalogs)
+under “Gilbert”, server configuration (a future Sieve editor and its
+peers) under “Stalwart”, and About ungrouped at the tail.
 - **Where the documents live**: policy and settings documents sit in each
 account's hidden `gilbert` app folder; the per-user policy layer (values
 and enforced flags per user, named profiles, publishing per user or per

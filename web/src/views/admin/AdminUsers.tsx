@@ -108,6 +108,11 @@ export function AdminUsers() {
           "Require an account to change its password. The requirement lives in the account's own hidden folder and is enforced by the server; administrators cannot force one another.",
         )}
       </p>
+      <p className="hint" style={{ marginBottom: 12 }}>
+        {t(
+          "Forcing a password acts on another user's account: the Stalwart-admin grant is not enough — Stalwart's Impersonate permission and a password session are required too, because app passwords are refused for impersonation.",
+        )}
+      </p>
       {users !== null && denied && (
         <div className="warn-box" style={{ marginBottom: 12 }}>
           {t(
