@@ -24,7 +24,8 @@ nothing flows back. Upstream releases keep flowing in; no work flows out.
    patches, no PRs to Coffey-Labs/ihasmail. Common work that upstream might
    once have accepted simply lives here, renamed or not.
 3. Attribution is unchanged: the mail core is a derivative work of ihasmail;
-   `LICENSE`/`NOTICE` keep Coffey Labs' copyright; upstream URLs stay linked.
+   `NOTICE` carries Coffey Labs' **attribution** — the copyright in this
+   derivative is Sequi Company's — and upstream URLs stay linked.
 
 ## Consequences
 

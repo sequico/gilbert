@@ -7,7 +7,7 @@
     "installation that sets none of them behaves exactly as Gilbert always has.",
     "Keys and values are the ones a settings export uses: configure one account",
     "by hand, Settings > General > Export, and copy out what you care about.",
-    "Docs: https://docs.ihasmail.org/configure/#settings-your-installation-decides"
+    "Docs: README.md#settings-the-installation-decides"
   ],
 
   "_defaults_comment": [

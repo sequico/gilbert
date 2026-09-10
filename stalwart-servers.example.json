@@ -17,7 +17,7 @@
     "JSON, a duplicate domain, or a value that is not an http(s) URL stops the",
     "server at startup rather than failing quietly at somebody's sign-in.",
     "",
-    "Docs: https://docs.ihasmail.org/configure/#several-stalwart-servers"
+    "Docs: README.md#several-stalwart-servers"
   ],
 
   "example.com": "https://mail.example.com",

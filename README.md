@@ -20,28 +20,33 @@ Stalwart for mail, contacts and calendars; chat between the members of a
 group; AI agents that act inside mail and file storage, for a person or a
 group — Gilbert's own agents now, external agent fleets later; and a workflow
 engine for delivery orders with checklists and to-do lists. Part of this
-already ships (shared calendars, contacts, address books and task lists);
-the rest is the direction the code is being pointed.
+already ships — the group accounts, the chat, the calendars, contacts, address
+books and task lists, and the agent fleet; the rest is the direction the code
+is being pointed.
 
-What runs today is Gilbert's mail client — a Gmail-class, JMAP-only webmail
-for Stalwart in a disposable container, with everything durable living in
-Stalwart (see [What's in it](#whats-in-it) and
-[Architecture](#architecture)). The mailer is based on
+What runs today is Gilbert: a Gmail-class, JMAP-only **mail client** for
+Stalwart, and an **agent fleet** — a second process that acts inside mail and
+file storage on a group's behalf, with its own identity, its own permissions
+and its own audit trail. Both run in a disposable container, and everything
+durable lives in Stalwart (see [What's in it](#whats-in-it) and
+[Architecture](#architecture)). The mail client is based on
 [ihasmail](https://github.com/Coffey-Labs/ihasmail), Coffey Labs' immutable
 webmail for Stalwart; Gilbert is a distinct product around it, and its own
-layer is the goal above. `ihasmail` appears only where upstream's real name
-must stay — the URLs, the lineage and the AGPL attribution of the mail core.
+layer is the groups, the chat and the agents. `ihasmail` appears only where
+upstream's real name must stay — the URLs, the lineage and the AGPL attribution
+of the mail core.
 
 > **Try it locally:** `npm run dev:mock` runs a complete instance against an
 > in-memory mock Stalwart — open http://localhost:5173 and sign in with
 > `demo@example.com` / `demo`.
 
-**Licence and lineage.** Gilbert is AGPL-3.0-or-later. Its mail client is a
-derivative work of [ihasmail](https://github.com/Coffey-Labs/ihasmail) (Coffey
-Labs): their copyright stays in `LICENSE`/`NOTICE`, upstream's code and docs
-are linked below where they are still accurate, and the source offer for
-*this* build points at this repository (Settings › About, or the sign-in
-page).
+**Licence and lineage.** Gilbert is AGPL-3.0-or-later, and its copyright is
+**Sequi Company's**. Its mail client is a derivative work of
+[ihasmail](https://github.com/Coffey-Labs/ihasmail) by **Coffey Labs**, used and
+modified under the same licence: they are *attributed* — in
+[NOTICE](NOTICE) and in the table below — and upstream's code and docs are
+linked where they are still accurate. The source offer for *this* build points
+at this repository (Settings › About, or the sign-in page).
 
 | | |
 | --- | --- |
@@ -51,18 +56,6 @@ page).
 | ⬆ **[ihasmail](https://github.com/Coffey-Labs/ihasmail) upstream** | The project Gilbert derives from — [site](https://ihasmail.org) · [docs](https://docs.ihasmail.org) · [demo](https://demo.ihasmail.com), all theirs, linked for attribution and because most install and usage detail still lives there |
 
 This file is for people working *on* Gilbert and for the people running it.
-
-## Screenshots
-
-*Taken against the built-in mock server (`npm run dev:mock`) with sample data — no real mailbox involved.*
-
-| | |
-| --- | --- |
-| **Inbox & conversation (dark)** ![Inbox, dark theme](docs/screenshots/inbox-dark.jpg) | **Inbox & conversation (light)** ![Inbox, light theme](docs/screenshots/inbox-light.jpg) |
-| **Composer** ![Composer](docs/screenshots/compose.jpg) | **Calendar** ![Calendar](docs/screenshots/calendar.jpg) |
-| **Contacts** ![Contacts](docs/screenshots/contacts.jpg) | **Sieve filter builder** ![Filters](docs/screenshots/filters.jpg) |
-
-Screenshots are taken against the built-in mock server with sample data.
 
 ## What's in it
 
@@ -78,6 +71,64 @@ feature, is in [FEATURES.md](FEATURES.md).
 
 The feature-by-feature inventory, with Gilbert's own part first, is
 [FEATURES.md](FEATURES.md).
+
+## Agents, in detail
+
+An agent is an ordinary account on the server that Gilbert acts as. The fleet is
+what acts through it — and it is the largest thing this project owns, so this is
+the short version of how to turn it on, what it does, and what holds it back. The
+long version is the first part of [FEATURES.md](FEATURES.md).
+
+**Turning it on.** The operator creates the agent's account in **Stalwart's own
+administration** and grants it on the groups it may work in: membership *is* the
+grant, and no switch in the product can replace it. The administrator then names
+it in Gilbert — **Admin → Agents → Overview**, an address field whose value the
+installation records — and may narrow what it does in each group (**Admin → Group
+workers**: the kinds of work, per group, for as many groups as are selected at
+once). The worker is its own process, from the same image:
+
+```
+GILBERT_AGENT_ADDRESS=gilbert@example.com \
+GILBERT_AGENT_PASSWORD=<its app password> \
+npm run agent
+```
+
+`GILBERT_AGENTS_FILE` holds several addresses and their passwords instead, and
+`GILBERT_AGENT_AREAS`, `GILBERT_AGENT_POLL_MS`, `GILBERT_AGENT_LEASE_MS` and
+`GILBERT_AGENT_HEALTH_PORT` say what it serves, how often it re-reads, and how a
+restart policy reaches it. The web tier needs no secret of its own: it acts as
+the agent by impersonating it from an administrator's session.
+
+**What it does.** An **automation** is a document in the group's own account:
+when it reacts (an email arriving, a chat message, a file, a time), which
+messages it looks at (the JMAP filter grammar), and what it then does — from the
+capability catalogue: label, move, file attachments into the group's visible
+Files, prepare a draft, send, write a text document. Each carries a **tier**: T0
+is deterministic and calls no model, T1 asks a small model for one of the rule's
+own categories, T2 gives the rule's instruction to a model that decides and acts.
+A group also keeps one **standing instruction** — the shape of an `AGENTS.md` —
+which the model is handed first on every call.
+
+**What holds it back.** The automation's **capability allowlist** bounds every
+answer, checked in code rather than asked for in a prompt, so neither the model
+nor the group's instruction can widen it. A **review policy** can pause every
+run, or any run below a confidence threshold; the approval happens **in the
+group's chat**, by any member, in words. Nothing that leaves the group is ever
+sent on a guessed approval.
+
+**What it leaves behind.** Every run is recorded in the group's **audit** — one
+document per month, kept twelve months, one line written before any effect so
+that an effect never exists without a record — and an administrator can download
+the whole retained trail as JSON before the oldest month is pruned. A failure
+lands the message in `G-needattention` and tells the group's chat which automation
+could not finish. Work is claimed per area with a lease, so a crashed worker's
+work is taken up by the next one, and a run whose rule changed under it is
+refused rather than executed.
+
+**Every member sees it.** The group's chat carries an AI panel showing what the
+agent is told and what it has done — the standing instruction, each automation,
+and the recent audit — read through the member's own session, and editable by
+nobody but an administrator of that group.
 
 ## Requires Stalwart 0.16 or newer
 
@@ -305,10 +356,10 @@ services:
       - ./policy.json:/etc/gilbert/policy.json:ro
 ```
 
-A policy is read once at startup, so **editing it means restarting the
-container**. There is no reload signal, deliberately: an installation-wide
-setting changing under a running instance would be harder to reason about than
-one that changes when you say so.
+The file is read at startup, and **Administration → Policy** publishes a new one
+without a restart: the running copy is swapped and every other session is signed
+out, so the next sign-in applies it at boot (ADR 0004). Editing the file by hand
+still means restarting the container.
 
 ### Writing a policy
 
@@ -452,12 +503,13 @@ container, waits for healthy, then prunes all but the newest
 
 ## License
 
-Copyright (C) 2026 Coffey Labs — AGPL-3.0-or-later. See
-[LICENSE](LICENSE).
+Copyright (C) 2026 Sequi Company — AGPL-3.0-or-later. See [LICENSE](LICENSE).
 
-gilbert was relicensed from GPL-3.0 to AGPL-3.0 on 2026-08-25: webmail is
-nearly always run as a network service rather than handed to anyone as a binary,
-and the AGPL's section 13 closes that gap.
+The mail client Gilbert derives from is **ihasmail**, by **Coffey Labs**, used and
+modified under the same licence: that attribution is in [NOTICE](NOTICE), and the
+copyright in this build is Sequi Company's. The AGPL's section 13 is the point of
+it — webmail is nearly always run as a network service rather than handed to
+anyone as a binary, and that section closes the gap.
 
 That offer has to point at *your* source, not this one. If you run a modified
 Gilbert, set `SOURCE_URL` to your own repository — the sign-in page and

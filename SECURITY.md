@@ -1,53 +1,53 @@
 # Security Policy
 
-## Supported Versions
+## Supported versions
 
-ihasmail is under active development. Security fixes are applied to the latest release on the `main` branch. Older tags/releases are not guaranteed to receive backported fixes.
+Gilbert is under active development. Security fixes are applied to `main`, which
+is what the container images publish from; older tags are not guaranteed to
+receive backported fixes.
 
-| Version       | Supported          |
-| ------------- | ------------------ |
+| Version         | Supported          |
+| --------------- | ------------------ |
 | `main` (latest) | :white_check_mark: |
-| Older releases  | :x:                 |
+| Older releases  | :x:                |
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-**Please do not open a public GitHub issue for security vulnerabilities.** Public issues are visible to everyone, including potential attackers, before a fix is available.
+**Please do not open a public issue for a security problem.** A public issue is
+visible to everyone, including whoever would use it, before there is a fix.
 
-Instead, report security issues privately by emailing:
+Report it privately through GitHub: **Security → Report a vulnerability** on this
+repository, which opens a private advisory only the maintainers can see. Please
+include, as precisely as you can:
 
-**johnellisATlinuxDOTcom**
+- what the problem is, and how to reproduce it;
+- the version or commit it affects — the running build shows it in
+  **Settings › About**;
+- whether you believe the fault is in Gilbert, in how it talks to Stalwart over
+  JMAP, or in a dependency.
 
-Please include as much of the following as you can:
+## What happens next
 
-- A description of the vulnerability and its potential impact
-- Steps to reproduce, or a proof-of-concept
-- The version/commit of ihasmail affected
-- The version of Stalwart Mail Server you were testing against, if relevant
-- Whether the issue is in ihasmail itself, in how it talks to Stalwart over JMAP, or in a dependency
+- **Acknowledgement**, with a first read on severity.
+- **Assessment.** Gilbert holds no data of its own — everything durable lives in
+  Stalwart — so some reports turn out to be the server's rather than the client's.
+  Those are routed to the
+  [Stalwart Mail Server](https://github.com/stalwartlabs/mail-server) project,
+  and you will be told which way the report went.
+- **Fix and disclosure.** The fix lands on `main` and the advisory is published
+  once it is available, crediting you unless you would rather stay anonymous.
 
-### What to Expect
+## Scope
 
-- **Acknowledgment:** You should receive a response within a few days confirming the report was received.
-- **Assessment:** The issue will be triaged and its severity assessed. Because ihasmail holds no data of its own and relies entirely on Stalwart's store over JMAP, some reports may need to be routed to or coordinated with the [Stalwart Mail Server](https://github.com/stalwartlabs/mail-server) project if the root cause lives there rather than in ihasmail's client code.
-- **Fix & disclosure:** Once a fix is ready, a new release will be published. We'll coordinate with you on public disclosure timing and credit, if you'd like to be credited.
+Examples rather than a list:
 
-### Scope
+- authentication and session handling in Gilbert's server;
+- the trust boundary around credentials the browser never holds;
+- HTML sanitisation, and the image proxy (SSRF);
+- the content-security policy, and the container's read-only posture
+  (`IMMUTABLE=1`);
+- dependency vulnerabilities that are actually reachable in Gilbert's usage.
 
-In scope:
-
-- Authentication and session handling in ihasmail
-- Cross-site scripting (XSS), CSRF, or injection issues in the webmail UI
-- Improper handling of JMAP responses that could lead to data leakage between accounts
-- Dependency vulnerabilities that are actually exploitable in ihasmail's usage
-
-Out of scope (please report upstream instead):
-
-- Vulnerabilities in Stalwart Mail Server itself — report those to the [Stalwart project](https://github.com/stalwartlabs/mail-server)
-- Vulnerabilities in third-party libraries with no demonstrated impact on ihasmail
-- Issues requiring physical access to a user's device or an already-compromised Stalwart instance
-
-## Disclosure Policy
-
-We follow coordinated disclosure: please give us a reasonable window to investigate and release a fix before any public disclosure. In turn, we'll keep you updated on progress and won't leave you waiting indefinitely.
-
-Thank you for helping keep ihasmail and its users safe.
+Out of scope: anything that needs an already-administrative Stalwart account in
+order to do what that account may already do, and reports about Stalwart itself
+— which belong upstream, as above.
