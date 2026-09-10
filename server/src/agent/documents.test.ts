@@ -29,7 +29,9 @@ import {
   nextRunAfter,
   reviewOutcome,
   ruleProblem,
+  ruleProblems,
   SUPPORTED_FILTER_KEYS,
+  schemaProblems,
   UnsupportedFilterError,
 } from "./documents.js";
 
@@ -350,4 +352,23 @@ test("the published schema is the same catalogue the runtime reads", () => {
   // interval, a threshold needs its number.
   assert.ok(Array.isArray(schema.properties.trigger?.allOf));
   assert.ok(Array.isArray(schema.properties.review?.allOf));
+});
+
+test("the published schema is what a save is refused against", () => {
+  // One validator, from the one document: the editor in the browser and the
+  // save path on the server run the same check.
+  assert.deepEqual(schemaProblems(rule()), []);
+  assert.deepEqual(ruleProblems(rule()), []);
+
+  const badArea = schemaProblems(rule({ area: "gardening" as never }));
+  assert.ok(badArea.length >= 1, "an area outside the enum is refused");
+  assert.match(badArea.join(" "), /Property "area"/, "and says which property");
+
+  const noActions = schemaProblems(rule({ actions: [] }));
+  assert.deepEqual(noActions, [], "an empty action list is a shape the schema allows");
+
+  // The cross-field half comes through the same door, so a form shows one list.
+  const noCaps = ruleProblems(rule({ capabilities: [] }));
+  assert.ok(noCaps.some((problem) => /capabilities/.test(problem)));
+  assert.ok(ruleProblems({ hello: "world" }).length > 0, "not a rule at all");
 });

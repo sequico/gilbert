@@ -415,3 +415,29 @@ test("the rule schema needs the admin shield", async () => {
   });
   assert.equal(anonymous.status, 401);
 });
+
+test("the save path refuses against the published schema, in the schema's words", async () => {
+  // The editor and the server validate with the same document and the same
+  // validator (resolution 16): a rule the form accepts cannot come back
+  // rejected, and one it refuses is refused here in the same words.
+  configureAgent("");
+  const bad = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
+    method: "POST",
+    body: JSON.stringify({ rules: [rule({ area: "gardening" })] }),
+  });
+  assert.equal(bad.status, 400);
+  const message = String((bad.body as { message?: string }).message ?? "");
+  assert.match(message, /cannot run/, "the refusal names the automation");
+  assert.match(message, /area|gardening/i, "and what the schema objected to");
+
+  // The cross-field half is in the same list: an action outside the allowlist.
+  const outside = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
+    method: "POST",
+    body: JSON.stringify({ rules: [rule({ capabilities: [] })] }),
+  });
+  assert.equal(outside.status, 400);
+  assert.match(
+    String((outside.body as { message?: string }).message ?? ""),
+    /capabilities/,
+  );
+});

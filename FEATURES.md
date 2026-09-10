@@ -1229,8 +1229,11 @@ under impersonation and shows the new secret once.
 - **Automations, not rules written in code.** The admin surface authors one
 document per automation, as a form — “Quando [evento] / Se [filtri] / Allora
 [azioni]” — validated against the JMAP filter grammar (RFC 8621) and the
-named-action catalogue. No new rule language, and Sieve keeps the
-delivery-time boundary.
+named-action catalogue. The document is validated against a JSON Schema
+Gilbert publishes (ADR 0003 resolution 16), with the same validator and the
+same schema on both sides, so what the form accepts the server accepts. No new
+rule language, no JSON to type by hand, and Sieve keeps the delivery-time
+boundary.
 - **Three tiers.** T0 is deterministic and calls no model; T1 asks a small
 model to pick a category and runs that category's fixed actions; T2 gives the
 automation's instruction to a model that decides and executes. The model
@@ -1246,6 +1249,12 @@ is evaluated on its own, and it is shown on that message — never aggregated
 onto a thread or list row, and never offered in the manual label picker, which
 stay the reader's own labels. Moving a message is a separate, content-driven
 action; the agent never moves mail just to record a state.
+- **What it saves, a person can find.** An automation that extracts attachments
+writes them into the group's own Files — in the folder the automation named, or
+the one the model chose for a tier that decides; when neither did, into the
+`Needs attention` folder rather than loose in the root. Gilbert's own documents
+(automations, jobs, decisions, audit) stay in the hidden `gilbert` folder, which
+is where they belong and where the Files view deliberately does not look.
 - **Approvals happen in the group's chat.** An automation with a review policy
 pauses, writes a decision, prepares the draft in the group's own Drafts (kept
 unread so a person sees it) and posts the proposal in the chat. Any member may

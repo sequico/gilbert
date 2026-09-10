@@ -10,7 +10,7 @@
  * Stalwart's own administration; this surface verifies it and, when it is
  * missing, says what that costs.
  */
-import { type AgentRule, ruleProblem } from "@gilbert/agent/documents";
+import { type AgentRule, ruleProblems } from "@gilbert/agent/documents";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { t } from "@/lib/i18n";
@@ -78,6 +78,13 @@ export function RuleEditor({
     // document; the surface therefore sends what it authored and keeps what
     // comes back.
     const next: AgentRule = { ...draft, name };
+    const owed = problemOf(next);
+    if (owed) {
+      // Caught here rather than at the server: the schema is the same one the
+      // server enforces, so the round trip would only repeat this answer.
+      setProblem(owed);
+      return;
+    }
     setBusy(true);
     setProblem(null);
     try {
@@ -254,17 +261,15 @@ export function RuleEditor({
 }
 
 /**
- * What the form still owes before the document is valid: the server's own
- * reason first, then the one thing a form can leave blank that the document
- * validator refuses — a T1 category the classifier could never return.
+ * What the form still owes before the document is valid.
+ *
+ * The same check the server runs on save — the published schema plus the
+ * cross-field rules — so the editor refuses in the same words the server
+ * would, and a rule that passes here does not come back rejected.
  */
 function problemOf(rule: AgentRule): string | null {
-  const refused = ruleProblem(rule);
-  if (refused) return refused;
-  if (rule.tier === "T1" && (rule.categories ?? []).some((c) => !c.name.trim())) {
-    return "a T1 category needs a name for the classifier to return";
-  }
-  return null;
+  const refused = ruleProblems(rule);
+  return refused.length ? refused.join("; ") : null;
 }
 
 /** One automation, as the admin reads it before opening the form. */

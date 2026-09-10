@@ -392,6 +392,26 @@ record keeps its full shape as the evolution path.
   prove. The bootstrap secret lives in the deployment environment — this
   record keeps the mechanism, never the credential.
 
+- *15 — where extracted files land (owner decision 2026-09-10)*: in the
+  **group's own Files, in the visible tree** — the folder the automation names
+  (`mail.extract`'s own `folder`), or the folder the model chose when the tier
+  lets it decide, and the `Needs attention` folder when nothing determined one.
+  Never the hidden `gilbert` app folder, where a member would not find it, and
+  never loose in the Files root, where a file nobody could place would be a
+  shrug rather than a signal. The automation's own parameter stays the common
+  case; the model's choice and the fallback are what keep a rule from having to
+  predict every shape of incoming mail.
+
+- *16 — the rule document is validated by its published schema (owner decision
+  2026-09-10)*: the automations are authored **in the admin form, never as raw
+  JSON**, and the document the form produces is validated against the JSON
+  Schema the server publishes, with `@cfworker/json-schema` (MIT, no runtime
+  code generation, so the same validator runs in the browser bundle under the
+  CSP and on the server). The schema is derived from the same constants the
+  runtime reads; the checks a document cannot state — that a rule's actions are
+  inside its capability allowlist, and that a `G-` label a rule names exists in
+  that group's catalog — stay in code, and both reach the author as one list.
+
 **Operating decisions (owner decisions 2026-09-10):**
 
 - *Failure is loud.* A provider that is unreachable, a refused or expired
@@ -653,9 +673,9 @@ candidate rule semantic (Open questions).
   that `x:AppPassword/get` keeps returning the secret to an impersonating
   admin. Neither is on the default boot path — the agent's own app password
   is — so they matter only if an installation chooses that alternative.
-- To pin before switching on extraction: where extracted attachments land.
-  A real group's Files are operational and crowded (resolution 13), so the
-  destination is a decision, not an implementation detail.
+- The extraction destination is decided (resolution 15): the group's own
+  visible Files, in the folder the automation named or the model chose, and the
+  needs-attention folder when nothing determined one.
 
 ## References
 

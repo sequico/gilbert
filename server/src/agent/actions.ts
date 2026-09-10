@@ -16,8 +16,8 @@
 import {
   type Ctx,
   readAppJsonAt,
-  writeAppBytesAt,
   writeAppTextAt,
+  writeBytesIntoVisibleFolder,
 } from "../appFolder.js";
 import { JMAP_MAIL, JMAP_SUBMISSION, JmapClient } from "../jmap.js";
 import { mentionsFromText } from "../shared/chat.js";
@@ -31,6 +31,7 @@ import {
 import { textSignatureBlock } from "../shared/signature.js";
 import { postMessage } from "./chat.js";
 import {
+  AGENT_ATTENTION_FOLDER,
   type AgentAction,
   type AgentActionName,
   type AgentDraftRef,
@@ -581,7 +582,7 @@ async function extractAttachments(
   opts: ActionOpts,
 ): Promise<Record<string, unknown>> {
   const emailId = requireEmail(opts, action.do);
-  const folder = textOf(action.with?.folder);
+  const folder = textOf(action.with?.folder) || AGENT_ATTENTION_FOLDER;
   const record = await fetchEmailRecord(client, accountId, emailId, {
     properties: ["attachments", "bodyStructure"],
   });
@@ -600,11 +601,13 @@ async function extractAttachments(
     if (used.has(name)) name = `${index + 1}-${name}`;
     used.add(name);
     const bytes = await client.downloadBlob(accountId, blobId, name, type);
-    // The destination is the rule's own parameter (ADR 0003 open item, resolved
-    // by making it explicit): the executor never guesses a folder.
-    const path = `${folder}/${name}`;
-    await writeAppBytesAt(ctx, accountId, path, bytes, type);
-    saved.push(path);
+    // A person has to be able to find this: the file goes into the group's
+    // *visible* Files, in the folder the automation named or the model chose
+    // (ADR 0003 resolution 15), and into the needs-attention folder when
+    // nothing determined one — never into the hidden app folder, and never
+    // loose in the root.
+    await writeBytesIntoVisibleFolder(ctx, accountId, folder, name, bytes, type);
+    saved.push(`${folder}/${name}`);
   }
   return { emailId, folder, saved };
 }

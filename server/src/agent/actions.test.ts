@@ -17,13 +17,16 @@ process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { readAppFileAt, writeAppFileAt } = await import("../appFolder.js");
+const { readAppFileAt, readVisibleFileAt, writeAppFileAt } = await import(
+  "../appFolder.js"
+);
 const { JmapClient } = await import("../jmap.js");
 const { fetchEmailRecord, runActions, undefinedAgentLabels } = await import(
   "./actions.js"
 );
 const { GROUP_LABELS_FILE } = await import("../shared/labels.js");
 const { readChat } = await import("./chat.js");
+const { AGENT_ATTENTION_FOLDER } = await import("./documents.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
 const GROUP = "a3";
@@ -205,9 +208,27 @@ test("attachments are written into the folder the rule names, with their own byt
     { emailId: attachedId },
   );
   assert.deepEqual(result?.result?.saved, ["invoices/2026/note.txt"]);
-  const written = await readAppFileAt(ctx, GROUP, "invoices/2026/note.txt");
-  assert.ok(written, "the file is in the group's own Files");
+  // The group's *visible* Files: a member has to be able to find it, so an
+  // extraction never lands in Gilbert's hidden app folder (resolution 15).
+  const written = await readVisibleFileAt(ctx, GROUP, "invoices/2026/note.txt");
+  assert.ok(written, "the file is in the group's own Files, where a member looks");
   assert.equal(written.text, "the attachment's own bytes");
+  assert.equal(
+    await readAppFileAt(ctx, GROUP, "invoices/2026/note.txt"),
+    null,
+    "and it is not in the hidden app folder",
+  );
+});
+
+test("an attachment nothing placed a folder for lands in the attention folder", async () => {
+  const [result] = await runActions(ctx, GROUP, [{ do: "mail.extract", with: {} }], {
+    emailId: attachedId,
+  });
+  assert.deepEqual(result?.result?.saved, [`${AGENT_ATTENTION_FOLDER}/note.txt`]);
+  assert.ok(
+    await readVisibleFileAt(ctx, GROUP, `${AGENT_ATTENTION_FOLDER}/note.txt`),
+    "a file nobody could place is not dropped in the root",
+  );
 });
 
 test("a message without attachments extracts nothing, and says so", async () => {

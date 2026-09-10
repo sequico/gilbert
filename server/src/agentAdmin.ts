@@ -39,6 +39,7 @@ import {
   leaseExpired,
   monthOf,
   ruleProblem,
+  ruleProblems,
 } from "./agent/documents.js";
 import { AgentStore } from "./agent/store.js";
 import { type Ctx, filesAccountId } from "./appFolder.js";
@@ -573,19 +574,33 @@ export async function saveRules(
   }
 }
 
-/** One rule of a save, or a refusal naming what is wrong with it. */
+/**
+ * One rule of a save, or a refusal naming everything wrong with it.
+ *
+ * Validation is the published schema plus the cross-field rules
+ * (`ruleProblems`), so what the editor checks in the browser is exactly what
+ * the server enforces here — and a refusal lists every problem, because
+ * fixing one per round trip is how a form becomes a chore.
+ */
 function checkedRule(rule: unknown, index: number): AgentRule {
+  const problems = ruleProblems(rule);
+  if (problems.length) {
+    const name =
+      rule &&
+      typeof rule === "object" &&
+      typeof (rule as { name?: unknown }).name === "string"
+        ? String((rule as { name: string }).name)
+        : `#${index + 1}`;
+    throw new AgentAdminError(
+      "invalid_rule",
+      `"${name}" cannot run: ${problems.join("; ")}.`,
+      400,
+    );
+  }
   if (!isAgentRule(rule))
     throw new AgentAdminError(
       "invalid_rule",
       `Automation #${index + 1} is not a rule document Gilbert can run.`,
-      400,
-    );
-  const problem = ruleProblem(rule);
-  if (problem)
-    throw new AgentAdminError(
-      "invalid_rule",
-      `"${rule.name || rule.id}" cannot run: ${problem}.`,
       400,
     );
   return rule;

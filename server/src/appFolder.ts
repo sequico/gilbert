@@ -171,7 +171,7 @@ export async function ensureAppFolder(ctx: Ctx, accountId: string): Promise<stri
 async function ensureChildFolder(
   ctx: Ctx,
   accountId: string,
-  parentId: string,
+  parentId: string | null,
   name: string,
 ): Promise<string> {
   const children = await fileChildren(ctx, accountId, parentId, FOLDER_PROPS);
@@ -363,24 +363,7 @@ export async function writeAppBytesAt(
   if (!name) throw new AppFolderError("a document path needs a file name");
   const folderId = await ensureFolderPath(ctx, accountId, segments.join("/"));
   const blobId = await uploadBlobBytes(ctx, accountId, bytes, type);
-  const client = clientOf(ctx);
-  const file = await findInFolder(ctx, accountId, folderId, name);
-  if (file?.id) {
-    await client.call(
-      "FileNode/set",
-      { accountId, update: { [String(file.id)]: { blobId, type } } },
-      [FILENODE_CAP],
-    );
-  } else {
-    await client.call(
-      "FileNode/set",
-      {
-        accountId,
-        create: { n: { parentId: folderId, name, blobId, type, nodeType: "file" } },
-      },
-      [FILENODE_CAP],
-    );
-  }
+  await putFile(ctx, accountId, folderId, name, blobId, type);
 }
 
 /** Read a blob back as text over the principal's own download path. */
@@ -392,6 +375,44 @@ export async function downloadBlobText(
   name = "document.json",
 ): Promise<string> {
   return clientOf(ctx).downloadText(accountId, blobId, name, type);
+}
+
+/**
+ * One file write, whatever the body came from.
+ *
+ * The writers below differ only in where their bytes came from and which
+ * folder they resolved; the FileNode shape itself — create when the name is
+ * new, update when it is taken — exists here and nowhere else.
+ */
+async function putFile(
+  ctx: Ctx,
+  accountId: string,
+  folderId: string,
+  name: string,
+  blobId: string,
+  type: string,
+  ifInState?: string,
+): Promise<void> {
+  const file = await findInFolder(ctx, accountId, folderId, name);
+  const conditional = ifInState ? { ifInState } : {};
+  const client = clientOf(ctx);
+  if (file?.id) {
+    await client.call(
+      "FileNode/set",
+      { accountId, ...conditional, update: { [String(file.id)]: { blobId, type } } },
+      [FILENODE_CAP],
+    );
+    return;
+  }
+  await client.call(
+    "FileNode/set",
+    {
+      accountId,
+      ...conditional,
+      create: { n: { parentId: folderId, name, blobId, type, nodeType: "file" } },
+    },
+    [FILENODE_CAP],
+  );
 }
 
 /**
@@ -410,28 +431,7 @@ export async function writeAppFileIn(
 ): Promise<void> {
   const blobId = await uploadJsonBlob(ctx, accountId, value);
   const type = opts.type ?? "application/json";
-  const file = await findInFolder(ctx, accountId, folderId, name);
-  if (file?.id) {
-    await clientOf(ctx).call(
-      "FileNode/set",
-      {
-        accountId,
-        ...(opts.ifInState ? { ifInState: opts.ifInState } : {}),
-        update: { [String(file.id)]: { blobId, type } },
-      },
-      [FILENODE_CAP],
-    );
-  } else {
-    await clientOf(ctx).call(
-      "FileNode/set",
-      {
-        accountId,
-        ...(opts.ifInState ? { ifInState: opts.ifInState } : {}),
-        create: { n: { parentId: folderId, name, blobId, type, nodeType: "file" } },
-      },
-      [FILENODE_CAP],
-    );
-  }
+  await putFile(ctx, accountId, folderId, name, blobId, type, opts.ifInState);
 }
 
 /** Write (or replace) a document at an app-folder-relative path. */
@@ -509,6 +509,90 @@ export async function listAppDir(
   const folderId = await findFolderPath(ctx, accountId, path);
   if (!folderId) return [];
   return fileChildren(ctx, accountId, folderId);
+}
+
+/**
+ * A folder at the top of the account's Files — the tree a reader sees.
+ *
+ * Everything else in this module works inside the hidden `gilbert` app folder,
+ * which the client's Files view deliberately does not show. A file that is
+ * *for a person* — an attachment extracted out of a message — belongs in the
+ * visible tree instead, in a folder the rule or the model named.
+ */
+export async function ensureRootFolder(
+  ctx: Ctx,
+  accountId: string,
+  name: string,
+): Promise<string> {
+  return ensureChildFolder(ctx, accountId, null, name);
+}
+
+/** The same, for a path of folders under the visible root: `"invoices/2026"`. */
+export async function ensureRootFolderPath(
+  ctx: Ctx,
+  accountId: string,
+  path: string,
+): Promise<string> {
+  let current: string | null = null;
+  for (const segment of pathSegments(path)) {
+    current = await ensureChildFolder(ctx, accountId, current, segment);
+  }
+  if (current === null) throw new AppFolderError("a folder path needs a name");
+  return current;
+}
+
+/**
+ * Read a file from the account's visible Files, or null when it is not there.
+ *
+ * The twin of `readAppFileAt` for the tree a reader sees: the agent's own
+ * documents live in the app folder, and the two trees never overlap.
+ */
+export async function readVisibleFileAt(
+  ctx: Ctx,
+  accountId: string,
+  path: string,
+): Promise<{ text: string; file: FileNodeLike } | null> {
+  const segments = pathSegments(path);
+  const name = segments.pop();
+  if (!name) throw new AppFolderError("a document path needs a file name");
+  let folderId: string | null = null;
+  for (const segment of segments) {
+    const children = await fileChildren(ctx, accountId, folderId, FOLDER_PROPS);
+    const found = children.find((n) => n.nodeType === "directory" && n.name === segment);
+    if (!found?.id) return null;
+    folderId = String(found.id);
+  }
+  const file = await findInFolder(ctx, accountId, folderId, name);
+  if (!file) return null;
+  const type = typeof file.type === "string" && file.type ? file.type : "text/plain";
+  const text = await downloadBlobText(
+    ctx,
+    accountId,
+    String(file.blobId),
+    type,
+    String(file.name ?? name),
+  );
+  return { text, file };
+}
+
+/**
+ * Write a file into a folder of the account's **visible** Files, creating the
+ * folder when it is missing.
+ *
+ * This is the writer for anything a member is meant to find in Files; the
+ * app-folder writers above are for Gilbert's own documents.
+ */
+export async function writeBytesIntoVisibleFolder(
+  ctx: Ctx,
+  accountId: string,
+  folderPath: string,
+  name: string,
+  bytes: Uint8Array,
+  type: string,
+): Promise<void> {
+  const folderId = await ensureRootFolderPath(ctx, accountId, folderPath);
+  const blobId = await uploadBlobBytes(ctx, accountId, bytes, type);
+  await putFile(ctx, accountId, folderId, name, blobId, type);
 }
 
 /** Remove a node by id. Missing is success: nothing to remove, nothing to say. */

@@ -24,6 +24,7 @@
  *   agent/workers/<id>.json     worker heartbeats, in the agent's account
  */
 
+import { type Schema, Validator } from "@cfworker/json-schema";
 import type { ChatMention } from "../shared/chat.js";
 
 /* ------------------------------------------------------------------ */
@@ -137,6 +138,16 @@ export interface AgentAction {
   with?: Record<string, unknown>;
 }
 
+/**
+ * Where an extracted file goes when nothing determined a folder.
+ *
+ * A person's files are the group's Files, in the folder the automation named
+ * or the model chose; when neither did, the file is not dropped in the root
+ * where nobody would look for it — it lands in this one folder, which is the
+ * group's signal that an automation could not decide (ADR 0003 resolution 15).
+ */
+export const AGENT_ATTENTION_FOLDER = "Needs attention";
+
 export interface AgentActionParam {
   key: string;
   /** True when the executor refuses an action without it. */
@@ -198,8 +209,8 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
     name: "mail.extract",
     label: "Save the attachments",
     description:
-      "Write the message's attachments into a folder of the group's Files. The folder is this action's own parameter.",
-    params: [{ key: "folder", required: true, kind: "folder" }],
+      "Write the message's attachments into a folder of the group's own Files — the folder this action names, or the one the model chose; empty means the needs-attention folder.",
+    params: [{ key: "folder", required: false, kind: "folder" }],
   },
   {
     name: "mail.draft",
@@ -1138,6 +1149,60 @@ export function isAgentWorkerRecord(x: unknown): x is AgentWorkerRecord {
     typeof w.startedAt === "string" &&
     typeof w.heartbeatAt === "string"
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* Validation of a rule document                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The published schema, as the validator that enforces it.
+ *
+ * `@cfworker/json-schema` (MIT) is the only third-party piece the agent adds:
+ * a JSON Schema validator that compiles nothing and calls no `eval`, which is
+ * what lets the same rule run in the server and in the browser bundle under
+ * Gilbert's strict CSP. It is built from `agentRuleJsonSchema()`, so the
+ * published contract and the check are the same document.
+ */
+let ruleSchemaValidator: Validator | null = null;
+
+function ruleValidator(): Validator {
+  ruleSchemaValidator ??= new Validator(
+    agentRuleJsonSchema() as unknown as Schema,
+    "2020-12",
+    false,
+  );
+  return ruleSchemaValidator;
+}
+
+/** Every way a document breaks the published schema, as readable lines. */
+export function schemaProblems(rule: unknown): string[] {
+  const result = ruleValidator().validate(rule);
+  if (result.valid) return [];
+  return result.errors.map((error) => {
+    const where = error.instanceLocation || "/";
+    return `${where} ${error.error}`;
+  });
+}
+
+/**
+ * Every reason a rule could not run.
+ *
+ * The schema first — the published contract, which the editor and any other
+ * writer is held to — and then the cross-field rules a document cannot state
+ * on its own: that a rule's actions are inside its capability allowlist, and
+ * that each tier carries the material it runs on. One list, so the admin
+ * surface refuses a rule with every reason at once instead of one per attempt.
+ */
+export function ruleProblems(rule: unknown): string[] {
+  const problems = schemaProblems(rule);
+  if (isAgentRule(rule)) {
+    const extra = ruleProblem(rule);
+    if (extra) problems.push(extra);
+  } else if (!problems.length) {
+    problems.push("this is not an automation document");
+  }
+  return problems;
 }
 
 /* ------------------------------------------------------------------ */
