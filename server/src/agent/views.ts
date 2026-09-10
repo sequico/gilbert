@@ -63,6 +63,22 @@ export interface AgentStatusWorker {
 }
 
 /**
+ * Why the fleet cannot be read, as a code beside whatever an upstream said.
+ *
+ * The sentence a person reads is composed where it is read — the same rule the
+ * group-membership refusal follows — so an administrator reads the reason in
+ * the language the surface is set to rather than in the server's English, and a
+ * language whose catalogue lacks it reads the English in the meantime.
+ *
+ * `detail` is not a sentence of ours: it is what the server that refused said,
+ * and it is shown as the diagnostic it is.
+ */
+export type AgentStatusReason =
+  | { code: "agent_not_configured" }
+  | { code: "agent_unreachable"; detail: string }
+  | { code: "workers_unreadable"; detail: string };
+
+/**
  * The installation's fleet, as the status route answers it.
  *
  * `groups` is an enumeration's list, so the pair is `GroupEnumeration`'s:
@@ -77,10 +93,10 @@ export interface AgentStatus extends Partial<GroupEnumeration> {
   workers: AgentStatusWorker[];
   /**
    * Why the fleet cannot be read, when it cannot. `configured: false` plus this
-   * line is the honest answer for an installation with no agent, for an
+   * code is the honest answer for an installation with no agent, for an
    * unreachable one, and for a deployment whose secret no longer matches.
    */
-  reason?: string;
+  reason?: AgentStatusReason;
 }
 
 /* ------------------------------------------------------------------ */

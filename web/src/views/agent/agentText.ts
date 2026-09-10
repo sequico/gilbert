@@ -23,7 +23,7 @@ import {
   agentActionSpec,
   SUPPORTED_FILTER_KEYS,
 } from "@gilbert/agent/documents";
-import type { MemberAgentRule } from "@gilbert/agent/views";
+import type { AgentStatusReason, MemberAgentRule } from "@gilbert/agent/views";
 import { t } from "@/lib/i18n";
 
 /*
@@ -107,6 +107,33 @@ export function jobStateText(state: string): string {
 /** An audit entry's outcome, with the same fallback to the raw value. */
 export function outcomeText(outcome: string): string {
   return t(AGENT_OUTCOME_LABELS[outcome as AgentAuditOutcome] ?? outcome);
+}
+
+/**
+ * Why the fleet cannot be read, in the language the surface is set to.
+ *
+ * The status answer carries a code and, beside it, whatever the server that
+ * refused said — never a sentence of the server's own English (ADR 0003 §4,
+ * "Members see, never change" covers the admin's read the same way). The
+ * sentence is composed here from the catalogue in force, so a language whose
+ * catalogue does not carry it reads the English: the declared fallback, with
+ * the translations owed as one piece of work for every sentence of this kind.
+ */
+export function fleetReasonText(reason: AgentStatusReason): string {
+  switch (reason.code) {
+    case "agent_not_configured":
+      return t(
+        "No agent is registered with this installation. Set GILBERT_AGENT_ADDRESS (and its app password) and restart to deploy one.",
+      );
+    case "agent_unreachable":
+      return t("The agent's session could not be opened: {detail}", {
+        detail: reason.detail,
+      });
+    case "workers_unreadable":
+      return t("Could not read the agent's worker records: {detail}", {
+        detail: reason.detail,
+      });
+  }
 }
 
 /**

@@ -678,7 +678,11 @@ record keeps its full shape as the evolution path.
     travel as a pair (`{ error, need }`) and never as a sentence: the sentence
     is composed where it is read, from the catalogue in force, so a language
     whose catalogue does not carry it reads the English — the declared
-    fallback, with the ten translations owed.
+    fallback, with the ten translations owed. The fleet's status answer carries
+    its reason the same way — a code, plus the upstream text as the `detail`
+    beside it — and one class of sentence is still on the wire: the messages
+    the admin error path composes.
+    <!-- owed: agent-error-sentences -->
   - **The content a rule reads can carry an instruction, and the allowlist is
     the gate.** Mail, files and everything else the agent reads are data:
     nothing in them is followed as instruction, and the capability allowlist

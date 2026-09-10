@@ -1,7 +1,9 @@
 import type { AgentRule, AgentTrigger } from "@gilbert/agent/documents";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { type Catalog, setCatalog } from "@/lib/i18n";
 import {
   actionText,
+  fleetReasonText,
   jobStateText,
   outcomeText,
   reviewText,
@@ -145,5 +147,55 @@ describe("a partial or unfamiliar document", () => {
     expect(outcomeText("deferred")).toBe("deferred");
     // An event this build cannot name is shown as the document spells it.
     expect(triggerText({ on: "webhook" } as unknown as AgentTrigger)).toBe("webhook");
+  });
+});
+
+/**
+ * Why the fleet cannot be read: a code and a detail, never a sentence of the
+ * server's. What a person reads is composed here, so it is the language the
+ * surface is set to — and a language whose catalogue lacks it reads the English
+ * until the translation is written.
+ */
+describe("fleetReasonText", () => {
+  afterEach(() => setCatalog("en", { strings: {}, plurals: {} }));
+
+  it("fills the detail into the sentence the code stands for", () => {
+    const unreachable = fleetReasonText({
+      code: "agent_unreachable",
+      detail: "HTTP 500",
+    });
+    expect(unreachable).toContain("HTTP 500");
+    expect(unreachable).not.toContain("{detail}");
+    expect(
+      fleetReasonText({ code: "workers_unreadable", detail: "held elsewhere" }),
+    ).toContain("held elsewhere");
+    expect(fleetReasonText({ code: "agent_not_configured" })).not.toContain("{");
+  });
+
+  it("falls back to English where a catalogue does not carry the sentence", () => {
+    const english = fleetReasonText({ code: "agent_unreachable", detail: "HTTP 500" });
+    setCatalog("de", { strings: { Archive: "Archivieren" }, plurals: {} });
+    expect(fleetReasonText({ code: "agent_unreachable", detail: "HTTP 500" })).toBe(
+      english,
+    );
+  });
+
+  it("is the catalogue's sentence once one is written for that key", () => {
+    /** A catalogue that answers one translation and records the keys it was asked. */
+    const seen: string[] = [];
+    const catalog: Catalog = {
+      strings: new Proxy({} as Record<string, string>, {
+        get: (_target, key) => {
+          seen.push(String(key));
+          return "TRANSLATED: {detail}";
+        },
+      }),
+      plurals: {},
+    };
+    setCatalog("xx", catalog);
+    expect(fleetReasonText({ code: "agent_unreachable", detail: "HTTP 500" })).toBe(
+      "TRANSLATED: HTTP 500",
+    );
+    expect(seen[0]).toContain("{detail}");
   });
 });

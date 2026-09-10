@@ -135,8 +135,9 @@ test("an installation with no agent says so plainly, and never 500s", async () =
     address: "",
     groups: [],
     workers: [],
-    reason:
-      "No agent is registered with this installation. Set GILBERT_AGENT_ADDRESS (and its app password) and restart to deploy one.",
+    // A code, not a sentence: the surface composes the sentence in the
+    // reader's language (the same rule the membership refusal follows).
+    reason: { code: "agent_not_configured" },
   });
 });
 
@@ -152,7 +153,7 @@ test("an agent that cannot be reached is reported, never guessed at", async () =
     address: string;
     groups: Array<{ name: string; granted: boolean }>;
     workers: unknown[];
-    reason?: string;
+    reason?: { code?: string; detail?: string };
   };
   assert.equal(body.configured, false);
   assert.equal(body.address, TEAM);
@@ -164,7 +165,17 @@ test("an agent that cannot be reached is reported, never guessed at", async () =
     body.groups.every((g) => g.granted === false),
     "a grant is never asserted without the agent's own witness",
   );
-  assert.match(body.reason ?? "", /could not be opened/);
+  // The reason travels as a code and whatever the server that refused said:
+  // the sentence a person reads is composed where it is read.
+  assert.equal(body.reason?.code, "agent_unreachable");
+  assert.ok(
+    typeof body.reason?.detail === "string" && body.reason.detail.length > 0,
+    "the upstream diagnostic travels beside the code",
+  );
+  assert.ok(
+    !("message" in (body.reason ?? {})),
+    "the reason is a code, never a sentence of the server's",
+  );
 });
 
 test("providers: empty without an agent, refused when the agent is out of reach", async () => {

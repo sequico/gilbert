@@ -18,7 +18,7 @@ import { type AgentStatus, fetchAgentAuditExport } from "@/lib/agents";
 import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
-import { areaText } from "@/views/agent/agentText";
+import { areaText, fleetReasonText } from "@/views/agent/agentText";
 import { AgentApprovals } from "./agent/AgentApprovals";
 import { AgentProviders } from "./agent/AgentProviders";
 import { AppPasswordRotate } from "./agent/AppPasswordRotate";
@@ -135,7 +135,7 @@ function Registration({ status }: { status: AgentStatus | null }) {
                     "The deployment carries no agent address yet, so no worker can start. Set it where the installation is deployed, then reload this section.",
                   )}
             </p>
-            {status.reason && <p className="hint">{status.reason}</p>}
+            {status.reason && <p className="hint">{fleetReasonText(status.reason)}</p>}
           </div>
           <h3>{t("Groups")}</h3>
           {status.groups.length === 0 ? (

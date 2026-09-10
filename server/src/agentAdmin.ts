@@ -56,6 +56,7 @@ import type {
   AgentGroupDocuments,
   AgentProvidersView,
   AgentStatus,
+  AgentStatusReason,
   AgentStatusWorker,
   GroupAccessDenied,
   GroupEnumeration,
@@ -85,6 +86,16 @@ import {
 } from "./upstream.js";
 
 /** A refusal meant for the person using the surface, with a real status. */
+/**
+ * A refusal from the admin surface, as the route answers it.
+ *
+ * The `message` travels as English: this class is the last place an agent
+ * surface composes a sentence on the server — the membership refusal, the
+ * fleet's reason and the member's view all carry a code and let the client
+ * compose. Closing it means the same treatment here: a code, its parameters,
+ * and the sentence composed where it is read.
+ */
+// ADR-0003 OWED: agent-error-sentences
 export class AgentAdminError extends Error {
   constructor(
     public readonly code: string,
@@ -314,7 +325,7 @@ export interface ReachableGroups extends GroupEnumeration {
 async function openAgentSession(
   admin: LiveSession,
   address: string,
-): Promise<{ ok: true; ctx: Ctx } | { ok: false; message: string }> {
+): Promise<{ ok: true; ctx: Ctx } | { ok: false; detail: string }> {
   const password = config.agent.password.trim();
   if (password) {
     const authorization = basic(address, password);
@@ -326,7 +337,7 @@ async function openAgentSession(
       if (err.status !== 401)
         return {
           ok: false,
-          message: `The agent's session could not be opened: ${err.message}`,
+          detail: err.message,
         };
     }
   }
@@ -334,7 +345,7 @@ async function openAgentSession(
   if (imp.ok) return { ok: true, ctx: imp.ctx };
   return {
     ok: false,
-    message: `The agent's session could not be opened: ${imp.message}`,
+    detail: imp.message,
   };
 }
 
@@ -363,7 +374,12 @@ async function agentStore(
       409,
     );
   const agent = await openAgentSession(admin, address);
-  if (!agent.ok) throw new AgentAdminError("agent_unreachable", agent.message, 409);
+  if (!agent.ok)
+    throw new AgentAdminError(
+      "agent_unreachable",
+      `The agent's session could not be opened: ${agent.detail}`,
+      409,
+    );
   const accountId = filesAccountId(agent.ctx);
   if (!accountId)
     throw new AgentAdminError(
@@ -399,8 +415,7 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       address: "",
       groups: [],
       workers: [],
-      reason:
-        "No agent is registered with this installation. Set GILBERT_AGENT_ADDRESS (and its app password) and restart to deploy one.",
+      reason: { code: "agent_not_configured" },
     };
 
   const reachable = await reachableGroupNames(admin);
@@ -411,14 +426,14 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       address,
       groups: reachable.names.map((name) => ({ name, granted: false })),
       workers: [],
-      reason: agent.message,
+      reason: { code: "agent_unreachable", detail: agent.detail },
       enumeration: reachable.enumeration,
       enumerationMessage: reachable.enumerationMessage,
     };
 
   const granted = grantedGroupNames(agent.ctx.session);
   let workers: AgentStatusWorker[] = [];
-  let reason: string | undefined;
+  let reason: AgentStatusReason | undefined;
   try {
     workers = await readWorkers(agent.ctx);
   } catch (err) {
@@ -428,7 +443,7 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       "[gilbert] could not read the agent's worker records:",
       (err as Error).message,
     );
-    reason = `Could not read the agent's worker records: ${(err as Error).message}`;
+    reason = { code: "workers_unreadable", detail: (err as Error).message };
   }
   return {
     configured: true,
