@@ -45,9 +45,22 @@ implementation, so the design is reviewable first; an implementation must
 match the standing (newest non-superseded) ADR that covers it. Changing a
 standing decision means a new ADR that supersedes the old one — never edit an
 accepted ADR's history. ADRs stay `Proposed` until the owner accepts them.
+**Snapshot mode applies to the ADRs too, and a resolution carries no
+back-reference.** It states the decision and the facts it rests on — never the
+conversation that produced it: no "the first/second/third branch review found",
+no "the review raised", no "as the reviews recommended". Resolution numbers,
+dates, `Owed:` markers and every fact stay exactly as they are; what goes is the
+reference to the round that argued it. A reader of the record is reading
+decisions, not a diary — the history is in git.
 
 ## Toolchain
-Node ≥ 20.10, npm workspaces. `npm run dev` · `dev:mock` (demo@example.com /
+Node ≥ 24, npm workspaces. **Node runs on the latest LTS line, and the line is
+the one the deployment pins** (`Dockerfile` and `.github/workflows/ci.yml` say
+24). A Current release is never supported, and `@types/node` follows the pinned
+line rather than the newest published one: typing against a release nobody
+deploys describes a Node this project does not run. Moving the line is a
+deliberate change of all of it at once (image, CI, engines, types), never a
+Dependabot bump. `npm run dev` · `dev:mock` (demo@example.com /
 demo) · `dev:mock:no-future-release` · `typecheck` · `test` · `build`.
 **Lint + format gate: Biome** (`biome.jsonc` — calibrated to this repo's
 actual style, with deliberate, commented rule exceptions; a11y off). Run with

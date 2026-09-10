@@ -19,6 +19,13 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # Node runs on the latest LTS line, and the line is the one the image and CI
+      # pin (24 today): @types/node describes whatever runtime it names, so a
+      # newer major would type this project against a Node nobody deploys.
+      # Moving the line moves this entry with it.
+      - dependency-name: "@types/node"
+        versions: [">=25"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

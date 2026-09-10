@@ -49,7 +49,7 @@ metadata:
 
 ## 4. Toolchain and gates
 
-- Node ≥ 20.10 (22 recommended), npm workspaces. `npm install` once.
+- Node on the latest LTS line (24 today — the Dockerfile, CI, engines and @types/node all say the same one), npm workspaces. `npm install` once.
 - `npm run dev` (real Stalwart) · `npm run dev:mock` (demo@example.com / demo, mock on :8788) · `npm run dev:mock:no-future-release` · `npm run dev:mock:no-keyword-sort` · `npm run typecheck` · `npm test` (vitest for web, node:test for server) · `npm run build` · `npm start`.
 - i18n: `npm run i18n:coverage`, `npm run i18n:check`; catalogs in `web/src/locales/*.ts`.
 - Lint + format: **Biome** (`biome.jsonc`) via `npm run lint` / `npm run lint:fix`; part of `prepush` and of the CI release pre-check. The config is calibrated to this repo's measured style and its off-rules are deliberate and commented — never re-enable a disabled rule just to silence a file; adjust the code or argue the rule.

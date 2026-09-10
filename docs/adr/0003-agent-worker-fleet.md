@@ -436,14 +436,12 @@ record keeps its full shape as the evolution path.
   It can steer and cannot grant — what an automation may do is its capability
   allowlist, checked on every answer, so the instruction cannot widen a rule,
   and the prompt says so in the sentence under the field and in the block itself.
-  The owner's answer to the question this review raised, chosen over the
+  The owner's answer to the question of who writes it, chosen over the
   member-authored variant precisely because authorship should not be the limit:
   the limit is the allowlist and the consent floor.
 
-- *18 — the reliability decisions of the first branch review (owner decision
-  2026-09-10, all as recommended)*. These are the failure paths a crash, two
-  workers, or a model choosing a name can reach, and every one of them is
-  settled here:
+- *18 — the failure paths a crash, two workers, or a model choosing a name can
+  reach (owner decision 2026-09-10)*. Every one of them is settled here:
 
   - **The claim's compare-and-set token is read before the claim document**
     (`lease.ts`). Read the other way round, a claim written by another worker
@@ -533,14 +531,12 @@ record keeps its full shape as the evolution path.
   the simulated check). Until it is run, the tests prove the client's logic
   against the simulation, not the server's behaviour.
 
-- *20 — the reliability decisions of the second branch review (owner decision
-  2026-09-10)*. The second review of the branch found the failure paths that
-  remain once a worker, a retry and a reader each behave badly at once: a run
-  whose process is gone, a retry that would repeat an effect, a claim written
-  back from nothing, an audit entry that never lands, a document that is there
-  but unreadable, a filter that is not one, a credential that outlives the
-  surface that promises otherwise, and one answer shape declared twice. Each
-  is settled here:
+- *20 — the failure paths that remain once a worker, a retry and a reader each
+  behave badly at once (owner decision 2026-09-10)*. A run whose process is
+  gone, a retry that would repeat an effect, a claim written back from nothing,
+  an audit entry that never lands, a document that is there but unreadable, a
+  filter that is not one, a credential that outlives the surface that promises
+  otherwise, and one answer shape declared twice: each is settled here:
 
   - **A job left `running` is not left to nobody.** `runPending` takes up a
     `running` job whose lease has expired, so the work a dead worker was
@@ -611,11 +607,10 @@ record keeps its full shape as the evolution path.
     field added on one side and forgotten on the other compiles on both tiers
     and arrives as `undefined` on one.
 
-- *21 — the third branch review: the paths the record had only promised
-  (owner decision 2026-09-10)*. The third review of the branch found three of
-  the questions this record leaves open answered by the code's default rather
-  than by a decision, and one answered only by a general sentence about
-  auto-approval. The first is carried by the tree already — the check it asks
+- *21 — the paths the record had only promised
+  (owner decision 2026-09-10)*. Three of the questions this record leaves open
+  are answered nowhere but by the code's default, and one only by a general
+  sentence about auto-approval. The first is carried by the tree already — the check it asks
   for stands on the approval path — and the rest are owed, marked where they
   live.
 
@@ -663,8 +658,8 @@ record keeps its full shape as the evolution path.
     message, are v1 gaps rather than guarantees, and the surface should say so
     where rules are written. <!-- owed: rule-order-declared -->
   - **An admin surface says why it is short, and which membership it needs.**
-    Two debts the same review found, recorded here rather than as decisions of
-    their own. The approvals queue lists the groups this admin can act on, and
+    Two debts that belong with the decisions above, recorded here rather than as
+    decisions of their own. The approvals queue lists the groups this admin can act on, and
     when the directory cannot be enumerated it falls back to the groups the
     admin is already a member of: the shorter list and the honest one read
     identically from the outside, because the status says nothing about the

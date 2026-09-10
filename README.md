@@ -357,7 +357,8 @@ missing.
 
 ## Development
 
-Requirements: Node ≥ 20.10 (22 recommended), npm ≥ 10.
+Requirements: Node ≥ 24 on the **latest LTS line** — 24 is what the image and CI
+pin, and a Current release is not supported — npm ≥ 10.
 
 ```bash
 npm install
