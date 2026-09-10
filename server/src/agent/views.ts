@@ -199,10 +199,29 @@ export interface GroupInstructionView {
 /* What a member sees                                                  */
 /* ------------------------------------------------------------------ */
 
-/** The rules a member reads: what it is, where, which tier, on, woken by what. */
+/**
+ * The rules a member reads: what the automation is, where it works, which tier
+ * it runs on, whether it is on, what wakes it, how it is reviewed, and what it
+ * then does.
+ *
+ * The last part (resolution 17) is why the tier's own material is here too: a
+ * member who can read that an automation exists but not what it does cannot
+ * judge what the agent does in their name. `capabilities`, `version` and the
+ * authorship stamps stay out — the allowlist is what a run is checked against,
+ * and a member reads the outcome rather than the grant.
+ */
 export type MemberAgentRule = Pick<
   AgentRule,
-  "id" | "name" | "area" | "tier" | "enabled" | "trigger"
+  | "id"
+  | "name"
+  | "area"
+  | "tier"
+  | "enabled"
+  | "trigger"
+  | "review"
+  | "instruction"
+  | "categories"
+  | "actions"
 >;
 
 export interface MemberAgentView {
@@ -211,6 +230,15 @@ export interface MemberAgentView {
   /** The registered agent's address; empty when the installation has none. */
   agentAddress: string;
   rules: MemberAgentRule[];
+  /**
+   * The group's standing instruction, as text a member reads (resolution 17).
+   *
+   * An empty `text` is the honest answer for a group that has none, and `max`,
+   * `updatedAt` and `updatedBy` come with it so the panel can say how far the
+   * ceiling is and who last wrote it — which is how a member sees that this
+   * document is an administrator's, not theirs.
+   */
+  instruction: GroupInstructionView;
   jobs: AgentJob[];
   audit: AgentAuditEntry[];
 }

@@ -105,22 +105,25 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   const openAccountId = useChat((s) => s.openAccountId);
   const open = openAccountId ? (conversations[openAccountId] ?? null) : null;
   /*
-   * The group's own agent documents (ADR 0003), read through the agents store.
-   * It keeps one entry per group, keyed by the group's lower-cased address —
-   * the form the server stores a group's name in.
+   * The group's own agent documents (ADR 0003), read through the agents store's
+   * member door. The chat is open to every member, so the read a member's
+   * session can actually make is the one this panel uses: the admin route needs
+   * Stalwart administration, and a member who is not one would read nothing.
+   * The store keeps one entry per group, keyed by the group's lower-cased
+   * address — the form the server stores a group's name in.
    */
-  const groupViews = useAgents((s) => s.groupViews);
-  const loadGroup = useAgents((s) => s.loadGroup);
+  const memberViews = useAgents((s) => s.memberViews);
+  const loadMemberView = useAgents((s) => s.loadMemberView);
   const groupName = open?.name ?? null;
-  const agentView = groupName ? groupViews[agentViewKey(groupName)] : undefined;
+  const agentView = groupName ? memberViews[agentViewKey(groupName)] : undefined;
   const [agentOpen, setAgentOpen] = useState(false);
 
   // Loaded with the conversation rather than with the panel: the `@` picker
   // owes the agent's address as soon as the composer is on screen, whether or
   // not anyone has opened the panel (ADR 0003 resolution 11).
   useEffect(() => {
-    if (groupName) void loadGroup(groupName);
-  }, [groupName, loadGroup]);
+    if (groupName) void loadMemberView(groupName);
+  }, [groupName, loadMemberView]);
 
   const agentAddress = agentView?.granted ? agentView.agentAddress : null;
   /*

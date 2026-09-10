@@ -1644,6 +1644,10 @@ export const catalog: Catalog = {
     "itself, or an issuer it does not name":
       "sich selbst, oder einem nicht genannten Aussteller",
     "no address": "keine Adresse",
+    "Only an administrator of this group changes its instruction and its automations; every member reads them here.":
+      "Nur ein Administrator dieser Gruppe ändert ihre Daueranweisung und ihre Automatisierungen; jedes Mitglied liest sie hier.",
+    "No standing instruction has been written for this group.":
+      "Für diese Gruppe wurde keine Daueranweisung hinterlegt.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

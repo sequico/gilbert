@@ -1,23 +1,28 @@
 /**
  * The group's agent, as a member sees it (ADR 0003 "Members see, never change").
  *
- * Next to the group chat, this panel answers the three questions a member has:
- * which agent is active here (its address), what instructions it carries (the
- * group's rule documents), and what it has done (the audit, and the jobs still
- * open).
+ * Next to the group chat, this panel answers the questions a member has: which
+ * agent is active here (its address), what it is told to do (the group's
+ * standing instruction), what it does here (the automations), and what it has
+ * done (the audit, and the jobs still open).
  *
- * It is read-only by construction. The group's own `gilbert/` folder is
- * writable by a member by construction — that is how the chat works — so this
- * is a UI convention and an accepted trust inside the group, not a server ACL.
- * Authoring and configuration stay in the administration, and the member's two
- * actions are approving an action and addressing the agent, both in the chat.
+ * It reads the member door (`/api/agent/group/:name`) rather than the admin one:
+ * this route needs a session on the group and nothing more, so the panel shows
+ * the same thing to every member, and an administrator reads it the way every
+ * other member does. It is read-only by construction. The group's own `gilbert/`
+ * folder is writable by a member by construction — that is how the chat works —
+ * so this is a UI convention and an accepted trust inside the group, not a
+ * server ACL. The pen stays in the administration, which is what the panel says
+ * out loud; the member's two actions are approving an action and addressing the
+ * agent, both in the chat.
  */
-import { AGENT_JOB_OPEN_STATES, type AgentRule } from "@gilbert/agent/documents";
+import { AGENT_JOB_OPEN_STATES } from "@gilbert/agent/documents";
 import { Bot, X } from "lucide-react";
 import { useEffect } from "react";
+import type { GroupInstructionView, MemberAgentRule } from "@/lib/agents";
 import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
-import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
+import { agentViewKey, memberOperation, useAgents } from "@/store/agents";
 import {
   actionText,
   areaText,
@@ -37,24 +42,24 @@ export function GroupAgentPanel({
   name: string;
   onClose(): void;
 }) {
-  const groupViews = useAgents((s) => s.groupViews);
+  const memberViews = useAgents((s) => s.memberViews);
   const busyReads = useAgents((s) => s.busy);
   const problems = useAgents((s) => s.problems);
-  const loadGroup = useAgents((s) => s.loadGroup);
+  const loadMemberView = useAgents((s) => s.loadMemberView);
 
   // The store holds one entry per group, under `agentViewKey(name)`; the panel
   // reads the line for **this** group, so another group's read in flight does
   // not make this one look like it is still loading.
-  const operation = groupOperation(name);
-  const view = groupViews[agentViewKey(name)];
+  const operation = memberOperation(name);
+  const view = memberViews[agentViewKey(name)];
   const loading = busyReads[operation] === true;
   const error = problems[operation] ?? null;
 
   useEffect(() => {
     // Only when there is nothing to show: the chat panel loads the group's view
     // for the mention picker already, and this is the retry after it failed.
-    if (!view) void loadGroup(name);
-  }, [name, loadGroup, view]);
+    if (!view) void loadMemberView(name);
+  }, [name, loadMemberView, view]);
 
   // Newest first, and bounded: the audit is one document per month per group,
   // and a panel is not the place to read a year of it.
@@ -90,8 +95,7 @@ export function GroupAgentPanel({
         <p className="hint">
           {t(
             "No agent works in this group: it has not been granted here, so it carries no instructions and does nothing. That grant happens in the mail server's own administration, not in the product.",
-          )}{" "}
-          {view.reason}
+          )}
         </p>
       ) : (
         <>
@@ -101,6 +105,13 @@ export function GroupAgentPanel({
               { address: view.agentAddress ?? view.group },
             )}
           </p>
+          <p className="hint">
+            {t(
+              "Only an administrator of this group changes its instruction and its automations; every member reads them here.",
+            )}
+          </p>
+          <h4>{t("Standing instruction")}</h4>
+          <Instruction instruction={view.instruction} />
           <h4>{t("What it follows")}</h4>
           {view.rules.length === 0 ? (
             <p className="hint">{t("No automation is set up for this group.")}</p>
@@ -143,8 +154,40 @@ export function GroupAgentPanel({
   );
 }
 
+/**
+ * The group's standing instruction: one text as it was left, never a field.
+ *
+ * It is what the agent carries into every model call, so a member who cannot
+ * read it cannot judge what the agent does in their name — and a member who can
+ * edit it would be configuring the agent, which is the administrator's job. The
+ * group that has none says so in words: a blank block would read the same as an
+ * instruction nobody managed to write.
+ */
+function Instruction({ instruction }: { instruction: GroupInstructionView }) {
+  const text = instruction.text.trim();
+  return (
+    <div className="chat-agent-instruction">
+      {text ? (
+        <p className="agent-readonly-text">{instruction.text}</p>
+      ) : (
+        <p className="hint">
+          {t("No standing instruction has been written for this group.")}
+        </p>
+      )}
+      {text && instruction.updatedAt && (
+        <p className="hint">
+          {t("Last written by {who} on {when}.", {
+            who: instruction.updatedBy ?? t("an administrator"),
+            when: formatListDate(instruction.updatedAt),
+          })}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** One automation as a member reads it: what wakes it, and what it then does. */
-function RuleFacts({ rule }: { rule: AgentRule }) {
+function RuleFacts({ rule }: { rule: MemberAgentRule }) {
   const actions = ruleActions(rule);
   return (
     <div className="chat-agent-rule">

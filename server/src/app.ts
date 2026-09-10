@@ -1619,7 +1619,8 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * The member's view of a group's agent — `requireSession` and nothing more,
    * because a member is not an administrator and this surface exists for
    * exactly them (ADR 0003, "Members see, never change"). It reads the group's
-   * own documents and writes nothing, ever.
+   * own documents — its automations and the standing instruction the agent
+   * carries into every model call — and writes nothing, ever.
    */
   api.get("/agent/group/:name", requireSession, async (c) => {
     const session = c.get("session");

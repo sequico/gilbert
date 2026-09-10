@@ -428,6 +428,11 @@ record keeps its full shape as the evolution path.
   app folder (`agent/instruction.json`), and an **administrator of the group**
   writes it, in the admin surface, beside the rules: a text the model is told to
   follow is configuration, and members read the rules rather than write them.
+  What the group's agent is told, and what it does, is readable by **every**
+  member of that group — the automations and this instruction open from the AI
+  panel beside the group chat, and nothing there can be edited by anyone but an
+  administrator — because a member who cannot see either of them cannot judge
+  what the agent does in their name.
   It can steer and cannot grant — what an automation may do is its capability
   allowlist, checked on every answer, so the instruction cannot widen a rule,
   and the prompt says so in the sentence under the field and in the block itself.

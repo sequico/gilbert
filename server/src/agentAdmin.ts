@@ -926,10 +926,12 @@ export async function rotateAgentAppPassword(
 /**
  * The group's standing instruction, as the admin surface sees it.
  *
- * Read and written by an administrator of the group — not by every member —
- * because a text handed to the model on every call is configuration, and
- * configuration is what the rules document already is. A member writes in the
- * group's files; this document is reached through the admin surface only.
+ * Written by an administrator of the group — not by every member — because a
+ * text handed to the model on every call is configuration, and configuration is
+ * what the rules document already is. Read by every member of the group, on the
+ * member's own route: what the agent is told is exactly what a member has to be
+ * able to judge (ADR 0003 resolution 17), so the read is shared and the pen is
+ * not.
  */
 export async function readGroupInstruction(
   access: GroupAccess,
@@ -1067,7 +1069,9 @@ export async function pendingApprovals(admin: LiveSession): Promise<AgentApprova
  * change").
  *
  * Rules are cut down to what a member reads: what the automation is, where it
- * works, which tier it runs on, whether it is on, and what wakes it. Nothing on
+ * works, which tier it runs on, whether it is on, what wakes it, how it is
+ * reviewed, and what it then does — and the group's standing instruction, the
+ * text the agent carries into every model call, is here as text. Nothing on
  * this path can write, and no provider configuration is reachable from it at
  * all — the agent's own account belongs to the installation, not to a member.
  *
@@ -1075,8 +1079,9 @@ export async function pendingApprovals(admin: LiveSession): Promise<AgentApprova
  * claim about the operator's grant list: a member's session cannot read another
  * principal's grants (impersonation is an administrator right, and Stalwart
  * never hands a group's membership out over JMAP). What the group's documents
- * do prove is that the agent has worked here — rules were authored for it, or
- * jobs and audit entries exist — which is the evidence this view reports.
+ * do prove is that the agent has been configured for it — an instruction or
+ * rules were authored for it, or jobs and audit entries exist — which is the
+ * evidence this view reports.
  */
 export async function memberAgentView(
   session: LiveSession,
@@ -1088,10 +1093,14 @@ export async function memberAgentView(
   });
   if (!access.ok) return access;
   const store = new AgentStore(access.ctx, access.accountId);
-  const [rules, jobs, audit] = await Promise.all([
+  const [rules, jobs, audit, instruction] = await Promise.all([
     store.readRules(),
     store.listJobs(),
     readRecentAudit(store),
+    // The same document the admin surface writes, read here with the member's
+    // own session: membership is the grant for a group's files (ADR 0006), and
+    // this route never impersonates.
+    readGroupInstruction(access),
   ]);
   const rulesDoc = rules?.doc ?? [];
   const open = jobs
@@ -1103,7 +1112,8 @@ export async function memberAgentView(
     // and the lookup have to name the same group, or a client keying on it sees
     // two.
     group: name.trim().toLowerCase(),
-    granted: rulesDoc.length > 0 || open.length > 0 || audit.length > 0,
+    granted:
+      rulesDoc.length > 0 || open.length > 0 || audit.length > 0 || !!instruction.text,
     agentAddress: config.agent.address.trim(),
     rules: rulesDoc.map((r) => ({
       id: r.id,
@@ -1112,7 +1122,12 @@ export async function memberAgentView(
       tier: r.tier,
       enabled: r.enabled,
       trigger: r.trigger,
+      review: r.review,
+      instruction: r.instruction,
+      categories: r.categories,
+      actions: r.actions,
     })),
+    instruction,
     jobs: open,
     audit,
   };

@@ -7,6 +7,15 @@
  * provider view carries `hasKey` and never a key, and the rotated app-password
  * secret is handed straight back to whoever asked for it, with the count of the
  * app passwords the rotation left working.
+ *
+ * A group is read through two doors, and they are not interchangeable. The
+ * admin door (`groupViews`, `/api/admin/groups/:name/agent`) answers the whole
+ * surface an administrator edits, and only a Stalwart administrator may open
+ * it. The member door (`memberViews`, `/api/agent/group/:name`) answers what a
+ * member of the group reads — the automations and the group's standing
+ * instruction — with the member's own session, and it is the one the chat uses,
+ * because the chat is open to every member (ADR 0003, "Members see, never
+ * change").
  */
 
 import type { AgentRule } from "@gilbert/agent/documents";
@@ -20,7 +29,9 @@ import {
   fetchAgentGroup,
   fetchAgentProviders,
   fetchAgentStatus,
+  fetchMemberAgentView,
   fetchPendingApprovals,
+  type MemberAgentView,
   type PendingApproval,
   rotateAgentAppPassword,
   saveAgentProviders,
@@ -35,8 +46,8 @@ const RELOAD_DEBOUNCE_MS = 400;
  * The key a group's agent view is held under.
  *
  * Group names are matched case-insensitively — the server lower-cases them — so
- * every read and every write of `groupViews` goes through this one function,
- * whatever spelling of the name the caller happens to hold.
+ * every read and every write of `groupViews` and `memberViews` goes through
+ * this one function, whatever spelling of the name the caller happens to hold.
  */
 export function agentViewKey(name: string): string {
   return name.trim().toLowerCase();
@@ -51,6 +62,15 @@ interface AgentsState {
   status: AgentStatus | null;
   /** One entry per group the surface has read, keyed by `agentViewKey(name)`. */
   groupViews: Record<string, AgentGroupSurface>;
+  /**
+   * One entry per group read through the member door, keyed the same way.
+   *
+   * Filled whatever the session's own privileges are: a Stalwart administrator
+   * who is a member of the group reads the same documents every other member
+   * reads, and one who is not a member is answered by the same door — no
+   * impersonation, no group a person is not in.
+   */
+  memberViews: Record<string, MemberAgentView>;
   approvals: PendingApproval[];
   /**
    * What is in flight and what failed, **per operation**.
@@ -67,6 +87,8 @@ interface AgentsState {
   providers: AgentProvidersView | null;
   loadStatus: () => Promise<void>;
   loadGroup: (name: string) => Promise<void>;
+  /** The member door: the same documents, read with this session's own grant. */
+  loadMemberView: (name: string) => Promise<void>;
   /** Rejects when the server refused the save; the editor reports the reason. */
   saveRules: (name: string, rules: AgentRule[]) => Promise<void>;
   loadProviders: () => Promise<void>;
@@ -85,6 +107,17 @@ interface AgentsState {
 /** The key a group's own reads and writes are tracked under. */
 export function groupOperation(name: string): string {
   return `group:${agentViewKey(name)}`;
+}
+
+/**
+ * The key the member-door read of a group is tracked under.
+ *
+ * Its own line, not `groupOperation`'s: the chat reads the member door while an
+ * administrator may have the admin door open on the same group, and one shared
+ * pair would show a member read in flight as an administrator save that failed.
+ */
+export function memberOperation(name: string): string {
+  return `member:${agentViewKey(name)}`;
 }
 
 /**
@@ -107,6 +140,7 @@ function markProblem(op: string, problem: string | null) {
 export const useAgents = create<AgentsState>((set) => ({
   status: null,
   groupViews: {},
+  memberViews: {},
   approvals: [],
   busy: {},
   problems: {},
@@ -132,6 +166,21 @@ export const useAgents = create<AgentsState>((set) => ({
     try {
       const view = await fetchAgentGroup(name);
       set((s) => ({ groupViews: { ...s.groupViews, [key]: view } }));
+    } catch (err) {
+      set(markProblem(op, message(err)));
+    } finally {
+      set(markBusy(op, false));
+    }
+  },
+
+  loadMemberView: async (name) => {
+    const key = agentViewKey(name);
+    const op = memberOperation(name);
+    set(markBusy(op, true));
+    set(markProblem(op, null));
+    try {
+      const view = await fetchMemberAgentView(name);
+      set((s) => ({ memberViews: { ...s.memberViews, [key]: view } }));
     } catch (err) {
       set(markProblem(op, message(err)));
     } finally {
@@ -223,6 +272,7 @@ export const useAgents = create<AgentsState>((set) => ({
     set({
       status: null,
       groupViews: {},
+      memberViews: {},
       approvals: [],
       busy: {},
       problems: {},
@@ -242,18 +292,24 @@ const reloadTimers: Record<string, number> = {};
 
 /*
  * A group's agent documents are FileNodes in the group's own account: when an
- * administrator saves rules, or a worker writes a job, the push rail reports a
- * StateChange for that account and the view re-reads it. A StateChange carries
- * only account and type — not which node changed — and chat messages ride the
- * same rail, so the re-read is debounced per group, like the label catalog.
+ * administrator saves rules or the standing instruction, or a worker writes a
+ * job, the push rail reports a StateChange for that account and the view
+ * re-reads it. A StateChange carries only account and type — not which node
+ * changed — and chat messages ride the same rail, so the re-read is debounced
+ * per group, like the label catalog. Both doors are re-read, each only for the
+ * groups already open through it.
  */
 push.subscribe((accountId, type) => {
   if (type !== "FileNode") return;
   const name = groupNameForAccount(accountId);
-  if (!name || !(name in useAgents.getState().groupViews)) return;
+  if (!name) return;
+  const open = useAgents.getState();
+  if (!(name in open.groupViews) && !(name in open.memberViews)) return;
   if (reloadTimers[name]) clearTimeout(reloadTimers[name]);
   reloadTimers[name] = window.setTimeout(() => {
     delete reloadTimers[name];
-    void useAgents.getState().loadGroup(name);
+    const now = useAgents.getState();
+    if (name in now.groupViews) void now.loadGroup(name);
+    if (name in now.memberViews) void now.loadMemberView(name);
   }, RELOAD_DEBOUNCE_MS);
 });

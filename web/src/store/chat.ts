@@ -455,8 +455,9 @@ export const useChat = create<ChatState>((set, get) => {
            in nothing else. It is offered exactly when the group's view says it
            is granted, which is the picker's own rule; a view this panel has not
            loaded leaves the mention unnamed, which the transcript still
-           delivers. */
-        const agentView = useAgents.getState().groupViews[agentViewKey(conv.name)];
+           delivers. The member door is the one read here: the chat is every
+           member's, and a member's session cannot open the admin route. */
+        const agentView = useAgents.getState().memberViews[agentViewKey(conv.name)];
         const agent = agentView?.granted ? agentView.agentAddress : null;
         const participants = [
           ...new Set([...participantsOf(conv.nodes, me), ...(agent ? [agent] : [])]),

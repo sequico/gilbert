@@ -23,6 +23,7 @@ import {
   agentActionSpec,
   SUPPORTED_FILTER_KEYS,
 } from "@gilbert/agent/documents";
+import type { MemberAgentRule } from "@gilbert/agent/views";
 import { t } from "@/lib/i18n";
 
 /*
@@ -226,8 +227,13 @@ function paramText(value: unknown): string {
 /**
  * Every action a rule runs, in the order it was authored: T0's list, T1's
  * categories flattened, nothing for T2 (the model decides at run time).
+ *
+ * It takes either of the two shapes that describe one durable document: the
+ * editor holds the stored `AgentRule`, and the member's panel holds the view the
+ * server answers with (`MemberAgentRule`), a `Pick` of the same fields. Neither
+ * is written out here, so a field added to one of them cannot go unread by both.
  */
-export function ruleActions(rule: AgentRule): AgentAction[] {
+export function ruleActions(rule: AgentRule | MemberAgentRule): AgentAction[] {
   if (rule.tier === "T0") return rule.actions ?? [];
   if (rule.tier === "T1") return (rule.categories ?? []).flatMap((c) => c.actions);
   return [];

@@ -1304,6 +1304,17 @@ the group's agent surface: which agent works for the group, what instructions
 it carries, what it has done. Everything a member reads lives in the group's
 own account, so a member added later sees all of it; nothing there is editable
 from the product.
+- **Every member reads what the agent is told and what it does.** The panel
+behind the AI indicator answers with the group's own documents, read through the
+member's own session on that group — the same one the chat uses — so it is open
+to every member and not only to an administrator: the group's standing
+instruction as text (who last wrote it, and when), and each automation as a
+short block — name, area and tier, what wakes it, how it is reviewed, whether it
+is on, and what it then does, in words rather than as a JSON dump. A group with
+no instruction says so instead of showing a blank, and one sentence in the panel
+states that only an administrator of the group changes either. Members read the
+automations without their capability allowlist and without the authorship
+stamps; nothing on that path writes.
 - **Where the documents live.** Rules, jobs, decisions, claims, the schedule
 and the audit trail are documents in the group's own `gilbert` app folder —
 what members may read. The agent's own account holds its configuration, the

@@ -1543,6 +1543,10 @@ export const catalog: Catalog = {
       "Не вдалося прочитати, скільки інших паролів застосунків ще дійсні, тому тут це невідомо: перевірте в адміністрації Stalwart, які облікові дані залишилися в агента.",
     "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
       "Не вдалося перелічити всі групові поштові скриньки, тому ця черга охоплює лише групи, у яких ви є учасником: щось може очікувати в групі, якої тут немає.",
+    "Only an administrator of this group changes its instruction and its automations; every member reads them here.":
+      "Лише адміністратор цієї групи змінює її інструкцію та автоматизації; кожен учасник читає їх тут.",
+    "No standing instruction has been written for this group.":
+      "Для цієї групи постійну інструкцію не написано.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

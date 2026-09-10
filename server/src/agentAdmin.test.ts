@@ -42,7 +42,9 @@ const LEGAL = "legal@example.org";
 
 const mock = await import("./mock/index.js");
 const { config } = await import("./config.js");
-const { AGENT_AREAS, AGENT_TIERS } = await import("./agent/documents.js");
+const { AGENT_AREAS, AGENT_INSTRUCTION_MAX, AGENT_TIERS } = await import(
+  "./agent/documents.js"
+);
 const { createApp } = await import("./app.js");
 
 const app = createApp();
@@ -370,7 +372,18 @@ test("a member reads the group's agent surface, and never a provider", async () 
   // own account holds a rule, saved here through the admin surface.
   const seeded = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
-    body: JSON.stringify({ rules: [rule()] }),
+    body: JSON.stringify({
+      rules: [
+        rule(),
+        rule({
+          id: "r2",
+          name: "Triage incoming mail",
+          tier: "T2",
+          instruction: "Decide what it is and act.",
+          actions: undefined,
+        }),
+      ],
+    }),
   });
   assert.equal(seeded.status, 200);
   // The member route is `requireSession` only: a member is not an administrator.
@@ -381,6 +394,7 @@ test("a member reads the group's agent surface, and never a provider", async () 
     granted: boolean;
     agentAddress: string;
     rules: Array<Record<string, unknown>>;
+    instruction: { text: string; updatedAt: string | null; updatedBy: string | null };
     jobs: unknown[];
     audit: unknown[];
   };
@@ -389,11 +403,42 @@ test("a member reads the group's agent surface, and never a provider", async () 
   assert.equal(view.agentAddress, "", "no agent is registered in this installation");
   assert.deepEqual(view.jobs, []);
   assert.deepEqual(view.audit, []);
-  assert.equal(view.rules.length, 1);
+  assert.equal(view.rules.length, 2);
+  // The shape is pinned field by field rather than by its key set: the optional
+  // halves of a rule are absent from the JSON when the document does not carry
+  // them (`instruction` on a T0 rule), so a key list would only ever describe
+  // the first fixture.
+  const [memberRule] = view.rules;
+  for (const key of [
+    "id",
+    "name",
+    "area",
+    "tier",
+    "enabled",
+    "trigger",
+    "review",
+    "actions",
+  ]) {
+    assert.ok(key in (memberRule ?? {}), `a member reads the automation's ${key}`);
+  }
+  for (const key of ["v", "version", "capabilities", "updatedAt", "updatedBy"]) {
+    assert.ok(!(key in (memberRule ?? {})), `${key} stays on the admin surface`);
+  }
   assert.deepEqual(
-    Object.keys(view.rules[0]!).sort(),
-    ["area", "enabled", "id", "name", "tier", "trigger"],
-    "the member view carries the rule's summary and nothing else",
+    memberRule?.review,
+    { mode: "threshold", threshold: 0.8 },
+    "the review policy is part of what a member judges",
+  );
+  assert.deepEqual(
+    memberRule?.actions,
+    [{ do: "keyword.add", with: { keyword: "G-processed" } }],
+    "and so is what the automation then does",
+  );
+  const t2 = view.rules.find((r) => r.id === "r2");
+  assert.equal(
+    t2?.instruction,
+    "Decide what it is and act.",
+    "a tier that decides says what it was told to decide",
   );
   assert.ok(!("providers" in view), "no provider configuration reaches a member");
 
@@ -403,6 +448,82 @@ test("a member reads the group's agent surface, and never a provider", async () 
 
   const anonymous = await app.request(`/api/agent/group/${TEAM}`);
   assert.equal(anonymous.status, 401, "the member route still needs a session");
+});
+
+test("a member reads the group's standing instruction, and nobody else reads it", async () => {
+  configureAgent("");
+  // A group with no instruction answers with the empty text rather than an
+  // absent field: a panel has to be able to say "there is none" plainly.
+  const none = await call(`/api/agent/group/${TEAM}`);
+  assert.equal(none.status, 200);
+  assert.deepEqual((none.body as { instruction: unknown }).instruction, {
+    text: "",
+    updatedAt: null,
+    updatedBy: null,
+    max: AGENT_INSTRUCTION_MAX,
+  });
+
+  // Written where it is written today: the admin surface, by a member
+  // administrator, through the group's own files.
+  const written = await call(`/api/admin/groups/${TEAM}/agent/instruction`, {
+    method: "POST",
+    body: JSON.stringify({
+      text: "Answer in Italian, and always cite the invoice number.",
+    }),
+  });
+  assert.equal(written.status, 200);
+
+  const member = await call(`/api/agent/group/${TEAM}`);
+  assert.equal(member.status, 200);
+  const instruction = (
+    member.body as {
+      instruction: { text: string; updatedAt: string | null; updatedBy: string | null };
+    }
+  ).instruction;
+  assert.equal(
+    instruction.text,
+    "Answer in Italian, and always cite the invoice number.",
+    "the member's own session reads the document the admin surface wrote",
+  );
+  assert.equal(instruction.updatedBy, DEMO, "and it says who last wrote it");
+  assert.equal(typeof instruction.updatedAt, "string");
+
+  // A member's route answers GET and has no write path: the pen is elsewhere.
+  const attempted = await app.request(`/api/agent/group/${TEAM}`, {
+    method: "POST",
+    headers: { ...HEADERS, ...(cookie ? { cookie } : {}) },
+    body: JSON.stringify({ text: "Rewrite me" }),
+  });
+  assert.ok(attempted.status >= 400, "the member route refuses anything but a read");
+  const after = await call(`/api/agent/group/${TEAM}`);
+  assert.equal(
+    (after.body as { instruction: { text: string } }).instruction.text,
+    instruction.text,
+    "and the document it read is unchanged",
+  );
+
+  // The instruction alone is evidence that the agent was configured for this
+  // group: a group whose only document is this one still reads as granted, with
+  // no automation to show yet.
+  const cleared = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
+    method: "POST",
+    body: JSON.stringify({ rules: [] }),
+  });
+  assert.equal(cleared.status, 200);
+  const alone = await call(`/api/agent/group/${TEAM}`);
+  const only = alone.body as { granted: boolean; rules: unknown[] };
+  assert.deepEqual(only.rules, []);
+  assert.equal(
+    only.granted,
+    true,
+    "an instruction is one of the group's own documents, like a rule",
+  );
+
+  // A group this session is not a member of: the same door, and nothing behind
+  // it — no instruction, and no document to leak one from.
+  const stranger = await call(`/api/agent/group/${LEGAL}`);
+  assert.equal(stranger.status, 403);
+  assert.ok(!("instruction" in (stranger.body ?? {})), "a refusal carries no document");
 });
 
 test("the approvals queue is empty and needs no agent", async () => {

@@ -1571,6 +1571,10 @@ export const catalog: Catalog = {
       "Le nombre des autres mots de passe d'application encore valides n'a pas pu être lu, il est donc inconnu ici : vérifiez dans l'administration de Stalwart quels identifiants l'agent détient encore.",
     "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
       "Les boîtes de groupe n'ont pas toutes pu être listées, cette file ne couvre donc que les groupes dont vous êtes membre : quelque chose attend peut-être dans un groupe absent d'ici.",
+    "Only an administrator of this group changes its instruction and its automations; every member reads them here.":
+      "Seul un administrateur de ce groupe modifie son instruction et ses automatisations ; chaque membre les lit ici.",
+    "No standing instruction has been written for this group.":
+      "Aucune instruction permanente n'a été rédigée pour ce groupe.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

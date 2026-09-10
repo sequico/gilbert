@@ -2551,6 +2551,13 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   border: 1px solid var(--border); border-radius: 8px;
   background: var(--bg); padding: 6px 8px; margin-bottom: 6px;
 }
+/* The group's standing instruction, read-only at the head of the same panel:
+   the text itself, so its line breaks survive, in the same box the automations
+   use. */
+.chat-agent-instruction {
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); padding: 6px 8px; margin-bottom: 6px;
+}
 .agent-readonly-text { white-space: pre-wrap; }
 
 /* Agents in the administration (ADR 0003 "Admin surfaces"). */
