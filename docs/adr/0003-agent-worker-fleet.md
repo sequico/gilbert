@@ -180,9 +180,10 @@ record keeps its full shape as the evolution path.
   (zero tokens, fixed actions); T1 cheap classifier (small model, one
   structured-output call — category, then fixed per-category actions); T2
   agent (instruction, allowed capabilities, review policy — the model
-  decides and executes). Which model serves a tier is configuration, not
-  code: the providers and their keys are documents in the agent's own
-  account (v1 scope). Capabilities cover the whole JMAP surface the
+  decides and executes). The tier is chosen per automation, with the group
+  carrying a default; which model serves a tier is configuration, not code
+  — the providers and their keys are documents in the agent's own account
+  (v1 scope). Capabilities cover the whole JMAP surface the
   agent is granted — mail, files, tasks, calendars and contacts, read and
   write — each an audited action behind the ACL scope. High-impact actions
   (sending mail) are gated by the automation's review policy (resolution
@@ -252,7 +253,10 @@ record keeps its full shape as the evolution path.
 - *10 — review policy and human approval*: every automation carries a
   review policy — `always` (every run pauses), `threshold` (auto-execute
   when the decision's confidence is at or above the threshold, else pause)
-  or `never` (always execute). T1 and T2 both return a confidence (0–1)
+  or `never` (always execute) — `threshold` is what a new automation starts
+  at, its number is set per automation by the admin, and the external-send
+  consent floor is never relaxed by it. T1 and T2 both return a
+  confidence (0–1)
   with their decision; above the threshold the action runs unattended,
   below it the job pauses in `awaiting_approval` with a decision document.
   Approval is conversational: the executor posts the proposal to the group
@@ -262,7 +266,9 @@ record keeps its full shape as the evolution path.
   draft, and only the approved draft is sent; alternatively the approver
   opens the draft in the group's Drafts and sends it directly, and the
   executor treats the draft leaving Drafts as the approval, closing the
-  job. Gilbert's pending drafts are kept **unread** so a human sees them.
+  job — any member of the group may approve, not only an admin, and a
+  member sending from the group account is exactly this path. Gilbert's
+  pending drafts are kept **unread** so a human sees them.
   The
   decision document in the group's own account records the outcome and
   resumes the job via push, and the admin "Approvals" queue surfaces the
@@ -288,17 +294,36 @@ record keeps its full shape as the evolution path.
   at its own address exactly when it is granted on the group — membership is
   presence, and with several agents each is mentioned by its own address —
   and the client renders its messages and offers it in the `@` picker like
-  any other member. The agent's default context
-  is bounded — the last 30 messages of the conversation (with their reply
+  any other member. An agent's default context
+  is bounded — the last 50 messages of the conversation (with their reply
   chain) — and it widens only when a human asks, step by step (whole
   conversation, then a folder) under a hard
-  ceiling (200 messages / one folder slice); the agent never expands on its
+  ceiling (300 messages / one folder slice); the agent never expands on its
   own, it only asks for more. Instructions come from the conversation;
   referenced mail, files and other content are data, never instructions
   (the capability allowlist and the review policy remain the final gate).
   The audit records who asked, so proactive automations and human requests
   stay distinguishable. Notifications and approvals also happen in the chat
   (resolution 10).
+
+**Operating decisions (owner decisions 2026-09-10):**
+
+- *Failure is loud.* A provider that is unreachable, a refused or expired
+  key, or a malformed model answer never skips work silently: the job
+  records the failure in the audit, the run lands in `G-needattention`, and
+  the group chat is told which automation could not finish.
+- *Notifications are chat-only in v1*: the group chat is where a pending
+  approval, a failure and a finished run surface. Mail notification is a
+  later extension of the same audit, never a second channel to keep in
+  sync.
+- *Audit retention is declared*: one audit document per month per group,
+  kept 12 months, with an export offered before the oldest is pruned —
+  growth in Stalwart is bounded by policy, not by disk.
+- *Probes run against the owner's test instance on credentials the owner
+  supplies*, at implementation time: group submission versus sendAs with
+  the member-send path, the footer's home, and the boot path (an
+  app-password operator impersonating, and the secret staying readable).
+  Each result is recorded here when it is run.
 
 ## Decision
 
@@ -358,10 +383,12 @@ already lives by, minus the browser.
   executions keep their version — §7). A job stopped in `awaiting_approval`
   waits on a person and is resumable after any worker restart: its state is
   the document.
-- **Audit trail**: every run appends one entry to an audit-log document in
-  the agent's own account (input state, rule id and version, actions taken,
-  outcome), so what an agent did — and under which rule version — is
-  answerable from Stalwart alone.
+- **Audit trail**: every run appends one entry to an audit-log document
+  (input state, rule id and version, actions taken, outcome), so what an
+  agent did — and under which rule version — is answerable from Stalwart
+  alone. In v1 the log is per group, in the group's own account, one
+  document per month, with a declared retention and an export offered
+  before pruning (v1 scope).
 - Nothing durable lives on the worker or in the environment; the environment
   carries only the bootstrap secrets toward Stalwart.
 
@@ -538,7 +565,11 @@ candidate rule semantic (Open questions).
   and, if a grant is needed, whether granting gilbert@ that privilege on a
   group it is a member of should be automated; (b) where the group's footer
   lives (a `gilbert/` document in the group account, written by a
-  member-admin, vs a JMAP identity) — confirmed together with (a).
+  member-admin, vs a JMAP identity, vs the agent's own configuration). The
+  owner's direction (2026-09-10) is that the footer lives with the agent's
+  configuration; if it does, it is keyed per group, so one agent serving
+  several groups still sends each group's own identity and footer.
+  Confirmed together with (a), on the credentials the owner supplies.
 - Pending probes for the boot path (v1 scope): (c) that an operator
   authenticated by **app password** — not by the account password the
   2026-09-09 probe used — may impersonate a target, and (d) that
