@@ -26,6 +26,7 @@ import {
   writeGroupLabels,
 } from "./account.js";
 import {
+  type PolicyDocument,
   parsePolicyDocumentDetailed,
   persistPolicyFile,
   policyDocumentText,
@@ -52,7 +53,7 @@ import {
   writeProviders,
 } from "./agentAdmin.js";
 import { resolveClientIp } from "./clientip.js";
-import { config } from "./config.js";
+import { agentAddress, agentHasSecret, config } from "./config.js";
 import { icsProxyHandler } from "./icsproxy.js";
 import { imageProxyHandler } from "./imageproxy.js";
 import {
@@ -1242,6 +1243,33 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     c.json({ policy: policyDocumentText(config.settingsPolicy) }),
   );
 
+  /**
+   * Write a policy document where the deployment keeps it.
+   *
+   * With `SETTINGS_POLICY_FILE` configured, that file is the durable copy — the
+   * one the boot path reads — so a write that fails leaves the running copy
+   * alone rather than pretending. With no file the running copy is the only
+   * copy, which is what a disposable container is.
+   */
+  async function persistPolicy(
+    raw: string,
+  ): Promise<{ ok: true } | { ok: false; error: string; message: string }> {
+    const file = process.env.SETTINGS_POLICY_FILE;
+    if (!file) return { ok: true };
+    try {
+      await persistPolicyFile(file, raw);
+      return { ok: true };
+    } catch (err) {
+      console.error("[gilbert] could not persist the settings policy:", err);
+      return {
+        ok: false,
+        error: "policy_not_persisted",
+        message:
+          "SETTINGS_POLICY_FILE is set but could not be written; the policy was not changed.",
+      };
+    }
+  }
+
   api.post("/admin/policy", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
     const raw = await c.req.text();
@@ -1249,25 +1277,43 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     if ("problem" in parsed) {
       return c.json({ error: "invalid_policy", message: parsed.problem }, 400);
     }
-    const file = process.env.SETTINGS_POLICY_FILE;
-    if (file) {
-      try {
-        await persistPolicyFile(file, raw);
-      } catch (err) {
-        console.error("[gilbert] could not persist the settings policy:", err);
-        return c.json(
-          {
-            error: "policy_not_persisted",
-            message:
-              "SETTINGS_POLICY_FILE is set but could not be written; the policy was not changed.",
-          },
-          500,
-        );
-      }
-    }
+    const written = await persistPolicy(raw);
+    if (!written.ok)
+      return c.json({ error: written.error, message: written.message }, 500);
     config.settingsPolicy = parsed.doc;
     const kicked = sessions.destroyAllExcept(session.id);
     return c.json({ ok: true, kicked });
+  });
+
+  /**
+   * The installation's agent address (ADR 0009).
+   *
+   * The one installation-wide fact the product itself can own: an address an
+   * administrator names, kept in the policy document beside the settings
+   * policy, so it survives a restart and applies without one — the next request
+   * already acts as that address. The secret stays where secrets are deployed,
+   * because the worker signs in as the agent before it can read anything: the
+   * answer says whether the deployment holds one for what was just named, so
+   * the surface can say "no worker can start" instead of leaving someone to
+   * wonder why nothing runs. An empty address clears it and the deployment's
+   * own is in force again.
+   */
+  api.post("/admin/agent/address", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ address?: unknown }>(c);
+    const address =
+      typeof body?.address === "string" ? body.address.trim().toLowerCase() : "";
+    const next: PolicyDocument = { ...config.settingsPolicy };
+    if (address) next.agent = { address };
+    else delete next.agent;
+    const written = policyDocumentText(next);
+    const parsed = parsePolicyDocumentDetailed(written);
+    if ("problem" in parsed)
+      return c.json({ error: "invalid_agent_address", message: parsed.problem }, 400);
+    const persisted = await persistPolicy(written);
+    if (!persisted.ok)
+      return c.json({ error: persisted.error, message: persisted.message }, 500);
+    config.settingsPolicy = parsed.doc;
+    return c.json({ ok: true, address: agentAddress(), hasSecret: agentHasSecret() });
   });
 
   /**
@@ -1457,7 +1503,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   api.get("/admin/groups/:name/agent", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
     const name = c.req.param("name") ?? "";
-    const agentAddress = config.agent.address.trim();
+    const identity = agentAddress();
     try {
       const access = await resolveGroupAccess(session, name, {
         need: "agent documents",
@@ -1466,13 +1512,17 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         return c.json({
           group: name,
           granted: false,
-          agentAddress,
+          agentAddress: identity,
           error: access.error,
           need: access.need,
           ...emptyGroupDocuments(),
         } satisfies AgentGroupAnswer);
       const view = await groupAgentView(access, access.accountId);
-      return c.json({ group: name, agentAddress, ...view } satisfies AgentGroupAnswer);
+      return c.json({
+        group: name,
+        agentAddress: identity,
+        ...view,
+      } satisfies AgentGroupAnswer);
     } catch (err) {
       return agentFailure(c, err);
     }

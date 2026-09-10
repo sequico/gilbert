@@ -133,6 +133,10 @@ test("an installation with no agent says so plainly, and never 500s", async () =
   assert.deepEqual(res.body, {
     configured: false,
     address: "",
+    // Nothing has named an agent and the deployment has not either, so there is
+    // no address and no secret for one to sign in with (ADR 0009).
+    addressSource: "none",
+    hasSecret: false,
     groups: [],
     workers: [],
     // A code, not a sentence: the surface composes the sentence in the

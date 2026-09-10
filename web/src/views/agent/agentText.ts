@@ -123,7 +123,7 @@ export function fleetReasonText(reason: AgentStatusReason): string {
   switch (reason.code) {
     case "agent_not_configured":
       return t(
-        "No agent is registered with this installation. Set GILBERT_AGENT_ADDRESS (and its app password) and restart to deploy one.",
+        "No agent is registered with this installation. Set GILBERT_AGENT_ADDRESS (and its app password) where the installation is deployed and restart the server and the worker: a page reload does not re-read the environment.",
       );
     case "agent_unreachable":
       return t("The agent's session could not be opened: {detail}", {

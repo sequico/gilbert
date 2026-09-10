@@ -147,6 +147,7 @@ function readSettingsPolicy(): {
   defaults: Record<string, unknown>;
   enforced: Record<string, unknown>;
   changes: Array<{ version: string; settings: Record<string, unknown> }>;
+  agent?: { address: string };
 } {
   const parse = (raw: string, where: string): Record<string, unknown> => {
     try {
@@ -191,6 +192,27 @@ function readSettingsPolicy(): {
     });
   };
 
+  /**
+   * The agent the file names, when it names one.
+   *
+   * Optional, and checked rather than trusted like everything else here: an
+   * "agent" with no usable address is a configuration error at boot, not a
+   * value to fall back from silently.
+   */
+  const parseAgent = (v: unknown, where: string): { agent?: { address: string } } => {
+    if (v == null) return {};
+    if (typeof v !== "object" || Array.isArray(v))
+      throw new Error(`Invalid ${where}: "agent" must be an object`);
+    const typed = v as { address?: unknown };
+    const address =
+      typeof typed.address === "string" ? typed.address.trim().toLowerCase() : "";
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(address))
+      throw new Error(
+        `Invalid ${where}: "agent.address" must be the agent's own address, like gilbert@example.com`,
+      );
+    return { agent: { address } };
+  };
+
   const file = process.env.SETTINGS_POLICY_FILE;
   if (file) {
     if (!existsSync(file))
@@ -200,6 +222,7 @@ function readSettingsPolicy(): {
       defaults: (whole.defaults as Record<string, unknown>) ?? {},
       enforced: (whole.enforced as Record<string, unknown>) ?? {},
       changes: parseChanges(whole.changes, `SETTINGS_POLICY_FILE (${file})`),
+      ...parseAgent(whole.agent, `SETTINGS_POLICY_FILE (${file})`),
     };
   }
   return {
@@ -550,3 +573,44 @@ export const config = {
 };
 
 export type Config = typeof config;
+
+/**
+ * The address this installation's agent is known by (ADR 0009).
+ *
+ * An administrator names it in the product, and the name lives in the policy
+ * document beside the settings policy: durable with it, applied without a
+ * restart, and read by the worker too. `GILBERT_AGENT_ADDRESS` is what it
+ * falls back to — the deployment's own fact — so an installation that has
+ * named nothing behaves exactly as it did before there was a field.
+ */
+
+/**
+ * Where that address comes from: the installation\u2019s own record, or the
+ * deployment. The surface says which, because "the product does not know" and
+ * "the deployment does not know" are fixed in different places.
+ */
+export function agentAddressSource(): "policy" | "deployment" | "none" {
+  if (config.settingsPolicy.agent?.address) return "policy";
+  return config.agent.address.trim() ? "deployment" : "none";
+}
+
+export function agentAddress(): string {
+  return (config.settingsPolicy.agent?.address ?? config.agent.address)
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Whether the deployment holds the secret that address signs in with.
+ *
+ * The web tier never needs one — it acts as the agent by impersonation from an
+ * administrator's own session — but the worker signs in as the agent itself,
+ * and an address the deployment holds no password for is an agent that can be
+ * read in the product and can do nothing on its own. That is worth saying out
+ * loud on the surface that names it.
+ */
+export function agentHasSecret(): boolean {
+  const address = agentAddress();
+  if (!address || !config.agent.password) return false;
+  return config.agent.address.trim().toLowerCase() === address;
+}

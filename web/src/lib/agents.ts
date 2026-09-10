@@ -176,6 +176,24 @@ export function fetchMemberAgentView(name: string): Promise<MemberAgentView> {
 }
 
 /**
+ * `POST /api/admin/agent/address` — the identity the installation records
+ * (ADR 0009).
+ *
+ * An address, and an empty one to fall back to the deployment's own. The secret
+ * is not part of this: the web tier acts by impersonating the address from an
+ * administrator's session and needs none. `hasSecret` says whether the
+ * deployment holds one, which is what decides whether a worker can sign in.
+ */
+export function saveAgentAddress(
+  address: string,
+): Promise<{ address: string; hasSecret: boolean }> {
+  return apiFetch<{ address: string; hasSecret: boolean }>("/api/admin/agent/address", {
+    method: "POST",
+    body: JSON.stringify({ address }),
+  });
+}
+
+/**
  * `GET /api/admin/groups/:name/agent/audit` — the group's audit trail, month
  * by month, as the copy an administrator keeps.
  *

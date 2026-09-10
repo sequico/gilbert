@@ -14,7 +14,8 @@
  */
 import { Bot } from "lucide-react";
 import { useEffect, useState } from "react";
-import { type AgentStatus, fetchAgentAuditExport } from "@/lib/agents";
+import { apiFetch } from "@/jmap/client";
+import { type AgentStatus, fetchAgentAuditExport, saveAgentAddress } from "@/lib/agents";
 import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
@@ -31,6 +32,10 @@ export function AdminAgents() {
   // to report, and it has its own line here.
   const error = useAgents((s) => s.problems.status);
   const loadStatus = useAgents((s) => s.loadStatus);
+  // One part at a time: what the installation has, what it does per group,
+  // what waits on a person, which models serve it and how it signs in are five
+  // questions, and every surface on one page was a page nobody read.
+  const [part, setPart] = useState<AgentPart>("overview");
 
   useEffect(() => {
     void loadStatus();
@@ -53,16 +58,60 @@ export function AdminAgents() {
         </div>
       )}
 
-      <Registration status={status} />
-      <Workers status={status} />
-      <GroupInstruction groups={status?.groups ?? []} />
-      <RuleEditor groups={status?.groups ?? []} />
-      <AgentProviders />
-      <AgentApprovals />
-      <AppPasswordRotate />
+      <div
+        className="segmented"
+        role="group"
+        aria-label={t("Agent sections")}
+        style={{ marginBottom: 16 }}
+      >
+        {AGENT_PARTS.map((entry) => (
+          <button
+            key={entry.id}
+            className={part === entry.id ? "active" : ""}
+            aria-pressed={part === entry.id}
+            onClick={() => setPart(entry.id)}
+          >
+            {t(entry.label)}
+          </button>
+        ))}
+      </div>
+
+      {part === "overview" && (
+        <>
+          <Registration status={status} />
+          <Workers status={status} />
+        </>
+      )}
+      {part === "groups" && (
+        <>
+          <GroupInstruction groups={status?.groups ?? []} />
+          <RuleEditor groups={status?.groups ?? []} />
+        </>
+      )}
+      {part === "approvals" && <AgentApprovals />}
+      {part === "models" && <AgentProviders />}
+      {part === "credentials" && <AppPasswordRotate />}
     </div>
   );
 }
+
+/**
+ * The parts of the agent section, in the order a person asks about them.
+ *
+ * The section holds five unrelated jobs — the installation's agent and its
+ * grants, a group's instruction and automations, the queue waiting on a person,
+ * the model tiers, and the credential the worker signs in with — and they were
+ * one page. Separated, each is a page that can be read.
+ */
+const AGENT_PARTS = [
+  { id: "overview", label: "Overview" },
+  { id: "groups", label: "Groups" },
+  { id: "approvals", label: "Approvals" },
+  { id: "models", label: "Models" },
+  { id: "credentials", label: "Credentials" },
+] as const;
+
+type AgentPart = (typeof AGENT_PARTS)[number]["id"];
 
 /* ------------------------------------------------------------------ */
 
@@ -71,6 +120,59 @@ function Registration({ status }: { status: AgentStatus | null }) {
   // did: the copy is one request with its own line to report it on.
   const [copying, setCopying] = useState<string | null>(null);
   const [copyProblem, setCopyProblem] = useState<string | null>(null);
+
+  // The identity field is a draft: the status is the truth, the field is what
+  // an administrator is typing, and saving is what makes them the same.
+  const loadStatus = useAgents((s) => s.loadStatus);
+  const [draft, setDraft] = useState(status?.address ?? "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  /**
+   * The accounts on this server, as suggestions.
+   *
+   * The agent is an ordinary account, and typing its address from memory is how
+   * a typo becomes an agent that does nothing. A refused directory leaves the
+   * list empty: the field still takes an address typed by hand.
+   */
+  const [accounts, setAccounts] = useState<string[]>([]);
+
+  useEffect(() => {
+    setDraft(status?.address ?? "");
+  }, [status?.address]);
+
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      try {
+        const res = await apiFetch<{ users: Array<{ name: string }> }>(
+          "/api/admin/users",
+        );
+        if (live) setAccounts(res.users.map((user) => user.name).filter(Boolean));
+      } catch {
+        /* suggestion only */
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  /** Name the agent, or clear the name and fall back to the deployment's. */
+  async function save(address: string) {
+    setSaving(true);
+    setProblem(null);
+    setSaved(false);
+    try {
+      await saveAgentAddress(address);
+      setSaved(true);
+      await loadStatus();
+    } catch (err) {
+      setProblem(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  }
 
   /**
    * Take the copy of a group's audit trail, as JSON named for the group.
@@ -117,24 +219,73 @@ function Registration({ status }: { status: AgentStatus | null }) {
               </span>
             </div>
             <div className="field" style={{ maxWidth: 380 }}>
-              <label htmlFor="agent-address">{t("Address")}</label>
+              <label htmlFor="agent-address">{t("Agent address")}</label>
               <input
                 id="agent-address"
                 className="input notranslate"
                 translate="no"
-                value={status.address ?? ""}
-                readOnly
+                list="agent-address-choices"
+                placeholder="gilbert@example.com"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
               />
+              <datalist id="agent-address-choices">
+                {accounts.map((account) => (
+                  <option key={account} value={account} />
+                ))}
+              </datalist>
+            </div>
+            <div className="row wrap" style={{ gap: 8, marginBottom: 12 }}>
+              <button
+                className="btn btn-primary"
+                type="button"
+                disabled={saving}
+                onClick={() => void save(draft)}
+              >
+                {saving ? t("Saving…") : t("Save")}
+              </button>
+              {status.addressSource === "policy" && (
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void save("")}
+                >
+                  {t("Use the deployment's address")}
+                </button>
+              )}
+              {saved && <span className="hint">{t("Saved.")}</span>}
             </div>
             <p className="hint">
-              {status.configured
+              {status.addressSource === "policy"
                 ? t(
-                    "The worker opens its session as this address. Its reach is exactly the groups granted to it, nothing else.",
+                    "Named here, and in force from the next request: the installation records it, so it survives a restart.",
                   )
-                : t(
-                    "The deployment carries no agent address yet, so no worker can start. Set it where the installation is deployed, then reload this section.",
-                  )}
+                : status.addressSource === "deployment"
+                  ? t(
+                      "Set by the deployment (GILBERT_AGENT_ADDRESS). Naming one here overrides it, for this product and for the worker.",
+                    )
+                  : t(
+                      "Nothing names an agent yet: name one here, or set GILBERT_AGENT_ADDRESS where the installation is deployed.",
+                    )}
             </p>
+            <p className="hint">
+              {t(
+                "Gilbert acts as this address by impersonating it from your own administrator session, so this field needs no password. A worker signs in as it, with an app password deployed beside the address, and reads this one when it starts.",
+              )}
+            </p>
+            {status.address && !status.hasSecret && (
+              <div className="warn-box" style={{ marginBottom: 12 }}>
+                {t(
+                  "No app password for this address is deployed, so no worker can sign in as it: automations will not run until one is. The Credentials section mints one.",
+                )}
+              </div>
+            )}
+            {problem && (
+              <div className="error-box" style={{ marginBottom: 12 }}>
+                {problem}
+              </div>
+            )}
             {status.reason && <p className="hint">{fleetReasonText(status.reason)}</p>}
           </div>
           <h3>{t("Groups")}</h3>

@@ -1219,6 +1219,14 @@ grant: there is no second, in-product activation switch, so a group the agent
 can see is a group it works for, and a group it cannot see is untouched. The
 Gilbert admin surface *verifies* the grant per group and says plainly when it
 is missing — it never writes one.
+- **The agent identity is written in the product.** An administrator names
+  the address the agent acts as — picked from the accounts the server already
+  lists, or typed — and the installation records it beside its settings policy,
+  in force without a restart. Gilbert acts as that address by impersonating it
+  from the administrator’s own session, so the field needs no password; the
+  worker’s own app password stays a deployment fact, and the surface says when
+  none is deployed for the address it holds — an agent the product can read and
+  that can do nothing on its own is worth knowing about.
 - **The group's standing instruction.** One text per group, written by an
 administrator of that group in the admin surface, handed to the model on
 **every** call the group's agent makes — first in the prompt, before the

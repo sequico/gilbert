@@ -67,7 +67,7 @@ import type {
 } from "./agent/views.js";
 import { GROUP_NOT_ACCESSIBLE } from "./agent/views.js";
 import { type Ctx, filesAccountId } from "./appFolder.js";
-import { config } from "./config.js";
+import { agentAddress, agentAddressSource, agentHasSecret, config } from "./config.js";
 import { JmapError } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
 import {
@@ -366,11 +366,11 @@ function grantedGroupNames(session: UpstreamSession): Set<string> {
 async function agentStore(
   admin: LiveSession,
 ): Promise<{ store: AgentStore; address: string }> {
-  const address = config.agent.address.trim();
+  const address = agentAddress();
   if (!address)
     throw new AgentAdminError(
       "agent_not_configured",
-      "No agent is registered with this installation. Set GILBERT_AGENT_ADDRESS and its app password, then restart.",
+      "No agent is registered with this installation. Set GILBERT_AGENT_ADDRESS and its app password where the installation is deployed, then restart the server and the worker.",
       409,
     );
   const agent = await openAgentSession(admin, address);
@@ -408,11 +408,14 @@ async function agentStore(
  * else, and a list that could not be made must not read as a complete one.
  */
 export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
-  const address = config.agent.address.trim();
+  const address = agentAddress();
+  const addressSource = agentAddressSource();
   if (!address)
     return {
       configured: false,
       address: "",
+      addressSource,
+      hasSecret: false,
       groups: [],
       workers: [],
       reason: { code: "agent_not_configured" },
@@ -424,6 +427,8 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
     return {
       configured: false,
       address,
+      addressSource,
+      hasSecret: agentHasSecret(),
       groups: reachable.names.map((name) => ({ name, granted: false })),
       workers: [],
       reason: { code: "agent_unreachable", detail: agent.detail },
@@ -448,6 +453,8 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
   return {
     configured: true,
     address,
+    addressSource,
+    hasSecret: agentHasSecret(),
     groups: reachable.names.map((name) => ({
       name,
       granted: granted.has(name.trim().toLowerCase()),
@@ -582,7 +589,7 @@ export async function groupAuditExport(
     // view makes the same promise, and a client keying on the name has to see
     // one group rather than two.
     group: name.trim().toLowerCase(),
-    agentAddress: config.agent.address.trim(),
+    agentAddress: agentAddress(),
     exportedAt: now.toISOString(),
     months,
   };
@@ -718,7 +725,7 @@ const TIERS = AGENT_MODEL_TIERS;
  * error — there is nothing to show, and that is a state, not a failure.
  */
 export async function readProviders(admin: LiveSession): Promise<AgentProvidersView> {
-  if (!config.agent.address.trim()) return { address: "", providers: {} };
+  if (!agentAddress()) return { address: "", providers: {} };
   const { store, address } = await agentStore(admin);
   const found = await store.readConfig();
   return {
@@ -918,11 +925,11 @@ function isPrivateHost(hostname: string): boolean {
 export async function rotateAgentAppPassword(
   admin: LiveSession,
 ): Promise<AgentAppPasswordRotation> {
-  const address = config.agent.address.trim();
+  const address = agentAddress();
   if (!address)
     throw new AgentAdminError(
       "agent_not_configured",
-      "No agent is registered with this installation. Set GILBERT_AGENT_ADDRESS and its app password, then restart.",
+      "No agent is registered with this installation. Set GILBERT_AGENT_ADDRESS and its app password where the installation is deployed, then restart the server and the worker.",
       409,
     );
   const imp = await impersonateAs(admin, address);
@@ -1142,7 +1149,7 @@ export async function memberAgentView(
     group: name.trim().toLowerCase(),
     granted:
       rulesDoc.length > 0 || open.length > 0 || audit.length > 0 || !!instruction.text,
-    agentAddress: config.agent.address.trim(),
+    agentAddress: agentAddress(),
     rules: rulesDoc.map((r) => ({
       id: r.id,
       name: r.name,

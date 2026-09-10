@@ -52,6 +52,9 @@ export interface AgentStatusGroup {
   granted: boolean;
 }
 
+/** Where the address the installation acts as came from. */
+export type AgentAddressSource = "policy" | "deployment" | "none";
+
 /** One running worker, with freshness judged at read time rather than stored. */
 export interface AgentStatusWorker {
   id: string;
@@ -89,6 +92,20 @@ export interface AgentStatus extends Partial<GroupEnumeration> {
   configured: boolean;
   /** The registered agent's address; empty when the installation has none. */
   address: string;
+  /**
+   * Where that address comes from: the installation's own record, the
+   * deployment, or nowhere yet. A surface that lets an administrator name the
+   * agent says which of the two is in force, because they are fixed in
+   * different places.
+   */
+  addressSource: AgentAddressSource;
+  /**
+   * Whether the deployment holds the secret that address signs in with. The web
+   * tier acts by impersonation and needs none; a worker needs one, so an
+   * address with no secret is an agent the product can read and that can do
+   * nothing on its own.
+   */
+  hasSecret: boolean;
   groups: AgentStatusGroup[];
   workers: AgentStatusWorker[];
   /**

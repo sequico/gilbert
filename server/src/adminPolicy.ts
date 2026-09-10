@@ -14,10 +14,23 @@ export interface PolicyChangeDocument {
   settings: Record<string, unknown>;
 }
 
+/**
+ * The agent this installation runs, when the document names one.
+ *
+ * An address, and only an address: the secret stays where secrets are deployed.
+ * It sits beside the settings policy because it is the same kind of fact —
+ * installation-wide, written by an administrator, applied without a restart —
+ * and because the deployment already keeps this document durably.
+ */
+export interface PolicyAgent {
+  address: string;
+}
+
 export interface PolicyDocument {
   defaults: Record<string, unknown>;
   enforced: Record<string, unknown>;
   changes: PolicyChangeDocument[];
+  agent?: PolicyAgent;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -95,7 +108,38 @@ export function parsePolicyDocumentDetailed(
       changes.push({ version, settings: entry.settings });
     }
   }
-  return { doc: { defaults, enforced, changes } };
+  const parsedAgent = parseAgent(whole.agent);
+  if (parsedAgent && "problem" in parsedAgent) return { problem: parsedAgent.problem };
+  return {
+    doc: {
+      defaults,
+      enforced,
+      changes,
+      ...(parsedAgent ? { agent: parsedAgent.agent } : {}),
+    },
+  };
+}
+
+/**
+ * The agent the document names, or the problem with what it says, or null when
+ * it names none.
+ *
+ * Absent means the deployment's address is the one in force. A
+ * present-but-unusable value is an error at save time, like every other field
+ * here: a policy that half-applies is worse than one that is refused.
+ */
+function parseAgent(v: unknown): { agent: PolicyAgent } | { problem: string } | null {
+  if (v == null) return null;
+  if (!isRecord(v)) return { problem: '"agent" must be an object with an "address".' };
+  const address = typeof v.address === "string" ? v.address.trim().toLowerCase() : "";
+  if (!address)
+    return {
+      problem:
+        '"agent.address" must be the agent\'s own address, like gilbert@example.com.',
+    };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(address))
+    return { problem: `"agent.address" is not an address: ${address}.` };
+  return { agent: { address } };
 }
 
 /** The document text the editor shows, stable keys and two-space indent. */
@@ -105,6 +149,7 @@ export function policyDocumentText(policy: PolicyDocument): string {
       defaults: policy.defaults ?? {},
       enforced: policy.enforced ?? {},
       changes: policy.changes ?? [],
+      ...(policy.agent ? { agent: policy.agent } : {}),
     },
     null,
     2,
