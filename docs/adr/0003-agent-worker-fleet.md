@@ -59,39 +59,46 @@ owner has since scoped v1 to a single self-hosted installation; this
 section amends or defers parts of that model for v1, and the rest of this
 record keeps its full shape as the evolution path.
 
-- **A set of structure agents, one principal each.** v1 ships any number of
-  agents — `gilbert@`, `gilbert1@`, … — each a mailbox of its own in
-  Stalwart, created operator-side in Stalwart's own administration (the
-  same surface that creates accounts), then registered with the
-  installation, configured and granted per group from the Gilbert admin.
-  Agents are independent: a group is served by exactly the agents granted
-  on it, each with its own configuration and credentials. External agent
-  fleets (README: "Gilbert's own agents now, external agent fleets later")
-  remain future work on the same machinery.
+- **One structure agent, `gilbert@`, fixed.** v1 ships exactly one agent
+  principal — a persona that works across areas (mail, files, tasks,
+  calendars, contacts) and across the groups it is granted, not one
+  identity per group — created operator-side in Stalwart's own
+  administration (the same surface that creates accounts), then registered
+  with the installation and granted per group from the Gilbert admin.
+  Further agent principals (`gilbert1@`, …) and external agent fleets
+  (README: "Gilbert's own agents now, external agent fleets later") are
+  future work on the same machinery, not a v1 configuration knob.
+- **What is configurable is its workers, by area.** The agent's work is
+  divided into areas — mail, files, tasks, calendars, contacts — and a
+  deployment declares how many workers serve each. v1 defaults to one
+  in-process worker covering every area (below); more workers are the same
+  codebase, claiming their area's work units by lease (§2, §6), so
+  throughput and availability scale per area without a second identity and
+  without a supervisor.
 - **The executor runs inside gilbertserver (the Node/Hono server in
-  `server/`) in v1, one process serving every agent.** This deliberately
+  `server/`) in v1, one process serving every area.** This deliberately
   revisits the "workers embedded in the web server container" rejection
   (Alternatives) for v1: the disposable tier is acceptable because every
-  durable byte stays in Stalwart, every agent session is re-derived at boot
+  durable byte stays in Stalwart, the agent session is re-derived at boot
   (below), and mid-flight work is recovered from job documents after a
   restart. Wake-ups ride the instance's existing push rail
   (`server/src/push.ts` — RFC 8620 PushSubscription, which Stalwart POSTs
   to), with per-type polling as the fallback where a subscription cannot
-  verify; nothing holds a long-lived upstream connection per agent. The
+  verify; nothing holds a long-lived upstream connection per account. The
   executor is a background task isolated from the request path (async,
   non-blocking; leases tolerate pauses far longer than the web tier's).
-  Separate worker replicas and lease-based fleet coordination (§2, §6)
-  return when availability or throughput outgrows one process (Open
-  questions).
-- **One operator credential in the environment; every agent session is
+  Additional workers — per area, as above — are declared at deployment and
+  coordinate by lease (§2, §6) when availability or throughput outgrows one
+  process (Open questions).
+- **One operator credential in the environment; the agent's session is
   derived from it.** The deployment carries a single bootstrap secret — the
   credential of an operator account holding Stalwart's `Impersonate` — and
-  gilbertserver opens each agent's session at boot with composite
-  impersonation (`{gilbert@}%{operator}`), creating or recovering that
-  agent's app password under impersonation (`x:AppPassword/set`, and `get`
-  where the server returns the secret). Nothing needs a writable
+  gilbertserver opens the agent's session at boot with composite
+  impersonation (`{gilbert@}%{operator}`), creating or recovering its app
+  password under impersonation (`x:AppPassword/set`, and `get` where the
+  server returns the secret). Nothing needs a writable
   filesystem, so `IMMUTABLE=1` holds: sessions stay in memory, are
-  re-derived at every boot, and no per-agent secret is placed by hand. The
+  re-derived at every boot, and no agent secret is placed by hand. The
   environment is the only place a pre-session credential can live — a
   runtime-written `.env` is impossible on a read-only root and pointless on
   a disposable container, since `.env` is read at boot and the container is
@@ -132,20 +139,20 @@ record keeps its full shape as the evolution path.
   selects which group's rules apply — the agent has no single global
   brief.
 - **Admin surfaces.** The Gilbert admin (ADR 0007) gains an "Agents"
-  section: register agent principals with the installation (select
-  `gilbert@`, `gilbert1@`, …), grant or revoke each agent's membership per
-  group, author and version per-group rule documents, configure the model
-  providers per tier, choose the provider each automation's tier runs on,
-  rotate app passwords, and see executor status and audit across groups and
-  agents. Every write happens through the signed-in admin's session —
-  impersonation where acting on the agent's account (`gilbert@`), the
-  admin's own session on group documents. Writes into a
-  group's own account (rules, labels, footer) carry ADR 0006's membership
-  rule — an admin who is a member of that group — because Stalwart refuses
-  to mint a session for an impersonated group mailbox: a non-member admin
-  has no act-as-the-group path, so the surface says which membership a
-  section needs instead of failing at the door. Nothing is configured by
-  hand.
+  section: register the agent principal with the installation (`gilbert@`),
+  grant or revoke its membership per group, author and version per-group
+  rule documents, configure the model providers per tier, choose the tier
+  each automation runs on, set how many workers serve each area, rotate app
+  passwords, and see executor status and audit across groups. Agent
+  identities are not a knob here: v1 has one. Every write happens through
+  the signed-in admin's session — impersonation where acting on the agent's
+  account (`gilbert@`), the admin's own session on group documents. Writes
+  into a group's own account (rules, labels, footer) carry ADR 0006's
+  membership rule — an admin who is a member of that group — because
+  Stalwart refuses to mint a session for an impersonated group mailbox: a
+  non-member admin has no act-as-the-group path, so the surface says which
+  membership a section needs instead of failing at the door. Nothing is
+  configured by hand.
 - **Members see, never change.** In a group's own view, next to the group
   chat (ADR 0006), an AI indicator opens the group's agent surface: which
   agents are active for the group, what instructions (rule documents) they
@@ -350,7 +357,8 @@ Stalwart as exactly one agent principal and runs that agent's rules. It
 keeps no local state and needs no volume; any number of replicas of the same
 image may run, and each replica of an agent is interchangeable. The "fleet"
 is agents × replicas: more agents, more principals; more throughput or
-availability, more replicas of an agent.
+availability, more replicas of an agent. v1 fixes the first factor at one
+and exposes the second as workers per area (v1 scope).
 
 ### 3. Event push is the wake-up; reconciliation is the work
 
@@ -488,15 +496,15 @@ candidate rule semantic (Open questions).
 
 - One operator credential in the environment — an operator account holding
   Stalwart's `Impersonate` — on top of ADR 0007's administration model
-  (permission marker; Impersonate for per-user writes): every agent's
-  session is derived from it at boot, and no per-agent secret is placed by
-  hand.
-- With one agent per principal, the blast radius of a leaked agent
-  credential is exactly that agent's grants: compartments come from granting
-  more agents, not from more installation settings. The operator credential
-  in the environment is the one powerful secret — it impersonates, so its
-  compromise reaches every agent. Accepted for v1, and the reason the
-  read-only `GILBERT_AGENTS_FILE` alternative above exists.
+  (permission marker; Impersonate for per-user writes): the agent's session
+  is derived from it at boot, and no agent secret is placed by hand.
+- One agent means one reach: `gilbert@`'s grants cover every group it is
+  granted, so a compromise of the agent or of the operator credential that
+  derives its session exposes all of them at once, not one group at a time.
+  Accepted for v1 — the same order of risk the threshold auto-approval
+  already accepts — and the reason the read-only `GILBERT_AGENTS_FILE`
+  alternative above exists; per-area or per-group agent principals are the
+  future mitigation, not a v1 setting.
 - In v1 the in-process executor serializes work per account (one job at a
   time per account, in arrival order), so a busy group cannot reorder or
   starve another group's reconciliation; the fleet-wide per-account cap of
