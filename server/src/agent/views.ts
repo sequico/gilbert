@@ -2,10 +2,10 @@
  * The shapes the agent API answers with.
  *
  * One definition for the two tiers that meet here: the routes build these
- * answers, and the client reads them. They used to be declared twice — once
- * beside the routes, once beside the fetch calls — which is exactly the drift
- * SSOT forbids: a field added on one side and forgotten on the other compiles
- * on both and arrives as `undefined` on one.
+ * answers, and the client reads them. Declared twice — once beside the routes,
+ * once beside the fetch calls — a field added on one side and forgotten on the
+ * other compiles on both and arrives as `undefined` on one, which is exactly
+ * the drift SSOT forbids.
  *
  * The stored documents are not here; they are `./documents`, which this module
  * imports type-only, so no server code reaches a runtime through this file:

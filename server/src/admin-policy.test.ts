@@ -356,3 +356,56 @@ test("there is nothing to narrow before an agent is named", async () => {
   assert.equal(refused.status, 409);
   assert.equal((refused.body as { error?: string }).error, "agent_not_configured");
 });
+
+/**
+ * The ceiling, at the door where a widening would be written down (ADR 0009).
+ *
+ * `servedAreasFor` is what *enforces* narrowing in the worker, but a record
+ * could still have been written claiming an area the deployment does not serve
+ * — and a record that says something nobody serves is a lie an operator would
+ * read as a setting. It is refused where it would be saved, in the deployment's
+ * own words.
+ */
+test("a group can be narrowed inside what the deployment serves, never outside it", async () => {
+  const { config } = await import("./config.js");
+  await call("/api/admin/agent/address", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ address: "aider@example.com" }),
+  });
+  const served = [...config.agent.areas];
+  config.agent.areas = ["mail"];
+  try {
+    const refused = await call("/api/admin/agent/groups", adminCookie, {
+      method: "POST",
+      body: JSON.stringify({
+        groups: { "team@example.org": { areas: ["mail", "files"] } },
+      }),
+    });
+    assert.equal(refused.status, 400);
+    assert.match(
+      String((refused.body as { message?: string }).message ?? ""),
+      /does not serve files/,
+      "the refusal names what the deployment serves",
+    );
+    const reached = await call("/api/admin/agents", adminCookie);
+    assert.equal(
+      (reached.body as { groups: Array<{ name: string; areas?: string[] }> }).groups.find(
+        (group) => group.name === "team@example.org",
+      )?.areas,
+      undefined,
+      "and nothing was written",
+    );
+
+    const narrowed = await call("/api/admin/agent/groups", adminCookie, {
+      method: "POST",
+      body: JSON.stringify({ groups: { "team@example.org": { areas: ["mail"] } } }),
+    });
+    assert.equal(narrowed.status, 200, "inside the deployment is accepted");
+  } finally {
+    config.agent.areas = served;
+  }
+  await call("/api/admin/agent/address", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ address: "" }),
+  });
+});

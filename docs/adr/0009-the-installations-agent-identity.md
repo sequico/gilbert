@@ -53,6 +53,17 @@ The grant is not part of this and never will be: membership of the agent is
 decided in Stalwart's own administration, and the surface that edits the areas
 only reads it.
 
+One record now has three doors — the policy editor, the address, the areas — so
+the write is a compare-and-set over the document that is actually there
+(`changePolicy`): read it, apply the change, write it, and keep the write only
+if the record still says what the change was merged into. A second
+administrator's groups are their own decision, and a merge never drops what it
+did not name. Two writes in one process are serialized; the compare-and-set is
+what covers a second replica, where the file is the only thing they share, and
+a document that keeps moving is refused loudly rather than clobbered. What is
+*not* guarded is two administrators changing the same group at the same moment:
+that is the same decision twice, and the later save is the one that holds.
+
 ## Consequences
 
 - An administrator names the agent in the product, choosing from the accounts
@@ -63,7 +74,16 @@ only reads it.
   stops renewing that claim and the lease lapses on its own — no worker deletes
   another's claim, and this never touches the fence — so the rules in that area
   do not run for that group. The surface shows what is served where, which is
-  the only signal: nothing audits a run that was never going to start.
+  the only signal: nothing audits a run that was never going to start. The
+  timing, in full: the record reaches a **worker at its next start** (the web
+  tier reads it live, the worker has its own copy of the configuration), and
+  from there the claim stops being renewed at the first pass and lapses within
+  `GILBERT_AGENT_LEASE_MS` — three minutes by default. The session refresh (a
+  minute, and about membership rather than this record) does not shorten that.
+- **The record cannot claim an area nobody serves.** The areas saved for a group
+  are refused unless the deployment serves them, in the deployment's own words,
+  so a record never says something the fleet cannot do; `servedAreasFor` in the
+  worker remains the enforcement, and the door is the second net.
 - Two stores can name an address at once — the document and the environment.
   One wins (the document) and the other is reported as the fallback rather than
   left to be guessed; that is what `addressSource` answers.

@@ -374,9 +374,9 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
       log(`${accountId}/${area}: nobody holds it and the claim kept losing`);
   };
 
-  // One account's fault is that account's: an unreadable claim document used to
-  // end the round for every account behind it in the list, in silence, which is
-  // what a pass that throws on the first one does (resolution 18).
+  // One account's fault is that account's: an unreadable claim document ends the
+  // round for that account alone, instead of ending it for every account behind
+  // it in the list, and the pass says what it caught (resolution 18).
   const guarded = async (accountId: string, work: () => Promise<void>) => {
     try {
       await work();

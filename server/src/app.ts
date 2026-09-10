@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { getConnInfo } from "@hono/node-server/conninfo";
@@ -1270,6 +1271,78 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
   }
 
+  /** How many times a write is re-applied when the record moved under it. */
+  const POLICY_WRITE_ATTEMPTS = 3;
+
+  /** Every policy write in this process, one after the other. */
+  let policyWrites: Promise<unknown> = Promise.resolve();
+
+  /** The installation's record as the deployment keeps it, or the running copy. */
+  async function readPolicyRecord(): Promise<PolicyDocument> {
+    const file = process.env.SETTINGS_POLICY_FILE;
+    if (file) {
+      try {
+        const parsed = parsePolicyDocumentDetailed(await readFile(file, "utf8"));
+        if (!("problem" in parsed)) return parsed.doc;
+      } catch {
+        /* no file yet: the running copy is the record */
+      }
+    }
+    return config.settingsPolicy;
+  }
+
+  /**
+   * Apply one change to the installation's record, and to the record that is
+   * actually there (ADR 0009).
+   *
+   * Three doors write this document — the policy editor, the agent's address,
+   * the areas of a group — so a change that read the running copy and then wrote
+   * the whole document back would drop whatever another administrator saved in
+   * between, groups this caller never named included. The shape is the same
+   * compare-and-set the fleet uses for its own documents: read the record, apply
+   * the change, write it, and keep the write only if the record still says what
+   * the change was merged into — otherwise read again and re-apply. After the
+   * attempts the write is refused loudly rather than clobbering somebody.
+   *
+   * Writes in one process are serialized, so two administrators on one replica
+   * cannot interleave; the compare-and-set is what covers a second replica,
+   * where the file is the only thing they share.
+   */
+  async function changePolicy(
+    change: (doc: PolicyDocument) => PolicyDocument,
+  ): Promise<
+    { ok: true; doc: PolicyDocument } | { ok: false; error: string; message: string }
+  > {
+    const run = policyWrites.then(async () => {
+      const file = process.env.SETTINGS_POLICY_FILE;
+      for (let attempt = 0; attempt < POLICY_WRITE_ATTEMPTS; attempt++) {
+        const before = await readPolicyRecord();
+        const parsed = parsePolicyDocumentDetailed(policyDocumentText(change(before)));
+        if ("problem" in parsed)
+          return { ok: false as const, error: "invalid_policy", message: parsed.problem };
+        const written = policyDocumentText(parsed.doc);
+        const persisted = await persistPolicy(written);
+        if (!persisted.ok) return persisted;
+        // The file is the record: the write is ours only if it still says what
+        // this change was merged into. With no file there is nothing shared to
+        // guard — the queue above covers the process, and a second replica can
+        // only exist where a file does.
+        if (!file || policyDocumentText(await readPolicyRecord()) === written) {
+          config.settingsPolicy = parsed.doc;
+          return { ok: true as const, doc: parsed.doc };
+        }
+      }
+      return {
+        ok: false as const,
+        error: "policy_moved",
+        message:
+          "The installation's policy changed while this was being saved, so nothing was written. Look at the record and save again.",
+      };
+    });
+    policyWrites = run.catch(() => undefined);
+    return run;
+  }
+
   api.post("/admin/policy", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
     const raw = await c.req.text();
@@ -1277,10 +1350,19 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     if ("problem" in parsed) {
       return c.json({ error: "invalid_policy", message: parsed.problem }, 400);
     }
-    const written = await persistPolicy(raw);
+    // Through the same compare-and-set as the two narrower doors: the editor
+    // replaces the document, but it must replace the document that is there. The
+    // agent's half survives an editor that does not mention it — and an editor
+    // that does mention it is taken at its word.
+    const written = await changePolicy((doc) => ({
+      ...parsed.doc,
+      ...(parsed.doc.agent ? {} : doc.agent ? { agent: doc.agent } : {}),
+    }));
     if (!written.ok)
-      return c.json({ error: written.error, message: written.message }, 500);
-    config.settingsPolicy = parsed.doc;
+      return c.json(
+        { error: written.error, message: written.message },
+        written.error === "policy_moved" ? 409 : 500,
+      );
     const kicked = sessions.destroyAllExcept(session.id);
     return c.json({ ok: true, kicked });
   });
@@ -1302,29 +1384,33 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const body = await readJson<{ address?: unknown }>(c);
     const address =
       typeof body?.address === "string" ? body.address.trim().toLowerCase() : "";
-    const next: PolicyDocument = { ...config.settingsPolicy };
-    if (address) {
+    const written = await changePolicy((doc) => {
+      if (!address)
+        // No agent at all, so no per-group behaviour either: both halves are one
+        // fact, and groups left behind would be a setting with nothing to apply
+        // to.
+        return { defaults: doc.defaults, enforced: doc.enforced, changes: doc.changes };
       // Named again keeps what each group was narrowed to: an address change is
       // not a decision about the groups.
-      const groups = config.settingsPolicy.agent?.groups;
-      next.agent = {
-        address,
-        ...(groups && Object.keys(groups).length ? { groups } : {}),
+      const groups = doc.agent?.groups;
+      return {
+        ...doc,
+        agent: { address, ...(groups && Object.keys(groups).length ? { groups } : {}) },
       };
-    } else {
-      // No agent at all, so no per-group behaviour either: both halves are the
-      // same fact, and leaving groups behind would be a setting with nothing to
-      // apply to.
-      delete next.agent;
-    }
-    const written = policyDocumentText(next);
-    const parsed = parsePolicyDocumentDetailed(written);
-    if ("problem" in parsed)
-      return c.json({ error: "invalid_agent_address", message: parsed.problem }, 400);
-    const persisted = await persistPolicy(written);
-    if (!persisted.ok)
-      return c.json({ error: persisted.error, message: persisted.message }, 500);
-    config.settingsPolicy = parsed.doc;
+    });
+    if (!written.ok)
+      return c.json(
+        {
+          error:
+            written.error === "invalid_policy" ? "invalid_agent_address" : written.error,
+          message: written.message,
+        },
+        written.error === "policy_moved"
+          ? 409
+          : written.error === "invalid_policy"
+            ? 400
+            : 500,
+      );
     return c.json({ ok: true, address: agentAddress(), hasSecret: agentHasSecret() });
   });
 
@@ -1354,9 +1440,10 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         },
         409,
       );
-    const groups: Record<string, { areas?: string[] }> = {
-      ...(config.settingsPolicy.agent?.groups ?? {}),
-    };
+    // What this request asks each group to become, checked before anything is
+    // written: an unknown area and a group address that is not one are the two
+    // mistakes an operator can make here, and both are answered in words.
+    const patch: Record<string, string[]> = {};
     for (const [rawName, entry] of Object.entries(input as Record<string, unknown>)) {
       const name = rawName.trim().toLowerCase();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(name))
@@ -1386,20 +1473,41 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           },
           400,
         );
-      // An empty list is how "served as the deployment says" is written down:
-      // clearing a narrowing is a value, not a deletion nobody can express.
-      if (clean.length) groups[name] = { areas: clean };
-      else delete groups[name];
+      // The deployment's own list is the ceiling, and this is the door where
+      // saying otherwise would be recorded: a record can narrow what an
+      // operator opened and can never claim to have widened it.
+      const notServed = clean.filter(
+        (area) => !config.agent.areas.includes(area as (typeof AGENT_AREAS)[number]),
+      );
+      if (notServed.length)
+        return c.json(
+          {
+            error: "bad_request",
+            message: `this deployment does not serve ${notServed.join(", ")}: it serves ${config.agent.areas.join(", ")}, and a group can only be narrowed inside that`,
+          },
+          400,
+        );
+      patch[name] = clean;
     }
-    const next: PolicyDocument = { ...config.settingsPolicy, agent: { address, groups } };
-    const written = policyDocumentText(next);
-    const parsed = parsePolicyDocumentDetailed(written);
-    if ("problem" in parsed)
-      return c.json({ error: "invalid_agent_groups", message: parsed.problem }, 400);
-    const persisted = await persistPolicy(written);
-    if (!persisted.ok)
-      return c.json({ error: persisted.error, message: persisted.message }, 500);
-    config.settingsPolicy = parsed.doc;
+    // Merged into the record that is actually there, not into the copy this
+    // process read: a second administrator's groups are their own decision.
+    const written = await changePolicy((doc) => {
+      const groups: Record<string, { areas?: string[] }> = {
+        ...(doc.agent?.groups ?? {}),
+      };
+      for (const [name, areas] of Object.entries(patch)) {
+        // An empty list is how "served as the deployment says" is written down:
+        // clearing a narrowing is a value, not a deletion nobody can express.
+        if (areas.length) groups[name] = { areas };
+        else delete groups[name];
+      }
+      return { ...doc, agent: { address, groups } };
+    });
+    if (!written.ok)
+      return c.json(
+        { error: written.error, message: written.message },
+        written.error === "policy_moved" ? 409 : 500,
+      );
     return c.json({ ok: true });
   });
 
