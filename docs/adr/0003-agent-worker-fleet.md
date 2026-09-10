@@ -158,8 +158,9 @@ record keeps its full shape as the evolution path.
   the consequence (no agent in its chat, no automations offered) instead of
   a control that cannot work. Agent identities are not a knob either: v1
   has one. Every write happens through the signed-in admin's session —
-  impersonation where acting on the agent's account (`gilbert@`), the admin's own session on group documents. Writes
-  into a group's own account (rules, labels, footer) carry ADR 0006's
+  impersonation where acting on the agent's account (`gilbert@`), the
+  admin's own session on group documents. Writes into a group's own account
+  (rules, labels, footer) carry ADR 0006's
   membership rule — an admin who is a member of that group — because
   Stalwart refuses to mint a session for an impersonated group mailbox: a
   non-member admin has no act-as-the-group path, so the surface says which
@@ -216,9 +217,11 @@ record keeps its full shape as the evolution path.
   identity), uses the group's default identity and applies its
   text/HTML signature exactly as the UI composer does — the From is the
   group, and the sent message lands in the group's Sent mailbox so members
-  see what went out. The exact send mechanism (the group submitting as
-  itself vs gilbert@ submitting with a sendAs identity whose address is the
-  group's) is a live probe (Open questions). The concrete schema
+  see what went out. **Proven live (2026-09-10, resolution 12):** the group
+  account carries its own identity for its own address, a member's rights on
+  the group's mailboxes include `maySubmit`, and a submission from the group
+  account with that identity went out and filed itself in the group's Sent.
+  The footer is that identity's signature. The concrete schema
   and editor are pinned when the first use case is implemented.
 - *3 — rule granularity and context*: a rule acts on the single message;
   context is assembled on demand — the thread (grouped by In-Reply-To) and
@@ -340,6 +343,33 @@ record keeps its full shape as the evolution path.
   The audit records who asked, so proactive automations and human requests
   stay distinguishable. Notifications and approvals also happen in the chat
   (resolution 10).
+- *12 — the send path, live (2026-09-10)*: on the real 0.16.21 instance a
+  group account carries its **own JMAP `Identity`** for its own address, a
+  member's `myRights` on the group's mailboxes include `maySubmit`, and a
+  submission from the group account with that identity (a draft in the
+  group's Drafts, then `EmailSubmission/set` with `onSuccessUpdateEmail`
+  into Sent) went out — `undoStatus: pending` — and filed itself in the
+  group's Sent mailbox. So the group sends **as itself**: From is the group,
+  the sent copy is the group's, and one agent serving several groups sends
+  each group's own identity and footer. A sendAs identity for the group
+  address also exists on a member's own account; v1 does not use it, because
+  it would file the sent copy in the member's Sent instead of the group's.
+  **Correction for the record:** on 0.16 `Identity` does not return
+  `maySubmit` at all — the signal is the mailbox `myRights` — so neither the
+  client types nor the mock should invent that field.
+- *13 — the footer, and the shape of a real group (2026-09-10)*: the footer
+  is the group identity's `textSignature`/`htmlSignature`, read with
+  `Identity/get` on the group account and applied exactly as the composer
+  applies a signature; an admin who is a member edits it like any signature,
+  and members read it as they read the label catalog. The same probe saw the
+  live shape: the group identity's signatures are empty today, and the
+  group's `gilbert/` app folder holds `chat/`, `chat-state/` and
+  `labels.json` — **no `settings.json`**, so nothing new has to be invented
+  for the footer. It also saw the working material: `labels.json` already
+  carries a first label, the chat folder holds a message and a per-member
+  read-state file, and Files are full of real operational matter — which is
+  why the destination of extracted attachments is recorded as an open item
+  instead of being assumed.
 
 **Operating decisions (owner decisions 2026-09-10):**
 
@@ -355,10 +385,9 @@ record keeps its full shape as the evolution path.
   kept 12 months, with an export offered before the oldest is pruned —
   growth in Stalwart is bounded by policy, not by disk.
 - *Probes run against the owner's test instance on credentials the owner
-  supplies*, at implementation time: group submission versus sendAs with
-  the member-send path, and the footer's home. (The operator-credential
-  alternative carries two more — Open questions, probes c and d.) Each
-  result is recorded here when it is run.
+  supplies*; results are recorded as resolutions 12 and 13, and the
+  operator-credential alternative carries two more (Open questions, probes
+  c and d).
 
 ## Decision
 
@@ -597,27 +626,19 @@ candidate rule semantic (Open questions).
 
 ## Open questions (recorded; the v1-scope section and the resolutions above record what is decided)
 
-- Pending probes (verify before implementing the send path): (a) whether a
-  group account can submit mail as itself, or whether gilbert@ sends with a
-  sendAs identity whose address is the group's (From = group, footer =
-  group) — and whether a **human member** can submit from the group too,
-  since sending the pending draft out of the group's Drafts is one of the
-  two approval paths (resolution 10) and the client loads identities from
-  the account on screen, so the UI path exists if the server permits it;
-  and, if a grant is needed, whether granting gilbert@ that privilege on a
-  group it is a member of should be automated; (b) where the group's footer
-  lives (a `gilbert/` document in the group account, written by a
-  member-admin, vs a JMAP identity, vs the agent's own configuration). The
-  owner's direction (2026-09-10) is that the footer lives with the agent's
-  configuration; if it does, it is keyed per group, so one agent serving
-  several groups still sends each group's own identity and footer.
-  Confirmed together with (a), on the credentials the owner supplies.
 - Pending probes for the operator-credential alternative (v1 scope): (c)
   that an operator authenticated by **app password** — not by the account
   password the 2026-09-09 probe used — may impersonate a target, and (d)
   that `x:AppPassword/get` keeps returning the secret to an impersonating
   admin. Neither is on the default boot path — the agent's own app password
   is — so they matter only if an installation chooses that alternative.
+- To confirm once the agent principal exists: that **gilbert@**'s grant on a
+  group carries the same `maySubmit` right a member's grant does. The
+  mechanism is proven (resolution 12); the agent's own grant is the last
+  variable, and the test is the same submission from `gilbert@`'s session.
+- To pin before switching on extraction: where extracted attachments land.
+  A real group's Files are operational and crowded (resolution 13), so the
+  destination is a decision, not an implementation detail.
 
 ## References
 
