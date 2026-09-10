@@ -212,7 +212,7 @@ describe("markKeptSurfaces", () => {
     for (let i = 0; i < 7; i++) {
       loose += '<table style="background-color:#e7e5e2"><tr><td>loose</td></tr></table>';
     }
-    const d = frag('<div style="background-color:#e7e5e2">' + cards + loose + "</div>");
+    const d = frag(`<div style="background-color:#e7e5e2">${cards}${loose}</div>`);
 
     const panels = Array.from(d.querySelectorAll<HTMLElement>("table"));
     expect(panels.length).toBe(21);

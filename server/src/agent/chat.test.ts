@@ -174,17 +174,11 @@ test("the approval vocabulary is closed, and refusal wins when both appear", () 
   assert.equal(readApproval("what do you think?"), "unclear");
 });
 
-function replyCreated(
-  messages: Awaited<ReturnType<typeof readChat>>,
-  id: string,
-): string {
-  return messages.find((message) => message.id === id)?.created ?? "";
-}
-
 test("only a person saying so widens the run's context", async () => {
   const { widenRequested } = await import("./chat.js");
   // The bound is 50 by default and the run never widens itself (ADR 0003
-  // resolution 11); these are the words that move it to the ceiling.  assert.equal(widenRequested("@gilbert can you file this?"), false);
+  // resolution 11); these are the words that move it to the ceiling.
+  assert.equal(widenRequested("@gilbert can you file this?"), false);
   assert.equal(widenRequested("@gilbert please read the whole conversation"), true);
   assert.equal(widenRequested("read everything, @gilbert"), true);
   assert.equal(widenRequested("@gilbert start from the beginning"), true);

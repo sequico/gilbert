@@ -53,6 +53,11 @@ demo) · `dev:mock:no-future-release` · `typecheck` · `test` · `build`.
 actual style, with deliberate, commented rule exceptions; a11y off). Run with
 `npm run lint` / `npm run lint:fix`; it is part of `prepush` and of the CI
 release pre-check.
+**The gate reports zero, or it has not passed (global user rule, active here).**
+"Pre-existing" is not a category: every error, warning and informational finding
+the gate prints is fixed, whoever wrote the line and whenever it arrived — and a
+non-zero count is work to do, never context to report. Biome 0/0/0, no failing
+test, no skipped test, a dependency audit at zero.
 **Tests assume the runner's local timezone is UTC** (GitHub's default); on a
 non-UTC machine run them as `TZ=UTC npm test` — `prepush` already forces it so
 the local gate matches CI.
