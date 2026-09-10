@@ -217,10 +217,12 @@ record keeps its full shape as the evolution path.
   identity), uses the group's default identity and applies its
   text/HTML signature exactly as the UI composer does — the From is the
   group, and the sent message lands in the group's Sent mailbox so members
-  see what went out. **Proven live (2026-09-10, resolution 12):** the group
-  account carries its own identity for its own address, a member's rights on
-  the group's mailboxes include `maySubmit`, and a submission from the group
-  account with that identity went out and filed itself in the group's Sent.
+  see what went out. **Proven live (2026-09-10, resolutions 12 and 14):**
+  the group account carries its own identity for its own address, a
+  member's rights on
+  the group's mailboxes include `maySubmit` — the agent's own grant too — and
+  a submission from the group account with that identity went out and filed
+  itself in the group's Sent.
   The footer is that identity's signature. The concrete schema
   and editor are pinned when the first use case is implemented.
 - *3 — rule granularity and context*: a rule acts on the single message;
@@ -371,6 +373,25 @@ record keeps its full shape as the evolution path.
   why the destination of extracted attachments is recorded as an open item
   instead of being assumed.
 
+- *14 — the agent principal, live (2026-09-10)*: `gilbert@` exists on the
+  real instance and is granted on a real group. Its app password was created
+  **from the admin session under impersonation** (`x:AppPassword/set` on the
+  target's account) because Stalwart's own administration cannot set one —
+  the exact path resolution 1 records, exercised in production rather than
+  in test. The agent then authenticates with that app password **directly,
+  with no impersonation at boot** (v1 scope), its session shows the group
+  account, its `myRights` on the group's mailboxes include `maySubmit`, and
+  it both reads and creates nodes in the group's own `gilbert/` app folder —
+  so rules, jobs, audit and decisions have a writable home. A submission
+  from that session, with the group's own identity, reached its destination:
+  the submission came back `undoStatus: final` with
+  `smtpReply: "250 2.1.5 Queued"`, and the message filed itself in the
+  group's Sent. The send path is therefore verified for the principal the
+  design actually uses, not only for a member; delivery to an inbox (as
+  opposed to acceptance by the receiving MTA) is not something this side can
+  prove. The bootstrap secret lives in the deployment environment — this
+  record keeps the mechanism, never the credential.
+
 **Operating decisions (owner decisions 2026-09-10):**
 
 - *Failure is loud.* A provider that is unreachable, a refused or expired
@@ -385,7 +406,7 @@ record keeps its full shape as the evolution path.
   kept 12 months, with an export offered before the oldest is pruned —
   growth in Stalwart is bounded by policy, not by disk.
 - *Probes run against the owner's test instance on credentials the owner
-  supplies*; results are recorded as resolutions 12 and 13, and the
+  supplies*; results are recorded as resolutions 12 to 14, and the
   operator-credential alternative carries two more (Open questions, probes
   c and d).
 
@@ -632,10 +653,6 @@ candidate rule semantic (Open questions).
   that `x:AppPassword/get` keeps returning the secret to an impersonating
   admin. Neither is on the default boot path — the agent's own app password
   is — so they matter only if an installation chooses that alternative.
-- To confirm once the agent principal exists: that **gilbert@**'s grant on a
-  group carries the same `maySubmit` right a member's grant does. The
-  mechanism is proven (resolution 12); the agent's own grant is the last
-  variable, and the test is the same submission from `gilbert@`'s session.
 - To pin before switching on extraction: where extracted attachments land.
   A real group's Files are operational and crowded (resolution 13), so the
   destination is a decision, not an implementation detail.
