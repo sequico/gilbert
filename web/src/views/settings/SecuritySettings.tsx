@@ -548,7 +548,13 @@ function AppPasswords({
   );
 }
 
-function CopyableSecret({ value }: { value: string }) {
+/**
+ * A secret rendered exactly once, for the reader to copy (an app password, or
+ * the agent's — both are shown here because neither is ever shown again).
+ * Shared, so the admin surface and the security settings cannot drift into two
+ * slightly different promises about the same kind of value.
+ */
+export function CopyableSecret({ value }: { value: string }) {
   return (
     <div className="row" style={{ gap: 6, alignItems: "center" }}>
       <code

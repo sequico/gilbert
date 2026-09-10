@@ -16,7 +16,6 @@ import {
   createAppPassword,
   disableOtp,
   enableOtp,
-  filesAccountId,
   getState,
   isPasswordChangeForced,
   readGroupLabels,
@@ -30,6 +29,23 @@ import {
   persistPolicyFile,
   policyDocumentText,
 } from "./adminPolicy.js";
+import { agentRuleJsonSchema } from "./agent/documents.js";
+import {
+  AgentAdminError,
+  addAgentLabels,
+  agentStatus,
+  emptyGroupDocuments,
+  groupAgentView,
+  impersonateAs,
+  memberAgentView,
+  pendingApprovals,
+  readProviders,
+  readRules,
+  resolveGroupAccess,
+  rotateAgentAppPassword,
+  saveRules,
+  writeProviders,
+} from "./agentAdmin.js";
 import { resolveClientIp } from "./clientip.js";
 import { config } from "./config.js";
 import { icsProxyHandler } from "./icsproxy.js";
@@ -1319,45 +1335,10 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * group the administrator is not a member of uses impersonation — the same
    * grant the forced-password surface uses — so the administrator's session
    * must be able to impersonate (an app-password sign-in cannot).
+   *
+   * Impersonation and a group's own access are defined once, in
+   * `agentAdmin.ts`, and shared with the agent surfaces (ADR 0003).
    */
-  const impersonateAs = async (
-    session: LiveSession,
-    target: string,
-  ): Promise<
-    | {
-        ok: true;
-        ctx: { authorization: string; session: UpstreamSession; username: string };
-      }
-    | { ok: false; status: 403 | 404 | 502; message: string }
-  > => {
-    const targetAuth = impersonationAuthorization(session, target);
-    if (!targetAuth)
-      return {
-        ok: false,
-        status: 403,
-        message:
-          "This admin session uses an app password, which Stalwart refuses for impersonation. Sign in with your password to administer accounts.",
-      };
-    try {
-      const upstream = await fetchUpstreamSession(targetAuth, upstreamFor(target));
-      return {
-        ok: true,
-        ctx: { authorization: targetAuth, session: upstream, username: target },
-      };
-    } catch (err) {
-      if (err instanceof UpstreamError) {
-        if (err.status === 401)
-          return {
-            ok: false,
-            status: 404,
-            message: "No such account, or it cannot be administered by you.",
-          };
-        return { ok: false, status: 502, message: err.message };
-      }
-      throw err;
-    }
-  };
-
   api.get("/admin/groups", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
     try {
@@ -1385,72 +1366,11 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
   });
 
-  /**
-   * Resolve the group account a catalog lives on (ADR 0006) and the session
-   * to reach it with.
-   *
-   * Membership is the grant: a member of the group already holds the group's
-   * account in their own session, so the catalog is read and written with the
-   * administrator's own credentials — no impersonation. A non-member
-   * administrator falls back to impersonation, which is what Stalwart 0.16
-   * refuses for group mailboxes (live-verified 2026-09-09: the composite
-   * `{group}%{admin}` answers 403), so the answer for them is an honest 403
-   * naming membership as the requirement.
-   */
-  const resolveGroupLabelsAccess = async (
-    session: LiveSession,
-    name: string,
-  ): Promise<
-    | {
-        ok: true;
-        ctx: {
-          authorization: string;
-          session: UpstreamSession;
-          username: string;
-        };
-        accountId: string;
-      }
-    | { ok: false; error: "group_not_accessible"; message: string }
-  > => {
-    const upstream = await getUpstreamSession(
-      session.id,
-      session.authorization,
-      upstreamFor(session.username),
-    );
-    const want = name.trim().toLowerCase();
-    for (const [accountId, account] of Object.entries(upstream.accounts ?? {})) {
-      const a = account as { name?: unknown; isPersonal?: unknown };
-      if (a.isPersonal !== false) continue;
-      if (typeof a.name !== "string") continue;
-      if (a.name.trim().toLowerCase() !== want) continue;
-      return {
-        ok: true,
-        accountId,
-        ctx: {
-          authorization: session.authorization,
-          session: upstream,
-          username: session.username,
-        },
-      };
-    }
-    const imp = await impersonateAs(session, name);
-    if (imp.ok) {
-      const accountId = filesAccountId(imp.ctx);
-      if (accountId) return { ok: true, ctx: imp.ctx, accountId };
-    }
-    return {
-      ok: false,
-      error: "group_not_accessible",
-      message:
-        "Managing a group's labels needs membership of that group: the catalog lives in the group's own files, and this mail server refuses to act as a group mailbox on an administrator's behalf.",
-    };
-  };
-
   api.get("/admin/groups/:name/labels", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
     const name = c.req.param("name") ?? "";
     try {
-      const access = await resolveGroupLabelsAccess(session, name);
+      const access = await resolveGroupAccess(session, name);
       if (!access.ok) {
         return c.json({ error: access.error, message: access.message }, 403);
       }
@@ -1468,7 +1388,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     if (!body || !Array.isArray(body.labels))
       return c.json({ error: "bad_request", message: "labels must be an array" }, 400);
     try {
-      const access = await resolveGroupLabelsAccess(session, name);
+      const access = await resolveGroupAccess(session, name);
       if (!access.ok) {
         return c.json({ error: access.error, message: access.message }, 403);
       }
@@ -1476,6 +1396,178 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       return c.json({ ok: true });
     } catch (err) {
       return upstreamFailure(c, err);
+    }
+  });
+
+  // ---------- The agent worker fleet (ADR 0003) ----------
+  /**
+   * The agent surfaces (ADR 0003): the installation's one agent, the groups
+   * that have granted it, the workers running for it, its per-tier providers,
+   * its app password, and the group documents the fleet works from.
+   *
+   * Membership is not written here — the operator grants the agent in
+   * Stalwart's own administration and these routes verify it — and a
+   * deployment with no agent answers plainly instead of failing.
+   */
+  const agentFailure = (c: Context, err: unknown) => {
+    if (err instanceof AgentAdminError)
+      return c.json({ error: err.code, message: err.message }, err.status as 400);
+    return upstreamFailure(c, err);
+  };
+
+  /**
+   * The published schema of a rule document (ADR 0003 resolution 2).
+   *
+   * What the admin surface authors, in the standard form anything outside this
+   * codebase validates against — and the same catalogue the runtime reads, so
+   * the two cannot drift. Reading it needs no more than the admin shield.
+   */
+  api.get("/admin/agent/rule-schema", requireSession, requireAdmin, (c) =>
+    c.json(agentRuleJsonSchema()),
+  );
+
+  api.get("/admin/agents", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    try {
+      return c.json(await agentStatus(session));
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  /**
+   * A group's agent surface. A group this admin cannot reach answers 200 with
+   * the reason and empty documents rather than 403: "you are not a member" is
+   * a state of the surface, not a failed request — and per ADR 0006 a
+   * non-member admin has no act-as-the-group path at all, so the surface says
+   * which membership a section needs instead of failing at the door.
+   */
+  api.get("/admin/groups/:name/agent", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    const name = c.req.param("name") ?? "";
+    const agentAddress = config.agent.address.trim();
+    try {
+      const access = await resolveGroupAccess(session, name);
+      if (!access.ok)
+        return c.json({
+          group: name,
+          granted: false,
+          agentAddress,
+          reason: access.message,
+          ...emptyGroupDocuments(),
+        });
+      const view = await groupAgentView(access, access.accountId);
+      return c.json({ group: name, agentAddress, ...view });
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  api.get("/admin/groups/:name/agent/rules", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    const name = c.req.param("name") ?? "";
+    try {
+      const access = await resolveGroupAccess(session, name);
+      if (!access.ok)
+        return c.json({ error: access.error, message: access.message }, 403);
+      return c.json({ rules: await readRules(access, access.accountId) });
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  api.post("/admin/groups/:name/agent/rules", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    const name = c.req.param("name") ?? "";
+    const body = await readJson<{ rules?: unknown }>(c);
+    if (!body || !Array.isArray(body.rules))
+      return c.json({ error: "bad_request", message: "rules must be an array" }, 400);
+    try {
+      const access = await resolveGroupAccess(session, name);
+      if (!access.ok)
+        return c.json({ error: access.error, message: access.message }, 403);
+      const rules = await saveRules(access, access.accountId, body.rules);
+      return c.json({ ok: true, rules });
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  api.get("/admin/agent/providers", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    try {
+      return c.json(await readProviders(session));
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  api.post("/admin/agent/providers", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    const body = await readJson<{ providers?: unknown }>(c);
+    if (!body)
+      return c.json({ error: "bad_request", message: "providers is required" }, 400);
+    try {
+      await writeProviders(session, body.providers);
+      return c.json({ ok: true });
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  /** The one response that carries the agent's app-password secret, once. */
+  api.post("/admin/agent/app-password", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    try {
+      return c.json(await rotateAgentAppPassword(session));
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  api.post(
+    "/admin/groups/:name/agent/labels",
+    requireSession,
+    requireAdmin,
+    async (c) => {
+      const session = c.get("session");
+      const name = c.req.param("name") ?? "";
+      try {
+        const access = await resolveGroupAccess(session, name);
+        if (!access.ok)
+          return c.json({ error: access.error, message: access.message }, 403);
+        const { added } = await addAgentLabels(access, access.accountId);
+        return c.json({ ok: true, added });
+      } catch (err) {
+        return agentFailure(c, err);
+      }
+    },
+  );
+
+  api.get("/admin/agent/approvals", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    try {
+      return c.json({ approvals: await pendingApprovals(session) });
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  /**
+   * The member's view of a group's agent — `requireSession` and nothing more,
+   * because a member is not an administrator and this surface exists for
+   * exactly them (ADR 0003, "Members see, never change"). It reads the group's
+   * own documents and writes nothing, ever.
+   */
+  api.get("/agent/group/:name", requireSession, async (c) => {
+    const session = c.get("session");
+    const name = c.req.param("name") ?? "";
+    try {
+      const view = await memberAgentView(session, name);
+      if ("ok" in view) return c.json({ error: view.error, message: view.message }, 403);
+      return c.json(view);
+    } catch (err) {
+      return agentFailure(c, err);
     }
   });
 

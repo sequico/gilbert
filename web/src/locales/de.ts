@@ -186,6 +186,12 @@ export const catalog: Catalog = {
     "Remove attachment": "Anhang entfernen",
     "Has attachment": "Hat Anhang",
     "Has the words": "Enthält die Wörter",
+    // The agent's automation filter fields (ADR 0003): a condition is read as
+    // a sentence, so the German keeps the same shape.
+    "Subject contains": "Betreff enthält",
+    "From contains": "Absender enthält",
+    "Has keyword": "Hat Schlagwort",
+    "Not keyword": "Hat Schlagwort nicht",
     "Header name": "Name der Kopfzeile",
     "Show headers": "Kopfzeilen anzeigen",
     "Show original": "Original anzeigen",

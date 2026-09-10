@@ -1,11 +1,19 @@
-import { config } from "./config.js";
-import { generateSecret, otpauthUrl, parseOtpauthUrl, verifyTotp } from "./totp.js";
 import {
-  absoluteUpstream,
-  expandTemplate,
-  UpstreamError,
-  type UpstreamSession,
-} from "./upstream.js";
+  type Ctx,
+  destroyAppNode,
+  downloadBlobText,
+  filesAccountId,
+  findAppFileAt,
+  writeAppFile,
+} from "./appFolder.js";
+import { config } from "./config.js";
+import { type Invocation, JmapClient, STALWART_CAP } from "./jmap.js";
+import { GROUP_LABELS_FILE } from "./shared/labels.js";
+import { generateSecret, otpauthUrl, parseOtpauthUrl, verifyTotp } from "./totp.js";
+import { UpstreamError } from "./upstream.js";
+
+export type { Ctx };
+export { filesAccountId };
 
 /**
  * Self-service credential management, over Stalwart's JMAP registry:
@@ -17,8 +25,6 @@ import {
  * the registry is known to be there.
  */
 
-const STALWART_CAP = "urn:stalwart:jmap";
-const JMAP_CORE = "urn:ietf:params:jmap:core";
 /** Stalwart's id for a singleton object; the number it encodes spells this. */
 const SINGLETON = "singleton";
 /** Returned in place of a stored secret; echo it back to leave one unchanged. */
@@ -48,12 +54,6 @@ export class AccountError extends Error {
   }
 }
 
-interface Ctx {
-  authorization: string;
-  session: UpstreamSession;
-  username: string;
-}
-
 /* ------------------------------------------------------------------ */
 /* Transport                                                           */
 /* ------------------------------------------------------------------ */
@@ -67,31 +67,22 @@ function accountId(ctx: Ctx): string {
   );
 }
 
-type Invocation = [string, Record<string, unknown>, string];
+function clientOf(ctx: Ctx): JmapClient {
+  return new JmapClient(ctx.authorization, ctx.session);
+}
 
+/**
+ * One JMAP request, in the shape this module's call sites read.
+ *
+ * The transport itself is `JmapClient`'s; this only keeps the `{ methodResponses }`
+ * wrapper the `/set` result reader below expects.
+ */
 async function jmap(
   ctx: Ctx,
   methodCalls: Invocation[],
   using: string[] = [],
 ): Promise<{ methodResponses?: [string, unknown, string][] }> {
-  const res = await fetch(absoluteUpstream(ctx.session.apiUrl, ctx.session.baseUrl), {
-    method: "POST",
-    headers: {
-      authorization: ctx.authorization,
-      "content-type": "application/json",
-      accept: "application/json",
-    },
-    body: JSON.stringify({
-      using: [...new Set([JMAP_CORE, STALWART_CAP, ...using])],
-      methodCalls,
-    }),
-    signal: AbortSignal.timeout(config.upstreamTimeout),
-  });
-  if (res.status === 401 || res.status === 403)
-    throw new UpstreamError("Invalid credentials", 401);
-  if (!res.ok)
-    throw new UpstreamError(`Stalwart rejected the request (${res.status})`, 502);
-  return (await res.json()) as { methodResponses?: [string, unknown, string][] };
+  return { methodResponses: await clientOf(ctx).request(methodCalls, using) };
 }
 
 /**
@@ -346,179 +337,7 @@ export { MASKED };
  * filter by `name` — a filter the server does not know fails the whole query
  * (checked on 0.16.19, 2026-08-27; see `web/src/lib/appFolder.ts`).
  */
-export const APP_FOLDER_NAME = "gilbert";
 export const PASSWORD_CHANGE_DIRECTIVE = "must-change-password.json";
-export const GROUP_LABELS_FILE = "labels.json";
-
-const FILENODE_CAP = "urn:ietf:params:jmap:filenode";
-/** Properties needed to find a node by name and parent. */
-const FOLDER_PROPS = ["id", "name", "nodeType", "parentId"];
-const FILE_PROPS = ["id", "name", "parentId", "blobId", "type", "nodeType"];
-
-interface FileNodeLike {
-  id?: unknown;
-  name?: unknown;
-  parentId?: unknown;
-  blobId?: unknown;
-  nodeType?: unknown;
-  type?: unknown;
-}
-
-/**
- * The account that owns this principal's Files.
- *
- * The client reads and writes its own state through `ownAccountFor(CAP.filenode)`
- * (`web/src/lib/accountRouting.ts`): the primary filenode account when it is
- * personal, else the first personal account advertising the capability. The
- * server resolves the same way, so the directive lands exactly where the
- * client's settings live.
- *
- * Exported for the admin group-label surface (ADR 0006), which resolves the
- * account of an *impersonated* group session the same way.
- */
-export function filesAccountId(ctx: Ctx): string {
-  const prim = ctx.session.primaryAccounts?.[FILENODE_CAP];
-  if (prim) {
-    const account = ctx.session.accounts?.[prim] as { isPersonal?: unknown } | undefined;
-    if (account?.isPersonal !== false) return prim;
-  }
-  for (const [id, acc] of Object.entries(ctx.session.accounts ?? {})) {
-    const a = acc as {
-      isPersonal?: unknown;
-      accountCapabilities?: Record<string, unknown>;
-    };
-    if (a.isPersonal !== false && a.accountCapabilities?.[FILENODE_CAP]) return id;
-  }
-  return "";
-}
-
-async function jmapFile(
-  ctx: Ctx,
-  methodCalls: Invocation[],
-): Promise<{ methodResponses?: [string, unknown, string][] }> {
-  return jmap(ctx, methodCalls, [FILENODE_CAP]);
-}
-
-/** One level of the Files tree: the top level, or the children of a folder. */
-async function fileChildren(
-  ctx: Ctx,
-  accountId: string,
-  parentId: string | null,
-  properties: string[],
-): Promise<FileNodeLike[]> {
-  const filter = parentId ? { parentId } : { isTopLevel: true };
-  const res = await jmapFile(ctx, [
-    ["FileNode/query", { accountId, filter, limit: 1000 }, "q"],
-    [
-      "FileNode/get",
-      {
-        accountId,
-        "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
-        properties,
-      },
-      "g",
-    ],
-  ]);
-  const g = res.methodResponses?.find((r) => r[2] === "g");
-  if (!g || g[0] === "error") {
-    const err = (g?.[1] as { type?: string; description?: string } | undefined) ?? {};
-    throw new AccountError(
-      err.description ?? "The mail server could not read the account's files.",
-      err.type === "forbidden" ? 403 : 502,
-      err.type ?? "upstream",
-    );
-  }
-  const list = (g[1] as { list?: unknown }).list;
-  return Array.isArray(list) ? (list as FileNodeLike[]) : [];
-}
-
-/** Upload a JSON blob for this principal and return its id. */
-async function uploadJsonBlob(
-  ctx: Ctx,
-  accountId: string,
-  value: unknown,
-): Promise<string> {
-  const url = absoluteUpstream(
-    expandTemplate(ctx.session.uploadUrl, { accountId }),
-    ctx.session.baseUrl,
-  );
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      authorization: ctx.authorization,
-      "content-type": "application/json",
-      accept: "application/json",
-    },
-    body: JSON.stringify(value),
-    signal: AbortSignal.timeout(config.upstreamTimeout),
-  });
-  if (res.status === 401 || res.status === 403)
-    throw new UpstreamError("Invalid credentials", 401);
-  if (!res.ok)
-    throw new UpstreamError(`Stalwart rejected the upload (${res.status})`, 502);
-  const body = (await res.json()) as { blobId?: unknown };
-  if (typeof body.blobId !== "string")
-    throw new AccountError(
-      "The mail server accepted the upload but returned no blob id.",
-      502,
-      "upstream",
-    );
-  return body.blobId;
-}
-
-/** Read a blob back as text over the principal's own download path. */
-async function downloadBlobText(
-  ctx: Ctx,
-  accountId: string,
-  blobId: string,
-  type: string,
-  name: string = PASSWORD_CHANGE_DIRECTIVE,
-): Promise<string> {
-  const url = absoluteUpstream(
-    expandTemplate(ctx.session.downloadUrl, {
-      accountId,
-      blobId,
-      name,
-      type,
-    }),
-    ctx.session.baseUrl,
-  );
-  const res = await fetch(url, {
-    headers: { authorization: ctx.authorization },
-    signal: AbortSignal.timeout(config.upstreamTimeout),
-  });
-  if (res.status === 401 || res.status === 403)
-    throw new UpstreamError("Invalid credentials", 401);
-  if (!res.ok)
-    throw new UpstreamError(
-      `Stalwart refused the download (${res.status})`,
-      res.status === 404 ? 404 : 502,
-    );
-  return await res.text();
-}
-
-/**
- * A named file in the app folder, when present. `folderId` is empty when the
- * folder does not exist; `file` is null when the file does not.
- */
-async function findAppFile(
-  ctx: Ctx,
-  accountId: string,
-  name: string,
-): Promise<{ folderId: string; file: FileNodeLike | null }> {
-  const top = await fileChildren(ctx, accountId, null, FOLDER_PROPS);
-  const folder = top.find(
-    (n) => n.parentId == null && n.nodeType === "directory" && n.name === APP_FOLDER_NAME,
-  );
-  if (!folder?.id) return { folderId: "", file: null };
-  const folderId = String(folder.id);
-  const files = await fileChildren(ctx, accountId, folderId, FILE_PROPS);
-  const file =
-    files.find(
-      (n) => n.nodeType === "file" && n.name === name && typeof n.blobId === "string",
-    ) ?? null;
-  return { folderId, file };
-}
 
 /**
  * Whether the principal's own account carries a valid directive.
@@ -533,7 +352,7 @@ export async function isPasswordChangeForced(ctx: Ctx): Promise<boolean> {
   try {
     const accountId = filesAccountId(ctx);
     if (!accountId) return false;
-    const { file } = await findAppFile(ctx, accountId, PASSWORD_CHANGE_DIRECTIVE);
+    const { file } = await findAppFileAt(ctx, accountId, PASSWORD_CHANGE_DIRECTIVE);
     if (!file) return false;
     let text: string;
     try {
@@ -564,78 +383,6 @@ export async function isPasswordChangeForced(ctx: Ctx): Promise<boolean> {
 }
 
 /** The account's own `gilbert` app folder, creating it when missing. */
-async function ensureAppFolder(ctx: Ctx, accountId: string): Promise<string> {
-  const top = await fileChildren(ctx, accountId, null, FOLDER_PROPS);
-  const existing = top.find(
-    (n) => n.parentId == null && n.nodeType === "directory" && n.name === APP_FOLDER_NAME,
-  );
-  if (existing?.id) return String(existing.id);
-  const res = await jmapFile(ctx, [
-    [
-      "FileNode/set",
-      {
-        accountId,
-        create: { d: { parentId: null, name: APP_FOLDER_NAME, nodeType: "directory" } },
-      },
-      "s",
-    ],
-  ]);
-  const created = setResult(res, "created");
-  if (!created || typeof created.id !== "string")
-    throw new AccountError(
-      "The mail server created the app folder but returned no id.",
-      502,
-      "upstream",
-    );
-  return created.id;
-}
-
-/**
- * Write (or replace) a named JSON document in the app folder, creating the
- * folder when missing. `value` is serialised by the upload path.
- */
-async function writeAppFile(
-  ctx: Ctx,
-  accountId: string,
-  name: string,
-  value: unknown,
-): Promise<void> {
-  const folderId = await ensureAppFolder(ctx, accountId);
-  const blobId = await uploadJsonBlob(ctx, accountId, value);
-  const { file } = await findAppFile(ctx, accountId, name);
-  const type = "application/json";
-  if (file?.id) {
-    const res = await jmapFile(ctx, [
-      [
-        "FileNode/set",
-        { accountId, update: { [String(file.id)]: { blobId, type } } },
-        "s",
-      ],
-    ]);
-    setResult(res, "updated");
-  } else {
-    const res = await jmapFile(ctx, [
-      [
-        "FileNode/set",
-        {
-          accountId,
-          create: {
-            n: {
-              parentId: folderId,
-              name,
-              blobId,
-              type,
-              nodeType: "file",
-            },
-          },
-        },
-        "s",
-      ],
-    ]);
-    setResult(res, "created");
-  }
-}
-
 /**
  * Write (or refresh) the directive naming `setBy`, the administrator who
  * set it. Creates the account's `gilbert` app folder when it does not exist
@@ -662,12 +409,13 @@ export async function setPasswordChangeDirective(ctx: Ctx, setBy: string): Promi
 export async function clearPasswordChangeDirective(ctx: Ctx): Promise<void> {
   const accountId = filesAccountId(ctx);
   if (!accountId) return;
-  const { folderId, file } = await findAppFile(ctx, accountId, PASSWORD_CHANGE_DIRECTIVE);
+  const { folderId, file } = await findAppFileAt(
+    ctx,
+    accountId,
+    PASSWORD_CHANGE_DIRECTIVE,
+  );
   if (!folderId || !file?.id) return;
-  const res = await jmapFile(ctx, [
-    ["FileNode/set", { accountId, destroy: [String(file.id)] }, "s"],
-  ]);
-  setResult(res, "destroyed");
+  await destroyAppNode(ctx, accountId, String(file.id));
 }
 
 /* ------------------------------------------------------------------ */
@@ -680,7 +428,7 @@ export async function readGroupLabels(
   accountId: string,
 ): Promise<unknown[] | null> {
   if (!accountId) return null;
-  const { file } = await findAppFile(ctx, accountId, GROUP_LABELS_FILE);
+  const { file } = await findAppFileAt(ctx, accountId, GROUP_LABELS_FILE);
   if (!file) return null;
   try {
     const text = await downloadBlobText(

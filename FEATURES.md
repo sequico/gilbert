@@ -1205,6 +1205,86 @@ every change that touches a feature and on every upstream merge (repo rule:
 
 ---
 
+# Agents
+
+Gilbert's own agents: a Stalwart account of its own — a *structure agent*, e.g.
+`gilbert@…` — that acts inside mail and file storage for the groups the
+operator has granted it (ADR 0003). Gilbert's own agents now, external agent
+fleets later.
+
+- **The agent is a mailbox.** It exists as an ordinary account in Stalwart's
+directory, created by the operator in Stalwart's own administration, and it is
+**granted** on a group the same way any principal is. Membership is the
+grant: there is no second, in-product activation switch, so a group the agent
+can see is a group it works for, and a group it cannot see is untouched. The
+Gilbert admin surface *verifies* the grant per group and says plainly when it
+is missing — it never writes one.
+- **One bootstrap secret.** The worker authenticates as the agent with the
+agent's own app password (`GILBERT_AGENT_ADDRESS`, `GILBERT_AGENT_PASSWORD`,
+or a mounted `GILBERT_AGENTS_FILE`). Nothing derives it, nothing impersonates
+at boot, and nothing durable is kept on the worker's disk: the session is
+re-established at every start, so the container stays disposable and
+`IMMUTABLE=1` holds. The admin surface rotates the app password through JMAP
+under impersonation and shows the new secret once.
+- **Automations, not rules written in code.** The admin surface authors one
+document per automation, as a form — “Quando [evento] / Se [filtri] / Allora
+[azioni]” — validated against the JMAP filter grammar (RFC 8621) and the
+named-action catalogue. No new rule language, and Sieve keeps the
+delivery-time boundary.
+- **Three tiers.** T0 is deterministic and calls no model; T1 asks a small
+model to pick a category and runs that category's fixed actions; T2 gives the
+automation's instruction to a model that decides and executes. The model
+actions are the same capability-gated catalogue in every tier, inside the
+agent's own access, and every run is audited — a model cannot widen its own
+permissions. Model providers and their keys are configured per tier, so
+different tiers can run on different vendors or on a local model.
+- **Labels, not folders.** `G-needattention`, `G-processed`, `G-awaiting`,
+`G-rejected` mark Gilbert's processing state on the individual message; the
+catalog is created from the admin surface once the grant exists. State is per
+message: a reply arriving in an already-processed thread starts unlabelled and
+is evaluated on its own, and it is shown on that message — never aggregated
+onto a thread or list row, and never offered in the manual label picker, which
+stay the reader's own labels. Moving a message is a separate, content-driven
+action; the agent never moves mail just to record a state.
+- **Approvals happen in the group's chat.** An automation with a review policy
+pauses, writes a decision, prepares the draft in the group's own Drafts (kept
+unread so a person sees it) and posts the proposal in the chat. Any member may
+answer in words; the conversation is the interface, not a button. Nothing that
+leaves the group is ever sent on a guessed approval — an external send always
+needs explicit consent, whatever the policy says.
+- **The worker is its own process.** The same image and codebase as the server,
+a second entrypoint (`npm run agent`), never a replica of the web tier. It
+holds the agent's event stream, wakes on it, and reconciles from the last
+state it recorded; polling is the fallback after a lost stream. Work claims
+live in the documents themselves, so no coordinator exists and none is needed:
+one process per area, several areas per agent, and a crashed worker's claims
+are re-taken by whoever is running. It answers a health probe when the
+deployment names a port (`GILBERT_AGENT_HEALTH_PORT`), reporting the accounts
+it actually holds, so a restart policy can tell "running" from "running and
+serving nothing".
+- **Members see, never change.** Next to the group's chat, an indicator opens
+the group's agent surface: which agent works for the group, what instructions
+it carries, what it has done. Everything a member reads lives in the group's
+own account, so a member added later sees all of it; nothing there is editable
+from the product.
+- **Where the documents live.** Rules, jobs, decisions, claims, the schedule
+and the audit trail are documents in the group's own `gilbert` app folder —
+what members may read. The agent's own account holds its configuration, the
+provider keys and the worker heartbeats. Nothing durable is kept anywhere else:
+no database, no volume.
+- **Failures are loud.** An unreachable provider, a refused key or a malformed
+answer never skips work silently: the run is recorded in the audit, the
+message lands in `G-needattention`, and the group's chat is told which
+automation could not finish. The audit is one document per month per group,
+kept twelve months and pruned a month at a time; the documents sit in the
+group's own Files, which is where a copy can be taken before the oldest
+goes.
+- **Not in this layer**: agents for individual users (group agents only),
+external agent fleets (a future decision; A2A stays the recorded candidate),
+and mail notifications — the group's chat is the one channel.
+
+---
+
 # Live updates and notifications
 
 - **JMAP push over EventSource**, proxied by Gilbert's server so the browser

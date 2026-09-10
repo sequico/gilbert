@@ -17,7 +17,15 @@
     "noEmit": true,
     "types": ["vite/client"],
     "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] }
+    "paths": {
+      "@/*": ["src/*"],
+      // The canonical durable formats both tiers share (chat documents, the
+      // label catalog and the reserved agent labels) live in the server tree,
+      // because the server is the tier that validates and stores them. The
+      // client imports them, never a copy (SSOT).
+      "@gilbert/shared/*": ["../server/src/shared/*"],
+      "@gilbert/agent/*": ["../server/src/agent/*"]
+    }
   },
   "include": ["src", "vite.config.ts"]
 }
