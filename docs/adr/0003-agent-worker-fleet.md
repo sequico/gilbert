@@ -427,15 +427,14 @@ record keeps its full shape as the evolution path.
   the limit is the allowlist and the consent floor.
 
 - *18 — the reliability decisions of the first branch review (owner decision
-  2026-09-10, all as recommended)*. The review of the whole branch found one
-  blocker and a set of failure paths that were reachable by a crash, by two
-  workers, or by a model choosing a name. All of them are settled here:
+  2026-09-10, all as recommended)*. These are the failure paths a crash, two
+  workers, or a model choosing a name can reach, and every one of them is
+  settled here:
 
   - **The claim's compare-and-set token is read before the claim document**
     (`lease.ts`). Read the other way round, a claim written by another worker
     between the two reads is invisible to the comparison — the token already
-    reflects it — and both workers walk away believing they hold the unit. This
-    was the blocker.
+    reflects it — and both workers walk away believing they hold the unit.
   - **Claims carry an epoch**, incremented on takeover and never on renewal, and
     a run asks `claimStillMine` before anything leaves the process: sending,
     posting, filing. A worker whose lease lapsed stops instead of writing
@@ -499,12 +498,75 @@ record keeps its full shape as the evolution path.
   arrives as `stateMismatch`, that it is not masked as `invalidArguments`, that
   the FileNode state token advances on the writes that matter, and whether a
   blob upload (which writes no node) advances it at all. The mock simulates all
-  of this and its own comment says it was never checked against a live server.
-  The owner postponed the probe: **it is owed before the fleet depends on lease
-  and job coordination in production**, and the code carries the same note where
-  the assumption lives (`server/src/mock/index.ts`, beside the simulated check).
-  Until it is run, the tests prove the client's logic against the simulation,
-  not the server's behaviour.
+  of it; no live instance has been asked. **The probe is owed before the fleet
+  depends on lease and job coordination in production**, and the code carries
+  the same note where the assumption lives (`server/src/mock/index.ts`, beside
+  the simulated check). Until it is run, the tests prove the client's logic
+  against the simulation, not the server's behaviour.
+
+- *20 — the reliability decisions of the second branch review (owner decision
+  2026-09-10)*. The second review of the branch found the failure paths that
+  remain once a worker, a retry and a reader each behave badly at once: a run
+  whose process is gone, a retry that would repeat an effect, a claim written
+  back from nothing, an audit entry that never lands, a document that is there
+  but unreadable, a filter that is not one, a credential that outlives the
+  surface that promises otherwise, and one answer shape declared twice. Each
+  is settled here:
+
+  - **A job left `running` is not left to nobody.** `runPending` takes up a
+    `running` job whose lease has expired, so the work a dead worker was
+    holding is finished by the next pass — and, with the deduplication key
+    suppressing every new job on the same trigger, a job nothing picks up
+    again is that trigger's work never happening at all. A run whose lease
+    expires and that no worker comes back for ends with the audit outcome
+    **`timeout`**, not `failed`: it is an outcome of its own, because nothing
+    reported a failure — the process that would have reported it is the one
+    that is gone.
+  - **Effects are recorded, and a retry resumes instead of repeating.** A
+    run's plan is written onto the job **before** the first effect, and a
+    retry reuses it rather than asking the model again: re-planning would run
+    a plan nobody approved, and the record of what already landed would stop
+    meaning anything. The job carries `applied[]`, the actions that landed in
+    order, and the next pass starts after them. A job whose plan reaches
+    outside the group's own state — it sends, or it writes where people look —
+    is **not retried at all**, because repeating it is either a second message
+    or an effect nobody can take back; it is dead-lettered. Between one attempt
+    and the next sits an explicit backoff (`nextAttemptAt`), because three
+    attempts taken back to back are one attempt against a provider that is
+    down.
+  - **A released claim stays released.** `saveClaimStates` never recreates a
+    claim that is no longer there: the anchor is written against the document
+    it read, so a state saved after the unit was given up cannot put the unit
+    back into service. `claimArea` says **why** it refused — held under a live
+    lease, lost the compare-and-set — instead of returning one `null` for
+    every reason, because a caller that cannot tell "somebody else holds it"
+    from "I lost a race" can report neither.
+  - **An audit entry that does not land is retried, then carried.** The append
+    retries its conditional write with backoff and jitter, and an entry that
+    still does not pass is queued and retried on the next pass rather than
+    lost. Two limits are accepted and declared rather than hidden: the
+    granularity stays **monthly** — one document per month, so the blob every
+    append reloads grows with the month and the window in which two writers
+    contend grows with it — and the carry-over queue is **in memory**, so a
+    restart of the process loses it.
+  - **A document that is there but unreadable is not a document that is
+    absent.** The audit refuses to read one as an empty month: missing is an
+    empty month, there-but-unreadable is loud and a person decides. It is the
+    answer the write already gives.
+  - **An empty `operator` group is not a filter.** A group with no conditions
+    is refused: `AND` over nothing is true, `OR` over nothing is false and
+    `NOT` over nothing matches every message in the account, so a rule written
+    that way is armed and does something nobody wrote.
+  - **Rotating the agent's app password leaves the previous credentials valid,
+    and says how many.** The rotation keeps what is already in use working on
+    purpose — a revocation would stop the agent's work the moment it was made —
+    and the API reports how many it left valid (`alsoValid`), so the surface
+    states the window instead of promising a revocation it does not perform.
+  - **The agent API's response shapes have one definition.**
+    `server/src/agent/views.ts` declares them, and both the routes that build
+    the answers and the client that reads them import it. Declared twice, a
+    field added on one side and forgotten on the other compiles on both tiers
+    and arrives as `undefined` on one.
 
 **Operating decisions (owner decisions 2026-09-10):**
 
@@ -581,11 +643,15 @@ already lives by, minus the browser.
   owner + heartbeat on the documents being worked, re-claimed when stale (the
   expected-owner patch is the CAS substitute); per-job retries with backoff;
   dead-letter after N attempts. A job records the rule `id` and `version` it
-  was created from, so an in-flight job keeps executing against the rule
-  version it started with after the rule document is updated (running
-  executions keep their version — §7). A job stopped in `awaiting_approval`
-  waits on a person and is resumable after any worker restart: its state is
-  the document.
+  was created from, and a run whose pinned version is no longer the rule's
+  current one does not start: it is dead-lettered with a `failed`, because a
+  job never runs a version nobody approved (§7) — the executor refuses the
+  mismatch and says so in the trail. Editing a rule therefore costs the work
+  in flight on it, a corrected typo included, and nothing replays that work,
+  because the job carries the version *number* and not the body of the rule.
+  That is the trade: a job lost loudly, against an effect run under a version
+  nobody approved. A job stopped in `awaiting_approval` waits on a person and
+  is resumable after any worker restart: its state is the document.
 - **Audit trail**: every run appends one entry to an audit-log document
   (input state, rule id and version, actions taken, outcome), so what an
   agent did — and under which rule version — is answerable from Stalwart
@@ -638,10 +704,13 @@ What the survey locks in:
   the group is asked in its own chat (resolution 10) and the worker resumes
   only on an approved state change — the analogue of LangGraph's
   interrupts.
-- **Rules are versioned and in-flight jobs are pinned to their start
-  version** (Conductor: "running executions continue on the version they
-  started with"). There is no replay-compatibility problem because this
-  design never replays.
+- **Rules are versioned, and a job names the version it was created from**
+  (Conductor's versioned definitions, the same concern read the other way).
+  A pinned version that is no longer the rule's current one is refused rather
+  than run — the job is dead-lettered with a `failed` — because the job
+  carries the version *number* and not the rule, and an effect under a version
+  nobody approved is worse than a job lost loudly. There is no
+  replay-compatibility problem because this design never replays.
 - **Audit is an append-only per-run event log** (LangSmith/Conductor-style
   observability), stored as a Stalwart document — §4.
 - **Deterministic routing first, a model only where needed** (Inngest
@@ -727,9 +796,10 @@ candidate rule semantic (Open questions).
 - A job stopped in `awaiting_approval` may wait indefinitely on a person;
   it must survive any worker restart (its state is the document) and must
   never be re-claimed as stale while it is legitimately paused.
-- Rule documents carry an `id` and `version`; upgrading a rule leaves
-  in-flight jobs on their starting version and the audit log records which
-  version each run used.
+- Rule documents carry an `id` and `version`; the audit log records which
+  version each run used, and editing a rule ends the runs pinned to the older
+  version, which are dead-lettered (§4, §7). A rule edit is therefore also a
+  decision about the work already in flight on that rule.
 - Agent work can be slow by design: a reconcile may call an external model
   or wait on a person, so leases and heartbeat intervals must tolerate
   pauses far longer than the request/response web tier's.

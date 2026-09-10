@@ -426,6 +426,40 @@ test("a filter that is valid and could never fire is refused, not accepted", () 
   assert.deepEqual(ruleProblems(fine), []);
 });
 
+test("a group with no conditions is refused, whichever operator groups it", () => {
+  // An empty group is not "no filter": `AND` over nothing is true, `OR` over
+  // nothing is false, and `NOT` over nothing matches every message in the
+  // account. A rule like that is armed and does something nobody wrote, so the
+  // author is refused rather than left with a surprise in the trail.
+  for (const operator of ["AND", "OR", "NOT"]) {
+    const grouped = rule({
+      trigger: { on: "email", filter: { operator, conditions: [] } },
+    });
+    assert.ok(
+      ruleProblems(grouped).some((problem) => /has none/.test(problem)),
+      `${operator} with no conditions is refused`,
+    );
+  }
+
+  // The shape without a conditions list at all is the same defect, and refused
+  // the same way rather than reaching the matcher.
+  const missing = rule({ trigger: { on: "email", filter: { operator: "AND" } } });
+  assert.ok(
+    ruleProblems(missing).some((problem) => /has none/.test(problem)),
+    "an operator without its conditions is refused too",
+  );
+
+  const fine = rule({
+    trigger: { on: "email", filter: { operator: "NOT", conditions: [] } },
+  });
+  assert.deepEqual(
+    schemaProblems(fine),
+    [],
+    "the published schema still accepts the shape",
+  );
+  assert.ok(ruleProblems(fine).length > 0, "and the authoring rules are what refuses it");
+});
+
 test("the material each tier runs on is checked for being there, not just typed", () => {
   // `""` is a string, so the schema is satisfied and the model is asked
   // nothing; the emptiness is a rule the document cannot state.

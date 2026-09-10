@@ -418,11 +418,33 @@ function sentAtOf(opts: ActionOpts): string {
  * The first failure throws: a job records one outcome, and half a proposal
  * applied in silence is exactly the failure mode "failure is loud" rules out.
  */
+/**
+ * What the caller wants to know while the actions run, and when to stop.
+ *
+ * Separate from `ActionOpts` on purpose: those are what the actions read, these
+ * are the caller's own concerns — a ledger a retry resumes from, and a fence
+ * asked before anything leaves the process.
+ */
+export interface ActionHooks {
+  /**
+   * After an action has landed and before the next one starts: the executor
+   * records it on the job, so a retry resumes after it instead of doing it
+   * twice.
+   */
+  onApplied?: (action: AgentAction) => Promise<void>;
+  /**
+   * Before an action that leaves the process. A rejection stops the run here,
+   * which is the point: a unit somebody else has taken over does nothing more.
+   */
+  beforeAction?: (action: AgentAction) => Promise<void>;
+}
+
 export async function runActions(
   ctx: Ctx,
   accountId: string,
   actions: ReadonlyArray<AgentAction>,
   opts: ActionOpts = {},
+  hooks: ActionHooks = {},
 ): Promise<ActionResult[]> {
   const client = new JmapClient(ctx.authorization, ctx.session);
   const results: ActionResult[] = [];
@@ -431,7 +453,9 @@ export async function runActions(
     if (missing.length)
       throw new Error(`"${action.do}" needs ${missing.join(", ")} to run`);
     try {
+      await hooks.beforeAction?.(action);
       results.push(await runOne(ctx, client, accountId, action, opts));
+      await hooks.onApplied?.(action);
     } catch (err) {
       throw new Error(
         `"${action.do}" failed: ${err instanceof Error ? err.message : String(err)}`,

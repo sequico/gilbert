@@ -31,14 +31,10 @@ import {
   AGENT_INSTRUCTION_MAX,
   AGENT_JOB_OPEN_STATES,
   AGENT_MODEL_TIERS,
-  type AgentArea,
   type AgentAuditEntry,
   type AgentConfigDoc,
-  type AgentDecision,
-  type AgentJob,
   type AgentProvider,
   type AgentRule,
-  type AgentScheduleEntry,
   type AgentTier,
   type AgentWorkerRecord,
   isAgentRule,
@@ -47,6 +43,18 @@ import {
   ruleProblems,
 } from "./agent/documents.js";
 import { AgentStore } from "./agent/store.js";
+// The shapes this API answers with have one definition, shared with the client
+// that reads them (SSOT): `server/src/agent/views.ts`. Declaring them here as
+// well is what let a field exist on one side and not the other.
+import type {
+  AgentGroupDocuments,
+  AgentProvidersView,
+  AgentStatus,
+  AgentStatusWorker,
+  GroupInstructionView,
+  MemberAgentView,
+  PendingApproval,
+} from "./agent/views.js";
 import { type Ctx, filesAccountId } from "./appFolder.js";
 import { config } from "./config.js";
 import { JmapError } from "./jmap.js";
@@ -350,30 +358,6 @@ async function agentStore(
 /* The status surface                                                  */
 /* ------------------------------------------------------------------ */
 
-/** One running worker, with freshness judged here rather than stored. */
-export interface AgentStatusWorker {
-  id: string;
-  address: string;
-  areas: AgentArea[];
-  heartbeatAt: string;
-  version: string;
-  alive: boolean;
-}
-
-export interface AgentStatus {
-  configured: boolean;
-  /** The registered agent's address; empty when the installation has none. */
-  address: string;
-  groups: Array<{ name: string; granted: boolean }>;
-  workers: AgentStatusWorker[];
-  /**
-   * Why the fleet cannot be read, when it cannot. `configured: false` plus this
-   * line is the honest answer for an installation with no agent, for an
-   * unreachable one, and for a deployment whose secret no longer matches.
-   */
-  reason?: string;
-}
-
 /**
  * What the installation's fleet looks like right now.
  *
@@ -454,15 +438,6 @@ async function readWorkers(ctx: Ctx): Promise<AgentStatusWorker[]> {
 /* A group's documents                                                 */
 /* ------------------------------------------------------------------ */
 
-export interface AgentGroupView {
-  rules: AgentRule[];
-  jobs: AgentJob[];
-  decisions: AgentDecision[];
-  audit: AgentAuditEntry[];
-  schedule: AgentScheduleEntry[];
-  granted: true;
-}
-
 /**
  * The documents of a group the admin cannot reach, in the shape every group
  * answer takes.
@@ -472,7 +447,7 @@ export interface AgentGroupView {
  * renders one shape, and the reason beside it says why there is nothing in it.
  */
 export function emptyGroupDocuments(): Pick<
-  AgentGroupView,
+  AgentGroupDocuments,
   "rules" | "jobs" | "decisions" | "audit" | "schedule"
 > {
   return { rules: [], jobs: [], decisions: [], audit: [], schedule: [] };
@@ -498,7 +473,7 @@ export async function readRules(
 export async function groupAgentView(
   access: GroupAccess,
   accountId: string,
-): Promise<AgentGroupView> {
+): Promise<AgentGroupDocuments> {
   const store = new AgentStore(access.ctx, accountId);
   const [rules, jobs, decisions, audit, schedule] = await Promise.all([
     store.readRules(),
@@ -546,11 +521,12 @@ async function readRecentAudit(
  * Save a group's rules, or refuse with something a person can act on.
  *
  * `version` is the server's, not the editor's: a rule whose content changed is
- * bumped, one whose content did not is left alone, so an in-flight job keeps
- * executing against the version it started with (ADR 0003 §4) while a save that
- * changes nothing invalidates nothing. The write is conditional on the state
- * the document was read at, and a lost race is retried once — JMAP offers no
- * lock, so the compare-and-set is the whole coordination.
+ * bumped, one whose content did not is left alone, so a save that changes
+ * nothing invalidates nothing. A save that does change the rule ends the runs
+ * pinned to the older version: they are dead-lettered rather than executed as
+ * something nobody approved (`executor.ts`, ADR 0003 §4). The write is
+ * conditional on the state the document was read at, and a lost race is retried
+ * once — JMAP offers no lock, so the compare-and-set is the whole coordination.
  */
 export async function saveRules(
   access: GroupAccess,
@@ -654,19 +630,6 @@ function stableJson(value: unknown): string {
 /* ------------------------------------------------------------------ */
 /* Providers — the agent's own configuration                           */
 /* ------------------------------------------------------------------ */
-
-/** One tier's provider as the surface reads it: the key is never handed back. */
-export interface AgentProviderView {
-  provider: string;
-  model: string;
-  baseUrl: string;
-  hasKey: boolean;
-}
-
-export interface AgentProvidersView {
-  address: string;
-  providers: { T1?: AgentProviderView; T2?: AgentProviderView };
-}
 
 /** The tiers that call a model — the one list, from the canonical schema. */
 const TIERS = AGENT_MODEL_TIERS;
@@ -919,13 +882,6 @@ export async function rotateAgentAppPassword(
  * configuration is what the rules document already is. A member writes in the
  * group's files; this document is reached through the admin surface only.
  */
-export interface GroupInstructionView {
-  text: string;
-  updatedAt: string | null;
-  updatedBy: string | null;
-  max: number;
-}
-
 export async function readGroupInstruction(
   access: GroupAccess,
 ): Promise<GroupInstructionView> {
@@ -1014,16 +970,6 @@ export async function addAgentLabels(
 /* Approvals                                                           */
 /* ------------------------------------------------------------------ */
 
-/** One pending decision, with the group it waits in (ADR 0003 resolution 10). */
-export interface PendingApproval {
-  group: string;
-  decisionId: string;
-  jobId: string;
-  summary: string;
-  confidence: number;
-  createdAt: string;
-}
-
 /**
  * Every decision waiting on a person, across the groups this admin can reach.
  *
@@ -1056,16 +1002,6 @@ export async function pendingApprovals(admin: LiveSession): Promise<PendingAppro
 /* ------------------------------------------------------------------ */
 /* What a member sees                                                  */
 /* ------------------------------------------------------------------ */
-
-export interface MemberAgentView {
-  group: string;
-  granted: boolean;
-  /** The registered agent's address; empty when the installation has none. */
-  agentAddress: string;
-  rules: Array<Pick<AgentRule, "id" | "name" | "area" | "tier" | "enabled" | "trigger">>;
-  jobs: AgentJob[];
-  audit: AgentAuditEntry[];
-}
 
 /**
  * A group member's read-only view of the agent (ADR 0003, "Members see, never

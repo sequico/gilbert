@@ -31,6 +31,7 @@ import {
   policyDocumentText,
 } from "./adminPolicy.js";
 import { agentRuleJsonSchema } from "./agent/documents.js";
+import type { AgentGroupAnswer } from "./agent/views.js";
 import {
   AgentAdminError,
   addAgentLabels,
@@ -1465,9 +1466,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           agentAddress,
           reason: access.message,
           ...emptyGroupDocuments(),
-        });
+        } satisfies AgentGroupAnswer);
       const view = await groupAgentView(access, access.accountId);
-      return c.json({ group: name, agentAddress, ...view });
+      return c.json({ group: name, agentAddress, ...view } satisfies AgentGroupAnswer);
     } catch (err) {
       return agentFailure(c, err);
     }

@@ -185,3 +185,18 @@ citizen, and its changes ride the same push rail as Email:
 5. Server-side administration of Stalwart (accounts, domains, groups) is not
    something Gilbert does; design around it (group membership, policy docs)
    rather than reaching for the Management API without a decision.
+6. **Conditional writes (`ifInState`) are the agent design's lock** (ADR 0003
+   §6): the token is a **whole-account FileNode state**, not a per-document one,
+   so any unrelated write — a member's upload, another document, a prune in the
+   same pass — invalidates it. `server/src/mock/index.ts` `checkIfInState`
+   carries the **owed** live probe (ADR 0003 resolution 19, owner decision
+   2026-09-10) with four questions: that `FileNode/set` honours `ifInState` at
+   all; that a mismatch arrives as `stateMismatch` rather than
+   `invalidArguments`; that the token advances on every write that matters; and
+   whether a blob **upload**, which writes no node, advances it. The mock's own
+   answer to the last one — no, it does not — is an assumption the production
+   write path depends on (`writeAppFileIn` uploads between the token read and
+   the conditional write), and it is pinned by a test in
+   `server/src/mock/compare-and-set.test.ts` so a change there fails loudly
+   instead of being inherited. Until the probe is run and recorded, tests prove
+   the client's logic against the simulation, not the server's behaviour.

@@ -5,7 +5,8 @@
  * them: the installation's fleet status, one group's documents at a time, the
  * per-tier providers and the approval queue. Nothing secret is kept here — the
  * provider view carries `hasKey` and never a key, and the rotated app-password
- * secret is handed straight back to whoever asked for it.
+ * secret is handed straight back to whoever asked for it, with the count of the
+ * app passwords the rotation left working.
  */
 
 import type { AgentRule } from "@gilbert/agent/documents";
@@ -59,7 +60,7 @@ interface AgentsState {
    * refused in one panel appeared as an error in another, and any unrelated
    * request in flight made a panel that had failed say "Loading…" instead of
    * what went wrong. Each operation has its own line, keyed by
-   * `status`, `providers`, `approvals`, or `group:<name>`.
+   * `status`, `providers`, `approvals`, `password`, or `group:<name>`.
    */
   busy: Record<string, boolean>;
   problems: Record<string, string | null>;
@@ -72,10 +73,11 @@ interface AgentsState {
   /** Rejects when the server refused the write; a key is never posted back. */
   saveProviders: (providers: AgentProvidersInput) => Promise<void>;
   /**
-   * The new secret, for the caller to show exactly once. Rejects when the
-   * rotation was refused — nothing is kept here, ever.
+   * The new secret and how many app passwords the rotation left working, for
+   * the caller to show exactly once. Rejects when the rotation was refused —
+   * nothing is kept here, ever.
    */
-  rotateAppPassword: () => Promise<string>;
+  rotateAppPassword: () => Promise<{ secret: string; alsoValid: number }>;
   loadApprovals: () => Promise<void>;
   reset: () => void;
 }
@@ -193,7 +195,10 @@ export const useAgents = create<AgentsState>((set) => ({
     set(markBusy("password", true));
     set(markProblem("password", null));
     try {
-      return (await rotateAgentAppPassword()).secret;
+      // The rotation's own answer, whole: the secret the caller shows once, and
+      // the count of app passwords it left working — which is the whole
+      // difference between rotating a credential and revoking one.
+      return await rotateAgentAppPassword();
     } catch (err) {
       set(markProblem("password", message(err)));
       throw err;
@@ -229,7 +234,7 @@ export const useAgents = create<AgentsState>((set) => ({
 function groupNameForAccount(accountId: string): string | null {
   const accounts = useSession.getState().session?.accounts ?? {};
   const account = accounts[accountId];
-  if (!account || account.isPersonal !== false) return null;
+  if (account?.isPersonal !== false) return null;
   return typeof account.name === "string" ? agentViewKey(account.name) : null;
 }
 

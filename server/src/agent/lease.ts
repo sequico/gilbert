@@ -28,7 +28,22 @@ export interface ClaimOpts {
   now: Date;
   /** How long a claim may go un-renewed before another worker takes it over. */
   leaseMs: number;
+  /**
+   * Why the claim was refused, when it was: the caller logs the anomaly and
+   * stays quiet about the ordinary answer. A bare `null` cannot tell "another
+   * worker is serving this unit" — which is the design working — from "nobody
+   * is serving it and my write kept losing", which is the fleet quietly
+   * stopping.
+   */
+  onRefused?: (reason: ClaimRefusal) => void;
 }
+
+/** Why a claim came back empty. */
+export type ClaimRefusal =
+  /** A peer holds it with a live lease. */
+  | "held"
+  /** Nobody's, but the write lost every compare-and-set: contention, not ownership. */
+  | "contended";
 
 /**
  * How many times a read-modify-write retries after losing a compare-and-set.
@@ -71,8 +86,10 @@ export async function claimArea(
       held &&
       !mine &&
       !leaseExpired(held.heartbeatAt, opts.now.getTime(), opts.leaseMs)
-    )
+    ) {
+      opts.onRefused?.("held");
       return null;
+    }
     const claim: AgentClaim = held
       ? {
           ...held,
@@ -98,6 +115,7 @@ export async function claimArea(
       if (!isStateMismatch(err)) throw err;
     }
   }
+  opts.onRefused?.("contended");
   return null;
 }
 
@@ -182,13 +200,19 @@ export async function saveClaimStates(
   for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
     const token = await store.state();
     const found = await store.readClaim(claim.area);
-    if (found && found.doc.worker !== claim.worker) return null;
+    // A claim that is not there is not mine to write into: it was released, and
+    // recreating it here would put the unit back under a worker that has already
+    // given it away — busy for a whole lease, with nobody serving it. The next
+    // pass claims the unit again through `claimArea`, which is the one place a
+    // claim is born.
+    if (!found) return null;
+    if (found.doc.worker !== claim.worker) return null;
     // A claim that has moved to a new epoch is somebody else's run: the anchor
     // this worker is saving belongs to an ownership that is over.
-    if (found && claimEpoch(found.doc) !== claimEpoch(claim)) return null;
+    if (claimEpoch(found.doc) !== claimEpoch(claim)) return null;
     const updated: AgentClaim = {
-      ...(found?.doc ?? claim),
-      states: { ...(found?.doc ?? claim).states, ...states },
+      ...found.doc,
+      states: { ...found.doc.states, ...states },
     };
     try {
       await store.writeClaim(updated, { ifInState: token });

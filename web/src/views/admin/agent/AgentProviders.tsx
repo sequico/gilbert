@@ -12,9 +12,14 @@
  * rendered back.
  */
 
+import type { AgentModelTier } from "@gilbert/agent/documents";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
-import type { AgentProviderInput, AgentProviderView } from "@/lib/agents";
+import {
+  AGENT_MODEL_TIERS,
+  type AgentProviderInput,
+  type AgentProviderView,
+} from "@/lib/agents";
 import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
 import { confirmDialog } from "@/ui/dialog";
@@ -24,10 +29,25 @@ export function AgentProviders() {
   const loadProviders = useAgents((s) => s.loadProviders);
   const saveProviders = useAgents((s) => s.saveProviders);
   const view = useAgents((s) => s.providers);
+  // This section's own line in the store: a read that failed said why there, and
+  // showing it is the difference between "no provider" and "nobody could ask".
+  const problem = useAgents((s) => s.problems.providers);
+  // Only the read is waited on. A save shares the `providers` key, but a save
+  // can only be made from editors a read has already seeded, so a view in hand
+  // stays on screen while one is in flight.
+  const reading = useAgents((s) => s.busy.providers === true);
 
   useEffect(() => {
     void loadProviders();
   }, [loadProviders]);
+
+  /**
+   * One tier's write: the API takes a map keyed by tier, and an editor holds the
+   * tier it was handed. The tiers themselves come from the catalogue, so the
+   * form cannot offer a tier the server writes no documents for.
+   */
+  const write = (tier: AgentModelTier) => (patch: AgentProviderInput | null) =>
+    saveProviders(tier === "T1" ? { T1: patch } : { T2: patch });
 
   return (
     <section>
@@ -37,31 +57,36 @@ export function AgentProviders() {
           "T0 calls no model at all. Each of the tiers above it names the model it runs on, so the cheap classifier and the agent can run on different vendors, or on a model of your own.",
         )}
       </p>
+      {problem && (
+        <div className="error-box" style={{ marginBottom: 12 }}>
+          {problem}
+        </div>
+      )}
       {/*
-       * The tiers are documents in the agent's own account, written through the
-       * agent's own session: with no agent registered there is nothing to write
-       * them to, so the editors are withheld rather than offered and then
-       * refused — the way the rules editor withholds itself without a grant.
+       * Nothing read means nothing to edit: the editors are seeded from the read,
+       * so two empty ones would read as "this installation runs no provider" when
+       * the truth is that nobody could ask — a read that failed has already said
+       * so above. With no agent registered there is nothing for a tier to run on,
+       * so the editors are withheld rather than offered and then refused, the way
+       * the rules editor withholds itself without a grant.
        */}
-      {view && !view.address ? (
+      {view === null ? (
+        reading && <p className="hint">{t("Loading…")}</p>
+      ) : !view.address ? (
         <p className="hint" style={{ marginBottom: 12 }}>
           {t(
             "No agent is registered for this installation yet, so there is nothing for a tier to run on.",
           )}
         </p>
       ) : (
-        <>
+        AGENT_MODEL_TIERS.map((tier) => (
           <ProviderEditor
-            tier="T1"
-            view={view?.providers.T1}
-            onSave={(patch) => saveProviders({ T1: patch })}
+            key={tier}
+            tier={tier}
+            view={view.providers[tier]}
+            onSave={write(tier)}
           />
-          <ProviderEditor
-            tier="T2"
-            view={view?.providers.T2}
-            onSave={(patch) => saveProviders({ T2: patch })}
-          />
-        </>
+        ))
       )}
     </section>
   );
@@ -72,7 +97,7 @@ function ProviderEditor({
   view,
   onSave,
 }: {
-  tier: "T1" | "T2";
+  tier: AgentModelTier;
   view: AgentProviderView | undefined;
   /** `null` clears the tier, which is how a tier stops calling a model. */
   onSave(patch: AgentProviderInput | null): Promise<void>;

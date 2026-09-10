@@ -21,6 +21,7 @@ import {
   type AgentTrigger,
   type AgentTriggerOn,
   agentActionSpec,
+  SUPPORTED_FILTER_KEYS,
 } from "@gilbert/agent/documents";
 import { t } from "@/lib/i18n";
 
@@ -71,6 +72,7 @@ export const AGENT_OUTCOME_LABELS: Record<AgentAuditOutcome, string> = {
   awaiting_approval: "Asked for approval",
   rejected: "Rejected",
   missed: "Missed",
+  timeout: "Timed out",
 };
 
 /** The catalogue's own labels, keyed by capability name. */
@@ -125,18 +127,59 @@ export function triggerText(trigger: AgentTrigger | undefined): string {
   return parts.length ? `${base} · ${parts.join(", ")}` : base;
 }
 
+/**
+ * What each filter key reads as inside that line, for the keys whose wording is
+ * worth choosing. The keys themselves come from `SUPPORTED_FILTER_KEYS`, so a
+ * filter the matcher implements is always spoken; this table only says how, and
+ * a key that arrives here without a phrase still renders (see `filterParts`)
+ * rather than dropping quietly out of the sentence.
+ */
+/**
+ * One phrase per filter key, with the lookup written out.
+ *
+ * The literal has to be at the call site for the catalogs to see it: passing a
+ * key through a variable makes the string invisible to `i18n:check`, which is
+ * how thirteen translations became "stale" without anything changing. The table
+ * is keyed by the canonical list, so a key the matcher gains without a phrase
+ * here falls back to the plain line below rather than going unrendered.
+ */
+const FILTER_KEY_PHRASES: Record<string, (value: string) => string> = {
+  inMailbox: (value) => t("in mailbox {value}", { value }),
+  hasKeyword: (value) => t("has keyword {value}", { value }),
+  notKeyword: (value) => t("without keyword {value}", { value }),
+  subject: (value) => t("subject contains {value}", { value }),
+  text: (value) => t("anywhere contains {value}", { value }),
+  body: (value) => t("body contains {value}", { value }),
+  from: (value) => t("from contains {value}", { value }),
+  to: (value) => t("to contains {value}", { value }),
+  cc: (value) => t("cc contains {value}", { value }),
+  before: (value) => t("received before {value}", { value }),
+  after: (value) => t("received after {value}", { value }),
+  minSize: (value) => t("larger than {value} bytes", { value }),
+  maxSize: (value) => t("smaller than {value} bytes", { value }),
+};
+
+/**
+ * The filters that narrow a trigger, in the order the matcher declares them.
+ *
+ * The keys are read from `SUPPORTED_FILTER_KEYS` rather than written here,
+ * because this sentence promises what the executor honours: a key it implements
+ * is said, with its own phrase where a phrase reads well and as a plain
+ * "{key} is {value}" line where this table has no wording for it yet. A value
+ * that is neither text nor a number is not comparable and describes nothing,
+ * which is the reading the matcher gives it too.
+ */
 function filterParts(filter: Record<string, unknown> | undefined): string[] {
   const f = filter ?? {};
   const out: string[] = [];
-  const say = (key: string, source: string) => {
+  for (const key of SUPPORTED_FILTER_KEYS) {
     const value = f[key];
-    if (typeof value === "string" && value.trim()) out.push(t(source, { value }));
-  };
-  say("inMailbox", "in mailbox {value}");
-  say("subject", "subject contains {value}");
-  say("from", "from contains {value}");
-  say("hasKeyword", "has keyword {value}");
-  say("notKeyword", "without keyword {value}");
+    if (typeof value !== "string" && typeof value !== "number") continue;
+    const text = String(value);
+    if (!text.trim()) continue;
+    const phrase = FILTER_KEY_PHRASES[key];
+    out.push(phrase ? phrase(text) : t("{key} is {value}", { key, value: text }));
+  }
   return out;
 }
 

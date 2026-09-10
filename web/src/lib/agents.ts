@@ -1,107 +1,58 @@
 /**
  * The agent worker fleet's API, as the client calls it (ADR 0003).
  *
- * One function per route in `server/src/app.ts`, and the response types
- * declared here — with one deliberate exception: the document shapes
- * themselves come from `@gilbert/agent/documents`, the same module the
- * server validates and stores with, so a rule, a job, a decision or an audit
- * entry cannot be spelled two ways (SSOT; the alias is in web/tsconfig.json
- * and web/vite.config.ts).
+ * One function per route in `server/src/app.ts`. The shapes those routes
+ * answer with are declared once, in `@gilbert/agent/views`, and this module
+ * reads and re-exports them: the routes build those answers and the client
+ * reads the same declarations, because a field added on one side and
+ * forgotten on the other compiles on both — and arrives as `undefined` on one.
+ * That drift is what SSOT forbids, so the answer shapes have one home and it
+ * is not this file.
  *
- * The provider view is this layer's own shape, because it is not the stored
- * document: the server hands back `hasKey` and never the key, and that is the
- * whole point of it.
+ * The stored documents come from `@gilbert/agent/documents`, the module the
+ * server validates and stores with, so a rule, a job, a decision or an audit
+ * entry cannot be spelled two ways either (both aliases are in
+ * web/tsconfig.json and web/vite.config.ts).
+ *
+ * What is declared here of this layer's own is the request bodies the surface
+ * writes: `AgentProviderInput` and `AgentProvidersInput` describe a write, and
+ * no route hands them back.
  */
 
+import type { AgentRule } from "@gilbert/agent/documents";
 import type {
-  AgentArea,
-  AgentAuditEntry,
-  AgentDecision,
-  AgentJob,
-  AgentRule,
-  AgentScheduleEntry,
-  AgentTier,
-} from "@gilbert/agent/documents";
+  AgentGroupSurface,
+  AgentProvidersView,
+  AgentStatus,
+  GroupInstructionView,
+  MemberAgentView,
+  PendingApproval,
+} from "@gilbert/agent/views";
 import { apiFetch } from "@/jmap/client";
 
-/* ------------------------------------------------------------------ */
-/* The installation's fleet                                            */
-/* ------------------------------------------------------------------ */
-
-/** Whether the agent holds a group (ADR 0003: the grant is Stalwart's, read here). */
-export interface AgentStatusGroup {
-  name: string;
-  granted: boolean;
-}
-
-/** One worker process, with freshness the server judged at read time. */
-export interface AgentStatusWorker {
-  id: string;
-  address: string;
-  areas: AgentArea[];
-  heartbeatAt: string;
-  version: string;
-  /** Heartbeat younger than three intervals; a stale worker is not alive. */
-  alive: boolean;
-}
-
-export interface AgentStatus {
-  configured: boolean;
-  /** The registered agent's address; empty when the installation has none. */
-  address: string;
-  groups: AgentStatusGroup[];
-  workers: AgentStatusWorker[];
-  /** Why the fleet cannot be read, when it cannot: no agent, or one out of reach. */
-  reason?: string;
-}
-
-/**
- * A group's agent surface, in the one shape the route answers with.
- *
- * The documents are there when the admin may read the group and empty when
- * they may not, and `reason` says which and why — so a consumer renders one
- * thing and branches on `granted` alone.
+/*
+ * Read here, declared there: every shape a route answers with, so a consumer of
+ * this module names the same type the route builds.
  */
-export interface AgentGroupSurface {
-  group: string;
-  granted: boolean;
-  /** The registered agent's address; empty when the installation has none. */
-  agentAddress: string;
-  /** Present when the admin has no access to the group: why it is empty. */
-  reason?: string;
-  rules: AgentRule[];
-  jobs: AgentJob[];
-  decisions: AgentDecision[];
-  audit: AgentAuditEntry[];
-  schedule: AgentScheduleEntry[];
-}
-
-/** The surface for a group this admin can read. */
-export type AgentGroupView = AgentGroupSurface & { granted: true };
-
-/** The surface for a group this admin cannot reach: empty, with the reason. */
-export type AgentGroupDenied = AgentGroupSurface & {
-  granted: false;
-  reason: string;
-};
+export type {
+  AgentGroupAnswer,
+  AgentGroupDenied,
+  AgentGroupSurface,
+  AgentGroupView,
+  AgentProvidersView,
+  AgentProviderView,
+  AgentStatus,
+  AgentStatusGroup,
+  AgentStatusWorker,
+  GroupInstructionView,
+  MemberAgentRule,
+  MemberAgentView,
+  PendingApproval,
+} from "@gilbert/agent/views";
 
 /* ------------------------------------------------------------------ */
 /* Providers — the agent's own configuration                           */
 /* ------------------------------------------------------------------ */
-
-/** One tier's provider as the API reads it: `hasKey`, never the key. */
-export interface AgentProviderView {
-  provider: string;
-  model: string;
-  baseUrl: string;
-  hasKey: boolean;
-}
-
-export interface AgentProvidersView {
-  /** Empty when the installation has no agent registered. */
-  address: string;
-  providers: { T1?: AgentProviderView; T2?: AgentProviderView };
-}
 
 /** One tier as the editor sends it; `apiKey` absent keeps the stored one. */
 export interface AgentProviderInput {
@@ -115,36 +66,6 @@ export interface AgentProviderInput {
 export interface AgentProvidersInput {
   T1?: AgentProviderInput | null;
   T2?: AgentProviderInput | null;
-}
-
-/* ------------------------------------------------------------------ */
-/* Approvals and the member view                                       */
-/* ------------------------------------------------------------------ */
-
-/** One decision waiting on a person, in the group where it waits. */
-export interface PendingApproval {
-  group: string;
-  decisionId: string;
-  jobId: string;
-  summary: string;
-  confidence: number;
-  createdAt: string;
-}
-
-/** The rules a member reads: what it is, where, which tier, on, woken by what. */
-export type MemberAgentRule = Pick<
-  AgentRule,
-  "id" | "name" | "area" | "tier" | "enabled" | "trigger"
->;
-
-export interface MemberAgentView {
-  group: string;
-  granted: boolean;
-  /** The registered agent's address; empty when the installation has none. */
-  agentAddress: string;
-  rules: MemberAgentRule[];
-  jobs: AgentJob[];
-  audit: AgentAuditEntry[];
 }
 
 /* ------------------------------------------------------------------ */
@@ -196,11 +117,22 @@ export async function saveAgentProviders(providers: AgentProvidersInput): Promis
   });
 }
 
-/** `POST /api/admin/agent/app-password` — the agent's new secret, once. */
-export function rotateAgentAppPassword(): Promise<{ secret: string }> {
-  return apiFetch<{ secret: string }>("/api/admin/agent/app-password", {
-    method: "POST",
-  });
+/**
+ * `POST /api/admin/agent/app-password` — the agent's new secret, once.
+ *
+ * `alsoValid` is how many app passwords the agent already had and which the
+ * rotation leaves working: the server mints the new credential and revokes
+ * nothing, so this surface says what is still valid instead of implying that
+ * the old ones stopped.
+ */
+export function rotateAgentAppPassword(): Promise<{
+  secret: string;
+  alsoValid: number;
+}> {
+  return apiFetch<{ secret: string; alsoValid: number }>(
+    "/api/admin/agent/app-password",
+    { method: "POST" },
+  );
 }
 
 /** `POST /api/admin/groups/:name/agent/labels` — the `G-` keywords added. */
@@ -212,22 +144,14 @@ export async function addAgentLabels(name: string): Promise<string[]> {
   return res.added;
 }
 
-/** `GET /api/admin/agent/approvals` — every pending decision, by group. */
-/** The group's standing instruction, as the admin surface reads it. */
-export interface GroupInstructionView {
-  text: string;
-  updatedAt: string | null;
-  updatedBy: string | null;
-  max: number;
-}
-
+/** `GET /api/admin/groups/:name/agent/instruction` — the group's instruction. */
 export async function fetchGroupInstruction(name: string): Promise<GroupInstructionView> {
   return apiFetch<GroupInstructionView>(
     `/api/admin/groups/${encodeURIComponent(name)}/agent/instruction`,
   );
 }
 
-/** Replace it. An empty text removes it. */
+/** `POST` the same route — replace it. An empty text removes it. */
 export async function saveGroupInstruction(
   name: string,
   text: string,
@@ -238,6 +162,7 @@ export async function saveGroupInstruction(
   );
 }
 
+/** `GET /api/admin/agent/approvals` — every pending decision, by group. */
 export async function fetchPendingApprovals(): Promise<PendingApproval[]> {
   const res = await apiFetch<{ approvals: PendingApproval[] }>(
     "/api/admin/agent/approvals",
@@ -250,8 +175,14 @@ export function fetchMemberAgentView(name: string): Promise<MemberAgentView> {
   return apiFetch<MemberAgentView>(`/api/agent/group/${encodeURIComponent(name)}`);
 }
 
-/** The tiers that call a model; T0 is deterministic and has no provider. */
-export const PROVIDER_TIERS: ReadonlyArray<Extract<AgentTier, "T1" | "T2">> = [
-  "T1",
-  "T2",
-];
+/* ------------------------------------------------------------------ */
+/* The model tiers                                                     */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The tiers that call a model; T0 is deterministic and has no provider. Read
+ * from the catalogue and passed on rather than written down again here: a
+ * second copy is how this module and the server come to disagree about which
+ * tiers exist, and the provider editor iterates this one.
+ */
+export { AGENT_MODEL_TIERS } from "@gilbert/agent/documents";

@@ -200,6 +200,21 @@ export const catalog: Catalog = {
     "Received after": "Empfangen nach",
     "Larger than (bytes)": "Größer als (Bytes)",
     "Smaller than (bytes)": "Kleiner als (Bytes)",
+    // The same filters inside the one-line description, where the value follows
+    // the words instead of standing in a field of its own.
+    "in mailbox {value}": "in Mailbox {value}",
+    "has keyword {value}": "hat Schlagwort {value}",
+    "without keyword {value}": "ohne Schlagwort {value}",
+    "subject contains {value}": "Betreff enthält {value}",
+    "anywhere contains {value}": "irgendwo enthält {value}",
+    "body contains {value}": "Text enthält {value}",
+    "from contains {value}": "Absender enthält {value}",
+    "to contains {value}": "An enthält {value}",
+    "cc contains {value}": "Cc enthält {value}",
+    "received before {value}": "empfangen vor {value}",
+    "received after {value}": "empfangen nach {value}",
+    "larger than {value} bytes": "größer als {value} Byte",
+    "smaller than {value} bytes": "kleiner als {value} Byte",
     Match: "Übereinstimmung",
     "All of these": "Alle davon",
     "Any of these": "Eine davon",
@@ -211,6 +226,17 @@ export const catalog: Catalog = {
     "Create the mailbox if it is missing": "Die Mailbox anlegen, wenn sie fehlt",
     "File name": "Dateiname",
     Text: "Text",
+    // The rest of the agent surfaces (ADR 0003): the outcome an audit entry
+    // carries, the row a grouped filter's condition sits in, and the rotation
+    // of the agent's own app password.
+    "Timed out": "Zeitüberschreitung",
+    "Condition {n}": "Bedingung {n}",
+    "The selector says how these conditions compose: all of them, any of them, or none of them.":
+      "Der Selektor sagt, wie diese Bedingungen zusammenspielen: alle, eine oder keine.",
+    "This condition uses something this form cannot spell out, so it is shown as the document holds it and left exactly as it is.":
+      "Diese Bedingung verwendet etwas, das dieses Formular nicht ausdrücken kann; sie wird daher so angezeigt, wie das Dokument sie enthält, und bleibt unverändert.",
+    "The worker signs in with this password and nothing else. The new secret works from now on, the app passwords already in use keep working — revoking them would cut off what an agent is doing — and the deployment has to carry the new secret before the next restart.":
+      "Der Worker meldet sich ausschließlich mit diesem Passwort an. Das neue Geheimnis gilt ab sofort, die bereits verwendeten App-Passwörter funktionieren weiter — ein Widerruf würde einen laufenden Agenten mitten in der Arbeit unterbrechen —, und die Umgebung muss beim nächsten Neustart das neue Geheimnis tragen.",
     "Header name": "Name der Kopfzeile",
     "Show headers": "Kopfzeilen anzeigen",
     "Show original": "Original anzeigen",
@@ -1775,6 +1801,12 @@ export const catalog: Catalog = {
       one: "{n} Kontakt war auch in einem anderen Adressbuch und wurde nur aus diesem entfernt",
       other:
         "{n} Kontakte waren auch in anderen Adressbüchern und wurden nur aus diesem entfernt",
+    },
+    // ── The agent fleet (ADR 0003) ───────────────────────────────────
+    "{n} other app passwords still work — revoke them in Stalwart's administration.": {
+      one: "{n} weiteres App-Passwort ist noch gültig — widerrufen Sie es in der Stalwart-Administration.",
+      other:
+        "{n} weitere App-Passwörter sind noch gültig — widerrufen Sie sie in der Stalwart-Administration.",
     },
   },
 };

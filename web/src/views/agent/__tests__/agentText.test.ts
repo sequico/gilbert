@@ -19,19 +19,29 @@ describe("triggerText", () => {
     expect(triggerText({ on: "chat" })).toBe("Someone writes in the chat");
   });
 
-  it("lists the filters the executor honours, in one predictable order", () => {
+  it("lists the filters the executor honours, in the matcher's own order", () => {
     expect(
       triggerText({
         on: "email",
         filter: { subject: "invoice", inMailbox: "mb-1", notKeyword: "spam" },
       }),
     ).toBe(
-      "An email arrives · in mailbox mb-1, subject contains invoice, without keyword spam",
+      "An email arrives · in mailbox mb-1, without keyword spam, subject contains invoice",
     );
   });
 
-  it("ignores a filter field the executor does not read", () => {
+  it("renders every key the matcher implements, not only the five with wording", () => {
     expect(triggerText({ on: "email", filter: { to: "someone" } })).toBe(
+      "An email arrives · to contains someone",
+    );
+    // A size is a number, and the matcher compares it as one.
+    expect(triggerText({ on: "email", filter: { minSize: 1000 } })).toBe(
+      "An email arrives · larger than 1000 bytes",
+    );
+  });
+
+  it("ignores a filter key the matcher does not implement", () => {
+    expect(triggerText({ on: "email", filter: { webhook: "x" } })).toBe(
       "An email arrives",
     );
   });
@@ -54,6 +64,14 @@ describe("reviewText", () => {
     expect(reviewText({ mode: "never", allowExternal: true })).toBe(
       "Never ask — run it unattended · sending outside the group allowed without a person",
     );
+  });
+});
+
+describe("outcomeText", () => {
+  it("names every outcome an audit entry carries", () => {
+    expect(outcomeText("missed")).toBe("Missed");
+    // A run whose worker stopped holding it, which is an outcome of its own.
+    expect(outcomeText("timeout")).toBe("Timed out");
   });
 });
 

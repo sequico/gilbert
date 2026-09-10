@@ -90,7 +90,6 @@ export function auditEntry(
   return build(subjectOf(job), rule, outcome, actions, detail);
 }
 
-/** The same entry for a decision whose job document is already gone. */
 /**
  * A run the schedule moved past while no worker was serving the group.
  *
@@ -113,6 +112,7 @@ export function missedAuditEntry(
   );
 }
 
+/** The same entry for a decision whose job document is already gone. */
 export function decisionAuditEntry(
   decision: AgentDecision,
   rule: AuditRule,

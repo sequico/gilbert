@@ -22,6 +22,7 @@ const { fetchUpstreamSession } = await import("../upstream.js");
 const { filesAccountId } = await import("../appFolder.js");
 type Ctx = import("../appFolder.js").Ctx;
 const { AgentStore } = await import("./store.js");
+const { writeAppFileAt } = await import("../appFolder.js");
 const { newJob } = await import("./documents.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -200,5 +201,36 @@ test("a conditional write is refused when the document moved under it", async ()
   await assert.rejects(
     () => store.writeRules(first.doc, { ifInState: first.state }),
     (err: unknown) => /state/i.test((err as Error).message),
+  );
+});
+
+test("an audit document that is there but unreadable is loud, not empty", async () => {
+  // The trail is what an agent's work is answered from: a month nobody can
+  // read must not present itself as a month where nothing happened. The writer
+  // refuses to overwrite it; the reader refuses to call it empty.
+  await writeAppFileAt(ctx, store.accountId, "agent/audit/2026-11.json", {
+    nope: "not an audit document",
+  });
+
+  await assert.rejects(
+    () => store.readAudit("2026-11"),
+    /does not read as an audit/,
+    'reading an unreadable month throws instead of answering "nothing happened"',
+  );
+  await assert.rejects(
+    () =>
+      store.appendAudit(
+        {
+          at: "2026-11-10T08:00:00Z",
+          jobId: "job-x",
+          ruleId: "r1",
+          ruleVersion: 1,
+          outcome: "done",
+          actions: [],
+        },
+        new Date("2026-11-10T08:00:00Z"),
+      ),
+    /refusing to write over it/,
+    "appending must not replace the unreadable document with a single entry",
   );
 });

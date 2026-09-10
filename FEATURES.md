@@ -1234,7 +1234,9 @@ or a mounted `GILBERT_AGENTS_FILE`). Nothing derives it, nothing impersonates
 at boot, and nothing durable is kept on the worker's disk: the session is
 re-established at every start, so the container stays disposable and
 `IMMUTABLE=1` holds. The admin surface rotates the app password through JMAP
-under impersonation and shows the new secret once.
+under impersonation and shows the new secret once. Rotation deliberately does
+not revoke the credential already in use — that would stop the agent's work on
+the spot — and the API answers with how many credentials it left valid.
 - **Automations, not rules written in code.** The admin surface authors one
 document per automation, as a form — “Quando [evento] / Se [filtri] / Allora
 [azioni]” — validated against the JMAP filter grammar (RFC 8621) and the
@@ -1272,7 +1274,10 @@ called `gilbert` is left to its owner.
 - **A run is bounded by what it was granted.** A worker that loses its unit
 mid-run stops before anything leaves the process rather than writing results
 its successor will write again; an approval is consumed exactly once, so two
-answers arriving together cannot send the same mail twice; and the audit records
+answers arriving together cannot send the same mail twice; a run executes the
+version of its automation it was created from, and one whose version is no
+longer the current one is recorded as a failure rather than run, because a run
+never executes a version nobody approved; and the audit records
 what a run was about to do before it does it, so an effect never exists without
 a line that accounts for it.
 - **Approvals happen in the group's chat.** An automation with a review policy
@@ -1287,8 +1292,11 @@ holds the agent's event stream, wakes on it, and reconciles from the last
 state it recorded; polling is the fallback after a lost stream. Work claims
 live in the documents themselves, so no coordinator exists and none is needed:
 one process per area, several areas per agent, and a crashed worker's claims
-are re-taken by whoever is running. It answers a health probe when the
-deployment names a port (`GILBERT_AGENT_HEALTH_PORT`), reporting the accounts
+are re-taken by whoever is running, together with the work it left mid-run; a
+run nobody comes back for is recorded as a timeout rather than as a failure,
+because nothing reported one — the process that would have is gone. It answers
+a health probe when the deployment
+names a port (`GILBERT_AGENT_HEALTH_PORT`), reporting the accounts
 it actually holds, so a restart policy can tell "running" from "running and
 serving nothing".
 - **Members see, never change.** Next to the group's chat, an indicator opens

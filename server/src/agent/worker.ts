@@ -37,6 +37,7 @@ import {
   Executor,
 } from "./executor.js";
 import {
+  type ClaimRefusal,
   claimArea,
   claimStream,
   releaseClaim,
@@ -321,6 +322,19 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     }
   };
 
+  /**
+   * What a refused claim says: contention out loud, ownership not.
+   *
+   * Losing a claim to a peer that holds a live lease is the design working, and
+   * saying it every pass would be noise. Losing every write to a unit nobody
+   * holds is the fleet quietly stopping, and nothing else in the process would
+   * ever say so.
+   */
+  const refused = (accountId: string, area: AgentArea) => (reason: ClaimRefusal) => {
+    if (reason === "contended")
+      log(`${accountId}/${area}: nobody holds it and the claim kept losing`);
+  };
+
   const pass = async (): Promise<ReadonlyArray<string>> => {
     if (stopped) return [...servedAreas.keys()];
     for (const accountId of candidateAccounts(deps.ctx.session)) {
@@ -329,7 +343,11 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
       for (const area of deps.areas) {
         if (held.has(area)) {
           // Renewal is what keeps a claim from looking stale to a peer.
-          const renewed = await claimArea(store, area, id, { now: now(), leaseMs });
+          const renewed = await claimArea(store, area, id, {
+            now: now(),
+            leaseMs,
+            onRefused: refused(accountId, area),
+          });
           if (!renewed) {
             held.delete(area);
             log(`lost ${accountId}/${area}`);
@@ -339,6 +357,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
         const claim: AgentClaim | null = await claimArea(store, area, id, {
           now: now(),
           leaseMs,
+          onRefused: refused(accountId, area),
         });
         if (!claim) continue;
         held.add(area);

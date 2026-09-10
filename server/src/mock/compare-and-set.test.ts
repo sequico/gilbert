@@ -366,3 +366,49 @@ test("Email/set refuses a stale state as well", async () => {
     "the state the set reported is accepted",
   );
 });
+
+/*
+ * The one behaviour here that is the mock's answer rather than a rule it was
+ * given: an upload writes a blob and no node, so it leaves the state tokens
+ * alone. Point (d) of the owed probe in `checkIfInState` asks a real server the
+ * same question -- the production write path uploads after reading the token
+ * and before the conditional write, so a server that moved the token on upload
+ * would refuse every conditional write the agent makes. Pinning the choice here
+ * means a change to the mock's answers is a failing test, not a silent edit.
+ */
+test("an upload does not move the FileNode state the mock hands out", async () => {
+  const accountId = GROUP_ACCOUNT;
+  const before = String(
+    responseOf(await jmap([["FileNode/get", { accountId, ids: [] }, "g"]]), "g")[1].state,
+  );
+  const res = await fetch(`${BASE}/jmap/upload/${accountId}/`, {
+    method: "POST",
+    headers: { ...HEADERS, "content-type": "text/plain" },
+    body: "a blob, not a node",
+  });
+  assert.equal(res.status, 200);
+  const uploaded = (await res.json()) as { blobId: string };
+  assert.ok(uploaded.blobId, "the upload answers with a blob id");
+
+  const after = String(
+    responseOf(await jmap([["FileNode/get", { accountId, ids: [] }, "g"]]), "g")[1].state,
+  );
+  assert.equal(after, before, "uploading a blob leaves the FileNode state where it was");
+
+  const write = await jmap([
+    [
+      "FileNode/set",
+      {
+        accountId,
+        ifInState: before,
+        create: { u1: { name: "after-upload.json", parentId: null } },
+      },
+      "s",
+    ],
+  ]);
+  assert.equal(
+    responseOf(write, "s")[0],
+    "FileNode/set",
+    "the token read before the upload is still accepted after it",
+  );
+});

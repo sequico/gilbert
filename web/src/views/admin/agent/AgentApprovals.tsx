@@ -19,6 +19,10 @@ import { useAgents } from "@/store/agents";
 export function AgentApprovals() {
   const approvals = useAgents((s) => s.approvals);
   const loadApprovals = useAgents((s) => s.loadApprovals);
+  // This section's own line in the store. A queue nobody could read is not an
+  // empty queue, and the difference is what this panel has to show.
+  const problem = useAgents((s) => s.problems.approvals);
+  const reading = useAgents((s) => s.busy.approvals);
 
   useEffect(() => {
     void loadApprovals();
@@ -32,8 +36,12 @@ export function AgentApprovals() {
           "An automation that pauses posts what it proposes in the group's chat, and a member answers there in words. Approving therefore happens in the chat, not here — this queue is oversight across groups, and the way to see what has been waiting.",
         )}
       </p>
-      {approvals.length === 0 ? (
-        <p className="hint">{t("Nothing is waiting for a person.")}</p>
+      {problem ? (
+        <div className="error-box">{problem}</div>
+      ) : approvals.length === 0 ? (
+        <p className="hint">
+          {reading ? t("Loading…") : t("Nothing is waiting for a person.")}
+        </p>
       ) : (
         <table className="sessions-table">
           <thead>

@@ -9,38 +9,51 @@
  *
  * The secret comes back once. It is held in this component's own state, shown
  * in a box that can be copied, and never asked for again.
+ *
+ * Rotating adds a credential; it revokes nothing. The app passwords the agent
+ * already had keep working, because revoking them would cut off what a worker is
+ * doing at that moment, so the surface says how many are still valid — that
+ * number is the whole difference between rotating and revoking, and an admin who
+ * read "rotate" as "revoke" would leave a leaked secret alive while believing
+ * they had closed it.
  */
 import { KeyRound } from "lucide-react";
 import { useState } from "react";
-import { t } from "@/lib/i18n";
+import { plural, t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
 import { confirmDialog } from "@/ui/dialog";
 import { CopyableSecret } from "@/views/settings/SecuritySettings";
 
 export function AppPasswordRotate() {
   const rotateAppPassword = useAgents((s) => s.rotateAppPassword);
-  const [secret, setSecret] = useState<string | null>(null);
+  // The store's own line for this operation: a rotation the server refused says
+  // why there, and the panel shows it.
+  const problem = useAgents((s) => s.problems.password);
+  const [rotated, setRotated] = useState<{ secret: string; alsoValid: number } | null>(
+    null,
+  );
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const rotate = async () => {
     const ok = await confirmDialog({
       title: t("Rotate the agent's app password?"),
       message: t(
-        "The worker signs in with this password and nothing else. The current one stops working at once, and the deployment has to carry the new one before the next restart.",
+        "The worker signs in with this password and nothing else. The new secret works from now on, the app passwords already in use keep working — revoking them would cut off what an agent is doing — and the deployment has to carry the new secret before the next restart.",
       ),
       confirmLabel: t("Rotate"),
       danger: true,
     });
     if (!ok) return;
     setBusy(true);
-    setError(null);
     try {
       // The store rejects with the server's reason when the rotation is
-      // refused, and hands back the new secret only when it is not.
-      setSecret(await rotateAppPassword());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      // refused, and hands back the new secret with the count of what it left
+      // working. The shown secret is never cleared on a failure: it cannot be
+      // recovered, so the one an admin has not copied yet stays on screen.
+      setRotated(await rotateAppPassword());
+    } catch {
+      // What went wrong is on `problems.password`, rendered below: one home for
+      // the reason, and it outlives the dialog that raised it.
     } finally {
       setBusy(false);
     }
@@ -57,19 +70,28 @@ export function AppPasswordRotate() {
       <button className="btn" disabled={busy} onClick={() => void rotate()}>
         <KeyRound size={16} /> {busy ? t("Rotating…") : t("Rotate app password")}
       </button>
-      {error && (
+      {problem && (
         <div className="error-box" style={{ marginTop: 12 }}>
-          {error}
+          {problem}
         </div>
       )}
-      {secret && (
+      {rotated && (
         <div className="card" style={{ marginTop: 12 }}>
           <p>
             {t(
               "This is the deployment's secret, and it will not be shown again. Copy it now and put it where the worker reads it; until both sides agree, the worker cannot open its session.",
             )}
           </p>
-          <CopyableSecret value={secret} />
+          <CopyableSecret value={rotated.secret} />
+          {rotated.alsoValid > 0 && (
+            <p className="hint">
+              {plural(rotated.alsoValid, {
+                one: "{n} other app password still works — revoke it in Stalwart's administration.",
+                other:
+                  "{n} other app passwords still work — revoke them in Stalwart's administration.",
+              })}
+            </p>
+          )}
         </div>
       )}
     </section>

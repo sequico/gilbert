@@ -74,8 +74,63 @@ export interface AgentDoc<T> {
   state: string;
 }
 
-/** How many times a read-modify-write retries after losing a compare-and-set. */
-const CAS_ATTEMPTS = 4;
+/**
+ * How many times the audit's append retries, with a pause and jitter between
+ * tries.
+ *
+ * More than the ordinary four attempts, because the state it compares against is the whole
+ * account's (`appFolderState`), so a write that has nothing to do with the
+ * audit invalidates it just as well; and a pause, because four attempts
+ * back-to-back all land inside the same collision they just lost to.
+ */
+const AUDIT_CAS_ATTEMPTS = 6;
+
+function backoffMs(attempt: number): number {
+  const base = Math.min(400, 25 * 2 ** (attempt - 1));
+  return base + Math.floor(Math.random() * base);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Audit entries that could not be written, per account, until the next try.
+ *
+ * In memory, deliberately: the alternative to holding a line in the process is
+ * losing it, and a restart costs the queue while the documents the line
+ * describes are durable anyway (ADR 0003 resolution 20 records the limit).
+ * Bounded, because a queue that grows without limit in a process that cannot
+ * write is a memory leak that hides its own cause.
+ */
+const PENDING_AUDITS = new Map<string, AgentAuditEntry[]>();
+const PENDING_AUDIT_LIMIT = 100;
+
+function pendingAudits(accountId: string): AgentAuditEntry[] {
+  return PENDING_AUDITS.get(accountId) ?? [];
+}
+
+function setPendingAudits(accountId: string, entries: AgentAuditEntry[]): void {
+  if (entries.length) PENDING_AUDITS.set(accountId, entries);
+  else PENDING_AUDITS.delete(accountId);
+}
+
+function queuePendingAudit(accountId: string, entry: AgentAuditEntry): void {
+  const queued = [...pendingAudits(accountId), entry];
+  const kept = queued.slice(-PENDING_AUDIT_LIMIT);
+  if (kept.length < queued.length) {
+    console.warn(
+      `[gilbert] ${accountId}: dropped ${queued.length - kept.length} audit entr(ies), ` +
+        `${PENDING_AUDIT_LIMIT} already waiting to be written`,
+    );
+  }
+  setPendingAudits(accountId, kept);
+}
+
+/** How many audit entries this account is holding back for a later attempt. */
+export function pendingAuditCount(accountId: string): number {
+  return pendingAudits(accountId).length;
+}
 
 /**
  * The documents of one account. Construct it for the group's account to work
@@ -373,12 +428,27 @@ export class AgentStore {
 
   /* ---------------- audit (group account) ---------------- */
 
+  /**
+   * The month's audit document.
+   *
+   * A document that is **there but does not read as an audit** is an error, not
+   * an empty month: the trail is what an agent's work is answered from, and a
+   * surface that shows "nothing happened" for a month nobody can read is
+   * telling the wrong story about work that may well have happened. Missing
+   * really is empty; unreadable is loud — the same line the writer already
+   * holds.
+   */
   async readAudit(month: string): Promise<AgentAuditDoc | null> {
-    const found = await this.readDoc<AgentAuditDoc>(
-      this.path(AGENT_AUDIT_DIR, auditDocName(month)),
-      isAgentAuditDoc,
-    );
-    return found?.doc ?? null;
+    const path = this.path(AGENT_AUDIT_DIR, auditDocName(month));
+    const raw = await readAppJsonAt(this.ctx, this.accountId, path);
+    if (raw === null) return null;
+    if (!isAgentAuditDoc(raw)) {
+      throw new Error(
+        `the audit document ${path} is there but does not read as an audit; ` +
+          `refusing to report it as an empty month`,
+      );
+    }
+    return raw;
   }
 
   /** The audit document for an instant's month. */
@@ -389,15 +459,44 @@ export class AgentStore {
   /**
    * Append one entry to the month's audit document.
    *
-   * A read-modify-write against a shared document: the write is conditional,
-   * so two workers appending at once make one of them retry rather than
-   * silently drop an entry. The audit is the record that an agent's work can
-   * be answered from, so losing one is the failure it must not have.
+   * A read-modify-write against a shared document, where the shared state is
+   * the **whole account's** FileNode state (JMAP offers no narrower one), so an
+   * unrelated write — a file a member uploads, another document, the prune of
+   * finished jobs in the same pass — invalidates it just as well. The audit is
+   * the record an agent's work is answered from, so losing one is the failure
+   * it must not have, and that costs three things here:
+   *
+   * - more than the ordinary four attempts, with a pause and jitter between
+   *   them: four back-to-back retries all land inside the same collision;
+   * - on a loss that survives them, the entry is **queued** (see
+   *   `pendingAudits`) and the next write for this account tries it again;
+   * - the queue is drained by the worker each pass, which also means an entry
+   *   can be reported as pending rather than silently gone.
+   *
+   * What is not solved here is size: the document holds a whole month, so the
+   * blob re-uploaded on every attempt, and the window with it, grow as the
+   * month fills. That is recorded as a cost in ADR 0003 resolution 20.
    */
   async appendAudit(entry: AgentAuditEntry, at = new Date()): Promise<void> {
     const month = monthOf(at);
     const path = this.path(AGENT_AUDIT_DIR, auditDocName(month));
-    for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
+    await this.flushPendingAudits();
+    if (await this.tryAppendAudit(entry, path, month)) return;
+    queuePendingAudit(this.accountId, entry);
+    throw new Error(
+      `the audit document ${path} kept changing under the writer; ` +
+        `the entry is held and retried on the next pass`,
+    );
+  }
+
+  /** One entry, with the retries the shared state needs. False means give up. */
+  private async tryAppendAudit(
+    entry: AgentAuditEntry,
+    path: string,
+    month: string,
+  ): Promise<boolean> {
+    for (let attempt = 0; attempt < AUDIT_CAS_ATTEMPTS; attempt++) {
+      if (attempt) await sleep(backoffMs(attempt));
       const state = await this.state();
       const raw = await readAppJsonAt(this.ctx, this.accountId, path);
       // A document that is there but does not validate is **not** an empty
@@ -416,12 +515,33 @@ export class AgentStore {
       doc.entries = [...doc.entries, entry];
       try {
         await writeAppFileAt(this.ctx, this.accountId, path, doc, { ifInState: state });
-        return;
+        return true;
       } catch (err) {
         if (!isStateMismatch(err)) throw err;
       }
     }
-    throw new Error("the audit document kept changing under the writer");
+    return false;
+  }
+
+  /**
+   * Write the entries this account could not write earlier, oldest first.
+   *
+   * Entries that fail again stay queued. Returns how many are still waiting,
+   * so the caller can say so instead of leaving the trail quietly short.
+   */
+  async flushPendingAudits(): Promise<number> {
+    let waiting = pendingAudits(this.accountId);
+    while (waiting.length) {
+      const entry = waiting[0];
+      if (!entry) break;
+      const rest = waiting.slice(1);
+      const month = monthOf(new Date(entry.at));
+      const path = this.path(AGENT_AUDIT_DIR, auditDocName(month));
+      if (!(await this.tryAppendAudit(entry, path, month))) return waiting.length;
+      waiting = rest;
+      setPendingAudits(this.accountId, rest);
+    }
+    return 0;
   }
 
   /* ---------------- workers (agent account) ---------------- */

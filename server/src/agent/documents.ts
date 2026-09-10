@@ -299,6 +299,20 @@ export function irreversible(actions: ReadonlyArray<AgentAction>): boolean {
   return actions.some((a) => agentActionSpec(a.do)?.irreversible === true);
 }
 
+/**
+ * Whether one action reaches outside the group's own state: it sends, or it
+ * leaves something a person will find.
+ *
+ * This is the set a run must not repeat. Everything else the agent does — a
+ * label, a mailbox move, a chat post — is either idempotent or harmless to do
+ * twice, so a retry may redo it; a message that has left cannot be recalled and
+ * a second send is a second message.
+ */
+export function leavesTheProcess(action: AgentAction): boolean {
+  const spec = agentActionSpec(action.do);
+  return spec?.external === true || spec?.irreversible === true;
+}
+
 /* ------------------------------------------------------------------ */
 /* Rules                                                               */
 /* ------------------------------------------------------------------ */
@@ -490,6 +504,17 @@ export function filterProblems(
       }
     }
     const conditions = filter.conditions;
+    // An empty group is not "no filter": `AND` over nothing is true, `OR` over
+    // nothing is false, and `NOT` over nothing matches every message in the
+    // account. A rule like that is armed and does something nobody wrote, so it
+    // is refused here — where the form and the executor read the same words.
+    if (!Array.isArray(conditions) || !conditions.length) {
+      problems.push(
+        `${where} groups conditions with "${String(operator)}" and has none: ` +
+          "an empty group is not a filter, and it would match everything or nothing",
+      );
+      return problems;
+    }
     if (Array.isArray(conditions)) {
       for (const condition of conditions) {
         if (condition && typeof condition === "object" && !Array.isArray(condition)) {
@@ -634,7 +659,7 @@ export class UnsupportedFilterError extends Error {
  * with the wrong type is valid and dead. This is the same knowledge, in the
  * shape validation needs, and it exists once — beside the keys themselves.
  */
-const FILTER_KEY_KINDS: Record<string, "string" | "number"> = {
+export const FILTER_KEY_KINDS: Record<string, "string" | "number"> = {
   inMailbox: "string",
   hasKeyword: "string",
   notKeyword: "string",
@@ -650,21 +675,11 @@ const FILTER_KEY_KINDS: Record<string, "string" | "number"> = {
   maxSize: "number",
 };
 
-export const SUPPORTED_FILTER_KEYS: ReadonlyArray<string> = [
-  "inMailbox",
-  "hasKeyword",
-  "notKeyword",
-  "subject",
-  "text",
-  "body",
-  "from",
-  "to",
-  "cc",
-  "before",
-  "after",
-  "minSize",
-  "maxSize",
-];
+/**
+ * The keys the matcher implements — derived, so it cannot disagree with the
+ * kinds beside it about how many filters there are.
+ */
+export const SUPPORTED_FILTER_KEYS: ReadonlyArray<string> = Object.keys(FILTER_KEY_KINDS);
 
 /**
  * The first key in a filter the executor cannot evaluate, or null.
@@ -879,6 +894,17 @@ export interface AgentJob {
   attempts: number;
   lease?: AgentLease;
   proposal?: AgentProposal;
+  /**
+   * The actions that already ran, in the order they landed.
+   *
+   * A retry re-enters a job whose first pass may already have had an effect, so
+   * the executor records each action as it completes and the next pass skips
+   * what is done. A job that has already run an action it cannot take back is
+   * not retried at all (ADR 0003 resolution 18).
+   */
+  applied?: string[];
+  /** When the next attempt may start: the backoff between retries. */
+  nextAttemptAt?: string;
   decisionId?: string;
   /** The last failure, when the state is `failed`. */
   error?: string;
@@ -933,6 +959,12 @@ export function isAgentJob(x: unknown): x is AgentJob {
   if (typeof j.attempts !== "number") return false;
   if (j.lease !== undefined && !isAgentLease(j.lease)) return false;
   if (j.proposal !== undefined && !isAgentProposal(j.proposal)) return false;
+  if (
+    j.applied !== undefined &&
+    (!Array.isArray(j.applied) || j.applied.some((a) => typeof a !== "string"))
+  )
+    return false;
+  if (j.nextAttemptAt !== undefined && typeof j.nextAttemptAt !== "string") return false;
   if (j.decisionId !== undefined && typeof j.decisionId !== "string") return false;
   if (j.error !== undefined && typeof j.error !== "string") return false;
   return typeof j.createdAt === "string" && typeof j.updatedAt === "string";
@@ -1244,6 +1276,14 @@ export const AGENT_AUDIT_OUTCOMES: ReadonlyArray<string> = [
   "awaiting_approval",
   "rejected",
   "missed",
+  /**
+   * A run whose worker stopped holding it: the lease expired with the job still
+   * `running`, nobody came back for it, and the attempts it had are spent. It is
+   * an outcome of its own rather than `failed`, because nothing reported a
+   * failure — the process that would have done so is gone, and a reader of the
+   * trail is entitled to see the difference.
+   */
+  "timeout",
 ];
 
 export type AgentAuditOutcome =
@@ -1252,7 +1292,8 @@ export type AgentAuditOutcome =
   | "failed"
   | "awaiting_approval"
   | "rejected"
-  | "missed";
+  | "missed"
+  | "timeout";
 
 /** Whether a value names an outcome the audit can carry. */
 export function isAgentAuditOutcome(x: unknown): x is AgentAuditOutcome {

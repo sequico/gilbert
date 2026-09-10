@@ -4276,6 +4276,17 @@ export const server = createServer(async (req, res) => {
   if (url.pathname.startsWith("/jmap/upload/") && req.method === "POST") {
     const data = await readBody(req);
     const type = req.headers["content-type"] ?? "application/octet-stream";
+    /*
+     * An upload stores a blob and writes no node, so this simulation leaves
+     * every state token where it was — which is point (d) of the owed probe in
+     * `checkIfInState`: whether a real 0.16 server agrees. It matters because
+     * the production write path uploads the blob **after** reading the token
+     * and before the conditional write (`writeAppFileIn`), so a server that
+     * moved the token on upload would refuse every conditional write the agent
+     * makes — it would never claim a unit and never append an audit entry. The
+     * choice is pinned by `compare-and-set.test.ts` so a change here is noticed
+     * rather than inherited.
+     */
     const blobId = putBlob(data, type);
     res.writeHead(200, { "content-type": "application/json" });
     return res.end(

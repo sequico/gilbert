@@ -110,6 +110,42 @@ combined diff output is small — never a directory-level diff. Tool output is
 capped; a truncated diff gets re-read and re-run, which is what burns
 hundreds of k tokens. A reviewer whose output was truncated narrows with
 `read_file`/single grep — it never re-issues the same wide command.
+**Claims, docs and parallel writers (owner decision 2026-09-10, after the agent
+branch):** a comment, an ADR sentence and a FEATURES bullet are **claims about
+the code**. Three rules follow, and they bind parent and child alike.
+
+1. **Write only what you have read.** A docs/ADR writer dispatched beside code
+   writers describes the code that is **in the tree**, verified by reading it —
+   never the work in flight. If the code has not landed, the docs writer either
+   waits for it or writes nothing about it; an ADR that records a decision the
+   tree does not implement is a false claim on the most authoritative document
+   in the repo. Prefer dispatching the docs pass **after** the code pass, and
+   have the parent re-check the ADR against the diff before committing.
+2. **A change that makes a claim false fixes the claim in the same diff.** Grep
+   for the sentence you just invalidated (the old behaviour often survives in a
+   sibling file's comment, a test comment or the ADR) and correct it there and
+   then. This is the recurring defect of this repo: code that is right beside
+   prose that is not.
+3. **One writer per file, and expect the checkout to be shared.** Parallel
+   writers get disjoint `write_roots`; a child whose role is read-only or
+   docs-only may lose `bash` entirely while a peer writes in the same checkout
+   (`Tool bash cannot prove a bounded file target …`). That is not a failure to
+   retry: instruct such children to verify by `read`/`edit` and to say what they
+   could not run, and keep **all gates in the parent**.
+
+**Invariant tests (owner decision 2026-09-10):** a mechanism the ADR names has at
+least one test that **fails when the mechanism is removed** — not a test that
+the code merely runs. The list is not decorative: it is how "we implemented X"
+stays true a month later. When a review names a mechanism as untested (claim
+epoch and fencing, the `missed` entry, two workers racing one claim, the
+recovery of an abandoned run, the per-action ledger, an unreadable document),
+the fix includes the test. A mock that stands in for a server behaviour the code
+depends on pins that assumption with a test **next to the simulation**, and the
+live probe it owes stays written down as owed. Reordering effects against their
+intent line (or the reverse) means running the affected area's tests before
+claiming the reorder is safe — that reorder is exactly what a stored document
+has to keep agreeing with.
+
 **Every review ends with the owner's decisions (owner decision 2026-09-09):**
 the fixed deliverable is numbered findings (BLOCKER/MAJOR/MINOR/NIT) with
 file:line evidence, a five-line summary, a VERDICT, and a closing **"Open

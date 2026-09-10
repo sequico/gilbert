@@ -74,11 +74,11 @@ function isReviewMode(x: string): x is AgentReviewMode {
 }
 
 /**
- * The filter fields the executor honours: one entry per key in
- * `SUPPORTED_FILTER_KEYS`, in the same order, so a filter the runtime would
- * act on is a filter this form can write. A key that exists on the server and
- * not here is an automation nobody can author, which is how a "form only"
- * promise turns into a rule that cannot be written at all.
+ * The filter fields the executor honours: one entry for every key in
+ * `SUPPORTED_FILTER_KEYS`, in the order the form reads best, so a filter the
+ * runtime would act on is a filter this form can write. A key that exists on
+ * the server and not here is an automation nobody can author, which is how a
+ * "form only" promise turns into a rule that cannot be written at all.
  */
 const AGENT_FILTER_LABELS: ReadonlyArray<{ key: string; label: string }> = [
   { key: "inMailbox", label: "Mailbox" },
@@ -96,6 +96,37 @@ const AGENT_FILTER_LABELS: ReadonlyArray<{ key: string; label: string }> = [
   { key: "notKeyword", label: "Not keyword" },
 ];
 
+/** The keys above, as the set a condition's own keys are checked against. */
+const AGENT_FILTER_KEYS = new Set(AGENT_FILTER_LABELS.map((f) => f.key));
+
+/**
+ * Whether this form can write a condition back.
+ *
+ * A condition it can write is a flat object of the keys above with string or
+ * number values. Anything else — a nested group, a key no matcher implements,
+ * a value of another type — is a document this form cannot spell out, and it is
+ * carried as it is instead of being flattened into something it never was.
+ */
+function isWritableCondition(condition: unknown): condition is Record<string, unknown> {
+  if (!condition || typeof condition !== "object" || Array.isArray(condition)) {
+    return false;
+  }
+  for (const [key, value] of Object.entries(condition)) {
+    if (!AGENT_FILTER_KEYS.has(key)) return false;
+    if (typeof value !== "string" && typeof value !== "number") return false;
+  }
+  return true;
+}
+
+/** One condition's value for one field, as the input shows it. */
+function filterValue(condition: unknown, key: string): string {
+  if (!isWritableCondition(condition)) return "";
+  const value = condition[key];
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  return "";
+}
+
 export function RuleForm({
   rule,
   onChange,
@@ -110,57 +141,80 @@ export function RuleForm({
     set({ review: { ...rule.review, ...patch } });
 
   /*
-   * A filter is written either flat (every key must match) or grouped under one
-   * of the three operators. The form shows whichever shape the rule already
-   * has: grouped rules are read back as grouped, so opening an automation does
-   * not quietly reshape it.
+   * A filter is written either flat — every key in it has to match — or as a
+   * group of conditions under one of the three operators. The form shows
+   * whichever shape the rule already has, and it models a group as the list it
+   * is: every condition is there, editing one leaves the others alone, and a
+   * condition this form cannot spell out is carried exactly as the document
+   * holds it rather than dropped on the next keystroke.
    */
-  const grouped = typeof rule.trigger.filter?.operator === "string";
-  const listed: unknown = grouped ? rule.trigger.filter?.conditions : undefined;
-  const first: unknown = Array.isArray(listed) ? listed[0] : undefined;
-  const conditions: Record<string, unknown> = grouped
-    ? { ...((first as Record<string, unknown> | undefined) ?? {}) }
-    : { ...(rule.trigger.filter ?? {}) };
+  const filter = rule.trigger.filter;
+  const operator = typeof filter?.operator === "string" ? filter.operator : null;
+  const grouped = operator !== null;
+  const rawConditions = filter?.conditions;
+  const conditions: unknown[] = !grouped
+    ? [filter ?? {}]
+    : Array.isArray(rawConditions)
+      ? rawConditions
+      : rawConditions === undefined
+        ? []
+        : [rawConditions];
+  /** The conditions that carry something: an empty one narrows nothing. */
+  const written = conditions.filter(
+    (condition) => isWritableCondition(condition) && Object.keys(condition).length > 0,
+  );
 
-  const filterValue = (key: string): string => {
-    const value = conditions[key];
-    if (typeof value === "string") return value;
-    if (typeof value === "number") return String(value);
-    return "";
-  };
-  const writeConditions = (next: Record<string, unknown>) => {
-    if (!Object.keys(next).length) {
-      setTrigger({ filter: undefined });
+  /**
+   * Write the conditions back, in the shape the document already has.
+   *
+   * A flat filter is one condition and no operator: it goes when the last key in
+   * it goes. A group keeps its operator while it has a condition — an operator
+   * without one is read by the matcher as "everything" (`AND`, `NOT`) or as
+   * "nothing" (`OR`), and `filterProblems` refuses such a document — so the last
+   * condition to be removed takes the operator with it.
+   */
+  const writeConditions = (next: unknown[]) => {
+    if (!grouped) {
+      const only = next[0];
+      const kept =
+        isWritableCondition(only) && Object.keys(only).length > 0 ? only : undefined;
+      setTrigger({ filter: kept });
       return;
     }
     setTrigger({
-      filter: grouped
-        ? { operator: rule.trigger.filter?.operator, conditions: [next] }
-        : next,
+      filter: next.length ? { operator: filter?.operator, conditions: next } : undefined,
     });
   };
-  const setFilter = (key: string, raw: string) => {
-    const next: Record<string, unknown> = { ...conditions };
-    if (!raw.trim()) delete next[key];
-    // A size is a number, and the matcher compares numbers: a string here is a
-    // filter that is valid and never matches, which the server now refuses.
-    else if (AGENT_FILTER_NUMBERS.has(key)) next[key] = Number(raw);
-    else next[key] = raw;
-    writeConditions(next);
+  const setCondition = (index: number, key: string, raw: string) => {
+    writeConditions(
+      conditions.map((condition, i) => {
+        // The conditions around this one are carried through untouched, whether
+        // or not this form can write them.
+        if (i !== index || !isWritableCondition(condition)) return condition;
+        const next: Record<string, unknown> = { ...condition };
+        if (!raw.trim()) delete next[key];
+        // A size is a number, and the matcher compares numbers: a string here
+        // is a filter that is valid and never matches.
+        else if (AGENT_FILTER_NUMBERS.has(key)) next[key] = Number(raw);
+        else next[key] = raw;
+        return next;
+      }),
+    );
   };
+  const addCondition = () => writeConditions([...conditions, {}]);
+  const removeCondition = (index: number) =>
+    writeConditions(conditions.filter((_, i) => i !== index));
   /**
    * Choose how the conditions compose. `All of these` on a filter that is not
    * grouped yet is the shape the form already writes, so it leaves the document
-   * alone rather than rewriting it into a group of one.
+   * alone rather than rewriting it into a group of one — and an operator is
+   * never written over nothing, because a filter nobody wrote is what the
+   * server refuses: the selector moves once a condition carries something.
    */
   const setOperator = (next: string) => {
     if (next === "AND" && !grouped) return;
-    setTrigger({
-      filter: {
-        operator: next,
-        conditions: Object.keys(conditions).length ? [conditions] : [],
-      },
-    });
+    if (!written.length) return;
+    setTrigger({ filter: { operator: next, conditions } });
   };
 
   /*
@@ -276,14 +330,19 @@ export function RuleForm({
         <>
           <h3>{t("If")}</h3>
           <p className="hint">
-            {t("Every filter must match. An empty filter matches every message.")}
+            {grouped
+              ? t(
+                  "The selector says how these conditions compose: all of them, any of them, or none of them.",
+                )
+              : t("Every filter must match. An empty filter matches every message.")}
           </p>
           <div className="field">
             <label htmlFor="agent-filter-operator">{t("Match")}</label>
             <select
               id="agent-filter-operator"
               className="input"
-              value={grouped ? String(rule.trigger.filter?.operator ?? "AND") : "AND"}
+              value={operator ?? "AND"}
+              disabled={!grouped && !written.length}
               onChange={(e) => setOperator(e.target.value)}
             >
               <option value="AND">{t("All of these")}</option>
@@ -291,22 +350,39 @@ export function RuleForm({
               <option value="NOT">{t("None of these")}</option>
             </select>
           </div>
-          {AGENT_FILTER_LABELS.map((f) => (
-            <div className="field" key={f.key}>
-              <label htmlFor={`agent-filter-${f.key}`}>{t(f.label)}</label>
-              <input
-                id={`agent-filter-${f.key}`}
-                className="input"
-                value={filterValue(f.key)}
-                onChange={(e) => setFilter(f.key, e.target.value)}
-              />
-              {f.key === "inMailbox" && (
-                <p className="hint">
-                  {t("The mailbox id in the group's own account; it is matched exactly.")}
-                </p>
-              )}
+          {grouped ? (
+            <div className="agent-actions">
+              {conditions.map((condition, i) => (
+                <div className="agent-action" key={`condition-${i}`}>
+                  <div className="agent-action-head">
+                    <b>{t("Condition {n}", { n: i + 1 })}</b>
+                    <button
+                      type="button"
+                      className="icon-btn xs danger"
+                      aria-label={t("Remove condition")}
+                      onClick={() => removeCondition(i)}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                  <FilterFields
+                    condition={condition}
+                    idPrefix={`agent-filter-${i}`}
+                    onChange={(key, raw) => setCondition(i, key, raw)}
+                  />
+                </div>
+              ))}
+              <button type="button" className="btn btn-sm" onClick={addCondition}>
+                <Plus size={14} /> {t("Add condition")}
+              </button>
             </div>
-          ))}
+          ) : (
+            <FilterFields
+              condition={conditions[0]}
+              idPrefix="agent-filter"
+              onChange={(key, raw) => setCondition(0, key, raw)}
+            />
+          )}
         </>
       )}
 
@@ -451,6 +527,62 @@ export function RuleForm({
         </div>
       )}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * One condition's fields: every filter key the executor honours, each with a
+ * field of its own.
+ *
+ * A condition this form cannot write — a nested group, a key no matcher
+ * implements, a value that is neither text nor a number — is shown as the
+ * document holds it and is read-only on purpose: the form's promise is that it
+ * does not quietly reshape a document, and rewriting a condition it cannot
+ * spell out would be exactly that.
+ */
+function FilterFields({
+  condition,
+  idPrefix,
+  onChange,
+}: {
+  condition: unknown;
+  /** Distinguishes the fields of two conditions on one form. */
+  idPrefix: string;
+  onChange(key: string, raw: string): void;
+}) {
+  if (!isWritableCondition(condition)) {
+    return (
+      <>
+        <p className="hint">
+          {t(
+            "This condition uses something this form cannot spell out, so it is shown as the document holds it and left exactly as it is.",
+          )}
+        </p>
+        <pre className="mono small">{JSON.stringify(condition, null, 2)}</pre>
+      </>
+    );
+  }
+  return (
+    <>
+      {AGENT_FILTER_LABELS.map((f) => (
+        <div className="field" key={f.key}>
+          <label htmlFor={`${idPrefix}-${f.key}`}>{t(f.label)}</label>
+          <input
+            id={`${idPrefix}-${f.key}`}
+            className="input"
+            value={filterValue(condition, f.key)}
+            onChange={(e) => onChange(f.key, e.target.value)}
+          />
+          {f.key === "inMailbox" && (
+            <p className="hint">
+              {t("The mailbox id in the group's own account; it is matched exactly.")}
+            </p>
+          )}
+        </div>
+      ))}
+    </>
   );
 }
 

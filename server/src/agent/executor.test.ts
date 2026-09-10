@@ -25,7 +25,7 @@ const { GROUP_LABELS_FILE } = await import("../shared/labels.js");
 const { fetchEmailRecord } = await import("./actions.js");
 const { postMessage, readChat } = await import("./chat.js");
 const { newJob } = await import("./documents.js");
-const { Executor } = await import("./executor.js");
+const { Executor, JOB_MAX_ATTEMPTS } = await import("./executor.js");
 const { claimArea } = await import("./lease.js");
 const { AgentStore } = await import("./store.js");
 
@@ -613,4 +613,173 @@ test("a folder slice is one header line per message, never a body", async () => 
     "the slice names the mail; a run that needs it reads that message",
   );
   assert.equal(renderFolderSlice("Archive", []), 'FOLDER "Archive": no messages');
+});
+
+/*
+ * What a failure is allowed to do next (ADR 0003 resolution 20). A retry is
+ * safe for work that stayed inside the group's own state and dangerous for
+ * anything that left the process: a second pass either repeats an effect
+ * nobody can take back or runs a plan nobody approved.
+ */
+test("a failure that could have sent mail is not retried", async () => {
+  const sender = rule({
+    id: "sender",
+    name: "Sender automation",
+    actions: [{ do: "mail.send", with: { to: ADA, subject: "x", text: "y" } }],
+    capabilities: ["mail.send"],
+  });
+  await store.writeRules([sender]);
+  const emailId = await createMessage("An invoice that would have been mailed");
+  const job = newJob({
+    id: "sender-job",
+    accountId: GROUP,
+    area: "mail",
+    rule: { id: "sender", version: 1 },
+    trigger: { on: "email", emailId, at: new Date().toISOString() },
+  });
+  const planned: AgentJob = {
+    ...job,
+    attempts: 1,
+    state: "running",
+    proposal: {
+      summary: "send the reply",
+      actions: [{ do: "mail.send", with: { to: ADA, text: "y" } }],
+      confidence: 0.95,
+      draft: null,
+    },
+  };
+  await store.writeJob(planned);
+
+  await executor.failLoudly(store, planned, sender, "the submission was refused");
+
+  const after = await store.readJob("sender-job");
+  assert.equal(
+    after?.doc.state,
+    "failed",
+    "a second pass would send again — or send a message nobody approved",
+  );
+  assert.equal(
+    after?.doc.nextAttemptAt,
+    undefined,
+    "there is no next attempt for a plan that reaches outside",
+  );
+});
+
+test("a failure that stayed inside the group waits before trying again", async () => {
+  const internal = rule({ id: "internal", name: "Internal automation" });
+  await store.writeRules([internal]);
+  const emailId = await createMessage("An invoice for an internal retry");
+  const job = newJob({
+    id: "internal-job",
+    accountId: GROUP,
+    area: "mail",
+    rule: { id: "internal", version: 1 },
+    trigger: { on: "email", emailId, at: new Date().toISOString() },
+  });
+  const planned: AgentJob = {
+    ...job,
+    attempts: 1,
+    state: "running",
+    proposal: {
+      summary: "label it",
+      actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
+      confidence: 1,
+      draft: null,
+    },
+  };
+  await store.writeJob(planned);
+
+  await executor.failLoudly(store, planned, internal, "the store was busy");
+
+  const waiting = await store.readJob("internal-job");
+  assert.equal(waiting?.doc.state, "pending", "a retry stays pending for a later pass");
+  const due = Date.parse(String(waiting?.doc.nextAttemptAt));
+  assert.ok(
+    due > Date.now(),
+    "the next attempt is in the future: three attempts back to back are one attempt",
+  );
+
+  // And the sweep respects the wait instead of burning the attempts at once.
+  const ran = await executor.runPending(GROUP, ["mail"]);
+  const still = await store.readJob("internal-job");
+  assert.equal(still?.doc.attempts, 1, "a job inside its backoff is not run");
+  assert.equal(typeof ran, "number");
+});
+
+test("a run nobody came back for is closed as a timeout, not a failure", async () => {
+  const abandoned = rule({ id: "abandoned", name: "Abandoned automation" });
+  await store.writeRules([abandoned]);
+  const emailId = await createMessage("An invoice for an abandoned run");
+  const job = newJob({
+    id: "abandoned-job",
+    accountId: GROUP,
+    area: "mail",
+    rule: { id: "abandoned", version: 1 },
+    trigger: { on: "email", emailId, at: new Date().toISOString() },
+  });
+  await store.writeJob({
+    ...job,
+    state: "running",
+    attempts: JOB_MAX_ATTEMPTS,
+    lease: {
+      owner: "a-worker-that-died",
+      heartbeatAt: new Date(Date.now() - 10 * LEASE).toISOString(),
+    },
+  });
+
+  await executor.runPending(GROUP, ["mail"]);
+
+  const closed = await store.readJob("abandoned-job");
+  assert.equal(
+    closed?.doc.state,
+    "failed",
+    "an abandoned run does not stay open forever",
+  );
+  assert.match(
+    String(closed?.doc.error),
+    /no worker came back/,
+    "the reason names what happened: nobody reported a failure",
+  );
+  const audit = await store.readAuditAt(new Date());
+  assert.ok(
+    audit?.entries.some((e) => e.jobId === "abandoned-job" && e.outcome === "timeout"),
+    "the trail distinguishes a timeout from a failure",
+  );
+});
+
+test("a run whose worker died is taken up again by the next pass", async () => {
+  const resume = rule({ id: "resume", name: "Resume automation" });
+  await store.writeRules([resume]);
+  const emailId = await createMessage("An invoice to resume");
+  const job = newJob({
+    id: "resume-job",
+    accountId: GROUP,
+    area: "mail",
+    rule: { id: "resume", version: 1 },
+    trigger: { on: "email", emailId, at: new Date().toISOString() },
+  });
+  await store.writeJob({
+    ...job,
+    state: "running",
+    attempts: 1,
+    lease: {
+      owner: "the-worker-that-died",
+      heartbeatAt: new Date(Date.now() - 10 * LEASE).toISOString(),
+    },
+  });
+
+  await executor.runPending(GROUP, ["mail"]);
+
+  const after = await store.readJob("resume-job");
+  assert.equal(
+    after?.doc.state,
+    "done",
+    "a crash mid-run is recoverable: the next pass finishes the work",
+  );
+  const marked = await fetchEmailRecord(client, GROUP, emailId, {});
+  assert.equal(
+    (marked?.keywords as Record<string, unknown>)?.["G-processed"],
+    true,
+    "and the effect the run was for actually landed",
+  );
 });

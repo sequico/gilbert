@@ -4,12 +4,13 @@ import { after, test } from "node:test";
 /**
  * The claim machinery against the mock's FileNode store (ADR 0003 §6).
  *
- * The mock does not enforce `ifInState`, where a real 0.16 server refuses a
- * write whose state moved, so the compare-and-set **retry** path is not
- * exercised here. What is exercised is every ownership decision, because those
- * are made from the documents themselves: take what is free, refuse what
- * somebody holds, renew my own, and take over a claim whose heartbeat went
- * stale while keeping the catch-up states it recorded.
+ * The mock **does** enforce `ifInState` (`compare-and-set.test.ts` pins it), so
+ * a write whose state moved is refused exactly as a real 0.16 server refuses
+ * it. What these tests exercise is every ownership decision — take what is
+ * free, refuse what somebody holds, renew my own, take over a claim whose
+ * heartbeat went stale while keeping the catch-up states it recorded — and,
+ * since a refusal is no longer indistinguishable from a loss, why a claim came
+ * back empty.
  */
 
 const PORT = 18851;
@@ -20,6 +21,7 @@ const { fetchUpstreamSession } = await import("../upstream.js");
 const {
   claimArea,
   claimStream,
+  claimStillMine,
   releaseClaim,
   releaseStreamClaim,
   renewClaim,
@@ -27,6 +29,7 @@ const {
   workerId,
 } = await import("./lease.js");
 const { AgentStore } = await import("./store.js");
+const { claimEpoch } = await import("./documents.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
 /** The group mailbox of the demo session; its app folder holds the claims. */
@@ -132,4 +135,127 @@ test("a worker id is stable for the process and names the agent", () => {
   const id = workerId("gilbert@example.com");
   assert.equal(id, workerId("gilbert@example.com"));
   assert.match(id, /^gilbert@example\.com#[0-9]+-/);
+});
+
+/*
+ * From here on each test takes its own area, so it starts from a claim nobody
+ * holds and the tests above keep their sequence.
+ */
+
+test("a takeover moves the epoch, a renewal does not", async () => {
+  const first = await claimArea(store, "files", "w1", {
+    now: new Date(),
+    leaseMs: LEASE,
+  });
+  assert.ok(first);
+  const atEpoch = claimEpoch(first);
+
+  const renewed = await claimArea(store, "files", "w1", {
+    now: new Date(),
+    leaseMs: LEASE,
+  });
+  assert.ok(renewed);
+  assert.equal(
+    claimEpoch(renewed),
+    atEpoch,
+    "a renewal is the same ownership, so a fence taken before it still holds",
+  );
+
+  await store.writeClaim({
+    ...renewed,
+    heartbeatAt: new Date(Date.now() - 2 * LEASE).toISOString(),
+  });
+  const taken = await claimArea(store, "files", "w2", {
+    now: new Date(),
+    leaseMs: LEASE,
+  });
+  assert.ok(taken);
+  assert.equal(
+    claimEpoch(taken),
+    atEpoch + 1,
+    "a takeover is a new ownership, so the old run's fence stops matching",
+  );
+  assert.equal(
+    await claimStillMine(store, "files", "w1", atEpoch),
+    false,
+    "the superseded run is told it no longer holds the unit",
+  );
+  assert.equal(await claimStillMine(store, "files", "w2", claimEpoch(taken)), true);
+});
+
+test("two workers racing for one unit: exactly one wins", async () => {
+  const now = new Date();
+  const [one, two] = await Promise.all([
+    claimArea(store, "tasks", "racer-a", { now, leaseMs: LEASE }),
+    claimArea(store, "tasks", "racer-b", { now, leaseMs: LEASE }),
+  ]);
+  assert.equal(
+    [one, two].filter(Boolean).length,
+    1,
+    "two workers must never both believe they hold the same unit (ADR 0003 §6)",
+  );
+  const held = await store.readClaim("tasks");
+  assert.ok(held);
+  assert.equal(held.doc.worker, (one ?? two)?.worker);
+});
+
+test("a released claim is not resurrected by saving states into it", async () => {
+  const claim = await claimArea(store, "calendars", "w1", {
+    now: new Date(),
+    leaseMs: LEASE,
+  });
+  assert.ok(claim);
+  assert.equal(await releaseClaim(store, "calendars", "w1"), true);
+
+  const saved = await saveClaimStates(store, claim, { Email: "42" });
+  assert.equal(
+    saved,
+    null,
+    "a claim that is gone is not mine to write into: the next pass claims it again",
+  );
+  assert.equal(
+    await store.readClaim("calendars"),
+    null,
+    "the unit must not come back busy under a worker that already gave it away",
+  );
+});
+
+test("a refusal says whether a peer holds the unit or the write kept losing", async () => {
+  assert.ok(
+    await claimArea(store, "contacts", "holder", { now: new Date(), leaseMs: LEASE }),
+  );
+  const reasons: string[] = [];
+  const refused = await claimArea(store, "contacts", "other", {
+    now: new Date(),
+    leaseMs: LEASE,
+    onRefused: (reason) => reasons.push(reason),
+  });
+  assert.equal(refused, null);
+  assert.deepEqual(reasons, ["held"], "a live lease is ownership, not contention");
+  // Free again, so the only thing that can refuse the next attempt is losing
+  // the write rather than finding an owner.
+  assert.equal(await releaseClaim(store, "contacts", "holder"), true);
+
+  // A store whose token moves under the writer: every conditional write loses,
+  // which is the case a bare `null` cannot tell from "somebody else has it".
+  let moved = 0;
+  const slippery = {
+    accountId: store.accountId,
+    state: async () => `moved-${moved++}`,
+    readClaim: (area: string) => store.readClaim(area as never),
+    writeClaim: (claim: never, opts?: { ifInState?: string }) =>
+      store.writeClaim(claim, opts),
+  } as unknown as AgentStore;
+  const contended: string[] = [];
+  const lost = await claimArea(slippery, "contacts", "w1", {
+    now: new Date(),
+    leaseMs: LEASE,
+    onRefused: (reason) => contended.push(reason),
+  });
+  assert.equal(lost, null);
+  assert.deepEqual(
+    contended,
+    ["contended"],
+    "nobody holds it and the write kept losing: the fleet is quietly stopping",
+  );
 });
