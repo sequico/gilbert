@@ -38,6 +38,7 @@ import {
   agentStatus,
   emptyGroupDocuments,
   groupAgentView,
+  groupAuditExport,
   impersonateAs,
   memberAgentView,
   pendingApprovals,
@@ -1376,7 +1377,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     try {
       const access = await resolveGroupAccess(session, name, { need: "labels" });
       if (!access.ok) {
-        return c.json({ error: access.error, message: access.message }, 403);
+        return c.json({ error: access.error, need: access.need }, 403);
       }
       const labels = await readGroupLabels(access.ctx, access.accountId);
       return c.json({ labels: labels ?? [] });
@@ -1394,7 +1395,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     try {
       const access = await resolveGroupAccess(session, name, { need: "labels" });
       if (!access.ok) {
-        return c.json({ error: access.error, message: access.message }, 403);
+        return c.json({ error: access.error, need: access.need }, 403);
       }
       await writeGroupLabels(access.ctx, access.accountId, body.labels);
       return c.json({ ok: true });
@@ -1448,7 +1449,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   /**
    * A group's agent surface. A group this admin cannot reach answers 200 with
-   * the reason and empty documents rather than 403: "you are not a member" is
+   * the refusal and empty documents rather than 403: "you are not a member" is
    * a state of the surface, not a failed request — and per ADR 0006 a
    * non-member admin has no act-as-the-group path at all, so the surface says
    * which membership a section needs instead of failing at the door.
@@ -1466,11 +1467,33 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           group: name,
           granted: false,
           agentAddress,
-          reason: access.message,
+          error: access.error,
+          need: access.need,
           ...emptyGroupDocuments(),
         } satisfies AgentGroupAnswer);
       const view = await groupAgentView(access, access.accountId);
       return c.json({ group: name, agentAddress, ...view } satisfies AgentGroupAnswer);
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  /**
+   * A group's audit trail, month by month, for an administrator to keep.
+   *
+   * The months are the declared retention's window — the same one
+   * `pruneAudit` (executor.ts) drops a document at a time — so this is the
+   * copy the retention decision promises before the oldest month goes.
+   */
+  api.get("/admin/groups/:name/agent/audit", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    const name = c.req.param("name") ?? "";
+    try {
+      const access = await resolveGroupAccess(session, name, {
+        need: "agent documents",
+      });
+      if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+      return c.json(await groupAuditExport(access, access.accountId, name));
     } catch (err) {
       return agentFailure(c, err);
     }
@@ -1481,8 +1504,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const name = c.req.param("name") ?? "";
     try {
       const access = await resolveGroupAccess(session, name, { need: "automations" });
-      if (!access.ok)
-        return c.json({ error: access.error, message: access.message }, 403);
+      if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
       return c.json({ rules: await readRules(access, access.accountId) });
     } catch (err) {
       return agentFailure(c, err);
@@ -1497,8 +1519,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       return c.json({ error: "bad_request", message: "rules must be an array" }, 400);
     try {
       const access = await resolveGroupAccess(session, name, { need: "automations" });
-      if (!access.ok)
-        return c.json({ error: access.error, message: access.message }, 403);
+      if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
       const rules = await saveRules(access, access.accountId, body.rules);
       return c.json({ ok: true, rules });
     } catch (err) {
@@ -1547,8 +1568,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       const name = c.req.param("name") ?? "";
       try {
         const access = await resolveGroupAccess(session, name, { need: "labels" });
-        if (!access.ok)
-          return c.json({ error: access.error, message: access.message }, 403);
+        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
         const { added } = await addAgentLabels(access, access.accountId);
         return c.json({ ok: true, added });
       } catch (err) {
@@ -1574,8 +1594,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         const access = await resolveGroupAccess(session, name, {
           need: "standing instruction",
         });
-        if (!access.ok)
-          return c.json({ error: access.error, message: access.message }, 403);
+        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
         return c.json(await readGroupInstruction(access));
       } catch (err) {
         return agentFailure(c, err);
@@ -1596,8 +1615,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         const access = await resolveGroupAccess(session, name, {
           need: "standing instruction",
         });
-        if (!access.ok)
-          return c.json({ error: access.error, message: access.message }, 403);
+        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
         return c.json(await saveGroupInstruction(access, text, session.username));
       } catch (err) {
         return agentFailure(c, err);
@@ -1627,7 +1645,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const name = c.req.param("name") ?? "";
     try {
       const view = await memberAgentView(session, name);
-      if ("ok" in view) return c.json({ error: view.error, message: view.message }, 403);
+      if ("ok" in view) return c.json({ error: view.error, need: view.need }, 403);
       return c.json(view);
     } catch (err) {
       return agentFailure(c, err);

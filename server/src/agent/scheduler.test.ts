@@ -6,9 +6,9 @@ import type { AgentRule, AgentScheduleEntry } from "./documents.js";
  * Time triggers on documents (ADR 0003 §5).
  *
  * The planning, the due check and the advance are pure, so they are tested
- * against instants rather than a sleeping test; `armTimers` is tested with
- * short real timers, including the capped case, because the cap is what keeps a
- * far-future instant from being trusted to one long sleep.
+ * against instants; `armTimers` is armed with a clock and a timer queue the
+ * test owns, so the cap, the re-arm and the next occurrence after a fire are
+ * pinned without a sleeping test.
  */
 
 const { advance, armTimers, dueEntries, planSchedule } = await import("./scheduler.js");
@@ -31,7 +31,50 @@ function rule(overrides: Partial<AgentRule> = {}): AgentRule {
   };
 }
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * A clock and a timer queue, so a test moves time instead of waiting for it.
+ *
+ * `advanceTo` runs each armed timer at its own instant, in order, so a timer
+ * that arms another one — the capped re-check — is honoured where it falls
+ * rather than collected at the end.
+ */
+function fakeTimers(startMs: number) {
+  let now = startMs;
+  let nextId = 1;
+  const pending = new Map<number, { at: number; fn: () => void }>();
+  return {
+    /** The injection `armTimers` takes, so the globals are never touched. */
+    opts: {
+      now: (): number => now,
+      setTimeoutFn: (fn: () => void, delayMs: number): ReturnType<typeof setTimeout> => {
+        const id = nextId++;
+        pending.set(id, { at: now + Math.max(delayMs, 0), fn });
+        return id as unknown as ReturnType<typeof setTimeout>;
+      },
+      clearTimeoutFn: (timer: ReturnType<typeof setTimeout>): void => {
+        pending.delete(timer as unknown as number);
+      },
+    },
+    now: (): number => now,
+    /** Run every timer due at or before `targetMs`, then stand at `targetMs`. */
+    advanceTo: (targetMs: number): void => {
+      for (;;) {
+        const next = [...pending.entries()]
+          .filter(([, timer]) => timer.at <= targetMs)
+          .sort((a, b) => a[1].at - b[1].at)[0];
+        if (!next) break;
+        pending.delete(next[0]);
+        now = Math.max(now, next[1].at);
+        next[1].fn();
+      }
+      now = Math.max(now, targetMs);
+    },
+    /** How many timers are armed right now. */
+    armed: (): number => pending.size,
+  };
+}
+
+const at = (iso: string) => Date.parse(iso);
 
 test("a schedule rule is planned to its next aligned instant", () => {
   const entries = planSchedule([rule()], NOW);
@@ -87,46 +130,88 @@ test("advance re-plans what fired and carries the rest over", () => {
   ]);
 });
 
-test("a timer reports its entry when the instant arrives", async () => {
+test("a timer reports its entry when the instant arrives", () => {
   const due: string[] = [];
-  const entry: AgentScheduleEntry = {
-    ruleId: "r1",
-    at: new Date(Date.now() + 40).toISOString(),
-  };
+  const clock = fakeTimers(at("2026-09-10T10:00:00.000Z"));
+  const entry: AgentScheduleEntry = { ruleId: "r1", at: "2026-09-10T10:00:00.040Z" };
   const dispose = armTimers([entry], (fired) => due.push(fired.ruleId), {
     maxDelayMs: 1_000,
+    ...clock.opts,
   });
-  await sleep(90);
+  clock.advanceTo(at("2026-09-10T10:00:00.040Z"));
   dispose();
   assert.deepEqual(due, ["r1"]);
 });
 
-test("a capped timer re-checks instead of reporting a run that is not due", async () => {
+test("a capped timer re-arms for the rest instead of reporting a run that is not due", () => {
   const due: string[] = [];
-  const entry: AgentScheduleEntry = {
-    ruleId: "r1",
-    at: new Date(Date.now() + 120).toISOString(),
-  };
+  const clock = fakeTimers(at("2026-09-10T10:00:00.000Z"));
+  const entry: AgentScheduleEntry = { ruleId: "r1", at: "2026-09-10T10:00:10.000Z" };
   const dispose = armTimers([entry], (fired) => due.push(fired.ruleId), {
-    maxDelayMs: 15,
+    maxDelayMs: 1_000,
+    ...clock.opts,
   });
-  await sleep(60);
-  assert.deepEqual(due, [], "the first timers fired before the instant, so nothing ran");
-  await sleep(140);
+  clock.advanceTo(at("2026-09-10T10:00:09.999Z"));
+  assert.deepEqual(due, [], "nine caps fired before the instant, and none of them ran");
+  assert.equal(clock.armed(), 1, "and the entry is armed for the rest, not dropped");
+  clock.advanceTo(at("2026-09-10T10:00:10.000Z"));
   dispose();
-  assert.deepEqual(due, ["r1"], "and the entry ran once its instant arrived");
+  assert.deepEqual(
+    due,
+    ["r1"],
+    "it ran when its own instant arrived, not when the cap did",
+  );
 });
 
-test("the disposer stops every timer, including a pending re-check", async () => {
+test("the disposer stops every timer, including a pending re-check", () => {
   const due: string[] = [];
-  const entry: AgentScheduleEntry = {
-    ruleId: "r1",
-    at: new Date(Date.now() + 40).toISOString(),
-  };
+  const clock = fakeTimers(at("2026-09-10T10:00:00.000Z"));
+  const entry: AgentScheduleEntry = { ruleId: "r1", at: "2026-09-10T10:00:10.000Z" };
   const dispose = armTimers([entry], (fired) => due.push(fired.ruleId), {
-    maxDelayMs: 10,
+    maxDelayMs: 1_000,
+    ...clock.opts,
   });
   dispose();
-  await sleep(80);
+  assert.equal(clock.armed(), 0);
+  clock.advanceTo(at("2026-09-10T11:00:00.000Z"));
   assert.deepEqual(due, []);
+});
+
+/**
+ * The level is the scheduler, not the executor: `armSchedule` arms the global
+ * timers and the mock's clock is not injectable, so an executor-level version
+ * of this test would have to sleep for the next occurrence. What the scheduler
+ * pins here is the same sequence the executor runs — the pass reads the due
+ * runs out of the document, the fire moves the document on to the entry's next
+ * occurrence, and the next arming is planned from that document.
+ */
+test("a run that fired arms its next occurrence, planned from the document the fire moved on", () => {
+  const clock = fakeTimers(at("2026-09-10T10:00:00.000Z"));
+  const rules = [rule({ id: "hourly" })];
+  // The document as the store holds it: the instant that has just fired.
+  const stored: AgentScheduleEntry[] = [
+    { ruleId: "hourly", at: "2026-09-10T10:00:00.000Z" },
+  ];
+
+  const now = new Date(clock.now());
+  const due = dueEntries(stored, now);
+  assert.deepEqual(due, stored, "the pass reads the due runs out of the document");
+  const afterFire = advance(stored, due, rules, now);
+  assert.deepEqual(
+    afterFire,
+    [{ ruleId: "hourly", at: "2026-09-10T11:00:00.000Z" }],
+    "and the fire moves the entry on to its next occurrence",
+  );
+
+  const fired: string[] = [];
+  const dispose = armTimers(
+    planSchedule(rules, now, afterFire),
+    (entry) => fired.push(entry.at),
+    { maxDelayMs: 60 * 60_000, ...clock.opts },
+  );
+  clock.advanceTo(at("2026-09-10T10:59:59.999Z"));
+  assert.deepEqual(fired, [], "the entry that already ran is not armed again");
+  clock.advanceTo(at("2026-09-10T11:00:00.000Z"));
+  dispose();
+  assert.deepEqual(fired, ["2026-09-10T11:00:00.000Z"], "the next occurrence runs");
 });

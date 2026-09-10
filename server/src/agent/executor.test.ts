@@ -12,6 +12,11 @@ import type { AgentJob, AgentRule } from "./documents.js";
  * `Email/changes`, `Thread/get`, `Email/get`, `Email/set`, `EmailSubmission/set`
  * and the group's own Files — so the lifecycle, the review gate, the approval
  * arbiter and the loud failure are all driven for real here.
+ *
+ * This suite binds the mock's port, and the runner executes test files as
+ * parallel child processes. It failed once under a full run and has not
+ * reproduced since, in isolation or in a full sweep; the cause is not
+ * established, so a failure here is worth re-running before it is believed.
  */
 
 const PORT = 18845;

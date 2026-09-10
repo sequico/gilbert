@@ -128,9 +128,14 @@ test("the agent surfaces an administrator edits are shut to this session", async
 test("a group this session is not a member of answers nothing", async () => {
   const res = await call(`/api/agent/group/${LEGAL}`);
   assert.equal(res.status, 403);
-  const body = res.body as { error: string; message: string };
+  const body = res.body as { error: string; need?: string; message?: unknown };
   assert.equal(body.error, "group_not_accessible");
-  assert.match(body.message, /membership/);
+  assert.equal(
+    body.need,
+    "agent documents",
+    "the refusal names the section, not a sentence",
+  );
+  assert.ok(!("message" in body), "no sentence travels from the server");
   assert.ok(!("instruction" in body), "a refusal carries no document");
 });
 

@@ -6,8 +6,10 @@
  * live for a run to happen: a replacement worker re-plans from Stalwart and
  * re-arms its timers. The planning, the due check and the advance are pure
  * functions, testable without a clock; `armTimers` is the only part that
- * touches a timer, and it caps every delay so a far-future instant is
- * re-checked rather than trusted to one long sleep.
+ * touches a timer, and it takes the clock and the timers from its options (the
+ * globals by default) so a test can drive it without waiting. It caps every
+ * delay so a far-future instant is re-checked rather than trusted to one long
+ * sleep.
  */
 
 import { type AgentRule, type AgentScheduleEntry, nextRunAfter } from "./documents.js";
@@ -21,6 +23,17 @@ export interface ArmTimersOpts {
    * a run by hours.
    */
   maxDelayMs: number;
+  /**
+   * The clock the cap and the due check are measured against. Injected so a
+   * test can move time instead of waiting for it; `Date.now` by default.
+   */
+  now?: () => number;
+  /**
+   * How a re-check timer is armed and cleared. Injected so a test can run the
+   * arming and the cap without real time passing; the globals by default.
+   */
+  setTimeoutFn?: (fn: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
+  clearTimeoutFn?: (timer: ReturnType<typeof setTimeout>) => void;
 }
 
 /** What to call when an entry is due. */
@@ -107,7 +120,8 @@ export function advance(
  * Arm a timer per entry. Returns the disposer that clears them all.
  *
  * A capped timer fires before its entry is due; that is not a due entry, so it
- * re-arms for the rest instead of reporting one.
+ * re-arms for the rest instead of reporting one — the cap buys a re-check, it
+ * never stands in for the instant.
  */
 /**
  * The shortest delay a timer is armed with.
@@ -123,7 +137,10 @@ export function armTimers(
   onDue: OnDue,
   opts: ArmTimersOpts,
 ): () => void {
-  const timers = new Set<NodeJS.Timeout>();
+  const now = opts.now ?? Date.now;
+  const setTimeoutFn = opts.setTimeoutFn ?? setTimeout;
+  const clearTimeoutFn = opts.clearTimeoutFn ?? clearTimeout;
+  const timers = new Set<ReturnType<typeof setTimeout>>();
   let stopped = false;
 
   const arm = (entry: AgentScheduleEntry) => {
@@ -134,11 +151,11 @@ export function armTimers(
     // negative one) would arm an instant timer for an entry that is not due,
     // over and over, which is a spin loop that looks like a scheduler.
     const cap = Math.max(opts.maxDelayMs, MIN_ARM_MS);
-    const delay = Math.min(Math.max(due - Date.now(), 0), cap);
-    const timer = setTimeout(() => {
+    const delay = Math.min(Math.max(due - now(), 0), cap);
+    const timer = setTimeoutFn(() => {
       timers.delete(timer);
       if (stopped) return;
-      if (Date.now() >= due) onDue(entry);
+      if (now() >= due) onDue(entry);
       else arm(entry);
     }, delay);
     timers.add(timer);
@@ -147,7 +164,7 @@ export function armTimers(
   for (const entry of entries) arm(entry);
   return () => {
     stopped = true;
-    for (const timer of timers) clearTimeout(timer);
+    for (const timer of timers) clearTimeoutFn(timer);
     timers.clear();
   };
 }

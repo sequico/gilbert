@@ -8,7 +8,8 @@
  * on both and arrives as `undefined` on one.
  *
  * The stored documents are not here; they are `./documents`, which this module
- * imports type-only (so nothing in this file reaches a runtime in either tier).
+ * imports type-only, so no server code reaches a runtime through this file:
+ * what it carries into a bundle is the handful of constants declared in it.
  * What a route hands back is a view of those documents, and a surface that
  * writes one sends a request body of its own shape — validated on arrival like
  * every other write (ADR 0003 resolution 16), which is why request bodies are
@@ -98,8 +99,13 @@ export interface AgentGroupSurface {
   granted: boolean;
   /** The registered agent's address; empty when the installation has none. */
   agentAddress: string;
-  /** Present when the admin has no access to the group: why it is empty. */
-  reason?: string;
+  /**
+   * The membership refusal, when the admin cannot reach the group: the code,
+   * and the section whose documents are out of reach. The sentence a person
+   * reads is composed where it is shown.
+   */
+  error?: typeof GROUP_NOT_ACCESSIBLE;
+  need?: GroupNeed;
   rules: AgentRule[];
   jobs: AgentJob[];
   decisions: AgentDecision[];
@@ -110,10 +116,11 @@ export interface AgentGroupSurface {
 /** The surface for a group this admin can read. */
 export type AgentGroupView = AgentGroupSurface & { granted: true };
 
-/** The surface for a group this admin cannot reach: empty, with the reason. */
+/** The surface for a group this admin cannot reach: empty, with the refusal. */
 export type AgentGroupDenied = AgentGroupSurface & {
   granted: false;
-  reason: string;
+  error: typeof GROUP_NOT_ACCESSIBLE;
+  need: GroupNeed;
 };
 
 /**
@@ -130,6 +137,73 @@ export type AgentGroupDocuments = Pick<
 
 /** What the group route answers with, either way. */
 export type AgentGroupAnswer = AgentGroupView | AgentGroupDenied;
+
+/* ------------------------------------------------------------------ */
+/* The audit export                                                    */
+/* ------------------------------------------------------------------ */
+
+/** One month of a group's audit trail, as the export carries it. */
+export interface AgentAuditExportMonth {
+  /** `YYYY-MM`, the name the month's own document carries. */
+  month: string;
+  entries: AgentAuditEntry[];
+}
+
+/**
+ * A group's audit trail, month by month, for an administrator to keep.
+ *
+ * The trail is one document per month in the group's own `gilbert` app folder
+ * and the declared retention is what bounds it, so the export is exactly the
+ * months that are still there: taken before the oldest is pruned, it is the
+ * copy of a record that would otherwise only expire. Nothing here is a second
+ * store — these are the same documents the group's own surface reads.
+ */
+export interface AgentAuditExport {
+  group: string;
+  /** The registered agent's address; empty when the installation has none. */
+  agentAddress: string;
+  /** When the copy was taken, so a reader can date it. */
+  exportedAt: string;
+  months: AgentAuditExportMonth[];
+}
+
+/* ------------------------------------------------------------------ */
+/* The group-membership refusal                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What a section asks a group for.
+ *
+ * Every surface reaches a group's documents for the same grant — membership of
+ * the group — but not for the same document, and the refusal a person reads
+ * names the section they were standing at. That name travels as this value
+ * rather than inside a sentence, so the sentence can be composed in the
+ * language the person reads.
+ */
+export type GroupNeed =
+  | "labels"
+  | "automations"
+  | "standing instruction"
+  | "approvals"
+  | "agent documents";
+
+/** The code a group-membership refusal travels as, on every surface. */
+export const GROUP_NOT_ACCESSIBLE = "group_not_accessible";
+
+/**
+ * Why a group's documents are out of reach: the code, and the parameter that
+ * names the section.
+ *
+ * Membership is the whole answer — a group's documents live in the group's own
+ * account, so a non-member has no path to them at all — and the sentence that
+ * says so is composed where it is shown, from the catalogue in force: a
+ * language whose catalogue lacks it reads the English source.
+ */
+export interface GroupAccessDenied {
+  ok: false;
+  error: typeof GROUP_NOT_ACCESSIBLE;
+  need: GroupNeed;
+}
 
 /* ------------------------------------------------------------------ */
 /* Providers — the agent's own configuration                           */

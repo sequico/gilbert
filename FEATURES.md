@@ -1324,9 +1324,11 @@ no database, no volume.
 answer never skips work silently: the run is recorded in the audit, the
 message lands in `G-needattention`, and the group's chat is told which
 automation could not finish. The audit is one document per month per group,
-kept twelve months and pruned a month at a time; the documents sit in the
-group's own Files, which is where a copy can be taken before the oldest
-goes.
+kept twelve months and pruned a month at a time. The months live in the
+group's own hidden `gilbert` folder, not in the Files a member browses: a
+member reads them through the group's agent panel, and an administrator takes
+the copy before the oldest month goes — the group's row in the admin Agents
+section hands over every retained month as JSON.
 - **Not in this layer**: agents for individual users (group agents only),
 external agent fleets (a future decision; A2A stays the recorded candidate),
 and mail notifications — the group's chat is the one channel.

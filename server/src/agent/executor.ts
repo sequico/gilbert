@@ -1739,12 +1739,12 @@ export class Executor {
    * Drop audit documents older than the declared retention.
    *
    * The audit is the record of what an agent did and it lasts twelve months
-   * (ADR 0003). The documents sit in the group's own Files — which is also
-   * where a member reads them and where an operator takes a copy before the
-   * oldest goes — so this is the only thing that ever removes one, and it
-   * removes whole months, never entries inside one.
+   * (ADR 0003). The documents sit in the group's own hidden `gilbert` app
+   * folder — where a member reads them through the group's agent surface, and
+   * where an administrator takes the copy `groupAuditExport` hands over — so
+   * this is the only thing that ever removes one, and it removes whole months,
+   * never entries inside one.
    */
-  // ADR-0003 OWED: audit-export-before-prune
   async pruneAudit(accountId: string, keepFrom: Date): Promise<number> {
     const nodes = await listAppDir(
       this.deps.ctx,

@@ -14,6 +14,7 @@
 import { type AgentRule, ruleProblems } from "@gilbert/agent/documents";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
 import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
 import { confirmDialog } from "@/ui/dialog";
@@ -200,7 +201,7 @@ export function RuleEditor({
           )}
           {view && !view.granted && (
             <div className="warn-box" style={{ marginBottom: 12 }}>
-              {view.reason}
+              {view.need && groupAccessSentence(view.need)}
             </div>
           )}
           {view?.granted && draft ? (

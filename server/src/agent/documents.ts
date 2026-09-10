@@ -68,6 +68,26 @@ export function monthOf(at: Date): string {
   return `${at.getUTCFullYear()}-${String(at.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+/**
+ * Every month from `from`'s to `to`'s, oldest first, UTC.
+ *
+ * The audit's retention is a window of whole months: the prune drops a
+ * document by its month, so this is the list of months a reader can still find
+ * — and the list a copy of the trail covers, no wider and no narrower. A
+ * `YYYY-MM` sorts as it reads, which is why the comparison is the whole rule.
+ */
+export function monthsSince(from: Date, to: Date): string[] {
+  const months: string[] = [];
+  const cursor = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1));
+  const last = monthOf(to);
+  for (;;) {
+    const month = monthOf(cursor);
+    if (month > last) return months;
+    months.push(month);
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Areas and tiers                                                     */
 /* ------------------------------------------------------------------ */

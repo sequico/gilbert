@@ -26,6 +26,8 @@ import {
   isAgentRulesDoc,
   matchEmailFilter,
   missingActionParams,
+  monthOf,
+  monthsSince,
   newJob,
   nextRunAfter,
   reviewOutcome,
@@ -473,4 +475,33 @@ test("the material each tier runs on is checked for being there, not just typed"
       /nothing/.test(problem),
     ),
   );
+});
+
+test("a retention window is the months it spans, oldest first", () => {
+  assert.deepEqual(
+    monthsSince(new Date("2026-09-10T12:00:00Z"), new Date("2026-11-02T00:00:00Z")),
+    ["2026-09", "2026-10", "2026-11"],
+  );
+  assert.equal(
+    monthsSince(new Date("2025-09-10T12:00:00Z"), new Date("2026-09-10T12:00:00Z"))
+      .length,
+    13,
+    "twelve months of retention reach across thirteen calendar months",
+  );
+  assert.deepEqual(
+    monthsSince(new Date("2026-10-01T00:00:00Z"), new Date("2026-09-30T00:00:00Z")),
+    [],
+    "a window that ends before it starts holds no month",
+  );
+});
+
+test("the window's oldest month is the month the prune keeps, not the one it drops", () => {
+  // `pruneAudit` drops whole months below `monthOf(keepFrom)`, so the oldest
+  // month a copy can still read is that month itself. The two rules have to
+  // agree on that boundary, or a copy asks for a month that is already gone.
+  const keepFrom = new Date("2025-09-10T12:00:00Z");
+  const now = new Date("2026-09-10T12:00:00Z");
+  const months = monthsSince(keepFrom, now);
+  assert.equal(months[0], monthOf(keepFrom));
+  assert.equal(months[months.length - 1], monthOf(now));
 });

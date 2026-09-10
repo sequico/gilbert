@@ -410,48 +410,6 @@ export async function uploadBlobBytes(
 }
 
 /**
- * Write (or replace) a file at an app-folder-relative path with a text body,
- * for the things that are documents but not JSON — a saved log, an extracted
- * note. The JSON writers above stay the common case.
- */
-export async function writeAppTextAt(
-  ctx: Ctx,
-  accountId: string,
-  path: string,
-  text: string,
-  type = "text/plain",
-): Promise<void> {
-  const segments = pathSegments(path);
-  const name = segments.pop();
-  if (!name) throw new AppFolderError("a document path needs a file name");
-  const folderId = await ensureFolderPath(ctx, accountId, segments.join("/"));
-  const blobId = await uploadBlobBytes(
-    ctx,
-    accountId,
-    new TextEncoder().encode(text),
-    type,
-  );
-  const file = await findInFolder(ctx, accountId, folderId, name);
-  const client = clientOf(ctx);
-  if (file?.id) {
-    await client.call(
-      "FileNode/set",
-      { accountId, update: { [String(file.id)]: { blobId, type } } },
-      [FILENODE_CAP],
-    );
-  } else {
-    await client.call(
-      "FileNode/set",
-      {
-        accountId,
-        create: { n: { parentId: folderId, name, blobId, type, nodeType: "file" } },
-      },
-      [FILENODE_CAP],
-    );
-  }
-}
-
-/**
  * Write (or replace) a file at an app-folder-relative path from raw bytes.
  * Used where the content is somebody else's: an extracted attachment keeps
  * its own type and its own bytes.

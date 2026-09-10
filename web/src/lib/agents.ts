@@ -22,6 +22,7 @@
 import type { AgentRule } from "@gilbert/agent/documents";
 import type {
   AgentAppPasswordRotation,
+  AgentAuditExport,
   AgentGroupSurface,
   AgentProvidersView,
   AgentStatus,
@@ -36,6 +37,8 @@ import { apiFetch } from "@/jmap/client";
  * this module names the same type the route builds.
  */
 export type {
+  AgentAuditExport,
+  AgentAuditExportMonth,
   AgentGroupAnswer,
   AgentGroupDenied,
   AgentGroupSurface,
@@ -170,6 +173,20 @@ export async function fetchPendingApprovals(): Promise<PendingApproval[]> {
 /** `GET /api/agent/group/:name` — the member's read-only view. */
 export function fetchMemberAgentView(name: string): Promise<MemberAgentView> {
   return apiFetch<MemberAgentView>(`/api/agent/group/${encodeURIComponent(name)}`);
+}
+
+/**
+ * `GET /api/admin/groups/:name/agent/audit` — the group's audit trail, month
+ * by month, as the copy an administrator keeps.
+ *
+ * The months are the retention's window, so what comes back is what is still
+ * there: the same documents the group's own surface reads, and the ones the
+ * prune would drop after they fall out of it.
+ */
+export function fetchAgentAuditExport(name: string): Promise<AgentAuditExport> {
+  return apiFetch<AgentAuditExport>(
+    `/api/admin/groups/${encodeURIComponent(name)}/agent/audit`,
+  );
 }
 
 /* ------------------------------------------------------------------ */

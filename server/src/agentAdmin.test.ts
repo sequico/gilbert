@@ -294,14 +294,15 @@ test("a rule that could never run is refused with a readable message", async () 
   assert.equal((duplicate.body as { error: string }).error, "duplicate_rule");
 });
 
-test("a group the admin is not a member of answers with the reason", async () => {
+test("a group the admin is not a member of answers with the refusal", async () => {
   configureAgent("");
   const view = await call(`/api/admin/groups/${LEGAL}/agent`);
   assert.equal(view.status, 200, "a missing membership is a state, not a failure");
   const body = view.body as {
     group: string;
     granted: boolean;
-    reason: string;
+    error?: string;
+    need?: string;
     agentAddress: string;
     rules: unknown[];
     jobs: unknown[];
@@ -312,23 +313,35 @@ test("a group the admin is not a member of answers with the reason", async () =>
   assert.equal(body.granted, false);
   assert.equal(body.group, LEGAL);
   assert.equal(body.agentAddress, "", "no agent is registered in this installation");
-  assert.match(body.reason, /membership/);
+  assert.equal(body.error, "group_not_accessible");
+  assert.equal(
+    body.need,
+    "agent documents",
+    "the section the surface asked for travels as its own name",
+  );
+  assert.ok(
+    !("message" in body),
+    "the refusal is a code and its parameter; the sentence is composed where it is read",
+  );
   assert.deepEqual(
     [body.rules, body.jobs, body.decisions, body.audit, body.schedule],
     [[], [], [], [], []],
     "the surface answers one shape, empty when there is nothing to show",
   );
 
-  for (const path of [
-    `/api/admin/groups/${LEGAL}/agent/rules`,
-    `/api/admin/groups/${LEGAL}/agent/labels`,
+  for (const surface of [
+    { path: `/api/admin/groups/${LEGAL}/agent/rules`, need: "automations" },
+    { path: `/api/admin/groups/${LEGAL}/agent/labels`, need: "labels" },
   ]) {
     const res = await call(
-      path,
-      path.endsWith("/rules") ? undefined : { method: "POST" },
+      surface.path,
+      surface.path.endsWith("/rules") ? undefined : { method: "POST" },
     );
     assert.equal(res.status, 403);
-    assert.equal((res.body as { error: string }).error, "group_not_accessible");
+    const denied = res.body as { error: string; need?: string; message?: unknown };
+    assert.equal(denied.error, "group_not_accessible");
+    assert.equal(denied.need, surface.need, `${surface.path} names its own section`);
+    assert.ok(!("message" in denied), `${surface.path} ships a code, not a sentence`);
   }
   const save = await call(`/api/admin/groups/${LEGAL}/agent/rules`, {
     method: "POST",
@@ -444,7 +457,10 @@ test("a member reads the group's agent surface, and never a provider", async () 
 
   const stranger = await call(`/api/agent/group/${LEGAL}`);
   assert.equal(stranger.status, 403);
-  assert.equal((stranger.body as { error: string }).error, "group_not_accessible");
+  const denied = stranger.body as { error: string; need?: string; message?: unknown };
+  assert.equal(denied.error, "group_not_accessible");
+  assert.equal(denied.need, "agent documents", "the member door asks for the documents");
+  assert.ok(!("message" in denied), "the refusal travels with no sentence");
 
   const anonymous = await app.request(`/api/agent/group/${TEAM}`);
   assert.equal(anonymous.status, 401, "the member route still needs a session");
@@ -591,40 +607,76 @@ test("a queue the directory could not be listed for says so", async () => {
   }
 });
 
-test("a refusal names the section the surface asked for", async () => {
+test("every refusal names the section the surface asked for", async () => {
   configureAgent("");
   /*
-   * Three sections, one door: membership of the group. The refusal a person
-   * reads has to name what they were standing at — the label catalog is one
-   * section's document, and "labels" used to be the answer given to all of
-   * them.
+   * One door — membership of the group — and every route that asks for a
+   * group's documents: the refusal has to name what the person was standing at
+   * (the label catalog is one section's document, and "labels" is the answer
+   * to all of them if the section is not carried), and it has to travel as the
+   * section's own name rather than as a sentence, because a sentence written
+   * here is English no catalogue can translate.
    */
-  const surfaces = [
-    { path: `/api/admin/groups/${LEGAL}/labels`, need: /labels/ },
+  const routes: ReadonlyArray<{
+    path: string;
+    method?: string;
+    body?: unknown;
+    status?: number;
+    need: string;
+  }> = [
+    { path: `/api/admin/groups/${LEGAL}/labels`, need: "labels" },
+    {
+      path: `/api/admin/groups/${LEGAL}/labels`,
+      method: "POST",
+      body: { labels: [] },
+      need: "labels",
+    },
+    { path: `/api/admin/groups/${LEGAL}/agent`, status: 200, need: "agent documents" },
+    { path: `/api/admin/groups/${LEGAL}/agent/rules`, need: "automations" },
+    {
+      path: `/api/admin/groups/${LEGAL}/agent/rules`,
+      method: "POST",
+      body: { rules: [] },
+      need: "automations",
+    },
+    {
+      path: `/api/admin/groups/${LEGAL}/agent/labels`,
+      method: "POST",
+      need: "labels",
+    },
     {
       path: `/api/admin/groups/${LEGAL}/agent/instruction`,
-      need: /standing instruction/,
+      need: "standing instruction",
     },
-    { path: `/api/agent/group/${LEGAL}`, need: /agent documents/ },
+    {
+      path: `/api/admin/groups/${LEGAL}/agent/instruction`,
+      method: "POST",
+      body: { text: "" },
+      need: "standing instruction",
+    },
+    { path: `/api/agent/group/${LEGAL}`, need: "agent documents" },
   ];
-  const messages: string[] = [];
-  for (const surface of surfaces) {
-    const res = await call(surface.path);
-    assert.equal(res.status, 403);
-    const body = res.body as { error: string; message: string };
-    assert.equal(body.error, "group_not_accessible");
-    assert.match(body.message, surface.need, `${surface.path} names its own section`);
-    assert.match(body.message, /membership/);
-    messages.push(body.message);
+  const needs: string[] = [];
+  for (const route of routes) {
+    const res = await call(route.path, {
+      method: route.method ?? "GET",
+      ...(route.body === undefined ? {} : { body: JSON.stringify(route.body) }),
+    });
+    const where = `${route.method ?? "GET"} ${route.path}`;
+    assert.equal(res.status, route.status ?? 403, where);
+    const body = res.body as { error?: string; need?: string; message?: unknown };
+    assert.equal(body.error, "group_not_accessible", where);
+    assert.equal(body.need, route.need, `${where} names its own section`);
+    assert.ok(
+      !("message" in body),
+      `${where} ships the code and its parameter, never a sentence`,
+    );
+    needs.push(String(body.need));
   }
   assert.equal(
-    new Set(messages).size,
-    3,
-    "one shared sentence cannot name three sections",
-  );
-  assert.ok(
-    !/labels/.test(messages[1] as string),
-    "the instruction surface is not told about a catalog it was not touching",
+    new Set(needs).size,
+    4,
+    "the four sections these routes ask for, not one shared answer",
   );
 });
 
@@ -703,5 +755,50 @@ test("the save path refuses against the published schema, in the schema's words"
   assert.match(
     String((outside.body as { message?: string }).message ?? ""),
     /capabilities/,
+  );
+});
+
+/**
+ * The copy of a group's audit trail (ADR 0003, audit retention).
+ *
+ * The retention is a window of whole months and the prune is what applies it,
+ * so the export is the months that are still there and nothing else. The mock
+ * writes no audit document, which is why the trail here is empty rather than
+ * absent — and the refusal is the same pair, code and section, as everywhere
+ * else a group's documents are out of reach.
+ */
+test("a group's audit trail is copied, and the copy dates itself", async () => {
+  configureAgent("");
+  const res = await call(`/api/admin/groups/${TEAM}/agent/audit`);
+  assert.equal(res.status, 200);
+  const body = res.body as {
+    group: string;
+    agentAddress: string;
+    exportedAt: string;
+    months: unknown[];
+  };
+  assert.equal(body.group, TEAM);
+  assert.equal(body.agentAddress, "", "no agent is registered in this installation");
+  assert.ok(
+    Number.isFinite(Date.parse(body.exportedAt)),
+    "the copy dates itself, so a reader knows the cut of the record",
+  );
+  assert.deepEqual(
+    body.months,
+    [],
+    "nothing was ever written for this group, so the trail is empty and not absent",
+  );
+});
+
+test("the audit copy is refused for a group the admin is not a member of", async () => {
+  configureAgent("");
+  const res = await call(`/api/admin/groups/${LEGAL}/agent/audit`);
+  assert.equal(res.status, 403);
+  const body = res.body as { error?: string; need?: string };
+  assert.equal(body.error, "group_not_accessible");
+  assert.equal(body.need, "agent documents");
+  assert.ok(
+    !("message" in body),
+    "the refusal is a code and its parameter, never a sentence",
   );
 });

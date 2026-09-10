@@ -13,8 +13,8 @@
  * shows what that costs instead of a control that could not work.
  */
 import { Bot } from "lucide-react";
-import { useEffect } from "react";
-import type { AgentStatus } from "@/lib/agents";
+import { useEffect, useState } from "react";
+import { type AgentStatus, fetchAgentAuditExport } from "@/lib/agents";
 import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
@@ -67,6 +67,36 @@ export function AdminAgents() {
 /* ------------------------------------------------------------------ */
 
 function Registration({ status }: { status: AgentStatus | null }) {
+  // The group whose trail is being copied, and what went wrong when something
+  // did: the copy is one request with its own line to report it on.
+  const [copying, setCopying] = useState<string | null>(null);
+  const [copyProblem, setCopyProblem] = useState<string | null>(null);
+
+  /**
+   * Take the copy of a group's audit trail, as JSON named for the group.
+   *
+   * Nothing is kept here: the file is the group's own documents, handed over
+   * so an administrator holds them before the oldest month is pruned.
+   */
+  async function copyAudit(name: string) {
+    setCopying(name);
+    setCopyProblem(null);
+    try {
+      const trail = await fetchAgentAuditExport(name);
+      const blob = new Blob([JSON.stringify(trail, null, 2)], {
+        type: "application/json",
+      });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${name.replace(/[^\w.-]+/g, "_")}.audit.json`;
+      a.click();
+    } catch (err) {
+      setCopyProblem(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCopying(null);
+    }
+  }
+
   return (
     <section>
       <h2>{t("Registration")}</h2>
@@ -117,6 +147,7 @@ function Registration({ status }: { status: AgentStatus | null }) {
                   <th>{t("Group")}</th>
                   <th>{t("Agent")}</th>
                   <th>{t("What that means")}</th>
+                  <th>{t("Audit trail")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -141,11 +172,22 @@ function Registration({ status }: { status: AgentStatus | null }) {
                             "The agent is not in this group: nobody can mention it in the group's chat and no automation runs for it. Grant it in Stalwart's own administration to change that.",
                           )}
                     </td>
+                    <td>
+                      <button
+                        className="btn"
+                        type="button"
+                        disabled={copying === g.name}
+                        onClick={() => void copyAudit(g.name)}
+                      >
+                        {copying === g.name ? t("Copying…") : t("Download as JSON")}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
+          {copyProblem && <p className="error-box">{copyProblem}</p>}
         </>
       )}
     </section>

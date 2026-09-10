@@ -40,8 +40,10 @@ import {
   isAgentRule,
   leaseExpired,
   monthOf,
+  monthsSince,
   ruleProblems,
 } from "./agent/documents.js";
+import { AUDIT_RETENTION_MS } from "./agent/executor.js";
 import { AgentStore } from "./agent/store.js";
 // The shapes this API answers with have one definition, shared with the client
 // that reads them (SSOT): `server/src/agent/views.ts`. Declaring them here as
@@ -49,15 +51,20 @@ import { AgentStore } from "./agent/store.js";
 import type {
   AgentAppPasswordRotation,
   AgentApprovalsView,
+  AgentAuditExport,
+  AgentAuditExportMonth,
   AgentGroupDocuments,
   AgentProvidersView,
   AgentStatus,
   AgentStatusWorker,
+  GroupAccessDenied,
   GroupEnumeration,
   GroupInstructionView,
+  GroupNeed,
   MemberAgentView,
   PendingApproval,
 } from "./agent/views.js";
+import { GROUP_NOT_ACCESSIBLE } from "./agent/views.js";
 import { type Ctx, filesAccountId } from "./appFolder.js";
 import { config } from "./config.js";
 import { JmapError } from "./jmap.js";
@@ -152,13 +159,6 @@ export interface GroupAccess {
   accountId: string;
 }
 
-/** Why a group's documents are out of reach. */
-export interface GroupAccessDenied {
-  ok: false;
-  error: string;
-  message: string;
-}
-
 export type GroupAccessResult = GroupAccess | GroupAccessDenied;
 
 /**
@@ -180,9 +180,9 @@ export type GroupAccessResult = GroupAccess | GroupAccessDenied;
  * group's documents. The membership answer is the same either way, and it is
  * reached without asking the server for anything.
  *
- * `need` is what the calling section asks the group for, and a refusal names
- * it: one shared sentence about the label catalog told a person who had opened
- * the standing instruction about a catalog they were not touching.
+ * `need` is what the calling section asks the group for, and a refusal carries
+ * it: one shared sentence about the label catalog would tell a person who had
+ * opened the standing instruction about a catalog they were not touching.
  */
 export async function resolveGroupAccess(
   session: LiveSession,
@@ -224,28 +224,9 @@ export async function resolveGroupAccess(
   return deniedGroupAccess(opts.need);
 }
 
-/**
- * What a section asks a group for, named in the refusal a non-member reads.
- *
- * Every surface reaches `resolveGroupAccess` for the same grant — membership of
- * the group — but not for the same document, and the refusal is the one
- * sentence a person gets about the door they were standing at. Each call site
- * names its own section here.
- */
-export type GroupNeed =
-  | "labels"
-  | "automations"
-  | "standing instruction"
-  | "approvals"
-  | "agent documents";
-
 /** Membership is the whole answer for a surface that may not impersonate. */
 function deniedGroupAccess(need: GroupNeed): GroupAccessDenied {
-  return {
-    ok: false,
-    error: "group_not_accessible",
-    message: `Reaching a group's ${need} needs membership of that group: the group's own documents live in its files, and this mail server refuses to act as a group mailbox on an administrator's behalf.`,
-  };
+  return { ok: false, error: GROUP_NOT_ACCESSIBLE, need };
 }
 
 /**
@@ -558,6 +539,38 @@ async function readRecentAudit(
   ]);
   // Entries are appended in order, so document order is chronological order.
   return [...(last?.entries ?? []), ...(current?.entries ?? [])].slice(-limit);
+}
+
+/**
+ * A group's audit trail, month by month, for an administrator to keep.
+ *
+ * The months are the declared retention's window — the same one `pruneAudit`
+ * drops a document at a time — read back through the group's own store, so
+ * what the copy holds is what the group's surface reads. Taking the copy is
+ * what makes the retention a policy rather than a deletion: the months the
+ * prune would remove are here first.
+ */
+export async function groupAuditExport(
+  access: GroupAccess,
+  accountId: string,
+  name: string,
+): Promise<AgentAuditExport> {
+  const store = new AgentStore(access.ctx, accountId);
+  const now = new Date();
+  const months: AgentAuditExportMonth[] = [];
+  for (const month of monthsSince(new Date(now.getTime() - AUDIT_RETENTION_MS), now)) {
+    const doc = await store.readAudit(month);
+    if (doc) months.push({ month, entries: doc.entries });
+  }
+  return {
+    // The name the groups are compared by, not the one that arrived: the member
+    // view makes the same promise, and a client keying on the name has to see
+    // one group rather than two.
+    group: name.trim().toLowerCase(),
+    agentAddress: config.agent.address.trim(),
+    exportedAt: now.toISOString(),
+    months,
+  };
 }
 
 /* ------------------------------------------------------------------ */

@@ -1,4 +1,6 @@
+import { GROUP_NOT_ACCESSIBLE, type GroupNeed } from "@gilbert/agent/views";
 import { withBase } from "@/lib/basePath";
+import { groupAccessSentence } from "@/lib/groupAccess";
 import type {
   Id,
   Invocation,
@@ -65,6 +67,8 @@ export interface ApiErrorBody {
   type?: string;
   detail?: string;
   title?: string;
+  /** The section a group-membership refusal names, beside its code. */
+  need?: GroupNeed;
 }
 
 interface Pending {
@@ -118,11 +122,17 @@ export async function apiFetch<T = unknown>(
     if (res.status === 403 && body.error === PASSWORD_CHANGE_REQUIRED) {
       client.handleForcedPasswordChange();
     }
-    throw new ApiError(
-      res.status,
-      body.error ?? body.type ?? "error",
-      body.message ?? body.detail ?? body.title ?? res.statusText,
-    );
+    /*
+     * A body that carries a machine-readable refusal gets its sentence composed
+     * from the loaded catalogue: the code and its parameter are what travels,
+     * so the sentence is the reader's language rather than the server's. A body
+     * that carries prose is read as that prose.
+     */
+    const message =
+      body.error === GROUP_NOT_ACCESSIBLE && body.need
+        ? groupAccessSentence(body.need)
+        : (body.message ?? body.detail ?? body.title ?? res.statusText);
+    throw new ApiError(res.status, body.error ?? body.type ?? "error", message);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;

@@ -612,13 +612,12 @@ record keeps its full shape as the evolution path.
     and arrives as `undefined` on one.
 
 - *21 — the third branch review: the paths the record had only promised
-  (proposed 2026-09-10, awaiting the owner's acceptance)*. The third review of
-  the branch asked the questions this record leaves open: three of them are
-  answered today by the code's default rather than by a decision, and one only
-  by a general sentence about auto-approval. Unlike the resolutions above,
-  these are proposals: the owner has not accepted them. The first is carried
-  by the tree already — the check it asks for stands on the approval path —
-  and the rest are owed, marked where they live.
+  (owner decision 2026-09-10)*. The third review of the branch found three of
+  the questions this record leaves open answered by the code's default rather
+  than by a decision, and one answered only by a general sentence about
+  auto-approval. The first is carried by the tree already — the check it asks
+  for stands on the approval path — and the rest are owed, marked where they
+  live.
 
   - **The version pin binds a run resumed from an approval.** A job stopped in
     `awaiting_approval` is in flight: a person is holding it, and the rule it
@@ -706,10 +705,13 @@ record keeps its full shape as the evolution path.
   sync.
 - *Audit retention is declared*: one audit document per month per group,
   kept 12 months, so growth in Stalwart is bounded by policy and not by disk.
-  **Owed:** the export offered before the oldest month is pruned does not
-  exist yet — the trail is readable as the group's own Files in the meantime —
-  and the retention is a policy rather than a deletion only once it does.
-  <!-- owed: audit-export-before-prune -->
+  The trail is not in the Files a member browses: the months live in the
+  group's own hidden `gilbert` app folder, a member reads them through the
+  group's agent panel (resolution 17), and an administrator through the Agents
+  section. The copy the retention promises is taken there — the group's row
+  hands over every retained month as JSON
+  (`GET /api/admin/groups/:name/agent/audit`) — so a month is pruned after its
+  copy can be taken, never before.
 - *Probes run against the owner's test instance on credentials the owner
   supplies*; results are recorded as resolutions 12 to 14, and the
   operator-credential alternative carries two more (Open questions, probes
