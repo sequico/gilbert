@@ -1,3 +1,4 @@
+import { isAgentLabel } from "@gilbert/shared/labels";
 import {
   Ban,
   Calendar,
@@ -37,6 +38,7 @@ import { client } from "@/jmap/client";
 import type { Email, EmailAddress, EmailBodyPart, Id } from "@/jmap/types";
 import { displayName, domainOf, formatAddress } from "@/lib/address";
 import { startAppointment } from "@/lib/appointment";
+import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { emlFilename } from "@/lib/emlName";
 import { formatFullDate, formatListDate, formatSize } from "@/lib/format";
 import {
@@ -318,6 +320,13 @@ export const MessageView = memo(function MessageView({
     [e.attachments],
   );
   const unsubscribe = e["header:List-Unsubscribe:asText"];
+  /* The agent's processing state on this message, and only on this message
+     (ADR 0003 resolution 9): the group's catalog names it, the keyword says
+     whether this one carries it. */
+  const agentLabels = useEffectiveLabels().filter(
+    (label) => isAgentLabel(label.keyword) && e.keywords[label.keyword],
+  );
+
   const isHighPriority =
     /^[12]/.test(e["header:X-Priority:asText"] ?? "") ||
     /high/i.test(e["header:Importance:asText"] ?? "");
@@ -466,6 +475,15 @@ export const MessageView = memo(function MessageView({
                 {translate("Important")}
               </span>
             )}
+            {agentLabels.map((label) => (
+              <span
+                key={label.keyword}
+                className="tag"
+                style={{ background: label.color }}
+              >
+                {label.name}
+              </span>
+            ))}
             {authFailed && (
               <span
                 className="tag"

@@ -36,6 +36,28 @@ const NO_REGISTRY = process.env.MOCK_NO_REGISTRY === "1";
 const NO_FUTURE_RELEASE = process.env.MOCK_NO_FUTURE_RELEASE === "1";
 /** What the session advertises, matching Stalwart's own 30 days. */
 const MAX_DELAYED_SEND = 86400 * 30;
+/**
+ * The mock's clock.
+ *
+ * Real time unless a test asks otherwise: `MOCK_NOW=<ISO instant>` at boot, or
+ * `POST /mock/clock` (`{ now }` / `{ advanceMs }`) while it runs. Every stamp
+ * the mock makes -- a node's `created`/`modified`, a message's `receivedAt`,
+ * a submission's `sendAt` and the deadline behind its `undoStatus`, the `at`
+ * of a chat document -- comes from here, so a test can put a schedule in the
+ * past without waiting a minute for it (ADR 0003 §5: the agent's time
+ * triggers) and can watch a queued send become final.
+ *
+ * It is an offset against real time, not a frozen instant: with no override
+ * the offset is zero, so nothing about the mock's timing differs from a plain
+ * wall clock, and a moved clock still ticks. What it does not drive is the
+ * mock's own demo intervals (the 30 s chat traffic, the 2 min inbox
+ * injection): those stay real, because they are demo traffic rather than
+ * anything a server does.
+ */
+const BOOT_NOW = Date.parse(process.env.MOCK_NOW ?? "");
+let clockOffsetMs = Number.isNaN(BOOT_NOW) ? 0 : BOOT_NOW - Date.now();
+/** The mock's notion of now, everywhere it stamps or compares a time. */
+const now = () => Date.now() + clockOffsetMs;
 const ACCOUNT = "a1";
 /** How long a push subscription lives before the server drops it. */
 const PUSH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -53,6 +75,24 @@ const GROUP2_ACCOUNT = "a5";
 const TARGET_ACCOUNT = "b1";
 const TARGET_USER = process.env.MOCK_TARGET_USER ?? "bob@example.com";
 const TARGET_PASS = process.env.MOCK_TARGET_PASS ?? "bob-password";
+/**
+ * The agent principal (ADR 0003).
+ *
+ * A real installation has one agent account with its own address, its own app
+ * password and a grant on each group it works -- so its session shows the
+ * group's account with `isPersonal: false`, exactly like a member's, and its
+ * `myRights` on the group's mailboxes include `maySubmit` (live-verified on
+ * 0.16.21, 2026-09-10, resolutions 12 and 14 of the ADR). The mock reproduces
+ * both, because the worker's whole reach is derived from them: a fixture that
+ * forgot the grant would leave every agent test passing against nothing.
+ *
+ * `MOCK_AGENT_ADDRESS` and `MOCK_AGENT_PASSWORD` name the principal; its app
+ * passwords are minted through `x:AppPassword/set` like anybody's.
+ */
+const AGENT_ADDRESS = process.env.MOCK_AGENT_ADDRESS ?? "gilbert@example.com";
+const AGENT_PASS = process.env.MOCK_AGENT_PASSWORD ?? "gilbert-password";
+/** The agent's own account: its configuration documents live here (ADR 0003). */
+const AGENT_ACCOUNT = "ag1";
 const SHARED_CAPS: Obj = {
   "urn:ietf:params:jmap:mail": {},
   "urn:ietf:params:jmap:submission": {},
@@ -120,11 +160,52 @@ export const targetAccount = {
   otpUrl: null as string | null,
   appPasswords: [] as Obj[],
 };
+/** The agent principal's credential state; see `account`. */
+export const agentAccount = {
+  password: AGENT_PASS,
+  otpUrl: null as string | null,
+  appPasswords: [] as Obj[],
+};
 const MASKED = "[********]";
 
 type Obj = Record<string, unknown>;
+/**
+ * The session state: what the session resource and the `sessionState` of a
+ * response report. State that belongs to a data type lives in `typeStates`
+ * below, because a client reads the two independently and a server keeps them
+ * apart.
+ */
 const state = { n: 1 };
 const nextState = () => String(state.n++);
+
+/**
+ * State tokens, one per data type (and per `x:` registry type, keyed by its
+ * method-name prefix).
+ *
+ * A real 0.16 server keeps a state per type: `Email/get` and `FileNode/get`
+ * hand back two unrelated tokens, and a client watching mail never sees its
+ * `Email` state move because somebody uploaded a file. One counter for every
+ * type makes the two indistinguishable -- and the agent's reconcile, which
+ * walks `Email/changes` and `FileNode/changes` from separate recorded states
+ * and writes back against the state it read (ADR 0003 §3 and §6), cannot be
+ * exercised against a mock that answers them from the same number.
+ *
+ * The tokens are per type but **not** per account: a real server scopes them
+ * per account as well, and the mock does not, because the account dimension
+ * would have to be threaded through every handler that stamps a state for a
+ * difference no single-account test can observe. The direction of that
+ * dishonesty is the safe one for compare-and-set: a write in one account moves
+ * the token every account of that type sees, so a conditional write can be
+ * refused that a real server would have accepted -- never accepted that a real
+ * server would have refused.
+ */
+const typeStates = new Map<string, number>();
+/** One data type's state, without moving it. */
+const stateOf = (type: string): string => String(typeStates.get(type) ?? 1);
+/** Move one data type's state on by one. */
+function bumpState(type: string): void {
+  typeStates.set(type, (typeStates.get(type) ?? 1) + 1);
+}
 
 /* ---------- data ---------- */
 /*
@@ -305,7 +386,7 @@ function addSignedEmail(o: {
 }) {
   const id = `e${counter++}`;
   const raw = signedMessage(o.which);
-  const received = new Date(Date.now() - o.daysAgo * 86400_000)
+  const received = new Date(now() - o.daysAgo * 86400_000)
     .toISOString()
     .replace(/\.\d{3}Z$/, "Z");
   const body = "The Analytical Engine has no pretensions whatever to originate anything.";
@@ -430,9 +511,7 @@ function addEmail(o: {
   into?: Obj[];
 }) {
   const id = `e${counter++}`;
-  const received = new Date(
-    Date.now() - o.daysAgo * 86400_000 - Math.random() * 3600_000 * 5,
-  )
+  const received = new Date(now() - o.daysAgo * 86400_000 - Math.random() * 3600_000 * 5)
     .toISOString()
     .replace(/\.\d{3}Z$/, "Z");
   const text = `Hi,\n\nThis is a sample message about "${o.subject}". It was generated by the Gilbert mock server so you can try the interface without a real mailbox.\n\nSome highlights:\n- Keyboard shortcuts (press ? )\n- Conversation view\n- Drag & drop to folders\n\nCheers,\n${o.from[0]}\n\n> On Monday, someone wrote:\n> This is the quoted part of an earlier message.\n> It should be collapsed by default.`;
@@ -614,6 +693,79 @@ function addEmail(o: {
   (o.into ?? emails).push(e);
   return e;
 }
+
+/**
+ * A raw message as the fields a JMAP filter and a mail view read.
+ *
+ * A server builds an Email object out of the message text; the mock needs the
+ * part of that a filter matches on and a reader sees, and nothing more. This
+ * reads unfolded RFC 5322 headers and one text body -- everything before a
+ * message's first MIME boundary, or the first `text/plain` part when it
+ * declares one.
+ *
+ * What it does not do, and a real server does: decode encoded words
+ * (`=?utf-8?…?=`), decode a quoted-printable or base64 body, honour a
+ * character set, walk nested parts, or recognise attachments (the importer
+ * records none). A message written that way is imported here as its literal
+ * bytes. A comma inside a quoted display name also splits the wrong way: the
+ * address list is cut on commas alone.
+ */
+function parseRawMessage(raw: string): {
+  subject: string | null;
+  from: Obj[] | null;
+  to: Obj[] | null;
+  cc: Obj[] | null;
+  messageId: string | null;
+  text: string;
+} {
+  const [head = "", ...rest] = raw.split(/\r?\n\r?\n/);
+  const body = rest.join("\n\n");
+  const headers = new Map<string, string>();
+  for (const line of head.split(/\r?\n/)) {
+    const m = /^([!-9;-~]+):\s*(.*)$/.exec(line);
+    if (m) {
+      headers.set(m[1]!.toLowerCase(), m[2]!);
+      continue;
+    }
+    // A folded continuation belongs to the header above it.
+    const last = [...headers.keys()].pop();
+    if (last && /^[ \t]/.test(line))
+      headers.set(last, `${headers.get(last)} ${line.trim()}`);
+  }
+  const addresses = (value: string | undefined): Obj[] | null =>
+    value === undefined
+      ? null
+      : value
+          .split(",")
+          .map((part) => part.trim())
+          .filter(Boolean)
+          .map((part) => {
+            const m = /^(.*)<([^>]*)>$/.exec(part);
+            if (!m) return { name: null, email: part };
+            const name = m[1]!.trim().replace(/^"|"$/g, "");
+            return { name: name || null, email: m[2]!.trim() };
+          });
+
+  const type = headers.get("content-type") ?? "";
+  const boundary = /boundary="?([^";]+)"?/i.exec(type)?.[1];
+  let text = body;
+  if (boundary) {
+    const part = body
+      .split(`--${boundary}`)
+      .slice(1)
+      .find((p) => /^content-type:\s*text\/plain/im.test(p.trimStart()));
+    text = (part ?? "").replace(/^[\s\S]*?\r?\n\r?\n/, "");
+  }
+  return {
+    subject: headers.get("subject") ?? null,
+    from: addresses(headers.get("from")),
+    to: addresses(headers.get("to")),
+    cc: addresses(headers.get("cc")),
+    messageId: headers.get("message-id")?.replace(/^<|>$/g, "") ?? null,
+    text: text.trimEnd(),
+  };
+}
+
 // Seed
 for (let i = 0; i < 45; i++) {
   const p = people[i % people.length]!;
@@ -904,7 +1056,7 @@ const groupEmails: Obj[] = [
     mailboxIds: { "g-inbox": true },
     keywords: { $seen: false },
     size: 128,
-    receivedAt: new Date().toISOString(),
+    receivedAt: new Date(now()).toISOString(),
     subject: "Welcome to the team mailbox",
     from: [{ name: "Ada Lovelace", email: "ada@example.org" }],
     to: [{ name: "Team", email: "team@example.org" }],
@@ -967,7 +1119,7 @@ const group2Emails: Obj[] = [
     mailboxIds: { "d-inbox": true },
     keywords: { $seen: false },
     size: 128,
-    receivedAt: new Date().toISOString(),
+    receivedAt: new Date(now()).toISOString(),
     subject: "Welcome to the design mailbox",
     from: [{ name: "Margaret Hamilton", email: "margaret@nasa.example" }],
     to: [{ name: "Design", email: "design@example.org" }],
@@ -993,6 +1145,38 @@ const group2Identities: Obj[] = [
   },
 ];
 /*
+ * The agent principal's own account (ADR 0003 §1).
+ *
+ * A real account of the directory ships its own mailbox tree and its own
+ * identity, so the mock gives it both: mail addressed to the agent is ordinary
+ * mail that lands in the agent's inbox and wakes it like any other state
+ * change. What it deliberately does NOT ship is another account's data: its
+ * calendars, address books, cards and Files start empty, because a group agent
+ * works in the group's own account, and because the mock seeds nothing the
+ * code under test is supposed to create itself -- the `gilbert/agent` folder
+ * appears when the store writes its first document through `FileNode/set`.
+ */
+const agentMailboxes: Obj[] = [
+  mb("inbox", "Inbox", "inbox"),
+  mb("drafts", "Drafts", "drafts"),
+  mb("sent", "Sent Items", "sent"),
+  mb("junk", "Junk Mail", "junk"),
+  mb("trash", "Deleted Items", "trash"),
+];
+const agentEmails: Obj[] = [];
+const agentIdentities: Obj[] = [
+  {
+    id: "ai1",
+    name: "Gilbert",
+    email: AGENT_ADDRESS,
+    replyTo: null,
+    bcc: null,
+    textSignature: "",
+    htmlSignature: "",
+    mayDelete: false,
+  },
+];
+/*
  * Mail per account. A group (team) mailbox carries its own folder tree,
  * messages and identity; the account that shared calendars, address books and
  * files carries none -- a person who shared a folder is not a mailbox the
@@ -1003,32 +1187,39 @@ const group2Identities: Obj[] = [
  * probe lists only the accounts that answer with a tree.
  *
  * The target principal (ADR 0005) is a fresh account: it has its own Files
- * (see `targetFileNodes`) and nothing else yet.
+ * (see `targetFileNodes`) and nothing else yet. The agent principal has the
+ * mailbox and identity an account of the directory has, and nothing else.
  */
 const mailboxesFor = (accountId: unknown): Obj[] =>
   accountId === GROUP_ACCOUNT
     ? groupMailboxes
     : accountId === GROUP2_ACCOUNT
       ? group2Mailboxes
-      : accountId === SHARED_ACCOUNT || accountId === TARGET_ACCOUNT
-        ? []
-        : mailboxes;
+      : accountId === AGENT_ACCOUNT
+        ? agentMailboxes
+        : accountId === SHARED_ACCOUNT || accountId === TARGET_ACCOUNT
+          ? []
+          : mailboxes;
 const emailsFor = (accountId: unknown): Obj[] =>
   accountId === GROUP_ACCOUNT
     ? groupEmails
     : accountId === GROUP2_ACCOUNT
       ? group2Emails
-      : accountId === SHARED_ACCOUNT || accountId === TARGET_ACCOUNT
-        ? []
-        : emails;
+      : accountId === AGENT_ACCOUNT
+        ? agentEmails
+        : accountId === SHARED_ACCOUNT || accountId === TARGET_ACCOUNT
+          ? []
+          : emails;
 const identitiesFor = (accountId: unknown): Obj[] =>
   accountId === GROUP_ACCOUNT
     ? groupIdentities
     : accountId === GROUP2_ACCOUNT
       ? group2Identities
-      : accountId === SHARED_ACCOUNT || accountId === TARGET_ACCOUNT
-        ? []
-        : identities;
+      : accountId === AGENT_ACCOUNT
+        ? agentIdentities
+        : accountId === SHARED_ACCOUNT || accountId === TARGET_ACCOUNT
+          ? []
+          : identities;
 const groupCalendars: Obj[] = [
   {
     id: "gc1",
@@ -1069,21 +1260,21 @@ const eventsFor = (accountId: unknown): Obj[] =>
     ? sharedEvents
     : accountId === GROUP_ACCOUNT
       ? groupEvents
-      : accountId === GROUP2_ACCOUNT
+      : accountId === GROUP2_ACCOUNT ||
+          accountId === TARGET_ACCOUNT ||
+          accountId === AGENT_ACCOUNT
         ? []
-        : accountId === TARGET_ACCOUNT
-          ? []
-          : events;
+        : events;
 const calendarsFor = (accountId: unknown): Obj[] =>
   accountId === SHARED_ACCOUNT
     ? sharedCalendars
     : accountId === GROUP_ACCOUNT
       ? groupCalendars
-      : accountId === GROUP2_ACCOUNT
+      : accountId === GROUP2_ACCOUNT ||
+          accountId === TARGET_ACCOUNT ||
+          accountId === AGENT_ACCOUNT
         ? []
-        : accountId === TARGET_ACCOUNT
-          ? []
-          : calendars;
+        : calendars;
 const calendars: Obj[] = [
   {
     id: "c1",
@@ -1367,7 +1558,7 @@ const sharedCards: Obj[] = [
     nicknames: {},
     addresses: {},
     notes: {},
-    updated: new Date().toISOString(),
+    updated: new Date(now()).toISOString(),
   },
   {
     id: "sc2",
@@ -1379,7 +1570,7 @@ const sharedCards: Obj[] = [
     nicknames: {},
     addresses: {},
     notes: {},
-    updated: new Date().toISOString(),
+    updated: new Date(now()).toISOString(),
   },
 ];
 /**
@@ -1460,7 +1651,7 @@ const groupCards: Obj[] = [
     nicknames: {},
     addresses: {},
     notes: {},
-    updated: new Date().toISOString(),
+    updated: new Date(now()).toISOString(),
   },
   {
     id: "gs2",
@@ -1472,7 +1663,7 @@ const groupCards: Obj[] = [
     nicknames: {},
     addresses: {},
     notes: {},
-    updated: new Date().toISOString(),
+    updated: new Date(now()).toISOString(),
   },
 ];
 const booksFor = (accountId: unknown): Obj[] =>
@@ -1480,11 +1671,11 @@ const booksFor = (accountId: unknown): Obj[] =>
     ? sharedAddressBooks
     : accountId === GROUP_ACCOUNT
       ? groupAddressBooks
-      : accountId === GROUP2_ACCOUNT
+      : accountId === GROUP2_ACCOUNT ||
+          accountId === TARGET_ACCOUNT ||
+          accountId === AGENT_ACCOUNT
         ? []
-        : accountId === TARGET_ACCOUNT
-          ? []
-          : addressBooks;
+        : addressBooks;
 /** One per contact, by index; a gap means that card has no birthday. */
 const BIRTHDAYS: Array<{ year?: number; month: number; day: number } | null> = [
   { year: 1815, month: 12, day: 10 },
@@ -1563,6 +1754,17 @@ principals.push(
     timeZone: "UTC",
   },
 );
+// The agent principal, a directory account like any other: it can be found in
+// the directory, mentioned in a group chat and impersonated by an admin who
+// manages it (ADR 0003 §1 and the v1 scope).
+principals.push({
+  id: "pr-agent",
+  type: "individual",
+  name: "Gilbert",
+  description: null,
+  email: AGENT_ADDRESS,
+  timeZone: "UTC",
+});
 const fileNodes: Obj[] = [
   {
     id: "f1",
@@ -1572,8 +1774,8 @@ const fileNodes: Obj[] = [
     size: null,
     name: "Documents",
     type: null,
-    created: new Date().toISOString(),
-    modified: new Date().toISOString(),
+    created: new Date(now()).toISOString(),
+    modified: new Date(now()).toISOString(),
     myRights: fr(),
     shareWith: {},
     role: "documents",
@@ -1586,8 +1788,8 @@ const fileNodes: Obj[] = [
     size: 11,
     name: "notes.txt",
     type: "text/plain",
-    created: new Date().toISOString(),
-    modified: new Date().toISOString(),
+    created: new Date(now()).toISOString(),
+    modified: new Date(now()).toISOString(),
     myRights: fr(),
     shareWith: {},
   },
@@ -1599,8 +1801,8 @@ const fileNodes: Obj[] = [
     size: 14,
     name: "report.pdf",
     type: "application/pdf",
-    created: new Date().toISOString(),
-    modified: new Date().toISOString(),
+    created: new Date(now()).toISOString(),
+    modified: new Date(now()).toISOString(),
     myRights: fr(),
     shareWith: {},
   },
@@ -1618,8 +1820,8 @@ const sharedFileNodes: Obj[] = [
     size: null,
     name: "Team plans",
     type: null,
-    created: new Date().toISOString(),
-    modified: new Date().toISOString(),
+    created: new Date(now()).toISOString(),
+    modified: new Date(now()).toISOString(),
     myRights: fr(),
     shareWith: {},
   },
@@ -1631,8 +1833,8 @@ const sharedFileNodes: Obj[] = [
     size: 12,
     name: "roadmap.txt",
     type: "text/plain",
-    created: new Date().toISOString(),
-    modified: new Date().toISOString(),
+    created: new Date(now()).toISOString(),
+    modified: new Date(now()).toISOString(),
     myRights: fr(),
     shareWith: {},
   },
@@ -1647,8 +1849,8 @@ const groupFileNodes: Obj[] = [
     size: null,
     name: "Team files",
     type: null,
-    created: new Date().toISOString(),
-    modified: new Date().toISOString(),
+    created: new Date(now()).toISOString(),
+    modified: new Date(now()).toISOString(),
     myRights: fr(),
     shareWith: {},
   },
@@ -1660,8 +1862,8 @@ const groupFileNodes: Obj[] = [
     size: 11,
     name: "agenda.txt",
     type: "text/plain",
-    created: new Date().toISOString(),
-    modified: new Date().toISOString(),
+    created: new Date(now()).toISOString(),
+    modified: new Date(now()).toISOString(),
     myRights: fr(),
     shareWith: {},
   },
@@ -1675,13 +1877,23 @@ const nodesFor = (accountId: unknown): Obj[] =>
         ? group2FileNodes
         : accountId === TARGET_ACCOUNT
           ? targetFileNodes
-          : fileNodes;
+          : accountId === AGENT_ACCOUNT
+            ? agentFileNodes
+            : fileNodes;
 
 /** The second group's Files: chat provisions its `gilbert` folder on demand. */
 const group2FileNodes: Obj[] = [];
 
 /** The node list the target principal (ADR 0005) owns: an empty account. */
 const targetFileNodes: Obj[] = [];
+
+/**
+ * The agent's own Files (ADR 0003): where its configuration documents live.
+ * Empty on purpose -- the mock seeds nothing the code under test is supposed to
+ * create itself, so the `gilbert/agent` folders appear only once a write asks
+ * for them.
+ */
+const agentFileNodes: Obj[] = [];
 function fr() {
   return {
     mayRead: true,
@@ -1710,6 +1922,7 @@ function recount() {
   recountMail(mailboxes, emails);
   recountMail(groupMailboxes, groupEmails);
   recountMail(group2Mailboxes, group2Emails);
+  recountMail(agentMailboxes, agentEmails);
 }
 recount();
 
@@ -1864,15 +2077,57 @@ function enforceLimits(name: string, args: Obj): void {
   }
 }
 
-const setResp = (extra: Obj = {}): Obj => ({
-  accountId: ACCOUNT,
-  oldState: "1",
-  newState: nextState(),
-  created: {},
-  updated: {},
-  destroyed: [],
-  ...extra,
-});
+/**
+ * The compare-and-set every `/set` on the mock honours: `ifInState` names the
+ * state the client read, and a set whose type has moved on since is refused --
+ * the whole method call, with the error object RFC 8620 §5.3 defines for it,
+ * which is the shape a JMAP client sees (`web/src/...` raises its typed error
+ * from exactly this). Nothing the request asked for is applied: the check runs
+ * before any object is touched, the way a real server fails the call rather
+ * than the objects in it.
+ *
+ * Not checked against a live server: the error *type* is the RFC's, not a
+ * string quoted from 0.16. The behaviour it stands for is the one the agent
+ * design rests on -- documents plus conditional writes, no lock anywhere
+ * (ADR 0003 §4, §6) -- so a mock that ignored `ifInState` would leave every
+ * lease and every job update untested.
+ *
+ * TODO (owed, ADR 0003 resolution 19, owner decision 2026-09-10): probe a real
+ * 0.16 instance for four things and record the answers here with the date --
+ * that `FileNode/set` honours `ifInState` at all; that a mismatch arrives as
+ * `stateMismatch` rather than `invalidArguments`; that the FileNode state token
+ * advances on every write that matters; and whether a blob **upload**, which
+ * writes no node, advances it. Until then the agent tests prove the client's
+ * logic against this simulation, not the server's behaviour.
+ */
+function checkIfInState(a: Obj, type: string): void {
+  const asked = a.ifInState;
+  if (asked === undefined || asked === null) return;
+  if (String(asked) !== stateOf(type))
+    throw new MethodError(
+      "stateMismatch",
+      `The ${type} objects have changed since the state given in ifInState.`,
+    );
+}
+
+/**
+ * The response of a `/set`, stamped with the state of the type it wrote: the
+ * state a client read (`oldState`) and the state it left behind (`newState`),
+ * which is the token its next conditional write must carry.
+ */
+const setResp = (type: string, extra: Obj = {}): Obj => {
+  const oldState = stateOf(type);
+  bumpState(type);
+  return {
+    accountId: ACCOUNT,
+    oldState,
+    newState: stateOf(type),
+    created: {},
+    updated: {},
+    destroyed: [],
+    ...extra,
+  };
+};
 
 /*
  * `Mailbox/get` does not return `shareWith` unless a client asks for it by
@@ -1894,7 +2149,7 @@ function hideShareWithUnlessAsked(a: Obj, res: { list: Obj[] }): { list: Obj[] }
   return { ...res, list: res.list.map(({ shareWith: _drop, ...rest }) => rest) };
 }
 
-function genericGet(list: Obj[]) {
+function genericGet(list: Obj[], type: string) {
   return (a: Obj) => {
     const ids = a.ids as string[] | null | undefined;
     const found = ids
@@ -1902,7 +2157,7 @@ function genericGet(list: Obj[]) {
       : list;
     return {
       accountId: ACCOUNT,
-      state: String(state.n),
+      state: stateOf(type),
       list: found.map((x) => pick(x, a.properties as string[] | null)),
       notFound: ids ? ids.filter((id) => !list.some((x) => x.id === id)) : [],
     };
@@ -1944,8 +2199,16 @@ class SetError extends Error {
   }
 }
 
-function genericSet(list: Obj[], prefix: string, onCreate?: (o: Obj) => void) {
+function genericSet(
+  list: Obj[],
+  prefix: string,
+  onCreate: ((o: Obj) => void) | undefined,
+  type: string,
+) {
   return (a: Obj) => {
+    /* Compare-and-set first, before anything is touched: a stale `ifInState`
+       refuses the whole call, so nothing this request asked for happens. */
+    checkIfInState(a, type);
     const created: Obj = {};
     const updated: Obj = {};
     const destroyed: string[] = [];
@@ -1977,7 +2240,7 @@ function genericSet(list: Obj[], prefix: string, onCreate?: (o: Obj) => void) {
         destroyed.push(id);
       }
     }
-    return setResp({
+    return setResp(type, {
       created,
       updated,
       destroyed,
@@ -2077,6 +2340,9 @@ function calendarEventParse(a: Obj) {
 }
 
 function calendarEventSet(a: Obj) {
+  /* CalendarEvent is an account-wide set like any other, so a conditional
+     write is honoured here too (see `checkIfInState`). */
+  checkIfInState(a, "CalendarEvent");
   /* Writes go to whichever account owns the calendar, so events land in that
      account's list (own, or a group's) rather than always the demo's. */
   const events = eventsFor(a.accountId);
@@ -2100,7 +2366,7 @@ function calendarEventSet(a: Obj) {
     for (const cid of Object.keys((a.create as Obj) ?? {})) notCreated[cid] = denied();
     for (const id of Object.keys((a.update as Obj) ?? {})) notUpdated[id] = denied();
     for (const id of (a.destroy as string[]) ?? []) notDestroyed[id] = denied();
-    return setResp({
+    return setResp("CalendarEvent", {
       created,
       updated,
       destroyed,
@@ -2217,7 +2483,7 @@ function calendarEventSet(a: Obj) {
     }
   }
 
-  return setResp({
+  return setResp("CalendarEvent", {
     created,
     updated,
     destroyed,
@@ -2256,12 +2522,12 @@ function writeOverride(base: Obj, occ: Occurrence, patch: Obj, replace = false) 
 const submissions: Obj[] = [];
 
 function submissionView(sub: Obj): Obj {
-  return { ...sub, undoStatus: undoStatusOf(sub, Date.now()) };
+  return { ...sub, undoStatus: undoStatusOf(sub, now()) };
 }
 
 function matchSubmissionFilter(sub: Obj, f: Obj | undefined): boolean {
   if (!f) return true;
-  if (f.undoStatus && undoStatusOf(sub, Date.now()) !== f.undoStatus) return false;
+  if (f.undoStatus && undoStatusOf(sub, now()) !== f.undoStatus) return false;
   if (
     Array.isArray(f.emailIds) &&
     !(f.emailIds as string[]).includes(sub.emailId as string)
@@ -2285,7 +2551,7 @@ const handlers: Record<string, Handler> = {
       .map((id) => ({ id, locale: MOCK_LOCALE, timeZone: null, description: null }));
     return {
       accountId: ACCOUNT,
-      state: String(state.n),
+      state: stateOf("x:AccountSettings"),
       list: list.map((x) => pick(x, a.properties as string[] | null)),
       notFound: ids.filter((id) => id !== "singleton"),
     };
@@ -2298,7 +2564,7 @@ const handlers: Record<string, Handler> = {
       .map((id) => ({ id, name: USER, locale: MOCK_LOCALE, timeZone: null }));
     return {
       accountId: ACCOUNT,
-      state: String(state.n),
+      state: stateOf("x:Account"),
       list,
       notFound: ids.filter((id) => id !== ACCOUNT),
     };
@@ -2306,17 +2572,21 @@ const handlers: Record<string, Handler> = {
   "Mailbox/get": (a) =>
     hideShareWithUnlessAsked(
       a,
-      genericGet(mailboxesFor(a.accountId))(a) as { list: Obj[] },
+      genericGet(mailboxesFor(a.accountId), "Mailbox")(a) as { list: Obj[] },
     ) as never,
   "Mailbox/set": (a) => {
     /* Folder management runs on whichever account is active -- the reader's
        own, or the group mailbox they opened -- so the set must find the
        folder in that account's tree, not always in the demo's. */
-    const r = genericSet(mailboxesFor(a.accountId), "m", (o) =>
-      Object.assign(o, {
-        ...mb(o.id as string, o.name as string, null, (o.parentId as string) ?? null),
-        ...o,
-      }),
+    const r = genericSet(
+      mailboxesFor(a.accountId),
+      "m",
+      (o) =>
+        Object.assign(o, {
+          ...mb(o.id as string, o.name as string, null, (o.parentId as string) ?? null),
+          ...o,
+        }),
+      "Mailbox",
     )(a);
     recount();
     return r;
@@ -2324,7 +2594,7 @@ const handlers: Record<string, Handler> = {
   "Mailbox/changes": () => ({
     accountId: ACCOUNT,
     oldState: "1",
-    newState: String(state.n),
+    newState: stateOf("Mailbox"),
     hasMoreChanges: false,
     created: [],
     updated: [],
@@ -2367,7 +2637,7 @@ const handlers: Record<string, Handler> = {
     const limit = Number(a.limit ?? 50);
     return {
       accountId: ACCOUNT,
-      queryState: String(state.n),
+      queryState: stateOf("Email"),
       canCalculateChanges: false,
       position: pos,
       ids: list.slice(pos, pos + limit).map((e) => e.id),
@@ -2375,7 +2645,7 @@ const handlers: Record<string, Handler> = {
       limit,
     };
   },
-  "Email/get": (a) => genericGet(emailsFor(a.accountId))(a),
+  "Email/get": (a) => genericGet(emailsFor(a.accountId), "Email")(a),
   /*
    * Real changes, not an empty answer.
    *
@@ -2388,14 +2658,20 @@ const handlers: Record<string, Handler> = {
    */
   "Email/changes": (a) => {
     const since = Number(a.sinceState ?? 0);
-    const relevant = emailChanges.filter((c) => c.state > since);
+    /* One account's changes, not the mock's whole log: a real server answers
+       per account, and the agent reconciling a group's mail must not be handed
+       the demo user's. */
+    const accountId = String(a.accountId ?? ACCOUNT);
+    const relevant = emailChanges.filter(
+      (c) => c.accountId === accountId && c.state > since,
+    );
     const pick = (k: "created" | "updated" | "destroyed") => [
       ...new Set(relevant.flatMap((c) => c[k])),
     ];
     return {
       accountId: ACCOUNT,
       oldState: String(a.sinceState ?? "1"),
-      newState: String(state.n),
+      newState: stateOf("Email"),
       hasMoreChanges: false,
       created: pick("created"),
       updated: pick("updated"),
@@ -2404,54 +2680,68 @@ const handlers: Record<string, Handler> = {
   },
   "Email/set": (a) => {
     const list = emailsFor(a.accountId);
-    const r = genericSet(list, "e", (o) => {
-      const bv = (o.bodyValues as Record<string, { value: string }>) ?? {};
-      const walk = (p: Obj | undefined, acc: Obj[]) => {
-        if (!p) return;
-        if (p.partId && bv[p.partId as string])
-          acc.push({
-            ...p,
-            blobId: putBlob(bv[p.partId as string]!.value, p.type as string),
-            size: bv[p.partId as string]!.value.length,
-          });
-        (p.subParts as Obj[] | undefined)?.forEach((s) => walk(s, acc));
-      };
-      const parts: Obj[] = [];
-      walk(o.bodyStructure as Obj, parts);
-      o.textBody = parts.filter((p) => p.type === "text/plain");
-      o.htmlBody = parts.filter((p) => p.type === "text/html");
-      o.attachments = [];
-      const collect = (p: Obj | undefined) => {
-        if (!p) return;
-        if (p.blobId && !p.partId && p.type !== "multipart/mixed")
-          (o.attachments as Obj[]).push({ ...p, size: p.size ?? 0 });
-        (p.subParts as Obj[] | undefined)?.forEach(collect);
-      };
-      collect(o.bodyStructure as Obj);
-      o.hasAttachment = (o.attachments as Obj[]).length > 0;
-      o.threadId = o.inReplyTo
-        ? (list.find(
-            (e) => (e.messageId as string[] | null)?.[0] === (o.inReplyTo as string[])[0],
-          )?.threadId ?? `t${o.id}`)
-        : `t${o.id}`;
-      o.receivedAt = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-      o.size = 2000;
-      o.preview = (bv.text?.value ?? "").slice(0, 100);
-      o.messageId = [`${o.id}@mock`];
-      o.blobId = putBlob(
-        `Subject: ${o.subject}\r\n\r\n${bv.text?.value ?? ""}`,
-        "message/rfc822",
-      );
-    })(a);
+    const r = genericSet(
+      list,
+      "e",
+      (o) => {
+        const bv = (o.bodyValues as Record<string, { value: string }>) ?? {};
+        const walk = (p: Obj | undefined, acc: Obj[]) => {
+          if (!p) return;
+          if (p.partId && bv[p.partId as string])
+            acc.push({
+              ...p,
+              blobId: putBlob(bv[p.partId as string]!.value, p.type as string),
+              size: bv[p.partId as string]!.value.length,
+            });
+          (p.subParts as Obj[] | undefined)?.forEach((s) => walk(s, acc));
+        };
+        const parts: Obj[] = [];
+        walk(o.bodyStructure as Obj, parts);
+        o.textBody = parts.filter((p) => p.type === "text/plain");
+        o.htmlBody = parts.filter((p) => p.type === "text/html");
+        o.attachments = [];
+        const collect = (p: Obj | undefined) => {
+          if (!p) return;
+          if (p.blobId && !p.partId && p.type !== "multipart/mixed")
+            (o.attachments as Obj[]).push({ ...p, size: p.size ?? 0 });
+          (p.subParts as Obj[] | undefined)?.forEach(collect);
+        };
+        collect(o.bodyStructure as Obj);
+        o.hasAttachment = (o.attachments as Obj[]).length > 0;
+        o.threadId = o.inReplyTo
+          ? (list.find(
+              (e) =>
+                (e.messageId as string[] | null)?.[0] === (o.inReplyTo as string[])[0],
+            )?.threadId ?? `t${o.id}`)
+          : `t${o.id}`;
+        o.receivedAt = new Date(now()).toISOString().replace(/\.\d{3}Z$/, "Z");
+        o.size = 2000;
+        o.preview = (bv.text?.value ?? "").slice(0, 100);
+        o.messageId = [`${o.id}@mock`];
+        o.blobId = putBlob(
+          `Subject: ${o.subject}\r\n\r\n${bv.text?.value ?? ""}`,
+          "message/rfc822",
+        );
+      },
+      "Email",
+    )(a);
     recount();
-    nextState();
-    recordEmailChange({
-      created: Object.values((r.created ?? {}) as Record<string, { id: string }>).map(
-        (x) => x.id,
-      ),
-      updated: Object.keys((a.update as Obj) ?? {}),
-      destroyed: (r.destroyed as string[] | undefined) ?? [],
-    });
+    /* The change is visible at the state the set left behind: record that
+       state, so a client asking from the state it read before is told what
+       arrived. Nothing is bumped here -- `setResp` already moved the Email
+       state, and a second bump would put the change beyond the state the
+       client is handed. */
+    recordEmailChange(
+      String(a.accountId ?? ACCOUNT),
+      {
+        created: Object.values((r.created ?? {}) as Record<string, { id: string }>).map(
+          (x) => x.id,
+        ),
+        updated: Object.keys((a.update as Obj) ?? {}),
+        destroyed: (r.destroyed as string[] | undefined) ?? [],
+      },
+      String(r.newState),
+    );
     /* A real server pushes a state change after a set, and the client acts on
        it -- `Email/changes` runs and the store reconciles what came back. The
        mock stayed silent, so that whole path never ran here and a bug living
@@ -2461,32 +2751,77 @@ const handlers: Record<string, Handler> = {
     broadcast(["Email", "Mailbox", "Thread"], (a.accountId as string) ?? ACCOUNT);
     return r;
   },
+  /*
+   * Mail arriving in an account -- the only way a message gets in here: the
+   * mock has no MTA, so a test delivers with the same method the client uses to
+   * put a message it already has into a mailbox.
+   *
+   * A real 0.16 server parses that blob into the Email object: subject,
+   * addresses, size, preview and the body a `text`/`body` filter matches all
+   * come from the message itself, never from the request. A stub object with
+   * none of them leaves an agent's rule with nothing to match incoming mail
+   * on, so the mock reads the same fields out of a small subset of RFC 5322
+   * (see `parseRawMessage`, which says what it does not decode), and it
+   * announces the arrival the way a delivery would: a change log entry and a
+   * state change. Mail that lands silently is mail no worker reconciling from
+   * a recorded state ever sees (ADR 0003 §3).
+   */
   "Email/import": (a) => {
     const created: Obj = {};
+    const list = emailsFor(a.accountId);
+    const arrived: string[] = [];
     for (const [cid, spec] of Object.entries((a.emails as Obj) ?? {})) {
+      const s = spec as Obj;
       const id = `e${counter++}`;
-      emails.push({
+      const raw = blobs.get(s.blobId as string)?.data.toString() ?? "";
+      const parsed = parseRawMessage(raw);
+      const textBlob = putBlob(parsed.text, "text/plain");
+      list.push({
         id,
-        blobId: (spec as Obj).blobId,
+        blobId: s.blobId,
         threadId: `t${id}`,
-        mailboxIds: (spec as Obj).mailboxIds,
-        keywords: (spec as Obj).keywords ?? {},
-        size: 100,
-        receivedAt: new Date().toISOString(),
-        subject: "(imported message)",
-        from: [{ name: null, email: "import@example" }],
-        to: null,
-        preview: "",
+        mailboxIds: s.mailboxIds,
+        keywords: s.keywords ?? {},
+        size: raw.length,
+        receivedAt: new Date(now()).toISOString().replace(/\.\d{3}Z$/, "Z"),
+        subject: parsed.subject,
+        from: parsed.from,
+        to: parsed.to,
+        cc: parsed.cc,
+        preview: parsed.text.slice(0, 120).replace(/\n/g, " "),
         hasAttachment: false,
-        textBody: [],
+        messageId: [parsed.messageId ?? `${id}@mock`],
+        textBody: [
+          {
+            partId: "1",
+            blobId: textBlob,
+            size: parsed.text.length,
+            name: null,
+            type: "text/plain",
+            charset: "utf-8",
+            disposition: null,
+            cid: null,
+          },
+        ],
         htmlBody: [],
         attachments: [],
-        bodyValues: {},
+        bodyValues: {
+          "1": { value: parsed.text, isEncodingProblem: false, isTruncated: false },
+        },
       });
       created[cid] = { id };
+      arrived.push(id);
     }
     recount();
-    return setResp({ created });
+    const res = setResp("Email", { created });
+    recordEmailChange(
+      String(a.accountId ?? ACCOUNT),
+      { created: arrived },
+      String(res.newState),
+    );
+    if (arrived.length)
+      broadcast(["Email", "Mailbox", "Thread"], (a.accountId as string) ?? ACCOUNT);
+    return res;
   },
   "Thread/get": (a) => {
     const ids = a.ids as string[];
@@ -2501,7 +2836,7 @@ const handlers: Record<string, Handler> = {
       .filter((t) => t.emailIds.length);
     return {
       accountId: ACCOUNT,
-      state: String(state.n),
+      state: stateOf("Thread"),
       list,
       notFound: ids.filter((id) => !list.some((t) => t.id === id)),
     };
@@ -2514,7 +2849,7 @@ const handlers: Record<string, Handler> = {
     const st = principalState(who.username);
     return {
       accountId: ACCOUNT,
-      state: String(state.n),
+      state: stateOf("x:AccountPassword"),
       list: [
         {
           id: "singleton",
@@ -2525,14 +2860,17 @@ const handlers: Record<string, Handler> = {
     };
   },
   "x:AccountPassword/set": (a, who) => {
+    /* The password record is a registry object with its own state, so the
+       change-password flow can be made conditional like everything else. */
+    checkIfInState(a, "x:AccountPassword");
     const st = principalState(who.username);
     const patch = (a.update as Obj)?.singleton as Obj | undefined;
-    if (!patch) return setResp({ updated: {} });
+    if (!patch) return setResp("x:AccountPassword", { updated: {} });
     const current = patch.currentSecret as string | undefined;
     const code = (patch["otpAuth/otpCode"] ??
       (patch.otpAuth as Obj | undefined)?.otpCode) as string | undefined;
     if (!current) {
-      return setResp({
+      return setResp("x:AccountPassword", {
         notUpdated: {
           singleton: {
             type: "forbidden",
@@ -2543,14 +2881,14 @@ const handlers: Record<string, Handler> = {
       });
     }
     if (current !== st.password) {
-      return setResp({
+      return setResp("x:AccountPassword", {
         notUpdated: {
           singleton: { type: "forbidden", description: "Current secret is incorrect." },
         },
       });
     }
     if (st.otpUrl && !code) {
-      return setResp({
+      return setResp("x:AccountPassword", {
         notUpdated: {
           singleton: {
             type: "forbidden",
@@ -2561,7 +2899,7 @@ const handlers: Record<string, Handler> = {
       });
     }
     if (st.otpUrl && !checkOtpFor(st, code!)) {
-      return setResp({
+      return setResp("x:AccountPassword", {
         notUpdated: {
           singleton: { type: "forbidden", description: "Current secret is incorrect." },
         },
@@ -2570,7 +2908,7 @@ const handlers: Record<string, Handler> = {
     const secret = patch.secret as string | undefined;
     if (secret !== undefined && secret !== MASKED) {
       if (secret.length < 8) {
-        return setResp({
+        return setResp("x:AccountPassword", {
           notUpdated: {
             singleton: {
               type: "invalidProperties",
@@ -2586,8 +2924,7 @@ const handlers: Record<string, Handler> = {
       const url = patch["otpAuth/otpUrl"] as string | null;
       if (url !== MASKED) st.otpUrl = url;
     }
-    state.n++;
-    return setResp({ updated: { singleton: null } });
+    return setResp("x:AccountPassword", { updated: { singleton: null } });
   },
   /*
    * Push subscriptions. The JMAP half can be modelled; delivery cannot -- that
@@ -2607,7 +2944,7 @@ const handlers: Record<string, Handler> = {
     // `keys` is write-only in JMAP: the server never hands it back.
     return {
       accountId: ACCOUNT,
-      state: String(state.n),
+      state: stateOf("PushSubscription"),
       list: list.map((s) => {
         const { keys: _drop, ...rest } = s;
         return rest;
@@ -2616,6 +2953,8 @@ const handlers: Record<string, Handler> = {
     };
   },
   "PushSubscription/set": (a) => {
+    /* A subscription is a set like any other: `ifInState` decides it. */
+    checkIfInState(a, "PushSubscription");
     const created: Obj = {};
     const notCreated: Obj = {};
     const updated: Obj = {};
@@ -2684,7 +3023,7 @@ const handlers: Record<string, Handler> = {
        * anything and goes silent a week after being deployed. Seven days here,
        * so "does this client renew?" is a question the mock can answer.
        */
-      const expires = new Date(Date.now() + PUSH_TTL_MS).toISOString();
+      const expires = new Date(now() + PUSH_TTL_MS).toISOString();
       pushSubscriptions.push({
         id,
         deviceClientId: deviceId,
@@ -2697,7 +3036,6 @@ const handlers: Record<string, Handler> = {
         code: `v${randomUUID().slice(0, 8)}`,
       });
       created[cid] = { id, expires };
-      state.n++;
     }
     for (const [id, patch] of Object.entries((a.update as Obj) ?? {})) {
       const s = pushSubscriptions.find((x) => x.id === id);
@@ -2718,21 +3056,28 @@ const handlers: Record<string, Handler> = {
         s.verified = true;
       }
       updated[id] = null;
-      state.n++;
     }
     for (const id of (a.destroy as string[]) ?? []) {
       const i = pushSubscriptions.findIndex((x) => x.id === id);
       if (i >= 0) {
         pushSubscriptions.splice(i, 1);
         destroyed.push(id);
-        state.n++;
       }
     }
-    return setResp({ created, notCreated, updated, notUpdated, destroyed });
+    return setResp("PushSubscription", {
+      created,
+      notCreated,
+      updated,
+      notUpdated,
+      destroyed,
+    });
   },
   "x:AppPassword/get": (a, who) =>
-    genericGet(principalState(who.username).appPasswords)(a),
+    genericGet(principalState(who.username).appPasswords, "x:AppPassword")(a),
   "x:AppPassword/set": (a, who) => {
+    /* The registry's own state, so a credential write is conditional too: a
+       rotation built on a read is refused when somebody else moved first. */
+    checkIfInState(a, "x:AppPassword");
     const st = principalState(who.username);
     const created: Obj = {};
     const destroyed: string[] = [];
@@ -2744,7 +3089,7 @@ const handlers: Record<string, Handler> = {
       const row: Obj = {
         id,
         description: (obj as Obj).description ?? "App password",
-        createdAt: new Date().toISOString(),
+        createdAt: new Date(now()).toISOString(),
         expiresAt: null,
         secret,
       };
@@ -2758,10 +3103,9 @@ const handlers: Record<string, Handler> = {
         destroyed.push(id);
       }
     }
-    state.n++;
-    return setResp({ created, destroyed });
+    return setResp("x:AppPassword", { created, destroyed });
   },
-  "Identity/get": (a) => genericGet(identitiesFor(a.accountId))(a),
+  "Identity/get": (a) => genericGet(identitiesFor(a.accountId), "Identity")(a),
   "Identity/set": (a) => {
     // Stalwart's cap is `value.len() < 2048` on a Rust string: 2047 bytes of
     // UTF-8, not characters. Anything longer is refused by name.
@@ -2775,7 +3119,7 @@ const handlers: Record<string, Handler> = {
           return typeof v === "string" && Buffer.byteLength(v, "utf8") > 2047;
         });
         if (over)
-          return setResp({
+          return setResp("Identity", {
             [where]: {
               [key]: {
                 type: "invalidProperties",
@@ -2786,15 +3130,24 @@ const handlers: Record<string, Handler> = {
           });
       }
     }
-    return genericSet(identities, "i", (o) =>
-      Object.assign(o, {
-        replyTo: null,
-        bcc: null,
-        textSignature: "",
-        htmlSignature: "",
-        mayDelete: true,
-        ...o,
-      }),
+    /* The list the *request* named, not the demo user's: `Identity/get` reads
+       per account (group and agent accounts have identities of their own), so
+       a set that wrote the module-level list would answer 200 and change
+       nothing the caller can see — which is how a group's signature edits
+       silently did nothing. */
+    return genericSet(
+      identitiesFor(a.accountId),
+      "i",
+      (o) =>
+        Object.assign(o, {
+          replyTo: null,
+          bcc: null,
+          textSignature: "",
+          htmlSignature: "",
+          mayDelete: true,
+          ...o,
+        }),
+      "Identity",
     )(a);
   },
   "EmailSubmission/get": (a) => {
@@ -2804,7 +3157,7 @@ const handlers: Record<string, Handler> = {
       : submissions;
     return {
       accountId: ACCOUNT,
-      state: String(state.n),
+      state: stateOf("EmailSubmission"),
       list: found.map((x) => pick(submissionView(x), a.properties as string[] | null)),
       notFound: ids ? ids.filter((id) => !submissions.some((x) => x.id === id)) : [],
     };
@@ -2818,7 +3171,7 @@ const handlers: Record<string, Handler> = {
     const limit = Number(a.limit ?? 50);
     return {
       accountId: ACCOUNT,
-      queryState: String(state.n),
+      queryState: stateOf("EmailSubmission"),
       canCalculateChanges: false,
       position: pos,
       ids: list.slice(pos, pos + limit).map((s) => s.id),
@@ -2827,6 +3180,9 @@ const handlers: Record<string, Handler> = {
     };
   },
   "EmailSubmission/set": (a) => {
+    /* A submission is a set on the account, and the send path is exactly where
+       a confused client sends twice if a lost race is not refused. */
+    checkIfInState(a, "EmailSubmission");
     const created: Obj = {};
     const notCreated: Obj = {};
     const updated: Obj = {};
@@ -2843,7 +3199,7 @@ const handlers: Record<string, Handler> = {
         };
         continue;
       }
-      const hold = holdUntilOf(sub.envelope as Obj | undefined, Date.now());
+      const hold = holdUntilOf(sub.envelope as Obj | undefined, now());
       if (Number.isNaN(hold)) {
         notCreated[cid] = {
           type: "invalidProperties",
@@ -2853,15 +3209,15 @@ const handlers: Record<string, Handler> = {
         continue;
       }
       // Stalwart rejects MAIL FROM outright past its own limit.
-      if (hold !== null && hold > Date.now() + MAX_DELAYED_SEND * 1000) {
+      if (hold !== null && hold > now() + MAX_DELAYED_SEND * 1000) {
         notCreated[cid] = {
           type: "forbiddenMailFrom",
-          description: `Server rejected MAIL-FROM: 501 5.5.4 Requested release time exceeds maximum of ${new Date(Date.now() + MAX_DELAYED_SEND * 1000).toISOString()}.`,
+          description: `Server rejected MAIL-FROM: 501 5.5.4 Requested release time exceeds maximum of ${new Date(now() + MAX_DELAYED_SEND * 1000).toISOString()}.`,
         };
         continue;
       }
       // With the MTA extension off, the hold is dropped in silence.
-      const sendAt = hold !== null && !NO_FUTURE_RELEASE ? hold : Date.now();
+      const sendAt = hold !== null && !NO_FUTURE_RELEASE ? hold : now();
       const rec: Obj = {
         id: `s${randomUUID().slice(0, 6)}`,
         identityId: sub.identityId ?? null,
@@ -2876,7 +3232,7 @@ const handlers: Record<string, Handler> = {
       created[cid] = {
         id: rec.id,
         sendAt: rec.sendAt,
-        undoStatus: undoStatusOf(rec, Date.now()),
+        undoStatus: undoStatusOf(rec, now()),
       };
       const patch = (a.onSuccessUpdateEmail as Obj)?.[`#${cid}`] as Obj | undefined;
       if (patch) applyPatch(e, patch);
@@ -2896,7 +3252,7 @@ const handlers: Record<string, Handler> = {
         };
         continue;
       }
-      const status = undoStatusOf(sub, Date.now());
+      const status = undoStatusOf(sub, now());
       if (status !== "pending") {
         notUpdated[id] = {
           type: "cannotUnsend",
@@ -2911,7 +3267,7 @@ const handlers: Record<string, Handler> = {
       updated[id] = null;
     }
     recount();
-    return setResp({
+    return setResp("EmailSubmission", {
       created,
       updated,
       ...(Object.keys(notCreated).length ? { notCreated } : {}),
@@ -2920,14 +3276,15 @@ const handlers: Record<string, Handler> = {
   },
   "VacationResponse/get": () => ({
     accountId: ACCOUNT,
-    state: "1",
+    state: stateOf("VacationResponse"),
     list: [vacation],
     notFound: [],
   }),
   "VacationResponse/set": (a) => {
+    checkIfInState(a, "VacationResponse");
     const p = (a.update as Obj)?.singleton as Obj | undefined;
     if (p) vacation = { ...vacation, ...p };
-    return setResp({ updated: { singleton: null } });
+    return setResp("VacationResponse", { updated: { singleton: null } });
   },
   "Quota/get": () => ({
     accountId: ACCOUNT,
@@ -2945,10 +3302,13 @@ const handlers: Record<string, Handler> = {
     ],
     notFound: [],
   }),
-  "SieveScript/get": genericGet(sieveScripts),
+  "SieveScript/get": genericGet(sieveScripts, "SieveScript"),
   "SieveScript/set": (a) => {
-    const r = genericSet(sieveScripts, "sv", (o) =>
-      Object.assign(o, { isActive: false, ...o }),
+    const r = genericSet(
+      sieveScripts,
+      "sv",
+      (o) => Object.assign(o, { isActive: false, ...o }),
+      "SieveScript",
     )(a);
     const act = a.onSuccessActivateScript as string | undefined;
     if (act) {
@@ -2961,7 +3321,7 @@ const handlers: Record<string, Handler> = {
     return r;
   },
   "SieveScript/validate": () => ({ accountId: ACCOUNT, error: null }),
-  "Calendar/get": (a) => genericGet(calendarsFor(a.accountId))(a),
+  "Calendar/get": (a) => genericGet(calendarsFor(a.accountId), "Calendar")(a),
   /*
    * `isSubscribed` is deliberately not among the defaults a new calendar is
    * filled with. Stalwart leaves a calendar the client creates unsubscribed
@@ -2971,19 +3331,23 @@ const handlers: Record<string, Handler> = {
    * (a task list, a plain calendar) say `isSubscribed: true`.
    */
   "Calendar/set": (a) =>
-    genericSet(calendarsFor(a.accountId), "c", (o) =>
-      Object.assign(o, {
-        color: "#0f766e",
-        isVisible: true,
-        isDefault: false,
-        includeInAvailability: "all",
-        timeZone: null,
-        shareWith: null,
-        myRights: rightsCal(),
-        description: null,
-        sortOrder: 0,
-        ...o,
-      }),
+    genericSet(
+      calendarsFor(a.accountId),
+      "c",
+      (o) =>
+        Object.assign(o, {
+          color: "#0f766e",
+          isVisible: true,
+          isDefault: false,
+          includeInAvailability: "all",
+          timeZone: null,
+          shareWith: null,
+          myRights: rightsCal(),
+          description: null,
+          sortOrder: 0,
+          ...o,
+        }),
+      "Calendar",
     )(a),
   /*
    * With `expandRecurrences` every id that comes back is synthetic — a one-off
@@ -3033,7 +3397,7 @@ const handlers: Record<string, Handler> = {
   "CalendarEvent/get": (a) => {
     const list = eventsFor(a.accountId);
     const ids = a.ids as string[] | null | undefined;
-    if (!ids) return genericGet(list)(a);
+    if (!ids) return genericGet(list, "CalendarEvent")(a);
     const found: Obj[] = [];
     const notFound: string[] = [];
     for (const id of ids) {
@@ -3048,7 +3412,7 @@ const handlers: Record<string, Handler> = {
     }
     return {
       accountId: ACCOUNT,
-      state: String(state.n),
+      state: stateOf("CalendarEvent"),
       list: found.map((x) => pick(x, a.properties as string[] | null)),
       notFound,
     };
@@ -3058,7 +3422,7 @@ const handlers: Record<string, Handler> = {
   // #26 and #30 reached a live server unnoticed — so it now does both.
   "CalendarEvent/set": (a) => calendarEventSet(a),
   "CalendarEvent/parse": (a) => calendarEventParse(a),
-  "ParticipantIdentity/get": genericGet(participantIdentities),
+  "ParticipantIdentity/get": genericGet(participantIdentities, "ParticipantIdentity"),
   // Principal/query honours the type filter: Stalwart 0.16.21 maps
   // PrincipalFilter::Type Individual -> user accounts and Group -> groups
   // (crates/jmap/src/principal/query.rs; checked on source 2026-09-07,
@@ -3091,7 +3455,7 @@ const handlers: Record<string, Handler> = {
       ids: list.map((p) => p.id),
     };
   },
-  "Principal/get": genericGet(principals),
+  "Principal/get": genericGet(principals, "Principal"),
   // One busy block a day across whatever range was asked for. It used to answer
   // with a single block on the first day whatever the range, which was all an
   // availability bar a day wide could show -- and left a bar covering several
@@ -3115,7 +3479,7 @@ const handlers: Record<string, Handler> = {
     }
     return { accountId: ACCOUNT, list };
   },
-  "AddressBook/get": (a) => genericGet(booksFor(a.accountId))(a),
+  "AddressBook/get": (a) => genericGet(booksFor(a.accountId), "AddressBook")(a),
   "AddressBook/set": (a) => {
     /* Stalwart refuses `isSubscribed` on a book shared read-only -- "You are
        not allowed to modify this address book", confirmed live on 0.16.19
@@ -3126,6 +3490,7 @@ const handlers: Record<string, Handler> = {
        refuses, and a mock that got this wrong would agree with a belief that
        shipped. Calendars accept the same write; the difference is the
        server's, not ours. */
+    checkIfInState(a, "AddressBook");
     if (a.update) {
       const readonly = Object.keys(a.update as Obj).some((id) => {
         const book = booksFor(a.accountId).find((b) => b.id === id);
@@ -3140,23 +3505,27 @@ const handlers: Record<string, Handler> = {
           };
         return {
           accountId: a.accountId,
-          oldState: String(state.n),
-          newState: String(state.n),
+          oldState: stateOf("AddressBook"),
+          newState: stateOf("AddressBook"),
           updated: null,
           notUpdated,
         };
       }
     }
-    return genericSet(booksFor(a.accountId), "ab", (o) =>
-      Object.assign(o, {
-        description: null,
-        sortOrder: 0,
-        isDefault: false,
-        isSubscribed: true,
-        shareWith: {},
-        myRights: abRights(),
-        ...o,
-      }),
+    return genericSet(
+      booksFor(a.accountId),
+      "ab",
+      (o) =>
+        Object.assign(o, {
+          description: null,
+          sortOrder: 0,
+          isDefault: false,
+          isSubscribed: true,
+          shareWith: {},
+          myRights: abRights(),
+          ...o,
+        }),
+      "AddressBook",
     )(a);
   },
   "ContactCard/query": (a) => {
@@ -3165,7 +3534,7 @@ const handlers: Record<string, Handler> = {
         ? sharedCards
         : a.accountId === GROUP_ACCOUNT
           ? groupCards
-          : a.accountId === GROUP2_ACCOUNT
+          : a.accountId === GROUP2_ACCOUNT || a.accountId === AGENT_ACCOUNT
             ? []
             : cards;
     return {
@@ -3183,17 +3552,19 @@ const handlers: Record<string, Handler> = {
         ? sharedCards
         : a.accountId === GROUP_ACCOUNT
           ? groupCards
-          : a.accountId === GROUP2_ACCOUNT
+          : a.accountId === GROUP2_ACCOUNT || a.accountId === AGENT_ACCOUNT
             ? []
             : cards,
+      "ContactCard",
     )(a),
   "ContactCard/set": (a) => {
+    checkIfInState(a, "ContactCard");
     const list =
       a.accountId === GROUP_ACCOUNT
         ? groupCards
         : a.accountId === SHARED_ACCOUNT
           ? sharedCards
-          : a.accountId === GROUP2_ACCOUNT
+          : a.accountId === GROUP2_ACCOUNT || a.accountId === AGENT_ACCOUNT
             ? []
             : cards;
     if (a.accountId === SHARED_ACCOUNT) {
@@ -3209,8 +3580,8 @@ const handlers: Record<string, Handler> = {
       const destroyed = (a.destroy as string[] | undefined) ? [] : undefined;
       return {
         accountId: a.accountId,
-        oldState: String(state.n),
-        newState: String(state.n),
+        oldState: stateOf("ContactCard"),
+        newState: stateOf("ContactCard"),
         ...(created
           ? {
               created,
@@ -3237,7 +3608,7 @@ const handlers: Record<string, Handler> = {
           : {}),
       };
     }
-    return genericSet(list, "cc")(a);
+    return genericSet(list, "cc", undefined, "ContactCard")(a);
   },
   "ContactCard/parse": (a) => {
     const parsed: Obj = {};
@@ -3292,46 +3663,61 @@ const handlers: Record<string, Handler> = {
       total,
     };
   },
-  "FileNode/get": (a) => genericGet(nodesFor(a.accountId))(a),
+  "FileNode/get": (a) => genericGet(nodesFor(a.accountId), "FileNode")(a),
   "FileNode/changes": (a) => {
     // FileNode/changes on a real 0.16 server works from a `sinceState` and
-    // reports created ids (verified live 2026-09-07, see the Stalwart skill);
-    // the mock answers the same way from its own change log. Only creates
-    // are recorded -- chat is append-only (ADR 0006) and marker updates are
-    // rewrites of the same node, which a transcript does not care about.
+    // reports what changed (verified live 2026-09-07, see the Stalwart skill);
+    // the mock answers the same way from its own change log. The log holds
+    // creates, updates and destroys and all three are answered here: chat is
+    // append-only (ADR 0006), but the agent's documents are rewritten in place
+    // and removed again (a job that finishes, a claim that is released), and a
+    // watcher told about creates alone would never see either.
+    //
+    // `newState` is the account's current FileNode state, so a caller that
+    // stored it can ask again from there; `hasMoreChanges` is false because
+    // the log answers its whole window in one go (see `fileNodeChanges` for
+    // what a caller past that window gets instead).
     const since = Number(a.sinceState ?? 0);
-    const created = [
-      ...new Set(
-        fileNodeChanges.filter((c) => c.state > since).flatMap((c) => c.created),
-      ),
+    const accountId = String(a.accountId ?? ACCOUNT);
+    const relevant = fileNodeChanges.filter(
+      (c) => c.accountId === accountId && c.state > since,
+    );
+    const pick = (k: "created" | "updated" | "destroyed") => [
+      ...new Set(relevant.flatMap((c) => c[k])),
     ];
     return {
       accountId: ACCOUNT,
       oldState: String(a.sinceState ?? "1"),
-      newState: String(state.n),
+      newState: stateOf("FileNode"),
       hasMoreChanges: false,
-      created,
-      updated: [],
-      destroyed: [],
+      created: pick("created"),
+      updated: pick("updated"),
+      destroyed: pick("destroyed"),
     };
   },
   "FileNode/set": (a) => {
-    const res = genericSet(nodesFor(a.accountId), "f", (o) => {
-      Object.assign(o, {
-        created: new Date().toISOString(),
-        modified: new Date().toISOString(),
-        myRights: fr(),
-        shareWith: {},
-        size: o.blobId ? (blobs.get(o.blobId as string)?.data.length ?? 0) : null,
-        type: o.type ?? null,
-        blobId: o.blobId ?? null,
-        ...o,
-      });
-      // Without nodeType, a node is a directory precisely when it carries no
-      // file properties. Keep it internally so query and get stay consistent.
-      if (!o.nodeType)
-        o.nodeType = o.blobId || o.size != null || o.type ? "file" : "directory";
-    })(a);
+    const res = genericSet(
+      nodesFor(a.accountId),
+      "f",
+      (o) => {
+        const stamp = new Date(now()).toISOString();
+        Object.assign(o, {
+          created: stamp,
+          modified: stamp,
+          myRights: fr(),
+          shareWith: {},
+          size: o.blobId ? (blobs.get(o.blobId as string)?.data.length ?? 0) : null,
+          type: o.type ?? null,
+          blobId: o.blobId ?? null,
+          ...o,
+        });
+        // Without nodeType, a node is a directory precisely when it carries no
+        // file properties. Keep it internally so query and get stay consistent.
+        if (!o.nodeType)
+          o.nodeType = o.blobId || o.size != null || o.type ? "file" : "directory";
+      },
+      "FileNode",
+    )(a);
     /* A real server pushes a FileNode StateChange after a set, and the chat
        client acts on it -- `FileNode/changes` runs and the store reconciles
        what came back. Keep the mock announcing sets the way Stalwart does,
@@ -3340,11 +3726,18 @@ const handlers: Record<string, Handler> = {
     const created = Object.values(
       (res.created ?? {}) as Record<string, { id: string }>,
     ).map((x) => x.id);
-    const updated = Object.values(res.updated ?? {}).length;
-    const destroyed = (res.destroyed as string[] | undefined)?.length ?? 0;
-    if (created.length || updated || destroyed) {
-      nextState();
-      recordFileNodeChange(created);
+    const updated = Object.keys(res.updated ?? {});
+    const destroyed = (res.destroyed as string[] | undefined) ?? [];
+    if (created.length || updated.length || destroyed.length) {
+      /* All three, not just the creates: a job document rewritten in place and
+         a lease released are both invisible to a client that only ever hears
+         about creates. The change is recorded at the state the set left
+         (`newState`), which is the token its readers are handed. */
+      recordFileNodeChange(
+        String(a.accountId ?? ACCOUNT),
+        { created, updated, destroyed },
+        String(res.newState),
+      );
       broadcast(["FileNode"], (a.accountId as string) ?? ACCOUNT);
     }
     return res;
@@ -3371,7 +3764,11 @@ interface Identity {
 
 /** Per-principal credential state; the demo's is the exported `account`. */
 const principalState = (username: string) =>
-  username === TARGET_USER ? targetAccount : account;
+  username === TARGET_USER
+    ? targetAccount
+    : username === AGENT_ADDRESS
+      ? agentAccount
+      : account;
 
 function checkOtpFor(state: typeof account, code: string | undefined): boolean {
   if (!state.otpUrl) return true;
@@ -3406,6 +3803,9 @@ function validCredential(
 const knownPrincipal = (username: string) =>
   username === USER ||
   username === TARGET_USER ||
+  // The agent principal is a real account in the directory (ADR 0003 §1), so it
+  // authenticates by itself and an admin may also impersonate it to manage it.
+  username === AGENT_ADDRESS ||
   // The impersonation probe acts on a real account from the directory, the
   // way a force would; the directory principals are valid targets for a
   // master that holds the right (group principals are refused separately).
@@ -3446,6 +3846,7 @@ const isGroupPrincipal = (username: string): boolean =>
 const principalAccountId = (username: string): string => {
   if (username === USER) return ACCOUNT;
   if (username === TARGET_USER) return TARGET_ACCOUNT;
+  if (username === AGENT_ADDRESS) return AGENT_ACCOUNT;
   return ACCOUNT;
 };
 
@@ -3489,7 +3890,12 @@ function resolvePlain(username: string, secret: string): Identity | null {
   if (!kind) return null;
   return {
     username,
-    accountId: username === TARGET_USER ? TARGET_ACCOUNT : ACCOUNT,
+    accountId:
+      username === TARGET_USER
+        ? TARGET_ACCOUNT
+        : username === AGENT_ADDRESS
+          ? AGENT_ACCOUNT
+          : ACCOUNT,
     appPassword: kind === "app-password",
   };
 }
@@ -3561,10 +3967,12 @@ const personalCapabilities = (): Obj => ({
 /**
  * The JMAP session resource, per principal.
  *
- * The mock knows two principals: the demo user, whose session also lists
+ * The mock knows three principals: the demo user, whose session also lists
  * the account somebody shared with them and the two group mailboxes (ADR
- * 0006), and the target principal of the impersonation flows (ADR 0005),
- * whose session is a single fresh personal account. Admin state is not a
+ * 0006); the agent principal (ADR 0003), whose session lists the group
+ * accounts it was granted and nothing else of anybody's; and the target
+ * principal of the impersonation flows (ADR 0005), whose session is a single
+ * fresh personal account. Admin state is not a
  * session fact — it lives in the `/api/account` permission list (ADR 0007),
  * which is why no account in here marks an admin.
  *
@@ -3589,6 +3997,9 @@ const personalCapabilities = (): Obj => ({
 const sessionFor = (identity: Identity) => ({
   capabilities: sessionCapabilities,
   accounts: {
+    /* A share is a person's business, a group is a membership. The agent is
+       granted on the groups (ADR 0003 §1), so it is handed those accounts --
+       and never the account somebody shared with the demo user. */
     ...(identity.username === USER
       ? {
           [SHARED_ACCOUNT]: {
@@ -3597,6 +4008,10 @@ const sessionFor = (identity: Identity) => ({
             isReadOnly: false,
             accountCapabilities: SHARED_CAPS,
           },
+        }
+      : {}),
+    ...(identity.username === USER || identity.username === AGENT_ADDRESS
+      ? {
           [GROUP_ACCOUNT]: {
             name: "team@example.org",
             isPersonal: false,
@@ -3645,51 +4060,123 @@ const sessionFor = (identity: Identity) => ({
 });
 
 const sseClients = new Set<ServerResponse>();
-/** What changed and when, so `Email/changes` can answer honestly. */
+/**
+ * What changed and when, so `Email/changes` can answer honestly.
+ *
+ * Each entry records the account it happened in -- a real server answers
+ * `Email/changes` per account, and one shared log would hand a group's agent
+ * the demo user's mail -- and the Email state the change is visible at, which
+ * is what a client asking from a recorded state is matched against. Those
+ * states are the mock's own counters, so the comparison is numeric where a
+ * real server's state strings are opaque.
+ *
+ * The log is a bounded window: past 200 entries the oldest are dropped, and a
+ * client that fell further behind is served an incomplete answer with
+ * `hasMoreChanges: false`. A real server pages the rest instead -- the one
+ * shape of this the mock does not reproduce. The window is far longer than any
+ * test needs, and the client refetches from scratch if it ever falls behind.
+ */
 const emailChanges: Array<{
+  accountId: string;
   state: number;
   created: string[];
   updated: string[];
   destroyed: string[];
 }> = [];
-function recordEmailChange(change: {
-  created?: string[];
-  updated?: string[];
-  destroyed?: string[];
-}) {
+function recordEmailChange(
+  accountId: string,
+  change: { created?: string[]; updated?: string[]; destroyed?: string[] },
+  state: string,
+) {
   emailChanges.push({
-    state: state.n,
+    accountId,
+    state: Number(state),
     created: change.created ?? [],
     updated: change.updated ?? [],
     destroyed: change.destroyed ?? [],
   });
-  // A window is plenty; the client refetches from scratch if it falls behind.
   if (emailChanges.length > 200) emailChanges.splice(0, emailChanges.length - 200);
 }
 
 /**
- * What FileNodes were created and when, so `FileNode/changes` can answer
- * honestly. Group chat (ADR 0006) rides this rail: a message is a node
+ * What FileNodes were created, updated or destroyed, so `FileNode/changes` can
+ * answer honestly. Group chat (ADR 0006) rides this rail: a message is a node
  * created in the group account's `gilbert/chat` folder, and another member's
  * client re-syncs by asking what changed since the state it last saw -- the
- * same shape Email/changes gives the mail stores.
+ * same shape Email/changes gives the mail stores. The agent's documents ride it
+ * too, and there an update counts as much as a create: a job document is
+ * rewritten in place and a lease is released by removing one, so a client told
+ * about creates alone would never see either.
  */
-const fileNodeChanges: Array<{ state: number; created: string[] }> = [];
-function recordFileNodeChange(created: string[]) {
-  if (!created.length) return;
-  fileNodeChanges.push({ state: state.n, created });
+const fileNodeChanges: Array<{
+  accountId: string;
+  state: number;
+  created: string[];
+  updated: string[];
+  destroyed: string[];
+}> = [];
+function recordFileNodeChange(
+  accountId: string,
+  change: { created?: string[]; updated?: string[]; destroyed?: string[] },
+  state: string,
+) {
+  fileNodeChanges.push({
+    accountId,
+    state: Number(state),
+    created: change.created ?? [],
+    updated: change.updated ?? [],
+    destroyed: change.destroyed ?? [],
+  });
   if (fileNodeChanges.length > 200)
     fileNodeChanges.splice(0, fileNodeChanges.length - 200);
 }
 
 function broadcast(types: string[], accountId: string = ACCOUNT) {
-  const payload = `event: state\ndata: ${JSON.stringify({ "@type": "StateChange", changed: { [accountId]: Object.fromEntries(types.map((t) => [t, String(state.n)])) } })}\n\n`;
+  /* Each type carries its own state, the way a real StateChange does: a client
+     that watches mail must not be told FileNode's state as if it were Email's. */
+  const payload = `event: state\ndata: ${JSON.stringify({ "@type": "StateChange", changed: { [accountId]: Object.fromEntries(types.map((t) => [t, stateOf(t)])) } })}\n\n`;
   for (const c of sseClients) c.write(payload);
 }
 
 /** Exported so tests can drive the mock in-process and shut it down. */
 export const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://127.0.0.1:${PORT}`);
+  /*
+   * The mock's clock, moved by whoever is testing it (see `now`). It is
+   * mock-only by construction -- no real server carries such a route, so
+   * nothing in the product can come to depend on it -- and it answers before
+   * authentication because its callers are tests that have not signed in yet.
+   * The mock binds 127.0.0.1 and nowhere else, so it is not a remote control.
+   */
+  if (url.pathname === "/mock/clock" && req.method === "POST") {
+    let body: { now?: string; advanceMs?: number } = {};
+    try {
+      body = JSON.parse((await readBody(req)).toString() || "{}") as typeof body;
+    } catch {
+      res.writeHead(400, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ error: "the body must be JSON" }));
+    }
+    /* The instant the mock is being moved to, resolved before the offset is
+       stored: the response reports that exact instant, so a test does not have
+       to read a clock that is already ticking again. */
+    let target: number | null = null;
+    if (typeof body.now === "string") {
+      const at = Date.parse(body.now);
+      if (Number.isNaN(at)) {
+        res.writeHead(400, { "content-type": "application/json" });
+        return res.end(JSON.stringify({ error: "now must be an ISO 8601 instant" }));
+      }
+      target = at;
+    } else if (typeof body.advanceMs === "number" && Number.isFinite(body.advanceMs)) {
+      target = now() + body.advanceMs;
+    } else {
+      res.writeHead(400, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ error: "send { now } or { advanceMs }" }));
+    }
+    clockOffsetMs = target - Date.now();
+    res.writeHead(200, { "content-type": "application/json" });
+    return res.end(JSON.stringify({ now: new Date(target).toISOString() }));
+  }
   const identity = resolveIdentity(req);
   if (!identity) return unauthorized(res);
   if (url.pathname === "/.well-known/jmap" || url.pathname === "/jmap/session") {
@@ -3789,6 +4276,17 @@ export const server = createServer(async (req, res) => {
   if (url.pathname.startsWith("/jmap/upload/") && req.method === "POST") {
     const data = await readBody(req);
     const type = req.headers["content-type"] ?? "application/octet-stream";
+    /*
+     * An upload stores a blob and writes no node, so this simulation leaves
+     * every state token where it was — which is point (d) of the owed probe in
+     * `checkIfInState`: whether a real 0.16 server agrees. It matters because
+     * the production write path uploads the blob **after** reading the token
+     * and before the conditional write (`writeAppFileIn`), so a server that
+     * moved the token on upload would refuse every conditional write the agent
+     * makes — it would never claim a unit and never append an audit entry. The
+     * choice is pinned by `compare-and-set.test.ts` so a change here is noticed
+     * rather than inherited.
+     */
     const blobId = putBlob(data, type);
     res.writeHead(200, { "content-type": "application/json" });
     return res.end(
@@ -3866,16 +4364,19 @@ export const server = createServer(async (req, res) => {
 // Periodically inject a new inbox email to demo push
 setInterval(() => {
   const p = people[Math.floor(Math.random() * people.length)]!;
-  addEmail({
+  const injected = addEmail({
     from: [p[0]!, p[1]!],
-    subject: `Live update ${new Date().toLocaleTimeString()}`,
+    subject: `Live update ${new Date(now()).toLocaleTimeString()}`,
     daysAgo: 0,
     mailbox: "inbox",
     unread: true,
     html: true,
   });
   recount();
-  nextState();
+  /* The injected message is a real arrival: it moves the Email state and lands
+     in the change log, so a client reconciling from a recorded state sees it. */
+  bumpState("Email");
+  recordEmailChange(ACCOUNT, { created: [String(injected.id)] }, stateOf("Email"));
   broadcast(["Email", "Mailbox", "Thread"]);
 }, 120_000).unref();
 
@@ -3897,8 +4398,8 @@ function postChatDemo(nodes: Obj[], accountId: string, senders: number) {
   const doc = JSON.stringify({
     v: 1,
     from: email,
-    at: new Date().toISOString(),
-    text: `Live message ${new Date().toLocaleTimeString()} — from ${name}`,
+    at: new Date(now()).toISOString(),
+    text: `Live message ${new Date(now()).toLocaleTimeString()} — from ${name}`,
   });
   const id = `f${randomUUID().slice(0, 6)}`;
   nodes.push({
@@ -3909,13 +4410,15 @@ function postChatDemo(nodes: Obj[], accountId: string, senders: number) {
     size: doc.length,
     name: `${id}.json`,
     type: "application/json",
-    created: new Date().toISOString(),
-    modified: new Date().toISOString(),
+    created: new Date(now()).toISOString(),
+    modified: new Date(now()).toISOString(),
     myRights: fr(),
     shareWith: {},
   });
-  nextState();
-  recordFileNodeChange([id]);
+  /* A node the mock itself adds: the FileNode state moves first, so the change
+     is recorded at a state its readers can advance to. */
+  bumpState("FileNode");
+  recordFileNodeChange(accountId, { created: [id] }, stateOf("FileNode"));
   broadcast(["FileNode"], accountId);
 }
 setInterval(() => {

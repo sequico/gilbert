@@ -96,6 +96,13 @@ prose against `server/src` and `web/src`.
   the mock's permission model, `web/src/views/AdminView.tsx`.
   Supersedes ADR 0001.
 
+## 0009 — The installation’s agent identity is recorded in the product
+
+- **Status:** Proposed (2026-09-11).
+- **Code:** implemented — `agent.address` in the policy document,
+  `POST /api/admin/agent/address`, `agentAddress()`/`agentHasSecret()`,
+  the Agent address field in Admin → Agents.
+
 ## 0008 — Mobile companion app
 
 - **Status:** Proposed (2026-09-09).

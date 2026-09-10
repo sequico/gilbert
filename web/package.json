@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@cfworker/json-schema": "^4.1.1",
     "@tanstack/react-virtual": "^3.13.2",
     "dompurify": "^3.2.4",
     "lucide-react": "^0.477.0",
@@ -29,6 +30,6 @@
     "jsdom": "^26.0.0",
     "typescript": "^5.7.3",
     "vite": "^6.2.0",
-    "vitest": "^3.0.8"
+    "vitest": "^5.0.0"
   }
 }

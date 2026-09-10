@@ -190,3 +190,222 @@ test("publishing kicks every session except the caller's", async () => {
   const stillAdmin = await call("/api/admin/policy", adminCookie);
   assert.equal(stillAdmin.status, 200, "the publishing admin's session survives");
 });
+
+/**
+ * The installation's agent identity (ADR 0009), which lives in this document
+ * because it is the same kind of fact as the policy: installation-wide, written
+ * by an administrator, and in force without a restart.
+ *
+ * What the field can own is an address. The secret stays where secrets are
+ * deployed, because the worker signs in as the agent before it can read
+ * anything — so the answer says whether the deployment holds one, and the
+ * surface can say that a worker cannot start.
+ */
+test("the agent's address is named here, and clearing it falls back to the deployment", async () => {
+  const named = await call("/api/admin/agent/address", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ address: "Aider@Example.com" }),
+  });
+  assert.equal(named.status, 200);
+  assert.deepEqual(named.body, {
+    ok: true,
+    address: "aider@example.com",
+    hasSecret: false,
+  });
+
+  // It is in the document, so it survives a restart with the policy it sits in.
+  const policy = await call("/api/admin/policy", adminCookie);
+  assert.match(String(policy.body?.policy ?? ""), /"agent"/);
+  assert.match(String(policy.body?.policy ?? ""), /aider@example\.com/);
+
+  // And the status says where the address came from, which is what the surface
+  // shows beside the field: the installation, not the deployment.
+  const status = await call("/api/admin/agents", adminCookie);
+  assert.equal(status.status, 200);
+  const body = status.body as {
+    address?: string;
+    addressSource?: string;
+    hasSecret?: boolean;
+  };
+  assert.equal(body.address, "aider@example.com");
+  assert.equal(body.addressSource, "policy");
+  assert.equal(body.hasSecret, false, "the mock deployment holds no secret for it");
+
+  const cleared = await call("/api/admin/agent/address", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ address: "" }),
+  });
+  assert.deepEqual(cleared.body, { ok: true, address: "", hasSecret: false });
+  const after = await call("/api/admin/agents", adminCookie);
+  assert.equal((after.body as { addressSource?: string }).addressSource, "none");
+});
+
+test("an address that is not one is refused, and nothing is written", async () => {
+  const before = await call("/api/admin/policy", adminCookie);
+  const refused = await call("/api/admin/agent/address", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ address: "not-an-address" }),
+  });
+  assert.equal(refused.status, 400);
+  assert.equal((refused.body as { error?: string }).error, "invalid_agent_address");
+  const after = await call("/api/admin/policy", adminCookie);
+  assert.equal(after.body?.policy, before.body?.policy, "the document is unchanged");
+});
+
+test("a non-admin cannot name the agent either", async () => {
+  const bob = await login(BOB, BOB_PASS);
+  const res = await call("/api/admin/agent/address", bob.cookie, {
+    method: "POST",
+    body: JSON.stringify({ address: "aider@example.com" }),
+  });
+  assert.notEqual(res.status, 200);
+});
+
+/**
+ * What the worker does in each group (ADR 0009): areas, several groups at a
+ * time, and only downward — the record can take work away from a group, never
+ * hand it work the deployment did not open.
+ */
+test("groups are narrowed several at a time, and nothing can widen the deployment", async () => {
+  await call("/api/admin/agent/address", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ address: "aider@example.com" }),
+  });
+  const saved = await call("/api/admin/agent/groups", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({
+      groups: {
+        "team@example.org": { areas: ["mail"] },
+        "legal@example.org": { areas: ["mail", "files"] },
+      },
+    }),
+  });
+  assert.equal(saved.status, 200, "two groups in one request");
+
+  const status = await call("/api/admin/agents", adminCookie);
+  const groups = (status.body as { groups: Array<{ name: string; areas?: string[] }> })
+    .groups;
+  assert.deepEqual(
+    groups.find((group) => group.name === "team@example.org")?.areas,
+    ["mail"],
+    "one group narrowed to mail",
+  );
+  assert.deepEqual(
+    groups.find((group) => group.name === "legal@example.org")?.areas,
+    ["mail", "files"],
+    "and another to two areas, in the same call",
+  );
+
+  // An area this build does not know is refused, and the record is unchanged.
+  const refused = await call("/api/admin/agent/groups", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ groups: { "team@example.org": { areas: ["nope"] } } }),
+  });
+  assert.equal(refused.status, 400);
+  const after = await call("/api/admin/agents", adminCookie);
+  assert.deepEqual(
+    (after.body as { groups: Array<{ name: string; areas?: string[] }> }).groups.find(
+      (group) => group.name === "team@example.org",
+    )?.areas,
+    ["mail"],
+    "a refused save changes nothing",
+  );
+
+  // An empty list is how "as the deployment serves it" is written down.
+  await call("/api/admin/agent/groups", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ groups: { "team@example.org": { areas: [] } } }),
+  });
+  const cleared = await call("/api/admin/agents", adminCookie);
+  assert.equal(
+    (cleared.body as { groups: Array<{ name: string; areas?: string[] }> }).groups.find(
+      (group) => group.name === "team@example.org",
+    )?.areas,
+    undefined,
+    "cleared means the deployment speaks again",
+  );
+
+  // Naming another address is not a decision about the groups.
+  await call("/api/admin/agent/address", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ address: "other@example.com" }),
+  });
+  const kept = await call("/api/admin/agents", adminCookie);
+  assert.deepEqual(
+    (kept.body as { groups: Array<{ name: string; areas?: string[] }> }).groups.find(
+      (group) => group.name === "legal@example.org",
+    )?.areas,
+    ["mail", "files"],
+    "an address change keeps what each group was narrowed to",
+  );
+
+  // Clearing the agent clears the per-group record with it: one fact, two halves.
+  await call("/api/admin/agent/address", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ address: "" }),
+  });
+  const gone = await call("/api/admin/policy", adminCookie);
+  assert.doesNotMatch(String(gone.body?.policy ?? ""), /legal@example\.org/);
+});
+
+test("there is nothing to narrow before an agent is named", async () => {
+  const refused = await call("/api/admin/agent/groups", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ groups: { "team@example.org": { areas: ["mail"] } } }),
+  });
+  assert.equal(refused.status, 409);
+  assert.equal((refused.body as { error?: string }).error, "agent_not_configured");
+});
+
+/**
+ * The ceiling, at the door where a widening would be written down (ADR 0009).
+ *
+ * `servedAreasFor` is what *enforces* narrowing in the worker, but a record
+ * could still have been written claiming an area the deployment does not serve
+ * — and a record that says something nobody serves is a lie an operator would
+ * read as a setting. It is refused where it would be saved, in the deployment's
+ * own words.
+ */
+test("a group can be narrowed inside what the deployment serves, never outside it", async () => {
+  const { config } = await import("./config.js");
+  await call("/api/admin/agent/address", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ address: "aider@example.com" }),
+  });
+  const served = [...config.agent.areas];
+  config.agent.areas = ["mail"];
+  try {
+    const refused = await call("/api/admin/agent/groups", adminCookie, {
+      method: "POST",
+      body: JSON.stringify({
+        groups: { "team@example.org": { areas: ["mail", "files"] } },
+      }),
+    });
+    assert.equal(refused.status, 400);
+    assert.match(
+      String((refused.body as { message?: string }).message ?? ""),
+      /does not serve files/,
+      "the refusal names what the deployment serves",
+    );
+    const reached = await call("/api/admin/agents", adminCookie);
+    assert.equal(
+      (reached.body as { groups: Array<{ name: string; areas?: string[] }> }).groups.find(
+        (group) => group.name === "team@example.org",
+      )?.areas,
+      undefined,
+      "and nothing was written",
+    );
+
+    const narrowed = await call("/api/admin/agent/groups", adminCookie, {
+      method: "POST",
+      body: JSON.stringify({ groups: { "team@example.org": { areas: ["mail"] } } }),
+    });
+    assert.equal(narrowed.status, 200, "inside the deployment is accepted");
+  } finally {
+    config.agent.areas = served;
+  }
+  await call("/api/admin/agent/address", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ address: "" }),
+  });
+});

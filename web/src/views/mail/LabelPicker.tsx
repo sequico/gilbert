@@ -1,3 +1,4 @@
+import { isAgentLabel } from "@gilbert/shared/labels";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import type { Id } from "@/jmap/types";
@@ -31,7 +32,12 @@ export function LabelPicker({
 
   const has = (kw: string) => ids.every((id) => emails[id]?.keywords[kw]);
   const some = (kw: string) => ids.some((id) => emails[id]?.keywords[kw]);
-  const filtered = labels.filter((l) => l.name.toLowerCase().includes(q.toLowerCase()));
+  /* `G-` is the agent's processing state (ADR 0003 resolution 9): it describes
+     one message rather than organising anybody's mail, so it is never offered
+     here. The create path below still writes the reader's own label list, which
+     is why only the offered list is filtered and not `labels` itself. */
+  const offered = labels.filter((l) => !isAgentLabel(l.keyword));
+  const filtered = offered.filter((l) => l.name.toLowerCase().includes(q.toLowerCase()));
 
   const create = () => {
     const name = q.trim();
@@ -56,7 +62,7 @@ export function LabelPicker({
       <div className="menu-search">
         <input
           className="input sm"
-          placeholder={labels.length ? t("Search or create label") : t("New label name")}
+          placeholder={offered.length ? t("Search or create label") : t("New label name")}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => {
@@ -93,13 +99,13 @@ export function LabelPicker({
       })}
       {!inGroup &&
         q.trim() &&
-        !labels.some((l) => l.name.toLowerCase() === q.trim().toLowerCase()) && (
+        !offered.some((l) => l.name.toLowerCase() === q.trim().toLowerCase()) && (
           <button className="menu-item" onClick={create}>
             <Plus size={16} />
             <span>{t("Create “{name}”", { name: q.trim() })}</span>
           </button>
         )}
-      {!inGroup && !labels.length && !q && (
+      {!inGroup && !offered.length && !q && (
         <div className="hint" style={{ padding: "4px 10px 8px" }}>
           {t("Type a name to create your first label.")}
         </div>

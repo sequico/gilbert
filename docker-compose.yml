@@ -21,5 +21,43 @@ services:
       IMAGE_PROXY: "1"
     volumes:
       - gilbert-data:/data
+  # The agent worker: the same image, a second process, no port and no
+  # writable path of its own -- everything it knows lives in Stalwart, so a
+  # replacement picks the work up from the documents (ADR 0003). Start it with
+  #   docker compose --profile agent up
+  # and stop it by leaving the profile out. Without GILBERT_AGENT_ADDRESS and
+  # GILBERT_AGENT_PASSWORD it refuses to start, loudly, rather than running
+  # half-configured.
+  gilbert-agent:
+    profiles: ["agent"]
+    build:
+      context: .
+      args:
+        BASE_PATH: ${BASE_PATH:-}
+    image: gilbert:2
+    restart: unless-stopped
+    command: ["node", "server/dist/agent/worker.js"]
+    environment:
+      STALWART_URL: ${STALWART_URL:?set STALWART_URL in .env}
+      GILBERT_AGENT_ADDRESS: ${GILBERT_AGENT_ADDRESS:?set GILBERT_AGENT_ADDRESS in .env}
+      GILBERT_AGENT_PASSWORD: ${GILBERT_AGENT_PASSWORD:?set GILBERT_AGENT_PASSWORD in .env}
+      GILBERT_AGENT_AREAS: ${GILBERT_AGENT_AREAS:-}
+      GILBERT_AGENT_HEALTH_PORT: "8081"
+      IMMUTABLE: "1"
+      SESSION_FILE: ""
+    # What the restart policy asks: is this worker serving what it claimed.
+    # `restart: unless-stopped` restarts a dead process; this catches one that
+    # is up and holding nothing.
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:8081/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
 volumes:
   gilbert-data:

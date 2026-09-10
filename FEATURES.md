@@ -1205,6 +1205,160 @@ every change that touches a feature and on every upstream merge (repo rule:
 
 ---
 
+# Agents
+
+Gilbert's own agents: a Stalwart account of its own — a *structure agent*, e.g.
+`gilbert@…` — that acts inside mail and file storage for the groups the
+operator has granted it (ADR 0003). Gilbert's own agents now, external agent
+fleets later.
+
+- **The agent is a mailbox.** It exists as an ordinary account in Stalwart's
+directory, created by the operator in Stalwart's own administration, and it is
+**granted** on a group the same way any principal is. Membership is the
+grant: there is no second, in-product activation switch, so a group the agent
+can see is a group it works for, and a group it cannot see is untouched. The
+Gilbert admin surface *verifies* the grant per group and says plainly when it
+is missing — it never writes one.
+- **The agent identity is written in the product.** An administrator names
+  the address the agent acts as — picked from the accounts the server already
+  lists, or typed — and the installation records it beside its settings policy,
+  in force without a restart. Gilbert acts as that address by impersonating it
+  from the administrator’s own session, so the field needs no password; the
+  worker’s own app password stays a deployment fact, and the surface says when
+  none is deployed for the address it holds — an agent the product can read and
+  that can do nothing on its own is worth knowing about.
+- **What the fleet serves, per group.** The deployment opens the areas the agent
+  may work in (mail, files, tasks, calendars, contacts) and the installation can
+  narrow that per group — one group, or as many as an administrator selects at
+  once, from the Group workers section beside Agents. Narrowing is the whole of
+  the permission: the worker intersects the record with what the deployment
+  serves, so a product decision can never open a door an operator closed, and a
+  group set back to nothing is served exactly as the deployment says. The grant
+  itself stays Stalwart’s, and the surface shows it rather than writing it.
+- **The group's standing instruction.** One text per group, written by an
+administrator of that group in the admin surface, handed to the model on
+**every** call the group's agent makes — first in the prompt, before the
+automation's own instruction and before the message it is reading. It says how
+the agent should work for this group (language, tone, conventions) so that does
+not have to be repeated in every automation. It can steer and it cannot grant:
+what an automation may do is its capability list, checked on every answer the
+model gives, and nothing written in the instruction widens it. An empty text
+removes it.
+- **One bootstrap secret.** The worker authenticates as the agent with the
+agent's own app password (`GILBERT_AGENT_ADDRESS`, `GILBERT_AGENT_PASSWORD`,
+or a mounted `GILBERT_AGENTS_FILE`). Nothing derives it, nothing impersonates
+at boot, and nothing durable is kept on the worker's disk: the session is
+re-established at every start, so the container stays disposable and
+`IMMUTABLE=1` holds. The admin surface rotates the app password through JMAP
+under impersonation and shows the new secret once. Rotation deliberately does
+not revoke the credential already in use — that would stop the agent's work on
+the spot — and the API answers with how many credentials it left valid.
+- **Automations, not rules written in code.** The admin surface authors one
+document per automation, as a form — “Quando [evento] / Se [filtri] / Allora
+[azioni]” — validated against the JMAP filter grammar (RFC 8621) and the
+named-action catalogue. The document is validated against a JSON Schema
+Gilbert publishes (ADR 0003 resolution 16), with the same validator and the
+same schema on both sides, so what the form accepts the server accepts. No new
+rule language, no JSON to type by hand, and Sieve keeps the delivery-time
+boundary.
+- **An automation can be armed on a cadence.** A rule whose trigger is a time
+  rides the same documents as any other: the next run of every armed rule is
+  stored as a UTC instant in the group’s own scheduler document, so a restart, a
+  deploy or a crashed container costs the wait and not the schedule — a
+  replacement worker re-plans from Stalwart and re-arms. Each worker fires the
+  entries whose area it holds, so two workers on one group never fire each
+  other’s runs, and the runs that vanish — the rule off, the rule gone — are
+  recorded as missed runs rather than disappearing from the trail.
+- **Three tiers.** T0 is deterministic and calls no model; T1 asks a small
+model to pick a category and runs that category's fixed actions; T2 gives the
+automation's instruction to a model that decides and executes. The model
+actions are the same capability-gated catalogue in every tier, inside the
+agent's own access, and every run is audited — a model cannot widen its own
+permissions. Model providers and their keys are configured per tier, so
+different tiers can run on different vendors or on a local model.
+- **Labels, not folders.** `G-needattention`, `G-processed`, `G-awaiting`,
+`G-rejected` mark Gilbert's processing state on the individual message; the
+catalog is created from the admin surface once the grant exists. State is per
+message: a reply arriving in an already-processed thread starts unlabelled and
+is evaluated on its own, and it is shown on that message — never aggregated
+onto a thread or list row, and never offered in the manual label picker, which
+stay the reader's own labels. Moving a message is a separate, content-driven
+action; the agent never moves mail just to record a state.
+- **What it saves, a person can find.** An automation that extracts attachments
+writes them into the group's own Files — in the folder the automation named, or
+the one the model chose for a tier that decides; when neither did, into the
+`Needs attention` folder rather than loose in the root. A name already taken
+there is that person's file: the run writes `2-note.txt` beside it and reports
+the name it used, and it never replaces what somebody filed. Gilbert's own
+documents (automations, jobs, decisions, audit) stay in the hidden `gilbert`
+folder, which is where they belong and where the Files view deliberately does
+not look — that folder is recognised by a marker rather than by its name, it is
+refused as a destination by naming it, and a folder a member happens to have
+called `gilbert` is left to its owner.
+- **A run is bounded by what it was granted.** A worker that loses its unit
+mid-run stops before anything leaves the process rather than writing results
+its successor will write again; an approval is consumed exactly once, so two
+answers arriving together cannot send the same mail twice; a run executes the
+version of its automation it was created from, and one whose version is no
+longer the current one is recorded as a failure rather than run, because a run
+never executes a version nobody approved; and the audit records
+what a run was about to do before it does it, so an effect never exists without
+a line that accounts for it.
+- **Approvals happen in the group's chat.** An automation with a review policy
+pauses, writes a decision, prepares the draft in the group's own Drafts (kept
+unread so a person sees it) and posts the proposal in the chat. Any member may
+answer in words; the conversation is the interface, not a button. Nothing that
+leaves the group is ever sent on a guessed approval — an external send always
+needs explicit consent, whatever the policy says.
+- **The worker is its own process.** The same image and codebase as the server,
+a second entrypoint (`npm run agent`), never a replica of the web tier. It
+holds the agent's event stream, wakes on it, and reconciles from the last
+state it recorded; polling is the fallback after a lost stream. Work claims
+live in the documents themselves, so no coordinator exists and none is needed:
+one process per area, several areas per agent, and a crashed worker's claims
+are re-taken by whoever is running, together with the work it left mid-run; a
+run nobody comes back for is recorded as a timeout rather than as a failure,
+because nothing reported one — the process that would have is gone. It answers
+a health probe when the deployment
+names a port (`GILBERT_AGENT_HEALTH_PORT`), reporting the accounts
+it actually holds, so a restart policy can tell "running" from "running and
+serving nothing".
+- **Members see, never change.** Next to the group's chat, an indicator opens
+the group's agent surface: which agent works for the group, what instructions
+it carries, what it has done. Everything a member reads lives in the group's
+own account, so a member added later sees all of it; nothing there is editable
+from the product.
+- **Every member reads what the agent is told and what it does.** The panel
+behind the AI indicator answers with the group's own documents, read through the
+member's own session on that group — the same one the chat uses — so it is open
+to every member and not only to an administrator: the group's standing
+instruction as text (who last wrote it, and when), and each automation as a
+short block — name, area and tier, what wakes it, how it is reviewed, whether it
+is on, and what it then does, in words rather than as a JSON dump. A group with
+no instruction says so instead of showing a blank, and one sentence in the panel
+states that only an administrator of the group changes either. Members read the
+automations without their capability allowlist and without the authorship
+stamps; nothing on that path writes.
+- **Where the documents live.** Rules, jobs, decisions, claims, the schedule
+and the audit trail are documents in the group's own `gilbert` app folder —
+what members may read. The agent's own account holds its configuration, the
+provider keys and the worker heartbeats. Nothing durable is kept anywhere else:
+no database, no volume.
+- **Failures are loud.** An unreachable provider, a refused key or a malformed
+answer never skips work silently: the run is recorded in the audit, the
+message lands in `G-needattention`, and the group's chat is told which
+automation could not finish. The audit is one document per month per group,
+kept twelve months and pruned a month at a time. The months live in the
+group's own hidden `gilbert` folder, not in the Files a member browses: a
+member reads them through the group's agent panel, and an administrator takes
+the copy before the oldest month goes — the group's row in the admin Agents
+section hands over every retained month as JSON.
+- **Not in this layer**: agents for individual users (group agents only),
+external agent fleets (a future decision; A2A stays the recorded candidate),
+and mail notifications — the group's chat is the one channel.
+
+---
+
 # Live updates and notifications
 
 - **JMAP push over EventSource**, proxied by Gilbert's server so the browser

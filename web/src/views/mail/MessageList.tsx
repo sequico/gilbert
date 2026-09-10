@@ -1,3 +1,4 @@
+import { isAgentLabel } from "@gilbert/shared/labels";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   AlertOctagon,
@@ -1083,7 +1084,11 @@ const Row = memo(function Row({
         ? `To: ${names.join(", ")}`
         : "(no recipients)"
       : names.join(", ")) || "(unknown)";
-  const rowLabels = labels.filter((l) => scope.some((x) => x.keywords[l.keyword]));
+  // Same rule as the conversation header: the agent's `G-` state is per
+  // message and never aggregated onto a row (ADR 0003 resolution 9).
+  const rowLabels = labels.filter(
+    (l) => !isAgentLabel(l.keyword) && scope.some((x) => x.keywords[l.keyword]),
+  );
 
   /*
    * How far this row has been dragged from home, and whether it is currently

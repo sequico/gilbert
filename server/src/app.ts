@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { getConnInfo } from "@hono/node-server/conninfo";
@@ -7,6 +8,7 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { compress } from "hono/compress";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import {
   AccountError,
   assertEnrolmentCode,
@@ -16,7 +18,6 @@ import {
   createAppPassword,
   disableOtp,
   enableOtp,
-  filesAccountId,
   getState,
   isPasswordChangeForced,
   readGroupLabels,
@@ -26,12 +27,34 @@ import {
   writeGroupLabels,
 } from "./account.js";
 import {
+  type PolicyDocument,
   parsePolicyDocumentDetailed,
   persistPolicyFile,
   policyDocumentText,
 } from "./adminPolicy.js";
+import { AGENT_AREAS, agentRuleJsonSchema } from "./agent/documents.js";
+import type { AgentGroupAnswer } from "./agent/views.js";
+import {
+  AgentAdminError,
+  addAgentLabels,
+  agentStatus,
+  emptyGroupDocuments,
+  groupAgentView,
+  groupAuditExport,
+  impersonateAs,
+  memberAgentView,
+  pendingApprovals,
+  readGroupInstruction,
+  readProviders,
+  readRules,
+  resolveGroupAccess,
+  rotateAgentAppPassword,
+  saveGroupInstruction,
+  saveRules,
+  writeProviders,
+} from "./agentAdmin.js";
 import { resolveClientIp } from "./clientip.js";
-import { config } from "./config.js";
+import { agentAddress, agentHasSecret, config } from "./config.js";
 import { icsProxyHandler } from "./icsproxy.js";
 import { imageProxyHandler } from "./imageproxy.js";
 import {
@@ -1221,6 +1244,105 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     c.json({ policy: policyDocumentText(config.settingsPolicy) }),
   );
 
+  /**
+   * Write a policy document where the deployment keeps it.
+   *
+   * With `SETTINGS_POLICY_FILE` configured, that file is the durable copy — the
+   * one the boot path reads — so a write that fails leaves the running copy
+   * alone rather than pretending. With no file the running copy is the only
+   * copy, which is what a disposable container is.
+   */
+  async function persistPolicy(
+    raw: string,
+  ): Promise<{ ok: true } | { ok: false; error: string; message: string }> {
+    const file = process.env.SETTINGS_POLICY_FILE;
+    if (!file) return { ok: true };
+    try {
+      await persistPolicyFile(file, raw);
+      return { ok: true };
+    } catch (err) {
+      console.error("[gilbert] could not persist the settings policy:", err);
+      return {
+        ok: false,
+        error: "policy_not_persisted",
+        message:
+          "SETTINGS_POLICY_FILE is set but could not be written; the policy was not changed.",
+      };
+    }
+  }
+
+  /** How many times a write is re-applied when the record moved under it. */
+  const POLICY_WRITE_ATTEMPTS = 3;
+
+  /** Every policy write in this process, one after the other. */
+  let policyWrites: Promise<unknown> = Promise.resolve();
+
+  /** The installation's record as the deployment keeps it, or the running copy. */
+  async function readPolicyRecord(): Promise<PolicyDocument> {
+    const file = process.env.SETTINGS_POLICY_FILE;
+    if (file) {
+      try {
+        const parsed = parsePolicyDocumentDetailed(await readFile(file, "utf8"));
+        if (!("problem" in parsed)) return parsed.doc;
+      } catch {
+        /* no file yet: the running copy is the record */
+      }
+    }
+    return config.settingsPolicy;
+  }
+
+  /**
+   * Apply one change to the installation's record, and to the record that is
+   * actually there (ADR 0009).
+   *
+   * Three doors write this document — the policy editor, the agent's address,
+   * the areas of a group — so a change that read the running copy and then wrote
+   * the whole document back would drop whatever another administrator saved in
+   * between, groups this caller never named included. The shape is the same
+   * compare-and-set the fleet uses for its own documents: read the record, apply
+   * the change, write it, and keep the write only if the record still says what
+   * the change was merged into — otherwise read again and re-apply. After the
+   * attempts the write is refused loudly rather than clobbering somebody.
+   *
+   * Writes in one process are serialized, so two administrators on one replica
+   * cannot interleave; the compare-and-set is what covers a second replica,
+   * where the file is the only thing they share.
+   */
+  async function changePolicy(
+    change: (doc: PolicyDocument) => PolicyDocument,
+  ): Promise<
+    { ok: true; doc: PolicyDocument } | { ok: false; error: string; message: string }
+  > {
+    const run = policyWrites.then(async () => {
+      const file = process.env.SETTINGS_POLICY_FILE;
+      for (let attempt = 0; attempt < POLICY_WRITE_ATTEMPTS; attempt++) {
+        const before = await readPolicyRecord();
+        const parsed = parsePolicyDocumentDetailed(policyDocumentText(change(before)));
+        if ("problem" in parsed)
+          return { ok: false as const, error: "invalid_policy", message: parsed.problem };
+        const written = policyDocumentText(parsed.doc);
+        const persisted = await persistPolicy(written);
+        if (!persisted.ok) return persisted;
+        // The file is the record: the write is ours only if it still says what
+        // this change was merged into. With no file there is nothing shared to
+        // guard — the queue above covers the process, and a second replica can
+        // only exist where a file does.
+        if (!file || policyDocumentText(await readPolicyRecord()) === written) {
+          config.settingsPolicy = parsed.doc;
+          return { ok: true as const, doc: parsed.doc };
+        }
+      }
+      return {
+        ok: false as const,
+        error: "policy_moved",
+        message:
+          "The installation's policy changed while this was being saved, so nothing was written. Look at the record and save again.",
+      };
+    });
+    policyWrites = run.catch(() => undefined);
+    return run;
+  }
+
   api.post("/admin/policy", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
     const raw = await c.req.text();
@@ -1228,25 +1350,165 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     if ("problem" in parsed) {
       return c.json({ error: "invalid_policy", message: parsed.problem }, 400);
     }
-    const file = process.env.SETTINGS_POLICY_FILE;
-    if (file) {
-      try {
-        await persistPolicyFile(file, raw);
-      } catch (err) {
-        console.error("[gilbert] could not persist the settings policy:", err);
-        return c.json(
-          {
-            error: "policy_not_persisted",
-            message:
-              "SETTINGS_POLICY_FILE is set but could not be written; the policy was not changed.",
-          },
-          500,
-        );
-      }
-    }
-    config.settingsPolicy = parsed.doc;
+    // Through the same compare-and-set as the two narrower doors: the editor
+    // replaces the document, but it must replace the document that is there. The
+    // agent's half survives an editor that does not mention it — and an editor
+    // that does mention it is taken at its word.
+    const written = await changePolicy((doc) => ({
+      ...parsed.doc,
+      ...(parsed.doc.agent ? {} : doc.agent ? { agent: doc.agent } : {}),
+    }));
+    if (!written.ok)
+      return c.json(
+        { error: written.error, message: written.message },
+        written.error === "policy_moved" ? 409 : 500,
+      );
     const kicked = sessions.destroyAllExcept(session.id);
     return c.json({ ok: true, kicked });
+  });
+
+  /**
+   * The installation's agent address (ADR 0009).
+   *
+   * The one installation-wide fact the product itself can own: an address an
+   * administrator names, kept in the policy document beside the settings
+   * policy, so it survives a restart and applies without one — the next request
+   * already acts as that address. The secret stays where secrets are deployed,
+   * because the worker signs in as the agent before it can read anything: the
+   * answer says whether the deployment holds one for what was just named, so
+   * the surface can say "no worker can start" instead of leaving someone to
+   * wonder why nothing runs. An empty address clears it and the deployment's
+   * own is in force again.
+   */
+  api.post("/admin/agent/address", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ address?: unknown }>(c);
+    const address =
+      typeof body?.address === "string" ? body.address.trim().toLowerCase() : "";
+    const written = await changePolicy((doc) => {
+      if (!address)
+        // No agent at all, so no per-group behaviour either: both halves are one
+        // fact, and groups left behind would be a setting with nothing to apply
+        // to.
+        return { defaults: doc.defaults, enforced: doc.enforced, changes: doc.changes };
+      // Named again keeps what each group was narrowed to: an address change is
+      // not a decision about the groups.
+      const groups = doc.agent?.groups;
+      return {
+        ...doc,
+        agent: { address, ...(groups && Object.keys(groups).length ? { groups } : {}) },
+      };
+    });
+    if (!written.ok)
+      return c.json(
+        {
+          error:
+            written.error === "invalid_policy" ? "invalid_agent_address" : written.error,
+          message: written.message,
+        },
+        written.error === "policy_moved"
+          ? 409
+          : written.error === "invalid_policy"
+            ? 400
+            : 500,
+      );
+    return c.json({ ok: true, address: agentAddress(), hasSecret: agentHasSecret() });
+  });
+
+  /**
+   * What the worker does in each group (ADR 0009).
+   *
+   * The areas an administrator narrows a group to, written into the same policy
+   * document as the address: the fleet's reach is one durable fact rather than a
+   * deployment's guess, and the worker intersects these with the areas the
+   * deployment serves, so a group set back to nothing is served as the
+   * deployment says. Several groups travel in one request, because an operator
+   * who changes a policy changes it for the groups they mean. The grant is not
+   * touched: membership is Stalwart's, and this surface never writes it.
+   */
+  api.post("/admin/agent/groups", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ groups?: unknown }>(c);
+    const input = body?.groups;
+    if (!input || typeof input !== "object" || Array.isArray(input))
+      return c.json({ error: "bad_request", message: "groups must be an object" }, 400);
+    const address = config.settingsPolicy.agent?.address ?? "";
+    if (!address)
+      return c.json(
+        {
+          error: "agent_not_configured",
+          message:
+            "No agent's address is named yet, so there is nothing for a group's areas to apply to. Name it in the Agents section first.",
+        },
+        409,
+      );
+    // What this request asks each group to become, checked before anything is
+    // written: an unknown area and a group address that is not one are the two
+    // mistakes an operator can make here, and both are answered in words.
+    const patch: Record<string, string[]> = {};
+    for (const [rawName, entry] of Object.entries(input as Record<string, unknown>)) {
+      const name = rawName.trim().toLowerCase();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(name))
+        return c.json(
+          { error: "bad_request", message: `${rawName} is not a group address` },
+          400,
+        );
+      const areas = Array.isArray(entry)
+        ? entry
+        : ((entry as { areas?: unknown } | null)?.areas ?? []);
+      if (!Array.isArray(areas) || areas.some((area) => typeof area !== "string"))
+        return c.json(
+          { error: "bad_request", message: `the areas of ${name} must be a list` },
+          400,
+        );
+      const clean = [
+        ...new Set(areas.map((area) => String(area).trim()).filter(Boolean)),
+      ];
+      const unknown = clean.filter(
+        (area) => !AGENT_AREAS.includes(area as (typeof AGENT_AREAS)[number]),
+      );
+      if (unknown.length)
+        return c.json(
+          {
+            error: "bad_request",
+            message: `${unknown.join(", ")} is not an area: the areas are ${AGENT_AREAS.join(", ")}`,
+          },
+          400,
+        );
+      // The deployment's own list is the ceiling, and this is the door where
+      // saying otherwise would be recorded: a record can narrow what an
+      // operator opened and can never claim to have widened it.
+      const notServed = clean.filter(
+        (area) => !config.agent.areas.includes(area as (typeof AGENT_AREAS)[number]),
+      );
+      if (notServed.length)
+        return c.json(
+          {
+            error: "bad_request",
+            message: `this deployment does not serve ${notServed.join(", ")}: it serves ${config.agent.areas.join(", ")}, and a group can only be narrowed inside that`,
+          },
+          400,
+        );
+      patch[name] = clean;
+    }
+    // Merged into the record that is actually there, not into the copy this
+    // process read: a second administrator's groups are their own decision.
+    const written = await changePolicy((doc) => {
+      const groups: Record<string, { areas?: string[] }> = {
+        ...(doc.agent?.groups ?? {}),
+      };
+      for (const [name, areas] of Object.entries(patch)) {
+        // An empty list is how "served as the deployment says" is written down:
+        // clearing a narrowing is a value, not a deletion nobody can express.
+        if (areas.length) groups[name] = { areas };
+        else delete groups[name];
+      }
+      return { ...doc, agent: { address, groups } };
+    });
+    if (!written.ok)
+      return c.json(
+        { error: written.error, message: written.message },
+        written.error === "policy_moved" ? 409 : 500,
+      );
+    return c.json({ ok: true });
   });
 
   /**
@@ -1319,45 +1581,10 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * group the administrator is not a member of uses impersonation — the same
    * grant the forced-password surface uses — so the administrator's session
    * must be able to impersonate (an app-password sign-in cannot).
+   *
+   * Impersonation and a group's own access are defined once, in
+   * `agentAdmin.ts`, and shared with the agent surfaces (ADR 0003).
    */
-  const impersonateAs = async (
-    session: LiveSession,
-    target: string,
-  ): Promise<
-    | {
-        ok: true;
-        ctx: { authorization: string; session: UpstreamSession; username: string };
-      }
-    | { ok: false; status: 403 | 404 | 502; message: string }
-  > => {
-    const targetAuth = impersonationAuthorization(session, target);
-    if (!targetAuth)
-      return {
-        ok: false,
-        status: 403,
-        message:
-          "This admin session uses an app password, which Stalwart refuses for impersonation. Sign in with your password to administer accounts.",
-      };
-    try {
-      const upstream = await fetchUpstreamSession(targetAuth, upstreamFor(target));
-      return {
-        ok: true,
-        ctx: { authorization: targetAuth, session: upstream, username: target },
-      };
-    } catch (err) {
-      if (err instanceof UpstreamError) {
-        if (err.status === 401)
-          return {
-            ok: false,
-            status: 404,
-            message: "No such account, or it cannot be administered by you.",
-          };
-        return { ok: false, status: 502, message: err.message };
-      }
-      throw err;
-    }
-  };
-
   api.get("/admin/groups", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
     try {
@@ -1385,74 +1612,13 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
   });
 
-  /**
-   * Resolve the group account a catalog lives on (ADR 0006) and the session
-   * to reach it with.
-   *
-   * Membership is the grant: a member of the group already holds the group's
-   * account in their own session, so the catalog is read and written with the
-   * administrator's own credentials — no impersonation. A non-member
-   * administrator falls back to impersonation, which is what Stalwart 0.16
-   * refuses for group mailboxes (live-verified 2026-09-09: the composite
-   * `{group}%{admin}` answers 403), so the answer for them is an honest 403
-   * naming membership as the requirement.
-   */
-  const resolveGroupLabelsAccess = async (
-    session: LiveSession,
-    name: string,
-  ): Promise<
-    | {
-        ok: true;
-        ctx: {
-          authorization: string;
-          session: UpstreamSession;
-          username: string;
-        };
-        accountId: string;
-      }
-    | { ok: false; error: "group_not_accessible"; message: string }
-  > => {
-    const upstream = await getUpstreamSession(
-      session.id,
-      session.authorization,
-      upstreamFor(session.username),
-    );
-    const want = name.trim().toLowerCase();
-    for (const [accountId, account] of Object.entries(upstream.accounts ?? {})) {
-      const a = account as { name?: unknown; isPersonal?: unknown };
-      if (a.isPersonal !== false) continue;
-      if (typeof a.name !== "string") continue;
-      if (a.name.trim().toLowerCase() !== want) continue;
-      return {
-        ok: true,
-        accountId,
-        ctx: {
-          authorization: session.authorization,
-          session: upstream,
-          username: session.username,
-        },
-      };
-    }
-    const imp = await impersonateAs(session, name);
-    if (imp.ok) {
-      const accountId = filesAccountId(imp.ctx);
-      if (accountId) return { ok: true, ctx: imp.ctx, accountId };
-    }
-    return {
-      ok: false,
-      error: "group_not_accessible",
-      message:
-        "Managing a group's labels needs membership of that group: the catalog lives in the group's own files, and this mail server refuses to act as a group mailbox on an administrator's behalf.",
-    };
-  };
-
   api.get("/admin/groups/:name/labels", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
     const name = c.req.param("name") ?? "";
     try {
-      const access = await resolveGroupLabelsAccess(session, name);
+      const access = await resolveGroupAccess(session, name, { need: "labels" });
       if (!access.ok) {
-        return c.json({ error: access.error, message: access.message }, 403);
+        return c.json({ error: access.error, need: access.need }, 403);
       }
       const labels = await readGroupLabels(access.ctx, access.accountId);
       return c.json({ labels: labels ?? [] });
@@ -1468,14 +1634,266 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     if (!body || !Array.isArray(body.labels))
       return c.json({ error: "bad_request", message: "labels must be an array" }, 400);
     try {
-      const access = await resolveGroupLabelsAccess(session, name);
+      const access = await resolveGroupAccess(session, name, { need: "labels" });
       if (!access.ok) {
-        return c.json({ error: access.error, message: access.message }, 403);
+        return c.json({ error: access.error, need: access.need }, 403);
       }
       await writeGroupLabels(access.ctx, access.accountId, body.labels);
       return c.json({ ok: true });
     } catch (err) {
       return upstreamFailure(c, err);
+    }
+  });
+
+  // ---------- The agent worker fleet (ADR 0003) ----------
+  /**
+   * The agent surfaces (ADR 0003): the installation's one agent, the groups
+   * that have granted it, the workers running for it, its per-tier providers,
+   * its app password, and the group documents the fleet works from.
+   *
+   * Membership is not written here — the operator grants the agent in
+   * Stalwart's own administration and these routes verify it — and a
+   * deployment with no agent answers plainly instead of failing.
+   */
+  const agentFailure = (c: Context, err: unknown) => {
+    // Hono types a status as a union of literals; the class carries the number
+    // its own code chose (400 for a refusal, 401/403 for a boundary, 502 for an
+    // upstream one), so it is narrowed to that type rather than asserted as one
+    // particular value.
+    if (err instanceof AgentAdminError)
+      return c.json(
+        { error: err.code, message: err.message },
+        err.status as ContentfulStatusCode,
+      );
+    return upstreamFailure(c, err);
+  };
+
+  /**
+   * The published schema of a rule document (ADR 0003 resolution 2).
+   *
+   * What the admin surface authors, in the standard form anything outside this
+   * codebase validates against — and the same catalogue the runtime reads, so
+   * the two cannot drift. Reading it needs no more than the admin shield.
+   */
+  api.get("/admin/agent/rule-schema", requireSession, requireAdmin, (c) =>
+    c.json(agentRuleJsonSchema()),
+  );
+
+  api.get("/admin/agents", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    try {
+      return c.json(await agentStatus(session));
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  /**
+   * A group's agent surface. A group this admin cannot reach answers 200 with
+   * the refusal and empty documents rather than 403: "you are not a member" is
+   * a state of the surface, not a failed request — and per ADR 0006 a
+   * non-member admin has no act-as-the-group path at all, so the surface says
+   * which membership a section needs instead of failing at the door.
+   */
+  api.get("/admin/groups/:name/agent", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    const name = c.req.param("name") ?? "";
+    const identity = agentAddress();
+    try {
+      const access = await resolveGroupAccess(session, name, {
+        need: "agent documents",
+      });
+      if (!access.ok)
+        return c.json({
+          group: name,
+          granted: false,
+          agentAddress: identity,
+          error: access.error,
+          need: access.need,
+          ...emptyGroupDocuments(),
+        } satisfies AgentGroupAnswer);
+      const view = await groupAgentView(access, access.accountId);
+      return c.json({
+        group: name,
+        agentAddress: identity,
+        ...view,
+      } satisfies AgentGroupAnswer);
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  /**
+   * A group's audit trail, month by month, for an administrator to keep.
+   *
+   * The months are the declared retention's window — the same one
+   * `pruneAudit` (executor.ts) drops a document at a time — so this is the
+   * copy the retention decision promises before the oldest month goes.
+   */
+  api.get("/admin/groups/:name/agent/audit", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    const name = c.req.param("name") ?? "";
+    try {
+      const access = await resolveGroupAccess(session, name, {
+        need: "agent documents",
+      });
+      if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+      return c.json(await groupAuditExport(access, access.accountId, name));
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  api.get("/admin/groups/:name/agent/rules", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    const name = c.req.param("name") ?? "";
+    try {
+      const access = await resolveGroupAccess(session, name, { need: "automations" });
+      if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+      return c.json({ rules: await readRules(access, access.accountId) });
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  api.post("/admin/groups/:name/agent/rules", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    const name = c.req.param("name") ?? "";
+    const body = await readJson<{ rules?: unknown }>(c);
+    if (!body || !Array.isArray(body.rules))
+      return c.json({ error: "bad_request", message: "rules must be an array" }, 400);
+    try {
+      const access = await resolveGroupAccess(session, name, { need: "automations" });
+      if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+      const rules = await saveRules(access, access.accountId, body.rules);
+      return c.json({ ok: true, rules });
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  api.get("/admin/agent/providers", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    try {
+      return c.json(await readProviders(session));
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  api.post("/admin/agent/providers", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    const body = await readJson<{ providers?: unknown }>(c);
+    if (!body)
+      return c.json({ error: "bad_request", message: "providers is required" }, 400);
+    try {
+      await writeProviders(session, body.providers);
+      return c.json({ ok: true });
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  /** The one response that carries the agent's app-password secret, once. */
+  api.post("/admin/agent/app-password", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    try {
+      return c.json(await rotateAgentAppPassword(session));
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  api.post(
+    "/admin/groups/:name/agent/labels",
+    requireSession,
+    requireAdmin,
+    async (c) => {
+      const session = c.get("session");
+      const name = c.req.param("name") ?? "";
+      try {
+        const access = await resolveGroupAccess(session, name, { need: "labels" });
+        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+        const { added } = await addAgentLabels(access, access.accountId);
+        return c.json({ ok: true, added });
+      } catch (err) {
+        return agentFailure(c, err);
+      }
+    },
+  );
+
+  /**
+   * The group's standing instruction: the house rules its agent carries into
+   * every model call (ADR 0003 resolution 17). Administrator-only, like the
+   * rules document beside it — a text the model is told to follow is
+   * configuration, and members read the rules rather than write them.
+   */
+  api.get(
+    "/admin/groups/:name/agent/instruction",
+    requireSession,
+    requireAdmin,
+    async (c) => {
+      const session = c.get("session");
+      const name = c.req.param("name") ?? "";
+      try {
+        const access = await resolveGroupAccess(session, name, {
+          need: "standing instruction",
+        });
+        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+        return c.json(await readGroupInstruction(access));
+      } catch (err) {
+        return agentFailure(c, err);
+      }
+    },
+  );
+
+  api.post(
+    "/admin/groups/:name/agent/instruction",
+    requireSession,
+    requireAdmin,
+    async (c) => {
+      const session = c.get("session");
+      const name = c.req.param("name") ?? "";
+      try {
+        const body = await readJson<{ text?: string }>(c);
+        const text = typeof body?.text === "string" ? body.text : "";
+        const access = await resolveGroupAccess(session, name, {
+          need: "standing instruction",
+        });
+        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+        return c.json(await saveGroupInstruction(access, text, session.username));
+      } catch (err) {
+        return agentFailure(c, err);
+      }
+    },
+  );
+
+  api.get("/admin/agent/approvals", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    try {
+      // The queue's own answer: the list, and the reach it was built from.
+      return c.json(await pendingApprovals(session));
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  /**
+   * The member's view of a group's agent — `requireSession` and nothing more,
+   * because a member is not an administrator and this surface exists for
+   * exactly them (ADR 0003, "Members see, never change"). It reads the group's
+   * own documents — its automations and the standing instruction the agent
+   * carries into every model call — and writes nothing, ever.
+   */
+  api.get("/agent/group/:name", requireSession, async (c) => {
+    const session = c.get("session");
+    const name = c.req.param("name") ?? "";
+    try {
+      const view = await memberAgentView(session, name);
+      if ("ok" in view) return c.json({ error: view.error, need: view.need }, 403);
+      return c.json(view);
+    } catch (err) {
+      return agentFailure(c, err);
     }
   });
 

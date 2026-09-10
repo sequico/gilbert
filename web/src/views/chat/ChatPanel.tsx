@@ -8,7 +8,7 @@
  * composer. Everything here is a view over the chat store; the durable data
  * lives in the group accounts' own Files.
  */
-import { CornerUpLeft, Search, Send, Smile, X } from "lucide-react";
+import { Bot, CornerUpLeft, Search, Send, Smile, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "@/jmap/types";
 import {
@@ -23,9 +23,11 @@ import { COMMON_EMOJI, emojiAsset } from "@/lib/emoji";
 import { formatListDate } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
+import { agentViewKey, useAgents } from "@/store/agents";
 import { unreadOf, useChat } from "@/store/chat";
 import { useSession } from "@/store/session";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
+import { GroupAgentPanel } from "./GroupAgentPanel";
 
 interface ChatPanelProps {
   accounts: MailAccountInfo[];
@@ -102,10 +104,40 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   const conversations = useChat((s) => s.conversations);
   const openAccountId = useChat((s) => s.openAccountId);
   const open = openAccountId ? (conversations[openAccountId] ?? null) : null;
-  const mentionables = useMemo(
-    () => (open ? participantsOf(open.nodes, me) : []),
-    [open, me],
-  );
+  /*
+   * The group's own agent documents (ADR 0003), read through the agents store's
+   * member door. The chat is open to every member, so the read a member's
+   * session can actually make is the one this panel uses: the admin route needs
+   * Stalwart administration, and a member who is not one would read nothing.
+   * The store keeps one entry per group, keyed by the group's lower-cased
+   * address — the form the server stores a group's name in.
+   */
+  const memberViews = useAgents((s) => s.memberViews);
+  const loadMemberView = useAgents((s) => s.loadMemberView);
+  const groupName = open?.name ?? null;
+  const agentView = groupName ? memberViews[agentViewKey(groupName)] : undefined;
+  const [agentOpen, setAgentOpen] = useState(false);
+
+  // Loaded with the conversation rather than with the panel: the `@` picker
+  // owes the agent's address as soon as the composer is on screen, whether or
+  // not anyone has opened the panel (ADR 0003 resolution 11).
+  useEffect(() => {
+    if (groupName) void loadMemberView(groupName);
+  }, [groupName, loadMemberView]);
+
+  const agentAddress = agentView?.granted ? agentView.agentAddress : null;
+  /*
+   * Who the `@` picker offers. The client knows only the participants it has
+   * seen in the transcript, so a freshly granted agent that has never posted
+   * could not be mentioned at all; the group's own agent association is the
+   * picker's second source, and the agent is offered exactly when it is
+   * granted — membership is presence.
+   */
+  const mentionables = useMemo(() => {
+    const seen = open ? participantsOf(open.nodes, me) : [];
+    if (!agentAddress?.trim() || seen.includes(agentAddress)) return seen;
+    return [...seen, agentAddress];
+  }, [open, me, agentAddress]);
   const threadRef = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
   const chatInputRef = useRef<ChatInputHandle>(null);
@@ -169,6 +201,8 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
     setResults(null);
     setSearching(false);
     setEmojiOpen(false);
+    // A different group has a different agent: the panel is not carried over.
+    setAgentOpen(false);
   }, [openAccountId]);
 
   useEffect(() => {
@@ -286,10 +320,28 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
           {open && (
             <button
               type="button"
+              className={`icon-btn xs ${agentOpen ? "active" : ""}`}
+              aria-label={t("The group's agent")}
+              title={t("The group's agent")}
+              aria-expanded={agentOpen}
+              onClick={() => {
+                setSearchOpen(false);
+                setAgentOpen((v) => !v);
+              }}
+            >
+              <Bot size={15} />
+            </button>
+          )}
+          {open && (
+            <button
+              type="button"
               className={`icon-btn xs ${searchOpen ? "active" : ""}`}
               aria-label={t("Search messages")}
               title={t("Search messages")}
-              onClick={() => setSearchOpen((v) => !v)}
+              onClick={() => {
+                setAgentOpen(false);
+                setSearchOpen((v) => !v);
+              }}
             >
               <Search size={15} />
             </button>
@@ -386,6 +438,8 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
           ) : (
             <div className="chat-empty">{t("Search messages")}</div>
           )
+        ) : agentOpen && open ? (
+          <GroupAgentPanel name={open.name} onClose={() => setAgentOpen(false)} />
         ) : open ? (
           open.loading && open.nodes.length === 0 ? (
             <div className="chat-empty">{t("Loading…")}</div>
@@ -480,7 +534,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
           <div className="chat-empty">{t("Pick a conversation")}</div>
         )}
       </div>
-      {open && !searchOpen && (
+      {open && !searchOpen && !agentOpen && (
         <div className="chat-composer">
           {open.replyTo && (
             <div className="chat-replybar">

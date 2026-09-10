@@ -1,3 +1,4 @@
+import { isAgentLabel } from "@gilbert/shared/labels";
 import {
   AlertOctagon,
   Archive,
@@ -293,7 +294,12 @@ export function ThreadView({
   const anyUnread = messages.some((e) => !e.keywords.$seen);
   const anyStarred = messages.some((e) => e.keywords.$flagged);
   const inJunk = Boolean(mailboxId && mailboxes[mailboxId]?.role === "junk");
-  const threadLabels = labels.filter((l) => messages.some((m) => m.keywords[l.keyword]));
+  /* `G-` labels describe one message, not the conversation (ADR 0003
+     resolution 9), so the thread row shows the group's own labels and the
+     agent's state stays on the message it was written on. */
+  const threadLabels = labels.filter(
+    (l) => !isAgentLabel(l.keyword) && messages.some((m) => m.keywords[l.keyword]),
+  );
   const threadMailboxes = useMemo(() => {
     const set = new Set<string>();
     for (const m of messages)

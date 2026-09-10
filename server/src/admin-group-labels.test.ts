@@ -98,17 +98,19 @@ test("a member administrator reads and writes the group's catalog through their 
 test("a non-member administrator is refused with an honest 403", async () => {
   const res = await call(`/api/admin/groups/${LEGAL}/labels`);
   assert.equal(res.status, 403);
-  assert.equal(
-    (res.body as { error: string }).error,
-    "group_not_accessible",
-    "the refusal names the reason",
-  );
+  const denied = res.body as { error: string; need?: string; message?: unknown };
+  assert.equal(denied.error, "group_not_accessible", "the refusal names the reason");
+  assert.equal(denied.need, "labels", "and the section the surface asked for");
+  assert.ok(!("message" in denied), "the sentence is composed where it is read");
   const posted = await call(`/api/admin/groups/${LEGAL}/labels`, {
     method: "POST",
     body: JSON.stringify({ labels: [] }),
   });
   assert.equal(posted.status, 403);
-  assert.equal((posted.body as { error: string }).error, "group_not_accessible");
+  const refused = posted.body as { error: string; need?: string; message?: unknown };
+  assert.equal(refused.error, "group_not_accessible");
+  assert.equal(refused.need, "labels");
+  assert.ok(!("message" in refused));
 });
 
 test("the mock refuses impersonating a group, like a real 0.16 server", async () => {

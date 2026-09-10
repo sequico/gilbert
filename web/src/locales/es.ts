@@ -1555,6 +1555,15 @@ export const catalog: Catalog = {
       "Gilbert le avisará si un mensaje posterior de esta dirección lo firma otra persona.",
     "itself, or an issuer it does not name": "sí mismo, o un emisor que no nombra",
     "no address": "ninguna dirección",
+    // ── The agent fleet (ADR 0003) ────────────────────────────────────
+    "The number of other app passwords still valid could not be read, so it is unknown here: check Stalwart's administration to see which credentials the agent still holds.":
+      "No se ha podido leer cuántas otras contraseñas de aplicación siguen siendo válidas, así que aquí es desconocido: consulte la administración de Stalwart para ver qué credenciales conserva el agente.",
+    "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
+      "No se han podido listar todas las bandejas de grupo, así que esta cola solo abarca los grupos de los que es miembro: puede haber algo esperando en un grupo que aquí falta.",
+    "Only an administrator of this group changes its instruction and its automations; every member reads them here.":
+      "Solo un administrador de este grupo cambia su instrucción y sus automatizaciones; cada miembro las lee aquí.",
+    "No standing instruction has been written for this group.":
+      "No se ha escrito ninguna instrucción permanente para este grupo.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+import { isLabelCatalogEntry } from "@gilbert/shared/labels";
 import { create } from "zustand";
 import { client } from "@/jmap/client";
 import { push } from "@/jmap/push";
@@ -48,17 +49,10 @@ export const useGroupLabels = create<GroupLabelsState>((set, get) => ({
   reset: () => set({ byAccount: {}, loading: {} }),
 }));
 
+/** Whether a catalog entry is usable: one validator, shared with the server tier. */
 function validLabel(x: unknown): x is Label {
-  if (!x || typeof x !== "object") return false;
-  const l = x as Record<string, unknown>;
-  return (
-    typeof l.keyword === "string" &&
-    l.keyword.length > 0 &&
-    typeof l.name === "string" &&
-    typeof l.color === "string"
-  );
+  return isLabelCatalogEntry(x);
 }
-
 async function readGroupLabels(accountId: Id): Promise<Label[] | null> {
   try {
     const folderId = await ensureFolder(accountId);

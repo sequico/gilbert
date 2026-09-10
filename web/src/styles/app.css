@@ -2526,3 +2526,60 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   pointer-events: none;
 }
 .chat-input-rich .chat-emoji-img { vertical-align: -0.2em; }
+
+/* Chat: the group's agent (ADR 0003 "Members see, never change"). The panel is
+   read-only by construction — the group's own folder is writable by a member,
+   so the restraint is the panel's, not the server's — and it renders instead
+   of the transcript, the way the search results do. */
+.chat-agent { display: block; padding: 2px 2px 8px; }
+.chat-agent-head {
+  display: flex; align-items: center; gap: 6px;
+  padding-bottom: 6px; margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.chat-agent-title {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-weight: 700; font-size: .8em;
+}
+.chat-agent-head .icon-btn { margin-left: auto; }
+.chat-agent h4 {
+  margin: 10px 0 4px; font-size: .74em; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--fg-muted);
+}
+.chat-agent p { margin: 0 0 4px; font-size: .82em; line-height: 1.35; }
+.chat-agent-rule {
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); padding: 6px 8px; margin-bottom: 6px;
+}
+/* The group's standing instruction, read-only at the head of the same panel:
+   the text itself, so its line breaks survive, in the same box the automations
+   use. */
+.chat-agent-instruction {
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); padding: 6px 8px; margin-bottom: 6px;
+}
+.agent-readonly-text { white-space: pre-wrap; }
+
+/* Agents in the administration (ADR 0003 "Admin surfaces"). */
+.agent-state { display: inline-flex; align-items: center; font-weight: 600; font-size: .8em; white-space: nowrap; }
+.agent-state.ok { color: var(--success); }
+.agent-state.off { color: var(--warn); }
+.agent-check { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0; font-size: .9em; cursor: pointer; }
+.agent-check input { margin-top: 2px; }
+.agent-tag {
+  margin-left: 6px; padding: 0 5px; border-radius: 999px;
+  background: var(--bg-sunken); color: var(--fg-muted);
+  font-size: .72em; font-weight: 600; text-transform: uppercase; letter-spacing: .03em;
+}
+.agent-form, .agent-provider, .agent-registration { max-width: 620px; }
+.agent-form h3 { margin: 16px 0 6px; font-size: .95em; }
+.agent-action {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg); padding: 8px; margin-bottom: 8px;
+}
+.agent-action-head { display: flex; align-items: center; gap: 8px; }
+.agent-action-head .input { flex: 1 1 auto; min-width: 0; }
+.agent-action-tools { display: inline-flex; gap: 2px; margin-left: auto; }
+.agent-action-params { margin-top: 6px; }
+.agent-rule-item .card-head { flex-wrap: wrap; gap: 8px; }
+.agent-rule-item .card-head h3 { flex: 0 1 auto; }

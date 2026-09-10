@@ -57,6 +57,34 @@ metadata:
 - Done means: typecheck passes, the relevant tests pass, the diff has been read, and claims are verified against tests or a live server — not exit codes alone.
 - Code comments, documentation and every commit message are written in **English** (repo-wide rule set by the owner). Chat replies follow the user's language — the chat is not repo content.
 
+## 4b. Claims, documents and tests
+
+A comment, an ADR sentence and a `FEATURES.md` bullet are **claims about the
+code**, and this repo's recurring defect is a true sentence standing beside
+code that stopped matching it. Three habits keep the two together:
+
+- **Write only what you read.** Documentation written beside code that is still
+  being written — by a peer agent or by you — describes the tree, never the
+  work in flight. Verify the line you are describing; if it is not there yet,
+  either wait or say nothing about it.
+- **A change that falsifies a claim fixes the claim in the same diff.** Grep the
+  sentence you just invalidated: the old behaviour usually survives in another
+  file, a test's comment or an ADR. (When the ADR is `Proposed` it may be
+  amended; an `Accepted` one is superseded, never edited.)
+- **Every mechanism the ADR names has a test that fails if the mechanism is
+  removed.** A test that only shows the code runs proves nothing about the
+  guarantee. When a review names something as untested, the fix includes the
+  test. A mock standing in for a server behaviour pins that assumption with a
+  test next to the simulation, and the live probe it owes is written down as
+  owed (see `gilbert-stalwart`).
+- Reordering an effect against its intent line is a change to what a stored
+  document means: run that area's tests before calling it safe.
+
+Parallel writers (fleet work): one writer per file, disjoint `write_roots`, and
+expect a peer's writes in the same checkout to cost a read-only child its
+`bash` — that child verifies by reading and says what it could not run, and
+**every gate stays in the parent**.
+
 Companion skills: string/i18n work loads `gilbert-i18n`; anything settings- or policy-shaped loads `gilbert-settings`.
 
 ## 5. Change workflow

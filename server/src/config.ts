@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizeBasePath } from "../../scripts/basePath.mjs";
 import { resolveVersion } from "../../scripts/version.mjs";
+import { AGENT_AREAS, type AgentArea, isAgentArea } from "./agent/documents.js";
 
 /** Minimal .env loader (no dependency): first match wins, never overrides real env. */
 function loadDotEnv() {
@@ -146,6 +147,7 @@ function readSettingsPolicy(): {
   defaults: Record<string, unknown>;
   enforced: Record<string, unknown>;
   changes: Array<{ version: string; settings: Record<string, unknown> }>;
+  agent?: { address: string; groups?: Record<string, { areas?: string[] }> };
 } {
   const parse = (raw: string, where: string): Record<string, unknown> => {
     try {
@@ -190,6 +192,57 @@ function readSettingsPolicy(): {
     });
   };
 
+  /**
+   * The agent the file names, when it names one.
+   *
+   * Optional, and checked rather than trusted like everything else here: an
+   * "agent" with no usable address is a configuration error at boot, not a
+   * value to fall back from silently.
+   */
+  const parseAgent = (
+    v: unknown,
+    where: string,
+  ): { agent?: { address: string; groups?: Record<string, { areas?: string[] }> } } => {
+    if (v == null) return {};
+    if (typeof v !== "object" || Array.isArray(v))
+      throw new Error(`Invalid ${where}: "agent" must be an object`);
+    const typed = v as { address?: unknown; groups?: unknown };
+    const address =
+      typeof typed.address === "string" ? typed.address.trim().toLowerCase() : "";
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(address))
+      throw new Error(
+        `Invalid ${where}: "agent.address" must be the agent's own address, like gilbert@example.com`,
+      );
+    const groups: Record<string, { areas?: string[] }> = {};
+    if (typed.groups != null) {
+      if (typeof typed.groups !== "object" || Array.isArray(typed.groups))
+        throw new Error(`Invalid ${where}: "agent.groups" must be an object`);
+      for (const [rawName, entry] of Object.entries(
+        typed.groups as Record<string, unknown>,
+      )) {
+        const name = rawName.trim().toLowerCase();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(name))
+          throw new Error(
+            `Invalid ${where}: "agent.groups" names something that is not a group: ${rawName}`,
+          );
+        if (entry == null) continue;
+        const areas = (entry as { areas?: unknown }).areas;
+        if (areas === undefined) continue;
+        if (!Array.isArray(areas) || areas.some((a) => typeof a !== "string"))
+          throw new Error(
+            `Invalid ${where}: "agent.groups.${name}.areas" must be a list of area names`,
+          );
+        const clean = [
+          ...new Set(areas.map((area) => String(area).trim()).filter(Boolean)),
+        ];
+        groups[name] = clean.length ? { areas: clean } : {};
+      }
+    }
+    return {
+      agent: { address, ...(Object.keys(groups).length ? { groups } : {}) },
+    };
+  };
+
   const file = process.env.SETTINGS_POLICY_FILE;
   if (file) {
     if (!existsSync(file))
@@ -199,6 +252,7 @@ function readSettingsPolicy(): {
       defaults: (whole.defaults as Record<string, unknown>) ?? {},
       enforced: (whole.enforced as Record<string, unknown>) ?? {},
       changes: parseChanges(whole.changes, `SETTINGS_POLICY_FILE (${file})`),
+      ...parseAgent(whole.agent, `SETTINGS_POLICY_FILE (${file})`),
     };
   }
   return {
@@ -278,6 +332,144 @@ function readStalwartServers(): Record<string, string> {
     out[domain] = rawUrl.replace(/\/+$/, "");
   }
   return out;
+}
+
+/**
+ * The agent worker's bootstrap (ADR 0003, v1 scope).
+ *
+ * One structure agent per installation, and one secret for it: the agent's
+ * own app password, which reaches exactly the accounts the operator granted
+ * it. The web tier reads the same variables only to know which address to
+ * register and verify; the secret is the worker's.
+ *
+ * `GILBERT_AGENTS_FILE` is the read-only alternative to the environment, in
+ * the `STALWART_SERVERS_FILE` shape: an address keyed to its password and,
+ * optionally, the areas that agent serves. It exists because a deployment
+ * that mounts secrets reads them from files, and because a value that has to
+ * survive a container replacement belongs in the image's configuration, not
+ * in a runtime-written `.env` -- which is impossible on a read-only root and
+ * pointless on a disposable container.
+ */
+
+/** One agent's bootstrap entry, from the environment or the agents file. */
+export interface AgentBootstrap {
+  address: string;
+  /** The app password the worker authenticates with. Empty = not configured. */
+  password: string;
+  /** The areas the worker serves, from the deployment. */
+  areas: AgentArea[];
+}
+
+function readAgentAreas(raw: string | undefined, where: string): AgentArea[] {
+  const value = (raw ?? "").trim();
+  if (!value) return [...AGENT_AREAS];
+  const out: AgentArea[] = [];
+  for (const part of value.split(",")) {
+    const name = part.trim().toLowerCase();
+    if (!name) continue;
+    if (!isAgentArea(name))
+      throw new Error(
+        `Invalid ${where}: "${part}" is not an area (${AGENT_AREAS.join(", ")})`,
+      );
+    if (!out.includes(name)) out.push(name);
+  }
+  return out.length ? out : [...AGENT_AREAS];
+}
+
+/** The agents file, keyed by lower-cased address. */
+function readAgentsFile(): Record<string, { password: string; areas?: AgentArea[] }> {
+  const file = process.env.GILBERT_AGENTS_FILE;
+  if (!file) return {};
+  if (!existsSync(file)) throw new Error(`GILBERT_AGENTS_FILE does not exist: ${file}`);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(file, "utf8"));
+  } catch (err) {
+    throw new Error(`Invalid GILBERT_AGENTS_FILE (${file}): ${(err as Error).message}`);
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error(
+      `Invalid GILBERT_AGENTS_FILE (${file}): expected an object of address to entry`,
+    );
+  }
+  const out: Record<string, { password: string; areas?: AgentArea[] }> = {};
+  for (const [rawAddress, rawEntry] of Object.entries(raw as Record<string, unknown>)) {
+    if (rawAddress.startsWith("_")) continue; // the file's own _comment
+    const address = rawAddress.trim().toLowerCase();
+    if (!address.includes("@"))
+      throw new Error(
+        `Invalid GILBERT_AGENTS_FILE (${file}): "${rawAddress}" is not an address`,
+      );
+    if (address in out)
+      throw new Error(
+        `Invalid GILBERT_AGENTS_FILE (${file}): "${address}" appears twice once normalised`,
+      );
+    const entry = rawEntry as { password?: unknown; areas?: unknown };
+    if (typeof entry?.password !== "string" || !entry.password)
+      throw new Error(
+        `Invalid GILBERT_AGENTS_FILE (${file}): "${address}" has no password`,
+      );
+    const areas =
+      entry.areas === undefined
+        ? undefined
+        : readAgentAreas(
+            Array.isArray(entry.areas)
+              ? entry.areas.map((a) => String(a)).join(",")
+              : String(entry.areas),
+            `GILBERT_AGENTS_FILE (${file}) areas for "${address}"`,
+          );
+    out[address] = areas
+      ? { password: entry.password, areas }
+      : { password: entry.password };
+  }
+  return out;
+}
+
+function resolveAgentBootstrap(): AgentBootstrap {
+  const file = readAgentsFile();
+  const address = (process.env.GILBERT_AGENT_ADDRESS ?? "").trim().toLowerCase();
+  const fromEnv = process.env.GILBERT_AGENT_PASSWORD ?? "";
+  const entry = address ? file[address] : Object.values(file)[0];
+  if (address && !fromEnv && file[address] === undefined && Object.keys(file).length) {
+    /* The file was given and does not name this address: that is a
+       configuration mistake, and a worker that silently ran with no secret
+       would look like an agent that never does anything. */
+    throw new Error(
+      `GILBERT_AGENTS_FILE has no entry for ${address}; it names ${Object.keys(file).join(", ")}`,
+    );
+  }
+  /*
+   * The other half of the same mistake, and the one that is easy to make: an
+   * address with no password anywhere. The web tier would fall back to
+   * impersonation for every call and the worker would start with no secret —
+   * two different behaviours from one missing variable, neither of them
+   * obvious. Half-configured is not a state this starts in.
+   */
+  if (address && !fromEnv && !entry?.password) {
+    throw new Error(
+      `GILBERT_AGENT_ADDRESS is set to ${address} and no password was found for it: ` +
+        "set GILBERT_AGENT_PASSWORD, or name the address in GILBERT_AGENTS_FILE with its password",
+    );
+  }
+  /*
+   * One agent per installation (ADR 0003 §2). A file naming several and no
+   * address to pick between them would silently choose whichever came first in
+   * the file — a deployment that runs a different agent than its operator wrote.
+   */
+  if (!address && Object.keys(file).length > 1) {
+    throw new Error(
+      `GILBERT_AGENTS_FILE names ${Object.keys(file).length} agents and GILBERT_AGENT_ADDRESS ` +
+        "does not say which one this installation runs",
+    );
+  }
+  const areas = process.env.GILBERT_AGENT_AREAS
+    ? readAgentAreas(process.env.GILBERT_AGENT_AREAS, "GILBERT_AGENT_AREAS")
+    : (entry?.areas ?? [...AGENT_AREAS]);
+  return {
+    address: address || (entry ? Object.keys(file)[0]! : ""),
+    password: fromEnv || entry?.password || "",
+    areas,
+  };
 }
 
 export const config = {
@@ -370,6 +562,36 @@ export const config = {
    * origin Stalwart can reach Gilbert at, with a certificate it trusts.
    * An account that cannot be verified stays on the relay.
    */
+  /*
+   * The agent worker (ADR 0003). Everything here is read-only configuration:
+   * the documents the fleet works from live in Stalwart, in the agent's own
+   * account and in each group's.
+   */
+  agent: {
+    ...resolveAgentBootstrap(),
+    /*
+     * How often a worker re-reads an account it could not be pushed about.
+     * Push is the wake-up and polling is the fallback after a lost stream, so
+     * this is deliberately unhurried: a minute of latency on a lost stream is
+     * far cheaper than a minute of hammering Stalwart.
+     */
+    pollMs: int("GILBERT_AGENT_POLL_MS", 60_000),
+    /* How often a working worker says it is alive, in its claims and heartbeat. */
+    heartbeatMs: int("GILBERT_AGENT_HEARTBEAT_MS", 30_000),
+    /*
+     * How long a claim may go un-renewed before another worker takes it over.
+     * Longer than a few heartbeats on purpose: an agent's work can sit in a
+     * model call or wait on a person, and a takeover that fires during a
+     * legitimate pause would run the same job twice.
+     */
+    leaseMs: int("GILBERT_AGENT_LEASE_MS", 180_000),
+    /*
+     * Where the worker answers a health probe, or 0 for no endpoint at all.
+     * A deployment with a restart policy wants this (ADR 0003 resolution 8);
+     * a worker nobody asks anything needs no listening socket.
+     */
+    healthPort: int("GILBERT_AGENT_HEALTH_PORT", 0),
+  },
   pushMode: (process.env.PUSH_MODE === "relay" ? "relay" : "subscribe") as
     | "relay"
     | "subscribe",
@@ -381,3 +603,59 @@ export const config = {
 };
 
 export type Config = typeof config;
+
+/**
+ * The address this installation's agent is known by (ADR 0009).
+ *
+ * An administrator names it in the product, and the name lives in the policy
+ * document beside the settings policy: durable with it, applied without a
+ * restart, and read by the worker too. `GILBERT_AGENT_ADDRESS` is what it
+ * falls back to — the deployment's own fact — so an installation that has
+ * named nothing behaves exactly as it did before there was a field.
+ */
+
+/**
+ * Where that address comes from: the installation\u2019s own record, or the
+ * deployment. The surface says which, because "the product does not know" and
+ * "the deployment does not know" are fixed in different places.
+ */
+export function agentAddressSource(): "policy" | "deployment" | "none" {
+  if (config.settingsPolicy.agent?.address) return "policy";
+  return config.agent.address.trim() ? "deployment" : "none";
+}
+
+/**
+ * The areas one group is narrowed to, or null when the deployment speaks for
+ * it.
+ *
+ * Narrowing only: the worker intersects this with the areas the deployment
+ * serves, so a document can never widen what an operator allowed, and a name
+ * this build does not know is dropped rather than obeyed (ADR 0009).
+ */
+export function agentGroupAreas(group: string): AgentArea[] | null {
+  const configured =
+    config.settingsPolicy.agent?.groups?.[group.trim().toLowerCase()]?.areas;
+  if (!configured?.length) return null;
+  return AGENT_AREAS.filter((area) => configured.includes(area));
+}
+
+export function agentAddress(): string {
+  return (config.settingsPolicy.agent?.address ?? config.agent.address)
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Whether the deployment holds the secret that address signs in with.
+ *
+ * The web tier never needs one — it acts as the agent by impersonation from an
+ * administrator's own session — but the worker signs in as the agent itself,
+ * and an address the deployment holds no password for is an agent that can be
+ * read in the product and can do nothing on its own. That is worth saying out
+ * loud on the surface that names it.
+ */
+export function agentHasSecret(): boolean {
+  const address = agentAddress();
+  if (!address || !config.agent.password) return false;
+  return config.agent.address.trim().toLowerCase() === address;
+}

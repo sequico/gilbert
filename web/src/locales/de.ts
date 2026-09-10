@@ -186,6 +186,61 @@ export const catalog: Catalog = {
     "Remove attachment": "Anhang entfernen",
     "Has attachment": "Hat Anhang",
     "Has the words": "Enthält die Wörter",
+    // The agent's automation filter fields (ADR 0003): a condition is read as
+    // a sentence, so the German keeps the same shape.
+    "Subject contains": "Betreff enthält",
+    "From contains": "Absender enthält",
+    "Has keyword": "Hat Schlagwort",
+    "Not keyword": "Hat Schlagwort nicht",
+    "To contains": "An enthält",
+    "Cc contains": "Cc enthält",
+    "Anywhere contains": "Irgendwo enthält",
+    "Body contains": "Text enthält",
+    "Received before": "Empfangen vor",
+    "Received after": "Empfangen nach",
+    "Larger than (bytes)": "Größer als (Bytes)",
+    "Smaller than (bytes)": "Kleiner als (Bytes)",
+    // The same filters inside the one-line description, where the value follows
+    // the words instead of standing in a field of its own.
+    "in mailbox {value}": "in Mailbox {value}",
+    "has keyword {value}": "hat Schlagwort {value}",
+    "without keyword {value}": "ohne Schlagwort {value}",
+    "subject contains {value}": "Betreff enthält {value}",
+    "anywhere contains {value}": "irgendwo enthält {value}",
+    "body contains {value}": "Text enthält {value}",
+    "from contains {value}": "Absender enthält {value}",
+    "to contains {value}": "An enthält {value}",
+    "cc contains {value}": "Cc enthält {value}",
+    "received before {value}": "empfangen vor {value}",
+    "received after {value}": "empfangen nach {value}",
+    "larger than {value} bytes": "größer als {value} Byte",
+    "smaller than {value} bytes": "kleiner als {value} Byte",
+    Match: "Übereinstimmung",
+    "All of these": "Alle davon",
+    "Any of these": "Eine davon",
+    "None of these": "Keine davon",
+    // The parameters an automation's action takes: the catalogue names each one
+    // by the key the executor reads, the form names it for a person.
+    Label: "Label",
+    Mailbox: "Mailbox",
+    "Create the mailbox if it is missing": "Die Mailbox anlegen, wenn sie fehlt",
+    "File name": "Dateiname",
+    Text: "Text",
+    // The rest of the agent surfaces (ADR 0003): the outcome an audit entry
+    // carries, the row a grouped filter's condition sits in, and the rotation
+    // of the agent's own app password.
+    "Timed out": "Zeitüberschreitung",
+    "Condition {n}": "Bedingung {n}",
+    "The selector says how these conditions compose: all of them, any of them, or none of them.":
+      "Der Selektor sagt, wie diese Bedingungen zusammenspielen: alle, eine oder keine.",
+    "This condition uses something this form cannot spell out, so it is shown as the document holds it and left exactly as it is.":
+      "Diese Bedingung verwendet etwas, das dieses Formular nicht ausdrücken kann; sie wird daher so angezeigt, wie das Dokument sie enthält, und bleibt unverändert.",
+    "The worker signs in with this password and nothing else. The new secret works from now on, the app passwords already in use keep working — revoking them would cut off what an agent is doing — and the deployment has to carry the new secret before the next restart.":
+      "Der Worker meldet sich ausschließlich mit diesem Passwort an. Das neue Geheimnis gilt ab sofort, die bereits verwendeten App-Passwörter funktionieren weiter — ein Widerruf würde einen laufenden Agenten mitten in der Arbeit unterbrechen —, und die Umgebung muss beim nächsten Neustart das neue Geheimnis tragen.",
+    "The number of other app passwords still valid could not be read, so it is unknown here: check Stalwart's administration to see which credentials the agent still holds.":
+      "Die Zahl der weiterhin gültigen App-Passwörter konnte nicht gelesen werden, ist hier also unbekannt: Prüfen Sie in der Stalwart-Administration, welche Zugangsdaten der Agent noch besitzt.",
+    "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
+      "Die Gruppenmailboxen konnten nicht alle aufgelistet werden, deshalb umfasst diese Warteschlange nur die Gruppen, in denen Sie Mitglied sind: In einer hier fehlenden Gruppe kann etwas warten.",
     "Header name": "Name der Kopfzeile",
     "Show headers": "Kopfzeilen anzeigen",
     "Show original": "Original anzeigen",
@@ -1589,6 +1644,10 @@ export const catalog: Catalog = {
     "itself, or an issuer it does not name":
       "sich selbst, oder einem nicht genannten Aussteller",
     "no address": "keine Adresse",
+    "Only an administrator of this group changes its instruction and its automations; every member reads them here.":
+      "Nur ein Administrator dieser Gruppe ändert ihre Daueranweisung und ihre Automatisierungen; jedes Mitglied liest sie hier.",
+    "No standing instruction has been written for this group.":
+      "Für diese Gruppe wurde keine Daueranweisung hinterlegt.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
@@ -1750,6 +1809,12 @@ export const catalog: Catalog = {
       one: "{n} Kontakt war auch in einem anderen Adressbuch und wurde nur aus diesem entfernt",
       other:
         "{n} Kontakte waren auch in anderen Adressbüchern und wurden nur aus diesem entfernt",
+    },
+    // ── The agent fleet (ADR 0003) ───────────────────────────────────
+    "{n} other app passwords still work — revoke them in Stalwart's administration.": {
+      one: "{n} weiteres App-Passwort ist noch gültig — widerrufen Sie es in der Stalwart-Administration.",
+      other:
+        "{n} weitere App-Passwörter sind noch gültig — widerrufen Sie sie in der Stalwart-Administration.",
     },
   },
 };
