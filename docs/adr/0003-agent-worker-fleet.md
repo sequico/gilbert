@@ -90,37 +90,40 @@ record keeps its full shape as the evolution path.
   installation runs both processes from one image; a busy area is another
   worker, declared at deployment and coordinated by lease (§2, §6) — never
   a supervisor (resolution 8).
-- **One operator credential in the environment; the agent's session is
-  derived from it.** The deployment carries a single bootstrap secret — the
-  credential of an operator account holding Stalwart's `Impersonate` — and
-  gilbertserver opens the agent's session at boot with composite
-  impersonation (`{gilbert@}%{operator}`), creating or recovering its app
-  password under impersonation (`x:AppPassword/set`, and `get` where the
-  server returns the secret). One app password belongs to the installation,
-  named for the server: it is recovered at every boot rather than recreated,
-  and rotating it from the admin UI destroys the previous one, so the agent
-  account never accumulates credentials nobody can account for. If a server
-  will not hand the secret back (Open questions, probe d), registration
-  writes the read-only file instead and that becomes the boot path. Nothing
-  needs a writable
-  filesystem, so `IMMUTABLE=1` holds: sessions stay in memory, are
-  re-derived at every boot, and no agent secret is placed by hand. The
-  environment is the only place a pre-session credential can live — a
+- **One bootstrap secret: the agent's own app password.** The deployment
+  carries `GILBERT_AGENT_ADDRESS` and the matching app password, and the
+  worker opens its session by authenticating as the agent — no
+  impersonation at boot, no operator account, no derivation chain. (The web
+  tier reads the same variables only to know which address to register and
+  verify.) The
+  secret is the agent's, not a person's: its reach is exactly the agent's
+  grants (Consequences), and an operator leaving cannot strand the agent.
+  Nothing needs a writable filesystem, so `IMMUTABLE=1` holds: the session
+  stays in memory and is re-established at every boot. The environment (or a
+  read-only mounted `GILBERT_AGENTS_FILE`, the `STALWART_SERVERS_FILE`
+  shape) is the only place a pre-session credential can live — a
   runtime-written `.env` is impossible on a read-only root and pointless on
-  a disposable container, since `.env` is read at boot and the container is
-  replaced from the image. Where an installation prefers not to hold one
-  credential that powerful, the recorded alternative is a read-only mounted
-  file (`GILBERT_AGENTS_FILE`: one app password per agent, the shape
-  `STALWART_SERVERS_FILE` already uses).
+  a disposable container, because `.env` is read at boot and the container
+  is replaced from the image. Rotating the secret therefore means updating
+  the deployment and restarting; an installation that would rather never
+  touch it keeps the recorded alternative — an operator credential holding
+  `Impersonate`, from which the agent's app password is created or recovered
+  under impersonation (Open questions, probes c and d).
+- **The agent principal is not granted `Impersonate`.** v1 reaches groups by
+  membership, never by becoming someone; Stalwart refuses impersonated group
+  mailboxes anyway (live-verified, 403), so the permission would buy only
+  the ability to act as human users — out of v1 scope — and would sit on the
+  identity a model drives. The admin-facing direction stays: the signed-in
+  admin impersonates the *agent* to manage it.
 - **Management is automatic from the admin surface, via impersonation.**
   The signed-in admin selects the agent account; gilbertserver creates and
   rotates the agent's app passwords through JMAP `x:AppPassword/set` under
   impersonation (live-probe item — Open questions) and manages everything
   else through ordinary JMAP on Stalwart documents. No Management API, no
-  hand-edited files, no fields to paste secrets into. Rotation is a real
-  rotation: because no agent secret is pinned into the environment, changing
-  an app password takes effect at the next boot without touching the
-  deployment.
+  hand-edited files, no fields to paste secrets into. Rotation lands on the
+  deployment: the UI rotates the credential underneath, and the environment
+  has to agree with it at the next restart — a rotation is complete when
+  both say the same thing.
 - **The agent's own account holds its configuration; the group's account
   holds the work.** Per-agent settings are documents in the agent account's
   own `gilbert/` app folder (Decision §4): its registration record and the
@@ -353,9 +356,9 @@ record keeps its full shape as the evolution path.
   growth in Stalwart is bounded by policy, not by disk.
 - *Probes run against the owner's test instance on credentials the owner
   supplies*, at implementation time: group submission versus sendAs with
-  the member-send path, the footer's home, and the boot path (an
-  app-password operator impersonating, and the secret staying readable).
-  Each result is recorded here when it is run.
+  the member-send path, and the footer's home. (The operator-credential
+  alternative carries two more — Open questions, probes c and d.) Each
+  result is recorded here when it is run.
 
 ## Decision
 
@@ -369,9 +372,8 @@ grants decide what it may read and act on (a person's mailbox, a group's
 mailbox, shared Files). Mail addressed *to* the agent is ordinary mail: it
 lands in the agent's own mailbox and wakes it like any other state change —
 that is how "tell the agent to do something by mailing it" works. The
-installation holds one operator credential (v1 scope); the agent's own app
-password is derived from it and belongs to the installation, not to the
-worker process.
+agent's own app password is the one bootstrap secret the worker holds, and
+it belongs to the installation, not to a person (v1 scope).
 
 ### 2. Workers are headless, stateless, disposable processes
 
@@ -526,17 +528,16 @@ candidate rule semantic (Open questions).
 
 ## Consequences
 
-- One operator credential in the environment — an operator account holding
-  Stalwart's `Impersonate` — on top of ADR 0007's administration model
-  (permission marker; Impersonate for per-user writes): the agent's session
-  is derived from it at boot, and no agent secret is placed by hand.
+- The agent's own app password is the one bootstrap secret the worker holds,
+  and it belongs to the installation rather than to a person (v1 scope); on
+  top of ADR 0007's administration model (permission marker; Impersonate for
+  per-user writes), the only impersonation in the design points the other
+  way — an admin acting on the agent's account.
 - One agent means one reach: `gilbert@`'s grants cover every group it is
-  granted, so a compromise of the agent or of the operator credential that
-  derives its session exposes all of them at once, not one group at a time.
-  Accepted for v1 — the same order of risk the threshold auto-approval
-  already accepts — and the reason the read-only `GILBERT_AGENTS_FILE`
-  alternative above exists; per-area or per-group agent principals are the
-  future mitigation, not a v1 setting.
+  granted, so a compromise of the agent exposes all of them at once, not one
+  group at a time. Accepted for v1 — the same order of risk the threshold
+  auto-approval already accepts — with per-area or per-group agent
+  principals as the future mitigation, not a v1 setting.
 - Work claims are per `account × area`, so two workers never touch the same
   area of one account at once; the per-account cap of §7 bounds how much of
   a single group the fleet works on. With the default single worker, work
@@ -611,12 +612,12 @@ candidate rule semantic (Open questions).
   configuration; if it does, it is keyed per group, so one agent serving
   several groups still sends each group's own identity and footer.
   Confirmed together with (a), on the credentials the owner supplies.
-- Pending probes for the boot path (v1 scope): (c) that an operator
-  authenticated by **app password** — not by the account password the
-  2026-09-09 probe used — may impersonate a target, and (d) that
-  `x:AppPassword/get` keeps returning the secret to an impersonating admin.
-  The boot derivation of the agent session depends on both; if either
-  fails, the fallback is the read-only `GILBERT_AGENTS_FILE`.
+- Pending probes for the operator-credential alternative (v1 scope): (c)
+  that an operator authenticated by **app password** — not by the account
+  password the 2026-09-09 probe used — may impersonate a target, and (d)
+  that `x:AppPassword/get` keeps returning the secret to an impersonating
+  admin. Neither is on the default boot path — the agent's own app password
+  is — so they matter only if an installation chooses that alternative.
 
 ## References
 
