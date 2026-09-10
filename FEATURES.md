@@ -1227,6 +1227,14 @@ is missing — it never writes one.
   worker’s own app password stays a deployment fact, and the surface says when
   none is deployed for the address it holds — an agent the product can read and
   that can do nothing on its own is worth knowing about.
+- **What the fleet serves, per group.** The deployment opens the areas the agent
+  may work in (mail, files, tasks, calendars, contacts) and the installation can
+  narrow that per group — one group, or as many as an administrator selects at
+  once, from the Group workers section beside Agents. Narrowing is the whole of
+  the permission: the worker intersects the record with what the deployment
+  serves, so a product decision can never open a door an operator closed, and a
+  group set back to nothing is served exactly as the deployment says. The grant
+  itself stays Stalwart’s, and the surface shows it rather than writing it.
 - **The group's standing instruction.** One text per group, written by an
 administrator of that group in the admin surface, handed to the model on
 **every** call the group's agent makes — first in the prompt, before the

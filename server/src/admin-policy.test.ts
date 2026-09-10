@@ -260,3 +260,99 @@ test("a non-admin cannot name the agent either", async () => {
   });
   assert.notEqual(res.status, 200);
 });
+
+/**
+ * What the worker does in each group (ADR 0009): areas, several groups at a
+ * time, and only downward — the record can take work away from a group, never
+ * hand it work the deployment did not open.
+ */
+test("groups are narrowed several at a time, and nothing can widen the deployment", async () => {
+  await call("/api/admin/agent/address", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ address: "aider@example.com" }),
+  });
+  const saved = await call("/api/admin/agent/groups", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({
+      groups: {
+        "team@example.org": { areas: ["mail"] },
+        "legal@example.org": { areas: ["mail", "files"] },
+      },
+    }),
+  });
+  assert.equal(saved.status, 200, "two groups in one request");
+
+  const status = await call("/api/admin/agents", adminCookie);
+  const groups = (status.body as { groups: Array<{ name: string; areas?: string[] }> })
+    .groups;
+  assert.deepEqual(
+    groups.find((group) => group.name === "team@example.org")?.areas,
+    ["mail"],
+    "one group narrowed to mail",
+  );
+  assert.deepEqual(
+    groups.find((group) => group.name === "legal@example.org")?.areas,
+    ["mail", "files"],
+    "and another to two areas, in the same call",
+  );
+
+  // An area this build does not know is refused, and the record is unchanged.
+  const refused = await call("/api/admin/agent/groups", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ groups: { "team@example.org": { areas: ["nope"] } } }),
+  });
+  assert.equal(refused.status, 400);
+  const after = await call("/api/admin/agents", adminCookie);
+  assert.deepEqual(
+    (after.body as { groups: Array<{ name: string; areas?: string[] }> }).groups.find(
+      (group) => group.name === "team@example.org",
+    )?.areas,
+    ["mail"],
+    "a refused save changes nothing",
+  );
+
+  // An empty list is how "as the deployment serves it" is written down.
+  await call("/api/admin/agent/groups", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ groups: { "team@example.org": { areas: [] } } }),
+  });
+  const cleared = await call("/api/admin/agents", adminCookie);
+  assert.equal(
+    (cleared.body as { groups: Array<{ name: string; areas?: string[] }> }).groups.find(
+      (group) => group.name === "team@example.org",
+    )?.areas,
+    undefined,
+    "cleared means the deployment speaks again",
+  );
+
+  // Naming another address is not a decision about the groups.
+  await call("/api/admin/agent/address", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ address: "other@example.com" }),
+  });
+  const kept = await call("/api/admin/agents", adminCookie);
+  assert.deepEqual(
+    (kept.body as { groups: Array<{ name: string; areas?: string[] }> }).groups.find(
+      (group) => group.name === "legal@example.org",
+    )?.areas,
+    ["mail", "files"],
+    "an address change keeps what each group was narrowed to",
+  );
+
+  // Clearing the agent clears the per-group record with it: one fact, two halves.
+  await call("/api/admin/agent/address", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ address: "" }),
+  });
+  const gone = await call("/api/admin/policy", adminCookie);
+  assert.doesNotMatch(String(gone.body?.policy ?? ""), /legal@example\.org/);
+});
+
+test("there is nothing to narrow before an agent is named", async () => {
+  const refused = await call("/api/admin/agent/groups", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ groups: { "team@example.org": { areas: ["mail"] } } }),
+  });
+  assert.equal(refused.status, 409);
+  assert.equal((refused.body as { error?: string }).error, "agent_not_configured");
+});

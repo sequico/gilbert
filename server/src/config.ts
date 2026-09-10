@@ -147,7 +147,7 @@ function readSettingsPolicy(): {
   defaults: Record<string, unknown>;
   enforced: Record<string, unknown>;
   changes: Array<{ version: string; settings: Record<string, unknown> }>;
-  agent?: { address: string };
+  agent?: { address: string; groups?: Record<string, { areas?: string[] }> };
 } {
   const parse = (raw: string, where: string): Record<string, unknown> => {
     try {
@@ -199,18 +199,48 @@ function readSettingsPolicy(): {
    * "agent" with no usable address is a configuration error at boot, not a
    * value to fall back from silently.
    */
-  const parseAgent = (v: unknown, where: string): { agent?: { address: string } } => {
+  const parseAgent = (
+    v: unknown,
+    where: string,
+  ): { agent?: { address: string; groups?: Record<string, { areas?: string[] }> } } => {
     if (v == null) return {};
     if (typeof v !== "object" || Array.isArray(v))
       throw new Error(`Invalid ${where}: "agent" must be an object`);
-    const typed = v as { address?: unknown };
+    const typed = v as { address?: unknown; groups?: unknown };
     const address =
       typeof typed.address === "string" ? typed.address.trim().toLowerCase() : "";
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(address))
       throw new Error(
         `Invalid ${where}: "agent.address" must be the agent's own address, like gilbert@example.com`,
       );
-    return { agent: { address } };
+    const groups: Record<string, { areas?: string[] }> = {};
+    if (typed.groups != null) {
+      if (typeof typed.groups !== "object" || Array.isArray(typed.groups))
+        throw new Error(`Invalid ${where}: "agent.groups" must be an object`);
+      for (const [rawName, entry] of Object.entries(
+        typed.groups as Record<string, unknown>,
+      )) {
+        const name = rawName.trim().toLowerCase();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(name))
+          throw new Error(
+            `Invalid ${where}: "agent.groups" names something that is not a group: ${rawName}`,
+          );
+        if (entry == null) continue;
+        const areas = (entry as { areas?: unknown }).areas;
+        if (areas === undefined) continue;
+        if (!Array.isArray(areas) || areas.some((a) => typeof a !== "string"))
+          throw new Error(
+            `Invalid ${where}: "agent.groups.${name}.areas" must be a list of area names`,
+          );
+        const clean = [
+          ...new Set(areas.map((area) => String(area).trim()).filter(Boolean)),
+        ];
+        groups[name] = clean.length ? { areas: clean } : {};
+      }
+    }
+    return {
+      agent: { address, ...(Object.keys(groups).length ? { groups } : {}) },
+    };
   };
 
   const file = process.env.SETTINGS_POLICY_FILE;
@@ -592,6 +622,21 @@ export type Config = typeof config;
 export function agentAddressSource(): "policy" | "deployment" | "none" {
   if (config.settingsPolicy.agent?.address) return "policy";
   return config.agent.address.trim() ? "deployment" : "none";
+}
+
+/**
+ * The areas one group is narrowed to, or null when the deployment speaks for
+ * it.
+ *
+ * Narrowing only: the worker intersects this with the areas the deployment
+ * serves, so a document can never widen what an operator allowed, and a name
+ * this build does not know is dropped rather than obeyed (ADR 0009).
+ */
+export function agentGroupAreas(group: string): AgentArea[] | null {
+  const configured =
+    config.settingsPolicy.agent?.groups?.[group.trim().toLowerCase()]?.areas;
+  if (!configured?.length) return null;
+  return AGENT_AREAS.filter((area) => configured.includes(area));
 }
 
 export function agentAddress(): string {

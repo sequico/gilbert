@@ -17,8 +17,11 @@ process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { basicAuth, candidateAccounts, startWorker } = await import("./worker.js");
+const { basicAuth, candidateAccounts, servedAreasFor, startWorker } = await import(
+  "./worker.js"
+);
 const { AgentStore } = await import("./store.js");
+const { AGENT_AREAS } = await import("./documents.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
 /** The group mailboxes of the demo session, and the demo's own account. */
@@ -206,4 +209,31 @@ test("a second worker takes over a stale lease, and never double-serves", async 
   await first.stop();
   await second.stop();
   await third.stop();
+});
+
+/**
+ * The intersection an installation's record makes with the deployment's areas
+ * (ADR 0009): a record can take work away from a group and can never hand it
+ * work the operator did not open. This is the whole rule, so it is one
+ * function — the alternative is a fleet whose reach depends on which of two
+ * lists a process happened to read.
+ */
+test("a per-group record narrows the deployment's areas, never widens them", () => {
+  const deployment = [...AGENT_AREAS];
+  assert.deepEqual(
+    servedAreasFor(deployment, null),
+    deployment,
+    "nothing named for this group: the deployment speaks",
+  );
+  assert.deepEqual(
+    servedAreasFor(deployment, []),
+    deployment,
+    'an empty list is how "as the deployment says" is written down',
+  );
+  assert.deepEqual(servedAreasFor(deployment, ["mail"]), ["mail"]);
+  assert.deepEqual(
+    servedAreasFor(["mail"], ["mail", "files"]),
+    ["mail"],
+    "a record cannot open an area the deployment does not serve",
+  );
 });

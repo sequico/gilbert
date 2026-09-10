@@ -56,6 +56,7 @@ import type {
   AgentGroupDocuments,
   AgentProvidersView,
   AgentStatus,
+  AgentStatusGroup,
   AgentStatusReason,
   AgentStatusWorker,
   GroupAccessDenied,
@@ -67,7 +68,13 @@ import type {
 } from "./agent/views.js";
 import { GROUP_NOT_ACCESSIBLE } from "./agent/views.js";
 import { type Ctx, filesAccountId } from "./appFolder.js";
-import { agentAddress, agentAddressSource, agentHasSecret, config } from "./config.js";
+import {
+  agentAddress,
+  agentAddressSource,
+  agentGroupAreas,
+  agentHasSecret,
+  config,
+} from "./config.js";
 import { JmapError } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
 import {
@@ -395,6 +402,18 @@ async function agentStore(
 /* ------------------------------------------------------------------ */
 
 /**
+ * One group row: its grant, and the areas an administrator narrowed it to.
+ *
+ * The grant is read from the agent's own session and never written here (ADR
+ * 0003 §2); the areas are the installation's own record, which can only narrow
+ * what the deployment serves.
+ */
+function groupRow(name: string, granted: boolean): AgentStatusGroup {
+  const narrowed = agentGroupAreas(name);
+  return { name, granted, ...(narrowed ? { areas: narrowed } : {}) };
+}
+
+/**
  * What the installation's fleet looks like right now.
  *
  * `granted` is not guessed and is not writable: membership is decided in
@@ -410,6 +429,7 @@ async function agentStore(
 export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
   const address = agentAddress();
   const addressSource = agentAddressSource();
+  const defaultAreas = config.agent.areas;
   if (!address)
     return {
       configured: false,
@@ -417,6 +437,7 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       addressSource,
       hasSecret: false,
       groups: [],
+      defaultAreas,
       workers: [],
       reason: { code: "agent_not_configured" },
     };
@@ -429,7 +450,8 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       address,
       addressSource,
       hasSecret: agentHasSecret(),
-      groups: reachable.names.map((name) => ({ name, granted: false })),
+      groups: reachable.names.map((name) => groupRow(name, false)),
+      defaultAreas,
       workers: [],
       reason: { code: "agent_unreachable", detail: agent.detail },
       enumeration: reachable.enumeration,
@@ -455,10 +477,10 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
     address,
     addressSource,
     hasSecret: agentHasSecret(),
-    groups: reachable.names.map((name) => ({
-      name,
-      granted: granted.has(name.trim().toLowerCase()),
-    })),
+    groups: reachable.names.map((name) =>
+      groupRow(name, granted.has(name.trim().toLowerCase())),
+    ),
+    defaultAreas,
     workers,
     enumeration: reachable.enumeration,
     enumerationMessage: reachable.enumerationMessage,

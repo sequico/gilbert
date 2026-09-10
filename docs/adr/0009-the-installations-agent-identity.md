@@ -40,12 +40,30 @@ the worker needs it before it can read anything — and the surface says so:
 visible on the surface instead of arriving as automations that silently do not
 run.
 
+The same document records what the worker does in each group:
+`agent.groups.<name>.areas` narrows that group to a subset of the areas the
+deployment serves. Narrowing is the whole of the permission — the worker
+intersects the recorded list with the deployment's own (`servedAreasFor`, one
+definition) — so an installation can take work away from a group and can never
+hand it work an operator did not open. An empty list is how "served as the
+deployment says" is written down, and the surface that edits it takes any
+number of groups in one gesture (`POST /api/admin/agent/groups`).
+
+The grant is not part of this and never will be: membership of the agent is
+decided in Stalwart's own administration, and the surface that edits the areas
+only reads it.
+
 ## Consequences
 
 - An administrator names the agent in the product, choosing from the accounts
   the server already lists, and the change reaches the web tier on the next
   request. A browser reload is what applies it; the worker reads the same value
   at its next start, which the surface says.
+- **A group whose record drops an area stops being served there.** The worker
+  stops renewing that claim and the lease lapses on its own — no worker deletes
+  another's claim, and this never touches the fence — so the rules in that area
+  do not run for that group. The surface shows what is served where, which is
+  the only signal: nothing audits a run that was never going to start.
 - Two stores can name an address at once — the document and the environment.
   One wins (the document) and the other is reported as the fallback rather than
   left to be guessed; that is what `addressSource` answers.

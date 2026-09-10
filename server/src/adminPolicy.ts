@@ -24,6 +24,14 @@ export interface PolicyChangeDocument {
  */
 export interface PolicyAgent {
   address: string;
+  /**
+   * What the worker does in one group, when the installation says so.
+   *
+   * Narrowing only: the areas are intersected with the ones the deployment
+   * serves, so a document can never widen what an operator allowed. A group the
+   * document does not name is served as the deployment says.
+   */
+  groups?: Record<string, { areas?: string[] }>;
 }
 
 export interface PolicyDocument {
@@ -139,7 +147,45 @@ function parseAgent(v: unknown): { agent: PolicyAgent } | { problem: string } | 
     };
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(address))
     return { problem: `"agent.address" is not an address: ${address}.` };
-  return { agent: { address } };
+  const groups = parseAgentGroups(v.groups);
+  if ("problem" in groups) return { problem: groups.problem };
+  return {
+    agent: {
+      address,
+      ...(Object.keys(groups.groups).length ? { groups: groups.groups } : {}),
+    },
+  };
+}
+
+/**
+ * The per-group part of the agent record, checked name by name.
+ *
+ * A group is named the way the product names groups (a lowercased address), and
+ * an empty area list is how "as the deployment serves it" is written down — so
+ * clearing a narrowing is a value an editor can express rather than a deletion.
+ */
+function parseAgentGroups(
+  v: unknown,
+): { groups: Record<string, { areas?: string[] }> } | { problem: string } {
+  if (v == null) return { groups: {} };
+  if (!isRecord(v)) return { problem: '"agent.groups" must be an object of groups.' };
+  const groups: Record<string, { areas?: string[] }> = {};
+  for (const [rawName, entry] of Object.entries(v)) {
+    const name = rawName.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(name))
+      return {
+        problem: `"agent.groups" names something that is not a group: ${rawName}.`,
+      };
+    if (entry == null) continue;
+    if (!isRecord(entry)) return { problem: `"agent.groups.${name}" must be an object.` };
+    const areas = entry.areas;
+    if (areas === undefined) continue;
+    if (!Array.isArray(areas) || areas.some((area) => typeof area !== "string"))
+      return { problem: `"agent.groups.${name}.areas" must be a list of area names.` };
+    const clean = [...new Set(areas.map((area) => String(area).trim()).filter(Boolean))];
+    groups[name] = clean.length ? { areas: clean } : {};
+  }
+  return { groups };
 }
 
 /** The document text the editor shows, stable keys and two-space indent. */

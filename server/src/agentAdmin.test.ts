@@ -138,6 +138,8 @@ test("an installation with no agent says so plainly, and never 500s", async () =
     addressSource: "none",
     hasSecret: false,
     groups: [],
+    // The areas the deployment serves; a group can only narrow them.
+    defaultAreas: [...AGENT_AREAS],
     workers: [],
     // A code, not a sentence: the surface composes the sentence in the
     // reader's language (the same rule the membership refusal follows).

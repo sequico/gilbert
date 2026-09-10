@@ -194,6 +194,24 @@ export function saveAgentAddress(
 }
 
 /**
+ * `POST /api/admin/agent/groups` — the areas each group's worker is narrowed
+ * to (ADR 0009).
+ *
+ * Several groups in one call, because an operator who changes a policy changes
+ * it for the groups they mean; an empty list is how "as the deployment serves
+ * it" is written down. Narrowing only: the server never widens what the
+ * deployment allows.
+ */
+export function saveAgentGroupAreas(
+  groups: Record<string, string[]>,
+): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>("/api/admin/agent/groups", {
+    method: "POST",
+    body: JSON.stringify({ groups }),
+  });
+}
+
+/**
  * `GET /api/admin/groups/:name/agent/audit` — the group's audit trail, month
  * by month, as the copy an administrator keeps.
  *

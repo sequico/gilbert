@@ -50,6 +50,12 @@ export interface GroupEnumeration {
 export interface AgentStatusGroup {
   name: string;
   granted: boolean;
+  /**
+   * The areas an administrator narrowed this group to, when one did. Absent
+   * means the deployment's own list is in force — which `AgentStatus.defaultAreas`
+   * carries, so a surface can say what "not narrowed" comes to.
+   */
+  areas?: AgentArea[];
 }
 
 /** Where the address the installation acts as came from. */
@@ -107,6 +113,8 @@ export interface AgentStatus extends Partial<GroupEnumeration> {
    */
   hasSecret: boolean;
   groups: AgentStatusGroup[];
+  /** The areas the deployment serves, which a group's own list can only narrow. */
+  defaultAreas: AgentArea[];
   workers: AgentStatusWorker[];
   /**
    * Why the fleet cannot be read, when it cannot. `configured: false` plus this

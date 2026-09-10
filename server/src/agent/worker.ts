@@ -14,7 +14,7 @@
 import { createServer } from "node:http";
 import { pathToFileURL } from "node:url";
 import { type Ctx, filesAccountId } from "../appFolder.js";
-import { config } from "../config.js";
+import { agentGroupAreas, config } from "../config.js";
 import { JmapClient, serverNow } from "../jmap.js";
 import {
   fetchUpstreamSession,
@@ -129,6 +129,34 @@ export function candidateAccounts(session: UpstreamSession): string[] {
 /** The Authorization header a plain principal authenticates with. */
 export function basicAuth(address: string, password: string): string {
   return `Basic ${Buffer.from(`${address}:${password}`, "utf8").toString("base64")}`;
+}
+
+/**
+ * The areas a group is served with: the deployment's list, narrowed by the
+ * installation's own record for that group (ADR 0009).
+ *
+ * Nothing widens here. An installation can take work away from a group — a
+ * document cannot hand it work the operator did not open — and a group the
+ * record does not name is served exactly as the deployment says. This is the
+ * whole of the intersection, in one place.
+ */
+export function servedAreasFor(
+  deployment: ReadonlyArray<AgentArea>,
+  narrowed: ReadonlyArray<AgentArea> | null,
+): AgentArea[] {
+  if (!narrowed?.length) return [...deployment];
+  return deployment.filter((area) => narrowed.includes(area));
+}
+
+/** The areas this worker serves for one account, by its name in the session. */
+export function areasFor(
+  session: UpstreamSession,
+  accountId: string,
+  deployment: ReadonlyArray<AgentArea>,
+): AgentArea[] {
+  const account = session.accounts?.[accountId] as { name?: unknown } | undefined;
+  const name = typeof account?.name === "string" ? account.name.trim().toLowerCase() : "";
+  return servedAreasFor(deployment, name ? agentGroupAreas(name) : null);
 }
 
 /**
@@ -365,7 +393,13 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
       await guarded(accountId, async () => {
         const store = new AgentStore(deps.ctx, accountId);
         const held = servedAreas.get(accountId) ?? new Set<AgentArea>();
-        for (const area of deps.areas) {
+        // The deployment's areas, narrowed by the installation's record for this
+        // group (ADR 0009). An area the record no longer covers stops being
+        // renewed, so its lease lapses on its own: nothing here writes or
+        // deletes a claim document, and nothing here touches the fence.
+        const served = areasFor(deps.ctx.session, accountId, deps.areas);
+        for (const area of [...held]) if (!served.includes(area)) held.delete(area);
+        for (const area of served) {
           if (held.has(area)) {
             // Renewal is what keeps a claim from looking stale to a peer.
             const renewed = await claimArea(store, area, id, {

@@ -31,7 +31,7 @@ import {
   persistPolicyFile,
   policyDocumentText,
 } from "./adminPolicy.js";
-import { agentRuleJsonSchema } from "./agent/documents.js";
+import { AGENT_AREAS, agentRuleJsonSchema } from "./agent/documents.js";
 import type { AgentGroupAnswer } from "./agent/views.js";
 import {
   AgentAdminError,
@@ -1303,8 +1303,20 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const address =
       typeof body?.address === "string" ? body.address.trim().toLowerCase() : "";
     const next: PolicyDocument = { ...config.settingsPolicy };
-    if (address) next.agent = { address };
-    else delete next.agent;
+    if (address) {
+      // Named again keeps what each group was narrowed to: an address change is
+      // not a decision about the groups.
+      const groups = config.settingsPolicy.agent?.groups;
+      next.agent = {
+        address,
+        ...(groups && Object.keys(groups).length ? { groups } : {}),
+      };
+    } else {
+      // No agent at all, so no per-group behaviour either: both halves are the
+      // same fact, and leaving groups behind would be a setting with nothing to
+      // apply to.
+      delete next.agent;
+    }
     const written = policyDocumentText(next);
     const parsed = parsePolicyDocumentDetailed(written);
     if ("problem" in parsed)
@@ -1314,6 +1326,81 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       return c.json({ error: persisted.error, message: persisted.message }, 500);
     config.settingsPolicy = parsed.doc;
     return c.json({ ok: true, address: agentAddress(), hasSecret: agentHasSecret() });
+  });
+
+  /**
+   * What the worker does in each group (ADR 0009).
+   *
+   * The areas an administrator narrows a group to, written into the same policy
+   * document as the address: the fleet's reach is one durable fact rather than a
+   * deployment's guess, and the worker intersects these with the areas the
+   * deployment serves, so a group set back to nothing is served as the
+   * deployment says. Several groups travel in one request, because an operator
+   * who changes a policy changes it for the groups they mean. The grant is not
+   * touched: membership is Stalwart's, and this surface never writes it.
+   */
+  api.post("/admin/agent/groups", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ groups?: unknown }>(c);
+    const input = body?.groups;
+    if (!input || typeof input !== "object" || Array.isArray(input))
+      return c.json({ error: "bad_request", message: "groups must be an object" }, 400);
+    const address = config.settingsPolicy.agent?.address ?? "";
+    if (!address)
+      return c.json(
+        {
+          error: "agent_not_configured",
+          message:
+            "No agent's address is named yet, so there is nothing for a group's areas to apply to. Name it in the Agents section first.",
+        },
+        409,
+      );
+    const groups: Record<string, { areas?: string[] }> = {
+      ...(config.settingsPolicy.agent?.groups ?? {}),
+    };
+    for (const [rawName, entry] of Object.entries(input as Record<string, unknown>)) {
+      const name = rawName.trim().toLowerCase();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(name))
+        return c.json(
+          { error: "bad_request", message: `${rawName} is not a group address` },
+          400,
+        );
+      const areas = Array.isArray(entry)
+        ? entry
+        : ((entry as { areas?: unknown } | null)?.areas ?? []);
+      if (!Array.isArray(areas) || areas.some((area) => typeof area !== "string"))
+        return c.json(
+          { error: "bad_request", message: `the areas of ${name} must be a list` },
+          400,
+        );
+      const clean = [
+        ...new Set(areas.map((area) => String(area).trim()).filter(Boolean)),
+      ];
+      const unknown = clean.filter(
+        (area) => !AGENT_AREAS.includes(area as (typeof AGENT_AREAS)[number]),
+      );
+      if (unknown.length)
+        return c.json(
+          {
+            error: "bad_request",
+            message: `${unknown.join(", ")} is not an area: the areas are ${AGENT_AREAS.join(", ")}`,
+          },
+          400,
+        );
+      // An empty list is how "served as the deployment says" is written down:
+      // clearing a narrowing is a value, not a deletion nobody can express.
+      if (clean.length) groups[name] = { areas: clean };
+      else delete groups[name];
+    }
+    const next: PolicyDocument = { ...config.settingsPolicy, agent: { address, groups } };
+    const written = policyDocumentText(next);
+    const parsed = parsePolicyDocumentDetailed(written);
+    if ("problem" in parsed)
+      return c.json({ error: "invalid_agent_groups", message: parsed.problem }, 400);
+    const persisted = await persistPolicy(written);
+    if (!persisted.ok)
+      return c.json({ error: persisted.error, message: persisted.message }, 500);
+    config.settingsPolicy = parsed.doc;
+    return c.json({ ok: true });
   });
 
   /**

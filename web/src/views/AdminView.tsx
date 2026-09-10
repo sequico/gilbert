@@ -6,6 +6,7 @@ import { AdminAgents } from "@/views/admin/AdminAgents";
 import { AdminPolicy } from "@/views/admin/AdminPolicy";
 import { AdminUsers } from "@/views/admin/AdminUsers";
 import { GroupLabels } from "@/views/admin/GroupLabels";
+import { GroupWorkers } from "@/views/admin/GroupWorkers";
 import { AboutSettings } from "@/views/settings/AboutSettings";
 
 type AdminSection = SectionItem & { el: ReactNode; owner: "gilbert" | "stalwart" | null };
@@ -37,6 +38,13 @@ const SECTIONS: AdminSection[] = [
     label: "Agents",
     icon: <Bot size={18} />,
     el: <AdminAgents />,
+    owner: "gilbert",
+  },
+  {
+    id: "group-workers",
+    label: t("Group workers"),
+    icon: <Users size={18} />,
+    el: <GroupWorkers />,
     owner: "gilbert",
   },
   {
