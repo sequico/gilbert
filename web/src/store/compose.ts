@@ -1,4 +1,4 @@
-import { textSignatureBlock } from "@gilbert/shared/signature";
+import { htmlSignatureBlock, textSignatureBlock } from "@gilbert/shared/signature";
 import { create } from "zustand";
 import { client, setErrorMessage } from "@/jmap/client";
 import type {
@@ -207,8 +207,13 @@ export function signatureBlock(
   if (format === "text") return textSignatureBlock(identity.textSignature);
   if (identity.htmlSignature)
     return `<div class="ihm-signature" data-ihm-sig="1"><br>${sanitizeEditorHtml(identity.htmlSignature)}</div>`;
-  if (identity.textSignature)
-    return `<div class="ihm-signature" data-ihm-sig="1"><br>-- <br>${textToHtml(identity.textSignature, { quoteColors: false }).replace(/\n/g, "<br>")}</div>`;
+  if (identity.textSignature) {
+    const body = textToHtml(identity.textSignature, { quoteColors: false }).replace(
+      /\n/g,
+      "<br>",
+    );
+    return `<div class="ihm-signature" data-ihm-sig="1">${htmlSignatureBlock(body)}</div>`;
+  }
   return "";
 }
 

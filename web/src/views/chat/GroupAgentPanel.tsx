@@ -17,7 +17,7 @@ import { Bot, X } from "lucide-react";
 import { useEffect } from "react";
 import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
-import { useAgents } from "@/store/agents";
+import { agentViewKey, useAgents } from "@/store/agents";
 import {
   actionText,
   areaText,
@@ -42,8 +42,8 @@ export function GroupAgentPanel({
   const error = useAgents((s) => s.error);
   const loadGroup = useAgents((s) => s.loadGroup);
 
-  // The store holds one entry per group, keyed by its lower-cased address.
-  const view = groupViews[name.trim().toLowerCase()];
+  // The store holds one entry per group, under `agentViewKey(name)`.
+  const view = groupViews[agentViewKey(name)];
 
   useEffect(() => {
     // Only when there is nothing to show: the chat panel loads the group's view

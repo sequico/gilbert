@@ -48,6 +48,7 @@ import {
   auditEntry,
   decisionAuditEntry,
   errorMessage,
+  missedAuditEntry,
   recordAudit,
 } from "./audit.js";
 import {
@@ -95,7 +96,13 @@ import {
   type ModelContext,
   providerForTier,
 } from "./llm.js";
-import { advance, armTimers, dueEntries, planSchedule } from "./scheduler.js";
+import {
+  advance,
+  armTimers,
+  dueEntries,
+  planSchedule,
+  unrunEntries,
+} from "./scheduler.js";
 import { type AgentDoc, AgentStore } from "./store.js";
 
 /** The JMAP types the executor reconciles, plus the schedule. */
@@ -458,7 +465,10 @@ export class Executor {
       now: this.deps.now().toISOString(),
     });
     await store.writeJob(job);
-    await this.runJob(accountId, job, rule);
+    // The claim travels with the job: a run started by a trigger is fenced the
+    // same way a retried one is, and without this the fencing would only ever
+    // apply to the pending sweep.
+    await this.runJob(accountId, job, rule, claim);
   }
 
   /* ---------------------------------------------------------------- */
@@ -762,10 +772,13 @@ export class Executor {
       // The second step is one folder slice, and only when one is named.
       const asked = anchor ? anchor.text : "";
       const requested = widenRequested(asked) ? CHAT_CONTEXT_MAX : undefined;
+      // The anchor is named, not inferred: the run answers *this* message, and
+      // `conversationContext` refuses a transcript that does not hold it.
       const window = conversationContext(
         messages,
         anchor?.created ?? this.deps.now().toISOString(),
         requested,
+        trigger.chatId,
       );
       const parts = [window.map(renderChatMessage).join("\n")];
       const folder = folderRequest(asked);
@@ -1300,6 +1313,39 @@ export class Executor {
     );
   }
 
+  /**
+   * Put the due runs nothing could run in the trail.
+   *
+   * A due run is normally fired late rather than dropped, so what vanishes is
+   * the run whose rule is off: the schedule moves on and the group's automation
+   * simply did not happen. That is worth a line.
+   */
+  private async recordMissedRuns(
+    store: AgentStore,
+    rules: ReadonlyArray<AgentRule>,
+    due: ReadonlyArray<AgentScheduleEntry>,
+  ): Promise<void> {
+    for (const entry of unrunEntries(due, rules)) {
+      const found = rules.find((candidate) => candidate.id === entry.ruleId);
+      const rule: AuditRule = found ?? {
+        id: entry.ruleId,
+        name: "the rule is gone",
+        version: 0,
+      };
+      await recordAudit(
+        store,
+        missedAuditEntry(
+          rule,
+          entry.at,
+          found
+            ? "the run was due and its rule was not enabled, so nothing ran"
+            : "the run was due and its rule is no longer there, so nothing ran",
+        ),
+      );
+      this.deps.log(`${entry.ruleId}: the run due at ${entry.at} did not happen`);
+    }
+  }
+
   /** The entries that are already due: catch-up after a worker was away. */
   private async fireDueSchedule(store: AgentStore, accountId: string): Promise<void> {
     const rules = (await store.readRules())?.doc ?? [];
@@ -1325,6 +1371,10 @@ export class Executor {
           keys,
         );
       }
+      // Recorded **after** the schedule write: an audit write is a write to the
+      // same account, and doing it first would invalidate the state the
+      // conditional schedule write carries.
+      await this.recordMissedRuns(store, rules, due);
       return;
     }
     if (!scheduleDoc) await this.writeSchedule(store, planned, undefined);

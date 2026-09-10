@@ -204,6 +204,13 @@ export const catalog: Catalog = {
     "All of these": "Alle davon",
     "Any of these": "Eine davon",
     "None of these": "Keine davon",
+    // The parameters an automation's action takes: the catalogue names each one
+    // by the key the executor reads, the form names it for a person.
+    Label: "Label",
+    Mailbox: "Mailbox",
+    "Create the mailbox if it is missing": "Die Mailbox anlegen, wenn sie fehlt",
+    "File name": "Dateiname",
+    Text: "Text",
     "Header name": "Name der Kopfzeile",
     "Show headers": "Kopfzeilen anzeigen",
     "Show original": "Original anzeigen",

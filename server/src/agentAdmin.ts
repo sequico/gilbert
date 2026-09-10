@@ -21,7 +21,12 @@
  * impersonated group mailbox.
  */
 
-import { createAppPassword, readGroupLabels, writeGroupLabels } from "./account.js";
+import {
+  createAppPassword,
+  getState,
+  readGroupLabels,
+  writeGroupLabels,
+} from "./account.js";
 import {
   AGENT_INSTRUCTION_MAX,
   AGENT_JOB_OPEN_STATES,
@@ -39,7 +44,6 @@ import {
   isAgentRule,
   leaseExpired,
   monthOf,
-  ruleProblem,
   ruleProblems,
 } from "./agent/documents.js";
 import { AgentStore } from "./agent/store.js";
@@ -180,6 +184,11 @@ export async function resolveGroupAccess(
     const a = account as { name?: unknown; isPersonal?: unknown };
     if (a.isPersonal !== false) continue;
     if (typeof a.name !== "string") continue;
+    // A group is a non-personal account **with an address** — the same rule
+    // `groupNamesInSession` applies. A calendar or a files share is non-personal
+    // too, and reading a share as a group would put the fleet's documents in
+    // somebody's shared calendar.
+    if (a.name.indexOf("@") <= 0) continue;
     if (a.name.trim().toLowerCase() !== want) continue;
     return {
       ok: true,
@@ -775,9 +784,83 @@ function tierProvider(
       `${tier} needs a provider, a model and a base URL.`,
       400,
     );
-  // The stored key is kept unless a new one arrives: it is never read back.
-  const apiKey = text("apiKey") || previous?.apiKey || "";
+  assertUsableBaseUrl(baseUrl, tier);
+  /*
+   * The stored key is kept unless a new one arrives — it is never read back —
+   * but **not** when the endpoint moves: the key was issued for the host it was
+   * entered against, and carrying it to a different base URL would hand the
+   * group's credential to whoever wrote that URL. Moving the endpoint means
+   * entering the key again, which is the only way the server can tell the two
+   * apart.
+   */
+  const moved = previous !== undefined && previous.baseUrl !== baseUrl;
+  const apiKey = text("apiKey") || (moved ? "" : (previous?.apiKey ?? ""));
+  if (!apiKey)
+    throw new AgentAdminError(
+      "bad_request",
+      moved
+        ? `${tier} moves to ${baseUrl}, so its api key has to be entered again: a key is issued for the endpoint it was entered against.`
+        : `${tier} needs an api key.`,
+      400,
+    );
   return { provider, model, baseUrl, apiKey };
+}
+
+/**
+ * Refuse a base URL the worker should not be pointed at.
+ *
+ * The worker sends the group's API key to whatever this names, from inside the
+ * deployment's own network. A plaintext URL sends the key in the clear, and an
+ * address inside the network turns the worker into a way to reach services that
+ * are not on the internet — so both are refused here, where an administrator
+ * gets a sentence, rather than at the call, where a 30-second timeout would be
+ * the whole diagnosis.
+ */
+function assertUsableBaseUrl(baseUrl: string, tier: AgentTier): void {
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    throw new AgentAdminError(
+      "bad_request",
+      `${tier} has a base URL that is not a URL.`,
+      400,
+    );
+  }
+  if (url.protocol !== "https:")
+    throw new AgentAdminError(
+      "bad_request",
+      `${tier} must use https: the api key travels in a header, and plain http would send it in the clear.`,
+      400,
+    );
+  if (isPrivateHost(url.hostname))
+    throw new AgentAdminError(
+      "bad_request",
+      `${tier} points at ${url.hostname}, which is inside the network: a worker must not be pointed at an address that is not a model provider.`,
+      400,
+    );
+}
+
+/** Loopback, link-local, and the private ranges — where a provider is not. */
+function isPrivateHost(hostname: string): boolean {
+  const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".internal"))
+    return true;
+  if (
+    host === "::1" ||
+    host.startsWith("fe80:") ||
+    host.startsWith("fc") ||
+    host.startsWith("fd")
+  )
+    return true;
+  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!v4) return false;
+  const [a, b] = [Number(v4[1]), Number(v4[2])];
+  if (a === 127 || a === 10 || a === 0) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 169 && b === 254) return true;
+  return false;
 }
 
 /* ------------------------------------------------------------------ */
@@ -796,7 +879,7 @@ function tierProvider(
  */
 export async function rotateAgentAppPassword(
   admin: LiveSession,
-): Promise<{ secret: string }> {
+): Promise<{ secret: string; alsoValid: number }> {
   const address = config.agent.address.trim();
   if (!address)
     throw new AgentAdminError(
@@ -814,7 +897,15 @@ export async function rotateAgentAppPassword(
   const created = await createAppPassword(imp.ctx, {
     description: `${config.appName} agent worker`,
   });
-  return { secret: created.secret };
+  // What this did, said out loud: the secret is new, and the ones already in use
+  // are still valid. An operator who reads "rotate" as "revoke" and relies on
+  // that would leave a leaked credential alive while believing they had closed
+  // it, so the count travels with the answer and the surface says it.
+  const state = await getState(imp.ctx).catch(() => null);
+  return {
+    secret: created.secret,
+    alsoValid: Math.max(0, (state?.appPasswords.length ?? 1) - 1),
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -1010,7 +1101,10 @@ export async function memberAgentView(
     .filter((j) => AGENT_JOB_OPEN_STATES.includes(j.state))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   return {
-    group: name,
+    // The name the groups are compared by, not the one that arrived: the view
+    // and the lookup have to name the same group, or a client keying on it sees
+    // two.
+    group: name.trim().toLowerCase(),
     granted: rulesDoc.length > 0 || open.length > 0 || audit.length > 0,
     agentAddress: config.agent.address.trim(),
     rules: rulesDoc.map((r) => ({

@@ -30,8 +30,14 @@ import { useSession } from "@/store/session";
 /** Coalesce one burst of FileNode changes into a single group reload. */
 const RELOAD_DEBOUNCE_MS = 400;
 
-/** Group names are matched case-insensitively: the server lower-cases them. */
-function keyOf(name: string): string {
+/**
+ * The key a group's agent view is held under.
+ *
+ * Group names are matched case-insensitively — the server lower-cases them — so
+ * every read and every write of `groupViews` goes through this one function,
+ * whatever spelling of the name the caller happens to hold.
+ */
+export function agentViewKey(name: string): string {
   return name.trim().toLowerCase();
 }
 
@@ -42,7 +48,7 @@ function message(err: unknown): string {
 interface AgentsState {
   /** The installation's fleet, or null before the first read. */
   status: AgentStatus | null;
-  /** One entry per group the surface has read, keyed by lower-cased name. */
+  /** One entry per group the surface has read, keyed by `agentViewKey(name)`. */
   groupViews: Record<string, AgentGroupSurface>;
   approvals: PendingApproval[];
   loading: boolean;
@@ -84,7 +90,7 @@ export const useAgents = create<AgentsState>((set) => ({
   },
 
   loadGroup: async (name) => {
-    const key = keyOf(name);
+    const key = agentViewKey(name);
     set({ loading: true, error: null });
     try {
       const view = await fetchAgentGroup(name);
@@ -97,7 +103,7 @@ export const useAgents = create<AgentsState>((set) => ({
   },
 
   saveRules: async (name, rules) => {
-    const key = keyOf(name);
+    const key = agentViewKey(name);
     set({ loading: true, error: null });
     try {
       // The server owns `version` and the stamps, so the saved document — not
@@ -183,7 +189,7 @@ function groupNameForAccount(accountId: string): string | null {
   const accounts = useSession.getState().session?.accounts ?? {};
   const account = accounts[accountId];
   if (!account || account.isPersonal !== false) return null;
-  return typeof account.name === "string" ? keyOf(account.name) : null;
+  return typeof account.name === "string" ? agentViewKey(account.name) : null;
 }
 
 const reloadTimers: Record<string, number> = {};

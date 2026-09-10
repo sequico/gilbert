@@ -134,8 +134,18 @@ test("the context is bounded, and a reply chain survives a narrow window", async
   const narrow = conversationContext(synthetic, at(4), 1);
   assert.deepEqual(
     narrow.map((message) => message.id),
-    ["m3", "m4"],
-    "the window plus the message it answers, and nothing else",
+    ["m4"],
+    // A bound of one is a bound of one: the reply chain travels *inside* the
+    // bound a human set, never past it. Nobody reaches this by the UI — a
+    // person asking for more context raises the bound to the ceiling — and the
+    // invariant it protects is the one the ADR states twice: the agent widens
+    // its own context for nobody.
+  );
+  const narrowWithChain = conversationContext(synthetic, at(4), 3);
+  assert.deepEqual(
+    narrowWithChain.map((message) => message.id),
+    ["m2", "m3", "m4"],
+    "and when the chain fits in the bound, the chain is what fills it",
   );
   const fromTheStart = conversationContext(synthetic, at(4), 50);
   assert.deepEqual(
@@ -188,4 +198,33 @@ test("a folder is read only when a person names one", async () => {
   assert.equal(folderRequest("@gilbert read folder Archive"), "Archive");
   assert.equal(folderRequest("@gilbert look in the Clients folder, please"), "Clients");
   assert.equal(folderRequest("@gilbert tell me about the movie folder"), "movie");
+});
+
+test("the message being answered is always in the context, or the run is refused", () => {
+  const at = (n: number) => new Date(Date.UTC(2026, 0, 1, 12, n)).toISOString();
+  const chain = Array.from({ length: 80 }, (_, i) => ({
+    id: `m${i}`,
+    created: at(i),
+    from: "ada@example.org",
+    at: at(i),
+    text: `message ${i}`,
+    ...(i > 0 ? { replyTo: `m${i - 1}` } : {}),
+  }));
+  // An old message the window has long passed: it is still what the run answers,
+  // and it comes back with the chain it opens, inside the default bound.
+  const answered = conversationContext(chain, at(79), undefined, "m10");
+  assert.ok(
+    answered.some((message) => message.id === "m10"),
+    "the trigger is in what the model reads",
+  );
+  assert.ok(
+    answered.length <= 50,
+    "and the reply chain does not push the context past the bound a human set",
+  );
+  // A transcript that does not hold the message the caller names is an error,
+  // not a different conversation answered quietly.
+  assert.throws(
+    () => conversationContext(chain, at(79), undefined, "not-in-the-transcript"),
+    /not in the transcript/,
+  );
 });

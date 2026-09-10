@@ -91,6 +91,28 @@ export function auditEntry(
 }
 
 /** The same entry for a decision whose job document is already gone. */
+/**
+ * A run the schedule moved past while no worker was serving the group.
+ *
+ * There is no job to name — nobody ever started one — so the entry names the
+ * rule and the instant the run was due for. Without it, a worker that was away
+ * across a scheduled run leaves a group whose automation simply did not happen,
+ * and nothing anywhere says so.
+ */
+export function missedAuditEntry(
+  rule: AuditRule,
+  at: string,
+  detail?: string,
+): AgentAuditEntry {
+  return build(
+    { jobId: `${rule.id}@${at}`, ruleId: rule.id, ruleVersion: rule.version },
+    rule,
+    "missed",
+    [],
+    detail,
+  );
+}
+
 export function decisionAuditEntry(
   decision: AgentDecision,
   rule: AuditRule,

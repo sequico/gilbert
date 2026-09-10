@@ -131,30 +131,58 @@ export async function postMessage(
  * The last `clampChatContext(requested)` messages up to and including `upto`,
  * plus the reply chain of the message being answered — the chain is context a
  * member wrote on purpose, and a window boundary would otherwise cut it off.
- * The bound holds either way: `CHAT_CONTEXT_MAX` is the ceiling whether the
- * window or the chain reaches it (ADR resolution 11). `requested` is only ever
- * passed when a human asked for more; the agent never widens its own context.
+ *
+ * `anchorId` is the message the run is answering, when the caller knows it. Two
+ * things depend on it and neither is a guess: the chain is built from **that**
+ * message rather than from whichever message happened to be last, and a message
+ * the caller says is the trigger but which the transcript does not hold is an
+ * error rather than a silently different conversation. Answering a window that
+ * does not contain the thing you were asked about is the failure this closes.
+ *
+ * The bound holds either way, and it is the *human* one: the chain may take the
+ * context to `CHAT_CONTEXT_MAX` only when somebody asked for a wider window;
+ * otherwise it stays inside the default, so a long thread does not quietly hand
+ * the model three hundred messages (ADR resolution 11).
  */
 export function conversationContext(
   messages: ReadonlyArray<ChatMessage>,
   upto: string,
   requested?: number,
+  anchorId?: string,
 ): ChatMessage[] {
   const ordered = [...messages].sort(compareMessages);
   const before = ordered.filter((message) => message.created <= upto);
-  const window = before.slice(-clampChatContext(requested));
+  const ceiling = clampChatContext(requested);
+  const window = before.slice(-ceiling);
   const included = new Set(window.map((message) => message.id));
   const byId = indexChat(ordered);
-  const anchor = before[before.length - 1];
+  const anchor = anchorId ? byId.get(anchorId) : before[before.length - 1];
+  if (anchorId && !anchor) {
+    throw new Error(
+      `the message this run answers (${anchorId}) is not in the transcript the worker read, ` +
+        "so there is no conversation to answer in",
+    );
+  }
+  // The chain is what a member wrote on purpose; it is read up to the ceiling
+  // and no further, so the bound a human set is the bound the model gets.
   const chain: ChatMessage[] = [];
   let cursor = anchor?.replyTo ? byId.get(anchor.replyTo) : undefined;
-  while (cursor && window.length + chain.length < CHAT_CONTEXT_MAX) {
+  while (cursor && window.length + chain.length < ceiling) {
     if (included.has(cursor.id)) break;
     included.add(cursor.id);
     chain.unshift(cursor);
     cursor = cursor.replyTo ? byId.get(cursor.replyTo) : undefined;
   }
-  return [...chain, ...window];
+  const context = [...chain, ...window];
+  if (anchor && !included.has(anchor.id)) context.unshift(anchor);
+  // The trigger is the one message that cannot be dropped to fit: the window
+  // gives way instead, oldest first, until the bound holds.
+  while (context.length > ceiling) {
+    const drop = context.findIndex((message) => message.id !== anchor?.id);
+    if (drop < 0) break;
+    context.splice(drop, 1);
+  }
+  return context;
 }
 
 /**

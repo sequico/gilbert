@@ -73,10 +73,27 @@ export class JmapResult {
     return body;
   }
 
-  /** A `list` from a `/get` or `/query` response; empty when there is none. */
+  /**
+   * A `list` from a `/get` or `/query` response; empty when there is none.
+   *
+   * An **error** response is not an empty list. Returning `[]` for one turns
+   * "the server refused this query" into "the account holds nothing", and the
+   * caller — which is usually about to create what it could not find — then
+   * makes a second copy of something that is already there. It throws instead,
+   * which is what the caller already handles for every other failure.
+   */
   list<T>(callId: string): T[] {
     const found = this.raw(callId);
-    if (!found || found[0] === "error") return [];
+    if (!found) return [];
+    if (found[0] === "error") {
+      const described = found[1] as { description?: unknown; type?: unknown };
+      throw new UpstreamError(
+        `the server refused the call: ${String(described.type ?? "error")} ${String(
+          described.description ?? "",
+        )}`.trim(),
+        502,
+      );
+    }
     const list = found[1].list;
     return Array.isArray(list) ? (list as T[]) : [];
   }
@@ -91,6 +108,24 @@ export class JmapResult {
  */
 export function isStateMismatch(err: unknown): boolean {
   return err instanceof JmapError && err.type === "stateMismatch";
+}
+
+/**
+ * The server's own words about a refusal, bounded.
+ *
+ * A non-2xx body says what was wrong — the filter it did not accept, the
+ * account it would not read — and dropping it leaves "502" as the whole
+ * diagnosis for a person who now has to guess. Read once, truncated, and
+ * appended to the message.
+ */
+async function refusalDetail(res: Response): Promise<string> {
+  try {
+    const text = (await res.text()).trim();
+    if (!text) return "";
+    return `: ${text.slice(0, 300)}`;
+  } catch {
+    return "";
+  }
 }
 
 /**
@@ -168,10 +203,19 @@ export class JmapClient {
       signal: AbortSignal.timeout(config.upstreamTimeout),
     });
     noteServerDate(res);
-    if (res.status === 401 || res.status === 403)
-      throw new UpstreamError("Invalid credentials", 401);
+    if (res.status === 401) throw new UpstreamError("Invalid credentials", 401);
+    // 403 is a permission, not a password: telling somebody their credentials
+    // are wrong sends them to re-enter a password that was never the problem.
+    if (res.status === 403)
+      throw new UpstreamError(
+        `the mail server refused this request for this account (403)${await refusalDetail(res)}`,
+        403,
+      );
     if (!res.ok)
-      throw new UpstreamError(`Stalwart rejected the request (${res.status})`, 502);
+      throw new UpstreamError(
+        `Stalwart rejected the request (${res.status})${await refusalDetail(res)}`,
+        502,
+      );
     const body = (await res.json()) as { methodResponses?: MethodResponses };
     return body.methodResponses ?? [];
   }
@@ -214,10 +258,17 @@ export class JmapClient {
       body,
       signal: AbortSignal.timeout(config.upstreamTimeout),
     });
-    if (res.status === 401 || res.status === 403)
-      throw new UpstreamError("Invalid credentials", 401);
+    if (res.status === 401) throw new UpstreamError("Invalid credentials", 401);
+    if (res.status === 403)
+      throw new UpstreamError(
+        `the mail server refused this upload for this account (403)${await refusalDetail(res)}`,
+        403,
+      );
     if (!res.ok)
-      throw new UpstreamError(`Stalwart rejected the upload (${res.status})`, 502);
+      throw new UpstreamError(
+        `Stalwart rejected the upload (${res.status})${await refusalDetail(res)}`,
+        502,
+      );
     const parsed = (await res.json()) as { blobId?: unknown };
     if (typeof parsed.blobId !== "string")
       throw new UpstreamError(

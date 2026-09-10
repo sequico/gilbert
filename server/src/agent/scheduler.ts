@@ -33,6 +33,27 @@ export type OnDue = (entry: AgentScheduleEntry) => void;
  * current instant every pass would slide a rule's due time forward and a rule
  * that runs hourly would never come round.
  */
+
+/**
+ * The due runs no rule can run any more.
+ *
+ * A due entry is normally fired late rather than dropped — a worker that was
+ * away catches up — so the runs that vanish are the ones whose rule is disabled
+ * or gone: the schedule moves to the next instant and nothing anywhere says the
+ * group's automation did not happen. These are the entries worth a line in the
+ * trail, and the caller that knows which ones it could not fire is the one that
+ * records them.
+ */
+export function unrunEntries(
+  due: ReadonlyArray<AgentScheduleEntry>,
+  rules: ReadonlyArray<AgentRule>,
+): AgentScheduleEntry[] {
+  return due.filter((entry) => {
+    const rule = rules.find((candidate) => candidate.id === entry.ruleId);
+    return !rule?.enabled;
+  });
+}
+
 export function planSchedule(
   rules: ReadonlyArray<AgentRule>,
   now: Date,
@@ -88,6 +109,15 @@ export function advance(
  * A capped timer fires before its entry is due; that is not a due entry, so it
  * re-arms for the rest instead of reporting one.
  */
+/**
+ * The shortest delay a timer is armed with.
+ *
+ * Nothing here measures time more finely than a person would notice, and an
+ * arm of zero is always a bug: the entry is re-checked, found not due, and
+ * re-armed in the same tick.
+ */
+const MIN_ARM_MS = 250;
+
 export function armTimers(
   entries: ReadonlyArray<AgentScheduleEntry>,
   onDue: OnDue,
@@ -100,7 +130,11 @@ export function armTimers(
     if (stopped) return;
     const due = Date.parse(entry.at);
     if (!Number.isFinite(due)) return;
-    const delay = Math.min(Math.max(due - Date.now(), 0), opts.maxDelayMs);
+    // The cap is floored as well as applied: `maxDelayMs` of zero (or a
+    // negative one) would arm an instant timer for an entry that is not due,
+    // over and over, which is a spin loop that looks like a scheduler.
+    const cap = Math.max(opts.maxDelayMs, MIN_ARM_MS);
+    const delay = Math.min(Math.max(due - Date.now(), 0), cap);
     const timer = setTimeout(() => {
       timers.delete(timer);
       if (stopped) return;

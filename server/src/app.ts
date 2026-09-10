@@ -7,6 +7,7 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { compress } from "hono/compress";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import {
   AccountError,
   assertEnrolmentCode,
@@ -1412,8 +1413,15 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * deployment with no agent answers plainly instead of failing.
    */
   const agentFailure = (c: Context, err: unknown) => {
+    // Hono types a status as a union of literals; the class carries the number
+    // its own code chose (400 for a refusal, 401/403 for a boundary, 502 for an
+    // upstream one), so it is narrowed to that type rather than asserted as one
+    // particular value.
     if (err instanceof AgentAdminError)
-      return c.json({ error: err.code, message: err.message }, err.status as 400);
+      return c.json(
+        { error: err.code, message: err.message },
+        err.status as ContentfulStatusCode,
+      );
     return upstreamFailure(c, err);
   };
 

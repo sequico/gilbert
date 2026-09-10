@@ -46,6 +46,24 @@ const AGENT_PARAM_LABELS: Record<AgentActionParam["kind"], string> = {
   keyword: "Label keyword",
 };
 
+/**
+ * What each parameter the catalogue declares is called, as the field's label.
+ *
+ * The catalogue names a parameter by its key — `folder`, `name` — because that
+ * is what the executor reads in the document; the form names it for a person.
+ * A key that is not here is shown as the catalogue wrote it.
+ */
+const AGENT_PARAM_KEY_LABELS: Record<string, string> = {
+  keyword: "Label",
+  mailbox: "Mailbox",
+  create: "Create the mailbox if it is missing",
+  folder: "Folder",
+  name: "File name",
+  to: "To",
+  subject: "Subject",
+  text: "Text",
+};
+
 /** The filter keys whose value is a number, and must be written as one. */
 const AGENT_FILTER_NUMBERS = new Set(["minSize", "maxSize"]);
 
@@ -480,6 +498,7 @@ function CategoryEditor({
           </div>
           <ActionListEditor
             actions={category.actions}
+            idScope={`category-${i}-`}
             onChange={(actions) =>
               onChange(categories.map((c, k) => (k === i ? { ...c, actions } : c)))
             }
@@ -503,9 +522,15 @@ function CategoryEditor({
 function ActionListEditor({
   actions,
   onChange,
+  idScope = "",
 }: {
   actions: AgentAction[];
   onChange(next: AgentAction[]): void;
+  /**
+   * Distinguishes the fields of two lists on one form: a T1 automation holds
+   * one list per category, and the same action can appear in both.
+   */
+  idScope?: string;
 }) {
   const move = (from: number, by: number) => {
     const to = from + by;
@@ -555,6 +580,7 @@ function ActionListEditor({
           </div>
           <ActionParams
             action={action}
+            id={`${idScope}${i}`}
             onChange={(next) => onChange(actions.map((a, k) => (k === i ? next : a)))}
           />
         </div>
@@ -582,23 +608,27 @@ function ActionListEditor({
 /** The parameters an action's own catalogue entry declares, and no others. */
 function ActionParams({
   action,
+  id,
   onChange,
 }: {
   action: AgentAction;
+  /** The action's position in its list: two of a kind are still two fields. */
+  id: string;
   onChange(next: AgentAction): void;
 }) {
   const spec = agentActionSpec(action.do);
   if (!spec?.params.length) return null;
+  const field = `agent-param-${id}-${action.do}`;
   return (
     <div className="agent-action-params">
       {spec.params.map((p) => (
         <div className="field" key={p.key}>
-          <label htmlFor={`agent-param-${action.do}-${p.key}`}>
-            {p.key}
+          <label htmlFor={`${field}-${p.key}`}>
+            {t(AGENT_PARAM_KEY_LABELS[p.key] ?? p.key)}
             {p.required ? "" : ` · ${t("optional")}`}
           </label>
           <input
-            id={`agent-param-${action.do}-${p.key}`}
+            id={`${field}-${p.key}`}
             className="input"
             type={p.kind === "number" ? "number" : "text"}
             value={paramValue(action, p.key)}

@@ -14,7 +14,7 @@ import { type AgentRule, ruleProblems } from "@gilbert/agent/documents";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { t } from "@/lib/i18n";
-import { useAgents } from "@/store/agents";
+import { agentViewKey, useAgents } from "@/store/agents";
 import { confirmDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 import {
@@ -42,7 +42,7 @@ export function RuleEditor({
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
-  const view = group ? groupViews[group.trim().toLowerCase()] : undefined;
+  const view = group ? groupViews[agentViewKey(group)] : undefined;
   const granted = groups.find((g) => g.name === group)?.granted === true;
   const rules = view?.granted ? view.rules : [];
   // Why the document would be refused as it stands, if it would: the server's
@@ -85,16 +85,23 @@ export function RuleEditor({
       setProblem(owed);
       return;
     }
+    const sending = existing
+      ? rules.map((r) => (r.id === next.id ? next : r))
+      : [...rules, next];
+    // The server validates every document in the list it is handed, so an
+    // automation that cannot run anywhere in it refuses this save as well.
+    const neighbour = listProblem(sending);
+    if (neighbour) {
+      setProblem(neighbour);
+      return;
+    }
     setBusy(true);
     setProblem(null);
     try {
       // The store rejects with the server's reason when the save is refused,
       // and keeps the saved document — with the version the server stamped —
       // for the surface to show.
-      await saveRules(
-        group,
-        existing ? rules.map((r) => (r.id === next.id ? next : r)) : [...rules, next],
-      );
+      await saveRules(group, sending);
       setDraft(null);
       toast.success(t("Automation saved"));
     } catch (err) {
@@ -106,6 +113,15 @@ export function RuleEditor({
 
   const remove = async (rule: AgentRule) => {
     if (!group) return;
+    const sending = rules.filter((r) => r.id !== rule.id);
+    // The same check the form makes, over the whole list this delete sends: one
+    // automation that cannot run anywhere in the group refuses every write of
+    // it, so a delete would fail with a server error that names nothing.
+    const refused = listProblem(sending);
+    if (refused) {
+      setProblem(refused);
+      return;
+    }
     const ok = await confirmDialog({
       title: t("Delete “{name}”?", { name: rule.name || t("Untitled automation") }),
       message: t(
@@ -118,10 +134,7 @@ export function RuleEditor({
     setBusy(true);
     setProblem(null);
     try {
-      await saveRules(
-        group,
-        rules.filter((r) => r.id !== rule.id),
-      );
+      await saveRules(group, sending);
       setDraft(null);
       toast.success(t("Automation deleted"));
     } catch (err) {
@@ -270,6 +283,27 @@ export function RuleEditor({
 function problemOf(rule: AgentRule): string | null {
   const refused = ruleProblems(rule);
   return refused.length ? refused.join("; ") : null;
+}
+
+/**
+ * Why a whole list of automations would be refused, naming the one at fault.
+ *
+ * Every write hands the server the complete list, and it validates every
+ * document in it, so one automation that cannot run makes saving and deleting
+ * fail alike. Naming it is what turns that refusal into something a person can
+ * act on — and the check is the server's own, so it is answered here instead of
+ * by a round trip that says no more.
+ */
+function listProblem(rules: AgentRule[]): string | null {
+  for (const rule of rules) {
+    const owed = problemOf(rule);
+    if (owed)
+      return t("“{name}” cannot be saved as it stands: {reason}", {
+        name: rule.name || t("Untitled automation"),
+        reason: owed,
+      });
+  }
+  return null;
 }
 
 /** One automation, as the admin reads it before opening the form. */

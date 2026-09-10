@@ -1,6 +1,13 @@
-import type { AgentRule } from "@gilbert/agent/documents";
+import type { AgentRule, AgentTrigger } from "@gilbert/agent/documents";
 import { describe, expect, it } from "vitest";
-import { actionText, reviewText, ruleActions, triggerText } from "../agentText";
+import {
+  actionText,
+  jobStateText,
+  outcomeText,
+  reviewText,
+  ruleActions,
+  triggerText,
+} from "../agentText";
 
 /**
  * The shared wording is what both agent surfaces show, so what it says about a
@@ -93,5 +100,32 @@ describe("ruleActions", () => {
 
   it("shows no fixed actions for a T2 rule, which decides at run time", () => {
     expect(ruleActions({ ...base, tier: "T2", instruction: "Do the thing" })).toEqual([]);
+  });
+});
+
+/*
+ * The panel reads whatever the group's own account holds: a rule written by a
+ * newer version carries values this build has never seen, and one written by
+ * hand can be missing the fields it expects. Reading it must not throw, and a
+ * value with no label here is shown as it was written.
+ */
+describe("a partial or unfamiliar document", () => {
+  it("renders without a trigger or a review, and shows an unknown value raw", () => {
+    const foreign = {
+      v: 1,
+      id: "r-newer",
+      version: 1,
+      name: "Filed by a newer version",
+      enabled: true,
+      area: "mail",
+      tier: "T0",
+    } as unknown as AgentRule;
+
+    expect(triggerText(foreign.trigger)).toBe("");
+    expect(reviewText(foreign.review)).toBe("");
+    expect(jobStateText("paused")).toBe("paused");
+    expect(outcomeText("deferred")).toBe("deferred");
+    // An event this build cannot name is shown as the document spells it.
+    expect(triggerText({ on: "webhook" } as unknown as AgentTrigger)).toBe("webhook");
   });
 });

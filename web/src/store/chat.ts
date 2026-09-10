@@ -39,7 +39,7 @@ import {
 } from "@/lib/chat";
 import { t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
-import { useAgents } from "@/store/agents";
+import { agentViewKey, useAgents } from "@/store/agents";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { toast } from "@/ui/toast";
@@ -452,9 +452,12 @@ export const useChat = create<ChatState>((set, get) => {
         /* The group's agent is a participant before it has ever posted (ADR
            0003 resolution 11): the picker offers it, so a mention of it has to
            reach the document too — otherwise the mention lives in the text and
-           in nothing else. Best effort: a view this panel has not loaded simply
-           leaves the mention unnamed, which the transcript still delivers. */
-        const agent = useAgents.getState().groupViews[conv.name]?.agentAddress;
+           in nothing else. It is offered exactly when the group's view says it
+           is granted, which is the picker's own rule; a view this panel has not
+           loaded leaves the mention unnamed, which the transcript still
+           delivers. */
+        const agentView = useAgents.getState().groupViews[agentViewKey(conv.name)];
+        const agent = agentView?.granted ? agentView.agentAddress : null;
         const participants = [
           ...new Set([...participantsOf(conv.nodes, me), ...(agent ? [agent] : [])]),
         ];

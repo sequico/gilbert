@@ -23,7 +23,7 @@ import { COMMON_EMOJI, emojiAsset } from "@/lib/emoji";
 import { formatListDate } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
 import type { MailAccountInfo } from "@/lib/mailAccounts";
-import { useAgents } from "@/store/agents";
+import { agentViewKey, useAgents } from "@/store/agents";
 import { unreadOf, useChat } from "@/store/chat";
 import { useSession } from "@/store/session";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
@@ -112,7 +112,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   const groupViews = useAgents((s) => s.groupViews);
   const loadGroup = useAgents((s) => s.loadGroup);
   const groupName = open?.name ?? null;
-  const agentView = groupName ? groupViews[groupName.trim().toLowerCase()] : undefined;
+  const agentView = groupName ? groupViews[agentViewKey(groupName)] : undefined;
   const [agentOpen, setAgentOpen] = useState(false);
 
   // Loaded with the conversation rather than with the panel: the `@` picker

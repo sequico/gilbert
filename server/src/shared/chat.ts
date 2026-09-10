@@ -158,7 +158,13 @@ export function mentionsFromText(
   const known = new Set(participants);
   const out: ChatMention[] = [];
   const seen = new Set<string>();
-  for (const token of text.match(/@[^\s]+/g) ?? []) {
+  for (const raw of text.match(/@[^\s]+/g) ?? []) {
+    // A mention at the end of a sentence is followed by the punctuation, not by
+    // a space: `@sam@example.org,` names the same person as the bare address,
+    // and the same rule has to hold here and in `mentionsName` — a mention the
+    // writer makes and the reader does not see is a message nobody was told
+    // about.
+    const token = raw.replace(/[.,;:!?)\]”"]+$/, "");
     const id = token.slice(1);
     if (!known.has(id) || seen.has(id)) continue;
     seen.add(id);
@@ -194,6 +200,9 @@ export function mentionsName(text: string, address: string): boolean {
   if (mentionsAddress(text, address)) return true;
   const local = shortName(address);
   if (!local) return false;
+  // The local part is followed by something that ends a name: a space, the end
+  // of the text, or the punctuation a sentence ends with. `@gilbert.` in a
+  // sentence is a mention; `@gilbert1` is somebody else.
   return new RegExp(`@${escapeRegExp(local)}(?![\\w.@-])`, "i").test(text);
 }
 

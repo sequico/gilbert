@@ -119,7 +119,11 @@ export function openEventStream(
   const after = (err: Error) => {
     if (stopped) return;
     onError(err);
-    const delay = Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_MAX_MS);
+    // Exponential, capped, and jittered: a fleet of workers that all lost the
+    // same server would otherwise come back in lockstep, at the same millisecond,
+    // and knock it over again. The jitter is what turns one herd into a queue.
+    const base = Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_MAX_MS);
+    const delay = Math.max(RECONNECT_BASE_MS / 2, base / 2 + Math.random() * (base / 2));
     attempt += 1;
     reconnect = setTimeout(() => {
       reconnect = null;
@@ -137,12 +141,10 @@ export function openEventStream(
       });
       if (!res.ok) throw new Error(`Stalwart refused the event stream (${res.status})`);
       if (!res.body) throw new Error("the event stream carried no body");
-      // A stream that opened is a stream that works: the next loss starts its
-      // backoff from the beginning again.
-      attempt = 0;
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let delivered = false;
       while (!stopped) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -156,10 +158,29 @@ export function openEventStream(
             onError(new Error(`the event stream sent a frame this worker cannot read`));
             continue;
           }
-          for (const change of changes) onEvent(change.accountId, change.type);
+          delivered = true;
+          for (const change of changes) {
+            // A handler that throws must not take the stream down with it: the
+            // frame is reported, the next one still arrives, and the worker
+            // keeps hearing about changes — a lost stream is how a worker goes
+            // quiet without anybody noticing.
+            try {
+              onEvent(change.accountId, change.type);
+            } catch (err) {
+              onError(err instanceof Error ? err : new Error(String(err)));
+            }
+          }
         }
       }
-      if (!stopped) after(new Error("the event stream ended"));
+      if (!stopped) {
+        // A stream that delivered frames was working, and the next loss starts
+        // its backoff from the beginning; one that ended before any frame did
+        // not, and keeps backing off — the other way round, a server that
+        // accepts and closes immediately would be reconnected to once a second,
+        // forever, by every worker at once.
+        if (delivered) attempt = 0;
+        after(new Error("the event stream ended"));
+      }
     } catch (err) {
       if (stopped) return;
       after(err instanceof Error ? err : new Error(String(err)));

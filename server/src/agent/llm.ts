@@ -121,7 +121,12 @@ function messageContent(body: unknown): string | null {
   if (!body || typeof body !== "object") return null;
   const choices = (body as { choices?: unknown }).choices;
   if (!Array.isArray(choices) || !choices.length) return null;
-  const message = (choices[0] as { message?: { content?: unknown } }).message;
+  // A provider that answers `{"choices":[null]}` is malformed, not fatal: the
+  // same "answered without a message" the caller already reports for a missing
+  // content, rather than a TypeError from indexing null.
+  const first = choices[0];
+  if (!first || typeof first !== "object") return null;
+  const message = (first as { message?: { content?: unknown } }).message;
   const content = message?.content;
   return typeof content === "string" && content.trim() ? content : null;
 }
@@ -164,6 +169,14 @@ export function providerForTier(
   if (!provider)
     throw new Error(
       `no model provider is configured for ${tier} in the agent's own account; ` +
+        "a rule on that tier cannot run without one",
+    );
+  // An empty key is a configuration mistake, not a call to make: sending
+  // `Bearer ` and reporting the provider's 401 sends the reader to the wrong
+  // place, and this is the only point where the tier is still named.
+  if (!provider.apiKey.trim())
+    throw new Error(
+      `the provider configured for ${tier} (${provider.provider}) has no api key; ` +
         "a rule on that tier cannot run without one",
     );
   return provider;

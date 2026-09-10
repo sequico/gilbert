@@ -261,15 +261,48 @@ async function ensureChildFolder(
     throw new AppFolderError(
       `The mail server created the folder "${name}" but returned no id.`,
     );
+  // Creating a folder is a read-then-write and cannot be made conditional (the
+  // state a create would carry is the state of the account, which any other
+  // write invalidates), so two workers can both decide it is missing. When that
+  // happened there are two folders by this name, and every later lookup would
+  // pick whichever the server listed first: the documents would split across
+  // two trees and look as if they had vanished. The list is re-read, the
+  // smaller id wins — deterministically, the same one for both workers — and
+  // the copy this call created is removed.
+  const after = await fileChildren(ctx, accountId, parentId, FOLDER_PROPS);
+  const sameName = after
+    .filter((n) => n.nodeType === "directory" && n.name === name && n.id !== undefined)
+    .map((n) => String(n.id))
+    .sort();
+  const winner = sameName[0];
+  if (sameName.length > 1 && winner !== undefined && winner !== String(id)) {
+    await destroyAppNode(ctx, accountId, String(id));
+    return winner;
+  }
   return id;
 }
 
-/** Split an app-folder-relative path into its segments, refusing traversal. */
+/**
+ * Split an app-folder-relative path into its segments.
+ *
+ * A `.` or `..` segment is **refused**, not turned into a folder of that name:
+ * nothing here can escape the account (every lookup is by parent and name), but
+ * a folder literally called `..` in somebody's Files is clutter that came from
+ * a bug, and the honest answer is to say so.
+ */
 export function pathSegments(path: string): string[] {
   return path
     .split("/")
     .map((s) => s.trim())
-    .filter(Boolean);
+    .filter((s) => {
+      if (s === "." || s === "..")
+        throw new AppFolderError(
+          `"${s}" cannot be part of a path in Files`,
+          400,
+          "bad_path",
+        );
+      return Boolean(s);
+    });
 }
 
 /**
@@ -468,6 +501,11 @@ async function putFile(
   const file = await findInFolder(ctx, accountId, folderId, name);
   const conditional = ifInState ? { ifInState } : {};
   const client = clientOf(ctx);
+  // The bytes are already uploaded by the caller, and JMAP has no blob removal
+  // to offer: a write that fails afterwards — a lost compare-and-set, a refused
+  // permission — leaves a blob nothing refers to. It is the server's to
+  // collect, and the alternative (uploading after the node exists) trades it
+  // for a node with no bytes, which is worse.
   if (file?.id) {
     await client.call(
       "FileNode/set",

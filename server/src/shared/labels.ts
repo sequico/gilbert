@@ -65,14 +65,25 @@ export const AGENT_LABELS: ReadonlyArray<LabelCatalogEntry> = [
     name: "Gilbert: needs attention",
     color: "#b91c1c",
   },
-  { keyword: "G-processed", name: "Gilbert: processed", color: "#15803d" },
-  { keyword: "G-awaiting", name: "Gilbert: awaiting approval", color: "#b45309" },
-  { keyword: "G-rejected", name: "Gilbert: rejected", color: "#475569" },
+  { keyword: AGENT_LABEL.processed, name: "Gilbert: processed", color: "#15803d" },
+  {
+    keyword: AGENT_LABEL.awaiting,
+    name: "Gilbert: awaiting approval",
+    color: "#b45309",
+  },
+  { keyword: AGENT_LABEL.rejected, name: "Gilbert: rejected", color: "#475569" },
 ];
 
-/** Whether a keyword belongs to the agent's reserved namespace. */
+/**
+ * Whether a keyword belongs to the agent's reserved namespace.
+ *
+ * The comparison is case-insensitive on the prefix: a rule that names
+ * `g-processed` is refused upstream by the keyword it has to match, and a
+ * prefix test that let it through here would let a reserved name be treated as
+ * a person's own label.
+ */
 export function isAgentLabel(keyword: string): boolean {
-  return keyword.startsWith(G_LABEL_PREFIX);
+  return keyword.toLowerCase().startsWith(G_LABEL_PREFIX.toLowerCase());
 }
 
 export function isLabelCatalogEntry(x: unknown): x is LabelCatalogEntry {

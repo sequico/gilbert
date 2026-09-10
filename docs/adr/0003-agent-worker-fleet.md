@@ -472,6 +472,16 @@ record keeps its full shape as the evolution path.
     operators.
   - **A degenerate cadence is refused**, and the schedule's delay is floored, so
     a past instant cannot re-fire in a tight loop.
+  - **The chat context is bounded by the bound a human set.** The reply chain of
+    the message being answered is read *inside* that bound, not past it: with no
+    widening request the whole context — window and chain — stays within the
+    default of 50, and the 300 ceiling is reached only when a person asked for
+    more. Resolution 11's "the last 50 messages (with their reply chain)" is read
+    this way round, because "the agent widens its own context for nobody" is the
+    invariant, and a long thread is exactly where it would have been broken.
+    The message being answered is named by id, is always in the result, and a
+    transcript that does not hold it is an error rather than a different
+    conversation answered quietly.
   - **The member's surface never impersonates.** A name that is not in the
     member's own session is not a group this person may act as, and the answer
     is reached without asking the mail server for anything — Stalwart's refusal

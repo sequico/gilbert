@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import type { AgentProviderInput, AgentProviderView } from "@/lib/agents";
 import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
+import { confirmDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 
 export function AgentProviders() {
@@ -36,23 +37,32 @@ export function AgentProviders() {
           "T0 calls no model at all. Each of the tiers above it names the model it runs on, so the cheap classifier and the agent can run on different vendors, or on a model of your own.",
         )}
       </p>
-      {view && !view.address && (
+      {/*
+       * The tiers are documents in the agent's own account, written through the
+       * agent's own session: with no agent registered there is nothing to write
+       * them to, so the editors are withheld rather than offered and then
+       * refused — the way the rules editor withholds itself without a grant.
+       */}
+      {view && !view.address ? (
         <p className="hint" style={{ marginBottom: 12 }}>
           {t(
             "No agent is registered for this installation yet, so there is nothing for a tier to run on.",
           )}
         </p>
+      ) : (
+        <>
+          <ProviderEditor
+            tier="T1"
+            view={view?.providers.T1}
+            onSave={(patch) => saveProviders({ T1: patch })}
+          />
+          <ProviderEditor
+            tier="T2"
+            view={view?.providers.T2}
+            onSave={(patch) => saveProviders({ T2: patch })}
+          />
+        </>
       )}
-      <ProviderEditor
-        tier="T1"
-        view={view?.providers.T1}
-        onSave={(patch) => saveProviders({ T1: patch })}
-      />
-      <ProviderEditor
-        tier="T2"
-        view={view?.providers.T2}
-        onSave={(patch) => saveProviders({ T2: patch })}
-      />
     </section>
   );
 }
@@ -64,7 +74,8 @@ function ProviderEditor({
 }: {
   tier: "T1" | "T2";
   view: AgentProviderView | undefined;
-  onSave(patch: AgentProviderInput): Promise<void>;
+  /** `null` clears the tier, which is how a tier stops calling a model. */
+  onSave(patch: AgentProviderInput | null): Promise<void>;
 }) {
   const [provider, setProvider] = useState(view?.provider ?? "");
   const [model, setModel] = useState(view?.model ?? "");
@@ -100,6 +111,36 @@ function ProviderEditor({
       await onSave(patch);
       setApiKey("");
       toast.success(t("{tier} provider saved", { tier }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /*
+   * Clear the tier.
+   *
+   * A tier sent as `null` is the one write that removes it — a tier the write
+   * omits is left as it is — so this is how "no model serves this tier" is
+   * said. The stored key lives on the entry that goes, so it goes with it.
+   */
+  const remove = async () => {
+    const ok = await confirmDialog({
+      title: t("Remove the {tier} provider?", { tier }),
+      message: t(
+        "The tier calls no model until another provider is saved for it, and the stored API key is removed with it.",
+      ),
+      confirmLabel: t("Remove"),
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      // The store rejects with the server's reason when the write is refused.
+      await onSave(null);
+      setApiKey("");
+      toast.success(t("{tier} provider removed", { tier }));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
     } finally {
@@ -166,9 +207,24 @@ function ProviderEditor({
           )}
         </p>
       </div>
-      <button className="btn" disabled={busy || !provider.trim() || !model.trim()}>
-        {busy ? t("Saving…") : t("Save")}
-      </button>
+      <div className="row" style={{ gap: 8 }}>
+        <button
+          className="btn btn-primary"
+          disabled={busy || !provider.trim() || !model.trim() || !baseUrl.trim()}
+        >
+          {busy ? t("Saving…") : t("Save")}
+        </button>
+        {view && (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            disabled={busy}
+            onClick={() => void remove()}
+          >
+            {t("Remove this tier")}
+          </button>
+        )}
+      </div>
     </form>
   );
 }

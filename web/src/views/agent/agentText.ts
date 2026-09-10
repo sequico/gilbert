@@ -70,6 +70,7 @@ export const AGENT_OUTCOME_LABELS: Record<AgentAuditOutcome, string> = {
   failed: "Failed",
   awaiting_approval: "Asked for approval",
   rejected: "Rejected",
+  missed: "Missed",
 };
 
 /** The catalogue's own labels, keyed by capability name. */
@@ -89,22 +90,36 @@ export function actionLabel(name: string): string {
   return t(AGENT_ACTION_LABELS[name] ?? name);
 }
 
-export function jobStateText(state: AgentJobState): string {
-  return t(AGENT_JOB_STATE_LABELS[state]);
+/**
+ * A job's state, named.
+ *
+ * A state this build has never heard of — a job document written by a newer
+ * version — renders as the value it carries, never as an empty translation:
+ * the panel is a reader, and it shows what the document says.
+ */
+export function jobStateText(state: string): string {
+  return t(AGENT_JOB_STATE_LABELS[state as AgentJobState] ?? state);
 }
 
-export function outcomeText(outcome: AgentAuditOutcome): string {
-  return t(AGENT_OUTCOME_LABELS[outcome]);
+/** An audit entry's outcome, with the same fallback to the raw value. */
+export function outcomeText(outcome: string): string {
+  return t(AGENT_OUTCOME_LABELS[outcome as AgentAuditOutcome] ?? outcome);
 }
 
 /**
  * The trigger in one line: what wakes the automation, then the filters the
  * executor honours (the RFC 8621 subset `matchEmailFilter` implements).
+ *
+ * A partial document renders as far as it can: an unknown event is shown as the
+ * value it carries, and a trigger that is not there at all describes nothing
+ * rather than crashing the panel that shows it.
  */
-export function triggerText(trigger: AgentTrigger): string {
-  const base = t(AGENT_TRIGGER_LABELS[trigger.on]);
-  const parts = filterParts(trigger.filter);
-  if (trigger.on === "schedule" && typeof trigger.everyMinutes === "number") {
+export function triggerText(trigger: AgentTrigger | undefined): string {
+  const on = trigger?.on;
+  if (!on) return "";
+  const base = t(AGENT_TRIGGER_LABELS[on] ?? on);
+  const parts = filterParts(trigger?.filter);
+  if (on === "schedule" && typeof trigger?.everyMinutes === "number") {
     parts.push(t("every {minutes} minutes", { minutes: trigger.everyMinutes }));
   }
   return parts.length ? `${base} · ${parts.join(", ")}` : base;
@@ -125,18 +140,26 @@ function filterParts(filter: Record<string, unknown> | undefined): string[] {
   return out;
 }
 
-/** The review policy in one line, including the external-send consent floor. */
-export function reviewText(review: AgentReview): string {
-  const base = t(AGENT_REVIEW_LABELS[review.mode]);
+/**
+ * The review policy in one line, including the external-send consent floor.
+ *
+ * A document that carries no mode describes nothing — there is no policy to
+ * name — and an unknown one is shown as written, like the agent's other tables.
+ */
+export function reviewText(review: AgentReview | undefined): string {
+  const mode = review?.mode;
+  if (!mode) return "";
+  const base = t(AGENT_REVIEW_LABELS[mode] ?? mode);
+  const threshold = review?.threshold;
   const withNumber =
-    review.mode === "threshold" && typeof review.threshold === "number"
+    mode === "threshold" && typeof threshold === "number"
       ? `${base} (${t("at {percent}% confidence or above", {
-          percent: Math.round(review.threshold * 100),
+          percent: Math.round(threshold * 100),
         })})`
       : base;
   // The floor is the part a reader must not miss: without it an external
   // action pauses whatever the mode says (ADR 0003 resolution 10).
-  return review.allowExternal
+  return review?.allowExternal
     ? `${withNumber} · ${t("sending outside the group allowed without a person")}`
     : `${withNumber} · ${t("sending outside the group always waits for a person")}`;
 }

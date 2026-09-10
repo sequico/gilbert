@@ -385,6 +385,30 @@ function resolveAgentBootstrap(): AgentBootstrap {
       `GILBERT_AGENTS_FILE has no entry for ${address}; it names ${Object.keys(file).join(", ")}`,
     );
   }
+  /*
+   * The other half of the same mistake, and the one that is easy to make: an
+   * address with no password anywhere. The web tier would fall back to
+   * impersonation for every call and the worker would start with no secret —
+   * two different behaviours from one missing variable, neither of them
+   * obvious. Half-configured is not a state this starts in.
+   */
+  if (address && !fromEnv && !entry?.password) {
+    throw new Error(
+      `GILBERT_AGENT_ADDRESS is set to ${address} and no password was found for it: ` +
+        "set GILBERT_AGENT_PASSWORD, or name the address in GILBERT_AGENTS_FILE with its password",
+    );
+  }
+  /*
+   * One agent per installation (ADR 0003 §2). A file naming several and no
+   * address to pick between them would silently choose whichever came first in
+   * the file — a deployment that runs a different agent than its operator wrote.
+   */
+  if (!address && Object.keys(file).length > 1) {
+    throw new Error(
+      `GILBERT_AGENTS_FILE names ${Object.keys(file).length} agents and GILBERT_AGENT_ADDRESS ` +
+        "does not say which one this installation runs",
+    );
+  }
   const areas = process.env.GILBERT_AGENT_AREAS
     ? readAgentAreas(process.env.GILBERT_AGENT_AREAS, "GILBERT_AGENT_AREAS")
     : (entry?.areas ?? [...AGENT_AREAS]);

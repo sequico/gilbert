@@ -54,7 +54,13 @@ export function claimDocName(area: AgentArea): string {
 
 /** The audit document name for a month, `YYYY-MM` (UTC). */
 export function auditDocName(month?: string): string {
-  return `${month ?? monthOf(new Date())}.json`;
+  const name = month ?? monthOf(new Date());
+  // The name is the month, in the one shape `monthOf` writes: two processes
+  // that spelled the same month differently would write two documents for it,
+  // and neither would hold the whole trail.
+  if (!/^\d{4}-\d{2}$/.test(name))
+    throw new Error(`"${name}" is not a month: an audit document is named YYYY-MM`);
+  return `${name}.json`;
 }
 
 /** The `YYYY-MM` an instant falls in, UTC. */
@@ -801,6 +807,14 @@ export function reviewOutcome(
 /* Jobs                                                                */
 /* ------------------------------------------------------------------ */
 
+export const AGENT_JOB_STATES: ReadonlyArray<string> = [
+  "pending",
+  "running",
+  "awaiting_approval",
+  "done",
+  "failed",
+];
+
 export type AgentJobState =
   | "pending"
   | "running"
@@ -879,13 +893,7 @@ export function isAgentLease(x: unknown): x is AgentLease {
 }
 
 export function isAgentJobState(x: unknown): x is AgentJobState {
-  return (
-    x === "pending" ||
-    x === "running" ||
-    x === "awaiting_approval" ||
-    x === "done" ||
-    x === "failed"
-  );
+  return typeof x === "string" && AGENT_JOB_STATES.includes(x);
 }
 
 export function isAgentTriggerRecord(x: unknown): x is AgentTriggerRecord {
@@ -1235,6 +1243,7 @@ export const AGENT_AUDIT_OUTCOMES: ReadonlyArray<string> = [
   "failed",
   "awaiting_approval",
   "rejected",
+  "missed",
 ];
 
 export type AgentAuditOutcome =
@@ -1242,7 +1251,8 @@ export type AgentAuditOutcome =
   | "done"
   | "failed"
   | "awaiting_approval"
-  | "rejected";
+  | "rejected"
+  | "missed";
 
 /** Whether a value names an outcome the audit can carry. */
 export function isAgentAuditOutcome(x: unknown): x is AgentAuditOutcome {

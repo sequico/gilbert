@@ -26,3 +26,18 @@ export function textSignatureBlock(signature: string | null | undefined): string
   if (!signature) return "";
   return `\n\n${SIGNATURE_SEPARATOR}\n${signature}`;
 }
+
+/**
+ * The same signature in an HTML body.
+ *
+ * The delimiter is the same line — `SIGNATURE_SEPARATOR`, which is what the
+ * reader's client hides the block by — and only the markup around it differs,
+ * so it is written from the one constant rather than spelled again. The
+ * caller passes the signature already rendered: it is the site that knows
+ * whether the identity holds text or markup, and where the newlines inside it
+ * become line breaks.
+ */
+export function htmlSignatureBlock(signatureHtml: string | null | undefined): string {
+  if (!signatureHtml) return "";
+  return `<br>${SIGNATURE_SEPARATOR}<br>${signatureHtml}`;
+}
