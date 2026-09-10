@@ -1550,6 +1550,11 @@ export const catalog: Catalog = {
       "このアドレスからの以降のメールが別の人の署名だった場合、Gilbert がお知らせします。",
     "itself, or an issuer it does not name": "自分自身、または名前のない発行者",
     "no address": "アドレスなし",
+    // ── The agent fleet (ADR 0003) ────────────────────────────────────
+    "The number of other app passwords still valid could not be read, so it is unknown here: check Stalwart's administration to see which credentials the agent still holds.":
+      "他に有効なアプリパスワードの数は読み取れなかったため、ここでは不明です。エージェントが保持している認証情報は Stalwart の管理画面で確認してください。",
+    "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
+      "グループメールボックスをすべて一覧できなかったため、このキューにはあなたがメンバーであるグループのみが含まれます。ここにないグループで待機中のものがある可能性があります。",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

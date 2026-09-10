@@ -27,6 +27,24 @@ import type {
 /* The installation's fleet                                            */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Whether a group list came from Stalwart's directory, and why not when it did
+ * not.
+ *
+ * The group mailboxes an admin can act on are enumerated from the directory,
+ * and a session whose directory query is refused falls back on the group
+ * accounts it already holds. The shorter list and the complete one read
+ * identically from the outside, so an answer built that way carries this pair
+ * with it: "nothing is waiting" and "I could not look" are different
+ * sentences, and only one of them is about the groups.
+ */
+export interface GroupEnumeration {
+  /** False when the directory could not be listed, so the list is a subset. */
+  enumeration: boolean;
+  /** Why the directory could not be listed; null when it answered. */
+  enumerationMessage: string | null;
+}
+
 /** One group the agent could work in, and whether it may. */
 export interface AgentStatusGroup {
   name: string;
@@ -43,7 +61,14 @@ export interface AgentStatusWorker {
   alive: boolean;
 }
 
-export interface AgentStatus {
+/**
+ * The installation's fleet, as the status route answers it.
+ *
+ * `groups` is an enumeration's list, so the pair is `GroupEnumeration`'s:
+ * absent on an answer that never enumerated — an installation with no agent
+ * lists no group at all, which `reason` already says.
+ */
+export interface AgentStatus extends Partial<GroupEnumeration> {
   configured: boolean;
   /** The registered agent's address; empty when the installation has none. */
   address: string;
@@ -136,6 +161,30 @@ export interface PendingApproval {
   summary: string;
   confidence: number;
   createdAt: string;
+}
+
+/**
+ * The approval queue, with the reach it was built from.
+ *
+ * The queue walks the group mailboxes the directory enumeration returned, so a
+ * queue the directory could not be asked about is short, and this pair is what
+ * tells that apart from a queue with nothing in it.
+ */
+export interface AgentApprovalsView extends GroupEnumeration {
+  approvals: PendingApproval[];
+}
+
+/**
+ * The agent's new app password, handed back exactly once.
+ *
+ * `alsoValid` is how many app passwords the rotation left working — the whole
+ * difference between rotating a credential and revoking one — and it is null
+ * when the account's state could not be re-read: unknown is not zero, and a
+ * zero reported here would read as "the old credentials stopped working".
+ */
+export interface AgentAppPasswordRotation {
+  secret: string;
+  alsoValid: number | null;
 }
 
 export interface GroupInstructionView {

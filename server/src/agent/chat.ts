@@ -140,7 +140,6 @@ export async function postMessage(
  * otherwise it stays inside the default, so a long thread does not quietly hand
  * the model three hundred messages (ADR resolution 11).
  */
-// ADR-0003 OWED: chat-reply-chain
 export function conversationContext(
   messages: ReadonlyArray<ChatMessage>,
   upto: string,
@@ -150,8 +149,6 @@ export function conversationContext(
   const ordered = [...messages].sort(compareMessages);
   const before = ordered.filter((message) => message.created <= upto);
   const ceiling = clampChatContext(requested);
-  const window = before.slice(-ceiling);
-  const included = new Set(window.map((message) => message.id));
   const byId = indexChat(ordered);
   const anchor = anchorId ? byId.get(anchorId) : before[before.length - 1];
   if (anchorId && !anchor) {
@@ -160,26 +157,28 @@ export function conversationContext(
         "so there is no conversation to answer in",
     );
   }
-  // The chain is what a member wrote on purpose; it is read up to the ceiling
-  // and no further, so the bound a human set is the bound the model gets.
-  const chain: ChatMessage[] = [];
+  // The message being answered is the one thing that cannot be dropped, and the
+  // chain is what a member wrote on purpose; both are read first, inside the
+  // bound, and the window takes what is left. Reading the window first would
+  // make a long thread the one case where the chain is always absent, which is
+  // the opposite of what it is for.
+  const chosen: ChatMessage[] = [];
+  const included = new Set<string>();
+  const take = (message: ChatMessage | undefined) => {
+    if (!message || included.has(message.id)) return;
+    included.add(message.id);
+    chosen.push(message);
+  };
+  take(anchor);
   let cursor = anchor?.replyTo ? byId.get(anchor.replyTo) : undefined;
-  while (cursor && window.length + chain.length < ceiling) {
-    if (included.has(cursor.id)) break;
-    included.add(cursor.id);
-    chain.unshift(cursor);
+  while (cursor && chosen.length < ceiling) {
+    take(cursor);
     cursor = cursor.replyTo ? byId.get(cursor.replyTo) : undefined;
   }
-  const context = [...chain, ...window];
-  if (anchor && !included.has(anchor.id)) context.unshift(anchor);
-  // The trigger is the one message that cannot be dropped to fit: the window
-  // gives way instead, oldest first, until the bound holds.
-  while (context.length > ceiling) {
-    const drop = context.findIndex((message) => message.id !== anchor?.id);
-    if (drop < 0) break;
-    context.splice(drop, 1);
+  for (let i = before.length - 1; i >= 0 && chosen.length < ceiling; i--) {
+    take(before[i]);
   }
-  return context;
+  return chosen.sort(compareMessages);
 }
 
 /**

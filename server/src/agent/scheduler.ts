@@ -118,7 +118,6 @@ export function advance(
  */
 const MIN_ARM_MS = 250;
 
-// ADR-0003 OWED: schedule-rearm-catchup
 export function armTimers(
   entries: ReadonlyArray<AgentScheduleEntry>,
   onDue: OnDue,

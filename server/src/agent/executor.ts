@@ -78,6 +78,7 @@ import {
   CHAT_CONTEXT_DEFAULT,
   CHAT_CONTEXT_MAX,
   claimEpoch,
+  filterProblems,
   instructionFor,
   leaseExpired,
   leavesTheProcess,
@@ -88,7 +89,6 @@ import {
   reviewOutcome,
   ruleProblem,
   UnsupportedFilterError,
-  unsupportedFilterKey,
 } from "./documents.js";
 import { claimStillMine, saveClaimStates } from "./lease.js";
 import {
@@ -107,7 +107,7 @@ import {
 import { type AgentDoc, AgentStore } from "./store.js";
 
 /** The JMAP types the executor reconciles, plus the schedule. */
-export type ChangeType = "Email" | "FileNode" | "schedule";
+export type ChangeType = "Email" | "FileNode";
 
 /**
  * How many times a job is attempted before it is dead-lettered. A failure that
@@ -185,10 +185,6 @@ export class Executor {
    */
   async reconcile(accountId: string, type: ChangeType, claim: AgentClaim): Promise<void> {
     const store = new AgentStore(this.deps.ctx, accountId);
-    if (type === "schedule") {
-      await this.fireDueSchedule(store, accountId, claim);
-      return;
-    }
     const since = claim.states[type] ?? "0";
     const changes = await this.changes(accountId, type, since);
     if (!changes) {
@@ -281,9 +277,11 @@ export class Executor {
     // message would bury the one cause under a failed job for every arrival.
     const usable: AgentRule[] = [];
     for (const rule of candidates) {
-      // ADR-0003 OWED: runtime-filter-list
-      const bad = unsupportedFilterKey(rule.trigger.filter);
-      if (!bad) {
+      // A filter this executor cannot evaluate is a fault of the rule, not of
+      // the message, and the list asked here is the one the form asks, so an
+      // automation refused when it is written is refused when it runs.
+      const problems = filterProblems(rule.trigger.filter, "the filter");
+      if (!problems.length) {
         usable.push(rule);
         continue;
       }
@@ -292,7 +290,7 @@ export class Executor {
         accountId,
         rule,
         { on: "email", at: this.deps.now().toISOString() },
-        `this executor does not understand the filter "${bad}"`,
+        problems.join("; "),
       );
     }
     if (!usable.length) return;
@@ -1293,9 +1291,17 @@ export class Executor {
       }
       return;
     }
-    // ADR-0003 OWED: intent-before-effect-settled
     const detail = `sent from the group's Drafts by ${by} at ${decided.appliedAt}`;
     try {
+      // Intent before effect, as everywhere else: the trail says what is about
+      // to run before it runs, so a crash between the two leaves a line that
+      // accounts for the effect instead of an effect nobody can read.
+      await recordAudit(
+        store,
+        job
+          ? auditEntry(job, auditRule, "running", actions, detail)
+          : decisionAuditEntry(decided, auditRule, "running", actions, detail),
+      );
       if (actions.length)
         await runActions(
           this.deps.ctx,
@@ -1430,6 +1436,11 @@ export class Executor {
    * Plan the account's time triggers and arm the timers. The worker holds the
    * disposer; the entries are re-planned from the document every time, so a
    * crash costs only the wait until the next pass.
+   *
+   * A timer that has fired is spent, and the entry it fired for has moved on in
+   * the document by then: the next arming is planned again from what the
+   * document says, so a rule due every week fires every week rather than once
+   * in the life of the process.
    */
   async armSchedule(
     accountId: string,
@@ -1440,15 +1451,33 @@ export class Executor {
     const scheduleDoc = await store.readSchedule();
     const planned = planSchedule(rules, this.deps.now(), scheduleDoc?.doc ?? []);
     await this.writeSchedule(store, planned, scheduleDoc?.state);
-    return armTimers(
-      planned,
-      (entry) => {
-        void this.fireScheduled(accountId, entry).catch((err: unknown) =>
-          this.deps.log(`scheduled run failed: ${errorMessage(err)}`),
-        );
-      },
-      { maxDelayMs: opts.maxDelayMs },
-    );
+    let stopped = false;
+    let dispose: (() => void) | null = null;
+    const arm = async (): Promise<void> => {
+      if (stopped) return;
+      // The rules and the document are read again at every arming, the same
+      // pass-shaped read the catch-up does, so a schedule edited while the
+      // worker waited is armed as it now is.
+      dispose?.();
+      const current = (await store.readRules())?.doc ?? [];
+      const doc = await store.readSchedule();
+      dispose = armTimers(
+        planSchedule(current, this.deps.now(), doc?.doc ?? []),
+        (entry) => {
+          void this.fireScheduled(accountId, entry)
+            .then(() => arm())
+            .catch((err: unknown) =>
+              this.deps.log(`scheduled run failed: ${errorMessage(err)}`),
+            );
+        },
+        { maxDelayMs: opts.maxDelayMs },
+      );
+    };
+    await arm();
+    return () => {
+      stopped = true;
+      dispose?.();
+    };
   }
 
   /**
@@ -1484,12 +1513,16 @@ export class Executor {
     }
   }
 
-  /** The entries that are already due: catch-up after a worker was away. */
-  private async fireDueSchedule(
-    store: AgentStore,
-    accountId: string,
-    claim: AgentClaim,
-  ): Promise<void> {
+  /**
+   * The entries that are already due: catch-up after a worker was away.
+   *
+   * A pass is what reaches it — a time trigger is not a change, so nothing
+   * wakes the worker for one — and each due run is started with the claim on
+   * its own rule's area, because one account's schedule can hold rules from
+   * several areas.
+   */
+  async runDueSchedules(accountId: string): Promise<number> {
+    const store = new AgentStore(this.deps.ctx, accountId);
     const rules = (await store.readRules())?.doc ?? [];
     const scheduleDoc = await store.readSchedule();
     const stored = scheduleDoc?.doc ?? [];
@@ -1498,29 +1531,39 @@ export class Executor {
     // list what is due answers "nothing" for ever.
     const due = dueEntries(stored, this.deps.now());
     const planned = planSchedule(rules, this.deps.now(), stored);
-    if (due.length) {
-      const next = advance(planned, due, rules, this.deps.now());
-      await this.writeSchedule(store, next, scheduleDoc?.state);
-      const keys = await this.jobKeys(store);
-      for (const entry of due) {
-        const rule = rules.find((candidate) => candidate.id === entry.ruleId);
-        if (!rule?.enabled) continue;
-        await this.startJob(
-          store,
-          accountId,
-          rule,
-          { on: "schedule", at: entry.at },
-          keys,
-          claim,
-        );
-      }
-      // Recorded **after** the schedule write: an audit write is a write to the
-      // same account, and doing it first would invalidate the state the
-      // conditional schedule write carries.
-      await this.recordMissedRuns(store, rules, due);
-      return;
+    if (!due.length) {
+      if (!scheduleDoc) await this.writeSchedule(store, planned, undefined);
+      return 0;
     }
-    if (!scheduleDoc) await this.writeSchedule(store, planned, undefined);
+    const next = advance(planned, due, rules, this.deps.now());
+    await this.writeSchedule(store, next, scheduleDoc?.state);
+    const keys = await this.jobKeys(store);
+    let started = 0;
+    for (const entry of due) {
+      const rule = rules.find((candidate) => candidate.id === entry.ruleId);
+      if (!rule?.enabled) continue;
+      const claim = (await store.readClaim(rule.area))?.doc;
+      if (!claim) {
+        this.deps.log(
+          `${rule.name}: nothing holds ${rule.area}, so the run due at ${entry.at} is not started`,
+        );
+        continue;
+      }
+      await this.startJob(
+        store,
+        accountId,
+        rule,
+        { on: "schedule", at: entry.at },
+        keys,
+        claim,
+      );
+      started += 1;
+    }
+    // Recorded **after** the schedule write: an audit write is a write to the
+    // same account, and doing it first would invalidate the state the
+    // conditional schedule write carries.
+    await this.recordMissedRuns(store, rules, due);
+    return started;
   }
 
   /** One entry fired by its timer: run the rule and move the entry on. */

@@ -176,6 +176,14 @@ export interface AgentActionSpec {
   external?: boolean;
   /** True when the action cannot be taken back once it has run. */
   irreversible?: boolean;
+  /**
+   * True when running the action twice is not the same as running it once: it
+   * leaves something a person will find, and a second attempt files a second
+   * copy beside the first. A run whose plan holds one of these is not retried
+   * (resolution 20) — the flag is what `leavesTheProcess` reads, and it is
+   * deliberately not `irreversible`, which also asks a person first.
+   */
+  unrepeatable?: boolean;
 }
 
 /**
@@ -217,6 +225,7 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
     description:
       "Write the message's attachments into a folder of the group's own Files — the folder this action names, or the one the model chose; empty means the needs-attention folder.",
     params: [{ key: "folder", required: false, kind: "folder" }],
+    unrepeatable: true,
   },
   {
     name: "mail.draft",
@@ -251,6 +260,7 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
       { key: "name", required: true, kind: "text" },
       { key: "text", required: true, kind: "text" },
     ],
+    unrepeatable: true,
   },
 ];
 
@@ -303,15 +313,17 @@ export function irreversible(actions: ReadonlyArray<AgentAction>): boolean {
  * Whether one action reaches outside the group's own state: it sends, or it
  * leaves something a person will find.
  *
- * This is the set a run must not repeat. Everything else the agent does — a
- * label, a mailbox move, a chat post — is either idempotent or harmless to do
- * twice, so a retry may redo it; a message that has left cannot be recalled and
- * a second send is a second message.
+ * This is the set a run must not repeat, and it is also what the fence asks
+ * about before an action runs: a label or a mailbox move is either idempotent
+ * or harmless to do twice, so a retry may redo it. A message that has left
+ * cannot be recalled, a second send is a second message, and an extraction or
+ * a file the group can already see leaves a duplicate beside itself.
  */
-// ADR-0003 OWED: retry-classification
 export function leavesTheProcess(action: AgentAction): boolean {
   const spec = agentActionSpec(action.do);
-  return spec?.external === true || spec?.irreversible === true;
+  return (
+    spec?.external === true || spec?.irreversible === true || spec?.unrepeatable === true
+  );
 }
 
 /* ------------------------------------------------------------------ */

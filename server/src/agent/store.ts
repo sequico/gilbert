@@ -529,7 +529,6 @@ export class AgentStore {
    * Entries that fail again stay queued. Returns how many are still waiting,
    * so the caller can say so instead of leaving the trail quietly short.
    */
-  // ADR-0003 OWED: audit-queue-drain
   async flushPendingAudits(): Promise<number> {
     let waiting = pendingAudits(this.accountId);
     while (waiting.length) {

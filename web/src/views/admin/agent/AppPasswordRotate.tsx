@@ -15,8 +15,10 @@
  * doing at that moment, so the surface says how many are still valid — that
  * number is the whole difference between rotating and revoking, and an admin who
  * read "rotate" as "revoke" would leave a leaked secret alive while believing
- * they had closed it.
+ * they had closed it. A count the server could not read back is stated as
+ * unknown rather than shown as a zero, which would read as a revocation.
  */
+import type { AgentAppPasswordRotation } from "@gilbert/agent/views";
 import { KeyRound } from "lucide-react";
 import { useState } from "react";
 import { plural, t } from "@/lib/i18n";
@@ -29,9 +31,7 @@ export function AppPasswordRotate() {
   // The store's own line for this operation: a rotation the server refused says
   // why there, and the panel shows it.
   const problem = useAgents((s) => s.problems.password);
-  const [rotated, setRotated] = useState<{ secret: string; alsoValid: number } | null>(
-    null,
-  );
+  const [rotated, setRotated] = useState<AgentAppPasswordRotation | null>(null);
   const [busy, setBusy] = useState(false);
 
   const rotate = async () => {
@@ -83,7 +83,13 @@ export function AppPasswordRotate() {
             )}
           </p>
           <CopyableSecret value={rotated.secret} />
-          {rotated.alsoValid > 0 && (
+          {rotated.alsoValid === null ? (
+            <p className="hint">
+              {t(
+                "The number of other app passwords still valid could not be read, so it is unknown here: check Stalwart's administration to see which credentials the agent still holds.",
+              )}
+            </p>
+          ) : rotated.alsoValid > 0 ? (
             <p className="hint">
               {plural(rotated.alsoValid, {
                 one: "{n} other app password still works — revoke it in Stalwart's administration.",
@@ -91,7 +97,7 @@ export function AppPasswordRotate() {
                   "{n} other app passwords still work — revoke them in Stalwart's administration.",
               })}
             </p>
-          )}
+          ) : null}
         </div>
       )}
     </section>

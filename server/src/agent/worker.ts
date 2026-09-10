@@ -205,9 +205,19 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
         );
       }
     }
+    // Nothing wakes the worker for a time trigger — it is not a change — so the
+    // pass asks. This is the catch-up for the runs a worker was away for, and
+    // it reads the due entries back out of the document on every round.
+    const due = await executor.runDueSchedules(accountId);
+    if (due) log(`${accountId}: ${due} scheduled run(s) due`);
     const areas = [...(servedAreas.get(accountId) ?? [])];
     const retried = await executor.runPending(accountId, areas);
     if (retried) log(`${accountId}: retried ${retried} job(s)`);
+    // An audit entry a contended document pushed out of its retries is held in
+    // memory: the pass writes it, so a group that has gone quiet does not carry
+    // it until it happens to write something else.
+    const carried = await store.flushPendingAudits();
+    if (carried) log(`${accountId}: wrote ${carried} held audit entry(ies)`);
     const decisions = (await store.listDecisions())
       .map((entry) => entry.doc)
       .filter((decision) => decision.state === "pending");
@@ -336,37 +346,51 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
       log(`${accountId}/${area}: nobody holds it and the claim kept losing`);
   };
 
-  // ADR-0003 OWED: heartbeat-containment
+  // One account's fault is that account's: an unreadable claim document used to
+  // end the round for every account behind it in the list, in silence, which is
+  // what a pass that throws on the first one does (resolution 18).
+  const guarded = async (accountId: string, work: () => Promise<void>) => {
+    try {
+      await work();
+    } catch (err) {
+      log(
+        `${accountId}: the pass could not finish this account: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  };
+
   const pass = async (): Promise<ReadonlyArray<string>> => {
     if (stopped) return [...servedAreas.keys()];
     for (const accountId of candidateAccounts(deps.ctx.session)) {
-      const store = new AgentStore(deps.ctx, accountId);
-      const held = servedAreas.get(accountId) ?? new Set<AgentArea>();
-      for (const area of deps.areas) {
-        if (held.has(area)) {
-          // Renewal is what keeps a claim from looking stale to a peer.
-          const renewed = await claimArea(store, area, id, {
+      await guarded(accountId, async () => {
+        const store = new AgentStore(deps.ctx, accountId);
+        const held = servedAreas.get(accountId) ?? new Set<AgentArea>();
+        for (const area of deps.areas) {
+          if (held.has(area)) {
+            // Renewal is what keeps a claim from looking stale to a peer.
+            const renewed = await claimArea(store, area, id, {
+              now: now(),
+              leaseMs,
+              onRefused: refused(accountId, area),
+            });
+            if (!renewed) {
+              held.delete(area);
+              log(`lost ${accountId}/${area}`);
+            }
+            continue;
+          }
+          const claim: AgentClaim | null = await claimArea(store, area, id, {
             now: now(),
             leaseMs,
             onRefused: refused(accountId, area),
           });
-          if (!renewed) {
-            held.delete(area);
-            log(`lost ${accountId}/${area}`);
-          }
-          continue;
+          if (!claim) continue;
+          held.add(area);
+          log(`claimed ${accountId}/${area}`);
         }
-        const claim: AgentClaim | null = await claimArea(store, area, id, {
-          now: now(),
-          leaseMs,
-          onRefused: refused(accountId, area),
-        });
-        if (!claim) continue;
-        held.add(area);
-        log(`claimed ${accountId}/${area}`);
-      }
-      if (held.size) servedAreas.set(accountId, held);
-      else servedAreas.delete(accountId);
+        if (held.size) servedAreas.set(accountId, held);
+        else servedAreas.delete(accountId);
+      });
     }
     // The heartbeat is written even when nothing is served: the status surface
     // has to be able to say that a worker is up and idle.
@@ -381,15 +405,23 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     } else {
       openStreamIfHeld();
     }
-    for (const accountId of servedAreas.keys()) await reconcileAccount(accountId);
+    for (const accountId of servedAreas.keys())
+      await guarded(accountId, () => reconcileAccount(accountId));
     return [...servedAreas.keys()];
   };
 
   if (timers) {
     disposers.push(
-      pollLoop(pollMs, async () => {
-        await pass();
-      }),
+      pollLoop(
+        pollMs,
+        async () => {
+          await pass();
+        },
+        {
+          onError: (err) =>
+            log(`the pass threw: ${err instanceof Error ? err.message : String(err)}`),
+        },
+      ),
     );
     disposers.push(
       pollLoop(heartbeatMs, async () => {

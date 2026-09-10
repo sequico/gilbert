@@ -117,3 +117,21 @@ test("a tick slower than the interval never overlaps itself", async () => {
   stop();
   assert.equal(most, 1, "one pass at a time, whatever the interval says");
 });
+
+test("a tick that throws is reported, not swallowed", async () => {
+  // The loop keeps its interval after a failed tick — and says what happened.
+  // A loop that swallows is how one unreadable document ends the round for
+  // every account behind it without a line in the log (resolution 18).
+  const seen: unknown[] = [];
+  const stop = pollLoop(
+    5,
+    async () => {
+      throw new Error("the claim document could not be read");
+    },
+    { onError: (err) => seen.push(err) },
+  );
+  await sleep(120);
+  stop();
+  assert.ok(seen.length > 0, "the caller heard about it");
+  assert.match(String((seen[0] as Error).message), /could not be read/);
+});

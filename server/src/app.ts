@@ -1374,7 +1374,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const session = c.get("session");
     const name = c.req.param("name") ?? "";
     try {
-      const access = await resolveGroupAccess(session, name);
+      const access = await resolveGroupAccess(session, name, { need: "labels" });
       if (!access.ok) {
         return c.json({ error: access.error, message: access.message }, 403);
       }
@@ -1392,7 +1392,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     if (!body || !Array.isArray(body.labels))
       return c.json({ error: "bad_request", message: "labels must be an array" }, 400);
     try {
-      const access = await resolveGroupAccess(session, name);
+      const access = await resolveGroupAccess(session, name, { need: "labels" });
       if (!access.ok) {
         return c.json({ error: access.error, message: access.message }, 403);
       }
@@ -1458,7 +1458,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const name = c.req.param("name") ?? "";
     const agentAddress = config.agent.address.trim();
     try {
-      const access = await resolveGroupAccess(session, name);
+      const access = await resolveGroupAccess(session, name, {
+        need: "agent documents",
+      });
       if (!access.ok)
         return c.json({
           group: name,
@@ -1478,7 +1480,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const session = c.get("session");
     const name = c.req.param("name") ?? "";
     try {
-      const access = await resolveGroupAccess(session, name);
+      const access = await resolveGroupAccess(session, name, { need: "automations" });
       if (!access.ok)
         return c.json({ error: access.error, message: access.message }, 403);
       return c.json({ rules: await readRules(access, access.accountId) });
@@ -1494,7 +1496,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     if (!body || !Array.isArray(body.rules))
       return c.json({ error: "bad_request", message: "rules must be an array" }, 400);
     try {
-      const access = await resolveGroupAccess(session, name);
+      const access = await resolveGroupAccess(session, name, { need: "automations" });
       if (!access.ok)
         return c.json({ error: access.error, message: access.message }, 403);
       const rules = await saveRules(access, access.accountId, body.rules);
@@ -1544,7 +1546,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       const session = c.get("session");
       const name = c.req.param("name") ?? "";
       try {
-        const access = await resolveGroupAccess(session, name);
+        const access = await resolveGroupAccess(session, name, { need: "labels" });
         if (!access.ok)
           return c.json({ error: access.error, message: access.message }, 403);
         const { added } = await addAgentLabels(access, access.accountId);
@@ -1569,7 +1571,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       const session = c.get("session");
       const name = c.req.param("name") ?? "";
       try {
-        const access = await resolveGroupAccess(session, name);
+        const access = await resolveGroupAccess(session, name, {
+          need: "standing instruction",
+        });
         if (!access.ok)
           return c.json({ error: access.error, message: access.message }, 403);
         return c.json(await readGroupInstruction(access));
@@ -1589,7 +1593,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       try {
         const body = await readJson<{ text?: string }>(c);
         const text = typeof body?.text === "string" ? body.text : "";
-        const access = await resolveGroupAccess(session, name);
+        const access = await resolveGroupAccess(session, name, {
+          need: "standing instruction",
+        });
         if (!access.ok)
           return c.json({ error: access.error, message: access.message }, 403);
         return c.json(await saveGroupInstruction(access, text, session.username));
@@ -1602,7 +1608,8 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   api.get("/admin/agent/approvals", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
     try {
-      return c.json({ approvals: await pendingApprovals(session) });
+      // The queue's own answer: the list, and the reach it was built from.
+      return c.json(await pendingApprovals(session));
     } catch (err) {
       return agentFailure(c, err);
     }

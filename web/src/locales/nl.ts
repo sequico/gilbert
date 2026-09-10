@@ -1547,6 +1547,11 @@ export const catalog: Catalog = {
     "itself, or an issuer it does not name":
       "zichzelf, of een uitgever die het niet noemt",
     "no address": "geen adres",
+    // ── The agent fleet (ADR 0003) ────────────────────────────────────
+    "The number of other app passwords still valid could not be read, so it is unknown here: check Stalwart's administration to see which credentials the agent still holds.":
+      "Het aantal andere app-wachtwoorden dat nog geldig is kon niet worden gelezen, dus dat is hier onbekend: kijk in het Stalwart-beheer welke inloggegevens de agent nog heeft.",
+    "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
+      "De groepsmailboxen konden niet allemaal worden opgesomd, dus deze wachtrij bevat alleen de groepen waarvan u lid bent: in een groep die hier ontbreekt kan iets wachten.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

@@ -204,6 +204,13 @@ export interface PollLoopOpts {
    * the loop against a clock it controls; the timer itself is always real.
    */
   now?: () => number;
+  /**
+   * What to do with what the tick threw. The loop survives a failed tick and
+   * says nothing about it by itself: the caller is the one that knows what it
+   * was running, and a caller that passes nothing is one whose failures are
+   * invisible.
+   */
+  onError?: (err: unknown) => void;
 }
 
 /**
@@ -237,9 +244,10 @@ export function pollLoop(
     last = now();
     try {
       await tick();
-    } catch {
-      // Swallowed on purpose: whoever wrote `tick` reports its own failures
-      // (the worker logs them), and the fallback loop must not die with one.
+    } catch (err) {
+      // The loop does not die with one tick, and it does not keep the failure to
+      // itself either: the caller names it, and moves on.
+      opts.onError?.(err);
     }
     running = false;
     schedule();

@@ -218,6 +218,10 @@ test("the message being answered is always in the context, or the run is refused
     "the trigger is in what the model reads",
   );
   assert.ok(
+    answered.some((message) => message.id === "m9"),
+    "and the chain it opens comes with it: a long thread is not the case where the chain is always absent",
+  );
+  assert.ok(
     answered.length <= 50,
     "and the reply chain does not push the context past the bound a human set",
   );

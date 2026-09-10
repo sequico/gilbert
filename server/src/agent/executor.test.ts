@@ -211,7 +211,11 @@ test("a filter the executor cannot honour fails loudly instead of never firing",
   const jobs = await jobsOf("broken-filter");
   assert.equal(jobs.length, 1);
   assert.equal(jobs[0]!.state, "failed");
-  assert.match(String(jobs[0]!.error), /does not understand the filter "mood"/);
+  assert.match(
+    String(jobs[0]!.error),
+    /uses "mood", which no matcher implements/,
+    "and it refuses in the words the form uses, not in words of its own",
+  );
   const audit = await store.readAuditAt(new Date());
   assert.ok(
     audit?.entries.some(
@@ -539,7 +543,8 @@ test("the schedule fires what is due and moves the entry on", async () => {
     { ruleId: scheduled.id, at: new Date(Date.now() - 60_000).toISOString() },
   ]);
 
-  await executor.reconcile(GROUP, "schedule", await claimFor("mail"));
+  await claimFor("mail");
+  await executor.runDueSchedules(GROUP);
 
   const jobs = await jobsOf("every-five");
   assert.equal(jobs.length, 1);
@@ -876,4 +881,70 @@ test("an approval on a rule that moved on is refused, and the answer is spoken",
     chat.some((message) => message.text.includes("version nobody approved")),
     "and the person who answered is told why their answer did nothing",
   );
+});
+
+test("a filter the form refuses is refused when it runs too", async () => {
+  // A group with no conditions is not a filter: `AND` over nothing is true, so
+  // a rule written that way quietly matches every message in the account. The
+  // form refuses it; a rule that reached storage by another road has to be
+  // refused when it runs as well, or the refusal is a formality.
+  const empty = rule({
+    id: "empty-group",
+    name: "An empty group",
+    trigger: { on: "email", filter: { operator: "AND", conditions: [] } },
+  });
+  await store.writeRules([empty]);
+  await createMessage("An invoice the empty group would match");
+
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor("mail")), states: {} });
+
+  const jobs = await jobsOf("empty-group");
+  assert.equal(jobs.length, 1);
+  assert.equal(jobs[0]!.state, "failed");
+  assert.match(String(jobs[0]!.error), /has none/);
+});
+
+test("an extraction that fails is not retried, because it leaves a file behind", async () => {
+  // The same failure twice is a second extraction beside the first, so the plan
+  // is dead-lettered rather than repeated (resolution 20).
+  const extractor = rule({
+    id: "extract",
+    name: "Save the attachments",
+    actions: [{ do: "mail.extract", with: { folder: "invoices" } }],
+    capabilities: ["mail.extract"],
+    review: { mode: "never" },
+  });
+  const proposal = {
+    summary: "save the attachments",
+    actions: [{ do: "mail.extract", with: { folder: "invoices" } }],
+    confidence: 1,
+  };
+  const job = {
+    ...newJob({
+      id: "extract-job",
+      accountId: GROUP,
+      area: "mail",
+      rule: { id: "extract", version: 1 },
+      trigger: { on: "email", emailId: "gone", at: new Date().toISOString() },
+    }),
+    state: "running" as const,
+    attempts: 1,
+    proposal,
+  };
+  await store.writeJob(job);
+
+  await executor.failLoudly(
+    store,
+    job,
+    extractor,
+    "the second attachment could not be fetched",
+  );
+
+  const failed = await store.readJob("extract-job");
+  assert.equal(
+    failed?.doc.state,
+    "failed",
+    "a run that leaves a file behind is final, not retried",
+  );
+  assert.equal(failed?.doc.nextAttemptAt, undefined);
 });

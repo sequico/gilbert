@@ -21,6 +21,7 @@
 
 import type { AgentRule } from "@gilbert/agent/documents";
 import type {
+  AgentAppPasswordRotation,
   AgentGroupSurface,
   AgentProvidersView,
   AgentStatus,
@@ -125,14 +126,10 @@ export async function saveAgentProviders(providers: AgentProvidersInput): Promis
  * nothing, so this surface says what is still valid instead of implying that
  * the old ones stopped.
  */
-export function rotateAgentAppPassword(): Promise<{
-  secret: string;
-  alsoValid: number;
-}> {
-  return apiFetch<{ secret: string; alsoValid: number }>(
-    "/api/admin/agent/app-password",
-    { method: "POST" },
-  );
+export function rotateAgentAppPassword(): Promise<AgentAppPasswordRotation> {
+  return apiFetch<AgentAppPasswordRotation>("/api/admin/agent/app-password", {
+    method: "POST",
+  });
 }
 
 /** `POST /api/admin/groups/:name/agent/labels` — the `G-` keywords added. */

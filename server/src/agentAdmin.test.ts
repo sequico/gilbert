@@ -73,6 +73,27 @@ function configureAgent(address: string): void {
   config.agent.password = "";
 }
 
+/**
+ * Fail one upstream request shape, and hand back the way to put the real
+ * `fetch` back.
+ *
+ * The mock refuses no directory query (it has no `allow_directory_query` gate
+ * to close), so a status an answer depends on has to be staged at the one seam
+ * every upstream call crosses: the request body says which JMAP method is being
+ * asked for, and this makes exactly that one fail.
+ */
+function failUpstream(contains: string, status: number): () => void {
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const body = typeof init?.body === "string" ? init.body : "";
+    if (body.includes(contains)) return new Response("{}", { status });
+    return real(input, init);
+  }) as typeof fetch;
+  return () => {
+    globalThis.fetch = real;
+  };
+}
+
 /** The rule the tests save and read back. */
 function rule(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -388,7 +409,129 @@ test("the approvals queue is empty and needs no agent", async () => {
   configureAgent("");
   const res = await call("/api/admin/agent/approvals");
   assert.equal(res.status, 200);
-  assert.deepEqual(res.body, { approvals: [] });
+  assert.deepEqual(res.body, {
+    approvals: [],
+    enumeration: true,
+    enumerationMessage: null,
+  });
+});
+
+test("a queue the directory could not be listed for says so", async () => {
+  // The admin who is not also a Stalwart server administrator hits the
+  // directory gate, and the queue then walks only the groups their own session
+  // holds. Both answers have to carry that, or a short queue and an empty one
+  // read the same.
+  configureAgent(TEAM);
+  const denied = failUpstream("Principal/query", 403);
+  try {
+    const queue = await call("/api/admin/agent/approvals");
+    assert.equal(queue.status, 200);
+    const body = queue.body as {
+      approvals: unknown[];
+      enumeration: boolean;
+      enumerationMessage: string | null;
+    };
+    assert.deepEqual(body.approvals, []);
+    assert.equal(body.enumeration, false, "the list is the membership fallback");
+    assert.ok(body.enumerationMessage, "and the reason travels with it");
+
+    const status = await call("/api/admin/agents");
+    assert.equal(status.status, 200);
+    const fleet = status.body as {
+      groups: Array<{ name: string; granted: boolean }>;
+      enumeration?: boolean;
+      enumerationMessage?: string | null;
+    };
+    assert.equal(fleet.enumeration, false, "the fleet's group list is that same read");
+    assert.equal(fleet.enumerationMessage, body.enumerationMessage);
+    const names = fleet.groups.map((g) => g.name);
+    assert.ok(names.includes(TEAM), "a group the admin is a member of is listed");
+    assert.ok(
+      !names.includes(LEGAL),
+      "a group only the directory could have named could not be listed",
+    );
+  } finally {
+    denied();
+  }
+
+  // A directory that fails outright is the same answer, not a 500.
+  const broken = failUpstream("Principal/query", 500);
+  try {
+    const queue = await call("/api/admin/agent/approvals");
+    assert.equal(queue.status, 200);
+    const body = queue.body as {
+      enumeration: boolean;
+      enumerationMessage: string | null;
+    };
+    assert.equal(body.enumeration, false);
+    assert.match(body.enumerationMessage ?? "", /500/);
+  } finally {
+    broken();
+  }
+});
+
+test("a refusal names the section the surface asked for", async () => {
+  configureAgent("");
+  /*
+   * Three sections, one door: membership of the group. The refusal a person
+   * reads has to name what they were standing at — the label catalog is one
+   * section's document, and "labels" used to be the answer given to all of
+   * them.
+   */
+  const surfaces = [
+    { path: `/api/admin/groups/${LEGAL}/labels`, need: /labels/ },
+    {
+      path: `/api/admin/groups/${LEGAL}/agent/instruction`,
+      need: /standing instruction/,
+    },
+    { path: `/api/agent/group/${LEGAL}`, need: /agent documents/ },
+  ];
+  const messages: string[] = [];
+  for (const surface of surfaces) {
+    const res = await call(surface.path);
+    assert.equal(res.status, 403);
+    const body = res.body as { error: string; message: string };
+    assert.equal(body.error, "group_not_accessible");
+    assert.match(body.message, surface.need, `${surface.path} names its own section`);
+    assert.match(body.message, /membership/);
+    messages.push(body.message);
+  }
+  assert.equal(
+    new Set(messages).size,
+    3,
+    "one shared sentence cannot name three sections",
+  );
+  assert.ok(
+    !/labels/.test(messages[1] as string),
+    "the instruction surface is not told about a catalog it was not touching",
+  );
+});
+
+test("the rotation counts the credentials it leaves valid, and says unknown when it cannot", async () => {
+  // The mock knows the agent principal and lets an admin impersonate it, so
+  // this is where the rotation itself completes.
+  configureAgent("gilbert@example.com");
+  const counted = await call("/api/admin/agent/app-password", { method: "POST" });
+  assert.equal(counted.status, 200);
+  const first = counted.body as { secret: string; alsoValid: number | null };
+  assert.ok(first.secret.startsWith("$app$"), "the new credential comes back once");
+  assert.equal(
+    first.alsoValid,
+    0,
+    "the agent held no other credential, which is a count",
+  );
+
+  // The re-read that counts them fails; the rotation it belongs to did not.
+  const restore = failUpstream("x:AppPassword/get", 500);
+  try {
+    const unknown = await call("/api/admin/agent/app-password", { method: "POST" });
+    assert.equal(unknown.status, 200, "the rotation itself succeeded");
+    const second = unknown.body as { secret: string; alsoValid: number | null };
+    assert.ok(second.secret.startsWith("$app$"));
+    assert.equal(second.alsoValid, null, "a count nobody could read is not zero");
+  } finally {
+    restore();
+  }
 });
 
 test("the rule schema is published, and it is the catalogue the runtime reads", async () => {

@@ -1538,6 +1538,11 @@ export const catalog: Catalog = {
       "Gilbert повідомить, якщо наступний лист із цієї адреси підпише хтось інший.",
     "itself, or an issuer it does not name": "самим собою або неназваним видавцем",
     "no address": "немає адреси",
+    // ── The agent fleet (ADR 0003) ────────────────────────────────────
+    "The number of other app passwords still valid could not be read, so it is unknown here: check Stalwart's administration to see which credentials the agent still holds.":
+      "Не вдалося прочитати, скільки інших паролів застосунків ще дійсні, тому тут це невідомо: перевірте в адміністрації Stalwart, які облікові дані залишилися в агента.",
+    "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
+      "Не вдалося перелічити всі групові поштові скриньки, тому ця черга охоплює лише групи, у яких ви є учасником: щось може очікувати в групі, якої тут немає.",
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────

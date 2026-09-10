@@ -458,21 +458,17 @@ record keeps its full shape as the evolution path.
     the lease can lapse, a successor takes the unit, and the removal deletes the
     successor's claim.
   - **An unreadable heartbeat is not a free lease.** It throws, because
-    "unknown" and "expired" are different answers — and the throw is not yet
-    contained: `leaseExpired` is called from the worker's pass outside any
-    handler, and the loop above it swallows what it meets instead of reporting
-    it. One unreadable claim document therefore ends the round for every
-    account behind it, without a line in the log. **Owed:** the pass reports
-    what it caught, per account, and goes on to the next one. <!-- owed: heartbeat-containment -->
+    "unknown" and "expired" are different answers — and the pass contains the
+    throw: it is raised inside a guard that reports the account it could not
+    read and goes on to the next one, and the polling loop hands whatever a tick
+    threw to the worker's log instead of keeping it to itself. One unreadable
+    claim document costs that account its round, out loud.
   - **The audit is never written over.** Missing is an empty month; there-but-
     unreadable is loud, and a person decides. An append must not be able to
     replace a month of the trail with one entry.
   - **Intent before effect.** The trail records what is about to run before it
-    runs, so an effect can never exist without a line that accounts for it.
-    One path departs from it: `settleSentDraft` runs the actions left beside
-    the send before it records their line, so a crash between the two leaves an
-    effect the trail does not account for. **Owed:** that path records the
-    intent first, as the others do. <!-- owed: intent-before-effect-settled -->
+    runs, so an effect can never exist without a line that accounts for it —
+    in every path, the settlement of a sent draft included.
   - **An approval is consumed once.** `appliedAt` is written in the same
     conditional write that moves a decision out of `pending`, before the
     effects, so two answers arriving together cannot send the same mail twice.
@@ -491,13 +487,10 @@ record keeps its full shape as the evolution path.
     ignored, and a value the matcher could never match (`minSize: "1000"`) is
     refused rather than accepted as an automation that looks armed and does
     nothing. The form offers every key the matcher implements, and the three
-    operators. That list (`filterProblems`) is the authoring door: a run meets
-    the rule again with the narrower check that asks only whether the matcher
-    knows the keys, and a rule that reached storage by another road — a
-    document written by hand, an older form — is matched with whatever it
-    says. **Owed:** a run asks the same list the form asks, so an automation
-    that would be refused when it is written is refused when it runs.
-    <!-- owed: runtime-filter-list -->
+    operators. That list is the authoring door *and* the run's: a run asks the
+    same one, so a rule that reached storage by another road — a document
+    written by hand, an older form — is refused in the words the author would
+    have read, rather than matched with whatever it says.
   - **A degenerate cadence is refused**, and the schedule's delay is floored, so
     a past instant cannot re-fire in a tight loop.
   - **The chat context is bounded by the bound a human set.** The window takes
@@ -510,9 +503,8 @@ record keeps its full shape as the evolution path.
     own context for nobody" is the invariant, and a long thread is exactly where
     it would have been broken. A transcript that does not hold the named
     message is an error rather than a different conversation answered quietly.
-    **Owed:** the chain is read inside the bound as Resolution 11 reads it —
-    the ancestors first, the window taking what is left — so that a long thread
-    is not the case where the chain is always empty. <!-- owed: chat-reply-chain -->
+    The chain is read first, inside the bound, and the window takes what is
+    left — so a long thread is not the case where the chain is always empty.
   - **The member's surface never impersonates.** A name that is not in the
     member's own session is not a group this person may act as, and the answer
     is reached without asking the mail server for anything — Stalwart's refusal
@@ -565,12 +557,11 @@ record keeps its full shape as the evolution path.
     or an effect nobody can take back; it is dead-lettered. Between one attempt
     and the next sits an explicit backoff (`nextAttemptAt`), because three
     attempts taken back to back are one attempt against a provider that is
-    down. What "reaches outside" means is the `irreversible` flag on the
-    action's spec, and only `mail.send` carries it: an extraction that fails on
-    its second attachment is retried, and the attachment it already filed is
-    filed again beside itself. **Owed:** every action that writes where people
-    look — `mail.extract`, `file.write` — carries the effect it has, so a retry
-    of it is dead-lettered rather than repeated. <!-- owed: retry-classification -->
+    down. What "reaches outside" means is the `unrepeatable` flag on the
+    action's spec — an action that leaves something a person will find — and
+    `mail.extract` and `file.write` both carry it, so an extraction that fails
+    on its second attachment is dead-lettered rather than repeated beside the
+    copy it already filed.
   - **A released claim stays released.** `saveClaimStates` never recreates a
     claim that is no longer there: the anchor is written against the document
     it read, so a state saved after the unit was given up cannot put the unit
@@ -584,7 +575,7 @@ record keeps its full shape as the evolution path.
     the account's next append, so a group that writes nothing again carries it
     until it does. **Owed:** the pass drains it, as the queue's own note
     promises, so a group gone quiet does not carry an entry indefinitely.
-    <!-- owed: audit-queue-drain --> Two
+    The queue is drained by the account's next append and by every pass. Two
     limits are accepted and declared rather than hidden: the
     granularity stays **monthly** — one document per month, so the blob every
     append reloads grows with the month and the window in which two writers
@@ -605,11 +596,10 @@ record keeps its full shape as the evolution path.
     purpose — a revocation would stop the agent's work the moment it was made —
     and the API reports how many it left valid (`alsoValid`), so the surface
     states the window instead of promising a revocation it does not perform.
-    The count is computed from a re-read of the account's state, and a failed
-    read answers `0`: a precise number where the truth is "unknown", and the
-    surface falls silent because it has nothing above zero to say. **Owed:**
-    the answer tells the two apart, and the surface states the window it could
-    not count. <!-- owed: also-valid-unknown -->
+    The count is computed from a re-read of the account's state, and a read that
+    fails answers `null` rather than `0`: the surface says the number is unknown
+    and points at Stalwart's administration, because "nothing else works" and "I
+    could not look" are different things to tell an operator.
   - **The agent API's response shapes have one definition.**
     `server/src/agent/views.ts` declares them, and both the routes that build
     the answers and the client that reads them import it. Declared twice, a
@@ -674,15 +664,13 @@ record keeps its full shape as the evolution path.
     when the directory cannot be enumerated it falls back to the groups the
     admin is already a member of: the shorter list and the honest one read
     identically from the outside, because the status says nothing about the
-    enumeration having failed. **Owed:** the queue reports why it could not
-    list a group, so "nothing is waiting" and "I could not look" are different
-    answers. And the refusal a non-member meets names labels whichever surface
-    asked for it, because `deniedGroupAccess` is the answer
-    `resolveGroupAccess` gives to all ten of its callers — the approvals queue,
-    the member's view, and the eight admin routes — so a person who opened
-    rules or the standing instruction is told about a catalog they were not
-    touching. **Owed:** the refusal names the membership the surface it was
-    asked from actually needs. <!-- owed: approvals-queue-short --> <!-- owed: denial-per-section -->
+    enumeration having failed. The queue reports the reason it could not list a
+    group — a refused directory and a broken one are named as such — so "nothing
+    is waiting" and "I could not look" are different answers. And the refusal a
+    non-member meets names the membership the surface it was asked from needs:
+    `deniedGroupAccess` carries the need, so the approvals queue, the member's
+    view and the eight admin routes each say which membership is missing
+    instead of all telling the reader about labels.
   - **The content a rule reads can carry an instruction, and the allowlist is
     the gate.** Mail, files and everything else the agent reads are data:
     nothing in them is followed as instruction, and the capability allowlist
@@ -814,20 +802,15 @@ nearest lease arms a timer for it and updates the document when it fires or
 when the work changes the schedule. Durable next-run times plus a lease are
 what let a replacement worker pick the schedule up from Stalwart after any
 crash, which is why the times live in the document rather than in a cron
-entry. Two gaps stand between the document and that promise: an armed timer
-is not re-armed once it has fired, so an entry runs once in the life of the
-process and waits for the next boot; and the catch-up that reads the due
-entries back out of the document (`fireDueSchedule`) is reached only by a
-reconciliation of type `schedule`, which no pass asks for. **Owed:** a fired
-entry arms its next occurrence, and the due entries are read on every pass,
-so a schedule survives a crash and an ordinary week alike.
-**Sequence, because the two halves are not independent.** Both schedule
-paths start their runs with the claim the worker holds, and the catch-up is
-reached by no pass today — so the fence covers them before the catch-up is
-wired to a pass, and that is the only order this may be done in. A schedule
-made live while it could still start a run nobody can fence would be the
-double execution the epoch exists to stop.
-<!-- owed: schedule-rearm-catchup -->
+entry. What the worker does with them is what the promise rests on, and both
+halves are read again every time: a fired timer is spent, so the next arming is
+planned from the document the fire has already moved on, and the due entries are
+read back out of that same document by every pass — the catch-up, and the
+reason a schedule edited while a worker waited is armed as it now is. Neither
+half is the one the other would miss: no pass is what a time trigger waits for,
+and no timer is the only thing that would ever fire it again. A due run is
+started with the claim on its own rule's area, the same fence every other run
+passes.
 
 ### 6. Fleet coordination is lease-based and coordinator-free
 

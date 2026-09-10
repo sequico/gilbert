@@ -77,7 +77,7 @@ interface AgentsState {
    * the caller to show exactly once. Rejects when the rotation was refused —
    * nothing is kept here, ever.
    */
-  rotateAppPassword: () => Promise<{ secret: string; alsoValid: number }>;
+  rotateAppPassword: () => Promise<Awaited<ReturnType<typeof rotateAgentAppPassword>>>;
   loadApprovals: () => Promise<void>;
   reset: () => void;
 }

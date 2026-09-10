@@ -237,6 +237,10 @@ export const catalog: Catalog = {
       "Diese Bedingung verwendet etwas, das dieses Formular nicht ausdrücken kann; sie wird daher so angezeigt, wie das Dokument sie enthält, und bleibt unverändert.",
     "The worker signs in with this password and nothing else. The new secret works from now on, the app passwords already in use keep working — revoking them would cut off what an agent is doing — and the deployment has to carry the new secret before the next restart.":
       "Der Worker meldet sich ausschließlich mit diesem Passwort an. Das neue Geheimnis gilt ab sofort, die bereits verwendeten App-Passwörter funktionieren weiter — ein Widerruf würde einen laufenden Agenten mitten in der Arbeit unterbrechen —, und die Umgebung muss beim nächsten Neustart das neue Geheimnis tragen.",
+    "The number of other app passwords still valid could not be read, so it is unknown here: check Stalwart's administration to see which credentials the agent still holds.":
+      "Die Zahl der weiterhin gültigen App-Passwörter konnte nicht gelesen werden, ist hier also unbekannt: Prüfen Sie in der Stalwart-Administration, welche Zugangsdaten der Agent noch besitzt.",
+    "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
+      "Die Gruppenmailboxen konnten nicht alle aufgelistet werden, deshalb umfasst diese Warteschlange nur die Gruppen, in denen Sie Mitglied sind: In einer hier fehlenden Gruppe kann etwas warten.",
     "Header name": "Name der Kopfzeile",
     "Show headers": "Kopfzeilen anzeigen",
     "Show original": "Original anzeigen",
