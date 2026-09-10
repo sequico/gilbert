@@ -438,18 +438,33 @@ record keeps its full shape as the evolution path.
   - **Claims carry an epoch**, incremented on takeover and never on renewal, and
     a run asks `claimStillMine` before anything leaves the process: sending,
     posting, filing. A worker whose lease lapsed stops instead of writing
-    results the worker that replaced it will write again.
+    results the worker that replaced it will write again. The check belongs to
+    a run that was handed a claim: the fence is skipped where none travels
+    with the job, and the pending sweep that takes up a dead worker's work
+    (`runPending`) and the two schedule paths start their runs without one —
+    the paths where a lapsed lease is likeliest. **Owed:** every path that runs
+    a job to an effect hands it the claim its worker holds, so the fence
+    refuses rather than being absent where it matters most.
   - **A release is conditional** on the state it was read against. The owner
     check alone could remove a *live* claim: between the read and the removal
     the lease can lapse, a successor takes the unit, and the removal deletes the
     successor's claim.
-  - **An unreadable heartbeat is not a free lease.** It throws, and the pass is
-    reported as failed, because "unknown" and "expired" are different answers.
+  - **An unreadable heartbeat is not a free lease.** It throws, because
+    "unknown" and "expired" are different answers — and the throw is not yet
+    contained: `leaseExpired` is called from the worker's pass outside any
+    handler, and the loop above it swallows what it meets instead of reporting
+    it. One unreadable claim document therefore ends the round for every
+    account behind it, without a line in the log. **Owed:** the pass reports
+    what it caught, per account, and goes on to the next one.
   - **The audit is never written over.** Missing is an empty month; there-but-
     unreadable is loud, and a person decides. An append must not be able to
     replace a month of the trail with one entry.
   - **Intent before effect.** The trail records what is about to run before it
     runs, so an effect can never exist without a line that accounts for it.
+    One path departs from it: `settleSentDraft` runs the actions left beside
+    the send before it records their line, so a crash between the two leaves an
+    effect the trail does not account for. **Owed:** that path records the
+    intent first, as the others do.
   - **An approval is consumed once.** `appliedAt` is written in the same
     conditional write that moves a decision out of `pending`, before the
     effects, so two answers arriving together cannot send the same mail twice.
@@ -468,19 +483,27 @@ record keeps its full shape as the evolution path.
     ignored, and a value the matcher could never match (`minSize: "1000"`) is
     refused rather than accepted as an automation that looks armed and does
     nothing. The form offers every key the matcher implements, and the three
-    operators.
+    operators. That list (`filterProblems`) is the authoring door: a run meets
+    the rule again with the narrower check that asks only whether the matcher
+    knows the keys, and a rule that reached storage by another road — a
+    document written by hand, an older form — is matched with whatever it
+    says. **Owed:** a run asks the same list the form asks, so an automation
+    that would be refused when it is written is refused when it runs.
   - **A degenerate cadence is refused**, and the schedule's delay is floored, so
     a past instant cannot re-fire in a tight loop.
-  - **The chat context is bounded by the bound a human set.** The reply chain of
-    the message being answered is read *inside* that bound, not past it: with no
-    widening request the whole context — window and chain — stays within the
-    default of 50, and the 300 ceiling is reached only when a person asked for
-    more. Resolution 11's "the last 50 messages (with their reply chain)" is read
-    this way round, because "the agent widens its own context for nobody" is the
-    invariant, and a long thread is exactly where it would have been broken.
-    The message being answered is named by id, is always in the result, and a
-    transcript that does not hold it is an error rather than a different
-    conversation answered quietly.
+  - **The chat context is bounded by the bound a human set.** The window takes
+    the bound first (`before.slice(-ceiling)`), so on any thread longer than the
+    bound the reply chain has nothing left to occupy and contributes nothing:
+    the message being answered is the one ancestor that survives, named by id
+    and put back with the window giving way instead. Resolution 11's "the last
+    50 messages (with their reply chain)" therefore reads as the bound the
+    whole context stays inside — never past it — because "the agent widens its
+    own context for nobody" is the invariant, and a long thread is exactly where
+    it would have been broken. A transcript that does not hold the named
+    message is an error rather than a different conversation answered quietly.
+    **Owed:** the chain is read inside the bound as Resolution 11 reads it —
+    the ancestors first, the window taking what is left — so that a long thread
+    is not the case where the chain is always empty.
   - **The member's surface never impersonates.** A name that is not in the
     member's own session is not a group this person may act as, and the answer
     is reached without asking the mail server for anything — Stalwart's refusal
@@ -533,7 +556,12 @@ record keeps its full shape as the evolution path.
     or an effect nobody can take back; it is dead-lettered. Between one attempt
     and the next sits an explicit backoff (`nextAttemptAt`), because three
     attempts taken back to back are one attempt against a provider that is
-    down.
+    down. What "reaches outside" means is the `irreversible` flag on the
+    action's spec, and only `mail.send` carries it: an extraction that fails on
+    its second attachment is retried, and the attachment it already filed is
+    filed again beside itself. **Owed:** every action that writes where people
+    look — `mail.extract`, `file.write` — carries the effect it has, so a retry
+    of it is dead-lettered rather than repeated.
   - **A released claim stays released.** `saveClaimStates` never recreates a
     claim that is no longer there: the anchor is written against the document
     it read, so a state saved after the unit was given up cannot put the unit
@@ -543,8 +571,11 @@ record keeps its full shape as the evolution path.
     from "I lost a race" can report neither.
   - **An audit entry that does not land is retried, then carried.** The append
     retries its conditional write with backoff and jitter, and an entry that
-    still does not pass is queued and retried on the next pass rather than
-    lost. Two limits are accepted and declared rather than hidden: the
+    still does not pass is queued rather than lost — the queue is drained by
+    the account's next append, so a group that writes nothing again carries it
+    until it does. **Owed:** the pass drains it, as the queue's own note
+    promises, so a group gone quiet does not carry an entry indefinitely. Two
+    limits are accepted and declared rather than hidden: the
     granularity stays **monthly** — one document per month, so the blob every
     append reloads grows with the month and the window in which two writers
     contend grows with it — and the carry-over queue is **in memory**, so a
@@ -556,17 +587,73 @@ record keeps its full shape as the evolution path.
   - **An empty `operator` group is not a filter.** A group with no conditions
     is refused: `AND` over nothing is true, `OR` over nothing is false and
     `NOT` over nothing matches every message in the account, so a rule written
-    that way is armed and does something nobody wrote.
+    that way is armed and does something nobody wrote. The refusal is the
+    authoring door's; the run-time check does not ask it yet (see the filter
+    bullet above).
   - **Rotating the agent's app password leaves the previous credentials valid,
     and says how many.** The rotation keeps what is already in use working on
     purpose — a revocation would stop the agent's work the moment it was made —
     and the API reports how many it left valid (`alsoValid`), so the surface
     states the window instead of promising a revocation it does not perform.
+    The count is computed from a re-read of the account's state, and a failed
+    read answers `0`: a precise number where the truth is "unknown", and the
+    surface falls silent because it has nothing above zero to say. **Owed:**
+    the answer tells the two apart, and the surface states the window it could
+    not count.
   - **The agent API's response shapes have one definition.**
     `server/src/agent/views.ts` declares them, and both the routes that build
     the answers and the client that reads them import it. Declared twice, a
     field added on one side and forgotten on the other compiles on both tiers
     and arrives as `undefined` on one.
+
+- *21 — the third branch review: the paths the record had only promised
+  (proposed 2026-09-10, awaiting the owner's acceptance)*. The third review of
+  the branch asked the questions this record leaves open: three of them are
+  answered today by the code's default rather than by a decision, and one only
+  by a general sentence about auto-approval. Unlike the resolutions above,
+  these are proposals: the owner has not accepted them, and the tree does not
+  carry them yet.
+
+  - **The version pin binds a run resumed from an approval.** A job stopped in
+    `awaiting_approval` is in flight: a person is holding it, and the rule it
+    was created from can be edited while they hold it. §4's invariant — a job
+    never runs a version nobody approved — is read to reach that run as well,
+    so an approval answered on a job whose pinned version has moved on is the
+    same mismatch as any other, dead-lettered with a `failed`.
+  - **Withdrawing a group's grant is administration, and it is not a stop
+    button.** The agent reads its reach from its own session and from the
+    group's documents, so an operator who withdraws the grant removes the
+    session, and with it the ability to start or finish work there — but
+    nothing enumerates, cancels or drains what was already in flight: a
+    decision waiting on a person, a job holding a lease, a draft the agent left
+    in the group's Drafts marked `G-awaiting`. The decision is that the
+    withdrawal is the operator's and is taken once the work it would strand is
+    settled, with what was left unfinished visible in the audit and on the
+    group's surface instead of disappearing with the grant. **Owed:** a
+    withdrawn grant is reported together with the work it leaves behind, and
+    the agent stops claiming that account rather than failing against it on
+    every pass.
+  - **No order exists between automations that match the same message.** Two
+    rules that fire on one arrival are two jobs on two triggers: work is
+    claimed by account and area, and which of them runs first is not decided,
+    not written down, and not to be relied on. Each automation is therefore
+    written to hold whatever order it gets — a rule that moves a message and a
+    rule that reads it are independent by construction — and the audit names
+    the rule and its version per run, so the order is reconstructible
+    afterwards even though it was never chosen. **Owed:** a declared order is a
+    v1 gap rather than a guarantee, and the surface should say so where rules
+    are written.
+  - **The content a rule reads can carry an instruction, and the allowlist is
+    the gate.** Mail, files and everything else the agent reads are data:
+    nothing in them is followed as instruction, and the capability allowlist
+    with the review policy is what actually bounds an action. The consent floor
+    holds unrelaxed for anything that leaves the group. For an action that
+    stays inside it and runs on a T2 confidence threshold, that confidence is
+    the model's own signal about content the same model read, so a hostile
+    message can move it; that is an accepted risk, named here rather than left
+    to the general sentence about auto-approval. The mitigation it would take —
+    a person for any action whose trigger arrived from outside the group — is
+    not adopted in v1.
 
 **Operating decisions (owner decisions 2026-09-10):**
 
@@ -579,8 +666,10 @@ record keeps its full shape as the evolution path.
   later extension of the same audit, never a second channel to keep in
   sync.
 - *Audit retention is declared*: one audit document per month per group,
-  kept 12 months, with an export offered before the oldest is pruned —
-  growth in Stalwart is bounded by policy, not by disk.
+  kept 12 months, so growth in Stalwart is bounded by policy and not by disk.
+  **Owed:** the export offered before the oldest month is pruned does not
+  exist yet — the trail is readable as the group's own Files in the meantime —
+  and the retention is a policy rather than a deletion only once it does.
 - *Probes run against the owner's test instance on credentials the owner
   supplies*; results are recorded as resolutions 12 to 14, and the
   operator-credential alternative carries two more (Open questions, probes
@@ -651,13 +740,20 @@ already lives by, minus the browser.
   because the job carries the version *number* and not the body of the rule.
   That is the trade: a job lost loudly, against an effect run under a version
   nobody approved. A job stopped in `awaiting_approval` waits on a person and
-  is resumable after any worker restart: its state is the document.
+  is resumable after any worker restart: its state is the document. The pin
+  binds every run that has effects, and a run resumed from an approval is one:
+  waiting on a person does not freeze the rule the job was created from, so an
+  approval answered on a job whose rule has moved on is that same mismatch and
+  not a fourth outcome. **Owed:** the check sits on the approval path
+  (`resolveApproval`, `settleSentDraft`) as well as on the pending and running
+  one, which is the only place it is today.
 - **Audit trail**: every run appends one entry to an audit-log document
   (input state, rule id and version, actions taken, outcome), so what an
   agent did — and under which rule version — is answerable from Stalwart
   alone. In v1 the log is per group, in the group's own account, one
-  document per month, with a declared retention and an export offered
-  before pruning (v1 scope).
+  document per month, with a declared retention (v1 scope); the export owed
+  before the first prune is recorded with the retention itself, and until it
+  exists the trail is read as the group's own Files.
 - Nothing durable lives on the worker or in the environment; the environment
   carries only the bootstrap secrets toward Stalwart.
 
@@ -668,8 +764,16 @@ particular container to live: a scheduler document (`next-runs`, in the
 principal's Files — per group in v1, beside the rules it schedules, v1
 scope) holds the agent's due times as UTC instants; the worker holding the
 nearest lease arms a timer for it and updates the document when it fires or
-when the work changes the schedule. Durable next-run times plus a lease mean
-a replacement worker picks the schedule up from Stalwart after any crash.
+when the work changes the schedule. Durable next-run times plus a lease are
+what let a replacement worker pick the schedule up from Stalwart after any
+crash, which is why the times live in the document rather than in a cron
+entry. Two gaps stand between the document and that promise: an armed timer
+is not re-armed once it has fired, so an entry runs once in the life of the
+process and waits for the next boot; and the catch-up that reads the due
+entries back out of the document (`fireDueSchedule`) is reached only by a
+reconciliation of type `schedule`, which no pass asks for. **Owed:** a fired
+entry arms its next occurrence, and the due entries are read on every pass,
+so a schedule survives a crash and an ordinary week alike.
 
 ### 6. Fleet coordination is lease-based and coordinator-free
 
@@ -709,8 +813,12 @@ What the survey locks in:
   A pinned version that is no longer the rule's current one is refused rather
   than run — the job is dead-lettered with a `failed` — because the job
   carries the version *number* and not the rule, and an effect under a version
-  nobody approved is worse than a job lost loudly. There is no
-  replay-compatibility problem because this design never replays.
+  nobody approved is worse than a job lost loudly. The refusal is read on the
+  pending and running paths, and a job waiting on a person is not a third
+  case: it is read again when the run resumes (§4, resolution 21). **Owed:**
+  the same check on the approval path, so the sentence holds wherever a run
+  starts from. There is no replay-compatibility problem because this design
+  never replays.
 - **Audit is an append-only per-run event log** (LangSmith/Conductor-style
   observability), stored as a Stalwart document — §4.
 - **Deterministic routing first, a model only where needed** (Inngest
@@ -798,8 +906,9 @@ candidate rule semantic (Open questions).
   never be re-claimed as stale while it is legitimately paused.
 - Rule documents carry an `id` and `version`; the audit log records which
   version each run used, and editing a rule ends the runs pinned to the older
-  version, which are dead-lettered (§4, §7). A rule edit is therefore also a
-  decision about the work already in flight on that rule.
+  version, which are dead-lettered (§4, §7) — including a job stopped in
+  `awaiting_approval`, whose pin is read when the run resumes. A rule edit is
+  therefore also a decision about the work already in flight on that rule.
 - Agent work can be slow by design: a reconcile may call an external model
   or wait on a person, so leases and heartbeat intervals must tolerate
   pauses far longer than the request/response web tier's.
