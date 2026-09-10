@@ -66,22 +66,18 @@ Screenshots are taken against the built-in mock server with sample data.
 
 ## What's in it
 
-- **Mail** — three-pane Gmail-style layout, conversation view, virtualised list, labels, undo, Gmail search operators and keyboard shortcuts, Sieve rules from a message's context menu, sanitised HTML with remote images blocked, read receipts, invitations and RSVP, an event made from a message with its guests already in it, multi-composer rich-text editing with signatures, scheduled send and undo send
-- **Calendar** — JMAP Calendars / JSCalendar: month/week/day/agenda, recurrence, attendees and free-busy, colour categories
-- **Contacts** — JMAP Contacts / JSContact: address books, groups, full editor, vCard import/export
-- **Files** — JMAP FileNode: browse, upload, download, rename, move, delete
-- **Settings that follow the account**, not the browser — kept in a `settings.json` in the account's own JMAP Files. The format is ihasmail's; the file is the account's, under its quota, and outlives any container that read it. Gilbert holds none of it
-- **Signature checking** — S/MIME signed mail is verified as you read it, and the signer is remembered: a later message from the same address signed by somebody else is called out loudly. No certificate authority is involved and none is bundled, so Gilbert never claims more than it can show — see [Checking a signature](FEATURES.md#checking-a-signature)
-- **Runs read-only** — one optional write path, and with it switched off the container needs no volume and no writable root. `IMMUTABLE=1` is checked at startup rather than trusted, so a half-applied switch refuses to boot instead of failing quietly. See [Running immutably](#running-immutably)
-- **Nine new interface languages** — German, Spanish, French, Dutch, Portuguese (Brazil), Russian, Ukrainian, Simplified Chinese and Japanese, alongside English and separate from the date-and-time locale. Every one is marked **Beta**: they were made by AI and no native speaker has read them yet, which Settings says plainly, with a link for reporting anything wrong
-- **Twelve themes** — Classic and Gilbert's own, plus Catppuccin, Dracula, Gruvbox, Rosé Pine, Tokyo Night, Solarized, Ayu, Kanagawa, Everforest and Primer, each with the light and dark half its own project publishes. Palette and light-or-dark are separate choices, and the accent colour still sits on top of any of them. Only published colour values are used, taken from each project's own repository; the shades between them are derived and every text colour is measured against the surface it sits on, so a palette that would not meet the contrast this app claims is not written at all — see [Themes](FEATURES.md#themes)
-- **On a phone** — swipe a message to archive or delete it (either direction, your choice), hold one to select it, hold a folder for its menu, pull the list to refresh, swipe back from a conversation
-- **Platform** — installable PWA, Web Push with Gilbert closed, `mailto:` handler, no credentials in the browser, strict CSP, SSRF-safe image proxy
+Gilbert's own work, in the order it matters here. The long version, feature by
+feature, is in [FEATURES.md](FEATURES.md).
 
-The long version, feature by feature, is in [FEATURES.md](FEATURES.md). How
-to drive each surface is the same as upstream's client — where this build has
-not diverged yet, [Using ihasmail](https://docs.ihasmail.org/using/) (upstream's
-docs) still applies.
+- **Groups** — a group mailbox is an account of its own on Stalwart, and what it owns lives in that account and belongs to it: its chat, its label catalog, its calendars and files, its agent's documents. Membership *is* the grant, and the grant is administered on the server, never in the product
+- **Chat** — one conversation per group mailbox, stored in the group's own account so a member added later finds all of it (ADR 0006)
+- **Agents** — a worker fleet that acts inside mail and file storage on a group's behalf. Each automation is a document in the group's own account — when it reacts, which messages it looks at, what it then does — with a tier that decides how much model it uses (T0 deterministic, T1 a category, T2 the model's own judgement), a review policy that can pause a run for a person, a capability allowlist that bounds every answer, and the approval itself happening in the group's chat. Every run is audited, one document per month per group, and an administrator can export that trail before the retention prunes it. The installation's agent has an **address an administrator sets in the product**, and each group can be **narrowed to the kinds of work** (mail, files, tasks, calendars, contacts) it is served for. It runs as its own process, holds its claims in the documents themselves, and no model can widen what a rule was granted
+- **Nothing of its own to keep** — no database, no search index, no cache tier: every durable thing lives in the mail store, under the account's quota, and the container is disposable (`IMMUTABLE=1` needs no writable root)
+- **Platform** — installable PWA, Web Push with Gilbert closed, `mailto:` handler, no credentials in the browser, strict CSP, SSRF-safe image proxy
+- **Everything else is upstream's** — the mail client, calendar, contacts, files, sharing and Sieve editing come from [ihasmail](https://github.com/Coffey-Labs/ihasmail), renamed for this build. This project does not re-document them; upstream's own documentation is the reference — [Using ihasmail](https://docs.ihasmail.org/using/). What this build adds on top: twelve themes, nine interface languages (beta), signature checking, and a container that can run read-only
+
+The feature-by-feature inventory, with Gilbert's own part first, is
+[FEATURES.md](FEATURES.md).
 
 ## Requires Stalwart 0.16 or newer
 

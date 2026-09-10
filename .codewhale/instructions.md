@@ -203,6 +203,14 @@ delta has been rebranded (gilbert-upstream-rebrand) **and** the inventory
 has been reconciled: features the merge adds/removes/changes are reflected
 in `FEATURES.md`, and the Gilbert-added sections survive intact. ADRs record
 the decisions behind features; the inventory records the features.
+**The public docs lead with Gilbert's own.** `README.md` and `FEATURES.md`
+open with what this project owns — groups, chat, and above all the agents,
+whose section is the detailed one — and treat the upstream client as a
+pointer: a line saying it is upstream's and where its documentation lives,
+with its detail kept afterwards for completeness and never as the lead. A
+change that makes a sentence in any public doc false fixes it in the same
+commit, and a new Gilbert feature is written where the reader starts, not
+only in the section that happens to own it.
 `origin/main` is **not branch-protected** (private repo): direct commit + push
 to main is the normal flow.
 **Releases are called manually by the user — for now there are none and none are

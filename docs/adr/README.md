@@ -42,10 +42,13 @@ prose against `server/src` and `web/src`.
 ## 0003 — Agent worker fleet
 
 - **Status:** Proposed (2026-09-06).
-- **Code:** **not implemented** — no product agents surface exists
-  (`server/src`, `web/src` are clean of it). ADR 0007 decision 3 keeps the
-  door open: agents, when they exist, are Stalwart-side principals an admin
-  grants resources to through JMAP `shareWith`, with creation operator-side.
+- **Code:** **implemented** — the fleet, its workers, the automations, the
+  approvals and the audit are in `server/src/agent/` and
+  `server/src/agentAdmin.ts`, with the administration surfaces in
+  `web/src/views/admin/` and the member's panel in
+  `web/src/views/chat/GroupAgentPanel.tsx`. Resolutions 18 to 21 carry the
+  decisions it grew, ADR 0009 records where the installation's agent identity
+  lives, and the first part of `FEATURES.md` is its inventory.
 
 ## 0004 — Rule changes reach signed-in clients by re-login (kick v0)
 
