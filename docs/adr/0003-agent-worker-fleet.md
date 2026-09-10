@@ -36,10 +36,11 @@ Facts from the current machinery:
   event as a refresh trigger per type (`web/src/jmap/push.ts`). Workers are
   headless: no proxy, no browser — a direct JMAP session to Stalwart, using
   the same EventSource protocol.
-- A principal's JMAP session includes every account it is granted over —
-  the mechanism ADR 0001 relies on to detect the admin group. One agent
-  principal therefore receives one multiplexed push stream for all the
-  accounts it may see, keyed by `accountId`.
+- A principal's JMAP session includes every account it is granted over, so
+  one agent principal receives one multiplexed push stream for all the
+  accounts it may see, keyed by `accountId`. That list is reach, not a role:
+  since ADR 0007 the admin is a permission marker on the account's own
+  capability list, not a group grant.
 - Sieve scripts run at delivery time inside Stalwart itself. They are the
   delivery-time mechanism and stay that way; they are not a general executor
   for JMAP-level, application actions (move across shared mailboxes, file
@@ -107,8 +108,13 @@ record keeps its full shape as the evolution path.
   `gilbert@`), grant or revoke the agent's membership per group, author and
   version per-group rule documents, rotate app passwords, and see executor
   status and audit across groups. Every write happens through the signed-in
-  admin's session — impersonation where acting on the agent's account,
-  ordinary JMAP on group documents otherwise; nothing is configured by
+  admin's session — impersonation where acting on the agent's account
+  (`gilbert@`), the admin's own session on group documents. Writes into a
+  group's own account (rules, labels, footer) carry ADR 0006's membership
+  rule — an admin who is a member of that group — because Stalwart refuses
+  to mint a session for an impersonated group mailbox: a non-member admin
+  has no act-as-the-group path, so the surface says which membership a
+  section needs instead of failing at the door. Nothing is configured by
   hand.
 - **Members see, never change.** In a group's own view, next to the group
   chat (ADR 0006), an AI indicator opens the group's agent surface: which
@@ -187,18 +193,27 @@ record keeps its full shape as the evolution path.
   once handled, and the convention extends (`G-awaiting`, `G-rejected`, …)
   as use cases need. Labeling never moves the message. Moving is a
   separate, content-driven action: the message (with its thread as context)
-  lands in the folder its classification chose. The labels are created and
-  managed with the group machinery already in place (group label catalog,
-  ADR 0006), by the admin or by the agent through the same capability when
-  granted; members read the state in the group's own mailbox by
-  construction. State is per message in both storage and display: a reply
-  arriving in an already-processed thread is a fresh event — it starts
+  lands in the folder its classification chose. The labels come from the
+  group machinery already in place (group label catalog, ADR 0006), and
+  authorship follows ADR 0006's membership rule: an admin **who is a member
+  of that group** authors the catalog through their own session, and the
+  agent — a granted member, never an administrator — only applies and
+  removes labels. The fixed `G-` set is created from the admin surface when
+  the agent is granted on the group, and the admin adds one when a new
+  automation needs it; the executor fails loudly when a rule names a `G-`
+  label the group's catalog does not define, because a keyword outside the
+  catalog is not rendered and a state nobody can see is a silent failure.
+  Members read the state in the group's own mailbox by construction. State
+  is per message in both storage and display: a reply arriving in an
+  already-processed thread is a fresh event — it starts
   unlabelled and unread, is re-evaluated on its own, and never inherits the
   earlier message's `G-*` label or folder (the thread is context, not
-  state). `G-*` labels are agent-owned and read-only to humans: the UI
-  renders them on the individual message, never aggregated onto the thread
-  row, and keeps them out of the manual label picker; human labels keep
-  their existing thread-scoped behaviour.
+  state). `G-*` labels are agent-owned and read-only to humans — a product
+  convention rather than a server ACL, since a JMAP keyword is free-form and
+  only the client's surfaces enforce the distinction: the UI renders them on
+  the individual message, never aggregated onto the thread row, and keeps
+  them out of the manual label picker; human labels keep their existing
+  thread-scoped behaviour.
 - *10 — review policy and human approval*: every automation carries a
   review policy — `always` (every run pauses), `threshold` (auto-execute
   when the decision's confidence is at or above the threshold, else pause)
@@ -255,7 +270,7 @@ record keeps its full shape as the evolution path.
 
 Every agent is a mailbox in Stalwart's directory with its own address (e.g.
 `gilbert@…`), created and granted by the operator in Stalwart's own
-administration — the same surface that creates accounts and the admin group.
+administration — the same surface that creates accounts.
 The address is the agent's identity and its scope unit. The agent's ACL
 grants decide what it may read and act on (a person's mailbox, a group's
 mailbox, shared Files). Mail addressed *to* the agent is ordinary mail: it
@@ -411,6 +426,16 @@ candidate rule semantic (Open questions).
 - One bootstrap secret per agent principal (its app password, in the
   environment), on top of ADR 0007's administration model (permission
   marker; Impersonate for per-user writes).
+- That one secret is the whole fleet's reach in v1: a single agent principal
+  means a single app password whose grants cover every group it serves, so a
+  compromise of gilbertserver or of that secret exposes all of them at once,
+  not one group at a time. Accepted for v1 — the same order of risk the
+  threshold auto-approval already accepts — with per-group agents as the
+  mitigation when they arrive.
+- In v1 the in-process executor serializes work per account (one job at a
+  time per account, in arrival order), so a busy group cannot reorder or
+  starve another group's reconciliation; the fleet-wide per-account cap of
+  §7 becomes a coordination concern only when replicas return.
 - An agent's scope is exactly its grants: it sees and acts on what the
   operator granted, nothing else; a new account is served by granting the
   agent, the same way admin membership is granted in ADR 0007. Grant
@@ -468,17 +493,22 @@ candidate rule semantic (Open questions).
 - Pending probes (verify before implementing the send path): (a) whether a
   group account can submit mail as itself, or whether gilbert@ sends with a
   sendAs identity whose address is the group's (From = group, footer =
-  group) — and, if a grant is needed, whether granting gilbert@ that
-  privilege on a group it is a member of should be automated; (b) where the
-  group's footer lives (a `gilbert/` document in the group account, written
-  by a member-admin, vs a JMAP identity) — confirmed together with (a).
+  group) — and whether a **human member** can submit from the group too,
+  since sending the pending draft out of the group's Drafts is one of the
+  two approval paths (resolution 10) and the client loads identities from
+  the account on screen, so the UI path exists if the server permits it;
+  and, if a grant is needed, whether granting gilbert@ that privilege on a
+  group it is a member of should be automated; (b) where the group's footer
+  lives (a `gilbert/` document in the group account, written by a
+  member-admin, vs a JMAP identity) — confirmed together with (a).
 
 ## References
 
 - ROADMAP.md — "AI agents that act inside mail and file storage, for a
   person or a group — Gilbert's own agents now, external agent fleets later"
 - ADR 0001 — group grants, everything-durable-in-Stalwart, session-account
-  mechanism, admin-group secret pattern
+  mechanism, admin-group secret pattern (superseded by ADR 0007; cited as
+  the historical record, not as the current administration model)
 - `server/src/app.ts` — `/api/events` push relay (existing event surface)
 - `web/src/jmap/push.ts` — state-change push semantics as the web client
   lives them
