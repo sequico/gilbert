@@ -27,7 +27,9 @@ import { RuleEditor } from "./agent/RuleEditor";
 
 export function AdminAgents() {
   const status = useAgents((s) => s.status);
-  const error = useAgents((s) => s.error);
+  // This section's own read: a save refused in another panel is that panel's
+  // to report, and it has its own line here.
+  const error = useAgents((s) => s.problems.status);
   const loadStatus = useAgents((s) => s.loadStatus);
 
   useEffect(() => {

@@ -17,7 +17,7 @@ import { Bot, X } from "lucide-react";
 import { useEffect } from "react";
 import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
-import { agentViewKey, useAgents } from "@/store/agents";
+import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
 import {
   actionText,
   areaText,
@@ -38,12 +38,17 @@ export function GroupAgentPanel({
   onClose(): void;
 }) {
   const groupViews = useAgents((s) => s.groupViews);
-  const loading = useAgents((s) => s.loading);
-  const error = useAgents((s) => s.error);
+  const busyReads = useAgents((s) => s.busy);
+  const problems = useAgents((s) => s.problems);
   const loadGroup = useAgents((s) => s.loadGroup);
 
-  // The store holds one entry per group, under `agentViewKey(name)`.
+  // The store holds one entry per group, under `agentViewKey(name)`; the panel
+  // reads the line for **this** group, so another group's read in flight does
+  // not make this one look like it is still loading.
+  const operation = groupOperation(name);
   const view = groupViews[agentViewKey(name)];
+  const loading = busyReads[operation] === true;
+  const error = problems[operation] ?? null;
 
   useEffect(() => {
     // Only when there is nothing to show: the chat panel loads the group's view

@@ -51,8 +51,18 @@ interface AgentsState {
   /** One entry per group the surface has read, keyed by `agentViewKey(name)`. */
   groupViews: Record<string, AgentGroupSurface>;
   approvals: PendingApproval[];
-  loading: boolean;
-  error: string | null;
+  /**
+   * What is in flight and what failed, **per operation**.
+   *
+   * One shared pair was wrong in the way these surfaces are actually read: the
+   * agent section runs several independent reads and writes at once, so a save
+   * refused in one panel appeared as an error in another, and any unrelated
+   * request in flight made a panel that had failed say "Loading…" instead of
+   * what went wrong. Each operation has its own line, keyed by
+   * `status`, `providers`, `approvals`, or `group:<name>`.
+   */
+  busy: Record<string, boolean>;
+  problems: Record<string, string | null>;
   providers: AgentProvidersView | null;
   loadStatus: () => Promise<void>;
   loadGroup: (name: string) => Promise<void>;
@@ -70,41 +80,68 @@ interface AgentsState {
   reset: () => void;
 }
 
+/** The key a group's own reads and writes are tracked under. */
+export function groupOperation(name: string): string {
+  return `group:${agentViewKey(name)}`;
+}
+
+/**
+ * The two lines an operation keeps: whether it is in flight, and why it failed.
+ *
+ * Written here rather than at each call site so the shape is one thing —
+ * `{ ...s.busy, [op]: true }` spelled six times is six chances to key it
+ * differently from the reader.
+ */
+function markBusy(op: string, busy: boolean) {
+  return (s: { busy: Record<string, boolean> }) => ({ busy: { ...s.busy, [op]: busy } });
+}
+
+function markProblem(op: string, problem: string | null) {
+  return (s: { problems: Record<string, string | null> }) => ({
+    problems: { ...s.problems, [op]: problem },
+  });
+}
+
 export const useAgents = create<AgentsState>((set) => ({
   status: null,
   groupViews: {},
   approvals: [],
-  loading: false,
-  error: null,
+  busy: {},
+  problems: {},
   providers: null,
 
   loadStatus: async () => {
-    set({ loading: true, error: null });
+    set(markBusy("status", true));
+    set(markProblem("status", null));
     try {
       set({ status: await fetchAgentStatus() });
     } catch (err) {
-      set({ error: message(err) });
+      set(markProblem("status", message(err)));
     } finally {
-      set({ loading: false });
+      set(markBusy("status", false));
     }
   },
 
   loadGroup: async (name) => {
     const key = agentViewKey(name);
-    set({ loading: true, error: null });
+    const op = groupOperation(name);
+    set(markBusy(op, true));
+    set(markProblem(op, null));
     try {
       const view = await fetchAgentGroup(name);
       set((s) => ({ groupViews: { ...s.groupViews, [key]: view } }));
     } catch (err) {
-      set({ error: message(err) });
+      set(markProblem(op, message(err)));
     } finally {
-      set({ loading: false });
+      set(markBusy(op, false));
     }
   },
 
   saveRules: async (name, rules) => {
     const key = agentViewKey(name);
-    set({ loading: true, error: null });
+    const op = groupOperation(name);
+    set(markBusy(op, true));
+    set(markProblem(op, null));
     try {
       // The server owns `version` and the stamps, so the saved document — not
       // the one that was sent — is what the view keeps.
@@ -117,59 +154,63 @@ export const useAgents = create<AgentsState>((set) => ({
     } catch (err) {
       // Loud to both: the editor reports what the server refused, and a save
       // that failed quietly would look like one that worked.
-      set({ error: message(err) });
+      set(markProblem(op, message(err)));
       throw err;
     } finally {
-      set({ loading: false });
+      set(markBusy(op, false));
     }
   },
 
   loadProviders: async () => {
-    set({ loading: true, error: null });
+    set(markBusy("providers", true));
+    set(markProblem("providers", null));
     try {
       set({ providers: await fetchAgentProviders() });
     } catch (err) {
-      set({ error: message(err) });
+      set(markProblem("providers", message(err)));
     } finally {
-      set({ loading: false });
+      set(markBusy("providers", false));
     }
   },
 
   saveProviders: async (providers) => {
-    set({ loading: true, error: null });
+    set(markBusy("providers", true));
+    set(markProblem("providers", null));
     try {
       await saveAgentProviders(providers);
       // A key the write did not carry is kept by the server, so what is stored
       // is read back rather than assumed from what was posted.
       set({ providers: await fetchAgentProviders() });
     } catch (err) {
-      set({ error: message(err) });
+      set(markProblem("providers", message(err)));
       throw err;
     } finally {
-      set({ loading: false });
+      set(markBusy("providers", false));
     }
   },
 
   rotateAppPassword: async () => {
-    set({ loading: true, error: null });
+    set(markBusy("password", true));
+    set(markProblem("password", null));
     try {
       return (await rotateAgentAppPassword()).secret;
     } catch (err) {
-      set({ error: message(err) });
+      set(markProblem("password", message(err)));
       throw err;
     } finally {
-      set({ loading: false });
+      set(markBusy("password", false));
     }
   },
 
   loadApprovals: async () => {
-    set({ loading: true, error: null });
+    set(markBusy("approvals", true));
+    set(markProblem("approvals", null));
     try {
       set({ approvals: await fetchPendingApprovals() });
     } catch (err) {
-      set({ error: message(err) });
+      set(markProblem("approvals", message(err)));
     } finally {
-      set({ loading: false });
+      set(markBusy("approvals", false));
     }
   },
 
@@ -178,8 +219,8 @@ export const useAgents = create<AgentsState>((set) => ({
       status: null,
       groupViews: {},
       approvals: [],
-      loading: false,
-      error: null,
+      busy: {},
+      problems: {},
       providers: null,
     }),
 }));

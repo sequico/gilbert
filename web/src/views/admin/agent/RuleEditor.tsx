@@ -14,7 +14,7 @@ import { type AgentRule, ruleProblems } from "@gilbert/agent/documents";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { t } from "@/lib/i18n";
-import { agentViewKey, useAgents } from "@/store/agents";
+import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
 import { confirmDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 import {
@@ -33,10 +33,13 @@ export function RuleEditor({
   groups: ReadonlyArray<{ name: string; granted: boolean }>;
 }) {
   const groupViews = useAgents((s) => s.groupViews);
-  const loading = useAgents((s) => s.loading);
+  const busyReads = useAgents((s) => s.busy);
   const loadGroup = useAgents((s) => s.loadGroup);
   const saveRules = useAgents((s) => s.saveRules);
   const [group, setGroup] = useState<string | null>(null);
+  // This group's own line, not a global one: a provider read in another panel
+  // must not turn this panel's read failure into "Loading…".
+  const loading = group ? busyReads[groupOperation(group)] === true : false;
   /** The rule being edited; null means the list is showing. */
   const [draft, setDraft] = useState<AgentRule | null>(null);
   const [busy, setBusy] = useState(false);
