@@ -70,33 +70,39 @@ record keeps its full shape as the evolution path.
   future work on the same machinery, not a v1 configuration knob.
 - **What is configurable is its workers, by area.** The agent's work is
   divided into areas — mail, files, tasks, calendars, contacts — and a
-  deployment declares how many workers serve each. v1 defaults to one
-  in-process worker covering every area (below); more workers are the same
-  codebase, claiming their area's work units by lease (§2, §6), so
-  throughput and availability scale per area without a second identity and
-  without a supervisor.
-- **The executor runs inside gilbertserver (the Node/Hono server in
-  `server/`) in v1, one process serving every area.** This deliberately
-  revisits the "workers embedded in the web server container" rejection
-  (Alternatives) for v1: the disposable tier is acceptable because every
-  durable byte stays in Stalwart, the agent session is re-derived at boot
-  (below), and mid-flight work is recovered from job documents after a
-  restart. Wake-ups ride the instance's existing push rail
-  (`server/src/push.ts` — RFC 8620 PushSubscription, which Stalwart POSTs
-  to), with per-type polling as the fallback where a subscription cannot
-  verify; nothing holds a long-lived upstream connection per account. The
-  executor is a background task isolated from the request path (async,
-  non-blocking; leases tolerate pauses far longer than the web tier's).
-  Additional workers — per area, as above — are declared at deployment and
-  coordinate by lease (§2, §6) when availability or throughput outgrows one
-  process (Open questions).
+  deployment declares how many workers serve each. **A worker is its own
+  process**, not a replica of gilbertserver: the same codebase with a second
+  entrypoint, deriving its session as `gilbert@` the same way the web tier
+  does. It needs no coordinator because the documents are the coordination
+  (§6): each worker claims the `account × area` units it will serve by
+  lease, and exactly one of them additionally holds the agent's event
+  stream. v1 defaults to a single worker covering every area.
+- **The worker lives beside gilbertserver, as its own process.** It shares
+  the image and the codebase (`server/`) but not the process: the web tier
+  stays client-facing, and the worker holds what a request path must not —
+  long-lived sessions, claims and waits on people. Its state is the
+  documents, so a deploy or a crash costs only the work in flight: the
+  session is re-derived at boot (below) and stale leases are re-claimed.
+  Wake-ups come from the agent's own event stream (Decision §3), held by one
+  worker under the stream claim, with per-type polling from a recorded state
+  as the fallback; nothing in the web tier relays events to the worker, so
+  there is no cross-process queue to keep in sync. A single-container
+  installation runs both processes from one image; a busy area is another
+  worker, declared at deployment and coordinated by lease (§2, §6) — never
+  a supervisor (resolution 8).
 - **One operator credential in the environment; the agent's session is
   derived from it.** The deployment carries a single bootstrap secret — the
   credential of an operator account holding Stalwart's `Impersonate` — and
   gilbertserver opens the agent's session at boot with composite
   impersonation (`{gilbert@}%{operator}`), creating or recovering its app
   password under impersonation (`x:AppPassword/set`, and `get` where the
-  server returns the secret). Nothing needs a writable
+  server returns the secret). One app password belongs to the installation,
+  named for the server: it is recovered at every boot rather than recreated,
+  and rotating it from the admin UI destroys the previous one, so the agent
+  account never accumulates credentials nobody can account for. If a server
+  will not hand the secret back (Open questions, probe d), registration
+  writes the read-only file instead and that becomes the boot path. Nothing
+  needs a writable
   filesystem, so `IMMUTABLE=1` holds: sessions stay in memory, are
   re-derived at every boot, and no agent secret is placed by hand. The
   environment is the only place a pre-session credential can live — a
@@ -131,22 +137,25 @@ record keeps its full shape as the evolution path.
 - **Membership is presence; per-group rules and audit live in each group's
   own account** (its `gilbert/` app folder), following the group-ownership
   law and the ADR 0006 pattern (chat, `labels.json`): the agent is in a
-  group exactly when the operator granted it — no separate per-group
-  activation or worker state in v1 (the executor is a single in-process
-  service) — and members see that the agent is active and what its
+  group exactly when the operator granted it — there is no second,
+  in-product activation switch — and members see that the agent is active
+  and what its
   automations do by construction, because group Files are already readable
   by members. Runtime scope is per changed account: the event's `accountId`
   selects which group's rules apply — the agent has no single global
   brief.
 - **Admin surfaces.** The Gilbert admin (ADR 0007) gains an "Agents"
   section: register the agent principal with the installation (`gilbert@`),
-  grant or revoke its membership per group, author and version per-group
-  rule documents, configure the model providers per tier, choose the tier
-  each automation runs on, set how many workers serve each area, rotate app
-  passwords, and see executor status and audit across groups. Agent
-  identities are not a knob here: v1 has one. Every write happens through
-  the signed-in admin's session — impersonation where acting on the agent's
-  account (`gilbert@`), the admin's own session on group documents. Writes
+  show which groups have granted it (and say so plainly when a group has
+  not), author and version per-group rule documents, configure the model
+  providers per tier, choose the tier each automation runs on, rotate app
+  passwords, and see worker status and audit across groups. Membership is
+  not written here: the grant happens in Stalwart's own administration, and
+  the section **verifies** it per group — a group without the grant shows
+  the consequence (no agent in its chat, no automations offered) instead of
+  a control that cannot work. Agent identities are not a knob either: v1
+  has one. Every write happens through the signed-in admin's session —
+  impersonation where acting on the agent's account (`gilbert@`), the admin's own session on group documents. Writes
   into a group's own account (rules, labels, footer) carry ADR 0006's
   membership rule — an admin who is a member of that group — because
   Stalwart refuses to mint a session for an impersonated group mailbox: a
@@ -158,7 +167,10 @@ record keeps its full shape as the evolution path.
   agents are active for the group, what instructions (rule documents) they
   carry, what they do and what they have done (the group's audit
   documents). Members read the group's own documents by construction and
-  never edit them: authoring and configuration stay in the admin UI; the
+  never edit them from the product — the folder is writable by a member by
+  construction (that is how the chat works), so this is a UI convention and
+  an accepted trust inside the group, not a server ACL; authoring and
+  configuration stay in the admin UI; the
   one member actions are approving or rejecting a proposed action and
   addressing the agent (mention or reply), both through the group chat
   (resolutions 10 and 11).
@@ -196,8 +208,9 @@ record keeps its full shape as the evolution path.
   (sending mail) are gated by the automation's review policy (resolution
   10); external sends keep a consent floor regardless of confidence.
   Sending on behalf of a group uses the **group's** footer and identity:
-  the executor reads the group's own settings (identities in
-  `settings.json`), uses the group's default identity and applies its
+  the executor reads the group's own identities (JMAP `Identity` on the
+  group account — `settings.json` is the app's settings document, not the
+  identity), uses the group's default identity and applies its
   text/HTML signature exactly as the UI composer does — the From is the
   group, and the sent message lands in the group's Sent mailbox so members
   see what went out. The exact send mechanism (the group submitting as
@@ -223,12 +236,13 @@ record keeps its full shape as the evolution path.
   audited; rules decide triggers, permissions and context, not every step.
   This reverses, for v1, the "deterministic routing first" field pattern
   (§7). Model routing and tiering: resolutions 2.
-- *8 — returning to replicas* (the owner delegated the call): when one
-  in-process executor no longer meets availability or throughput, replicas
-  return as separate processes of the same codebase, declared at deployment
-  level (restart policy plus a health endpoint), self-coordinated by leases
-  (§2, §6) — no in-product supervisor. A supervisor is revisited only if
-  operations asks for a single control point.
+- *8 — workers are processes* (the owner delegated the call): a worker is a
+  separate process of the same codebase — never a second gilbertserver — and
+  when one no longer meets availability or throughput, another is declared
+  at deployment (restart policy plus a health endpoint) and self-coordinates
+  by lease (§2, §6): no in-product supervisor, no coordinator process. A
+  supervisor is revisited only if operations asks for a single control
+  point.
 - *9 — the group attention convention*: agent work in a group's mail is
   tracked with **labels, not folders**: the reserved `G-` prefix marks
   Gilbert processing state on a message — `G-needattention` when the agent
@@ -241,9 +255,10 @@ record keeps its full shape as the evolution path.
   authorship follows ADR 0006's membership rule: an admin **who is a member
   of that group** authors the catalog through their own session, and the
   agent — a granted member, never an administrator — only applies and
-  removes labels. The fixed `G-` set is created from the admin surface when
-  the agent is granted on the group, and the admin adds one when a new
-  automation needs it; the executor fails loudly when a rule names a `G-`
+  removes labels. The fixed `G-` set is created from the admin surface once
+  the operator has granted the agent on the group — the surface verifies
+  the grant first and says so when it is missing — and the admin adds one
+  when a new automation needs it; the executor fails loudly when a rule names a `G-`
   label the group's catalog does not define, because a keyword outside the
   catalog is not rendered and a state nobody can see is a silent failure.
   Members read the state in the group's own mailbox by construction. State
@@ -274,7 +289,14 @@ record keeps its full shape as the evolution path.
   opens the draft in the group's Drafts and sends it directly, and the
   executor treats the draft leaving Drafts as the approval, closing the
   job — any member of the group may approve, not only an admin, and a
-  member sending from the group account is exactly this path. Gilbert's
+  member sending from the group account is exactly this path. Approval has
+  one arbiter and no race: the job's decision document, patched with an
+  expected-owner update, closes the job whichever way the approval arrived,
+  and a draft that leaves Drafts before the conversational reply wins — its
+  content as sent is what was approved, edits included, because a person
+  sent it. T0 is deterministic and carries confidence 1, so a group that
+  wants a person in the loop on a T0 automation chooses `always`, not a
+  threshold. Gilbert's
   pending drafts are kept **unread** so a human sees them.
   The
   decision document in the group's own account records the outcome and
@@ -300,8 +322,11 @@ record keeps its full shape as the evolution path.
   and to be evaluated later. An agent appears in the chat as a participant
   at its own address exactly when it is granted on the group — membership is
   presence, and with several agents each is mentioned by its own address —
-  and the client renders its messages and offers it in the `@` picker like
-  any other member. An agent's default context
+  and the client renders its messages and offers it in the `@` picker. The
+  picker's second source is the group's own agent association: the client
+  otherwise knows only the participants it has seen in the transcript, so a
+  freshly granted agent that has never posted could not be mentioned at
+  all. An agent's default context
   is bounded — the last 50 messages of the conversation (with their reply
   chain) — and it widens only when a human asks, step by step (whole
   conversation, then a folder) under a hard
@@ -343,21 +368,24 @@ The address is the agent's identity and its scope unit. The agent's ACL
 grants decide what it may read and act on (a person's mailbox, a group's
 mailbox, shared Files). Mail addressed *to* the agent is ordinary mail: it
 lands in the agent's own mailbox and wakes it like any other state change —
-that is how "tell the agent to do something by mailing it" works. Each agent
-principal has an app password as the one bootstrap secret the worker holds.
+that is how "tell the agent to do something by mailing it" works. The
+installation holds one operator credential (v1 scope); the agent's own app
+password is derived from it and belongs to the installation, not to the
+worker process.
 
-### 2. Workers are headless, stateless, disposable replicas
+### 2. Workers are headless, stateless, disposable processes
 
-> v1: the executor runs inside gilbertserver (v1 scope); this section is the
-> evolution path for when replicas return.
+> v1: the worker is a separate process beside gilbertserver, and the areas
+> it serves are the deployment's knob (v1 scope); this section describes the
+> same machinery at fleet scale.
 
 A worker is a dedicated entrypoint in this repository (Node, same JMAP
 client library family as the web client but headless) that authenticates to
 Stalwart as exactly one agent principal and runs that agent's rules. It
-keeps no local state and needs no volume; any number of replicas of the same
-image may run, and each replica of an agent is interchangeable. The "fleet"
-is agents × replicas: more agents, more principals; more throughput or
-availability, more replicas of an agent. v1 fixes the first factor at one
+keeps no local state and needs no volume; any number of workers may run
+from the same image, and each worker of an area is interchangeable. The
+"fleet" is agents × workers: more agents, more principals; more throughput
+or availability, more workers on an area. v1 fixes the first factor at one
 and exposes the second as workers per area (v1 scope).
 
 ### 3. Event push is the wake-up; reconciliation is the work
@@ -381,8 +409,9 @@ already lives by, minus the browser.
   library of capability-gated actions; adding an agent behaviour means adding
   an action the interpreter can run, and shipping a rule is writing a
   document.
-- **Work state** lives in the principal's Files: job/outbox documents with a
-  lifecycle `pending → running → awaiting_approval → done/failed`; leases as
+- **Work state** lives in the principal's Files — for v1, per group, in the
+  group's own account (v1 scope): job/outbox documents with a lifecycle
+  `pending → running → awaiting_approval → done/failed`; leases as
   owner + heartbeat on the documents being worked, re-claimed when stale (the
   expected-owner patch is the CAS substitute); per-job retries with backoff;
   dead-letter after N attempts. A job records the rule `id` and `version` it
@@ -404,19 +433,20 @@ already lives by, minus the browser.
 
 The worker also wakes on a schedule, without cron and without trusting any
 particular container to live: a scheduler document (`next-runs`, in the
-principal's Files) holds the agent's due times; the replica holding the
+principal's Files — per group in v1, beside the rules it schedules, v1
+scope) holds the agent's due times as UTC instants; the worker holding the
 nearest lease arms a timer for it and updates the document when it fires or
 when the work changes the schedule. Durable next-run times plus a lease mean
-a replacement replica picks the schedule up from Stalwart after any crash.
+a replacement worker picks the schedule up from Stalwart after any crash.
 
 ### 6. Fleet coordination is lease-based and coordinator-free
 
-Each replica claims the scopes it will serve (the principal's stream, and
+Each worker claims the scopes it will serve (the principal's stream, and
 per-account work units) by writing owner + heartbeat into the appropriate
 Stalwart document; a claim whose heartbeat is stale is re-claimed by any
-replica. The one replica that wins a principal's stream claim keeps that
+worker. The one worker that wins a principal's stream claim keeps that
 principal's EventSource open; the others stay idle for that principal, so
-idle cost is bounded and there is no split-brain: two replicas never both
+idle cost is bounded and there is no split-brain: two workers never both
 hold the same claim. No coordinator, no shared volume, no database — the
 documents are the coordination.
 
@@ -439,9 +469,9 @@ What the survey locks in:
 - **Per-job retries with backoff, timeouts, compensation and a dead letter**
   after N attempts (Conductor's per-task model), as in §4.
 - **Human-in-the-loop as an interrupt**: a job stops in `awaiting_approval`;
-  the operator is asked through ordinary mail (or a Gilbert task) and the
-  worker resumes only on an approved state change — the analogue of
-  LangGraph's interrupts.
+  the group is asked in its own chat (resolution 10) and the worker resumes
+  only on an approved state change — the analogue of LangGraph's
+  interrupts.
 - **Rules are versioned and in-flight jobs are pinned to their start
   version** (Conductor: "running executions continue on the version they
   started with"). There is no replay-compatibility problem because this
@@ -458,9 +488,11 @@ What the survey locks in:
   — which, with one address per agent (Decision §1), is native: an agent
   mails the specialist.
 - **A per-account concurrency cap**, so one burst on a group mailbox cannot
-  thundering-herd the fleet (Hatchet's fairness concern).
-- **Dead letters alert the admin group by mail** — Gilbert administers
-  itself through its own medium.
+  thundering-herd the fleet (Hatchet's fairness concern); the claim unit is
+  `account × area` (v1 scope).
+- **Dead letters surface where the work is** — the group's chat and audit,
+  and the admin surface's queue: v1's notification channel is the chat
+  (operating decisions), so a dead letter is not a second inbox to watch.
 
 Deliberately not adopted: deterministic replay (Temporal) — reconciliation
 from durable state is the simpler idempotency contract (§3); a workflow DSL
@@ -477,7 +509,7 @@ lifecycle) — persist state but do not detect failure, restart or
 deduplicate on their own; durable runtimes (Temporal, Restate, Inngest,
 DBOS, Dapr Workflows) do. That line validates this record's side of the
 contract — reconciliation from durable state, leases for takeover — and
-names the piece it leaves to deployment: detecting a dead replica and
+names the piece it leaves to deployment: detecting a dead worker and
 restarting it (Open questions). The Postgres-based entrants (DBOS; Kitaru
 and Absurd) run durable execution and "compute that can disappear while
 waiting" on an ordinary row store, confirming that a document store is a
@@ -505,19 +537,20 @@ candidate rule semantic (Open questions).
   already accepts — and the reason the read-only `GILBERT_AGENTS_FILE`
   alternative above exists; per-area or per-group agent principals are the
   future mitigation, not a v1 setting.
-- In v1 the in-process executor serializes work per account (one job at a
-  time per account, in arrival order), so a busy group cannot reorder or
-  starve another group's reconciliation; the fleet-wide per-account cap of
-  §7 becomes a coordination concern only when replicas return.
+- Work claims are per `account × area`, so two workers never touch the same
+  area of one account at once; the per-account cap of §7 bounds how much of
+  a single group the fleet works on. With the default single worker, work
+  per account is serialized in arrival order.
 - An agent's scope is exactly its grants: it sees and acts on what the
   operator granted, nothing else; a new account is served by granting the
-  agent, the same way admin membership is granted in ADR 0007. Grant
-  management stays in Stalwart's directory (Management API territory, not
-  JMAP — deliberately out of scope, as in ADR 0007).
+  agent in Stalwart's own administration, the same way admin membership is
+  granted in ADR 0007. Grant management stays there (Management API
+  territory, not JMAP — deliberately out of scope); the admin surface reads
+  the grants and reports them, it never writes them.
 - Every event costs a reconcile: rules must be written as narrow queries
   (per type, from the recorded state), and the push filter must stay tight,
   or the worker spends its life re-reading mailboxes nothing changed in.
-- Time triggers require at least one replica per scheduled agent to be up;
+- Time triggers require at least one worker per scheduled agent to be up;
   the scheduler document is the source of truth, so a dead container costs
   only the lease interval, and a replacement takes over from Stalwart.
 - Reconcile-only semantics means reactions are possible only to changes that
@@ -535,11 +568,11 @@ candidate rule semantic (Open questions).
 - Agent work can be slow by design: a reconcile may call an external model
   or wait on a person, so leases and heartbeat intervals must tolerate
   pauses far longer than the request/response web tier's.
-- v1's in-process executor makes gilbertserver's lifecycle the agent's
-  lifecycle: a deploy or crash pauses agent work for the downtime window,
-  and recovery is automatic — bootstrap re-auth at boot, stale-lease
-  re-claim, push catch-up and reconciliation. Nothing hangs on a dead
-  process because the state is the documents.
+- The worker's lifecycle is the agent's: a deploy or a crash pauses agent
+  work for the downtime window, and recovery is automatic — session
+  re-derived at boot, stale leases re-claimed, catch-up and reconciliation
+  from the recorded state. Nothing hangs on a dead process because the
+  state is the documents — and a web deploy is no longer an agent outage.
 
 ## Alternatives considered
 
@@ -552,8 +585,8 @@ candidate rule semantic (Open questions).
   identity unit.
 - **Workers embedded in the web server container**: rejected — it mixes the
   disposable, request-scoped web tier with long-lived claim-holding
-  processes and scales them together. v1 runs the executor in-process
-  despite this general rejection (v1 scope).
+  processes and scales them together. v1 keeps the rejection: the worker is
+  its own process (v1 scope).
 - **Cron inside the container**: rejected — disposable containers offer no
   durability or overlap guarantees; the scheduler document does.
 - **Polling as the primary trigger**: rejected; kept only as the recovery
@@ -582,7 +615,7 @@ candidate rule semantic (Open questions).
   authenticated by **app password** — not by the account password the
   2026-09-09 probe used — may impersonate a target, and (d) that
   `x:AppPassword/get` keeps returning the secret to an impersonating admin.
-  The boot derivation of every agent session depends on both; if either
+  The boot derivation of the agent session depends on both; if either
   fails, the fallback is the read-only `GILBERT_AGENTS_FILE`.
 
 ## References
