@@ -18,6 +18,7 @@ import {
   type AgentArea,
   type AgentClaim,
   type AgentStreamClaim,
+  claimEpoch,
   leaseExpired,
 } from "./documents.js";
 import type { AgentStore } from "./store.js";
@@ -55,6 +56,14 @@ export async function claimArea(
 ): Promise<AgentClaim | null> {
   const heartbeatAt = opts.now.toISOString();
   for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
+    // The token is read **before** the document, and that order is the whole
+    // guard: read the other way round, a claim written by another worker in
+    // between is invisible to the comparison — the token already reflects it,
+    // the write is an ordinary update, and both workers walk away believing
+    // they hold the unit. Read this way, any write in that window advances the
+    // state past the token, so the conditional write is refused and the loser
+    // comes back next pass.
+    const token = await store.state();
     const found = await store.readClaim(area);
     const held = found?.doc;
     const mine = held?.worker === worker;
@@ -68,6 +77,7 @@ export async function claimArea(
       ? {
           ...held,
           worker,
+          epoch: claimEpoch(held) + (mine ? 0 : 1),
           leasedAt: mine ? held.leasedAt : heartbeatAt,
           heartbeatAt,
         }
@@ -76,14 +86,13 @@ export async function claimArea(
           accountId: store.accountId,
           area,
           worker,
+          epoch: 0,
           leasedAt: heartbeatAt,
           heartbeatAt,
           states: {},
         };
     try {
-      // The state read with the document is the compare-and-set token; a claim
-      // that does not exist yet is guarded by the state read after it.
-      await store.writeClaim(claim, { ifInState: found?.state ?? (await store.state()) });
+      await store.writeClaim(claim, { ifInState: token });
       return claim;
     } catch (err) {
       if (!isStateMismatch(err)) throw err;
@@ -113,16 +122,49 @@ export async function renewClaim(
   return null;
 }
 
-/** Give a claim back, if I am still the one holding it. */
+/**
+ * Give a claim back, if I am still the one holding it.
+ *
+ * Both halves matter. The owner check alone is not enough: between reading the
+ * claim and removing it, the lease can lapse and a successor can take the unit
+ * over — destroying then would delete the **live** claim of the worker that
+ * replaced me, and a third one would find the unit free while two are running
+ * it. The removal therefore carries the state it was read against, and a
+ * mismatch means the answer is "not mine any more", not "try again".
+ */
 export async function releaseClaim(
   store: AgentStore,
   area: AgentArea,
   worker: string,
+  epoch?: number,
 ): Promise<boolean> {
   const found = await store.readClaim(area);
   if (!found || found.doc.worker !== worker) return false;
-  await store.destroyClaim(area);
+  if (epoch !== undefined && claimEpoch(found.doc) !== epoch) return false;
+  try {
+    await store.destroyClaim(area, { ifInState: found.state });
+  } catch (err) {
+    if (isStateMismatch(err)) return false;
+    throw err;
+  }
   return true;
+}
+
+/**
+ * Whether this worker still holds the unit, in the epoch it was granted.
+ *
+ * What the executor asks before each effect that leaves the process — sending
+ * mail, posting to a chat, writing a file — so a run whose lease lapsed and was
+ * taken over stops instead of writing results the new owner will write again.
+ */
+export async function claimStillMine(
+  store: AgentStore,
+  area: AgentArea,
+  worker: string,
+  epoch: number,
+): Promise<boolean> {
+  const found = await store.readClaim(area);
+  return Boolean(found && found.doc.worker === worker && claimEpoch(found.doc) === epoch);
 }
 
 /**
@@ -138,16 +180,18 @@ export async function saveClaimStates(
   states: Record<string, string>,
 ): Promise<AgentClaim | null> {
   for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
+    const token = await store.state();
     const found = await store.readClaim(claim.area);
     if (found && found.doc.worker !== claim.worker) return null;
+    // A claim that has moved to a new epoch is somebody else's run: the anchor
+    // this worker is saving belongs to an ownership that is over.
+    if (found && claimEpoch(found.doc) !== claimEpoch(claim)) return null;
     const updated: AgentClaim = {
       ...(found?.doc ?? claim),
       states: { ...(found?.doc ?? claim).states, ...states },
     };
     try {
-      await store.writeClaim(updated, {
-        ifInState: found?.state ?? (await store.state()),
-      });
+      await store.writeClaim(updated, { ifInState: token });
       return updated;
     } catch (err) {
       if (!isStateMismatch(err)) throw err;
@@ -168,6 +212,7 @@ export async function claimStream(
 ): Promise<AgentStreamClaim | null> {
   const heartbeatAt = opts.now.toISOString();
   for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
+    const token = await store.state();
     const found = await store.readStreamClaim();
     const held = found?.doc;
     const mine = held?.worker === worker;
@@ -180,13 +225,12 @@ export async function claimStream(
     const claim: AgentStreamClaim = {
       v: 1,
       worker,
+      epoch: held ? claimEpoch(held) + (mine ? 0 : 1) : 0,
       leasedAt: mine && held ? held.leasedAt : heartbeatAt,
       heartbeatAt,
     };
     try {
-      await store.writeStreamClaim(claim, {
-        ifInState: found?.state ?? (await store.state()),
-      });
+      await store.writeStreamClaim(claim, { ifInState: token });
       return claim;
     } catch (err) {
       if (!isStateMismatch(err)) throw err;
@@ -220,10 +264,17 @@ export async function renewStreamClaim(
 export async function releaseStreamClaim(
   store: AgentStore,
   worker: string,
+  epoch?: number,
 ): Promise<boolean> {
   const found = await store.readStreamClaim();
   if (!found || found.doc.worker !== worker) return false;
-  await store.destroyStreamClaim();
+  if (epoch !== undefined && claimEpoch(found.doc) !== epoch) return false;
+  try {
+    await store.destroyStreamClaim({ ifInState: found.state });
+  } catch (err) {
+    if (isStateMismatch(err)) return false;
+    throw err;
+  }
   return true;
 }
 

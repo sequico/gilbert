@@ -213,6 +213,31 @@ export async function addAgentLabels(name: string): Promise<string[]> {
 }
 
 /** `GET /api/admin/agent/approvals` — every pending decision, by group. */
+/** The group's standing instruction, as the admin surface reads it. */
+export interface GroupInstructionView {
+  text: string;
+  updatedAt: string | null;
+  updatedBy: string | null;
+  max: number;
+}
+
+export async function fetchGroupInstruction(name: string): Promise<GroupInstructionView> {
+  return apiFetch<GroupInstructionView>(
+    `/api/admin/groups/${encodeURIComponent(name)}/agent/instruction`,
+  );
+}
+
+/** Replace it. An empty text removes it. */
+export async function saveGroupInstruction(
+  name: string,
+  text: string,
+): Promise<GroupInstructionView> {
+  return apiFetch<GroupInstructionView>(
+    `/api/admin/groups/${encodeURIComponent(name)}/agent/instruction`,
+    { method: "POST", body: JSON.stringify({ text }) },
+  );
+}
+
 export async function fetchPendingApprovals(): Promise<PendingApproval[]> {
   const res = await apiFetch<{ approvals: PendingApproval[] }>(
     "/api/admin/agent/approvals",

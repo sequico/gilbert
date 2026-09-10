@@ -22,6 +22,7 @@ import { areaText } from "@/views/agent/agentText";
 import { AgentApprovals } from "./agent/AgentApprovals";
 import { AgentProviders } from "./agent/AgentProviders";
 import { AppPasswordRotate } from "./agent/AppPasswordRotate";
+import { GroupInstruction } from "./agent/GroupInstruction";
 import { RuleEditor } from "./agent/RuleEditor";
 
 export function AdminAgents() {
@@ -52,6 +53,7 @@ export function AdminAgents() {
 
       <Registration status={status} />
       <Workers status={status} />
+      <GroupInstruction groups={status?.groups ?? []} />
       <RuleEditor groups={status?.groups ?? []} />
       <AgentProviders />
       <AgentApprovals />

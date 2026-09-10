@@ -182,15 +182,37 @@ export interface CategoryAnswer {
  * answers with something else has not classified anything, and running the
  * wrong category's actions would be worse than failing.
  */
+/**
+ * The group's standing instruction, as the first thing the model reads.
+ *
+ * Precedence is stated by position: the group's own rules of the house, then
+ * the instruction this automation carries, then the item being looked at. It is
+ * also the one channel that **is** meant to be obeyed — `DATA_NOT_INSTRUCTIONS`
+ * says the same thing from the other side, about mail and chat content, which
+ * is never an instruction however it is written.
+ */
+function standingBlock(standing?: string): string {
+  const text = (standing ?? "").trim();
+  if (!text) return "";
+  return [
+    "Standing instructions for this group, from its administrator:",
+    text,
+    "They say how to work, not what you are allowed to do: what you may do is",
+    "the capability list below, and nothing here changes it.",
+  ].join("\n");
+}
+
 export async function classifyCategory(
   provider: AgentProvider,
   rule: { name: string; categories?: ReadonlyArray<{ name: string }> },
   context: ModelContext,
+  standing?: string,
 ): Promise<CategoryAnswer> {
   const categories = (rule.categories ?? []).map((category) => category.name);
   if (!categories.length)
     throw new Error(`the rule "${rule.name}" has no categories to classify into`);
   const system = [
+    standingBlock(standing),
     `You classify one item for the automation "${rule.name}".`,
     'Answer with one JSON object: {"category": string, "confidence": number, "rationale": string}.',
     `"category" must be exactly one of: ${categories.join(", ")}.`,
@@ -234,12 +256,14 @@ export async function decideActions(
   rule: { name: string; instruction?: string },
   context: ModelContext,
   allowed: ReadonlyArray<AgentActionName>,
+  standing?: string,
 ): Promise<DecisionAnswer> {
   if (!allowed.length)
     throw new Error(
       `the rule "${rule.name}" allows no capability, so there is nothing to decide`,
     );
   const system = [
+    standingBlock(standing),
     `You decide what the automation "${rule.name}" does about the item you are given.`,
     rule.instruction ? `The instruction it carries: ${rule.instruction}` : "",
     'Answer with one JSON object: {"summary": string, "confidence": number, "rationale": string, "actions": [{"do": string, "with": object}]}.',

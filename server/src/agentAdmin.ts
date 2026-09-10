@@ -23,6 +23,7 @@
 
 import { createAppPassword, readGroupLabels, writeGroupLabels } from "./account.js";
 import {
+  AGENT_INSTRUCTION_MAX,
   AGENT_JOB_OPEN_STATES,
   AGENT_MODEL_TIERS,
   type AgentArea,
@@ -156,10 +157,18 @@ export type GroupAccessResult = GroupAccess | GroupAccessDenied;
  * refuses for group mailboxes (live-verified 2026-09-09: the composite
  * `{group}%{admin}` answers 403), so the answer for them is an honest 403
  * naming membership as the requirement.
+ *
+ * `allowImpersonation: false` is for the surfaces a **member** reaches. There,
+ * a name that is not in the session is not a group this person may act as at
+ * all, and reaching for the administrator's mechanism would make Stalwart's
+ * refusal the only thing standing between any signed-in user and another
+ * group's documents. The membership answer is the same either way, and it is
+ * reached without asking the server for anything.
  */
 export async function resolveGroupAccess(
   session: LiveSession,
   name: string,
+  opts: { allowImpersonation?: boolean } = {},
 ): Promise<GroupAccessResult> {
   const upstream = await getUpstreamSession(
     session.id,
@@ -182,11 +191,17 @@ export async function resolveGroupAccess(
       },
     };
   }
+  if (opts.allowImpersonation === false) return deniedGroupAccess();
   const imp = await impersonateAs(session, name);
   if (imp.ok) {
     const accountId = filesAccountId(imp.ctx);
     if (accountId) return { ok: true, ctx: imp.ctx, accountId };
   }
+  return deniedGroupAccess();
+}
+
+/** Membership is the whole answer for a surface that may not impersonate. */
+function deniedGroupAccess(): GroupAccessDenied {
   return {
     ok: false,
     error: "group_not_accessible",
@@ -803,6 +818,74 @@ export async function rotateAgentAppPassword(
 }
 
 /* ------------------------------------------------------------------ */
+/* The group's standing instruction                                    */
+
+/**
+ * The group's standing instruction, as the admin surface sees it.
+ *
+ * Read and written by an administrator of the group — not by every member —
+ * because a text handed to the model on every call is configuration, and
+ * configuration is what the rules document already is. A member writes in the
+ * group's files; this document is reached through the admin surface only.
+ */
+export interface GroupInstructionView {
+  text: string;
+  updatedAt: string | null;
+  updatedBy: string | null;
+  max: number;
+}
+
+export async function readGroupInstruction(
+  access: GroupAccess,
+): Promise<GroupInstructionView> {
+  const store = new AgentStore(access.ctx, access.accountId);
+  const found = await store.readInstruction();
+  return {
+    text: found?.doc.text ?? "",
+    updatedAt: found?.doc.updatedAt ?? null,
+    updatedBy: found?.doc.updatedBy ?? null,
+    max: AGENT_INSTRUCTION_MAX,
+  };
+}
+
+/**
+ * Replace the group's standing instruction. An empty text removes it.
+ *
+ * The length bound is the document's own (`isAgentInstructionDoc`), applied
+ * here so a person gets a sentence rather than a document that silently fails
+ * to read back.
+ */
+export async function saveGroupInstruction(
+  access: GroupAccess,
+  text: string,
+  by: string,
+): Promise<GroupInstructionView> {
+  const trimmed = text.trim();
+  if (trimmed.length > AGENT_INSTRUCTION_MAX)
+    throw new AgentAdminError(
+      "instruction_too_long",
+      `A standing instruction is at most ${AGENT_INSTRUCTION_MAX} characters; this one is ${trimmed.length}.`,
+      400,
+    );
+  const store = new AgentStore(access.ctx, access.accountId);
+  const found = await store.readInstruction();
+  if (!trimmed) {
+    if (found) await store.removeInstruction();
+    return { text: "", updatedAt: null, updatedBy: null, max: AGENT_INSTRUCTION_MAX };
+  }
+  const doc = await store.writeInstruction(
+    trimmed,
+    by,
+    found ? { ifInState: found.state } : {},
+  );
+  return {
+    text: doc.text,
+    updatedAt: doc.updatedAt,
+    updatedBy: doc.updatedBy,
+    max: AGENT_INSTRUCTION_MAX,
+  };
+}
+
 /* The reserved labels a group's agent needs                           */
 /* ------------------------------------------------------------------ */
 
@@ -913,7 +996,7 @@ export async function memberAgentView(
   session: LiveSession,
   name: string,
 ): Promise<MemberAgentView | GroupAccessDenied> {
-  const access = await resolveGroupAccess(session, name);
+  const access = await resolveGroupAccess(session, name, { allowImpersonation: false });
   if (!access.ok) return access;
   const store = new AgentStore(access.ctx, access.accountId);
   const [rules, jobs, audit] = await Promise.all([

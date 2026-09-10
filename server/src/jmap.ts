@@ -93,6 +93,35 @@ export function isStateMismatch(err: unknown): boolean {
   return err instanceof JmapError && err.type === "stateMismatch";
 }
 
+/**
+ * The last time a mail server told us it was, from its own `Date` header.
+ *
+ * Leases are compared against a clock, and two processes comparing their own
+ * clocks is how one of them decides a live lease has expired. Every JMAP
+ * response carries the server's date; this keeps the most recent one, so the
+ * answer to "has this lease lapsed" comes from the machine both workers already
+ * agree on rather than from whichever laptop has the wrong time. It is the
+ * anchor `serverNow()` hands out, and it is only as fresh as the last call.
+ */
+let serverDateMs: number | null = null;
+
+/** Read the server's `Date` header off a response, when it carries one. */
+export function noteServerDate(res: Response): void {
+  const header = res.headers.get("date");
+  if (!header) return;
+  const at = Date.parse(header);
+  if (Number.isFinite(at)) serverDateMs = at;
+}
+
+/**
+ * Now, as the mail server last told us. Falls back to this process's clock
+ * before anything has been asked of the server (a worker's first pass), which
+ * is the one window where no server time exists yet.
+ */
+export function serverNow(): Date {
+  return serverDateMs === null ? new Date() : new Date(serverDateMs);
+}
+
 export class JmapClient {
   constructor(
     private readonly authorization: string,
@@ -138,6 +167,7 @@ export class JmapClient {
       }),
       signal: AbortSignal.timeout(config.upstreamTimeout),
     });
+    noteServerDate(res);
     if (res.status === 401 || res.status === 403)
       throw new UpstreamError("Invalid credentials", 401);
     if (!res.ok)

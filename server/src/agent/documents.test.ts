@@ -19,6 +19,7 @@ import {
   CHAT_CONTEXT_MAX,
   clampChatContext,
   consentRequired,
+  irreversible,
   isAgentAction,
   isAgentJob,
   isAgentRule,
@@ -114,13 +115,21 @@ test("sending reaches outside the group, so it needs consent", () => {
   const label: AgentAction = { do: "keyword.add", with: { keyword: "todo" } };
   assert.equal(consentRequired([label]), false);
   assert.equal(consentRequired([label, send]), true);
-  // A policy of `never` cannot relax the floor: this is the ADR's one
-  // irreversible point, and the floor wins over the mode.
+  // A policy of `never` cannot relax the floor: sending is the ADR's one
+  // irreversible point, and the floor wins over the mode **and** over
+  // `allowExternal` — an irreversible effect nobody was asked about is the
+  // failure this floor exists to prevent, so no field of a rule document can
+  // switch it off. `allowExternal` still governs the consent a *reversible*
+  // external action needs; today `mail.send` is the only external action and it
+  // is also irreversible, so the two coincide.
   assert.equal(reviewOutcome({ mode: "never" }, [send], 1), "pause");
   assert.equal(
     reviewOutcome({ mode: "never", allowExternal: true }, [send], 1),
-    "execute",
+    "pause",
+    "the irreversible floor is not a knob",
   );
+  assert.equal(irreversible([send]), true);
+  assert.equal(irreversible([label]), false);
 });
 
 test("the review gate follows the mode, the confidence and the T0 convention", () => {
@@ -371,4 +380,63 @@ test("the published schema is what a save is refused against", () => {
   const noCaps = ruleProblems(rule({ capabilities: [] }));
   assert.ok(noCaps.some((problem) => /capabilities/.test(problem)));
   assert.ok(ruleProblems({ hello: "world" }).length > 0, "not a rule at all");
+});
+
+test("a filter that is valid and could never fire is refused, not accepted", () => {
+  // The failure this closes: `minSize: "1000"` is a supported key with a value
+  // the matcher compares as a number, so it is false for every message — an
+  // automation that looks armed and silently does nothing.
+  const typed = rule({
+    trigger: { on: "email", filter: { minSize: "1000" } },
+  });
+  assert.deepEqual(schemaProblems(typed), [], "the schema alone cannot see it");
+  assert.ok(
+    ruleProblems(typed).some((problem) => /number/.test(problem)),
+    "and the author is told before saving",
+  );
+
+  // A key beside `operator` is the same failure the other way: silently
+  // ignored rather than refused.
+  const sibling = rule({
+    trigger: {
+      on: "email",
+      filter: { operator: "OR", conditions: [{ subject: "x" }], minSize: 10 },
+    },
+  });
+  assert.ok(
+    ruleProblems(sibling).some((problem) => /minSize/.test(problem)),
+    "the key the matcher would never read is named",
+  );
+  assert.throws(
+    () =>
+      matchEmailFilter(
+        { operator: "OR", conditions: [{ subject: "x" }], minSize: 10 },
+        email(),
+      ),
+    /minSize beside OR/,
+    "and the executor refuses it too, rather than matching as if it were absent",
+  );
+
+  const fine = rule({
+    trigger: {
+      on: "email",
+      filter: { operator: "OR", conditions: [{ subject: "x" }, { minSize: 10 }] },
+    },
+  });
+  assert.deepEqual(ruleProblems(fine), []);
+});
+
+test("the material each tier runs on is checked for being there, not just typed", () => {
+  // `""` is a string, so the schema is satisfied and the model is asked
+  // nothing; the emptiness is a rule the document cannot state.
+  assert.ok(
+    ruleProblems(rule({ tier: "T2", instruction: "" })).some((problem) =>
+      /instruction/.test(problem),
+    ),
+  );
+  assert.ok(
+    ruleProblems(rule({ tier: "T0", actions: [] })).some((problem) =>
+      /nothing/.test(problem),
+    ),
+  );
 });

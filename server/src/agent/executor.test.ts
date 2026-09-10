@@ -154,11 +154,21 @@ test("a matching message is filed: the job runs, the audit records it, the claim
   assert.equal(job.area, "mail");
 
   const audit = await store.readAuditAt(new Date());
-  const entry = audit?.entries.find((candidate) => candidate.jobId === job.id);
+  const entries = (audit?.entries ?? []).filter(
+    (candidate) => candidate.jobId === job.id,
+  );
+  const entry = entries.at(-1);
   assert.ok(entry, "the run is in the month's audit document");
   assert.equal(entry.outcome, "done");
   assert.equal(entry.ruleId, rule_.id);
   assert.deepEqual(entry.actions, rule_.actions);
+  // The intent line: the trail says what was about to run before it ran, so an
+  // effect can never exist without a line that accounts for it.
+  assert.equal(
+    entries[0]?.outcome,
+    "running",
+    "the audit records the intent before the actions",
+  );
 
   const marked = await fetchEmailRecord(client, GROUP, emailId, {});
   assert.equal(

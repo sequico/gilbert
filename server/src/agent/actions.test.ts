@@ -220,6 +220,55 @@ test("attachments are written into the folder the rule names, with their own byt
   );
 });
 
+test("a name the group already filed is kept: the run writes beside it", async () => {
+  // Somebody's file is not the run's to replace. The second save of the same
+  // attachment name gets a numbered one instead, and the first is untouched.
+  const { writeBytesIntoVisibleFolder } = await import("../appFolder.js");
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    GROUP,
+    "invoices/2026",
+    "note.txt",
+    new TextEncoder().encode("what the group filed"),
+    "text/plain",
+  );
+  assert.deepEqual(
+    (
+      await runActions(
+        ctx,
+        GROUP,
+        [{ do: "mail.extract", with: { folder: "invoices/2026" } }],
+        {
+          emailId: attachedId,
+        },
+      )
+    )[0]?.result?.saved,
+    ["invoices/2026/2-note.txt"],
+  );
+  assert.equal(
+    (await readVisibleFileAt(ctx, GROUP, "invoices/2026/note.txt"))?.text,
+    "what the group filed",
+    "the file that was already there is still there, with its own bytes",
+  );
+  assert.equal(
+    (await readVisibleFileAt(ctx, GROUP, "invoices/2026/2-note.txt"))?.text,
+    "the attachment's own bytes",
+  );
+});
+
+test("a folder the model calls `gilbert` is refused: the hidden tree is not a destination", async () => {
+  // What the model may name is bounded by this, not by asking it nicely: the
+  // app folder sits at the top of the same tree, so the name is refused before
+  // anything is written.
+  await assert.rejects(
+    () =>
+      runActions(ctx, GROUP, [{ do: "mail.extract", with: { folder: "gilbert" } }], {
+        emailId: attachedId,
+      }),
+    /Gilbert's own folder/,
+  );
+});
+
 test("an attachment nothing placed a folder for lands in the attention folder", async () => {
   const [result] = await runActions(ctx, GROUP, [{ do: "mail.extract", with: {} }], {
     emailId: attachedId,

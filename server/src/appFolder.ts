@@ -29,6 +29,26 @@ import type { UpstreamSession } from "./upstream.js";
 /** The folder Gilbert keeps its own documents in, in every account. */
 export const APP_FOLDER_NAME = "gilbert";
 
+/**
+ * The same folder, when the account already has something called `gilbert`.
+ *
+ * Any member can make a top-level folder in Files, so `gilbert` is a name a
+ * person can take. A folder is only the app folder when it carries
+ * `APP_FOLDER_MARKER`, and when the plain name is taken by one that does not,
+ * the app folder is created under this one instead: the reader's folder stays
+ * theirs, and nothing Gilbert writes lands where they filed their own work.
+ */
+export const APP_FOLDER_ALT_NAME = ".gilbert";
+
+/** The file whose presence makes a folder the app folder. */
+export const APP_FOLDER_MARKER = ".gilbert-app";
+
+/** Every name the app folder can go by, for the visible tree to refuse. */
+export const APP_FOLDER_NAMES: ReadonlyArray<string> = [
+  APP_FOLDER_NAME,
+  APP_FOLDER_ALT_NAME,
+];
+
 /** The JMAP capability that carries FileNode in Stalwart 0.16. */
 export const FILENODE_CAP = "urn:ietf:params:jmap:filenode";
 
@@ -136,27 +156,65 @@ export async function appFolderState(ctx: Ctx, accountId: string): Promise<strin
   return typeof res.state === "string" ? res.state : "";
 }
 
-/** The account's own `gilbert` app folder, or null when it is not there yet. */
-export async function findAppFolder(ctx: Ctx, accountId: string): Promise<string | null> {
-  const top = await fileChildren(ctx, accountId, null, FOLDER_PROPS);
-  const existing = top.find(
-    (n) => n.parentId == null && n.nodeType === "directory" && n.name === APP_FOLDER_NAME,
+/**
+ * Whether a folder carries the marker that makes it the app folder.
+ *
+ * One extra listing, paid only when the account has a top-level folder by one
+ * of the app folder's names — which is the case that has to be told apart from
+ * a folder a person made. Correctness here is worth the round trip: adopting
+ * the wrong folder means writing Gilbert's documents into somebody's work.
+ */
+async function carriesMarker(
+  ctx: Ctx,
+  accountId: string,
+  folderId: string,
+): Promise<boolean> {
+  const children = await fileChildren(ctx, accountId, folderId, FOLDER_PROPS);
+  return children.some(
+    (n) =>
+      n.parentId === folderId && n.nodeType === "file" && n.name === APP_FOLDER_MARKER,
   );
-  return existing?.id ? String(existing.id) : null;
 }
 
-/** The account's own `gilbert` app folder, creating it when missing. */
+/** The account's own app folder, or null when there is not a marked one yet. */
+export async function findAppFolder(ctx: Ctx, accountId: string): Promise<string | null> {
+  const top = await fileChildren(ctx, accountId, null, FOLDER_PROPS);
+  const candidates = top.filter(
+    (n) =>
+      n.parentId == null &&
+      n.nodeType === "directory" &&
+      typeof n.name === "string" &&
+      APP_FOLDER_NAMES.includes(n.name),
+  );
+  for (const candidate of candidates) {
+    if (await carriesMarker(ctx, accountId, String(candidate.id)))
+      return String(candidate.id);
+  }
+  return null;
+}
+
+/**
+ * The account's own app folder, creating it — and marking it — when missing.
+ *
+ * The plain name is used unless a top-level folder already holds it without the
+ * marker: that folder is somebody's, so the app folder goes to
+ * `APP_FOLDER_ALT_NAME` rather than into their work.
+ */
 export async function ensureAppFolder(ctx: Ctx, accountId: string): Promise<string> {
   const existing = await findAppFolder(ctx, accountId);
   if (existing) return existing;
+  const top = await fileChildren(ctx, accountId, null, FOLDER_PROPS);
+  const taken = new Set(
+    top
+      .filter((n) => n.parentId == null && typeof n.name === "string")
+      .map((n) => String(n.name)),
+  );
+  const name = taken.has(APP_FOLDER_NAME) ? APP_FOLDER_ALT_NAME : APP_FOLDER_NAME;
   const created = await clientOf(ctx).call<{
     created?: Record<string, { id?: string }>;
   }>(
     "FileNode/set",
-    {
-      accountId,
-      create: { d: { parentId: null, name: APP_FOLDER_NAME, nodeType: "directory" } },
-    },
+    { accountId, create: { d: { parentId: null, name, nodeType: "directory" } } },
     [FILENODE_CAP],
   );
   const id = created.created?.d?.id;
@@ -164,7 +222,21 @@ export async function ensureAppFolder(ctx: Ctx, accountId: string): Promise<stri
     throw new AppFolderError(
       "The mail server created the app folder but returned no id.",
     );
+  await markAppFolder(ctx, accountId, id);
   return id;
+}
+
+/** Leave the marker that makes a folder the app folder. */
+async function markAppFolder(
+  ctx: Ctx,
+  accountId: string,
+  folderId: string,
+): Promise<void> {
+  const bytes = new TextEncoder().encode(
+    `Gilbert keeps its own documents in this folder. It is not a place to file your own.\n`,
+  );
+  const blobId = await uploadBlobBytes(ctx, accountId, bytes, "text/plain");
+  await putFile(ctx, accountId, folderId, APP_FOLDER_MARKER, blobId, "text/plain");
 }
 
 /** A directory by name under `parentId`, creating it when missing. */
@@ -534,7 +606,7 @@ export async function ensureRootFolderPath(
   path: string,
 ): Promise<string> {
   let current: string | null = null;
-  for (const segment of pathSegments(path)) {
+  for (const segment of visibleSegments(path)) {
     current = await ensureChildFolder(ctx, accountId, current, segment);
   }
   if (current === null) throw new AppFolderError("a folder path needs a name");
@@ -552,7 +624,35 @@ export async function readVisibleFileAt(
   accountId: string,
   path: string,
 ): Promise<{ text: string; file: FileNodeLike } | null> {
-  const segments = pathSegments(path);
+  const found = await findVisibleFile(ctx, accountId, path);
+  if (!found) return null;
+  const type =
+    typeof found.file.type === "string" && found.file.type
+      ? found.file.type
+      : "text/plain";
+  const text = await downloadBlobText(
+    ctx,
+    accountId,
+    String(found.file.blobId),
+    type,
+    typeof found.file.name === "string" ? found.file.name : found.name,
+  );
+  return { text, file: found.file };
+}
+
+/**
+ * The node a visible path names, without reading its bytes.
+ *
+ * The one walk of the visible tree: the reader above and the writer that has to
+ * avoid a name already taken both go through it, so "is this path taken" means
+ * the same thing to both.
+ */
+export async function findVisibleFile(
+  ctx: Ctx,
+  accountId: string,
+  path: string,
+): Promise<{ file: FileNodeLike; name: string } | null> {
+  const segments = visibleSegments(path);
   const name = segments.pop();
   if (!name) throw new AppFolderError("a document path needs a file name");
   let folderId: string | null = null;
@@ -563,16 +663,35 @@ export async function readVisibleFileAt(
     folderId = String(found.id);
   }
   const file = await findInFolder(ctx, accountId, folderId, name);
-  if (!file) return null;
-  const type = typeof file.type === "string" && file.type ? file.type : "text/plain";
-  const text = await downloadBlobText(
-    ctx,
-    accountId,
-    String(file.blobId),
-    type,
-    String(file.name ?? name),
+  return file ? { file, name } : null;
+}
+
+/**
+ * A name in a visible folder that nothing is using yet.
+ *
+ * A file a person filed is theirs: an automation that saves under a name
+ * already taken there adds a numbered one beside it instead of replacing what
+ * they have. `note.txt`, `2-note.txt`, `3-note.txt` — the same shape the
+ * extract action uses for two attachments that arrive with one name.
+ */
+export async function unusedVisibleName(
+  ctx: Ctx,
+  accountId: string,
+  folderPath: string,
+  name: string,
+): Promise<string> {
+  const folder = folderPath.replace(/\/+$/, "");
+  if (!(await findVisibleFile(ctx, accountId, `${folder}/${name}`))) return name;
+  for (let n = 2; n < 1000; n++) {
+    const candidate = `${n}-${name}`;
+    if (!(await findVisibleFile(ctx, accountId, `${folder}/${candidate}`)))
+      return candidate;
+  }
+  throw new AppFolderError(
+    `"${folder}" already holds a thousand files by the name of "${name}"`,
+    409,
+    "name_taken",
   );
-  return { text, file };
 }
 
 /**
@@ -595,11 +714,48 @@ export async function writeBytesIntoVisibleFolder(
   await putFile(ctx, accountId, folderId, name, blobId, type);
 }
 
-/** Remove a node by id. Missing is success: nothing to remove, nothing to say. */
+/**
+ * A path in the visible tree, refusing the app folder's own names.
+ *
+ * The app folder sits at the top of the same tree — that is what makes its
+ * contents durable in the account — so a path that names it would write a
+ * person's file into Gilbert's private documents, or read them back out. The
+ * refusal is by name and covers both names the app folder can go by, because a
+ * model choosing a folder (`mail.extract`) is a caller that can name anything.
+ */
+function visibleSegments(path: string): string[] {
+  const segments = pathSegments(path);
+  const first = segments[0];
+  if (first !== undefined && APP_FOLDER_NAMES.includes(first)) {
+    throw new AppFolderError(
+      `"${first}" is Gilbert's own folder and cannot be a destination in Files.`,
+      400,
+      "reserved_folder",
+    );
+  }
+  return segments;
+}
+
+/**
+ * Remove a node by id. Missing is success: nothing to remove, nothing to say.
+ *
+ * `ifInState` makes the removal conditional on the account state it was
+ * decided against, which is what a writer that must not remove a node somebody
+ * else has since replaced needs — an agent releasing a claim, above all.
+ */
 export async function destroyAppNode(
   ctx: Ctx,
   accountId: string,
   id: string,
+  opts: { ifInState?: string } = {},
 ): Promise<void> {
-  await clientOf(ctx).call("FileNode/set", { accountId, destroy: [id] }, [FILENODE_CAP]);
+  await clientOf(ctx).call(
+    "FileNode/set",
+    {
+      accountId,
+      ...(opts.ifInState ? { ifInState: opts.ifInState } : {}),
+      destroy: [id],
+    },
+    [FILENODE_CAP],
+  );
 }

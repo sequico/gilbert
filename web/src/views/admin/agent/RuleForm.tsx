@@ -46,17 +46,34 @@ const AGENT_PARAM_LABELS: Record<AgentActionParam["kind"], string> = {
   keyword: "Label keyword",
 };
 
+/** The filter keys whose value is a number, and must be written as one. */
+const AGENT_FILTER_NUMBERS = new Set(["minSize", "maxSize"]);
+
 const REVIEW_MODES: ReadonlyArray<AgentReviewMode> = ["always", "threshold", "never"];
 
 function isReviewMode(x: string): x is AgentReviewMode {
   return (REVIEW_MODES as ReadonlyArray<string>).includes(x);
 }
 
-/** The filter fields the executor honours (the RFC 8621 subset it implements). */
+/**
+ * The filter fields the executor honours: one entry per key in
+ * `SUPPORTED_FILTER_KEYS`, in the same order, so a filter the runtime would
+ * act on is a filter this form can write. A key that exists on the server and
+ * not here is an automation nobody can author, which is how a "form only"
+ * promise turns into a rule that cannot be written at all.
+ */
 const AGENT_FILTER_LABELS: ReadonlyArray<{ key: string; label: string }> = [
   { key: "inMailbox", label: "Mailbox" },
   { key: "subject", label: "Subject contains" },
   { key: "from", label: "From contains" },
+  { key: "to", label: "To contains" },
+  { key: "cc", label: "Cc contains" },
+  { key: "text", label: "Anywhere contains" },
+  { key: "body", label: "Body contains" },
+  { key: "before", label: "Received before" },
+  { key: "after", label: "Received after" },
+  { key: "minSize", label: "Larger than (bytes)" },
+  { key: "maxSize", label: "Smaller than (bytes)" },
   { key: "hasKeyword", label: "Has keyword" },
   { key: "notKeyword", label: "Not keyword" },
 ];
@@ -74,15 +91,58 @@ export function RuleForm({
   const setReview = (patch: Partial<AgentReview>) =>
     set({ review: { ...rule.review, ...patch } });
 
+  /*
+   * A filter is written either flat (every key must match) or grouped under one
+   * of the three operators. The form shows whichever shape the rule already
+   * has: grouped rules are read back as grouped, so opening an automation does
+   * not quietly reshape it.
+   */
+  const grouped = typeof rule.trigger.filter?.operator === "string";
+  const listed: unknown = grouped ? rule.trigger.filter?.conditions : undefined;
+  const first: unknown = Array.isArray(listed) ? listed[0] : undefined;
+  const conditions: Record<string, unknown> = grouped
+    ? { ...((first as Record<string, unknown> | undefined) ?? {}) }
+    : { ...(rule.trigger.filter ?? {}) };
+
   const filterValue = (key: string): string => {
-    const value = rule.trigger.filter?.[key];
-    return typeof value === "string" ? value : "";
+    const value = conditions[key];
+    if (typeof value === "string") return value;
+    if (typeof value === "number") return String(value);
+    return "";
   };
-  const setFilter = (key: string, value: string) => {
-    const next: Record<string, unknown> = { ...(rule.trigger.filter ?? {}) };
-    if (value.trim()) next[key] = value;
-    else delete next[key];
-    setTrigger({ filter: Object.keys(next).length ? next : undefined });
+  const writeConditions = (next: Record<string, unknown>) => {
+    if (!Object.keys(next).length) {
+      setTrigger({ filter: undefined });
+      return;
+    }
+    setTrigger({
+      filter: grouped
+        ? { operator: rule.trigger.filter?.operator, conditions: [next] }
+        : next,
+    });
+  };
+  const setFilter = (key: string, raw: string) => {
+    const next: Record<string, unknown> = { ...conditions };
+    if (!raw.trim()) delete next[key];
+    // A size is a number, and the matcher compares numbers: a string here is a
+    // filter that is valid and never matches, which the server now refuses.
+    else if (AGENT_FILTER_NUMBERS.has(key)) next[key] = Number(raw);
+    else next[key] = raw;
+    writeConditions(next);
+  };
+  /**
+   * Choose how the conditions compose. `All of these` on a filter that is not
+   * grouped yet is the shape the form already writes, so it leaves the document
+   * alone rather than rewriting it into a group of one.
+   */
+  const setOperator = (next: string) => {
+    if (next === "AND" && !grouped) return;
+    setTrigger({
+      filter: {
+        operator: next,
+        conditions: Object.keys(conditions).length ? [conditions] : [],
+      },
+    });
   };
 
   /*
@@ -200,6 +260,19 @@ export function RuleForm({
           <p className="hint">
             {t("Every filter must match. An empty filter matches every message.")}
           </p>
+          <div className="field">
+            <label htmlFor="agent-filter-operator">{t("Match")}</label>
+            <select
+              id="agent-filter-operator"
+              className="input"
+              value={grouped ? String(rule.trigger.filter?.operator ?? "AND") : "AND"}
+              onChange={(e) => setOperator(e.target.value)}
+            >
+              <option value="AND">{t("All of these")}</option>
+              <option value="OR">{t("Any of these")}</option>
+              <option value="NOT">{t("None of these")}</option>
+            </select>
+          </div>
           {AGENT_FILTER_LABELS.map((f) => (
             <div className="field" key={f.key}>
               <label htmlFor={`agent-filter-${f.key}`}>{t(f.label)}</label>

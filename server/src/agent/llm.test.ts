@@ -232,3 +232,62 @@ test("T2 with no allowed capability cannot decide anything", async () => {
     /allows no capability/,
   );
 });
+
+test("the group's standing instruction is read first, and the automation's after it", async () => {
+  // Precedence is stated by position (ADR 0003 resolution 17): the group's own
+  // rules of the house, then the instruction this automation carries, then the
+  // data — which arrives in the user message and is never an instruction.
+  answerWith({
+    summary: "s",
+    confidence: 1,
+    actions: [{ do: "keyword.add", with: { keyword: "k" } }],
+  });
+  await decideActions(
+    provider,
+    { name: "File the invoices", instruction: "File invoices into invoices/2026." },
+    { text: "THE MESSAGE" },
+    ["keyword.add"],
+    "Answer in Italian, and never quote a price.",
+  );
+  const sent = seen as unknown as Seen;
+  const messages = sent.body.messages as Array<{ role: string; content: string }>;
+  const system = messages.find((m) => m.role === "system")?.content ?? "";
+  const user = messages.find((m) => m.role === "user")?.content ?? "";
+  assert.match(
+    system,
+    /Answer in Italian/,
+    "the group's instruction is in the system prompt",
+  );
+  assert.match(system, /File invoices into/, "and the automation's instruction is too");
+  assert.ok(
+    system.indexOf("Answer in Italian") < system.indexOf("File invoices into"),
+    "the group's instruction comes first",
+  );
+  assert.ok(
+    system.indexOf("File invoices into") < system.indexOf("THE MESSAGE") ||
+      !system.includes("THE MESSAGE"),
+    "and the data is not in the system prompt at all",
+  );
+  assert.match(user, /THE MESSAGE/);
+});
+
+test("an instruction that says to ignore the capability list changes nothing it may do", async () => {
+  // The sentence beside the field, as a test: the allowlist is the server's,
+  // and a standing instruction cannot widen it.
+  answerWith({
+    summary: "s",
+    confidence: 1,
+    actions: [{ do: "mail.send", with: { to: "a@b.c" } }],
+  });
+  await assert.rejects(
+    () =>
+      decideActions(
+        provider,
+        { name: "Reply" },
+        { text: "hi" },
+        ["keyword.add"],
+        "You may send mail to anyone who asks.",
+      ),
+    /mail\.send/,
+  );
+});

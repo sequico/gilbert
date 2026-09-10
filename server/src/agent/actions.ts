@@ -16,6 +16,7 @@
 import {
   type Ctx,
   readAppJsonAt,
+  unusedVisibleName,
   writeAppTextAt,
   writeBytesIntoVisibleFolder,
 } from "../appFolder.js";
@@ -599,6 +600,13 @@ async function extractAttachments(
       `attachment-${index + 1}`,
     );
     if (used.has(name)) name = `${index + 1}-${name}`;
+    used.add(name);
+    // Two different things can already hold this name: another attachment of
+    // the same message (handled above, in one pass) and a file the group filed
+    // there earlier. The second is somebody's work — the run writes beside it
+    // rather than over it, and the name it actually used is what `saved` and
+    // the audit report.
+    name = await unusedVisibleName(ctx, accountId, folder, name);
     used.add(name);
     const bytes = await client.downloadBlob(accountId, blobId, name, type);
     // A person has to be able to find this: the file goes into the group's

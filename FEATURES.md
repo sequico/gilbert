@@ -1219,6 +1219,15 @@ grant: there is no second, in-product activation switch, so a group the agent
 can see is a group it works for, and a group it cannot see is untouched. The
 Gilbert admin surface *verifies* the grant per group and says plainly when it
 is missing — it never writes one.
+- **The group's standing instruction.** One text per group, written by an
+administrator of that group in the admin surface, handed to the model on
+**every** call the group's agent makes — first in the prompt, before the
+automation's own instruction and before the message it is reading. It says how
+the agent should work for this group (language, tone, conventions) so that does
+not have to be repeated in every automation. It can steer and it cannot grant:
+what an automation may do is its capability list, checked on every answer the
+model gives, and nothing written in the instruction widens it. An empty text
+removes it.
 - **One bootstrap secret.** The worker authenticates as the agent with the
 agent's own app password (`GILBERT_AGENT_ADDRESS`, `GILBERT_AGENT_PASSWORD`,
 or a mounted `GILBERT_AGENTS_FILE`). Nothing derives it, nothing impersonates
@@ -1252,9 +1261,20 @@ action; the agent never moves mail just to record a state.
 - **What it saves, a person can find.** An automation that extracts attachments
 writes them into the group's own Files — in the folder the automation named, or
 the one the model chose for a tier that decides; when neither did, into the
-`Needs attention` folder rather than loose in the root. Gilbert's own documents
-(automations, jobs, decisions, audit) stay in the hidden `gilbert` folder, which
-is where they belong and where the Files view deliberately does not look.
+`Needs attention` folder rather than loose in the root. A name already taken
+there is that person's file: the run writes `2-note.txt` beside it and reports
+the name it used, and it never replaces what somebody filed. Gilbert's own
+documents (automations, jobs, decisions, audit) stay in the hidden `gilbert`
+folder, which is where they belong and where the Files view deliberately does
+not look — that folder is recognised by a marker rather than by its name, it is
+refused as a destination by naming it, and a folder a member happens to have
+called `gilbert` is left to its owner.
+- **A run is bounded by what it was granted.** A worker that loses its unit
+mid-run stops before anything leaves the process rather than writing results
+its successor will write again; an approval is consumed exactly once, so two
+answers arriving together cannot send the same mail twice; and the audit records
+what a run was about to do before it does it, so an effect never exists without
+a line that accounts for it.
 - **Approvals happen in the group's chat.** An automation with a review policy
 pauses, writes a decision, prepares the draft in the group's own Drafts (kept
 unread so a person sees it) and posts the proposal in the chat. Any member may

@@ -452,6 +452,68 @@ export function isAgentRulesDoc(x: unknown): x is AgentRulesDoc {
  * it saves (refuse early) and by the executor before it starts a job (refuse
  * loudly).
  */
+/**
+ * Every way a trigger filter could not do what it says.
+ *
+ * `unsupportedFilterKey` answers "is this a key the matcher knows"; this
+ * answers the rest, and both have to be asked, because a filter can be
+ * *accepted and never match*: `minSize: "1000"` is a supported key with a
+ * value the matcher compares as a number, so it is false for every message —
+ * an automation that looks armed and silently does nothing. A key sitting
+ * beside `operator` is the same failure in the other direction, silently
+ * ignored rather than refused.
+ *
+ * One list, fed to `ruleProblems`, so the form and the executor refuse with the
+ * same words.
+ */
+export function filterProblems(
+  filter: Record<string, unknown> | undefined,
+  where = "the filter",
+): string[] {
+  if (!filter) return [];
+  const problems: string[] = [];
+  const unknown = unsupportedFilterKey(filter);
+  if (unknown) problems.push(`${where} uses "${unknown}", which no matcher implements`);
+  const operator = filter.operator;
+  if (operator !== undefined) {
+    for (const key of Object.keys(filter)) {
+      if (key !== "operator" && key !== "conditions") {
+        problems.push(
+          `${where} has "${key}" beside "${String(operator)}", where the matcher would never read it`,
+        );
+      }
+    }
+    const conditions = filter.conditions;
+    if (Array.isArray(conditions)) {
+      for (const condition of conditions) {
+        if (condition && typeof condition === "object" && !Array.isArray(condition)) {
+          problems.push(
+            ...filterProblems(condition as Record<string, unknown>, where).filter(
+              (problem) => problem.startsWith(where),
+            ),
+          );
+        }
+      }
+    }
+    return problems;
+  }
+  for (const [key, want] of Object.entries(filter)) {
+    const kind = FILTER_KEY_KINDS[key];
+    if (!kind) continue;
+    if (kind === "string" && typeof want !== "string") {
+      problems.push(
+        `${where} asks for ${key} to be a string, and it is not, so nothing would match`,
+      );
+    }
+    if (kind === "number" && typeof want !== "number") {
+      problems.push(
+        `${where} asks for ${key} to be a number, and it is not, so nothing would match`,
+      );
+    }
+  }
+  return problems;
+}
+
 export function ruleProblem(rule: AgentRule): string | null {
   const caps = new Set(rule.capabilities ?? []);
   const actions =
@@ -468,8 +530,12 @@ export function ruleProblem(rule: AgentRule): string | null {
   }
   if (rule.tier === "T2" && !caps.size)
     return "a T2 rule needs at least one capability to allow";
+  if (rule.tier === "T2" && !(rule.instruction ?? "").trim())
+    return "a T2 rule needs an instruction: it is what the model is asked to do";
   if (rule.tier === "T1" && !(rule.categories ?? []).length)
     return "a T1 rule needs at least one category";
+  if (rule.tier !== "T2" && !actions.length)
+    return "the rule would match and then do nothing: it lists no action";
   return null;
 }
 
@@ -520,6 +586,10 @@ export function matchEmailFilter(
   if (operator !== undefined) {
     if (typeof operator !== "string" || !FILTER_OPERATORS.includes(operator))
       throw new UnsupportedFilterError(`operator "${String(operator)}"`);
+    for (const key of Object.keys(filter)) {
+      if (key !== "operator" && key !== "conditions")
+        throw new UnsupportedFilterError(`${key} beside ${String(operator)}`);
+    }
     const conditions = filter.conditions;
     if (!Array.isArray(conditions))
       throw new UnsupportedFilterError(`${operator} without conditions`);
@@ -550,6 +620,30 @@ export class UnsupportedFilterError extends Error {
  * filter the executor cannot evaluate has to be refused, and a second list
  * would eventually let one path accept what the other rejects.
  */
+/**
+ * What each supported key's value has to be for the matcher to compare it.
+ *
+ * The matcher is total (`matchesKey` answers false for a value of the wrong
+ * type), which is right at match time and useless at authoring time: a rule
+ * with the wrong type is valid and dead. This is the same knowledge, in the
+ * shape validation needs, and it exists once — beside the keys themselves.
+ */
+const FILTER_KEY_KINDS: Record<string, "string" | "number"> = {
+  inMailbox: "string",
+  hasKeyword: "string",
+  notKeyword: "string",
+  subject: "string",
+  text: "string",
+  body: "string",
+  from: "string",
+  to: "string",
+  cc: "string",
+  before: "string",
+  after: "string",
+  minSize: "number",
+  maxSize: "number",
+};
+
 export const SUPPORTED_FILTER_KEYS: ReadonlyArray<string> = [
   "inMailbox",
   "hasKeyword",
@@ -691,7 +785,13 @@ export function reviewOutcome(
   actions: ReadonlyArray<AgentAction>,
   confidence: number,
 ): ReviewOutcome {
+  // Two reasons to ask a person, and they are different ones: an action that
+  // reaches outside the group needs consent unless the rule says otherwise,
+  // and an action that cannot be undone asks whatever the rule says — today's
+  // only irreversible action also sends, and the two flags must not be able to
+  // drift apart into an irreversible effect nobody was asked about.
   if (consentRequired(actions) && review.allowExternal !== true) return "pause";
+  if (irreversible(actions)) return "pause";
   if (review.mode === "always") return "pause";
   if (review.mode === "never") return "execute";
   return confidence >= (review.threshold ?? 1) ? "execute" : "pause";
@@ -869,6 +969,17 @@ export interface AgentDecision {
   ruleId: string;
   ruleVersion: number;
   state: AgentDecisionState;
+  /**
+   * When the approval was stamped for applying, before the effects ran.
+   *
+   * The stamp is the at-most-once guard for an approved decision: it is written
+   * conditionally **before** the actions, so a second approval — another
+   * member answering, a retry after a crash — finds it and refuses instead of
+   * sending the same mail twice. The stamp survives a crash: a decision that is
+   * stamped but whose effects are unknown is a question for a person, which is
+   * better than a second send.
+   */
+  appliedAt?: string;
   summary: string;
   actions: AgentAction[];
   confidence: number;
@@ -897,6 +1008,7 @@ export function isAgentDecision(x: unknown): x is AgentDecision {
   if (!isActionList(d.actions)) return false;
   if (typeof d.confidence !== "number") return false;
   if (d.chatId !== undefined && typeof d.chatId !== "string") return false;
+  if (d.appliedAt !== undefined && typeof d.appliedAt !== "string") return false;
   if (d.draft !== undefined && d.draft !== null) {
     const ref = d.draft as Record<string, unknown>;
     if (typeof ref.mailboxId !== "string" || typeof ref.emailId !== "string")
@@ -913,7 +1025,7 @@ export function newDecision(job: AgentJob, chatId?: string): AgentDecision {
   const at = new Date().toISOString();
   const doc: AgentDecision = {
     v: 1,
-    id: job.decisionId ?? `${job.id}-d`,
+    id: job.decisionId ?? `${job.id}-d${job.attempts ? `-a${job.attempts}` : ""}`,
     jobId: job.id,
     accountId: job.accountId,
     ruleId: job.ruleId,
@@ -949,8 +1061,26 @@ export interface AgentClaim {
   worker: string;
   leasedAt: string;
   heartbeatAt: string;
+  /**
+   * Which ownership of this unit the holder is. Incremented on every takeover,
+   * never on a renewal, so a worker whose lease expired mid-pass can be told
+   * apart from the one that replaced it: the epoch it holds is behind, and its
+   * late writes are refused rather than landing on the new owner's run.
+   *
+   * Absent on claims written before the epoch existed, and read as 0.
+   */
+  epoch?: number;
   /** JMAP data type → the state the worker has reconciled up to. */
   states: Record<string, string>;
+}
+
+/** The epoch a claim is in, with claims written before epochs read as 0. */
+export function claimEpoch(claim: { epoch?: number }): number {
+  return typeof claim.epoch === "number" &&
+    Number.isInteger(claim.epoch) &&
+    claim.epoch >= 0
+    ? claim.epoch
+    : 0;
 }
 
 export function isAgentClaim(x: unknown): x is AgentClaim {
@@ -961,6 +1091,8 @@ export function isAgentClaim(x: unknown): x is AgentClaim {
   if (!isAgentArea(c.area)) return false;
   if (typeof c.worker !== "string" || !c.worker) return false;
   if (typeof c.leasedAt !== "string" || typeof c.heartbeatAt !== "string") return false;
+  if (c.epoch !== undefined && (!Number.isInteger(c.epoch) || (c.epoch as number) < 0))
+    return false;
   if (!c.states || typeof c.states !== "object" || Array.isArray(c.states)) return false;
   return Object.values(c.states as Record<string, unknown>).every(
     (s) => typeof s === "string",
@@ -973,6 +1105,8 @@ export interface AgentStreamClaim {
   worker: string;
   leasedAt: string;
   heartbeatAt: string;
+  /** As `AgentClaim.epoch`: the ownership a held stream belongs to. */
+  epoch?: number;
 }
 
 export function isAgentStreamClaim(x: unknown): x is AgentStreamClaim {
@@ -982,18 +1116,31 @@ export function isAgentStreamClaim(x: unknown): x is AgentStreamClaim {
     c.v === 1 &&
     typeof c.worker === "string" &&
     typeof c.leasedAt === "string" &&
-    typeof c.heartbeatAt === "string"
+    typeof c.heartbeatAt === "string" &&
+    (c.epoch === undefined || (Number.isInteger(c.epoch) && (c.epoch as number) >= 0))
   );
 }
 
-/** Whether a lease is stale: its heartbeat is older than the tolerance. */
+/**
+ * Whether a lease is stale: its heartbeat is older than the tolerance.
+ *
+ * A heartbeat that cannot be read is **not** a free lease: a document whose
+ * time is unreadable means the truthful answer is unknown, and taking over on
+ * an unknown is how two workers end up on the same unit. It throws instead,
+ * which the worker reports as a failure of its pass — loudly, once, rather than
+ * silently running the area twice.
+ */
 export function leaseExpired(
   heartbeatAt: string,
   now: number,
   toleranceMs: number,
 ): boolean {
   const at = Date.parse(heartbeatAt);
-  return !Number.isFinite(at) || now - at > toleranceMs;
+  if (!Number.isFinite(at))
+    throw new Error(
+      `a claim heartbeat of "${heartbeatAt}" cannot be read as a time, so whether its lease is free is unknown`,
+    );
+  return now - at > toleranceMs;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1024,17 +1171,83 @@ export function isAgentScheduleDoc(x: unknown): x is AgentScheduleDoc {
 /** The next instant a `schedule` rule is due, from `now`. */
 export function nextRunAfter(rule: AgentRule, now: Date): Date | null {
   const minutes = rule.trigger.everyMinutes;
-  if (rule.trigger.on !== "schedule" || !minutes) return null;
+  if (rule.trigger.on !== "schedule") return null;
+  if (minutes === undefined) return null;
+  if (!Number.isFinite(minutes) || minutes < 1)
+    throw new Error(`a schedule of every ${String(minutes)} minutes has no next run`);
   const ms = minutes * 60_000;
   const next = Math.ceil(now.getTime() / ms) * ms;
   return new Date(next > now.getTime() ? next : next + ms);
 }
 
 /* ------------------------------------------------------------------ */
+/* The group's standing instruction                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A group may state, once, how its agent should behave — the shape of an
+ * `AGENTS.md`, written by an administrator of that group and handed to the
+ * model on **every** call the group's agent makes, before the automation's own
+ * instruction and before the data it is looking at.
+ *
+ * It can steer and it cannot grant: what an automation may do is its
+ * capability allowlist, and every answer the model gives is validated against
+ * it, so a standing instruction cannot widen a rule. What it *can* do is say
+ * the things that are true of the whole group — the tone, the language, the
+ * house rules — instead of repeating them in every automation.
+ */
+export const AGENT_INSTRUCTION_FILE = "agent/instruction.json";
+
+/** Long enough for a page of house rules, short enough to stay a prompt. */
+export const AGENT_INSTRUCTION_MAX = 4000;
+
+export interface AgentInstructionDoc {
+  v: 1;
+  text: string;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export function isAgentInstructionDoc(x: unknown): x is AgentInstructionDoc {
+  if (!x || typeof x !== "object") return false;
+  const d = x as Record<string, unknown>;
+  return (
+    d.v === 1 &&
+    typeof d.text === "string" &&
+    d.text.length <= AGENT_INSTRUCTION_MAX &&
+    typeof d.updatedAt === "string" &&
+    typeof d.updatedBy === "string"
+  );
+}
+
+/** The instruction a model call carries, or "" when the group has none. */
+export function instructionFor(doc: AgentInstructionDoc | null): string {
+  return (doc?.text ?? "").trim();
+}
+
+/* ------------------------------------------------------------------ */
 /* Audit                                                               */
 /* ------------------------------------------------------------------ */
 
-export type AgentAuditOutcome = "done" | "failed" | "awaiting_approval" | "rejected";
+export const AGENT_AUDIT_OUTCOMES: ReadonlyArray<string> = [
+  "running",
+  "done",
+  "failed",
+  "awaiting_approval",
+  "rejected",
+];
+
+export type AgentAuditOutcome =
+  | "running"
+  | "done"
+  | "failed"
+  | "awaiting_approval"
+  | "rejected";
+
+/** Whether a value names an outcome the audit can carry. */
+export function isAgentAuditOutcome(x: unknown): x is AgentAuditOutcome {
+  return typeof x === "string" && AGENT_AUDIT_OUTCOMES.includes(x);
+}
 
 export interface AgentAuditEntry {
   at: string;
@@ -1064,9 +1277,7 @@ export function isAgentAuditDoc(x: unknown): x is AgentAuditDoc {
     if (!a || typeof a !== "object") return false;
     if (typeof a.at !== "string" || typeof a.jobId !== "string") return false;
     if (typeof a.ruleId !== "string" || typeof a.ruleVersion !== "number") return false;
-    if (a.outcome !== "done" && a.outcome !== "failed") {
-      if (a.outcome !== "awaiting_approval" && a.outcome !== "rejected") return false;
-    }
+    if (!isAgentAuditOutcome(a.outcome)) return false;
     if (a.by !== undefined && typeof a.by !== "string") return false;
     if (a.detail !== undefined && typeof a.detail !== "string") return false;
     return isActionList(a.actions);
@@ -1197,6 +1408,9 @@ export function schemaProblems(rule: unknown): string[] {
 export function ruleProblems(rule: unknown): string[] {
   const problems = schemaProblems(rule);
   if (isAgentRule(rule)) {
+    if (rule.trigger.on === "email") {
+      problems.push(...filterProblems(rule.trigger.filter, "the mail filter"));
+    }
     const extra = ruleProblem(rule);
     if (extra) problems.push(extra);
   } else if (!problems.length) {

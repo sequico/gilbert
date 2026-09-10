@@ -412,6 +412,90 @@ record keeps its full shape as the evolution path.
   inside its capability allowlist, and that a `G-` label a rule names exists in
   that group's catalog — stay in code, and both reach the author as one list.
 
+- *17 — the group's standing instruction (owner decision 2026-09-10)*: a group
+  keeps one document — the shape of an `AGENTS.md` — that its agent carries into
+  the system slot of **every** model call, before the automation's own
+  instruction and before the data it is looking at. It lives in the group's own
+  app folder (`agent/instruction.json`), and an **administrator of the group**
+  writes it, in the admin surface, beside the rules: a text the model is told to
+  follow is configuration, and members read the rules rather than write them.
+  It can steer and cannot grant — what an automation may do is its capability
+  allowlist, checked on every answer, so the instruction cannot widen a rule,
+  and the prompt says so in the sentence under the field and in the block itself.
+  The owner's answer to the question this review raised, chosen over the
+  member-authored variant precisely because authorship should not be the limit:
+  the limit is the allowlist and the consent floor.
+
+- *18 — the reliability decisions of the first branch review (owner decision
+  2026-09-10, all as recommended)*. The review of the whole branch found one
+  blocker and a set of failure paths that were reachable by a crash, by two
+  workers, or by a model choosing a name. All of them are settled here:
+
+  - **The claim's compare-and-set token is read before the claim document**
+    (`lease.ts`). Read the other way round, a claim written by another worker
+    between the two reads is invisible to the comparison — the token already
+    reflects it — and both workers walk away believing they hold the unit. This
+    was the blocker.
+  - **Claims carry an epoch**, incremented on takeover and never on renewal, and
+    a run asks `claimStillMine` before anything leaves the process: sending,
+    posting, filing. A worker whose lease lapsed stops instead of writing
+    results the worker that replaced it will write again.
+  - **A release is conditional** on the state it was read against. The owner
+    check alone could remove a *live* claim: between the read and the removal
+    the lease can lapse, a successor takes the unit, and the removal deletes the
+    successor's claim.
+  - **An unreadable heartbeat is not a free lease.** It throws, and the pass is
+    reported as failed, because "unknown" and "expired" are different answers.
+  - **The audit is never written over.** Missing is an empty month; there-but-
+    unreadable is loud, and a person decides. An append must not be able to
+    replace a month of the trail with one entry.
+  - **Intent before effect.** The trail records what is about to run before it
+    runs, so an effect can never exist without a line that accounts for it.
+  - **An approval is consumed once.** `appliedAt` is written in the same
+    conditional write that moves a decision out of `pending`, before the
+    effects, so two answers arriving together cannot send the same mail twice.
+  - **One job's failure is that job's**: the pending sweep continues past a job
+    whose failure handling itself failed.
+  - **The draft that left Drafts is looked at before the chat is read**, so a
+    member who sent the draft and then wrote "sì" is settled by what they did.
+  - **An extracted file never replaces one a person filed**: the run writes
+    `2-name`, `3-name` beside it and reports the name it used.
+  - **The hidden app folder is refused as a destination by name** — both names
+    it can go by — and it is identified by a **marker** rather than by its name,
+    so a folder a member created and called `gilbert` is theirs and is never
+    adopted, and a model that names it writes nothing into it.
+  - **A filter is validated on names and on types**, in one list with the other
+    cross-field rules: a key beside `operator` is refused rather than silently
+    ignored, and a value the matcher could never match (`minSize: "1000"`) is
+    refused rather than accepted as an automation that looks armed and does
+    nothing. The form offers every key the matcher implements, and the three
+    operators.
+  - **A degenerate cadence is refused**, and the schedule's delay is floored, so
+    a past instant cannot re-fire in a tight loop.
+  - **The member's surface never impersonates.** A name that is not in the
+    member's own session is not a group this person may act as, and the answer
+    is reached without asking the mail server for anything — Stalwart's refusal
+    stops being the only thing standing between a signed-in user and another
+    group's documents.
+  - **An irreversible action always asks a person**, whatever the rule's mode
+    and whatever `allowExternal` says. Today sending is the only external action
+    and also the only irreversible one, so the two coincide; the flags stay
+    separate so they cannot drift into an irreversible effect nobody was asked
+    about.
+
+- *19 — the live probe of conditional writes: owed, and recorded as owed (owner
+  decision 2026-09-10)*. Everything the fleet's coordination rests on assumes
+  that Stalwart 0.16 honours `ifInState` on `FileNode/set`: that the mismatch
+  arrives as `stateMismatch`, that it is not masked as `invalidArguments`, that
+  the FileNode state token advances on the writes that matter, and whether a
+  blob upload (which writes no node) advances it at all. The mock simulates all
+  of this and its own comment says it was never checked against a live server.
+  The owner postponed the probe: **it is owed before the fleet depends on lease
+  and job coordination in production**, and the code carries the same note where
+  the assumption lives (`server/src/mock/index.ts`, beside the simulated check).
+  Until it is run, the tests prove the client's logic against the simulation,
+  not the server's behaviour.
+
 **Operating decisions (owner decisions 2026-09-10):**
 
 - *Failure is loud.* A provider that is unreachable, a refused or expired
@@ -676,6 +760,9 @@ candidate rule semantic (Open questions).
 - The extraction destination is decided (resolution 15): the group's own
   visible Files, in the folder the automation named or the model chose, and the
   needs-attention folder when nothing determined one.
+- A group's own standing instruction is decided (resolution 17): one document
+  per group, written by an administrator of that group, handed to the model
+  first on every call.
 
 ## References
 

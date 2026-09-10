@@ -15,7 +15,7 @@ import { createServer } from "node:http";
 import { pathToFileURL } from "node:url";
 import { type Ctx, filesAccountId } from "../appFolder.js";
 import { config } from "../config.js";
-import { JmapClient } from "../jmap.js";
+import { JmapClient, serverNow } from "../jmap.js";
 import {
   fetchUpstreamSession,
   UpstreamError,
@@ -136,7 +136,11 @@ export function basicAuth(address: string, password: string): string {
  */
 export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
   const log = deps.log ?? ((line: string) => console.log(`[gilbert] ${line}`));
-  const now = deps.now ?? (() => new Date());
+  // The clock the fleet agrees on: the mail server's own, as its responses
+  // report it (`serverNow`). A lease is about whether another process is still
+  // alive, and two processes comparing their own clocks is how one of them
+  // concludes the other is dead. A test injects its own.
+  const now = deps.now ?? serverNow;
   const pollMs = deps.pollMs ?? config.agent.pollMs;
   const heartbeatMs = deps.heartbeatMs ?? config.agent.heartbeatMs;
   const leaseMs = deps.leaseMs ?? config.agent.leaseMs;
@@ -206,6 +210,11 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
       .map((entry) => entry.doc)
       .filter((decision) => decision.state === "pending");
     if (decisions.length) {
+      // The draft that left Drafts is settled **before** the chat is read: a
+      // member who sent the draft and then wrote "sì" has approved once by
+      // sending it, and the document that wins is the one a person acted on.
+      // Resolving the reply first would settle the decision on the
+      // conversational answer and leave the sent draft unexplained.
       await executor.sweepDrafts(
         accountId,
         decisions.filter((decision) => decision.draft).map((decision) => decision.id),

@@ -31,6 +31,7 @@ import {
   AGENT_CONFIG_FILE,
   AGENT_DECISIONS_DIR,
   AGENT_DIR,
+  AGENT_INSTRUCTION_FILE,
   AGENT_JOBS_DIR,
   AGENT_RULES_FILE,
   AGENT_SCHEDULE_FILE,
@@ -42,6 +43,7 @@ import {
   type AgentClaim,
   type AgentConfigDoc,
   type AgentDecision,
+  type AgentInstructionDoc,
   type AgentJob,
   type AgentRule,
   type AgentRulesDoc,
@@ -56,6 +58,7 @@ import {
   isAgentClaim,
   isAgentConfigDoc,
   isAgentDecision,
+  isAgentInstructionDoc,
   isAgentJob,
   isAgentRulesDoc,
   isAgentScheduleDoc,
@@ -142,10 +145,21 @@ export class AgentStore {
     return out;
   }
 
-  private async destroyDoc(path: string): Promise<void> {
+  /**
+   * Remove a document by path. Absent is success.
+   *
+   * `ifInState` makes the removal conditional on the state the caller decided
+   * against: a caller removing something it must still own — a claim above all
+   * — passes the state it read, and a mismatch throws, so the removal never
+   * lands on a node somebody else has replaced.
+   */
+  private async destroyDoc(
+    path: string,
+    opts: { ifInState?: string } = {},
+  ): Promise<void> {
     const { file } = await findAppFileAt(this.ctx, this.accountId, path);
     if (!file?.id) return;
-    await destroyAppNode(this.ctx, this.accountId, String(file.id));
+    await destroyAppNode(this.ctx, this.accountId, String(file.id), opts);
   }
 
   /* ---------------- rules (group account) ---------------- */
@@ -156,6 +170,41 @@ export class AgentStore {
       isAgentRulesDoc,
     );
     return found ? { doc: found.doc.rules, state: found.state } : null;
+  }
+
+  /* ---------------- the group's standing instruction ---------------- */
+
+  async readInstruction(): Promise<AgentDoc<AgentInstructionDoc> | null> {
+    return this.readDoc<AgentInstructionDoc>(
+      this.path(AGENT_INSTRUCTION_FILE),
+      isAgentInstructionDoc,
+    );
+  }
+
+  async writeInstruction(
+    text: string,
+    by: string,
+    opts: { ifInState?: string } = {},
+  ): Promise<AgentInstructionDoc> {
+    const doc: AgentInstructionDoc = {
+      v: 1,
+      text,
+      updatedAt: new Date().toISOString(),
+      updatedBy: by,
+    };
+    await writeAppFileAt(
+      this.ctx,
+      this.accountId,
+      this.path(AGENT_INSTRUCTION_FILE),
+      doc,
+      opts,
+    );
+    return doc;
+  }
+
+  /** Remove the group's standing instruction. Absent is success. */
+  async removeInstruction(): Promise<void> {
+    await this.destroyDoc(this.path(AGENT_INSTRUCTION_FILE));
   }
 
   async writeRules(rules: AgentRule[], opts: { ifInState?: string } = {}): Promise<void> {
@@ -234,8 +283,8 @@ export class AgentStore {
     );
   }
 
-  async destroyStreamClaim(): Promise<void> {
-    await this.destroyDoc(this.path(AGENT_STREAM_FILE));
+  async destroyStreamClaim(opts: { ifInState?: string } = {}): Promise<void> {
+    await this.destroyDoc(this.path(AGENT_STREAM_FILE), opts);
   }
 
   /* ---------------- claims (group account) ---------------- */
@@ -261,8 +310,8 @@ export class AgentStore {
     );
   }
 
-  async destroyClaim(area: AgentArea): Promise<void> {
-    await this.destroyDoc(this.path(AGENT_CLAIMS_DIR, claimDocName(area)));
+  async destroyClaim(area: AgentArea, opts: { ifInState?: string } = {}): Promise<void> {
+    await this.destroyDoc(this.path(AGENT_CLAIMS_DIR, claimDocName(area)), opts);
   }
 
   /* ---------------- jobs (group account) ---------------- */
@@ -351,6 +400,16 @@ export class AgentStore {
     for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
       const state = await this.state();
       const raw = await readAppJsonAt(this.ctx, this.accountId, path);
+      // A document that is there but does not validate is **not** an empty
+      // month. Treating it as one would replace a month of the trail with a
+      // single entry — the one failure the audit cannot have. Missing is empty;
+      // unreadable is loud, and a person decides what to do with it.
+      if (raw !== null && !isAgentAuditDoc(raw)) {
+        throw new Error(
+          `the audit document ${path} is there but does not read as an audit; ` +
+            `refusing to write over it`,
+        );
+      }
       const doc: AgentAuditDoc = isAgentAuditDoc(raw)
         ? raw
         : { v: 1, month, entries: [] };

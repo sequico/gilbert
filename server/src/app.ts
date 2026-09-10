@@ -39,10 +39,12 @@ import {
   impersonateAs,
   memberAgentView,
   pendingApprovals,
+  readGroupInstruction,
   readProviders,
   readRules,
   resolveGroupAccess,
   rotateAgentAppPassword,
+  saveGroupInstruction,
   saveRules,
   writeProviders,
 } from "./agentAdmin.js";
@@ -1538,6 +1540,50 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           return c.json({ error: access.error, message: access.message }, 403);
         const { added } = await addAgentLabels(access, access.accountId);
         return c.json({ ok: true, added });
+      } catch (err) {
+        return agentFailure(c, err);
+      }
+    },
+  );
+
+  /**
+   * The group's standing instruction: the house rules its agent carries into
+   * every model call (ADR 0003 resolution 17). Administrator-only, like the
+   * rules document beside it — a text the model is told to follow is
+   * configuration, and members read the rules rather than write them.
+   */
+  api.get(
+    "/admin/groups/:name/agent/instruction",
+    requireSession,
+    requireAdmin,
+    async (c) => {
+      const session = c.get("session");
+      const name = c.req.param("name") ?? "";
+      try {
+        const access = await resolveGroupAccess(session, name);
+        if (!access.ok)
+          return c.json({ error: access.error, message: access.message }, 403);
+        return c.json(await readGroupInstruction(access));
+      } catch (err) {
+        return agentFailure(c, err);
+      }
+    },
+  );
+
+  api.post(
+    "/admin/groups/:name/agent/instruction",
+    requireSession,
+    requireAdmin,
+    async (c) => {
+      const session = c.get("session");
+      const name = c.req.param("name") ?? "";
+      try {
+        const body = await readJson<{ text?: string }>(c);
+        const text = typeof body?.text === "string" ? body.text : "";
+        const access = await resolveGroupAccess(session, name);
+        if (!access.ok)
+          return c.json({ error: access.error, message: access.message }, 403);
+        return c.json(await saveGroupInstruction(access, text, session.username));
       } catch (err) {
         return agentFailure(c, err);
       }

@@ -65,6 +65,7 @@ export const AGENT_JOB_STATE_LABELS: Record<AgentJobState, string> = {
 };
 
 export const AGENT_OUTCOME_LABELS: Record<AgentAuditOutcome, string> = {
+  running: "Ran",
   done: "Finished",
   failed: "Failed",
   awaiting_approval: "Asked for approval",

@@ -76,6 +76,8 @@ import {
   type AgentTriggerRecord,
   CHAT_CONTEXT_DEFAULT,
   CHAT_CONTEXT_MAX,
+  claimEpoch,
+  instructionFor,
   leaseExpired,
   matchEmailFilter,
   monthOf,
@@ -86,7 +88,7 @@ import {
   UnsupportedFilterError,
   unsupportedFilterKey,
 } from "./documents.js";
-import { saveClaimStates } from "./lease.js";
+import { claimStillMine, saveClaimStates } from "./lease.js";
 import {
   classifyCategory,
   decideActions,
@@ -198,8 +200,8 @@ export class Executor {
     const ids = [...new Set([...changes.created, ...changes.updated])];
     if (ids.length) {
       const rules = (await store.readRules())?.doc ?? [];
-      if (type === "Email") await this.emailRecords(store, accountId, ids, rules);
-      else await this.fileRecords(store, accountId, ids, rules);
+      if (type === "Email") await this.emailRecords(store, accountId, ids, rules, claim);
+      else await this.fileRecords(store, accountId, ids, rules, claim);
     }
     await this.recordState(store, claim, type, changes.newState);
   }
@@ -260,6 +262,7 @@ export class Executor {
     accountId: string,
     ids: ReadonlyArray<string>,
     rules: ReadonlyArray<AgentRule>,
+    claim?: AgentClaim,
   ): Promise<void> {
     const candidates = rules.filter(
       (rule) => rule.enabled && rule.trigger.on === "email",
@@ -311,7 +314,7 @@ export class Executor {
           continue;
         }
         if (!matched) continue;
-        await this.startJob(store, accountId, rule, trigger, keys);
+        await this.startJob(store, accountId, rule, trigger, keys, claim);
       }
     }
   }
@@ -322,6 +325,7 @@ export class Executor {
     accountId: string,
     ids: ReadonlyArray<string>,
     rules: ReadonlyArray<AgentRule>,
+    claim?: AgentClaim,
   ): Promise<void> {
     const chatRules = rules.filter((rule) => rule.enabled && rule.trigger.on === "chat");
     const nodeRules = rules.filter(
@@ -362,7 +366,7 @@ export class Executor {
           };
           if (request.author) trigger.by = request.author;
           for (const rule of chatRules)
-            await this.startJob(store, accountId, rule, trigger, keys);
+            await this.startJob(store, accountId, rule, trigger, keys, claim);
         }
       }
     }
@@ -379,7 +383,7 @@ export class Executor {
         at: this.deps.now().toISOString(),
       };
       for (const rule of nodeRules)
-        await this.startJob(store, accountId, rule, trigger, keys);
+        await this.startJob(store, accountId, rule, trigger, keys, claim);
     }
   }
 
@@ -440,6 +444,7 @@ export class Executor {
     rule: AgentRule,
     trigger: AgentTriggerRecord,
     keys: Set<string>,
+    claim?: AgentClaim,
   ): Promise<void> {
     const key = jobKey(rule.id, trigger);
     if (keys.has(key)) return;
@@ -460,7 +465,12 @@ export class Executor {
   /* Running one job                                                  */
   /* ---------------------------------------------------------------- */
 
-  async runJob(accountId: string, job: AgentJob, rule: AgentRule): Promise<void> {
+  async runJob(
+    accountId: string,
+    job: AgentJob,
+    rule: AgentRule,
+    claim?: AgentClaim,
+  ): Promise<void> {
     const store = new AgentStore(this.deps.ctx, accountId);
     const found = await store.readJob(job.id);
     if (!found) return;
@@ -502,7 +512,20 @@ export class Executor {
       throw err;
     }
     try {
-      const plan = await this.planFor(accountId, running, rule);
+      const plan = await this.planFor(store, accountId, running, rule);
+      // Fencing, asked once and at the last moment before anything leaves the
+      // process: a run whose unit was taken over while it was deciding has had
+      // its lease lapse, and what it is about to do — send, post, file — would
+      // be done a second time by the worker that replaced it.
+      if (
+        claim &&
+        !(await claimStillMine(store, job.area, this.deps.workerId, claimEpoch(claim)))
+      ) {
+        this.deps.log(
+          `${rule.name}: ${job.id} was taken over while it was deciding, so nothing is run`,
+        );
+        return;
+      }
       if (reviewOutcome(rule.review, plan.actions, plan.confidence) === "execute") {
         await this.execute(store, accountId, running, rule, plan);
       } else {
@@ -518,6 +541,7 @@ export class Executor {
 
   /** What the run should do: deterministic, classified, or decided by a model. */
   private async planFor(
+    store: AgentStore,
     accountId: string,
     job: AgentJob,
     rule: AgentRule,
@@ -531,11 +555,16 @@ export class Executor {
       return { actions, confidence: 1, summary: rule.name };
     }
     const configDoc = (await this.agentStore.readConfig())?.doc ?? null;
+    // The group's standing instruction rides every model call this group's
+    // agent makes (ADR 0003 resolution 17): read once per run, applied to the
+    // classifier and to the decider, first in the prompt both times.
+    const standing = instructionFor((await store.readInstruction())?.doc ?? null);
     if (rule.tier === "T1") {
       const answer = await classifyCategory(
         providerForTier(configDoc, "T1"),
         rule,
         context,
+        standing,
       );
       const category = (rule.categories ?? []).find((c) => c.name === answer.category);
       if (!category)
@@ -555,6 +584,7 @@ export class Executor {
       rule,
       context,
       rule.capabilities ?? [],
+      standing,
     );
     await this.guardLabels(accountId, answer.actions);
     return {
@@ -585,6 +615,13 @@ export class Executor {
     rule: AgentRule,
     plan: RunPlan,
   ): Promise<void> {
+    // Intent first: the trail says what was about to run before it runs, so an
+    // effect can never exist without a line that accounts for it, even if the
+    // process dies between the two.
+    await recordAudit(
+      store,
+      auditEntry(job, rule, "running", plan.actions, plan.summary),
+    );
     const results = await runActions(
       this.deps.ctx,
       accountId,
@@ -625,12 +662,19 @@ export class Executor {
       ...job,
       state: "awaiting_approval",
       proposal,
-      decisionId: `${job.id}-d`,
     };
+    // The decision document is written **before** the proposal is posted: the
+    // other order leaves a proposal in the group's chat that no answer can
+    // resolve, because the reader that settles answers only walks decisions
+    // that exist. The id comes from the decision itself, so the job names the
+    // document that was actually written.
+    const decision = newDecision(paused);
+    paused.decisionId = decision.id;
     // A paused job belongs to a person now, not to a worker: clearing the lease
     // keeps it out of the takeover path while it waits.
     delete paused.lease;
     await store.writeJob(paused);
+    await store.writeDecision(decision);
     const chatId = await postMessage(
       this.deps.ctx,
       accountId,
@@ -638,7 +682,7 @@ export class Executor {
       proposalText(rule, paused),
       job.trigger.on === "chat" ? job.trigger.chatId : undefined,
     );
-    await store.writeDecision(newDecision(paused, chatId));
+    await store.writeDecision({ ...decision, chatId });
     await recordAudit(
       store,
       auditEntry(paused, rule, "awaiting_approval", plan.actions, plan.summary),
@@ -906,6 +950,18 @@ export class Executor {
    * one caller — a member's reply, the admin queue, or the draft that left
    * Drafts — gets to act on it, and the others find a decision that is no
    * longer pending. Any member may approve: this is never an admin check.
+   *
+   * An approval is consumed once. The stamp that records it (`appliedAt`) is
+   * written in the same conditional write that moves the decision out of
+   * `pending`, **before** any effect runs, so two answers arriving together
+   * cannot send the same mail twice: the loser of that write finds a decision
+   * that already has an owner. Should the process die between the stamp and the
+   * effects, the trail carries the intent line written just before them, and
+   * the answer is a person reading it — never a silent second send.
+   *
+   * `by` is the chat author's own account of who they are. Membership is the
+   * grant in Stalwart and every member of the group may approve, so this is
+   * recorded as a conversational attribution, not as an authenticated identity.
    */
   async resolveApproval(
     accountId: string,
@@ -917,11 +973,13 @@ export class Executor {
     const found = await store.readDecision(decision.id);
     if (!found || found.doc.state !== "pending") return;
     const current = found.doc;
+    const decidedAt = this.deps.now().toISOString();
     const decided: AgentDecision = {
       ...current,
       state: approved ? "approved" : "rejected",
       decidedBy: by,
-      decidedAt: this.deps.now().toISOString(),
+      decidedAt,
+      ...(approved ? { appliedAt: decidedAt } : {}),
     };
     try {
       await store.writeDecision(decided, { ifInState: found.state });
@@ -958,6 +1016,21 @@ export class Executor {
         opts.draftEmailId = decided.draft.emailId;
         opts.draftMailboxId = decided.draft.mailboxId;
       }
+      // The job is marked in flight and the intent is in the trail before the
+      // effects: a crash here is readable rather than invisible.
+      if (job) await store.writeJob({ ...job, state: "running" });
+      await recordAudit(
+        store,
+        job
+          ? auditEntry(job, auditRule, "running", actions, `approved by ${by}`)
+          : decisionAuditEntry(
+              decided,
+              auditRule,
+              "running",
+              actions,
+              `approved by ${by}`,
+            ),
+      );
       await runActions(this.deps.ctx, accountId, actions, opts);
       if (job) await store.writeJob(closeState(job, "done"));
       await recordAudit(
@@ -1312,8 +1385,18 @@ export class Executor {
       if (job.state !== "pending" || !areas.includes(job.area)) continue;
       const rule = rules.find((candidate) => candidate.id === job.ruleId);
       if (!rule?.enabled) continue;
-      await this.runJob(accountId, job, rule);
-      ran += 1;
+      // One job's failure is that job's: `runJob` reports its own and the sweep
+      // goes on, so a job that cannot be recorded — a rule document nobody can
+      // read, a store that refused a write — does not hold back the ones behind
+      // it in the list.
+      try {
+        await this.runJob(accountId, job, rule);
+        ran += 1;
+      } catch (err) {
+        this.deps.log(
+          `${accountId}: job ${job.id} failed outside the job's own handling: ${errorMessage(err)}`,
+        );
+      }
     }
     return ran;
   }
