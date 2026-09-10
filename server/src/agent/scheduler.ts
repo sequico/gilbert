@@ -117,6 +117,37 @@ export function advance(
 }
 
 /**
+ * The schedule document as one worker may write it.
+ *
+ * `next` is what a worker holding every entry of the account would write, and
+ * `stored` is what the document holds. A claim is one per area while the
+ * schedule is one document per account, so an entry whose rule's area this
+ * worker does not hold belongs to the worker that does, and it is carried over
+ * exactly as it was found — still due, if it was due. Re-planning it here would
+ * move its instant past the run its holder is about to start, and the run would
+ * be lost with no line anywhere saying the group's automation did not happen.
+ *
+ * A rule that is disabled or gone is not carried: the document drops it and the
+ * pass records it as a missed run, which is the one vanishing the record
+ * accounts for.
+ */
+export function carryingForeign(
+  next: ReadonlyArray<AgentScheduleEntry>,
+  stored: ReadonlyArray<AgentScheduleEntry>,
+  rules: ReadonlyArray<AgentRule>,
+  ownedRuleIds: ReadonlySet<string>,
+): AgentScheduleEntry[] {
+  const carried = stored.filter((entry) => {
+    if (ownedRuleIds.has(entry.ruleId)) return false;
+    const rule = rules.find((candidate) => candidate.id === entry.ruleId);
+    return Boolean(rule?.enabled && rule.trigger.on === "schedule");
+  });
+  if (!carried.length) return [...next];
+  const carriedIds = new Set(carried.map((entry) => entry.ruleId));
+  return [...next.filter((entry) => !carriedIds.has(entry.ruleId)), ...carried];
+}
+
+/**
  * Arm a timer per entry. Returns the disposer that clears them all.
  *
  * A capped timer fires before its entry is due; that is not a due entry, so it

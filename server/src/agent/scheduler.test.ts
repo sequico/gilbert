@@ -11,7 +11,9 @@ import type { AgentRule, AgentScheduleEntry } from "./documents.js";
  * pinned without a sleeping test.
  */
 
-const { advance, armTimers, dueEntries, planSchedule } = await import("./scheduler.js");
+const { advance, armTimers, carryingForeign, dueEntries, planSchedule } = await import(
+  "./scheduler.js"
+);
 
 const NOW = new Date("2026-09-10T10:00:30.000Z");
 
@@ -214,4 +216,31 @@ test("a run that fired arms its next occurrence, planned from the document the f
   clock.advanceTo(at("2026-09-10T11:00:00.000Z"));
   dispose();
   assert.deepEqual(fired, ["2026-09-10T11:00:00.000Z"], "the next occurrence runs");
+});
+
+test("an entry another area still owes keeps its instant instead of being re-planned away", () => {
+  const now = new Date("2026-09-10T10:00:00.000Z");
+  const rules = [rule(), rule({ id: "filing", area: "files", name: "File it" })];
+  // The document as a shared account holds it: both entries are due at once,
+  // and the claims on the two areas are held by two different workers.
+  const stored: AgentScheduleEntry[] = [
+    { ruleId: "r1", at: "2026-09-10T10:00:00.000Z" },
+    { ruleId: "filing", at: "2026-09-10T10:00:00.000Z" },
+  ];
+  const next = carryingForeign(
+    advance(planSchedule(rules, now, stored), [stored[0]!], rules, now),
+    stored,
+    rules,
+    new Set(["r1"]),
+  );
+  const byRule = new Map(next.map((entry) => [entry.ruleId, entry.at]));
+  assert.equal(
+    byRule.get("filing"),
+    "2026-09-10T10:00:00.000Z",
+    "the area this worker does not hold keeps the instant its own worker fires",
+  );
+  assert.ok(
+    Date.parse(byRule.get("r1") ?? "") > now.getTime(),
+    "and the entry this worker did fire moved on to its next occurrence",
+  );
 });

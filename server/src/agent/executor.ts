@@ -100,6 +100,7 @@ import {
 import {
   advance,
   armTimers,
+  carryingForeign,
   dueEntries,
   planSchedule,
   unrunEntries,
@@ -1449,20 +1450,30 @@ export class Executor {
     const store = new AgentStore(this.deps.ctx, accountId);
     const rules = (await store.readRules())?.doc ?? [];
     const scheduleDoc = await store.readSchedule();
-    const planned = planSchedule(rules, this.deps.now(), scheduleDoc?.doc ?? []);
-    await this.writeSchedule(store, planned, scheduleDoc?.state);
+    const stored = scheduleDoc?.doc ?? [];
+    const owned = await this.ownScheduleRules(store, rules);
+    const planned = planSchedule(rules, this.deps.now(), stored);
+    await this.writeSchedule(
+      store,
+      carryingForeign(planned, stored, rules, owned),
+      scheduleDoc?.state,
+    );
     let stopped = false;
     let dispose: (() => void) | null = null;
     const arm = async (): Promise<void> => {
       if (stopped) return;
       // The rules and the document are read again at every arming, the same
       // pass-shaped read the catch-up does, so a schedule edited while the
-      // worker waited is armed as it now is.
+      // worker waited is armed as it now is — and only the entries of the areas
+      // this worker holds are armed: the others are their own worker's to fire.
       dispose?.();
       const current = (await store.readRules())?.doc ?? [];
       const doc = await store.readSchedule();
+      const mine = await this.ownScheduleRules(store, current);
       dispose = armTimers(
-        planSchedule(current, this.deps.now(), doc?.doc ?? []),
+        planSchedule(current, this.deps.now(), doc?.doc ?? []).filter((entry) =>
+          mine.has(entry.ruleId),
+        ),
         (entry) => {
           void this.fireScheduled(accountId, entry)
             .then(() => arm())
@@ -1478,6 +1489,28 @@ export class Executor {
       stopped = true;
       dispose?.();
     };
+  }
+
+  /**
+   * The schedule rules this worker holds.
+   *
+   * A claim is one per area and the schedule is one document per account, so a
+   * worker owns the entries of the areas it holds and none of the others.
+   * Planning, firing or advancing an entry it does not hold would take a run
+   * away from the worker that does — and leave nothing anywhere saying the
+   * group's automation did not happen.
+   */
+  private async ownScheduleRules(
+    store: AgentStore,
+    rules: ReadonlyArray<AgentRule>,
+  ): Promise<Set<string>> {
+    const mine = new Set<string>();
+    for (const area of new Set(rules.map((rule) => rule.area))) {
+      const claim = (await store.readClaim(area))?.doc;
+      if (claim?.worker !== this.deps.workerId) continue;
+      for (const rule of rules) if (rule.area === area) mine.add(rule.id);
+    }
+    return mine;
   }
 
   /**
@@ -1535,17 +1568,30 @@ export class Executor {
       if (!scheduleDoc) await this.writeSchedule(store, planned, undefined);
       return 0;
     }
-    const next = advance(planned, due, rules, this.deps.now());
+    const owned = await this.ownScheduleRules(store, rules);
+    // Only the areas this worker holds are fired from here: a due entry it does
+    // not hold keeps its instant for the worker that does, rather than being
+    // moved on and run nowhere.
+    const mine = due.filter((entry) => owned.has(entry.ruleId));
+    const next = carryingForeign(
+      advance(planned, mine, rules, this.deps.now()),
+      stored,
+      rules,
+      owned,
+    );
     await this.writeSchedule(store, next, scheduleDoc?.state);
     const keys = await this.jobKeys(store);
     let started = 0;
-    for (const entry of due) {
+    for (const entry of mine) {
       const rule = rules.find((candidate) => candidate.id === entry.ruleId);
       if (!rule?.enabled) continue;
+      // Read again where the run starts: the lease can lapse between the read
+      // that chose the entry and this one, and a unit that is not this worker's
+      // is not this worker's to start.
       const claim = (await store.readClaim(rule.area))?.doc;
-      if (!claim) {
+      if (claim?.worker !== this.deps.workerId) {
         this.deps.log(
-          `${rule.name}: nothing holds ${rule.area}, so the run due at ${entry.at} is not started`,
+          `${rule.name}: ${rule.area} is not held by this worker, so the run due at ${entry.at} is not started`,
         );
         continue;
       }
@@ -1566,7 +1612,14 @@ export class Executor {
     return started;
   }
 
-  /** One entry fired by its timer: run the rule and move the entry on. */
+  /**
+   * One entry fired by its timer: run the rule and move the entry on.
+   *
+   * The entry is moved on only by the worker that holds its rule's area. One
+   * that does not is left where it is, still due, for the worker that does —
+   * and one whose rule can no longer run is left for the pass, which drops it
+   * and records it as a missed run.
+   */
   private async fireScheduled(
     accountId: string,
     entry: AgentScheduleEntry,
@@ -1575,24 +1628,32 @@ export class Executor {
     const rules = (await store.readRules())?.doc ?? [];
     const rule = rules.find((candidate) => candidate.id === entry.ruleId);
     const scheduleDoc = await store.readSchedule();
-    const next = advance(
-      planSchedule(rules, this.deps.now(), scheduleDoc?.doc ?? []),
-      [entry],
-      rules,
-      this.deps.now(),
-    );
-    await this.writeSchedule(store, next, scheduleDoc?.state);
-    if (!rule?.enabled) return;
+    if (!rule?.enabled || rule.trigger.on !== "schedule") return;
     // A timer fires outside any reconcile, so the unit is read where the
     // worker's claim lives: a schedule that outlived the worker's lease does
-    // not start a run nobody can fence.
+    // not start a run nobody can fence, and it does not consume the entry
+    // either — its holder fires it.
     const claim = (await store.readClaim(rule.area))?.doc;
-    if (!claim) {
+    if (claim?.worker !== this.deps.workerId) {
       this.deps.log(
-        `${rule.name}: nothing holds ${rule.area}, so the run due at ${entry.at} is not started`,
+        `${rule.name}: ${rule.area} is not held by this worker, so the run due at ${entry.at} is left to its holder`,
       );
       return;
     }
+    const stored = scheduleDoc?.doc ?? [];
+    const owned = await this.ownScheduleRules(store, rules);
+    const next = carryingForeign(
+      advance(
+        planSchedule(rules, this.deps.now(), stored),
+        [entry],
+        rules,
+        this.deps.now(),
+      ),
+      stored,
+      rules,
+      owned,
+    );
+    await this.writeSchedule(store, next, scheduleDoc?.state);
     await this.startJob(
       store,
       accountId,

@@ -674,7 +674,11 @@ record keeps its full shape as the evolution path.
     non-member meets names the membership the surface it was asked from needs:
     `deniedGroupAccess` carries the need, so the approvals queue, the member's
     view and the eight admin routes each say which membership is missing
-    instead of all telling the reader about labels.
+    instead of all telling the reader about labels. The code and the section
+    travel as a pair (`{ error, need }`) and never as a sentence: the sentence
+    is composed where it is read, from the catalogue in force, so a language
+    whose catalogue does not carry it reads the English — the declared
+    fallback, with the ten translations owed.
   - **The content a rule reads can carry an instruction, and the allowlist is
     the gate.** Mail, files and everything else the agent reads are data:
     nothing in them is followed as instruction, and the capability allowlist
@@ -793,9 +797,10 @@ already lives by, minus the browser.
   (input state, rule id and version, actions taken, outcome), so what an
   agent did — and under which rule version — is answerable from Stalwart
   alone. In v1 the log is per group, in the group's own account, one
-  document per month, with a declared retention (v1 scope); the export owed
-  before the first prune is recorded with the retention itself, and until it
-  exists the trail is read as the group's own Files.
+  document per month, with a declared retention (v1 scope); the trail is read
+  from the group's own hidden `gilbert` app folder rather than from the Files a
+  member browses, and the copy the retention promises is taken from the admin
+  surface before the oldest month is pruned.
 - Nothing durable lives on the worker or in the environment; the environment
   carries only the bootstrap secrets toward Stalwart.
 
@@ -804,8 +809,8 @@ already lives by, minus the browser.
 The worker also wakes on a schedule, without cron and without trusting any
 particular container to live: a scheduler document (`next-runs`, in the
 principal's Files — per group in v1, beside the rules it schedules, v1
-scope) holds the agent's due times as UTC instants; the worker holding the
-nearest lease arms a timer for it and updates the document when it fires or
+scope) holds the agent's due times as UTC instants; the worker that holds an
+entry's area arms a timer for it and updates the document when it fires or
 when the work changes the schedule. Durable next-run times plus a lease are
 what let a replacement worker pick the schedule up from Stalwart after any
 crash, which is why the times live in the document rather than in a cron
@@ -817,7 +822,12 @@ reason a schedule edited while a worker waited is armed as it now is. Neither
 half is the one the other would miss: no pass is what a time trigger waits for,
 and no timer is the only thing that would ever fire it again. A due run is
 started with the claim on its own rule's area, the same fence every other run
-passes.
+passes, and the entry belongs to the worker that holds that area: a claim is one
+per area while the schedule is one document per account, so the entries of the
+areas a worker does not hold are carried over exactly as they stand — still due
+— rather than re-planned here and consumed by a run nobody starts
+(`carryingForeign`, scheduler.ts). The runs that vanish are the ones whose rule
+is off or gone, and each of those is recorded as a missed run.
 
 ### 6. Fleet coordination is lease-based and coordinator-free
 

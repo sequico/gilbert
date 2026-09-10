@@ -226,3 +226,34 @@ test("the message being answered is always in the context, or the run is refused
     /not in the transcript/,
   );
 });
+
+test("a reply chain that points in a circle is read once and stops", () => {
+  const at = (n: number) => new Date(Date.UTC(2026, 0, 1, 12, n)).toISOString();
+  // What two senders' own headers can say: each message answering the other. A
+  // chain is data, so the walk has to stop somewhere rather than follow the
+  // same two messages for ever.
+  const circular = [
+    {
+      id: "c1",
+      created: at(1),
+      from: "ada@example.org",
+      at: at(1),
+      text: "one",
+      replyTo: "c2",
+    },
+    {
+      id: "c2",
+      created: at(2),
+      from: "ada@example.org",
+      at: at(2),
+      text: "two",
+      replyTo: "c1",
+    },
+  ];
+  const context = conversationContext(circular, at(2), undefined, "c1");
+  assert.deepEqual(
+    context.map((message) => message.id),
+    ["c1", "c2"],
+    "each message is read once, in the order the senders wrote them",
+  );
+});

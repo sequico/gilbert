@@ -172,6 +172,10 @@ export function conversationContext(
   take(anchor);
   let cursor = anchor?.replyTo ? byId.get(anchor.replyTo) : undefined;
   while (cursor && chosen.length < ceiling) {
+    // A reply chain is whatever the senders wrote, so it can point in a circle:
+    // the walk stops at a message it has already read instead of following the
+    // same two messages for ever.
+    if (included.has(cursor.id)) break;
     take(cursor);
     cursor = cursor.replyTo ? byId.get(cursor.replyTo) : undefined;
   }

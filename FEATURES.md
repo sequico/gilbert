@@ -1245,6 +1245,14 @@ Gilbert publishes (ADR 0003 resolution 16), with the same validator and the
 same schema on both sides, so what the form accepts the server accepts. No new
 rule language, no JSON to type by hand, and Sieve keeps the delivery-time
 boundary.
+- **An automation can be armed on a cadence.** A rule whose trigger is a time
+  rides the same documents as any other: the next run of every armed rule is
+  stored as a UTC instant in the group’s own scheduler document, so a restart, a
+  deploy or a crashed container costs the wait and not the schedule — a
+  replacement worker re-plans from Stalwart and re-arms. Each worker fires the
+  entries whose area it holds, so two workers on one group never fire each
+  other’s runs, and the runs that vanish — the rule off, the rule gone — are
+  recorded as missed runs rather than disappearing from the trail.
 - **Three tiers.** T0 is deterministic and calls no model; T1 asks a small
 model to pick a category and runs that category's fixed actions; T2 gives the
 automation's instruction to a model that decides and executes. The model
