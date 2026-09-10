@@ -17,7 +17,6 @@ import {
   type Ctx,
   readAppJsonAt,
   unusedVisibleName,
-  writeAppTextAt,
   writeBytesIntoVisibleFolder,
 } from "../appFolder.js";
 import { JMAP_MAIL, JMAP_SUBMISSION, JmapClient } from "../jmap.js";
@@ -529,12 +528,28 @@ async function runOne(
       return { action: action.do, ok: true, result: { nodeId } };
     }
     case "file.write": {
-      const path = `${textOf(action.with?.folder)}/${fileSafeName(
-        textOf(action.with?.name),
-        "note.txt",
-      )}`;
-      await writeAppTextAt(ctx, accountId, path, textOf(action.with?.text));
-      return { action: action.do, ok: true, result: { path } };
+      // Where a member reads it: the group's own **visible** Files, in the
+      // folder the action names (ADR 0003 resolution 15) — never the hidden app
+      // folder, and never over a file that is already there. The name the run
+      // actually used is what it reports, exactly as an extraction does, so a
+      // rule that asks for one note and runs twice leaves two rather than
+      // losing the first.
+      const folder = textOf(action.with?.folder) || AGENT_ATTENTION_FOLDER;
+      const name = await unusedVisibleName(
+        ctx,
+        accountId,
+        folder,
+        fileSafeName(textOf(action.with?.name), "note.txt"),
+      );
+      await writeBytesIntoVisibleFolder(
+        ctx,
+        accountId,
+        folder,
+        name,
+        new TextEncoder().encode(textOf(action.with?.text)),
+        "text/plain",
+      );
+      return { action: action.do, ok: true, result: { path: `${folder}/${name}` } };
     }
   }
 }

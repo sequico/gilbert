@@ -27,11 +27,7 @@ import {
   messageFileName,
   repliesToAuthor,
 } from "../shared/chat.js";
-import {
-  type AgentChatRequest,
-  CHAT_CONTEXT_MAX,
-  clampChatContext,
-} from "./documents.js";
+import { type AgentChatRequest, clampChatContext } from "./documents.js";
 
 /**
  * The transcript by id. A reply is only an address to the agent when its direct
@@ -144,6 +140,7 @@ export async function postMessage(
  * otherwise it stays inside the default, so a long thread does not quietly hand
  * the model three hundred messages (ADR resolution 11).
  */
+// ADR-0003 OWED: chat-reply-chain
 export function conversationContext(
   messages: ReadonlyArray<ChatMessage>,
   upto: string,

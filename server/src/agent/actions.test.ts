@@ -318,12 +318,32 @@ test("a draft lands in Drafts, marked $draft and deliberately unread", async () 
   assert.equal(to?.[0]?.name, "Ada Lovelace");
 });
 
-test("a file is written where the action names it", async () => {
-  await runActions(ctx, GROUP, [
+test("a file is written where people look, and never over one already there", async () => {
+  const [first] = await runActions(ctx, GROUP, [
     { do: "file.write", with: { folder: "notes", name: "summary.txt", text: "done" } },
   ]);
-  const written = await readAppFileAt(ctx, GROUP, "notes/summary.txt");
-  assert.equal(written?.text, "done");
+  assert.equal(first?.result?.path, "notes/summary.txt");
+  const written = await readVisibleFileAt(ctx, GROUP, "notes/summary.txt");
+  assert.equal(written?.text, "done", "the file is in the group's visible Files");
+  assert.equal(
+    await readAppFileAt(ctx, GROUP, "notes/summary.txt"),
+    null,
+    "and not in the hidden app folder, where a member would not find it",
+  );
+
+  const [second] = await runActions(ctx, GROUP, [
+    { do: "file.write", with: { folder: "notes", name: "summary.txt", text: "again" } },
+  ]);
+  assert.equal(
+    second?.result?.path,
+    "notes/2-summary.txt",
+    "a second write goes beside the first rather than over it",
+  );
+  assert.equal(
+    (await readVisibleFileAt(ctx, GROUP, "notes/summary.txt"))?.text,
+    "done",
+    "the file a member can see is the one the first run wrote",
+  );
 });
 
 test("a chat post becomes a message document, and its mentions are recorded", async () => {

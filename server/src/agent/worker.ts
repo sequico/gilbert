@@ -186,6 +186,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     return null;
   };
 
+  // ADR-0003 OWED: grant-withdrawal-report
   const reconcileAccount = async (accountId: string): Promise<void> => {
     const store = new AgentStore(deps.ctx, accountId);
     const types = typesOf(accountId);
@@ -335,6 +336,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
       log(`${accountId}/${area}: nobody holds it and the claim kept losing`);
   };
 
+  // ADR-0003 OWED: heartbeat-containment
   const pass = async (): Promise<ReadonlyArray<string>> => {
     if (stopped) return [...servedAreas.keys()];
     for (const accountId of candidateAccounts(deps.ctx.session)) {

@@ -10,6 +10,7 @@
  * Stalwart's own administration; this surface verifies it and, when it is
  * missing, says what that costs.
  */
+// ADR-0003 OWED: rule-order-declared
 import { type AgentRule, ruleProblems } from "@gilbert/agent/documents";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";

@@ -218,6 +218,7 @@ export async function resolveGroupAccess(
 }
 
 /** Membership is the whole answer for a surface that may not impersonate. */
+// ADR-0003 OWED: denial-per-section
 function deniedGroupAccess(): GroupAccessDenied {
   return {
     ok: false,
@@ -259,6 +260,7 @@ export function groupNamesInSession(
  * reach). A directory hiccup is not a failure of the fleet surface: it costs
  * the enumeration and nothing else.
  */
+// ADR-0003 OWED: approvals-queue-short
 export async function reachableGroupNames(admin: LiveSession): Promise<string[]> {
   const upstream = await getUpstreamSession(
     admin.id,
@@ -864,6 +866,7 @@ export async function rotateAgentAppPassword(
   // are still valid. An operator who reads "rotate" as "revoke" and relies on
   // that would leave a leaked credential alive while believing they had closed
   // it, so the count travels with the answer and the surface says it.
+  // ADR-0003 OWED: also-valid-unknown
   const state = await getState(imp.ctx).catch(() => null);
   return {
     secret: created.secret,

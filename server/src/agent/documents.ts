@@ -308,6 +308,7 @@ export function irreversible(actions: ReadonlyArray<AgentAction>): boolean {
  * twice, so a retry may redo it; a message that has left cannot be recalled and
  * a second send is a second message.
  */
+// ADR-0003 OWED: retry-classification
 export function leavesTheProcess(action: AgentAction): boolean {
   const spec = agentActionSpec(action.do);
   return spec?.external === true || spec?.irreversible === true;

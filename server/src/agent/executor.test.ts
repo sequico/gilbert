@@ -768,6 +768,7 @@ test("a run whose worker died is taken up again by the next pass", async () => {
     },
   });
 
+  await claimFor("mail");
   await executor.runPending(GROUP, ["mail"]);
 
   const after = await store.readJob("resume-job");
@@ -781,5 +782,98 @@ test("a run whose worker died is taken up again by the next pass", async () => {
     (marked?.keywords as Record<string, unknown>)?.["G-processed"],
     true,
     "and the effect the run was for actually landed",
+  );
+});
+
+test("a sweep leaves a job whose unit is somebody else's alone", async () => {
+  const fenced = rule({ id: "fenced", name: "Fenced automation" });
+  await store.writeRules([fenced]);
+  const emailId = await createMessage("An invoice only one worker may run");
+  const job = newJob({
+    id: "fenced-job",
+    accountId: GROUP,
+    area: "mail",
+    rule: { id: "fenced", version: 1 },
+    trigger: { on: "email", emailId, at: new Date().toISOString() },
+  });
+  await store.writeJob({
+    ...job,
+    state: "running",
+    attempts: 1,
+    lease: {
+      owner: "the-worker-that-died",
+      heartbeatAt: new Date(Date.now() - 10 * LEASE).toISOString(),
+    },
+  });
+  // The sweep may take up what a dead worker left **only** for a unit this
+  // worker holds: with the claim in another worker's hands, the run is the
+  // double execution the fence exists to stop (resolution 18). The takeover is
+  // dated past the holder's lease, which is how a successor arrives.
+  const taken = await claimArea(store, "mail", "another-worker", {
+    now: new Date(Date.now() + 10 * LEASE),
+    leaseMs: LEASE,
+  });
+  assert.ok(taken, "another worker holds mail now");
+
+  await executor.runPending(GROUP, ["mail"]);
+
+  const untouched = await store.readJob("fenced-job");
+  assert.equal(
+    untouched?.doc.state,
+    "running",
+    "a worker that does not hold the unit does not run its jobs",
+  );
+  const marked = await fetchEmailRecord(client, GROUP, emailId, {});
+  assert.equal(
+    (marked?.keywords as Record<string, unknown>)?.["G-processed"],
+    undefined,
+    "and nothing left the process",
+  );
+
+  // The claim is a fixture: a test that leaves the unit in another worker's
+  // hands would decide the tests that come after it.
+  await claimArea(store, "mail", WORKER, {
+    now: new Date(Date.now() + 20 * LEASE),
+    leaseMs: LEASE,
+  });
+});
+
+test("an approval on a rule that moved on is refused, and the answer is spoken", async () => {
+  const movedOn = rule({
+    id: "moved-on",
+    name: "Approved too late",
+    review: { mode: "always" },
+  });
+  await store.writeRules([movedOn]);
+  const emailId = await createMessage("An invoice approved too late");
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor("mail")), states: {} });
+
+  const job = (await jobsOf("moved-on")).find(
+    (candidate) => candidate.trigger.emailId === emailId,
+  );
+  assert.ok(job);
+  assert.equal(job.state, "awaiting_approval");
+  const decision = (await store.readDecision(String(job.decisionId)))?.doc;
+  assert.ok(decision);
+
+  // The rule is edited while the person is holding the answer: the job pins a
+  // version nobody approved in that form any more (resolution 21, Decision §4).
+  await store.writeRules([{ ...movedOn, version: 2 }]);
+
+  await executor.resolveApproval(GROUP, decision, true, ADA);
+
+  const refused = await store.readJob(String(job.id));
+  assert.equal(refused?.doc.state, "failed");
+  assert.match(String(refused?.doc.error), /pins rule version 1/);
+  const marked = await fetchEmailRecord(client, GROUP, emailId, {});
+  assert.equal(
+    (marked?.keywords as Record<string, unknown>)?.["G-processed"],
+    undefined,
+    "not one action of the approved plan ran",
+  );
+  const chat = await readChat(ctx, GROUP, client);
+  assert.ok(
+    chat.some((message) => message.text.includes("version nobody approved")),
+    "and the person who answered is told why their answer did nothing",
   );
 });

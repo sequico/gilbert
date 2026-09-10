@@ -186,7 +186,7 @@ export class Executor {
   async reconcile(accountId: string, type: ChangeType, claim: AgentClaim): Promise<void> {
     const store = new AgentStore(this.deps.ctx, accountId);
     if (type === "schedule") {
-      await this.fireDueSchedule(store, accountId);
+      await this.fireDueSchedule(store, accountId, claim);
       return;
     }
     const since = claim.states[type] ?? "0";
@@ -270,7 +270,7 @@ export class Executor {
     accountId: string,
     ids: ReadonlyArray<string>,
     rules: ReadonlyArray<AgentRule>,
-    claim?: AgentClaim,
+    claim: AgentClaim,
   ): Promise<void> {
     const candidates = rules.filter(
       (rule) => rule.enabled && rule.trigger.on === "email",
@@ -281,6 +281,7 @@ export class Executor {
     // message would bury the one cause under a failed job for every arrival.
     const usable: AgentRule[] = [];
     for (const rule of candidates) {
+      // ADR-0003 OWED: runtime-filter-list
       const bad = unsupportedFilterKey(rule.trigger.filter);
       if (!bad) {
         usable.push(rule);
@@ -333,7 +334,7 @@ export class Executor {
     accountId: string,
     ids: ReadonlyArray<string>,
     rules: ReadonlyArray<AgentRule>,
-    claim?: AgentClaim,
+    claim: AgentClaim,
   ): Promise<void> {
     const chatRules = rules.filter((rule) => rule.enabled && rule.trigger.on === "chat");
     const nodeRules = rules.filter(
@@ -452,7 +453,7 @@ export class Executor {
     rule: AgentRule,
     trigger: AgentTriggerRecord,
     keys: Set<string>,
-    claim?: AgentClaim,
+    claim: AgentClaim,
   ): Promise<void> {
     const key = jobKey(rule.id, trigger);
     if (keys.has(key)) return;
@@ -480,7 +481,7 @@ export class Executor {
     accountId: string,
     job: AgentJob,
     rule: AgentRule,
-    claim?: AgentClaim,
+    claim: AgentClaim,
   ): Promise<void> {
     const store = new AgentStore(this.deps.ctx, accountId);
     const found = await store.readJob(job.id);
@@ -539,7 +540,6 @@ export class Executor {
       // lapse, and what it is about to do — send, post, file — would be done a
       // second time by the worker that replaced it.
       if (
-        claim &&
         !(await claimStillMine(store, job.area, this.deps.workerId, claimEpoch(claim)))
       ) {
         this.deps.log(
@@ -635,7 +635,7 @@ export class Executor {
     job: AgentJob,
     rule: AgentRule,
     plan: RunPlan,
-    claim?: AgentClaim,
+    claim: AgentClaim,
   ): Promise<void> {
     // Intent first: the trail says what was about to run before it runs, so an
     // effect can never exist without a line that accounts for it, even if the
@@ -676,23 +676,19 @@ export class Executor {
         // Fenced again before an action that leaves the process: a lease can
         // lapse during a long run, and a run whose unit was taken over must not
         // send, post or file what its successor is doing too.
-        ...(claim
-          ? {
-              beforeAction: async (action: AgentAction) => {
-                if (!leavesTheProcess(action)) return;
-                const mine = await claimStillMine(
-                  store,
-                  job.area,
-                  this.deps.workerId,
-                  claimEpoch(claim),
-                );
-                if (!mine)
-                  throw new RefusedError(
-                    "the unit was taken over while this run was working: nothing more is run",
-                  );
-              },
-            }
-          : {}),
+        beforeAction: async (action: AgentAction) => {
+          if (!leavesTheProcess(action)) return;
+          const mine = await claimStillMine(
+            store,
+            job.area,
+            this.deps.workerId,
+            claimEpoch(claim),
+          );
+          if (!mine)
+            throw new RefusedError(
+              "the unit was taken over while this run was working: nothing more is run",
+            );
+        },
       },
     );
     const done = closeState({ ...job, applied: [...landed] }, "done");
@@ -1101,6 +1097,31 @@ export class Executor {
       await this.tellChat(accountId, `Rejected by ${by}: ${decided.summary}`);
       return;
     }
+    // The pin reaches a run resumed from an approval too (ADR 0003 §4): an
+    // answer is about the plan a person read, and the rule it came from has
+    // moved on since. The run is refused rather than started, and the person
+    // who answered is told why.
+    if (rule && rule.version !== decided.ruleVersion) {
+      const message =
+        `the decision pins rule version ${decided.ruleVersion} and the rule is ` +
+        `at version ${rule.version}: a run never starts under a version nobody approved`;
+      if (job) {
+        await this.failLoudly(store, job, auditRule, message, { deadLetter: true });
+      } else {
+        await recordAudit(
+          store,
+          decisionAuditEntry(
+            decided,
+            auditRule,
+            "failed",
+            approvedActions(decided),
+            message,
+          ),
+        );
+        await this.tellChat(accountId, `Approved by ${by}, but nothing ran: ${message}`);
+      }
+      return;
+    }
     const actions = approvedActions(decided);
     try {
       const opts = await this.actionOpts(accountId, actions, job);
@@ -1254,6 +1275,25 @@ export class Executor {
       (action) =>
         action.do !== "mail.send" && !(action.do === "mail.draft" && decision.draft),
     );
+    if (rule && rule.version !== decided.ruleVersion) {
+      const message =
+        `the decision pins rule version ${decided.ruleVersion} and the rule is ` +
+        `at version ${rule.version}: a run never starts under a version nobody approved`;
+      if (job) {
+        await this.failLoudly(store, job, auditRule, message, { deadLetter: true });
+      } else {
+        await recordAudit(
+          store,
+          decisionAuditEntry(decided, auditRule, "failed", actions, message),
+        );
+        await this.tellChat(
+          accountId,
+          `Sent from the group's Drafts, but nothing ran: ${message}`,
+        );
+      }
+      return;
+    }
+    // ADR-0003 OWED: intent-before-effect-settled
     const detail = `sent from the group's Drafts by ${by} at ${decided.appliedAt}`;
     try {
       if (actions.length)
@@ -1445,7 +1485,11 @@ export class Executor {
   }
 
   /** The entries that are already due: catch-up after a worker was away. */
-  private async fireDueSchedule(store: AgentStore, accountId: string): Promise<void> {
+  private async fireDueSchedule(
+    store: AgentStore,
+    accountId: string,
+    claim: AgentClaim,
+  ): Promise<void> {
     const rules = (await store.readRules())?.doc ?? [];
     const scheduleDoc = await store.readSchedule();
     const stored = scheduleDoc?.doc ?? [];
@@ -1467,6 +1511,7 @@ export class Executor {
           rule,
           { on: "schedule", at: entry.at },
           keys,
+          claim,
         );
       }
       // Recorded **after** the schedule write: an audit write is a write to the
@@ -1495,12 +1540,23 @@ export class Executor {
     );
     await this.writeSchedule(store, next, scheduleDoc?.state);
     if (!rule?.enabled) return;
+    // A timer fires outside any reconcile, so the unit is read where the
+    // worker's claim lives: a schedule that outlived the worker's lease does
+    // not start a run nobody can fence.
+    const claim = (await store.readClaim(rule.area))?.doc;
+    if (!claim) {
+      this.deps.log(
+        `${rule.name}: nothing holds ${rule.area}, so the run due at ${entry.at} is not started`,
+      );
+      return;
+    }
     await this.startJob(
       store,
       accountId,
       rule,
       { on: "schedule", at: entry.at },
       await this.jobKeys(store),
+      claim,
     );
   }
 
@@ -1560,8 +1616,18 @@ export class Executor {
       // goes on, so a job that cannot be recorded — a rule document nobody can
       // read, a store that refused a write — does not hold back the ones behind
       // it in the list.
+      // The fence is the worker's claim on the unit, so a job is run only by a
+      // worker that holds one: a sweep that ran work it does not own would be
+      // the very double execution the fence exists to stop.
+      const claim = (await store.readClaim(job.area))?.doc;
+      if (!claim) {
+        this.deps.log(
+          `${accountId}: nothing holds ${job.area}, so job ${job.id} is not run`,
+        );
+        continue;
+      }
       try {
-        await this.runJob(accountId, job, rule);
+        await this.runJob(accountId, job, rule, claim);
         ran += 1;
       } catch (err) {
         this.deps.log(
@@ -1635,6 +1701,7 @@ export class Executor {
    * oldest goes — so this is the only thing that ever removes one, and it
    * removes whole months, never entries inside one.
    */
+  // ADR-0003 OWED: audit-export-before-prune
   async pruneAudit(accountId: string, keepFrom: Date): Promise<number> {
     const nodes = await listAppDir(
       this.deps.ctx,

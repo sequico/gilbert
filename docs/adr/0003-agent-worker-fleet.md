@@ -400,7 +400,16 @@ record keeps its full shape as the evolution path.
   never loose in the Files root, where a file nobody could place would be a
   shrug rather than a signal. The automation's own parameter stays the common
   case; the model's choice and the fallback are what keep a rule from having to
-  predict every shape of incoming mail.
+  predict every shape of incoming mail. The same destination rule governs every
+  action that writes where people look: `file.write` writes into the group's
+  visible tree, in the folder the action names, and it never replaces a file it
+  finds there — the name it actually used is what the run reports, exactly as
+  an extraction does. The limit that buys is worth naming rather than
+  discovering: a rule that wants one note kept up to date accumulates numbered
+  copies (`2-name`, `3-name`) in v1, because telling "the file this rule wrote
+  last time" from "a file a member put there" would need a provenance marker
+  the tree does not carry. An action that updates a file in place is future
+  work, not a behaviour of this one.
 
 - *16 — the rule document is validated by its published schema (owner decision
   2026-09-10)*: the automations are authored **in the admin form, never as raw
@@ -438,13 +447,12 @@ record keeps its full shape as the evolution path.
   - **Claims carry an epoch**, incremented on takeover and never on renewal, and
     a run asks `claimStillMine` before anything leaves the process: sending,
     posting, filing. A worker whose lease lapsed stops instead of writing
-    results the worker that replaced it will write again. The check belongs to
-    a run that was handed a claim: the fence is skipped where none travels
-    with the job, and the pending sweep that takes up a dead worker's work
-    (`runPending`) and the two schedule paths start their runs without one —
-    the paths where a lapsed lease is likeliest. **Owed:** every path that runs
-    a job to an effect hands it the claim its worker holds, so the fence
-    refuses rather than being absent where it matters most.
+    results the worker that replaced it will write again. The claim is not
+    optional on any path: a run takes the claim its worker holds, and the paths
+    a lapsed lease reaches first are the ones this is for — the pending sweep
+    that takes up a dead worker's work (`runPending`) and the two schedule
+    paths. A worker that holds no claim on the area starts nothing: the sweep
+    logs it and goes on, and a due timer waits for the worker that does.
   - **A release is conditional** on the state it was read against. The owner
     check alone could remove a *live* claim: between the read and the removal
     the lease can lapse, a successor takes the unit, and the removal deletes the
@@ -455,7 +463,7 @@ record keeps its full shape as the evolution path.
     handler, and the loop above it swallows what it meets instead of reporting
     it. One unreadable claim document therefore ends the round for every
     account behind it, without a line in the log. **Owed:** the pass reports
-    what it caught, per account, and goes on to the next one.
+    what it caught, per account, and goes on to the next one. <!-- owed: heartbeat-containment -->
   - **The audit is never written over.** Missing is an empty month; there-but-
     unreadable is loud, and a person decides. An append must not be able to
     replace a month of the trail with one entry.
@@ -464,7 +472,7 @@ record keeps its full shape as the evolution path.
     One path departs from it: `settleSentDraft` runs the actions left beside
     the send before it records their line, so a crash between the two leaves an
     effect the trail does not account for. **Owed:** that path records the
-    intent first, as the others do.
+    intent first, as the others do. <!-- owed: intent-before-effect-settled -->
   - **An approval is consumed once.** `appliedAt` is written in the same
     conditional write that moves a decision out of `pending`, before the
     effects, so two answers arriving together cannot send the same mail twice.
@@ -489,6 +497,7 @@ record keeps its full shape as the evolution path.
     document written by hand, an older form — is matched with whatever it
     says. **Owed:** a run asks the same list the form asks, so an automation
     that would be refused when it is written is refused when it runs.
+    <!-- owed: runtime-filter-list -->
   - **A degenerate cadence is refused**, and the schedule's delay is floored, so
     a past instant cannot re-fire in a tight loop.
   - **The chat context is bounded by the bound a human set.** The window takes
@@ -503,7 +512,7 @@ record keeps its full shape as the evolution path.
     message is an error rather than a different conversation answered quietly.
     **Owed:** the chain is read inside the bound as Resolution 11 reads it —
     the ancestors first, the window taking what is left — so that a long thread
-    is not the case where the chain is always empty.
+    is not the case where the chain is always empty. <!-- owed: chat-reply-chain -->
   - **The member's surface never impersonates.** A name that is not in the
     member's own session is not a group this person may act as, and the answer
     is reached without asking the mail server for anything — Stalwart's refusal
@@ -561,7 +570,7 @@ record keeps its full shape as the evolution path.
     its second attachment is retried, and the attachment it already filed is
     filed again beside itself. **Owed:** every action that writes where people
     look — `mail.extract`, `file.write` — carries the effect it has, so a retry
-    of it is dead-lettered rather than repeated.
+    of it is dead-lettered rather than repeated. <!-- owed: retry-classification -->
   - **A released claim stays released.** `saveClaimStates` never recreates a
     claim that is no longer there: the anchor is written against the document
     it read, so a state saved after the unit was given up cannot put the unit
@@ -574,7 +583,8 @@ record keeps its full shape as the evolution path.
     still does not pass is queued rather than lost — the queue is drained by
     the account's next append, so a group that writes nothing again carries it
     until it does. **Owed:** the pass drains it, as the queue's own note
-    promises, so a group gone quiet does not carry an entry indefinitely. Two
+    promises, so a group gone quiet does not carry an entry indefinitely.
+    <!-- owed: audit-queue-drain --> Two
     limits are accepted and declared rather than hidden: the
     granularity stays **monthly** — one document per month, so the blob every
     append reloads grows with the month and the window in which two writers
@@ -599,7 +609,7 @@ record keeps its full shape as the evolution path.
     read answers `0`: a precise number where the truth is "unknown", and the
     surface falls silent because it has nothing above zero to say. **Owed:**
     the answer tells the two apart, and the surface states the window it could
-    not count.
+    not count. <!-- owed: also-valid-unknown -->
   - **The agent API's response shapes have one definition.**
     `server/src/agent/views.ts` declares them, and both the routes that build
     the answers and the client that reads them import it. Declared twice, a
@@ -611,38 +621,68 @@ record keeps its full shape as the evolution path.
   the branch asked the questions this record leaves open: three of them are
   answered today by the code's default rather than by a decision, and one only
   by a general sentence about auto-approval. Unlike the resolutions above,
-  these are proposals: the owner has not accepted them, and the tree does not
-  carry them yet.
+  these are proposals: the owner has not accepted them. The first is carried
+  by the tree already — the check it asks for stands on the approval path —
+  and the rest are owed, marked where they live.
 
   - **The version pin binds a run resumed from an approval.** A job stopped in
     `awaiting_approval` is in flight: a person is holding it, and the rule it
     was created from can be edited while they hold it. §4's invariant — a job
     never runs a version nobody approved — is read to reach that run as well,
     so an approval answered on a job whose pinned version has moved on is the
-    same mismatch as any other, dead-lettered with a `failed`.
+    same mismatch as any other, dead-lettered with a `failed`. The person who
+    wrote "sì" is told so in the group chat: an answer that arrives after the
+    rule moved is refused out loud, because an approval that disappears without
+    a word is worse than the mismatch it refused.
   - **Withdrawing a group's grant is administration, and it is not a stop
     button.** The agent reads its reach from its own session and from the
     group's documents, so an operator who withdraws the grant removes the
     session, and with it the ability to start or finish work there — but
     nothing enumerates, cancels or drains what was already in flight: a
     decision waiting on a person, a job holding a lease, a draft the agent left
-    in the group's Drafts marked `G-awaiting`. The decision is that the
-    withdrawal is the operator's and is taken once the work it would strand is
-    settled, with what was left unfinished visible in the audit and on the
-    group's surface instead of disappearing with the grant. **Owed:** a
+    in the group's Drafts marked `G-awaiting`. The withdrawal is taken on
+    Stalwart's clock and not on Gilbert's — the admin surface reads grants and
+    reports them, it never writes them (v1 scope) — so nothing here delays a
+    revocation and nothing can make settling the work a precondition of it.
+    What is decided is how the agent *meets* the withdrawal: it is discovered
+    at the next reconcile that runs into the refusal, and what it stranded is
+    reported then, with what was left unfinished visible in the audit and on
+    the group's surface instead of disappearing with the grant. **Owed:** a
     withdrawn grant is reported together with the work it leaves behind, and
     the agent stops claiming that account rather than failing against it on
-    every pass.
-  - **No order exists between automations that match the same message.** Two
-    rules that fire on one arrival are two jobs on two triggers: work is
-    claimed by account and area, and which of them runs first is not decided,
-    not written down, and not to be relied on. Each automation is therefore
-    written to hold whatever order it gets — a rule that moves a message and a
-    rule that reads it are independent by construction — and the audit names
-    the rule and its version per run, so the order is reconstructible
-    afterwards even though it was never chosen. **Owed:** a declared order is a
-    v1 gap rather than a guarantee, and the surface should say so where rules
-    are written.
+    every pass. <!-- owed: grant-withdrawal-report -->
+  - **No order exists between automations that match the same message, and the
+    two classes it separates do not carry the same risk.** A rule that reads a
+    message and a rule that writes to it do not collide: JMAP addresses a
+    message by an immutable id, so a read is unaffected by a move that happened
+    a moment earlier, and "a rule that moves a message and a rule that reads it
+    are independent by construction" is true for that pair. Two rules that
+    *write* to the same message are the case that bites: the second write wins,
+    silently — one automation filing the message to an archive and another to
+    spam leaves it in whichever ran last, and nothing tells anyone that the two
+    automations disagree. Work is claimed by account and area, and which of
+    them runs first is not decided, not written down and not to be relied on;
+    each automation is therefore written to hold whatever order it gets, and
+    the audit names the rule and its version per run, so the order is
+    reconstructible afterwards even though it was never chosen. **Owed:** a
+    declared order, and a report when two runs in one pass wrote to the same
+    message, are v1 gaps rather than guarantees, and the surface should say so
+    where rules are written. <!-- owed: rule-order-declared -->
+  - **An admin surface says why it is short, and which membership it needs.**
+    Two debts the same review found, recorded here rather than as decisions of
+    their own. The approvals queue lists the groups this admin can act on, and
+    when the directory cannot be enumerated it falls back to the groups the
+    admin is already a member of: the shorter list and the honest one read
+    identically from the outside, because the status says nothing about the
+    enumeration having failed. **Owed:** the queue reports why it could not
+    list a group, so "nothing is waiting" and "I could not look" are different
+    answers. And the refusal a non-member meets names labels whichever surface
+    asked for it, because `deniedGroupAccess` is the answer
+    `resolveGroupAccess` gives to all ten of its callers — the approvals queue,
+    the member's view, and the eight admin routes — so a person who opened
+    rules or the standing instruction is told about a catalog they were not
+    touching. **Owed:** the refusal names the membership the surface it was
+    asked from actually needs. <!-- owed: approvals-queue-short --> <!-- owed: denial-per-section -->
   - **The content a rule reads can carry an instruction, and the allowlist is
     the gate.** Mail, files and everything else the agent reads are data:
     nothing in them is followed as instruction, and the capability allowlist
@@ -653,7 +693,13 @@ record keeps its full shape as the evolution path.
     message can move it; that is an accepted risk, named here rather than left
     to the general sentence about auto-approval. The mitigation it would take —
     a person for any action whose trigger arrived from outside the group — is
-    not adopted in v1.
+    not adopted in v1, and the cheaper one that sits between the two is a gap
+    of its own rather than an oversight: the auto-execution ceiling is not
+    lowered for the exposed case because nothing in the chain carries where a
+    trigger came from. Adopting it would start with a provenance signal
+    threaded from the executor into `reviewOutcome` — which takes the review
+    policy, the actions and a confidence today, and no sender — and only then
+    with the clamp itself.
 
 **Operating decisions (owner decisions 2026-09-10):**
 
@@ -670,6 +716,7 @@ record keeps its full shape as the evolution path.
   **Owed:** the export offered before the oldest month is pruned does not
   exist yet — the trail is readable as the group's own Files in the meantime —
   and the retention is a policy rather than a deletion only once it does.
+  <!-- owed: audit-export-before-prune -->
 - *Probes run against the owner's test instance on credentials the owner
   supplies*; results are recorded as resolutions 12 to 14, and the
   operator-credential alternative carries two more (Open questions, probes
@@ -744,9 +791,9 @@ already lives by, minus the browser.
   binds every run that has effects, and a run resumed from an approval is one:
   waiting on a person does not freeze the rule the job was created from, so an
   approval answered on a job whose rule has moved on is that same mismatch and
-  not a fourth outcome. **Owed:** the check sits on the approval path
-  (`resolveApproval`, `settleSentDraft`) as well as on the pending and running
-  one, which is the only place it is today.
+  not a fourth outcome. The check stands on both paths: inside the run, on the
+  pending and running one, and on the approval path (`resolveApproval`,
+  `settleSentDraft`) before a single action of an approved plan is run.
 - **Audit trail**: every run appends one entry to an audit-log document
   (input state, rule id and version, actions taken, outcome), so what an
   agent did — and under which rule version — is answerable from Stalwart
@@ -774,6 +821,13 @@ entries back out of the document (`fireDueSchedule`) is reached only by a
 reconciliation of type `schedule`, which no pass asks for. **Owed:** a fired
 entry arms its next occurrence, and the due entries are read on every pass,
 so a schedule survives a crash and an ordinary week alike.
+**Sequence, because the two halves are not independent.** Both schedule
+paths start their runs with the claim the worker holds, and the catch-up is
+reached by no pass today — so the fence covers them before the catch-up is
+wired to a pass, and that is the only order this may be done in. A schedule
+made live while it could still start a run nobody can fence would be the
+double execution the epoch exists to stop.
+<!-- owed: schedule-rearm-catchup -->
 
 ### 6. Fleet coordination is lease-based and coordinator-free
 
@@ -813,12 +867,11 @@ What the survey locks in:
   A pinned version that is no longer the rule's current one is refused rather
   than run — the job is dead-lettered with a `failed` — because the job
   carries the version *number* and not the rule, and an effect under a version
-  nobody approved is worse than a job lost loudly. The refusal is read on the
-  pending and running paths, and a job waiting on a person is not a third
-  case: it is read again when the run resumes (§4, resolution 21). **Owed:**
-  the same check on the approval path, so the sentence holds wherever a run
-  starts from. There is no replay-compatibility problem because this design
-  never replays.
+  nobody approved is worse than a job lost loudly. The refusal is read
+  wherever a run can start: on the pending and running paths inside the run,
+  and on the approval path, where a job waiting on a person is not a third
+  case but the same mismatch (§4, resolution 21). There is no
+  replay-compatibility problem because this design never replays.
 - **Audit is an append-only per-run event log** (LangSmith/Conductor-style
   observability), stored as a Stalwart document — §4.
 - **Deterministic routing first, a model only where needed** (Inngest
