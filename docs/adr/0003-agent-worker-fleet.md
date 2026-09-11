@@ -93,46 +93,37 @@ record keeps its full shape as the evolution path.
   installation runs both processes from one image; a busy area is another
   worker, declared at deployment and coordinated by lease (§2, §6) — never
   a supervisor (resolution 8).
-- **One bootstrap secret: the agent's own app password.** The deployment
-  carries `GILBERT_AGENT_ADDRESS` and the matching app password, and the
-  worker opens its session by authenticating as the agent — no
-  impersonation at boot, no operator account, no derivation chain. (The web
-  tier reads the same variables only to know which address to register and
-  verify.) The
+- **One bootstrap secret: the agent's own password.** The deployment
+  carries `GILBERT_AGENT_ADDRESS` and the matching password — the account's
+  own, not an app password — and both the worker and the web tier sign in as
+  the agent with it: no impersonation at boot, no operator account, no
+  derivation chain, and nothing to mint or rotate in the product. (The web
+  tier reads the same pair because it signs in as the agent to read the
+  fleet.) The
   secret is the agent's, not a person's: its reach is exactly the agent's
   grants (Consequences), and an operator leaving cannot strand the agent.
   Nothing needs a writable filesystem, so `IMMUTABLE=1` holds: the session
-  stays in memory and is re-established at every boot. The environment (or a
-  mounted `GILBERT_AGENTS_FILE`, the `STALWART_SERVERS_FILE`
-  shape) is where a pre-session credential lives — a
+  stays in memory and is re-established at every boot. The environment is
+  where a pre-session credential lives — a
   runtime-written `.env` is impossible on a read-only root and pointless on
   a disposable container, because `.env` is read at boot and the container
   is replaced from the image. Rotating the secret therefore lands on the
-  deployment: a mounted `GILBERT_AGENTS_FILE` is re-read as it changes and
-  the running fleet follows the agent it names, and a mount the product is
-  allowed to write is one the admin surface writes the minted or rotated
-  secret into (`depositAgentSecret`), so what the fleet follows is what the
-  save just wrote. The environment is read
-  at boot, so a value that lives there still costs a restart; an installation
-  that would rather never touch it keeps the recorded alternative — an
-  operator credential holding `Impersonate`, from which the agent's app
-  password is created or recovered under impersonation (Open questions, probes
-  c and d).
+  deployment and costs a restart: the environment is read at boot. A pair
+  that is absent or incomplete is not fatal either — the installation runs
+  with no agent, and the admin surface says which state it is in.
 - **The agent principal is not granted `Impersonate`.** v1 reaches groups by
   membership, never by becoming someone; Stalwart refuses impersonated group
   mailboxes anyway (live-verified, 403), so the permission would buy only
   the ability to act as human users — out of v1 scope — and would sit on the
   identity a model drives. The admin-facing direction stays: the signed-in
   admin impersonates the *agent* to manage it.
-- **Management is automatic from the admin surface, via impersonation.**
-  The signed-in admin selects the agent account; gilbertserver creates and
-  rotates the agent's app passwords through JMAP `x:AppPassword/set` under
-  impersonation (live-probe item — Open questions) and manages everything
-  else through ordinary JMAP on Stalwart documents. No Management API, no
-  hand-edited files, no fields to paste secrets into. Rotation lands on the
-  deployment: the UI rotates the credential underneath, and the deployment's
-  copy has to agree with it — a running fleet follows a mounted agents file,
-  so the two come back into step without a restart.
+- **Management is the admin surface over Stalwart's own documents.** The
+  signed-in admin reads the fleet and edits what the installation decides —
+  the areas a group is narrowed to, the standing instruction, the
+  automations — through ordinary JMAP on Stalwart documents, with no
+  Management API and no hand-edited files. Credentials are not among them:
+  the pair is the deployment's (above) and membership is Stalwart's, read
+  from the agent's own session rather than declared here.
 - **The agent's own account holds its configuration; the group's account
   holds the work.** Per-agent settings are documents in the agent account's
   own `gilbert/` app folder (Decision §4): its registration record and the
@@ -766,7 +757,7 @@ grants decide what it may read and act on (a person's mailbox, a group's
 mailbox, shared Files). Mail addressed *to* the agent is ordinary mail: it
 lands in the agent's own mailbox and wakes it like any other state change —
 that is how "tell the agent to do something by mailing it" works. The
-agent's own app password is the one bootstrap secret the worker holds, and
+agent's own password is the one bootstrap secret the worker holds, and
 it belongs to the installation, not to a person (v1 scope).
 
 ### 2. Workers are headless, stateless, disposable processes
@@ -955,7 +946,7 @@ candidate rule semantic (Open questions).
 
 ## Consequences
 
-- The agent's own app password is the one bootstrap secret the worker holds,
+- The agent's own password is the one bootstrap secret the worker holds,
   and it belongs to the installation rather than to a person (v1 scope); on
   top of ADR 0007's administration model (permission marker; Impersonate for
   per-user writes), the only impersonation in the design points the other
@@ -1030,7 +1021,7 @@ candidate rule semantic (Open questions).
   that an operator authenticated by **app password** — not by the account
   password the 2026-09-09 probe used — may impersonate a target, and (d)
   that `x:AppPassword/get` keeps returning the secret to an impersonating
-  admin. Neither is on the default boot path — the agent's own app password
+  admin. Neither is on the default boot path — the agent's own password
   is — so they matter only if an installation chooses that alternative.
 - The extraction destination is decided (resolution 15): the group's own
   visible Files, in the folder the automation named or the model chose, and the

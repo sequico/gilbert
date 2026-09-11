@@ -132,24 +132,25 @@ the short version of how to turn it on, what it does, and what holds it back. Th
 long version is the first part of [FEATURES.md](FEATURES.md).
 
 **Turning it on.** The operator creates the agent's account in **Stalwart's own
-administration** and grants it on the groups it may work in: membership *is* the
-grant, and no switch in the product can replace it. The administrator then names
-it in Gilbert — **Admin → Agents → Overview**, an address field whose value the
-installation records — and may narrow what it does in each group (**Admin → Group
-workers**: the kinds of work, per group, for as many groups as are selected at
-once). The worker is its own process, from the same image:
+administration** and adds it to the groups it may work in: membership *is* the
+grant, and no switch in the product can replace it. The account's address and
+its own password — not an app password: the agent signs in as itself — are then
+given to the deployment, and both processes read them from the same variables:
 
 ```
 GILBERT_AGENT_ADDRESS=gilbert@example.com \
-GILBERT_AGENT_PASSWORD=<its app password> \
+GILBERT_AGENT_PASSWORD=<the account's own password> \
 npm run agent
 ```
 
-`GILBERT_AGENTS_FILE` holds several addresses and their passwords instead, and
 `GILBERT_AGENT_AREAS`, `GILBERT_AGENT_POLL_MS`, `GILBERT_AGENT_LEASE_MS` and
 `GILBERT_AGENT_HEALTH_PORT` say what it serves, how often it re-reads, and how a
-restart policy reaches it. The web tier needs no secret of its own: it acts as
-the agent by impersonating it from an administrator's session.
+restart policy reaches it. **Admin → Agents** shows the groups the agent is in,
+read from the agent's own session in Stalwart, and **Admin → Group workers**
+narrows what it does inside each of them (the kinds of work, per group, for as
+many groups as are selected at once). With the pair unset the installation runs
+with no agent — nothing refuses to start, and that screen says what is missing
+and how to set it.
 
 **What it does.** An **automation** is a document in the group's own account:
 when it reacts (an email arriving, a chat message, a file, a time), which

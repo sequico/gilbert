@@ -107,12 +107,13 @@ are not repeated here.
   the mock's permission model, `web/src/views/AdminView.tsx`.
   Supersedes ADR 0001.
 
-## 0009 — The installation’s agent identity is recorded in the product
+## 0009 — The installation’s agent identity is the deployment’s
 
 - **Status:** Accepted (2026-09-11).
-- **Code:** implemented — `agent.address` in the policy document,
-  `POST /api/admin/agent/address`, `agentAddress()`/`agentHasSecret()`,
-  the Agent address field in Admin → Agents.
+- **Code:** implemented — `GILBERT_AGENT_ADDRESS` / `GILBERT_AGENT_PASSWORD`
+  in the deployment's environment, `agentAddress()`, and
+  `agent.groups.<name>.areas` in the policy document
+  (`POST /api/admin/agent/groups`).
 
 ## 0008 — Mobile companion app
 

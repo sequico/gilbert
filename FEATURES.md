@@ -104,28 +104,31 @@ directory, created by the operator in Stalwart's own administration, and it is
 **granted** on a group the same way any principal is. Membership is the
 grant: there is no second, in-product activation switch, so a group the agent
 can see is a group it works for, and a group it cannot see is untouched. The
-Gilbert admin surface *verifies* the grant per group and says plainly when it
-is missing — it never writes one.
-- **The agent identity is written in the product.** An administrator names
-  the address the agent acts as — picked from the accounts the server already
-  lists, or typed — and the installation records it beside its settings policy,
-  in force without a restart. Gilbert acts as that address by impersonating it
-  from the administrator’s own session, so the field asks an administrator for
-  no password; naming an address also **provisions the credential a worker signs
-  in with** — the account is given an app password, unless the deployment
-  already holds one that signs in — and the secret is shown once, because the
-  deployment is where a worker reads it. `hasSecret` says whether the deployment
-  holds a copy, and the surface says when none is deployed for the address it
-  holds — an agent the product can read and that can do nothing on its own is
-  worth knowing about.
+Gilbert admin surface reads that membership from the agent's own session in
+Stalwart and shows it; it never writes one, and no screen asks anyone to
+declare it.
+- **The agent's address and password are the deployment's.** The operator names
+  the agent with `GILBERT_AGENT_ADDRESS`, beside the account's own password in
+  `GILBERT_AGENT_PASSWORD` — the account's own, not an app password: the agent
+  signs in as itself — in the environment of whoever starts the server and the
+  worker. Nothing in the product names it and nothing is recorded for it: there
+  is one place the pair lives, and it is the deployment. Both processes read the
+  same pair: the worker opens its session with it, and the admin surface signs
+  in as the agent with it, so no screen carries a secret. Absent or incomplete,
+  nothing refuses to start — the installation runs with no agent, and **Admin
+  → Agents** says which state it is in and how to set the pair; a password
+  Stalwart refuses is its own state, named as such, with the installation
+  running and the screen saying the fleet is not operational.
 - **What the fleet serves, per group.** The deployment opens the areas the agent
   may work in (mail, files, tasks, calendars, contacts) and the installation can
   narrow that per group — one group, or as many as an administrator selects at
   once, from the Group workers section beside Agents. Narrowing is the whole of
   the permission: the worker intersects the record with what the deployment
   serves, so a product decision can never open a door an operator closed, and a
-  group set back to nothing is served exactly as the deployment says. The grant
-  itself stays Stalwart’s, and the surface shows it rather than writing it.
+group set back to nothing is served exactly as the deployment says. The grant
+itself stays Stalwart's: the surface reads the agent's membership from the
+agent's own session and shows it, rather than writing one or asking anyone to
+declare it.
 - **A withdrawn grant is reported, and the group stops being served.** The
 worker re-reads its session at most once per poll interval — a minute, a third
 of a lease, so no new setting arrives with it — and an account it was serving
@@ -147,27 +150,21 @@ not have to be repeated in every automation. It can steer and it cannot grant:
 what an automation may do is its capability list, checked on every answer the
 model gives, and nothing written in the instruction widens it. An empty text
 removes it.
-- **One bootstrap secret.** The worker authenticates as the agent with the
-agent's own app password (`GILBERT_AGENT_ADDRESS`, `GILBERT_AGENT_PASSWORD`,
-or a mounted `GILBERT_AGENTS_FILE`). Nothing derives it, nothing impersonates
-at boot, and nothing durable is kept on the worker's disk: the session is
-re-established at every start, so the container stays disposable and
-`IMMUTABLE=1` holds. The admin surface mints the app password through JMAP
-under impersonation when an administrator names an address, and rotates it
-through the same door, writing the new secret where the worker reads it — the
-mounted `GILBERT_AGENTS_FILE`, followed as it changes by both the server and
-the running worker — so the change lands by itself; only a deployment that
-mounts no writable file is shown the secret once, and the surface says which of
-the two happened. Naming an address the deployment already holds a
-working credential for mints nothing: the save probes that sign-in first.
-Rotation deliberately does not revoke the credential already in use — that
-would stop the agent’s work on the spot — and the API answers with how many
-credentials it left valid.
-- **A changed agent is followed, not restarted for.** The worker re-reads a
-mounted `GILBERT_AGENTS_FILE` while it runs, so renaming the agent, rotating
-its secret or changing the areas the deployment serves takes effect within
-seconds. The new identity signs in first: only a sign-in that works replaces
-the fleet that is serving, and one that fails leaves it alone and says so.
+- **One bootstrap secret, and the deployment holds it.** The worker
+authenticates as the agent with the account's own password
+(`GILBERT_AGENT_ADDRESS`, `GILBERT_AGENT_PASSWORD`). Nothing derives it, nothing
+impersonates at boot, and nothing durable is kept on the worker's disk: the
+session is re-established at every start, so the container stays disposable and
+`IMMUTABLE=1` holds. The product neither mints nor rotates a credential, and it
+keeps no second copy of the pair. Rotating it is the operator's act in Stalwart,
+and it lands on the deployment: the variables are read at boot, so a restart is
+what carries the new value.
+- **Nothing is watched at runtime; a change lands on the deployment.** The
+address, the password and the areas the deployment serves are read once, at
+boot, so changing any of them means restarting the processes. Membership is the
+one thing re-read while the worker runs — at most once per poll interval — so a
+group Stalwart no longer lists the agent for stops being served within it
+(below).
 - **Automations, not rules written in code.** The admin surface authors one
 document per automation, as a form — “When [event] / If [filters] / Then
 [actions]” — validated against the JMAP filter grammar (RFC 8621) and the
