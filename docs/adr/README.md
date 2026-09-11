@@ -109,7 +109,7 @@ prose against `server/src` and `web/src`.
 ## 0008 — Mobile companion app
 
 - **Status:** Proposed (2026-09-09).
-- **Code:** **not implemented** — recorded for later ("DOPO"): an
+- **Code:** **not implemented** — recorded for later ("later"): an
   installable Android/iOS app holding multiple Gilbert identities (server,
   user, password), push-notifying chat and mail arrival, deep-linking into
   the web client on tap.

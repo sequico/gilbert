@@ -159,7 +159,7 @@ decision; nothing below is behaviour to preserve.
 
 ## Verification (live 2026-09-09)
 
-Against `ops.greensley.eu` (community edition, 0.16.x), Basic auth to
+Against a real instance (community edition, 0.16.x), Basic auth to
 `/api/account` returns `{ edition, locale, permissions }`. The admin marker is
 **`sysAccountCreate`**, confirmed on both sides of the boundary: a
 `gilbert-admin` group member holds 244 user permissions with no

@@ -154,7 +154,7 @@ citizen, and its changes ride the same push rail as Email:
   by those types (`state_manager/push.rs: filter_types`). The event source
   accepts `?types=FileNode` and delivers
   `{"@type":"StateChange","changed":{<accountId>:{"FileNode": "<state>"}}}`.
-  Live probe on ops.greensley.eu (claimed 0.16.21, 2026-09-07): create two
+  Live probe on the owner's test instance (claimed 0.16.21, 2026-09-07): create two
   nodes, `FileNode/changes` from the first state reported the second;
   eventsource with `types=FileNode` streamed the StateChange. Source of truth
   for details at tag v0.16.19 (`crates/jmap/src/push/set.rs`,
@@ -162,7 +162,7 @@ citizen, and its changes ride the same push rail as Email:
   `tests/src/jmap/files/node.rs`).
 - Member sessions on a **group account** can create and destroy calendars and
   address books in the group's own account (live, freight/`e` on
-  ops.greensley.eu, 2026-09-07) and can read the group account's Files
+  the owner's test instance, 2026-09-07) and can read the group account's Files
   (`FileNode/query` answers). The **admin group account answers `FileNode/
   query` with nothing** for members: its Files are admin-surface data, not
   member-readable through JMAP.

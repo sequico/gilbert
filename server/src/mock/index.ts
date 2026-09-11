@@ -2092,13 +2092,16 @@ function enforceLimits(name: string, args: Obj): void {
  * (ADR 0003 §4, §6) -- so a mock that ignored `ifInState` would leave every
  * lease and every job update untested.
  *
- * TODO (owed, ADR 0003 resolution 19, owner decision 2026-09-10): probe a real
- * 0.16 instance for four things and record the answers here with the date --
- * that `FileNode/set` honours `ifInState` at all; that a mismatch arrives as
- * `stateMismatch` rather than `invalidArguments`; that the FileNode state token
- * advances on every write that matters; and whether a blob **upload**, which
- * writes no node, advances it. Until then the agent tests prove the client's
- * logic against this simulation, not the server's behaviour.
+ * Asked of a real Stalwart 0.16 instance on 2026-09-11, on credentials the
+owner supplies, by
+ * `scripts/probe-conditional-writes.mjs`), and this simulation matches every
+ * answer: `FileNode/set` honours `ifInState`; a mismatch arrives as
+ * `stateMismatch`, never as `invalidArguments`; the FileNode state token
+ * advances on every write that matters, so a token read before one is refused
+ * after it; and a blob **upload** — which writes no node — does not advance it.
+ * That last answer is what makes the order `writeAppFileAt` uses (read the
+ * state, upload, set conditionally) safe, and the probe asks that composed order
+ * as its own question.
  */
 function checkIfInState(a: Obj, type: string): void {
   const asked = a.ifInState;

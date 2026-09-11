@@ -170,17 +170,17 @@ describe("mentionsFromText", () => {
 
 describe("mention round-trip", () => {
   it("keeps the space after a mention and renders the short name", () => {
-    const participants = ["sam@ops.greensley.eu"];
-    const text = "ciao @sam@ops.greensley.eu come";
+    const participants = ["ada@example.org"];
+    const text = "hello @ada@example.org there";
     expect(mentionsFromText(text, participants)).toEqual([
-      { kind: "principal", id: "sam@ops.greensley.eu" },
+      { kind: "principal", id: "ada@example.org" },
     ]);
-    expect(text.split(mentionRegex(["sam@ops.greensley.eu"]))).toEqual([
-      "ciao ",
-      "sam@ops.greensley.eu",
-      " come",
+    expect(text.split(mentionRegex(["ada@example.org"]))).toEqual([
+      "hello ",
+      "ada@example.org",
+      " there",
     ]);
-    expect(shortName("sam@ops.greensley.eu")).toBe("sam");
+    expect(shortName("ada@example.org")).toBe("ada");
   });
 });
 

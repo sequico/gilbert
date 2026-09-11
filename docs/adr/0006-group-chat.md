@@ -67,7 +67,7 @@ document per message, with the group as owner from the first second.
   StateChange events for FileNode to the existing relay; the browser reacts to
   a FileNode StateChange for an account by running `FileNode/changes` and
   fetching the new message documents. Verified live on the 0.16 server at
-  ops.greensley.eu (2026-09-07): `FileNode/set` advances state, `FileNode/
+  the owner's test instance (2026-09-07): `FileNode/set` advances state, `FileNode/
   changes` reports created ids from `sinceState`, `?types=FileNode` on the
   event source delivers `{"@type":"StateChange","changed":{<account>:
   {"FileNode": …}}}`, and `PushSubscription/set` accepts `types:
@@ -208,6 +208,6 @@ belong to the group, not to any member.
   (per-subscription type filter), `crates/jmap/src/api/event_source.rs`
   (types query parameter), `tests/src/jmap/files/node.rs` (FileNode changes).
 - `server/src/push.ts` — per-account PushSubscription relay.
-- Live probe on ops.greensley.eu (2026-09-07): FileNode state on set,
+- Live probe on the owner's test instance (2026-09-07): FileNode state on set,
   FileNode/changes from `sinceState`, `?types=FileNode` StateChange delivery,
   PushSubscription/set accepting `types: ["FileNode"]`.

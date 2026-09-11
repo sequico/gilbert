@@ -3,7 +3,7 @@
 Status: Accepted (2026-09-07)
 
 > **Owner decision (2026-09-07):** "contributo da upstream solo download. non
-> contribuiamo noi niente ad upstream" — upstream is consumed, never
+> we contribute nothing back to upstream" — upstream is consumed, never
 > contributed to.
 
 ## Context

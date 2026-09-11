@@ -7,7 +7,7 @@ Status: Proposed (2026-09-06)
 > agent having its own email address in Stalwart (e.g. `gilbert@…`), acting
 > both on Stalwart events and on time schedules. First use cases: moving
 > group messages, extracting files from incoming mail, and an open-ended rule
-> set to grow from there ("chi più ne ha più ne metta"). The Sieve boundary is
+> set to grow from there. The Sieve boundary is
 > confirmed: Sieve owns delivery-time actions inside Stalwart; workers act
 > afterwards, on delivered, durable state.
 >
@@ -519,17 +519,22 @@ record keeps its full shape as the evolution path.
     separate so they cannot drift into an irreversible effect nobody was asked
     about.
 
-- *19 — the live probe of conditional writes: owed, and recorded as owed (owner
-  decision 2026-09-10)*. Everything the fleet's coordination rests on assumes
-  that Stalwart 0.16 honours `ifInState` on `FileNode/set`: that the mismatch
-  arrives as `stateMismatch`, that it is not masked as `invalidArguments`, that
-  the FileNode state token advances on the writes that matter, and whether a
-  blob upload (which writes no node) advances it at all. The mock simulates all
-  of it; no live instance has been asked. **The probe is owed before the fleet
-  depends on lease and job coordination in production**, and the code carries
-  the same note where the assumption lives (`server/src/mock/index.ts`, beside
-  the simulated check). Until it is run, the tests prove the client's logic
-  against the simulation, not the server's behaviour.
+- *19 — the live probe of conditional writes, and its answers (owner decision
+  2026-09-10; the probe run 2026-09-11)*. Everything the fleet's coordination
+  rests on assumes how Stalwart honours `ifInState` on `FileNode/set`. Asked of a
+  real instance — a real Stalwart 0.16 instance, on credentials the owner supplies, by
+  `scripts/probe-conditional-writes.mjs`,
+  which reads the session the way the client does and creates and destroys one
+  folder — and the answers are: a stale `ifInState` **is refused**, the refusal
+  arrives as **`stateMismatch`** (RFC 8620 §5.3) and never as `invalidArguments`,
+  the FileNode state token **advances** on a write that succeeded so a token read
+  before it no longer holds, and a blob **upload** — which writes no node — **does
+  not advance it**, which is what makes the order `writeAppFileAt` uses (read the
+  state, upload, set conditionally) safe; that composed order was asked as its
+  own question and accepted. The mock's simulation matches every one of those
+  answers, and the note beside it in `server/src/mock/index.ts` records them with
+  the date. The instance did not report its own version over JMAP; the other live
+  probes in this record were taken against 0.16.21.
 
 - *20 — the failure paths that remain once a worker, a retry and a reader each
   behave badly at once (owner decision 2026-09-10)*. A run whose process is
