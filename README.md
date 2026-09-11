@@ -89,8 +89,11 @@ and no other:
   Gilbert's.
 - **gilbertagents** — the agents: the principal, the worker fleet, the
   automations, the approvals and the audit.
-- **gilbertstalwart** — what configures the mail server rather than an account
-  in it, through Stalwart's own management API.
+- **gilbertstalwart** — what is set inside Stalwart itself: the server's own
+  configuration and system scripts, written through its management API, and the
+  objects the server holds and sends with, an account's identities among them,
+  written through JMAP. Which door carried the write does not decide the block;
+  what the write fixes inside the server does.
 
 The word *server* is the one worth pinning down: **Stalwart** is the mail
 server that holds every durable byte, and **gilbertserver** is this product's

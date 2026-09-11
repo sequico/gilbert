@@ -5,7 +5,7 @@ Status: Proposed (2026-09-11)
 ## Context
 
 This is **gilbertstalwart**, one of the four blocks `README.md` names, and the
-first surface of that block to be decided.
+first surface of that block to write the server's own configuration.
 
 **A server's own scripts are configuration, not account data.** A system Sieve
 script is loaded by Stalwart at boot

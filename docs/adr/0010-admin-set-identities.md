@@ -59,7 +59,11 @@ the refusal where a person will see it rather than failing quietly.
 ## Decision
 
 The administration gains **User identities** and **Group identities**, under
-the existing **Stalwart** group of the admin navigation.
+the existing **Stalwart** group of the admin navigation — **gilbertstalwart**,
+one of the four blocks `README.md` names, because what these surfaces write is
+held by the server itself. The door here is JMAP, a person's identity being a
+JMAP object the server keeps and sends with: no server configuration is
+written and no second credential appears.
 
 1. **A person's identity is set by an administrator, through the person's own
    form.** Display name, address, `replyTo` and signature are edited in the
