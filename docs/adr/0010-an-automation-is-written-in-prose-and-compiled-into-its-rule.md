@@ -1,4 +1,4 @@
-# ADR 0013 — An automation is written in prose and compiled into its rule
+# ADR 0010 — An automation is written in prose and compiled into its rule
 
 Status: Proposed (2026-09-11)
 

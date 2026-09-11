@@ -1,4 +1,4 @@
-# ADR 0012 — The push subscription covers every live type, at the request's own origin
+# ADR 0009 — The push subscription covers every live type, at the request's own origin
 
 Status: Proposed (2026-09-11)
 
@@ -9,7 +9,7 @@ Live updates reach a tab by one of two transports.
 The **relay** holds one Server-Sent Events stream per tab, upstream to Stalwart
 and back, and asks for `types=*` — every type the account has.
 
-The **push subscription** (`server/src/push.ts`, the fan-out of ADR 0006)
+The **push subscription** (`server/src/push.ts`, the fan-out of ADR 0005)
 registers one JMAP `PushSubscription` per account and fans Stalwart's POSTs out
 to that account's open tabs, holding no upstream connection at all. That is what
 makes a reconnect local instead of a fresh dial to Stalwart, and what keeps a
@@ -21,7 +21,7 @@ Two things about that subscription decide whether it is equivalent to the relay.
 subscription asked for, and the subscription asked for a mail-only list —
 `Email`, `Mailbox`, `Thread`, `Identity`, `EmailSubmission`, `VacationResponse`
 — plus `FileNode` for a session that held a group mailbox, because chat messages
-are FileNodes in the group's app folder (ADR 0006). Every store the client
+are FileNodes in the group's app folder (ADR 0005). Every store the client
 routes state changes to watches more than that: the calendar and tasks watch
 `Calendar` and `CalendarEvent`; contacts watch `AddressBook` and `ContactCard`;
 filters watch `SieveScript`; files and chat watch `FileNode`; the storage bar

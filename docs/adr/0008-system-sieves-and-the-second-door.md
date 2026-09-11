@@ -1,4 +1,4 @@
-# ADR 0011 — System sieves, and the second door to Stalwart
+# ADR 0008 — System sieves, and the second door to Stalwart
 
 Status: Proposed (2026-09-11)
 

@@ -1,4 +1,4 @@
-# ADR 0006 — Group chat on the group's own Files
+# ADR 0005 — Group chat on the group's own Files
 
 Status: Accepted (2026-09-08)
 
@@ -202,7 +202,7 @@ belong to the group, not to any member.
 ## References
 
 - Supersedes: none. Related: ADR 0001 (admin group; ownership of group data),
-  ADR 0005 (per-account app folder pattern).
+  ADR 0004 (per-account app folder pattern).
 - Stalwart source @ tag v0.16.19: `crates/types/src/type_state.rs`
   (`DataType::FileNode`), `crates/services/src/state_manager/push.rs`
   (per-subscription type filter), `crates/jmap/src/api/event_source.rs`

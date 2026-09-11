@@ -1,26 +1,12 @@
-# ADR 0001 — Admin group and the administration surface
+# ADR 0001 — The administration surface
 
-Status: Superseded (2026-09-09)
+Status: Accepted (2026-09-09)
 
-> Superseded by ADR 0007 — *Stalwart admin is the Gilbert admin (the
-> `gilbert-admin` group is removed)*. The grant it describes (membership of
-> the `gilbert-admin` group mailbox) is gone from code; the administration
-> surface it scoped (the shield and the policy editor) survives unchanged
-> under the new grant. Its body below is the historical record of the
-> superseded decision.
-
-> **Scope confirmed by the owner (2026-09-07):**
-> administration here means product-level administration only — offered
-> **inside Gilbert** as a gated section for users whose admin status is
-> granted by membership of the admin group in Stalwart. Membership **is** the
-> grant — no account is fixed by Gilbert, multiple admins come from the
-> group.
->
-> **Multi-domain rule (recorded 2026-09-07, owner):** one admin group per
-> Stalwart server. The operator registers `gilbert-admin` once per server (on
-> any domain, conventionally the primary), and membership grants admin to
-> principals on **every domain that server serves** — the grant must not be
-> tied to the domain of a single registration or of the signing-in user.
+> **Scope confirmed by the owner (2026-09-07):** administration here means
+> product-level administration only — offered **inside Gilbert** as a gated
+> section for users Stalwart calls administrators, resolved from the
+> principal's own permission list (Decision §1). No account or group is fixed
+> by Gilbert, and any number of principals can be administrators.
 >
 > Shipping order, decided by the owner:
 >
@@ -32,13 +18,12 @@ Status: Superseded (2026-09-09)
 >    No group-owned policy document, no server credential: either would have
 >    changed the unauthenticated boot channel upstream defines.
 > 2. **Second** — the **per-user settings policy** (values and enforced
->    flags in each user's own hidden folder), named **profiles** (owned by
->    the admin group), and **publishing per user or per group of users**
->    (there is no publish-to-everyone operation). The per-user layer sits on
->    the same mechanism: the per-user document is read after sign-in and
->    pushed through the same client door, and per-user wins over install-wide
->    with a visible marker on administered controls.
-> 3. **Security directives** such as forced password change (ADR 0005) are
+>    flags in each user's own hidden folder), and **publishing per user or
+>    per group of users** (there is no publish-to-everyone operation). Each
+>    per-user document is read after sign-in and pushed through the same
+>    client door, and per-user wins over install-wide with a visible marker
+>    on administered controls.
+> 3. **Security directives** such as forced password change (ADR 0004) are
 >    already per-user, live in the target user's own hidden folder, and are
 >    enforced by the server per request.
 >
@@ -81,12 +66,10 @@ Facts from the current machinery:
   target using the master's credentials. App passwords are refused for
   impersonation; the impersonation right is granted in Stalwart's directory,
   like the group membership itself.
-- The admin group check (`server/src/upstream.ts`: `ADMIN_GROUP_LOCAL`,
-  `adminGroupName`, `isAdminSession`) derives the group name from the
-  **signing-in user's own domain** and looks for a non-personal account of
-  that exact name in the session. That per-user-domain rule only grants
-  admins whose own domain hosts the group; the multi-domain rule in this ADR
-  replaces it with a per-server local-part match.
+- Admin-ness is not visible over JMAP (`Principal/get` carries no role and no
+  permission), so the one runtime signal is the account's own permission
+  list, read from Stalwart's `/api/account` with the user's in-flight
+  credentials (`server/src/upstream.ts`: `isStalwartAdmin`).
 - Sessions live in a server-side store (`server/src/sessions.ts`) that already
   has the primitive `destroyAllForUser` (used by "sign out other sessions" and
   on credential change).
@@ -109,67 +92,72 @@ Facts from the current machinery:
 
 ## Decision
 
-### 1. The grant is one group mailbox per Stalwart server, matching across domains
+### 1. Gilbert admin is Stalwart admin
 
-Administration is granted by **membership of a group mailbox with the
-constant local part `gilbert-admin`**, created once per Stalwart server by
-the operator in Stalwart's own administration (on any domain — conventionally
-the primary one). Membership **is** the grant: no list document, no special
-account identity, no secret, no environment.
+**Administration is Stalwart's own role model, read by the server: nothing in
+Gilbert grants it.** A user who is a Stalwart admin is a Gilbert admin — the
+shield and every admin function, no exceptions. There is no `gilbert-*`
+capability group, no `gilbert-admin` mailbox and no Gilbert-side registry, so
+administration is granted in exactly one place: Stalwart's own user
+administration.
 
-**The grant is server-scoped, not domain-scoped.** A principal is an admin
-when their JMAP session accounts contain **any** non-personal account named
-`gilbert-admin@…` — matched by local part, whatever domain the group was
-registered on and whatever domain the principal's own address uses. Members
-on every domain of the server are admins; revocation is removing them from
-the group; adding a member from another domain needs nothing but the
-membership.
+**The grant has no JMAP-visible boolean.** `Principal/get` returns only Id,
+Type, Name, Description, Email and capabilities; the REST Management API
+(`/api/*`) is auth, calendar/rsvp, discover, account, schema, token and live,
+with no principal read; SCIM writes profile, active and groups, never roles or
+permissions. The native model (`UserRoles = User | Admin | Custom(role_ids)`)
+lives on the config side, and the one runtime self-read is `/api/account`,
+which returns the authenticated account's *own* resolved permission list.
+
+**So the signal is the user's own permission set, read by self-introspection.**
+The server calls `/api/account` with the user's in-flight credentials — one
+extra call, no stored secret, no service credential — and a principal is an
+admin when its permission list carries the configured marker
+(`GILBERT_ADMIN_PERMISSION`, default `sysAccountCreate`). The recovery admin
+token reports every permission, marker included, so it resolves as an admin.
+An unreachable introspection is an upstream failure, a list without the marker
+is non-admin, and no privilege is ever inferred.
 
 First-install sequence:
 
-1. The operator creates the group mailbox once per server and adds the first
-   admins as members (Stalwart's own administration; no Gilbert involved
-   yet), from any domain the server serves.
-2. Any member signs in to Gilbert; the server sees the group among their
-   accounts and treats them as admin.
-3. From the administration surface the first admin edits the installation
-   policy or a security directive.
-4. Membership is managed in Stalwart afterwards; an account is admin while it
-   is a member and only while it is.
-
-The rule rests on the group account appearing in each member's JMAP session
-accounts whatever the member's domain (verified against a real 0.16 server at
-implementation time with a dated comment, per repo convention).
+1. The operator grants the Stalwart admin role to the first administrator in
+   Stalwart's own administration (no Gilbert involved yet).
+2. That administrator signs in to Gilbert; the server introspects their
+   permissions and treats them as an admin.
+3. From the administration surface they edit the installation policy or a
+   security directive.
+4. Administration is managed in Stalwart afterwards: a principal is a Gilbert
+   admin while Stalwart says it is, and only while it does.
 
 ### 2. The server enforces, per request; the client only shows
 
-`isAdmin` is computed server-side from the presence of the admin group in the
-principal's session accounts on every relevant request (short-TTL in-memory
-cache of the account set), never sealed into the session at sign-in, so a
-demotion is effective on the very next privileged request of an already open
-session. Admin endpoints get a `requireAdmin` guard beside `requireSession`.
-The client receives only `isAdmin: boolean` on the session's `gilbert`
+Admin endpoints get a `requireAdmin` guard beside `requireSession`; it reads
+the session's own `/api/account` permission list **freshly on every
+privileged call**, never sealing admin-ness into the session at sign-in, so a
+demotion lands on the next privileged call of an already open session. The
+client receives only `isAdmin: boolean` on the session's `gilbert`
 extension (added to the login and `/api/auth/session` responses), which shows
 or hides the admin entry point. UI gating is cosmetic; the server is the
 door.
 
 `/api/config` stays unauthenticated and must never carry who administers the
-installation — membership is only ever answered for an authenticated session.
+installation — the admin state is only ever answered for an authenticated
+session.
 
 ### 3. Admin writes go through impersonation of the document owner
 
 Every privileged write from the administration surface — per-user policy
-documents and security directives (§5), admin-owned documents such as named
-profiles (§5), anything later — goes through one server-side path: the
-server authenticates to Stalwart as the composite `{target}%{<admin>}`,
-rebuilding the admin's `Basic` authorization from the sealed session, and
-performs ordinary JMAP (FileNode/blob) operations on the target's own hidden
-`gilbert` app folder. The target is a **user account** for per-user documents
-(ADR 0005) or **the admin group account itself** for admin-owned documents.
-No Management API and no second secret: the impersonation right is the write
-grant, granted in Stalwart's directory exactly like the membership itself.
-Admin-owned documents are only ever read by authenticated admins, so no
-pre-sign-in channel and no server credential are involved.
+documents and security directives (§5), anything later — goes through one
+server-side path: the server authenticates to Stalwart as the composite
+`{target}%{<admin>}`, rebuilding the admin's `Basic` authorization from the
+sealed session, and performs ordinary JMAP (FileNode/blob) operations on the
+target's own hidden `gilbert` app folder. The target is always a **user
+account**, and the document is only ever read after that user signs in.
+Impersonation needs Stalwart's `impersonate` permission, which the admin role
+bundles — an admin can force a password with no extra grant, while an
+operator may hand a non-admin `impersonate` alone and buy the write path and
+nothing else. No Management API and no second secret: the impersonation right
+is the write grant, granted in Stalwart's directory.
 
 The client never holds the admin's credentials in a form it can use; the
 impersonation happens only inside the server, for the duration of the admin
@@ -204,20 +192,15 @@ defines (`/api/config` answering from a Stalwart document read with a
 service credential) and added a server identity upstream does not have —
 maintenance conflict on the very file this feature must not fork.
 
-### 5. Per-user and admin-owned documents live in hidden app folders
+### 5. Per-user documents live in the user's own hidden app folder
 
 The per-user layer (v2 of the shipping order) uses the same mechanism, one
 level down. Per-user documents are separate files inside the **target
 account's** hidden `gilbert` app folder, beside `settings.json`:
 
 - per-user settings policy (values + `enforced` flags);
-- security directives (ADR 0005: the forced-password-change marker), read
-  and enforced by the server, not by the client — already implemented.
-
-**Admin-owned** documents — named **profiles** for per-user settings — live
-in the admin group account's hidden folder, written and read by admins
-through impersonation of the group (§3). They are only ever accessed by
-authenticated admins.
+- security directives (ADR 0004: the forced-password-change marker), read
+  and enforced by the server, not by the client.
 
 A user with no per-user policy document has none: the install-wide policy
 applies. A missing document is the normal first-boot state, not an error.
@@ -255,7 +238,7 @@ exception, because they gate access rather than guide behaviour.
   next session/policy refresh; publishing may kick only the affected accounts
   once the document lives in the user's own folder.
 - **Security directives**: read by the server per request (short-TTL cache)
-  and enforced by the proxy, as in ADR 0005 — a forced user is stopped at
+  and enforced by the proxy, as in ADR 0004 — a forced user is stopped at
   their next request whether or not their client cooperates.
 - **Forced sign-out ("kick")**: an admin endpoint destroys the target user's
   sessions through the existing session-store primitive. The open client
@@ -265,6 +248,25 @@ exception, because they gate access rather than guide behaviour.
   next visibility change. No new client machinery is required.
 - Reload or refresh propagates changes; kick terminates sessions. The two
   tools are kept distinct on purpose.
+
+## Verified against Stalwart
+
+Source (2026-09-09, Stalwart v0.16.21): `Principal/get` exposes only Id,
+Type, Name, Description, Email and capabilities; `/api/*` is auth,
+calendar/rsvp, discover, account, schema, token and live; SCIM writes only
+profile, active and groups; `UserRoles = User | Admin | Custom(role_ids)`
+exists on the config side, and the only runtime self-read of a permission
+list is `/api/account`.
+
+Live (2026-09-09, community edition, Basic auth): `/api/account` returns
+`{ edition, locale, permissions }`. The marker is **`sysAccountCreate`**,
+confirmed on both sides of the boundary — a principal without the admin role
+held 244 user permissions with no `sysAccountCreate`, `impersonate` or
+`scimAccess`, and after the operator granted the admin role the list grew to
+642 permissions with all three present. An app password authenticates to
+`/api/account` exactly like a password, so a session re-sealed onto an app
+password by the 2FA switch-over still introspects as itself. `sysBootstrap*`
+never appears (the endpoint always strips it) and is not a usable marker.
 
 ## Consequences
 
@@ -298,24 +300,20 @@ exception, because they gate access rather than guide behaviour.
 - **Admin grant as an env list of usernames**: rejected — a second
   configuration surface that drifts from the in-Stalwart grant, and it would
   need reworking of the shipped directive guard.
-- **One admin group per domain** (the per-user-domain rule): rejected by the
-  owner on 2026-09-07 — multi-domain servers must grant from a single
-  registration across all their domains.
 - **Install-wide policy as a group-owned Stalwart document, read with a
   server credential**: rejected by the owner on 2026-09-07 — it changes the
   unauthenticated boot channel upstream defines and adds a server identity
   upstream does not have; the policy stays on upstream's host channel (§4).
-- **Per-user documents in the admin group's Files**: rejected for **per-user**
-  documents — they belong to the user they describe. The group *does* own
-  admin-only documents such as profiles (§5): the two classes do not share a
-  home.
+- **Per-user documents in a shared admin-owned folder**: rejected — each
+  document belongs in the account it describes, and an admin's own folder is
+  not read on a user's behalf (§5).
 - **Copying the install-wide policy into every account**: rejected — no
   publish-to-everyone operation exists; the install-wide policy applies to
   everyone by definition and per-user overrides are published per user or per
   group (§5).
 - **A per-account flag on `x:AccountSettings`**: rejected — it has no
   free-form field and setting it needs Stalwart-admin rights anyway, so the
-  group membership is the same effort with better auditability.
+  admin grant is the same effort with better auditability.
 - **Proxy interception of per-account settings writes** (rejecting
   non-conforming `settings.json` writes from a hostile client): deferred —
   fragile against the JMAP sync mechanics upstream ships, and only meaningful
@@ -356,9 +354,8 @@ exception, because they gate access rather than guide behaviour.
 
 - `server/src/app.ts` — `requireSession`, `/api/jmap`, sign-out-others
 - `server/src/sessions.ts` — sealed `{username, password}`, `destroyAllForUser`
-- `server/src/upstream.ts` — `isAdminSession`, `ADMIN_GROUP_LOCAL`,
-  `adminGroupName` (per-user-domain derivation the multi-domain rule
-  replaces), upstream session fetch
+- `server/src/upstream.ts` — `isStalwartAdmin` (the `/api/account` admin
+  marker), upstream session fetch
 - `server/src/config.ts` — `readSettingsPolicy` (host channel, shape and
   validation the editor shares)
 - `web/src/jmap/client.ts` — 401 → `handleUnauthenticated`
@@ -368,5 +365,5 @@ exception, because they gate access rather than guide behaviour.
 - `web/src/lib/appFolder.ts` — the hidden `gilbert` app folder
 - `web/src/store/files.ts` — the Files view's hidden-folder filter
 - `web/src/jmap/types.ts` — `JmapSession.username`, `gilbert` extension
-- ADR 0004 — publish and kick (how rule changes reach signed-in clients)
-- ADR 0005 — forced password change (first per-user security directive)
+- ADR 0004 — administrative writes into a user's account: publishing the
+  running rules, the kick, and the forced-password directive

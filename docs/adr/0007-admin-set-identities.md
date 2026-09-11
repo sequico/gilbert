@@ -1,4 +1,4 @@
-# ADR 0010 — Identities an administrator sets
+# ADR 0007 — Identities an administrator sets
 
 Status: Proposed (2026-09-11)
 

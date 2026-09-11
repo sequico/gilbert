@@ -1,4 +1,4 @@
-# ADR 0008 — Mobile companion app: installable Android/iOS notifier, deep-linking into the web client
+# ADR 0006 — Mobile companion app: installable Android/iOS notifier, deep-linking into the web client
 
 Status: Proposed (2026-09-09)
 
@@ -42,7 +42,7 @@ What Gilbert already has, and the mobile design builds on:
   to keep delivering, and it survives Gilbert container restarts.
   Today it covers mail (`urn:ietf:params:jmap:mail`) only; Stalwart accepts
   `types: ["FileNode"]` as well (verified live 2026-09-07), which is how
-  chat arrivals ride (ADR 0006: chat messages are FileNode documents in the
+  chat arrivals ride (ADR 0005: chat messages are FileNode documents in the
   group account's `gilbert/chat` folder, state changes pushed per account).
 - **Per-device web push** for browsers exists end to end
   (`web/src/lib/webpush.ts`, `webpushEnable.ts`: `deviceClientId`, the
@@ -95,7 +95,7 @@ Extend the fan-out of `server/src/push.ts` with a **mobile leg**
 (implemented in a new `server/src/mobilePush.ts` beside it):
 
 - The per-account Stalwart subscription whose URL is Gilbert's own origin
-  already names every type a surface watches (ADR 0012), so mail (`Email`)
+  already names every type a surface watches (ADR 0009), so mail (`Email`)
   and chat (`FileNode`) StateChanges both arrive at the same Gilbert
   endpoint (per-account subscriptions, one per
   account the user session sees — personal plus each group mailbox — the
@@ -242,9 +242,9 @@ differently)
 
 ## References
 
-- ADR 0006 — group chat (FileNode documents in the group account; chat
+- ADR 0005 — group chat (FileNode documents in the group account; chat
   arrivals = FileNode StateChanges)
-- ADR 0007 — Stalwart admin is the Gilbert admin (future relation if the
+- ADR 0001 — Stalwart admin is the Gilbert admin (future relation if the
   companion ever becomes an agent surface; not required for this design)
 - `server/src/push.ts` — the per-account RFC 8620 §7.2 PushSubscription
   rail this design extends
