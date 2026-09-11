@@ -39,30 +39,7 @@ mechanism is removed. Owed:
   app folder before those tests can run. A mock that stands in for a server
   behaviour pins that assumption with a test next to the simulation.
 
-## 4. App-folder convergence — a one-time adoption, owner decision
-
-The client and the server now resolve an account's app folder by one rule: a
-marked folder, `gilbert` preferred and `.gilbert` as the alternative, marked with
-`.gilbert-app`. Accounts that were already split hold their documents in a bare
-`gilbert` folder without the marker, and the client now converges on the marked
-one, so those documents are orphaned and the settings can read as reset.
-
-Owed is a one-time adoption — adopt and mark a bare `gilbert`, or move its
-documents into the marked folder — and which of the two is the owner's decision.
-
-## 5. The ADR set
-
-The owner has asked for the set to be fewer, shorter and free of stale text:
-merge the ADRs that restate one decision, renumber sequentially reusing the
-gaps, and align `docs/adr/README.md`. The set is `0001`–`0010`.
-
-## 6. The `(resolution N)` sweep
-
-Roughly 77 occurrences across the ADRs cite the round that argued a resolution.
-Snapshot mode forbids that reference: the resolution numbers, the dates, the
-`Owed:` markers and every fact stay; the back-reference to the round goes.
-
-## 7. A stale sentence whose location is unknown
+## 4. A stale sentence whose location is unknown
 
 "No restart of `gilbertserver` is needed to apply a change to the installation's
 agent." The sentence was searched for and not found: `gilbertserver` occurs
@@ -70,20 +47,20 @@ nowhere in the repository, and the sentence occurs in neither `docs/`, `README.m
 nor `FEATURES.md`. The owner needs to say where it was read, or the search needs
 the exact wording.
 
-## 8. Obsolete configuration JSON
+## 5. Obsolete configuration JSON
 
 Configuration JSON files that nothing reads any more are to be removed.
 `stalwart-servers.example.json` and `settings-policy.example.json` at the
 repository root are referenced by `README.md` and by tests, and stay.
 
-## 9. i18n catalogs
+## 6. i18n catalogs
 
 The strings the admin identities surface gained — `Default`, `Make default`,
 `Send from this identity by default`, `Default identity saved.`, `No default
 identity: this account sends with its first.` — are English keys and resolve as
 English. Whether each belongs in `web/src/locales` with its translations is owed.
 
-## 10. The `must-change-password` precedent, read against the default
+## 7. The `must-change-password` precedent, read against the default
 
 `server/src/account.ts` states that the server keeps its own directive in a
 separate file inside the app folder, because the client whole-file-replaces
