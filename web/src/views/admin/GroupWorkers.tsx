@@ -1,28 +1,95 @@
 /**
- * What the worker does in each group (ADR 0009).
+ * What the worker does in each group (ADR 0003, ADR 0009).
  *
- * The areas an administrator narrows a group to — per group, and for as many
- * groups as they mean at once. The deployment says which areas the fleet serves
- * at all; this surface can only take work away inside that, because a product
- * decision must not widen what an operator allowed.
+ * A group's agent work, in the order a person asks about it: which areas it
+ * is narrowed to (Areas), the automations it runs there (Automations, moved
+ * in from Agents — an automation is exactly a per-group thing), and what is
+ * waiting on a person across every group (Approvals, moved in for the same
+ * reason). The installation's own identity, its grants and its models stay in
+ * Agents; this section is what the fleet does once it is granted.
  *
  * Two things are deliberately not here. The **grant** is not a setting: the
  * agent's membership of a group is decided in Stalwart's own administration,
- * and this surface reads it and says so. And the change reaches the **worker**
- * when it starts, not the moment it is saved — the web tier reads the record
- * live, the worker reads it at boot, and the surface says which is which.
+ * and the Agents section's Groups tab is the one place that reads and explains
+ * it — this section reuses that same read (`status.groups`, one store) rather
+ * than a second table saying the same thing. And the change reaches the
+ * **worker** when it starts, not the moment it is saved — the web tier reads
+ * the record live, the worker reads it at boot, and the surface says which is
+ * which.
  */
 import { AGENT_AREAS } from "@gilbert/agent/documents";
 import { useEffect, useState } from "react";
-import { saveAgentGroupAreas } from "@/lib/agents";
+import {
+  type AgentStatus,
+  type AgentStatusGroup,
+  saveAgentGroupAreas,
+} from "@/lib/agents";
 import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
 import { areaText } from "@/views/agent/agentText";
+import { AgentApprovals } from "./agent/AgentApprovals";
+import { RuleEditor } from "./agent/RuleEditor";
+
+const WORKER_PARTS = [
+  { id: "areas", label: "Areas" },
+  { id: "automations", label: "Automations" },
+  { id: "approvals", label: "Approvals" },
+] as const;
+
+type WorkerPart = (typeof WORKER_PARTS)[number]["id"];
 
 export function GroupWorkers() {
   const status = useAgents((s) => s.status);
   const loadStatus = useAgents((s) => s.loadStatus);
+  const [part, setPart] = useState<WorkerPart>("areas");
 
+  useEffect(() => {
+    void loadStatus();
+  }, [loadStatus]);
+
+  return (
+    <div>
+      <h1>{t("Group workers")}</h1>
+      <p className="lead">
+        {t(
+          "What the agent does inside each group it has been granted: the areas it is narrowed to, the automations it runs, and what is waiting on a person. Grants and the installation's own identity live in Agents.",
+        )}
+      </p>
+      <div
+        className="segmented"
+        role="group"
+        aria-label={t("Group worker sections")}
+        style={{ marginBottom: 16 }}
+      >
+        {WORKER_PARTS.map((entry) => (
+          <button
+            key={entry.id}
+            className={part === entry.id ? "active" : ""}
+            aria-pressed={part === entry.id}
+            onClick={() => setPart(entry.id)}
+          >
+            {t(entry.label)}
+          </button>
+        ))}
+      </div>
+      {part === "areas" && <Areas status={status} />}
+      {part === "automations" && <RuleEditor groups={grantedGroups(status)} />}
+      {part === "approvals" && <AgentApprovals />}
+    </div>
+  );
+}
+
+/** The groups the agent is actually granted on — the ones an automation can run in. */
+function grantedGroups(status: AgentStatus | null): AgentStatusGroup[] {
+  return (status?.groups ?? []).filter((g) => g.granted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Areas: which areas the worker is narrowed to, per group             */
+/* ------------------------------------------------------------------ */
+
+function Areas({ status }: { status: AgentStatus | null }) {
+  const loadStatus = useAgents((s) => s.loadStatus);
   // What each group is narrowed to, as an editor's draft: the record is what
   // the status answers, this is what an administrator is changing, and saving
   // is what makes them agree.
@@ -33,11 +100,12 @@ export function GroupWorkers() {
   const [saved, setSaved] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
-  useEffect(() => {
-    void loadStatus();
-  }, [loadStatus]);
-
-  const groups = status?.groups ?? [];
+  // Narrowing an area a group has not been granted does nothing — the agent
+  // is not in the group at all — so only granted groups are offered here.
+  // Whether a group is granted, and how to change that, is the Agents
+  // section's Groups tab; this table does not repeat that fact, it filters by
+  // it.
+  const groups = grantedGroups(status);
   const deployment = status?.defaultAreas ?? [...AGENT_AREAS];
   const configured = (name: string): string[] =>
     groups.find((group) => group.name === name)?.areas ?? deployment;
@@ -97,10 +165,10 @@ export function GroupWorkers() {
 
   return (
     <section>
-      <h2>{t("Group workers")}</h2>
+      <h2>{t("Areas")}</h2>
       <p className="hint" style={{ marginBottom: 12 }}>
         {t(
-          "What the agent works on inside each group: the areas below are the fleet's reach here, and the deployment serves them all unless a group is narrowed. Nothing here grants anything — membership of the agent is granted in Stalwart's own administration, beside the accounts.",
+          "The areas below are the fleet's reach in each granted group, and the deployment serves them all unless a group is narrowed. This table only lists groups the agent is already granted on — grant one in the Groups tab of Agents first.",
         )}
       </p>
       {status?.enumeration === false && (
@@ -125,7 +193,11 @@ export function GroupWorkers() {
           )}
         </div>
       ) : groups.length === 0 ? (
-        <p className="hint">{t("No group mailbox is visible to this session.")}</p>
+        <p className="hint">
+          {t(
+            "No group is granted yet. Grant the agent on a group in Stalwart's own administration, then narrow its areas here.",
+          )}
+        </p>
       ) : (
         <>
           <div className="row wrap" style={{ gap: 12, marginBottom: 12 }}>
@@ -187,7 +259,6 @@ export function GroupWorkers() {
               <tr>
                 <th />
                 <th>{t("Group")}</th>
-                <th>{t("Agent")}</th>
                 <th>{t("Areas the worker serves here")}</th>
               </tr>
             </thead>
@@ -206,13 +277,6 @@ export function GroupWorkers() {
                   </td>
                   <td className="notranslate" translate="no">
                     {group.name}
-                  </td>
-                  <td>
-                    {group.granted ? (
-                      <span className="agent-state ok">{t("Granted")}</span>
-                    ) : (
-                      <span className="agent-state off">{t("Not granted")}</span>
-                    )}
                   </td>
                   <td>
                     <div className="row wrap" style={{ gap: 10 }}>

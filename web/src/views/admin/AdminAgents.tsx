@@ -1,11 +1,14 @@
 /**
  * The Gilbert admin "Agents" section (ADR 0003 "Admin surfaces").
  *
- * Everything about the agent fleet that a person has to see, in the order the
- * ADR names it: whether the installation has an agent and which groups have
- * granted it, which workers are running, what each group's automations do,
- * which model serves each tier, what is waiting for a person, and the one
- * secret that lets a worker sign in.
+ * The installation's own agent and its per-tier models live here, split into
+ * four questions asked in the order a person actually asks them: is there an
+ * agent and is it healthy (Overview), which groups has it been granted and
+ * what does each one tell it (Groups), which model serves which tier
+ * (Models), and the one secret a worker signs in with (Credentials). What a
+ * group's agent actually *does* — its automations, and the approvals waiting
+ * on a person — lives in Group workers instead: that section already reads
+ * one group at a time, and an automation is exactly that.
  *
  * Nothing here grants anything. The agent is a principal in Stalwart's own
  * directory and its membership of a group is granted in Stalwart's own
@@ -20,11 +23,9 @@ import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
 import { areaText, fleetReasonText } from "@/views/agent/agentText";
-import { AgentApprovals } from "./agent/AgentApprovals";
 import { AgentProviders } from "./agent/AgentProviders";
 import { AppPasswordRotate } from "./agent/AppPasswordRotate";
 import { GroupInstruction } from "./agent/GroupInstruction";
-import { RuleEditor } from "./agent/RuleEditor";
 
 export function AdminAgents() {
   const status = useAgents((s) => s.status);
@@ -32,8 +33,8 @@ export function AdminAgents() {
   // to report, and it has its own line here.
   const error = useAgents((s) => s.problems.status);
   const loadStatus = useAgents((s) => s.loadStatus);
-  // One part at a time: what the installation has, what it does per group,
-  // what waits on a person, which models serve it and how it signs in are five
+  // One part at a time: the installation's own health, what each group has
+  // granted and told it, which models serve it and how it signs in are four
   // questions, and every surface on one page was a page nobody read.
   const [part, setPart] = useState<AgentPart>("overview");
 
@@ -49,7 +50,7 @@ export function AdminAgents() {
       </h1>
       <p className="lead">
         {t(
-          "Gilbert's own agents act inside mail and file storage: they work on Stalwart events and on time schedules, in the groups they have been granted. This installation runs one agent, and what follows is how to see it, what each group's automations do, and how it signs in.",
+          "Gilbert's own agent acts inside mail and file storage: it works on Stalwart events and on time schedules, in the groups it has been granted. This installation runs one agent — this is how to see it, which groups it works in, which models serve it, and how it signs in.",
         )}
       </p>
       {error && (
@@ -82,13 +83,7 @@ export function AdminAgents() {
           <Workers status={status} />
         </>
       )}
-      {part === "groups" && (
-        <>
-          <GroupInstruction groups={status?.groups ?? []} />
-          <RuleEditor groups={status?.groups ?? []} />
-        </>
-      )}
-      {part === "approvals" && <AgentApprovals />}
+      {part === "groups" && <Groups status={status} />}
       {part === "models" && <AgentProviders />}
       {part === "credentials" && <AppPasswordRotate />}
     </div>
@@ -97,16 +92,10 @@ export function AdminAgents() {
 
 /**
  * The parts of the agent section, in the order a person asks about them.
- *
- * The section holds five unrelated jobs — the installation's agent and its
- * grants, a group's instruction and automations, the queue waiting on a person,
- * the model tiers, and the credential the worker signs in with — and they were
- * one page. Separated, each is a page that can be read.
  */
 const AGENT_PARTS = [
   { id: "overview", label: "Overview" },
   { id: "groups", label: "Groups" },
-  { id: "approvals", label: "Approvals" },
   { id: "models", label: "Models" },
   { id: "credentials", label: "Credentials" },
 ] as const;
@@ -114,13 +103,10 @@ const AGENT_PARTS = [
 type AgentPart = (typeof AGENT_PARTS)[number]["id"];
 
 /* ------------------------------------------------------------------ */
+/* Overview: the installation's own agent                             */
+/* ------------------------------------------------------------------ */
 
 function Registration({ status }: { status: AgentStatus | null }) {
-  // The group whose trail is being copied, and what went wrong when something
-  // did: the copy is one request with its own line to report it on.
-  const [copying, setCopying] = useState<string | null>(null);
-  const [copyProblem, setCopyProblem] = useState<string | null>(null);
-
   // The identity field is a draft: the status is the truth, the field is what
   // an administrator is typing, and saving is what makes them the same.
   const loadStatus = useAgents((s) => s.loadStatus);
@@ -158,6 +144,8 @@ function Registration({ status }: { status: AgentStatus | null }) {
     };
   }, []);
 
+  const dirty = draft.trim().toLowerCase() !== (status?.address ?? "").toLowerCase();
+
   /** Name the agent, or clear the name and fall back to the deployment's. */
   async function save(address: string) {
     setSaving(true);
@@ -174,34 +162,9 @@ function Registration({ status }: { status: AgentStatus | null }) {
     }
   }
 
-  /**
-   * Take the copy of a group's audit trail, as JSON named for the group.
-   *
-   * Nothing is kept here: the file is the group's own documents, handed over
-   * so an administrator holds them before the oldest month is pruned.
-   */
-  async function copyAudit(name: string) {
-    setCopying(name);
-    setCopyProblem(null);
-    try {
-      const trail = await fetchAgentAuditExport(name);
-      const blob = new Blob([JSON.stringify(trail, null, 2)], {
-        type: "application/json",
-      });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `${name.replace(/[^\w.-]+/g, "_")}.audit.json`;
-      a.click();
-    } catch (err) {
-      setCopyProblem(err instanceof Error ? err.message : String(err));
-    } finally {
-      setCopying(null);
-    }
-  }
-
   return (
     <section>
-      <h2>{t("Registration")}</h2>
+      <h2>{t("The installation's agent")}</h2>
       <p className="hint" style={{ marginBottom: 12 }}>
         {t(
           "This section checks the agent's grant, it never writes it: membership of a group is granted in Stalwart's own administration, beside the accounts, the same way a person's is.",
@@ -210,136 +173,97 @@ function Registration({ status }: { status: AgentStatus | null }) {
       {!status ? (
         <p className="hint">{t("Loading…")}</p>
       ) : (
-        <>
-          <div className="card agent-registration">
-            <div className="card-head">
-              <h3>{t("The installation's agent")}</h3>
-              <span className={status.configured ? "agent-state ok" : "agent-state off"}>
-                {status.configured ? t("Registered") : t("Not registered")}
-              </span>
-            </div>
-            <div className="field" style={{ maxWidth: 380 }}>
-              <label htmlFor="agent-address">{t("Agent address")}</label>
-              <input
-                id="agent-address"
-                className="input notranslate"
-                translate="no"
-                list="agent-address-choices"
-                placeholder="gilbert@example.com"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-              />
-              <datalist id="agent-address-choices">
-                {accounts.map((account) => (
-                  <option key={account} value={account} />
-                ))}
-              </datalist>
-            </div>
-            <div className="row wrap" style={{ gap: 8, marginBottom: 12 }}>
+        <div className="card agent-registration">
+          <div className="card-head">
+            <h3>{t("Identity")}</h3>
+            <span className={status.configured ? "agent-state ok" : "agent-state off"}>
+              {status.configured ? t("Registered") : t("Not registered")}
+            </span>
+          </div>
+          <div className="field" style={{ maxWidth: 380 }}>
+            <label htmlFor="agent-address">{t("Agent address")}</label>
+            <input
+              id="agent-address"
+              className="input notranslate"
+              translate="no"
+              list="agent-address-choices"
+              placeholder="gilbert@example.com"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+            />
+            <datalist id="agent-address-choices">
+              {accounts.map((account) => (
+                <option key={account} value={account} />
+              ))}
+            </datalist>
+          </div>
+          <div className="row wrap" style={{ gap: 8, marginBottom: 12 }}>
+            <button
+              className="btn btn-primary"
+              type="button"
+              disabled={saving || !dirty}
+              onClick={() => void save(draft)}
+              title={t("Register this address as the agent, or update it")}
+            >
+              {saving ? t("Saving…") : t("Save address")}
+            </button>
+            {status.addressSource === "policy" && (
               <button
-                className="btn btn-primary"
+                className="btn"
                 type="button"
                 disabled={saving}
-                onClick={() => void save(draft)}
+                onClick={() => void save("")}
+                title={t("Clear this record and use GILBERT_AGENT_ADDRESS instead")}
               >
-                {saving ? t("Saving…") : t("Save")}
+                {t("Use the deployment's address")}
               </button>
-              {status.addressSource === "policy" && (
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={saving}
-                  onClick={() => void save("")}
-                >
-                  {t("Use the deployment's address")}
-                </button>
-              )}
-              {saved && <span className="hint">{t("Saved.")}</span>}
-            </div>
-            <p className="hint">
-              {status.addressSource === "policy"
-                ? t(
-                    "Named here, and in force from the next request: the installation records it, so it survives a restart.",
-                  )
-                : status.addressSource === "deployment"
-                  ? t(
-                      "Set by the deployment (GILBERT_AGENT_ADDRESS). Naming one here overrides it, for this product and for the worker.",
-                    )
-                  : t(
-                      "Nothing names an agent yet: name one here, or set GILBERT_AGENT_ADDRESS where the installation is deployed.",
-                    )}
-            </p>
-            <p className="hint">
-              {t(
-                "Gilbert acts as this address by impersonating it from your own administrator session, so this field needs no password. A worker signs in as it, with an app password deployed beside the address, and reads this one when it starts.",
-              )}
-            </p>
-            {status.address && !status.hasSecret && (
-              <div className="warn-box" style={{ marginBottom: 12 }}>
-                {t(
-                  "No app password for this address is deployed, so no worker can sign in as it: automations will not run until one is. The Credentials section mints one.",
-                )}
-              </div>
             )}
-            {problem && (
-              <div className="error-box" style={{ marginBottom: 12 }}>
-                {problem}
-              </div>
-            )}
-            {status.reason && <p className="hint">{fleetReasonText(status.reason)}</p>}
+            {saved && <span className="agent-state ok">{t("Saved.")}</span>}
           </div>
-          <h3>{t("Groups")}</h3>
-          {status.groups.length === 0 ? (
-            <p className="hint">{t("No group mailbox is visible to this session.")}</p>
-          ) : (
-            <table className="sessions-table">
-              <thead>
-                <tr>
-                  <th>{t("Group")}</th>
-                  <th>{t("Agent")}</th>
-                  <th>{t("What that means")}</th>
-                  <th>{t("Audit trail")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {status.groups.map((g) => (
-                  <tr key={g.name}>
-                    <td className="notranslate" translate="no">
-                      {g.name}
-                    </td>
-                    <td>
-                      {g.granted ? (
-                        <span className="agent-state ok">{t("Granted")}</span>
-                      ) : (
-                        <span className="agent-state off">{t("Not granted")}</span>
-                      )}
-                    </td>
-                    <td className="hint">
-                      {g.granted
-                        ? t(
-                            "The agent is in this group: it appears in the group's chat and its automations run here.",
-                          )
-                        : t(
-                            "The agent is not in this group: nobody can mention it in the group's chat and no automation runs for it. Grant it in Stalwart's own administration to change that.",
-                          )}
-                    </td>
-                    <td>
-                      <button
-                        className="btn"
-                        type="button"
-                        disabled={copying === g.name}
-                        onClick={() => void copyAudit(g.name)}
-                      >
-                        {copying === g.name ? t("Copying…") : t("Download as JSON")}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <p className="hint">
+            {status.addressSource === "policy"
+              ? t(
+                  "Named here, and in force from the next request: the installation records it, so it survives a restart.",
+                )
+              : status.addressSource === "deployment"
+                ? t(
+                    "Set by the deployment (GILBERT_AGENT_ADDRESS). Naming one here overrides it, for this product and for the worker.",
+                  )
+                : t(
+                    "Nothing names an agent yet: name one here, or set GILBERT_AGENT_ADDRESS where the installation is deployed.",
+                  )}
+          </p>
+          <p className="hint">
+            {t(
+              "Gilbert acts as this address by impersonating it from your own administrator session, so this field needs no password. A worker signs in as it, with an app password deployed beside the address, and reads this one when it starts.",
+            )}
+          </p>
+          <div className="agent-verifier-row">
+            <span className={status.address ? "agent-state ok" : "agent-state off"}>
+              {status.address ? t("Address named") : t("No address named")}
+            </span>
+            <span className={status.hasSecret ? "agent-state ok" : "agent-state off"}>
+              {status.hasSecret ? t("App password deployed") : t("No app password")}
+            </span>
+          </div>
+          {status.address && !status.hasSecret && (
+            <div className="warn-box" style={{ marginTop: 12 }}>
+              {t(
+                "No app password for this address is deployed, so no worker can sign in as it: automations will not run until one is. The Credentials tab mints one.",
+              )}
+            </div>
           )}
-          {copyProblem && <p className="error-box">{copyProblem}</p>}
-        </>
+          {problem && (
+            <div className="error-box" style={{ marginTop: 12 }}>
+              {problem}
+            </div>
+          )}
+          {status.reason && (
+            <p className="hint" style={{ marginTop: 12 }}>
+              {fleetReasonText(status.reason)}
+            </p>
+          )}
+        </div>
       )}
     </section>
   );
@@ -397,6 +321,128 @@ function Workers({ status }: { status: AgentStatus | null }) {
             ))}
           </tbody>
         </table>
+      )}
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Groups: which groups have granted the agent, and what each one tells it */
+/* ------------------------------------------------------------------ */
+
+function Groups({ status }: { status: AgentStatus | null }) {
+  // The group whose trail is being copied, and what went wrong when something
+  // did: the copy is one request with its own line to report it on.
+  const [copying, setCopying] = useState<string | null>(null);
+  const [copyProblem, setCopyProblem] = useState<string | null>(null);
+
+  /**
+   * Take the copy of a group's audit trail, as JSON named for the group.
+   *
+   * Nothing is kept here: the file is the group's own documents, handed over
+   * so an administrator holds them before the oldest month is pruned.
+   */
+  async function copyAudit(name: string) {
+    setCopying(name);
+    setCopyProblem(null);
+    try {
+      const trail = await fetchAgentAuditExport(name);
+      const blob = new Blob([JSON.stringify(trail, null, 2)], {
+        type: "application/json",
+      });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${name.replace(/[^\w.-]+/g, "_")}.audit.json`;
+      a.click();
+    } catch (err) {
+      setCopyProblem(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCopying(null);
+    }
+  }
+
+  return (
+    <section>
+      <h2>{t("Groups")}</h2>
+      <p className="hint" style={{ marginBottom: 12 }}>
+        {t(
+          "Which groups have granted the agent, and what each one tells it before every model call — its standing instruction, handed to the model first. Granting itself happens in Stalwart's own administration; this section verifies it and says so when it is missing.",
+        )}
+      </p>
+      {status?.enumeration === false && (
+        <div className="warn-box" style={{ marginBottom: 12 }}>
+          {t(
+            "The group mailboxes could not all be listed, so this page covers only the groups you are a member of: a group that is missing here may still be granted.",
+          )}
+          {status.enumerationMessage && (
+            <>
+              {" "}
+              <code>{status.enumerationMessage}</code>
+            </>
+          )}
+        </div>
+      )}
+      {!status ? (
+        <p className="hint">{t("Loading…")}</p>
+      ) : status.groups.length === 0 ? (
+        <p className="hint">{t("No group mailbox is visible to this session.")}</p>
+      ) : (
+        <>
+          <table className="sessions-table" style={{ marginBottom: 20 }}>
+            <thead>
+              <tr>
+                <th>{t("Group")}</th>
+                <th>{t("Agent")}</th>
+                <th>{t("What that means")}</th>
+                <th>{t("Audit trail")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {status.groups.map((g) => (
+                <tr key={g.name}>
+                  <td className="notranslate" translate="no">
+                    {g.name}
+                  </td>
+                  <td>
+                    {g.granted ? (
+                      <span className="agent-state ok">{t("Granted")}</span>
+                    ) : (
+                      <span className="agent-state off">{t("Not granted")}</span>
+                    )}
+                  </td>
+                  <td className="hint">
+                    {g.granted
+                      ? t(
+                          "The agent is in this group: it appears in the group's chat and its automations run here.",
+                        )
+                      : t(
+                          "The agent is not in this group: nobody can mention it in the group's chat and no automation runs for it. Grant it in Stalwart's own administration to change that.",
+                        )}
+                  </td>
+                  <td>
+                    <button
+                      className="btn btn-sm"
+                      type="button"
+                      disabled={copying === g.name}
+                      onClick={() => void copyAudit(g.name)}
+                      title={t(
+                        "Download every retained month of this group's audit trail as JSON",
+                      )}
+                    >
+                      {copying === g.name ? t("Copying…") : t("Download as JSON")}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {copyProblem && (
+            <p className="error-box" style={{ marginBottom: 20 }}>
+              {copyProblem}
+            </p>
+          )}
+          <GroupInstruction groups={status.groups} />
+        </>
       )}
     </section>
   );

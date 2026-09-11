@@ -13,6 +13,7 @@
  */
 
 import type { AgentModelTier } from "@gilbert/agent/documents";
+import { BrainCircuit } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import {
@@ -24,6 +25,7 @@ import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
 import { confirmDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
+import { tierText } from "@/views/agent/agentText";
 
 export function AgentProviders() {
   const loadProviders = useAgents((s) => s.loadProviders);
@@ -56,6 +58,9 @@ export function AgentProviders() {
         {t(
           "T0 calls no model at all. Each of the tiers above it names the model it runs on, so the cheap classifier and the agent can run on different vendors, or on a model of your own.",
         )}
+      </p>
+      <p className="hint" style={{ marginTop: -12, marginBottom: 12 }}>
+        {tierText("T0")}
       </p>
       {problem && (
         <div className="error-box" style={{ marginBottom: 12 }}>
@@ -176,7 +181,8 @@ function ProviderEditor({
   return (
     <form className="card agent-provider" onSubmit={(e) => void submit(e)}>
       <div className="card-head">
-        <h3>{t(tier)}</h3>
+        <BrainCircuit size={18} className="agent-provider-icon" aria-hidden="true" />
+        <h3>{tierText(tier)}</h3>
         {view?.hasKey ? (
           <span className="agent-state ok">{t("A key is stored")}</span>
         ) : (

@@ -2561,9 +2561,13 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .agent-readonly-text { white-space: pre-wrap; }
 
 /* Agents in the administration (ADR 0003 "Admin surfaces"). */
-.agent-state { display: inline-flex; align-items: center; font-weight: 600; font-size: .8em; white-space: nowrap; }
+.agent-state { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: .8em; white-space: nowrap; }
+.agent-state::before { content: ""; width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: currentColor; }
 .agent-state.ok { color: var(--success); }
 .agent-state.off { color: var(--warn); }
+/* A card's verifiers: one status per fact, so a reader scans the row instead
+   of parsing a sentence to find out what still needs doing. */
+.agent-verifier-row { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 12px 0; }
 .agent-check { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0; font-size: .9em; cursor: pointer; }
 .agent-check input { margin-top: 2px; }
 .agent-tag {
@@ -2572,6 +2576,7 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   font-size: .72em; font-weight: 600; text-transform: uppercase; letter-spacing: .03em;
 }
 .agent-form, .agent-provider, .agent-registration { max-width: 620px; }
+.agent-provider-icon { color: var(--fg-muted); flex: 0 0 auto; }
 .agent-form h3 { margin: 16px 0 6px; font-size: .95em; }
 .agent-action {
   border: 1px solid var(--border); border-radius: var(--radius-sm);
