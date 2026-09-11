@@ -19,6 +19,9 @@ Status: Accepted (2026-09-11)
 
 ## Context
 
+This record is about **gilbertagents**, one of the four blocks `README.md`
+names.
+
 Gilbert's direction is a lifecycle butler whose agents act inside mail and
 file storage for a person or a group. Today nothing runs outside the web
 request path: the only live connection is each signed-in browser's push

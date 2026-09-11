@@ -13,6 +13,12 @@ be X, then it became Y", never narrate a rename, a migration or any
 before/after. If somebody wants history, it is in git.
 
 ## Naming rule
+The product has four blocks, named once in `README.md`: **gilbertmailer**,
+**gilbertserver**, **gilbertagents** and **gilbertstalwart**. Every doc, ADR
+and skill names them that way and does not redefine them; a new document links
+to the README rather than restating it. Only `gilbertmailer`, and inside
+`gilbertserver` the layer that serves it, come from upstream — the rest is
+Gilbert's own, and the README states that line once.
 Prose about the product says "Gilbert", and every code and build identifier
 is `gilbert`: `APP_NAME` default "Gilbert", packages `gilbert`/`@gilbert/*`,
 `GILBERT_VERSION`, `X-Requested-With: gilbert`, UI strings and catalogs, the

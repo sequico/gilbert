@@ -34,6 +34,10 @@ durable lives in Stalwart (see [What's in it](#whats-in-it) and
 webmail for Stalwart; Gilbert is a distinct product around it, and its own
 layer is the groups, the chat and the agents.
 
+**Four blocks, named once — in [The blocks, and the line to
+upstream](#the-blocks-and-the-line-to-upstream).** Every document here uses
+those names and no others.
+
 > **Try it locally:** `npm run dev:mock` runs a complete instance against an
 > in-memory mock Stalwart — open http://localhost:5173 and sign in with
 > `demo@example.com` / `demo`.
@@ -69,6 +73,53 @@ feature, is in [FEATURES.md](FEATURES.md).
 
 The feature-by-feature inventory, with Gilbert's own part first, is
 [FEATURES.md](FEATURES.md).
+
+## The blocks, and the line to upstream
+
+Gilbert is four blocks. They are areas of the product and not directories — one
+code tree holds several of them — and every document here names them this way
+and no other:
+
+- **gilbertmailer** — the mail suite: mail, calendars, contacts, files, sharing
+  and the Sieve editor. This is the block that came from upstream.
+- **gilbertserver** — the Node process that runs beside the browser: sign-in,
+  the sealed sessions, the JMAP forwarding, the policy, the image and calendar
+  proxies. It is also where the agent fleet runs. Part of it came from
+  upstream — the layer that serves the mail client — and the fleet inside it is
+  Gilbert's.
+- **gilbertagents** — the agents: the principal, the worker fleet, the
+  automations, the approvals and the audit.
+- **gilbertstalwart** — what configures the mail server rather than an account
+  in it, through Stalwart's own management API.
+
+The word *server* is the one worth pinning down: **Stalwart** is the mail
+server that holds every durable byte, and **gilbertserver** is this product's
+own Node process. This document says which one it means every time.
+
+These are the documentation's names for what the product is made of, and not
+UI labels. The administration's navigation presents three of the blocks under
+its own headings — *Gilbert Mailer*, *Gilbert Assistant*, *Stalwart* — which is
+that surface labelling them rather than a second set of names; the server
+process has no navigation of its own, because it is what serves it.
+
+**The line.** One block and part of another came from
+[ihasmail](https://github.com/Coffey-Labs/ihasmail), Coffey Labs' immutable
+webmail for Stalwart. Everything else is Gilbert's, written here. That is the
+whole of the upstream relationship, stated so a reader can tell which is which
+without reading the tree:
+
+- **From upstream**: the mail client — `gilbertmailer` — and inside
+  `gilbertserver` the parts that serve it: sign-in and sessions, the JMAP
+  forwarding, the image and calendar proxies, the rate limiting. Renamed for
+  this build and changed here.
+- **Gilbert's own**: the groups, the chat, the agent fleet, the administration,
+  the settings policy, the app folder, and every Stalwart configuration
+  surface. None of it exists upstream, and none of it is contributed back
+  (ADR 0002).
+
+Where this matters: an upstream release is a delta to the first list only, and
+the merge that takes one in renames it before it lands. Everywhere else there
+is nothing to merge.
 
 ## Agents, in detail
 

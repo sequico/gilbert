@@ -11,6 +11,8 @@ Status: Accepted (2026-09-07; amended 2026-09-11)
 Gilbert's mail client is based on
 [Coffey-Labs/ihasmail](https://github.com/Coffey-Labs/ihasmail). Upstream is
 consumed here and never contributed to: releases arrive, work goes one way.
+What exactly arrived from upstream is drawn once, in `README.md`; this record is
+about why the flow is one way.
 
 Something has to notice when upstream cuts a release, and two facts bound how
 this repository's own automation can do it. GitHub refuses a push that creates

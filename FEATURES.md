@@ -31,6 +31,17 @@ That constraint decides most of what follows. Where a feature looks unusual,
 it is usually because the obvious implementation would have required Gilbert
 to keep something of its own.
 
+Everything below belongs to one of four blocks — **gilbertmailer**,
+**gilbertserver**, **gilbertagents** and **gilbertstalwart** — named the way
+`README.md` defines them, which is the only place they are defined. The names
+are vocabulary, not sections: a feature is written where a reader looks for it,
+and the block it belongs to is said where that is not obvious.
+
+That same section of the README draws the line to upstream, and it is short on
+purpose: `gilbertmailer`, and inside `gilbertserver` the layer that serves it,
+came from ihasmail. Everything else in this file is Gilbert's own — which is
+most of it — and has no upstream to be compared against.
+
 ### Capabilities, and what happens without them
 
 Features are gated on what the server advertises, one by one, and a missing
