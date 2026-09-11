@@ -382,6 +382,15 @@ export interface AgentApprovalsView extends GroupEnumeration {
  */
 export interface AgentAppPasswordRotation {
   secret: string;
+  /**
+   * Whether the installation wrote that secret into the deployment's own agents
+   * file, which is the record a worker reads it from. A deposited secret needs
+   * no operator step: the running worker re-reads the file and signs in again
+   * by itself. False means the deployment mounts no writable agents file, so
+   * the secret has to be placed where the worker reads it -- the one case the
+   * surface still shows it for.
+   */
+  deposited: boolean;
   alsoValid: number | null;
 }
 

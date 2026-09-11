@@ -603,6 +603,22 @@ function refreshAgent(): void {
   }
 }
 
+/**
+ * Apply the agents file this moment, rather than at the next read that finds it
+ * changed.
+ *
+ * The surface that writes a minted secret into that file
+ * (`depositAgentSecret`) has just changed the deployment's own record of the
+ * agent, and the answer it gives -- whether the deployment holds a secret a
+ * worker can read -- is read from that record. Without this, a save would
+ * report the deployment as holding none for the address it had this moment
+ * given it.
+ */
+export function reloadAgent(): void {
+  agentCheckedAt = 0;
+  refreshAgent();
+}
+
 export const config = {
   isProd,
   appName: env("APP_NAME", "Gilbert"),

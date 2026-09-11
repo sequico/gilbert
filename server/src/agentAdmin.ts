@@ -21,6 +21,7 @@
  * impersonated group mailbox.
  */
 
+import { readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import {
   createAppPassword,
   getState,
@@ -76,6 +77,7 @@ import {
   agentGroupAreas,
   agentHasSecret,
   config,
+  reloadAgent,
 } from "./config.js";
 import { JmapError } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
@@ -937,6 +939,85 @@ async function countAppPasswords(ctx: Ctx): Promise<number | null> {
 }
 
 /**
+ * Write a minted secret into the deployment's own record of its agent, and say
+ * whether it landed.
+ *
+ * The deployment is where a worker reads the secret, and the one copy this
+ * product may write is the agents file an operator mounts for it: the
+ * environment belongs to a process that has already started and cannot be
+ * changed from here. That file is followed as it changes — by a running server
+ * (`refreshAgent`) and by a running worker, which signs in as the new identity
+ * before it stops the old one — so writing it is what makes naming an agent,
+ * and rotating its secret, finish by itself instead of ending in a secret an
+ * operator has to carry somewhere by hand.
+ *
+ * What it will not do is leave a file this installation would refuse to start
+ * on: the agent's own entry is written beside the ones already there, every
+ * other key is left exactly as it was, an entry that differs only in case is
+ * the same entry, and a write that would put a second agent in a file that
+ * names one — with nothing to choose between them — is refused rather than
+ * performed. A deployment that mounts its file read-only, or mounts none, is
+ * unchanged: the secret is shown once, and it says so.
+ */
+export function depositAgentSecret(password: string): boolean {
+  const file = process.env.GILBERT_AGENTS_FILE;
+  const address = agentAddress();
+  if (!file || !address) return false;
+  let doc: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return false;
+    doc = { ...(parsed as Record<string, unknown>) };
+  } catch (err) {
+    console.warn(
+      `[gilbert] could not read the agents file to write the agent's secret into it: ${
+        (err as Error).message
+      }`,
+    );
+    return false;
+  }
+  const named = Object.keys(doc).filter((key) => !key.startsWith("_"));
+  const key = named.find((name) => name.trim().toLowerCase() === address);
+  // An installation runs one agent and this file is where its secret lives: an
+  // entry for some other address is a deployment naming an agent this record no
+  // longer names, and an entry added beside it would leave the file ambiguous.
+  if (named.length && !key) return false;
+  const entry = key ? doc[key] : undefined;
+  const areas =
+    entry && typeof entry === "object" && !Array.isArray(entry)
+      ? (entry as { areas?: unknown }).areas
+      : undefined;
+  doc[key ?? address] = areas === undefined ? { password } : { password, areas };
+  const tmp = `${file}.gilbert-tmp`;
+  try {
+    // The file's own mode, because the worker may read it as another user: a
+    // secret written 0600 over a 0644 file would lock out the process it is for.
+    let mode = 0o600;
+    try {
+      mode = statSync(file).mode & 0o777;
+    } catch {
+      /* a file that cannot be stat'ed is about to fail the write below */
+    }
+    writeFileSync(tmp, `${JSON.stringify(doc, null, 2)}\n`, { mode });
+    renameSync(tmp, file);
+  } catch (err) {
+    try {
+      unlinkSync(tmp);
+    } catch {
+      /* the write failed, so there may be nothing to clean up */
+    }
+    console.warn(
+      `[gilbert] could not write the agent's secret into the agents file (${file}): ${
+        (err as Error).message
+      }`,
+    );
+    return false;
+  }
+  reloadAgent();
+  return true;
+}
+
+/**
  * Make sure the installation can sign in as the address it has just named, and
  * hand back a fresh secret when it had to mint one (ADR 0009).
  *
@@ -958,7 +1039,8 @@ export async function ensureAgentCredential(
   admin: LiveSession,
   address: string,
 ): Promise<
-  { created: false } | { created: true; secret: string; alsoValid: number | null }
+  | { created: false }
+  | { created: true; secret: string; deposited: boolean; alsoValid: number | null }
 > {
   if (agentHasSecret()) {
     const password = config.agent.password.trim();
@@ -993,6 +1075,7 @@ export async function ensureAgentCredential(
   return {
     created: true,
     secret: created.secret,
+    deposited: depositAgentSecret(created.secret),
     alsoValid: state ? Math.max(0, state.appPasswords.length - 1) : null,
   };
 }
@@ -1002,10 +1085,11 @@ export async function ensureAgentCredential(
  * secret back exactly once.
  *
  * The existing credential is deliberately left alone: the worker holds it, and
- * ADR 0003's rotation completes at the deployment — the environment and the
- * server have to say the same thing. Revoking here would stop agent work the
- * moment the button is pressed, which is a different action from rotating the
- * secret underneath it.
+ * a rotation completes at the deployment, which is given the new secret —
+ * written into the agents file where a worker reads it, kept as the answer for
+ * a deployment that mounts none. Revoking here would stop agent work the moment
+ * the button is pressed, which is a different action from rotating the secret
+ * underneath it.
  */
 export async function rotateAgentAppPassword(
   admin: LiveSession,
@@ -1030,6 +1114,7 @@ export async function rotateAgentAppPassword(
   const state = await getState(imp.ctx).catch(() => null);
   return {
     secret: created.secret,
+    deposited: depositAgentSecret(created.secret),
     alsoValid: state ? Math.max(0, state.appPasswords.length - 1) : null,
   };
 }

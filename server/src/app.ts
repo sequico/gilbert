@@ -1477,6 +1477,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           saved.credential = {
             created: true,
             secret: credential.secret,
+            deposited: credential.deposited,
             alsoValid: credential.alsoValid,
           };
       } catch (err) {
@@ -1489,6 +1490,10 @@ export function createApp(basePath = config.basePath): Hono<Env> {
             : { code: "agent_credential_failed", detail: (err as Error).message };
       }
     }
+    // Read again, because the mint writes the secret where the worker reads it:
+    // the answer belongs to the record this save has just written, not to the
+    // one that was in force when it started.
+    saved.hasSecret = agentHasSecret();
     return c.json(saved);
   });
 
