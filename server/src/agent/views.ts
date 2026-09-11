@@ -46,10 +46,9 @@ export interface GroupEnumeration {
   enumerationMessage: string | null;
 }
 
-/** One group the agent could work in, and whether it may. */
+/** One group the agent works in, as its own session shows it holds it. */
 export interface AgentStatusGroup {
   name: string;
-  granted: boolean;
   /**
    * The areas an administrator narrowed this group to, when one did. Absent
    * means the deployment's own list is in force — which `AgentStatus.defaultAreas`
@@ -57,9 +56,6 @@ export interface AgentStatusGroup {
    */
   areas?: AgentArea[];
 }
-
-/** Where the address the installation acts as came from. */
-export type AgentAddressSource = "policy" | "deployment" | "none";
 
 /** One running worker, with freshness judged at read time rather than stored. */
 export interface AgentStatusWorker {
@@ -84,45 +80,28 @@ export interface AgentStatusWorker {
  */
 export type AgentStatusReason =
   | { code: "agent_not_configured" }
+  | { code: "agent_credentials_rejected"; detail: string }
   | { code: "agent_unreachable"; detail: string }
   | { code: "workers_unreadable"; detail: string };
 
 /**
  * The installation's fleet, as the status route answers it.
  *
- * `groups` is an enumeration's list, so the pair is `GroupEnumeration`'s:
- * absent on an answer that never enumerated — an installation with no agent
- * lists no group at all, which `reason` already says.
+ * `groups` is the agent's own membership and nothing else: the groups are read
+ * from the agent's session in Stalwart's directory, so the list is complete by
+ * construction and carries no enumeration's caveat. An installation whose agent
+ * cannot be opened lists no group at all, which `reason` already says.
  */
-export interface AgentStatus extends Partial<GroupEnumeration> {
-  configured: boolean;
-  /** The registered agent's address; empty when the installation has none. */
+export interface AgentStatus {
+  /**
+   * Whether the fleet can run at all: the deployment names an agent, the
+   * credential it carries signs in, and the agent's own account opens. False
+   * with a `reason` is the honest answer, and the surface reads the sentence
+   * that code composes.
+   */
+  operational: boolean;
+  /** The agent's address, as the deployment names it; empty when it names none. */
   address: string;
-  /**
-   * Where that address comes from: the installation's own record, the
-   * deployment, or nowhere yet. A surface that lets an administrator name the
-   * agent says which of the two is in force, because they are fixed in
-   * different places.
-   */
-  addressSource: AgentAddressSource;
-  /**
-   * Whether the deployment holds the secret that address signs in with. The web
-   * tier acts by impersonation and needs none; a worker needs one, so an
-   * address with no secret is an agent the product can read and that can do
-   * nothing on its own.
-   */
-  hasSecret: boolean;
-  /**
-   * How many app passwords the agent's own account holds, read under
-   * impersonation. `null` when the read failed — never a zero, which would read
-   * as an account holding no credential at all.
-   *
-   * Two facts, two fields: this is what the installation's agent account can
-   * prove it holds, and `hasSecret` is whether the deployment carries the copy
-   * that lets a worker sign in as it. A credential minted here and not yet
-   * deployed is exactly the gap between them.
-   */
-  appPasswords: number | null;
   groups: AgentStatusGroup[];
   /** The areas the deployment serves, which a group's own list can only narrow. */
   defaultAreas: AgentArea[];
@@ -130,9 +109,10 @@ export interface AgentStatus extends Partial<GroupEnumeration> {
   /** Grants the fleet has lost, newest first, as its workers reported them. */
   withdrawals: AgentWithdrawal[];
   /**
-   * Why the fleet cannot be read, when it cannot. `configured: false` plus this
-   * code is the honest answer for an installation with no agent, for an
-   * unreachable one, and for a deployment whose secret no longer matches.
+   * Why the fleet is not operational, when it is not: the deployment names no
+   * agent, the credential it carries was refused, or the agent itself could not
+   * be opened. It travels as a code, and the sentence a person reads is
+   * composed where it is read.
    */
   reason?: AgentStatusReason;
 }
@@ -152,6 +132,7 @@ export interface AgentStatus extends Partial<GroupEnumeration> {
  */
 export type AgentErrorReason =
   | { code: "agent_not_configured" }
+  | { code: "agent_credentials_rejected"; detail: string }
   | { code: "agent_unreachable"; detail: string }
   | { code: "agent_files_account_missing"; address: string }
   | { code: "agent_not_found"; detail: string }
@@ -168,11 +149,7 @@ export type AgentErrorReason =
   | { code: "tier_base_url_not_https"; tier: string }
   | { code: "tier_base_url_private"; tier: string; host: string }
   | { code: "instruction_too_long"; max: number; length: number }
-  | { code: "group_labels_unreadable" }
-  /** The address was recorded; the credential that would let a worker sign in
-   * as it could not be provisioned. The installation is half set up, and the
-   * surface says which half rather than reporting the save as a failure. */
-  | { code: "agent_credential_failed"; detail: string };
+  | { code: "group_labels_unreadable" };
 
 /* ------------------------------------------------------------------ */
 /* One withdrawal                                                     */
@@ -370,49 +347,6 @@ export interface PendingApproval {
  */
 export interface AgentApprovalsView extends GroupEnumeration {
   approvals: PendingApproval[];
-}
-
-/**
- * The agent's new app password, handed back exactly once.
- *
- * `alsoValid` is how many app passwords the rotation left working — the whole
- * difference between rotating a credential and revoking one — and it is null
- * when the account's state could not be re-read: unknown is not zero, and a
- * zero reported here would read as "the old credentials stopped working".
- */
-export interface AgentAppPasswordRotation {
-  secret: string;
-  /**
-   * Whether the installation wrote that secret into the deployment's own agents
-   * file, which is the record a worker reads it from. A deposited secret needs
-   * no operator step: the running worker re-reads the file and signs in again
-   * by itself. False means the deployment mounts no writable agents file, so
-   * the secret has to be placed where the worker reads it -- the one case the
-   * surface still shows it for.
-   */
-  deposited: boolean;
-  alsoValid: number | null;
-}
-
-/**
- * What naming the installation's agent answers with.
- *
- * The address in force, whether the deployment carries its secret, and the
- * credential the save itself provisioned — a secret nobody has held before,
- * shown once, because a credential's secret is never readable again once it
- * has been minted.
- */
-export interface AgentAddressSaved {
-  address: string;
-  hasSecret: boolean;
-  /** Present only when this save had to mint a new app password. */
-  credential?: AgentAppPasswordRotation & { created: true };
-  /**
-   * Why the credential could not be provisioned, when the address was
-   * nonetheless recorded. A code and its parameters, like every other agent
-   * refusal: the sentence is composed where it is read.
-   */
-  credentialError?: AgentErrorReason;
 }
 
 export interface GroupInstructionView {

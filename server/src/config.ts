@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizeBasePath } from "../../scripts/basePath.mjs";
@@ -370,24 +370,23 @@ function readStalwartServers(): Record<string, string> {
 /**
  * The agent worker's bootstrap (ADR 0003, v1 scope).
  *
- * One structure agent per installation, and one secret for it: the agent's
- * own app password, which reaches exactly the accounts the operator granted
- * it. The web tier reads the same variables only to know which address to
- * register and verify; the secret is the worker's.
+ * One structure agent per installation -- `gilbert` -- and one secret for it:
+ * the agent's own app password, which reaches exactly the accounts the
+ * operator granted it. Both arrive in the environment of whoever starts the
+ * process, which is the only place a secret belongs: nothing mints one,
+ * nothing writes one to a file, and a deployment that replaces its container
+ * carries the same two variables back.
  *
- * `GILBERT_AGENTS_FILE` is the read-only alternative to the environment, in
- * the `STALWART_SERVERS_FILE` shape: an address keyed to its password and,
- * optionally, the areas that agent serves. It exists because a deployment
- * that mounts secrets reads them from files, and because a value that has to
- * survive a container replacement belongs in the image's configuration, not
- * in a runtime-written `.env` -- which is impossible on a read-only root and
- * pointless on a disposable container.
+ * Both halves or neither, and neither is a reason to refuse to start: an
+ * installation that carries no address, or an address with no password behind
+ * it, comes up and says so on the surface that names the agent. The
+ * administration is where an operator reads what is wrong and fixes it.
  */
 
-/** One agent's bootstrap entry, from the environment or the agents file. */
+/** One agent's bootstrap entry, from the environment. */
 export interface AgentBootstrap {
   address: string;
-  /** The app password the worker authenticates with. Empty = not configured. */
+  /** The account password the worker signs in with. Empty = no agent named. */
   password: string;
   /** The areas the worker serves, from the deployment. */
   areas: AgentArea[];
@@ -409,106 +408,20 @@ function readAgentAreas(raw: string | undefined, where: string): AgentArea[] {
   return out.length ? out : [...AGENT_AREAS];
 }
 
-/** The agents file, keyed by lower-cased address. */
-function readAgentsFile(): Record<string, { password: string; areas?: AgentArea[] }> {
-  const file = process.env.GILBERT_AGENTS_FILE;
-  if (!file) return {};
-  if (!existsSync(file)) throw new Error(`GILBERT_AGENTS_FILE does not exist: ${file}`);
-  let raw: unknown;
-  try {
-    raw = JSON.parse(readFileSync(file, "utf8"));
-  } catch (err) {
-    throw new Error(`Invalid GILBERT_AGENTS_FILE (${file}): ${(err as Error).message}`);
-  }
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error(
-      `Invalid GILBERT_AGENTS_FILE (${file}): expected an object of address to entry`,
-    );
-  }
-  const out: Record<string, { password: string; areas?: AgentArea[] }> = {};
-  for (const [rawAddress, rawEntry] of Object.entries(raw as Record<string, unknown>)) {
-    if (rawAddress.startsWith("_")) continue; // the file's own _comment
-    const address = rawAddress.trim().toLowerCase();
-    if (!address.includes("@"))
-      throw new Error(
-        `Invalid GILBERT_AGENTS_FILE (${file}): "${rawAddress}" is not an address`,
-      );
-    if (address in out)
-      throw new Error(
-        `Invalid GILBERT_AGENTS_FILE (${file}): "${address}" appears twice once normalised`,
-      );
-    const entry = rawEntry as { password?: unknown; areas?: unknown };
-    if (typeof entry?.password !== "string" || !entry.password)
-      throw new Error(
-        `Invalid GILBERT_AGENTS_FILE (${file}): "${address}" has no password`,
-      );
-    const areas =
-      entry.areas === undefined
-        ? undefined
-        : readAgentAreas(
-            Array.isArray(entry.areas)
-              ? entry.areas.map((a) => String(a)).join(",")
-              : String(entry.areas),
-            `GILBERT_AGENTS_FILE (${file}) areas for "${address}"`,
-          );
-    out[address] = areas
-      ? { password: entry.password, areas }
-      : { password: entry.password };
-  }
-  return out;
-}
-
 function resolveAgentBootstrap(): AgentBootstrap {
-  const file = readAgentsFile();
   const address = (process.env.GILBERT_AGENT_ADDRESS ?? "").trim().toLowerCase();
-  const fromEnv = process.env.GILBERT_AGENT_PASSWORD ?? "";
-  const entry = address ? file[address] : Object.values(file)[0];
-  if (address && !fromEnv && file[address] === undefined && Object.keys(file).length) {
-    /* The file was given and does not name this address: that is a
-       configuration mistake, and a worker that silently ran with no secret
-       would look like an agent that never does anything. */
-    throw new Error(
-      `GILBERT_AGENTS_FILE has no entry for ${address}; it names ${Object.keys(file).join(", ")}`,
-    );
-  }
-  /*
-   * The other half of the same mistake, and the one that is easy to make: an
-   * address with no password anywhere. The web tier would fall back to
-   * impersonation for every call and the worker would start with no secret —
-   * two different behaviours from one missing variable, neither of them
-   * obvious. Half-configured is not a state this starts in.
-   */
-  if (address && !fromEnv && !entry?.password) {
-    throw new Error(
-      `GILBERT_AGENT_ADDRESS is set to ${address} and no password was found for it: ` +
-        "set GILBERT_AGENT_PASSWORD, or name the address in GILBERT_AGENTS_FILE with its password",
-    );
-  }
-  /*
-   * One agent per installation (ADR 0003 §2). A file naming several and no
-   * address to pick between them would silently choose whichever came first in
-   * the file — a deployment that runs a different agent than its operator wrote.
-   */
-  if (!address && Object.keys(file).length > 1) {
-    throw new Error(
-      `GILBERT_AGENTS_FILE names ${Object.keys(file).length} agents and GILBERT_AGENT_ADDRESS ` +
-        "does not say which one this installation runs",
-    );
-  }
-  const areas = process.env.GILBERT_AGENT_AREAS
-    ? readAgentAreas(process.env.GILBERT_AGENT_AREAS, "GILBERT_AGENT_AREAS")
-    : (entry?.areas ?? [...AGENT_AREAS]);
+  const password = process.env.GILBERT_AGENT_PASSWORD ?? "";
   return {
-    address: address || (entry ? Object.keys(file)[0]! : ""),
-    password: fromEnv || entry?.password || "",
-    areas,
+    address,
+    password,
+    areas: readAgentAreas(process.env.GILBERT_AGENT_AREAS, "GILBERT_AGENT_AREAS"),
   };
 }
 
 /**
  * The agent worker's timing and health: the environment is what carries them,
  * and the environment cannot change under a running process, so they are read
- * once rather than re-resolved with the file.
+ * once.
  */
 const agentWorkerSettings = {
   /*
@@ -538,86 +451,11 @@ const agentWorkerSettings = {
 /**
  * The installation's agent, as the running process holds it (ADR 0003).
  *
- * One object, re-read in place when the deployment's agents file changes. That
- * file is configuration a container replacement must not be needed for: an
- * operator who rotates the agent's secret, or names a different agent, in a
- * mounted file expects a running server to notice — and a process that read the
- * file once at boot would keep acting as the agent it started with.
- *
- * The environment cannot change under a running process, so only the file is
- * re-checked, and only its stamp is: at most one check per
- * `AGENT_FILE_RECHECK_MS`, and one stat when nothing has changed. The object
- * keeps its identity and stays writable, because the surfaces that name an
- * agent read it as one record.
+ * The environment cannot change under a running process, so this is resolved
+ * once and never re-read: an operator who names a different agent, or gives it
+ * a different secret, says so in the deployment and restarts it.
  */
 const agent = { ...resolveAgentBootstrap(), ...agentWorkerSettings };
-
-/** How long the agents file may go unlooked-at before it is checked again. */
-const AGENT_FILE_RECHECK_MS = 1_000;
-
-let agentFileStamp = agentsFileStamp(process.env.GILBERT_AGENTS_FILE ?? "");
-let agentCheckedAt = 0;
-
-/** The file's identity — modified and sized — or `""` when there is nothing to read. */
-function agentsFileStamp(file: string): string {
-  if (!file) return "";
-  try {
-    const st = statSync(file);
-    return `${st.mtimeMs}:${st.size}`;
-  } catch {
-    return "";
-  }
-}
-
-/**
- * Re-read the agents file, when one is configured and has changed.
- *
- * A file that has changed but no longer parses leaves the configuration in
- * force and says so once per distinct file: turning a typo in a mounted file
- * into a server that stops serving everyone already signed in would trade a
- * misconfigured agent for a broken installation. The stamp is kept either way,
- * so that report is a report and not a log flood.
- */
-function refreshAgent(): void {
-  const file = process.env.GILBERT_AGENTS_FILE;
-  if (!file) return;
-  const now = Date.now();
-  if (now - agentCheckedAt < AGENT_FILE_RECHECK_MS) return;
-  agentCheckedAt = now;
-  const stamp = agentsFileStamp(file);
-  if (!stamp || stamp === agentFileStamp) return;
-  agentFileStamp = stamp;
-  try {
-    const next = resolveAgentBootstrap();
-    agent.address = next.address;
-    agent.password = next.password;
-    agent.areas = next.areas;
-    console.log(
-      `[gilbert] the agents file changed: this installation's agent is now ${next.address || "(none)"}`,
-    );
-  } catch (err) {
-    console.warn(
-      "[gilbert] the agents file changed but could not be read; keeping the agent configuration in force:",
-      (err as Error).message,
-    );
-  }
-}
-
-/**
- * Apply the agents file this moment, rather than at the next read that finds it
- * changed.
- *
- * The surface that writes a minted secret into that file
- * (`depositAgentSecret`) has just changed the deployment's own record of the
- * agent, and the answer it gives -- whether the deployment holds a secret a
- * worker can read -- is read from that record. Without this, a save would
- * report the deployment as holding none for the address it had this moment
- * given it.
- */
-export function reloadAgent(): void {
-  agentCheckedAt = 0;
-  refreshAgent();
-}
 
 export const config = {
   isProd,
@@ -714,14 +552,7 @@ export const config = {
    * the documents the fleet works from live in Stalwart, in the agent's own
    * account and in each group's.
    */
-  /*
-   * Read through `refreshAgent()`, so a file changed under a running process is
-   * reflected by the next read rather than by the next restart.
-   */
-  get agent(): AgentBootstrap & typeof agentWorkerSettings {
-    refreshAgent();
-    return agent;
-  },
+  agent,
   pushMode: (process.env.PUSH_MODE === "relay" ? "relay" : "subscribe") as
     | "relay"
     | "subscribe",
@@ -736,22 +567,11 @@ export type Config = typeof config;
 /**
  * The address this installation's agent is known by (ADR 0009).
  *
- * An administrator names it in the product, and the name lives in the policy
- * document beside the settings policy: durable with it, applied without a
- * restart, and read by the worker too. `GILBERT_AGENT_ADDRESS` is what it
- * falls back to — the deployment's own fact — so an installation that has
- * named nothing behaves exactly as it did before there was a field.
+ * The deployment names it — `GILBERT_AGENT_ADDRESS`, beside the password that
+ * account signs in with, in the environment of whoever starts the server and
+ * the worker. Nothing in the product names it and nothing falls back to
+ * anything else: one place names the agent, and every surface reads it here.
  */
-
-/**
- * Where that address comes from: the installation\u2019s own record, or the
- * deployment. The surface says which, because "the product does not know" and
- * "the deployment does not know" are fixed in different places.
- */
-export function agentAddressSource(): "policy" | "deployment" | "none" {
-  if (config.settingsPolicy.agent?.address) return "policy";
-  return config.agent.address.trim() ? "deployment" : "none";
-}
 
 /**
  * The areas one group is narrowed to, or null when the deployment speaks for
@@ -769,22 +589,5 @@ export function agentGroupAreas(group: string): AgentArea[] | null {
 }
 
 export function agentAddress(): string {
-  return (config.settingsPolicy.agent?.address ?? config.agent.address)
-    .trim()
-    .toLowerCase();
-}
-
-/**
- * Whether the deployment holds the secret that address signs in with.
- *
- * The web tier never needs one — it acts as the agent by impersonation from an
- * administrator's own session — but the worker signs in as the agent itself,
- * and an address the deployment holds no password for is an agent that can be
- * read in the product and can do nothing on its own. That is worth saying out
- * loud on the surface that names it.
- */
-export function agentHasSecret(): boolean {
-  const address = agentAddress();
-  if (!address || !config.agent.password) return false;
-  return config.agent.address.trim().toLowerCase() === address;
+  return config.agent.address.trim().toLowerCase();
 }

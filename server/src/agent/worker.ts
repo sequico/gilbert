@@ -679,8 +679,9 @@ export function startHealthServer(opts: {
 /**
  * The agent the deployment names, as the worker needs it.
  *
- * `config.agent` re-reads the agents file (`refreshAgent`), so this is the
- * deployment's current word rather than the one this process started with.
+ * `config.agent` is bootstrap configuration, resolved when the module loaded:
+ * the environment cannot change under a running process, so this is the word
+ * the deployment started with.
  */
 export interface AgentIdentity {
   address: string;
@@ -785,7 +786,8 @@ export async function main(): Promise<void> {
   if (!first.address || !first.password) {
     console.error(
       "[gilbert] the agent worker is not configured: set GILBERT_AGENT_ADDRESS and " +
-        "GILBERT_AGENT_PASSWORD (or name the agent in GILBERT_AGENTS_FILE); nothing started",
+        "GILBERT_AGENT_PASSWORD, and start this process inside a deployment that " +
+        "carries both; nothing started",
     );
     process.exit(1);
   }

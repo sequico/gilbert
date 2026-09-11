@@ -34,7 +34,6 @@ process.env.LOGIN_RATE_LIMIT = "10000";
 // read once and one test process has one of them.
 delete process.env.GILBERT_AGENT_ADDRESS;
 delete process.env.GILBERT_AGENT_PASSWORD;
-delete process.env.GILBERT_AGENTS_FILE;
 
 const DEMO = "demo@example.com";
 const TEAM = "team@example.org";
@@ -70,10 +69,18 @@ async function call(path: string, init: RequestInit = {}) {
   };
 }
 
-/** Register an agent address for one test; the password stays empty. */
-function configureAgent(address: string): void {
+/**
+ * Stage the deployment's agent for one test (ADR 0009).
+ *
+ * The address and the credential are the installation's, not a document's: both
+ * are read from the environment once, at boot, so a test that needs a different
+ * pair sets the same two fields. The pair is also what decides whether the agent
+ * can be reached at all — a password means signing in as the agent, no password
+ * means the administrator's own session is used to reach it.
+ */
+function configureAgent(address: string, password = ""): void {
   config.agent.address = address;
-  config.agent.password = "";
+  config.agent.password = password;
 }
 
 /**
@@ -90,6 +97,39 @@ function failUpstream(contains: string, status: number): () => void {
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const body = typeof init?.body === "string" ? init.body : "";
     if (body.includes(contains)) return new Response("{}", { status });
+    return real(input, init);
+  }) as typeof fetch;
+  return () => {
+    globalThis.fetch = real;
+  };
+}
+
+/**
+ * Fail the agent's own sign-in, and hand back the way to put the real `fetch`
+ * back.
+ *
+ * Signing in is the one call the agent makes that carries no JMAP body — it is
+ * a GET on the well-known URL — so `failUpstream` cannot reach it. The request
+ * is recognised by the credential it carries, and only the agent's own pair is
+ * failed, so a session fetched for anybody else goes through untouched.
+ */
+function failAgentSignIn(status: number): () => void {
+  const credential = `Basic ${Buffer.from(
+    `${mock.AGENT_ADDRESS}:${mock.AGENT_PASS}`,
+  ).toString("base64")}`;
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url =
+      typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const headers = new Headers(
+      init?.headers ?? (input instanceof Request ? input.headers : undefined),
+    );
+    if (
+      url.includes("/.well-known/") &&
+      headers.get("authorization") === credential
+    ) {
+      return new Response("{}", { status });
+    }
     return real(input, init);
   }) as typeof fetch;
   return () => {
@@ -127,143 +167,13 @@ after(() => {
   (mock as { server?: { close(): void } }).server?.close();
 });
 
-/**
- * Naming the address is also where the worker's credential comes from
- * (ADR 0009).
- *
- * A worker signs in as the agent before it can read anything, so an
- * installation whose secret has to be handed over by hand is one that sits half
- * set up with nobody told which half. The save provisions it: the secret is
- * answered once, in this response, and is never readable again — and the proof
- * that it is worth anything is that the mail server signs the agent in with it.
- */
-test("naming an address provisions the credential a worker signs in with", async () => {
-  configureAgent("");
-  const before = mock.agentAccount.appPasswords.length;
-  const saved = await call("/api/admin/agent/address", {
-    method: "POST",
-    body: JSON.stringify({ address: mock.AGENT_ADDRESS }),
-  });
-  assert.equal(saved.status, 200);
-  const body = saved.body as {
-    address: string;
-    hasSecret: boolean;
-    credential?: { created: boolean; secret: string; alsoValid: number | null };
-    credentialError?: { code: string };
-  };
-  assert.equal(body.address, mock.AGENT_ADDRESS);
-  assert.equal(body.hasSecret, false, "the deployment holds no copy at all");
-  assert.equal(body.credentialError, undefined, "nothing refused it");
-  assert.equal(body.credential?.created, true);
-  const secret = body.credential?.secret ?? "";
-  assert.ok(secret, "the secret travels with the save, once");
-  assert.equal(
-    body.credential?.alsoValid,
-    before,
-    "and the credentials already in the account stay valid",
-  );
-  assert.equal(
-    mock.agentAccount.appPasswords.filter((a) => a.secret === secret).length,
-    1,
-    "minted in the agent's own account, not the administrator's",
-  );
-  const auth = `Basic ${Buffer.from(`${mock.AGENT_ADDRESS}:${secret}`).toString("base64")}`;
-  await fetchUpstreamSession(auth, upstreamFor(mock.AGENT_ADDRESS));
-
-  // One account carries this whole file, and the credential count is what the
-  // rotation test asserts on: this test puts the account back as it found it.
-  const minted = mock.agentAccount.appPasswords.findIndex((a) => a.secret === secret);
-  if (minted >= 0) mock.agentAccount.appPasswords.splice(minted, 1);
-
-  // The address the last test leaves behind is the installation's own record,
-  // and every test here that configures a deployment sets `config.agent`
-  // instead: leaving the record set would shadow that for all of them.
-  await call("/api/admin/agent/address", {
-    method: "POST",
-    body: JSON.stringify({ address: "" }),
-  });
-});
-
-/**
- * A deployment that already signs in is left alone.
- *
- * Minting on every save would leave a trail of live credentials behind an
- * installation that never needed one, so the save asks the mail server first
- * and mints only when the copy the deployment carries is refused.
- */
-test("a save behind a deployment that already signs in mints nothing", async () => {
-  config.agent.address = mock.AGENT_ADDRESS;
-  config.agent.password = mock.AGENT_PASS;
-  const readable = await call("/api/admin/agents");
-  const before = (readable.body as { appPasswords: number | null }).appPasswords;
-  assert.equal(typeof before, "number", "the credential list is readable here");
-
-  const saved = await call("/api/admin/agent/address", {
-    method: "POST",
-    body: JSON.stringify({ address: mock.AGENT_ADDRESS }),
-  });
-  assert.equal(saved.status, 200);
-  const body = saved.body as {
-    hasSecret: boolean;
-    credential?: unknown;
-    credentialError?: unknown;
-  };
-  assert.equal(body.hasSecret, true, "the deployment holds the copy");
-  assert.equal(body.credential, undefined, "nothing was minted behind a working sign-in");
-  assert.equal(body.credentialError, undefined);
-
-  const after = await call("/api/admin/agents");
-  assert.equal(
-    (after.body as { appPasswords: number | null }).appPasswords,
-    before,
-    "the credentials already in the account are untouched",
-  );
-
-  configureAgent("");
-  await call("/api/admin/agent/address", {
-    method: "POST",
-    body: JSON.stringify({ address: "" }),
-  });
-});
-
-/**
- * An unreadable credential list is unknown, never zero.
- *
- * A zero is a claim about the mail server — that this account holds no
- * credential — and a read that failed cannot support it. An operator acting on
- * that claim would mint a second credential over a working one.
- */
-test("a credential list that could not be read is unknown, not zero", async () => {
-  configureAgent(mock.AGENT_ADDRESS);
-  const denied = failUpstream("AppPassword/get", 500);
-  try {
-    const status = await call("/api/admin/agents");
-    assert.equal(status.status, 200);
-    assert.equal(
-      (status.body as { appPasswords: number | null }).appPasswords,
-      null,
-      "unread is not none",
-    );
-  } finally {
-    denied();
-    configureAgent("");
-  }
-});
-
 test("an installation with no agent says so plainly, and never 500s", async () => {
   configureAgent("");
   const res = await call("/api/admin/agents");
   assert.equal(res.status, 200);
   assert.deepEqual(res.body, {
-    configured: false,
+    operational: false,
     address: "",
-    // Nothing has named an agent and the deployment has not either, so there is
-    // no address and no secret for one to sign in with (ADR 0009).
-    addressSource: "none",
-    hasSecret: false,
-    // No address, so no account to read a credential from: unknown, which is
-    // not the same answer as an account that holds none.
-    appPasswords: null,
     groups: [],
     // The areas the deployment serves; a group can only narrow them.
     defaultAreas: [...AGENT_AREAS],
@@ -272,34 +182,42 @@ test("an installation with no agent says so plainly, and never 500s", async () =
     // installation (ADR 0003 resolution 21).
     withdrawals: [],
     // A code, not a sentence: the surface composes the sentence in the
-    // reader's language (the same rule the membership refusal follows).
+    // reader's language (the same rule the membership refusal follows). Both
+    // halves of the pair belong to the deployment — no address and no password
+    // — and they are one state an operator fixes, so they are one code.
     reason: { code: "agent_not_configured" },
   });
 });
 
 test("an agent that cannot be reached is reported, never guessed at", async () => {
-  // The mock refuses to impersonate a group mailbox, exactly as a real 0.16
-  // server does, so this is the unreachable-agent shape: an address that is
-  // configured and cannot be opened.
-  configureAgent(TEAM);
-  const res = await call("/api/admin/agents");
+  // The pair is present and the server will not answer it. That is neither the
+  // deployment's missing pair nor a refusal of the key — those are separate
+  // states, named separately — but a door that does not open. The fleet says
+  // so, instead of handing back the empty membership as if it were the truth
+  // about who the agent is.
+  configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
+  const broken = failAgentSignIn(500);
+  let res: Awaited<ReturnType<typeof call>>;
+  try {
+    res = await call("/api/admin/agents");
+  } finally {
+    broken();
+  }
   assert.equal(res.status, 200, "an unreachable agent is not a server failure");
   const body = res.body as {
-    configured: boolean;
+    operational: boolean;
     address: string;
-    groups: Array<{ name: string; granted: boolean }>;
+    groups: unknown[];
     workers: unknown[];
     reason?: { code?: string; detail?: string };
   };
-  assert.equal(body.configured, false);
-  assert.equal(body.address, TEAM);
+  assert.equal(body.operational, false);
+  assert.equal(body.address, mock.AGENT_ADDRESS);
   assert.deepEqual(body.workers, []);
-  const names = body.groups.map((g) => g.name);
-  assert.ok(names.includes(TEAM), "the groups the directory lists are reported");
-  assert.ok(names.includes(LEGAL));
-  assert.ok(
-    body.groups.every((g) => g.granted === false),
-    "a grant is never asserted without the agent's own witness",
+  assert.deepEqual(
+    body.groups,
+    [],
+    "membership is the agent's own witness: with no session there is nothing to report",
   );
   // The reason travels as a code and whatever the server that refused said:
   // the sentence a person reads is composed where it is read.
@@ -311,6 +229,53 @@ test("an agent that cannot be reached is reported, never guessed at", async () =
   assert.ok(
     !("message" in (body.reason ?? {})),
     "the reason is a code, never a sentence of the server's",
+  );
+});
+
+test("a credential the server refuses is its own state, named as one", async () => {
+  // The password is the account's own (ADR 0009). A deployment carrying the
+  // wrong one is refused when it signs in, and that is a different thing to fix
+  // from an account that cannot be opened at all: one is a bad copy, the other
+  // is a door that does not open.
+  configureAgent(mock.AGENT_ADDRESS, "not-the-password");
+  const res = await call("/api/admin/agents");
+  assert.equal(res.status, 200);
+  const body = res.body as {
+    operational: boolean;
+    groups: unknown[];
+    reason?: { code?: string; detail?: string };
+  };
+  assert.equal(body.operational, false, "a refused key is not a working fleet");
+  assert.deepEqual(body.groups, []);
+  assert.equal(body.reason?.code, "agent_credentials_rejected");
+  assert.match(
+    String(body.reason?.detail ?? ""),
+    /refused/,
+    "and the deployment's own words say what was refused",
+  );
+});
+
+test("a deployment carrying the account's own password is operational", async () => {
+  // The happy path, and the only one that shows membership at all: the agent
+  // signs in as itself, and the groups it is in are the ones its session hands
+  // it (ADR 0003 §2). No record of ours is consulted, so there is nothing to
+  // keep in step.
+  configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
+  const res = await call("/api/admin/agents");
+  assert.equal(res.status, 200);
+  const body = res.body as {
+    operational: boolean;
+    address: string;
+    groups: Array<{ name: string; areas?: string[] }>;
+    defaultAreas: string[];
+  };
+  assert.equal(body.operational, true);
+  assert.equal(body.address, mock.AGENT_ADDRESS);
+  assert.deepEqual(body.defaultAreas, [...AGENT_AREAS]);
+  assert.deepEqual(
+    body.groups.map((group) => group.name),
+    ["design@example.org", "team@example.org"],
+    "the groups the agent's own session shows it holds",
   );
 });
 
@@ -332,20 +297,6 @@ test("providers: empty without an agent, refused when the agent is out of reach"
   });
   assert.equal(posted.status, 409);
   assert.equal((posted.body as { error: string }).error, "agent_unreachable");
-});
-
-test("the app-password route refuses honestly and never invents a secret", async () => {
-  configureAgent("");
-  const none = await call("/api/admin/agent/app-password", { method: "POST" });
-  assert.equal(none.status, 409);
-  assert.equal((none.body as { error: string }).error, "agent_not_configured");
-  assert.ok(!("secret" in (none.body ?? {})));
-
-  configureAgent(TEAM);
-  const unreachable = await call("/api/admin/agent/app-password", { method: "POST" });
-  assert.equal(unreachable.status, 404);
-  assert.equal((unreachable.body as { error: string }).error, "agent_not_found");
-  assert.ok(!("secret" in (unreachable.body ?? {})));
 });
 
 test("a member administrator reads and saves a group's rules", async () => {
@@ -709,9 +660,10 @@ test("the approvals queue is empty and needs no agent", async () => {
 test("a queue the directory could not be listed for says so", async () => {
   // The admin who is not also a Stalwart server administrator hits the
   // directory gate, and the queue then walks only the groups their own session
-  // holds. Both answers have to carry that, or a short queue and an empty one
-  // read the same.
-  configureAgent(TEAM);
+  // holds. The answer has to carry that, or a short queue and an empty one read
+  // the same. The agent is deliberately not configured: the queue is built from
+  // the admin's own reach, which is a different read from the fleet's.
+  configureAgent("");
   const denied = failUpstream("Principal/query", 403);
   try {
     const queue = await call("/api/admin/agent/approvals");
@@ -724,22 +676,6 @@ test("a queue the directory could not be listed for says so", async () => {
     assert.deepEqual(body.approvals, []);
     assert.equal(body.enumeration, false, "the list is the membership fallback");
     assert.ok(body.enumerationMessage, "and the reason travels with it");
-
-    const status = await call("/api/admin/agents");
-    assert.equal(status.status, 200);
-    const fleet = status.body as {
-      groups: Array<{ name: string; granted: boolean }>;
-      enumeration?: boolean;
-      enumerationMessage?: string | null;
-    };
-    assert.equal(fleet.enumeration, false, "the fleet's group list is that same read");
-    assert.equal(fleet.enumerationMessage, body.enumerationMessage);
-    const names = fleet.groups.map((g) => g.name);
-    assert.ok(names.includes(TEAM), "a group the admin is a member of is listed");
-    assert.ok(
-      !names.includes(LEGAL),
-      "a group only the directory could have named could not be listed",
-    );
   } finally {
     denied();
   }
@@ -831,33 +767,6 @@ test("every refusal names the section the surface asked for", async () => {
     4,
     "the four sections these routes ask for, not one shared answer",
   );
-});
-
-test("the rotation counts the credentials it leaves valid, and says unknown when it cannot", async () => {
-  // The mock knows the agent principal and lets an admin impersonate it, so
-  // this is where the rotation itself completes.
-  configureAgent("gilbert@example.com");
-  const counted = await call("/api/admin/agent/app-password", { method: "POST" });
-  assert.equal(counted.status, 200);
-  const first = counted.body as { secret: string; alsoValid: number | null };
-  assert.ok(first.secret.startsWith("$app$"), "the new credential comes back once");
-  assert.equal(
-    first.alsoValid,
-    0,
-    "the agent held no other credential, which is a count",
-  );
-
-  // The re-read that counts them fails; the rotation it belongs to did not.
-  const restore = failUpstream("x:AppPassword/get", 500);
-  try {
-    const unknown = await call("/api/admin/agent/app-password", { method: "POST" });
-    assert.equal(unknown.status, 200, "the rotation itself succeeded");
-    const second = unknown.body as { secret: string; alsoValid: number | null };
-    assert.ok(second.secret.startsWith("$app$"));
-    assert.equal(second.alsoValid, null, "a count nobody could read is not zero");
-  } finally {
-    restore();
-  }
 });
 
 test("the rule schema is published, and it is the catalogue the runtime reads", async () => {

@@ -21,9 +21,7 @@
  * impersonated group mailbox.
  */
 
-import { readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import {
-  createAppPassword,
   getState,
   readGroupLabels,
   writeGroupLabels,
@@ -50,7 +48,6 @@ import { AgentStore } from "./agent/store.js";
 // that reads them (SSOT): `server/src/agent/views.ts`. Declaring them here as
 // well is what let a field exist on one side and not the other.
 import type {
-  AgentAppPasswordRotation,
   AgentApprovalsView,
   AgentAuditExport,
   AgentAuditExportMonth,
@@ -71,14 +68,7 @@ import type {
 } from "./agent/views.js";
 import { GROUP_NOT_ACCESSIBLE, WITHDRAWALS_PATH } from "./agent/views.js";
 import { type Ctx, filesAccountId, readAppJsonAt } from "./appFolder.js";
-import {
-  agentAddress,
-  agentAddressSource,
-  agentGroupAreas,
-  agentHasSecret,
-  config,
-  reloadAgent,
-} from "./config.js";
+import { agentAddress, agentGroupAreas, config } from "./config.js";
 import { JmapError } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
 import {
@@ -322,18 +312,32 @@ export interface ReachableGroups extends GroupEnumeration {
 }
 
 /**
- * The agent's own session: the deployment's app password when there is one,
+ * The two ways opening the agent fails with a reason of its own: the credential
+ * this deployment carries was refused, or the account could not be reached at
+ * all. Both travel as a code, and the surface composes the sentence it shows.
+ */
+type AgentRefusalCode = "agent_credentials_rejected" | "agent_unreachable";
+
+/**
+ * The agent's own session: the deployment's credential when there is one,
  * impersonation from the admin's session otherwise — the recorded alternative
- * for an installation that would rather never hold the secret in the web tier.
+ * for an installation that would rather never hold the password in the web
+ * tier.
  *
- * A refused bootstrap password falls through to impersonation on purpose: the
- * environment and the server have to say the same thing after a rotation, and
- * an admin looking at the surface is exactly who can put them back in step.
+ * A credential Stalwart *refuses* is reported as that and nothing else.
+ * Falling through to impersonation, as this once did, answers a surface that
+ * works while the fleet it administers can never wake: "the key this
+ * deployment holds does not turn" is a fact about the deployment, and an
+ * administrator who is shown the fleet instead of the fact has no way to learn
+ * it. With no password at all there is nothing to refuse, and impersonation is
+ * how an administrator reaches the account to read what is there.
  */
 export async function openAgentSession(
   admin: LiveSession,
   address: string,
-): Promise<{ ok: true; ctx: Ctx } | { ok: false; detail: string }> {
+): Promise<
+  { ok: true; ctx: Ctx } | { ok: false; code: AgentRefusalCode; detail: string }
+> {
   const password = config.agent.password.trim();
   if (password) {
     const authorization = basic(address, password);
@@ -342,19 +346,18 @@ export async function openAgentSession(
       return { ok: true, ctx: { authorization, session, username: address } };
     } catch (err) {
       if (!(err instanceof UpstreamError)) throw err;
-      if (err.status !== 401)
+      if (err.status === 401)
         return {
           ok: false,
-          detail: err.message,
+          code: "agent_credentials_rejected",
+          detail: `the credential this deployment carries for ${address} was refused`,
         };
+      return { ok: false, code: "agent_unreachable", detail: err.message };
     }
   }
   const imp = await impersonateAs(admin, address);
   if (imp.ok) return { ok: true, ctx: imp.ctx };
-  return {
-    ok: false,
-    detail: imp.message,
-  };
+  return { ok: false, code: "agent_unreachable", detail: imp.message };
 }
 
 /** The groups an agent's own session shows it holds. */
@@ -378,7 +381,7 @@ async function agentStore(
   if (!address) throw new AgentAdminError({ code: "agent_not_configured" }, 409);
   const agent = await openAgentSession(admin, address);
   if (!agent.ok)
-    throw new AgentAdminError({ code: "agent_unreachable", detail: agent.detail }, 409);
+    throw new AgentAdminError({ code: agent.code, detail: agent.detail }, 409);
   const accountId = filesAccountId(agent.ctx);
   if (!accountId)
     throw new AgentAdminError({ code: "agent_files_account_missing", address }, 409);
@@ -390,43 +393,46 @@ async function agentStore(
 /* ------------------------------------------------------------------ */
 
 /**
- * One group row: its grant, and the areas an administrator narrowed it to.
+ * One group row: the areas an administrator narrowed it to, when one did.
  *
- * The grant is read from the agent's own session and never written here (ADR
- * 0003 §2); the areas are the installation's own record, which can only narrow
- * what the deployment serves.
+ * Membership is not a field here. A row exists because the agent's own session
+ * showed it holds the group (ADR 0003 §2), so every row is granted by
+ * construction and a row that is not has nothing to carry. The areas are the
+ * installation's own record, which can only narrow what the deployment serves.
  */
-function groupRow(name: string, granted: boolean): AgentStatusGroup {
+function groupRow(name: string): AgentStatusGroup {
   const narrowed = agentGroupAreas(name);
-  return { name, granted, ...(narrowed ? { areas: narrowed } : {}) };
+  return { name, ...(narrowed ? { areas: narrowed } : {}) };
 }
 
 /**
  * What the installation's fleet looks like right now.
  *
- * `granted` is not guessed and is not writable: membership is decided in
- * Stalwart's own administration (ADR 0003), and the only witness to it is the
- * agent's own session — the group appears there as a non-personal account with
- * the group's name. Without that witness the groups are listed as not granted,
- * and the reason says why the check could not be made.
+ * The groups are the agent's own membership and nothing else. They are read
+ * from the agent's session, where each group appears as a non-personal account
+ * carrying the group's name — membership is decided in Stalwart's own
+ * administration and that session is the only witness to it (ADR 0003). So a
+ * group an administrator gives the Gilbert user appears here on its own, with
+ * no record of ours to keep in step, and a group that is not listed is a group
+ * the agent is not in.
  *
- * The list is an enumeration's, so the answer carries whether the directory
- * answered it: the groups an admin can act on are not readable from anywhere
- * else, and a list that could not be made must not read as a complete one.
+ * An agent that cannot be opened lists no group at all: the membership is
+ * exactly what could not be read, and `reason` says why.
  */
 export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
   const address = agentAddress();
-  const addressSource = agentAddressSource();
   const defaultAreas = config.agent.areas;
-  if (!address)
+  /*
+   * Both halves or nothing to run. With no address the deployment names no
+   * agent; with an address and no password behind it, nobody can sign in as
+   * one — the fleet has no key, and the workers that would run it have none
+   * either. Either way it is a state an operator fixes in the deployment, and
+   * the surface says so rather than offering a fleet that can never wake.
+   */
+  if (!address || !config.agent.password.trim())
     return {
-      configured: false,
-      address: "",
-      addressSource,
-      hasSecret: false,
-      // No address, so no account to read a credential from: unknown, which is
-      // not the same answer as an account holding none.
-      appPasswords: null,
+      operational: false,
+      address,
       groups: [],
       defaultAreas,
       workers: [],
@@ -434,31 +440,21 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       reason: { code: "agent_not_configured" },
     };
 
-  const reachable = await reachableGroupNames(admin);
   const agent = await openAgentSession(admin, address);
   if (!agent.ok)
     return {
-      configured: false,
+      operational: false,
       address,
-      addressSource,
-      hasSecret: agentHasSecret(),
-      // The session never opened, so what the account holds is unread: `null`,
-      // never a zero that would read as "no credential".
-      appPasswords: null,
-      groups: reachable.names.map((name) => groupRow(name, false)),
+      groups: [],
       defaultAreas,
       workers: [],
       withdrawals: [],
-      reason: { code: "agent_unreachable", detail: agent.detail },
-      enumeration: reachable.enumeration,
-      enumerationMessage: reachable.enumerationMessage,
+      reason: { code: agent.code, detail: agent.detail },
     };
 
-  const granted = grantedGroupNames(agent.ctx.session);
-  // The two facts an administrator has to be able to tell apart, read once
-  // while the agent's own session is open: what its account holds, and whether
-  // the deployment carries the copy a worker signs in with.
-  const appPasswords = await countAppPasswords(agent.ctx);
+  const groups = [...grantedGroupNames(agent.ctx.session)]
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => groupRow(name));
   let workers: AgentStatusWorker[] = [];
   let reason: AgentStatusReason | undefined;
   try {
@@ -473,19 +469,12 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
     reason = { code: "workers_unreadable", detail: (err as Error).message };
   }
   return {
-    configured: true,
+    operational: true,
     address,
-    addressSource,
-    hasSecret: agentHasSecret(),
-    appPasswords,
-    groups: reachable.names.map((name) =>
-      groupRow(name, granted.has(name.trim().toLowerCase())),
-    ),
+    groups,
     defaultAreas,
     workers,
     withdrawals: await readWithdrawals(agent.ctx),
-    enumeration: reachable.enumeration,
-    enumerationMessage: reachable.enumerationMessage,
     ...(reason ? { reason } : {}),
   };
 }
@@ -912,211 +901,6 @@ function isPrivateHost(hostname: string): boolean {
   if (a === 192 && b === 168) return true;
   if (a === 169 && b === 254) return true;
   return false;
-}
-
-/* ------------------------------------------------------------------ */
-/* The agent's app password                                            */
-/* ------------------------------------------------------------------ */
-
-/**
- * How many app passwords the agent's account holds, or `null` when the read
- * failed.
- *
- * An account holding no credential and an account whose credential list could
- * not be read are two different facts, and only the first one means "no app
- * password". Reporting a failed read as a zero is how an administrator is sent
- * to mint a credential that is already there.
- */
-async function countAppPasswords(ctx: Ctx): Promise<number | null> {
-  const state = await getState(ctx).catch((err: unknown) => {
-    console.warn(
-      "[gilbert] could not read the agent's app passwords:",
-      (err as Error).message,
-    );
-    return null;
-  });
-  return state ? state.appPasswords.length : null;
-}
-
-/**
- * Write a minted secret into the deployment's own record of its agent, and say
- * whether it landed.
- *
- * The deployment is where a worker reads the secret, and the one copy this
- * product may write is the agents file an operator mounts for it: the
- * environment belongs to a process that has already started and cannot be
- * changed from here. That file is followed as it changes — by a running server
- * (`refreshAgent`) and by a running worker, which signs in as the new identity
- * before it stops the old one — so writing it is what makes naming an agent,
- * and rotating its secret, finish by itself instead of ending in a secret an
- * operator has to carry somewhere by hand.
- *
- * What it will not do is leave a file this installation would refuse to start
- * on: the agent's own entry is written beside the ones already there, every
- * other key is left exactly as it was, an entry that differs only in case is
- * the same entry, and a write that would put a second agent in a file that
- * names one — with nothing to choose between them — is refused rather than
- * performed. A deployment that mounts its file read-only, or mounts none, is
- * unchanged: the secret is shown once, and it says so.
- */
-export function depositAgentSecret(password: string): boolean {
-  const file = process.env.GILBERT_AGENTS_FILE;
-  const address = agentAddress();
-  if (!file || !address) return false;
-  let doc: Record<string, unknown>;
-  try {
-    const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return false;
-    doc = { ...(parsed as Record<string, unknown>) };
-  } catch (err) {
-    console.warn(
-      `[gilbert] could not read the agents file to write the agent's secret into it: ${
-        (err as Error).message
-      }`,
-    );
-    return false;
-  }
-  const named = Object.keys(doc).filter((key) => !key.startsWith("_"));
-  const key = named.find((name) => name.trim().toLowerCase() === address);
-  // An installation runs one agent and this file is where its secret lives: an
-  // entry for some other address is a deployment naming an agent this record no
-  // longer names, and an entry added beside it would leave the file ambiguous.
-  if (named.length && !key) return false;
-  const entry = key ? doc[key] : undefined;
-  const areas =
-    entry && typeof entry === "object" && !Array.isArray(entry)
-      ? (entry as { areas?: unknown }).areas
-      : undefined;
-  doc[key ?? address] = areas === undefined ? { password } : { password, areas };
-  const tmp = `${file}.gilbert-tmp`;
-  try {
-    // The file's own mode, because the worker may read it as another user: a
-    // secret written 0600 over a 0644 file would lock out the process it is for.
-    let mode = 0o600;
-    try {
-      mode = statSync(file).mode & 0o777;
-    } catch {
-      /* a file that cannot be stat'ed is about to fail the write below */
-    }
-    writeFileSync(tmp, `${JSON.stringify(doc, null, 2)}\n`, { mode });
-    renameSync(tmp, file);
-  } catch (err) {
-    try {
-      unlinkSync(tmp);
-    } catch {
-      /* the write failed, so there may be nothing to clean up */
-    }
-    console.warn(
-      `[gilbert] could not write the agent's secret into the agents file (${file}): ${
-        (err as Error).message
-      }`,
-    );
-    return false;
-  }
-  reloadAgent();
-  return true;
-}
-
-/**
- * Make sure the installation can sign in as the address it has just named, and
- * hand back a fresh secret when it had to mint one (ADR 0009).
- *
- * Naming an agent is a two-sided act: the installation records who the agent
- * is, and the worker's deployment carries the secret it signs in with. This is
- * the side the product can do by itself, so a save does it — under
- * impersonation, in the agent's own account — and answers with the secret
- * exactly once, because a credential's secret is never readable again once it
- * has been minted. A secret nobody copied is a secret nobody can recover.
- *
- * A deployment that already signs in with a password for this address is not
- * minted over: rotating the credential of a worker that is signing in fine is
- * how a working fleet is broken from the surface that was supposed to set it
- * up. Only a refused sign-in falls through to a fresh credential, and nothing
- * is revoked either way — credentials already in use keep working, exactly as
- * a rotation leaves them.
- */
-export async function ensureAgentCredential(
-  admin: LiveSession,
-  address: string,
-): Promise<
-  | { created: false }
-  | { created: true; secret: string; deposited: boolean; alsoValid: number | null }
-> {
-  if (agentHasSecret()) {
-    const password = config.agent.password.trim();
-    try {
-      await fetchUpstreamSession(basic(address, password), upstreamFor(address));
-      return { created: false };
-    } catch (err) {
-      if (!(err instanceof UpstreamError)) throw err;
-      // A refused sign-in is the deployment's copy no longer opening this
-      // account: the two sides are out of step, and a fresh credential is the
-      // only thing that can put them back in step. Anything else is the mail
-      // server being unwell, which is not a reason to mint.
-      if (err.status !== 401)
-        throw new AgentAdminError(
-          { code: "agent_unreachable", detail: err.message },
-          502,
-        );
-    }
-  }
-  const imp = await impersonateAs(admin, address);
-  if (!imp.ok)
-    throw new AgentAdminError(
-      { code: imp.status === 404 ? "agent_not_found" : "forbidden", detail: imp.message },
-      imp.status,
-    );
-  const created = await createAppPassword(imp.ctx, {
-    description: `${config.appName} agent worker`,
-  });
-  // The count is of the credentials this save left working, and a re-read that
-  // failed is not a count of zero.
-  const state = await getState(imp.ctx).catch(() => null);
-  return {
-    created: true,
-    secret: created.secret,
-    deposited: depositAgentSecret(created.secret),
-    alsoValid: state ? Math.max(0, state.appPasswords.length - 1) : null,
-  };
-}
-
-/**
- * Mint a new app password for the agent, under impersonation, and hand the
- * secret back exactly once.
- *
- * The existing credential is deliberately left alone: the worker holds it, and
- * a rotation completes at the deployment, which is given the new secret —
- * written into the agents file where a worker reads it, kept as the answer for
- * a deployment that mounts none. Revoking here would stop agent work the moment
- * the button is pressed, which is a different action from rotating the secret
- * underneath it.
- */
-export async function rotateAgentAppPassword(
-  admin: LiveSession,
-): Promise<AgentAppPasswordRotation> {
-  const address = agentAddress();
-  if (!address) throw new AgentAdminError({ code: "agent_not_configured" }, 409);
-  const imp = await impersonateAs(admin, address);
-  if (!imp.ok)
-    throw new AgentAdminError(
-      { code: imp.status === 404 ? "agent_not_found" : "forbidden", detail: imp.message },
-      imp.status,
-    );
-  const created = await createAppPassword(imp.ctx, {
-    description: `${config.appName} agent worker`,
-  });
-  // What this did, said out loud: the secret is new, and the ones already in use
-  // are still valid. An operator who reads "rotate" as "revoke" and relies on
-  // that would leave a leaked credential alive while believing they had closed
-  // it, so the count travels with the answer and the surface says it. A re-read
-  // that failed is not a count of zero: the credentials the rotation left
-  // working are unknown then, and `null` is the only honest number to report.
-  const state = await getState(imp.ctx).catch(() => null);
-  return {
-    secret: created.secret,
-    deposited: depositAgentSecret(created.secret),
-    alsoValid: state ? Math.max(0, state.appPasswords.length - 1) : null,
-  };
 }
 
 /* ------------------------------------------------------------------ */

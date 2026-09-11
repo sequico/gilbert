@@ -15,18 +15,15 @@ export interface PolicyChangeDocument {
 }
 
 /**
- * The agent this installation runs, when the document names one.
+ * What the worker does in each group, when the installation says so.
  *
- * An address, and only an address: the secret stays where secrets are deployed.
- * It sits beside the settings policy because it is the same kind of fact —
- * installation-wide, written by an administrator, applied without a restart —
- * and because the deployment already keeps this document durably.
+ * The agent itself is not here: the deployment names it, in the environment of
+ * whoever starts the server and the worker (`GILBERT_AGENT_ADDRESS` beside
+ * `GILBERT_AGENT_PASSWORD`), so there is one place an address and its password
+ * come from and no durable document to disagree with it.
  */
 export interface PolicyAgent {
-  address: string;
   /**
-   * What the worker does in one group, when the installation says so.
-   *
    * Narrowing only: the areas are intersected with the ones the deployment
    * serves, so a document can never widen what an operator allowed. A group the
    * document does not name is served as the deployment says.
@@ -187,32 +184,21 @@ function parseIdentities(
 }
 
 /**
- * The agent the document names, or the problem with what it says, or null when
- * it names none.
+ * The per-group record the document carries, or the problem with what it says,
+ * or null when it carries none.
  *
- * Absent means the deployment's address is the one in force. A
- * present-but-unusable value is an error at save time, like every other field
- * here: a policy that half-applies is worse than one that is refused.
+ * A record with no groups is nothing: the deployment's own list is in force for
+ * every group, which is the state an installation that has narrowed nothing is
+ * in. A present-but-unusable value is an error at save time, like every other
+ * field here: a policy that half-applies is worse than one that is refused.
  */
 function parseAgent(v: unknown): { agent: PolicyAgent } | { problem: string } | null {
   if (v == null) return null;
-  if (!isRecord(v)) return { problem: '"agent" must be an object with an "address".' };
-  const address = typeof v.address === "string" ? v.address.trim().toLowerCase() : "";
-  if (!address)
-    return {
-      problem:
-        '"agent.address" must be the agent\'s own address, like gilbert@example.com.',
-    };
-  if (!isAddress(address))
-    return { problem: `"agent.address" is not an address: ${address}.` };
+  if (!isRecord(v)) return { problem: '"agent" must be an object of groups.' };
   const groups = parseAgentGroups(v.groups);
   if ("problem" in groups) return { problem: groups.problem };
-  return {
-    agent: {
-      address,
-      ...(Object.keys(groups.groups).length ? { groups: groups.groups } : {}),
-    },
-  };
+  if (!Object.keys(groups.groups).length) return null;
+  return { agent: { groups: groups.groups } };
 }
 
 /**

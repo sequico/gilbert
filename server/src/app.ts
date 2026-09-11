@@ -33,13 +33,12 @@ import {
   policyDocumentText,
 } from "./adminPolicy.js";
 import { AGENT_AREAS, agentRuleJsonSchema } from "./agent/documents.js";
-import type { AgentAddressSaved, AgentGroupAnswer } from "./agent/views.js";
+import type { AgentGroupAnswer } from "./agent/views.js";
 import {
   AgentAdminError,
   addAgentLabels,
   agentStatus,
   emptyGroupDocuments,
-  ensureAgentCredential,
   groupAgentView,
   groupAuditExport,
   impersonateAs,
@@ -49,13 +48,12 @@ import {
   readProviders,
   readRules,
   resolveGroupAccess,
-  rotateAgentAppPassword,
   saveGroupInstruction,
   saveRules,
   writeProviders,
 } from "./agentAdmin.js";
 import { isTrustedProxy, resolveClientIp } from "./clientip.js";
-import { agentAddress, agentHasSecret, config } from "./config.js";
+import { agentAddress, config } from "./config.js";
 import { icsProxyHandler } from "./icsproxy.js";
 import {
   groupIdentity,
@@ -1416,95 +1414,13 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * The installation's agent address (ADR 0009).
-   *
-   * The one installation-wide fact the product itself can own: an address an
-   * administrator names, kept in the policy document beside the settings
-   * policy, so it survives a restart and applies without one — the next request
-   * already acts as that address.
-   *
-   * Naming an address is also where its credential is provisioned, in the same
-   * request. A worker signs in as the agent before it can read anything, so an
-   * installation whose secret has to be handed over by hand is one that sits
-   * half set up with nobody told which half. Nothing is minted behind a
-   * deployment that already signs in, the credential already in the account is
-   * never revoked, and the secret this save mints is answered once and is never
-   * readable again. A credential that could not be provisioned does not fail
-   * the save: the address is recorded and the answer says why, because losing
-   * the address somebody just wrote would hide the reason they wrote it. An
-   * empty address clears it and the deployment's own is in force again.
-   */
-  api.post("/admin/agent/address", requireSession, requireAdmin, async (c) => {
-    const session = c.get("session");
-    const body = await readJson<{ address?: unknown }>(c);
-    const address =
-      typeof body?.address === "string" ? body.address.trim().toLowerCase() : "";
-    const written = await changePolicy((doc) => {
-      if (!address)
-        // No agent at all, so no per-group behaviour either: both halves are one
-        // fact, and groups left behind would be a setting with nothing to apply
-        // to.
-        return { defaults: doc.defaults, enforced: doc.enforced, changes: doc.changes };
-      // Named again keeps what each group was narrowed to: an address change is
-      // not a decision about the groups.
-      const groups = doc.agent?.groups;
-      return {
-        ...doc,
-        agent: { address, ...(groups && Object.keys(groups).length ? { groups } : {}) },
-      };
-    });
-    if (!written.ok)
-      return c.json(
-        {
-          error:
-            written.error === "invalid_policy" ? "invalid_agent_address" : written.error,
-          message: written.message,
-        },
-        written.error === "policy_moved"
-          ? 409
-          : written.error === "invalid_policy"
-            ? 400
-            : 500,
-      );
-    const saved: AgentAddressSaved = {
-      address: agentAddress(),
-      hasSecret: agentHasSecret(),
-    };
-    if (saved.address) {
-      try {
-        const credential = await ensureAgentCredential(session, saved.address);
-        if (credential.created)
-          saved.credential = {
-            created: true,
-            secret: credential.secret,
-            deposited: credential.deposited,
-            alsoValid: credential.alsoValid,
-          };
-      } catch (err) {
-        // Anything that is not this surface's own refusal is still a
-        // provisioning failure the operator has to see, and the address they
-        // wrote stays written either way.
-        saved.credentialError =
-          err instanceof AgentAdminError
-            ? err.reason
-            : { code: "agent_credential_failed", detail: (err as Error).message };
-      }
-    }
-    // Read again, because the mint writes the secret where the worker reads it:
-    // the answer belongs to the record this save has just written, not to the
-    // one that was in force when it started.
-    saved.hasSecret = agentHasSecret();
-    return c.json(saved);
-  });
-
-  /**
    * What the worker does in each group (ADR 0009).
    *
-   * The areas an administrator narrows a group to, written into the same policy
-   * document as the address: the fleet's reach is one durable fact rather than a
-   * deployment's guess, and the worker intersects these with the areas the
-   * deployment serves, so a group set back to nothing is served as the
-   * deployment says. Several groups travel in one request, because an operator
+   * The areas an administrator narrows a group to, written into the policy
+   * document beside the settings policy: a group's reach is a durable fact
+   * rather than a deployment's guess, and the worker intersects these with the
+   * areas the deployment serves, so a group set back to nothing is served as
+   * the deployment says. Several groups travel in one request, because an operator
    * who changes a policy changes it for the groups they mean. The grant is not
    * touched: membership is Stalwart's, and this surface never writes it.
    */
@@ -1513,13 +1429,13 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const input = body?.groups;
     if (!input || typeof input !== "object" || Array.isArray(input))
       return c.json({ error: "bad_request", message: "groups must be an object" }, 400);
-    const address = config.settingsPolicy.agent?.address ?? "";
+    const address = agentAddress();
     if (!address)
       return c.json(
         {
           error: "agent_not_configured",
           message:
-            "No agent's address is named yet, so there is nothing for a group's areas to apply to. Name it in the Agents section first.",
+            "This deployment names no agent, so there is nothing for a group's areas to apply to: set GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD in the environment that starts the server and the worker.",
         },
         409,
       );
@@ -1584,7 +1500,16 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         if (areas.length) groups[name] = { areas };
         else delete groups[name];
       }
-      return { ...doc, agent: { address, groups } };
+      // Every narrowing gone is no record at all, and the deployment's own list
+      // is in force for every group. The one key is removed rather than the
+      // document rebuilt from its other fields, so records this route does not
+      // own — the identity overrides beside it — survive untouched.
+      if (!Object.keys(groups).length) {
+        const next: PolicyDocument = { ...doc };
+        delete next.agent;
+        return next;
+      }
+      return { ...doc, agent: { groups } };
     });
     if (!written.ok)
       return c.json(
@@ -1875,19 +1800,6 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     try {
       await writeProviders(session, body.providers);
       return c.json({ ok: true });
-    } catch (err) {
-      return agentFailure(c, err);
-    }
-  });
-
-  /**
-   * Rotating mints a secret and answers it once, as naming an address does:
-   * those two are the only responses that carry an app password's secret.
-   */
-  api.post("/admin/agent/app-password", requireSession, requireAdmin, async (c) => {
-    const session = c.get("session");
-    try {
-      return c.json(await rotateAgentAppPassword(session));
     } catch (err) {
       return agentFailure(c, err);
     }

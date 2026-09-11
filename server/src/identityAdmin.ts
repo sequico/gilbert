@@ -475,22 +475,24 @@ export async function removePersonIdentity(
 /**
  * The installation's agent, or the honest reason there is none.
  *
- * The same door the agent's own surfaces open: the deployment's app password
- * when there is one, impersonation from the administrator's session otherwise.
+ * The same door the agent's own surfaces open: the credential the deployment
+ * carries when there is one, impersonation from the administrator's session
+ * otherwise. The refusal keeps its own code — a credential no server accepts
+ * and an account that answers nothing are two different things to go and fix.
  */
 async function agentSession(admin: LiveSession): Promise<Ctx> {
   const address = agentAddress();
   if (!address)
     throw new IdentityAdminError(
       "agent_not_configured",
-      "This installation names no agent, so a group's identity cannot be written. Name one in the administration first.",
+      "This deployment names no agent, so a group's identity cannot be written: set GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD in the environment that starts the server and the worker.",
       409,
     );
   const agent = await openAgentSession(admin, address);
   if (!agent.ok)
     throw new IdentityAdminError(
-      "agent_unreachable",
-      `The installation's agent could not be reached: ${agent.detail}`,
+      agent.code,
+      `The installation's agent could not be used: ${agent.detail}`,
       409,
     );
   return agent.ctx;

@@ -34,7 +34,6 @@ process.env.APP_SECRET = "test-secret-for-agent-member";
 process.env.LOGIN_RATE_LIMIT = "10000";
 delete process.env.GILBERT_AGENT_ADDRESS;
 delete process.env.GILBERT_AGENT_PASSWORD;
-delete process.env.GILBERT_AGENTS_FILE;
 
 const DEMO = "demo@example.com";
 const TEAM = "team@example.org";
