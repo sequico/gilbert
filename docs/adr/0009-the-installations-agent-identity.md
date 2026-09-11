@@ -1,8 +1,6 @@
 # ADR 0009 — The installation's agent identity is recorded in the product
 
-## Status
-
-Accepted (2026-09-11).
+Status: Accepted (2026-09-11)
 
 ## Context
 

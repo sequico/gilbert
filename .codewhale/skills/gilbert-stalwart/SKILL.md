@@ -18,10 +18,12 @@ Postgres behind Gilbert, no volume that matters, no server-side files for
 account data.
 
 - **Version floor: Stalwart 0.16.** Sign-in refuses anything older, once, with
-  a clear message (`server/src/app.ts` ~line 359). The codebase documents
-  behaviour against 0.16.19 (live checks dated 2026-08-26/27 in comments).
-  Assume 0.16 semantics; when you bump the server, re-read the dated comments
-  before trusting them.
+  a clear message (`server/src/app.ts` ~line 359). **Read the source at the
+  newest release tag, never at a remembered one**: what the deployment runs is
+  the newest release and `README.md`'s badge names it, while a version in a
+  dated comment below is the version *that check* ran against. Assume 0.16
+  semantics, and when the server moves, re-read the dated comments before
+  trusting them.
 - **The mock server** (`server/src/mock/index.ts`) emulates a 0.16 server
   in memory for `npm run dev:mock` (demo@example.com / demo) and for tests. It
   is deliberately faithful on the behaviours that bit us (see quirks) and
@@ -128,10 +130,21 @@ Where the integration lives:
   blocks and old-version sidebar duplicates — when scraping, look for the
   article body near the end or use the GitHub source instead.
 - Source of truth for details: github.com/stalwartlabs/stalwart (e.g. the
-  impersonation app-password refusal lives in `authentication.rs`).
+  impersonation app-password refusal lives in `authentication.rs`). Read it at
+  the newest release tag, and find that tag by asking rather than remembering:
+
+  ```
+  curl -s https://api.github.com/repos/stalwartlabs/stalwart/tags | grep '"name"' | head -3
+  git clone --depth 1 --branch <newest tag> https://github.com/stalwartlabs/stalwart /tmp/stalwart
+  ```
+
+  A later patch release moves line numbers and can move behaviour, so a claim
+  carried from an older tag is a claim about that tag. `README.md` and
+  `FEATURES.md` name the version the live instance runs: that is the one to
+  read unless the question is specifically about an older one.
 - Community/answers: support.stalw.art forum threads frequently quote exact
   source lines with version context.
-- In-repo ground truth: dated comments ("checked on 0.16.19 (date)") in
+- In-repo ground truth: dated comments ("checked on <version> (<date>)") in
   `web/src/lib`, `web/src/store`, `server/src/mock` are the best record of
   what a real server does; extend them (date + version) when you confirm
   something new rather than trusting memory.
@@ -142,7 +155,7 @@ FileNode is a first-class JMAP data type in Stalwart, not a second-class
 citizen, and its changes ride the same push rail as Email:
 
 - `DataType::FileNode` exists in the enum (value 18, serde name `"FileNode"`,
-  `crates/types/src/type_state.rs`, present at tag v0.16.19). Capability URN
+  `crates/types/src/type_state.rs`, present at the newest release tag). Capability URN
   is **`urn:ietf:params:jmap:filenode`** and must be in the request's
   `using` — omitting it fails with `unknownMethod`.
 - `FileNode/set` returns `oldState`/`newState`; `FileNode/changes` works from
@@ -157,7 +170,7 @@ citizen, and its changes ride the same push rail as Email:
   Live probe on the owner's test instance (claimed 0.16.21, 2026-09-07): create two
   nodes, `FileNode/changes` from the first state reported the second;
   eventsource with `types=FileNode` streamed the StateChange. Source of truth
-  for details at tag v0.16.19 (`crates/jmap/src/push/set.rs`,
+  for details at any release tag (`crates/jmap/src/push/set.rs`,
   `crates/services/src/state_manager/push.rs`, `crates/jmap/src/api/event_source.rs`,
   `tests/src/jmap/files/node.rs`).
 - Member sessions on a **group account** can create and destroy calendars and
