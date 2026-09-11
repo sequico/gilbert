@@ -116,10 +116,10 @@ declare it.
   same pair: the worker opens its session with it, and the admin surface signs
   in as the agent with it, so no screen carries a secret. Absent or incomplete,
   the server runs with no agent and **Admin → Agents** says which state it is in
-  and how to set the pair, while the worker process — which has nothing to serve
-  without them — exits rather than starting half-configured; a password Stalwart
-  refuses is its own state, named as such, with the installation running and the
-  screen saying the fleet is not operational.
+  and how to set the pair, while the worker process starts as well and serves
+  nothing, warning once about what is missing instead of refusing to come up; a
+  password Stalwart refuses is its own state, named as such, with the
+  installation running and the screen saying the fleet is not operational.
 - **What the fleet serves, per group.** The deployment opens the areas the agent
   may work in (mail, files, tasks, calendars, contacts) and the installation can
   narrow that per group — one group, or as many as an administrator selects at
@@ -286,7 +286,7 @@ and mail notifications — the group's chat is the one channel.
 # Administration
 
 Product administration inside Gilbert, for users who are **Stalwart admins**
-— the section itself is Gilbert's own, beyond the upstream client (ADR 0007).
+— the section itself is Gilbert's own, beyond the upstream client (ADR 0001).
 
 - **The grant**: Gilbert admin equals Stalwart admin. At sign-in the server
   reads the account's own `/api/account` permission list and looks for the
@@ -307,7 +307,7 @@ deployment gives it a writable file, and signs the other signed-in
 clients out so their next sign-in applies it (`GET`/`POST
 /api/admin/policy`; ADR 0001 §4, ADR 0004).
 - **Forced password change**: an administrator can require a user to change
-their password (ADR 0005). The directive lives as a file in the target
+their password (ADR 0004). The directive lives as a file in the target
 user's own hidden `gilbert` app folder; the server door answers 403 on
 every data route until the password changes, and the change clears the
 directive itself. The privileged write authenticates as Stalwart's
@@ -315,14 +315,14 @@ composite `{target}%{admin}` (impersonation) — it needs Stalwart's
 `Impersonate` permission and a password session (app passwords are refused
 for impersonation), which the surface states up front.
 - **Group label catalog**: an administrator defines the label catalog of a
-group mailbox (ADR 0006). The catalog lives in the group's own `gilbert`
+group mailbox (ADR 0005). The catalog lives in the group's own `gilbert`
 app folder; **membership is the grant** — a member administrator reads and
 writes it through their own session on the group's account, with no
 impersonation, and a non-member is refused with that reason. Stalwart 0.16
 refuses to mint a session for an impersonated group account
 (live-verified 2026-09-09), so the member path is the only one; the
 surface marks whether you are a member of each group.
-- **Enforce Identities** (ADR 0010), under *Stalwart* in the administration:
+- **Enforce Identities** (ADR 0007), under *Stalwart* in the administration:
   one section, two tabs — **User identities** for a person's, **Group
   identities** for a group's. Each tab picks its principal from a menu that
   lists the accounts the server reports — the empty choice is in it as a real
@@ -332,7 +332,7 @@ surface marks whether you are a member of each group.
   directory from the server — what an administrator reaches for after deleting
   an identity in Stalwart's own administration — leaving an edit in progress
   exactly where it is.
-- **User identities** (ADR 0010 §1): an administrator sets a person's
+- **User identities** (ADR 0007 §1): an administrator sets a person's
   identities — display name, address, Reply-To and signature — from the
   administration, through the **same form** the person's own settings use, so
   an identity means one thing wherever it is written. The write is an
@@ -352,7 +352,7 @@ surface marks whether you are a member of each group.
   **this product's surface**, said that way on the surface:
   Stalwart has no per-field permission on an identity, so a client that speaks
   JMAP directly can still write one.
-- **Group identities** (ADR 0010 §2, §3), the second tab: a group mailbox
+- **Group identities** (ADR 0007 §2, §3), the second tab: a group mailbox
   holds **one** identity —
   a rule of the product, because a group sends as itself — written **as the
   installation's agent**, always: Stalwart refuses to impersonate a group
@@ -362,7 +362,7 @@ surface marks whether you are a member of each group.
 - **What an identity reaches**: mail **composed in Gilbert** — the composer and
   the group's agent go through one signature function. Mail written in another
   client carries that client's own body and signature; there is no server-side
-  footer and none is planned (ADR 0010).
+  footer and none is planned (ADR 0007).
 - **A save button offers only a change it would make.** Every save in the
   administration is dimmed until there is something to apply and enabled from
   the moment there is, measured against what the surface last read back from
@@ -391,7 +391,7 @@ every change that touches a feature and on every upstream merge (repo rule:
 
 A text conversation per group mailbox — the teams you belong to — owned by
 and stored in the group's own account, like its calendars and files (ADR
-0006). Offered from a **launcher in the top bar**, first of the action
+0005). Offered from a **launcher in the top bar**, first of the action
 cluster, only when the session holds group mailboxes.
 
 - **Messages are plain text** — up to 4000 characters — in immutable JSON
@@ -422,7 +422,7 @@ message in the thread.
 bubbles: mine right, others left, quote replies on hover) and a full-screen
 sheet on mobile — not a sixth tab. It is transient by design: it closes when
 a composer is maximised, and its z-order sits below the composer dock.
-- **V1 boundaries** (ADR 0006): no attachments, no typing indicator, no
+- **V1 boundaries** (ADR 0005): no attachments, no typing indicator, no
 presence, no deletion or moderation — growth is append-only; a group that
 wants to retire a chat clears the folders through Files.
 

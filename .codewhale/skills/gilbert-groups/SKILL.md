@@ -1,6 +1,6 @@
 ---
 name: gilbert-groups
-description: The group-ownership law of the Gilbert client — everything a group owns lives in the group's own account, owned by the group from creation, with no shareWith maintenance; how to tell a group mailbox from other shared accounts (mail probe), the product-admin group exclusion, and the per-feature map (tasks, calendars, contacts, files, chat, composer pickers). Load before creating, moving, or showing group-owned data, or before changing a group feature.
+description: The group-ownership law of the Gilbert client — everything a group owns lives in the group's own account, owned by the group from creation, with no shareWith maintenance; how to tell a group mailbox from other shared accounts (mail probe), and the per-feature map (tasks, calendars, contacts, files, chat, composer pickers). Load before creating, moving, or showing group-owned data, or before changing a group feature.
 metadata:
   short-description: Group ownership law & per-feature map
 ---
@@ -25,10 +25,9 @@ group.** Concretely:
    calendar, book) is different: there the reader *adds* it deliberately, and
    cards/names from it must never reach To-field suggestions or "All" views
    until added — never treat a stranger's collection as a group's.
-4. The **product-admin group** (`gilbert-admin` local part on any domain, the
-   ADR 0001 grant) is an administration surface, not a working group: it is
-   excluded from group-creation surfaces and from chat. Its Files are not
-   member-readable through JMAP (`FileNode/query` answers nothing).
+4. There is **no product-admin group** to exclude: a mailbox whose local part
+   is `gilbert-admin` is an ordinary working group, offered like any other.
+   Administration is Stalwart's admin role and nothing else (ADR 0001).
 
 ## How to tell a group mailbox from other shared accounts
 
@@ -39,11 +38,10 @@ answer `Mailbox/get` with a folder tree are `kind: "group"` in
 `useMail((s) => s.mailAccounts)`; accounts that share only calendars/books/
 files answer with none and are not listed. `mailAccounts` is set **once at
 the end** of the probe — code reading it early (boot races) must wait for
-that single transition, and only while it is still empty. Client helper:
-`isAdminGroupAccountName(name)` in `lib/mailAccounts.ts` (local part
-`gilbert-admin`), mirroring the server rule in `server/src/upstream.ts`.
+that single transition, and only while it is still empty. Every probed
+mailbox is a group, whatever its name: there is no name-based exclusion left.
 
-## Per-feature map (state 2026-09-07)
+## Per-feature map (state 2026-09-11)
 
 - **Task lists**: the pattern-setter. A group list is a `tasklist`-marked
   calendar created with `accountId` = the group account
@@ -53,8 +51,7 @@ that single transition, and only while it is still empty. Client helper:
   omit for your own, pass the group account id to create one the group owns
   (subscribed from the start). `CalendarSidebar` renders one section per
   group mailbox with "New calendar in {group}"; non-group shared calendars
-  stay in the read-only *Shared with me / Available to add* area. The admin
-  group gets no section.
+  stay in the read-only *Shared with me / Available to add* area.
 - **Address books**: same shape — `store/contacts.ts`
   `createBook(name, accountId?)`; `ContactsSidebar` sections per group.
 - **Files**: ownership follows the browsed context (`store/files.ts`
@@ -67,18 +64,17 @@ that single transition, and only while it is still empty. Client helper:
   each member adding the book** — membership is the subscription
   (`store/contacts.ts` `loadShared`, which also loads for group accounts).
   Cards load by page up to 5 000 per account; `loadShared` is single-flight.
-- **Chat (ADR 0006, not yet implemented)**: message JSON documents in the
-  group account's `gilbert` app folder (`chat`/`chat-state`), pushed by
-  FileNode state changes.
+- **Chat (ADR 0005)**: one JSON node per message in `gilbert/chat` and one
+  read marker per member in `gilbert/chat-state`, both in the group account,
+  pushed by FileNode state changes (`lib/chat.ts`, `store/chat.ts`).
 
 ## Working rules
 
 1. Before adding or moving group data, decide which group account owns it and
    pass that `accountId` explicitly; never create in the reader's own account
    and share to the group principal.
-2. Keep the classifier consistent: probed `mailAccounts` (kind "group") for
-   what is a group; `isAdminGroupAccountName` for what is not offered group
-   creation. Do not invent per-feature heuristics.
+2. Keep the classifier consistent: the probed `mailAccounts` (`kind: "group"`)
+   is the one answer to what is a group. Do not invent per-feature heuristics.
 3. Group features must work for a member added later and for a member on
    multiple devices; verify against a live server or a dated comment, keep
    `server/src/mock` in step, and update FEATURES.md when a group surface

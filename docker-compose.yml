@@ -32,10 +32,10 @@ services:
   #
   # The pair is read from the environment and is not required to bring the stack
   # up: the server service above starts without it, and Admin > Agents names the
-  # state (`agent_not_configured`) beside how to set the two. The worker is the
-  # one process that stops -- with nothing to serve it exits naming both
-  # variables rather than starting half-configured, so leaving the profile out
-  # is how a deployment runs with no agent at all.
+  # state (`agent_not_configured`) beside how to set the two. The worker starts
+  # too and serves nothing -- it warns once about the missing pair and keeps its
+  # health endpoint up -- so leaving the profile out is how a deployment runs
+  # with no agent at all.
   gilbert-agent:
     profiles: ["agent"]
     build:
