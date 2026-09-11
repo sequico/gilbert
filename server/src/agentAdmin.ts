@@ -66,7 +66,7 @@ import type {
 import { GROUP_NOT_ACCESSIBLE, WITHDRAWALS_PATH } from "./agent/views.js";
 import { type Ctx, filesAccountId, readAppJsonAt } from "./appFolder.js";
 import { agentAddress, config } from "./config.js";
-import { JmapClient, JmapError } from "./jmap.js";
+import { isStateMismatch, JmapClient } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
 import {
   AGENT_LABELS,
@@ -646,7 +646,6 @@ export async function saveRules(
   const store = new AgentStore(access.ctx, accountId);
   for (let attempt = 0; ; attempt++) {
     const found = await store.readRules();
-    const state = found?.state ?? (await store.state());
     const existing = new Map((found?.doc ?? []).map((r) => [r.id, r]));
     const at = new Date().toISOString();
     const next = checked.map((rule) => {
@@ -661,13 +660,15 @@ export async function saveRules(
       return { ...rule, version, updatedAt: at, updatedBy: access.ctx.username };
     });
     try {
-      await store.writeRules(next, { ifInState: state });
+      // A token only when there is a document to compare against: a first save
+      // has none, and the folder tree it creates moves the account state the
+      // token would have been read at.
+      await store.writeRules(next, found ? { ifInState: found.state } : {});
       return next;
     } catch (err) {
-      const lost = err instanceof JmapError && err.type === "stateMismatch";
-      // Someone else wrote the group's rules between the read and the write:
-      // read again and re-apply this save on top of what landed, once.
-      if (!lost || attempt > 0) throw err;
+      // Someone else wrote the account between the read and the write: read
+      // again and re-apply this save on top of what landed, once.
+      if (!isStateMismatch(err) || attempt > 0) throw err;
     }
   }
 }
@@ -772,6 +773,11 @@ function providerViews(
  * document is the agent's own (`agent/config.json` in the agent account's app
  * folder) and is created on the first write, stamped with the address it was
  * registered under and who registered it.
+ *
+ * A lost compare-and-set is retried once, because the token is the account's
+ * whole FileNode state (ADR 0003 §6) and this is the account the worker writes
+ * its heartbeat and its audit in: the agent's own bookkeeping invalidates a
+ * save that overlaps it, for no reason to do with this document.
  */
 export async function writeProviders(admin: LiveSession, input: unknown): Promise<void> {
   const { store, address } = await agentStore(admin);
@@ -783,26 +789,36 @@ export async function writeProviders(admin: LiveSession, input: unknown): Promis
       throw new AgentAdminError({ code: "unknown_tier", key }, 400);
   }
 
-  const found = await store.readConfig();
-  const state = found?.state ?? (await store.state());
-  const existing = found?.doc;
-  const providers: AgentConfigDoc["providers"] = { ...(existing?.providers ?? {}) };
-  for (const tier of TIERS) {
-    if (!(tier in given)) continue;
-    const entry = tierProvider(given[tier], tier, existing?.providers?.[tier]);
-    if (entry) providers[tier] = entry;
-    else delete providers[tier];
+  for (let attempt = 0; ; attempt++) {
+    const found = await store.readConfig();
+    const existing = found?.doc;
+    const providers: AgentConfigDoc["providers"] = { ...(existing?.providers ?? {}) };
+    for (const tier of TIERS) {
+      if (!(tier in given)) continue;
+      const entry = tierProvider(given[tier], tier, existing?.providers?.[tier]);
+      if (entry) providers[tier] = entry;
+      else delete providers[tier];
+    }
+    const doc: AgentConfigDoc = existing
+      ? { ...existing, providers }
+      : {
+          v: 1,
+          address,
+          registeredAt: new Date().toISOString(),
+          registeredBy: admin.username,
+          providers,
+        };
+    try {
+      // A token only when there is a document to compare against: the first
+      // save has none, and the folder tree it creates moves the account state
+      // the token would have been read at, which the server then refuses as a
+      // lost race.
+      await store.writeConfig(doc, found ? { ifInState: found.state } : {});
+      return;
+    } catch (err) {
+      if (!isStateMismatch(err) || attempt > 0) throw err;
+    }
   }
-  const doc: AgentConfigDoc = existing
-    ? { ...existing, providers }
-    : {
-        v: 1,
-        address,
-        registeredAt: new Date().toISOString(),
-        registeredBy: admin.username,
-        providers,
-      };
-  await store.writeConfig(doc, { ifInState: state });
 }
 
 /** One tier as the editor sends it; null when the tier is being cleared. */

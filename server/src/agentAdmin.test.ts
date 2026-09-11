@@ -38,11 +38,14 @@ delete process.env.GILBERT_AGENT_PASSWORD;
 const DEMO = "demo@example.com";
 const TEAM = "team@example.org";
 const LEGAL = "legal@example.org";
+const BASE = `http://127.0.0.1:${PORT}`;
 
 const mock = await import("./mock/index.js");
 const { config } = await import("./config.js");
 const { AGENT_INSTRUCTION_MAX, AGENT_TIERS } = await import("./agent/documents.js");
 const { createApp } = await import("./app.js");
+const { fetchUpstreamSession } = await import("./upstream.js");
+const { filesAccountId, writeAppFile } = await import("./appFolder.js");
 
 const app = createApp();
 let cookie = "";
@@ -158,6 +161,115 @@ before(async () => {
 
 after(() => {
   (mock as { server?: { close(): void } }).server?.close();
+});
+
+/**
+ * The two halves of one defect: an administrative write into the agent's own
+ * account carries a compare-and-set token, and that token is the account's
+ * **whole** FileNode state, not the document's (ADR 0003 §6).
+ *
+ * It is therefore stale for two reasons that have nothing to do with the
+ * document being written. The first save creates the folder tree, and creating
+ * a folder moves the state — so the first save of all loses its own
+ * compare-and-set. And the agent's own worker writes its heartbeat and its
+ * audit in that same account every 30 s, so on a running installation the state
+ * moves from under a save that happens to overlap. Either way the administrator
+ * is shown Stalwart's raw refusal — `stateMismatch`, "An ifInState argument was
+ * supplied, but it does not match the current state" — instead of a saved
+ * provider.
+ *
+ * These are the file's first tests because the account has to be untouched for
+ * the first of them to exercise the create path.
+ */
+
+test("the first save of a tier creates the folders and the document in one go", async () => {
+  configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
+  const saved = await call("/api/admin/agent/providers", {
+    method: "POST",
+    body: JSON.stringify({
+      providers: {
+        T1: {
+          provider: "openai",
+          model: "gpt-mini",
+          baseUrl: "https://api.example.com/v1",
+          apiKey: "sk-test",
+        },
+      },
+    }),
+  });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+
+  const read = await call("/api/admin/agent/providers");
+  assert.equal(read.status, 200);
+  const providers = (
+    read.body as { providers: Record<string, { model?: string; hasKey?: boolean }> }
+  ).providers;
+  assert.equal(providers.T1?.model, "gpt-mini");
+  assert.equal(providers.T1?.hasKey, true, "the key was stored, and is not handed back");
+});
+
+test("a save that loses the account-wide compare-and-set is retried, not shown", async () => {
+  configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
+
+  const agentAuth = `Basic ${Buffer.from(
+    `${mock.AGENT_ADDRESS}:${mock.AGENT_PASS}`,
+  ).toString("base64")}`;
+  const agentCtx = {
+    authorization: agentAuth,
+    session: await fetchUpstreamSession(agentAuth, BASE),
+    username: mock.AGENT_ADDRESS,
+  };
+  const agentAccount = filesAccountId(agentCtx);
+
+  /*
+   * A foreign write into the same account, landed between the read of the state
+   * and the conditional write: exactly what the worker's heartbeat does to a
+   * running installation. It is injected once, so the retry the fix owes has a
+   * clear account to write into.
+   */
+  let injected = false;
+  const real = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const body = typeof init?.body === "string" ? init.body : "";
+    if (!injected && body.includes("FileNode/query")) {
+      injected = true;
+      const res = await real(input, init);
+      await writeAppFile(agentCtx, agentAccount, "probe.json", { v: 1 });
+      return res;
+    }
+    return real(input, init);
+  }) as typeof fetch;
+
+  let saved: Awaited<ReturnType<typeof call>>;
+  try {
+    saved = await call("/api/admin/agent/providers", {
+      method: "POST",
+      body: JSON.stringify({
+        providers: {
+          T2: {
+            provider: "anthropic",
+            model: "claude-small",
+            baseUrl: "https://api.anthropic.com/v1",
+            apiKey: "sk-ant-test",
+          },
+        },
+      }),
+    });
+  } finally {
+    globalThis.fetch = real;
+  }
+  assert.ok(injected, "the foreign write landed after the state was read");
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+
+  const read = await call("/api/admin/agent/providers");
+  const providers = (read.body as { providers: Record<string, { model?: string }> })
+    .providers;
+  assert.equal(providers.T2?.model, "claude-small", "the tier this save named landed");
+  assert.equal(
+    providers.T1?.model,
+    "gpt-mini",
+    "and the tier it did not name is the one the re-read found",
+  );
 });
 
 test("an installation with no agent says so plainly, and never 500s", async () => {
