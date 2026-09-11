@@ -19,7 +19,8 @@ Two facts constrain the answer.
   address is the whole of what it needs to know.
 - **The worker needs one.** It signs in as the agent before it can read anything
   durable, so an address it is told and a secret it holds are the bootstrap, and
-  no document can carry them to a process that cannot yet authenticate.
+  no document can carry them to a process that cannot yet authenticate: a file
+  the deployment mounts is the one copy the installation can put there itself.
 
 ## Decision
 
@@ -33,8 +34,15 @@ The effective address is `agent.address` when the document names one, and
 `GILBERT_AGENT_ADDRESS` when it does not: one definition, `agentAddress()`. The
 secret is not something an administrator has to hold: naming an address
 provisions the credential a worker signs in with (`ensureAgentCredential`),
-under impersonation, and that save answers the secret once, because the
-deployment is where a worker reads it. A deployment whose own credential
+under impersonation, and writes it where the worker reads it
+(`depositAgentSecret`) — the agents file the deployment points at with
+`GILBERT_AGENTS_FILE`, under the agent's own address. Both the server and the
+worker follow that file as it changes, so a running worker signs in as the new
+identity before it stops the old one: the address and the secret reach the
+deployment with no restart and no operator carrying anything. A deployment that
+mounts no writable agents file is the one that keeps the secret answered once,
+which the save says. Rotating the secret deposits it the same way
+(`rotateAgentAppPassword`). A deployment whose own credential
 already signs in as the address is left alone — the save probes the sign-in
 it would need, so nothing is minted behind a working worker. The surface states
 both facts: `AgentStatus` carries `addressSource` (policy, deployment, or none),

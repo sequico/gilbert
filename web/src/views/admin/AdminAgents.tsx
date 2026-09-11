@@ -247,7 +247,7 @@ function Registration({ status }: { status: AgentStatus | null }) {
           </p>
           <p className="hint">
             {t(
-              "Gilbert acts as this address by impersonating it from your own administrator session, so naming it asks you for no password. The worker that signs in as it does need one: saving an address the deployment holds no app password for mints one here and now and shows it to you once, to put where the worker reads it. Save the address unchanged to mint one.",
+              "Gilbert acts as this address by impersonating it from your own administrator session, so naming it asks you for no password. The worker that signs in as it does need one, and saving an address the deployment holds none for mints it and writes it where the worker reads it — the agents file the deployment mounts — so a worker already running picks it up by itself. A deployment that mounts no writable agents file is the one that shows the secret here once, to put where the worker reads it. Save the address unchanged to mint one.",
             )}
           </p>
           <div className="agent-verifier-row">
@@ -261,7 +261,7 @@ function Registration({ status }: { status: AgentStatus | null }) {
           {status.address && !status.hasSecret && (
             <div className="warn-box" style={{ marginTop: 12 }}>
               {t(
-                "No app password for this address is deployed, so no worker can sign in as it: automations will not run until one is. Saving this address mints one and shows it here once.",
+                "No app password for this address is deployed, so no worker can sign in as it: automations will not run until one is. Saving this address mints one and writes it where the worker reads it, when the deployment mounts an agents file it can write.",
               )}
             </div>
           )}

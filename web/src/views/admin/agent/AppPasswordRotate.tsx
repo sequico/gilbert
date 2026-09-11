@@ -5,8 +5,11 @@
  * the environment, or in an agents file the installation re-reads as it changes
  * — the worker authenticates as the agent with it, and nothing
  * else is needed — no impersonation at boot, no operator credential. Rotating
- * it therefore lands on the deployment as well, so the copy says so instead of
- * letting an admin believe the product alone is done with it.
+ * it therefore lands on the deployment as well: the new secret is written into
+ * that file, where a running worker picks it up, and only a deployment that
+ * mounts no writable file is left for the operator to carry it to. The copy
+ * says which of the two happened instead of letting an admin believe the
+ * product alone is done with it.
  *
  * The secret comes back once. It is held in this component's own state, shown
  * in a box that can be copied, and never asked for again.
@@ -39,7 +42,7 @@ export function AppPasswordRotate() {
     const ok = await confirmDialog({
       title: t("Rotate the agent's app password?"),
       message: t(
-        "The worker signs in with this password and nothing else. The new secret works from now on, the app passwords already in use keep working — revoking them would cut off what an agent is doing — and the deployment has to be given the new secret: the environment at its next restart, an agents file as it changes.",
+        "The worker signs in with this password and nothing else. The new secret works from now on, the app passwords already in use keep working — revoking them would cut off what an agent is doing — and it is written where the worker reads it, so a worker already running signs in with it by itself. Only a deployment that mounts no agents file the installation can write is left for you to carry it to.",
       ),
       confirmLabel: t("Rotate"),
       danger: true,
@@ -65,7 +68,7 @@ export function AppPasswordRotate() {
       <h2>{t("App password")}</h2>
       <p className="lead">
         {t(
-          "The deployment holds this secret as the agent's own, not a person's, so an operator leaving cannot strand the agent. Rotating it here is half the job: the deployment has to be given the new secret — the environment at its next restart, an agents file as it changes.",
+          "The deployment holds this secret as the agent's own, not a person's, so an operator leaving cannot strand the agent. Rotating it writes the new secret where the worker reads it — the agents file the deployment mounts — so a worker already running signs in with it by itself; a deployment that mounts no writable file is the one that has to be given it.",
         )}
       </p>
       <button className="btn" disabled={busy} onClick={() => void rotate()}>

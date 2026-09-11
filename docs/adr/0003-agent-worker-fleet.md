@@ -103,13 +103,16 @@ record keeps its full shape as the evolution path.
   grants (Consequences), and an operator leaving cannot strand the agent.
   Nothing needs a writable filesystem, so `IMMUTABLE=1` holds: the session
   stays in memory and is re-established at every boot. The environment (or a
-  read-only mounted `GILBERT_AGENTS_FILE`, the `STALWART_SERVERS_FILE`
-  shape) is the only place a pre-session credential can live — a
+  mounted `GILBERT_AGENTS_FILE`, the `STALWART_SERVERS_FILE`
+  shape) is where a pre-session credential lives — a
   runtime-written `.env` is impossible on a read-only root and pointless on
   a disposable container, because `.env` is read at boot and the container
-  is replaced from the image. Rotating the secret therefore means updating
-  the deployment: a mounted `GILBERT_AGENTS_FILE` is re-read as it changes and
-  the running fleet follows the agent it names, while the environment is read
+  is replaced from the image. Rotating the secret therefore lands on the
+  deployment: a mounted `GILBERT_AGENTS_FILE` is re-read as it changes and
+  the running fleet follows the agent it names, and a mount the product is
+  allowed to write is one the admin surface writes the minted or rotated
+  secret into (`depositAgentSecret`), so what the fleet follows is what the
+  save just wrote. The environment is read
   at boot, so a value that lives there still costs a restart; an installation
   that would rather never touch it keeps the recorded alternative — an
   operator credential holding `Impersonate`, from which the agent's app

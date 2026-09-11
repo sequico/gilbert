@@ -154,8 +154,11 @@ at boot, and nothing durable is kept on the worker's disk: the session is
 re-established at every start, so the container stays disposable and
 `IMMUTABLE=1` holds. The admin surface mints the app password through JMAP
 under impersonation when an administrator names an address, and rotates it
-through the same door, showing the new secret once — because the deployment is
-where a worker reads it. Naming an address the deployment already holds a
+through the same door, writing the new secret where the worker reads it — the
+mounted `GILBERT_AGENTS_FILE`, followed as it changes by both the server and
+the running worker — so the change lands by itself; only a deployment that
+mounts no writable file is shown the secret once, and the surface says which of
+the two happened. Naming an address the deployment already holds a
 working credential for mints nothing: the save probes that sign-in first.
 Rotation deliberately does not revoke the credential already in use — that
 would stop the agent’s work on the spot — and the API answers with how many
