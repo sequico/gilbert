@@ -17,23 +17,12 @@ import test from "node:test";
 
 delete process.env.GILBERT_AGENT_ADDRESS;
 delete process.env.GILBERT_AGENT_PASSWORD;
-delete process.env.GILBERT_AGENT_AREAS;
 
 // Imported after the environment is cleared, and deliberately not hoisted.
-const { config, agentAddress, agentGroupAreas } = await import("./config.js");
-const { AGENT_AREAS } = await import("./agent/documents.js");
+const { config, agentAddress } = await import("./config.js");
 
 test("an installation with no agent in its environment still loads", () => {
   assert.equal(config.agent.address, "");
   assert.equal(config.agent.password, "");
   assert.equal(agentAddress(), "");
-  assert.deepEqual(
-    config.agent.areas,
-    [...AGENT_AREAS],
-    "with nothing said about areas, the deployment serves all of them",
-  );
-});
-
-test("and no group is narrowed, because there is no agent to work in one", () => {
-  assert.equal(agentGroupAreas("team@example.org"), null);
 });

@@ -16,6 +16,11 @@
  * principal's own, or one the agent is granted on. Nothing here reads or writes
  * Stalwart's configuration.
  *
+ * The **default** sending identity is not Stalwart's at all: it is one key of
+ * the client's own settings document, and it is read and written there, in the
+ * account's app folder, so the value an administrator sets is the value the
+ * account's own Identities & signatures section shows and sends from.
+ *
  * The lock (ADR 0007 §4) is the installation's record, not Stalwart's: it says
  * which accounts have had their identity taken over, and the product offers
  * those accounts no edit at all. It is a rule about this surface — an account
@@ -25,7 +30,13 @@
 
 import { isAddress, type PolicyDocument } from "./adminPolicy.js";
 import { impersonateAs, openAgentSession } from "./agentAdmin.js";
-import { type Ctx, findAppFileAt, writeAppBytesAt } from "./appFolder.js";
+import {
+  type Ctx,
+  findAppFileAt,
+  readAppJsonAt,
+  writeAppBytesAt,
+  writeAppFile,
+} from "./appFolder.js";
 import { agentAddress, config } from "./config.js";
 import { JMAP_SUBMISSION, JmapClient } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
@@ -374,11 +385,71 @@ function asIdentityError(err: unknown, tail: string): IdentityAdminError {
 /* ------------------------------------------------------------------ */
 
 /** A person's identities, and whether the installation has taken them over. */
+/** The document the client keeps its settings in, inside the app folder. */
+const SETTINGS_FILE = "settings.json";
+
+/** The settings key that names the identity an account sends from by default. */
+const DEFAULT_IDENTITY_KEY = "defaultIdentityByAccount";
+
+/**
+ * The identity an account sends from by default, or null.
+ *
+ * Not a Stalwart property: it is one key of the client's settings document,
+ * `settings.json` in that account's app folder, keyed by account id. Missing,
+ * unreadable, malformed and absent-key all read as null, which is the same
+ * state the client itself falls back from to its first identity — so the two
+ * surfaces never disagree about what "no default" looks like.
+ */
+export async function readDefaultIdentity(
+  ctx: Ctx,
+  accountId: string,
+): Promise<string | null> {
+  const doc = await readAppJsonAt(ctx, accountId, SETTINGS_FILE);
+  if (!doc || typeof doc !== "object" || Array.isArray(doc)) return null;
+  const map = (doc as Record<string, unknown>)[DEFAULT_IDENTITY_KEY];
+  if (!map || typeof map !== "object" || Array.isArray(map)) return null;
+  const value = (map as Record<string, unknown>)[accountId];
+  return typeof value === "string" && value ? value : null;
+}
+
+/**
+ * Set the identity an account sends from by default, or clear it with null.
+ *
+ * Read-modify-write of the client's own document. The key belongs to that
+ * client's schema, so a client save re-serialises it rather than dropping it;
+ * what can lose it is only a client save landing between this read and this
+ * write. `null` deletes the entry, which is the same state as never having
+ * chosen, rather than leaving an entry that points at nothing.
+ */
+export async function writeDefaultIdentity(
+  ctx: Ctx,
+  accountId: string,
+  identityId: string | null,
+): Promise<void> {
+  const raw = await readAppJsonAt(ctx, accountId, SETTINGS_FILE);
+  const doc =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? { ...(raw as Record<string, unknown>) }
+      : {};
+  const current = doc[DEFAULT_IDENTITY_KEY];
+  const map =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? { ...(current as Record<string, unknown>) }
+      : {};
+  if (identityId) map[accountId] = identityId;
+  else delete map[accountId];
+  doc[DEFAULT_IDENTITY_KEY] = map;
+  await writeAppFile(ctx, accountId, SETTINGS_FILE, doc);
+}
+
 export interface PersonIdentitiesView {
   address: string;
   locked: boolean;
   impersonation: "ok" | "denied" | "unknown";
   identities: AdminIdentity[];
+  /** The identity that account sends from by default, or null when it has not
+   * chosen one and the client falls back to its first. */
+  defaultIdentityId: string | null;
 }
 
 /**
@@ -401,6 +472,7 @@ export async function personIdentities(
         locked: identityLocked(target),
         impersonation: "denied",
         identities: [],
+        defaultIdentityId: null,
       };
     throw new IdentityAdminError(
       imp.status === 404 ? "account_not_found" : "account_unreachable",
@@ -420,7 +492,40 @@ export async function personIdentities(
     locked: identityLocked(target),
     impersonation: "ok",
     identities: await readIdentities(imp.ctx, accountId),
+    defaultIdentityId: await readDefaultIdentity(imp.ctx, accountId),
   };
+}
+
+/**
+ * Set the identity a person sends from by default, or clear it with null.
+ *
+ * The default is not a Stalwart identity property: it is one key of the
+ * client's own settings document in that account's app folder, so this is
+ * written as the person, into the document their own Identities & signatures
+ * section reads. One stored value, not two that can disagree.
+ */
+export async function setPersonDefaultIdentity(
+  admin: LiveSession,
+  address: string,
+  identityId: string | null,
+): Promise<string | null> {
+  const target = identityAddress(address);
+  const imp = await impersonateAs(admin, target);
+  if (!imp.ok)
+    throw new IdentityAdminError(
+      imp.status === 403 ? "impersonation_denied" : "account_unreachable",
+      imp.message,
+      imp.status,
+    );
+  const accountId = ownIdentityAccount(imp.ctx);
+  if (!accountId)
+    throw new IdentityAdminError(
+      "no_identity_account",
+      `${target} holds no account this session can read identities from.`,
+      409,
+    );
+  await writeDefaultIdentity(imp.ctx, accountId, identityId);
+  return identityId;
 }
 
 /** Write one of a person's identities, as them. */

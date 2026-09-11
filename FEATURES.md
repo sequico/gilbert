@@ -120,22 +120,17 @@ declare it.
   nothing, warning once about what is missing instead of refusing to come up; a
   password Stalwart refuses is its own state, named as such, with the
   installation running and the screen saying the fleet is not operational.
-- **What the fleet serves, per group.** The deployment opens the areas the agent
-  may work in (mail, files, tasks, calendars, contacts) and the installation can
-  narrow that per group — one group, or as many as an administrator selects at
-  once, from the Group workers section beside Agents. Narrowing is the whole of
-  the permission: the worker intersects the record with what the deployment
-  serves, so a product decision can never open a door an operator closed, and a
-group set back to nothing is served exactly as the deployment says. The grant
-itself stays Stalwart's: the surface reads the agent's membership from the
-agent's own session and shows it, rather than writing one or asking anyone to
-declare it.
+- **What the fleet serves, per group.** The accounts Stalwart lists the agent as
+  a member of, and nothing else: a group is served when it holds the agent, so
+  the grant is Stalwart's and there is no second record to keep. The surface
+  reads the agent's membership from the agent's own session and shows it, rather
+  than writing one or asking anyone to declare it.
 - **A withdrawn grant is reported, and the group stops being served.** The
 worker re-reads its session at most once per poll interval — a minute, a third
 of a lease, so no new setting arrives with it — and an account it was serving
 that the session no longer lists *is* a withdrawal, because the session is the
 whole of a grant. From that pass on the group is not served, and the worker
-writes the loss once into its **own** account: the group's name, the areas it
+writes the loss once into its **own** account: the group's name, the account it
 was holding, and when it noticed, shown on the admin surface beside the fleet
 rather than in a log nobody tails. The report says what the worker was
 holding; what a withdrawal left unfinished stays in the group's own audit,
@@ -161,8 +156,8 @@ keeps no second copy of the pair. Rotating it is the operator's act in Stalwart,
 and it lands on the deployment: the variables are read at boot, so a restart is
 what carries the new value.
 - **Nothing is watched at runtime; a change lands on the deployment.** The
-address, the password and the areas the deployment serves are read once, at
-boot, so changing any of them means restarting the processes. Membership is the
+address and the password are read once, at boot, so changing either means
+restarting the processes. Membership is the
 one thing re-read while the worker runs — at most once per poll interval — so a
 group Stalwart no longer lists the agent for stops being served within it
 (below).
@@ -179,7 +174,7 @@ boundary.
   stored as a UTC instant in the group’s own scheduler document, so a restart, a
   deploy or a crashed container costs the wait and not the schedule — a
   replacement worker re-plans from Stalwart and re-arms. Each worker fires the
-  entries whose area it holds, so two workers on one group never fire each
+  entries of the accounts it holds, so two workers never fire each
   other’s runs, and the runs that vanish — the rule off, the rule gone — are
   recorded as missed runs rather than disappearing from the trail.
 - **Three tiers.** T0 is deterministic and calls no model; T1 asks a small
@@ -231,8 +226,8 @@ a second entrypoint (`npm run agent`), never a replica of the web tier. It
 holds the agent's event stream, wakes on it, and reconciles from the last
 state it recorded; polling is the fallback after a lost stream. Work claims
 live in the documents themselves, so no coordinator exists and none is needed:
-one process per area, several areas per agent, and a crashed worker's claims
-are re-taken by whoever is running, together with the work it left mid-run; a
+one process per account, several accounts per agent, and a crashed worker's
+claims are re-taken by whoever is running, together with the work it left mid-run; a
 run nobody comes back for is recorded as a timeout rather than as a failure,
 because nothing reported one — the process that would have is gone. It answers
 a health probe when the deployment
@@ -249,12 +244,18 @@ behind the AI indicator answers with the group's own documents, read through the
 member's own session on that group — the same one the chat uses — so it is open
 to every member and not only to an administrator: the group's standing
 instruction as text (who last wrote it, and when), and each automation as a
-short block — name, area and tier, what wakes it, how it is reviewed, whether it
+short block — name and tier, what wakes it, how it is reviewed, whether it
 is on, and what it then does, in words rather than as a JSON dump. A group with
 no instruction says so instead of showing a blank, and one sentence in the panel
 states that only an administrator of the group changes either. Members read the
 automations without their capability allowlist and without the authorship
 stamps; nothing on that path writes.
+- **The agent says hello once.** A group the agent has been granted but has
+never spoken in hears from it: a chat message — "Hi all! Gilbert here, at your
+service." — posted when a worker takes the group's claim. The greeting is
+itself proof that an agent works in the group, readable through a member's own
+session where the operator's grant list is not, so the panel stops reporting an
+agentless group the moment the agent arrives.
 - **Where the documents live.** Rules, jobs, decisions, claims, the schedule
 and the audit trail are documents in the group's own `gilbert` app folder —
 what members may read. The agent's own account holds its configuration, the

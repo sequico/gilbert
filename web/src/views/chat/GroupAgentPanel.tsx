@@ -25,7 +25,6 @@ import { t } from "@/lib/i18n";
 import { agentViewKey, memberOperation, useAgents } from "@/store/agents";
 import {
   actionText,
-  areaText,
   jobStateText,
   outcomeText,
   reviewText,
@@ -195,9 +194,7 @@ function RuleFacts({ rule }: { rule: MemberAgentRule }) {
         <b>{rule.name || t("Untitled automation")}</b>
         {!rule.enabled && <span className="agent-state off">{t("Disabled")}</span>}
       </div>
-      <p className="hint">
-        {areaText(rule.area)} · {tierText(rule.tier)}
-      </p>
+      <p className="hint">{tierText(rule.tier)}</p>
       <p className="hint">{triggerText(rule.trigger)}</p>
       <p className="hint">{reviewText(rule.review)}</p>
       {rule.tier === "T2" && rule.instruction && (

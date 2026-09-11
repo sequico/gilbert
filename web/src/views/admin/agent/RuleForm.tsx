@@ -4,13 +4,12 @@
  * JSON. One rule document in, one out; the caller owns saving.
  *
  * Every option and every parameter comes from the canonical catalogue
- * (`AGENT_ACTION_SPECS`, `AGENT_AREAS`, `AGENT_TIERS`, `AGENT_TRIGGERS` in
+ * (`AGENT_ACTION_SPECS`, `AGENT_TIERS`, `AGENT_TRIGGERS` in
  * `@gilbert/agent/documents`), so the editor cannot offer a capability the
  * executor does not have, nor invent a field the document validator refuses.
  */
 import {
   AGENT_ACTION_SPECS,
-  AGENT_AREAS,
   AGENT_TIERS,
   AGENT_TRIGGERS,
   type AgentAction,
@@ -23,14 +22,12 @@ import {
   type AgentTier,
   type AgentTrigger,
   agentActionSpec,
-  isAgentArea,
   isAgentTier,
   isAgentTriggerOn,
 } from "@gilbert/agent/documents";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { t } from "@/lib/i18n";
 import {
-  AGENT_AREA_LABELS,
   AGENT_REVIEW_LABELS,
   AGENT_TIER_LABELS,
   AGENT_TRIGGER_LABELS,
@@ -267,24 +264,6 @@ export function RuleForm({
         />
         <span>{t("Enabled — the worker reacts to this automation")}</span>
       </label>
-
-      <div className="field">
-        <label htmlFor="agent-rule-area">{t("Area")}</label>
-        <select
-          id="agent-rule-area"
-          className="select"
-          value={rule.area}
-          onChange={(e) => {
-            if (isAgentArea(e.target.value)) set({ area: e.target.value });
-          }}
-        >
-          {AGENT_AREAS.map((a) => (
-            <option key={a} value={a}>
-              {t(AGENT_AREA_LABELS[a])}
-            </option>
-          ))}
-        </select>
-      </div>
 
       <h3>{t("When")}</h3>
       <div className="field">

@@ -96,7 +96,6 @@ describe("ruleActions", () => {
     version: 1,
     name: "Invoices",
     enabled: true,
-    area: "mail",
     trigger: { on: "email" },
     review: { mode: "never" },
   };
@@ -137,7 +136,6 @@ describe("a partial or unfamiliar document", () => {
       version: 1,
       name: "Filed by a newer version",
       enabled: true,
-      area: "mail",
       tier: "T0",
     } as unknown as AgentRule;
 

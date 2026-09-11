@@ -46,7 +46,7 @@ before(async () => {
 test("provisioning is idempotent and creates the whole tree", async () => {
   await store.provision();
   assert.deepEqual(await store.listJobs(), []);
-  assert.deepEqual(await store.listClaims(), []);
+  assert.equal(await store.readClaim(), null);
 });
 
 after(() => {
@@ -85,7 +85,6 @@ test("rules round-trip through the group's own app folder", async () => {
       version: 1,
       name: "File the invoices",
       enabled: true,
-      area: "mail" as const,
       trigger: { on: "email" as const, filter: { subject: "invoice" } },
       tier: "T0" as const,
       review: { mode: "never" as const },
@@ -107,7 +106,6 @@ test("a job document is addressed by id and lists with the others", async () => 
   const job = newJob({
     id: "job-1",
     accountId: store.accountId,
-    area: "mail",
     rule: { id: "r1", version: 1 },
     trigger: { on: "email", emailId: "e1", at: "2026-09-10T08:00:00Z" },
   });
@@ -154,24 +152,19 @@ test("a claim carries the states its worker has reconciled up to", async () => {
   await store.writeClaim({
     v: 1,
     accountId: store.accountId,
-    area: "mail",
     worker: "w1",
     leasedAt: "2026-09-10T08:00:00Z",
     heartbeatAt: "2026-09-10T08:00:00Z",
     states: { Email: "s1" },
   });
-  const read = await store.readClaim("mail");
+  const read = await store.readClaim();
   assert.equal(read?.doc.worker, "w1");
   assert.equal(read?.doc.states.Email, "s1");
 
   await store.writeClaim({ ...read!.doc, states: { Email: "s2", FileNode: "f2" } });
-  const updated = await store.readClaim("mail");
+  const updated = await store.readClaim();
   assert.deepEqual(updated?.doc.states, { Email: "s2", FileNode: "f2" });
-
-  assert.deepEqual(
-    (await store.listClaims()).map((c) => c.doc.area),
-    ["mail"],
-  );
+  assert.equal(updated?.doc.accountId, store.accountId);
 });
 
 test("the worker heartbeat is a document like any other", async () => {
@@ -179,14 +172,13 @@ test("the worker heartbeat is a document like any other", async () => {
     v: 1,
     id: "w1",
     address: "gilbert@example.com",
-    areas: ["mail", "files"],
     version: "test",
     startedAt: "2026-09-10T08:00:00Z",
     heartbeatAt: "2026-09-10T08:00:00Z",
   });
   const workers = await store.listWorkers();
   assert.equal(workers.length, 1);
-  assert.deepEqual(workers[0]?.areas, ["mail", "files"]);
+  assert.equal(workers[0]?.address, "gilbert@example.com");
   await store.destroyWorker("w1");
   assert.deepEqual(await store.listWorkers(), []);
 });

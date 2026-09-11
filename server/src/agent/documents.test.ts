@@ -8,7 +8,6 @@ import {
 } from "../shared/chat.js";
 import {
   AGENT_ACTION_SPECS,
-  AGENT_AREAS,
   AGENT_TIERS,
   AGENT_TRIGGERS,
   type AgentAction,
@@ -46,7 +45,6 @@ function rule(over: Partial<AgentRule> = {}): AgentRule {
     version: 1,
     name: "Sort the invoices",
     enabled: true,
-    area: "mail",
     trigger: { on: "email", filter: { subject: "invoice" } },
     tier: "T0",
     review: { mode: "never" },
@@ -70,11 +68,6 @@ function email(over: Partial<AgentEmailView> = {}): AgentEmailView {
     ...over,
   };
 }
-
-test("an area is one of the five the fleet divides its work into", () => {
-  assert.equal(AGENT_AREAS.length, 5);
-  assert.ok(AGENT_AREAS.includes("mail"));
-});
 
 test("a rule needs the material its tier runs on", () => {
   assert.equal(isAgentRule(rule()), true);
@@ -247,7 +240,6 @@ test("a job is born pending, with the rule version it started on", () => {
   const job = newJob({
     id: "j1",
     accountId: "g1",
-    area: "mail",
     rule: { id: "r1", version: 3 },
     trigger: { on: "email", emailId: "e1", at: "2026-09-10T08:00:00Z" },
   });
@@ -321,8 +313,8 @@ test("a message document carries the mention the picker wrote", () => {
 
 test("the published schema is the same catalogue the runtime reads", () => {
   // One source of truth: the schema is built from the constants, and this is
-  // the test that fails if somebody adds an area, a tier, a trigger or an
-  // action to one and not the other (ADR 0003 resolution 2).
+  // the test that fails if somebody adds a tier, a trigger or an action to one
+  // and not the other.
   type Node = {
     enum?: string[];
     items?: { enum?: string[]; properties?: Record<string, { enum?: string[] }> };
@@ -337,7 +329,6 @@ test("the published schema is the same catalogue the runtime reads", () => {
     "x-filterKeys": string[];
   };
   assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
-  assert.deepEqual(schema.properties.area?.enum, [...AGENT_AREAS]);
   assert.deepEqual(schema.properties.tier?.enum, [...AGENT_TIERS]);
   assert.deepEqual(schema.properties.trigger?.properties?.on?.enum, [...AGENT_TRIGGERS]);
   assert.deepEqual(schema.properties.review?.properties?.mode?.enum, [
@@ -370,10 +361,6 @@ test("the published schema is what a save is refused against", () => {
   // save path on the server run the same check.
   assert.deepEqual(schemaProblems(rule()), []);
   assert.deepEqual(ruleProblems(rule()), []);
-
-  const badArea = schemaProblems(rule({ area: "gardening" as never }));
-  assert.ok(badArea.length >= 1, "an area outside the enum is refused");
-  assert.match(badArea.join(" "), /Property "area"/, "and says which property");
 
   const noActions = schemaProblems(rule({ actions: [] }));
   assert.deepEqual(noActions, [], "an empty action list is a shape the schema allows");

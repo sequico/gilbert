@@ -57,6 +57,9 @@ export interface AdminUserIdentities {
   locked: boolean;
   impersonation: Impersonation;
   identities: Identity[];
+  /** The identity that account sends from by default, or null when it has not
+   * chosen one and the client falls back to its first. */
+  defaultIdentityId: string | null;
 }
 
 /** A group's identity — a group holds one — and whether the agent is granted on it. */
@@ -127,6 +130,25 @@ export async function setUserIdentityLock(
     { method: "POST", body: JSON.stringify({ address, locked }) },
   );
   return res.locked;
+}
+
+/**
+ * `POST /api/admin/identities/user/default` — the identity that account sends
+ * from by default, or `null` to clear it.
+ *
+ * The default is not a Stalwart property: it is one key of the account's own
+ * settings document, so this route and that account's Identities & signatures
+ * section are one stored value rather than two that can disagree.
+ */
+export async function setUserDefaultIdentity(
+  address: string,
+  identityId: string | null,
+): Promise<string | null> {
+  const res = await apiFetch<{ ok: true; identityId: string | null }>(
+    "/api/admin/identities/user/default",
+    { method: "POST", body: JSON.stringify({ address, identityId }) },
+  );
+  return res.identityId;
 }
 
 /* ------------------------------------------------------------------ */

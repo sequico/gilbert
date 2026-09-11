@@ -12,7 +12,7 @@ import type { Label } from "@/store/settings";
  *
  * A group mailbox is the group's own account; the labels that name its
  * messages belong to the group, not to any member. They live in a
- * `labels.json` in the group account's own `gilbert` app folder, beside the
+ * `labels.json` in the group account's own app folder, beside the
  * chat documents — membership is the grant, no `shareWith`, no ACL.
  *
  * The keyword is the stable identity that rides on the messages; the name,

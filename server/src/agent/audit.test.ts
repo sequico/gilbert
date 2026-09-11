@@ -38,7 +38,6 @@ test("an entry names the job, the pinned rule version and the actor", () => {
   const job = newJob({
     id: "j1",
     accountId: GROUP,
-    area: "mail",
     rule: { id: "r1", version: 2 },
     trigger: {
       on: "chat",
@@ -88,7 +87,6 @@ test("recordAudit appends to the month the entry's instant falls in", async () =
   const job = newJob({
     id: "j2",
     accountId: GROUP,
-    area: "mail",
     rule,
     trigger: { on: "email", emailId: "e9", at: "2026-09-10T08:00:00Z" },
   });

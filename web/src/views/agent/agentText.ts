@@ -11,7 +11,6 @@
 import {
   AGENT_ACTION_SPECS,
   type AgentAction,
-  type AgentArea,
   type AgentAuditOutcome,
   type AgentJobState,
   type AgentReview,
@@ -24,6 +23,7 @@ import {
   SUPPORTED_FILTER_KEYS,
 } from "@gilbert/agent/documents";
 import type { AgentStatusReason, MemberAgentRule } from "@gilbert/agent/views";
+import { agentSentence } from "@/lib/agentErrors";
 import { t } from "@/lib/i18n";
 
 /*
@@ -31,14 +31,6 @@ import { t } from "@/lib/i18n";
  * convention `SectionShell` documents for a constant label table. Nothing here
  * renders a raw string.
  */
-export const AGENT_AREA_LABELS: Record<AgentArea, string> = {
-  mail: "Mail",
-  files: "Files",
-  tasks: "Tasks",
-  calendars: "Calendars",
-  contacts: "Contacts",
-};
-
 export const AGENT_TRIGGER_LABELS: Record<AgentTriggerOn, string> = {
   email: "An email arrives",
   filenode: "A file or folder changes",
@@ -89,10 +81,6 @@ export const AGENT_ACTION_LABELS: Record<string, string> = Object.fromEntries(
   AGENT_ACTION_SPECS.map((s): [string, string] => [s.name, s.label]),
 );
 
-export function areaText(area: string): string {
-  return t(AGENT_AREA_LABELS[area as AgentArea] ?? area);
-}
-
 export function tierText(tier: string): string {
   return t(AGENT_TIER_LABELS[tier as AgentTier] ?? tier);
 }
@@ -123,30 +111,15 @@ export function outcomeText(outcome: string): string {
  * The status answer carries a code and, beside it, whatever the server that
  * refused said — never a sentence of the server's own English (ADR 0003 §4,
  * "Members see, never change" covers the admin's read the same way). The
- * sentence is composed here from the catalogue in force, so a language whose
+ * sentence comes from the one table an admin refusal reads as well
+ * (`agentErrors`), composed in the catalogue in force, so a language whose
  * catalogue does not carry it reads the English: the declared fallback, with
  * the translations owed as one piece of work for every sentence of this kind.
  */
 export function fleetReasonText(reason: AgentStatusReason): string {
-  switch (reason.code) {
-    case "agent_not_configured":
-      return t(
-        "This deployment names no agent, so the agents are not operational. Set GILBERT_AGENT_ADDRESS to the agent's own address and GILBERT_AGENT_PASSWORD to that account's password, in the environment that starts the server and the worker, then restart both.",
-      );
-    case "agent_credentials_rejected":
-      return t(
-        "The server refused the agent's credential, so the agents are not operational: {detail}. Check that GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD name the agent's own address and its account password, then restart the server and the worker.",
-        { detail: reason.detail },
-      );
-    case "agent_unreachable":
-      return t("The agent's session could not be opened: {detail}", {
-        detail: reason.detail,
-      });
-    case "workers_unreadable":
-      return t("Could not read the agent's worker records: {detail}", {
-        detail: reason.detail,
-      });
-  }
+  // The sentences live once, in `AGENT_ERROR_SENTENCES`: a fleet status and an
+  // admin refusal carry the same words, and a code cannot drift between them.
+  return agentSentence(reason.code, reason);
 }
 
 /**

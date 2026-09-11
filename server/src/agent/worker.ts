@@ -2,8 +2,8 @@
  * The worker: the agent's own process (ADR 0003 §2, v1 scope).
  *
  * Same codebase, second entrypoint. It authenticates as the one structure agent
- * the installation registered, claims the `account × area` units it will serve,
- * and holds the agent's event stream when it wins that claim. Nothing durable
+ * the installation registered, claims the group accounts it will serve, and
+ * holds the agent's event stream when it wins that claim. Nothing durable
  * lives in it: the claims, the jobs and the decisions are documents, so a
  * restart re-derives the session, re-claims what is free and carries on from
  * the state the last worker recorded. A second worker on the same installation
@@ -14,7 +14,7 @@
 import { createServer } from "node:http";
 import { pathToFileURL } from "node:url";
 import { type Ctx, filesAccountId, readAppJsonAt, writeAppFileAt } from "../appFolder.js";
-import { agentGroupAreas, config } from "../config.js";
+import { config } from "../config.js";
 import { JmapClient, serverNow } from "../jmap.js";
 import {
   fetchUpstreamSession,
@@ -22,14 +22,8 @@ import {
   type UpstreamSession,
   upstreamFor,
 } from "../upstream.js";
-import { readChat } from "./chat.js";
-import {
-  AGENT_AREAS,
-  type AgentArea,
-  type AgentClaim,
-  type AgentStreamClaim,
-  type AgentWorkerRecord,
-} from "./documents.js";
+import { greetUnspoken, readChat } from "./chat.js";
+import type { AgentClaim, AgentStreamClaim, AgentWorkerRecord } from "./documents.js";
 import {
   AUDIT_RETENTION_MS,
   type ChangeType,
@@ -38,7 +32,7 @@ import {
 } from "./executor.js";
 import {
   type ClaimRefusal,
-  claimArea,
+  claimAccount,
   claimStream,
   releaseClaim,
   releaseStreamClaim,
@@ -48,22 +42,14 @@ import { AgentStore } from "./store.js";
 import { type AgentWithdrawal, WITHDRAWALS_PATH } from "./views.js";
 import { openEventStream, pollLoop } from "./wake.js";
 
-/** How many areas one account's pass reconciles per JMAP type. */
-const TYPES_BY_AREA: Readonly<Record<AgentArea, ReadonlyArray<ChangeType>>> = {
-  mail: ["Email"],
-  files: ["FileNode"],
-  tasks: [],
-  calendars: [],
-  contacts: [],
-};
+/** The JMAP change types one account's pass reconciles. */
+const RECONCILED_TYPES: ReadonlyArray<ChangeType> = ["Email", "FileNode"];
 
 export interface WorkerDeps {
   /** The agent's own session context, derived from its app password. */
   ctx: Ctx;
   /** The agent's address: the identity of everything it writes. */
   address: string;
-  /** The areas this deployment declares for the worker. */
-  areas: ReadonlyArray<AgentArea>;
   /** Defaults to a `[gilbert]`-prefixed console line. */
   log?: (line: string) => void;
   /** Defaults to an id derived from the address and this process. */
@@ -103,7 +89,6 @@ export interface WorkerHealth {
   status: "ok";
   worker: string;
   address: string;
-  areas: ReadonlyArray<AgentArea>;
   /** The accounts the worker holds a claim on right now. */
   accounts: ReadonlyArray<string>;
   /** Whether this worker holds the agent's event stream. */
@@ -130,33 +115,6 @@ export function candidateAccounts(session: UpstreamSession): string[] {
 /** The Authorization header a plain principal authenticates with. */
 export function basicAuth(address: string, password: string): string {
   return `Basic ${Buffer.from(`${address}:${password}`, "utf8").toString("base64")}`;
-}
-
-/**
- * The areas a group is served with: the deployment's list, narrowed by the
- * installation's own record for that group (ADR 0003).
- *
- * Nothing widens here. An installation can take work away from a group — a
- * document cannot hand it work the operator did not open — and a group the
- * record does not name is served exactly as the deployment says. This is the
- * whole of the intersection, in one place.
- */
-export function servedAreasFor(
-  deployment: ReadonlyArray<AgentArea>,
-  narrowed: ReadonlyArray<AgentArea> | null,
-): AgentArea[] {
-  if (!narrowed?.length) return [...deployment];
-  return deployment.filter((area) => narrowed.includes(area));
-}
-
-/** The areas this worker serves for one account, by its name in the session. */
-export function areasFor(
-  session: UpstreamSession,
-  accountId: string,
-  deployment: ReadonlyArray<AgentArea>,
-): AgentArea[] {
-  const name = groupNameOf(session, accountId);
-  return servedAreasFor(deployment, name ? agentGroupAreas(name) : null);
 }
 
 /**
@@ -218,7 +176,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
   const agentStore = new AgentStore(deps.ctx, filesAccountId(deps.ctx));
   const startedAt = now().toISOString();
 
-  const servedAreas = new Map<string, Set<AgentArea>>();
+  const servedAccounts = new Set<string>();
   /** The accounts the session listed when the pass last looked, by name. */
   let knownAccounts = new Map<string, string>();
   /** When the session was last re-read: never more often than the poll interval. */
@@ -233,28 +191,14 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
   const reconciling = new Set<string>();
 
   /** The types this worker has to reconcile for one account. */
-  const typesOf = (accountId: string): ChangeType[] => {
-    const areas = servedAreas.get(accountId);
-    if (!areas) return [];
-    const types = new Set<ChangeType>();
-    for (const area of areas) for (const type of TYPES_BY_AREA[area]) types.add(type);
-    return [...types];
-  };
-
-  const areaOf = (accountId: string, type: ChangeType): AgentArea | null => {
-    const areas = servedAreas.get(accountId);
-    if (!areas) return null;
-    for (const area of areas) if (TYPES_BY_AREA[area].includes(type)) return area;
-    return null;
-  };
+  const typesOf = (accountId: string): ChangeType[] =>
+    servedAccounts.has(accountId) ? [...RECONCILED_TYPES] : [];
 
   const reconcileAccount = async (accountId: string): Promise<void> => {
     const store = new AgentStore(deps.ctx, accountId);
     const types = typesOf(accountId);
     for (const type of types) {
-      const area = areaOf(accountId, type);
-      if (!area) continue;
-      const claim = (await store.readClaim(area))?.doc;
+      const claim = (await store.readClaim())?.doc;
       if (!claim) continue;
       try {
         await executor.reconcile(accountId, type, claim);
@@ -271,8 +215,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     // it reads the due entries back out of the document on every round.
     const due = await executor.runDueSchedules(accountId);
     if (due) log(`${accountId}: ${due} scheduled run(s) due`);
-    const areas = [...(servedAreas.get(accountId) ?? [])];
-    const retried = await executor.runPending(accountId, areas);
+    const retried = await executor.runPending(accountId);
     if (retried) log(`${accountId}: retried ${retried} job(s)`);
     // An audit entry a contended document pushed out of its retries is held in
     // memory: the pass writes it, so a group that has gone quiet does not carry
@@ -322,7 +265,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
   };
 
   const wake = (accountId: string, type: string): void => {
-    if (!servedAreas.has(accountId)) return;
+    if (!servedAccounts.has(accountId)) return;
     if (type !== "Email" && type !== "FileNode") return;
     dirty.add(accountId);
     void drain().catch((err: unknown) =>
@@ -335,7 +278,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     // holds the claim document without opening a live connection.
     if (!timers || closeStream || !streamClaim) return;
     const types = new Set<string>();
-    for (const accountId of servedAreas.keys())
+    for (const accountId of servedAccounts)
       for (const type of typesOf(accountId)) types.add(type);
     closeStream = openEventStream(
       deps.ctx.session,
@@ -353,22 +296,19 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
       v: 1,
       id,
       address: deps.address,
-      areas: [...deps.areas],
       version: config.version,
       startedAt,
       heartbeatAt: stamp,
     };
     await agentStore.writeWorker(record);
-    for (const [accountId, areas] of servedAreas) {
+    for (const accountId of [...servedAccounts]) {
       const store = new AgentStore(deps.ctx, accountId);
-      for (const area of [...areas]) {
-        const renewed = await claimArea(store, area, id, { now: now(), leaseMs });
-        if (!renewed) {
-          // A peer took it over while this worker was renewing: stop serving it
-          // rather than work an account somebody else owns now.
-          areas.delete(area);
-          log(`lost ${accountId}/${area}`);
-        }
+      const renewed = await claimAccount(store, id, { now: now(), leaseMs });
+      if (!renewed) {
+        // A peer took it over while this worker was renewing: stop serving it
+        // rather than work an account somebody else owns now.
+        servedAccounts.delete(accountId);
+        log(`lost ${accountId}`);
       }
     }
     if (streamClaim) {
@@ -385,7 +325,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
       lastPrune = now().getTime();
       const cutoff = new Date(now().getTime() - DOCUMENT_RETENTION_MS);
       const auditCutoff = new Date(now().getTime() - AUDIT_RETENTION_MS);
-      for (const accountId of servedAreas.keys()) {
+      for (const accountId of servedAccounts) {
         const removed = await executor.prune(accountId, cutoff);
         if (removed) log(`${accountId}: pruned ${removed} finished document(s)`);
         const months = await executor.pruneAudit(accountId, auditCutoff);
@@ -402,9 +342,9 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
    * holds is the fleet quietly stopping, and nothing else in the process would
    * ever say so.
    */
-  const refused = (accountId: string, area: AgentArea) => (reason: ClaimRefusal) => {
+  const refused = (accountId: string) => (reason: ClaimRefusal) => {
     if (reason === "contended")
-      log(`${accountId}/${area}: nobody holds it and the claim kept losing`);
+      log(`${accountId}: nobody holds it and the claim kept losing`);
   };
 
   // One account's fault is that account's: an unreadable claim document ends the
@@ -453,26 +393,21 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
   };
 
   /**
-   * Write down a grant the agent has lost, with what it was holding.
+   * Write down a grant the agent has lost.
    *
    * In the agent's **own** account, because it is the only place it can still
    * write: the moment the grant is gone, the group's own documents are refused
-   * to it. So the report is what the worker held and when it noticed — the work
-   * a withdrawal leaves behind is in the group's audit, unreadable from here,
-   * and saying more than this would be inventing it.
+   * to it. So the report is the group and when the worker noticed — the work a
+   * withdrawal leaves behind is in the group's audit, unreadable from here, and
+   * saying more than this would be inventing it.
    */
-  const reportWithdrawal = async (
-    account: string,
-    group: string,
-    heldAreas: ReadonlyArray<AgentArea>,
-  ): Promise<void> => {
+  const reportWithdrawal = async (account: string, group: string): Promise<void> => {
     const self = filesAccountId(deps.ctx);
     const seen = await readAppJsonAt(deps.ctx, self, WITHDRAWALS_PATH);
     const entries = Array.isArray(seen) ? (seen as AgentWithdrawal[]) : [];
     const entry: AgentWithdrawal = {
       account,
       group,
-      heldAreas: [...heldAreas],
       at: now().toISOString(),
     };
     await writeAppFileAt(
@@ -485,7 +420,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
   };
 
   const pass = async (): Promise<ReadonlyArray<string>> => {
-    if (stopped) return [...servedAreas.keys()];
+    if (stopped) return [...servedAccounts];
     await refreshSession();
     const accounts = candidateAccounts(deps.ctx.session);
     // An account the worker was serving and the session no longer lists is a
@@ -499,51 +434,52 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
       accounts.map((accountId) => [accountId, groupNameOf(deps.ctx.session, accountId)]),
     );
     for (const { account, name } of gone) {
-      const held = [...(servedAreas.get(account) ?? [])];
-      servedAreas.delete(account);
-      await guarded(account, () => reportWithdrawal(account, name, held));
+      servedAccounts.delete(account);
+      await guarded(account, () => reportWithdrawal(account, name));
     }
     for (const accountId of accounts) {
       await guarded(accountId, async () => {
         const store = new AgentStore(deps.ctx, accountId);
-        const held = servedAreas.get(accountId) ?? new Set<AgentArea>();
-        // The deployment's areas, narrowed by the installation's record for this
-        // group (ADR 0003). An area the record no longer covers stops being
-        // renewed, so its lease lapses on its own: nothing here writes or
-        // deletes a claim document, and nothing here touches the fence.
-        const served = areasFor(deps.ctx.session, accountId, deps.areas);
-        for (const area of [...held]) if (!served.includes(area)) held.delete(area);
-        for (const area of served) {
-          if (held.has(area)) {
-            // Renewal is what keeps a claim from looking stale to a peer.
-            const renewed = await claimArea(store, area, id, {
-              now: now(),
-              leaseMs,
-              onRefused: refused(accountId, area),
-            });
-            if (!renewed) {
-              held.delete(area);
-              log(`lost ${accountId}/${area}`);
-            }
-            continue;
-          }
-          const claim: AgentClaim | null = await claimArea(store, area, id, {
+        if (servedAccounts.has(accountId)) {
+          // Renewal is what keeps a claim from looking stale to a peer.
+          const renewed = await claimAccount(store, id, {
             now: now(),
             leaseMs,
-            onRefused: refused(accountId, area),
+            onRefused: refused(accountId),
           });
-          if (!claim) continue;
-          held.add(area);
-          log(`claimed ${accountId}/${area}`);
+          if (!renewed) {
+            servedAccounts.delete(accountId);
+            log(`lost ${accountId}`);
+          }
+          return;
         }
-        if (held.size) servedAreas.set(accountId, held);
-        else servedAreas.delete(accountId);
+        const claim: AgentClaim | null = await claimAccount(store, id, {
+          now: now(),
+          leaseMs,
+          onRefused: refused(accountId),
+        });
+        if (!claim) return;
+        servedAccounts.add(accountId);
+        log(`claimed ${accountId}`);
+        // A group hears from the agent once, without anyone having to ask. The
+        // transcript is the record, so this is safe on every claim; a failure
+        // is logged and retried on the next claim, never fatal to the pass.
+        try {
+          const greeted = await greetUnspoken(deps.ctx, accountId, deps.address, client);
+          if (greeted) log(`${accountId}: greeted the group`);
+        } catch (err) {
+          log(
+            `${accountId}: could not greet the group: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
       });
     }
     // The heartbeat is written even when nothing is served: the status surface
     // has to be able to say that a worker is up and idle.
     await heartbeat();
-    if (!servedAreas.size) return [];
+    if (!servedAccounts.size) return [];
     if (!streamClaim) {
       const won = await claimStream(agentStore, id, { now: now(), leaseMs });
       if (won) {
@@ -553,9 +489,9 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     } else {
       openStreamIfHeld();
     }
-    for (const accountId of servedAreas.keys())
+    for (const accountId of servedAccounts)
       await guarded(accountId, () => reconcileAccount(accountId));
-    return [...servedAreas.keys()];
+    return [...servedAccounts];
   };
 
   if (timers) {
@@ -580,13 +516,12 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
 
   return {
     pass,
-    served: () => [...servedAreas.keys()],
+    served: () => [...servedAccounts],
     health: () => ({
       status: "ok",
       worker: id,
       address: deps.address,
-      areas: [...deps.areas],
-      accounts: [...servedAreas.keys()],
+      accounts: [...servedAccounts],
       streaming: streamClaim !== null,
       startedAt,
       uptimeSeconds: Math.max(
@@ -607,13 +542,13 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
         await releaseStreamClaim(agentStore, id);
         streamClaim = null;
       }
-      // The areas too: a replacement worker has a fresh id and would otherwise
-      // wait out the lease before serving anything.
-      for (const [accountId, areas] of servedAreas) {
+      // The accounts too: a replacement worker has a fresh id and would
+      // otherwise wait out the lease before serving anything.
+      for (const accountId of servedAccounts) {
         const store = new AgentStore(deps.ctx, accountId);
-        for (const area of areas) await releaseClaim(store, area, id);
+        await releaseClaim(store, id);
       }
-      servedAreas.clear();
+      servedAccounts.clear();
     },
   };
 }
@@ -687,7 +622,6 @@ export function startHealthServer(opts: {
 export interface AgentIdentity {
   address: string;
   password: string;
-  areas: AgentArea[];
 }
 
 /**
@@ -703,18 +637,13 @@ const AGENT_IDENTITY_RECHECK_MS = 2_000;
 
 /** The agent the deployment names right now. */
 export function currentIdentity(): AgentIdentity {
-  const { address, password, areas } = config.agent;
-  return { address, password, areas: [...areas] };
+  const { address, password } = config.agent;
+  return { address, password };
 }
 
 /** Whether two identities would start the same fleet. */
 export function sameIdentity(a: AgentIdentity, b: AgentIdentity): boolean {
-  return (
-    a.address === b.address &&
-    a.password === b.password &&
-    a.areas.length === b.areas.length &&
-    a.areas.every((area, index) => area === b.areas[index])
-  );
+  return a.address === b.address && a.password === b.password;
 }
 
 /** Sign in as an identity, the way the worker does at boot. */
@@ -770,15 +699,11 @@ export async function identityToFollow(
   }
 }
 
-/** The areas a fleet serves, as the startup line names them. */
-const servedAreas = (identity: AgentIdentity): string =>
-  identity.areas.join(", ") || AGENT_AREAS.join(", ");
-
 /** Start serving one identity: sign in as it, then start a fleet on that. */
 async function startFleet(identity: AgentIdentity): Promise<WorkerHandle> {
   const { authorization, session } = await signInAs(identity);
   const ctx: Ctx = { authorization, session, username: identity.address };
-  return startWorker({ ctx, address: identity.address, areas: identity.areas });
+  return startWorker({ ctx, address: identity.address });
 }
 
 /** The health an idle worker reports: up, answering, serving nothing. */
@@ -787,7 +712,6 @@ function idleHealth(identity: AgentIdentity, startedAt: number): WorkerHealth {
     status: "ok",
     worker: "idle",
     address: identity.address,
-    areas: [],
     accounts: [],
     streaming: false,
     startedAt: new Date(startedAt).toISOString(),
@@ -828,9 +752,7 @@ export async function main(): Promise<void> {
     try {
       const fleet = await startFleet(identity);
       lastNotice = "";
-      console.log(
-        `[gilbert] agent worker for ${identity.address} serving ${servedAreas(identity)}`,
-      );
+      console.log(`[gilbert] agent worker for ${identity.address}`);
       return fleet;
     } catch (err) {
       notice(
@@ -870,9 +792,7 @@ export async function main(): Promise<void> {
       await current.stop();
       worker = await startFleet(next.identity);
       identity = next.identity;
-      console.log(
-        `[gilbert] the agent is now ${identity.address}, serving ${servedAreas(identity)}`,
-      );
+      console.log(`[gilbert] the agent is now ${identity.address}`);
     })();
   }, AGENT_IDENTITY_RECHECK_MS);
 

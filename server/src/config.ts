@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 import { normalizeBasePath } from "../../scripts/basePath.mjs";
 import { resolveVersion } from "../../scripts/version.mjs";
 import { isAddress, type PolicyDocument, type PolicyIdentities } from "./adminPolicy.js";
-import { AGENT_AREAS, type AgentArea, isAgentArea } from "./agent/documents.js";
 
 /** Minimal .env loader (no dependency): first match wins, never overrides real env. */
 function loadDotEnv() {
@@ -193,57 +192,6 @@ function readSettingsPolicy(): PolicyDocument {
   };
 
   /**
-   * The agent the file names, when it names one.
-   *
-   * Optional, and checked rather than trusted like everything else here: an
-   * "agent" with no usable address is a configuration error at boot, not a
-   * value to fall back from silently.
-   */
-  const parseAgent = (
-    v: unknown,
-    where: string,
-  ): { agent?: { address: string; groups?: Record<string, { areas?: string[] }> } } => {
-    if (v == null) return {};
-    if (typeof v !== "object" || Array.isArray(v))
-      throw new Error(`Invalid ${where}: "agent" must be an object`);
-    const typed = v as { address?: unknown; groups?: unknown };
-    const address =
-      typeof typed.address === "string" ? typed.address.trim().toLowerCase() : "";
-    if (!isAddress(address))
-      throw new Error(
-        `Invalid ${where}: "agent.address" must be the agent's own address, like gilbert@example.com`,
-      );
-    const groups: Record<string, { areas?: string[] }> = {};
-    if (typed.groups != null) {
-      if (typeof typed.groups !== "object" || Array.isArray(typed.groups))
-        throw new Error(`Invalid ${where}: "agent.groups" must be an object`);
-      for (const [rawName, entry] of Object.entries(
-        typed.groups as Record<string, unknown>,
-      )) {
-        const name = rawName.trim().toLowerCase();
-        if (!isAddress(name))
-          throw new Error(
-            `Invalid ${where}: "agent.groups" names something that is not a group: ${rawName}`,
-          );
-        if (entry == null) continue;
-        const areas = (entry as { areas?: unknown }).areas;
-        if (areas === undefined) continue;
-        if (!Array.isArray(areas) || areas.some((a) => typeof a !== "string"))
-          throw new Error(
-            `Invalid ${where}: "agent.groups.${name}.areas" must be a list of area names`,
-          );
-        const clean = [
-          ...new Set(areas.map((area) => String(area).trim()).filter(Boolean)),
-        ];
-        groups[name] = clean.length ? { areas: clean } : {};
-      }
-    }
-    return {
-      agent: { address, ...(Object.keys(groups).length ? { groups } : {}) },
-    };
-  };
-
-  /**
    * The identities an administrator has taken over (ADR 0007 §4).
    *
    * Mirrors the surface's rule: an entry that is not an address is a
@@ -284,7 +232,6 @@ function readSettingsPolicy(): PolicyDocument {
       defaults: (whole.defaults as Record<string, unknown>) ?? {},
       enforced: (whole.enforced as Record<string, unknown>) ?? {},
       changes: parseChanges(whole.changes, `SETTINGS_POLICY_FILE (${file})`),
-      ...parseAgent(whole.agent, `SETTINGS_POLICY_FILE (${file})`),
       ...parseIdentities(whole.identities, `SETTINGS_POLICY_FILE (${file})`),
     };
   }
@@ -388,34 +335,12 @@ export interface AgentBootstrap {
   address: string;
   /** The account password the worker signs in with. Empty = no agent named. */
   password: string;
-  /** The areas the worker serves, from the deployment. */
-  areas: AgentArea[];
-}
-
-function readAgentAreas(raw: string | undefined, where: string): AgentArea[] {
-  const value = (raw ?? "").trim();
-  if (!value) return [...AGENT_AREAS];
-  const out: AgentArea[] = [];
-  for (const part of value.split(",")) {
-    const name = part.trim().toLowerCase();
-    if (!name) continue;
-    if (!isAgentArea(name))
-      throw new Error(
-        `Invalid ${where}: "${part}" is not an area (${AGENT_AREAS.join(", ")})`,
-      );
-    if (!out.includes(name)) out.push(name);
-  }
-  return out.length ? out : [...AGENT_AREAS];
 }
 
 function resolveAgentBootstrap(): AgentBootstrap {
   const address = (process.env.GILBERT_AGENT_ADDRESS ?? "").trim().toLowerCase();
   const password = process.env.GILBERT_AGENT_PASSWORD ?? "";
-  return {
-    address,
-    password,
-    areas: readAgentAreas(process.env.GILBERT_AGENT_AREAS, "GILBERT_AGENT_AREAS"),
-  };
+  return { address, password };
 }
 
 /**
@@ -572,21 +497,6 @@ export type Config = typeof config;
  * the worker. Nothing in the product names it and nothing falls back to
  * anything else: one place names the agent, and every surface reads it here.
  */
-
-/**
- * The areas one group is narrowed to, or null when the deployment speaks for
- * it.
- *
- * Narrowing only: the worker intersects this with the areas the deployment
- * serves, so a document can never widen what an operator allowed, and a name
- * this build does not know is dropped rather than obeyed (ADR 0003).
- */
-export function agentGroupAreas(group: string): AgentArea[] | null {
-  const configured =
-    config.settingsPolicy.agent?.groups?.[group.trim().toLowerCase()]?.areas;
-  if (!configured?.length) return null;
-  return AGENT_AREAS.filter((area) => configured.includes(area));
-}
 
 export function agentAddress(): string {
   return config.agent.address.trim().toLowerCase();

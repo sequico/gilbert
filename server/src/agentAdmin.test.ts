@@ -41,9 +41,7 @@ const LEGAL = "legal@example.org";
 
 const mock = await import("./mock/index.js");
 const { config } = await import("./config.js");
-const { AGENT_AREAS, AGENT_INSTRUCTION_MAX, AGENT_TIERS } = await import(
-  "./agent/documents.js"
-);
+const { AGENT_INSTRUCTION_MAX, AGENT_TIERS } = await import("./agent/documents.js");
 const { createApp } = await import("./app.js");
 
 const app = createApp();
@@ -141,7 +139,6 @@ function rule(overrides: Record<string, unknown> = {}): Record<string, unknown> 
     version: 1,
     name: "Label processed mail",
     enabled: true,
-    area: "mail",
     trigger: { on: "email" },
     tier: "T0",
     actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
@@ -171,8 +168,6 @@ test("an installation with no agent says so plainly, and never 500s", async () =
     operational: false,
     address: "",
     groups: [],
-    // The areas the deployment serves; a group can only narrow them.
-    defaultAreas: [...AGENT_AREAS],
     workers: [],
     // No worker has reported a grant lost, because no worker is serving this
     // installation (ADR 0003 resolution 21).
@@ -262,12 +257,10 @@ test("a deployment carrying the account's own password is operational", async ()
   const body = res.body as {
     operational: boolean;
     address: string;
-    groups: Array<{ name: string; areas?: string[] }>;
-    defaultAreas: string[];
+    groups: Array<{ name: string }>;
   };
   assert.equal(body.operational, true);
   assert.equal(body.address, mock.AGENT_ADDRESS);
-  assert.deepEqual(body.defaultAreas, [...AGENT_AREAS]);
   assert.deepEqual(
     body.groups.map((group) => group.name),
     ["design@example.org", "team@example.org"],
@@ -522,16 +515,7 @@ test("a member reads the group's agent surface, and never a provider", async () 
   // them (`instruction` on a T0 rule), so a key list would only ever describe
   // the first fixture.
   const [memberRule] = view.rules;
-  for (const key of [
-    "id",
-    "name",
-    "area",
-    "tier",
-    "enabled",
-    "trigger",
-    "review",
-    "actions",
-  ]) {
+  for (const key of ["id", "name", "tier", "enabled", "trigger", "review", "actions"]) {
     assert.ok(key in (memberRule ?? {}), `a member reads the automation's ${key}`);
   }
   for (const key of ["v", "version", "capabilities", "updatedAt", "updatedBy"]) {
@@ -774,11 +758,10 @@ test("the rule schema is published, and it is the catalogue the runtime reads", 
   assert.equal(res.status, 200);
   const schema = res.body as {
     $schema: string;
-    properties: { area: { enum: string[] }; tier: { enum: string[] } };
+    properties: { tier: { enum: string[] } };
     "x-actions": Array<{ name: string }>;
   };
   assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
-  assert.deepEqual(schema.properties.area.enum, [...AGENT_AREAS]);
   assert.deepEqual(schema.properties.tier.enum, [...AGENT_TIERS]);
   assert.ok(schema["x-actions"].some((action) => action.name === "mail.send"));
 });
@@ -798,7 +781,7 @@ test("the save path refuses against the published schema, in the schema's words"
   configureAgent("");
   const bad = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
-    body: JSON.stringify({ rules: [rule({ area: "gardening" })] }),
+    body: JSON.stringify({ rules: [rule({ tier: "T9" })] }),
   });
   assert.equal(bad.status, 400);
   const refusal = bad.body as { error: string; name?: string; problems?: string };
@@ -806,7 +789,7 @@ test("the save path refuses against the published schema, in the schema's words"
   assert.equal(refusal.name, "Label processed mail", "by name, as a parameter");
   assert.match(
     String(refusal.problems),
-    /area|gardening/i,
+    /tier|T9/i,
     "and what the schema objected to, in its own words",
   );
 

@@ -143,9 +143,9 @@ GILBERT_AGENT_PASSWORD=<the account's own password> \
 npm run agent
 ```
 
-`GILBERT_AGENT_AREAS`, `GILBERT_AGENT_POLL_MS`, `GILBERT_AGENT_LEASE_MS` and
-`GILBERT_AGENT_HEALTH_PORT` say what it serves, how often it re-reads, and how a
-restart policy reaches it. **Admin → Agents** shows the groups the agent is in,
+`GILBERT_AGENT_POLL_MS`, `GILBERT_AGENT_LEASE_MS` and
+`GILBERT_AGENT_HEALTH_PORT` say how often it re-reads, how long a claim lives,
+and how a restart policy reaches it. **Admin → Agents** shows the groups the agent is in,
 read from the agent's own session in Stalwart, and **Admin → Group workers**
 narrows what it does inside each of them (the kinds of work, per group, for as
 many groups as are selected at once). With the pair unset the server runs with
@@ -175,7 +175,7 @@ document per month, kept twelve months, one line written before any effect so
 that an effect never exists without a record — and an administrator can download
 the whole retained trail as JSON before the oldest month is pruned. A failure
 lands the message in `G-needattention` and tells the group's chat which automation
-could not finish. Work is claimed per area with a lease, so a crashed worker's
+could not finish. Work is claimed per account with a lease, so a crashed worker's
 work is taken up by the next one, and a run whose rule changed under it is
 refused rather than executed.
 

@@ -20,7 +20,6 @@ import { confirmDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 import {
   actionText,
-  areaText,
   reviewText,
   ruleActions,
   tierText,
@@ -359,7 +358,7 @@ function RuleItem({
         </button>
       </div>
       <p className="hint">
-        {areaText(rule.area)} · {tierText(rule.tier)} · {triggerText(rule.trigger)}
+        {tierText(rule.tier)} · {triggerText(rule.trigger)}
       </p>
       <p className="hint">{reviewText(rule.review)}</p>
       {actions.length > 0 && (
@@ -372,7 +371,7 @@ function RuleItem({
 /**
  * A new automation starts the way resolution 10 describes one — a confidence
  * threshold, disabled until the admin has finished describing it — on mail
- * events, in the mail area, at the tier that calls no model at all.
+ * events, at the tier that calls no model at all.
  */
 function blankRule(): AgentRule {
   return {
@@ -381,7 +380,6 @@ function blankRule(): AgentRule {
     version: 1,
     name: "",
     enabled: false,
-    area: "mail",
     trigger: { on: "email" },
     tier: "T0",
     review: { mode: "threshold", threshold: 0.7 },

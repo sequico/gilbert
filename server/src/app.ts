@@ -32,7 +32,7 @@ import {
   persistPolicyFile,
   policyDocumentText,
 } from "./adminPolicy.js";
-import { AGENT_AREAS, agentRuleJsonSchema } from "./agent/documents.js";
+import { agentRuleJsonSchema } from "./agent/documents.js";
 import type { AgentGroupAnswer } from "./agent/views.js";
 import {
   AgentAdminError,
@@ -62,6 +62,7 @@ import {
   identityLocked,
   personIdentities,
   removePersonIdentity,
+  setPersonDefaultIdentity,
   storeSignatureHtml,
   withIdentityLock,
   writeGroupIdentity,
@@ -1336,9 +1337,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * Apply one change to the installation's record, and to the record that is
    * actually there (ADR 0003).
    *
-   * Three doors write this document — the policy editor, the agent's address,
-   * the areas of a group — so a change that read the running copy and then wrote
-   * the whole document back would drop whatever another administrator saved in
+   * Two doors write this document — the policy editor and the agent's address —
+   * so a change that read the running copy and then wrote the whole document
+   * back would drop whatever another administrator saved in
    * between, groups this caller never named included. The shape is the same
    * compare-and-set the fleet uses for its own documents: read the record, apply
    * the change, write it, and keep the write only if the record still says what
@@ -1391,13 +1392,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     if ("problem" in parsed) {
       return c.json({ error: "invalid_policy", message: parsed.problem }, 400);
     }
-    // Through the same compare-and-set as the two narrower doors: the editor
+    // Through the same compare-and-set as the narrower door: the editor
     // replaces the document, but it must replace the document that is there. The
-    // agent's half and the locks survive an editor that does not mention them —
-    // and an editor that does mention them is taken at its word.
+    // locks survive an editor that does not mention them — and an editor that
+    // does mention them is taken at its word.
     const written = await changePolicy((doc) => ({
       ...parsed.doc,
-      ...(parsed.doc.agent ? {} : doc.agent ? { agent: doc.agent } : {}),
       ...(parsed.doc.identities
         ? {}
         : doc.identities
@@ -1411,112 +1411,6 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       );
     const kicked = sessions.destroyAllExcept(session.id);
     return c.json({ ok: true, kicked });
-  });
-
-  /**
-   * What the worker does in each group (ADR 0003).
-   *
-   * The areas an administrator narrows a group to, written into the policy
-   * document beside the settings policy: a group's reach is a durable fact
-   * rather than a deployment's guess, and the worker intersects these with the
-   * areas the deployment serves, so a group set back to nothing is served as
-   * the deployment says. Several groups travel in one request, because an operator
-   * who changes a policy changes it for the groups they mean. The grant is not
-   * touched: membership is Stalwart's, and this surface never writes it.
-   */
-  api.post("/admin/agent/groups", requireSession, requireAdmin, async (c) => {
-    const body = await readJson<{ groups?: unknown }>(c);
-    const input = body?.groups;
-    if (!input || typeof input !== "object" || Array.isArray(input))
-      return c.json({ error: "bad_request", message: "groups must be an object" }, 400);
-    const address = agentAddress();
-    if (!address)
-      return c.json(
-        {
-          error: "agent_not_configured",
-          message:
-            "This deployment names no agent, so there is nothing for a group's areas to apply to: set GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD in the environment that starts the server and the worker.",
-        },
-        409,
-      );
-    // What this request asks each group to become, checked before anything is
-    // written: an unknown area and a group address that is not one are the two
-    // mistakes an operator can make here, and both are answered in words.
-    const patch: Record<string, string[]> = {};
-    for (const [rawName, entry] of Object.entries(input as Record<string, unknown>)) {
-      const name = rawName.trim().toLowerCase();
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(name))
-        return c.json(
-          { error: "bad_request", message: `${rawName} is not a group address` },
-          400,
-        );
-      const areas = Array.isArray(entry)
-        ? entry
-        : ((entry as { areas?: unknown } | null)?.areas ?? []);
-      if (!Array.isArray(areas) || areas.some((area) => typeof area !== "string"))
-        return c.json(
-          { error: "bad_request", message: `the areas of ${name} must be a list` },
-          400,
-        );
-      const clean = [
-        ...new Set(areas.map((area) => String(area).trim()).filter(Boolean)),
-      ];
-      const unknown = clean.filter(
-        (area) => !AGENT_AREAS.includes(area as (typeof AGENT_AREAS)[number]),
-      );
-      if (unknown.length)
-        return c.json(
-          {
-            error: "bad_request",
-            message: `${unknown.join(", ")} is not an area: the areas are ${AGENT_AREAS.join(", ")}`,
-          },
-          400,
-        );
-      // The deployment's own list is the ceiling, and this is the door where
-      // saying otherwise would be recorded: a record can narrow what an
-      // operator opened and can never claim to have widened it.
-      const notServed = clean.filter(
-        (area) => !config.agent.areas.includes(area as (typeof AGENT_AREAS)[number]),
-      );
-      if (notServed.length)
-        return c.json(
-          {
-            error: "bad_request",
-            message: `this deployment does not serve ${notServed.join(", ")}: it serves ${config.agent.areas.join(", ")}, and a group can only be narrowed inside that`,
-          },
-          400,
-        );
-      patch[name] = clean;
-    }
-    // Merged into the record that is actually there, not into the copy this
-    // process read: a second administrator's groups are their own decision.
-    const written = await changePolicy((doc) => {
-      const groups: Record<string, { areas?: string[] }> = {
-        ...(doc.agent?.groups ?? {}),
-      };
-      for (const [name, areas] of Object.entries(patch)) {
-        // An empty list is how "served as the deployment says" is written down:
-        // clearing a narrowing is a value, not a deletion nobody can express.
-        if (areas.length) groups[name] = { areas };
-        else delete groups[name];
-      }
-      // Every narrowing gone is no record at all, and the deployment's own list
-      // is in force for every group. The one key is removed rather than the
-      // document rebuilt from its other fields, so records this route does not
-      // own — the identity overrides beside it — survive untouched.
-      if (!Object.keys(groups).length) {
-        const next: PolicyDocument = { ...doc };
-        delete next.agent;
-        return next;
-      }
-      return { ...doc, agent: { groups } };
-    });
-    if (!written.ok)
-      return c.json(
-        { error: written.error, message: written.message },
-        written.error === "policy_moved" ? 409 : 500,
-      );
-    return c.json({ ok: true });
   });
 
   /**
@@ -1980,6 +1874,31 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           written.error === "policy_moved" ? 409 : 500,
         );
       return c.json({ ok: true, locked });
+    } catch (err) {
+      return identityFailure(c, err);
+    }
+  });
+
+  /**
+   * The identity an account sends from by default (ADR 0007 §4).
+   *
+   * Not a Stalwart property: it is one key of the client's own settings
+   * document, in that account's app folder, so the administrator and the
+   * account's own Identities & signatures section read and write one value
+   * rather than two that can disagree. `identityId: null` clears it, which is
+   * the same state as never having chosen.
+   */
+  api.post("/admin/identities/user/default", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ address?: unknown; identityId?: unknown }>(c);
+    try {
+      const identityId =
+        typeof body?.identityId === "string" && body.identityId ? body.identityId : null;
+      const written = await setPersonDefaultIdentity(
+        c.get("session"),
+        typeof body?.address === "string" ? body.address : "",
+        identityId,
+      );
+      return c.json({ ok: true, identityId: written });
     } catch (err) {
       return identityFailure(c, err);
     }

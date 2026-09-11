@@ -17,7 +17,7 @@
  *   agent/schedule.json         next run times, in the group's account
  *   agent/jobs/<id>.json        one document per job, in the group's account
  *   agent/decisions/<id>.json   one document per approval, in the group's account
- *   agent/claims/<area>.json    one claim per account × area, in the group's account
+ *   agent/claim.json            the account's claim, in the group's account
  *   agent/audit/<YYYY-MM>.json  one audit document per month, in the group's account
  *   agent/config.json           provider keys + registration, in the agent's account
  *   agent/stream.json           the stream claim, in the agent's account
@@ -38,18 +38,13 @@ export const AGENT_CONFIG_FILE = "config.json";
 export const AGENT_STREAM_FILE = "stream.json";
 export const AGENT_JOBS_DIR = "jobs";
 export const AGENT_DECISIONS_DIR = "decisions";
-export const AGENT_CLAIMS_DIR = "claims";
+export const AGENT_CLAIM_FILE = "claim.json";
 export const AGENT_AUDIT_DIR = "audit";
 export const AGENT_WORKERS_DIR = "workers";
 
 /** The job/decision document name for an id. One writer, one shape. */
 export function agentDocName(id: string): string {
   return `${id}.json`;
-}
-
-/** The claim document name for an area (the folder already names the account). */
-export function claimDocName(area: AgentArea): string {
-  return `${area}.json`;
 }
 
 /** The audit document name for a month, `YYYY-MM` (UTC). */
@@ -89,30 +84,11 @@ export function monthsSince(from: Date, to: Date): string[] {
 }
 
 /* ------------------------------------------------------------------ */
-/* Areas and tiers                                                     */
+/* Tiers                                                               */
 /* ------------------------------------------------------------------ */
 
 /**
- * The areas the agent's work is divided into (ADR 0003, v1 scope). A worker
- * declares which it serves; a rule belongs to exactly one. The claim unit is
- * `account × area`, so two workers never touch the same area of one account.
- */
-export type AgentArea = "mail" | "files" | "tasks" | "calendars" | "contacts";
-
-export const AGENT_AREAS: ReadonlyArray<AgentArea> = [
-  "mail",
-  "files",
-  "tasks",
-  "calendars",
-  "contacts",
-];
-
-export function isAgentArea(x: unknown): x is AgentArea {
-  return typeof x === "string" && (AGENT_AREAS as ReadonlyArray<string>).includes(x);
-}
-
-/**
- * How much work a rule's decision costs (ADR 0003 resolution 2): T0 is
+ * How much work a rule's decision costs (ADR 0003): T0 is
  * deterministic and calls no model, T1 asks a small model to pick a category,
  * T2 hands the instruction to a model that decides and executes.
  */
@@ -399,7 +375,6 @@ export interface AgentRule {
   version: number;
   name: string;
   enabled: boolean;
-  area: AgentArea;
   trigger: AgentTrigger;
   tier: AgentTier;
   review: AgentReview;
@@ -471,7 +446,6 @@ export function isAgentRule(x: unknown): x is AgentRule {
   if (typeof r.version !== "number" || r.version < 1) return false;
   if (typeof r.name !== "string") return false;
   if (typeof r.enabled !== "boolean") return false;
-  if (!isAgentArea(r.area)) return false;
   if (!isAgentTrigger(r.trigger)) return false;
   if (!isAgentTier(r.tier)) return false;
   if (!isAgentReview(r.review)) return false;
@@ -813,11 +787,8 @@ function after(receivedAt: string | null | undefined, want: unknown): boolean {
 export function rulesFor(
   rules: ReadonlyArray<AgentRule>,
   on: AgentTriggerOn,
-  area?: AgentArea,
 ): AgentRule[] {
-  return rules.filter(
-    (r) => r.enabled && r.trigger.on === on && (area === undefined || r.area === area),
-  );
+  return rules.filter((r) => r.enabled && r.trigger.on === on);
 }
 
 /* ------------------------------------------------------------------ */
@@ -918,7 +889,6 @@ export interface AgentJob {
   id: string;
   /** The account the job works in — the group's own. */
   accountId: string;
-  area: AgentArea;
   ruleId: string;
   /** Pinned at creation: an updated rule does not change a running job. */
   ruleVersion: number;
@@ -985,7 +955,6 @@ export function isAgentJob(x: unknown): x is AgentJob {
   if (j.v !== 1) return false;
   if (typeof j.id !== "string" || !j.id) return false;
   if (typeof j.accountId !== "string") return false;
-  if (!isAgentArea(j.area)) return false;
   if (typeof j.ruleId !== "string" || typeof j.ruleVersion !== "number") return false;
   if (!isAgentJobState(j.state)) return false;
   if (!isAgentTriggerRecord(j.trigger)) return false;
@@ -1007,7 +976,6 @@ export function isAgentJob(x: unknown): x is AgentJob {
 export function newJob(input: {
   id: string;
   accountId: string;
-  area: AgentArea;
   rule: Pick<AgentRule, "id" | "version">;
   trigger: AgentTriggerRecord;
   now?: string;
@@ -1017,7 +985,6 @@ export function newJob(input: {
     v: 1,
     id: input.id,
     accountId: input.accountId,
-    area: input.area,
     ruleId: input.rule.id,
     ruleVersion: input.rule.version,
     state: "pending",
@@ -1121,16 +1088,15 @@ export function newDecision(job: AgentJob, chatId?: string): AgentDecision {
 /* ------------------------------------------------------------------ */
 
 /**
- * One worker's claim on `account × area`, with the change states it has
- * reconciled up to. The state map lives here because it is the same kind of
- * fact as the claim: whoever holds the claim owns the catch-up anchor, and a
- * worker taking over a stale claim re-reads from what the previous one
- * recorded instead of from nothing.
+ * One worker's claim on an account, with the change states it has reconciled
+ * up to. The state map lives here because it is the same kind of fact as the
+ * claim: whoever holds the claim owns the catch-up anchor, and a worker taking
+ * over a stale claim re-reads from what the previous one recorded instead of
+ * from nothing.
  */
 export interface AgentClaim {
   v: 1;
   accountId: string;
-  area: AgentArea;
   worker: string;
   leasedAt: string;
   heartbeatAt: string;
@@ -1161,7 +1127,6 @@ export function isAgentClaim(x: unknown): x is AgentClaim {
   const c = x as Record<string, unknown>;
   if (c.v !== 1) return false;
   if (typeof c.accountId !== "string") return false;
-  if (!isAgentArea(c.area)) return false;
   if (typeof c.worker !== "string" || !c.worker) return false;
   if (typeof c.leasedAt !== "string" || typeof c.heartbeatAt !== "string") return false;
   if (c.epoch !== undefined && (!Number.isInteger(c.epoch) || (c.epoch as number) < 0))
@@ -1201,7 +1166,7 @@ export function isAgentStreamClaim(x: unknown): x is AgentStreamClaim {
  * time is unreadable means the truthful answer is unknown, and taking over on
  * an unknown is how two workers end up on the same unit. It throws instead,
  * which the worker reports as a failure of its pass — loudly, once, rather than
- * silently running the area twice.
+ * silently running the account's work twice.
  */
 export function leaseExpired(
   heartbeatAt: string,
@@ -1424,7 +1389,6 @@ export interface AgentWorkerRecord {
   v: 1;
   id: string;
   address: string;
-  areas: AgentArea[];
   /** The version the worker runs, for the status surface. */
   version: string;
   startedAt: string;
@@ -1438,8 +1402,6 @@ export function isAgentWorkerRecord(x: unknown): x is AgentWorkerRecord {
     w.v === 1 &&
     typeof w.id === "string" &&
     typeof w.address === "string" &&
-    Array.isArray(w.areas) &&
-    w.areas.every(isAgentArea) &&
     typeof w.version === "string" &&
     typeof w.startedAt === "string" &&
     typeof w.heartbeatAt === "string"
@@ -1544,11 +1506,11 @@ export interface AgentChatRequest {
 /**
  * The rule document as a standard JSON Schema (draft 2020-12).
  *
- * ADR 0003 resolution 2 asks for exactly this: an automation is a JSON
+ * ADR 0003 asks for exactly this: an automation is a JSON
  * document validated against a standard schema — no new rule language — with
  * the JMAP filter grammar for matching and named, capability-gated actions for
  * effects. The schema is **derived** from the same constants the runtime
- * validator reads (areas, tiers, triggers, and `AGENT_ACTION_SPECS` for the
+ * validator reads (tiers, triggers, and `AGENT_ACTION_SPECS` for the
  * capability names), so there is no second list of what a rule may say; the
  * drift is caught by the test that builds this and checks the enums against
  * those constants.
@@ -1582,17 +1544,7 @@ export function agentRuleJsonSchema(): Record<string, unknown> {
     description:
       "One automation: what wakes it, how much work its decision may cost, and what it may do about it (ADR 0003).",
     type: "object",
-    required: [
-      "v",
-      "id",
-      "version",
-      "name",
-      "enabled",
-      "area",
-      "trigger",
-      "tier",
-      "review",
-    ],
+    required: ["v", "id", "version", "name", "enabled", "trigger", "tier", "review"],
     additionalProperties: true,
     properties: {
       v: { const: 1 },
@@ -1600,7 +1552,6 @@ export function agentRuleJsonSchema(): Record<string, unknown> {
       version: { type: "integer", minimum: 1 },
       name: { type: "string" },
       enabled: { type: "boolean" },
-      area: { enum: [...AGENT_AREAS] },
       tier: { enum: [...AGENT_TIERS] },
       trigger: {
         type: "object",

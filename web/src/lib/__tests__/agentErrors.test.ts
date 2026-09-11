@@ -31,7 +31,7 @@ const FILLED = {
   id: "r1",
   index: 1,
   name: "Move invoices",
-  problems: "area: not an area",
+  problems: "tier: not a tier",
   key: "T3",
   tier: "T2",
   movedTo: "https://models.example.org",

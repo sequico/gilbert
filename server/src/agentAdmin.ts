@@ -22,6 +22,7 @@
  */
 
 import { readGroupLabels, writeGroupLabels } from "./account.js";
+import { hasSpoken, readChat } from "./agent/chat.js";
 import {
   AGENT_INSTRUCTION_MAX,
   AGENT_JOB_OPEN_STATES,
@@ -64,8 +65,8 @@ import type {
 } from "./agent/views.js";
 import { GROUP_NOT_ACCESSIBLE, WITHDRAWALS_PATH } from "./agent/views.js";
 import { type Ctx, filesAccountId, readAppJsonAt } from "./appFolder.js";
-import { agentAddress, agentGroupAreas, config } from "./config.js";
-import { JmapError } from "./jmap.js";
+import { agentAddress, config } from "./config.js";
+import { JmapClient, JmapError } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
 import {
   AGENT_LABELS,
@@ -389,16 +390,14 @@ async function agentStore(
 /* ------------------------------------------------------------------ */
 
 /**
- * One group row: the areas an administrator narrowed it to, when one did.
+ * One group row.
  *
  * Membership is not a field here. A row exists because the agent's own session
  * showed it holds the group (ADR 0003 §2), so every row is granted by
- * construction and a row that is not has nothing to carry. The areas are the
- * installation's own record, which can only narrow what the deployment serves.
+ * construction and a row that is not has nothing to carry.
  */
 function groupRow(name: string): AgentStatusGroup {
-  const narrowed = agentGroupAreas(name);
-  return { name, ...(narrowed ? { areas: narrowed } : {}) };
+  return { name };
 }
 
 /**
@@ -417,7 +416,6 @@ function groupRow(name: string): AgentStatusGroup {
  */
 export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
   const address = agentAddress();
-  const defaultAreas = config.agent.areas;
   /*
    * Both halves or nothing to run. With no address the deployment names no
    * agent; with an address and no password behind it, nobody can sign in as
@@ -430,7 +428,6 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       operational: false,
       address,
       groups: [],
-      defaultAreas,
       workers: [],
       withdrawals: [],
       reason: { code: "agent_not_configured" },
@@ -442,7 +439,6 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       operational: false,
       address,
       groups: [],
-      defaultAreas,
       workers: [],
       withdrawals: [],
       reason: { code: agent.code, detail: agent.detail },
@@ -468,7 +464,6 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
     operational: true,
     address,
     groups,
-    defaultAreas,
     workers,
     withdrawals: await readWithdrawals(agent.ctx),
     ...(reason ? { reason } : {}),
@@ -503,7 +498,6 @@ async function readWorkers(ctx: Ctx): Promise<AgentStatusWorker[]> {
   return records.map((w) => ({
     id: w.id,
     address: w.address,
-    areas: w.areas,
     heartbeatAt: w.heartbeatAt,
     version: w.version,
     alive: !leaseExpired(w.heartbeatAt, now, tolerance),
@@ -1056,10 +1050,10 @@ export async function pendingApprovals(admin: LiveSession): Promise<AgentApprova
  * `granted` is what the group's own account proves, and deliberately not a
  * claim about the operator's grant list: a member's session cannot read another
  * principal's grants (impersonation is an administrator right, and Stalwart
- * never hands a group's membership out over JMAP). What the group's documents
- * do prove is that the agent has been configured for it — an instruction or
- * rules were authored for it, or jobs and audit entries exist — which is the
- * evidence this view reports.
+ * never hands a group's membership out over JMAP). What the group's account
+ * does prove is that the agent works here — it has spoken in the group, an
+ * instruction or rules were authored for it, or jobs and audit entries exist —
+ * which is the evidence this view reports.
  */
 export async function memberAgentView(
   session: LiveSession,
@@ -1071,7 +1065,7 @@ export async function memberAgentView(
   });
   if (!access.ok) return access;
   const store = new AgentStore(access.ctx, access.accountId);
-  const [rules, jobs, audit, instruction] = await Promise.all([
+  const [rules, jobs, audit, instruction, chat] = await Promise.all([
     store.readRules(),
     store.listJobs(),
     readRecentAudit(store),
@@ -1079,6 +1073,10 @@ export async function memberAgentView(
     // own session: membership is the grant for a group's files (ADR 0005), and
     // this route never impersonates.
     readGroupInstruction(access),
+    // The transcript is the group's own proof that the agent works here: the
+    // greeting the agent posts when it takes the group's claim is readable by
+    // the member's own session, where the grant list is not.
+    readChat(access.ctx, access.accountId, new JmapClient(access.ctx)),
   ]);
   const rulesDoc = rules?.doc ?? [];
   const open = jobs
@@ -1091,12 +1089,15 @@ export async function memberAgentView(
     // two.
     group: name.trim().toLowerCase(),
     granted:
-      rulesDoc.length > 0 || open.length > 0 || audit.length > 0 || !!instruction.text,
+      hasSpoken(chat, agentAddress()) ||
+      rulesDoc.length > 0 ||
+      open.length > 0 ||
+      audit.length > 0 ||
+      !!instruction.text,
     agentAddress: agentAddress(),
     rules: rulesDoc.map((r) => ({
       id: r.id,
       name: r.name,
-      area: r.area,
       tier: r.tier,
       enabled: r.enabled,
       trigger: r.trigger,

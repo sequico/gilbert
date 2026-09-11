@@ -8,7 +8,12 @@ import {
   type Settings,
   syncedPart,
 } from "@/store/settings";
-import { isAppFolder } from "../appFolder";
+import {
+  APP_FOLDER,
+  APP_FOLDER_ALT,
+  appFolderNameWhenMissing,
+  isAppFolderName,
+} from "../appFolder";
 import {
   armSettingsSync,
   settingsAlreadyLoadedFor,
@@ -108,22 +113,44 @@ describe("applying a settings file", () => {
 });
 
 describe("the client's own folder", () => {
-  it("is the top-level gilbert directory", () => {
-    expect(isAppFolder({ name: "gilbert", parentId: null, nodeType: "directory" })).toBe(
-      true,
-    );
+  it("is a top-level gilbert directory", () => {
+    expect(
+      isAppFolderName({ name: "gilbert", parentId: null, nodeType: "directory" }),
+    ).toBe(true);
+  });
+
+  it("is the stand-in it moves to when the plain name is already taken", () => {
+    expect(
+      isAppFolderName({ name: APP_FOLDER_ALT, parentId: null, nodeType: "directory" }),
+    ).toBe(true);
   });
 
   it("is not a folder of that name someone made inside another one", () => {
-    expect(isAppFolder({ name: "gilbert", parentId: "n1", nodeType: "directory" })).toBe(
+    expect(
+      isAppFolderName({ name: "gilbert", parentId: "n1", nodeType: "directory" }),
+    ).toBe(false);
+  });
+
+  it("is not a file that happens to be called that", () => {
+    expect(isAppFolderName({ name: "gilbert", parentId: null, nodeType: "file" })).toBe(
       false,
     );
   });
 
-  it("is not a file that happens to be called that", () => {
-    expect(isAppFolder({ name: "gilbert", parentId: null, nodeType: "file" })).toBe(
+  it("is not some other top-level folder", () => {
+    expect(isAppFolderName({ name: "Work", parentId: null, nodeType: "directory" })).toBe(
       false,
     );
+  });
+
+  it("takes the plain name when the account does not hold it", () => {
+    expect(appFolderNameWhenMissing(["INBOX", "Work"])).toBe(APP_FOLDER);
+  });
+
+  it("moves aside when a top-level folder already holds the plain name", () => {
+    // A folder a person made by that name carries no marker, so it is not
+    // adopted: the app folder lands beside it, under the stand-in name.
+    expect(appFolderNameWhenMissing(["INBOX", APP_FOLDER])).toBe(APP_FOLDER_ALT);
   });
 });
 

@@ -1,7 +1,7 @@
 /**
  * Coordination without a coordinator (ADR 0003 §6).
  *
- * A worker serves the `account × area` units it wins, and exactly one worker
+ * A worker serves the accounts it wins, and exactly one worker
  * holds the agent's event stream. There is no lock to take and no coordinator
  * to ask: a claim is a document, its owner and heartbeat are the truth, and a
  * heartbeat older than the tolerance is free for anyone to take over. Every
@@ -15,7 +15,6 @@
 
 import { isStateMismatch } from "../jmap.js";
 import {
-  type AgentArea,
   type AgentClaim,
   type AgentStreamClaim,
   claimEpoch,
@@ -54,7 +53,7 @@ export type ClaimRefusal =
 const CAS_ATTEMPTS = 4;
 
 /**
- * Claim (or renew, or take over) one account's area.
+ * Claim (or renew, or take over) one account.
  *
  * - nobody holds it → take it;
  * - I hold it → renew the heartbeat, keeping the instant the lease started;
@@ -63,9 +62,8 @@ const CAS_ATTEMPTS = 4;
  *   states it recorded**, so catch-up continues where the dead worker stopped
  *   instead of starting from nothing.
  */
-export async function claimArea(
+export async function claimAccount(
   store: AgentStore,
-  area: AgentArea,
   worker: string,
   opts: ClaimOpts,
 ): Promise<AgentClaim | null> {
@@ -79,7 +77,7 @@ export async function claimArea(
     // state past the token, so the conditional write is refused and the loser
     // comes back next pass.
     const token = await store.state();
-    const found = await store.readClaim(area);
+    const found = await store.readClaim();
     const held = found?.doc;
     const mine = held?.worker === worker;
     if (
@@ -101,7 +99,6 @@ export async function claimArea(
       : {
           v: 1,
           accountId: store.accountId,
-          area,
           worker,
           epoch: 0,
           leasedAt: heartbeatAt,
@@ -127,7 +124,7 @@ export async function renewClaim(
 ): Promise<AgentClaim | null> {
   const heartbeatAt = opts.now.toISOString();
   for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
-    const found = await store.readClaim(claim.area);
+    const found = await store.readClaim();
     if (!found || found.doc.worker !== claim.worker) return null;
     try {
       const renewed = { ...found.doc, heartbeatAt };
@@ -152,15 +149,14 @@ export async function renewClaim(
  */
 export async function releaseClaim(
   store: AgentStore,
-  area: AgentArea,
   worker: string,
   epoch?: number,
 ): Promise<boolean> {
-  const found = await store.readClaim(area);
+  const found = await store.readClaim();
   if (!found || found.doc.worker !== worker) return false;
   if (epoch !== undefined && claimEpoch(found.doc) !== epoch) return false;
   try {
-    await store.destroyClaim(area, { ifInState: found.state });
+    await store.destroyClaim({ ifInState: found.state });
   } catch (err) {
     if (isStateMismatch(err)) return false;
     throw err;
@@ -169,7 +165,7 @@ export async function releaseClaim(
 }
 
 /**
- * Whether this worker still holds the unit, in the epoch it was granted.
+ * Whether this worker still holds the account, in the epoch it was granted.
  *
  * What the executor asks before each effect that leaves the process — sending
  * mail, posting to a chat, writing a file — so a run whose lease lapsed and was
@@ -177,11 +173,10 @@ export async function releaseClaim(
  */
 export async function claimStillMine(
   store: AgentStore,
-  area: AgentArea,
   worker: string,
   epoch: number,
 ): Promise<boolean> {
-  const found = await store.readClaim(area);
+  const found = await store.readClaim();
   return Boolean(found && found.doc.worker === worker && claimEpoch(found.doc) === epoch);
 }
 
@@ -199,11 +194,11 @@ export async function saveClaimStates(
 ): Promise<AgentClaim | null> {
   for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
     const token = await store.state();
-    const found = await store.readClaim(claim.area);
+    const found = await store.readClaim();
     // A claim that is not there is not mine to write into: it was released, and
     // recreating it here would put the unit back under a worker that has already
     // given it away — busy for a whole lease, with nobody serving it. The next
-    // pass claims the unit again through `claimArea`, which is the one place a
+    // pass claims the unit again through `claimAccount`, which is the one place a
     // claim is born.
     if (!found) return null;
     if (found.doc.worker !== claim.worker) return null;

@@ -31,7 +31,6 @@ function memberView(overrides: Partial<MemberAgentView> = {}): MemberAgentView {
       {
         id: "r1",
         name: "Label processed mail",
-        area: "mail",
         tier: "T0",
         enabled: true,
         trigger: { on: "email", filter: { subject: "invoice" } },

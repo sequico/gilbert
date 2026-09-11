@@ -15,12 +15,10 @@ import { test } from "node:test";
 const original = {
   address: process.env.GILBERT_AGENT_ADDRESS,
   password: process.env.GILBERT_AGENT_PASSWORD,
-  areas: process.env.GILBERT_AGENT_AREAS,
 };
 
 process.env.GILBERT_AGENT_ADDRESS = "Agent@Example.com";
 process.env.GILBERT_AGENT_PASSWORD = "p-env";
-process.env.GILBERT_AGENT_AREAS = "mail,tasks";
 
 const { config } = await import("./config.js");
 
@@ -28,7 +26,6 @@ test.after(() => {
   for (const [key, value] of Object.entries({
     GILBERT_AGENT_ADDRESS: original.address,
     GILBERT_AGENT_PASSWORD: original.password,
-    GILBERT_AGENT_AREAS: original.areas,
   })) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
@@ -38,7 +35,6 @@ test.after(() => {
 test("the installation's agent is the one the environment names", () => {
   assert.equal(config.agent.address, "agent@example.com", "normalized as it is read");
   assert.equal(config.agent.password, "p-env");
-  assert.deepEqual(config.agent.areas, ["mail", "tasks"]);
 });
 
 test("the record is resolved once: the environment moving on changes nothing", () => {

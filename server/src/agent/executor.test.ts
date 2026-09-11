@@ -31,7 +31,7 @@ const { fetchEmailRecord } = await import("./actions.js");
 const { postMessage, readChat } = await import("./chat.js");
 const { newJob } = await import("./documents.js");
 const { Executor, JOB_MAX_ATTEMPTS } = await import("./executor.js");
-const { claimArea } = await import("./lease.js");
+const { claimAccount } = await import("./lease.js");
 const { AgentStore } = await import("./store.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -95,7 +95,6 @@ function rule(overrides: Partial<AgentRule> = {}): AgentRule {
     version: 1,
     name: "File the invoices",
     enabled: true,
-    area: "mail",
     trigger: { on: "email", filter: { subject: "invoice" } },
     tier: "T0",
     review: { mode: "threshold", threshold: 0.9 },
@@ -105,9 +104,9 @@ function rule(overrides: Partial<AgentRule> = {}): AgentRule {
   };
 }
 
-async function claimFor(area: "mail" | "files" | "schedule") {
-  const claim = await claimArea(store, area, WORKER, { now: new Date(), leaseMs: LEASE });
-  assert.ok(claim, `the worker holds ${area}`);
+async function claimFor() {
+  const claim = await claimAccount(store, WORKER, { now: new Date(), leaseMs: LEASE });
+  assert.ok(claim, "the worker holds the account");
   return claim;
 }
 
@@ -144,7 +143,7 @@ test("a matching message is filed: the job runs, the audit records it, the claim
   const rule_ = rule();
   await store.writeRules([rule_]);
   const emailId = await createMessage("Your invoice #4821 is ready");
-  const claim = await claimFor("mail");
+  const claim = await claimFor();
 
   await executor.reconcile(GROUP, "Email", claim);
 
@@ -156,7 +155,6 @@ test("a matching message is filed: the job runs, the audit records it, the claim
   assert.equal(job.attempts, 1);
   assert.equal(job.trigger.emailId, emailId);
   assert.equal(job.trigger.by, ADA, "the trail records who caused the run");
-  assert.equal(job.area, "mail");
 
   const audit = await store.readAuditAt(new Date());
   const entries = (audit?.entries ?? []).filter(
@@ -198,7 +196,7 @@ test("a filter that does not match opens no job, and a rule without a filter mat
   await store.writeRules([strict, loose]);
   await createMessage("A message nobody filters for");
 
-  await executor.reconcile(GROUP, "Email", { ...(await claimFor("mail")), states: {} });
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
 
   assert.equal((await jobsOf("only-invoices")).length, 0);
   assert.ok((await jobsOf("everything")).length >= 1);
@@ -211,7 +209,7 @@ test("a filter the executor cannot honour fails loudly instead of never firing",
   });
   await store.writeRules([broken]);
 
-  await executor.reconcile(GROUP, "Email", { ...(await claimFor("mail")), states: {} });
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
 
   const jobs = await jobsOf("broken-filter");
   assert.equal(jobs.length, 1);
@@ -244,7 +242,7 @@ test("a G- label the group's catalog does not define refuses the run before it a
   await store.writeRules([bad]);
   const emailId = await createMessage("An invoice for the wrong label");
 
-  await executor.reconcile(GROUP, "Email", { ...(await claimFor("mail")), states: {} });
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
 
   const job = (await jobsOf("unknown-label")).find(
     (candidate) => candidate.trigger.emailId === emailId,
@@ -274,8 +272,8 @@ test("duplicate delivery is harmless: the same record never opens a second job",
   await store.writeRules([once]);
   const emailId = await createMessage("An invoice delivered twice");
 
-  await executor.reconcile(GROUP, "Email", { ...(await claimFor("mail")), states: {} });
-  await executor.reconcile(GROUP, "Email", { ...(await claimFor("mail")), states: {} });
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
 
   const jobs = (await jobsOf("once-only")).filter(
     (job) => job.trigger.emailId === emailId,
@@ -295,7 +293,6 @@ test("a job whose pinned rule version is gone refuses instead of running another
   const job = newJob({
     id: "pinned-job",
     accountId: GROUP,
-    area: "mail",
     rule: { id: "pinned", version: 1 },
     trigger: { on: "email", emailId, at: new Date().toISOString() },
   });
@@ -319,7 +316,7 @@ test("a run that must wait on a person pauses, and one conversational answer set
   await store.writeRules([waiting]);
   const emailId = await createMessage("An invoice needing approval");
 
-  await executor.reconcile(GROUP, "Email", { ...(await claimFor("mail")), states: {} });
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
 
   const job = (await jobsOf("ask-first")).find(
     (candidate) => candidate.trigger.emailId === emailId,
@@ -385,7 +382,7 @@ test("a malformed proposal fails loudly rather than pausing on nothing", async (
   await store.writeRules([broken]);
   await createMessage("An invoice for a broken rule");
 
-  await executor.reconcile(GROUP, "Email", { ...(await claimFor("mail")), states: {} });
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
 
   const job = (await jobsOf("no-action-params")).at(-1);
   assert.ok(job);
@@ -413,7 +410,7 @@ test("a proposal that would send mail leaves the draft in Drafts, unread, and a 
   await store.writeRules([proposer]);
   const emailId = await createMessage("An invoice that wants a reply");
 
-  await executor.reconcile(GROUP, "Email", { ...(await claimFor("mail")), states: {} });
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
 
   const job = (await jobsOf("draft-and-send")).find(
     (candidate) => candidate.trigger.emailId === emailId,
@@ -474,7 +471,7 @@ test("a draft that vanished is not an approval", async () => {
   await store.writeRules([proposer]);
   await createMessage("An invoice whose draft will vanish");
 
-  await executor.reconcile(GROUP, "Email", { ...(await claimFor("mail")), states: {} });
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
   const job = (await jobsOf("vanishing-draft")).at(-1);
   assert.ok(job?.proposal?.draft);
   await client.call(
@@ -499,7 +496,6 @@ test("a failure retries to a point and then dead-letters, telling the group", as
   const job = newJob({
     id: "flaky-job",
     accountId: GROUP,
-    area: "mail",
     rule: { id: "flaky", version: 1 },
     trigger: { on: "email", emailId, at: new Date().toISOString() },
   });
@@ -548,7 +544,7 @@ test("the schedule fires what is due and moves the entry on", async () => {
     { ruleId: scheduled.id, at: new Date(Date.now() - 60_000).toISOString() },
   ]);
 
-  await claimFor("mail");
+  await claimFor();
   await executor.runDueSchedules(GROUP);
 
   const jobs = await jobsOf("every-five");
@@ -571,7 +567,7 @@ test("pruning drops finished documents and keeps open ones", async () => {
   });
   await store.writeRules([open]);
   await createMessage("An invoice that will wait for a person");
-  await executor.reconcile(GROUP, "Email", { ...(await claimFor("mail")), states: {} });
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
   const waiting = (await jobsOf("still-open"))[0];
   assert.equal(waiting?.state, "awaiting_approval");
 
@@ -643,7 +639,6 @@ test("a failure that could have sent mail is not retried", async () => {
   const job = newJob({
     id: "sender-job",
     accountId: GROUP,
-    area: "mail",
     rule: { id: "sender", version: 1 },
     trigger: { on: "email", emailId, at: new Date().toISOString() },
   });
@@ -682,7 +677,6 @@ test("a failure that stayed inside the group waits before trying again", async (
   const job = newJob({
     id: "internal-job",
     accountId: GROUP,
-    area: "mail",
     rule: { id: "internal", version: 1 },
     trigger: { on: "email", emailId, at: new Date().toISOString() },
   });
@@ -723,7 +717,6 @@ test("a run nobody came back for is closed as a timeout, not a failure", async (
   const job = newJob({
     id: "abandoned-job",
     accountId: GROUP,
-    area: "mail",
     rule: { id: "abandoned", version: 1 },
     trigger: { on: "email", emailId, at: new Date().toISOString() },
   });
@@ -764,7 +757,6 @@ test("a run whose worker died is taken up again by the next pass", async () => {
   const job = newJob({
     id: "resume-job",
     accountId: GROUP,
-    area: "mail",
     rule: { id: "resume", version: 1 },
     trigger: { on: "email", emailId, at: new Date().toISOString() },
   });
@@ -778,7 +770,7 @@ test("a run whose worker died is taken up again by the next pass", async () => {
     },
   });
 
-  await claimFor("mail");
+  await claimFor();
   await executor.runPending(GROUP, ["mail"]);
 
   const after = await store.readJob("resume-job");
@@ -802,7 +794,6 @@ test("a sweep leaves a job whose unit is somebody else's alone", async () => {
   const job = newJob({
     id: "fenced-job",
     accountId: GROUP,
-    area: "mail",
     rule: { id: "fenced", version: 1 },
     trigger: { on: "email", emailId, at: new Date().toISOString() },
   });
@@ -819,7 +810,7 @@ test("a sweep leaves a job whose unit is somebody else's alone", async () => {
   // worker holds: with the claim in another worker's hands, the run is the
   // double execution the fence exists to stop (resolution 18). The takeover is
   // dated past the holder's lease, which is how a successor arrives.
-  const taken = await claimArea(store, "mail", "another-worker", {
+  const taken = await claimAccount(store, "another-worker", {
     now: new Date(Date.now() + 10 * LEASE),
     leaseMs: LEASE,
   });
@@ -842,7 +833,7 @@ test("a sweep leaves a job whose unit is somebody else's alone", async () => {
 
   // The claim is a fixture: a test that leaves the unit in another worker's
   // hands would decide the tests that come after it.
-  await claimArea(store, "mail", WORKER, {
+  await claimAccount(store, WORKER, {
     now: new Date(Date.now() + 20 * LEASE),
     leaseMs: LEASE,
   });
@@ -856,7 +847,7 @@ test("an approval on a rule that moved on is refused, and the answer is spoken",
   });
   await store.writeRules([movedOn]);
   const emailId = await createMessage("An invoice approved too late");
-  await executor.reconcile(GROUP, "Email", { ...(await claimFor("mail")), states: {} });
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
 
   const job = (await jobsOf("moved-on")).find(
     (candidate) => candidate.trigger.emailId === emailId,
@@ -901,7 +892,7 @@ test("a filter the form refuses is refused when it runs too", async () => {
   await store.writeRules([empty]);
   await createMessage("An invoice the empty group would match");
 
-  await executor.reconcile(GROUP, "Email", { ...(await claimFor("mail")), states: {} });
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
 
   const jobs = await jobsOf("empty-group");
   assert.equal(jobs.length, 1);
@@ -928,7 +919,6 @@ test("an extraction that fails is not retried, because it leaves a file behind",
     ...newJob({
       id: "extract-job",
       accountId: GROUP,
-      area: "mail",
       rule: { id: "extract", version: 1 },
       trigger: { on: "email", emailId: "gone", at: new Date().toISOString() },
     }),

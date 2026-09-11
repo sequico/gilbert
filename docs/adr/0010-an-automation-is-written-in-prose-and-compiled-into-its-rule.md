@@ -4,8 +4,8 @@ Status: Proposed (2026-09-11)
 
 ## Context
 
-An automation is a document the fleet executes (ADR 0003): a trigger, an area,
-a tier, the material that tier runs on — a T0 rule's ordered actions, a T1
+An automation is a document the fleet executes (ADR 0003): a trigger, a
+tier, the material that tier runs on — a T0 rule's ordered actions, a T1
 rule's closed set of categories each with fixed actions, a T2 rule's
 instruction — bounded by a capability allowlist and a review policy. That shape
 is exact, and the executor, the matcher, the review gate and the consent floor
@@ -44,10 +44,10 @@ run time (T2). The vocabulary of tiers stops at the compiler: the surface shows
 the automation, never its tier name.
 
 **The context is the product's, and it is bounded.** The compiler is given what
-the installation can actually do — the areas the deployment serves, the
-capability catalogue in full, the group's narrowing, and the review and consent
-rules — and compiles inside that envelope. It cannot invent an action, an area
-or a capability, because the envelope it is handed does not contain one.
+the installation can actually do — the capability catalogue in full, and the
+review and consent rules — and compiles inside that envelope. It cannot invent
+an action or a capability, because the envelope it is handed does not contain
+one.
 
 **Underdetermined prose is refused, not guessed.** Prose is a statement of
 intent, and an intent can be missing the thing that decides a branch. Where the

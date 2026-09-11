@@ -15,23 +15,6 @@ export interface PolicyChangeDocument {
 }
 
 /**
- * What the worker does in each group, when the installation says so.
- *
- * The agent itself is not here: the deployment names it, in the environment of
- * whoever starts the server and the worker (`GILBERT_AGENT_ADDRESS` beside
- * `GILBERT_AGENT_PASSWORD`), so there is one place an address and its password
- * come from and no durable document to disagree with it.
- */
-export interface PolicyAgent {
-  /**
-   * Narrowing only: the areas are intersected with the ones the deployment
-   * serves, so a document can never widen what an operator allowed. A group the
-   * document does not name is served as the deployment says.
-   */
-  groups?: Record<string, { areas?: string[] }>;
-}
-
-/**
  * The identities an administrator has taken over (ADR 0007 §4).
  *
  * `locked` names the accounts whose identity an administrator set: the product
@@ -52,7 +35,6 @@ export interface PolicyDocument {
   defaults: Record<string, unknown>;
   enforced: Record<string, unknown>;
   changes: PolicyChangeDocument[];
-  agent?: PolicyAgent;
   identities?: PolicyIdentities;
 }
 
@@ -136,8 +118,6 @@ export function parsePolicyDocumentDetailed(
       changes.push({ version, settings: entry.settings });
     }
   }
-  const parsedAgent = parseAgent(whole.agent);
-  if (parsedAgent && "problem" in parsedAgent) return { problem: parsedAgent.problem };
   const parsedIdentities = parseIdentities(whole.identities);
   if (parsedIdentities && "problem" in parsedIdentities)
     return { problem: parsedIdentities.problem };
@@ -146,7 +126,6 @@ export function parsePolicyDocumentDetailed(
       defaults,
       enforced,
       changes,
-      ...(parsedAgent ? { agent: parsedAgent.agent } : {}),
       ...(parsedIdentities ? { identities: parsedIdentities.identities } : {}),
     },
   };
@@ -183,55 +162,6 @@ function parseIdentities(
   return { identities: { locked } };
 }
 
-/**
- * The per-group record the document carries, or the problem with what it says,
- * or null when it carries none.
- *
- * A record with no groups is nothing: the deployment's own list is in force for
- * every group, which is the state an installation that has narrowed nothing is
- * in. A present-but-unusable value is an error at save time, like every other
- * field here: a policy that half-applies is worse than one that is refused.
- */
-function parseAgent(v: unknown): { agent: PolicyAgent } | { problem: string } | null {
-  if (v == null) return null;
-  if (!isRecord(v)) return { problem: '"agent" must be an object of groups.' };
-  const groups = parseAgentGroups(v.groups);
-  if ("problem" in groups) return { problem: groups.problem };
-  if (!Object.keys(groups.groups).length) return null;
-  return { agent: { groups: groups.groups } };
-}
-
-/**
- * The per-group part of the agent record, checked name by name.
- *
- * A group is named the way the product names groups (a lowercased address), and
- * an empty area list is how "as the deployment serves it" is written down — so
- * clearing a narrowing is a value an editor can express rather than a deletion.
- */
-function parseAgentGroups(
-  v: unknown,
-): { groups: Record<string, { areas?: string[] }> } | { problem: string } {
-  if (v == null) return { groups: {} };
-  if (!isRecord(v)) return { problem: '"agent.groups" must be an object of groups.' };
-  const groups: Record<string, { areas?: string[] }> = {};
-  for (const [rawName, entry] of Object.entries(v)) {
-    const name = rawName.trim().toLowerCase();
-    if (!isAddress(name))
-      return {
-        problem: `"agent.groups" names something that is not a group: ${rawName}.`,
-      };
-    if (entry == null) continue;
-    if (!isRecord(entry)) return { problem: `"agent.groups.${name}" must be an object.` };
-    const areas = entry.areas;
-    if (areas === undefined) continue;
-    if (!Array.isArray(areas) || areas.some((area) => typeof area !== "string"))
-      return { problem: `"agent.groups.${name}.areas" must be a list of area names.` };
-    const clean = [...new Set(areas.map((area) => String(area).trim()).filter(Boolean))];
-    groups[name] = clean.length ? { areas: clean } : {};
-  }
-  return { groups };
-}
-
 /** The document text the editor shows, stable keys and two-space indent. */
 export function policyDocumentText(policy: PolicyDocument): string {
   const locked = policy.identities?.locked ?? [];
@@ -240,7 +170,6 @@ export function policyDocumentText(policy: PolicyDocument): string {
       defaults: policy.defaults ?? {},
       enforced: policy.enforced ?? {},
       changes: policy.changes ?? [],
-      ...(policy.agent ? { agent: policy.agent } : {}),
       ...(locked.length ? { identities: { locked } } : {}),
     },
     null,

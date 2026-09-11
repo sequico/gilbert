@@ -33,7 +33,7 @@ import { directoryCreate, fileCreate } from "@/lib/filenode";
 
 export * from "@gilbert/shared/chat";
 
-/** The two chat folders under an account's `gilbert` app folder. */
+/** The two chat folders under an account's app folder. */
 export interface ChatFolders {
   chat: Id;
   state: Id;

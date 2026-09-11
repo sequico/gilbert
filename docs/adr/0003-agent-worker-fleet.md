@@ -50,14 +50,13 @@ Facts from the current machinery:
 ## Scope in force
 
 One self-hosted installation runs **one agent**. What is multiple is its
-**workers**: the agent's work is divided into areas — mail, files, tasks,
-calendars, contacts — and a deployment declares how many workers serve each.
-Further principals (`gilbert1@`, …) and external agent fleets are future work
-on the same machinery, not a configuration knob.
+**workers**: the agent works in every group it is granted, and a deployment
+declares how many workers run. Further principals (`gilbert1@`, …) and external
+agent fleets are future work on the same machinery, not a configuration knob.
 
 - **One agent, `gilbert@`**, created operator-side in Stalwart's own
-  administration — the surface that creates accounts. It works across areas
-  and across the groups it is granted, never by becoming someone: the agent
+  administration — the surface that creates accounts. It works across the
+groups it is granted, never by becoming someone: the agent
   principal is not granted `Impersonate`, and Stalwart refuses an impersonated
   group mailbox anyway (live-verified, 403), so the permission would buy only
   the ability to act as human users, on the identity a model drives. The
@@ -65,10 +64,10 @@ on the same machinery, not a configuration knob.
   manage it.
 - **A worker is its own process** — the same codebase with a second entrypoint,
   not a replica of gilbertserver and never a supervisor. It derives its session
-  as `gilbert@` the way the web tier does and claims the `account × area` units
-  it serves by lease (§6), so it needs no coordinator: the documents are the
-  coordination. v1 defaults to one worker covering every area; a busy area is
-  another worker, declared at deployment.
+  as `gilbert@` the way the web tier does and claims the accounts it serves by
+  lease (§6), so it needs no coordinator: the documents are the coordination.
+  v1 runs one worker; more throughput or availability is another worker,
+  declared at deployment.
 - **One bootstrap secret, from the deployment's environment**: the agent's
   address and its account's own password — the account's, not an app password,
   because the agent signs in as itself. No impersonation at boot, no operator
@@ -79,7 +78,7 @@ on the same machinery, not a configuration knob.
   identity*, below.
 - **Management is the admin surface over Stalwart's own documents.** The
   signed-in admin reads the fleet and edits what the installation decides — the
-  areas a group is narrowed to, the standing instruction, the automations —
+  standing instruction, the automations —
   through ordinary JMAP on Stalwart documents, with no Management API and no
   hand-edited files. Credentials are not among them: the pair is the
   deployment's, and membership is Stalwart's.
@@ -101,8 +100,8 @@ on the same machinery, not a configuration knob.
   it. Runtime scope is per changed account: the event's `accountId` selects
   which group's rules apply, because the agent has no single global brief.
 - **Admin surfaces.** The Gilbert admin (ADR 0001) gains an Agents section:
-  register the agent principal with the installation, show which groups have
-  granted it (and say so plainly when a group has not), author and version
+  show the agent the deployment declares and the groups that have
+granted it (and say so plainly when a group has not), author and version
   per-group rule documents, configure the model providers per tier, choose the
   tier each automation runs on, and read worker status and audit across groups.
   Membership is not written there: a group without the grant shows the
@@ -114,8 +113,8 @@ on the same machinery, not a configuration knob.
   member of that group — because Stalwart refuses to mint a session for an
   impersonated group mailbox. Nothing is configured by hand.
 - **Members see, never change.** Next to the group chat (ADR 0005) an AI
-  indicator opens the group's agent surface: which agents are active for the
-  group, the instructions they carry, what they do and what they have done (the
+  indicator opens the group's agent surface: which agent serves the
+  group, the instruction it carries, what it does and what it has done (the
   group's audit documents). Members read the group's own documents by
   construction and never edit them from the product — the folder is writable by
   a member by construction, so this is a UI convention and an accepted trust
@@ -144,10 +143,9 @@ A worker is a dedicated entrypoint in this repository (Node, same JMAP client
 library family as the web client but headless) that authenticates to Stalwart
 as exactly one agent principal and runs that agent's rules. It keeps no local
 state and needs no volume; any number of workers may run from the same image,
-and each worker of an area is interchangeable. The "fleet" is agents × workers:
-more agents, more principals; more throughput or availability, more workers on
-an area. Scope in force fixes the first factor at one and exposes the second as
-workers per area.
+and any worker is interchangeable. The "fleet" is agents × workers: more
+agents, more principals; more throughput or availability, more workers. Scope
+in force fixes the first factor at one and exposes the second as a worker count.
 
 ### 3. Event push is the wake-up; reconciliation is the work
 
@@ -206,8 +204,8 @@ by, minus the browser.
 The worker also wakes on a schedule, without cron and without trusting any
 particular container to live: a scheduler document (`next-runs`, in the
 principal's Files — per group, beside the rules it schedules, Scope in force)
-holds the agent's due times as UTC instants; the worker that holds an entry's
-area arms a timer for it and updates the document when it fires or when the
+holds the agent's due times as UTC instants; the worker that holds the
+account's claim arms a timer for it and updates the document when it fires or when the
 work changes the schedule. Durable next-run times plus a lease are what let a
 replacement worker pick the schedule up from Stalwart after any crash, which
 is why the times live in the document rather than in a cron entry. A fired
@@ -215,11 +213,10 @@ timer is spent, so the next arming is planned from the document the fire has
 already moved on, and the due entries are read back out of that same document
 by every pass — the catch-up, and the reason a schedule edited while a worker
 waited is armed as it now is. A due run is started with the claim on its own
-rule's area, the same fence every other run passes, and the entry belongs to
-the worker that holds that area: a claim is one per area while the schedule is
-one document per account, so the entries of the areas a worker does not hold
-are carried over exactly as they stand — still due — rather than re-planned
-here and consumed by a run nobody starts (`carryingForeign`, scheduler.ts). The
+account — the same fence every other run passes — and the entry belongs to the
+worker that holds that account: an entry no live claim covers is carried over
+exactly as it stands, still due, rather than re-planned here and consumed by a
+run nobody starts (`carryingForeign`, scheduler.ts). The
 runs that vanish are the ones whose rule is off or gone, and each of those is
 recorded as a missed run.
 
@@ -270,7 +267,7 @@ What the field locks in:
   (CrewAI's manager, OpenAI's handoffs, Microsoft's agents-as-tools) — which,
   with one address per agent (§1), is native: an agent mails the specialist.
 - **A per-account concurrency cap**, so one burst on a group mailbox cannot
-  thundering-herd the fleet; the claim unit is `account × area`.
+  thundering-herd the fleet; the claim unit is the account.
 - **Dead letters surface where the work is** — the group's chat and audit, and
   the admin surface's queue. Notifications are chat-only, so a dead letter is
   not a second inbox to watch.
@@ -323,24 +320,18 @@ set, so an installation without agents is a warning an administrator can read
 and act on, never a boot failure.
 
 Membership is not recorded either: the agent is in a group exactly when the
-operator granted it, and the surface reads that from the agent's own session.
-What the product records is the narrowing: `agent.groups.<name>.areas` in the
-settings policy document, written through the admin route
-(`POST /api/admin/agent/groups`) and read on the worker's boot path, where the
-areas served are intersected with it by one function (`servedAreasFor`) — a
-group can be given less work than the deployment declares, never more than the
-operator opened. An empty list means "served as the deployment says". The write
-is a compare-and-set on the document, serialized inside one process; two
-administrators writing the same group at the same instant produce the same
-decision twice and the last one wins.
+operator granted it — the agent added to the group in the mail server's own
+administration — and both the admin surface and the worker read that from the
+agent's own session, which is re-read once per poll interval (a minute by
+default). Nothing per group is written anywhere: a grant is picked up by the
+next session refresh, and a group whose grant is gone is withdrawn from on the
+pass that no longer lists it, without a restart and without a record of ours to
+keep in step.
 
-Two consequences follow. A group that loses an area stops being served there:
-the worker stops renewing the claim and the lease lapses — no worker deletes
-another's claim. And the record reaches the worker at its next start (the web
-tier reads it live), within `GILBERT_AGENT_LEASE_MS` (three minutes by
-default), while the session refresh (one minute) does not shorten it. The
-record cannot claim an area nobody serves, and without `SETTINGS_POLICY_FILE`
-the in-process copy is the only copy.
+Two consequences follow. A group that loses the grant stops being served: the
+worker stops renewing the claim and the lease lapses — no worker deletes
+another's claim. And the change reaches the worker at its next session refresh;
+the web tier reads it live.
 
 ## The automation model
 
@@ -482,11 +473,11 @@ are only worth what their failure paths are.
   run asks `claimStillMine` before anything leaves the process — sending,
   posting, filing. A worker whose lease lapsed stops instead of writing results
   the worker that replaced it will write again. A worker that holds no claim on
-  an area starts nothing there: the pending sweep logs it and goes on, and a due
+  an account starts nothing there: the pending sweep logs it and goes on, and a due
   timer waits for the worker that holds it.
 - **A release is conditional** on the state it was read against; the owner check
   alone could remove a successor's live claim written between the read and the
-  removal. `saveClaimStates` never recreates a released claim, and `claimArea`
+  removal. `saveClaimStates` never recreates a released claim, and `claimAccount`
   says *why* it refused — held under a live lease, lost the compare-and-set —
   rather than one `null` for every reason.
 - **An unreadable heartbeat is not a free lease.** It throws, because "unknown"
@@ -561,7 +552,7 @@ are only worth what their failure paths are.
   re-reads its session at most once per poll interval (a minute by default, a
   third of a lease), and an account it was serving that the session no longer
   lists *is* the withdrawal. It stops from that pass on and writes it down once
-  — what the group was called, which areas the worker held, and when it noticed
+  — what the group was called, which account the worker held, and when it noticed
   — into the worker's **own** account (`agent/withdrawals.json`), the one place
   it can still write and the one the status route reads. Nothing on the way out
   writes or deletes anything in the withdrawn account: the claim is left for its
@@ -572,11 +563,11 @@ are only worth what their failure paths are.
   immutable id, so a read is unaffected by a move that happened a moment
   earlier. Two rules that *write* to the same message are the case that bites —
   the second write wins silently, and nothing tells anyone the two disagree. The
-  order is not merely undecided but not guaranteed, not even inside one area:
+  order is not merely undecided but not guaranteed, not even inside one account:
   `runEmail` walks the matching rules in document order and awaits each, but a
   run that waits on a person or is retried is picked up from `listJobs()` in the
-  order the server gives, and two rules in different areas run at once under
-  different claims. Each automation is written to hold whatever order it gets,
+  order the server gives, so it can resume while a later rule of the same
+  account is already running. Each automation is written to hold whatever order it gets,
   and the audit names the rule and its version per run, so the order is
   reconstructible afterwards. A declared order and a collision report are
   declared gaps, and the surface says so where rules are written
@@ -670,12 +661,12 @@ are only worth what their failure paths are.
 - One agent means one reach: the agent's grants cover every group it is granted,
   so a compromise of the agent exposes all of them at once, not one group at a
   time. Accepted — the same order of risk threshold auto-approval already
-  accepts — with per-area or per-group agent principals as the future
-  mitigation, not a setting.
-- Work claims are per `account × area`, so two workers never touch the same area
-  of one account at once; the per-account concurrency cap of §7 bounds how much
-  of a single group the fleet works on. With the default single worker, work per
-  account is serialized in arrival order.
+  accepts — with per-group agent principals as the future mitigation, not a
+  setting.
+- Work claims are the account, so two workers never touch the same account at
+  once; the per-account concurrency cap of §7 bounds how much of a single group
+  the fleet works on. With the default single worker, work per account is
+  serialized in arrival order.
 - An agent's scope is exactly its grants: it sees and acts on what the operator
   granted, nothing else. A new group is served by granting the agent in
   Stalwart's own administration, the same way admin membership is granted;
@@ -757,8 +748,7 @@ are only worth what their failure paths are.
 - README.md — the four blocks, the agents' section
 - ADR 0001 — the administration surface (permission marker, impersonation for
   per-user writes, hidden app folders, the boot channel)
-- ADR 0004 — live policy propagation (the settings-policy document the
-  per-group area narrowing rides)
+- ADR 0004 — live policy propagation (the settings-policy document)
 - ADR 0005 — group chat and the group label catalog
 - ADR 0010 — an automation written in prose and compiled into its rule
   (Proposed; the prose layer over the document this record validates)

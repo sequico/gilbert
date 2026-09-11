@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { CAP, client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, QueryResponse, SetResponse } from "@/jmap/types";
-import { isAppFolder } from "@/lib/appFolder";
+import { isAppFolderName } from "@/lib/appFolder";
 import { foldersNeeded, type PlannedUpload } from "@/lib/dropUpload";
 import { directoryCreate, fileCreate, fileNodeProps } from "@/lib/filenode";
 import { t as translate } from "@/lib/i18n";
@@ -80,9 +80,12 @@ interface FilesState {
 }
 
 /**
- * Drop the client's own `gilbert` app folder, and everything inside it, from a
- * listing. It holds signature images and the synced settings file — real nodes
- * in the account, but housekeeping rather than anything the user filed.
+ * Drop the client's own app folder, and everything inside it, from a listing.
+ * It holds signature images, the synced settings file, a group's chat
+ * transcript — real nodes in the account, but housekeeping rather than anything
+ * the user filed. Both names it can go by are dropped, the marked `gilbert` and
+ * the `.gilbert` the app folder moves to when the plain name is already
+ * somebody's (see `appFolder.ts`).
  *
  * The contents have to go too: the tree attaches a node whose parent is missing
  * to the root, so hiding the folder alone would spill its files into the top
@@ -90,7 +93,7 @@ interface FilesState {
  */
 export function withoutAppFolder(nodes: FileNode[]): FileNode[] {
   const hidden = new Set<Id>();
-  for (const n of nodes) if (isAppFolder(n)) hidden.add(n.id);
+  for (const n of nodes) if (isAppFolderName(n)) hidden.add(n.id);
   if (!hidden.size) return nodes;
   for (let grew = true; grew; ) {
     grew = false;

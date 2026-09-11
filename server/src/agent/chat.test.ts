@@ -20,7 +20,10 @@ const { fetchUpstreamSession } = await import("../upstream.js");
 const { writeAppFileAt } = await import("../appFolder.js");
 const { JmapClient } = await import("../jmap.js");
 const {
+  AGENT_GREETING,
   conversationContext,
+  greetUnspoken,
+  hasSpoken,
   indexChat,
   pendingRequests,
   postMessage,
@@ -256,4 +259,34 @@ test("a reply chain that points in a circle is read once and stops", () => {
     ["c1", "c2"],
     "each message is read once, in the order the senders wrote them",
   );
+});
+
+test("the agent greets a group it has never spoken in, and only once", async () => {
+  // The mock serves a second group, and nothing has posted as the agent in it.
+  assert.equal(await hasSpoken(await readChat(ctx, "a5", client), AGENT), false);
+
+  assert.ok(await greetUnspoken(ctx, "a5", AGENT, client), "the first claim says hello");
+  const greeted = (await readChat(ctx, "a5", client)).filter(
+    (message) => message.text === AGENT_GREETING,
+  );
+  assert.equal(greeted.length, 1, "the greeting is in the transcript");
+  assert.equal(greeted[0]?.from, AGENT);
+
+  assert.equal(
+    await greetUnspoken(ctx, "a5", AGENT, client),
+    null,
+    "the transcript is the record, so the greeting is never said twice",
+  );
+  assert.equal(
+    (await readChat(ctx, "a5", client)).filter(
+      (message) => message.text === AGENT_GREETING,
+    ).length,
+    1,
+    "and a later claim adds nothing",
+  );
+});
+
+test("a group the agent already speaks in is never greeted", async () => {
+  assert.ok(await hasSpoken(await readChat(ctx, GROUP, client), AGENT));
+  assert.equal(await greetUnspoken(ctx, GROUP, AGENT, client), null);
 });

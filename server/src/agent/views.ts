@@ -16,7 +16,6 @@
  * not declared here.
  */
 import type {
-  AgentArea,
   AgentAuditEntry,
   AgentDecision,
   AgentJob,
@@ -49,19 +48,12 @@ export interface GroupEnumeration {
 /** One group the agent works in, as its own session shows it holds it. */
 export interface AgentStatusGroup {
   name: string;
-  /**
-   * The areas an administrator narrowed this group to, when one did. Absent
-   * means the deployment's own list is in force — which `AgentStatus.defaultAreas`
-   * carries, so a surface can say what "not narrowed" comes to.
-   */
-  areas?: AgentArea[];
 }
 
 /** One running worker, with freshness judged at read time rather than stored. */
 export interface AgentStatusWorker {
   id: string;
   address: string;
-  areas: AgentArea[];
   heartbeatAt: string;
   version: string;
   alive: boolean;
@@ -103,8 +95,6 @@ export interface AgentStatus {
   /** The agent's address, as the deployment names it; empty when it names none. */
   address: string;
   groups: AgentStatusGroup[];
-  /** The areas the deployment serves, which a group's own list can only narrow. */
-  defaultAreas: AgentArea[];
   workers: AgentStatusWorker[];
   /** Grants the fleet has lost, newest first, as its workers reported them. */
   withdrawals: AgentWithdrawal[];
@@ -170,8 +160,6 @@ export interface AgentWithdrawal {
   account: string;
   /** The group's name as the session carried it, lower-cased. */
   group: string;
-  /** The areas the worker was serving for it when it noticed. */
-  heldAreas: AgentArea[];
   /** When the pass noticed. */
   at: string;
 }
@@ -376,7 +364,6 @@ export type MemberAgentRule = Pick<
   AgentRule,
   | "id"
   | "name"
-  | "area"
   | "tier"
   | "enabled"
   | "trigger"

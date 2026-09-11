@@ -18,9 +18,8 @@ process.env.MOCK_TARGET_PASS = "bob-password";
 process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.APP_SECRET = "test-secret-for-admin-policy";
 process.env.LOGIN_RATE_LIMIT = "10000";
-// The installation under test names no agent: the tests that need one set
-// `config.agent` directly, because a module's configuration is read once and
-// one test process has one of them.
+// The installation under test names no agent, so the policy tests exercise the
+// document with none in the environment.
 delete process.env.GILBERT_AGENT_ADDRESS;
 delete process.env.GILBERT_AGENT_PASSWORD;
 
@@ -40,7 +39,6 @@ interface PolicyOnConfig {
 }
 
 const mock = await import("./mock/index.js");
-const { config } = await import("./config.js");
 const { createApp } = await import("./app.js");
 
 const app = createApp();
@@ -99,21 +97,6 @@ const DOC = JSON.stringify(
   null,
   2,
 );
-
-/**
- * The agent record as the installation holds it.
- *
- * Parsed out of the policy document, which is the durable copy a restart
- * reloads. `GET /api/admin/agents` answers a different question — the agent's
- * live membership as Stalwart reports it — which is empty whenever no agent can
- * be opened, so it is the wrong witness for what was *saved*.
- */
-function agentRecord(body: Body | null): Record<string, { areas?: string[] }> {
-  const parsed = JSON.parse(String(body?.policy ?? "{}")) as {
-    agent?: { groups?: Record<string, { areas?: string[] }> };
-  };
-  return parsed.agent?.groups ?? {};
-}
 
 test("a non-admin cannot read or publish the policy", async () => {
   const bob = await login(BOB, BOB_PASS);
@@ -210,151 +193,4 @@ test("publishing kicks every session except the caller's", async () => {
   assert.equal(dead.status, 401, "the kicked session lands on sign-in");
   const stillAdmin = await call("/api/admin/policy", adminCookie);
   assert.equal(stillAdmin.status, 200, "the publishing admin's session survives");
-});
-
-/**
- * What the document still owns about the agent (ADR 0003): the areas each group
- * is narrowed to, and nothing about who the agent is. Its address and its
- * credential are the deployment's — `GILBERT_AGENT_ADDRESS` beside
- * `GILBERT_AGENT_PASSWORD`, in the environment that starts the process — so
- * there is no address here to disagree with them and none to clear.
- */
-test("a group name that is not an address is refused, and nothing is written", async () => {
-  config.agent.address = "aider@example.com";
-  const before = await call("/api/admin/policy", adminCookie);
-  const refused = await call("/api/admin/agent/groups", adminCookie, {
-    method: "POST",
-    body: JSON.stringify({ groups: { "not-a-group": { areas: ["mail"] } } }),
-  });
-  assert.equal(refused.status, 400);
-  assert.equal((refused.body as { error?: string }).error, "bad_request");
-  const after = await call("/api/admin/policy", adminCookie);
-  assert.equal(after.body?.policy, before.body?.policy, "the document is unchanged");
-});
-
-test("a non-admin cannot narrow a group either", async () => {
-  const bob = await login(BOB, BOB_PASS);
-  const res = await call("/api/admin/agent/groups", bob.cookie, {
-    method: "POST",
-    body: JSON.stringify({ groups: { "team@example.org": { areas: ["mail"] } } }),
-  });
-  assert.notEqual(res.status, 200);
-});
-
-/**
- * What the worker does in each group (ADR 0003): areas, several groups at a
- * time, and only downward — the record can take work away from a group, never
- * hand it work the deployment did not open.
- */
-test("groups are narrowed several at a time, and nothing can widen the deployment", async () => {
-  config.agent.address = "aider@example.com";
-  const saved = await call("/api/admin/agent/groups", adminCookie, {
-    method: "POST",
-    body: JSON.stringify({
-      groups: {
-        "team@example.org": { areas: ["mail"] },
-        "legal@example.org": { areas: ["mail", "files"] },
-      },
-    }),
-  });
-  assert.equal(saved.status, 200, "two groups in one request");
-
-  const status = await call("/api/admin/policy", adminCookie);
-  const groups = agentRecord(status.body);
-  assert.deepEqual(
-    groups["team@example.org"]?.areas,
-    ["mail"],
-    "one group narrowed to mail",
-  );
-  assert.deepEqual(
-    groups["legal@example.org"]?.areas,
-    ["mail", "files"],
-    "and another to two areas, in the same call",
-  );
-
-  // An area this build does not know is refused, and the record is unchanged.
-  const refused = await call("/api/admin/agent/groups", adminCookie, {
-    method: "POST",
-    body: JSON.stringify({ groups: { "team@example.org": { areas: ["nope"] } } }),
-  });
-  assert.equal(refused.status, 400);
-  const after = await call("/api/admin/policy", adminCookie);
-  assert.deepEqual(
-    agentRecord(after.body)["team@example.org"]?.areas,
-    ["mail"],
-    "a refused save changes nothing",
-  );
-
-  // An empty list is how "as the deployment serves it" is written down.
-  await call("/api/admin/agent/groups", adminCookie, {
-    method: "POST",
-    body: JSON.stringify({ groups: { "team@example.org": { areas: [] } } }),
-  });
-  const cleared = await call("/api/admin/policy", adminCookie);
-  assert.equal(
-    agentRecord(cleared.body)["team@example.org"]?.areas,
-    undefined,
-    "cleared means the deployment speaks again",
-  );
-
-  // The narrowing is a durable fact about the installation, not a process's
-  // memory: it sits in the policy document the editor reads, and survives a
-  // restart with it.
-  const policy = await call("/api/admin/policy", adminCookie);
-  assert.match(String(policy.body?.policy ?? ""), /legal@example\.org/);
-});
-
-test("there is nothing to narrow before an agent is named", async () => {
-  config.agent.address = "";
-  const refused = await call("/api/admin/agent/groups", adminCookie, {
-    method: "POST",
-    body: JSON.stringify({ groups: { "team@example.org": { areas: ["mail"] } } }),
-  });
-  assert.equal(refused.status, 409);
-  assert.equal((refused.body as { error?: string }).error, "agent_not_configured");
-});
-
-/**
- * The ceiling, at the door where a widening would be written down (ADR 0003).
- *
- * `servedAreasFor` is what *enforces* narrowing in the worker, but a record
- * could still have been written claiming an area the deployment does not serve
- * — and a record that says something nobody serves is a lie an operator would
- * read as a setting. It is refused where it would be saved, in the deployment's
- * own words.
- */
-test("a group can be narrowed inside what the deployment serves, never outside it", async () => {
-  config.agent.address = "aider@example.com";
-  const served = [...config.agent.areas];
-  config.agent.areas = ["mail"];
-  try {
-    const refused = await call("/api/admin/agent/groups", adminCookie, {
-      method: "POST",
-      body: JSON.stringify({
-        groups: { "team@example.org": { areas: ["mail", "files"] } },
-      }),
-    });
-    assert.equal(refused.status, 400);
-    assert.match(
-      String((refused.body as { message?: string }).message ?? ""),
-      /does not serve files/,
-      "the refusal names what the deployment serves",
-    );
-    const reached = await call("/api/admin/policy", adminCookie);
-    assert.equal(
-      agentRecord(reached.body)["team@example.org"]?.areas,
-      undefined,
-      "and nothing was written",
-    );
-
-    const narrowed = await call("/api/admin/agent/groups", adminCookie, {
-      method: "POST",
-      body: JSON.stringify({ groups: { "team@example.org": { areas: ["mail"] } } }),
-    });
-    assert.equal(narrowed.status, 200, "inside the deployment is accepted");
-  } finally {
-    config.agent.areas = served;
-  }
-  // Left as it was found, for whatever the process does next.
-  config.agent.address = "";
 });

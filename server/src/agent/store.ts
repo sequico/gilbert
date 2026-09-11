@@ -27,7 +27,7 @@ import {
 import { isStateMismatch } from "../jmap.js";
 import {
   AGENT_AUDIT_DIR,
-  AGENT_CLAIMS_DIR,
+  AGENT_CLAIM_FILE,
   AGENT_CONFIG_FILE,
   AGENT_DECISIONS_DIR,
   AGENT_DIR,
@@ -37,7 +37,6 @@ import {
   AGENT_SCHEDULE_FILE,
   AGENT_STREAM_FILE,
   AGENT_WORKERS_DIR,
-  type AgentArea,
   type AgentAuditDoc,
   type AgentAuditEntry,
   type AgentClaim,
@@ -53,7 +52,6 @@ import {
   type AgentWorkerRecord,
   agentDocName,
   auditDocName,
-  claimDocName,
   isAgentAuditDoc,
   isAgentClaim,
   isAgentConfigDoc,
@@ -164,12 +162,7 @@ export class AgentStore {
    * read.
    */
   async provision(): Promise<void> {
-    for (const dir of [
-      AGENT_JOBS_DIR,
-      AGENT_DECISIONS_DIR,
-      AGENT_CLAIMS_DIR,
-      AGENT_AUDIT_DIR,
-    ]) {
+    for (const dir of [AGENT_JOBS_DIR, AGENT_DECISIONS_DIR, AGENT_AUDIT_DIR]) {
       await ensureFolderPath(this.ctx, this.accountId, this.path(dir));
     }
   }
@@ -342,31 +335,24 @@ export class AgentStore {
     await this.destroyDoc(this.path(AGENT_STREAM_FILE), opts);
   }
 
-  /* ---------------- claims (group account) ---------------- */
+  /* ---------------- claim (group account) ---------------- */
 
-  async readClaim(area: AgentArea): Promise<AgentDoc<AgentClaim> | null> {
-    return this.readDoc<AgentClaim>(
-      this.path(AGENT_CLAIMS_DIR, claimDocName(area)),
-      isAgentClaim,
-    );
-  }
-
-  async listClaims(): Promise<Array<AgentDoc<AgentClaim>>> {
-    return this.listDocs<AgentClaim>(this.path(AGENT_CLAIMS_DIR), isAgentClaim);
+  async readClaim(): Promise<AgentDoc<AgentClaim> | null> {
+    return this.readDoc<AgentClaim>(this.path(AGENT_CLAIM_FILE), isAgentClaim);
   }
 
   async writeClaim(claim: AgentClaim, opts: { ifInState?: string } = {}): Promise<void> {
     await writeAppFileAt(
       this.ctx,
       this.accountId,
-      this.path(AGENT_CLAIMS_DIR, claimDocName(claim.area)),
+      this.path(AGENT_CLAIM_FILE),
       claim,
       opts,
     );
   }
 
-  async destroyClaim(area: AgentArea, opts: { ifInState?: string } = {}): Promise<void> {
-    await this.destroyDoc(this.path(AGENT_CLAIMS_DIR, claimDocName(area)), opts);
+  async destroyClaim(opts: { ifInState?: string } = {}): Promise<void> {
+    await this.destroyDoc(this.path(AGENT_CLAIM_FILE), opts);
   }
 
   /* ---------------- jobs (group account) ---------------- */

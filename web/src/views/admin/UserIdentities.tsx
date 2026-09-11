@@ -14,7 +14,7 @@
  * surface respects it rather than inventing a rule of its own about the last one.
  */
 
-import { Pencil, Plus, RotateCw, Trash2 } from "lucide-react";
+import { Pencil, Plus, RotateCw, Star, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Identity } from "@/jmap/types";
 import { formatAddressList } from "@/lib/address";
@@ -27,6 +27,7 @@ import {
   fetchUserIdentities,
   type Impersonation,
   saveUserIdentity,
+  setUserDefaultIdentity,
   setUserIdentityLock,
   storeAdminSignatureHtml,
 } from "@/lib/identities";
@@ -126,6 +127,33 @@ export function UserIdentities() {
   async function save(patch: Partial<Identity>) {
     await saveUserIdentity(address, editing?.id ?? null, patch as AdminIdentityPatch);
     await load(address);
+  }
+
+  /**
+   * Write the account's default sending identity, from this page.
+   *
+   * One stored value: the same key of the account's own settings document that
+   * its Identities & signatures section reads. Setting it here is setting it
+   * there, and clearing it here — with `null` — is clearing it there, which is
+   * the state where the client falls back to its first identity.
+   */
+  async function setDefault(identityId: string | null) {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await setUserDefaultIdentity(address, identityId);
+      await readAccount(address);
+      setNotice(
+        identityId
+          ? t("Default identity saved.")
+          : t("No default identity: this account sends with its first."),
+      );
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function remove(identity: Identity) {
@@ -298,6 +326,23 @@ export function UserIdentities() {
                     ? `${identity.name} <${identity.email}>`
                     : identity.email}
                 </h3>
+                <button
+                  className="btn btn-sm btn-ghost"
+                  aria-pressed={view.defaultIdentityId === identity.id}
+                  disabled={busy}
+                  title={t("Send from this identity by default")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void setDefault(
+                      view.defaultIdentityId === identity.id ? null : identity.id,
+                    );
+                  }}
+                >
+                  <Star size={14} />{" "}
+                  {view.defaultIdentityId === identity.id
+                    ? t("Default")
+                    : t("Make default")}
+                </button>
                 <button
                   className="btn btn-sm btn-ghost"
                   onClick={(e) => {

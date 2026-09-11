@@ -7,7 +7,7 @@ import { after, test } from "node:test";
  * The process-level half — the poll loop, the event stream, signals — is driven
  * through the same seam with `timers: false`, so one pass is exercised without
  * the test holding a live fleet. What a pass must do is durable and observable:
- * claim `account × area` for every group mailbox the principal can see, write
+ * claim every group mailbox the principal can see, write
  * the heartbeat in the agent's own account, hold the single stream claim, and
  * give the claims back on stop.
  */
@@ -17,17 +17,9 @@ process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const {
-  areasFor,
-  basicAuth,
-  candidateAccounts,
-  groupNameOf,
-  servedAreasFor,
-  startWorker,
-  withdrawnAccounts,
-} = await import("./worker.js");
+const { basicAuth, candidateAccounts, groupNameOf, startWorker, withdrawnAccounts } =
+  await import("./worker.js");
 const { AgentStore } = await import("./store.js");
-const { AGENT_AREAS } = await import("./documents.js");
 const { filesAccountId, readAppJsonAt } = await import("../appFolder.js");
 const { WITHDRAWALS_PATH } = await import("./views.js");
 
@@ -69,7 +61,6 @@ test("one pass claims its units, heartbeats, and gives everything back on stop",
   const worker = await startWorker({
     ctx,
     address: AGENT,
-    areas: ["mail"],
     workerId: "w-worker-test",
     log: (line) => lines.push(line),
     timers: false,
@@ -78,7 +69,7 @@ test("one pass claims its units, heartbeats, and gives everything back on stop",
   const served = await worker.pass();
   assert.deepEqual([...served].sort(), [...candidateAccounts(session)].sort());
   for (const accountId of served) {
-    const claim = await new AgentStore(ctx, accountId).readClaim("mail");
+    const claim = await new AgentStore(ctx, accountId).readClaim();
     assert.equal(
       claim?.doc.worker,
       "w-worker-test",
@@ -89,7 +80,6 @@ test("one pass claims its units, heartbeats, and gives everything back on stop",
   const record = (await agentStore.listWorkers()).find((w) => w.id === "w-worker-test");
   assert.ok(record, "the worker says it is alive, in the agent's own account");
   assert.equal(record.address, AGENT);
-  assert.deepEqual(record.areas, ["mail"]);
   assert.equal(
     (await agentStore.readStreamClaim())?.doc.worker,
     "w-worker-test",
@@ -98,21 +88,21 @@ test("one pass claims its units, heartbeats, and gives everything back on stop",
 
   // A second pass is the same pass: renewal, not a second claim.
   await worker.pass();
-  const again = await new AgentStore(ctx, GROUP).readClaim("mail");
+  const again = await new AgentStore(ctx, GROUP).readClaim();
   assert.equal(again?.doc.worker, "w-worker-test");
 
   await worker.stop();
   assert.equal(await agentStore.readStreamClaim(), null, "the stream claim is released");
   for (const accountId of served) {
     assert.equal(
-      await new AgentStore(ctx, accountId).readClaim("mail"),
+      await new AgentStore(ctx, accountId).readClaim(),
       null,
-      "and so are the areas, so a replacement serves at once",
+      "and so are the claims, so a replacement serves at once",
     );
   }
   assert.equal(worker.served().length, 0);
   assert.ok(
-    lines.some((line) => line.includes(`claimed ${GROUP}/mail`)),
+    lines.some((line) => line.includes(`claimed ${GROUP}`)),
     "a meaningful event is one line",
   );
 });
@@ -129,7 +119,6 @@ test("the health endpoint answers a probe and nothing else", async () => {
       status: "ok",
       worker: "w1",
       address: AGENT,
-      areas: ["mail"],
       accounts: [GROUP],
       streaming: true,
       startedAt: new Date().toISOString(),
@@ -151,9 +140,9 @@ test("the health endpoint answers a probe and nothing else", async () => {
 
 test("a second worker takes over a stale lease, and never double-serves", async () => {
   // Two handles are two processes as far as the documents are concerned: the
-  // claim is the only thing that says who serves `account × area` (ADR 0003
-  // §6, resolution 8). What has to hold is that a live holder is left alone
-  // and a dead one is taken over with its catch-up states intact.
+  // claim is the only thing that says who serves an account (ADR 0003 §6).
+  // What has to hold is that a live holder is left alone and a dead one is
+  // taken over with its catch-up states intact.
   const store = new AgentStore(ctx, GROUP);
   const start = new Date("2026-09-10T09:00:00Z");
   const later = (ms: number) => () => new Date(start.getTime() + ms);
@@ -161,7 +150,6 @@ test("a second worker takes over a stale lease, and never double-serves", async 
   const first = await startWorker({
     ctx,
     address: AGENT,
-    areas: ["mail"],
     workerId: "w-first",
     log: () => {},
     timers: false,
@@ -169,15 +157,13 @@ test("a second worker takes over a stale lease, and never double-serves", async 
     leaseMs: 60_000,
   });
   await first.pass();
-  const claimed = await store.readClaim("mail");
+  const claimed = await store.readClaim();
   assert.equal(claimed?.doc.worker, "w-first");
-  assert.deepEqual(claimed?.doc.areas ?? claimed?.doc.area, "mail");
 
   // The holder is alive: a peer's pass must not take anything from it.
   const second = await startWorker({
     ctx,
     address: AGENT,
-    areas: ["mail"],
     workerId: "w-second",
     log: () => {},
     timers: false,
@@ -185,7 +171,7 @@ test("a second worker takes over a stale lease, and never double-serves", async 
     leaseMs: 60_000,
   });
   await second.pass();
-  assert.equal((await store.readClaim("mail"))?.doc.worker, "w-first");
+  assert.equal((await store.readClaim())?.doc.worker, "w-first");
   assert.ok(!second.served().includes(GROUP), "a live holder keeps its unit");
 
   // Its lease goes stale: the peer takes over and serves the unit. (The
@@ -194,11 +180,10 @@ test("a second worker takes over a stale lease, and never double-serves", async 
   // because a state this mock never issued is one `Email/changes` cannot
   // answer from, which is the documented catch-up rule.)
   const states = { Email: "s-42" };
-  await store.writeClaim({ ...(await store.readClaim("mail"))!.doc, states });
+  await store.writeClaim({ ...(await store.readClaim())!.doc, states });
   const third = await startWorker({
     ctx,
     address: AGENT,
-    areas: ["mail"],
     workerId: "w-third",
     log: () => {},
     timers: false,
@@ -206,7 +191,7 @@ test("a second worker takes over a stale lease, and never double-serves", async 
     leaseMs: 60_000,
   });
   await third.pass();
-  const taken = await store.readClaim("mail");
+  const taken = await store.readClaim();
   assert.equal(taken?.doc.worker, "w-third");
   assert.ok(third.served().includes(GROUP), "the peer serves what the dead worker held");
   assert.equal(
@@ -240,9 +225,10 @@ test("a withdrawal is the accounts that left the session, with the names they ha
 });
 
 /**
- * The group name is read in one spelling, and one place reads it: `areasFor`
- * and the withdrawal report both go through this, so a session that returns a
- * name with space around it cannot narrow one and not the other.
+ * The group name is read in one spelling, and one place reads it: the
+ * withdrawal report goes through this, so a session that returns a name with
+ * space around it cannot report a group under one name and serve it under
+ * another.
  */
 test("the name a group is served under is trimmed and lower-cased, in one place", () => {
   const named = {
@@ -250,11 +236,6 @@ test("the name a group is served under is trimmed and lower-cased, in one place"
   } as unknown as Parameters<typeof groupNameOf>[0];
   assert.equal(groupNameOf(named, "a9"), "ops@example.com");
   assert.equal(groupNameOf(named, "a8"), "", "an account the session does not name");
-  assert.deepEqual(
-    areasFor(named, "a9", ["mail"]),
-    ["mail"],
-    "a group the installation has no record for is served the deployment's areas",
-  );
 });
 
 test("a grant that is withdrawn is reported, and stops being served", async () => {
@@ -262,7 +243,7 @@ test("a grant that is withdrawn is reported, and stops being served", async () =
   // this installation never sees: the group simply leaves the agent's session.
   // What the pass must do then is stop serving it and say so where it can still
   // write — its own account — rather than failing against it on every pass
-  // (ADR 0003 §2, resolution 21).
+  // (ADR 0003 §2).
   const own = {
     authorization: AUTH,
     session: await fetchUpstreamSession(AUTH, BASE),
@@ -272,7 +253,6 @@ test("a grant that is withdrawn is reported, and stops being served", async () =
   const worker = await startWorker({
     ctx: own,
     address: AGENT,
-    areas: ["mail"],
     workerId: "w-withdrawal",
     log: () => {},
     timers: false,
@@ -296,7 +276,7 @@ test("a grant that is withdrawn is reported, and stops being served", async () =
     own,
     filesAccountId(own),
     WITHDRAWALS_PATH,
-  )) as Array<{ account: string; group: string; heldAreas: string[]; at: string }>;
+  )) as Array<{ account: string; group: string; at: string }>;
   assert.equal(report.length, 1, "one withdrawal, reported once");
   assert.equal(report[0].account, GROUP);
   assert.equal(
@@ -304,43 +284,15 @@ test("a grant that is withdrawn is reported, and stops being served", async () =
     groupNameOf(session, GROUP),
     "the name the session had given",
   );
-  assert.deepEqual(report[0].heldAreas, ["mail"], "with what it was holding");
   assert.equal(report[0].at, start.toISOString());
 
   // The claim it held is left where it is: a withdrawal is not a release, and a
   // worker that deleted another account's documents on its way out would be
   // taking a trust it was never given. The lease lapses instead.
   assert.equal(
-    (await new AgentStore(own, GROUP).readClaim("mail"))?.doc.worker,
+    (await new AgentStore(own, GROUP).readClaim())?.doc.worker,
     "w-withdrawal",
     "the claim is left for its lease to lapse",
   );
   await worker.stop();
-});
-
-/**
- * The intersection an installation's record makes with the deployment's areas
- * (ADR 0003): a record can take work away from a group and can never hand it
- * work the operator did not open. This is the whole rule, so it is one
- * function — the alternative is a fleet whose reach depends on which of two
- * lists a process happened to read.
- */
-test("a per-group record narrows the deployment's areas, never widens them", () => {
-  const deployment = [...AGENT_AREAS];
-  assert.deepEqual(
-    servedAreasFor(deployment, null),
-    deployment,
-    "nothing named for this group: the deployment speaks",
-  );
-  assert.deepEqual(
-    servedAreasFor(deployment, []),
-    deployment,
-    'an empty list is how "as the deployment says" is written down',
-  );
-  assert.deepEqual(servedAreasFor(deployment, ["mail"]), ["mail"]);
-  assert.deepEqual(
-    servedAreasFor(["mail"], ["mail", "files"]),
-    ["mail"],
-    "a record cannot open an area the deployment does not serve",
-  );
 });

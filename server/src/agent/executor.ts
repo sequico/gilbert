@@ -65,7 +65,6 @@ import {
   AGENT_AUDIT_DIR,
   AGENT_DIR,
   type AgentAction,
-  type AgentArea,
   type AgentClaim,
   type AgentDecision,
   type AgentDraftRef,
@@ -460,7 +459,6 @@ export class Executor {
     const job = newJob({
       id: randomUUID(),
       accountId,
-      area: rule.area,
       rule,
       trigger,
       now: this.deps.now().toISOString(),
@@ -538,9 +536,7 @@ export class Executor {
       // whose unit was taken over while it was deciding has had its lease
       // lapse, and what it is about to do — send, post, file — would be done a
       // second time by the worker that replaced it.
-      if (
-        !(await claimStillMine(store, job.area, this.deps.workerId, claimEpoch(claim)))
-      ) {
+      if (!(await claimStillMine(store, this.deps.workerId, claimEpoch(claim)))) {
         this.deps.log(
           `${rule.name}: ${job.id} was taken over while it was deciding, so nothing is run`,
         );
@@ -677,12 +673,7 @@ export class Executor {
         // send, post or file what its successor is doing too.
         beforeAction: async (action: AgentAction) => {
           if (!leavesTheProcess(action)) return;
-          const mine = await claimStillMine(
-            store,
-            job.area,
-            this.deps.workerId,
-            claimEpoch(claim),
-          );
+          const mine = await claimStillMine(store, this.deps.workerId, claimEpoch(claim));
           if (!mine)
             throw new RefusedError(
               "the unit was taken over while this run was working: nothing more is run",
@@ -992,7 +983,6 @@ export class Executor {
     const job = newJob({
       id: randomUUID(),
       accountId,
-      area: rule.area,
       rule,
       trigger,
       now: this.deps.now().toISOString(),
@@ -1464,8 +1454,8 @@ export class Executor {
       if (stopped) return;
       // The rules and the document are read again at every arming, the same
       // pass-shaped read the catch-up does, so a schedule edited while the
-      // worker waited is armed as it now is — and only the entries of the areas
-      // this worker holds are armed: the others are their own worker's to fire.
+      // worker waited is armed as it now is — and only the entries of the
+      // account this worker holds are armed: nothing else is its own to fire.
       dispose?.();
       const current = (await store.readRules())?.doc ?? [];
       const doc = await store.readSchedule();
@@ -1494,8 +1484,8 @@ export class Executor {
   /**
    * The schedule rules this worker holds.
    *
-   * A claim is one per area and the schedule is one document per account, so a
-   * worker owns the entries of the areas it holds and none of the others.
+   * A claim is the account's and the schedule is one document per account, so
+   * the worker that holds the account holds every entry of its schedule.
    * Planning, firing or advancing an entry it does not hold would take a run
    * away from the worker that does — and leave nothing anywhere saying the
    * group's automation did not happen.
@@ -1505,11 +1495,9 @@ export class Executor {
     rules: ReadonlyArray<AgentRule>,
   ): Promise<Set<string>> {
     const mine = new Set<string>();
-    for (const area of new Set(rules.map((rule) => rule.area))) {
-      const claim = (await store.readClaim(area))?.doc;
-      if (claim?.worker !== this.deps.workerId) continue;
-      for (const rule of rules) if (rule.area === area) mine.add(rule.id);
-    }
+    const claim = (await store.readClaim())?.doc;
+    if (claim?.worker !== this.deps.workerId) return mine;
+    for (const rule of rules) mine.add(rule.id);
     return mine;
   }
 
@@ -1551,8 +1539,7 @@ export class Executor {
    *
    * A pass is what reaches it — a time trigger is not a change, so nothing
    * wakes the worker for one — and each due run is started with the claim on
-   * its own rule's area, because one account's schedule can hold rules from
-   * several areas.
+   * its own account's claim, because the schedule is the account's.
    */
   async runDueSchedules(accountId: string): Promise<number> {
     const store = new AgentStore(this.deps.ctx, accountId);
@@ -1569,7 +1556,7 @@ export class Executor {
       return 0;
     }
     const owned = await this.ownScheduleRules(store, rules);
-    // Only the areas this worker holds are fired from here: a due entry it does
+    // Only the entries this worker holds are fired from here: a due entry it does
     // not hold keeps its instant for the worker that does, rather than being
     // moved on and run nowhere.
     const mine = due.filter((entry) => owned.has(entry.ruleId));
@@ -1588,10 +1575,10 @@ export class Executor {
       // Read again where the run starts: the lease can lapse between the read
       // that chose the entry and this one, and a unit that is not this worker's
       // is not this worker's to start.
-      const claim = (await store.readClaim(rule.area))?.doc;
+      const claim = (await store.readClaim())?.doc;
       if (claim?.worker !== this.deps.workerId) {
         this.deps.log(
-          `${rule.name}: ${rule.area} is not held by this worker, so the run due at ${entry.at} is not started`,
+          `${rule.name}: the account's automation is not held by this worker, so the run due at ${entry.at} is not started`,
         );
         continue;
       }
@@ -1615,7 +1602,7 @@ export class Executor {
   /**
    * One entry fired by its timer: run the rule and move the entry on.
    *
-   * The entry is moved on only by the worker that holds its rule's area. One
+   * The entry is moved on only by the worker that holds the account. One
    * that does not is left where it is, still due, for the worker that does —
    * and one whose rule can no longer run is left for the pass, which drops it
    * and records it as a missed run.
@@ -1633,10 +1620,10 @@ export class Executor {
     // worker's claim lives: a schedule that outlived the worker's lease does
     // not start a run nobody can fence, and it does not consume the entry
     // either — its holder fires it.
-    const claim = (await store.readClaim(rule.area))?.doc;
+    const claim = (await store.readClaim())?.doc;
     if (claim?.worker !== this.deps.workerId) {
       this.deps.log(
-        `${rule.name}: ${rule.area} is not held by this worker, so the run due at ${entry.at} is left to its holder`,
+        `${rule.name}: the account's automation is not held by this worker, so the run due at ${entry.at} is left to its holder`,
       );
       return;
     }
@@ -1682,15 +1669,14 @@ export class Executor {
   /* Housekeeping                                                     */
   /* ---------------------------------------------------------------- */
 
-  /** Retry the jobs a failed run left pending, in the areas this worker serves. */
-  async runPending(accountId: string, areas: ReadonlyArray<AgentArea>): Promise<number> {
+  /** Retry the jobs a failed run left pending. */
+  async runPending(accountId: string): Promise<number> {
     const store = new AgentStore(this.deps.ctx, accountId);
     const rules = (await store.readRules())?.doc ?? [];
     if (!rules.length) return 0;
     let ran = 0;
     for (const entry of await store.listJobs()) {
       const job = entry.doc;
-      if (!areas.includes(job.area)) continue;
       const rule = rules.find((candidate) => candidate.id === job.ruleId);
       if (job.state === "running") {
         // A job still `running` belongs to the worker that wrote that state.
@@ -1723,10 +1709,10 @@ export class Executor {
       // The fence is the worker's claim on the unit, so a job is run only by a
       // worker that holds one: a sweep that ran work it does not own would be
       // the very double execution the fence exists to stop.
-      const claim = (await store.readClaim(job.area))?.doc;
+      const claim = (await store.readClaim())?.doc;
       if (!claim) {
         this.deps.log(
-          `${accountId}: nothing holds ${job.area}, so job ${job.id} is not run`,
+          `${accountId}: nothing holds the account's automation, so job ${job.id} is not run`,
         );
         continue;
       }

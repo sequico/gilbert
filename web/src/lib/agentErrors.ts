@@ -1,5 +1,5 @@
 /**
- * The sentence an admin refusal reads as, composed from its code.
+ * The sentence an agent surface reads as, composed from its code.
  *
  * The admin surface used to answer with the sentence itself, in English, which
  * is English no catalogue can ever translate. It answers with a code and its
@@ -13,15 +13,19 @@
  * fallback, with the translations owed rather than assumed. `detail` is never
  * translated or invented: it is what the server that refused said.
  */
-import type { AgentErrorReason } from "@gilbert/agent/views";
+import type { AgentErrorReason, AgentStatusReason } from "@gilbert/agent/views";
 import { t } from "@/lib/i18n";
 
 /**
  * One English sentence per code, with `{parameter}` holes.
  *
- * `satisfies` is the mechanism, not the prose: the compiler refuses this object
- * when a code of `AgentErrorReason` is missing from it, and `Object.keys` is
- * then the runtime list of codes this surface knows how to answer for.
+ * The table is the one place these sentences live: an admin refusal
+ * (`AgentErrorReason`) and the fleet's own status (`AgentStatusReason`) read
+ * from it, so a code cannot be worded one way in a refusal and another in the
+ * panel that reports the same thing. `satisfies` is the mechanism, not the
+ * prose: the compiler refuses this object when a code of either union is
+ * missing from it, and `Object.keys` is then the runtime list of codes this
+ * surface knows how to answer for.
  */
 export const AGENT_ERROR_SENTENCES = {
   agent_not_configured:
@@ -54,7 +58,8 @@ export const AGENT_ERROR_SENTENCES = {
     "A standing instruction is at most {max} characters; this one is {length}.",
   group_labels_unreadable:
     "This group's labels.json holds entries Gilbert cannot read. The agent's labels were not added, rather than overwriting them.",
-} as const satisfies Record<AgentErrorReason["code"], string>;
+  workers_unreadable: "Could not read the agent's worker records: {detail}",
+} as const satisfies Record<AgentErrorReason["code"] | AgentStatusReason["code"], string>;
 
 /** The codes this surface composes a sentence for: the catalogue's own keys. */
 export const AGENT_ERROR_CODES: ReadonlySet<string> = new Set(
@@ -62,15 +67,35 @@ export const AGENT_ERROR_CODES: ReadonlySet<string> = new Set(
 );
 
 /**
- * The sentence for a refusal, or null when the code is not one of these.
+ * The sentence for a code of the agent vocabulary, parameters filled.
+ *
+ * The table above is complete by the compiler's word (`satisfies`), so this
+ * cannot fail for a code either union declares.
+ */
+export function agentSentence(
+  code: AgentErrorReason["code"] | AgentStatusReason["code"],
+  params: Record<string, unknown>,
+): string {
+  return t(AGENT_ERROR_SENTENCES[code], params as Record<string, string | number>);
+}
+
+/**
+ * The sentence for a code this surface may not know, or null.
  *
  * Null is the honest answer for a body this surface does not know: the caller
- * reads whatever prose the body carries instead of inventing a sentence for a
+ * reads whatever prose the body carried instead of inventing a sentence for a
  * code that means something else.
  */
+export function agentSentenceFor(
+  code: string,
+  params: Record<string, unknown>,
+): string | null {
+  return code in AGENT_ERROR_SENTENCES
+    ? agentSentence(code as AgentErrorReason["code"] | AgentStatusReason["code"], params)
+    : null;
+}
+
+/** The sentence a refusal reads as, composed from the code its body carries. */
 export function agentErrorSentence(body: Record<string, unknown>): string | null {
-  const code = typeof body.error === "string" ? body.error : "";
-  const template = (AGENT_ERROR_SENTENCES as Record<string, string | undefined>)[code];
-  if (!template) return null;
-  return t(template, body as Record<string, string | number>);
+  return agentSentenceFor(typeof body.error === "string" ? body.error : "", body);
 }

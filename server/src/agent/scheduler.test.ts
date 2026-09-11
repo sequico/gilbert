@@ -24,7 +24,6 @@ function rule(overrides: Partial<AgentRule> = {}): AgentRule {
     version: 1,
     name: "Every hour",
     enabled: true,
-    area: "mail",
     trigger: { on: "schedule", everyMinutes: 60 },
     tier: "T0",
     review: { mode: "never" },
@@ -218,11 +217,11 @@ test("a run that fired arms its next occurrence, planned from the document the f
   assert.deepEqual(fired, ["2026-09-10T11:00:00.000Z"], "the next occurrence runs");
 });
 
-test("an entry another area still owes keeps its instant instead of being re-planned away", () => {
+test("an entry this worker does not own keeps its instant instead of being re-planned away", () => {
   const now = new Date("2026-09-10T10:00:00.000Z");
-  const rules = [rule(), rule({ id: "filing", area: "files", name: "File it" })];
-  // The document as a shared account holds it: both entries are due at once,
-  // and the claims on the two areas are held by two different workers.
+  const rules = [rule(), rule({ id: "filing", name: "File it" })];
+  // The document as the account holds it: both entries are due at once, and
+  // this worker owns only the first of them.
   const stored: AgentScheduleEntry[] = [
     { ruleId: "r1", at: "2026-09-10T10:00:00.000Z" },
     { ruleId: "filing", at: "2026-09-10T10:00:00.000Z" },
@@ -237,7 +236,7 @@ test("an entry another area still owes keeps its instant instead of being re-pla
   assert.equal(
     byRule.get("filing"),
     "2026-09-10T10:00:00.000Z",
-    "the area this worker does not hold keeps the instant its own worker fires",
+    "an entry this worker does not own keeps the instant its owner fires",
   );
   assert.ok(
     Date.parse(byRule.get("r1") ?? "") > now.getTime(),

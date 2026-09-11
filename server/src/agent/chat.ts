@@ -122,6 +122,40 @@ export async function postMessage(
 }
 
 /**
+ * What the agent says the first time it speaks in a group.
+ *
+ * A chat message like any other, so the transcript itself is the record that
+ * the agent has spoken here: there is no flag to keep in step with it.
+ */
+export const AGENT_GREETING = "Hi all! Gilbert here, at your service.";
+
+/** Whether the agent has already spoken in a transcript. */
+export function hasSpoken(
+  messages: ReadonlyArray<ChatMessage>,
+  address: string,
+): boolean {
+  return messages.some((message) => message.from === address);
+}
+
+/**
+ * Say hello in a group the agent has never spoken in.
+ *
+ * Returns the node id it posted, or null when the group has already heard from
+ * the agent. The transcript is the record, so the greeting cannot be said
+ * twice: the second call reads a chat that already holds the agent's message.
+ */
+export async function greetUnspoken(
+  ctx: Ctx,
+  accountId: string,
+  address: string,
+  client: JmapClient,
+): Promise<string | null> {
+  const messages = await readChat(ctx, accountId, client);
+  if (hasSpoken(messages, address)) return null;
+  return postMessage(ctx, accountId, address, AGENT_GREETING);
+}
+
+/**
  * What the agent reads of the conversation before it answers.
  *
  * The last `clampChatContext(requested)` messages up to and including `upto`,
