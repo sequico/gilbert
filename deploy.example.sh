@@ -44,7 +44,7 @@ APP="${GILBERT_APP:-$HOME/apps/gilbert}"
 # keeps configuration, since the container itself holds nothing durable. Keep it
 # outside the repo's tracked files: it holds APP_SECRET and the upstream URL,
 # and, when the deployment runs an agent, GILBERT_AGENT_ADDRESS and
-# GILBERT_AGENT_PASSWORD, which the server reads at boot (ADR 0009). Never read
+# GILBERT_AGENT_PASSWORD, which the server reads at boot (ADR 0003). Never read
 # by this script.
 ENVF="${GILBERT_ENV:-$APP/.env.production}"
 # Commits held back from production, one per line; blank or missing is fine.

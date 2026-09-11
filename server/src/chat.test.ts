@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * Group chat on the mock (ADR 0006): a member writes message documents into
+ * Group chat on the mock (ADR 0005): a member writes message documents into
  * the group account's `gilbert/chat` folder over JMAP FileNode, the change
  * log answers `FileNode/changes`, and the event source announces the FileNode
  * state change the way a real 0.16 server does -- the rail another member's

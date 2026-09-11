@@ -52,7 +52,7 @@ export function SectionShell({
    * Labelled groups of items. When present they render under the heading in
    * place of `items`, and `items` render after the groups as the ungrouped
    * tail (About, cross-links). Settings passes plain `items`; Administration
-   * groups its surfaces by owner (Gilbert vs Stalwart, ADR 0007).
+   * groups its surfaces by owner (Gilbert vs Stalwart, ADR 0001).
    */
   groups?: SectionGroup[];
   /** Which item is active; undefined renders the "root" container class. */

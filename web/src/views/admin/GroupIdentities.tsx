@@ -1,5 +1,5 @@
 /**
- * Group identities (ADR 0010 §2, §3), the second tab of **Enforce Identities**:
+ * Group identities (ADR 0007 §2, §3), the second tab of **Enforce Identities**:
  * what a group mailbox sends as.
  *
  * Written **as the installation's agent**, always, because Stalwart refuses to

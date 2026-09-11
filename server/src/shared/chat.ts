@@ -1,9 +1,9 @@
 /**
- * The group chat's durable format (ADR 0006) — one definition, both tiers.
+ * The group chat's durable format (ADR 0005) — one definition, both tiers.
  *
  * A chat message is a JSON document in the group account's own JMAP Files:
  * `gilbert/chat` holds one node per message, `gilbert/chat-state` holds one
- * read marker per member (ADR 0006; the folder layout is the group-ownership
+ * read marker per member (ADR 0005; the folder layout is the group-ownership
  * law). Both the web client and the agent worker read and write those
  * documents, so the shape, the validators and the pure text helpers live here
  * rather than twice — the client keeps what needs its JMAP client, the worker
@@ -17,7 +17,7 @@ export const CHAT_FOLDER = "chat";
 export const CHAT_STATE_FOLDER = "chat-state";
 export const MESSAGE_TYPE = "application/json";
 
-/** Messages are plain text; the bound keeps the documents small (ADR 0006). */
+/** Messages are plain text; the bound keeps the documents small (ADR 0005). */
 export const MAX_TEXT = 4000;
 
 /** How many messages one transcript page holds (scroll-up paging). */
@@ -54,7 +54,7 @@ export interface ChatMessageDoc {
   /** When the sender's client sent it (display only; ordering is the node's). */
   at: string;
   text: string;
-  /** The message this one answers, when it is a quote reply (ADR 0006). */
+  /** The message this one answers, when it is a quote reply (ADR 0005). */
   replyTo?: string;
   /** Principals the message mentions; optional so old documents stay valid. */
   mentions?: ChatMention[];
@@ -131,7 +131,7 @@ export function messageFileName(): string {
 
 /**
  * The addresses a reader may mention: everyone who has posted in the
- * transcript, plus the reader. Membership is the grant (ADR 0006) and
+ * transcript, plus the reader. Membership is the grant (ADR 0005) and
  * Stalwart exposes no member list over JMAP, so the transcript is the one
  * source the client can see; a member becomes mentionable the moment they
  * post, and the live FileNode rail makes that visible without a refresh.

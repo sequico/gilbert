@@ -202,7 +202,7 @@ const apiRateLimited: MiddlewareHandler<Env> = async (c, next) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* The forced-password-change directive (ADR 0005)                     */
+/* The forced-password-change directive (ADR 0004)                     */
 /* ------------------------------------------------------------------ */
 
 interface DirectiveCheck {
@@ -226,7 +226,7 @@ const DIRECTIVE_CACHE_TTL_MS = 30_000;
 /**
  * Whether this session's user is currently forced to change their password.
  *
- * App-password sessions are never forced (ADR 0005): the wall needs the
+ * App-password sessions are never forced (ADR 0004): the wall needs the
  * current account password, and accounts with two-factor authentication on
  * can only sign in with an app password.
  */
@@ -268,7 +268,7 @@ async function sessionForcedState(
   return forced;
 }
 
-/** Batched: whether each listed account currently carries the directive (ADR 0005). */
+/** Batched: whether each listed account currently carries the directive (ADR 0004). */
 async function forcedFlagsFor(
   users: Array<{ id: string; name: string }>,
   admin: LiveSession,
@@ -305,7 +305,7 @@ async function forcedFlagsFor(
 /**
  * Whether a mount-relative `/api` path is a data route the door covers.
  *
- * The list is ADR 0005's: the JMAP proxy, uploads, blobs, the image and
+ * The list is ADR 0004's: the JMAP proxy, uploads, blobs, the image and
  * calendar proxies, the push stream and every `/account/*` route except the
  * password change itself (the wall's one way out). Auth, config, health and
  * the admin endpoints stay open.
@@ -370,7 +370,7 @@ const PUSH_HOST_RE =
 
 /**
  * The https origin Stalwart can reach this installation at, read off the
- * request that carried the session (ADR 0012).
+ * request that carried the session (ADR 0009).
  *
  * Upstream POSTs back only to what the subscription named, and RFC 8620
  * requires https there, so this answers `null` -- leaving the account on the
@@ -578,7 +578,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   api.use("/admin/*", accountBody);
 
   /*
-   * The forced-password-change door (ADR 0005).
+   * The forced-password-change door (ADR 0004).
    *
    * Answers 403 { error: "password_change_required" } on the data routes
    * while the session's user carries the directive in their own app folder.
@@ -743,7 +743,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         userAgent: c.req.header("user-agent") ?? "",
         ip,
         // Whether the presented secret was an app password decides whether the
-        // forced-password-change wall can ever apply to this session (ADR 0005).
+        // forced-password-change wall can ever apply to this session (ADR 0004).
         appPassword: upstream.authType === "app-password",
       });
       setSessionCookie(c, cookie, session.remember);
@@ -953,7 +953,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const fresh = sessions.resolve(getCookie(c, config.cookieName));
     directiveCache.delete(session.username);
     if (fresh && (await sessionForcedState(fresh))) {
-      // ADR 0005: a successful change clears the directive in the user's own
+      // ADR 0004: a successful change clears the directive in the user's own
       // folder. The user's own (freshly resealed) session is enough — no
       // impersonation needed for the clear.
       try {
@@ -1105,7 +1105,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     return c.json({ ok: true });
   });
 
-  // ---------- Administration (ADR 0007) ----------
+  // ---------- Administration (ADR 0001) ----------
   /**
    * Stalwart admin is the Gilbert admin: the session's own `/api/account`
    * permission list, read freshly on every privileged call so a demotion
@@ -1140,7 +1140,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   /**
    * Whether this session's credential currently resolves as a Stalwart admin,
-   * for the client's `isAdmin` flag (ADR 0007). Fail-closed and never fatal:
+   * for the client's `isAdmin` flag (ADR 0001). Fail-closed and never fatal:
    * an unreadable introspection reads as non-admin, so the shield is a
    * cosmetic mirror of the enforcement in `requireAdmin`, which stays the
    * authority.
@@ -1162,7 +1162,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   };
 
   /**
-   * Set or clear the forced-password-change directive for a user (ADR 0005).
+   * Set or clear the forced-password-change directive for a user (ADR 0004).
    *
    * The write authenticates to Stalwart as the composite `{target}%{admin}`
    * — impersonation with the administrator's own credentials rebuilt from
@@ -1195,7 +1195,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const ctx = imp.ctx;
     // An administrator cannot force another administrator: resolve the
     // target's own admin state through the impersonated session, the same
-    // way the acting admin's was resolved at sign-in (ADR 0007). This also
+    // way the acting admin's was resolved at sign-in (ADR 0001). This also
     // covers the acting admin themselves (master == target degrades to a
     // plain login upstream). A failure to introspect is an upstream failure
     // — the same composite credential just fetched the target's JMAP
@@ -1334,7 +1334,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   /**
    * Apply one change to the installation's record, and to the record that is
-   * actually there (ADR 0009).
+   * actually there (ADR 0003).
    *
    * Three doors write this document — the policy editor, the agent's address,
    * the areas of a group — so a change that read the running copy and then wrote
@@ -1414,7 +1414,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * What the worker does in each group (ADR 0009).
+   * What the worker does in each group (ADR 0003).
    *
    * The areas an administrator narrows a group to, written into the policy
    * document beside the settings policy: a group's reach is a durable fact
@@ -1520,7 +1520,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * The admin Users surface (ADR 0001 §5, ADR 0007): every individual
+   * The admin Users surface (ADR 0001 §5, ADR 0001): every individual
    * account on this server, plus whether this session may act on accounts at
    * all.
    *
@@ -1584,7 +1584,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * The group label catalog surface (ADR 0006): list group mailboxes and read
+   * The group label catalog surface (ADR 0005): list group mailboxes and read
    * or replace the labels.json in a group's own Files. Reading/writing a
    * group the administrator is not a member of uses impersonation — the same
    * grant the forced-password surface uses — so the administrator's session
@@ -1702,7 +1702,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   /**
    * A group's agent surface. A group this admin cannot reach answers 200 with
    * the refusal and empty documents rather than 403: "you are not a member" is
-   * a state of the surface, not a failed request — and per ADR 0006 a
+   * a state of the surface, not a failed request — and per ADR 0005 a
    * non-member admin has no act-as-the-group path at all, so the surface says
    * which membership a section needs instead of failing at the door.
    */
@@ -1898,7 +1898,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
   });
 
-  // ---------- Identities an administrator sets (ADR 0010) ----------
+  // ---------- Identities an administrator sets (ADR 0007) ----------
 
   /** A refusal from these surfaces: the code and the sentence, or upstream's. */
   function identityFailure(c: Context, err: unknown) {
@@ -1956,14 +1956,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * The lock an administrator applies to a person's identity (ADR 0010 §4).
+   * The lock an administrator applies to a person's identity (ADR 0007 §4).
    *
    * It is recorded in the installation's policy document, beside the settings
    * policy, through the same compare-and-set every other change to that document
    * uses — so an administrator saving the policy editor at the same moment
    * neither drops the locks nor is dropped by them. Applying one ends nothing:
    * a lock is a rule about what the product offers, read from the policy where
-   * the product asks, so the session that writes one sees it at once (ADR 0010
+   * the product asks, so the session that writes one sees it at once (ADR 0007
    * §4) and a session already open sees it the next time it reads its own.
    */
   api.post("/admin/identities/user/lock", requireSession, requireAdmin, async (c) => {
@@ -1986,7 +1986,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * A group's identity, and the one write that reaches it (ADR 0010 §2).
+   * A group's identity, and the one write that reaches it (ADR 0007 §2).
    *
    * Written as the installation's agent, always: Stalwart refuses to impersonate
    * a group mailbox, and the agent is the principal that exists for this. Where
@@ -2314,10 +2314,10 @@ function sessionExtras(
       sessionId: session.id,
       loginName: session.username,
       remember: session.remember,
-      /** Stalwart-admin state resolved at sign-in (ADR 0007): enables the admin surface. */
+      /** Stalwart-admin state resolved at sign-in (ADR 0001): enables the admin surface. */
       isAdmin,
       /**
-       * ADR 0005: the account must change its password before any data route
+       * ADR 0004: the account must change its password before any data route
        * will serve it. The wall is the middleware, not this flag — the flag
        * only tells the client which screen to show.
        */
@@ -2327,7 +2327,7 @@ function sessionExtras(
       /** What the upstream server would tell us about itself. */
       server: { edition: info.edition },
       /**
-       * ADR 0010 §4: an administrator has taken this account's identity over,
+       * ADR 0007 §4: an administrator has taken this account's identity over,
        * so the product offers it no Identities & signatures section at all. The
        * lock is the installation's record, read here; it is a rule about the
        * surface, and the section is all it removes.

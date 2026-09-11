@@ -17,13 +17,13 @@ type AdminSection = SectionItem & { el: ReactNode; owner: AdminOwner };
  * The administration's groups, and what each one is for.
  *
  * "Gilbert Mailer" is the mail server's own administration — policy, the group
- * label catalogs, forced password changes — the surfaces ADR 0004/0005/0006
+ * label catalogs, forced password changes — the surfaces ADR 0004/0005
  * added before there was an agent at all. "Assistant" is everything ADR
- * 0003/0009 added: the fleet's own identity and per-tier models, and what it
+ * 0003 added: the fleet's own identity and per-tier models, and what it
  * does inside each group. "Stalwart" is the mail server's own records, written
  * over JMAP or over its configuration API: **Enforce Identities**, one section
- * holding a person's and a group's behind two tabs (ADR 0010), and, in time, its
- * system Sieve scripts (ADR 0011). Splitting them is the fix for the section
+ * holding a person's and a group's behind two tabs (ADR 0007), and, in time, its
+ * system Sieve scripts (ADR 0008). Splitting them is the fix for the section
  * that used to hold both kinds of thing under one unlabelled "Gilbert" heading.
  */
 const SECTIONS: AdminSection[] = [
@@ -80,15 +80,15 @@ const SECTIONS: AdminSection[] = [
 
 /**
  * The administration surface, shown when the signed-in user is a Stalwart
- * admin (ADR 0007). It shares the settings layout — `SectionShell` is the one
+ * admin (ADR 0001). It shares the settings layout — `SectionShell` is the one
  * copy both surfaces render through — so the shield icon in the top bar and
  * these sections stay consistent. The nav groups the surfaces by owner:
  * "Gilbert Mailer" for the mail server's own administration (policy, forced
  * passwords, group label catalogs), "Gilbert Assistant" for the agent fleet
- * (ADR 0003/0009) and what it does per group, and "Stalwart" for the mail
+ * (ADR 0003) and what it does per group, and "Stalwart" for the mail
  * server's own records — the identities an administrator sets, as one section
- * with a tab per kind of principal (ADR 0010), and, in time, its system Sieve
- * scripts (ADR 0011) — with About ungrouped at the tail.
+ * with a tab per kind of principal (ADR 0007), and, in time, its system Sieve
+ * scripts (ADR 0008) — with About ungrouped at the tail.
  */
 export function AdminView({ section }: { section?: string }) {
   const current = SECTIONS.find((s) => s.id === section);

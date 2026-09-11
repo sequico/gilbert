@@ -28,7 +28,7 @@ describe("mailAccountCandidates — every non-personal mail account is a group m
     ]);
   });
 
-  it("offers a mailbox named gilbert-admin@… like any other group (ADR 0007)", () => {
+  it("offers a mailbox named gilbert-admin@… like any other group (ADR 0001)", () => {
     const s = sessionOf({
       a1: account("sam@ops.example.com", true),
       a4: account("gilbert-admin@ops.example.com", false),

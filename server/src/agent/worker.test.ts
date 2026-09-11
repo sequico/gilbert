@@ -320,7 +320,7 @@ test("a grant that is withdrawn is reported, and stops being served", async () =
 
 /**
  * The intersection an installation's record makes with the deployment's areas
- * (ADR 0009): a record can take work away from a group and can never hand it
+ * (ADR 0003): a record can take work away from a group and can never hand it
  * work the operator did not open. This is the whole rule, so it is one
  * function — the alternative is a fleet whose reach depends on which of two
  * lists a process happened to read.

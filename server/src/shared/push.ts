@@ -21,7 +21,7 @@
  * with core and mail alone. A name outside the enum fails the
  * `PushSubscription/set`, which leaves that account on the relay rather than
  * breaking anything, since the relay is the fallback. See
- * docs/adr/0012-the-push-subscription-covers-every-live-type.md.
+ * docs/adr/0009-the-push-subscription-covers-every-live-type.md.
  *
  * The agent worker's wake-up set is a different thing and deliberately
  * narrower: `TYPES_BY_AREA` in `server/src/agent/worker.ts` says which types a

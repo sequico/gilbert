@@ -213,7 +213,7 @@ test("publishing kicks every session except the caller's", async () => {
 });
 
 /**
- * What the document still owns about the agent (ADR 0009): the areas each group
+ * What the document still owns about the agent (ADR 0003): the areas each group
  * is narrowed to, and nothing about who the agent is. Its address and its
  * credential are the deployment's — `GILBERT_AGENT_ADDRESS` beside
  * `GILBERT_AGENT_PASSWORD`, in the environment that starts the process — so
@@ -242,7 +242,7 @@ test("a non-admin cannot narrow a group either", async () => {
 });
 
 /**
- * What the worker does in each group (ADR 0009): areas, several groups at a
+ * What the worker does in each group (ADR 0003): areas, several groups at a
  * time, and only downward — the record can take work away from a group, never
  * hand it work the deployment did not open.
  */
@@ -315,7 +315,7 @@ test("there is nothing to narrow before an agent is named", async () => {
 });
 
 /**
- * The ceiling, at the door where a widening would be written down (ADR 0009).
+ * The ceiling, at the door where a widening would be written down (ADR 0003).
  *
  * `servedAreasFor` is what *enforces* narrowing in the worker, but a record
  * could still have been written claiming an area the deployment does not serve

@@ -161,7 +161,7 @@ export function fetchMemberAgentView(name: string): Promise<MemberAgentView> {
 
 /**
  * `POST /api/admin/agent/groups` — the areas each group's worker is narrowed
- * to (ADR 0009).
+ * to (ADR 0003).
  *
  * Several groups in one call, because an operator who changes a policy changes
  * it for the groups they mean; an empty list is how "as the deployment serves

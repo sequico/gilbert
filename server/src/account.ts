@@ -320,13 +320,13 @@ export async function disableOtp(
 export { MASKED };
 
 /* ------------------------------------------------------------------ */
-/* The forced-password-change directive (ADR 0005)                     */
+/* The forced-password-change directive (ADR 0004)                     */
 /* ------------------------------------------------------------------ */
 
 /**
  * The hidden app folder and the directive file inside it.
  *
- * ADR 0005: the directive is a small file `must-change-password.json` inside
+ * ADR 0004: the directive is a small file `must-change-password.json` inside
  * the user's own `gilbert` app folder in their account Files — the same
  * folder the client keeps `settings.json` in, and deliberately a separate
  * file, because the client whole-file-replaces `settings.json` on save and a
@@ -370,7 +370,7 @@ export async function isPasswordChangeForced(ctx: Ctx): Promise<boolean> {
     const parsed = JSON.parse(text) as { setAt?: unknown; setBy?: unknown };
     if (typeof parsed.setAt === "string" && typeof parsed.setBy === "string") return true;
     console.warn(
-      `[gilbert] ${PASSWORD_CHANGE_DIRECTIVE} in ${ctx.username}'s app folder is corrupt; treating it as absent (ADR 0005)`,
+      `[gilbert] ${PASSWORD_CHANGE_DIRECTIVE} in ${ctx.username}'s app folder is corrupt; treating it as absent (ADR 0004)`,
     );
     return false;
   } catch (err) {
@@ -419,7 +419,7 @@ export async function clearPasswordChangeDirective(ctx: Ctx): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ */
-/* Group label catalog (ADR 0006)                                     */
+/* Group label catalog (ADR 0005)                                     */
 /* ------------------------------------------------------------------ */
 
 /** Read a group's label catalog, or null when it has none or is unreadable. */

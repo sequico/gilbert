@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The admin group-label catalog surface (ADR 0006), end to end against the
+ * The admin group-label catalog surface (ADR 0005), end to end against the
  * mock.
  *
  * Membership is the grant: an administrator who is a member of the group

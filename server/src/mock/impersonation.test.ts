@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The mock's authentication surface for the impersonation paths (ADR 0005).
+ * The mock's authentication surface for the impersonation paths (ADR 0004).
  *
  * Real 0.16 facts reproduced here, checked in stalwartlabs/stalwart source
  * (v0.16.21, 2026-09-07; re-verify against a live server with a dated comment
@@ -13,7 +13,7 @@ import { after, before, test } from "node:test";
  *
  * The mock knows two principals: the demo user (a Stalwart admin by
  * default: its permission list carries the admin marker and the
- * `impersonate` right, ADR 0007) and the target, bob@example.com.
+ * `impersonate` right, ADR 0001) and the target, bob@example.com.
  */
 
 const PORT = 18791;
@@ -83,7 +83,7 @@ test("the target signs in as themselves with their own password", async () => {
     s.body.accounts[s.body.primaryAccounts["urn:ietf:params:jmap:filenode"]].isPersonal,
     true,
   );
-  // The target's session is a single fresh personal account: since ADR 0007
+  // The target's session is a single fresh personal account: since ADR 0001
   // no session marks an admin — that state lives in `/api/account` only.
   assert.deepEqual(
     Object.keys(s.body.accounts),
@@ -98,7 +98,7 @@ test("the target signs in as themselves with their own password", async () => {
   assert.equal(
     introBody.permissions.includes("sysAccountCreate"),
     false,
-    "the non-admin target lacks the admin marker (ADR 0007)",
+    "the non-admin target lacks the admin marker (ADR 0001)",
   );
 });
 

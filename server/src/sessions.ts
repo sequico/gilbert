@@ -21,7 +21,7 @@ export interface StoredSession {
    * Whether the sealed credential is an app password rather than the account
    * password. Recorded at sign-in (the upstream tells us, see the mock) and
    * kept in step by the 2FA switch-over flows; the forced-password-change
-   * door (ADR 0005) exempts app-password sessions, because the wall needs
+   * door (ADR 0004) exempts app-password sessions, because the wall needs
    * the current password and 2FA accounts can only authenticate with an app
    * password. Older persisted records predate the field and mean "password".
    */
@@ -63,7 +63,7 @@ export interface CreateSessionParams {
   remember: boolean;
   userAgent: string;
   ip: string;
-  /** Set when the presented credential was an app password (ADR 0005). */
+  /** Set when the presented credential was an app password (ADR 0004). */
   appPassword?: boolean;
 }
 
@@ -114,7 +114,7 @@ export interface SessionBackend {
  * `authentication.rs`, checked 2026-09-07; re-verify against a live server
  * with a dated comment per repo convention), so an app-password session gets
  * null rather than an authorization that would fail upstream. Used only by
- * the admin write path (ADR 0001 §3, ADR 0005 §2).
+ * the admin write path (ADR 0001 §3, ADR 0004 §2).
  */
 export function impersonationAuthorization(
   session: LiveSession,

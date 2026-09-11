@@ -1,5 +1,5 @@
 /**
- * The identities an administrator sets, as the client calls them (ADR 0010).
+ * The identities an administrator sets, as the client calls them (ADR 0007).
  *
  * One function per route the server serves under `/api/admin/identities`. The
  * answer shapes are read from the same declarations the routes build: an

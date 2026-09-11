@@ -42,7 +42,7 @@ test("session store creates, resolves, and refuses tampered cookies", () => {
 test("ending an account's sessions reaches the ones that typed the name differently", () => {
   /*
    * An account name is an address, and an address does not differ by case. The
-   * lock an administrator applies (ADR 0010 §4) ends the account's sessions by
+   * lock an administrator applies (ADR 0007 §4) ends the account's sessions by
    * naming its address, and a session whose owner signed in as
    * `Bob@Example.com` holds the same account — an exact comparison would leave
    * exactly that session signed in, which is the one the lock was for.

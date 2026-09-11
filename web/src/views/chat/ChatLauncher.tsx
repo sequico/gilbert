@@ -1,5 +1,5 @@
 /**
- * The chat launcher (ADR 0006): the top-bar entry to group chat.
+ * The chat launcher (ADR 0005): the top-bar entry to group chat.
  *
  * First item of the top-bar action cluster, immediately left of the push
  * status -- the composer dock owns the bottom-right corner and the account
@@ -43,7 +43,7 @@ export function ChatLauncher() {
   );
 
   // A maximised composer covers nearly the whole viewport; the chat panel is
-  // transient by design and yields to it (ADR 0006).
+  // transient by design and yields to it (ADR 0005).
   useEffect(() => {
     if (maximized) setOpen(false);
   }, [maximized]);

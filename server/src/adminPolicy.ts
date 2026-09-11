@@ -32,7 +32,7 @@ export interface PolicyAgent {
 }
 
 /**
- * The identities an administrator has taken over (ADR 0010 §4).
+ * The identities an administrator has taken over (ADR 0007 §4).
  *
  * `locked` names the accounts whose identity an administrator set: the product
  * offers such an account no Identities & signatures section at all, so what was

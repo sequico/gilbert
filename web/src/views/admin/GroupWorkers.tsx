@@ -1,5 +1,5 @@
 /**
- * What the worker does in each group (ADR 0003, ADR 0009).
+ * What the worker does in each group (ADR 0003, ADR 0003).
  *
  * A group's agent work, in the order a person asks about it: which areas it
  * is narrowed to (Areas), the automations it runs there (Automations, moved

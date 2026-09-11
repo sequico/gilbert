@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * Identities an administrator sets (ADR 0010): a person's through impersonation,
+ * Identities an administrator sets (ADR 0007): a person's through impersonation,
  * a group's as the installation's agent, and the lock that is the installation's
  * own record.
  *
@@ -15,7 +15,7 @@ import { after, before, test } from "node:test";
  *    granted on is refused by name rather than written anyway;
  *  - the lock changes what the product *offers* — a session that reads it says
  *    so, and no session is ended to make it so — and it does not change what
- *    the server *permits*, which is ADR 0010 §5 stated as a test rather than as
+ *    the server *permits*, which is ADR 0007 §5 stated as a test rather than as
  *    a sentence.
  */
 
@@ -270,7 +270,7 @@ test("the lock reaches an open session, and ends none", async () => {
     "and the open session is what is told not to offer this account its Identities & signatures section",
   );
 
-  // ADR 0010 §5, as a test: the lock is a rule about the surface. The account
+  // ADR 0007 §5, as a test: the lock is a rule about the surface. The account
   // can still write its own identity, and the administrator still can, because
   // Stalwart has no per-field permission here and this feature does not pretend
   // to be one.

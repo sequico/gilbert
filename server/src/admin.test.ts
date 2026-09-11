@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The admin grant (ADR 0007): a signed-in user whose `/api/account`
+ * The admin grant (ADR 0001): a signed-in user whose `/api/account`
  * permission list carries the configured admin marker is a Stalwart admin
  * and therefore a Gilbert admin. The unit tests pin the marker rule; the
  * e2e half proves the flag arrives on the session when the mock reports

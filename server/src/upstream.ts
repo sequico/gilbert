@@ -133,7 +133,7 @@ export function forgetUpstreamSession(sessionId: string): void {
 
 /**
  * Whether a resolved `/api/account` permission list marks a Stalwart admin
- * (ADR 0007).
+ * (ADR 0001).
  *
  * JMAP exposes no role or principal attribute, so the one non-forgeable
  * runtime signal is the account's own permission list, read by
@@ -151,10 +151,10 @@ export function isStalwartAdmin(
 }
 
 /**
- * Whether the session holds a group mailbox to chat in (ADR 0006): a
+ * Whether the session holds a group mailbox to chat in (ADR 0005): a
  * non-personal account with an address. Any non-personal account counts for
  * the chat push rail — there is no product-admin group to exclude since ADR
- * 0007 removed it, and a group mailbox that shares mail is a working group.
+ * 0001 removed it, and a group mailbox that shares mail is a working group.
  *
  * The match is deliberately by name shape only: a calendar or files share
  * can be a non-personal account too, and this may count it. The cost of
@@ -355,7 +355,7 @@ function localeOf(
  * Stalwart deliberately does not publish its version number to clients, but
  * 0.16 reports its edition here; and JMAP exposes no role or principal
  * attribute, so the same endpoint is also the one place a principal can read
- * its own resolved permission list (ADR 0007).
+ * its own resolved permission list (ADR 0001).
  */
 export interface AccountIntrospection {
   /** "oss" | "community" | "enterprise", where the server reports it. */
@@ -370,7 +370,7 @@ export interface AccountIntrospection {
  * Throws UpstreamError on any failure — a 401/403 means the credential was
  * refused, anything else non-ok is an upstream failure. Callers decide what
  * a refusal costs: the locale/edition path treats it as a nicety, the admin
- * paths (ADR 0007) fail closed on it.
+ * paths (ADR 0001) fail closed on it.
  *
  * App-password credentials authenticate here exactly like a password
  * (live-verified 2026-09-09, Stalwart 0.16.21), so a session re-sealed onto
@@ -420,7 +420,7 @@ export async function getAccountInfo(
     // Fault-isolate the edition read: the introspection throws on any
     // failure, and an /api/account hiccup must cost the edition alone, not
     // the locale the JMAP read just fetched. The throwing contract stays for
-    // the admin paths, which want the failure (ADR 0007).
+    // the admin paths, which want the failure (ADR 0001).
     info = {
       ...info,
       edition:

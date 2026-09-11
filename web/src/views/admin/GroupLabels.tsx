@@ -14,7 +14,7 @@ interface DirectoryGroup {
 }
 
 /**
- * The admin group-label surface (ADR 0006): the label catalog of a group
+ * The admin group-label surface (ADR 0005): the label catalog of a group
  * mailbox lives in the group's own Files, and only an administrator defines
  * or changes it. Members read and apply it; renaming a label changes only its
  * display name — the keyword that rides on the messages is stable, so nothing
@@ -30,7 +30,7 @@ export function GroupLabels() {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   // The accounts this session may reach; a group the administrator is a
-  // member of appears here under its own address (ADR 0006).
+  // member of appears here under its own address (ADR 0005).
   const session = useSession((s) => s.session);
   const memberOf = (name: string): boolean => {
     const want = name.trim().toLowerCase();

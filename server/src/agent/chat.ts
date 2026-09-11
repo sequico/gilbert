@@ -1,5 +1,5 @@
 /**
- * The agent's side of the group chat (ADR 0006, ADR 0003 resolution 11).
+ * The agent's side of the group chat (ADR 0005, ADR 0003 resolution 11).
  *
  * The chat is a folder of documents in the group's own account and both tiers
  * write them the same way: `messageDoc` for the shape, `writeAppFileAt` for the

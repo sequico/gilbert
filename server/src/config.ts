@@ -244,7 +244,7 @@ function readSettingsPolicy(): PolicyDocument {
   };
 
   /**
-   * The identities an administrator has taken over (ADR 0010 §4).
+   * The identities an administrator has taken over (ADR 0007 §4).
    *
    * Mirrors the surface's rule: an entry that is not an address is a
    * configuration error at boot, not a value to fall back from silently. An
@@ -531,7 +531,7 @@ export const config = {
   /* Whether JMAP responses are gzipped. Measured: see the bake-off rerun. */
   compressJmap: process.env.COMPRESS_JMAP !== "0",
   /**
-   * The `/api/account` permission that marks a Stalwart admin (ADR 0007).
+   * The `/api/account` permission that marks a Stalwart admin (ADR 0001).
    *
    * Live-verified 2026-09-09 on Stalwart 0.16.21: `sysAccountCreate` appears
    * in a principal's resolved permission list exactly when the operator
@@ -565,7 +565,7 @@ export const config = {
 export type Config = typeof config;
 
 /**
- * The address this installation's agent is known by (ADR 0009).
+ * The address this installation's agent is known by (ADR 0003).
  *
  * The deployment names it — `GILBERT_AGENT_ADDRESS`, beside the password that
  * account signs in with, in the environment of whoever starts the server and
@@ -579,7 +579,7 @@ export type Config = typeof config;
  *
  * Narrowing only: the worker intersects this with the areas the deployment
  * serves, so a document can never widen what an operator allowed, and a name
- * this build does not know is dropped rather than obeyed (ADR 0009).
+ * this build does not know is dropped rather than obeyed (ADR 0003).
  */
 export function agentGroupAreas(group: string): AgentArea[] | null {
   const configured =

@@ -1,5 +1,5 @@
 /**
- * Enforce Identities (ADR 0010): the two surfaces an administrator sets a
+ * Enforce Identities (ADR 0007): the two surfaces an administrator sets a
  * principal's identity through, as two tabs of one administration section —
  * a person's under User identities, a group's under Group identities.
  *

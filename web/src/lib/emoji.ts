@@ -2,7 +2,7 @@
  * Emoticons rendered the WhatsApp way: yellow and coloured, everywhere,
  * whatever fonts the operating system has.
  *
- * The chat stores emoticons as plain text (ADR 0006) and inserts them as
+ * The chat stores emoticons as plain text (ADR 0005) and inserts them as
  * unicode into the draft; *this* module is only about how they are drawn.
  * Each known emoticon maps to a bundled Twemoji image (Twitter's emoji set,
  * CC-BY 4.0, © Twitter — yellow faces in the WhatsApp spirit), served from

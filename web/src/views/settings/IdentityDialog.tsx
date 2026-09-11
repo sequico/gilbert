@@ -4,7 +4,7 @@
  * A person's own settings and the administration's identity surfaces edit the
  * same object — display name, address, Reply-To and a rich signature — so they
  * open the same dialog: an identity means the same thing wherever it is written
- * (ADR 0010 §1). What differs is where a signature's **assets** live. Pictures
+ * (ADR 0007 §1). What differs is where a signature's **assets** live. Pictures
  * and an over-sized signature's full HTML belong to the account's own Files,
  * which a person writing their own identity has and an administrator writing
  * somebody else's does not. So the caller says where those go, and a caller with

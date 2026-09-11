@@ -1,5 +1,5 @@
 /**
- * The identities an administrator sets (ADR 0010).
+ * The identities an administrator sets (ADR 0007).
  *
  * Two doors, both of them JMAP, and neither of them a second credential:
  *
@@ -16,7 +16,7 @@
  * principal's own, or one the agent is granted on. Nothing here reads or writes
  * Stalwart's configuration.
  *
- * The lock (ADR 0010 §4) is the installation's record, not Stalwart's: it says
+ * The lock (ADR 0007 §4) is the installation's record, not Stalwart's: it says
  * which accounts have had their identity taken over, and the product offers
  * those accounts no edit at all. It is a rule about this surface — an account
  * that speaks JMAP directly can still write its own identity — and it is
@@ -81,7 +81,7 @@ export interface IdentityPatch {
 /* The lock                                                            */
 /* ------------------------------------------------------------------ */
 
-/** Whether this installation has locked the account's identity (ADR 0010 §4). */
+/** Whether this installation has locked the account's identity (ADR 0007 §4). */
 export function identityLocked(address: string): boolean {
   const want = address.trim().toLowerCase();
   if (!want) return false;
@@ -527,7 +527,7 @@ export async function groupIdentity(
 /**
  * Write the group's identity, as the agent.
  *
- * A group holds one identity (ADR 0010 §3): when it already has one, this is an
+ * A group holds one identity (ADR 0007 §3): when it already has one, this is an
  * update of that one rather than a second identity beside it — the product's
  * rule, applied here so no surface has to know it.
  */

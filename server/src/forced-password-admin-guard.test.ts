@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The admin half of the forced-password-change endpoints (ADR 0005): without
+ * The admin half of the forced-password-change endpoints (ADR 0004): without
  * the admin marker in the session's `/api/account` permission list the guard
  * answers 403 before anything touches the target. The mock also refuses the
  * composite `{target}%{admin}` impersonation username when the master does
  * not hold Stalwart's `impersonate` permission — the right the actions
- * themselves use (ADR 0007). Separate file on purpose: the mock reads
+ * themselves use (ADR 0001). Separate file on purpose: the mock reads
  * MOCK_ADMIN at import, so this case needs its own process.
  */
 
@@ -83,13 +83,13 @@ test("the refusal happens before any target work", async () => {
 test("without the impersonation right the mock refuses the composite username", async () => {
   // The same request the server would make for an admin action: composite
   // `{target}%{master}` with valid master credentials. A non-admin master
-  // holds no `impersonate` permission (ADR 0007).
+  // holds no `impersonate` permission (ADR 0001).
   const res = await fetch(`http://127.0.0.1:${PORT}/.well-known/jmap`, {
     headers: {
       authorization: `Basic ${Buffer.from(`${BOB}%${DEMO}:demo-password`).toString("base64")}`,
     },
   });
-  assert.equal(res.status, 401, "the impersonation right is the grant (ADR 0007)");
+  assert.equal(res.status, 401, "the impersonation right is the grant (ADR 0001)");
 });
 
 test("a non-admin's own data path is unaffected", async () => {

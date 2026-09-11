@@ -14,7 +14,7 @@ import {
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 
 /*
- * Group chat helpers (ADR 0006): ordering, the unread kind rule, marker
+ * Group chat helpers (ADR 0005): ordering, the unread kind rule, marker
  * naming, document validation and the working-group classifier. Pure logic —
  * the JMAP paths against the mock are covered by the server suite.
  */
@@ -213,7 +213,7 @@ describe("groupMailboxAccounts — one classifier for every group surface", () =
     expect(groups.map((g) => g.accountId)).toEqual(["a2", "a3", "a4"]);
   });
 
-  it("treats a group mailbox named gilbert-admin on any domain as a working group (ADR 0007)", () => {
+  it("treats a group mailbox named gilbert-admin on any domain as a working group (ADR 0001)", () => {
     const admin = [
       { accountId: "x", name: "gilbert-admin@other.example", kind: "group" as const },
     ];

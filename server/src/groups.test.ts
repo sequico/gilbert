@@ -3,11 +3,11 @@ import { test } from "node:test";
 import { hasChatGroupAccounts } from "./upstream.js";
 
 /*
- * The server-side chat-flag classifier (ADR 0006). It is the wire-level
+ * The server-side chat-flag classifier (ADR 0005). It is the wire-level
  * superset of the client's groupMailboxAccounts -- the client probes mail
  * trees, the server only reads account names -- so the tests pin the two
  * directions that matter: any non-personal account with an address counts,
- * which keeps the flag wider than the client's offer. Since ADR 0007 there
+ * which keeps the flag wider than the client's offer. Since ADR 0001 there
  * is no product-admin group to exclude: an account named `gilbert-admin@…`,
  * if an operator ever keeps one, is just another group mailbox.
  */
@@ -16,7 +16,7 @@ const session = (accounts: Record<string, { name: string; isPersonal: boolean }>
   accounts,
 });
 
-test("a group mailbox counts — including one named gilbert-admin (ADR 0007)", () => {
+test("a group mailbox counts — including one named gilbert-admin (ADR 0001)", () => {
   const s = session({
     a1: { name: "demo@example.com", isPersonal: true },
     a4: { name: "gilbert-admin@example.org", isPersonal: false },

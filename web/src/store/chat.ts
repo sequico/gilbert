@@ -1,5 +1,5 @@
 /**
- * Group chat store (ADR 0006).
+ * Group chat store (ADR 0005).
  *
  * One conversation per group mailbox the session holds. Everything durable
  * lives in the group account's own Files: the `gilbert/chat` folder holds one
@@ -395,7 +395,7 @@ export const useChat = create<ChatState>((set, get) => {
         .ensureAccount(accountId)
         .then(() => {
           // The marker is born at first open, reading up to the newest message:
-          // no marker ever means "everything is unread" (ADR 0006 kind rule).
+          // no marker ever means "everything is unread" (ADR 0005 kind rule).
           markAt(accountId);
         });
     },

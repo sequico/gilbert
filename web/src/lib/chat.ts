@@ -1,5 +1,5 @@
 /**
- * Group chat (ADR 0006): a text conversation per group mailbox, stored as
+ * Group chat (ADR 0005): a text conversation per group mailbox, stored as
  * immutable JSON documents in the group account's own JMAP Files.
  *
  * Everything the group owns lives in the group's account -- chat included:

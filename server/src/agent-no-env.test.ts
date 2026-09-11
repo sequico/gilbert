@@ -1,6 +1,6 @@
 /**
  * The invariant behind the deployment's agent pair: a process whose environment
- * carries no pair still starts (ADR 0009).
+ * carries no pair still starts (ADR 0003).
  *
  * An installation that names no agent serves its people exactly as one that
  * does — it is inert, never unreachable — and its own administration screen is

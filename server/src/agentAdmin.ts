@@ -17,7 +17,7 @@
  * the agent's account uses impersonation (`{agent}%{admin}`), which is what
  * ADR 0003's admin surface records; acting on a group's documents uses the
  * admin's own session, because a group's files are reachable exactly through
- * membership (ADR 0006) and Stalwart refuses to mint a session for an
+ * membership (ADR 0005) and Stalwart refuses to mint a session for an
  * impersonated group mailbox.
  */
 
@@ -167,7 +167,7 @@ export interface GroupAccess {
 export type GroupAccessResult = GroupAccess | GroupAccessDenied;
 
 /**
- * Resolve the group account a document lives on (ADR 0006) and the session to
+ * Resolve the group account a document lives on (ADR 0005) and the session to
  * reach it with.
  *
  * Membership is the grant: a member of the group already holds the group's
@@ -518,7 +518,7 @@ async function readWorkers(ctx: Ctx): Promise<AgentStatusWorker[]> {
  * The documents of a group the admin cannot reach, in the shape every group
  * answer takes.
  *
- * A non-member administrator has no act-as-the-group path at all (ADR 0006),
+ * A non-member administrator has no act-as-the-group path at all (ADR 0005),
  * so the surface answers empty rather than omitting the fields: a consumer
  * renders one shape, and the reason beside it says why there is nothing in it.
  */
@@ -1076,7 +1076,7 @@ export async function memberAgentView(
     store.listJobs(),
     readRecentAudit(store),
     // The same document the admin surface writes, read here with the member's
-    // own session: membership is the grant for a group's files (ADR 0006), and
+    // own session: membership is the grant for a group's files (ADR 0005), and
     // this route never impersonates.
     readGroupInstruction(access),
   ]);

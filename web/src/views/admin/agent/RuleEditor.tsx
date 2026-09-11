@@ -2,7 +2,7 @@
  * The per-group automation authoring surface (ADR 0003 "Admin surfaces").
  *
  * The rules of a group live in the group's own account — that is why members
- * can read them — and writing them carries ADR 0006's membership rule: an
+ * can read them — and writing them carries ADR 0005's membership rule: an
  * admin who is not a member of the group has no act-as-the-group path, so the
  * surface says which membership it needs instead of failing at the door.
  *

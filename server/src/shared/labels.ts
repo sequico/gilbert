@@ -1,5 +1,5 @@
 /**
- * The label catalog's shape (ADR 0006) and the reserved agent labels — one
+ * The label catalog's shape (ADR 0005) and the reserved agent labels — one
  * definition, both tiers.
  *
  * A group's labels live in `gilbert/labels.json` in the group account's own

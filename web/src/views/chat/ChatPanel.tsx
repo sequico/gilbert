@@ -1,5 +1,5 @@
 /**
- * The chat panel (ADR 0006): a glance-and-reply conversation surface.
+ * The chat panel (ADR 0005): a glance-and-reply conversation surface.
  *
  * Shown as a popover under the top-bar launcher on desktop and a full-screen
  * sheet on mobile. It holds the conversation switcher (one entry per group
@@ -44,7 +44,7 @@ function snippet(text: string): string {
  * Render a message's text with its known emoticons as bundled Twemoji
  * images (yellow, WhatsApp style) instead of the OS's glyphs; anything not
  * in the fixed set stays text, exactly as typed. Emoticon → image is display
- * only -- the message itself is plain text (ADR 0006).
+ * only -- the message itself is plain text (ADR 0005).
  */
 function EmojiText({ text }: { text: string }) {
   const parts = useMemo(() => {

@@ -42,7 +42,7 @@ const advertises = (account: MailAccountLike | undefined, cap: string): boolean 
  * The accounts worth probing for a mailbox tree: the reader's own first, then
  * every non-personal account that advertises mail, in session order. The
  * caller probes each "group" candidate with `Mailbox/get` and keeps the ones
- * that answer with a tree. Since ADR 0007 there is no product-admin group to
+ * that answer with a tree. Since ADR 0001 there is no product-admin group to
  * exclude: a non-personal mail account is a group mailbox, full stop.
  */
 export function mailAccountCandidates(
@@ -88,7 +88,7 @@ export function isGroupMailbox(
  * The group mailboxes a working surface may offer: the probed non-personal
  * mail accounts. One classifier for every group-owned creation surface --
  * calendars, contacts, chat -- so the membership rule cannot drift between
- * them. Since ADR 0007 removed the product-admin group, every non-personal
+ * them. Since ADR 0001 removed the product-admin group, every non-personal
  * mail account is a working group.
  *
  * The server's push-subscription flag `hasChatGroupAccounts`

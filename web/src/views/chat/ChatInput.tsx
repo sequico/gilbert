@@ -6,7 +6,7 @@
  * a machine without a colour emoji font the emoticons you are typing are
  * monochrome. This editor renders the text with the same images the picker
  * and the bubbles use (web/src/lib/emoji.ts), WhatsApp style, while the
- * store keeps the plain text (ADR 0006: emoticons are text). The DOM is
+ * store keeps the plain text (ADR 0005: emoticons are text). The DOM is
  * rebuilt only when the plain text changes from outside (picker insert,
  * conversation switch, send); typing edits the DOM directly and only syncs
  * the plain text back out.

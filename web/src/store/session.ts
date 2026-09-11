@@ -25,14 +25,14 @@ interface SessionState {
   /** Finer than pushConnected: tells "reconnecting" from "not connected". */
   pushState: PushState;
   /**
-   * ADR 0005: the server is refusing the data routes until this account's
+   * ADR 0004: the server is refusing the data routes until this account's
    * password changes. True when the session says so and when a request comes
    * back 403 password_change_required; the app renders the forced-change
    * wall instead of itself while it is set.
    */
   forcedPasswordChange: boolean;
   /**
-   * ADR 0010 §4: an administrator set this account's identity, so the person is
+   * ADR 0007 §4: an administrator set this account's identity, so the person is
    * offered no Identity & signatures section. It is a rule about the surface —
    * a client that speaks JMAP directly can still write the account's own
    * identity — and reading it here is what decides which sections are shown.
@@ -230,7 +230,7 @@ client.onUnauthenticated(() => {
 });
 
 /**
- * The forced-password-change door stopped a request (ADR 0005).
+ * The forced-password-change door stopped a request (ADR 0004).
  *
  * The session is still alive — this is a wall, not a sign-out — but every
  * loop that would hit the data path has to stop, as on 401, or it would just

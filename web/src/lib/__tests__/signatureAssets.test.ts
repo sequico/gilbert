@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { needsAssets } from "@/lib/signatureImages";
 
 /**
- * ADR 0010 §1: the administration writes somebody else's identity, so it has no
+ * ADR 0007 §1: the administration writes somebody else's identity, so it has no
  * Files of theirs to store a signature's assets in. `needsAssets` is what tells
  * that surface apart from the person's own settings — a signature carrying a
  * `data:` picture cannot be written without them, and one that does not carry

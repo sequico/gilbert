@@ -9,4 +9,4 @@ whatever fonts the operating system provides.
 - Licence: CC-BY 4.0 — © Twitter, Inc and other contributors
   (https://creativecommons.org/licenses/by/4.0/)
 - Mapping: web/src/lib/emoji.ts (unicode sequence → asset stem). The emoticon
-  is stored and sent as plain text (ADR 0006); the image is display only.
+  is stored and sent as plain text (ADR 0005); the image is display only.

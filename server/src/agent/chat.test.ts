@@ -3,7 +3,7 @@ import { after, before, test } from "node:test";
 import type { ChatMessage } from "../shared/chat.js";
 
 /**
- * The agent's side of the group chat against the mock (ADR 0006, resolution 11).
+ * The agent's side of the group chat against the mock (ADR 0005, resolution 11).
  *
  * Reading the transcript, deciding which messages address the agent, and the
  * closed yes/no vocabulary are all deterministic: those are what keep a model

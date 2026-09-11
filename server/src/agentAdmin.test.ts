@@ -8,7 +8,7 @@ import { after, before, test } from "node:test";
  * Two fixtures carry the whole file. `team@example.org` is a group the demo
  * administrator is a member of, and the group's own documents are reachable
  * through their own session — which is the grant, exactly as it is for the
- * label catalog (ADR 0006). `legal@example.org` is a group they are not a
+ * label catalog (ADR 0005). `legal@example.org` is a group they are not a
  * member of, and a non-member administrator has no act-as-the-group path at
  * all: the mock refuses impersonating a group mailbox the way a real 0.16
  * server does.
@@ -69,7 +69,7 @@ async function call(path: string, init: RequestInit = {}) {
 }
 
 /**
- * Stage the deployment's agent for one test (ADR 0009).
+ * Stage the deployment's agent for one test (ADR 0003).
  *
  * The address and the credential are the installation's, not a document's: both
  * are read from the environment once, at boot, so a test that needs a different
@@ -229,7 +229,7 @@ test("an agent that cannot be reached is reported, never guessed at", async () =
 });
 
 test("a credential the server refuses is its own state, named as one", async () => {
-  // The password is the account's own (ADR 0009). A deployment carrying the
+  // The password is the account's own (ADR 0003). A deployment carrying the
   // wrong one is refused when it signs in, and that is a different thing to fix
   // from an account that cannot be opened at all: one is a bad copy, the other
   // is a door that does not open.

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The guard that refuses to force another Gilbert administrator (ADR 0007):
+ * The guard that refuses to force another Gilbert administrator (ADR 0001):
  * when the target's own `/api/account` permission list carries the admin
  * marker, the endpoint answers 403 — for both setting and clearing the
  * directive.

@@ -65,7 +65,7 @@ export function App() {
   const status = useSession((s) => s.status);
   const bootstrap = useSession((s) => s.bootstrap);
   /*
-   * The forced-password-change wall (ADR 0005): while it stands, the data
+   * The forced-password-change wall (ADR 0004): while it stands, the data
    * routes answer 403 and the only usable screen is the change form. Gating
    * here rather than inside AuthedApp means the wall mounts instead of the
    * app — AuthedApp's data loads and push stream never start, and its
@@ -336,7 +336,7 @@ function AuthedApp() {
             useFiles.getState().applyChanges(types);
           if (a === useSieve.getState().accountId)
             useSieve.getState().applyChanges(types);
-          // Chat is FileNode state on the group accounts (ADR 0006); the
+          // Chat is FileNode state on the group accounts (ADR 0005); the
           // store ignores accounts it does not hold and events it does not
           // need, so every FileNode change can be offered to it.
           if (types.has("FileNode")) void useChat.getState().applyChanges(a);

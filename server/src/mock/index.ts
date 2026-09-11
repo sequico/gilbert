@@ -68,7 +68,7 @@ const GROUP_ACCOUNT = "a3";
 /** A second group (team) mailbox, so the chat switcher has two teams. */
 const GROUP2_ACCOUNT = "a5";
 /**
- * A second principal the mock knows, so the impersonation paths (ADR 0005)
+ * A second principal the mock knows, so the impersonation paths (ADR 0004)
  * have a target that is not the admin themselves. The mock has one data set
  * per principal; the target's account starts empty, like a fresh account's.
  */
@@ -121,7 +121,7 @@ const MOCK_ADMIN = process.env.MOCK_ADMIN !== "0";
 /** Exercise the guard that refuses to force another Gilbert admin (the
  *  target principal holds the admin marker too). */
 const TARGET_IS_ADMIN = process.env.MOCK_TARGET_IS_ADMIN === "1";
-/** The user-role permissions `/api/account` reports (ADR 0007). */
+/** The user-role permissions `/api/account` reports (ADR 0001). */
 const USER_PERMISSIONS = ["jmapEmailGet", "sysAccountSettingsGet"];
 /**
  * What `/api/account` reports for a principal: the user-role list, plus the
@@ -1103,7 +1103,7 @@ const groupIdentities: Obj[] = [
     mayDelete: false,
   },
 ];
-/* The impersonation target's own identities (ADR 0010). An administrator edits
+/* The impersonation target's own identities (ADR 0007). An administrator edits
    a person's list from their own session, so the list has to be one the next
    `Identity/get` sees: a fresh literal per call would answer 200 and change
    nothing, which is the failure the per-account lists above exist to avoid. */
@@ -1202,7 +1202,7 @@ const agentIdentities: Obj[] = [
  * the mock says no so the two kinds stay apart, and the client's mailbox
  * probe lists only the accounts that answer with a tree.
  *
- * The target principal (ADR 0005) is a fresh account: it has its own Files
+ * The target principal (ADR 0004) is a fresh account: it has its own Files
  * (see `targetFileNodes`) and nothing else yet. The agent principal has the
  * mailbox and identity an account of the directory has, and nothing else.
  */
@@ -1753,7 +1753,7 @@ const principals: Obj[] = people.slice(0, 5).map((p, i) => ({
 // Group principals, so the directory and the sharing pickers can offer
 // teams. The demo user is a member of `team@example.org` (its account is in
 // the demo session below); `legal@example.org` is a group the demo is not a
-// member of, for the surfaces that must refuse non-members (ADR 0006).
+// member of, for the surfaces that must refuse non-members (ADR 0005).
 principals.push(
   {
     id: "pr-team",
@@ -1902,7 +1902,7 @@ const nodesFor = (accountId: unknown): Obj[] =>
 /** The second group's Files: chat provisions its `gilbert` folder on demand. */
 const group2FileNodes: Obj[] = [];
 
-/** The node list the target principal (ADR 0005) owns: an empty account. */
+/** The node list the target principal (ADR 0004) owns: an empty account. */
 const targetFileNodes: Obj[] = [];
 
 /**
@@ -3669,7 +3669,7 @@ const handlers: Record<string, Handler> = {
     // come in the server's own order (here, insertion order = creation
     // order), `total` counts every match regardless of the page, and the
     // page never runs past the list. The chat transcript pages backwards
-    // from the end through this (older messages on scroll-up, ADR 0006).
+    // from the end through this (older messages on scroll-up, ADR 0005).
     const total = list.length;
     const position = Number(a.position ?? 0);
     const limit = a.limit as number | undefined;
@@ -3690,7 +3690,7 @@ const handlers: Record<string, Handler> = {
     // reports what changed (verified live 2026-09-07, see the Stalwart skill);
     // the mock answers the same way from its own change log. The log holds
     // creates, updates and destroys and all three are answered here: chat is
-    // append-only (ADR 0006), but the agent's documents are rewritten in place
+    // append-only (ADR 0005), but the agent's documents are rewritten in place
     // and removed again (a job that finishes, a claim that is released), and a
     // watcher told about creates alone would never see either.
     //
@@ -3843,14 +3843,14 @@ const knownPrincipal = (username: string) =>
  * convention): the username splits at the first `%`; a master identical to
  * the target is not impersonation; app passwords are refused for
  * impersonation; and the master must hold the impersonation right, which
- * `/api/account` reports as the `impersonate` permission (ADR 0007) — the
+ * `/api/account` reports as the `impersonate` permission (ADR 0001) — the
  * demo holds it exactly when it is a Stalwart admin, matching the live
  * server where the admin role bundles it.
  *
  * Group principals never authenticate, directly or as an impersonation
  * target — Stalwart 0.16 has no credential for them and refuses the
  * composite with a 403 (live-verified 2026-09-09). Members reach the
- * group's own account through their own session instead (ADR 0006); the
+ * group's own account through their own session instead (ADR 0005); the
  * mock reproduces the refusal so no surface can lean on group
  * impersonation.
  */
@@ -3859,7 +3859,7 @@ const isGroupPrincipal = (username: string): boolean =>
 
 /**
  * The account a known individual actually owns. Impersonation lands on the
- * target's own account: the demo's, the target principal's (ADR 0005).
+ * target's own account: the demo's, the target principal's (ADR 0004).
  * Group principals are refused before this runs; directory individuals the
  * mock does not give an account to resolve to the demo account, matching a
  * probe that only ever names a real account.
@@ -3890,7 +3890,7 @@ function resolveIdentity(req: IncomingMessage): Identity | null {
     // The mock has one impersonator: the demo user. A composite naming any
     // other master (or target) fails like an unknown account; the master
     // must hold Stalwart's `Impersonate` permission, which the resolved
-    // permission list reports (ADR 0007). A group principal as target is
+    // permission list reports (ADR 0001). A group principal as target is
     // refused like a real 0.16 server (see above).
     if (master !== USER) return null;
     if (!validCredential(master, p, true)) return null;
@@ -3990,11 +3990,11 @@ const personalCapabilities = (): Obj => ({
  *
  * The mock knows three principals: the demo user, whose session also lists
  * the account somebody shared with them and the two group mailboxes (ADR
- * 0006); the agent principal (ADR 0003), whose session lists the group
+ * 0005); the agent principal (ADR 0003), whose session lists the group
  * accounts it was granted and nothing else of anybody's; and the target
- * principal of the impersonation flows (ADR 0005), whose session is a single
+ * principal of the impersonation flows (ADR 0004), whose session is a single
  * fresh personal account. Admin state is not a
- * session fact — it lives in the `/api/account` permission list (ADR 0007),
+ * session fact — it lives in the `/api/account` permission list (ADR 0001),
  * which is why no account in here marks an admin.
  *
  * The shared account carries the *same* capability list as a personal one,
@@ -4007,7 +4007,7 @@ const personalCapabilities = (): Obj => ({
  *
  * `authType` is the one thing this document carries that a real 0.16
  * session resource does not: the proxy needs to know whether the session may
- * be put behind the forced-password-change wall (ADR 0005), and Stalwart's
+ * be put behind the forced-password-change wall (ADR 0004), and Stalwart's
  * session resource does not expose how the principal authenticated (checked
  * 2026-09-07, stalwartlabs/stalwart `crates/jmap/src/api/session.rs`, v0.16.21;
  * re-verify against a live server with a dated comment per repo convention).
@@ -4121,7 +4121,7 @@ function recordEmailChange(
 
 /**
  * What FileNodes were created, updated or destroyed, so `FileNode/changes` can
- * answer honestly. Group chat (ADR 0006) rides this rail: a message is a node
+ * answer honestly. Group chat (ADR 0005) rides this rail: a message is a node
  * created in the group account's `gilbert/chat` folder, and another member's
  * client re-syncs by asking what changed since the state it last saw -- the
  * same shape Email/changes gives the mail stores. The agent's documents ride it
@@ -4205,7 +4205,7 @@ export const server = createServer(async (req, res) => {
     return res.end(JSON.stringify(sessionFor(identity)));
   }
   // The account info endpoint; the only place a server reports its edition
-  // and the authenticated principal's resolved permission list (ADR 0007).
+  // and the authenticated principal's resolved permission list (ADR 0001).
   if (url.pathname === "/api/account" && req.method === "GET") {
     res.writeHead(200, { "content-type": "application/json" });
     return res.end(
@@ -4403,7 +4403,7 @@ setInterval(() => {
 
 // Post demo chat messages from other members every 30 s per group, so the
 // chat panel's live rail has something to show in dev:mock and the group
-// switcher has traffic in both teams (ADR 0006). A group's `gilbert/chat`
+// switcher has traffic in both teams (ADR 0005). A group's `gilbert/chat`
 // folder existing means chat is provisioned -- the client's warm sync
 // creates it at sign-in for a session that holds the group.
 function postChatDemo(nodes: Obj[], accountId: string, senders: number) {
