@@ -1,6 +1,6 @@
 ---
 name: gilbert-upstream-rebrand
-description: Checklist for taking in upstream (Coffey-Labs/ihasmail) merges into the Gilbert repository. Upstream code arrives with ihasmail identifiers, log prefixes, wire strings and prose that violate Gilbert's naming law; every merged delta must be re-checked and renamed before it lands. Load after any sync-upstream merge or before reviewing one.
+description: Checklist for taking in upstream (Coffey-Labs/ihasmail) merges into the Gilbert repository. Upstream code arrives with ihasmail identifiers, log prefixes, wire strings and prose that violate Gilbert's naming law; every merged delta must be re-checked and renamed before it lands. Load after any upstream merge or before reviewing one.
 metadata:
   short-description: Rebrand upstream merges to Gilbert
 ---
@@ -9,8 +9,9 @@ metadata:
 
 ## When this applies
 
-`sync-upstream.yml` mirrors upstream releases onto the `ihasmail` branch, and
-the mail core merges them into `main`. Upstream code is written for ihasmail:
+Upstream releases are fetched directly by the merge that takes them into
+`main` (ADR 0002), and a daily watch reports a release main has not taken in.
+Upstream code is written for ihasmail:
 it ships `ihasmail` identifiers, `[ihasmail]` log prefixes, `ihasmail-…`
 device/header strings, ihasmail.example fixtures and prose that calls the
 product ihasmail. Gilbert's naming law (gilbert-branding) forbids all of
@@ -32,8 +33,8 @@ is that checklist.
 - `ihasmail` may stay only where upstream's real name must stay: the URLs
   (ihasmail.org, docs.ihasmail.org, demo.ihasmail.com,
   github.com/Coffey-Labs/ihasmail), AGPL lineage in
-  `README`/`LICENSE`/`NOTICE`/ADR 0002, upstream-owned legal lines
-  ("If you run a modified ihasmail…"), and the `ihasmail` branch name.
+  `README`/`LICENSE`/`NOTICE`/ADR 0002, and upstream-owned legal lines
+  ("If you run a modified ihasmail…").
 - Everything else says `gilbert`/`Gilbert`: prose about the product says
   "Gilbert"; identifiers are lowercase `gilbert`.
 - Snapshot mode: comments describe the merged code as it is, never

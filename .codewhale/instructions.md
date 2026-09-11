@@ -20,8 +20,7 @@ app folder, the sieve script name, storage keys, the `[gilbert]` log prefix,
 the `session.gilbert` extension, MIME types, docker/deploy identifiers and
 paths. `ihasmail` appears only where upstream's real name must stay: the URLs
 (ihasmail.org, docs.ihasmail.org, github.com/Coffey-Labs/ihasmail), the
-lineage and the AGPL attribution in `LICENSE`/`NOTICE`/`README`/ADR 0002, and
-the `ihasmail` branch that mirrors upstream releases.
+lineage and the AGPL attribution in `LICENSE`/`NOTICE`/`README`/ADR 0002.
 An upstream merge delta that introduces `ihasmail` identifiers, strings or
 prose is renamed to `gilbert`/`Gilbert` during the merge, automatically and
 without asking — including user-visible names such as a shipped theme or
@@ -218,9 +217,9 @@ automated.** Never tag, publish, or trigger release/publish workflows on your
 own (see `.github/workflows/release.yml`, `publish.yml`).
 SECURITY.md / CONTRIBUTING.md / CODE_OF_CONDUCT.md are still upstream's process
 and contacts — ask before changing or acting on them.
-**Upstream is download-only (ADR 0002):** `sync-upstream.yml` mirrors
-upstream releases onto the `ihasmail` branch and the mail core merges them
-in. Nothing flows the other way — no contributions, no PRs, no upstream-shaped
+**Upstream is download-only (ADR 0002):** upstream releases are fetched
+directly by the merge that takes them in (ADR 0002) — there is no mirror
+branch — and the mail core merges them in. Nothing flows the other way — no contributions, no PRs, no upstream-shaped
 fork. Common work stays here, renamed or not.
 **Excluded upstream files (never absorbed; Gilbert's version always wins):**
 upstream `CLAUDE.md` and `.github/FUNDING.yml` (owner decision 2026-09-06).

@@ -30,14 +30,14 @@ a migration ("it used to be X, then it became Y"); history lives in git.
   github.com/Coffey-Labs/ihasmail — issues, PRs, releases), the lineage and
   AGPL attribution in `README`/`LICENSE`/`NOTICE`/ADR 0002, the legal lines
   in upstream-owned docs ("If you run a modified ihasmail, set
-  `SOURCE_URL`…"), and the `ihasmail` branch that mirrors upstream releases.
+  `SOURCE_URL`…").
 
 ## Relationship to upstream
 
 Gilbert is its own product, of which the mail client is one part. The mail
 client is based on [Coffey-Labs/ihasmail](https://github.com/Coffey-Labs/ihasmail).
-Upstream is **download-only** (ADR 0002): `sync-upstream.yml` mirrors
-upstream releases onto the `ihasmail` branch, the mail core merges them in,
+Upstream is **download-only** (ADR 0002): releases are fetched directly by the
+merge that takes them in (ADR 0002), the mail core merges them in,
 and nothing is contributed back. Upstream's docs (docs.ihasmail.org) are the
 reference for the licence obligations that survive: Gilbert is AGPL, users are
 owed *this* tree's source, and running it as a service counts as

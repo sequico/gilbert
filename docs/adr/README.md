@@ -33,11 +33,13 @@ prose against `server/src` and `web/src`.
 
 ## 0002 — Upstream is download-only
 
-- **Status:** Accepted (2026-09-07).
-- **Code:** standing law, in force. `sync-upstream.yml` mirrors upstream
-  releases onto the `ihasmail` branch; mail core merges them in rebranded;
-  nothing flows back. README, NOTICE, LICENSE and the merge skill carry the
-  lineage.
+- **Status:** Accepted (2026-09-07; amended 2026-09-11).
+- **Code:** standing law, in force. Releases are fetched at merge time —
+  `https://github.com/Coffey-Labs/ihasmail` as a remote, tags under
+  `refs/upstream/tags/*` — and the mail core merges them in rebranded; nothing
+  flows back, and no mirror branch is kept. `upstream-watch.yml` reports a
+  release `main` has not taken in. README, NOTICE, LICENSE and the merge skill
+  carry the lineage.
 
 ## 0003 — Agent worker fleet
 
