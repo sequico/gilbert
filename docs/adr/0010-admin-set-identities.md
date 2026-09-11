@@ -101,7 +101,9 @@ the existing **Stalwart** group of the admin navigation.
    and its effect is that the person's **Identities & signatures** section is
    not shown: the product offers them no path to add, change or remove an
    identity, and no path to a signature of their own. What the administrator
-   set stays what the product sends.
+   set stays what the product sends. Applying one ends that account's sessions,
+   so the section is gone from its next sign-in rather than from the page that
+   was already open when the lock was written.
 5. **The lock is a rule about the surface, and the record says so rather than
    implying otherwise.** Stalwart has no per-field permission on an identity,
    so a principal who uses a JMAP client directly can still write one; what the
@@ -139,3 +141,13 @@ the existing **Stalwart** group of the admin navigation.
   applies it.
 - Nothing here reads or writes Stalwart's configuration, so an installation
   needs no permission beyond the ones its administrators already hold.
+- An identity's **signature** is written whole from either surface. When it is
+  larger than the server's cap, the full copy is stored in the **account's own**
+  Files — the impersonated account's, or the group's — and the identity carries
+  the marker that points at it, which is the shape that account's own client
+  already reads back. A signature's **picture** is the one thing the
+  administration does not set: a picture is stored in the account's Files and
+  rendered back through the writer's own session, and the administrator's
+  session does not hold that account — so the form offers the signature without
+  pictures and says why, rather than embedding a reference that would render for
+  nobody.

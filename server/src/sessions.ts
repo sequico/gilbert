@@ -321,10 +321,20 @@ export class SessionStore implements SessionBackend {
     }
   }
 
+  /**
+   * End every session of one account, whoever typed the address.
+   *
+   * An account name is an address, and addresses do not differ by case: a
+   * person who signed in as `Bob@example.com` holds the same account as one
+   * who typed `bob@example.com`. Comparing the two exactly would leave that
+   * session signed in — which is how a lock, or a revocation, would quietly
+   * miss the one session it was meant for.
+   */
   destroyAllForUser(username: string, exceptId?: string): number {
+    const want = username.trim().toLowerCase();
     let n = 0;
     for (const [id, s] of this.sessions) {
-      if (s.username === username && id !== exceptId) {
+      if (s.username.trim().toLowerCase() === want && id !== exceptId) {
         this.sessions.delete(id);
         this.onDestroy?.(id);
         n++;

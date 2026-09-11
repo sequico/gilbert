@@ -39,6 +39,34 @@ test("session store creates, resolves, and refuses tampered cookies", () => {
   assert.equal(store.resolve(cookie), null);
 });
 
+test("ending an account's sessions reaches the ones that typed the name differently", () => {
+  /*
+   * An account name is an address, and an address does not differ by case. The
+   * lock an administrator applies (ADR 0010 §4) ends the account's sessions by
+   * naming its address, and a session whose owner signed in as
+   * `Bob@Example.com` holds the same account — an exact comparison would leave
+   * exactly that session signed in, which is the one the lock was for.
+   */
+  const store = new SessionStore("");
+  const first = store.create({
+    username: "Bob@Example.com",
+    password: "p4ss",
+    remember: false,
+    userAgent: "ua",
+    ip: "127.0.0.1",
+  });
+  const second = store.create({
+    username: "bob@example.com",
+    password: "p4ss",
+    remember: false,
+    userAgent: "ua",
+    ip: "127.0.0.1",
+  });
+  assert.equal(store.destroyAllForUser(" BOB@example.com ", first.session.id), 1);
+  assert.equal(store.resolve(second.cookie), null, "the differently-cased one went");
+  assert.ok(store.resolve(first.cookie), "the one that was excepted stayed");
+});
+
 test("persisted session data does not contain the password", () => {
   const store = new SessionStore("");
   store.create({
