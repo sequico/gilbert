@@ -110,6 +110,18 @@ is missing — it never writes one.
   serves, so a product decision can never open a door an operator closed, and a
   group set back to nothing is served exactly as the deployment says. The grant
   itself stays Stalwart’s, and the surface shows it rather than writing it.
+- **A withdrawn grant is reported, and the group stops being served.** The
+worker re-reads its session at most once per poll interval — a minute, a third
+of a lease, so no new setting arrives with it — and an account it was serving
+that the session no longer lists *is* a withdrawal, because the session is the
+whole of a grant. From that pass on the group is not served, and the worker
+writes the loss once into its **own** account: the group's name, the areas it
+was holding, and when it noticed, shown on the admin surface beside the fleet
+rather than in a log nobody tails. The report says what the worker was
+holding; what a withdrawal left unfinished stays in the group's own audit,
+which the agent can no longer read — the record never claims to know it. And
+nothing is written or deleted in the withdrawn group on the way out: the claim
+is left for its lease to lapse, which is how a withdrawal ends.
 - **The group's standing instruction.** One text per group, written by an
 administrator of that group in the admin surface, handed to the model on
 **every** call the group's agent makes — first in the prompt, before the
@@ -129,8 +141,8 @@ under impersonation and shows the new secret once. Rotation deliberately does
 not revoke the credential already in use — that would stop the agent's work on
 the spot — and the API answers with how many credentials it left valid.
 - **Automations, not rules written in code.** The admin surface authors one
-document per automation, as a form — “Quando [evento] / Se [filtri] / Allora
-[azioni]” — validated against the JMAP filter grammar (RFC 8621) and the
+document per automation, as a form — “When [event] / If [filters] / Then
+[actions]” — validated against the JMAP filter grammar (RFC 8621) and the
 named-action catalogue. The document is validated against a JSON Schema
 Gilbert publishes (ADR 0003 resolution 16), with the same validator and the
 same schema on both sides, so what the form accepts the server accepts. No new

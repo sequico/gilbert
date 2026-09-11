@@ -2,7 +2,7 @@
 
 Status: Accepted (2026-09-07)
 
-> **Owner decision (2026-09-07):** "contributo da upstream solo download. non
+> **Owner decision (2026-09-07):** "upstream contribution is download-only —
 > we contribute nothing back to upstream" — upstream is consumed, never
 > contributed to.
 

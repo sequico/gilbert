@@ -59,6 +59,7 @@ import type {
   AgentStatusGroup,
   AgentStatusReason,
   AgentStatusWorker,
+  AgentWithdrawal,
   GroupAccessDenied,
   GroupEnumeration,
   GroupInstructionView,
@@ -66,8 +67,8 @@ import type {
   MemberAgentView,
   PendingApproval,
 } from "./agent/views.js";
-import { GROUP_NOT_ACCESSIBLE } from "./agent/views.js";
-import { type Ctx, filesAccountId } from "./appFolder.js";
+import { GROUP_NOT_ACCESSIBLE, WITHDRAWALS_PATH } from "./agent/views.js";
+import { type Ctx, filesAccountId, readAppJsonAt } from "./appFolder.js";
 import {
   agentAddress,
   agentAddressSource,
@@ -439,6 +440,7 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       groups: [],
       defaultAreas,
       workers: [],
+      withdrawals: [],
       reason: { code: "agent_not_configured" },
     };
 
@@ -453,6 +455,7 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       groups: reachable.names.map((name) => groupRow(name, false)),
       defaultAreas,
       workers: [],
+      withdrawals: [],
       reason: { code: "agent_unreachable", detail: agent.detail },
       enumeration: reachable.enumeration,
       enumerationMessage: reachable.enumerationMessage,
@@ -482,6 +485,7 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
     ),
     defaultAreas,
     workers,
+    withdrawals: await readWithdrawals(agent.ctx),
     enumeration: reachable.enumeration,
     enumerationMessage: reachable.enumerationMessage,
     ...(reason ? { reason } : {}),
@@ -489,6 +493,23 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
 }
 
 /** The agent's worker heartbeats, with `alive` judged against the heartbeat. */
+async function readWithdrawals(ctx: Ctx): Promise<AgentWithdrawal[]> {
+  const accountId = filesAccountId(ctx);
+  if (!accountId) return [];
+  try {
+    const raw = await readAppJsonAt(ctx, accountId, WITHDRAWALS_PATH);
+    // The worker appends, so the last one in the document is the last one that
+    // happened: reversed here, the surface reads them newest first.
+    return Array.isArray(raw) ? (raw as AgentWithdrawal[]).reverse() : [];
+  } catch (err) {
+    console.warn(
+      "[gilbert] could not read the agent's withdrawal report:",
+      (err as Error).message,
+    );
+    return [];
+  }
+}
+
 async function readWorkers(ctx: Ctx): Promise<AgentStatusWorker[]> {
   const accountId = filesAccountId(ctx);
   if (!accountId) return [];

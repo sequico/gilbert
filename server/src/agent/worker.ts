@@ -13,7 +13,7 @@
 
 import { createServer } from "node:http";
 import { pathToFileURL } from "node:url";
-import { type Ctx, filesAccountId } from "../appFolder.js";
+import { type Ctx, filesAccountId, readAppJsonAt, writeAppFileAt } from "../appFolder.js";
 import { agentGroupAreas, config } from "../config.js";
 import { JmapClient, serverNow } from "../jmap.js";
 import {
@@ -45,6 +45,7 @@ import {
   workerId as workerIdOf,
 } from "./lease.js";
 import { AgentStore } from "./store.js";
+import { type AgentWithdrawal, WITHDRAWALS_PATH } from "./views.js";
 import { openEventStream, pollLoop } from "./wake.js";
 
 /** How many areas one account's pass reconciles per JMAP type. */
@@ -154,9 +155,38 @@ export function areasFor(
   accountId: string,
   deployment: ReadonlyArray<AgentArea>,
 ): AgentArea[] {
-  const account = session.accounts?.[accountId] as { name?: unknown } | undefined;
-  const name = typeof account?.name === "string" ? account.name.trim().toLowerCase() : "";
+  const name = groupNameOf(session, accountId);
   return servedAreasFor(deployment, name ? agentGroupAreas(name) : null);
+}
+
+/**
+ * The accounts the session listed and no longer does, with the names they had.
+ *
+ * A grant withdrawn in Stalwart's own administration removes the group from the
+ * agent's session — that is what a grant *is* — so the accounts the worker was
+ * serving and the accounts the session still lists are the whole of the
+ * detection. The names travel with it because the session is exactly what stops
+ * carrying them: after the withdrawal there is nowhere left to ask.
+ *
+ * Pure, and the reason it is: the pass does the reading and the reporting, and
+ * this is the judgement, worth a test of its own.
+ */
+export function withdrawnAccounts(
+  before: ReadonlyMap<string, string>,
+  after: ReadonlyArray<string>,
+): Array<{ account: string; name: string }> {
+  const still = new Set(after);
+  const gone: Array<{ account: string; name: string }> = [];
+  for (const [account, name] of before) {
+    if (!still.has(account)) gone.push({ account, name });
+  }
+  return gone;
+}
+
+/** The group name the session gives one account, or empty when it gives none. */
+export function groupNameOf(session: UpstreamSession, accountId: string): string {
+  const account = session.accounts?.[accountId] as { name?: unknown } | undefined;
+  return typeof account?.name === "string" ? account.name.trim().toLowerCase() : "";
 }
 
 /**
@@ -189,6 +219,10 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
   const startedAt = now().toISOString();
 
   const servedAreas = new Map<string, Set<AgentArea>>();
+  /** The accounts the session listed when the pass last looked, by name. */
+  let knownAccounts = new Map<string, string>();
+  /** When the session was last re-read: never more often than the poll interval. */
+  let refreshedAt = 0;
   const scheduleDisposers = new Map<string, () => void>();
   const disposers: Array<() => void> = [];
   let streamClaim: AgentStreamClaim | null = null;
@@ -214,7 +248,6 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     return null;
   };
 
-  // ADR-0003 OWED: grant-withdrawal-report
   const reconcileAccount = async (accountId: string): Promise<void> => {
     const store = new AgentStore(deps.ctx, accountId);
     const types = typesOf(accountId);
@@ -387,9 +420,90 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     }
   };
 
+  /**
+   * Re-read the agent's session, at most once per poll interval.
+   *
+   * A grant withdrawn in Stalwart's own administration removes the group from
+   * the agent's session — that is what a grant is — and nothing announces it:
+   * the account simply stops being listed. Re-reading on a timer is what turns
+   * that into a fact the pass can act on, and the interval is the poll interval
+   * the worker already runs on, a third of a lease, so no new knob arrives with
+   * it. A refresh that fails is not a withdrawal: the session in force stays in
+   * force and the next pass tries again.
+   *
+   * It replaces the context's session, which is what the pass reads accounts and
+   * the installation's narrowing from. The client keeps the handle it was built
+   * with and needs no new one: it reads the session's URLs, and a refresh does
+   * not change them.
+   */
+  const refreshSession = async (): Promise<void> => {
+    const at = now().getTime();
+    if (at - refreshedAt < pollMs) return;
+    refreshedAt = at;
+    try {
+      deps.ctx.session = await openSession(
+        deps.ctx.authorization,
+        upstreamFor(deps.address),
+      );
+    } catch (err) {
+      log(
+        `could not re-read the agent's session: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  };
+
+  /**
+   * Write down a grant the agent has lost, with what it was holding.
+   *
+   * In the agent's **own** account, because it is the only place it can still
+   * write: the moment the grant is gone, the group's own documents are refused
+   * to it. So the report is what the worker held and when it noticed — the work
+   * a withdrawal leaves behind is in the group's audit, unreadable from here,
+   * and saying more than this would be inventing it.
+   */
+  const reportWithdrawal = async (
+    account: string,
+    group: string,
+    heldAreas: ReadonlyArray<AgentArea>,
+  ): Promise<void> => {
+    const self = filesAccountId(deps.ctx);
+    const seen = await readAppJsonAt(deps.ctx, self, WITHDRAWALS_PATH);
+    const entries = Array.isArray(seen) ? (seen as AgentWithdrawal[]) : [];
+    const entry: AgentWithdrawal = {
+      account,
+      group,
+      heldAreas: [...heldAreas],
+      at: now().toISOString(),
+    };
+    await writeAppFileAt(
+      deps.ctx,
+      self,
+      WITHDRAWALS_PATH,
+      [...entries, entry].slice(-20),
+    );
+    log(`${group || account}: the agent's grant on this group is gone`);
+  };
+
   const pass = async (): Promise<ReadonlyArray<string>> => {
     if (stopped) return [...servedAreas.keys()];
-    for (const accountId of candidateAccounts(deps.ctx.session)) {
+    await refreshSession();
+    const accounts = candidateAccounts(deps.ctx.session);
+    // An account the worker was serving and the session no longer lists is a
+    // grant that has been withdrawn. It stops being served here and is reported
+    // once, rather than failing against it on every pass for as long as the
+    // worker runs — and nothing here writes or touches a claim: the leases it
+    // still holds under that account lapse on their own, which is how a
+    // withdrawal is meant to end (ADR 0003 §2).
+    const gone = withdrawnAccounts(knownAccounts, accounts);
+    knownAccounts = new Map(
+      accounts.map((accountId) => [accountId, groupNameOf(deps.ctx.session, accountId)]),
+    );
+    for (const { account, name } of gone) {
+      const held = [...(servedAreas.get(account) ?? [])];
+      servedAreas.delete(account);
+      await guarded(account, () => reportWithdrawal(account, name, held));
+    }
+    for (const accountId of accounts) {
       await guarded(accountId, async () => {
         const store = new AgentStore(deps.ctx, accountId);
         const held = servedAreas.get(accountId) ?? new Set<AgentArea>();

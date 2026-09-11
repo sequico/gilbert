@@ -141,6 +141,9 @@ test("an installation with no agent says so plainly, and never 500s", async () =
     // The areas the deployment serves; a group can only narrow them.
     defaultAreas: [...AGENT_AREAS],
     workers: [],
+    // No worker has reported a grant lost, because no worker is serving this
+    // installation (ADR 0003 resolution 21).
+    withdrawals: [],
     // A code, not a sentence: the surface composes the sentence in the
     // reader's language (the same rule the membership refusal follows).
     reason: { code: "agent_not_configured" },

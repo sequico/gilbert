@@ -1,6 +1,6 @@
 /**
  * The automation editor (ADR 0003 resolution 2): an automation is authored as
- * a form — "Quando [evento] / Se [filtri] / Allora [azioni]" — and never as raw
+ * a form — "When [event] / If [filters] / Then [actions]" — and never as raw
  * JSON. One rule document in, one out; the caller owns saving.
  *
  * Every option and every parameter comes from the canonical catalogue

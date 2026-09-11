@@ -116,6 +116,8 @@ export interface AgentStatus extends Partial<GroupEnumeration> {
   /** The areas the deployment serves, which a group's own list can only narrow. */
   defaultAreas: AgentArea[];
   workers: AgentStatusWorker[];
+  /** Grants the fleet has lost, newest first, as its workers reported them. */
+  withdrawals: AgentWithdrawal[];
   /**
    * Why the fleet cannot be read, when it cannot. `configured: false` plus this
    * code is the honest answer for an installation with no agent, for an
@@ -123,6 +125,39 @@ export interface AgentStatus extends Partial<GroupEnumeration> {
    */
   reason?: AgentStatusReason;
 }
+
+/* ------------------------------------------------------------------ */
+/* One withdrawal                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A grant the agent had and no longer does, with what it was serving.
+ *
+ * Written by the worker the pass after the group leaves its session, into the
+ * agent's **own** account: from that moment the group's trail is not readable
+ * by the agent any more, so what is left to say is what it held and when it
+ * noticed — never what the group went on doing. Read back by the status route,
+ * so the surface an administrator looks at is where a withdrawal is seen
+ * rather than a log nobody tails.
+ */
+export interface AgentWithdrawal {
+  /** The account that left the session. */
+  account: string;
+  /** The group's name as the session carried it, lower-cased. */
+  group: string;
+  /** The areas the worker was serving for it when it noticed. */
+  heldAreas: AgentArea[];
+  /** When the pass noticed. */
+  at: string;
+}
+
+/**
+ * Where a worker keeps its withdrawal report, in its own account.
+ *
+ * Declared here rather than beside the writer because the reader is a different
+ * tier's route: one path, one constant, no second spelling of it to drift.
+ */
+export const WITHDRAWALS_PATH = "agent/withdrawals.json";
 
 /* ------------------------------------------------------------------ */
 /* One group                                                           */

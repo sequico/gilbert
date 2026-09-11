@@ -17,11 +17,19 @@ process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { basicAuth, candidateAccounts, servedAreasFor, startWorker } = await import(
-  "./worker.js"
-);
+const {
+  areasFor,
+  basicAuth,
+  candidateAccounts,
+  groupNameOf,
+  servedAreasFor,
+  startWorker,
+  withdrawnAccounts,
+} = await import("./worker.js");
 const { AgentStore } = await import("./store.js");
 const { AGENT_AREAS } = await import("./documents.js");
+const { filesAccountId, readAppJsonAt } = await import("../appFolder.js");
+const { WITHDRAWALS_PATH } = await import("./views.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
 /** The group mailboxes of the demo session, and the demo's own account. */
@@ -209,6 +217,105 @@ test("a second worker takes over a stale lease, and never double-serves", async 
   await first.stop();
   await second.stop();
   await third.stop();
+});
+
+test("a withdrawal is the accounts that left the session, with the names they had", () => {
+  const before = new Map([
+    ["a3", "sales@example.com"],
+    ["a5", "ops@example.com"],
+  ]);
+  assert.deepEqual(withdrawnAccounts(before, ["a3"]), [
+    { account: "a5", name: "ops@example.com" },
+  ]);
+  assert.deepEqual(
+    withdrawnAccounts(before, ["a5", "a3"]),
+    [],
+    "a session that still lists them all reports nothing",
+  );
+  assert.deepEqual(
+    withdrawnAccounts(new Map(), ["a3"]),
+    [],
+    "the first pass has no before to compare, so nothing is a withdrawal",
+  );
+});
+
+/**
+ * The group name is read in one spelling, and one place reads it: `areasFor`
+ * and the withdrawal report both go through this, so a session that returns a
+ * name with space around it cannot narrow one and not the other.
+ */
+test("the name a group is served under is trimmed and lower-cased, in one place", () => {
+  const named = {
+    accounts: { a9: { name: "  Ops@Example.com " } },
+  } as unknown as Parameters<typeof groupNameOf>[0];
+  assert.equal(groupNameOf(named, "a9"), "ops@example.com");
+  assert.equal(groupNameOf(named, "a8"), "", "an account the session does not name");
+  assert.deepEqual(
+    areasFor(named, "a9", ["mail"]),
+    ["mail"],
+    "a group the installation has no record for is served the deployment's areas",
+  );
+});
+
+test("a grant that is withdrawn is reported, and stops being served", async () => {
+  // The grant is withdrawn in Stalwart's own administration, which is a change
+  // this installation never sees: the group simply leaves the agent's session.
+  // What the pass must do then is stop serving it and say so where it can still
+  // write — its own account — rather than failing against it on every pass
+  // (ADR 0003 §2, resolution 21).
+  const own = {
+    authorization: AUTH,
+    session: await fetchUpstreamSession(AUTH, BASE),
+    username: "demo@example.com",
+  };
+  const start = new Date("2026-09-11T09:00:00Z");
+  const worker = await startWorker({
+    ctx: own,
+    address: AGENT,
+    areas: ["mail"],
+    workerId: "w-withdrawal",
+    log: () => {},
+    timers: false,
+    now: () => new Date(start.getTime()),
+    leaseMs: 60_000,
+  });
+
+  assert.ok((await worker.pass()).includes(GROUP), "the group is served to begin with");
+  assert.equal(
+    await readAppJsonAt(own, filesAccountId(own), WITHDRAWALS_PATH),
+    null,
+    "and nothing is reported while the grant stands",
+  );
+
+  const accounts = own.session.accounts as Record<string, unknown>;
+  delete accounts[GROUP];
+
+  const after = await worker.pass();
+  assert.ok(!after.includes(GROUP), "the withdrawn account is not served any more");
+  const report = (await readAppJsonAt(
+    own,
+    filesAccountId(own),
+    WITHDRAWALS_PATH,
+  )) as Array<{ account: string; group: string; heldAreas: string[]; at: string }>;
+  assert.equal(report.length, 1, "one withdrawal, reported once");
+  assert.equal(report[0].account, GROUP);
+  assert.equal(
+    report[0].group,
+    groupNameOf(session, GROUP),
+    "the name the session had given",
+  );
+  assert.deepEqual(report[0].heldAreas, ["mail"], "with what it was holding");
+  assert.equal(report[0].at, start.toISOString());
+
+  // The claim it held is left where it is: a withdrawal is not a release, and a
+  // worker that deleted another account's documents on its way out would be
+  // taking a trust it was never given. The lease lapses instead.
+  assert.equal(
+    (await new AgentStore(own, GROUP).readClaim("mail"))?.doc.worker,
+    "w-withdrawal",
+    "the claim is left for its lease to lapse",
+  );
+  await worker.stop();
 });
 
 /**

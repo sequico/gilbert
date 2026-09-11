@@ -194,8 +194,8 @@ record keeps its full shape as the evolution path.
   follow-ups recorded in Open questions (an operator authenticated by app
   password, and the secret staying readable).
 - *2 — automations, not rules*: an automation is built in the admin UI
-  (never raw JSON) as "Quando [evento] / Se [filtri facoltativi] / Allora
-  [azioni]" and stored as a JSON document validated against a standard
+  (never raw JSON) as "When [event] / If [optional filters] / Then
+  [actions]" and stored as a JSON document validated against a standard
   JSON Schema — reusing standard primitives only: the JMAP filter grammar
   (RFC 8621) for matching and named capability-gated actions for effects.
   No new rule language; Sieve keeps the delivery-time boundary. Decisions
@@ -638,13 +638,25 @@ record keeps its full shape as the evolution path.
     Stalwart's clock and not on Gilbert's — the admin surface reads grants and
     reports them, it never writes them (v1 scope) — so nothing here delays a
     revocation and nothing can make settling the work a precondition of it.
-    What is decided is how the agent *meets* the withdrawal: it is discovered
-    at the next reconcile that runs into the refusal, and what it stranded is
-    reported then, with what was left unfinished visible in the audit and on
-    the group's surface instead of disappearing with the grant. **Owed:** a
-    withdrawn grant is reported together with the work it leaves behind, and
-    the agent stops claiming that account rather than failing against it on
-    every pass. <!-- owed: grant-withdrawal-report -->
+    What is decided is how the agent *meets* the withdrawal: the worker re-reads
+    its session at most once per poll interval — a minute by default, a third of
+    a lease, so no new interval arrives with it — and an account it was serving
+    that the session no longer lists *is* the withdrawal, because the session is
+    the whole of a grant. It stops being served from that pass on, and the pass
+    writes it down once: what the group was called, which areas the worker was
+    holding for it, and when it noticed, into the worker's **own** account
+    (`agent/withdrawals.json`), which is the one place it can still write and
+    the one the status route reads — so a withdrawal is seen on the surface an
+    administrator looks at rather than in a log nobody tails.
+
+    The report says what is known and not more. The group's own trail is refused
+    to the agent from the moment the grant is gone, so the work a withdrawal
+    left behind stays where it was written — the group's audit, read by whoever
+    still has the group — and the withdrawal record never claims to know it.
+    Nothing on the way out writes or deletes anything in the withdrawn account:
+    the claim the worker held is left for its lease to lapse, which is how a
+    withdrawal ends, and a worker deleting another account's documents on its
+    way out would be taking a trust it was never given.
   - **No order is guaranteed between automations that match the same message,
     and the two classes it separates do not carry the same risk.** A rule that
     reads a message and a rule that writes to it do not collide: JMAP addresses a

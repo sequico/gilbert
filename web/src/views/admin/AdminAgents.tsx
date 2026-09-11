@@ -398,6 +398,31 @@ function Workers({ status }: { status: AgentStatus | null }) {
           </tbody>
         </table>
       )}
+      {/* A grant that is gone is a fleet fact, and it is said where the fleet
+          is read. The worker reports what it was serving for the group when it
+          noticed — the group's own trail is unreadable from that moment, so the
+          surface says what is known rather than what would be nice to know. */}
+      {status && status.withdrawals.length > 0 && (
+        <div className="error-box" style={{ marginTop: 12 }}>
+          <strong>{t("Grants withdrawn")}</strong>
+          <ul style={{ margin: "6px 0 0 18px" }}>
+            {status.withdrawals.map((w) => (
+              <li key={`${w.account}-${w.at}`}>
+                {t(
+                  "The agent lost its grant on “{group}” on {when}: it served {areas} for that group until the pass noticed, and nothing has served it since.",
+                  {
+                    group: w.group || w.account,
+                    when: formatListDate(w.at),
+                    areas: w.heldAreas.length
+                      ? w.heldAreas.map((a) => areaText(a)).join(", ")
+                      : t("no area"),
+                  },
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }
