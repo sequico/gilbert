@@ -1,4 +1,4 @@
-# ADR 0010 — Identities an administrator sets
+# ADR 0010 — Admin-set identities, and the server's system sieves
 
 Status: Proposed (2026-09-11)
 
@@ -47,6 +47,33 @@ server's configuration.
   (`server/src/sessions.ts:119`) rather than trying. An administrator who
   signed in with an app password — which is how a 2FA account signs in — cannot
   use the person-identity surface.
+
+**One link is assumed rather than observed.** That a member reaches a group's
+account is verified live — Files, calendars and address books are written with
+the member's own credentials. That the same member may write that account's
+**`Identity`** object is an assumption: every group surface this feature
+resembles works, so there is no reason to expect otherwise, and the first run
+against a live server is what settles it. If it refuses, the surface reports
+the refusal where a person will see it rather than failing quietly.
+
+**Writing the server's own scripts is not JMAP, and needs no new credential.**
+A system Sieve script is a configuration object, not account data: Stalwart
+loads it at boot (`crates/common/src/config/mailstore/scripts.rs:150`, which is
+what makes it a *trusted* script, one the MTA stages can run) and it is managed
+through the server's **management API**, which authenticates the way this
+product already authenticates — HTTP Basic with the principal's own credential,
+on the same HTTP listener (`crates/http/src/api/mod.rs:359`, routed under
+`/api/…` in `crates/http/src/request.rs:471`). The administration holds that
+credential for the signed-in administrator already (`LiveSession.authorization`,
+`server/src/sessions.ts:33-46`), so this is a second door and not a second
+secret. What decides whether it opens is a **permission**, not a role name:
+`sysSieveSystemScriptGet`, `Query`, `Create`, `Update`, `Destroy`
+(`crates/registry/src/schema/properties_impl.rs:3722`, `:3798`, `:4235-4237`).
+By the server's own defaults those land in the superuser set
+(`crates/common/src/auth/permissions.rs:300-305`), and a role is data, so an
+installation that does not want to hand out superuser grants a role carrying
+exactly those (`enabledPermissions`/`disabledPermissions`,
+`crates/registry/src/schema/structs.rs:4484-4495`).
 
 ## Decision
 
@@ -115,12 +142,43 @@ the existing **Stalwart** group of the admin navigation.
    picked. What the rules here guarantee is what the product offers and **who
    it says did it** — not what an administrator determined to reach an account
    can reach.
+7. **The administration edits the server's system sieves.** A **System sieves**
+   section under the Stalwart group lists and edits the server's system Sieve
+   scripts — the trusted ones the MTA stages run, which is where a script that
+   applies to every message lives rather than to one account.
+
+   Writing them is server configuration and JMAP has no object for it, so the
+   section writes through Stalwart's **management API**, as the signed-in
+   administrator and with the credential the session already holds: a second
+   door, and not a second secret. The gate is Stalwart's permission on the
+   object (`sysSieveSystemScript*`), which the defaults put in the superuser
+   set — an installation that would rather not hand that out grants a role
+   carrying exactly those permissions, and that is Stalwart's administration to
+   do, once. This is the one place the product reaches the server by something
+   other than JMAP, and the record says so: one object, because a surface the
+   product owns needs it — not directory administration, which stays where ADR
+   0001 put it.
+8. **A section that cannot be used is still shown, and says what it needs.** An
+   administrator whose principal does not hold those permissions sees the
+   section with the missing privilege named, rather than a section that is not
+   there or a failure that reads as a bug. Two reasons, and the second is the
+   one that decided it: a hidden section cannot be told from a product that is
+   broken, and the person who has to ask for the privilege is the person
+   looking at the page. Nothing is implied about the data — without `get` there
+   is no list to show, so the section carries the sentence and never an empty
+   table that would read as "this server runs no scripts".
 
 ## Consequences
-
-- The feature fits the architecture it lands in: JMAP only, no Management API,
-  no server configuration written by the product, no new credential, and
-  nothing that has to survive a container restart outside Stalwart.
+- The feature is JMAP with one deliberate exception: the system sieves are
+  server configuration, written through Stalwart's management API as the
+  administrator who is signed in. No server configuration is written anywhere
+  else, no new credential exists, and nothing has to survive a container
+  restart outside Stalwart.
+- Least privilege is available and is the intended path: an installation that
+  does not want its Gilbert administrators to be Stalwart superusers grants a
+  role carrying `sysSieveSystemScript*` and nothing more, and every other
+  surface here needs no permission beyond the ones an administrator already
+  holds.
 - Reach is stated instead of assumed: identities shape the mail **composed in
   Gilbert**. Mail written in another client is that client's business, and
   there is no server-side footer that would have reached it.

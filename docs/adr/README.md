@@ -116,16 +116,17 @@ prose against `server/src` and `web/src`.
   user, password), push-notifying chat and mail arrival, deep-linking into
   the web client on tap.
 
-## 0010 — Identities an administrator sets
+## 0010 — Admin-set identities, and the server's system sieves
 
 - **Status:** Proposed (2026-09-11).
-- **Code:** **not implemented** — the administration gains **User identities**
-  and **Group identities** under the Stalwart group. An administrator edits a
-  person's identities (display name, address, `replyTo`, signature — the whole
-  list, adding, changing and removing) by impersonating the person from their
-  own session, and a group's one identity as the installation's **agent**,
-  because Stalwart refuses impersonation of a group mailbox and the agent is
-  the member the installation granted on purpose. A locked principal is one
-  whose Identities & signatures section is not shown. JMAP only: no Management
-  API, no server configuration written by the product, and no server-side
-  footer.
+- **Code:** **not implemented** — the administration gains three surfaces under
+  the Stalwart group. **User identities**: an administrator edits a person's
+  identities (display name, address, `replyTo`, signature — the whole list,
+  adding, changing and removing) by impersonating the person from their own
+  session. **Group identities**: a group's one identity, written as the
+  installation's **agent**, because Stalwart refuses impersonation of a group
+  mailbox. **System sieves**: the server's trusted Sieve scripts, written
+  through Stalwart's management API as the signed-in administrator — the one
+  place the product reaches the server by something other than JMAP — in a
+  section that is shown even when the permission is missing, and names it. A
+  locked principal is one whose Identities & signatures section is not shown.
