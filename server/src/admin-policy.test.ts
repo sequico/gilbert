@@ -261,7 +261,11 @@ test("groups are narrowed several at a time, and nothing can widen the deploymen
 
   const status = await call("/api/admin/policy", adminCookie);
   const groups = agentRecord(status.body);
-  assert.deepEqual(groups["team@example.org"]?.areas, ["mail"], "one group narrowed to mail");
+  assert.deepEqual(
+    groups["team@example.org"]?.areas,
+    ["mail"],
+    "one group narrowed to mail",
+  );
   assert.deepEqual(
     groups["legal@example.org"]?.areas,
     ["mail", "files"],

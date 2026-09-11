@@ -21,11 +21,7 @@
  * impersonated group mailbox.
  */
 
-import {
-  getState,
-  readGroupLabels,
-  writeGroupLabels,
-} from "./account.js";
+import { readGroupLabels, writeGroupLabels } from "./account.js";
 import {
   AGENT_INSTRUCTION_MAX,
   AGENT_JOB_OPEN_STATES,

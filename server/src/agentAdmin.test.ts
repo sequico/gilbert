@@ -45,7 +45,6 @@ const { AGENT_AREAS, AGENT_INSTRUCTION_MAX, AGENT_TIERS } = await import(
   "./agent/documents.js"
 );
 const { createApp } = await import("./app.js");
-const { fetchUpstreamSession, upstreamFor } = await import("./upstream.js");
 
 const app = createApp();
 let cookie = "";
@@ -124,10 +123,7 @@ function failAgentSignIn(status: number): () => void {
     const headers = new Headers(
       init?.headers ?? (input instanceof Request ? input.headers : undefined),
     );
-    if (
-      url.includes("/.well-known/") &&
-      headers.get("authorization") === credential
-    ) {
+    if (url.includes("/.well-known/") && headers.get("authorization") === credential) {
       return new Response("{}", { status });
     }
     return real(input, init);

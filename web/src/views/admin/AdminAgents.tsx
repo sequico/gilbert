@@ -139,9 +139,7 @@ function Registration({ status }: { status: AgentStatus | null }) {
         <div className="card agent-registration">
           <div className="card-head">
             <h3>{t("Identity")}</h3>
-            <span
-              className={status.operational ? "agent-state ok" : "agent-state off"}
-            >
+            <span className={status.operational ? "agent-state ok" : "agent-state off"}>
               {status.operational ? t("Operational") : t("Not operational")}
             </span>
           </div>
