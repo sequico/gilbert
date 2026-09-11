@@ -26,6 +26,9 @@ export function GroupInstruction({
   const granted = groups.filter((group) => group.granted);
   const [group, setGroup] = useState<string>(granted[0]?.name ?? "");
   const [text, setText] = useState("");
+  // What the record holds, beside what the field holds: the difference is the
+  // only thing the save button has to say, so it is dimmed until there is one.
+  const [baseline, setBaseline] = useState("");
   const [saved, setSaved] = useState<{ at: string | null; by: string | null }>({
     at: null,
     by: null,
@@ -49,6 +52,7 @@ export function GroupInstruction({
       .then((view) => {
         if (!live) return;
         setText(view.text);
+        setBaseline(view.text);
         setMax(view.max);
         setSaved({ at: view.updatedAt, by: view.updatedBy });
       })
@@ -71,6 +75,7 @@ export function GroupInstruction({
     void saveGroupInstruction(group, text)
       .then((view) => {
         setText(view.text);
+        setBaseline(view.text);
         setSaved({ at: view.updatedAt, by: view.updatedBy });
         setDone(true);
       })
@@ -117,14 +122,17 @@ export function GroupInstruction({
             </label>
             <textarea
               id="agent-instruction-text"
-              className="input"
-              rows={8}
+              className="textarea"
+              rows={10}
               value={text}
               maxLength={max}
               placeholder={t(
                 "Write to the group in its own language, and always cite the invoice number.",
               )}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value);
+                setDone(false);
+              }}
             />
             <p className="hint">
               {t("An empty text removes it. At most {max} characters.", { max })}
@@ -132,7 +140,12 @@ export function GroupInstruction({
           </div>
           {problem && <div className="error-box">{problem}</div>}
           {done && !problem && <p className="hint">{t("Saved.")}</p>}
-          <button type="button" className="btn" onClick={save} disabled={busy}>
+          <button
+            type="button"
+            className="btn"
+            onClick={save}
+            disabled={busy || text === baseline}
+          >
             {busy ? t("Saving…") : t("Save the instruction")}
           </button>
           {saved.at && (

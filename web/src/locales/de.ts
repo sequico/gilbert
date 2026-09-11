@@ -235,8 +235,6 @@ export const catalog: Catalog = {
       "Der Selektor sagt, wie diese Bedingungen zusammenspielen: alle, eine oder keine.",
     "This condition uses something this form cannot spell out, so it is shown as the document holds it and left exactly as it is.":
       "Diese Bedingung verwendet etwas, das dieses Formular nicht ausdrücken kann; sie wird daher so angezeigt, wie das Dokument sie enthält, und bleibt unverändert.",
-    "The worker signs in with this password and nothing else. The new secret works from now on, the app passwords already in use keep working — revoking them would cut off what an agent is doing — and the deployment has to carry the new secret before the next restart.":
-      "Der Worker meldet sich ausschließlich mit diesem Passwort an. Das neue Geheimnis gilt ab sofort, die bereits verwendeten App-Passwörter funktionieren weiter — ein Widerruf würde einen laufenden Agenten mitten in der Arbeit unterbrechen —, und die Umgebung muss beim nächsten Neustart das neue Geheimnis tragen.",
     "The number of other app passwords still valid could not be read, so it is unknown here: check Stalwart's administration to see which credentials the agent still holds.":
       "Die Zahl der weiterhin gültigen App-Passwörter konnte nicht gelesen werden, ist hier also unbekannt: Prüfen Sie in der Stalwart-Administration, welche Zugangsdaten der Agent noch besitzt.",
     "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
@@ -526,7 +524,6 @@ export const catalog: Catalog = {
     "Group messages from the same thread together.":
       "Nachrichten desselben Threads zusammenfassen.",
     "After archiving or deleting": "Nach Archivieren oder Löschen",
-    "Ask before showing (recommended)": "Vor dem Anzeigen fragen (empfohlen)",
     "Always (all messages)": "Immer (alle Nachrichten)",
     "Show automatically from my contacts": "Bei meinen Kontakten automatisch anzeigen",
     "Immediately when opened": "Sofort beim Öffnen",
@@ -855,8 +852,6 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "Gruppen-Mailboxen aufzulisten erfordert Stalwart-Serveradministrator-Rechte, über die diese Sitzung nicht verfügt.",
     "No labels yet.": "Noch keine Labels.",
-    "Stalwart server configuration (Sieve editor and more) will appear here.":
-      "Hier erscheint die Stalwart-Serverkonfiguration (Sieve-Editor und mehr).",
     "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
       "Um den Label-Katalog einer Gruppe zu verwalten, musst du Mitglied dieser Gruppe sein: Der Katalog liegt in den eigenen Dateien der Gruppe, und der Mailserver weigert sich, im Namen einer Gruppe zu handeln.",
     "You are a member of this group — its labels are managed here.":

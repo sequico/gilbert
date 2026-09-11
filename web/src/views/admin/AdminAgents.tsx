@@ -3,13 +3,13 @@
  *
  * The installation's own agent and its per-tier models live here, split into
  * three questions asked in the order a person actually asks them: is there an
- * agent, is it healthy and how does it sign in (Overview — identity, the app
- * password and the workers are one story, not three tabs for one thing),
- * which groups has it been granted and what does each one tell it (Groups),
- * and which model serves which tier (Models). What a group's agent actually
- * *does* — its automations, and the approvals waiting on a person — lives in
- * Group workers instead: that section already reads one group at a time, and
- * an automation is exactly that.
+ * agent and how does it sign in (Overview — the identity and the app password
+ * are one story, not two tabs for one thing), which groups has it been granted
+ * and what does each one tell it (Groups), and which model serves which tier
+ * (Models). What a group's agent actually *does* — its automations, the
+ * approvals waiting on a person, and the workers serving them — lives in Group
+ * workers instead: that section already reads one group at a time, and an
+ * automation is exactly that.
  *
  * Nothing here grants anything. The agent is a principal in Stalwart's own
  * directory and its membership of a group is granted in Stalwart's own
@@ -19,14 +19,20 @@
 import { Bot } from "lucide-react";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/jmap/client";
-import { type AgentStatus, fetchAgentAuditExport, saveAgentAddress } from "@/lib/agents";
-import { formatListDate } from "@/lib/format";
+import { agentErrorSentence } from "@/lib/agentErrors";
+import {
+  type AgentAddressSaved,
+  type AgentStatus,
+  fetchAgentAuditExport,
+  saveAgentAddress,
+} from "@/lib/agents";
 import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
-import { areaText, fleetReasonText } from "@/views/agent/agentText";
+import { fleetReasonText } from "@/views/agent/agentText";
 import { AgentProviders } from "./agent/AgentProviders";
 import { AppPasswordRotate } from "./agent/AppPasswordRotate";
 import { GroupInstruction } from "./agent/GroupInstruction";
+import { MintedSecret } from "./agent/MintedSecret";
 
 export function AdminAgents() {
   const status = useAgents((s) => s.status);
@@ -82,7 +88,6 @@ export function AdminAgents() {
         <>
           <Registration status={status} />
           <AppPasswordRotate />
-          <Workers status={status} />
         </>
       )}
       {part === "groups" && <Groups status={status} />}
@@ -114,6 +119,16 @@ function Registration({ status }: { status: AgentStatus | null }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  // What the last save provisioned, if anything: the app password it minted —
+  // shown here once, since the server never hands it back again — or the reason
+  // it could not mint one, which is why no worker will be able to sign in yet.
+  // Both survive a later refusal, for the reason the rotation's does.
+  const [credential, setCredential] = useState<NonNullable<
+    AgentAddressSaved["credential"]
+  > | null>(null);
+  const [credentialError, setCredentialError] = useState<NonNullable<
+    AgentAddressSaved["credentialError"]
+  > | null>(null);
   /**
    * The accounts on this server, as suggestions.
    *
@@ -145,6 +160,10 @@ function Registration({ status }: { status: AgentStatus | null }) {
   }, []);
 
   const dirty = draft.trim().toLowerCase() !== (status?.address ?? "").toLowerCase();
+  // A named address the deployment holds no secret for is work the same button
+  // does, so it is not dimmed behind an unchanged field — otherwise the one
+  // state that most needs a save would be the one state that cannot make it.
+  const needsSecret = Boolean(status?.address) && !status?.hasSecret;
 
   /** Name the agent, or clear the name and fall back to the deployment's. */
   async function save(address: string) {
@@ -152,7 +171,9 @@ function Registration({ status }: { status: AgentStatus | null }) {
     setProblem(null);
     setSaved(false);
     try {
-      await saveAgentAddress(address);
+      const answer = await saveAgentAddress(address);
+      setCredential(answer.credential ?? null);
+      setCredentialError(answer.credentialError ?? null);
       setSaved(true);
       await loadStatus();
     } catch (err) {
@@ -201,29 +222,20 @@ function Registration({ status }: { status: AgentStatus | null }) {
             <button
               className="btn btn-primary"
               type="button"
-              disabled={saving || !dirty}
+              disabled={saving || (!dirty && !needsSecret)}
               onClick={() => void save(draft)}
-              title={t("Register this address as the agent, or update it")}
+              title={t(
+                "Register this address as the agent, provision the app password a worker signs in with, or update it",
+              )}
             >
               {saving ? t("Saving…") : t("Save address")}
             </button>
-            {status.addressSource === "policy" && (
-              <button
-                className="btn"
-                type="button"
-                disabled={saving}
-                onClick={() => void save("")}
-                title={t("Clear this record and use GILBERT_AGENT_ADDRESS instead")}
-              >
-                {t("Use the deployment's address")}
-              </button>
-            )}
             {saved && <span className="agent-state ok">{t("Saved.")}</span>}
           </div>
           <p className="hint">
             {status.addressSource === "policy"
               ? t(
-                  "Named here, and in force from the next request: the installation records it, so it survives a restart.",
+                  "Named here, and in force from the next request: the installation records it, so it survives a restart. Clearing the field and saving drops the record, and the deployment's own GILBERT_AGENT_ADDRESS applies again.",
                 )
               : status.addressSource === "deployment"
                 ? t(
@@ -235,7 +247,7 @@ function Registration({ status }: { status: AgentStatus | null }) {
           </p>
           <p className="hint">
             {t(
-              "Gilbert acts as this address by impersonating it from your own administrator session, so this field needs no password. A worker signs in as it, with an app password deployed beside the address, and reads this one when it starts.",
+              "Gilbert acts as this address by impersonating it from your own administrator session, so naming it asks you for no password. The worker that signs in as it does need one: saving an address the deployment holds no app password for mints one here and now and shows it to you once, to put where the worker reads it. Save the address unchanged to mint one.",
             )}
           </p>
           <div className="agent-verifier-row">
@@ -249,8 +261,15 @@ function Registration({ status }: { status: AgentStatus | null }) {
           {status.address && !status.hasSecret && (
             <div className="warn-box" style={{ marginTop: 12 }}>
               {t(
-                "No app password for this address is deployed, so no worker can sign in as it: automations will not run until one is. The Credentials tab mints one.",
+                "No app password for this address is deployed, so no worker can sign in as it: automations will not run until one is. Saving this address mints one and shows it here once.",
               )}
+            </div>
+          )}
+          {credential && <MintedSecret rotation={credential} />}
+          {credentialError && (
+            <div className="error-box" style={{ marginTop: 12 }}>
+              {agentErrorSentence(credentialError as Record<string, unknown>) ??
+                credentialError.code}
             </div>
           )}
           {problem && (
@@ -263,88 +282,6 @@ function Registration({ status }: { status: AgentStatus | null }) {
               {fleetReasonText(status.reason)}
             </p>
           )}
-        </div>
-      )}
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-
-function Workers({ status }: { status: AgentStatus | null }) {
-  return (
-    <section>
-      <h2>{t("Workers")}</h2>
-      <p className="hint" style={{ marginBottom: 12 }}>
-        {t(
-          "A worker is its own process, not a copy of the web tier: it claims the areas it serves by lease and writes a heartbeat while it runs. Nothing here starts or stops one — workers are declared where the installation is deployed.",
-        )}
-      </p>
-      {!status ? (
-        <p className="hint">{t("Loading…")}</p>
-      ) : status.workers.length === 0 ? (
-        <p className="hint">
-          {t(
-            "No worker has reported in. A worker leaves a heartbeat while it runs, so an empty list means none is serving this installation.",
-          )}
-        </p>
-      ) : (
-        <table className="sessions-table">
-          <thead>
-            <tr>
-              <th>{t("Worker")}</th>
-              <th>{t("Areas")}</th>
-              <th>{t("Last heartbeat")}</th>
-              <th>{t("Version")}</th>
-              <th>{t("State")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {status.workers.map((w) => (
-              <tr key={w.id}>
-                <td className="notranslate" translate="no">
-                  {w.address}
-                </td>
-                <td>{w.areas.map((a) => areaText(a)).join(", ")}</td>
-                <td>{formatListDate(w.heartbeatAt)}</td>
-                <td className="mono small">{w.version}</td>
-                <td>
-                  {/* A worker that is not reporting is stated plainly: a
-                      fleet whose silence is hidden is a fleet nobody fixes. */}
-                  {w.alive ? (
-                    <span className="agent-state ok">{t("Alive")}</span>
-                  ) : (
-                    <span className="agent-state off">{t("Not reporting")}</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {/* A grant that is gone is a fleet fact, and it is said where the fleet
-          is read. The worker reports what it was serving for the group when it
-          noticed — the group's own trail is unreadable from that moment, so the
-          surface says what is known rather than what would be nice to know. */}
-      {status && status.withdrawals.length > 0 && (
-        <div className="error-box" style={{ marginTop: 12 }}>
-          <strong>{t("Grants withdrawn")}</strong>
-          <ul style={{ margin: "6px 0 0 18px" }}>
-            {status.withdrawals.map((w) => (
-              <li key={`${w.account}-${w.at}`}>
-                {t(
-                  "The agent lost its grant on “{group}” on {when}: it served {areas} for that group until the pass noticed, and nothing has served it since.",
-                  {
-                    group: w.group || w.account,
-                    when: formatListDate(w.at),
-                    areas: w.heldAreas.length
-                      ? w.heldAreas.map((a) => areaText(a)).join(", ")
-                      : t("no area"),
-                  },
-                )}
-              </li>
-            ))}
-          </ul>
         </div>
       )}
     </section>

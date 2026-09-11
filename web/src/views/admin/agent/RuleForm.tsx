@@ -516,8 +516,8 @@ export function RuleForm({
           <label htmlFor="agent-rule-instruction">{t("Instruction for the model")}</label>
           <textarea
             id="agent-rule-instruction"
-            className="input"
-            rows={5}
+            className="textarea"
+            rows={6}
             value={rule.instruction ?? ""}
             placeholder={t(
               "Read the message and say what should happen to it. Useful context, in plain words.",

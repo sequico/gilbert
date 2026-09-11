@@ -21,6 +21,7 @@
 
 import type { AgentRule } from "@gilbert/agent/documents";
 import type {
+  AgentAddressSaved,
   AgentAppPasswordRotation,
   AgentAuditExport,
   AgentGroupSurface,
@@ -37,6 +38,7 @@ import { apiFetch } from "@/jmap/client";
  * this module names the same type the route builds.
  */
 export type {
+  AgentAddressSaved,
   AgentAuditExport,
   AgentAuditExportMonth,
   AgentGroupAnswer,
@@ -183,11 +185,15 @@ export function fetchMemberAgentView(name: string): Promise<MemberAgentView> {
  * is not part of this: the web tier acts by impersonating the address from an
  * administrator's session and needs none. `hasSecret` says whether the
  * deployment holds one, which is what decides whether a worker can sign in.
+ *
+ * The save is also what provisions: an address the deployment holds no secret
+ * for is minted one there and then, and the answer carries that secret once
+ * (`credential`), or why it could not be minted (`credentialError`) — so the
+ * surface hands the secret over instead of leaving a worker that cannot sign in
+ * with nothing to say about it.
  */
-export function saveAgentAddress(
-  address: string,
-): Promise<{ address: string; hasSecret: boolean }> {
-  return apiFetch<{ address: string; hasSecret: boolean }>("/api/admin/agent/address", {
+export function saveAgentAddress(address: string): Promise<AgentAddressSaved> {
+  return apiFetch<AgentAddressSaved>("/api/admin/agent/address", {
     method: "POST",
     body: JSON.stringify({ address }),
   });

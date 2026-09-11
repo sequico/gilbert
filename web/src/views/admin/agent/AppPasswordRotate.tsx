@@ -1,8 +1,9 @@
 /**
  * The agent's app password (ADR 0003 v1 scope).
  *
- * It is the one bootstrap secret a worker holds: the deployment carries it in
- * the environment, the worker authenticates as the agent with it, and nothing
+ * It is the one bootstrap secret a worker holds: the deployment carries it — in
+ * the environment, or in an agents file the installation re-reads as it changes
+ * — the worker authenticates as the agent with it, and nothing
  * else is needed — no impersonation at boot, no operator credential. Rotating
  * it therefore lands on the deployment as well, so the copy says so instead of
  * letting an admin believe the product alone is done with it.
@@ -21,10 +22,10 @@
 import type { AgentAppPasswordRotation } from "@gilbert/agent/views";
 import { KeyRound } from "lucide-react";
 import { useState } from "react";
-import { plural, t } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
 import { confirmDialog } from "@/ui/dialog";
-import { CopyableSecret } from "@/views/settings/SecuritySettings";
+import { MintedSecret } from "./MintedSecret";
 
 export function AppPasswordRotate() {
   const rotateAppPassword = useAgents((s) => s.rotateAppPassword);
@@ -38,7 +39,7 @@ export function AppPasswordRotate() {
     const ok = await confirmDialog({
       title: t("Rotate the agent's app password?"),
       message: t(
-        "The worker signs in with this password and nothing else. The new secret works from now on, the app passwords already in use keep working — revoking them would cut off what an agent is doing — and the deployment has to carry the new secret before the next restart.",
+        "The worker signs in with this password and nothing else. The new secret works from now on, the app passwords already in use keep working — revoking them would cut off what an agent is doing — and the deployment has to be given the new secret: the environment at its next restart, an agents file as it changes.",
       ),
       confirmLabel: t("Rotate"),
       danger: true,
@@ -64,7 +65,7 @@ export function AppPasswordRotate() {
       <h2>{t("App password")}</h2>
       <p className="lead">
         {t(
-          "The deployment holds this secret as the agent's own, not a person's, so an operator leaving cannot strand the agent. Rotating it here is half the job: the environment has to agree with the new secret at the next restart.",
+          "The deployment holds this secret as the agent's own, not a person's, so an operator leaving cannot strand the agent. Rotating it here is half the job: the deployment has to be given the new secret — the environment at its next restart, an agents file as it changes.",
         )}
       </p>
       <button className="btn" disabled={busy} onClick={() => void rotate()}>
@@ -75,31 +76,7 @@ export function AppPasswordRotate() {
           {problem}
         </div>
       )}
-      {rotated && (
-        <div className="card" style={{ marginTop: 12 }}>
-          <p>
-            {t(
-              "This is the deployment's secret, and it will not be shown again. Copy it now and put it where the worker reads it; until both sides agree, the worker cannot open its session.",
-            )}
-          </p>
-          <CopyableSecret value={rotated.secret} />
-          {rotated.alsoValid === null ? (
-            <p className="hint">
-              {t(
-                "The number of other app passwords still valid could not be read, so it is unknown here: check Stalwart's administration to see which credentials the agent still holds.",
-              )}
-            </p>
-          ) : rotated.alsoValid > 0 ? (
-            <p className="hint">
-              {plural(rotated.alsoValid, {
-                one: "{n} other app password still works — revoke it in Stalwart's administration.",
-                other:
-                  "{n} other app passwords still work — revoke them in Stalwart's administration.",
-              })}
-            </p>
-          ) : null}
-        </div>
-      )}
+      {rotated && <MintedSecret rotation={rotated} />}
     </section>
   );
 }
