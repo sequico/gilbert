@@ -26,6 +26,24 @@ updates:
       # Moving the line moves this entry with it.
       - dependency-name: "@types/node"
         versions: [">=25"]
+      # A toolchain major is a deliberate move — taken as one change, with the
+      # configs and the plugins that move with it — never a bump that arrives
+      # on its own. Each entry below is what the bump was measured to do.
+      #
+      # TypeScript 7 removes `baseUrl`, which `web/tsconfig.json` uses: the
+      # bump fails the check with TS5102 and TS5090 before it runs anything,
+      # so it needs the paths made relative first.
+      - dependency-name: "typescript"
+        versions: [">=6"]
+      # Vite 8 fails the typecheck on its own config (`web/vite.config.ts`,
+      # TS2769): the plugin types move with the major. And @vitejs/plugin-react
+      # 6 cannot run against Vite 6 at all — it imports `vite/internal` and the
+      # subpath is not exported (ERR_PACKAGE_PATH_NOT_EXPORTED) — so Vite's
+      # major and the plugin's have to arrive in the same change.
+      - dependency-name: "vite"
+        versions: [">=7"]
+      - dependency-name: "@vitejs/plugin-react"
+        versions: [">=5"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
