@@ -75,9 +75,13 @@ jobs:
           NEW: ${{ steps.newest.outputs.new }}
         run: |
           set -euo pipefail
-          # Found by title rather than by label: a label is one more thing to
-          # create and keep in step, and this list is never long.
-          open="$(gh issue list --state open --limit 100 --json number,title \
+          repo="$GITHUB_REPOSITORY"
+          # Through the REST API rather than the GraphQL one the CLI defaults to:
+          # a workflow's own token reads issues either way, but its
+          # `createIssue` mutation is refused as "Resource not accessible by
+          # integration" however `issues: write` is declared. The REST endpoints
+          # are the ones it does carry.
+          open="$(gh api "/repos/${repo}/issues?state=open&per_page=100" \
             --jq '[.[] | select(.title | startswith("Upstream release"))][0].number // empty')"
           if [ "$NEW" = "true" ]; then
             {
@@ -93,16 +97,20 @@ jobs:
               echo "commit is an ancestor of \`main\`."
             } > /tmp/upstream-issue.md
             if [ -n "$open" ]; then
-              gh issue comment "$open" --body-file /tmp/upstream-issue.md
+              gh api -X POST "/repos/${repo}/issues/${open}/comments" \
+                -F body=@/tmp/upstream-issue.md >/dev/null
             else
-              gh issue create \
-                --title "Upstream release ${TAG} has not been taken in" \
-                --body-file /tmp/upstream-issue.md
+              # Found by title rather than by label: a label is one more thing
+              # to create and keep in step, and this list is never long.
+              gh api -X POST "/repos/${repo}/issues" \
+                -f title="Upstream release ${TAG} has not been taken in" \
+                -F body=@/tmp/upstream-issue.md >/dev/null
             fi
           elif [ -n "$open" ]; then
             # The release is in the history now, so whatever this issue was
             # opened for has happened: closing it is the bookkeeping, and it is
             # the only state this watch keeps.
-            gh issue close "$open" \
-              --comment "The release's commit is an ancestor of \`main\`: a merge has taken it in."
+            gh api -X POST "/repos/${repo}/issues/${open}/comments" \
+              -f body="The release's commit is an ancestor of \`main\`: a merge has taken it in." >/dev/null
+            gh api -X PATCH "/repos/${repo}/issues/${open}" -f state=closed >/dev/null
           fi
