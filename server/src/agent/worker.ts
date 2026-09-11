@@ -134,7 +134,7 @@ export function basicAuth(address: string, password: string): string {
 
 /**
  * The areas a group is served with: the deployment's list, narrowed by the
- * installation's own record for that group (ADR 0009).
+ * installation's own record for that group (ADR 0003).
  *
  * Nothing widens here. An installation can take work away from a group — a
  * document cannot hand it work the operator did not open — and a group the
@@ -508,7 +508,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
         const store = new AgentStore(deps.ctx, accountId);
         const held = servedAreas.get(accountId) ?? new Set<AgentArea>();
         // The deployment's areas, narrowed by the installation's record for this
-        // group (ADR 0009). An area the record no longer covers stops being
+        // group (ADR 0003). An area the record no longer covers stops being
         // renewed, so its lease lapses on its own: nothing here writes or
         // deletes a claim document, and nothing here touches the fence.
         const served = areasFor(deps.ctx.session, accountId, deps.areas);
@@ -625,12 +625,13 @@ const BOOT_DELAY_MS = 1000;
 /**
  * Open the agent's session, waiting out an upstream that is not there yet.
  *
- * The missing-configuration case has already exited above, so what is left
- * here is the server side: a container orchestrator replaces a worker that
- * cannot reach Stalwart, but a development stack starts the mock and the
+ * A missing configuration never reaches here — `main` warns and waits — so
+ * what is left is the server side: a container orchestrator replaces a worker
+ * that cannot reach Stalwart, but a development stack starts the mock and the
  * worker together and a worker that dies in that first second is a papercut,
- * not a diagnosis. A refused credential is not a race and is not retried —
- * that failure belongs loud and immediate.
+ * not a diagnosis. A refused credential is not a race either: the attempt
+ * fails once, `main` says why and keeps the worker up and idle, and the fleet
+ * is retried when the deployment names an agent it can sign in as.
  */
 async function openSession(
   authorization: string,
@@ -780,43 +781,93 @@ async function startFleet(identity: AgentIdentity): Promise<WorkerHandle> {
   return startWorker({ ctx, address: identity.address, areas: identity.areas });
 }
 
-/** The worker's own entrypoint: no half-configured start, ever. */
+/** The health an idle worker reports: up, answering, serving nothing. */
+function idleHealth(identity: AgentIdentity, startedAt: number): WorkerHealth {
+  return {
+    status: "ok",
+    worker: "idle",
+    address: identity.address,
+    areas: [],
+    accounts: [],
+    streaming: false,
+    startedAt: new Date(startedAt).toISOString(),
+    uptimeSeconds: Math.round((Date.now() - startedAt) / 1000),
+  };
+}
+
+/**
+ * The worker's own entrypoint: it starts, configured or not.
+ *
+ * A deployment that names no agent, or names one Stalwart refuses, is not a
+ * failed process: the admin surface is where that is read
+ * (`agent_not_configured`, `agent_credentials_rejected`), and a worker that
+ * exited would take down the health endpoint a restart policy reads. So this
+ * warns, keeps running, serves nothing, and keeps asking — a deployment that
+ * starts naming an agent finds a fleet already waiting. The notice is not
+ * repeated while nothing changes; the newest one is what an operator reads.
+ */
 export async function main(): Promise<void> {
-  const first = currentIdentity();
-  if (!first.address || !first.password) {
-    console.error(
-      "[gilbert] the agent worker is not configured: set GILBERT_AGENT_ADDRESS and " +
-        "GILBERT_AGENT_PASSWORD, and start this process inside a deployment that " +
-        "carries both; nothing started",
-    );
-    process.exit(1);
-  }
-  let identity = first;
-  let worker = await startFleet(identity);
+  const startedAt = Date.now();
+  let identity = currentIdentity();
+  let lastNotice = "";
+  const notice = (line: string): void => {
+    if (line === lastNotice) return;
+    lastNotice = line;
+    console.warn(line);
+  };
+
+  const start = async (): Promise<WorkerHandle | null> => {
+    if (!identity.address || !identity.password) {
+      notice(
+        "[gilbert] the agent worker is not configured: set GILBERT_AGENT_ADDRESS and " +
+          "GILBERT_AGENT_PASSWORD in the environment that starts this process; " +
+          "the worker keeps running and serves nothing until both are there",
+      );
+      return null;
+    }
+    try {
+      const fleet = await startFleet(identity);
+      lastNotice = "";
+      console.log(
+        `[gilbert] agent worker for ${identity.address} serving ${servedAreas(identity)}`,
+      );
+      return fleet;
+    } catch (err) {
+      notice(
+        `[gilbert] ${identity.address} could not sign in, so nothing is served: ` +
+          (err instanceof Error ? err.message : String(err)),
+      );
+      return null;
+    }
+  };
+
+  let worker = await start();
   const closeHealth =
     config.agent.healthPort > 0
       ? startHealthServer({
           port: config.agent.healthPort,
-          health: () => worker.health(),
+          health: () => worker?.health() ?? idleHealth(identity, startedAt),
         })
       : null;
   if (closeHealth)
     console.log(
       `[gilbert] agent health: http://0.0.0.0:${config.agent.healthPort}/health`,
     );
-  console.log(
-    `[gilbert] agent worker for ${identity.address} serving ${servedAreas(identity)}`,
-  );
 
-  // The deployment can rename the agent while this process runs, and a restart
-  // is not how a hand-edited file should have to be applied. `identityToFollow`
-  // signs in as the new agent first, so a fleet is only ever replaced by one
-  // that can already serve.
+  // A fleet that was never started is retried here, and a fleet that is serving
+  // is replaced only by one that can already serve: `identityToFollow` signs in
+  // as the agent the installation now names before anything is stopped.
   const watch = setInterval(() => {
     void (async () => {
+      if (!worker) {
+        identity = currentIdentity();
+        worker = await start();
+        return;
+      }
+      const current = worker;
       const next = await identityToFollow(identity);
       if (!next) return;
-      await worker.stop();
+      await current.stop();
       worker = await startFleet(next.identity);
       identity = next.identity;
       console.log(
@@ -829,7 +880,7 @@ export async function main(): Promise<void> {
     console.log(`[gilbert] ${signal} received, stopping the agent worker`);
     clearInterval(watch);
     closeHealth?.();
-    await worker.stop();
+    await worker?.stop();
     process.exit(0);
   };
   process.on("SIGINT", () => void shutdown("SIGINT"));
