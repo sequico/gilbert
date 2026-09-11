@@ -144,19 +144,15 @@ are not repeated here.
   credential. The section is shown even when `sysSieveSystemScript*` is
   missing, and names the permission.
 
-## 0012 — The push subscription covers every type a surface keeps live
+## 0012 — The push subscription covers every live type, at the request's own origin
 
 - **Status:** Proposed (2026-09-11).
 - **Code:** `server/src/shared/push.ts` and `server/src/push.ts` — the fan-out
   subscription names every state type a surface watches, not a mail-only list,
   so turning it on no longer freezes the calendar, contacts, tasks, filters,
-  files and the quota bar that the relay kept live.
-
-## 0013 — The push callback origin comes from the request, under proxy trust
-
-- **Status:** Proposed (2026-09-11).
-- **Code:** `pushOrigin()` in `server/src/app.ts`, and the `origin` an entry in
-  `server/src/push.ts` carries — the address Stalwart POSTs back to is derived
-  from the request, and only from a request a trusted proxy carried over https,
-  instead of being configured a second time beside the deployment's own
-  hostname. `PUSH_MODE` stays the one switch.
+  files and the quota bar that the relay kept live. `pushOrigin()` in
+  `server/src/app.ts` derives the address Stalwart POSTs back to from the request
+  — https, from a proxy we run, and only then — instead of keeping a second copy
+  of the deployment's own hostname in configuration; the `origin` an entry in
+  `server/src/push.ts` carries is restated at every renewal. `PUSH_MODE` stays
+  the one switch.

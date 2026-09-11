@@ -369,7 +369,7 @@ function isSecureRequest(c: Context): boolean {
 const PUSH_HOST_RE =
   /^(?:\[[0-9a-fA-F:.]+\]|[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*)(?::\d{1,5})?$/;
 
-// ADR-0013 OWED: push-origin-live-probe
+// ADR-0012 OWED: push-origin-live-probe
 /**
  * The https origin Stalwart can reach this installation at, read off the
  * request that carried the session (ADR 0012).
