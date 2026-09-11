@@ -330,7 +330,7 @@ export const DEFAULT_SETTINGS: Settings = {
   markReadDelay: 0,
   addedShares: [],
   knownSigners: {},
-  imagePolicy: "ask",
+  imagePolicy: "always",
   themeMessageBody: false,
   themeStyledMessages: false,
   undoSendSeconds: 8,

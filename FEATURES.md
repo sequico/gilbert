@@ -578,6 +578,10 @@ Real JMAP mailboxes, with the server's roles honoured.
 - **Folder colours**, per mailbox id.
 - **Unread counts** per folder, live.
 - **Storage quota** bar under the tree where the server reports one.
+- **Settings → Folders is about this account's own folders.** A group
+  mailbox's folders stay visible in the sidebar and are not listed here, and
+  every change made in Settings lands on the reader's own account — a group's
+  tree belongs to a different account rather than being extra rows in this one.
 - Rights are respected per folder: rename, delete, create-child and share each
   grey out when `myRights` says no.
 - A folder in the address that this account does not have says *this folder is
@@ -643,10 +647,13 @@ same query string — so what it builds can be read, edited and learned from.
 - **Sanitised HTML**, rendered inside a **Shadow DOM** so the sender's CSS
   cannot reach the app. DOMPurify strips scripts, event handlers, forms and
   anything that could navigate the top window.
-- **Remote images blocked by default**, with a banner offering *Show images* or
-  *Always from this sender*. The per-sender allow-list lives in settings and so
-  follows the account. Policy is one of ask (default), automatic for people in
-  your contacts, or always.
+- **Remote images load by default.** *Always show* is what Gilbert ships with,
+  so a message arrives drawn the way the sender made it; a reader who would
+  rather approve each one switches to *Ask before showing* in *Privacy &
+  safety*. The policy is one of ask, automatic for people in your contacts, or
+  always. When the policy asks, a banner offers *Show images* or *Always from
+  this sender*, and the per-sender allow-list lives in settings and so follows
+  the account.
 - **Privacy image proxy** (on by default): approved remote images are fetched by
   Gilbert's server, so the sender learns nothing about the reader — no IP
   address, no user agent, no read time. With the proxy off, images load

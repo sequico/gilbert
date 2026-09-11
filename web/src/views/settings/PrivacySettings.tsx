@@ -49,7 +49,7 @@ export function PrivacySettings() {
             update({ imagePolicy: e.target.value as typeof s.imagePolicy })
           }
         >
-          <option value="ask">{t("Ask before showing (recommended)")}</option>
+          <option value="ask">{t("Ask before showing")}</option>
           <option value="contacts">{t("Show automatically from my contacts")}</option>
           <option value="always">{t("Always show")}</option>
         </select>

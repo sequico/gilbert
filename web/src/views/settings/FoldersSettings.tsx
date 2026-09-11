@@ -3,7 +3,9 @@ import { useMemo, useState } from "react";
 import type { Mailbox, MailboxRole } from "@/jmap/types";
 import { formatSize } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
+import { isGroupMailbox } from "@/lib/mailAccounts";
 import { mailboxDisplayPath } from "@/lib/mailboxName";
+import { settingsMailboxTree } from "@/lib/mailboxScope";
 import { useMail } from "@/store/mail";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
@@ -30,15 +32,29 @@ const SETTABLE_ROLES: { value: Exclude<MailboxRole, null>; label: string }[] = [
 const FIXED_ROLES = new Set<string>(["inbox", "junk", "trash"]);
 
 export function FoldersSettings() {
-  const mailboxes = useMail((s) => s.mailboxes);
-  const mailboxPath = useMail((s) => s.mailboxPath);
+  /*
+   * The reader's own folders, whatever account the sidebar is showing: this
+   * surface edits the reader's account, and a group mailbox's folders belong
+   * to the sidebar. See lib/mailboxScope.ts.
+   */
+  const mailboxes = useMail((s) =>
+    settingsMailboxTree({
+      accountTrees: s.accountTrees,
+      ownAccountId: s.ownAccountId,
+      accountId: s.accountId,
+      mailboxes: s.mailboxes,
+    }),
+  );
   const [share, setShare] = useState<Mailbox | null>(null);
   const list = useMemo(
+    // Sorted by the path shown in the row, resolved inside this tree: the
+    // store's path helper walks the active account's folders, which are not
+    // these while a group mailbox is open.
     () =>
       Object.values(mailboxes)
-        .map((m) => ({ m, path: mailboxPath(m.id) }))
+        .map((m) => ({ m, path: mailboxDisplayPath(m, mailboxes) }))
         .sort((a, b) => a.path.localeCompare(b.path)),
-    [mailboxes, mailboxPath],
+    [mailboxes],
   );
   const quotas = useMail((s) => s.quotas);
   const q = quotas.find((x) => x.resourceType === "octets");
@@ -54,8 +70,21 @@ export function FoldersSettings() {
     return by;
   }, [mailboxes]);
 
+  /*
+   * Every folder mutation below is issued against the account the store has
+   * active, so one started while a group mailbox is open brings the reader's
+   * own account back first. Nothing switches back afterwards: the sidebar
+   * follows the reader's next click.
+   */
+  const asOwn = async () => {
+    const st = useMail.getState();
+    if (isGroupMailbox(st.accountId, st.ownAccountId) && st.ownAccountId)
+      await st.openAccount(st.ownAccountId);
+  };
+
   const setRole = async (m: Mailbox, role: MailboxRole) => {
     try {
+      await asOwn();
       await useMail.getState().updateMailbox(m.id, { role });
       // Deliberately not naming the role: the value is the protocol's word
       // ("archive"), and dropping an untranslated English token into nine
@@ -74,6 +103,8 @@ export function FoldersSettings() {
     });
     if (!name?.trim()) return;
     try {
+      // Before anything is written: the store writes to the active account.
+      await asOwn();
       const parts = name
         .split("/")
         .map((p) => p.trim())
@@ -167,6 +198,7 @@ export function FoldersSettings() {
                         promptDialog({ title: t("Rename folder"), defaultValue: m.name });
                       if (n?.trim() && n !== m.name) {
                         try {
+                          await asOwn();
                           await useMail
                             .getState()
                             .updateMailbox(m.id, { name: n.trim() });
@@ -182,11 +214,12 @@ export function FoldersSettings() {
                     className="icon-btn sm"
                     title={m.isSubscribed ? t("Hide") : t("Show")}
                     disabled={m.role === "inbox"}
-                    onClick={() =>
-                      void useMail
+                    onClick={async () => {
+                      await asOwn();
+                      await useMail
                         .getState()
-                        .updateMailbox(m.id, { isSubscribed: !m.isSubscribed })
-                    }
+                        .updateMailbox(m.id, { isSubscribed: !m.isSubscribed });
+                    }}
                   >
                     {m.isSubscribed ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -194,7 +227,15 @@ export function FoldersSettings() {
                     <button
                       className="icon-btn sm"
                       title={t("Stop sharing")}
-                      onClick={() => setShare(m)}
+                      onClick={() => {
+                        // The dialog reads whoever is active when it saves, and
+                        // this surface is about the reader's own folders even
+                        // when a group mailbox is the active account.
+                        void asOwn().then(
+                          () => setShare(m),
+                          (err: Error) => toast.error(err.message),
+                        );
+                      }}
                     >
                       <Share2 size={16} />
                     </button>
@@ -216,6 +257,7 @@ export function FoldersSettings() {
                         })
                       ) {
                         try {
+                          await asOwn();
                           await useMail.getState().destroyMailbox(m.id, true);
                         } catch (err) {
                           toast.error((err as Error).message);
