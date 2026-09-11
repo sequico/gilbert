@@ -54,5 +54,5 @@ and the line to upstream, live there and are not repeated here.
   live, registered at the origin the app was served from.
 - **0010 — An automation is written in prose and compiled into its rule.** An
   automation is authored as prose, and one model call compiles that prose into
-  the rule the engine runs.
+  the rule document the fleet runs.
 
