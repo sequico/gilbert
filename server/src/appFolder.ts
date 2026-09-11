@@ -29,26 +29,6 @@ import type { UpstreamSession } from "./upstream.js";
 /** The folder Gilbert keeps its own documents in, in every account. */
 export const APP_FOLDER_NAME = "gilbert";
 
-/**
- * The same folder, when the account already has something called `gilbert`.
- *
- * Any member can make a top-level folder in Files, so `gilbert` is a name a
- * person can take. A folder is only the app folder when it carries
- * `APP_FOLDER_MARKER`, and when the plain name is taken by one that does not,
- * the app folder is created under this one instead: the reader's folder stays
- * theirs, and nothing Gilbert writes lands where they filed their own work.
- */
-export const APP_FOLDER_ALT_NAME = ".gilbert";
-
-/** The file whose presence makes a folder the app folder. */
-export const APP_FOLDER_MARKER = ".gilbert-app";
-
-/** Every name the app folder can go by, for the visible tree to refuse. */
-export const APP_FOLDER_NAMES: ReadonlyArray<string> = [
-  APP_FOLDER_NAME,
-  APP_FOLDER_ALT_NAME,
-];
-
 /** The JMAP capability that carries FileNode in Stalwart 0.16. */
 export const FILENODE_CAP = "urn:ietf:params:jmap:filenode";
 
@@ -156,65 +136,29 @@ export async function appFolderState(ctx: Ctx, accountId: string): Promise<strin
   return typeof res.state === "string" ? res.state : "";
 }
 
-/**
- * Whether a folder carries the marker that makes it the app folder.
- *
- * One extra listing, paid only when the account has a top-level folder by one
- * of the app folder's names — which is the case that has to be told apart from
- * a folder a person made. Correctness here is worth the round trip: adopting
- * the wrong folder means writing Gilbert's documents into somebody's work.
- */
-async function carriesMarker(
-  ctx: Ctx,
-  accountId: string,
-  folderId: string,
-): Promise<boolean> {
-  const children = await fileChildren(ctx, accountId, folderId, FOLDER_PROPS);
-  return children.some(
-    (n) =>
-      n.parentId === folderId && n.nodeType === "file" && n.name === APP_FOLDER_MARKER,
-  );
-}
-
-/** The account's own app folder, or null when there is not a marked one yet. */
+/** The account's own app folder, or null when there is not one yet. */
 export async function findAppFolder(ctx: Ctx, accountId: string): Promise<string | null> {
   const top = await fileChildren(ctx, accountId, null, FOLDER_PROPS);
-  const candidates = top.filter(
-    (n) =>
-      n.parentId == null &&
-      n.nodeType === "directory" &&
-      typeof n.name === "string" &&
-      APP_FOLDER_NAMES.includes(n.name),
+  const found = top.find(
+    (n) => n.parentId == null && n.nodeType === "directory" && n.name === APP_FOLDER_NAME,
   );
-  for (const candidate of candidates) {
-    if (await carriesMarker(ctx, accountId, String(candidate.id)))
-      return String(candidate.id);
-  }
-  return null;
+  return found ? String(found.id) : null;
 }
 
-/**
- * The account's own app folder, creating it — and marking it — when missing.
- *
- * The plain name is used unless a top-level folder already holds it without the
- * marker: that folder is somebody's, so the app folder goes to
- * `APP_FOLDER_ALT_NAME` rather than into their work.
- */
+/** The account's own app folder, creating it when missing. */
 export async function ensureAppFolder(ctx: Ctx, accountId: string): Promise<string> {
   const existing = await findAppFolder(ctx, accountId);
   if (existing) return existing;
-  const top = await fileChildren(ctx, accountId, null, FOLDER_PROPS);
-  const taken = new Set(
-    top
-      .filter((n) => n.parentId == null && typeof n.name === "string")
-      .map((n) => String(n.name)),
-  );
-  const name = taken.has(APP_FOLDER_NAME) ? APP_FOLDER_ALT_NAME : APP_FOLDER_NAME;
   const created = await clientOf(ctx).call<{
     created?: Record<string, { id?: string }>;
   }>(
     "FileNode/set",
-    { accountId, create: { d: { parentId: null, name, nodeType: "directory" } } },
+    {
+      accountId,
+      create: {
+        d: { parentId: null, name: APP_FOLDER_NAME, nodeType: "directory" },
+      },
+    },
     [FILENODE_CAP],
   );
   const id = created.created?.d?.id;
@@ -222,21 +166,7 @@ export async function ensureAppFolder(ctx: Ctx, accountId: string): Promise<stri
     throw new AppFolderError(
       "The mail server created the app folder but returned no id.",
     );
-  await markAppFolder(ctx, accountId, id);
   return id;
-}
-
-/** Leave the marker that makes a folder the app folder. */
-async function markAppFolder(
-  ctx: Ctx,
-  accountId: string,
-  folderId: string,
-): Promise<void> {
-  const bytes = new TextEncoder().encode(
-    `Gilbert keeps its own documents in this folder. It is not a place to file your own.\n`,
-  );
-  const blobId = await uploadBlobBytes(ctx, accountId, bytes, "text/plain");
-  await putFile(ctx, accountId, folderId, APP_FOLDER_MARKER, blobId, "text/plain");
 }
 
 /** A directory by name under `parentId`, creating it when missing. */
@@ -716,13 +646,13 @@ export async function writeBytesIntoVisibleFolder(
  * The app folder sits at the top of the same tree — that is what makes its
  * contents durable in the account — so a path that names it would write a
  * person's file into Gilbert's private documents, or read them back out. The
- * refusal is by name and covers both names the app folder can go by, because a
- * model choosing a folder (`mail.extract`) is a caller that can name anything.
+ * refusal is by name, because a model choosing a folder (`mail.extract`) is a
+ * caller that can name anything.
  */
 function visibleSegments(path: string): string[] {
   const segments = pathSegments(path);
   const first = segments[0];
-  if (first !== undefined && APP_FOLDER_NAMES.includes(first)) {
+  if (first === APP_FOLDER_NAME) {
     throw new AppFolderError(
       `"${first}" is Gilbert's own folder and cannot be a destination in Files.`,
       400,

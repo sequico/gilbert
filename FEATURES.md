@@ -203,9 +203,8 @@ there is that person's file: the run writes `2-note.txt` beside it and reports
 the name it used, and it never replaces what somebody filed. Gilbert's own
 documents (automations, jobs, decisions, audit) stay in the hidden `gilbert`
 folder, which is where they belong and where the Files view deliberately does
-not look — that folder is recognised by a marker rather than by its name, it is
-refused as a destination by naming it, and a folder a member happens to have
-called `gilbert` is left to its owner.
+not look — the name is the whole rule: the folder is found by it, and a path
+that names it is refused as a destination in Files.
 - **A run is bounded by what it was granted.** A worker that loses its unit
 mid-run stops before anything leaves the process rather than writing results
 its successor will write again; an approval is consumed exactly once, so two
@@ -1192,7 +1191,8 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
 - **Sharing** per file or folder, with rights per person.
 - **Attach from Files** in the composer, with no re-upload.
 - One folder is hidden on purpose: **`gilbert`**, contents and all. It holds
-  the settings file and signature images.
+  the settings file and signature images, and the Files view drops it from the
+  listing so it never reads as a place to file your own.
   Hiding the folder alone would have been worse than showing it — the tree
   attaches a node whose parent is missing to the root, so signature images
   would have spilled into the top level.

@@ -6,15 +6,15 @@
  * It is a real folder in the user's account — that is the whole point, since it
  * is what makes this state travel between devices without Gilbert storing
  * anything server-side of its own — but it is housekeeping rather than
- * something anyone filed there, so the Files view hides it.
+ * something anyone filed there: the Files view drops it from the listing, so it
+ * never appears as a place to file your own.
  *
  * Which folder that is is **one rule, applied on both sides**: this module and
- * the server's `server/src/appFolder.ts`. A top-level `gilbert` or `.gilbert`
- * is the app folder only when it carries `APP_FOLDER_MARKER`, so a folder a
- * person made by that name is never adopted and the app folder moves to
- * `APP_FOLDER_ALT` instead of landing in their work. Both sides write into the
- * same account's Files, so a folder one of them created and the other could not
- * recognise would split every document in two.
+ * the server's `server/src/appFolder.ts`. There is one name, and the name is
+ * the whole rule: no marker to leave, no second name to fall back to, nothing
+ * for the two sides to resolve differently. Gilbert is pre-release, so a folder
+ * an earlier build created under another name is not read and its documents are
+ * not migrated.
  *
  * The lookup below filters on `parentId`/`isTopLevel` alone and matches the
  * name here rather than asking the server to. Those are the filters Files
@@ -23,35 +23,19 @@
  */
 import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
-import { directoryCreate, fileCreate } from "@/lib/filenode";
+import { directoryCreate } from "@/lib/filenode";
 
 /** The folder Gilbert keeps its own documents in, in every account. */
 export const APP_FOLDER = "gilbert";
 
-/** The same folder, when the account already has something called `gilbert`. */
-export const APP_FOLDER_ALT = ".gilbert";
-
-/** The file whose presence makes a folder the app folder. */
-export const APP_FOLDER_MARKER = ".gilbert-app";
-
-/** Every name the app folder can go by, for the tree to refuse. */
-export const APP_FOLDER_NAMES: ReadonlyArray<string> = [APP_FOLDER, APP_FOLDER_ALT];
-
 /** Just enough to find the folder. */
 export const folderProps = (): string[] => ["id", "name", "nodeType", "parentId"];
 
-/**
- * A top-level directory by one of the app folder's names.
- *
- * This is the name half of the rule only: whether such a folder **is** the app
- * folder is settled by its marker, which costs a listing — `findAppFolder`.
- */
-export function isAppFolderName(
+/** A top-level directory by the app folder's name. */
+export function isAppFolder(
   n: Pick<FileNode, "name" | "parentId" | "nodeType">,
 ): boolean {
-  return (
-    !n.parentId && n.nodeType === "directory" && APP_FOLDER_NAMES.includes(String(n.name))
-  );
+  return !n.parentId && n.nodeType === "directory" && String(n.name) === APP_FOLDER;
 }
 
 /** List one level of the tree: the top level, or the children of a folder. */
@@ -106,76 +90,24 @@ export async function listChildrenWithState(
   };
 }
 
-/** Whether a folder carries the marker that makes it the app folder. */
-async function carriesMarker(accountId: Id, folderId: Id): Promise<boolean> {
-  const kids = await children(accountId, folderId, folderProps());
-  return kids.some(
-    (n) =>
-      n.parentId === folderId && n.nodeType === "file" && n.name === APP_FOLDER_MARKER,
-  );
-}
-
-/** The account's own app folder, or null when there is not a marked one yet. */
+/** The account's own app folder, or null when there is not one yet. */
 export async function findAppFolder(accountId: Id): Promise<Id | null> {
   const top = await children(accountId, null, folderProps());
-  for (const candidate of top.filter(isAppFolderName)) {
-    if (await carriesMarker(accountId, candidate.id)) return candidate.id;
-  }
-  return null;
+  const found = top.find(isAppFolder);
+  return found ? found.id : null;
 }
 
-/**
- * The name the app folder takes when there is not one yet.
- *
- * The plain name, unless a top-level folder already holds it. A folder that
- * held it and were the app folder would have carried the marker and been
- * adopted, so one that holds it without a marker is somebody's: the app folder
- * goes to `APP_FOLDER_ALT` rather than into their work.
- */
-export function appFolderNameWhenMissing(topLevelNames: Iterable<string>): string {
-  return new Set(topLevelNames).has(APP_FOLDER) ? APP_FOLDER_ALT : APP_FOLDER;
-}
-
-/**
- * The account's own app folder, creating it — and marking it — when missing.
- *
- * The plain name is used unless a top-level folder already holds it without the
- * marker: that folder is somebody's, so the app folder goes to
- * `APP_FOLDER_ALT` rather than into their work.
- */
+/** The account's own app folder, creating it when missing. */
 export async function ensureFolder(accountId: Id): Promise<Id> {
   const existing = await findAppFolder(accountId);
   if (existing) return existing;
-  const top = await children(accountId, null, folderProps());
-  const name = appFolderNameWhenMissing(
-    top
-      .filter((n) => !n.parentId && typeof n.name === "string")
-      .map((n) => String(n.name)),
-  );
   const set = await client.call<SetResponse<FileNode>>("FileNode/set", {
     accountId,
-    create: { d: directoryCreate(null, name) },
+    create: { d: directoryCreate(null, APP_FOLDER) },
   });
   const err = set.notCreated?.d;
   if (err) throw new Error(setErrorMessage(err));
-  const id = set.created!.d!.id;
-  await markAppFolder(accountId, id);
-  return id;
-}
-
-/** Leave the marker that makes a folder the app folder. */
-async function markAppFolder(accountId: Id, folderId: Id): Promise<void> {
-  const text =
-    "Gilbert keeps its own documents in this folder. It is not a place to file your own.\n";
-  const up = await client.upload(accountId, new Blob([text], { type: "text/plain" }), {
-    type: "text/plain",
-  });
-  const set = await client.call<SetResponse<FileNode>>("FileNode/set", {
-    accountId,
-    create: { m: fileCreate(folderId, APP_FOLDER_MARKER, up.blobId, "text/plain") },
-  });
-  const err = set.notCreated?.m;
-  if (err) throw new Error(setErrorMessage(err));
+  return set.created!.d!.id;
 }
 
 /**
