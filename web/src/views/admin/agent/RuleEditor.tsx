@@ -43,6 +43,8 @@ export function RuleEditor({
   const loading = group ? busyReads[groupOperation(group)] === true : false;
   /** The rule being edited; null means the list is showing. */
   const [draft, setDraft] = useState<AgentRule | null>(null);
+  /** What it held when it was opened: the line "changed" is measured from. */
+  const [baseline, setBaseline] = useState<AgentRule | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -53,10 +55,16 @@ export function RuleEditor({
   // own reason, so the form cannot drift from what the executor accepts
   // (ADR 0003 §4, `ruleProblem`).
   const draftProblem = draft ? problemOf(draft) : null;
+  // Saving a rule that is identical to the one it was opened from writes back
+  // what is already stored, which is not something to offer: a new automation
+  // has no baseline and is always something to save, an edited one is compared
+  // with the copy it started from.
+  const changed = draft !== null && draft !== baseline;
 
   const pick = (name: string) => {
     setGroup(name);
     setDraft(null);
+    setBaseline(null);
     setProblem(null);
     // The rules are a document in the group's own account; reading them is a
     // session on that account, which is exactly what the grant is.
@@ -107,6 +115,7 @@ export function RuleEditor({
       // for the surface to show.
       await saveRules(group, sending);
       setDraft(null);
+      setBaseline(null);
       toast.success(t("Automation saved"));
     } catch (err) {
       setProblem(err instanceof Error ? err.message : String(err));
@@ -140,6 +149,7 @@ export function RuleEditor({
     try {
       await saveRules(group, sending);
       setDraft(null);
+      setBaseline(null);
       toast.success(t("Automation deleted"));
     } catch (err) {
       setProblem(err instanceof Error ? err.message : String(err));
@@ -219,7 +229,7 @@ export function RuleEditor({
               <div className="row" style={{ gap: 8 }}>
                 <button
                   className="btn btn-primary"
-                  disabled={busy || draftProblem !== null}
+                  disabled={busy || draftProblem !== null || !changed}
                   onClick={() => void save()}
                 >
                   {busy ? t("Saving…") : t("Save")}
@@ -229,6 +239,7 @@ export function RuleEditor({
                   disabled={busy}
                   onClick={() => {
                     setDraft(null);
+                    setBaseline(null);
                     setProblem(null);
                   }}
                 >
@@ -254,6 +265,7 @@ export function RuleEditor({
                     onEdit={() => {
                       setProblem(null);
                       setDraft(rule);
+                      setBaseline(rule);
                     }}
                     onDelete={() => void remove(rule)}
                   />
@@ -265,6 +277,7 @@ export function RuleEditor({
                 onClick={() => {
                   setProblem(null);
                   setDraft(blankRule());
+                  setBaseline(null);
                 }}
               >
                 <Plus size={16} /> {t("New automation")}

@@ -48,6 +48,23 @@ const PICTURE_NEEDS_FILES =
 const OVER_SIZED_NEEDS_FILES =
   "This signature is larger than the server's {limit}-byte limit, and keeping the full version needs the account's own Files, which this surface cannot write. Shorten it, or set the signature in the account's own settings.";
 
+/**
+ * What an identity's fields open at. One expression, because the dialog both
+ * seeds the fields from it and measures "unchanged" against it -- two copies
+ * would be two answers to one question, and the day they disagreed the button
+ * would quietly use the wrong one.
+ */
+function draftOf(identity: Partial<Identity>) {
+  return {
+    name: identity.name ?? "",
+    email: identity.email ?? "",
+    replyTo: formatAddressList(identity.replyTo),
+    html:
+      identity.htmlSignature ||
+      (identity.textSignature ? identity.textSignature.replace(/\n/g, "<br>") : ""),
+  };
+}
+
 export function IdentityDialog({
   identity,
   onClose,
@@ -61,13 +78,24 @@ export function IdentityDialog({
   /** Where signature assets are stored; absent means this surface has none. */
   assets?: IdentityAssets;
 }) {
-  const [name, setName] = useState(identity.name ?? "");
-  const [email, setEmail] = useState(identity.email ?? "");
-  const [replyTo, setReplyTo] = useState(formatAddressList(identity.replyTo));
-  const [html, setHtml] = useState(
-    identity.htmlSignature ||
-      (identity.textSignature ? identity.textSignature.replace(/\n/g, "<br>") : ""),
-  );
+  const opened = draftOf(identity);
+  const [name, setName] = useState(opened.name);
+  const [email, setEmail] = useState(opened.email);
+  const [replyTo, setReplyTo] = useState(opened.replyTo);
+  const [html, setHtml] = useState(opened.html);
+
+  /*
+   * An identity that exists has something to be measured against, and saving it
+   * unchanged writes back what is already there. One being created has nothing
+   * to measure -- the surface that opened the dialog fills the address in --
+   * so the question there is only whether there is an address to create.
+   */
+  const edited =
+    name !== opened.name ||
+    email !== opened.email ||
+    replyTo !== opened.replyTo ||
+    html !== opened.html;
+  const saveable = identity.id ? edited : email.trim() !== "";
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const ref = useRef<RichEditorHandle>(null);
@@ -156,7 +184,7 @@ export function IdentityDialog({
           </button>
           <button
             className="btn btn-primary"
-            disabled={busy}
+            disabled={busy || !saveable}
             onClick={() => void submit()}
           >
             {busy ? t("Saving…") : t("Save")}

@@ -33,12 +33,17 @@ export function AdminPolicy() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  /** What the server last held: what "unchanged" is measured against. */
+  const [baseline, setBaseline] = useState("");
+  // A publish with nothing to publish is not a state the button should offer.
+  const dirty = text !== baseline;
 
   async function load() {
     setLoadError(null);
     try {
       const res = await apiFetch<{ policy: string }>("/api/admin/policy");
       setText(res.policy);
+      setBaseline(res.policy);
       setLoaded(true);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : String(err));
@@ -65,6 +70,9 @@ export function AdminPolicy() {
         method: "POST",
         body: text,
       });
+      // What the server holds now is the document just sent, so there is
+      // nothing left for the button to publish until the text moves again.
+      setBaseline(text);
       /*
        * The published policy applies to this session at once: the client
        * caches the policy per page, and the publisher's own session is
@@ -162,7 +170,7 @@ export function AdminPolicy() {
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
         <button
           className="btn btn-primary"
-          disabled={saving}
+          disabled={saving || !dirty}
           onClick={() => void publish()}
         >
           {saving ? t("Publishing…") : t("Publish policy")}
