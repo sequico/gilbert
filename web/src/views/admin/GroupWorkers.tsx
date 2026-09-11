@@ -7,17 +7,17 @@
  * waiting on a person across every group (Approvals, moved in for the same
  * reason), and the workers themselves (Workers — a worker is a process of its
  * own, and the process list is where it becomes visible that one is not
- * reporting). The installation's own identity, its grants and its models stay
- * in Agents; this section is what the fleet does once it is granted.
+ * reporting). The installation's own identity and its models stay in Agents;
+ * this section is what the fleet does once it is working in a group.
  *
- * Two things are deliberately not here. The **grant** is not a setting: the
- * agent's membership of a group is decided in Stalwart's own administration,
- * and the Agents section's Groups tab is the one place that reads and explains
- * it — this section reuses that same read (`status.groups`, one store) rather
- * than a second table saying the same thing. And the change reaches the
- * **worker** when it starts, not the moment it is saved — the web tier reads
- * the record live, the worker reads it at boot, and the surface says which is
- * which.
+ * Two things are deliberately not here. **Which groups those are** is not a
+ * setting either: the agent's membership is decided in Stalwart's own
+ * administration, and the Agents section's Groups tab is the one place that
+ * reads and explains it — this section reuses that same read (`status.groups`,
+ * one store) rather than a second table saying the same thing. And the change
+ * reaches the **worker** when it starts, not the moment it is saved — the web
+ * tier reads the record live, the worker reads it at boot, and the surface says
+ * which is which.
  */
 import { AGENT_AREAS } from "@gilbert/agent/documents";
 import { useEffect, useState } from "react";
@@ -29,7 +29,7 @@ import {
 import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
-import { areaText } from "@/views/agent/agentText";
+import { areaText, fleetReasonText } from "@/views/agent/agentText";
 import { AgentApprovals } from "./agent/AgentApprovals";
 import { RuleEditor } from "./agent/RuleEditor";
 
@@ -77,16 +77,24 @@ export function GroupWorkers() {
         ))}
       </div>
       {part === "areas" && <Areas status={status} />}
-      {part === "automations" && <RuleEditor groups={grantedGroups(status)} />}
+      {part === "automations" && (
+        <RuleEditor groups={agentGroups(status).map((group) => group.name)} />
+      )}
       {part === "approvals" && <AgentApprovals />}
       {part === "workers" && <Workers status={status} />}
     </div>
   );
 }
 
-/** The groups the agent is actually granted on — the ones an automation can run in. */
-function grantedGroups(status: AgentStatus | null): AgentStatusGroup[] {
-  return (status?.groups ?? []).filter((g) => g.granted);
+/**
+ * The groups the agent works in — the ones an automation can run in.
+ *
+ * The status carries the agent's own membership as its session shows it, so
+ * there is nothing to filter here: a group in the list is a group the agent is
+ * in.
+ */
+function agentGroups(status: AgentStatus | null): AgentStatusGroup[] {
+  return status?.groups ?? [];
 }
 
 /* ------------------------------------------------------------------ */
@@ -105,12 +113,10 @@ function Areas({ status }: { status: AgentStatus | null }) {
   const [saved, setSaved] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
-  // Narrowing an area a group has not been granted does nothing — the agent
-  // is not in the group at all — so only granted groups are offered here.
-  // Whether a group is granted, and how to change that, is the Agents
-  // section's Groups tab; this table does not repeat that fact, it filters by
-  // it.
-  const groups = grantedGroups(status);
+  // A group the agent is not in has no worker to narrow, so only the groups it
+  // works in are offered here. Which ones those are, and how to add one, is the
+  // Agents section's Groups tab; this table works from the same read.
+  const groups = agentGroups(status);
   const deployment = status?.defaultAreas ?? [...AGENT_AREAS];
   const configured = (name: string): string[] =>
     groups.find((group) => group.name === name)?.areas ?? deployment;
@@ -173,34 +179,19 @@ function Areas({ status }: { status: AgentStatus | null }) {
       <h2>{t("Areas")}</h2>
       <p className="hint" style={{ marginBottom: 12 }}>
         {t(
-          "The areas below are the fleet's reach in each granted group, and the deployment serves them all unless a group is narrowed. This table only lists groups the agent is already granted on — grant one in the Groups tab of Agents first.",
+          "The areas below are the fleet's reach in each group the agent works in, and the deployment serves them all unless a group is narrowed. Only those groups are listed: add another to the Gilbert user in Stalwart's own administration and it appears here.",
         )}
       </p>
-      {status?.enumeration === false && (
-        <div className="warn-box" style={{ marginBottom: 12 }}>
-          {t(
-            "The group mailboxes could not all be listed, so this page covers only the groups you are a member of: a group that is missing here may still be served.",
-          )}
-          {status.enumerationMessage && (
-            <>
-              {" "}
-              <code>{status.enumerationMessage}</code>
-            </>
-          )}
-        </div>
-      )}
       {!status ? (
         <p className="hint">{t("Loading…")}</p>
-      ) : !status.address ? (
+      ) : !status.operational ? (
         <div className="warn-box">
-          {t(
-            "No agent is registered with this installation yet, so there is nothing for a group to be narrowed for. Name its address in the Agents section first.",
-          )}
+          {status.reason ? fleetReasonText(status.reason) : t("Not operational")}
         </div>
       ) : groups.length === 0 ? (
         <p className="hint">
           {t(
-            "No group is granted yet. Grant the agent on a group in Stalwart's own administration, then narrow its areas here.",
+            "The agent is not in a group yet. Add a group to the Gilbert user in Stalwart's own administration, then narrow its areas here.",
           )}
         </p>
       ) : (

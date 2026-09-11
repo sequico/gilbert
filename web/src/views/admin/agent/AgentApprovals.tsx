@@ -29,12 +29,11 @@ export function AgentApprovals() {
   const problem = useAgents((s) => s.problems.approvals);
   const reading = useAgents((s) => s.busy.approvals);
   /*
-   * Whether the list behind this queue is complete. The queue walks the group
-   * mailboxes the directory enumeration returned, and the fleet status is the
-   * answer that carries whether this session could make that enumeration at all
-   * — the same read the queue is built from, kept whole by the store.
+   * Whether the list behind this queue is complete. The queue answers with the
+   * reach it was built from, so the caveat is that read's own and not the fleet
+   * status's: they are two different questions about the directory.
    */
-  const fleet = useAgents((s) => s.status);
+  const reach = useAgents((s) => s.approvalsReach);
 
   useEffect(() => {
     void loadApprovals();
@@ -48,14 +47,14 @@ export function AgentApprovals() {
           "An automation that pauses posts what it proposes in the group's chat, and a member answers there in words. Approving therefore happens in the chat, not here — this queue is oversight across groups, and the way to see what has been waiting.",
         )}
       </p>
-      {fleet?.enumeration === false && (
+      {reach?.enumeration === false && (
         <div className="warn-box" style={{ marginBottom: 12 }}>
           {t(
             "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.",
           )}
-          {fleet.enumerationMessage && (
+          {reach.enumerationMessage && (
             <p className="hint" style={{ marginTop: 6 }}>
-              <code>{fleet.enumerationMessage}</code>
+              <code>{reach.enumerationMessage}</code>
             </p>
           )}
         </div>

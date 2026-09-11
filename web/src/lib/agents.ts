@@ -21,15 +21,13 @@
 
 import type { AgentRule } from "@gilbert/agent/documents";
 import type {
-  AgentAddressSaved,
-  AgentAppPasswordRotation,
+  AgentApprovalsView,
   AgentAuditExport,
   AgentGroupSurface,
   AgentProvidersView,
   AgentStatus,
   GroupInstructionView,
   MemberAgentView,
-  PendingApproval,
 } from "@gilbert/agent/views";
 import { apiFetch } from "@/jmap/client";
 
@@ -38,7 +36,7 @@ import { apiFetch } from "@/jmap/client";
  * this module names the same type the route builds.
  */
 export type {
-  AgentAddressSaved,
+  AgentApprovalsView,
   AgentAuditExport,
   AgentAuditExportMonth,
   AgentGroupAnswer,
@@ -50,6 +48,7 @@ export type {
   AgentStatus,
   AgentStatusGroup,
   AgentStatusWorker,
+  GroupEnumeration,
   GroupInstructionView,
   MemberAgentRule,
   MemberAgentView,
@@ -123,20 +122,6 @@ export async function saveAgentProviders(providers: AgentProvidersInput): Promis
   });
 }
 
-/**
- * `POST /api/admin/agent/app-password` — the agent's new secret, once.
- *
- * `alsoValid` is how many app passwords the agent already had and which the
- * rotation leaves working: the server mints the new credential and revokes
- * nothing, so this surface says what is still valid instead of implying that
- * the old ones stopped.
- */
-export function rotateAgentAppPassword(): Promise<AgentAppPasswordRotation> {
-  return apiFetch<AgentAppPasswordRotation>("/api/admin/agent/app-password", {
-    method: "POST",
-  });
-}
-
 /** `POST /api/admin/groups/:name/agent/labels` — the `G-` keywords added. */
 export async function addAgentLabels(name: string): Promise<string[]> {
   const res = await apiFetch<{ ok: boolean; added: string[] }>(
@@ -165,38 +150,13 @@ export async function saveGroupInstruction(
 }
 
 /** `GET /api/admin/agent/approvals` — every pending decision, by group. */
-export async function fetchPendingApprovals(): Promise<PendingApproval[]> {
-  const res = await apiFetch<{ approvals: PendingApproval[] }>(
-    "/api/admin/agent/approvals",
-  );
-  return res.approvals;
+export function fetchPendingApprovals(): Promise<AgentApprovalsView> {
+  return apiFetch<AgentApprovalsView>("/api/admin/agent/approvals");
 }
 
 /** `GET /api/agent/group/:name` — the member's read-only view. */
 export function fetchMemberAgentView(name: string): Promise<MemberAgentView> {
   return apiFetch<MemberAgentView>(`/api/agent/group/${encodeURIComponent(name)}`);
-}
-
-/**
- * `POST /api/admin/agent/address` — the identity the installation records
- * (ADR 0009).
- *
- * An address, and an empty one to fall back to the deployment's own. The secret
- * is not part of this: the web tier acts by impersonating the address from an
- * administrator's session and needs none. `hasSecret` says whether the
- * deployment holds one, which is what decides whether a worker can sign in.
- *
- * The save is also what provisions: an address the deployment holds no secret
- * for is minted one there and then, and the answer carries that secret once
- * (`credential`), or why it could not be minted (`credentialError`) — so the
- * surface hands the secret over instead of leaving a worker that cannot sign in
- * with nothing to say about it.
- */
-export function saveAgentAddress(address: string): Promise<AgentAddressSaved> {
-  return apiFetch<AgentAddressSaved>("/api/admin/agent/address", {
-    method: "POST",
-    body: JSON.stringify({ address }),
-  });
 }
 
 /**

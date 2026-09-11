@@ -131,7 +131,12 @@ export function fleetReasonText(reason: AgentStatusReason): string {
   switch (reason.code) {
     case "agent_not_configured":
       return t(
-        "No agent is registered with this installation. Set GILBERT_AGENT_ADDRESS (and its app password) where the installation is deployed and restart the server and the worker: a page reload does not re-read the environment.",
+        "This deployment names no agent, so the agents are not operational. Set GILBERT_AGENT_ADDRESS to the agent's own address and GILBERT_AGENT_PASSWORD to that account's password, in the environment that starts the server and the worker, then restart both.",
+      );
+    case "agent_credentials_rejected":
+      return t(
+        "The server refused the agent's credential, so the agents are not operational: {detail}. Check that GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD name the agent's own address and its account password, then restart the server and the worker.",
+        { detail: reason.detail },
       );
     case "agent_unreachable":
       return t("The agent's session could not be opened: {detail}", {

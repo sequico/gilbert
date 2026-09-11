@@ -3,10 +3,9 @@
  *
  * Reads and writes go through `@/lib/agents`; this store is the UI's view of
  * them: the installation's fleet status, one group's documents at a time, the
- * per-tier providers and the approval queue. Nothing secret is kept here — the
- * provider view carries `hasKey` and never a key, and the rotated app-password
- * secret is handed straight back to whoever asked for it, with the count of the
- * app passwords the rotation left working.
+ * per-tier providers and the approval queue. Nothing secret is kept here: the
+ * provider view carries `hasKey` and never a key, and no route this store
+ * touches mints a credential or hands one back.
  *
  * A group is read through two doors, and they are not interchangeable. The
  * admin door (`groupViews`, `/api/admin/groups/:name/agent`) answers the whole
@@ -26,6 +25,7 @@ import {
   type AgentProvidersInput,
   type AgentProvidersView,
   type AgentStatus,
+  type GroupEnumeration,
   fetchAgentGroup,
   fetchAgentProviders,
   fetchAgentStatus,
@@ -33,7 +33,6 @@ import {
   fetchPendingApprovals,
   type MemberAgentView,
   type PendingApproval,
-  rotateAgentAppPassword,
   saveAgentProviders,
   saveAgentRules,
 } from "@/lib/agents";
@@ -73,6 +72,15 @@ interface AgentsState {
   memberViews: Record<string, MemberAgentView>;
   approvals: PendingApproval[];
   /**
+   * The reach the last approval queue was built from.
+   *
+   * The queue walks the group mailboxes the directory enumeration returned, so
+   * without this a short queue and an empty one read identically. It belongs to
+   * the queue's own read, which is why it is kept here beside it and not
+   * borrowed from the fleet status.
+   */
+  approvalsReach: GroupEnumeration | null;
+  /**
    * What is in flight and what failed, **per operation**.
    *
    * One shared pair was wrong in the way these surfaces are actually read: the
@@ -94,12 +102,6 @@ interface AgentsState {
   loadProviders: () => Promise<void>;
   /** Rejects when the server refused the write; a key is never posted back. */
   saveProviders: (providers: AgentProvidersInput) => Promise<void>;
-  /**
-   * The new secret and how many app passwords the rotation left working, for
-   * the caller to show exactly once. Rejects when the rotation was refused —
-   * nothing is kept here, ever.
-   */
-  rotateAppPassword: () => Promise<Awaited<ReturnType<typeof rotateAgentAppPassword>>>;
   loadApprovals: () => Promise<void>;
   reset: () => void;
 }
@@ -142,6 +144,7 @@ export const useAgents = create<AgentsState>((set) => ({
   groupViews: {},
   memberViews: {},
   approvals: [],
+  approvalsReach: null,
   busy: {},
   problems: {},
   providers: null,
@@ -240,27 +243,12 @@ export const useAgents = create<AgentsState>((set) => ({
     }
   },
 
-  rotateAppPassword: async () => {
-    set(markBusy("password", true));
-    set(markProblem("password", null));
-    try {
-      // The rotation's own answer, whole: the secret the caller shows once, and
-      // the count of app passwords it left working — which is the whole
-      // difference between rotating a credential and revoking one.
-      return await rotateAgentAppPassword();
-    } catch (err) {
-      set(markProblem("password", message(err)));
-      throw err;
-    } finally {
-      set(markBusy("password", false));
-    }
-  },
-
   loadApprovals: async () => {
     set(markBusy("approvals", true));
     set(markProblem("approvals", null));
     try {
-      set({ approvals: await fetchPendingApprovals() });
+      const view = await fetchPendingApprovals();
+      set({ approvals: view.approvals, approvalsReach: view });
     } catch (err) {
       set(markProblem("approvals", message(err)));
     } finally {
@@ -274,6 +262,7 @@ export const useAgents = create<AgentsState>((set) => ({
       groupViews: {},
       memberViews: {},
       approvals: [],
+      approvalsReach: null,
       busy: {},
       problems: {},
       providers: null,

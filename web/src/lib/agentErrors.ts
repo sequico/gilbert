@@ -25,13 +25,13 @@ import { t } from "@/lib/i18n";
  */
 export const AGENT_ERROR_SENTENCES = {
   agent_not_configured:
-    "No agent is registered with this installation. Name its address in the field above, or set GILBERT_AGENT_ADDRESS and its app password where the installation is deployed and restart the server and the worker.",
+    "This deployment names no agent, so the agents are not operational: set GILBERT_AGENT_ADDRESS to the agent's own address and GILBERT_AGENT_PASSWORD to that account's password, in the environment that starts the server and the worker, then restart both.",
+  agent_credentials_rejected:
+    "The server refused the agent's credential, so the agents are not operational: {detail}. Check that GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD name the agent's own address and its account password, then restart the server and the worker.",
   agent_unreachable: "The agent's session could not be opened: {detail}",
   agent_files_account_missing:
     "The agent {address} has no account holding its own Files, so there is nothing for it to read or write.",
   agent_not_found: "The server has no account at that address: {detail}",
-  agent_credential_failed:
-    "The address was recorded, but no credential could be provisioned for it: {detail}",
   forbidden: "This administrator may not act as that agent: {detail}",
   duplicate_rule:
     'Two automations share the id "{id}". Ids must be unique: a job records the id and the version it was created from.',

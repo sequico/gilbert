@@ -28,11 +28,7 @@ import {
 } from "@/views/agent/agentText";
 import { RuleForm } from "./RuleForm";
 
-export function RuleEditor({
-  groups,
-}: {
-  groups: ReadonlyArray<{ name: string; granted: boolean }>;
-}) {
+export function RuleEditor({ groups }: { groups: readonly string[] }) {
   const groupViews = useAgents((s) => s.groupViews);
   const busyReads = useAgents((s) => s.busy);
   const loadGroup = useAgents((s) => s.loadGroup);
@@ -49,7 +45,7 @@ export function RuleEditor({
   const [problem, setProblem] = useState<string | null>(null);
 
   const view = group ? groupViews[agentViewKey(group)] : undefined;
-  const granted = groups.find((g) => g.name === group)?.granted === true;
+  const known = group !== null && groups.includes(group);
   const rules = view?.granted ? view.rules : [];
   // Why the document would be refused as it stands, if it would: the server's
   // own reason, so the form cannot drift from what the executor accepts
@@ -188,23 +184,23 @@ export function RuleEditor({
           }}
         >
           <option value="">{t("Choose a group…")}</option>
-          {groups.map((g) => (
-            <option key={g.name} value={g.name}>
-              {g.name}
+          {groups.map((name) => (
+            <option key={name} value={name}>
+              {name}
             </option>
           ))}
         </select>
       </div>
 
-      {group && !granted && (
+      {group && !known && (
         <div className="warn-box" style={{ marginBottom: 12 }}>
           {t(
-            "The agent is not granted on this group, so there is nothing to author here: no automation runs, and nobody can mention it in the group's chat. Grant it on this group in Stalwart's own administration, then come back — this surface checks the grant, it never writes it.",
+            "The agent is not in this group, so there is nothing to author here: no automation runs, and nobody can mention it in the group's chat. Give it the group in Stalwart's own administration, then come back.",
           )}
         </div>
       )}
 
-      {group && granted && (
+      {group && known && (
         <>
           {!view && (
             <p className="hint">

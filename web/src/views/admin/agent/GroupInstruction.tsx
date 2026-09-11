@@ -14,17 +14,11 @@
  * it can read it.
  */
 import { useEffect, useState } from "react";
-import type { AgentStatusGroup } from "@/lib/agents";
 import { fetchGroupInstruction, saveGroupInstruction } from "@/lib/agents";
 import { t } from "@/lib/i18n";
 
-export function GroupInstruction({
-  groups,
-}: {
-  groups: ReadonlyArray<AgentStatusGroup>;
-}) {
-  const granted = groups.filter((group) => group.granted);
-  const [group, setGroup] = useState<string>(granted[0]?.name ?? "");
+export function GroupInstruction({ groups }: { groups: readonly string[] }) {
+  const [group, setGroup] = useState<string>(groups[0] ?? "");
   const [text, setText] = useState("");
   // What the record holds, beside what the field holds: the difference is the
   // only thing the save button has to say, so it is dimmed until there is one.
@@ -39,8 +33,8 @@ export function GroupInstruction({
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    if (!granted.some((entry) => entry.name === group)) setGroup(granted[0]?.name ?? "");
-  }, [granted, group]);
+    if (!groups.includes(group)) setGroup(groups[0] ?? "");
+  }, [groups, group]);
 
   useEffect(() => {
     if (!group) return;
@@ -91,15 +85,15 @@ export function GroupInstruction({
           "Written once for the whole group and handed to the model on every call, before the automation's own instruction and before the message it is looking at. It says how the agent should work; what an automation may do is its capability list, and nothing written here widens it.",
         )}
       </p>
-      {granted.length === 0 ? (
+      {groups.length === 0 ? (
         <p className="hint">
           {t(
-            "The agent is not granted on a group this session can see. Grant it in Stalwart's own administration first: an instruction for a group the agent does not work in would never be read.",
+            "The agent is not in a group this session can see. Give it a group in Stalwart's own administration first: an instruction for a group the agent does not work in would never be read.",
           )}
         </p>
       ) : (
         <>
-          {granted.length > 1 && (
+          {groups.length > 1 && (
             <div className="field">
               <label htmlFor="agent-instruction-group">{t("Group")}</label>
               <select
@@ -108,9 +102,9 @@ export function GroupInstruction({
                 value={group}
                 onChange={(e) => setGroup(e.target.value)}
               >
-                {granted.map((entry) => (
-                  <option key={entry.name} value={entry.name}>
-                    {entry.name}
+                {groups.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
                   </option>
                 ))}
               </select>

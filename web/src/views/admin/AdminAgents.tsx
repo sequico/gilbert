@@ -3,36 +3,28 @@
  *
  * The installation's own agent and its per-tier models live here, split into
  * three questions asked in the order a person actually asks them: is there an
- * agent and how does it sign in (Overview — the identity and the app password
- * are one story, not two tabs for one thing), which groups has it been granted
- * and what does each one tell it (Groups), and which model serves which tier
+ * agent and how does it sign in (Overview), which groups does it work in and
+ * what does each one tell it (Groups), and which model serves which tier
  * (Models). What a group's agent actually *does* — its automations, the
  * approvals waiting on a person, and the workers serving them — lives in Group
  * workers instead: that section already reads one group at a time, and an
  * automation is exactly that.
  *
- * Nothing here grants anything. The agent is a principal in Stalwart's own
- * directory and its membership of a group is granted in Stalwart's own
- * administration, so this section **verifies** the grant — a group without it
- * shows what that costs instead of a control that could not work.
+ * Nothing here grants anything, and nothing here names the agent. The
+ * deployment names it in the environment it starts with, and a group's
+ * membership is given in Stalwart's own administration; both are read back,
+ * the groups through the agent's own session, which is the only witness to
+ * membership there is. So this list follows Stalwart by itself and keeps no
+ * record of its own to fall out of step.
  */
 import { Bot } from "lucide-react";
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/jmap/client";
-import { agentErrorSentence } from "@/lib/agentErrors";
-import {
-  type AgentAddressSaved,
-  type AgentStatus,
-  fetchAgentAuditExport,
-  saveAgentAddress,
-} from "@/lib/agents";
+import { type AgentStatus, fetchAgentAuditExport } from "@/lib/agents";
 import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
 import { fleetReasonText } from "@/views/agent/agentText";
 import { AgentProviders } from "./agent/AgentProviders";
-import { AppPasswordRotate } from "./agent/AppPasswordRotate";
 import { GroupInstruction } from "./agent/GroupInstruction";
-import { MintedSecret } from "./agent/MintedSecret";
 
 export function AdminAgents() {
   const status = useAgents((s) => s.status);
@@ -47,6 +39,23 @@ export function AdminAgents() {
 
   useEffect(() => {
     void loadStatus();
+    /*
+     * Membership is given in Stalwart's own administration, so the list has to
+     * follow it without being asked: a modest poll while the section is open,
+     * and a read on every return to the tab, which is the one signal a
+     * backgrounded client is guaranteed to get.
+     */
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadStatus();
+    }, STATUS_POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void loadStatus();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(poll);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [loadStatus]);
 
   return (
@@ -84,12 +93,7 @@ export function AdminAgents() {
         ))}
       </div>
 
-      {part === "overview" && (
-        <>
-          <Registration status={status} />
-          <AppPasswordRotate />
-        </>
-      )}
+      {part === "overview" && <Registration status={status} />}
       {part === "groups" && <Groups status={status} />}
       {part === "models" && <AgentProviders />}
     </div>
@@ -107,82 +111,20 @@ const AGENT_PARTS = [
 
 type AgentPart = (typeof AGENT_PARTS)[number]["id"];
 
+/**
+ * How often the fleet is re-read while this section is open.
+ *
+ * The one thing an administrator changes elsewhere is a group's membership in
+ * Stalwart's own administration, and the surface has no way to hear about it:
+ * a poll is what makes that change appear without a reload.
+ */
+const STATUS_POLL_MS = 30_000;
+
 /* ------------------------------------------------------------------ */
 /* Overview: the installation's own agent                             */
 /* ------------------------------------------------------------------ */
 
 function Registration({ status }: { status: AgentStatus | null }) {
-  // The identity field is a draft: the status is the truth, the field is what
-  // an administrator is typing, and saving is what makes them the same.
-  const loadStatus = useAgents((s) => s.loadStatus);
-  const [draft, setDraft] = useState(status?.address ?? "");
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
-  // What the last save provisioned, if anything: the app password it minted —
-  // shown here once, since the server never hands it back again — or the reason
-  // it could not mint one, which is why no worker will be able to sign in yet.
-  // Both survive a later refusal, for the reason the rotation's does.
-  const [credential, setCredential] = useState<NonNullable<
-    AgentAddressSaved["credential"]
-  > | null>(null);
-  const [credentialError, setCredentialError] = useState<NonNullable<
-    AgentAddressSaved["credentialError"]
-  > | null>(null);
-  /**
-   * The accounts on this server, as suggestions.
-   *
-   * The agent is an ordinary account, and typing its address from memory is how
-   * a typo becomes an agent that does nothing. A refused directory leaves the
-   * list empty: the field still takes an address typed by hand.
-   */
-  const [accounts, setAccounts] = useState<string[]>([]);
-
-  useEffect(() => {
-    setDraft(status?.address ?? "");
-  }, [status?.address]);
-
-  useEffect(() => {
-    let live = true;
-    void (async () => {
-      try {
-        const res = await apiFetch<{ users: Array<{ name: string }> }>(
-          "/api/admin/users",
-        );
-        if (live) setAccounts(res.users.map((user) => user.name).filter(Boolean));
-      } catch {
-        /* suggestion only */
-      }
-    })();
-    return () => {
-      live = false;
-    };
-  }, []);
-
-  const dirty = draft.trim().toLowerCase() !== (status?.address ?? "").toLowerCase();
-  // A named address the deployment holds no secret for is work the same button
-  // does, so it is not dimmed behind an unchanged field — otherwise the one
-  // state that most needs a save would be the one state that cannot make it.
-  const needsSecret = Boolean(status?.address) && !status?.hasSecret;
-
-  /** Name the agent, or clear the name and fall back to the deployment's. */
-  async function save(address: string) {
-    setSaving(true);
-    setProblem(null);
-    setSaved(false);
-    try {
-      const answer = await saveAgentAddress(address);
-      setCredential(answer.credential ?? null);
-      setCredentialError(answer.credentialError ?? null);
-      setSaved(true);
-      await loadStatus();
-    } catch (err) {
-      setProblem(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <section>
       <h2>{t("The installation's agent")}</h2>
@@ -197,90 +139,27 @@ function Registration({ status }: { status: AgentStatus | null }) {
         <div className="card agent-registration">
           <div className="card-head">
             <h3>{t("Identity")}</h3>
-            <span className={status.configured ? "agent-state ok" : "agent-state off"}>
-              {status.configured ? t("Registered") : t("Not registered")}
+            <span
+              className={status.operational ? "agent-state ok" : "agent-state off"}
+            >
+              {status.operational ? t("Operational") : t("Not operational")}
             </span>
           </div>
-          <div className="field" style={{ maxWidth: 380 }}>
-            <label htmlFor="agent-address">{t("Agent address")}</label>
-            <input
-              id="agent-address"
-              className="input notranslate"
-              translate="no"
-              list="agent-address-choices"
-              placeholder="gilbert@example.com"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-            />
-            <datalist id="agent-address-choices">
-              {accounts.map((account) => (
-                <option key={account} value={account} />
-              ))}
-            </datalist>
+          <div className="field">
+            <span className="hint">{t("Agent address")}</span>
+            <p className="mono notranslate" translate="no" style={{ margin: 0 }}>
+              {status.address || t("None")}
+            </p>
           </div>
-          <div className="row wrap" style={{ gap: 8, marginBottom: 12 }}>
-            <button
-              className="btn btn-primary"
-              type="button"
-              disabled={saving || (!dirty && !needsSecret)}
-              onClick={() => void save(draft)}
-              title={t(
-                "Register this address as the agent, provision the app password a worker signs in with, or update it",
-              )}
-            >
-              {saving ? t("Saving…") : t("Save address")}
-            </button>
-            {saved && <span className="agent-state ok">{t("Saved.")}</span>}
-          </div>
-          <p className="hint">
-            {status.addressSource === "policy"
-              ? t(
-                  "Named here, and in force from the next request: the installation records it, so it survives a restart. Clearing the field and saving drops the record, and the deployment's own GILBERT_AGENT_ADDRESS applies again.",
-                )
-              : status.addressSource === "deployment"
-                ? t(
-                    "Set by the deployment (GILBERT_AGENT_ADDRESS). Naming one here overrides it, for this product and for the worker.",
-                  )
-                : t(
-                    "Nothing names an agent yet: name one here, or set GILBERT_AGENT_ADDRESS where the installation is deployed.",
-                  )}
-          </p>
-          <p className="hint">
+          <p className="hint" style={{ marginTop: 12 }}>
             {t(
-              "Gilbert acts as this address by impersonating it from your own administrator session, so naming it asks you for no password. The worker that signs in as it does need one, and saving an address the deployment holds none for mints it and writes it where the worker reads it — the agents file the deployment mounts — so a worker already running picks it up by itself. A deployment that mounts no writable agents file is the one that shows the secret here once, to put where the worker reads it. Save the address unchanged to mint one.",
+              "The deployment names the agent and this reads it back: GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD live in the environment of whoever starts the server and the worker, so there is one place they come from. Nothing here mints a secret, reads one back, or stores one.",
             )}
           </p>
-          <div className="agent-verifier-row">
-            <span className={status.address ? "agent-state ok" : "agent-state off"}>
-              {status.address ? t("Address named") : t("No address named")}
-            </span>
-            <span className={status.hasSecret ? "agent-state ok" : "agent-state off"}>
-              {status.hasSecret ? t("App password deployed") : t("No app password")}
-            </span>
-          </div>
-          {status.address && !status.hasSecret && (
-            <div className="warn-box" style={{ marginTop: 12 }}>
-              {t(
-                "No app password for this address is deployed, so no worker can sign in as it: automations will not run until one is. Saving this address mints one and writes it where the worker reads it, when the deployment mounts an agents file it can write.",
-              )}
-            </div>
-          )}
-          {credential && <MintedSecret rotation={credential} />}
-          {credentialError && (
+          {!status.operational && status.reason && (
             <div className="error-box" style={{ marginTop: 12 }}>
-              {agentErrorSentence(credentialError as Record<string, unknown>) ??
-                credentialError.code}
-            </div>
-          )}
-          {problem && (
-            <div className="error-box" style={{ marginTop: 12 }}>
-              {problem}
-            </div>
-          )}
-          {status.reason && (
-            <p className="hint" style={{ marginTop: 12 }}>
               {fleetReasonText(status.reason)}
-            </p>
+            </div>
           )}
         </div>
       )}
@@ -289,7 +168,7 @@ function Registration({ status }: { status: AgentStatus | null }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Groups: which groups have granted the agent, and what each one tells it */
+/* Groups: which groups the agent works in, and what each one tells it */
 /* ------------------------------------------------------------------ */
 
 function Groups({ status }: { status: AgentStatus | null }) {
@@ -328,33 +207,23 @@ function Groups({ status }: { status: AgentStatus | null }) {
       <h2>{t("Groups")}</h2>
       <p className="hint" style={{ marginBottom: 12 }}>
         {t(
-          "Which groups have granted the agent, and what each one tells it before every model call — its standing instruction, handed to the model first. Granting itself happens in Stalwart's own administration; this section verifies it and says so when it is missing.",
+          "The groups the agent works in, read from Stalwart: it is a member of a group exactly when the group appears here, and this list follows the directory on its own. To give it a group, add the group to the Gilbert user in Stalwart's own administration.",
         )}
       </p>
-      {status?.enumeration === false && (
-        <div className="warn-box" style={{ marginBottom: 12 }}>
-          {t(
-            "The group mailboxes could not all be listed, so this page covers only the groups you are a member of: a group that is missing here may still be granted.",
-          )}
-          {status.enumerationMessage && (
-            <>
-              {" "}
-              <code>{status.enumerationMessage}</code>
-            </>
-          )}
-        </div>
-      )}
       {!status ? (
         <p className="hint">{t("Loading…")}</p>
       ) : status.groups.length === 0 ? (
-        <p className="hint">{t("No group mailbox is visible to this session.")}</p>
+        <p className="hint">
+          {t(
+            "The agent is not in a group this installation can see. Add a group to the Gilbert user in Stalwart's own administration and it appears here.",
+          )}
+        </p>
       ) : (
         <>
           <table className="sessions-table" style={{ marginBottom: 20 }}>
             <thead>
               <tr>
                 <th>{t("Group")}</th>
-                <th>{t("Agent")}</th>
                 <th>{t("What that means")}</th>
                 <th>{t("Audit trail")}</th>
               </tr>
@@ -365,21 +234,10 @@ function Groups({ status }: { status: AgentStatus | null }) {
                   <td className="notranslate" translate="no">
                     {g.name}
                   </td>
-                  <td>
-                    {g.granted ? (
-                      <span className="agent-state ok">{t("Granted")}</span>
-                    ) : (
-                      <span className="agent-state off">{t("Not granted")}</span>
-                    )}
-                  </td>
                   <td className="hint">
-                    {g.granted
-                      ? t(
-                          "The agent is in this group: it appears in the group's chat and its automations run here.",
-                        )
-                      : t(
-                          "The agent is not in this group: nobody can mention it in the group's chat and no automation runs for it. Grant it in Stalwart's own administration to change that.",
-                        )}
+                    {t(
+                      "The agent is in this group: it appears in the group's chat and its automations run here.",
+                    )}
                   </td>
                   <td>
                     <button
@@ -403,7 +261,7 @@ function Groups({ status }: { status: AgentStatus | null }) {
               {copyProblem}
             </p>
           )}
-          <GroupInstruction groups={status.groups} />
+          <GroupInstruction groups={status.groups.map((g) => g.name)} />
         </>
       )}
     </section>

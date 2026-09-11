@@ -1502,8 +1502,6 @@ export const catalog: Catalog = {
     "itself, or an issuer it does not name": "其自身，或一个未具名的颁发者",
     "no address": "无地址",
     // ── The agent fleet (ADR 0003) ────────────────────────────────────
-    "The number of other app passwords still valid could not be read, so it is unknown here: check Stalwart's administration to see which credentials the agent still holds.":
-      "无法读取仍在生效的其他应用专用密码数量，因此这里显示为未知：请在 Stalwart 管理中检查该代理仍持有哪些凭据。",
     "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
       "无法列出所有群组邮箱，因此此队列只包含您所属的群组：缺失的群组中可能仍有内容在等待。",
     "Only an administrator of this group changes its instruction and its automations; every member reads them here.":

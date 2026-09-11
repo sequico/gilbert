@@ -1556,8 +1556,6 @@ export const catalog: Catalog = {
       "ele mesmo, ou um emissor que ele não nomeia",
     "no address": "nenhum endereço",
     // ── The agent fleet (ADR 0003) ────────────────────────────────────
-    "The number of other app passwords still valid could not be read, so it is unknown here: check Stalwart's administration to see which credentials the agent still holds.":
-      "Não foi possível ler quantas outras senhas de aplicativo ainda são válidas, então isso é desconhecido aqui: verifique na administração do Stalwart quais credenciais o agente ainda tem.",
     "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
       "Não foi possível listar todas as caixas de grupo, então esta fila cobre apenas os grupos dos quais você é membro: algo pode estar esperando em um grupo que falta aqui.",
     "Only an administrator of this group changes its instruction and its automations; every member reads them here.":

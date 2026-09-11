@@ -235,8 +235,6 @@ export const catalog: Catalog = {
       "Der Selektor sagt, wie diese Bedingungen zusammenspielen: alle, eine oder keine.",
     "This condition uses something this form cannot spell out, so it is shown as the document holds it and left exactly as it is.":
       "Diese Bedingung verwendet etwas, das dieses Formular nicht ausdrücken kann; sie wird daher so angezeigt, wie das Dokument sie enthält, und bleibt unverändert.",
-    "The number of other app passwords still valid could not be read, so it is unknown here: check Stalwart's administration to see which credentials the agent still holds.":
-      "Die Zahl der weiterhin gültigen App-Passwörter konnte nicht gelesen werden, ist hier also unbekannt: Prüfen Sie in der Stalwart-Administration, welche Zugangsdaten der Agent noch besitzt.",
     "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
       "Die Gruppenmailboxen konnten nicht alle aufgelistet werden, deshalb umfasst diese Warteschlange nur die Gruppen, in denen Sie Mitglied sind: In einer hier fehlenden Gruppe kann etwas warten.",
     "Header name": "Name der Kopfzeile",
@@ -1807,12 +1805,6 @@ export const catalog: Catalog = {
       one: "{n} Kontakt war auch in einem anderen Adressbuch und wurde nur aus diesem entfernt",
       other:
         "{n} Kontakte waren auch in anderen Adressbüchern und wurden nur aus diesem entfernt",
-    },
-    // ── The agent fleet (ADR 0003) ───────────────────────────────────
-    "{n} other app passwords still work — revoke them in Stalwart's administration.": {
-      one: "{n} weiteres App-Passwort ist noch gültig — widerrufen Sie es in der Stalwart-Administration.",
-      other:
-        "{n} weitere App-Passwörter sind noch gültig — widerrufen Sie sie in der Stalwart-Administration.",
     },
   },
 };
