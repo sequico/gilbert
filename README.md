@@ -444,7 +444,10 @@ services:
 The file is read at startup, and **Administration → Policy** publishes a new one
 without a restart: the running copy is swapped and every other session is signed
 out, so the next sign-in applies it at boot (ADR 0004). Editing the file by hand
-still means restarting the container.
+still means restarting the container. With no `SETTINGS_POLICY_FILE` — the
+immutable posture, where nothing on disk survives a replace — that publish is
+runtime-only, and the next container comes back on the `SETTINGS_*` variables it
+was started with.
 
 ### Writing a policy
 

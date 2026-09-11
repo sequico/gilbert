@@ -28,16 +28,24 @@
 #                 likely.
 #
 # The container is replaced rather than restarted, because the image is rebuilt
-# from the new checkout. Data lives in a named volume and survives that; the
-# environment file is never read here, only handed to Docker.
+# from the new checkout. Nothing of the container's own survives that: the
+# default is immutable -- no writable filesystem, no volume, sessions in memory
+# -- so a replace signs everyone out rather than restoring anything.
+# GILBERT_IMMUTABLE=0 mounts the named volume back. What survives either way is
+# outside the container: the environment file below, and everything durable in
+# Stalwart.
 set -euo pipefail
 
 # --- what to deploy, and where ----------------------------------------------
 # The checkout to deploy from. It must be a git clone: the version number is
 # read from its history (see scripts/version.mjs).
 APP="${GILBERT_APP:-$HOME/apps/gilbert}"
-# Environment file passed to the container. Keep it outside the repo's tracked
-# files -- it holds APP_SECRET and the upstream URL. Never read by this script.
+# Environment file passed to the container -- the only place this deployment
+# keeps configuration, since the container itself holds nothing durable. Keep it
+# outside the repo's tracked files: it holds APP_SECRET and the upstream URL,
+# and, when the deployment runs an agent, GILBERT_AGENT_ADDRESS and
+# GILBERT_AGENT_PASSWORD, which the server reads at boot (ADR 0009). Never read
+# by this script.
 ENVF="${GILBERT_ENV:-$APP/.env.production}"
 # Commits held back from production, one per line; blank or missing is fine.
 HOLD="${GILBERT_HOLD:-$APP/.deploy-hold}"
