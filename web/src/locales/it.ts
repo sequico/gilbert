@@ -889,6 +889,14 @@ export const catalog: Catalog = {
     "Make default": "Imposta come predefinita",
     Default: "Predefinita",
 
+    "Send from this identity by default":
+      "Invia da questa identità per impostazione predefinita",
+
+    "Default identity saved.": "Identità predefinita salvata.",
+
+    "No default identity: this account sends with its first.":
+      "Nessuna identità predefinita: questo account invia con la prima.",
+
     "Show when composing": "Mostra durante la composizione",
 
     "Hide when composing": "Nascondi durante la composizione",

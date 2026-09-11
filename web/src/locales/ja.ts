@@ -573,6 +573,10 @@ export const catalog: Catalog = {
     "Delete identity": "差出人を削除",
     "Make default": "既定にする",
     Default: "既定",
+    "Send from this identity by default": "この差出人から既定で送信",
+    "Default identity saved.": "既定の差出人を保存しました。",
+    "No default identity: this account sends with its first.":
+      "既定の差出人がありません。このアカウントは最初の差出人で送信します。",
     "Show when composing": "作成時に表示する",
     "Hide when composing": "作成時に表示しない",
     Signature: "署名",

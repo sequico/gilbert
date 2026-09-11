@@ -352,6 +352,14 @@ surface marks whether you are a member of each group.
   **this product's surface**, said that way on the surface:
   Stalwart has no per-field permission on an identity, so a client that speaks
   JMAP directly can still write one.
+- **The default sending identity** (ADR 0007 §7), on the User identities tab:
+  the surface shows which identity an account sends from by default and sets
+  it — **Make default** on one, **Default** on the one that holds the place.
+  It is not a Stalwart property but one key of that account's own settings
+  document, in its app folder, so the administration and the account's own
+  Identities & signatures section read and write **one** stored value rather
+  than two that can disagree; clearing the choice is a real state, and the
+  account then sends with its first identity.
 - **Group identities** (ADR 0007 §2, §3), the second tab: a group mailbox
   holds **one** identity —
   a rule of the product, because a group sends as itself — written **as the

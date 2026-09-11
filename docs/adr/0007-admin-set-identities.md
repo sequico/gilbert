@@ -137,6 +137,28 @@ written and no second credential appears.
    it says did it** — not what an administrator determined to reach an account
    can reach.
 
+7. **The default sending identity is one key of the client's own document.**
+   Which identity an account sends from by default is not a Stalwart property:
+   the server has no such field, so a copy this product kept beside it would be
+   a value free to disagree with the one the account itself reads. It is one
+   key of the client's settings document, `settings.json`, in that account's
+   app folder, keyed by account id — the key the account's own **Identities &
+   signatures** section reads and sends from. The administration reads it and
+   writes it there, by impersonating the account, at
+   `POST /api/admin/identities/user/default`; `null` clears the entry, which is
+   the same state as never having chosen, and the client falls back from it to
+   the first identity it holds. The surface shows what it read and writes what
+   it was given: **one stored value, not two**.
+
+   **Residual risk, stated because the mechanism carries it.** The write is a
+   read-modify-write of a document the client also writes wholesale, so a
+   client save landing between the read and the write loses the
+   administration's write: that save is the value that survives, and the
+   administrator's choice is gone without either side reporting it. Nothing
+   else can lose it: the key belongs to the client's schema, so every save
+   written by a client that read the document after this write carries the
+   value forward.
+
 ## Consequences
 - The feature fits the architecture it lands in: JMAP only, no Management API,
   no server configuration written by the product, no new credential, and

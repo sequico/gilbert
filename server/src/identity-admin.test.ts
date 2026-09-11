@@ -43,7 +43,12 @@ const { createApp } = await import("./app.js");
 const { parsePolicyDocumentDetailed, policyDocumentText } = await import(
   "./adminPolicy.js"
 );
-const { withIdentityLock } = await import("./identityAdmin.js");
+const { withIdentityLock, readDefaultIdentity, writeDefaultIdentity } = await import(
+  "./identityAdmin.js"
+);
+const { fetchUpstreamSession } = await import("./upstream.js");
+const { readAppJsonAt, writeAppBytesAt, writeAppFile } = await import("./appFolder.js");
+const { JMAP_SUBMISSION } = await import("./jmap.js");
 
 const app = createApp();
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
@@ -91,6 +96,31 @@ const post = (path: string, cookie: string, body: unknown) =>
   call(path, cookie, { method: "POST", body: JSON.stringify(body) });
 
 let adminCookie = "";
+
+/**
+ * Two principals' own JMAP sessions, for the default-identity tests below.
+ *
+ * The default is one key of the client's settings document, keyed by account
+ * id, so the tests need the account id a session actually resolves — not a
+ * literal that goes stale the day the mock renumbers.
+ */
+const BASE = `http://127.0.0.1:${PORT}`;
+const basic = (user: string, pass: string) =>
+  `Basic ${Buffer.from(`${user}:${pass}`).toString("base64")}`;
+const ADMIN_AUTH = basic(ADMIN, ADMIN_PASS);
+const BOB_AUTH = basic(BOB, BOB_PASS);
+const adminCtx = {
+  authorization: ADMIN_AUTH,
+  session: await fetchUpstreamSession(ADMIN_AUTH, BASE),
+  username: ADMIN,
+};
+const bobCtx = {
+  authorization: BOB_AUTH,
+  session: await fetchUpstreamSession(BOB_AUTH, BASE),
+  username: BOB,
+};
+const ADMIN_ACCOUNT = adminCtx.session.primaryAccounts?.[JMAP_SUBMISSION] ?? "";
+const BOB_ACCOUNT = bobCtx.session.primaryAccounts?.[JMAP_SUBMISSION] ?? "";
 
 before(async () => {
   const res = await login(ADMIN, ADMIN_PASS);
@@ -370,4 +400,181 @@ test("a malformed address is refused before any server is asked", async () => {
   const res = await call("/api/admin/identities/user?address=nonsense", adminCookie);
   assert.equal(res.status, 400);
   assert.equal(res.body?.error, "invalid_address");
+});
+
+/* ------------------------------------------------------------------ */
+/* The default sending identity (ADR 0007 §7)                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The default is not a Stalwart property: it is one key of the client's own
+ * settings document, `settings.json` in the account's app folder. These pin the
+ * three facts that makes true — the document is the client's, the key is the
+ * account's own, and a write leaves the rest of the document where it was —
+ * plus the route that reaches them, so an administration that stops writing the
+ * value the account reads fails here.
+ */
+
+test("an absent, unreadable or shapeless document is no default, not an error", async () => {
+  assert.equal(
+    await readDefaultIdentity(bobCtx, BOB_ACCOUNT),
+    null,
+    "a missing document is no default",
+  );
+
+  await writeAppBytesAt(
+    bobCtx,
+    BOB_ACCOUNT,
+    "settings.json",
+    new TextEncoder().encode("{not json"),
+    "application/json",
+  );
+  assert.equal(
+    await readDefaultIdentity(bobCtx, BOB_ACCOUNT),
+    null,
+    "a document that will not parse is no default",
+  );
+
+  await writeAppFile(bobCtx, BOB_ACCOUNT, "settings.json", {
+    defaultIdentityByAccount: "i1",
+  });
+  assert.equal(
+    await readDefaultIdentity(bobCtx, BOB_ACCOUNT),
+    null,
+    "a key that is not a map of accounts is no default",
+  );
+
+  await writeAppFile(bobCtx, BOB_ACCOUNT, "settings.json", ["not", "an", "object"]);
+  assert.equal(
+    await readDefaultIdentity(bobCtx, BOB_ACCOUNT),
+    null,
+    "a document that is not an object is no default",
+  );
+
+  await writeAppFile(bobCtx, BOB_ACCOUNT, "settings.json", {
+    defaultIdentityByAccount: { [BOB_ACCOUNT]: "" },
+  });
+  assert.equal(
+    await readDefaultIdentity(bobCtx, BOB_ACCOUNT),
+    null,
+    "an entry that names nothing is no default",
+  );
+});
+
+test("the key is the account's own, and a write leaves the client's other keys alone", async () => {
+  await writeAppFile(bobCtx, BOB_ACCOUNT, "settings.json", {
+    theme: "dark",
+    defaultIdentityByAccount: { [ADMIN_ACCOUNT]: "admin-identity" },
+  });
+
+  assert.equal(
+    await readDefaultIdentity(bobCtx, BOB_ACCOUNT),
+    null,
+    "an entry for another account is not this account's default",
+  );
+
+  await writeDefaultIdentity(bobCtx, BOB_ACCOUNT, "bob-identity");
+
+  const doc = (await readAppJsonAt(bobCtx, BOB_ACCOUNT, "settings.json")) as Record<
+    string,
+    unknown
+  >;
+  assert.equal(
+    doc.theme,
+    "dark",
+    "the write is a read-modify-write: the client's own keys survive it",
+  );
+  assert.deepEqual(
+    doc.defaultIdentityByAccount,
+    { [ADMIN_ACCOUNT]: "admin-identity", [BOB_ACCOUNT]: "bob-identity" },
+    "one document, one entry per account",
+  );
+  assert.equal(
+    await readDefaultIdentity(bobCtx, BOB_ACCOUNT),
+    "bob-identity",
+    "the entry keyed by this account, not the one beside it",
+  );
+});
+
+test("clearing the default removes that account's entry and leaves the others", async () => {
+  await writeAppFile(bobCtx, BOB_ACCOUNT, "settings.json", {
+    defaultIdentityByAccount: {
+      [ADMIN_ACCOUNT]: "admin-identity",
+      [BOB_ACCOUNT]: "bob-identity",
+    },
+  });
+
+  await writeDefaultIdentity(bobCtx, BOB_ACCOUNT, null);
+
+  assert.equal(await readDefaultIdentity(bobCtx, BOB_ACCOUNT), null);
+  const doc = (await readAppJsonAt(bobCtx, BOB_ACCOUNT, "settings.json")) as Record<
+    string,
+    unknown
+  >;
+  assert.deepEqual(
+    doc.defaultIdentityByAccount,
+    { [ADMIN_ACCOUNT]: "admin-identity" },
+    "the account's entry is gone, which is the state the client falls back from",
+  );
+});
+
+test("the administration sets and clears the default the account's own section reads", async () => {
+  const created = await post("/api/admin/identities/user", adminCookie, {
+    address: BOB,
+    id: null,
+    patch: { email: BOB, textSignature: "Default" },
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const id = created.body?.id as string;
+  assert.ok(id, "a created identity answers its id");
+
+  const set = await post("/api/admin/identities/user/default", adminCookie, {
+    address: BOB,
+    identityId: id,
+  });
+  assert.equal(set.status, 200, JSON.stringify(set.body));
+  assert.equal(set.body?.identityId, id);
+
+  const read = await call(
+    `/api/admin/identities/user?address=${encodeURIComponent(BOB)}`,
+    adminCookie,
+  );
+  assert.equal(
+    read.body?.defaultIdentityId,
+    id,
+    "the surface reads back the value it set",
+  );
+
+  const cleared = await post("/api/admin/identities/user/default", adminCookie, {
+    address: BOB,
+    identityId: null,
+  });
+  assert.equal(cleared.status, 200, JSON.stringify(cleared.body));
+  assert.equal(cleared.body?.identityId, null);
+  const after = await call(
+    `/api/admin/identities/user?address=${encodeURIComponent(BOB)}`,
+    adminCookie,
+  );
+  assert.equal(after.body?.defaultIdentityId, null, "and clearing it is a real state");
+});
+
+test("an app-password session cannot set a default: the refusal is impersonation_denied", async () => {
+  // The same limit the other impersonating surfaces have: Stalwart refuses an
+  // app-password session as an impersonator (ADR 0007), and the refusal
+  // keeps its own code instead of reading as a failed write.
+  const created = await call("/api/account/app-passwords", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ description: "identity-default" }),
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const viaApp = await login(ADMIN, created.body?.secret as string);
+  assert.equal(viaApp.status, 200);
+
+  const refused = await post("/api/admin/identities/user/default", viaApp.cookie, {
+    address: BOB,
+    identityId: "anything",
+  });
+  assert.equal(refused.status, 403);
+  assert.equal(refused.body?.error, "impersonation_denied");
+  assert.match(String(refused.body?.message), /app password/i);
 });

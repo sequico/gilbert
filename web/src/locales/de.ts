@@ -624,6 +624,10 @@ export const catalog: Catalog = {
     "Delete identity": "Identität löschen",
     "Make default": "Als Standard festlegen",
     Default: "Standard",
+    "Send from this identity by default": "Standardmäßig von dieser Identität senden",
+    "Default identity saved.": "Standardidentität gespeichert.",
+    "No default identity: this account sends with its first.":
+      "Keine Standardidentität: Dieses Konto sendet mit seiner ersten.",
     "Show when composing": "Beim Verfassen anzeigen",
     "Hide when composing": "Beim Verfassen ausblenden",
     Signature: "Signatur",

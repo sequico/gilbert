@@ -1880,7 +1880,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * The identity an account sends from by default (ADR 0007 §4).
+   * The identity an account sends from by default (ADR 0007 §7).
    *
    * Not a Stalwart property: it is one key of the client's own settings
    * document, in that account's app folder, so the administrator and the

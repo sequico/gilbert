@@ -563,6 +563,10 @@ export const catalog: Catalog = {
     "Delete identity": "删除发件身份",
     "Make default": "设为默认",
     Default: "默认",
+    "Send from this identity by default": "默认从此发件身份发送",
+    "Default identity saved.": "已保存默认发件身份。",
+    "No default identity: this account sends with its first.":
+      "没有默认发件身份：此账户使用第一个发送。",
     "Show when composing": "写邮件时显示",
     "Hide when composing": "写邮件时隐藏",
     Signature: "签名",

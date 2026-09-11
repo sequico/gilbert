@@ -333,6 +333,12 @@ export { MASKED };
  * directive inside it would not survive the next settings write. Missing
  * file = not forced.
  *
+ * The separation is for a document whose key the client's schema does not own.
+ * A key it does own lives inside `settings.json` on purpose — the default
+ * sending identity is one (`defaultIdentityByAccount`, ADR 0007 §7) — because
+ * the client writes its own copy of the whole document back, that key included,
+ * whereas a key it does not know would be gone with the next save.
+ *
  * The name match is done here, client-style, because `FileNode/query` cannot
  * filter by `name` — a filter the server does not know fails the whole query
  * (checked on 0.16.19, 2026-08-27; see `web/src/lib/appFolder.ts`).

@@ -576,6 +576,10 @@ export const catalog: Catalog = {
     "Delete identity": "Удалить профиль",
     "Make default": "Сделать основным",
     Default: "Основной",
+    "Send from this identity by default": "Отправлять из этого профиля по умолчанию",
+    "Default identity saved.": "Основной профиль сохранён.",
+    "No default identity: this account sends with its first.":
+      "Основного профиля нет: эта учётная запись отправляет с первого.",
     "Show when composing": "Показывать при написании",
     "Hide when composing": "Скрывать при написании",
     Signature: "Подпись",

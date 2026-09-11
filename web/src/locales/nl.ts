@@ -571,6 +571,10 @@ export const catalog: Catalog = {
     "Delete identity": "Identiteit verwijderen",
     "Make default": "Als standaard instellen",
     Default: "Standaard",
+    "Send from this identity by default": "Standaard vanaf deze identiteit verzenden",
+    "Default identity saved.": "Standaardidentiteit opgeslagen.",
+    "No default identity: this account sends with its first.":
+      "Geen standaardidentiteit: dit account verzendt met de eerste.",
     "Show when composing": "Tonen bij opstellen",
     "Hide when composing": "Verbergen bij opstellen",
     Signature: "Handtekening",

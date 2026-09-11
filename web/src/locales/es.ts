@@ -577,6 +577,11 @@ export const catalog: Catalog = {
     "Delete identity": "Eliminar la identidad",
     "Make default": "Establecer como predeterminada",
     Default: "Predeterminada",
+    "Send from this identity by default":
+      "Enviar desde esta identidad de forma predeterminada",
+    "Default identity saved.": "Identidad predeterminada guardada.",
+    "No default identity: this account sends with its first.":
+      "Sin identidad predeterminada: esta cuenta envía con la primera.",
     "Show when composing": "Mostrar al redactar",
     "Hide when composing": "Ocultar al redactar",
     Signature: "Firma",
