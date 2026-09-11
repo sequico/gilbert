@@ -157,3 +157,13 @@ are not repeated here.
   of the deployment's own hostname in configuration; the `origin` an entry in
   `server/src/push.ts` carries is restated at every renewal. `PUSH_MODE` stays
   the one switch.
+
+## 0013 — An automation is written in prose and compiled into its rule
+
+- **Status:** Proposed (2026-09-11).
+- **Code:** **not implemented** — the authoring surface gains a prose field in
+  front of the rule form, and one model call compiles the prose into the same
+  `AgentRule` the form produces (`isAgentRule`/`ruleProblem`), choosing the tier
+  and refusing a compiled document that is invalid. The prose is data and never
+  reaches the compiler's own instructions; the executor, the review gate and the
+  consent floor are unchanged, and the form stays as the exact path.
