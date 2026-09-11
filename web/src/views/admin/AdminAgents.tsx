@@ -2,13 +2,14 @@
  * The Gilbert admin "Agents" section (ADR 0003 "Admin surfaces").
  *
  * The installation's own agent and its per-tier models live here, split into
- * four questions asked in the order a person actually asks them: is there an
- * agent and is it healthy (Overview), which groups has it been granted and
- * what does each one tell it (Groups), which model serves which tier
- * (Models), and the one secret a worker signs in with (Credentials). What a
- * group's agent actually *does* — its automations, and the approvals waiting
- * on a person — lives in Group workers instead: that section already reads
- * one group at a time, and an automation is exactly that.
+ * three questions asked in the order a person actually asks them: is there an
+ * agent, is it healthy and how does it sign in (Overview — identity, the app
+ * password and the workers are one story, not three tabs for one thing),
+ * which groups has it been granted and what does each one tell it (Groups),
+ * and which model serves which tier (Models). What a group's agent actually
+ * *does* — its automations, and the approvals waiting on a person — lives in
+ * Group workers instead: that section already reads one group at a time, and
+ * an automation is exactly that.
  *
  * Nothing here grants anything. The agent is a principal in Stalwart's own
  * directory and its membership of a group is granted in Stalwart's own
@@ -34,8 +35,8 @@ export function AdminAgents() {
   const error = useAgents((s) => s.problems.status);
   const loadStatus = useAgents((s) => s.loadStatus);
   // One part at a time: the installation's own health, what each group has
-  // granted and told it, which models serve it and how it signs in are four
-  // questions, and every surface on one page was a page nobody read.
+  // granted and told it, and which models serve it are three questions, and
+  // every surface on one page was a page nobody read.
   const [part, setPart] = useState<AgentPart>("overview");
 
   useEffect(() => {
@@ -80,12 +81,12 @@ export function AdminAgents() {
       {part === "overview" && (
         <>
           <Registration status={status} />
+          <AppPasswordRotate />
           <Workers status={status} />
         </>
       )}
       {part === "groups" && <Groups status={status} />}
       {part === "models" && <AgentProviders />}
-      {part === "credentials" && <AppPasswordRotate />}
     </div>
   );
 }
@@ -97,7 +98,6 @@ const AGENT_PARTS = [
   { id: "overview", label: "Overview" },
   { id: "groups", label: "Groups" },
   { id: "models", label: "Models" },
-  { id: "credentials", label: "Credentials" },
 ] as const;
 
 type AgentPart = (typeof AGENT_PARTS)[number]["id"];
