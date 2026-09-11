@@ -1,23 +1,13 @@
-import {
-  Bot,
-  Info,
-  KeyRound,
-  ShieldCheck,
-  Tag,
-  UserCog,
-  Users,
-  UsersRound,
-} from "lucide-react";
+import { Bot, Info, KeyRound, ShieldCheck, Tag, UserCog, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { t } from "@/lib/i18n";
 import { type SectionGroup, type SectionItem, SectionShell } from "@/ui/SectionShell";
 import { AdminAgents } from "@/views/admin/AdminAgents";
 import { AdminPolicy } from "@/views/admin/AdminPolicy";
 import { AdminUsers } from "@/views/admin/AdminUsers";
-import { GroupIdentities } from "@/views/admin/GroupIdentities";
+import { EnforceIdentities } from "@/views/admin/EnforceIdentities";
 import { GroupLabels } from "@/views/admin/GroupLabels";
 import { GroupWorkers } from "@/views/admin/GroupWorkers";
-import { UserIdentities } from "@/views/admin/UserIdentities";
 import { AboutSettings } from "@/views/settings/AboutSettings";
 
 type AdminOwner = "mailer" | "assistant" | "stalwart" | null;
@@ -31,10 +21,10 @@ type AdminSection = SectionItem & { el: ReactNode; owner: AdminOwner };
  * added before there was an agent at all. "Assistant" is everything ADR
  * 0003/0009 added: the fleet's own identity and per-tier models, and what it
  * does inside each group. "Stalwart" is the mail server's own records, written
- * over JMAP or over its configuration API: the identities it holds (ADR 0010)
- * and, in time, its system Sieve scripts (ADR 0011). Splitting them is the fix
- * for the section that used to hold both kinds of thing under one unlabelled
- * "Gilbert" heading.
+ * over JMAP or over its configuration API: **Enforce Identities**, one section
+ * holding a person's and a group's behind two tabs (ADR 0010), and, in time, its
+ * system Sieve scripts (ADR 0011). Splitting them is the fix for the section
+ * that used to hold both kinds of thing under one unlabelled "Gilbert" heading.
  */
 const SECTIONS: AdminSection[] = [
   {
@@ -73,17 +63,10 @@ const SECTIONS: AdminSection[] = [
     owner: "assistant",
   },
   {
-    id: "user-identities",
-    label: t("User identities"),
+    id: "enforce-identities",
+    label: t("Enforce Identities"),
     icon: <UserCog size={18} />,
-    el: <UserIdentities />,
-    owner: "stalwart",
-  },
-  {
-    id: "group-identities",
-    label: t("Group identities"),
-    icon: <UsersRound size={18} />,
-    el: <GroupIdentities />,
+    el: <EnforceIdentities />,
     owner: "stalwart",
   },
   {
@@ -103,9 +86,9 @@ const SECTIONS: AdminSection[] = [
  * "Gilbert Mailer" for the mail server's own administration (policy, forced
  * passwords, group label catalogs), "Gilbert Assistant" for the agent fleet
  * (ADR 0003/0009) and what it does per group, and "Stalwart" for the mail
- * server's own records — the identities an administrator sets (ADR 0010) and,
- * in time, its system Sieve scripts (ADR 0011) — with About ungrouped at the
- * tail.
+ * server's own records — the identities an administrator sets, as one section
+ * with a tab per kind of principal (ADR 0010), and, in time, its system Sieve
+ * scripts (ADR 0011) — with About ungrouped at the tail.
  */
 export function AdminView({ section }: { section?: string }) {
   const current = SECTIONS.find((s) => s.id === section);

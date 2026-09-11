@@ -1061,6 +1061,15 @@ img { max-width: 100%; }
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .field > label, .label { font-size: .85em; font-weight: 600; color: var(--fg-muted); letter-spacing: .01em; }
 .field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+
+/* The tabs one administration section is split into (Enforce Identities). */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+.tab {
+  border: none; background: none; color: var(--fg-muted); cursor: pointer;
+  padding: 8px 12px; font: inherit; border-bottom: 2px solid transparent;
+}
+.tab:hover { color: var(--fg); }
+.tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
 .hint { font-size: .85em; color: var(--fg-faint); }
 .check { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 0; }
 .check input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }

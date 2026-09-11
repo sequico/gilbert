@@ -58,10 +58,11 @@ the refusal where a person will see it rather than failing quietly.
 
 ## Decision
 
-The administration gains **User identities** and **Group identities**, under
-the existing **Stalwart** group of the admin navigation — **gilbertstalwart**,
-one of the four blocks `README.md` names, because what these surfaces write is
-held by the server itself. The door here is JMAP, a person's identity being a
+The administration gains **Enforce Identities**, one section under the existing
+**Stalwart** group of the admin navigation — **gilbertstalwart**, one of the
+four blocks `README.md` names, because what these surfaces write is held by the
+server itself. It holds a person's identities and a group's as its two tabs,
+**User identities** and **Group identities**. The door here is JMAP, a person's identity being a
 JMAP object the server keeps and sends with: no server configuration is
 written and no second credential appears.
 
@@ -105,9 +106,15 @@ written and no second credential appears.
    and its effect is that the person's **Identities & signatures** section is
    not shown: the product offers them no path to add, change or remove an
    identity, and no path to a signature of their own. What the administrator
-   set stays what the product sends. Applying one ends that account's sessions,
-   so the section is gone from its next sign-in rather than from the page that
-   was already open when the lock was written.
+   set stays what the product sends. It is written and given back from the
+   section that holds it, as two controls — **Enforce**, shown as **Enforced**
+   while it holds, and **Release** — and it takes effect where the policy is
+   read: the session that writes one re-reads its own at once, and a session
+   already open does so the next time it asks, so applying a lock ends no
+   session and needs no sign-in. Beside the account picker, **Reload
+   identities** reads the account's list and the directory again from the
+   server — for an identity deleted in Stalwart's own administration — and
+   leaves a draft in progress where it is.
 5. **The lock is a rule about the surface, and the record says so rather than
    implying otherwise.** Stalwart has no per-field permission on an identity,
    so a principal who uses a JMAP client directly can still write one; what the

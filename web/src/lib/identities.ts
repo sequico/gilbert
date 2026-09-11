@@ -114,8 +114,9 @@ export async function deleteUserIdentity(address: string, id: string): Promise<v
 
 /**
  * `POST /api/admin/identities/user/lock` — take the account's identity over, or
- * give it back. The lock is the installation's record, and applying one signs
- * that account's sessions out. The state the server holds comes back.
+ * give it back. The lock is the installation's record and ends no session: it is
+ * read where the product asks what to offer, so the caller's own session sees it
+ * by re-reading itself. The state the server holds comes back.
  */
 export async function setUserIdentityLock(
   address: string,

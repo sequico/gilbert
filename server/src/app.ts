@@ -2010,12 +2010,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * It is recorded in the installation's policy document, beside the settings
    * policy, through the same compare-and-set every other change to that document
    * uses — so an administrator saving the policy editor at the same moment
-   * neither drops the locks nor is dropped by them. Applying one kicks that
-   * account's sessions, the way a policy publish does (ADR 0004): the section is
-   * gone from the next sign-in and never was a boundary in between.
+   * neither drops the locks nor is dropped by them. Applying one ends nothing:
+   * a lock is a rule about what the product offers, read from the policy where
+   * the product asks, so the session that writes one sees it at once (ADR 0010
+   * §4) and a session already open sees it the next time it reads its own.
    */
   api.post("/admin/identities/user/lock", requireSession, requireAdmin, async (c) => {
-    const session = c.get("session");
     const body = await readJson<{ address?: unknown; locked?: unknown }>(c);
     try {
       const address = identityAddress(
@@ -2028,8 +2028,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           { error: written.error, message: written.message },
           written.error === "policy_moved" ? 409 : 500,
         );
-      const kicked = sessions.destroyAllForUser(address, session.id);
-      return c.json({ ok: true, locked, kicked });
+      return c.json({ ok: true, locked });
     } catch (err) {
       return identityFailure(c, err);
     }

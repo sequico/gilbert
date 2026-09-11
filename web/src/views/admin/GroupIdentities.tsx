@@ -1,5 +1,6 @@
 /**
- * Group identities (ADR 0010 §2, §3): what a group mailbox sends as.
+ * Group identities (ADR 0010 §2, §3), the second tab of **Enforce Identities**:
+ * what a group mailbox sends as.
  *
  * Written **as the installation's agent**, always, because Stalwart refuses to
  * impersonate a group mailbox at all — and the agent is the principal the
@@ -12,7 +13,7 @@
  * so Add appears only when there is none, and an edit is an edit of that one.
  */
 
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, RotateCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Identity } from "@/jmap/types";
 import { formatAddressList } from "@/lib/address";
@@ -26,7 +27,6 @@ import {
   storeAdminSignatureHtml,
 } from "@/lib/identities";
 import { htmlToText } from "@/lib/text";
-import { TypeSelect } from "@/ui/TypeSelect";
 import { IdentityDialog } from "@/views/settings/IdentityDialog";
 
 interface DirectoryGroup {
@@ -65,6 +65,20 @@ export function GroupIdentities() {
   }, []);
 
   /** Read the chosen group's identity, and whether the agent is granted on it. */
+  async function readGroup(who: string) {
+    setLoading(true);
+    try {
+      setView(await fetchGroupIdentity(who));
+      return true;
+    } catch (err) {
+      setView(null);
+      setError((err as Error).message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function load(target: string) {
     const who = target.trim().toLowerCase();
     setName(who);
@@ -74,15 +88,17 @@ export function GroupIdentities() {
       setView(null);
       return;
     }
-    setLoading(true);
-    try {
-      setView(await fetchGroupIdentity(who));
-    } catch (err) {
-      setView(null);
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
+    await readGroup(who);
+  }
+
+  /**
+   * Re-read the group and the directory from the server. A draft stays where it
+   * is: re-reading is no reason to throw away what the administrator typed.
+   */
+  async function reload() {
+    setError(null);
+    await loadDirectory();
+    if (name) await readGroup(name);
   }
 
   async function save(patch: Partial<Identity>) {
@@ -130,15 +146,38 @@ export function GroupIdentities() {
       )}
 
       <div className="field" style={{ maxWidth: "28rem" }}>
-        <label>{t("Group mailbox")}</label>
-        <TypeSelect
-          value={name}
-          onChange={(v) => void load(v)}
-          options={groups.map((g) => ({ value: g.name, label: g.name }))}
-          placeholder={t("team@example.org")}
-          ariaLabel={t("Group mailbox")}
-          allowFreeText
-        />
+        <label htmlFor="identity-group">{t("Group mailbox")}</label>
+        {enumeration ? (
+          <select
+            id="identity-group"
+            className="select"
+            value={name}
+            onChange={(e) => void load(e.target.value)}
+          >
+            <option value="">{t("Choose a group…")}</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.name}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            id="identity-group"
+            className="input"
+            defaultValue={name}
+            placeholder={t("team@example.org")}
+            aria-label={t("Group mailbox")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void load(e.currentTarget.value);
+            }}
+          />
+        )}
+      </div>
+      <div style={{ marginBottom: 12 }}>
+        <button className="btn" disabled={loading || !name} onClick={() => void reload()}>
+          <RotateCw size={16} /> {t("Reload identities")}
+        </button>
       </div>
 
       {error && (

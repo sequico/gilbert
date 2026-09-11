@@ -1,6 +1,7 @@
 /**
- * User identities (ADR 0010 §1): what an administrator sets on a person's
- * account, through the same form the person's own settings use.
+ * User identities (ADR 0010 §1), the first tab of **Enforce Identities**: what
+ * an administrator sets on a person's account, through the same form the
+ * person's own settings use.
  *
  * The write is an impersonation of that person from this session, so the gate is
  * Stalwart's own permission model and there is no second credential anywhere in
@@ -13,7 +14,7 @@
  * surface respects it rather than inventing a rule of its own about the last one.
  */
 
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, RotateCw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Identity } from "@/jmap/types";
 import { formatAddressList } from "@/lib/address";
@@ -30,8 +31,8 @@ import {
   storeAdminSignatureHtml,
 } from "@/lib/identities";
 import { htmlToText } from "@/lib/text";
+import { useSession } from "@/store/session";
 import { confirmDialog } from "@/ui/dialog";
-import { TypeSelect } from "@/ui/TypeSelect";
 import { IdentityDialog } from "@/views/settings/IdentityDialog";
 
 interface DirectoryUser {
@@ -76,6 +77,22 @@ export function UserIdentities() {
   }, []);
 
   /** Read the chosen account's identities, and whether it is locked. */
+  async function readAccount(who: string) {
+    setLoading(true);
+    try {
+      const res = await fetchUserIdentities(who);
+      setView(res);
+      setLocked(res.locked);
+      return true;
+    } catch (err) {
+      setView(null);
+      setError((err as Error).message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function load(target: string) {
     const who = target.trim().toLowerCase();
     setAddress(who);
@@ -86,17 +103,23 @@ export function UserIdentities() {
       setView(null);
       return;
     }
-    setLoading(true);
-    try {
-      const res = await fetchUserIdentities(who);
-      setView(res);
-      setLocked(res.locked);
-    } catch (err) {
-      setView(null);
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
+    await readAccount(who);
+  }
+
+  /**
+   * Re-read the account and the directory from the server.
+   *
+   * This is what an administrator reaches for after deleting an identity in
+   * Stalwart's own administration: the list is the server's and is read again
+   * whole, while `editing` is deliberately left where it is — a draft belongs to
+   * the administrator, and re-reading is no reason to throw it away.
+   */
+  async function reload() {
+    setError(null);
+    setNotice(null);
+    await loadDirectory();
+    if (address && (await readAccount(address)))
+      setNotice(t("Re-read from the server. What you were editing is still open."));
   }
 
   async function save(patch: Partial<Identity>) {
@@ -122,19 +145,25 @@ export function UserIdentities() {
     }
   }
 
-  async function applyLock() {
+  /**
+   * Write the lock, from this page, with no sign-in in between (ADR 0010 §4).
+   *
+   * The lock lives in the installation's policy document, and what makes it
+   * visible here is this session re-reading its own record: the surface in front
+   * of the administrator is the one that sees it first, and a session already
+   * open sees it the next time it asks. Nobody is signed out over a policy rule.
+   */
+  async function setLock(next: boolean) {
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
-      const now = await setUserIdentityLock(address, locked);
-      setLocked(now);
+      setLocked(await setUserIdentityLock(address, next));
+      await useSession.getState().refresh();
       setNotice(
-        now
-          ? t(
-              "Locked. The account's Identity & signatures section is gone from its next sign-in, and its open sessions were signed out.",
-            )
-          : t("Unlocked. The account can set its own identities again."),
+        next
+          ? t("Enforced — applied at once, with no sign-in needed.")
+          : t("Released — the account can set its own identities again."),
       );
     } catch (err) {
       setError((err as Error).message);
@@ -191,16 +220,44 @@ export function UserIdentities() {
       )}
 
       <div className="field" style={{ maxWidth: "28rem" }}>
-        <label>{t("Account")}</label>
-        <TypeSelect
-          value={address}
-          onChange={(v) => void load(v)}
-          options={users.map((u) => ({ value: u.name, label: u.name }))}
-          placeholder={t("user@example.com")}
-          ariaLabel={t("Account address")}
-          allowFreeText
-          disabled={denied}
-        />
+        <label htmlFor="identity-account">{t("Account")}</label>
+        {enumeration ? (
+          <select
+            id="identity-account"
+            className="select"
+            value={address}
+            disabled={denied}
+            onChange={(e) => void load(e.target.value)}
+          >
+            <option value="">{t("Choose an account…")}</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.name}>
+                {u.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            id="identity-account"
+            className="input"
+            defaultValue={address}
+            placeholder={t("user@example.com")}
+            aria-label={t("Account address")}
+            disabled={denied}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void load(e.currentTarget.value);
+            }}
+          />
+        )}
+      </div>
+      <div style={{ marginBottom: 12 }}>
+        <button
+          className="btn"
+          disabled={loading || !address}
+          onClick={() => void reload()}
+        >
+          <RotateCw size={16} /> {t("Reload identities")}
+        </button>
       </div>
 
       {error && (
@@ -305,30 +362,28 @@ export function UserIdentities() {
             )}
           </p>
 
-          <h2>{t("Lock")}</h2>
+          <h2>{t("Enforce")}</h2>
           <p className="hint">
             {t(
-              "A locked account is offered no Identity & signatures section at all, and no signature of its own. The lock is a rule about this product's surface, not a boundary: Stalwart has no per-field permission on an identity, so a client that speaks JMAP directly can still write one.",
+              "An enforced account is offered no Identity & signatures section at all, and no signature of its own. The lock is a rule about this product's surface, not a boundary: Stalwart has no per-field permission on an identity, so a client that speaks JMAP directly can still write one.",
             )}
           </p>
           <div
-            style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}
+            style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}
           >
-            <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                type="checkbox"
-                checked={locked}
-                disabled={busy || !reachable}
-                onChange={(e) => setLocked(e.target.checked)}
-              />
-              <span>{t("An administrator set this account's identity")}</span>
-            </label>
             <button
               className="btn btn-primary"
-              disabled={busy || !reachable || locked === view.locked}
-              onClick={() => void applyLock()}
+              disabled={busy || !reachable || locked}
+              onClick={() => void setLock(true)}
             >
-              {busy ? t("Applying…") : t("Apply")}
+              {locked ? t("Enforced") : t("Enforce")}
+            </button>
+            <button
+              className="btn"
+              disabled={busy || !reachable || !locked}
+              onClick={() => void setLock(false)}
+            >
+              {t("Release")}
             </button>
             {notice && <span className="hint">{notice}</span>}
           </div>

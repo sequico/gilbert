@@ -305,7 +305,14 @@ impersonation, and a non-member is refused with that reason. Stalwart 0.16
 refuses to mint a session for an impersonated group account
 (live-verified 2026-09-09), so the member path is the only one; the
 surface marks whether you are a member of each group.
-- **User identities** (ADR 0010): an administrator sets a person's
+- **Enforce Identities** (ADR 0010), under *Stalwart* in the administration:
+  one section, two tabs — **User identities** for a person's, **Group
+  identities** for a group's. Each tab picks its principal from a plain native
+  dropdown and, beside it, **Reload identities** re-reads that principal's list
+  and the directory from the server — what an administrator reaches for after
+  deleting an identity in Stalwart's own administration — leaving an edit in
+  progress exactly where it is.
+- **User identities** (ADR 0010 §1): an administrator sets a person's
   identities — display name, address, Reply-To and signature — from the
   administration, through the **same form** the person's own settings use, so
   an identity means one thing wherever it is written. The write is an
@@ -317,12 +324,16 @@ surface marks whether you are a member of each group.
   left behind as an identity the administrator cannot see and the composer
   still offers. A **lock** can be applied instead, recorded in the
   installation's policy document beside the settings policy: the person's
-  Identities & signatures section is not offered at all, and their sessions are
-  kicked so the next sign-in is the one that sees it. The lock is a rule about
+  Identities & signatures section is not offered at all. **Enforce** and
+  **Release** write and give it back from the page, with no sign-in in
+  between — the button reads **Enforced** while it holds, the session at hand
+  re-reads its own record at once, and a session already open does so the next
+  time it asks, so nobody is signed out over a policy rule. The lock is a rule about
   **this product's surface**, said that way on the surface:
   Stalwart has no per-field permission on an identity, so a client that speaks
   JMAP directly can still write one.
-- **Group identities** (ADR 0010): a group mailbox holds **one** identity —
+- **Group identities** (ADR 0010 §2, §3), the second tab: a group mailbox
+  holds **one** identity —
   a rule of the product, because a group sends as itself — written **as the
   installation's agent**, always: Stalwart refuses to impersonate a group
   mailbox, and the agent is the principal the installation has for acting on
@@ -335,8 +346,9 @@ surface marks whether you are a member of each group.
 - **Nav grouping**: the administration sections are grouped by owner —
 Gilbert Mailer (policy, forced passwords, group label catalogs), Gilbert
 Assistant (the agent fleet and what it does per group), server configuration
-under “Stalwart” (the identities it holds, and a future Sieve editor with its
-peers), and About ungrouped at the tail.
+under “Stalwart” (**Enforce Identities**, one section with a tab per kind of
+principal, and a future Sieve editor with its peers), and About ungrouped at
+the tail.
 - **Where the documents live**: policy and settings documents sit in each
 account's hidden `gilbert` app folder; the per-user policy layer (values
 and enforced flags per user, named profiles, publishing per user or per

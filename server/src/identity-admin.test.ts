@@ -13,9 +13,10 @@ import { after, before, test } from "node:test";
  *    can add to it, change it and take from it;
  *  - a group's identity is written as the **agent**, and a group the agent is not
  *    granted on is refused by name rather than written anyway;
- *  - the lock changes what the product *offers* — the account's next session says
- *    so — and does not change what the server *permits*, which is ADR 0010 §5
- *    stated as a test rather than as a sentence.
+ *  - the lock changes what the product *offers* — a session that reads it says
+ *    so, and no session is ended to make it so — and it does not change what
+ *    the server *permits*, which is ADR 0010 §5 stated as a test rather than as
+ *    a sentence.
  */
 
 const PORT = 18809;
@@ -244,7 +245,12 @@ test("a non-admin reaches none of these surfaces", async () => {
 /* The lock                                                            */
 /* ------------------------------------------------------------------ */
 
-test("the lock reaches the account's next session, and refuses nobody", async () => {
+test("the lock reaches an open session, and ends none", async () => {
+  // A session the account already holds, opened before the lock is written: the
+  // invariant is that applying one ends nothing, so this cookie answers after.
+  const before = await login(BOB, BOB_PASS);
+  assert.equal(before.status, 200, JSON.stringify(before.body));
+
   const locked = await post("/api/admin/identities/user/lock", adminCookie, {
     address: BOB,
     locked: true,
@@ -252,11 +258,16 @@ test("the lock reaches the account's next session, and refuses nobody", async ()
   assert.equal(locked.status, 200, JSON.stringify(locked.body));
   assert.equal(locked.body?.locked, true);
 
-  const bob = await login(BOB, BOB_PASS);
+  const bob = await call("/api/auth/session?refresh=1", before.cookie);
+  assert.equal(
+    bob.status,
+    200,
+    "the lock does not end the account's session — no sign-out over a policy rule",
+  );
   assert.equal(
     (bob.body?.gilbert as { identityLocked?: boolean } | undefined)?.identityLocked,
     true,
-    "the product is told not to offer this account its Identities & signatures section",
+    "and the open session is what is told not to offer this account its Identities & signatures section",
   );
 
   // ADR 0010 §5, as a test: the lock is a rule about the surface. The account
