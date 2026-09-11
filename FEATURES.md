@@ -187,7 +187,10 @@ automation's instruction to a model that decides and executes. The model
 actions are the same capability-gated catalogue in every tier, inside the
 agent's own access, and every run is audited — a model cannot widen its own
 permissions. Model providers and their keys are configured per tier, so
-different tiers can run on different vendors or on a local model.
+different tiers can run on different vendors or on a local model. The surface
+names each tier by what it does — fixed actions with no model, a small model
+that picks a category, a model that decides and acts — and keeps the codes
+where the documents and the API read them.
 - **Labels, not folders.** `G-needattention`, `G-processed`, `G-awaiting`,
 `G-rejected` mark Gilbert's processing state on the individual message; the
 catalog is created from the admin surface once the grant exists. State is per
@@ -320,11 +323,14 @@ refuses to mint a session for an impersonated group account
 surface marks whether you are a member of each group.
 - **Enforce Identities** (ADR 0010), under *Stalwart* in the administration:
   one section, two tabs — **User identities** for a person's, **Group
-  identities** for a group's. Each tab picks its principal from a plain native
-  dropdown and, beside it, **Reload identities** re-reads that principal's list
-  and the directory from the server — what an administrator reaches for after
-  deleting an identity in Stalwart's own administration — leaving an edit in
-  progress exactly where it is.
+  identities** for a group's. Each tab picks its principal from a menu that
+  lists the accounts the server reports — the empty choice is in it as a real
+  entry, so a page can go back to asking which address it is about, and a
+  deployment that does not enumerate them falls back to a typed address — and,
+  beside it, **Reload identities** re-reads that principal's list and the
+  directory from the server — what an administrator reaches for after deleting
+  an identity in Stalwart's own administration — leaving an edit in progress
+  exactly where it is.
 - **User identities** (ADR 0010 §1): an administrator sets a person's
   identities — display name, address, Reply-To and signature — from the
   administration, through the **same form** the person's own settings use, so
@@ -356,6 +362,13 @@ surface marks whether you are a member of each group.
   the group's agent go through one signature function. Mail written in another
   client carries that client's own body and signature; there is no server-side
   footer and none is planned (ADR 0010).
+- **A save button offers only a change it would make.** Every save in the
+  administration is dimmed until there is something to apply and enabled from
+  the moment there is, measured against what the surface last read back from
+  the server, so an edit that is applied and one that is still only on screen
+  do not look the same. A form that is creating rather than changing — a new
+  identity, a new automation — has no earlier copy to measure against, and asks
+  instead whether there is enough to create.
 - **Nav grouping**: the administration sections are grouped by owner —
 Gilbert Mailer (policy, forced passwords, group label catalogs), Gilbert
 Assistant (the agent fleet and what it does per group), server configuration
