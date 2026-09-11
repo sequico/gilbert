@@ -32,9 +32,7 @@ durable lives in Stalwart (see [What's in it](#whats-in-it) and
 [Architecture](#architecture)). The mail client is based on
 [ihasmail](https://github.com/Coffey-Labs/ihasmail), Coffey Labs' immutable
 webmail for Stalwart; Gilbert is a distinct product around it, and its own
-layer is the groups, the chat and the agents. `ihasmail` appears only where
-upstream's real name must stay — the URLs, the lineage and the AGPL attribution
-of the mail core.
+layer is the groups, the chat and the agents.
 
 > **Try it locally:** `npm run dev:mock` runs a complete instance against an
 > in-memory mock Stalwart — open http://localhost:5173 and sign in with
