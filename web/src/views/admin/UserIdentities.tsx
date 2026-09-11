@@ -33,6 +33,7 @@ import {
 import { htmlToText } from "@/lib/text";
 import { useSession } from "@/store/session";
 import { confirmDialog } from "@/ui/dialog";
+import { MenuSelect } from "@/ui/popover";
 import { IdentityDialog } from "@/views/settings/IdentityDialog";
 
 interface DirectoryUser {
@@ -222,20 +223,15 @@ export function UserIdentities() {
       <div className="field" style={{ maxWidth: "28rem" }}>
         <label htmlFor="identity-account">{t("Account")}</label>
         {enumeration ? (
-          <select
+          <MenuSelect
             id="identity-account"
-            className="select"
             value={address}
+            placeholder={t("Choose an account…")}
+            ariaLabel={t("Account")}
+            options={users.map((u) => ({ id: u.id, value: u.name }))}
             disabled={denied}
-            onChange={(e) => void load(e.target.value)}
-          >
-            <option value="">{t("Choose an account…")}</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.name}>
-                {u.name}
-              </option>
-            ))}
-          </select>
+            onPick={(next) => void load(next)}
+          />
         ) : (
           <input
             id="identity-account"

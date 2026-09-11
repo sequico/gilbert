@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import {
   type CSSProperties,
   type ReactNode,
@@ -230,6 +231,101 @@ export function MenuSep() {
 
 export function MenuTitle({ children }: { children: ReactNode }) {
   return <div className="menu-title">{children}</div>;
+}
+
+/**
+ * One value out of a short list, chosen from a menu.
+ *
+ * A native <select> paints its own list, which the page cannot reach or style,
+ * and which shows nothing that is inside it -- so the control that picks the
+ * account an identity page acts on could not mark the current address, nor
+ * carry it next to the thing it belongs to. This is the same popover menu as
+ * every other list in the product, with the closed control shaped like the
+ * field it sits in: the tick column a menu entry already has marks the choice,
+ * and Escape, outside-click and the trigger toggle are the ones menus already
+ * have.
+ */
+export interface MenuSelectOption {
+  /** Handed to `onPick`, and what the trigger shows once chosen. */
+  value: string;
+  /** How the option reads in the list; defaults to `value`. */
+  label?: string;
+  /** Stable key for the entry; defaults to `value`. */
+  id?: string;
+}
+
+export interface MenuSelectProps {
+  value: string;
+  /** Shown in place of `value` while nothing is chosen. */
+  placeholder: string;
+  options: MenuSelectOption[];
+  onPick: (value: string) => void;
+  /** The control's accessible name. */
+  ariaLabel: string;
+  id?: string;
+  disabled?: boolean;
+}
+
+export function MenuSelect({
+  value,
+  placeholder,
+  options,
+  onPick,
+  ariaLabel,
+  id,
+  disabled,
+}: MenuSelectProps) {
+  const menu = useMenu();
+  return (
+    <>
+      <button
+        id={id}
+        type="button"
+        className="btn btn-block menu-select"
+        disabled={disabled}
+        aria-haspopup="menu"
+        aria-label={ariaLabel}
+        onClick={menu.open}
+      >
+        <span className="truncate">{value || placeholder}</span>
+        <ChevronDown size={16} />
+      </button>
+      <Popover
+        anchor={menu.anchor}
+        onClose={menu.close}
+        trigger={menu.trigger}
+        width={320}
+        ariaLabel={ariaLabel}
+      >
+        {/*
+         * The empty choice is a real entry rather than a missing one: clearing
+         * the pick is how a page goes back to asking which address it is about,
+         * and a list with no way back to that state would be a step backwards
+         * from the control this replaces.
+         */}
+        <MenuItem
+          label={placeholder}
+          checked={value === ""}
+          onClick={() => {
+            menu.close();
+            onPick("");
+          }}
+        />
+        <MenuSep />
+        {options.map((o) => (
+          <MenuItem
+            key={o.id ?? o.value}
+            label={o.label ?? o.value}
+            checked={o.value === value}
+            onClick={() => {
+              menu.close();
+              onPick(o.value);
+            }}
+          />
+        ))}
+      </Popover>
+    </>
+  );
 }
 
 /** An open menu: where it is anchored and the element that opened it. */

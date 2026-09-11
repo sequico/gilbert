@@ -27,6 +27,7 @@ import {
   storeAdminSignatureHtml,
 } from "@/lib/identities";
 import { htmlToText } from "@/lib/text";
+import { MenuSelect } from "@/ui/popover";
 import { IdentityDialog } from "@/views/settings/IdentityDialog";
 
 interface DirectoryGroup {
@@ -148,19 +149,14 @@ export function GroupIdentities() {
       <div className="field" style={{ maxWidth: "28rem" }}>
         <label htmlFor="identity-group">{t("Group mailbox")}</label>
         {enumeration ? (
-          <select
+          <MenuSelect
             id="identity-group"
-            className="select"
             value={name}
-            onChange={(e) => void load(e.target.value)}
-          >
-            <option value="">{t("Choose a group…")}</option>
-            {groups.map((g) => (
-              <option key={g.id} value={g.name}>
-                {g.name}
-              </option>
-            ))}
-          </select>
+            placeholder={t("Choose a group…")}
+            ariaLabel={t("Group mailbox")}
+            options={groups.map((g) => ({ id: g.id, value: g.name }))}
+            onPick={(next) => void load(next)}
+          />
         ) : (
           <input
             id="identity-group"
