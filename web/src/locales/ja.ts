@@ -465,7 +465,6 @@ export const catalog: Catalog = {
     "Show sender avatars": "差出人のアイコンを表示する",
     "Group messages from the same thread together.": "同じスレッドのメールをまとめます。",
     "After archiving or deleting": "アーカイブまたは削除したあと",
-    "Ask before showing (recommended)": "表示前に確認する（推奨）",
     "Always (all messages)": "常に表示（すべてのメール）",
     "Show automatically from my contacts": "連絡先からのメールは自動的に表示",
     "Immediately when opened": "開いた時点ですぐ",
@@ -762,8 +761,6 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "グループメールボックスの一覧表示には Stalwart サーバー管理者権限が必要ですが、このセッションにはありません。",
     "No labels yet.": "ラベルはまだありません。",
-    "Stalwart server configuration (Sieve editor and more) will appear here.":
-      "Stalwart サーバー設定（Sieve エディタなど）はここに表示されます。",
     "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
       "グループのラベルカタログを管理するには、そのグループのメンバーである必要があります。カタログはグループ自身のファイルにあり、メールサーバーは管理者に代わってグループメールボックスとして動作することを拒否するためです。",
     "You are a member of this group — its labels are managed here.":

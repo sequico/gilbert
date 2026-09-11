@@ -723,8 +723,6 @@ export const catalog: Catalog = {
 
     "After archiving or deleting": "Dopo l'archiviazione o l'eliminazione",
 
-    "Ask before showing (recommended)": "Chiedi prima di mostrare (consigliato)",
-
     "Always (all messages)": "Sempre (tutti i messaggi)",
 
     "Show automatically from my contacts": "Mostra automaticamente dai miei contatti",
@@ -1196,8 +1194,6 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "Elencare le caselle di gruppo richiede il privilegio di amministratore del server Stalwart, che questa sessione non ha.",
     "No labels yet.": "Ancora nessuna etichetta.",
-    "Stalwart server configuration (Sieve editor and more) will appear here.":
-      "La configurazione del server Stalwart (editor Sieve e altro) apparirà qui.",
     "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
       "Gestire il catalogo etichette di un gruppo richiede di essere membri del gruppo: il catalogo vive nei file propri del gruppo e il server di posta rifiuta di agire come casella di gruppo per conto di un amministratore.",
     "You are a member of this group — its labels are managed here.":

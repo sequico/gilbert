@@ -467,7 +467,6 @@ export const catalog: Catalog = {
     "Show sender avatars": "Показывать аватары отправителей",
     "Group messages from the same thread together.": "Объединять письма одной цепочки.",
     "After archiving or deleting": "После архивирования или удаления",
-    "Ask before showing (recommended)": "Спрашивать перед показом (рекомендуется)",
     "Always (all messages)": "Всегда (все письма)",
     "Show automatically from my contacts": "Автоматически для моих контактов",
     "Immediately when opened": "Сразу при открытии",
@@ -761,8 +760,6 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "Список групповых почтовых ящиков требует прав администратора сервера Stalwart, которых у этой сессии нет.",
     "No labels yet.": "Ярлыков пока нет.",
-    "Stalwart server configuration (Sieve editor and more) will appear here.":
-      "Конфигурация сервера Stalwart (редактор Sieve и другое) появится здесь.",
     "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
       "Управление каталогом ярлыков группы требует членства в этой группе: каталог хранится в собственных файлах группы, а почтовый сервер отказывается действовать как групповой ящик от имени администратора.",
     "You are a member of this group — its labels are managed here.":

@@ -463,7 +463,6 @@ export const catalog: Catalog = {
     "Group messages from the same thread together.":
       "Об'єднувати листи одного листування.",
     "After archiving or deleting": "Після архівування або видалення",
-    "Ask before showing (recommended)": "Питати перед показом (рекомендовано)",
     "Always (all messages)": "Завжди (усі листи)",
     "Show automatically from my contacts": "Автоматично для моїх контактів",
     "Immediately when opened": "Одразу під час відкриття",
@@ -756,8 +755,6 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "Перелік групових поштових скриньок потребує прав адміністратора сервера Stalwart, яких ця сесія не має.",
     "No labels yet.": "Міток ще немає.",
-    "Stalwart server configuration (Sieve editor and more) will appear here.":
-      "Конфігурація сервера Stalwart (редактор Sieve та інше) з'явиться тут.",
     "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
       "Керування каталогом міток групи вимагає членства в цій групі: каталог живе у власних файлах групи, а поштовий сервер відмовляється діяти як групова скринька від імені адміністратора.",
     "You are a member of this group — its labels are managed here.":

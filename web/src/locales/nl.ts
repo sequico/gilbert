@@ -462,7 +462,6 @@ export const catalog: Catalog = {
     "Group messages from the same thread together.":
       "Berichten uit hetzelfde gesprek samenvoegen.",
     "After archiving or deleting": "Na archiveren of verwijderen",
-    "Ask before showing (recommended)": "Vragen voor tonen (aanbevolen)",
     "Always (all messages)": "Altijd (alle berichten)",
     "Show automatically from my contacts": "Automatisch tonen bij mijn contacten",
     "Immediately when opened": "Direct bij openen",
@@ -756,8 +755,6 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "Groepsmailboxen weergeven vereist Stalwart-serverbeheerdersrechten, die deze sessie niet heeft.",
     "No labels yet.": "Nog geen labels.",
-    "Stalwart server configuration (Sieve editor and more) will appear here.":
-      "De Stalwart-serverconfiguratie (Sieve-editor en meer) verschijnt hier.",
     "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
       "Het labelcatalogus van een groep beheren vereist lidmaatschap van die groep: de catalogus leeft in de eigen bestanden van de groep en de mailserver weigert namens een beheerder als groepsmailbox op te treden.",
     "You are a member of this group — its labels are managed here.":

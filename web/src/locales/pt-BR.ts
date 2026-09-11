@@ -469,7 +469,6 @@ export const catalog: Catalog = {
     "Group messages from the same thread together.":
       "Agrupar as mensagens de uma mesma conversa.",
     "After archiving or deleting": "Depois de arquivar ou excluir",
-    "Ask before showing (recommended)": "Perguntar antes de mostrar (recomendado)",
     "Always (all messages)": "Sempre (todas as mensagens)",
     "Show automatically from my contacts": "Mostrar automaticamente para meus contatos",
     "Immediately when opened": "Assim que abrir",
@@ -766,8 +765,6 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "Listar caixas de grupo exige privilégio de administrador do servidor Stalwart, que esta sessão não possui.",
     "No labels yet.": "Ainda não há marcadores.",
-    "Stalwart server configuration (Sieve editor and more) will appear here.":
-      "A configuração do servidor Stalwart (editor Sieve e mais) aparecerá aqui.",
     "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
       "Gerenciar o catálogo de marcadores de um grupo exige ser membro do grupo: o catálogo vive nos arquivos próprios do grupo e o servidor de correio se recusa a agir como caixa de grupo em nome de um administrador.",
     "You are a member of this group — its labels are managed here.":

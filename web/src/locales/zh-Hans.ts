@@ -456,7 +456,6 @@ export const catalog: Catalog = {
     "Show sender avatars": "显示发件人头像",
     "Group messages from the same thread together.": "将同一会话的邮件归为一组。",
     "After archiving or deleting": "归档或删除后",
-    "Ask before showing (recommended)": "显示前询问（推荐）",
     "Always (all messages)": "始终显示（全部邮件）",
     "Show automatically from my contacts": "联系人的邮件自动显示",
     "Immediately when opened": "打开时立即标记",
@@ -747,8 +746,6 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "列出群组邮箱需要 Stalwart 服务器管理员权限，而此会话没有该权限。",
     "No labels yet.": "暂无标签。",
-    "Stalwart server configuration (Sieve editor and more) will appear here.":
-      "Stalwart 服务器配置（Sieve 编辑器等）将显示在这里。",
     "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
       "管理群组的标签目录需要是该群组的成员：目录存放在群组自己的文件中，而邮件服务器拒绝代表管理员充当群组邮箱。",
     "You are a member of this group — its labels are managed here.":
