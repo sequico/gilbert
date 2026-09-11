@@ -56,11 +56,8 @@ export function AgentProviders() {
       <h2>{t("Model providers")}</h2>
       <p className="lead">
         {t(
-          "T0 calls no model at all. Each of the tiers above it names the model it runs on, so the cheap classifier and the agent can run on different vendors, or on a model of your own.",
+          "The classifier and the agent each name the model they run on, so an installation can run them on different vendors, or on a model of your own. Fixed actions call no model at all.",
         )}
-      </p>
-      <p className="hint" style={{ marginTop: -12, marginBottom: 12 }}>
-        {tierText("T0")}
       </p>
       {problem && (
         <div className="error-box" style={{ marginBottom: 12 }}>
@@ -123,6 +120,19 @@ function ProviderEditor({
     setModel(view?.model ?? "");
     setBaseUrl(view?.baseUrl ?? "");
   }, [view?.provider, view?.model, view?.baseUrl]);
+
+  /*
+   * What the fields were seeded from is what "unchanged" means, so the button
+   * that would write them back says so: a save offered when there is nothing to
+   * save is a button whose only outcome is the same document again. A typed key
+   * counts on its own, because that field is never seeded -- the stored one is
+   * not handed back.
+   */
+  const dirty =
+    apiKey.trim() !== "" ||
+    provider.trim() !== (view?.provider ?? "") ||
+    model.trim() !== (view?.model ?? "") ||
+    baseUrl.trim() !== (view?.baseUrl ?? "");
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -211,37 +221,41 @@ function ProviderEditor({
           />
         </div>
       </div>
-      <div className="field">
-        <label htmlFor={`agent-base-${tier}`}>{t("Base URL")}</label>
-        <input
-          id={`agent-base-${tier}`}
-          className="input"
-          value={baseUrl}
-          placeholder={t("https://api.example.com/v1")}
-          onChange={(e) => setBaseUrl(e.target.value)}
-        />
-      </div>
-      <div className="field">
-        <label htmlFor={`agent-key-${tier}`}>{t("API key")}</label>
-        <input
-          id={`agent-key-${tier}`}
-          className="input"
-          type="password"
-          autoComplete="off"
-          value={apiKey}
-          placeholder={view?.hasKey ? t("A key is stored") : t("Paste a new key here")}
-          onChange={(e) => setApiKey(e.target.value)}
-        />
-        <p className="hint">
-          {t(
-            "Write-only: the stored key is never shown again, and leaving this field empty keeps the key you already have.",
-          )}
-        </p>
+      <div className="field-row">
+        <div className="field">
+          <label htmlFor={`agent-base-${tier}`}>{t("Base URL")}</label>
+          <input
+            id={`agent-base-${tier}`}
+            className="input"
+            value={baseUrl}
+            placeholder={t("https://api.example.com/v1")}
+            onChange={(e) => setBaseUrl(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor={`agent-key-${tier}`}>{t("API key")}</label>
+          <input
+            id={`agent-key-${tier}`}
+            className="input"
+            type="password"
+            autoComplete="off"
+            value={apiKey}
+            placeholder={view?.hasKey ? t("A key is stored") : t("Paste a new key here")}
+            onChange={(e) => setApiKey(e.target.value)}
+          />
+          <p className="hint">
+            {t(
+              "Write-only: the stored key is never shown again, and leaving this field empty keeps the key you already have.",
+            )}
+          </p>
+        </div>
       </div>
       <div className="row" style={{ gap: 8 }}>
         <button
           className="btn btn-primary"
-          disabled={busy || !provider.trim() || !model.trim() || !baseUrl.trim()}
+          disabled={
+            busy || !dirty || !provider.trim() || !model.trim() || !baseUrl.trim()
+          }
         >
           {busy ? t("Saving…") : t("Save")}
         </button>

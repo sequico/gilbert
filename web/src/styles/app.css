@@ -2590,6 +2590,9 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   background: var(--bg-sunken); color: var(--fg-muted);
   font-size: .72em; font-weight: 600; text-transform: uppercase; letter-spacing: .03em;
 }
+/* Four short values to a provider, two to a row, and less air under each: the
+   stacked layout cost a screenful of scrolling to read four lines. */
+.agent-provider .field { margin-bottom: 10px; }
 .agent-form, .agent-provider, .agent-registration { max-width: 620px; }
 .agent-provider-icon { color: var(--fg-muted); flex: 0 0 auto; }
 .agent-form h3 { margin: 16px 0 6px; font-size: .95em; }
