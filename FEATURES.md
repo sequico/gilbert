@@ -115,10 +115,11 @@ declare it.
   is one place the pair lives, and it is the deployment. Both processes read the
   same pair: the worker opens its session with it, and the admin surface signs
   in as the agent with it, so no screen carries a secret. Absent or incomplete,
-  nothing refuses to start — the installation runs with no agent, and **Admin
-  → Agents** says which state it is in and how to set the pair; a password
-  Stalwart refuses is its own state, named as such, with the installation
-  running and the screen saying the fleet is not operational.
+  the server runs with no agent and **Admin → Agents** says which state it is in
+  and how to set the pair, while the worker process — which has nothing to serve
+  without them — exits rather than starting half-configured; a password Stalwart
+  refuses is its own state, named as such, with the installation running and the
+  screen saying the fleet is not operational.
 - **What the fleet serves, per group.** The deployment opens the areas the agent
   may work in (mail, files, tasks, calendars, contacts) and the installation can
   narrow that per group — one group, or as many as an administrator selects at

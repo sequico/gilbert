@@ -148,9 +148,10 @@ npm run agent
 restart policy reaches it. **Admin → Agents** shows the groups the agent is in,
 read from the agent's own session in Stalwart, and **Admin → Group workers**
 narrows what it does inside each of them (the kinds of work, per group, for as
-many groups as are selected at once). With the pair unset the installation runs
-with no agent — nothing refuses to start, and that screen says what is missing
-and how to set it.
+many groups as are selected at once). With the pair unset the server runs with
+no agent — that screen says what is missing and how to set it — and the worker
+process, which has nothing to serve without them, exits rather than starting
+half-configured.
 
 **What it does.** An **automation** is a document in the group's own account:
 when it reacts (an email arriving, a chat message, a file, a time), which

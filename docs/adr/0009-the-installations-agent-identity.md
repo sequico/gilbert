@@ -31,13 +31,15 @@ processes read the same pair: the worker opens its session with it, and the web
 tier signs in as the agent with it to read the fleet. Nothing in the product
 names the address, records it, or asks an administrator for it.
 
-A pair that is absent or incomplete is not fatal, and nothing throws at boot.
-The installation runs with no agent, and the admin surface names which state it
-is in — `agent_not_configured` when the deployment carries none,
+A pair that is absent or incomplete is not fatal to the server, and nothing
+throws at boot. The installation runs with no agent, and the admin surface
+names which state it is in — `agent_not_configured` when the deployment carries none,
 `agent_credentials_rejected` when Stalwart refuses the pair it carries,
 `agent_unreachable` when the server cannot be asked — beside how to set the two
-variables. An installation that runs without an agent is visible as one, rather
-than arriving as automations that silently do not run.
+variables. The worker process is the one thing that stops: with nothing to serve
+it exits naming both variables rather than starting half-configured. An
+installation that runs without an agent is visible as one, rather than arriving
+as automations that silently do not run.
 
 Nothing about the identity is written down in the product, and the product
 neither mints nor rotates a credential. Rotating the password is the operator's
