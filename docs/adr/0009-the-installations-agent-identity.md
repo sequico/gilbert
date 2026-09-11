@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-09-11).
+Accepted (2026-09-11).
 
 ## Context
 

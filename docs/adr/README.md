@@ -41,7 +41,7 @@ prose against `server/src` and `web/src`.
 
 ## 0003 — Agent worker fleet
 
-- **Status:** Proposed (2026-09-06).
+- **Status:** Accepted (2026-09-11).
 - **Code:** **implemented** — the fleet, its workers, the automations, the
   approvals and the audit are in `server/src/agent/` and
   `server/src/agentAdmin.ts`, with the administration surfaces in
@@ -101,7 +101,7 @@ prose against `server/src` and `web/src`.
 
 ## 0009 — The installation’s agent identity is recorded in the product
 
-- **Status:** Proposed (2026-09-11).
+- **Status:** Accepted (2026-09-11).
 - **Code:** implemented — `agent.address` in the policy document,
   `POST /api/admin/agent/address`, `agentAddress()`/`agentHasSecret()`,
   the Agent address field in Admin → Agents.

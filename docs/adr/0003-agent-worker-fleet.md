@@ -1,6 +1,6 @@
 # ADR 0003 — Agent worker fleet: workers that act on Stalwart events and schedules
 
-Status: Proposed (2026-09-06)
+Status: Accepted (2026-09-11)
 
 > **Scope confirmed by the owner (2026-09-06):** Gilbert's own agents
 > ("Gilbert's own agents now, external agent fleets later" — ROADMAP), each
@@ -645,23 +645,29 @@ record keeps its full shape as the evolution path.
     withdrawn grant is reported together with the work it leaves behind, and
     the agent stops claiming that account rather than failing against it on
     every pass. <!-- owed: grant-withdrawal-report -->
-  - **No order exists between automations that match the same message, and the
-    two classes it separates do not carry the same risk.** A rule that reads a
-    message and a rule that writes to it do not collide: JMAP addresses a
-    message by an immutable id, so a read is unaffected by a move that happened
-    a moment earlier, and "a rule that moves a message and a rule that reads it
-    are independent by construction" is true for that pair. Two rules that
-    *write* to the same message are the case that bites: the second write wins,
-    silently — one automation filing the message to an archive and another to
-    spam leaves it in whichever ran last, and nothing tells anyone that the two
-    automations disagree. Work is claimed by account and area, and which of
-    them runs first is not decided, not written down and not to be relied on;
-    each automation is therefore written to hold whatever order it gets, and
-    the audit names the rule and its version per run, so the order is
-    reconstructible afterwards even though it was never chosen. **Owed:** a
-    declared order, and a report when two runs in one pass wrote to the same
-    message, are v1 gaps rather than guarantees, and the surface should say so
-    where rules are written. <!-- owed: rule-order-declared -->
+  - **No order is guaranteed between automations that match the same message,
+    and the two classes it separates do not carry the same risk.** A rule that
+    reads a message and a rule that writes to it do not collide: JMAP addresses a
+    message by an immutable id, so a read is unaffected by a move that happened a
+    moment earlier, and "a rule that moves a message and a rule that reads it are
+    independent by construction" is true for that pair. Two rules that *write* to
+    the same message are the case that bites: the second write wins, silently —
+    one automation filing the message to an archive and another to spam leaves it
+    in whichever ran last, and nothing tells anyone that the two automations
+    disagree.
+
+    The order is not merely undecided: **it is not guaranteed, not even inside
+    one area.** `runEmail` walks the matching rules in the order of the rules
+    document and awaits each run, so automations fired by one pass with none of
+    them deferring do run in that order — but a run that waits on a person or is
+    retried is picked up from `listJobs()`, which the store lists in the order
+    the server gives it, and two rules in different areas can run at once under
+    different claims. So each automation is written to hold whatever order it
+    gets, and the audit names the rule and its version per run, so the order is
+    reconstructible afterwards even though it was never chosen. A declared order
+    and a report when two runs in one pass wrote to the same message are v1 gaps
+    rather than guarantees, and the surface says so where rules are written
+    (`RuleEditor.tsx`).
   - **An admin surface says why it is short, and which membership it needs.**
     Two debts that belong with the decisions above, recorded here rather than as
     decisions of their own. The approvals queue lists the groups this admin can act on, and

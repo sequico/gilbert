@@ -10,7 +10,6 @@
  * Stalwart's own administration; this surface verifies it and, when it is
  * missing, says what that costs.
  */
-// ADR-0003 OWED: rule-order-declared
 import { type AgentRule, ruleProblems } from "@gilbert/agent/documents";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -160,6 +159,11 @@ export function RuleEditor({
       <p className="hint" style={{ marginBottom: 12 }}>
         {t(
           "Authoring a group's automations needs membership of that group: they live in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.",
+        )}
+      </p>
+      <p className="hint" style={{ marginBottom: 12 }}>
+        {t(
+          "Two automations that write to the same message have no order between them — not even inside one kind of work — so write each one to hold whatever order it gets. The audit names the rule and its version per run, so the order they actually took can be read back afterwards.",
         )}
       </p>
       <div className="field" style={{ maxWidth: 380 }}>
