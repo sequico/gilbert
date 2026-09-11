@@ -31,6 +31,13 @@ interface SessionState {
    * wall instead of itself while it is set.
    */
   forcedPasswordChange: boolean;
+  /**
+   * ADR 0010 §4: an administrator set this account's identity, so the person is
+   * offered no Identity & signatures section. It is a rule about the surface —
+   * a client that speaks JMAP directly can still write the account's own
+   * identity — and reading it here is what decides which sections are shown.
+   */
+  identityLocked: boolean;
   bootstrap(): Promise<void>;
   login(
     username: string,
@@ -55,6 +62,7 @@ export const useSession = create<SessionState>((set, get) => ({
   pushConnected: false,
   pushState: "disconnected",
   forcedPasswordChange: false,
+  identityLocked: false,
 
   async bootstrap() {
     /*
@@ -77,6 +85,7 @@ export const useSession = create<SessionState>((set, get) => ({
             session: null,
             accountId: null,
             forcedPasswordChange: false,
+            identityLocked: false,
           });
         else
           set({
@@ -84,6 +93,7 @@ export const useSession = create<SessionState>((set, get) => ({
             session: null,
             accountId: null,
             forcedPasswordChange: false,
+            identityLocked: false,
             error: (err as Error).message,
           });
       } finally {
@@ -137,6 +147,7 @@ export const useSession = create<SessionState>((set, get) => ({
       session: null,
       accountId: null,
       forcedPasswordChange: false,
+      identityLocked: false,
     });
   },
 
@@ -147,7 +158,11 @@ export const useSession = create<SessionState>((set, get) => ({
       setServerLocale(s.gilbert?.userLocale);
       // A refresh after the forced-change wall was lifted is what lets the app
       // continue; a refresh while the wall stands keeps it up.
-      set({ session: s, forcedPasswordChange: s.gilbert?.mustChangePassword === true });
+      set({
+        session: s,
+        forcedPasswordChange: s.gilbert?.mustChangePassword === true,
+        identityLocked: s.gilbert?.identityLocked === true,
+      });
     } catch {
       /* ignore */
     }
@@ -189,6 +204,7 @@ function applySession(s: JmapSession, set: (p: Partial<SessionState>) => void) {
     accountId,
     error: null,
     forcedPasswordChange: s.gilbert?.mustChangePassword === true,
+    identityLocked: s.gilbert?.identityLocked === true,
   });
 }
 
@@ -208,6 +224,7 @@ client.onUnauthenticated(() => {
         session: null,
         accountId: null,
         forcedPasswordChange: false,
+        identityLocked: false,
       });
   });
 });

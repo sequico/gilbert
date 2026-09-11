@@ -328,7 +328,7 @@ export interface ReachableGroups extends GroupEnumeration {
  * environment and the server have to say the same thing after a rotation, and
  * an admin looking at the surface is exactly who can put them back in step.
  */
-async function openAgentSession(
+export async function openAgentSession(
   admin: LiveSession,
   address: string,
 ): Promise<{ ok: true; ctx: Ctx } | { ok: false; detail: string }> {

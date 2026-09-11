@@ -56,6 +56,18 @@ import {
 import { resolveClientIp } from "./clientip.js";
 import { agentAddress, agentHasSecret, config } from "./config.js";
 import { icsProxyHandler } from "./icsproxy.js";
+import {
+  groupIdentity,
+  IdentityAdminError,
+  identityAddress,
+  identityLocked,
+  personIdentities,
+  removePersonIdentity,
+  storeSignatureHtml,
+  withIdentityLock,
+  writeGroupIdentity,
+  writePersonIdentity,
+} from "./identityAdmin.js";
 import { imageProxyHandler } from "./imageproxy.js";
 import {
   attach as pushAttach,
@@ -1352,11 +1364,16 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
     // Through the same compare-and-set as the two narrower doors: the editor
     // replaces the document, but it must replace the document that is there. The
-    // agent's half survives an editor that does not mention it — and an editor
-    // that does mention it is taken at its word.
+    // agent's half and the locks survive an editor that does not mention them —
+    // and an editor that does mention them is taken at its word.
     const written = await changePolicy((doc) => ({
       ...parsed.doc,
       ...(parsed.doc.agent ? {} : doc.agent ? { agent: doc.agent } : {}),
+      ...(parsed.doc.identities
+        ? {}
+        : doc.identities
+          ? { identities: doc.identities }
+          : {}),
     }));
     if (!written.ok)
       return c.json(
@@ -1900,6 +1917,156 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
   });
 
+  // ---------- Identities an administrator sets (ADR 0010) ----------
+
+  /** A refusal from these surfaces: the code and the sentence, or upstream's. */
+  function identityFailure(c: Context, err: unknown) {
+    if (err instanceof IdentityAdminError)
+      return c.json({ error: err.code, message: err.message }, err.status as 400);
+    return upstreamFailure(c, err);
+  }
+
+  /**
+   * A person's identities, and the one write that reaches them.
+   *
+   * The write is an impersonation of that person from the administrator's own
+   * session: no new credential, and Stalwart's permission model stays the whole
+   * of the gate. `impersonation: "denied"` is an answer, not a failure — an
+   * app-password session cannot impersonate at all, and the surface says so
+   * instead of showing an account with no identities.
+   */
+  api.get("/admin/identities/user", requireSession, requireAdmin, async (c) => {
+    try {
+      return c.json(
+        await personIdentities(c.get("session"), c.req.query("address") ?? ""),
+      );
+    } catch (err) {
+      return identityFailure(c, err);
+    }
+  });
+
+  api.post("/admin/identities/user", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ address?: unknown; id?: unknown; patch?: unknown }>(c);
+    try {
+      const written = await writePersonIdentity(
+        c.get("session"),
+        typeof body?.address === "string" ? body.address : "",
+        typeof body?.id === "string" && body.id ? body.id : null,
+        body?.patch,
+      );
+      return c.json({ ok: true, id: written.id });
+    } catch (err) {
+      return identityFailure(c, err);
+    }
+  });
+
+  api.post("/admin/identities/user/delete", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ address?: unknown; id?: unknown }>(c);
+    try {
+      await removePersonIdentity(
+        c.get("session"),
+        typeof body?.address === "string" ? body.address : "",
+        typeof body?.id === "string" ? body.id : "",
+      );
+      return c.json({ ok: true });
+    } catch (err) {
+      return identityFailure(c, err);
+    }
+  });
+
+  /**
+   * The lock an administrator applies to a person's identity (ADR 0010 §4).
+   *
+   * It is recorded in the installation's policy document, beside the settings
+   * policy, through the same compare-and-set every other change to that document
+   * uses — so an administrator saving the policy editor at the same moment
+   * neither drops the locks nor is dropped by them. Applying one kicks that
+   * account's sessions, the way a policy publish does (ADR 0004): the section is
+   * gone from the next sign-in and never was a boundary in between.
+   */
+  api.post("/admin/identities/user/lock", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    const body = await readJson<{ address?: unknown; locked?: unknown }>(c);
+    try {
+      const address = identityAddress(
+        typeof body?.address === "string" ? body.address : "",
+      );
+      const locked = body?.locked === true;
+      const written = await changePolicy((doc) => withIdentityLock(doc, address, locked));
+      if (!written.ok)
+        return c.json(
+          { error: written.error, message: written.message },
+          written.error === "policy_moved" ? 409 : 500,
+        );
+      const kicked = sessions.destroyAllForUser(address, session.id);
+      return c.json({ ok: true, locked, kicked });
+    } catch (err) {
+      return identityFailure(c, err);
+    }
+  });
+
+  /**
+   * A group's identity, and the one write that reaches it (ADR 0010 §2).
+   *
+   * Written as the installation's agent, always: Stalwart refuses to impersonate
+   * a group mailbox, and the agent is the principal that exists for this. Where
+   * the agent is not a member of the group, `granted: false` says so and names
+   * the grant that is missing rather than a permission error that would read as
+   * a bug.
+   */
+  api.get("/admin/identities/group", requireSession, requireAdmin, async (c) => {
+    try {
+      return c.json(await groupIdentity(c.get("session"), c.req.query("name") ?? ""));
+    } catch (err) {
+      return identityFailure(c, err);
+    }
+  });
+
+  api.post("/admin/identities/group", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ name?: unknown; id?: unknown; patch?: unknown }>(c);
+    try {
+      const written = await writeGroupIdentity(
+        c.get("session"),
+        typeof body?.name === "string" ? body.name : "",
+        typeof body?.id === "string" && body.id ? body.id : null,
+        body?.patch,
+      );
+      return c.json({ ok: true, id: written.id });
+    } catch (err) {
+      return identityFailure(c, err);
+    }
+  });
+
+  /**
+   * The full HTML of an over-sized signature, kept in the account's own Files.
+   *
+   * The account whose identity it is owns the copy — the person's or the
+   * group's — because that is where their own client looks for it when it reads
+   * the marker back. The client builds the marker; this only stores the file.
+   */
+  api.post(
+    "/admin/identities/signature-html",
+    requireSession,
+    requireAdmin,
+    async (c) => {
+      const body = await readJson<{ kind?: unknown; target?: unknown; html?: unknown }>(
+        c,
+      );
+      try {
+        const kind = body?.kind === "group" ? "group" : "user";
+        const blobId = await storeSignatureHtml(
+          c.get("session"),
+          kind,
+          typeof body?.target === "string" ? body.target : "",
+          typeof body?.html === "string" ? body.html : "",
+        );
+        return c.json({ blobId });
+      } catch (err) {
+        return identityFailure(c, err);
+      }
+    },
+  );
+
   // ---------- JMAP API proxy ----------
   api.post("/jmap", requireSession, apiRateLimited, async (c) => {
     const session = c.get("session");
@@ -2185,6 +2352,13 @@ function sessionExtras(
       userLocale: info.locale,
       /** What the upstream server would tell us about itself. */
       server: { edition: info.edition },
+      /**
+       * ADR 0010 §4: an administrator has taken this account's identity over,
+       * so the product offers it no Identities & signatures section at all. The
+       * lock is the installation's record, read here; it is a rule about the
+       * surface, and the section is all it removes.
+       */
+      identityLocked: identityLocked(session.username),
     },
   };
 }

@@ -34,15 +34,38 @@ export interface PolicyAgent {
   groups?: Record<string, { areas?: string[] }>;
 }
 
+/**
+ * The identities an administrator has taken over (ADR 0010 §4).
+ *
+ * `locked` names the accounts whose identity an administrator set: the product
+ * offers such an account no Identities & signatures section at all, so what was
+ * set here is what it shows and sends. An address, because that is what names
+ * an account everywhere else in this document.
+ *
+ * The lock is a rule about **this product's surface**, not a boundary: Stalwart
+ * has no per-field permission on an identity, so an account that speaks JMAP
+ * directly can still write one. What the entry guarantees is that Gilbert
+ * offers nobody the edit.
+ */
+export interface PolicyIdentities {
+  locked: string[];
+}
+
 export interface PolicyDocument {
   defaults: Record<string, unknown>;
   enforced: Record<string, unknown>;
   changes: PolicyChangeDocument[];
   agent?: PolicyAgent;
+  identities?: PolicyIdentities;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
+
+/** The one test for "this is an address", for every field that names one. */
+export function isAddress(value: string): boolean {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);
+}
 
 /**
  * Parse and validate one policy document text.
@@ -118,14 +141,49 @@ export function parsePolicyDocumentDetailed(
   }
   const parsedAgent = parseAgent(whole.agent);
   if (parsedAgent && "problem" in parsedAgent) return { problem: parsedAgent.problem };
+  const parsedIdentities = parseIdentities(whole.identities);
+  if (parsedIdentities && "problem" in parsedIdentities)
+    return { problem: parsedIdentities.problem };
   return {
     doc: {
       defaults,
       enforced,
       changes,
       ...(parsedAgent ? { agent: parsedAgent.agent } : {}),
+      ...(parsedIdentities ? { identities: parsedIdentities.identities } : {}),
     },
   };
+}
+
+/**
+ * The identity half of the document, checked field by field, or null when the
+ * document says nothing about identities at all.
+ *
+ * An empty `locked` list and an absent one mean the same thing — nobody is
+ * locked — so the empty form parses to a record with nothing in it and
+ * `policyDocumentText` writes neither. A present-but-unusable entry is an error
+ * at save time, like every other field here.
+ */
+function parseIdentities(
+  v: unknown,
+): { identities: PolicyIdentities } | { problem: string } | null {
+  if (v == null) return null;
+  if (!isRecord(v))
+    return { problem: '"identities" must be an object with a "locked" list.' };
+  const raw = v.locked;
+  if (raw === undefined) return { identities: { locked: [] } };
+  if (!Array.isArray(raw) || raw.some((entry) => typeof entry !== "string"))
+    return { problem: '"identities.locked" must be a list of account addresses.' };
+  const locked: string[] = [];
+  for (const entry of raw) {
+    const address = entry.trim().toLowerCase();
+    if (!isAddress(address))
+      return {
+        problem: `"identities.locked" names something that is not an address: ${entry}.`,
+      };
+    if (!locked.includes(address)) locked.push(address);
+  }
+  return { identities: { locked } };
 }
 
 /**
@@ -145,7 +203,7 @@ function parseAgent(v: unknown): { agent: PolicyAgent } | { problem: string } | 
       problem:
         '"agent.address" must be the agent\'s own address, like gilbert@example.com.',
     };
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(address))
+  if (!isAddress(address))
     return { problem: `"agent.address" is not an address: ${address}.` };
   const groups = parseAgentGroups(v.groups);
   if ("problem" in groups) return { problem: groups.problem };
@@ -172,7 +230,7 @@ function parseAgentGroups(
   const groups: Record<string, { areas?: string[] }> = {};
   for (const [rawName, entry] of Object.entries(v)) {
     const name = rawName.trim().toLowerCase();
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(name))
+    if (!isAddress(name))
       return {
         problem: `"agent.groups" names something that is not a group: ${rawName}.`,
       };
@@ -190,12 +248,14 @@ function parseAgentGroups(
 
 /** The document text the editor shows, stable keys and two-space indent. */
 export function policyDocumentText(policy: PolicyDocument): string {
+  const locked = policy.identities?.locked ?? [];
   return JSON.stringify(
     {
       defaults: policy.defaults ?? {},
       enforced: policy.enforced ?? {},
       changes: policy.changes ?? [],
       ...(policy.agent ? { agent: policy.agent } : {}),
+      ...(locked.length ? { identities: { locked } } : {}),
     },
     null,
     2,

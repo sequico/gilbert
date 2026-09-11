@@ -304,16 +304,44 @@ impersonation, and a non-member is refused with that reason. Stalwart 0.16
 refuses to mint a session for an impersonated group account
 (live-verified 2026-09-09), so the member path is the only one; the
 surface marks whether you are a member of each group.
+- **User identities** (ADR 0010): an administrator sets a person's
+  identities — display name, address, Reply-To and signature — from the
+  administration, through the **same form** the person's own settings use, so
+  an identity means one thing wherever it is written. The write is an
+  **impersonation** of that person from the administrator's own session, the
+  door forced password changes already use: no new credential, nothing written
+  into Stalwart's configuration, and Stalwart's permission model stays the
+  whole of the gate. The account's **entire** list is shown and editable — add,
+  change, remove, with the server's own `mayDelete` respected so nothing is
+  left behind as an identity the administrator cannot see and the composer
+  still offers. A **lock** can be applied instead, recorded in the
+  installation's policy document beside the settings policy: the person's
+  Identities & signatures section is not offered at all, and their sessions are
+  kicked so the next sign-in is the one that sees it. The lock is a rule about
+  **this product's surface**, said that way on the surface:
+  Stalwart has no per-field permission on an identity, so a client that speaks
+  JMAP directly can still write one.
+- **Group identities** (ADR 0010): a group mailbox holds **one** identity —
+  a rule of the product, because a group sends as itself — written **as the
+  installation's agent**, always: Stalwart refuses to impersonate a group
+  mailbox, and the agent is the principal the installation has for acting on
+  its groups. Where the agent is not granted on the group, the surface names
+  the missing grant rather than showing a permission error.
+- **What an identity reaches**: mail **composed in Gilbert** — the composer and
+  the group's agent go through one signature function. Mail written in another
+  client carries that client's own body and signature; there is no server-side
+  footer and none is planned (ADR 0010).
 - **Nav grouping**: the administration sections are grouped by owner —
-Gilbert's own surfaces (policy, forced passwords, group label catalogs)
-under “Gilbert”, server configuration (a future Sieve editor and its
-peers) under “Stalwart”, and About ungrouped at the tail.
+Gilbert Mailer (policy, forced passwords, group label catalogs), Gilbert
+Assistant (the agent fleet and what it does per group), server configuration
+under “Stalwart” (the identities it holds, and a future Sieve editor with its
+peers), and About ungrouped at the tail.
 - **Where the documents live**: policy and settings documents sit in each
 account's hidden `gilbert` app folder; the per-user policy layer (values
 and enforced flags per user, named profiles, publishing per user or per
 group) is the next layer on the same document shape (ADR 0001 §5).
 
-This section is written for the state of 2026-09-07 and is kept current on
+This section is written for the state of 2026-09-11 and is kept current on
 every change that touches a feature and on every upstream merge (repo rule:
 `.codewhale/instructions.md`, "The feature inventory stays current").
 

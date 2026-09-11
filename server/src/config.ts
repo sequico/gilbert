@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizeBasePath } from "../../scripts/basePath.mjs";
 import { resolveVersion } from "../../scripts/version.mjs";
+import { isAddress, type PolicyDocument, type PolicyIdentities } from "./adminPolicy.js";
 import { AGENT_AREAS, type AgentArea, isAgentArea } from "./agent/documents.js";
 
 /** Minimal .env loader (no dependency): first match wins, never overrides real env. */
@@ -142,13 +143,12 @@ if (immutable)
  * Read from a file or straight from the environment, because Gilbert's own
  * production runs read-only with no volume -- an installation that cannot mount
  * a file can still set a variable.
+ *
+ * The shape is the document's, declared once in `adminPolicy.ts` and shared with
+ * the surface that edits it, so the reader and the editor cannot drift into two
+ * ideas of what a policy is.
  */
-function readSettingsPolicy(): {
-  defaults: Record<string, unknown>;
-  enforced: Record<string, unknown>;
-  changes: Array<{ version: string; settings: Record<string, unknown> }>;
-  agent?: { address: string; groups?: Record<string, { areas?: string[] }> };
-} {
+function readSettingsPolicy(): PolicyDocument {
   const parse = (raw: string, where: string): Record<string, unknown> => {
     try {
       const v = JSON.parse(raw) as unknown;
@@ -209,7 +209,7 @@ function readSettingsPolicy(): {
     const typed = v as { address?: unknown; groups?: unknown };
     const address =
       typeof typed.address === "string" ? typed.address.trim().toLowerCase() : "";
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(address))
+    if (!isAddress(address))
       throw new Error(
         `Invalid ${where}: "agent.address" must be the agent's own address, like gilbert@example.com`,
       );
@@ -221,7 +221,7 @@ function readSettingsPolicy(): {
         typed.groups as Record<string, unknown>,
       )) {
         const name = rawName.trim().toLowerCase();
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(name))
+        if (!isAddress(name))
           throw new Error(
             `Invalid ${where}: "agent.groups" names something that is not a group: ${rawName}`,
           );
@@ -243,6 +243,38 @@ function readSettingsPolicy(): {
     };
   };
 
+  /**
+   * The identities an administrator has taken over (ADR 0010 §4).
+   *
+   * Mirrors the surface's rule: an entry that is not an address is a
+   * configuration error at boot, not a value to fall back from silently. An
+   * empty list and an absent one both mean nobody is locked.
+   */
+  const parseIdentities = (
+    v: unknown,
+    where: string,
+  ): { identities?: PolicyIdentities } => {
+    if (v == null) return {};
+    if (typeof v !== "object" || Array.isArray(v))
+      throw new Error(`Invalid ${where}: "identities" must be an object`);
+    const locked = (v as { locked?: unknown }).locked;
+    if (locked === undefined) return {};
+    if (!Array.isArray(locked) || locked.some((entry) => typeof entry !== "string"))
+      throw new Error(
+        `Invalid ${where}: "identities.locked" must be a list of account addresses`,
+      );
+    const addresses: string[] = [];
+    for (const entry of locked as string[]) {
+      const address = entry.trim().toLowerCase();
+      if (!isAddress(address))
+        throw new Error(
+          `Invalid ${where}: "identities.locked" names something that is not an address: ${entry}`,
+        );
+      if (!addresses.includes(address)) addresses.push(address);
+    }
+    return addresses.length ? { identities: { locked: addresses } } : {};
+  };
+
   const file = process.env.SETTINGS_POLICY_FILE;
   if (file) {
     if (!existsSync(file))
@@ -253,6 +285,7 @@ function readSettingsPolicy(): {
       enforced: (whole.enforced as Record<string, unknown>) ?? {},
       changes: parseChanges(whole.changes, `SETTINGS_POLICY_FILE (${file})`),
       ...parseAgent(whole.agent, `SETTINGS_POLICY_FILE (${file})`),
+      ...parseIdentities(whole.identities, `SETTINGS_POLICY_FILE (${file})`),
     };
   }
   return {

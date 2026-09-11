@@ -1,26 +1,40 @@
-import { Bot, Info, KeyRound, ShieldCheck, Tag, Users } from "lucide-react";
+import {
+  Bot,
+  Info,
+  KeyRound,
+  ShieldCheck,
+  Tag,
+  UserCog,
+  Users,
+  UsersRound,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { t } from "@/lib/i18n";
 import { type SectionGroup, type SectionItem, SectionShell } from "@/ui/SectionShell";
 import { AdminAgents } from "@/views/admin/AdminAgents";
 import { AdminPolicy } from "@/views/admin/AdminPolicy";
 import { AdminUsers } from "@/views/admin/AdminUsers";
+import { GroupIdentities } from "@/views/admin/GroupIdentities";
 import { GroupLabels } from "@/views/admin/GroupLabels";
 import { GroupWorkers } from "@/views/admin/GroupWorkers";
+import { UserIdentities } from "@/views/admin/UserIdentities";
 import { AboutSettings } from "@/views/settings/AboutSettings";
 
 type AdminOwner = "mailer" | "assistant" | "stalwart" | null;
 type AdminSection = SectionItem & { el: ReactNode; owner: AdminOwner };
 
 /**
- * The two Gilbert-owned groups, and what each one is for.
+ * The administration's groups, and what each one is for.
  *
- * "Mailer" is the mail server's own administration — policy, the group label
- * catalogs, forced password changes — the surfaces ADR 0004/0005/0006 added
- * before there was an agent at all. "Assistant" is everything ADR 0003/0009
- * added: the fleet's own identity and per-tier models, and what it does inside
- * each group. Splitting them is the fix for the section that used to hold
- * both kinds of thing under one unlabelled "Gilbert" heading.
+ * "Gilbert Mailer" is the mail server's own administration — policy, the group
+ * label catalogs, forced password changes — the surfaces ADR 0004/0005/0006
+ * added before there was an agent at all. "Assistant" is everything ADR
+ * 0003/0009 added: the fleet's own identity and per-tier models, and what it
+ * does inside each group. "Stalwart" is the mail server's own records, written
+ * over JMAP or over its configuration API: the identities it holds (ADR 0010)
+ * and, in time, its system Sieve scripts (ADR 0011). Splitting them is the fix
+ * for the section that used to hold both kinds of thing under one unlabelled
+ * "Gilbert" heading.
  */
 const SECTIONS: AdminSection[] = [
   {
@@ -59,6 +73,20 @@ const SECTIONS: AdminSection[] = [
     owner: "assistant",
   },
   {
+    id: "user-identities",
+    label: t("User identities"),
+    icon: <UserCog size={18} />,
+    el: <UserIdentities />,
+    owner: "stalwart",
+  },
+  {
+    id: "group-identities",
+    label: t("Group identities"),
+    icon: <UsersRound size={18} />,
+    el: <GroupIdentities />,
+    owner: "stalwart",
+  },
+  {
     id: "about",
     label: "About",
     icon: <Info size={18} />,
@@ -74,9 +102,10 @@ const SECTIONS: AdminSection[] = [
  * these sections stay consistent. The nav groups the surfaces by owner:
  * "Gilbert Mailer" for the mail server's own administration (policy, forced
  * passwords, group label catalogs), "Gilbert Assistant" for the agent fleet
- * (ADR 0003/0009) and what it does per group, server configuration (the
- * future Sieve editor and its peers) under "Stalwart" — which starts empty —
- * and About ungrouped at the tail.
+ * (ADR 0003/0009) and what it does per group, and "Stalwart" for the mail
+ * server's own records — the identities an administrator sets (ADR 0010) and,
+ * in time, its system Sieve scripts (ADR 0011) — with About ungrouped at the
+ * tail.
  */
 export function AdminView({ section }: { section?: string }) {
   const current = SECTIONS.find((s) => s.id === section);
@@ -91,9 +120,7 @@ export function AdminView({ section }: { section?: string }) {
     { label: t("Gilbert Assistant"), items: byOwner("assistant") },
     {
       label: "Stalwart",
-      emptyLabel: t(
-        "Stalwart server configuration (Sieve editor and more) will appear here.",
-      ),
+      emptyLabel: t("Nothing here yet."),
       items: byOwner("stalwart"),
     },
   ];

@@ -40,6 +40,11 @@ export interface JmapSession {
      * which screen to show.
      */
     mustChangePassword?: boolean;
+    /**
+     * ADR 0010 §4: an administrator has taken this account's identity over, and
+     * the product offers the person no Identity & signatures section at all.
+     */
+    identityLocked?: boolean;
     /** Locale configured for the account in Stalwart, if the server exposes it. */
     userLocale?: string | null;
     /** What the upstream server was willing to say about itself. */

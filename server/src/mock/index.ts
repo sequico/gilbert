@@ -1103,6 +1103,22 @@ const groupIdentities: Obj[] = [
     mayDelete: false,
   },
 ];
+/* The impersonation target's own identities (ADR 0010). An administrator edits
+   a person's list from their own session, so the list has to be one the next
+   `Identity/get` sees: a fresh literal per call would answer 200 and change
+   nothing, which is the failure the per-account lists above exist to avoid. */
+const targetIdentities: Obj[] = [
+  {
+    id: "bi1",
+    name: "Bob",
+    email: TARGET_USER,
+    replyTo: null,
+    bcc: null,
+    textSignature: "",
+    htmlSignature: "",
+    mayDelete: true,
+  },
+];
 /* The second group (design@example.org) the demo user belongs to, so the
    chat panel has two teams to switch between. Leaner than the first: an
    empty folder tree that answers the mailbox probe, one welcome message, an
@@ -1217,9 +1233,11 @@ const identitiesFor = (accountId: unknown): Obj[] =>
       ? group2Identities
       : accountId === AGENT_ACCOUNT
         ? agentIdentities
-        : accountId === SHARED_ACCOUNT || accountId === TARGET_ACCOUNT
-          ? []
-          : identities;
+        : accountId === TARGET_ACCOUNT
+          ? targetIdentities
+          : accountId === SHARED_ACCOUNT
+            ? []
+            : identities;
 const groupCalendars: Obj[] = [
   {
     id: "gc1",

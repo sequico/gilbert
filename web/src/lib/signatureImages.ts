@@ -69,9 +69,27 @@ export async function storeSignatureHtml(html: string): Promise<string> {
   return created?.blobId ?? (await nodeBlobId(accountId, created?.id)) ?? up.blobId;
 }
 
-/** Replace data: URL images (pasted pictures) in signature HTML with stored blob URLs. */
-export async function externalizeDataImages(html: string): Promise<string> {
-  if (!html.includes("data:image/")) return html;
+/**
+ * Whether a signature carries a picture of its own — a `data:` URL, which is
+ * what a pasted one is before it is stored — and therefore cannot be written
+ * without the account's own Files. A surface that writes somebody else's
+ * identity has no Files of theirs to write, and says so instead of embedding a
+ * picture the account's storage would never hold.
+ */
+export function needsAssets(html: string): boolean {
+  return html.includes("data:image/");
+}
+
+/**
+ * Replace data: URL images (pasted pictures) in signature HTML with stored blob
+ * URLs, through `upload` — the account's own Files by default, and whatever a
+ * caller that writes another account's identity passes in.
+ */
+export async function externalizeDataImages(
+  html: string,
+  upload: (file: File) => Promise<string> = uploadSignatureImage,
+): Promise<string> {
+  if (!needsAssets(html)) return html;
   const doc = new DOMParser().parseFromString(`<div id="r">${html}</div>`, "text/html");
   const root = doc.getElementById("r")!;
   const imgs = Array.from(root.querySelectorAll("img")).filter((i) =>
@@ -91,7 +109,7 @@ export async function externalizeDataImages(html: string): Promise<string> {
       `image.${m[1]!.split("/")[1]?.replace("jpeg", "jpg") ?? "png"}`,
       { type: m[1]! },
     );
-    img.setAttribute("src", await uploadSignatureImage(file));
+    img.setAttribute("src", await upload(file));
   }
   return root.innerHTML;
 }

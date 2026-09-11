@@ -17,6 +17,20 @@
 export const SIGNATURE_SEPARATOR = "-- ";
 
 /**
+ * The cap on an identity's signature, in the bytes the mail server counts.
+ *
+ * One number for both tiers: the editor shows the count against it and the
+ * server refuses what the editor would have warned about, so a signature that
+ * saves is one the server accepts.
+ */
+export const SIGNATURE_LIMIT = 2047;
+
+/** The length of a string in the UTF-8 bytes an identity's signature is capped in. */
+export function utf8Length(value: string): number {
+  return new TextEncoder().encode(value).length;
+}
+
+/**
  * A plain-text signature on the end of a body.
  *
  * Two newlines below the text (one if the text already ended with a

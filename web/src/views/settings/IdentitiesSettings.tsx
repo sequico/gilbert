@@ -1,28 +1,16 @@
 import { Eye, EyeOff, Plus, Star, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Identity } from "@/jmap/types";
-import { formatAddressList, parseAddressList } from "@/lib/address";
-import { sanitizeEditorHtml } from "@/lib/html";
+import { formatAddressList } from "@/lib/address";
 import { t } from "@/lib/i18n";
 import { isAlwaysVisible } from "@/lib/identityVisibility";
-import {
-  buildMarkerSignature,
-  byteLength,
-  compactHtml,
-  SIGNATURE_LIMIT,
-  signatureTooLong,
-} from "@/lib/signatureHtml";
-import {
-  externalizeDataImages,
-  storeSignatureHtml,
-  uploadSignatureImage,
-} from "@/lib/signatureImages";
+import { storeSignatureHtml, uploadSignatureImage } from "@/lib/signatureImages";
 import { htmlToText } from "@/lib/text";
 import { useMail } from "@/store/mail";
 import { useSettings } from "@/store/settings";
-import { confirmDialog, Dialog } from "@/ui/dialog";
+import { confirmDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
-import { RichEditor, type RichEditorHandle } from "../compose/RichEditor";
+import { IdentityDialog } from "./IdentityDialog";
 
 export function IdentitiesSettings() {
   const identities = useMail((s) => s.identities);
@@ -185,152 +173,17 @@ export function IdentitiesSettings() {
           {`${hidden.length} ${hidden.length === 1 ? "identity is" : "identities are"} hidden from the compose picker. Hiding every one of them would leave nothing to choose from, so in that case they are all offered again.`}
         </p>
       )}
-      {editing && <IdentityDialog identity={editing} onClose={() => setEditing(null)} />}
-    </div>
-  );
-}
-
-function IdentityDialog({
-  identity,
-  onClose,
-}: {
-  identity: Partial<Identity>;
-  onClose: () => void;
-}) {
-  const [name, setName] = useState(identity.name ?? "");
-  const [email, setEmail] = useState(identity.email ?? "");
-  const [replyTo, setReplyTo] = useState(formatAddressList(identity.replyTo));
-  const [html, setHtml] = useState(
-    identity.htmlSignature ||
-      (identity.textSignature ? identity.textSignature.replace(/\n/g, "<br>") : ""),
-  );
-  const [busy, setBusy] = useState(false);
-  const ref = useRef<RichEditorHandle>(null);
-  const compact = compactHtml(sanitizeEditorHtml(html));
-  // The server's limit is on encoded bytes, so that is what to count and show.
-  const sigLen = byteLength(compact);
-  const tooLong = signatureTooLong(compact, htmlToText(compact));
-  const save = async () => {
-    setBusy(true);
-    try {
-      // 1) pasted pictures → stored files, 2) strip cruft, 3) fall back to a stored full copy.
-      const externalized = await externalizeDataImages(sanitizeEditorHtml(html));
-      const clean = compactHtml(externalized);
-      let htmlSignature = clean;
-      let textSignature = htmlToText(clean);
-      if (signatureTooLong(clean, textSignature)) {
-        const blobId = await storeSignatureHtml(clean);
-        ({ htmlSignature, textSignature } = buildMarkerSignature(blobId, clean));
-      }
-      const patch: Partial<Identity> = {
-        name,
-        replyTo: replyTo.trim() ? parseAddressList(replyTo) : null,
-        htmlSignature,
-        textSignature,
-      };
-      if (!identity.id) patch.email = email.trim();
-      await useMail.getState().saveIdentity(identity.id ?? null, patch);
-      toast.success(t("Identity saved"));
-      onClose();
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      title={identity.id ? t("Edit identity") : t("New identity")}
-      size="lg"
-      footer={
-        <>
-          <button className="btn" onClick={onClose}>
-            {t("Cancel")}
-          </button>
-          <button className="btn btn-primary" disabled={busy} onClick={() => void save()}>
-            {busy ? t("Saving…") : t("Save")}
-          </button>
-        </>
-      }
-    >
-      <div className="field-row">
-        <div className="field">
-          <label>{t("Display name")}</label>
-          <input
-            className="input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label>{t("Email address")}</label>
-          <input
-            className="input"
-            type="email"
-            value={email}
-            disabled={Boolean(identity.id)}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-      </div>
-      <div className="field">
-        <label>{t("Reply-To (optional)")}</label>
-        <input
-          className="input"
-          value={replyTo}
-          onChange={(e) => setReplyTo(e.target.value)}
-          placeholder={t("replies@example.com")}
-        />
-        <span className="hint">
-          {t(
-            "Replies to mail sent from this identity go here instead of the From address.",
-          )}
-        </span>
-      </div>
-      <div className="field">
-        <label>{t("Signature")}</label>
-        <div
-          style={{
-            border: `1px solid ${tooLong ? "var(--danger)" : "var(--border-strong)"}`,
-            borderRadius: 8,
-            minHeight: 180,
-            display: "flex",
-            flexDirection: "column",
+      {editing && (
+        <IdentityDialog
+          identity={editing}
+          onClose={() => setEditing(null)}
+          save={(patch) => useMail.getState().saveIdentity(editing.id ?? null, patch)}
+          assets={{
+            uploadImage: uploadSignatureImage,
+            storeHtml: storeSignatureHtml,
           }}
-        >
-          <RichEditor
-            ref={ref}
-            html={html}
-            onChange={setHtml}
-            placeholder={t("Your signature…")}
-            showToolbar
-            imageUpload={uploadSignatureImage}
-          />
-        </div>
-        <div className="row" style={{ justifyContent: "space-between" }}>
-          <span className="hint">
-            {t(
-              "Images are stored in your Files (folder “gilbert”) and embedded when you send.",
-            )}
-          </span>
-          <span
-            className="hint nowrap"
-            style={tooLong ? { color: "var(--warn)", fontWeight: 600 } : undefined}
-          >
-            {sigLen.toLocaleString()} / {SIGNATURE_LIMIT.toLocaleString()}
-          </span>
-        </div>
-        {tooLong && (
-          <div className="warn-box mt-8">
-            {t(
-              "This signature is larger than the server's {limit}-byte limit. Gilbert will keep the full version in your Files and store a short text fallback on the server — other mail clients will see the plain-text version.",
-              { limit: SIGNATURE_LIMIT },
-            )}
-          </div>
-        )}
-      </div>
-    </Dialog>
+        />
+      )}
+    </div>
   );
 }

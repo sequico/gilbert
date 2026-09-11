@@ -16,9 +16,12 @@ import {
   Users,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { Link } from "wouter";
+import { useEffect } from "react";
+import { Link, useLocation } from "wouter";
 import { t } from "@/lib/i18n";
 import { lazyView } from "@/lib/lazyView";
+import { IDENTITIES_SECTION, visibleSettingsSections } from "@/lib/settingsSections";
+import { useSession } from "@/store/session";
 import { type SectionItem, SectionShell } from "@/ui/SectionShell";
 import { AboutSettings } from "./AboutSettings";
 import { AppearanceSettings } from "./AppearanceSettings";
@@ -118,11 +121,20 @@ const SECTIONS: Array<SectionItem & { el: ReactNode }> = [
 ];
 
 export function SettingsView({ section }: { section?: string }) {
-  const current = SECTIONS.find((s) => s.id === section);
+  // ADR 0010 §4: an account whose identity an administrator has taken over is
+  // offered no Identity & signatures section, and no route to one either.
+  const identityLocked = useSession((s) => s.identityLocked);
+  const sections = visibleSettingsSections(SECTIONS, identityLocked);
+  const current = sections.find((s) => s.id === section);
+  const [, navigate] = useLocation();
+  useEffect(() => {
+    if (identityLocked && section === IDENTITIES_SECTION)
+      navigate("/settings/general", { replace: true });
+  }, [identityLocked, section, navigate]);
   return (
     <SectionShell
       heading={t("Settings")}
-      items={SECTIONS}
+      items={sections}
       activeId={section}
       base="/settings"
       backHref={section ? "/settings" : undefined}
