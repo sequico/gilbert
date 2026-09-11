@@ -28,9 +28,14 @@ services:
   # writable path of its own -- everything it knows lives in Stalwart, so a
   # replacement picks the work up from the documents (ADR 0003). Start it with
   #   docker compose --profile agent up
-  # and stop it by leaving the profile out. Without GILBERT_AGENT_ADDRESS and
-  # GILBERT_AGENT_PASSWORD it refuses to start, loudly, rather than running
-  # half-configured.
+  # and stop it by leaving the profile out.
+  #
+  # The pair is read from the environment and is not required to bring the stack
+  # up: the server service above starts without it, and Admin > Agents names the
+  # state (`agent_not_configured`) beside how to set the two. The worker is the
+  # one process that stops -- with nothing to serve it exits naming both
+  # variables rather than starting half-configured, so leaving the profile out
+  # is how a deployment runs with no agent at all.
   gilbert-agent:
     profiles: ["agent"]
     build:
@@ -42,8 +47,8 @@ services:
     command: ["node", "server/dist/agent/worker.js"]
     environment:
       STALWART_URL: ${STALWART_URL:?set STALWART_URL in .env}
-      GILBERT_AGENT_ADDRESS: ${GILBERT_AGENT_ADDRESS:?set GILBERT_AGENT_ADDRESS in .env}
-      GILBERT_AGENT_PASSWORD: ${GILBERT_AGENT_PASSWORD:?set GILBERT_AGENT_PASSWORD in .env}
+      GILBERT_AGENT_ADDRESS: ${GILBERT_AGENT_ADDRESS:-}
+      GILBERT_AGENT_PASSWORD: ${GILBERT_AGENT_PASSWORD:-}
       GILBERT_AGENT_AREAS: ${GILBERT_AGENT_AREAS:-}
       GILBERT_AGENT_HEALTH_PORT: "8081"
       IMMUTABLE: "1"
