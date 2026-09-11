@@ -46,10 +46,18 @@ export const AGENT_TRIGGER_LABELS: Record<AgentTriggerOn, string> = {
   schedule: "On a schedule",
 };
 
+/**
+ * What each tier is called where a person reads it (ADR 0003).
+ *
+ * T0/T1/T2 are the architecture's names for the tiers, and the ones the
+ * documents and the log carry; what someone choosing between them needs is
+ * what the tier does, so the label says that and leaves the code to the places
+ * that read it.
+ */
 export const AGENT_TIER_LABELS: Record<AgentTier, string> = {
-  T0: "T0 · fixed actions, no model",
-  T1: "T1 · a small model picks a category",
-  T2: "T2 · a model decides and acts",
+  T0: "Fixed actions, with no model",
+  T1: "A small model picks a category",
+  T2: "A model decides and acts",
 };
 
 export const AGENT_REVIEW_LABELS: Record<AgentReviewMode, string> = {
