@@ -676,20 +676,121 @@ export function startHealthServer(opts: {
   return () => server.close();
 }
 
+/**
+ * The agent the deployment names, as the worker needs it.
+ *
+ * `config.agent` re-reads the agents file (`refreshAgent`), so this is the
+ * deployment's current word rather than the one this process started with.
+ */
+export interface AgentIdentity {
+  address: string;
+  password: string;
+  areas: AgentArea[];
+}
+
+/**
+ * How often the running fleet asks whether the deployment renamed the agent.
+ *
+ * This is not the session's own poll: a session is re-read every poll interval
+ * because a grant changes inside the mail server, while this asks whether the
+ * *deployment* changed the identity. Both are cheap reads of a file that is
+ * re-read on its own stamp, so this only decides how long a hand-edited file
+ * takes to matter.
+ */
+const AGENT_IDENTITY_RECHECK_MS = 2_000;
+
+/** The agent the deployment names right now. */
+export function currentIdentity(): AgentIdentity {
+  const { address, password, areas } = config.agent;
+  return { address, password, areas: [...areas] };
+}
+
+/** Whether two identities would start the same fleet. */
+export function sameIdentity(a: AgentIdentity, b: AgentIdentity): boolean {
+  return (
+    a.address === b.address &&
+    a.password === b.password &&
+    a.areas.length === b.areas.length &&
+    a.areas.every((area, index) => area === b.areas[index])
+  );
+}
+
+/** Sign in as an identity, the way the worker does at boot. */
+async function signInAs(
+  identity: AgentIdentity,
+): Promise<{ authorization: string; session: UpstreamSession }> {
+  const authorization = basicAuth(identity.address, identity.password);
+  return {
+    authorization,
+    session: await openSession(authorization, upstreamFor(identity.address)),
+  };
+}
+
+/**
+ * The identity the running fleet should follow, or null to stay as it is.
+ *
+ * A deployment that renames the agent is followed by signing in as the new one
+ * **before** anything is stopped: a sign-in that fails leaves the fleet that is
+ * serving alone, so a deployment mid-edit never takes a working agent down.
+ * Null is therefore three things — nothing changed, nothing usable is named any
+ * more, or what is named cannot sign in — and each of them means the groups
+ * being served keep being served.
+ */
+export async function identityToFollow(
+  running: AgentIdentity,
+  deps: {
+    current?: () => AgentIdentity;
+    signIn?: (
+      identity: AgentIdentity,
+    ) => Promise<{ authorization: string; session: UpstreamSession }>;
+    log?: (line: string) => void;
+  } = {},
+): Promise<{ identity: AgentIdentity; ctx: Ctx } | null> {
+  const log = deps.log ?? ((line: string) => console.log(`[gilbert] ${line}`));
+  const wanted = (deps.current ?? currentIdentity)();
+  if (sameIdentity(running, wanted)) return null;
+  if (!wanted.address || !wanted.password) {
+    log("the deployment no longer names a usable agent: the fleet keeps serving");
+    return null;
+  }
+  try {
+    const { authorization, session } = await (deps.signIn ?? signInAs)(wanted);
+    return {
+      identity: wanted,
+      ctx: { authorization, session, username: wanted.address },
+    };
+  } catch (err) {
+    log(
+      `${wanted.address} could not sign in, so the fleet keeps serving ${running.address}: ` +
+        (err instanceof Error ? err.message : String(err)),
+    );
+    return null;
+  }
+}
+
+/** The areas a fleet serves, as the startup line names them. */
+const servedAreas = (identity: AgentIdentity): string =>
+  identity.areas.join(", ") || AGENT_AREAS.join(", ");
+
+/** Start serving one identity: sign in as it, then start a fleet on that. */
+async function startFleet(identity: AgentIdentity): Promise<WorkerHandle> {
+  const { authorization, session } = await signInAs(identity);
+  const ctx: Ctx = { authorization, session, username: identity.address };
+  return startWorker({ ctx, address: identity.address, areas: identity.areas });
+}
+
 /** The worker's own entrypoint: no half-configured start, ever. */
 export async function main(): Promise<void> {
-  const { address, password, areas } = config.agent;
-  if (!address || !password) {
+  const first = currentIdentity();
+  if (!first.address || !first.password) {
     console.error(
       "[gilbert] the agent worker is not configured: set GILBERT_AGENT_ADDRESS and " +
         "GILBERT_AGENT_PASSWORD (or name the agent in GILBERT_AGENTS_FILE); nothing started",
     );
     process.exit(1);
   }
-  const authorization = basicAuth(address, password);
-  const session = await openSession(authorization, upstreamFor(address));
-  const ctx: Ctx = { authorization, session, username: address };
-  const worker = await startWorker({ ctx, address, areas });
+  let identity = first;
+  let worker = await startFleet(identity);
   const closeHealth =
     config.agent.healthPort > 0
       ? startHealthServer({
@@ -702,10 +803,29 @@ export async function main(): Promise<void> {
       `[gilbert] agent health: http://0.0.0.0:${config.agent.healthPort}/health`,
     );
   console.log(
-    `[gilbert] agent worker for ${address} serving ${areas.join(", ") || AGENT_AREAS.join(", ")}`,
+    `[gilbert] agent worker for ${identity.address} serving ${servedAreas(identity)}`,
   );
+
+  // The deployment can rename the agent while this process runs, and a restart
+  // is not how a hand-edited file should have to be applied. `identityToFollow`
+  // signs in as the new agent first, so a fleet is only ever replaced by one
+  // that can already serve.
+  const watch = setInterval(() => {
+    void (async () => {
+      const next = await identityToFollow(identity);
+      if (!next) return;
+      await worker.stop();
+      worker = await startFleet(next.identity);
+      identity = next.identity;
+      console.log(
+        `[gilbert] the agent is now ${identity.address}, serving ${servedAreas(identity)}`,
+      );
+    })();
+  }, AGENT_IDENTITY_RECHECK_MS);
+
   const shutdown = async (signal: string) => {
     console.log(`[gilbert] ${signal} received, stopping the agent worker`);
+    clearInterval(watch);
     closeHealth?.();
     await worker.stop();
     process.exit(0);

@@ -160,6 +160,11 @@ working credential for mints nothing: the save probes that sign-in first.
 Rotation deliberately does not revoke the credential already in use — that
 would stop the agent’s work on the spot — and the API answers with how many
 credentials it left valid.
+- **A changed agent is followed, not restarted for.** The worker re-reads a
+mounted `GILBERT_AGENTS_FILE` while it runs, so renaming the agent, rotating
+its secret or changing the areas the deployment serves takes effect within
+seconds. The new identity signs in first: only a sign-in that works replaces
+the fleet that is serving, and one that fails leaves it alone and says so.
 - **Automations, not rules written in code.** The admin surface authors one
 document per automation, as a form — “When [event] / If [filters] / Then
 [actions]” — validated against the JMAP filter grammar (RFC 8621) and the

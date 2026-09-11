@@ -108,10 +108,13 @@ record keeps its full shape as the evolution path.
   runtime-written `.env` is impossible on a read-only root and pointless on
   a disposable container, because `.env` is read at boot and the container
   is replaced from the image. Rotating the secret therefore means updating
-  the deployment and restarting; an installation that would rather never
-  touch it keeps the recorded alternative — an operator credential holding
-  `Impersonate`, from which the agent's app password is created or recovered
-  under impersonation (Open questions, probes c and d).
+  the deployment: a mounted `GILBERT_AGENTS_FILE` is re-read as it changes and
+  the running fleet follows the agent it names, while the environment is read
+  at boot, so a value that lives there still costs a restart; an installation
+  that would rather never touch it keeps the recorded alternative — an
+  operator credential holding `Impersonate`, from which the agent's app
+  password is created or recovered under impersonation (Open questions, probes
+  c and d).
 - **The agent principal is not granted `Impersonate`.** v1 reaches groups by
   membership, never by becoming someone; Stalwart refuses impersonated group
   mailboxes anyway (live-verified, 403), so the permission would buy only
@@ -124,9 +127,9 @@ record keeps its full shape as the evolution path.
   impersonation (live-probe item — Open questions) and manages everything
   else through ordinary JMAP on Stalwart documents. No Management API, no
   hand-edited files, no fields to paste secrets into. Rotation lands on the
-  deployment: the UI rotates the credential underneath, and the environment
-  has to agree with it at the next restart — a rotation is complete when
-  both say the same thing.
+  deployment: the UI rotates the credential underneath, and the deployment's
+  copy has to agree with it — a running fleet follows a mounted agents file,
+  so the two come back into step without a restart.
 - **The agent's own account holds its configuration; the group's account
   holds the work.** Per-agent settings are documents in the agent account's
   own `gilbert/` app folder (Decision §4): its registration record and the

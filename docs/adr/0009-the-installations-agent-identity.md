@@ -71,8 +71,9 @@ that is the same decision twice, and the later save is the one that holds.
 
 - An administrator names the agent in the product, choosing from the accounts
   the server already lists, and the change reaches the web tier on the next
-  request. A browser reload is what applies it; the worker reads the same value
-  at its next start, which the surface says.
+  request. A browser reload is what applies it. The worker serves the address
+  the deployment names, and a mounted `GILBERT_AGENTS_FILE` is followed as it
+  changes, so an address changed there needs no restart.
 - **A group whose record drops an area stops being served there.** The worker
   stops renewing that claim and the lease lapses on its own — no worker deletes
   another's claim, and this never touches the fence — so the rules in that area
