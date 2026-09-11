@@ -313,3 +313,13 @@ push.subscribe((accountId, type) => {
     if (name in now.memberViews) void now.loadMemberView(name);
   }, RELOAD_DEBOUNCE_MS);
 });
+
+// Push replays nothing to a tab that was away, so a view already open is
+// re-read when the connection comes back. The debounce above is for a burst
+// of live events; this is one pass, and the views it reads are only the ones
+// already on screen.
+push.onReconnect(() => {
+  const now = useAgents.getState();
+  for (const name of Object.keys(now.groupViews)) void now.loadGroup(name);
+  for (const name of Object.keys(now.memberViews)) void now.loadMemberView(name);
+});

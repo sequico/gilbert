@@ -1,7 +1,7 @@
 import { Fragment, Suspense, useEffect, useState } from "react";
 import { Redirect, Route, Router, Switch, useLocation } from "wouter";
 import { client } from "@/jmap/client";
-import { push } from "@/jmap/push";
+import { catchUpAfterReconnect, push } from "@/jmap/push";
 import { BASE_PATH, withBase } from "@/lib/basePath";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { plural, t, useLanguageVersion, whenLanguageReady } from "@/lib/i18n";
@@ -351,10 +351,11 @@ function AuthedApp() {
      * and the poll below only runs while it is down, so the moment the
      * connection returns is the one moment left to fetch what happened in the
      * gap; without this the lists and the badge stay stale until an unrelated
-     * event arrives. Every mail account is caught up the way an Email or
-     * Mailbox state event for it would be — per-account changes from the
-     * store's last-known state, which is safe and idempotent whether or not
-     * the server replays anything on reconnect. The first connect of a
+     * event arrives. Every account is caught up the way a StateChange for it
+     * would be — per-account changes from the store's last-known state, which
+     * is safe and idempotent whether or not the server replays anything on
+     * reconnect — and every live type goes to the dispatcher the live path
+     * uses, so no surface is left out of the gap. The first connect of a
      * session is deliberately exempt: the initial load is happening right now.
      */
     const unsubReconnect = push.onReconnect(() => {
@@ -362,14 +363,9 @@ function AuthedApp() {
       const accounts = new Set<string>();
       if (mail.accountId) accounts.add(mail.accountId);
       for (const a of mail.mailAccounts) accounts.add(a.accountId);
-      for (const acct of accounts) {
-        queue(acct, "Email");
-        queue(acct, "Mailbox");
-      }
-      // Chat rides the same catch-up: FileNode changes that arrived while the
-      // connection was down are fetched from each conversation's last state.
-      for (const a of groupMailboxAccounts(mail.mailAccounts))
-        queue(a.accountId, "FileNode");
+      // A group mailbox is reached through the account that owns it.
+      for (const a of groupMailboxAccounts(mail.mailAccounts)) accounts.add(a.accountId);
+      catchUpAfterReconnect(accounts, queue);
     });
     const unsubState = client.onSessionState(() => {
       void useSession.getState().refresh();

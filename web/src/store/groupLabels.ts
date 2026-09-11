@@ -99,3 +99,11 @@ push.subscribe((accountId, type) => {
     void useGroupLabels.getState().load(accountId);
   }, RELOAD_DEBOUNCE_MS);
 });
+
+// Push replays nothing to a tab that was away, so a catalog already loaded is
+// re-read when the connection comes back. The debounce above is for a burst
+// of live events; this is one pass, and only for the accounts already loaded.
+push.onReconnect(() => {
+  for (const accountId of Object.keys(useGroupLabels.getState().byAccount))
+    void useGroupLabels.getState().load(accountId);
+});

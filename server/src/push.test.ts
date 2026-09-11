@@ -578,6 +578,35 @@ test("every type a client store reacts to is in the subscription's list", () => 
   );
 });
 
+// Push replays nothing to a client that was away: not to a tab that slept, nor
+// to one whose connection dropped. Every surface that stays live therefore has
+// to say how it catches up when the connection comes back, or it updates while
+// connected and then sits stale after every drop -- with the connection looking
+// healthy the whole time, which is the failure nobody notices. App.tsx
+// dispatches the catch-up for the store it subscribes for; a store that
+// subscribes on its own has to register its own pass, beside the subscription
+// that makes it live.
+test("every surface that subscribes also catches up after a reconnect", () => {
+  const web = join(import.meta.dirname, "..", "..", "web", "src");
+  const files = [
+    ...readdirSync(join(web, "store"))
+      .filter((f) => f.endsWith(".ts") && !f.includes(".test."))
+      .map((f) => join(web, "store", f)),
+    join(web, "App.tsx"),
+  ];
+  const subscribed: string[] = [];
+  for (const file of files) {
+    const source = readFileSync(file, "utf8");
+    if (!source.includes("push.subscribe(")) continue;
+    subscribed.push(file);
+    assert.ok(
+      source.includes("push.onReconnect(") || source.includes("catchUpAfterReconnect("),
+      `${file} subscribes to the push rail and never catches up after a reconnect`,
+    );
+  }
+  assert.ok(subscribed.length > 0, "the subscribing surfaces were read");
+});
+
 // The origin is a fact about the request, not a variable an operator sets. A
 // subscription that names anything else sends Stalwart's change POSTs to a host
 // that never reaches this tab, and the tab stops updating with nothing saying

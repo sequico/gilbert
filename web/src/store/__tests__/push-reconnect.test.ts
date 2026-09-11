@@ -1,5 +1,6 @@
+import { PUSH_STATE_TYPES } from "@gilbert/shared/push";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { push } from "@/jmap/push";
+import { catchUpAfterReconnect, push } from "@/jmap/push";
 
 /**
  * The reconnect contract behind the app's catch-up.
@@ -120,5 +121,37 @@ describe("push reconnect", () => {
     expect(FakeEventSource.instances).toHaveLength(3);
     latest().open();
     expect(fn).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * What the catch-up actually asks for.
+ *
+ * The connection contract above says *when* a tab catches up; this says what
+ * it asks for when it does. Push replays nothing to a tab that was away, so a
+ * type left out of this pass is stale until an unrelated event for the same
+ * type happens to arrive — and the connection looks healthy the whole time,
+ * which is why the gap went unnoticed. The pass takes every live type from
+ * the one list the subscription is built from, so it cannot drift from what
+ * the server posts.
+ */
+describe("push reconnect catch-up", () => {
+  it("asks every account for every live type, not a hand-picked few", () => {
+    const queued = new Map<string, string[]>();
+    const accounts = ["me@example.com", "group@example.com"];
+    catchUpAfterReconnect(accounts, (accountId, type) => {
+      queued.set(accountId, [...(queued.get(accountId) ?? []), type]);
+    });
+
+    // One pass per account: a tab holding a group mailbox catches up both.
+    expect([...queued.keys()].sort()).toEqual([...accounts].sort());
+    const everyLiveType = [...PUSH_STATE_TYPES].sort();
+    for (const [, types] of queued) {
+      expect([...types].sort()).toEqual(everyLiveType);
+    }
+    // The types the old hand-written pass never asked for — calendar,
+    // contacts, tasks, filters, quota — are the point of the test.
+    expect(everyLiveType).toContain("CalendarEvent");
+    expect(everyLiveType).toContain("SieveScript");
   });
 });

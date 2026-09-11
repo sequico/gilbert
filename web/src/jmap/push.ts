@@ -1,3 +1,4 @@
+import { PUSH_STATE_TYPES } from "@gilbert/shared/push";
 import { withBase } from "@/lib/basePath";
 import type { Id, StateChange } from "./types";
 
@@ -5,6 +6,26 @@ export type PushListener = (accountId: Id, type: string, newState: string) => vo
 
 /** Connected, trying to connect, or not trying. */
 export type PushState = "connected" | "connecting" | "disconnected";
+
+/**
+ * Everything a tab keeps live, offered to the dispatcher after a reconnect.
+ *
+ * Push plays nothing back to a client that was away — asleep, offline, or
+ * behind a connection that dropped — so a tab that comes back has to ask for
+ * everything it shows, and the moment the connection returns is the only
+ * moment left to fetch the gap. The types come from the list the subscription
+ * itself is built from (`PUSH_STATE_TYPES`), never from a hand-picked few: a
+ * surface left out here stays stale for as long as the connection looks
+ * healthy, which is the one failure nobody notices.
+ */
+export function catchUpAfterReconnect(
+  accountIds: Iterable<Id>,
+  queue: (accountId: Id, type: string) => void,
+): void {
+  for (const accountId of accountIds) {
+    for (const type of PUSH_STATE_TYPES) queue(accountId, type);
+  }
+}
 
 /**
  * JMAP push over Server-Sent Events (proxied through our server).
