@@ -91,13 +91,13 @@ web sign-in already uses) so a mis-typed server fails fast at entry time.
 
 ### 2. Native push rides the existing per-account PushSubscription
 
-Extend the mail-only fan-out of `server/src/push.ts` with a **mobile leg**
+Extend the fan-out of `server/src/push.ts` with a **mobile leg**
 (implemented in a new `server/src/mobilePush.ts` beside it):
 
 - The per-account Stalwart subscription whose URL is Gilbert's own origin
-  gains the `FileNode` type where the account participates in chat group
-  accounts, so mail (`Email`) and chat (`FileNode`) StateChanges both
-  arrive at the same Gilbert endpoint (per-account subscriptions, one per
+  already names every type a surface watches (ADR 0012), so mail (`Email`)
+  and chat (`FileNode`) StateChanges both arrive at the same Gilbert
+  endpoint (per-account subscriptions, one per
   account the user session sees — personal plus each group mailbox — the
   same account set the web client already subscribes).
 - When a StateChange lands, the existing fan-out keeps serving open tabs

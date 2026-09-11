@@ -588,12 +588,12 @@ export const config = {
    */
   adminPermissionMarker: env("GILBERT_ADMIN_PERMISSION", "sysAccountCreate"),
   /*
-   * How push reaches the browser. "relay" holds one upstream stream per tab
-   * (today's behaviour). "subscribe" registers one JMAP PushSubscription per
-   * account and fans Stalwart's POSTs out to that account's tabs, holding no
-   * upstream connection at all -- see push.ts. It needs PUSH_URL: the https
-   * origin Stalwart can reach Gilbert at, with a certificate it trusts.
-   * An account that cannot be verified stays on the relay.
+   * How push reaches the browser. "relay" holds one upstream stream per tab.
+   * "subscribe" registers one JMAP PushSubscription per account and fans
+   * Stalwart's POSTs out to that account's tabs, holding no upstream connection
+   * at all -- see push.ts. The origin Stalwart POSTs back to is derived from the
+   * request (see pushOrigin in app.ts); an account we cannot state one for
+   * stays on the relay.
    */
   /*
    * The agent worker (ADR 0003). Everything here is read-only configuration:
@@ -628,7 +628,6 @@ export const config = {
   pushMode: (process.env.PUSH_MODE === "relay" ? "relay" : "subscribe") as
     | "relay"
     | "subscribe",
-  pushUrl: process.env.PUSH_URL || "",
   /* See relayPushRaw(): pipe the push stream socket-to-socket instead of through fetch(). */
   rawPushRelay: process.env.RAW_PUSH_RELAY !== "0",
   /* See absoluteUpstream(): follow Stalwart's advertised origin instead of pinning to ours. */

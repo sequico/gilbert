@@ -26,6 +26,7 @@
 import { randomBytes } from "node:crypto";
 import type { ServerResponse } from "node:http";
 import { config } from "./config.js";
+import { PUSH_STATE_TYPES } from "./shared/push.js";
 import { absoluteUpstream, getUpstreamSession, upstreamFor } from "./upstream.js";
 
 const USING = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"];
@@ -47,10 +48,10 @@ interface AccountPush {
   username: string;
   accountId: string;
   base: string;
+  /** The https origin Stalwart POSTs back to, derived from the request that started it. */
+  origin: string;
   token: string; // what Stalwart puts in the URL
   authorization: string; // one live session's credential, for set/verify/renew
-  /** Group chat (ADR 0006) rides FileNode state changes; add the type to this session's subscription. */
-  chat: boolean;
   subscriptionId: string | null;
   state: "pending" | "verified" | "failed";
   since: number;
@@ -65,7 +66,7 @@ const byToken = new Map<string, AccountPush>();
 let sweeper: NodeJS.Timeout | null = null;
 
 export function pushEnabled(): boolean {
-  return config.pushMode === "subscribe" && !!config.pushUrl;
+  return config.pushMode === "subscribe";
 }
 
 function keyFor(base: string, username: string) {
@@ -91,21 +92,11 @@ async function jmap(entry: AccountPush, calls: unknown[]) {
 }
 
 async function subscribe(entry: AccountPush) {
-  const url = `${config.pushUrl!.replace(/\/$/, "")}${config.basePath}/api/push/${entry.token}`;
-  // A session whose accounts include a group mailbox adds FileNode: chat
-  // messages are FileNodes in the group's app folder (ADR 0006), and without
-  // the type in the subscription their changes never POST. The mail-only
-  // list stays as it is otherwise, so a personal session's own settings.json
-  // saves do not stream.
-  const types = [
-    "Email",
-    "Mailbox",
-    "Thread",
-    "Identity",
-    "EmailSubmission",
-    "VacationResponse",
-  ];
-  if (entry.chat) types.push("FileNode");
+  const url = `${entry.origin}${config.basePath}/api/push/${entry.token}`;
+  // Every type a surface keeps live, for every account. The list is the one
+  // the relay's `types=*` already covers, so which transport a deployment is
+  // on does not decide which parts of the app update. See PUSH_STATE_TYPES.
+  const types = [...PUSH_STATE_TYPES];
   const r = await jmap(entry, [
     [
       "PushSubscription/set",
@@ -187,9 +178,11 @@ export function prepare(
   username: string,
   accountId: string,
   authorization: string,
-  chat = false,
+  origin: string | null,
 ): AccountPush | null {
-  if (!pushEnabled()) return null;
+  // No origin means we could not say where Stalwart should POST back to, and
+  // RFC 8620 requires https. The account stays on the per-tab relay instead.
+  if (!pushEnabled() || !origin) return null;
   const base = upstreamFor(username);
   const key = keyFor(base, username);
   let entry = byKey.get(key);
@@ -199,9 +192,9 @@ export function prepare(
       username,
       accountId,
       base,
+      origin,
       token: randomBytes(32).toString("base64url"),
       authorization,
-      chat,
       subscriptionId: null,
       state: "pending",
       since: Date.now(),
@@ -217,21 +210,10 @@ export function prepare(
     startSweeper();
   } else {
     entry.authorization = authorization; // keep a live credential for renewals
-    if (chat && !entry.chat) {
-      // A session refresh added a group mailbox after sign-in. The live
-      // subscription was created with the mail-only types; re-subscribe now
-      // (the same deviceClientId makes Stalwart replace it) rather than
-      // waiting out the sweeper's renewal -- FileNode changes for the new
-      // membership would otherwise never POST until then.
-      entry.chat = true;
-      entry.state = "pending";
-      entry.since = Date.now();
-      subscribe(entry).catch((err) => {
-        fail(entry!, `re-subscribe for chat failed: ${(err as Error).message}`);
-      });
-    } else {
-      entry.chat = entry.chat || chat;
-    }
+    // This request is the freshest statement of where we are reachable, and a
+    // renewal re-creates the subscription: a deployment that moved converges
+    // on its next renewal rather than staying pinned to its old hostname.
+    entry.origin = origin;
   }
   return entry;
 }
@@ -245,9 +227,9 @@ export function attach(
   accountId: string,
   authorization: string,
   out: ServerResponse,
-  chat = false,
+  origin: string | null,
 ): AccountPush | null {
-  const entry = prepare(username, accountId, authorization, chat);
+  const entry = prepare(username, accountId, authorization, origin);
   if (entry?.state !== "verified") return null;
   entry.tabs.add(out);
   out.on("close", () => {

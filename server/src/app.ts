@@ -53,7 +53,7 @@ import {
   saveRules,
   writeProviders,
 } from "./agentAdmin.js";
-import { resolveClientIp } from "./clientip.js";
+import { isTrustedProxy, resolveClientIp } from "./clientip.js";
 import { agentAddress, agentHasSecret, config } from "./config.js";
 import { icsProxyHandler } from "./icsproxy.js";
 import {
@@ -95,7 +95,6 @@ import {
   forgetUpstreamSession,
   getAccountInfo,
   getUpstreamSession,
-  hasChatGroupAccounts,
   hasStalwartRegistry,
   isStalwartAdmin,
   localizeSession,
@@ -332,28 +331,67 @@ const _HOP_BY_HOP = new Set([
   "content-length",
 ]);
 
-export function clientIp(c: Context): string {
-  let peer = "unknown";
+/** The socket's own address -- the one part of a request nobody downstream can forge. */
+function peerAddress(c: Context): string {
   try {
-    peer = getConnInfo(c).remote.address ?? "unknown";
+    return getConnInfo(c).remote.address ?? "unknown";
   } catch {
     /* no socket information available */
+    return "unknown";
   }
+}
+
+export function clientIp(c: Context): string {
   return resolveClientIp(
-    peer,
+    peerAddress(c),
     { forwardedFor: c.req.header("x-forwarded-for"), realIp: c.req.header("x-real-ip") },
     config,
   );
 }
 
+/** The scheme a request arrived on; `X-Forwarded-Proto` is believed only from a proxy we run. */
+function requestProto(c: Context): "http" | "https" {
+  if (config.trustProxy) {
+    const proto = c.req.header("x-forwarded-proto");
+    if (proto)
+      return proto.split(",")[0]!.trim().toLowerCase() === "https" ? "https" : "http";
+  }
+  return new URL(c.req.url).protocol === "https:" ? "https" : "http";
+}
+
 function isSecureRequest(c: Context): boolean {
   if (config.secureCookies === "1" || config.secureCookies === "true") return true;
   if (config.secureCookies === "0" || config.secureCookies === "false") return false;
-  if (config.trustProxy) {
-    const proto = c.req.header("x-forwarded-proto");
-    if (proto) return proto.split(",")[0]!.trim() === "https";
-  }
-  return new URL(c.req.url).protocol === "https:";
+  return requestProto(c) === "https";
+}
+
+/** A host that can go into a URL: a name, IPv4, or a bracketed IPv6, with an optional port. */
+const PUSH_HOST_RE =
+  /^(?:\[[0-9a-fA-F:.]+\]|[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*)(?::\d{1,5})?$/;
+
+// ADR-0013 OWED: push-origin-live-probe
+/**
+ * The https origin Stalwart can reach this installation at, read off the
+ * request that carried the session (ADR 0012).
+ *
+ * Upstream POSTs back only to what the subscription named, and RFC 8620
+ * requires https there, so this answers `null` -- leaving the account on the
+ * per-tab relay -- unless every part of it is believable: the peer is a proxy
+ * we run, that proxy says the request arrived over https, and what is left is
+ * a syntactically valid host. A peer we do not run cannot name our origin, and
+ * a client cannot smuggle one through the headers because its own socket
+ * address is not trusted.
+ */
+function pushOrigin(c: Context): string | null {
+  if (!config.trustProxy || !isTrustedProxy(peerAddress(c), config)) return null;
+  if (requestProto(c) !== "https") return null;
+  // Rightmost-first would be wrong here: a proxy appends to X-Forwarded-Host,
+  // so the first entry is the one our own proxy observed.
+  const host =
+    c.req.header("x-forwarded-host")?.split(",")[0]?.trim() ||
+    c.req.header("host")?.trim() ||
+    "";
+  return PUSH_HOST_RE.test(host) ? `https://${host}` : null;
 }
 
 /** Security headers for every response. */
@@ -712,17 +750,10 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       });
       setSessionCookie(c, cookie, session.remember);
       // Start the account's push subscription now, so it is usually verified
-      // by the time the browser opens its stream. See push.ts. A session that
-      // holds group mailboxes subscribes to FileNode as well: chat messages
-      // are FileNodes in the group account's app folder (ADR 0006).
+      // by the time the browser opens its stream. See push.ts.
       const mailAccount = upstream.primaryAccounts?.["urn:ietf:params:jmap:mail"];
       if (mailAccount)
-        pushPrepare(
-          session.username,
-          mailAccount,
-          session.authorization,
-          hasChatGroupAccounts(upstream),
-        );
+        pushPrepare(session.username, mailAccount, session.authorization, pushOrigin(c));
       const info = await getAccountInfo(session.id, session.authorization, upstream);
       return c.json(
         localizeSession(
@@ -2237,13 +2268,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       const accountId = upstream.primaryAccounts?.["urn:ietf:params:jmap:mail"];
       if (
         accountId &&
-        pushAttach(
-          session.username,
-          accountId,
-          session.authorization,
-          out,
-          hasChatGroupAccounts(upstream),
-        )
+        pushAttach(session.username, accountId, session.authorization, out, pushOrigin(c))
       ) {
         out.writeHead(200, SSE_HEADERS);
         out.flushHeaders();

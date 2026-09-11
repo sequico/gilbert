@@ -19,6 +19,9 @@ services:
       SOURCE_URL: ${SOURCE_URL:-https://github.com/sequico/gilbert}
       TRUST_PROXY: "1"
       IMAGE_PROXY: "1"
+      # Live updates. Unset keeps every account on the per-tab relay, which is
+      # what Gilbert does without it -- see .env.example.
+      PUSH_MODE: ${PUSH_MODE:-}
     volumes:
       - gilbert-data:/data
   # The agent worker: the same image, a second process, no port and no

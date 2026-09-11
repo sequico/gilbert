@@ -66,6 +66,7 @@ capability removes its feature rather than breaking the app.
 | `urn:ietf:params:jmap:emailpush` | Sender and subject inside a push payload | Push says "new mail" and nothing more |
 | `urn:stalwart:jmap` (per-account) | Password change, app passwords, 2FA state | **Sign-in is refused** — this is the 0.16 check |
 | EventSource push | Live updates | Falls back to polling |
+| Push subscription fan-out | The same live updates with no upstream stream per tab; the callback origin is derived from the request, behind a trusted https proxy | Falls back to the EventSource relay |
 
 `urn:stalwart:jmap` is advertised per **account**, not session-wide, and the
 submission capability keeps `futureRelease` in the same place. Both are read

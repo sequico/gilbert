@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { test } from "node:test";
+import { PUSH_STATE_TYPES } from "./shared/push.js";
 
 process.env.STALWART_URL = "http://127.0.0.1:1";
-process.env.PUSH_URL = "https://gilbert.example";
 const push = await import("./push.js");
+
+/** The https origin the server derives from a request behind a trusted proxy. */
+const ORIGIN = "https://gilbert.example";
 
 // Nothing in this file may reach the network. Background subscribe() calls
 // outlive the test that started them, so the stub stays in place for the
@@ -123,7 +128,13 @@ test("a tab opened before verification gets no fan-out, and a subscription is st
   const restore = stubUpstream();
   try {
     const out = fakeOut();
-    const entry = push.attach("someone@example.com", "a", "Basic x", out as never);
+    const entry = push.attach(
+      "someone@example.com",
+      "a",
+      "Basic x",
+      out as never,
+      ORIGIN,
+    );
     assert.equal(entry, null, "not verified yet, so the tab must keep its own relay");
     await new Promise((r) => setTimeout(r, 30));
     const st = push.pushStatus();
@@ -138,7 +149,7 @@ test("verification then fan-out: one POST reaches every open tab for the account
   try {
     // First contact starts the subscription; wait for the stubbed create to land.
     const first = fakeOut();
-    push.attach("fan@example.com", "a", "Basic y", first as never);
+    push.attach("fan@example.com", "a", "Basic y", first as never, ORIGIN);
     await new Promise((r) => setTimeout(r, 30));
     // Find the token Stalwart would have been given, the way Stalwart learns it: from the subscribe call.
     // We cannot read it back through the public API, so verify via the status transition instead:
@@ -157,7 +168,7 @@ test("a StateChange is written to attached tabs as an SSE frame, and closed tabs
   try {
     const out1 = fakeOut(),
       out2 = fakeOut();
-    push.attach("frame@example.com", "a", "Basic z", out1 as never);
+    push.attach("frame@example.com", "a", "Basic z", out1 as never, ORIGIN);
     await new Promise((r) => setTimeout(r, 30));
     // Verify by handing the module its own token: pushStatus does not expose it, so read it from the
     // subscribe request the stub saw. Simplest faithful route: capture the URL Stalwart would POST to.
@@ -170,7 +181,7 @@ test("a StateChange is written to attached tabs as an SSE frame, and closed tabs
       return real(input, init);
     }) as typeof fetch;
     // Force a renewal-style subscribe so the URL passes through the capturing fetch.
-    push.attach("frame2@example.com", "a", "Basic w", out1 as never);
+    push.attach("frame2@example.com", "a", "Basic w", out1 as never, ORIGIN);
     await new Promise((r) => setTimeout(r, 30));
     globalThis.fetch = real;
     assert.ok(token, "the subscribe call carries the push URL with the token");
@@ -178,9 +189,15 @@ test("a StateChange is written to attached tabs as an SSE frame, and closed tabs
       await push.receive(token!, { "@type": "PushVerification", verificationCode: "v" }),
       200,
     );
-    const entry = push.attach("frame2@example.com", "a", "Basic w", out1 as never);
+    const entry = push.attach(
+      "frame2@example.com",
+      "a",
+      "Basic w",
+      out1 as never,
+      ORIGIN,
+    );
     assert.ok(entry, "verified: the tab is served by fan-out");
-    push.attach("frame2@example.com", "a", "Basic w", out2 as never);
+    push.attach("frame2@example.com", "a", "Basic w", out2 as never, ORIGIN);
     assert.equal(
       await push.receive(token!, {
         "@type": "StateChange",
@@ -222,14 +239,14 @@ test("a tab on the relay is moved to fan-out when its account verifies, and its 
       if (m) token = m[1];
       return real(input, init);
     }) as typeof fetch;
-    push.prepare("move@example.com", "a", "Basic m"); // sign-in starts the subscription
+    push.prepare("move@example.com", "a", "Basic m", ORIGIN); // sign-in starts the subscription
     await new Promise((r) => setTimeout(r, 30));
     globalThis.fetch = real;
     assert.ok(token);
     const out = fakeOut();
     let dropped = 0;
     assert.equal(
-      push.attach("move@example.com", "a", "Basic m", out as never),
+      push.attach("move@example.com", "a", "Basic m", out as never, ORIGIN),
       null,
       "not yet verified: relay",
     );
@@ -267,7 +284,7 @@ test("a failed renewal is retried on a later sweep instead of staying failed for
   try {
     const tab = fakeOut();
     const capture = captureToken();
-    push.prepare("renew-retry@example.com", "a", "Basic r");
+    push.prepare("renew-retry@example.com", "a", "Basic r", ORIGIN);
     await new Promise((r) => setTimeout(r, 30)); // the first subscribe lands
     capture.restore();
     assert.ok(capture.token(), "the subscribe call carries the push URL with the token");
@@ -279,7 +296,7 @@ test("a failed renewal is retried on a later sweep instead of staying failed for
       200,
     );
     assert.ok(
-      push.attach("renew-retry@example.com", "a", "Basic r", tab as never),
+      push.attach("renew-retry@example.com", "a", "Basic r", tab as never, ORIGIN),
       "a verified entry serves the tab by fan-out",
     );
     // Renewal now fails; without a retry this would park the account on
@@ -294,7 +311,13 @@ test("a failed renewal is retried on a later sweep instead of staying failed for
       "the failed renewal leaves the entry failed",
     );
     assert.ok(
-      push.attach("renew-retry@example.com", "a", "Basic r", fakeOut() as never) === null,
+      push.attach(
+        "renew-retry@example.com",
+        "a",
+        "Basic r",
+        fakeOut() as never,
+        ORIGIN,
+      ) === null,
       "a failed entry cannot serve fan-out",
     );
     // A later sweep, once the backoff has elapsed, tries again...
@@ -331,7 +354,7 @@ test("an expired subscription tears down its stale fan-out tabs, and the account
   try {
     const tab1 = fakeOut();
     const capture = captureToken();
-    push.prepare("expire@example.com", "a", "Basic e");
+    push.prepare("expire@example.com", "a", "Basic e", ORIGIN);
     await new Promise((r) => setTimeout(r, 30)); // the first subscribe lands
     capture.restore();
     assert.ok(capture.token());
@@ -343,7 +366,7 @@ test("an expired subscription tears down its stale fan-out tabs, and the account
       200,
     );
     assert.ok(
-      push.attach("expire@example.com", "a", "Basic e", tab1 as never),
+      push.attach("expire@example.com", "a", "Basic e", tab1 as never, ORIGIN),
       "fan-out tab attached",
     );
     // Renewal keeps failing while the subscription runs down.
@@ -375,7 +398,7 @@ test("an expired subscription tears down its stale fan-out tabs, and the account
     const tab2 = fakeOut();
     const recapture = captureToken();
     assert.equal(
-      push.attach("expire@example.com", "a", "Basic e", tab2 as never),
+      push.attach("expire@example.com", "a", "Basic e", tab2 as never, ORIGIN),
       null,
       "a fresh entry starts unverified: relay",
     );
@@ -415,13 +438,16 @@ test("a lost verification is retried, not stuck, while a relay tab stays open", 
   try {
     const tab = fakeOut();
     const capture = captureToken();
-    push.prepare("lapsed@example.com", "a", "Basic l"); // sign-in starts the subscription
+    push.prepare("lapsed@example.com", "a", "Basic l", ORIGIN); // sign-in starts the subscription
     await new Promise((r) => setTimeout(r, 30));
     capture.restore();
     assert.ok(capture.token());
     // The tab opens while nothing is verified yet: it holds its own relay.
     let dropped = 0;
-    assert.equal(push.attach("lapsed@example.com", "a", "Basic l", tab as never), null);
+    assert.equal(
+      push.attach("lapsed@example.com", "a", "Basic l", tab as never, ORIGIN),
+      null,
+    );
     push.attachRelay("lapsed@example.com", tab as never, () => {
       dropped++;
     });
@@ -430,7 +456,8 @@ test("a lost verification is retried, not stuck, while a relay tab stays open", 
     push.runSweep();
     assert.equal(push.pushStatus().accounts.failed, 1, "the pending entry lapsed");
     assert.ok(
-      push.attach("lapsed@example.com", "a", "Basic l", fakeOut() as never) === null,
+      push.attach("lapsed@example.com", "a", "Basic l", fakeOut() as never, ORIGIN) ===
+        null,
       "still unverified after the lapse",
     );
     // A later sweep re-subscribes, and the verification can then land.
@@ -457,4 +484,128 @@ test("a lost verification is retried, not stuck, while a relay tab stays open", 
     restore();
     t.mock.timers.reset();
   }
+});
+
+/**
+ * Wrap the fetch stub to capture what a subscribe call asked Stalwart for. The
+ * `PushSubscription/set` is the one place the live type list and the callback
+ * URL reach Stalwart, so it is where a regression to a mail-only list, or to a
+ * URL that is not the origin this request arrived on, has to show.
+ */
+function captureSubscribe(): {
+  restore(): void;
+  types: () => string[] | null;
+  url: () => string | null;
+} {
+  const real = globalThis.fetch;
+  let types: string[] | null = null;
+  let url: string | null = null;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (typeof init?.body === "string") {
+      try {
+        const parsed = JSON.parse(init.body) as {
+          methodCalls?: [
+            string,
+            { create?: Record<string, { types?: string[]; url?: string }> },
+          ][];
+        };
+        for (const [name, args] of parsed.methodCalls ?? []) {
+          if (name !== "PushSubscription/set") continue;
+          for (const created of Object.values(args?.create ?? {})) {
+            if (Array.isArray(created.types)) types = created.types;
+            if (typeof created.url === "string") url = created.url;
+          }
+        }
+      } catch {
+        /* not a JMAP body; nothing to capture */
+      }
+    }
+    return real(input, init);
+  }) as typeof fetch;
+  return {
+    restore: () => (globalThis.fetch = real),
+    types: () => types,
+    url: () => url,
+  };
+}
+
+// Fan-out POSTs only the types a subscription asked for, so a type missing
+// from that list is dead on fan-out while the same session on the relay keeps
+// updating it. This pins the list against the one regression that matters:
+// going back to the mail-only set.
+test("the subscription asks for every live type, not the mail-only list", async (t) => {
+  const restoreUpstream = stubUpstream();
+  const capture = captureSubscribe();
+  t.after(() => {
+    capture.restore();
+    restoreUpstream();
+  });
+  push.prepare("types@example.com", "a", "Basic t", ORIGIN);
+  await new Promise((r) => setTimeout(r, 30));
+  const asked = capture.types();
+  assert.ok(asked, "subscribe() reached upstream");
+  assert.deepEqual(
+    [...asked].sort(),
+    [...PUSH_STATE_TYPES].sort(),
+    "a type a surface watches has to POST, or that surface freezes on fan-out",
+  );
+});
+
+// The stores are the definition of what has to stay live; the subscription is
+// what makes it live under fan-out. That is the seam where the two can drift --
+// a store added for a type nobody added to PUSH_STATE_TYPES would update on
+// the relay and freeze on fan-out -- so the seam is read and checked here.
+test("every type a client store reacts to is in the subscription's list", () => {
+  const web = join(import.meta.dirname, "..", "..", "web", "src");
+  const files = [
+    ...readdirSync(join(web, "store"))
+      .filter((f) => f.endsWith(".ts") && !f.includes(".test."))
+      .map((f) => join(web, "store", f)),
+    join(web, "App.tsx"),
+  ];
+  const consumed = new Set<string>();
+  for (const file of files) {
+    for (const m of readFileSync(file, "utf8").matchAll(/types\.has\("([A-Za-z]+)"\)/g)) {
+      consumed.add(m[1]);
+    }
+  }
+  assert.ok(consumed.size > 0, "the stores were read");
+  const listed = new Set<string>(PUSH_STATE_TYPES);
+  assert.deepEqual(
+    [...consumed].filter((type) => !listed.has(type)),
+    [],
+    "a store reacts to a type the subscription would never POST",
+  );
+});
+
+// The origin is a fact about the request, not a variable an operator sets. A
+// subscription that names anything else sends Stalwart's change POSTs to a host
+// that never reaches this tab, and the tab stops updating with nothing saying
+// why.
+test("the subscription names the origin the session arrived on", async (t) => {
+  const restoreUpstream = stubUpstream();
+  const capture = captureSubscribe();
+  t.after(() => {
+    capture.restore();
+    restoreUpstream();
+  });
+  push.prepare("origin@example.com", "a", "Basic o", "https://mail.example.test");
+  await new Promise((r) => setTimeout(r, 30));
+  assert.match(
+    capture.url() ?? "",
+    /^https:\/\/mail\.example\.test\/api\/push\/[A-Za-z0-9_-]+$/,
+    "the subscription has to name the origin the request arrived on",
+  );
+});
+
+// No believable origin means no subscription, and the account keeps the relay
+// it would have had in `relay` mode. Fan-out is an optimisation; a
+// subscription registered against a host we could not vouch for would send
+// change metadata somewhere nobody asked for.
+test("an account with no believable origin stays on the relay", () => {
+  assert.equal(push.prepare("noorigin@example.com", "a", "Basic n", null), null);
+  assert.equal(
+    push.attach("noorigin@example.com", "a", "Basic n", fakeOut() as never, null),
+    null,
+  );
 });

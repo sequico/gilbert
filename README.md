@@ -279,6 +279,37 @@ nowhere to live across a restart. Removing it means moving the session upstream
 into a token Stalwart itself issues and can revoke, which is what the OAuth work
 in [ROADMAP.md](ROADMAP.md) is for.
 
+### Live updates
+
+Live updates reach a tab by one of two transports, and both carry the same
+types, so which one a deployment is on does not decide which parts of the app
+update.
+
+By default Gilbert holds one Server-Sent Events stream per tab, upstream to
+Stalwart and back. It needs no configuration, and it is what a tab falls back
+to.
+
+Gilbert then registers one subscription per account with Stalwart and fans its
+change notifications out to that account's open tabs, holding **no upstream
+connection per tab**. A reconnect is then local, between the browser and
+Gilbert, rather than a fresh dial to Stalwart -- and a deployment's
+open-connection count stops tracking its open tabs.
+
+There is no address to configure. The origin Stalwart POSTs back to is taken
+from the request itself, and only when that request is believable: it arrived
+over https -- RFC 8620 requires the scheme -- from a proxy Gilbert runs, that is
+`TRUST_PROXY` is on and the peer is inside `TRUSTED_PROXIES`. A Gilbert reached
+directly, or over plain http, keeps the per-tab relay for every account: nothing
+is lost, reconnecting is simply not local. An account that never verifies stays
+on the relay for its whole life. The fan-out covers every surface -- mail, files
+and chat, calendars and tasks, contacts, filters and the storage quota -- for
+every account.
+
+`GET /api/health` says what actually happened: `push.accounts` counts the
+verified, pending and failed subscriptions, and `push.tabs` splits the open tabs
+into `fanout` and `relay`. Set `PUSH_MODE=relay` to keep the per-tab stream and
+never subscribe.
+
 ### Several Stalwart servers
 
 One Gilbert can front more than one Stalwart, choosing by the domain somebody
