@@ -47,7 +47,6 @@ export const PUSH_STATE_TYPES = [
   "ContactCard",
   // Filters.
   "SieveScript",
-  // ADR-0012 OWED: push-types-live-probe
 ] as const;
 
 export type PushStateType = (typeof PUSH_STATE_TYPES)[number];

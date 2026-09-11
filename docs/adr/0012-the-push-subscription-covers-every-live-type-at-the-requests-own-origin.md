@@ -116,5 +116,3 @@ verified and how many tabs each path holds instead of guessing.
 - Stalwart must accept Gilbert's certificate and reach it, which is an
   environment fact rather than a setting. A subscription that never verifies
   leaves that account `failed` on the relay, which `/api/health` reports.
-- <!-- owed: push-types-live-probe -->
-- <!-- owed: push-origin-live-probe -->
