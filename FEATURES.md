@@ -240,6 +240,14 @@ group's own hidden `gilbert` folder, not in the Files a member browses: a
 member reads them through the group's agent panel, and an administrator takes
 the copy before the oldest month goes — the group's row in the admin Agents
 section hands over every retained month as JSON.
+- **A refusal reads in the reader's language.** The admin surface answers a
+refusal as a code and its parameters — never as a sentence — and the client
+composes the sentence from the catalogue the reader's language loaded: a
+language whose catalogue does not carry it reads the English. A code the build
+does not know is read as the prose the answer carried, rather than given a
+sentence of its own. Where an answer quotes the server that refused — a
+session that could not be opened, an impersonation the mail server declined —
+that text travels beside the code as a diagnostic, and is shown as one.
 - **Not in this layer**: agents for individual users (group agents only),
 external agent fleets (a future decision; A2A stays the recorded candidate),
 and mail notifications — the group's chat is the one channel.

@@ -157,11 +157,31 @@ export function serverNow(): Date {
   return serverDateMs === null ? new Date() : new Date(serverDateMs);
 }
 
+/**
+ * What a JMAP client needs to reach the server: the credential it speaks with
+ * and the session it speaks to.
+ *
+ * A `Ctx` is one, and so is anything else carrying the two fields. The client
+ * holds the *source*, never a copy of either, so a session that is re-read —
+ * which is what a worker does once a poll interval in case a grant was
+ * withdrawn underneath it — is the one every later call goes to, and there is
+ * no second session object beside it to go stale and disagree.
+ */
+export interface SessionSource {
+  readonly authorization: string;
+  readonly session: UpstreamSession;
+}
+
 export class JmapClient {
-  constructor(
-    private readonly authorization: string,
-    private readonly session: UpstreamSession,
-  ) {}
+  constructor(private readonly source: SessionSource) {}
+
+  private get authorization(): string {
+    return this.source.authorization;
+  }
+
+  private get session(): UpstreamSession {
+    return this.source.session;
+  }
 
   /** The JMAP session this client is bound to. */
   get upstream(): UpstreamSession {

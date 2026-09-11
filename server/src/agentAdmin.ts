@@ -53,6 +53,7 @@ import type {
   AgentApprovalsView,
   AgentAuditExport,
   AgentAuditExportMonth,
+  AgentErrorReason,
   AgentGroupDocuments,
   AgentProvidersView,
   AgentStatus,
@@ -93,24 +94,21 @@ import {
   upstreamFor,
 } from "./upstream.js";
 
-/** A refusal meant for the person using the surface, with a real status. */
 /**
  * A refusal from the admin surface, as the route answers it.
  *
- * The `message` travels as English: this class is the last place an agent
- * surface composes a sentence on the server — the membership refusal, the
- * fleet's reason and the member's view all carry a code and let the client
- * compose. Closing it means the same treatment here: a code, its parameters,
- * and the sentence composed where it is read.
+ * What travels is the reason — a code and its parameters — and never a
+ * sentence: the client composes it from the catalogue in force, so an
+ * administrator reads the refusal in the language the surface is set to, and a
+ * language whose catalogue does not carry it reads the English. `Error.message`
+ * is the code, because a log line has room for a code and not for a paragraph.
  */
-// ADR-0003 OWED: agent-error-sentences
 export class AgentAdminError extends Error {
   constructor(
-    public readonly code: string,
-    message: string,
+    public readonly reason: AgentErrorReason,
     public readonly status = 400,
   ) {
-    super(message);
+    super(reason.code);
     this.name = "AgentAdminError";
   }
 }
@@ -375,26 +373,13 @@ async function agentStore(
   admin: LiveSession,
 ): Promise<{ store: AgentStore; address: string }> {
   const address = agentAddress();
-  if (!address)
-    throw new AgentAdminError(
-      "agent_not_configured",
-      "No agent is registered with this installation. Set GILBERT_AGENT_ADDRESS and its app password where the installation is deployed, then restart the server and the worker.",
-      409,
-    );
+  if (!address) throw new AgentAdminError({ code: "agent_not_configured" }, 409);
   const agent = await openAgentSession(admin, address);
   if (!agent.ok)
-    throw new AgentAdminError(
-      "agent_unreachable",
-      `The agent's session could not be opened: ${agent.detail}`,
-      409,
-    );
+    throw new AgentAdminError({ code: "agent_unreachable", detail: agent.detail }, 409);
   const accountId = filesAccountId(agent.ctx);
   if (!accountId)
-    throw new AgentAdminError(
-      "agent_unreachable",
-      `The agent ${address} has no account holding its own Files.`,
-      409,
-    );
+    throw new AgentAdminError({ code: "agent_files_account_missing", address }, 409);
   return { store: new AgentStore(agent.ctx, accountId), address };
 }
 
@@ -662,11 +647,7 @@ export async function saveRules(
   const seen = new Set<string>();
   for (const rule of checked) {
     if (seen.has(rule.id))
-      throw new AgentAdminError(
-        "duplicate_rule",
-        `Two automations share the id "${rule.id}". Ids must be unique: a job records the id and the version it was created from.`,
-        400,
-      );
+      throw new AgentAdminError({ code: "duplicate_rule", id: rule.id }, 400);
     seen.add(rule.id);
   }
 
@@ -717,17 +698,12 @@ function checkedRule(rule: unknown, index: number): AgentRule {
         ? String((rule as { name: string }).name)
         : `#${index + 1}`;
     throw new AgentAdminError(
-      "invalid_rule",
-      `"${name}" cannot run: ${problems.join("; ")}.`,
+      { code: "rule_cannot_run", name, problems: problems.join("; ") },
       400,
     );
   }
   if (!isAgentRule(rule))
-    throw new AgentAdminError(
-      "invalid_rule",
-      `Automation #${index + 1} is not a rule document Gilbert can run.`,
-      400,
-    );
+    throw new AgentAdminError({ code: "rule_not_a_document", index: index + 1 }, 400);
   return rule;
 }
 
@@ -808,19 +784,11 @@ function providerViews(
 export async function writeProviders(admin: LiveSession, input: unknown): Promise<void> {
   const { store, address } = await agentStore(admin);
   if (!input || typeof input !== "object" || Array.isArray(input))
-    throw new AgentAdminError(
-      "bad_request",
-      "providers must be an object naming the T1 and/or T2 tiers.",
-      400,
-    );
+    throw new AgentAdminError({ code: "providers_not_an_object" }, 400);
   const given = input as Record<string, unknown>;
   for (const key of Object.keys(given)) {
     if (!(TIERS as ReadonlyArray<string>).includes(key))
-      throw new AgentAdminError(
-        "bad_request",
-        `"${key}" is not a tier: the tiers that call a model are T1 and T2.`,
-        400,
-      );
+      throw new AgentAdminError({ code: "unknown_tier", key }, 400);
   }
 
   const found = await store.readConfig();
@@ -853,11 +821,7 @@ function tierProvider(
 ): AgentProvider | null {
   if (raw === null || raw === undefined) return null;
   if (typeof raw !== "object" || Array.isArray(raw))
-    throw new AgentAdminError(
-      "bad_request",
-      `${tier} must name a provider, a model and a base URL.`,
-      400,
-    );
+    throw new AgentAdminError({ code: "tier_incomplete", tier }, 400);
   const entry = raw as Record<string, unknown>;
   const text = (key: string): string =>
     typeof entry[key] === "string" ? (entry[key] as string).trim() : "";
@@ -867,11 +831,7 @@ function tierProvider(
   // A tier with nothing in it is a cleared tier, not an invalid one.
   if (!provider && !model && !baseUrl) return null;
   if (!provider || !model || !baseUrl)
-    throw new AgentAdminError(
-      "bad_request",
-      `${tier} needs a provider, a model and a base URL.`,
-      400,
-    );
+    throw new AgentAdminError({ code: "tier_incomplete", tier }, 400);
   assertUsableBaseUrl(baseUrl, tier);
   /*
    * The stored key is kept unless a new one arrives — it is never read back —
@@ -885,10 +845,9 @@ function tierProvider(
   const apiKey = text("apiKey") || (moved ? "" : (previous?.apiKey ?? ""));
   if (!apiKey)
     throw new AgentAdminError(
-      "bad_request",
       moved
-        ? `${tier} moves to ${baseUrl}, so its api key has to be entered again: a key is issued for the endpoint it was entered against.`
-        : `${tier} needs an api key.`,
+        ? { code: "tier_api_key_required_after_move", tier, movedTo: baseUrl }
+        : { code: "tier_api_key_required", tier },
       400,
     );
   return { provider, model, baseUrl, apiKey };
@@ -909,22 +868,13 @@ function assertUsableBaseUrl(baseUrl: string, tier: AgentTier): void {
   try {
     url = new URL(baseUrl);
   } catch {
-    throw new AgentAdminError(
-      "bad_request",
-      `${tier} has a base URL that is not a URL.`,
-      400,
-    );
+    throw new AgentAdminError({ code: "tier_base_url_invalid", tier }, 400);
   }
   if (url.protocol !== "https:")
-    throw new AgentAdminError(
-      "bad_request",
-      `${tier} must use https: the api key travels in a header, and plain http would send it in the clear.`,
-      400,
-    );
+    throw new AgentAdminError({ code: "tier_base_url_not_https", tier }, 400);
   if (isPrivateHost(url.hostname))
     throw new AgentAdminError(
-      "bad_request",
-      `${tier} points at ${url.hostname}, which is inside the network: a worker must not be pointed at an address that is not a model provider.`,
+      { code: "tier_base_url_private", tier, host: url.hostname },
       400,
     );
 }
@@ -969,17 +919,11 @@ export async function rotateAgentAppPassword(
   admin: LiveSession,
 ): Promise<AgentAppPasswordRotation> {
   const address = agentAddress();
-  if (!address)
-    throw new AgentAdminError(
-      "agent_not_configured",
-      "No agent is registered with this installation. Set GILBERT_AGENT_ADDRESS and its app password where the installation is deployed, then restart the server and the worker.",
-      409,
-    );
+  if (!address) throw new AgentAdminError({ code: "agent_not_configured" }, 409);
   const imp = await impersonateAs(admin, address);
   if (!imp.ok)
     throw new AgentAdminError(
-      imp.status === 404 ? "agent_not_found" : "forbidden",
-      imp.message,
+      { code: imp.status === 404 ? "agent_not_found" : "forbidden", detail: imp.message },
       imp.status,
     );
   const created = await createAppPassword(imp.ctx, {
@@ -1039,8 +983,11 @@ export async function saveGroupInstruction(
   const trimmed = text.trim();
   if (trimmed.length > AGENT_INSTRUCTION_MAX)
     throw new AgentAdminError(
-      "instruction_too_long",
-      `A standing instruction is at most ${AGENT_INSTRUCTION_MAX} characters; this one is ${trimmed.length}.`,
+      {
+        code: "instruction_too_long",
+        max: AGENT_INSTRUCTION_MAX,
+        length: trimmed.length,
+      },
       400,
     );
   const store = new AgentStore(access.ctx, access.accountId);
@@ -1086,11 +1033,7 @@ export async function addAgentLabels(
   if (!missing.length) return { added: [] };
   const labels: unknown[] = [...existing, ...missing];
   if (!isLabelCatalog({ labels }))
-    throw new AgentAdminError(
-      "catalog_unreadable",
-      "This group's labels.json holds entries Gilbert cannot read. The agent's labels were not added, rather than overwriting them.",
-      502,
-    );
+    throw new AgentAdminError({ code: "group_labels_unreadable" }, 502);
   await writeGroupLabels(access.ctx, accountId, labels);
   return { added: missing.map((l) => l.keyword) };
 }

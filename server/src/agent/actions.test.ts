@@ -35,7 +35,7 @@ const AUTH = `Basic ${Buffer.from("demo@example.com:demo").toString("base64")}`;
 
 const session = await fetchUpstreamSession(AUTH, BASE);
 const ctx = { authorization: AUTH, session, username: "demo@example.com" };
-const client = new JmapClient(AUTH, session);
+const client = new JmapClient({ authorization: AUTH, session });
 
 let draftsId = "";
 let messageId = "";

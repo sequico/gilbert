@@ -126,6 +126,39 @@ export interface AgentStatus extends Partial<GroupEnumeration> {
   reason?: AgentStatusReason;
 }
 
+/**
+ * A refusal from the admin surface, as it travels: a code and its parameters.
+ *
+ * The sentence is composed where it is read — the same rule the membership
+ * refusal follows — so an administrator reads the refusal in the language the
+ * surface is set to, and a language whose catalogue does not carry it reads the
+ * English in the meantime.
+ *
+ * `detail`, where a member carries it, is not a sentence of ours: it is what a
+ * server that refused said, shown as the diagnostic it is. The union is the one
+ * list of codes: the routes build from it, the client composes from it, and a
+ * sentence added on one side without the other does not compile.
+ */
+export type AgentErrorReason =
+  | { code: "agent_not_configured" }
+  | { code: "agent_unreachable"; detail: string }
+  | { code: "agent_files_account_missing"; address: string }
+  | { code: "agent_not_found"; detail: string }
+  | { code: "forbidden"; detail: string }
+  | { code: "duplicate_rule"; id: string }
+  | { code: "rule_not_a_document"; index: number }
+  | { code: "rule_cannot_run"; name: string; problems: string }
+  | { code: "providers_not_an_object" }
+  | { code: "unknown_tier"; key: string }
+  | { code: "tier_incomplete"; tier: string }
+  | { code: "tier_api_key_required"; tier: string }
+  | { code: "tier_api_key_required_after_move"; tier: string; movedTo: string }
+  | { code: "tier_base_url_invalid"; tier: string }
+  | { code: "tier_base_url_not_https"; tier: string }
+  | { code: "tier_base_url_private"; tier: string; host: string }
+  | { code: "instruction_too_long"; max: number; length: number }
+  | { code: "group_labels_unreadable" };
+
 /* ------------------------------------------------------------------ */
 /* One withdrawal                                                     */
 /* ------------------------------------------------------------------ */

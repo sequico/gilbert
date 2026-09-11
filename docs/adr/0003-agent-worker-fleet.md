@@ -577,11 +577,9 @@ record keeps its full shape as the evolution path.
     from "I lost a race" can report neither.
   - **An audit entry that does not land is retried, then carried.** The append
     retries its conditional write with backoff and jitter, and an entry that
-    still does not pass is queued rather than lost — the queue is drained by
-    the account's next append, so a group that writes nothing again carries it
-    until it does. **Owed:** the pass drains it, as the queue's own note
-    promises, so a group gone quiet does not carry an entry indefinitely.
-    The queue is drained by the account's next append and by every pass. Two
+    still does not pass is queued rather than lost. The queue is drained by the
+    account's next append and by every pass, so a group gone quiet does not
+    carry an entry indefinitely. Two
     limits are accepted and declared rather than hidden: the
     granularity stays **monthly** — one document per month, so the blob every
     append reloads grows with the month and the window in which two writers
@@ -616,8 +614,8 @@ record keeps its full shape as the evolution path.
   (owner decision 2026-09-10)*. Three of the questions this record leaves open
   are answered nowhere but by the code's default, and one only by a general
   sentence about auto-approval. The first is carried by the tree already — the check it asks
-  for stands on the approval path — and the rest are owed, marked where they
-  live.
+  for stands on the approval path — and the rest are answered below, held by
+  the code that implements them.
 
   - **The version pin binds a run resumed from an approval.** A job stopped in
     `awaiting_approval` is in flight: a person is holding it, and the rule it
@@ -698,9 +696,13 @@ record keeps its full shape as the evolution path.
     whose catalogue does not carry it reads the English — the declared
     fallback, with the ten translations owed. The fleet's status answer carries
     its reason the same way — a code, plus the upstream text as the `detail`
-    beside it — and one class of sentence is still on the wire: the messages
-    the admin error path composes.
-    <!-- owed: agent-error-sentences -->
+    beside it — and so does the admin route's own refusal: `AgentAdminError`
+    carries an `AgentErrorReason`, the route answers `{ error, …parameters }`,
+    and the sentence is composed where it is read, from one catalogue the
+    compiler holds to every code of the union (`web/src/lib/agentErrors.ts`).
+    No English goes on the wire for a client to fall back on, and a body whose
+    code this build does not know is read as the prose it carries rather than
+    given a sentence of its own.
   - **The content a rule reads can carry an instruction, and the allowlist is
     the gate.** Mail, files and everything else the agent reads are data:
     nothing in them is followed as instruction, and the capability allowlist

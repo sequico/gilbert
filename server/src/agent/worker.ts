@@ -206,7 +206,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
   const id = deps.workerId ?? workerIdOf(deps.address);
   const timers = deps.timers !== false;
 
-  const client = new JmapClient(deps.ctx.authorization, deps.ctx.session);
+  const client = new JmapClient(deps.ctx);
   const executor = new Executor({
     ctx: deps.ctx,
     client,
@@ -431,10 +431,10 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
    * it. A refresh that fails is not a withdrawal: the session in force stays in
    * force and the next pass tries again.
    *
-   * It replaces the context's session, which is what the pass reads accounts and
-   * the installation's narrowing from. The client keeps the handle it was built
-   * with and needs no new one: it reads the session's URLs, and a refresh does
-   * not change them.
+   * It replaces the context's session, which is what everything downstream
+   * reads: the pass's accounts and the installation's narrowing, the executor,
+   * and the client itself — each holds the context, not a copy of the session,
+   * so nothing carries the withdrawn account forward.
    */
   const refreshSession = async (): Promise<void> => {
     const at = now().getTime();

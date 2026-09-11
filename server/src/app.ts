@@ -1660,11 +1660,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     // its own code chose (400 for a refusal, 401/403 for a boundary, 502 for an
     // upstream one), so it is narrowed to that type rather than asserted as one
     // particular value.
-    if (err instanceof AgentAdminError)
-      return c.json(
-        { error: err.code, message: err.message },
-        err.status as ContentfulStatusCode,
-      );
+    if (err instanceof AgentAdminError) {
+      // The reason travels flat beside its code — `{ error, ...params }`, the
+      // shape the membership refusal already answers with — so the surface
+      // composes the sentence from the catalogue in force and no English is
+      // put on the wire for it to fall back on.
+      const { code, ...params } = err.reason;
+      return c.json({ error: code, ...params }, err.status as ContentfulStatusCode);
+    }
     return upstreamFailure(c, err);
   };
 

@@ -277,15 +277,21 @@ test("a member administrator reads and saves a group's rules", async () => {
   assert.deepEqual(view.schedule, []);
 });
 
-test("a rule that could never run is refused with a readable message", async () => {
+test("a rule that could never run is refused with its code and its parameters", async () => {
   configureAgent("");
   const notARule = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
     body: JSON.stringify({ rules: [{ v: 1, id: "half" }] }),
   });
   assert.equal(notARule.status, 400);
-  assert.equal((notARule.body as { error: string }).error, "invalid_rule");
-  assert.match((notARule.body as { message: string }).message, /#1/);
+  // A code and its parameters, never a sentence: the surface composes the
+  // sentence in the reader's language (ADR 0003 resolution 21). A rule with no
+  // name to be named by is named by its position, and the position is a
+  // parameter too.
+  const nothing = notARule.body as { error: string; name: string; problems: string };
+  assert.equal(nothing.error, "rule_cannot_run");
+  assert.equal(nothing.name, "#1");
+  assert.ok(nothing.problems.length > 0, "and the problems are the validator's own");
 
   const unrunnable = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
@@ -301,10 +307,10 @@ test("a rule that could never run is refused with a readable message", async () 
     }),
   });
   assert.equal(unrunnable.status, 400);
-  const body = unrunnable.body as { error: string; message: string };
-  assert.equal(body.error, "invalid_rule");
-  assert.match(body.message, /capabilities/);
-  assert.match(body.message, /Move invoices/);
+  const body = unrunnable.body as { error: string; name: string; problems: string };
+  assert.equal(body.error, "rule_cannot_run");
+  assert.equal(body.name, "Move invoices");
+  assert.match(body.problems, /capabilities/, "in the validator's own words");
 
   const duplicate = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
@@ -755,16 +761,22 @@ test("the rule schema needs the admin shield", async () => {
 test("the save path refuses against the published schema, in the schema's words", async () => {
   // The editor and the server validate with the same document and the same
   // validator (resolution 16): a rule the form accepts cannot come back
-  // rejected, and one it refuses is refused here in the same words.
+  // rejected, and one it refuses is refused here in the same words — which
+  // travel as the refusal's `problems`, so the surface can read them out.
   configureAgent("");
   const bad = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
     body: JSON.stringify({ rules: [rule({ area: "gardening" })] }),
   });
   assert.equal(bad.status, 400);
-  const message = String((bad.body as { message?: string }).message ?? "");
-  assert.match(message, /cannot run/, "the refusal names the automation");
-  assert.match(message, /area|gardening/i, "and what the schema objected to");
+  const refusal = bad.body as { error: string; name?: string; problems?: string };
+  assert.equal(refusal.error, "rule_cannot_run", "the refusal names the automation");
+  assert.equal(refusal.name, "Label processed mail", "by name, as a parameter");
+  assert.match(
+    String(refusal.problems),
+    /area|gardening/i,
+    "and what the schema objected to, in its own words",
+  );
 
   // The cross-field half is in the same list: an action outside the allowlist.
   const outside = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
@@ -772,10 +784,7 @@ test("the save path refuses against the published schema, in the schema's words"
     body: JSON.stringify({ rules: [rule({ capabilities: [] })] }),
   });
   assert.equal(outside.status, 400);
-  assert.match(
-    String((outside.body as { message?: string }).message ?? ""),
-    /capabilities/,
-  );
+  assert.match(String((outside.body as { problems?: string }).problems), /capabilities/);
 });
 
 /**

@@ -1,4 +1,5 @@
 import { GROUP_NOT_ACCESSIBLE, type GroupNeed } from "@gilbert/agent/views";
+import { agentErrorSentence } from "@/lib/agentErrors";
 import { withBase } from "@/lib/basePath";
 import { groupAccessSentence } from "@/lib/groupAccess";
 import type {
@@ -124,14 +125,17 @@ export async function apiFetch<T = unknown>(
     }
     /*
      * A body that carries a machine-readable refusal gets its sentence composed
-     * from the loaded catalogue: the code and its parameter are what travels,
+     * from the loaded catalogue: the code and its parameters are what travels,
      * so the sentence is the reader's language rather than the server's. A body
-     * that carries prose is read as that prose.
+     * that carries prose is read as that prose, and a code this build does not
+     * know falls through to it rather than being given a sentence of its own.
      */
-    const message =
+    const composed =
       body.error === GROUP_NOT_ACCESSIBLE && body.need
         ? groupAccessSentence(body.need)
-        : (body.message ?? body.detail ?? body.title ?? res.statusText);
+        : agentErrorSentence(body as Record<string, unknown>);
+    const message =
+      composed ?? body.message ?? body.detail ?? body.title ?? res.statusText;
     throw new ApiError(res.status, body.error ?? body.type ?? "error", message);
   }
   if (res.status === 204) return undefined as T;

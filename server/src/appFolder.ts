@@ -87,7 +87,7 @@ export interface Ctx {
 }
 
 function clientOf(ctx: Ctx): JmapClient {
-  return new JmapClient(ctx.authorization, ctx.session);
+  return new JmapClient(ctx);
 }
 
 /**

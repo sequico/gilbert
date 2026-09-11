@@ -445,7 +445,7 @@ export async function runActions(
   opts: ActionOpts = {},
   hooks: ActionHooks = {},
 ): Promise<ActionResult[]> {
-  const client = new JmapClient(ctx.authorization, ctx.session);
+  const client = new JmapClient(ctx);
   const results: ActionResult[] = [];
   for (const action of actions) {
     const missing = missingActionParams(action);

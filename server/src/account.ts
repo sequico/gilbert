@@ -68,7 +68,7 @@ function accountId(ctx: Ctx): string {
 }
 
 function clientOf(ctx: Ctx): JmapClient {
-  return new JmapClient(ctx.authorization, ctx.session);
+  return new JmapClient(ctx);
 }
 
 /**
