@@ -33,12 +33,13 @@ import {
   policyDocumentText,
 } from "./adminPolicy.js";
 import { AGENT_AREAS, agentRuleJsonSchema } from "./agent/documents.js";
-import type { AgentGroupAnswer } from "./agent/views.js";
+import type { AgentAddressSaved, AgentGroupAnswer } from "./agent/views.js";
 import {
   AgentAdminError,
   addAgentLabels,
   agentStatus,
   emptyGroupDocuments,
+  ensureAgentCredential,
   groupAgentView,
   groupAuditExport,
   impersonateAs,
@@ -1420,14 +1421,21 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * The one installation-wide fact the product itself can own: an address an
    * administrator names, kept in the policy document beside the settings
    * policy, so it survives a restart and applies without one — the next request
-   * already acts as that address. The secret stays where secrets are deployed,
-   * because the worker signs in as the agent before it can read anything: the
-   * answer says whether the deployment holds one for what was just named, so
-   * the surface can say "no worker can start" instead of leaving someone to
-   * wonder why nothing runs. An empty address clears it and the deployment's
-   * own is in force again.
+   * already acts as that address.
+   *
+   * Naming an address is also where its credential is provisioned, in the same
+   * request. A worker signs in as the agent before it can read anything, so an
+   * installation whose secret has to be handed over by hand is one that sits
+   * half set up with nobody told which half. Nothing is minted behind a
+   * deployment that already signs in, the credential already in the account is
+   * never revoked, and the secret this save mints is answered once and is never
+   * readable again. A credential that could not be provisioned does not fail
+   * the save: the address is recorded and the answer says why, because losing
+   * the address somebody just wrote would hide the reason they wrote it. An
+   * empty address clears it and the deployment's own is in force again.
    */
   api.post("/admin/agent/address", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
     const body = await readJson<{ address?: unknown }>(c);
     const address =
       typeof body?.address === "string" ? body.address.trim().toLowerCase() : "";
@@ -1458,7 +1466,30 @@ export function createApp(basePath = config.basePath): Hono<Env> {
             ? 400
             : 500,
       );
-    return c.json({ ok: true, address: agentAddress(), hasSecret: agentHasSecret() });
+    const saved: AgentAddressSaved = {
+      address: agentAddress(),
+      hasSecret: agentHasSecret(),
+    };
+    if (saved.address) {
+      try {
+        const credential = await ensureAgentCredential(session, saved.address);
+        if (credential.created)
+          saved.credential = {
+            created: true,
+            secret: credential.secret,
+            alsoValid: credential.alsoValid,
+          };
+      } catch (err) {
+        // Anything that is not this surface's own refusal is still a
+        // provisioning failure the operator has to see, and the address they
+        // wrote stays written either way.
+        saved.credentialError =
+          err instanceof AgentAdminError
+            ? err.reason
+            : { code: "agent_credential_failed", detail: (err as Error).message };
+      }
+    }
+    return c.json(saved);
   });
 
   /**
@@ -1844,7 +1875,10 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
   });
 
-  /** The one response that carries the agent's app-password secret, once. */
+  /**
+   * Rotating mints a secret and answers it once, as naming an address does:
+   * those two are the only responses that carry an app password's secret.
+   */
   api.post("/admin/agent/app-password", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
     try {

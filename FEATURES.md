@@ -110,10 +110,14 @@ is missing — it never writes one.
   the address the agent acts as — picked from the accounts the server already
   lists, or typed — and the installation records it beside its settings policy,
   in force without a restart. Gilbert acts as that address by impersonating it
-  from the administrator’s own session, so the field needs no password; the
-  worker’s own app password stays a deployment fact, and the surface says when
-  none is deployed for the address it holds — an agent the product can read and
-  that can do nothing on its own is worth knowing about.
+  from the administrator’s own session, so the field asks an administrator for
+  no password; naming an address also **provisions the credential a worker signs
+  in with** — the account is given an app password, unless the deployment
+  already holds one that signs in — and the secret is shown once, because the
+  deployment is where a worker reads it. `hasSecret` says whether the deployment
+  holds a copy, and the surface says when none is deployed for the address it
+  holds — an agent the product can read and that can do nothing on its own is
+  worth knowing about.
 - **What the fleet serves, per group.** The deployment opens the areas the agent
   may work in (mail, files, tasks, calendars, contacts) and the installation can
   narrow that per group — one group, or as many as an administrator selects at
@@ -148,10 +152,14 @@ agent's own app password (`GILBERT_AGENT_ADDRESS`, `GILBERT_AGENT_PASSWORD`,
 or a mounted `GILBERT_AGENTS_FILE`). Nothing derives it, nothing impersonates
 at boot, and nothing durable is kept on the worker's disk: the session is
 re-established at every start, so the container stays disposable and
-`IMMUTABLE=1` holds. The admin surface rotates the app password through JMAP
-under impersonation and shows the new secret once. Rotation deliberately does
-not revoke the credential already in use — that would stop the agent's work on
-the spot — and the API answers with how many credentials it left valid.
+`IMMUTABLE=1` holds. The admin surface mints the app password through JMAP
+under impersonation when an administrator names an address, and rotates it
+through the same door, showing the new secret once — because the deployment is
+where a worker reads it. Naming an address the deployment already holds a
+working credential for mints nothing: the save probes that sign-in first.
+Rotation deliberately does not revoke the credential already in use — that
+would stop the agent’s work on the spot — and the API answers with how many
+credentials it left valid.
 - **Automations, not rules written in code.** The admin surface authors one
 document per automation, as a form — “When [event] / If [filters] / Then
 [actions]” — validated against the JMAP filter grammar (RFC 8621) and the

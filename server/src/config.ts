@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizeBasePath } from "../../scripts/basePath.mjs";
@@ -505,6 +505,104 @@ function resolveAgentBootstrap(): AgentBootstrap {
   };
 }
 
+/**
+ * The agent worker's timing and health: the environment is what carries them,
+ * and the environment cannot change under a running process, so they are read
+ * once rather than re-resolved with the file.
+ */
+const agentWorkerSettings = {
+  /*
+   * How often a worker re-reads an account it could not be pushed about.
+   * Push is the wake-up and polling is the fallback after a lost stream, so
+   * this is deliberately unhurried: a minute of latency on a lost stream is
+   * far cheaper than a minute of hammering Stalwart.
+   */
+  pollMs: int("GILBERT_AGENT_POLL_MS", 60_000),
+  /* How often a working worker says it is alive, in its claims and heartbeat. */
+  heartbeatMs: int("GILBERT_AGENT_HEARTBEAT_MS", 30_000),
+  /*
+   * How long a claim may go un-renewed before another worker takes it over.
+   * Longer than a few heartbeats on purpose: an agent's work can sit in a
+   * model call or wait on a person, and a takeover that fires during a
+   * legitimate pause would run the same job twice.
+   */
+  leaseMs: int("GILBERT_AGENT_LEASE_MS", 180_000),
+  /*
+   * Where the worker answers a health probe, or 0 for no endpoint at all.
+   * A deployment with a restart policy wants this (ADR 0003 resolution 8);
+   * a worker nobody asks anything needs no listening socket.
+   */
+  healthPort: int("GILBERT_AGENT_HEALTH_PORT", 0),
+};
+
+/**
+ * The installation's agent, as the running process holds it (ADR 0003).
+ *
+ * One object, re-read in place when the deployment's agents file changes. That
+ * file is configuration a container replacement must not be needed for: an
+ * operator who rotates the agent's secret, or names a different agent, in a
+ * mounted file expects a running server to notice — and a process that read the
+ * file once at boot would keep acting as the agent it started with.
+ *
+ * The environment cannot change under a running process, so only the file is
+ * re-checked, and only its stamp is: at most one check per
+ * `AGENT_FILE_RECHECK_MS`, and one stat when nothing has changed. The object
+ * keeps its identity and stays writable, because the surfaces that name an
+ * agent read it as one record.
+ */
+const agent = { ...resolveAgentBootstrap(), ...agentWorkerSettings };
+
+/** How long the agents file may go unlooked-at before it is checked again. */
+const AGENT_FILE_RECHECK_MS = 1_000;
+
+let agentFileStamp = agentsFileStamp(process.env.GILBERT_AGENTS_FILE ?? "");
+let agentCheckedAt = 0;
+
+/** The file's identity — modified and sized — or `""` when there is nothing to read. */
+function agentsFileStamp(file: string): string {
+  if (!file) return "";
+  try {
+    const st = statSync(file);
+    return `${st.mtimeMs}:${st.size}`;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Re-read the agents file, when one is configured and has changed.
+ *
+ * A file that has changed but no longer parses leaves the configuration in
+ * force and says so once per distinct file: turning a typo in a mounted file
+ * into a server that stops serving everyone already signed in would trade a
+ * misconfigured agent for a broken installation. The stamp is kept either way,
+ * so that report is a report and not a log flood.
+ */
+function refreshAgent(): void {
+  const file = process.env.GILBERT_AGENTS_FILE;
+  if (!file) return;
+  const now = Date.now();
+  if (now - agentCheckedAt < AGENT_FILE_RECHECK_MS) return;
+  agentCheckedAt = now;
+  const stamp = agentsFileStamp(file);
+  if (!stamp || stamp === agentFileStamp) return;
+  agentFileStamp = stamp;
+  try {
+    const next = resolveAgentBootstrap();
+    agent.address = next.address;
+    agent.password = next.password;
+    agent.areas = next.areas;
+    console.log(
+      `[gilbert] the agents file changed: this installation's agent is now ${next.address || "(none)"}`,
+    );
+  } catch (err) {
+    console.warn(
+      "[gilbert] the agents file changed but could not be read; keeping the agent configuration in force:",
+      (err as Error).message,
+    );
+  }
+}
+
 export const config = {
   isProd,
   appName: env("APP_NAME", "Gilbert"),
@@ -600,30 +698,13 @@ export const config = {
    * the documents the fleet works from live in Stalwart, in the agent's own
    * account and in each group's.
    */
-  agent: {
-    ...resolveAgentBootstrap(),
-    /*
-     * How often a worker re-reads an account it could not be pushed about.
-     * Push is the wake-up and polling is the fallback after a lost stream, so
-     * this is deliberately unhurried: a minute of latency on a lost stream is
-     * far cheaper than a minute of hammering Stalwart.
-     */
-    pollMs: int("GILBERT_AGENT_POLL_MS", 60_000),
-    /* How often a working worker says it is alive, in its claims and heartbeat. */
-    heartbeatMs: int("GILBERT_AGENT_HEARTBEAT_MS", 30_000),
-    /*
-     * How long a claim may go un-renewed before another worker takes it over.
-     * Longer than a few heartbeats on purpose: an agent's work can sit in a
-     * model call or wait on a person, and a takeover that fires during a
-     * legitimate pause would run the same job twice.
-     */
-    leaseMs: int("GILBERT_AGENT_LEASE_MS", 180_000),
-    /*
-     * Where the worker answers a health probe, or 0 for no endpoint at all.
-     * A deployment with a restart policy wants this (ADR 0003 resolution 8);
-     * a worker nobody asks anything needs no listening socket.
-     */
-    healthPort: int("GILBERT_AGENT_HEALTH_PORT", 0),
+  /*
+   * Read through `refreshAgent()`, so a file changed under a running process is
+   * reflected by the next read rather than by the next restart.
+   */
+  get agent(): AgentBootstrap & typeof agentWorkerSettings {
+    refreshAgent();
+    return agent;
   },
   pushMode: (process.env.PUSH_MODE === "relay" ? "relay" : "subscribe") as
     | "relay"

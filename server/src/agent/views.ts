@@ -112,6 +112,17 @@ export interface AgentStatus extends Partial<GroupEnumeration> {
    * nothing on its own.
    */
   hasSecret: boolean;
+  /**
+   * How many app passwords the agent's own account holds, read under
+   * impersonation. `null` when the read failed — never a zero, which would read
+   * as an account holding no credential at all.
+   *
+   * Two facts, two fields: this is what the installation's agent account can
+   * prove it holds, and `hasSecret` is whether the deployment carries the copy
+   * that lets a worker sign in as it. A credential minted here and not yet
+   * deployed is exactly the gap between them.
+   */
+  appPasswords: number | null;
   groups: AgentStatusGroup[];
   /** The areas the deployment serves, which a group's own list can only narrow. */
   defaultAreas: AgentArea[];
@@ -157,7 +168,11 @@ export type AgentErrorReason =
   | { code: "tier_base_url_not_https"; tier: string }
   | { code: "tier_base_url_private"; tier: string; host: string }
   | { code: "instruction_too_long"; max: number; length: number }
-  | { code: "group_labels_unreadable" };
+  | { code: "group_labels_unreadable" }
+  /** The address was recorded; the credential that would let a worker sign in
+   * as it could not be provisioned. The installation is half set up, and the
+   * surface says which half rather than reporting the save as a failure. */
+  | { code: "agent_credential_failed"; detail: string };
 
 /* ------------------------------------------------------------------ */
 /* One withdrawal                                                     */
@@ -368,6 +383,27 @@ export interface AgentApprovalsView extends GroupEnumeration {
 export interface AgentAppPasswordRotation {
   secret: string;
   alsoValid: number | null;
+}
+
+/**
+ * What naming the installation's agent answers with.
+ *
+ * The address in force, whether the deployment carries its secret, and the
+ * credential the save itself provisioned — a secret nobody has held before,
+ * shown once, because a credential's secret is never readable again once it
+ * has been minted.
+ */
+export interface AgentAddressSaved {
+  address: string;
+  hasSecret: boolean;
+  /** Present only when this save had to mint a new app password. */
+  credential?: AgentAppPasswordRotation & { created: true };
+  /**
+   * Why the credential could not be provisioned, when the address was
+   * nonetheless recorded. A code and its parameters, like every other agent
+   * refusal: the sentence is composed where it is read.
+   */
+  credentialError?: AgentErrorReason;
 }
 
 export interface GroupInstructionView {

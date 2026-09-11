@@ -89,8 +89,8 @@ const TARGET_PASS = process.env.MOCK_TARGET_PASS ?? "bob-password";
  * `MOCK_AGENT_ADDRESS` and `MOCK_AGENT_PASSWORD` name the principal; its app
  * passwords are minted through `x:AppPassword/set` like anybody's.
  */
-const AGENT_ADDRESS = process.env.MOCK_AGENT_ADDRESS ?? "gilbert@example.com";
-const AGENT_PASS = process.env.MOCK_AGENT_PASSWORD ?? "gilbert-password";
+export const AGENT_ADDRESS = process.env.MOCK_AGENT_ADDRESS ?? "gilbert@example.com";
+export const AGENT_PASS = process.env.MOCK_AGENT_PASSWORD ?? "gilbert-password";
 /** The agent's own account: its configuration documents live here (ADR 0003). */
 const AGENT_ACCOUNT = "ag1";
 const SHARED_CAPS: Obj = {

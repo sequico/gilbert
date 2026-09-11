@@ -196,10 +196,12 @@ test("publishing kicks every session except the caller's", async () => {
  * because it is the same kind of fact as the policy: installation-wide, written
  * by an administrator, and in force without a restart.
  *
- * What the field can own is an address. The secret stays where secrets are
- * deployed, because the worker signs in as the agent before it can read
- * anything — so the answer says whether the deployment holds one, and the
- * surface can say that a worker cannot start.
+ * What the field can own is an address. Naming one provisions the credential a
+ * worker signs in with in the same request, and that half of the answer —
+ * minted, already in place, or refused and why — is the subject of
+ * `agentAdmin.test.ts`, where a deployment is registered. This file is about
+ * the document: what an address is recorded as, what clearing it leaves behind,
+ * and that the write is an administrator's.
  */
 test("the agent's address is named here, and clearing it falls back to the deployment", async () => {
   const named = await call("/api/admin/agent/address", adminCookie, {
@@ -207,11 +209,16 @@ test("the agent's address is named here, and clearing it falls back to the deplo
     body: JSON.stringify({ address: "Aider@Example.com" }),
   });
   assert.equal(named.status, 200);
-  assert.deepEqual(named.body, {
-    ok: true,
-    address: "aider@example.com",
-    hasSecret: false,
-  });
+  assert.equal(
+    named.body?.address,
+    "aider@example.com",
+    "normalized before it is written",
+  );
+  assert.equal(
+    named.body?.hasSecret,
+    false,
+    "the mock deployment holds no secret for it",
+  );
 
   // It is in the document, so it survives a restart with the policy it sits in.
   const policy = await call("/api/admin/policy", adminCookie);
@@ -235,7 +242,7 @@ test("the agent's address is named here, and clearing it falls back to the deplo
     method: "POST",
     body: JSON.stringify({ address: "" }),
   });
-  assert.deepEqual(cleared.body, { ok: true, address: "", hasSecret: false });
+  assert.deepEqual(cleared.body, { address: "", hasSecret: false });
   const after = await call("/api/admin/agents", adminCookie);
   assert.equal((after.body as { addressSource?: string }).addressSource, "none");
 });

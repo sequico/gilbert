@@ -422,6 +422,9 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       address: "",
       addressSource,
       hasSecret: false,
+      // No address, so no account to read a credential from: unknown, which is
+      // not the same answer as an account holding none.
+      appPasswords: null,
       groups: [],
       defaultAreas,
       workers: [],
@@ -437,6 +440,9 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       address,
       addressSource,
       hasSecret: agentHasSecret(),
+      // The session never opened, so what the account holds is unread: `null`,
+      // never a zero that would read as "no credential".
+      appPasswords: null,
       groups: reachable.names.map((name) => groupRow(name, false)),
       defaultAreas,
       workers: [],
@@ -447,6 +453,10 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
     };
 
   const granted = grantedGroupNames(agent.ctx.session);
+  // The two facts an administrator has to be able to tell apart, read once
+  // while the agent's own session is open: what its account holds, and whether
+  // the deployment carries the copy a worker signs in with.
+  const appPasswords = await countAppPasswords(agent.ctx);
   let workers: AgentStatusWorker[] = [];
   let reason: AgentStatusReason | undefined;
   try {
@@ -465,6 +475,7 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
     address,
     addressSource,
     hasSecret: agentHasSecret(),
+    appPasswords,
     groups: reachable.names.map((name) =>
       groupRow(name, granted.has(name.trim().toLowerCase())),
     ),
@@ -904,6 +915,87 @@ function isPrivateHost(hostname: string): boolean {
 /* ------------------------------------------------------------------ */
 /* The agent's app password                                            */
 /* ------------------------------------------------------------------ */
+
+/**
+ * How many app passwords the agent's account holds, or `null` when the read
+ * failed.
+ *
+ * An account holding no credential and an account whose credential list could
+ * not be read are two different facts, and only the first one means "no app
+ * password". Reporting a failed read as a zero is how an administrator is sent
+ * to mint a credential that is already there.
+ */
+async function countAppPasswords(ctx: Ctx): Promise<number | null> {
+  const state = await getState(ctx).catch((err: unknown) => {
+    console.warn(
+      "[gilbert] could not read the agent's app passwords:",
+      (err as Error).message,
+    );
+    return null;
+  });
+  return state ? state.appPasswords.length : null;
+}
+
+/**
+ * Make sure the installation can sign in as the address it has just named, and
+ * hand back a fresh secret when it had to mint one (ADR 0009).
+ *
+ * Naming an agent is a two-sided act: the installation records who the agent
+ * is, and the worker's deployment carries the secret it signs in with. This is
+ * the side the product can do by itself, so a save does it — under
+ * impersonation, in the agent's own account — and answers with the secret
+ * exactly once, because a credential's secret is never readable again once it
+ * has been minted. A secret nobody copied is a secret nobody can recover.
+ *
+ * A deployment that already signs in with a password for this address is not
+ * minted over: rotating the credential of a worker that is signing in fine is
+ * how a working fleet is broken from the surface that was supposed to set it
+ * up. Only a refused sign-in falls through to a fresh credential, and nothing
+ * is revoked either way — credentials already in use keep working, exactly as
+ * a rotation leaves them.
+ */
+export async function ensureAgentCredential(
+  admin: LiveSession,
+  address: string,
+): Promise<
+  { created: false } | { created: true; secret: string; alsoValid: number | null }
+> {
+  if (agentHasSecret()) {
+    const password = config.agent.password.trim();
+    try {
+      await fetchUpstreamSession(basic(address, password), upstreamFor(address));
+      return { created: false };
+    } catch (err) {
+      if (!(err instanceof UpstreamError)) throw err;
+      // A refused sign-in is the deployment's copy no longer opening this
+      // account: the two sides are out of step, and a fresh credential is the
+      // only thing that can put them back in step. Anything else is the mail
+      // server being unwell, which is not a reason to mint.
+      if (err.status !== 401)
+        throw new AgentAdminError(
+          { code: "agent_unreachable", detail: err.message },
+          502,
+        );
+    }
+  }
+  const imp = await impersonateAs(admin, address);
+  if (!imp.ok)
+    throw new AgentAdminError(
+      { code: imp.status === 404 ? "agent_not_found" : "forbidden", detail: imp.message },
+      imp.status,
+    );
+  const created = await createAppPassword(imp.ctx, {
+    description: `${config.appName} agent worker`,
+  });
+  // The count is of the credentials this save left working, and a re-read that
+  // failed is not a count of zero.
+  const state = await getState(imp.ctx).catch(() => null);
+  return {
+    created: true,
+    secret: created.secret,
+    alsoValid: state ? Math.max(0, state.appPasswords.length - 1) : null,
+  };
+}
 
 /**
  * Mint a new app password for the agent, under impersonation, and hand the

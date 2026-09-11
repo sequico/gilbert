@@ -30,6 +30,8 @@ export const AGENT_ERROR_SENTENCES = {
   agent_files_account_missing:
     "The agent {address} has no account holding its own Files, so there is nothing for it to read or write.",
   agent_not_found: "The server has no account at that address: {detail}",
+  agent_credential_failed:
+    "The address was recorded, but no credential could be provisioned for it: {detail}",
   forbidden: "This administrator may not act as that agent: {detail}",
   duplicate_rule:
     'Two automations share the id "{id}". Ids must be unique: a job records the id and the version it was created from.',

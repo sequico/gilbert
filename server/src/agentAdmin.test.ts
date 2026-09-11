@@ -13,13 +13,13 @@ import { after, before, test } from "node:test";
  * all: the mock refuses impersonating a group mailbox the way a real 0.16
  * server does.
  *
- * The mock has no agent principal of its own, so the fleet's happy path (an
- * agent session that holds groups, workers that heartbeat, an app password
- * minted under impersonation) cannot be exercised here. What is exercised is
- * everything that must hold without one: the surfaces answer plainly instead
- * of guessing or failing, a deployment whose agent cannot be reached is
- * reported rather than invented, and every group write goes through
- * membership.
+ * The mock holds an agent principal (`AGENT_ADDRESS`, default
+ * `gilbert@example.com`) that an administrator may impersonate, which is what
+ * puts the fleet's happy path in reach: a credential provisioned under
+ * impersonation, and a sign-in as the agent proving it works. The surfaces that
+ * have to answer without one are exercised too: a deployment whose agent cannot
+ * be reached is reported rather than invented, and every group write goes
+ * through membership.
  */
 
 const PORT = 18830;
@@ -46,6 +46,7 @@ const { AGENT_AREAS, AGENT_INSTRUCTION_MAX, AGENT_TIERS } = await import(
   "./agent/documents.js"
 );
 const { createApp } = await import("./app.js");
+const { fetchUpstreamSession, upstreamFor } = await import("./upstream.js");
 
 const app = createApp();
 let cookie = "";
@@ -126,6 +127,129 @@ after(() => {
   (mock as { server?: { close(): void } }).server?.close();
 });
 
+/**
+ * Naming the address is also where the worker's credential comes from
+ * (ADR 0009).
+ *
+ * A worker signs in as the agent before it can read anything, so an
+ * installation whose secret has to be handed over by hand is one that sits half
+ * set up with nobody told which half. The save provisions it: the secret is
+ * answered once, in this response, and is never readable again — and the proof
+ * that it is worth anything is that the mail server signs the agent in with it.
+ */
+test("naming an address provisions the credential a worker signs in with", async () => {
+  configureAgent("");
+  const before = mock.agentAccount.appPasswords.length;
+  const saved = await call("/api/admin/agent/address", {
+    method: "POST",
+    body: JSON.stringify({ address: mock.AGENT_ADDRESS }),
+  });
+  assert.equal(saved.status, 200);
+  const body = saved.body as {
+    address: string;
+    hasSecret: boolean;
+    credential?: { created: boolean; secret: string; alsoValid: number | null };
+    credentialError?: { code: string };
+  };
+  assert.equal(body.address, mock.AGENT_ADDRESS);
+  assert.equal(body.hasSecret, false, "the deployment holds no copy at all");
+  assert.equal(body.credentialError, undefined, "nothing refused it");
+  assert.equal(body.credential?.created, true);
+  const secret = body.credential?.secret ?? "";
+  assert.ok(secret, "the secret travels with the save, once");
+  assert.equal(
+    body.credential?.alsoValid,
+    before,
+    "and the credentials already in the account stay valid",
+  );
+  assert.equal(
+    mock.agentAccount.appPasswords.filter((a) => a.secret === secret).length,
+    1,
+    "minted in the agent's own account, not the administrator's",
+  );
+  const auth = `Basic ${Buffer.from(`${mock.AGENT_ADDRESS}:${secret}`).toString("base64")}`;
+  await fetchUpstreamSession(auth, upstreamFor(mock.AGENT_ADDRESS));
+
+  // One account carries this whole file, and the credential count is what the
+  // rotation test asserts on: this test puts the account back as it found it.
+  const minted = mock.agentAccount.appPasswords.findIndex((a) => a.secret === secret);
+  if (minted >= 0) mock.agentAccount.appPasswords.splice(minted, 1);
+
+  // The address the last test leaves behind is the installation's own record,
+  // and every test here that configures a deployment sets `config.agent`
+  // instead: leaving the record set would shadow that for all of them.
+  await call("/api/admin/agent/address", {
+    method: "POST",
+    body: JSON.stringify({ address: "" }),
+  });
+});
+
+/**
+ * A deployment that already signs in is left alone.
+ *
+ * Minting on every save would leave a trail of live credentials behind an
+ * installation that never needed one, so the save asks the mail server first
+ * and mints only when the copy the deployment carries is refused.
+ */
+test("a save behind a deployment that already signs in mints nothing", async () => {
+  config.agent.address = mock.AGENT_ADDRESS;
+  config.agent.password = mock.AGENT_PASS;
+  const readable = await call("/api/admin/agents");
+  const before = (readable.body as { appPasswords: number | null }).appPasswords;
+  assert.equal(typeof before, "number", "the credential list is readable here");
+
+  const saved = await call("/api/admin/agent/address", {
+    method: "POST",
+    body: JSON.stringify({ address: mock.AGENT_ADDRESS }),
+  });
+  assert.equal(saved.status, 200);
+  const body = saved.body as {
+    hasSecret: boolean;
+    credential?: unknown;
+    credentialError?: unknown;
+  };
+  assert.equal(body.hasSecret, true, "the deployment holds the copy");
+  assert.equal(body.credential, undefined, "nothing was minted behind a working sign-in");
+  assert.equal(body.credentialError, undefined);
+
+  const after = await call("/api/admin/agents");
+  assert.equal(
+    (after.body as { appPasswords: number | null }).appPasswords,
+    before,
+    "the credentials already in the account are untouched",
+  );
+
+  configureAgent("");
+  await call("/api/admin/agent/address", {
+    method: "POST",
+    body: JSON.stringify({ address: "" }),
+  });
+});
+
+/**
+ * An unreadable credential list is unknown, never zero.
+ *
+ * A zero is a claim about the mail server — that this account holds no
+ * credential — and a read that failed cannot support it. An operator acting on
+ * that claim would mint a second credential over a working one.
+ */
+test("a credential list that could not be read is unknown, not zero", async () => {
+  configureAgent(mock.AGENT_ADDRESS);
+  const denied = failUpstream("AppPassword/get", 500);
+  try {
+    const status = await call("/api/admin/agents");
+    assert.equal(status.status, 200);
+    assert.equal(
+      (status.body as { appPasswords: number | null }).appPasswords,
+      null,
+      "unread is not none",
+    );
+  } finally {
+    denied();
+    configureAgent("");
+  }
+});
+
 test("an installation with no agent says so plainly, and never 500s", async () => {
   configureAgent("");
   const res = await call("/api/admin/agents");
@@ -137,6 +261,9 @@ test("an installation with no agent says so plainly, and never 500s", async () =
     // no address and no secret for one to sign in with (ADR 0009).
     addressSource: "none",
     hasSecret: false,
+    // No address, so no account to read a credential from: unknown, which is
+    // not the same answer as an account that holds none.
+    appPasswords: null,
     groups: [],
     // The areas the deployment serves; a group can only narrow them.
     defaultAreas: [...AGENT_AREAS],

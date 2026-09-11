@@ -31,12 +31,17 @@ existing policy mechanism, not a second one.
 
 The effective address is `agent.address` when the document names one, and
 `GILBERT_AGENT_ADDRESS` when it does not: one definition, `agentAddress()`. The
-secret is deliberately not part of this — it stays a deployment fact, because
-the worker needs it before it can read anything — and the surface says so:
-`AgentStatus` carries `addressSource` (policy, deployment, or none) and
-`hasSecret`, so naming an address the deployment holds no password for is
-visible on the surface instead of arriving as automations that silently do not
-run.
+secret is not something an administrator has to hold: naming an address
+provisions the credential a worker signs in with (`ensureAgentCredential`),
+under impersonation, and that save answers the secret once, because the
+deployment is where a worker reads it. A deployment whose own credential
+already signs in as the address is left alone — the save probes the sign-in
+it would need, so nothing is minted behind a working worker. The surface states
+both facts: `AgentStatus` carries `addressSource` (policy, deployment, or none),
+`hasSecret` (whether the deployment holds a copy a worker can read) and
+`appPasswords` (what the account holds, or null when that could not be read) —
+so an address no worker can sign in as is visible on the surface instead of
+arriving as automations that silently do not run.
 
 The same document records what the worker does in each group:
 `agent.groups.<name>.areas` narrows that group to a subset of the areas the
