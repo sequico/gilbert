@@ -1,6 +1,6 @@
 # ADR 0003 — Agent worker fleet: workers that act on Stalwart events and schedules
 
-Status: Accepted (2026-09-11; amended 2026-09-12)
+Status: Accepted (2026-09-11; amended 2026-09-12 — the fleet may run beside the server, and nothing supervises it)
 
 > **Scope (owner decision 2026-09-06):** Gilbert's own agents — each with its
 > own address in Stalwart (e.g. `gilbert@…`) — acting on Stalwart events and
@@ -232,6 +232,30 @@ principal's EventSource open; the others stay idle for that principal, so idle
 cost is bounded and there is no split-brain: two workers never both hold the
 same claim. No coordinator, no shared volume, no database — the documents are
 the coordination.
+
+**Nothing supervises the workers, and nothing inside a worker manages
+processes.** The fleet is coordinated by the documents and by nothing else: no
+supervisor process, no in-process process manager, no pool of subworkers that
+another tier restarts on a heartbeat that is not moving. A supervisor would be a
+second coordinator standing beside the claims, and the one thing it can do that
+a lease cannot — restart what looks stuck — is the double execution a claim
+exists to prevent: the lease already hands a dead holder's account to a
+successor, together with the work it left mid-run, and it does it without
+knowing which machine either of them is on.
+
+Where a worker appears to hang, what is missing is not recovery but
+**diagnosis**, and it is bought with visibility rather than with processes: what
+a worker holds (this section, and the heartbeat record that names the groups),
+the unit and the job it is in the middle of and since when, and the per-call
+timeouts the model and JMAP clients already carry (`AbortSignal.timeout`) made
+readable where a person looks instead of a line in a log.
+
+Concurrency, when it comes, is a bounded fan-out over **units that hold their
+own claim** — a lease per reconcile type and per job — never a process manager:
+subworkers inside one process would contend for the same account claim and buy
+nothing, and the work is I/O, which one process already overlaps. The order and
+the unverified premise it rests on are recorded in `ROADMAP.md`.
+
 ### 7. Patterns from the field, and what is deliberately not adopted
 
 A survey of established, actively maintained orchestration repositories
