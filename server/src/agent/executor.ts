@@ -76,6 +76,7 @@ import {
   type AgentRule,
   type AgentScheduleEntry,
   type AgentTriggerRecord,
+  agentActionSpec,
   CHAT_CONTEXT_DEFAULT,
   CHAT_CONTEXT_MAX,
   claimEpoch,
@@ -814,6 +815,19 @@ export class Executor {
     this.deps.log(
       `${rule.name}: ${describeActions(results)} for ${describeTrigger(job.trigger)}`,
     );
+    /*
+     * A run somebody asked for says so where the group reads (ADR 0013). Every
+     * other trigger is the group's own mail, chat or clock, which needs no
+     * announcement — but "I ran this because a person asked me to" is a fact
+     * about the group's agent that its members should not have to infer from a
+     * document they cannot open. A failure already tells the chat; this is the
+     * half that was missing.
+     */
+    if (done.trigger.on === "manual")
+      await this.tellChat(
+        accountId,
+        `I ran "${rule.name}" as asked: ${describeActionsInWords(results)}`,
+      );
   }
 
   /**
@@ -2192,6 +2206,19 @@ function idList(value: unknown): string[] {
 
 function describeActions(results: ReadonlyArray<ActionResult>): string {
   return results.map((result) => result.action).join(", ") || "nothing";
+}
+
+/**
+ * What a run did, in the words a person reads rather than the codes a log
+ * keeps — the action catalogue's own labels, which is the one vocabulary the
+ * server and the admin surface already share (ADR 0013: a run somebody asked
+ * for says what it did where the group can read it).
+ */
+function describeActionsInWords(results: ReadonlyArray<ActionResult>): string {
+  const words = results.map(
+    (result) => agentActionSpec(result.action)?.label ?? result.action,
+  );
+  return words.join(", ") || "nothing";
 }
 
 function describeTrigger(trigger: AgentTriggerRecord): string {

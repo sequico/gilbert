@@ -1197,3 +1197,36 @@ test("an approval that was consumed and never ran is recorded, not left silent",
   );
   assert.equal(again.length, 1, "a spent approval is recorded once, not every pass");
 });
+
+test("a run somebody asked for tells the group what it did", async () => {
+  // The door a person comes through (ADR 0013). Every other trigger is the
+  // group's own mail, chat or clock, and needs no announcement; a run somebody
+  // asked for is a fact about the group's agent that its members should not
+  // have to infer from a document they cannot open.
+  const asked = rule({ id: "asked", name: "Label on request" });
+  await store.writeRules([asked]);
+  const emailId = await createMessage("An invoice somebody asked about");
+  const job = newJob({
+    id: "job-asked",
+    accountId: GROUP,
+    rule: asked,
+    trigger: {
+      on: "manual",
+      emailId,
+      by: "admin@example.org",
+      at: new Date().toISOString(),
+    },
+  });
+  await store.writeJob(job);
+
+  await executor.runJob(GROUP, job, asked, await claimFor());
+
+  const chat = await readChat(ctx, GROUP, client);
+  assert.ok(
+    chat.some(
+      (message) =>
+        message.text.includes("as asked") && message.text.includes("Add a label"),
+    ),
+    "the group reads what the run a person asked for did, in words rather than codes",
+  );
+});
