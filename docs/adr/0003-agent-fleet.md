@@ -65,7 +65,7 @@ groups it is granted, never by becoming someone: the agent
   the ability to act as human users, on the identity a model drives. The
   admin-facing direction stays: a signed-in admin impersonates the *agent* to
   manage it.
-- **A agent is its own process** — the same codebase with a second entrypoint,
+- **An agent is its own process** — the same codebase with a second entrypoint,
   not a replica of gilbertserver and never a supervisor. It derives its session
   as `gilbert@` the way the web tier does and claims the accounts it serves by
   lease (§6), so it needs no coordinator: the documents are the coordination.
@@ -160,13 +160,13 @@ secret the agent holds, and it belongs to the installation, not to a person
 
 ### 2. Agents are headless, stateless, disposable processes
 
-A agent is a dedicated entrypoint in this repository (Node, same JMAP client
+An agent is a dedicated entrypoint in this repository (Node, same JMAP client
 library family as the web client but headless) that authenticates to Stalwart
 as exactly one agent principal and runs that agent's rules. It keeps no local
 state and needs no volume; any number of agents may run from the same image,
 and any agent is interchangeable. The "fleet" is agents × agents: more
 agents, more principals; more throughput or availability, more agents. Scope
-in force fixes the first factor at one and exposes the second as a agent count.
+in force fixes the first factor at one and exposes the second as an agent count.
 
 ### 3. Event push is the wake-up; reconciliation is the work
 
@@ -232,7 +232,7 @@ replacement agent pick the schedule up from Stalwart after any crash, which
 is why the times live in the document rather than in a cron entry. A fired
 timer is spent, so the next arming is planned from the document the fire has
 already moved on, and the due entries are read back out of that same document
-by every pass — the catch-up, and the reason a schedule edited while a agent
+by every pass — the catch-up, and the reason a schedule edited while an agent
 waited is armed as it now is. A due run is started with the claim on its own
 account — the same fence every other run passes — and the entry belongs to the
 agent that holds that account: an entry no live claim covers is carried over
@@ -252,7 +252,7 @@ cost is bounded and there is no split-brain: two agents never both hold the
 same claim. No coordinator, no shared volume, no database — the documents are
 the coordination.
 
-**Nothing supervises the agents, and nothing inside a agent manages
+**Nothing supervises the agents, and nothing inside an agent manages
 processes.** The fleet is coordinated by the documents and by nothing else: no
 supervisor process, no in-process process manager, no pool of child processes that
 another tier restarts on a heartbeat that is not moving. A supervisor would be a
@@ -262,9 +262,9 @@ exists to prevent: the lease already hands a dead holder's account to a
 successor, together with the work it left mid-run, and it does it without
 knowing which machine either of them is on.
 
-Where a agent appears to hang, what is missing is not recovery but
+Where an agent appears to hang, what is missing is not recovery but
 **diagnosis**, and it is bought with visibility rather than with processes: what
-a agent holds (this section, and the heartbeat record that names the groups),
+an agent holds (this section, and the heartbeat record that names the groups),
 the unit and the job it is in the middle of and since when, and the per-call
 timeouts the model and JMAP clients already carry (`AbortSignal.timeout`) made
 readable where a person looks instead of a line in a log.
@@ -533,7 +533,7 @@ are only worth what their failure paths are.
   `file.write`, `mail.extract`), read by the fence and by the retry decision
   alike, so an action cannot be fenced in one and repeatable in the other. A
   agent whose lease lapsed stops instead of writing results
-  the agent that replaced it will write again. A agent that holds no claim on
+  the agent that replaced it will write again. An agent that holds no claim on
   an account starts nothing there: the pending sweep logs it and goes on, and a due
   timer waits for the agent that holds it.
 - **A release is conditional** on the state it was read against; the owner check
@@ -780,7 +780,7 @@ are only worth what their failure paths are.
   two things to think about, needs a supervisor in the image, and buys isolation
   only for the deployments that already know they want it, which is what
   `GILBERT_AGENT_INPROCESS=0` gives them without a second program to maintain.
-- **A agent started unconditionally, credentials or not**: rejected — most
+- **An agent started unconditionally, credentials or not**: rejected — most
   installations name no agent, and a process that exists to warn about its own
   missing configuration is noise. The pair is what makes a fleet meaningful, and
   it is what the start is conditioned on.

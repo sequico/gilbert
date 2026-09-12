@@ -66,7 +66,7 @@ feature, is in [FEATURES.md](FEATURES.md).
 
 - **Groups** — a group mailbox is an account of its own on Stalwart, and what it owns lives in that account and belongs to it: its chat, its label catalog, its calendars and files, its agent's documents. Membership *is* the grant, and the grant is administered on the server, never in the product
 - **Chat** — one conversation per group mailbox, stored in the group's own account so a member added later finds all of it (ADR 0005)
-- **Agents** — a agent fleet that acts inside mail and file storage on a group's behalf. Each automation is a document in the group's own account — when it reacts, which messages it looks at, what it then does — with a tier that decides how much model it uses (T0 deterministic, T1 a category, T2 the model's own judgement), a review policy that can pause a run for a person, a capability allowlist that bounds every answer, and the approval itself happening in the group's chat. Every run is audited, one document per month per group, and an administrator can export that trail before the retention prunes it. The installation's Master is **named by the deployment's environment** — `GILBERT_AGENT_ADDRESS` and the account's own password. It runs with the server unless the deployment keeps the two apart, holds its claims in the documents themselves, and no model can widen what a rule was granted
+- **Agents** — an agent fleet that acts inside mail and file storage on a group's behalf. Each automation is a document in the group's own account — when it reacts, which messages it looks at, what it then does — with a tier that decides how much model it uses (T0 deterministic, T1 a category, T2 the model's own judgement), a review policy that can pause a run for a person, a capability allowlist that bounds every answer, and the approval itself happening in the group's chat. Every run is audited, one document per month per group, and an administrator can export that trail before the retention prunes it. The installation's Master is **named by the deployment's environment** — `GILBERT_AGENT_ADDRESS` and the account's own password. It runs with the server unless the deployment keeps the two apart, holds its claims in the documents themselves, and no model can widen what a rule was granted
 - **Nothing of its own to keep** — no database, no search index, no cache tier: every durable thing lives in the mail store, under the account's quota, and the container is disposable (`IMMUTABLE=1` needs no writable root)
 - **Platform** — installable PWA, Web Push with Gilbert closed, `mailto:` handler, no credentials in the browser, strict CSP, SSRF-safe image proxy
 - **Everything else is upstream's** — the mail client, calendar, contacts, files, sharing and Sieve editing come from [ihasmail](https://github.com/Coffey-Labs/ihasmail), renamed for this build. This project does not re-document them; upstream's own documentation is the reference — [Using ihasmail](https://docs.ihasmail.org/using/). What this build adds on top: twelve themes, eleven interface languages (beta), signature checking, and a container that can run read-only
@@ -129,7 +129,7 @@ is nothing to merge.
 The installation's **Master** is an ordinary account on the server that
 Gilbert acts as; its **agents** — the fleet — are the processes that act as it,
 and they are the largest thing this project owns, so this is the short version of
-how to turn it on, what it does, and what holds it back. (A *agent* is only ever
+how to turn it on, what it does, and what holds it back. (A *worker* is only ever
 the browser's service worker, which is a different animal with a confusingly
 similar name.) The long version is the first part of [FEATURES.md](FEATURES.md).
 
@@ -146,7 +146,7 @@ npm start
 ```
 
 That one command is an installation that both serves and acts: with the pair
-set, the server runs a agent beside the web tier in its own process (ADR 0003),
+set, the server runs an agent beside the web tier in its own process (ADR 0003),
 and the agent is the same entrypoint either way — `node
 server/dist/agent/worker.js` is what a deployment that wants the fleet apart
 runs instead, with `GILBERT_AGENT_INPROCESS=0`.
@@ -158,12 +158,13 @@ agent is in, read from the Master's own session in Stalwart, and **Admin → Gro
 agents** narrows what it does inside them, one group at a time: the automations
 it runs there, what is waiting on a person, and the agents carrying them out.
 With the pair unset the server runs with no agent — that screen says what is
-missing and how to set it — and a agent started without it, or with a pair
+missing and how to set it — and an agent started without it, or with a pair
 Stalwart refuses, warns once and serves nothing rather than failing to come up.
 
 **What it does.** An **automation** is a document in the group's own account:
 when it reacts (an email arriving, a chat message, a file, a time), which
-messages it looks at (the JMAP filter grammar), and what it then does — from thecapability catalogue: label, move, file attachments into the group's visible
+messages it looks at (the JMAP filter grammar), and what it then does — from the
+capability catalogue: label, move, file attachments into the group's visible
 Files, prepare a draft, send, write a text document. Each carries a **tier**: T0
 is deterministic and calls no model, T1 asks a small model for one of the rule's
 own categories, T2 gives the rule's instruction to a model that decides and acts.

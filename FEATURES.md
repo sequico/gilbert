@@ -87,7 +87,7 @@ account of its own on the server, and what it owns — its chat, its label
 catalog, its calendars and files, its agent's documents — lives in that account
 and belongs to it from creation, shared with its members rather than copied to
 them. **Chat** is one conversation per group. And **Agents** is the largest
-thing here: a agent fleet that acts inside mail and file storage on a group's
+thing here: an agent fleet that acts inside mail and file storage on a group's
 behalf, with its own identity, its own permissions and its own audit trail. That
 section is the detailed one; the two beside it are the surfaces a member and an
 administrator actually touch.
@@ -125,7 +125,7 @@ declare it.
   the grant is Stalwart's and there is no second record to keep. The surface
   reads the Master's membership from the Master's own session and shows it, rather
   than writing one or asking anyone to declare it. The same answer says which
-  agents are serving a group: a claim is per account, so a agent names the
+  agents are serving a group: a claim is per account, so an agent names the
   groups it is holding in its heartbeat, and the surface reads one group's
   agents off that rather than listing a fleet with no group attached.
 - **An automation can be run now, on a message a person names.** *Run now*
@@ -217,7 +217,7 @@ documents (automations, jobs, decisions, audit) stay in the hidden `gilbert`
 folder, which is where they belong and where the Files view deliberately does
 not look — the name is the whole rule: the folder is found by it, and a path
 that names it is refused as a destination in Files.
-- **A run is bounded by what it was granted.** A agent that loses its unit
+- **A run is bounded by what it was granted.** An agent that loses its unit
 mid-run stops before anything leaves the process rather than writing results
 its successor will write again; an approval is consumed exactly once, so two
 answers arriving together cannot send the same mail twice; a run executes the
@@ -267,7 +267,7 @@ automations without their capability allowlist and without the authorship
 stamps; nothing on that path writes.
 - **The agent says hello once.** A group the agent has been granted but has
 never spoken in hears from it: a chat message — "Hi all! Gilbert here, at your
-service." — posted when a agent takes the group's claim. The greeting is
+service." — posted when an agent takes the group's claim. The greeting is
 itself proof that an agent works in the group, readable through a member's own
 session where the operator's grant list is not, so the panel stops reporting an
 agentless group the moment the agent arrives.
