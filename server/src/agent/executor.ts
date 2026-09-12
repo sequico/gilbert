@@ -1194,7 +1194,9 @@ export class Executor {
    * reads them, because it has eyes. How many pages one run may hand over is
    * the installation's own bound, or the deployment's `GILBERT_AGENT_MAX_PAGES`
    * when it has set none, and the bound is stated in the prompt rather than
-   * hidden.
+   * hidden. A deployment whose model cannot read an image says so
+   * (`GILBERT_AGENT_VISION=0`) and the run is told that instead of being told a
+   * page was handed over.
    *
    * A kind this family does not read is said in the run's own notes rather than
    * failing it: a file arriving is not an instruction to read it. A document a
@@ -1253,12 +1255,16 @@ export class Executor {
         context.text += `\n\nNothing of "${found.name}" could be read as text, and it carries no page to render.`;
       return;
     }
-    const handed = content.images.map((image) => image.page).join(", ");
+    const handed = config.agent.vision
+      ? content.images.map((image) => image.page).join(", ")
+      : "";
     context.text +=
       `\n\nPages ${read.pixelPages.join(", ")} of ${read.pages} carry no text layer: ` +
       (handed
         ? `pages ${handed} are handed to you as images`
-        : "none of them fits this call") +
+        : config.agent.vision
+          ? "none of them fits this call"
+          : "this installation's model is configured without vision, so none of them can be read here") +
       (content.omitted
         ? `, and ${content.omitted} more are past the ${pages} pages one run may hand over`
         : "") +

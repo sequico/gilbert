@@ -205,8 +205,11 @@ pages one run may hand the model — in the same document and the same panel.
 A bound the installation has not set is the deployment's: the environment
 declares the two chain and page bounds, and the ceiling on an answer is the
 build's own default. A file larger than the byte ceiling a run reads is not
-read, and one split writes at most a hundred pages, both said in the run's own
-notes rather than discovered as an outage.
+read, one split writes at most a hundred pages, and a page too large to hold is
+rendered smaller rather than refused — all said in the run's own notes rather
+than discovered as an outage. A deployment whose model cannot read an image says
+so (`GILBERT_AGENT_VISION=0`) and its runs are told that the page could not be
+read instead of being told one was handed over.
 - **A group has a memory.** Beside the documents a group already keeps, its
 agent carries a **notebook**: the facts about the group that no automation
 should have to repeat — how its mail is filed, what its clients are called,
@@ -228,7 +231,9 @@ gaps. It is not a run: nothing is compiled, nothing is stored, there is no job
 and no claim — a call with a timeout instead of a lease, thinking off — and its
 tokens are counted in the **Master's account** as authoring rather than in a
 group's ledger. Its refusals travel as codes like every other refusal, and the
-answer is model prose shown as prose.
+answer is model prose shown as prose. What it may spend is the installation's
+own month (`GILBERT_AGENT_AUTHORING_MAX_PER_MONTH`), counted from the authoring
+document and refused before the call rather than after it.
 - **Documents, read by the model that has eyes.** A run can act on a PDF: split
 it into pages, merge them, extract one, and *read* — a PDF's own text layer, or a
 `.docx`. A page that carries no text layer is **rasterised**: the executor

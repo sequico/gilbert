@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { after, before, test } from "node:test";
 import zlib from "node:zlib";
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, rgb } from "pdf-lib";
 
 /**
  * The model client against a stub OpenAI-compatible endpoint.
@@ -73,7 +73,7 @@ const { assertUsableProvider, callModel, decideActions, providerFor, readProse }
 const { AGENT_MAX_PAGES_DEFAULT, MODEL_MAX_OUTPUT_DEFAULT } = await import(
   "./documents.js"
 );
-const { documentContent } = await import("./documentFamily.js");
+const { documentContent, renderPages } = await import("./documentFamily.js");
 
 before(async () => {
   await new Promise<void>((resolve) => stub.listen(PORT, "127.0.0.1", resolve));
@@ -613,5 +613,33 @@ test("an address inside the network is refused unless the deployment says so", (
   );
   assert.doesNotThrow(() =>
     assertUsableProvider({ ...loopback, baseUrl: "https://api.example.com/v1" }, false),
+  );
+});
+
+/**
+ * What one page may cost the process (ADR 0010).
+ *
+ * The byte ceiling on a file bounds what arrives, and this bounds what a page
+ * becomes: an A0 sheet at twice its own size is about 128 MB of pixels, which a
+ * process serving every account on the installation cannot hold for one page of
+ * one file. Past the ceiling the page is rendered smaller — the direction that
+ * keeps the words legible — rather than refused.
+ */
+test("a sheet too large to hold is rendered smaller, not refused", async () => {
+  const doc = await PDFDocument.create();
+  // A0, in points: 841 by 1189 millimetres.
+  const sheet = doc.addPage([2384, 3370]);
+  sheet.drawRectangle({ x: 0, y: 0, width: 2384, height: 3370, color: rgb(1, 0, 0) });
+  const pages = await renderPages(await doc.save(), [1]);
+  assert.equal(pages.length, 1, "the page is still read");
+  const pixels = pixelsOf(pages[0]!.png);
+  const ceiling = 4000 * 4000;
+  assert.ok(
+    pixels.width * pixels.height <= ceiling,
+    `a page of ${pixels.width}x${pixels.height} is inside the pixel ceiling`,
+  );
+  assert.ok(
+    pixels.width * pixels.height < 2384 * 3370 * 4,
+    "and smaller than the sheet at twice its own size, which is what it would have been",
   );
 });

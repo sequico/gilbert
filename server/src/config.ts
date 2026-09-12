@@ -434,6 +434,24 @@ const agentWorkerSettings = {
    * (ADR 0010).
    */
   allowPrivateProvider: bool("GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER", false),
+  /**
+   * Whether the installation's model can read an image.
+   *
+   * True is the common case and the default; a deployment running a
+   * text-only model says so, and then a run handed a page with no text layer is
+   * told that the page could not be read rather than being told an image was
+   * handed over (ADR 0010).
+   */
+  vision: bool("GILBERT_AGENT_VISION", true),
+  /**
+   * How many readings one installation may ask for in a month.
+   *
+   * A reading is a call the installation pays for and it is not a run, so no
+   * job's ceiling bounds it: this is the bound, counted from the authoring
+   * document of the month, and a reading past it is refused before it is made
+   * (ADR 0010).
+   */
+  authoringMonthlyMax: int("GILBERT_AGENT_AUTHORING_MAX_PER_MONTH", 200),
   /*
    * How many pages one run may hand the model as images (ADR 0010). A page
    * whose own text layer is empty is rasterised in the process and read by the

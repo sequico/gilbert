@@ -1250,6 +1250,25 @@ export async function readDraft(
       },
       400,
     );
+  if ((input.envelope ?? "").length > AGENT_INSTRUCTION_MAX)
+    throw new AgentAdminError(
+      {
+        code: "envelope_too_long",
+        max: AGENT_INSTRUCTION_MAX,
+        length: (input.envelope ?? "").length,
+      },
+      400,
+    );
+  // What this month has already been spent on, read before the call rather
+  // than after it: a reading is not a run, so no job's ceiling bounds it, and
+  // the one record of what the installation bought is the authoring document
+  // (ADR 0010).
+  const spent = (await store.readAuthoring(monthOf(new Date())))?.entries.length ?? 0;
+  if (spent >= config.agent.authoringMonthlyMax)
+    throw new AgentAdminError(
+      { code: "authoring_budget_spent", max: config.agent.authoringMonthlyMax },
+      409,
+    );
   const [instruction, notebook] = await Promise.all([
     group.readInstruction(),
     group.readNotebook(),

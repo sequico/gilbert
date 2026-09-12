@@ -182,6 +182,8 @@ export type AgentErrorReason =
   | { code: "notes_too_long"; max: number; length: number }
   | { code: "no_provider" }
   | { code: "reading_failed"; detail: string }
+  | { code: "envelope_too_long"; max: number; length: number }
+  | { code: "authoring_budget_spent"; max: number }
   | { code: "group_labels_unreadable" };
 
 /* ------------------------------------------------------------------ */

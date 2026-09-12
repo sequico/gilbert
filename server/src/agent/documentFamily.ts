@@ -21,7 +21,7 @@
  */
 
 import zlib from "node:zlib";
-import { PDFiumLibrary } from "@hyzyla/pdfium";
+import { PDFiumLibrary, type PDFiumPage as PdfPage } from "@hyzyla/pdfium";
 import mammoth from "mammoth";
 import { PDFDocument } from "pdf-lib";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
@@ -265,6 +265,21 @@ function pdfEngine(): Promise<PDFiumLibrary> {
 }
 
 /**
+ * How many pixels one rendered page may have, at most.
+ *
+ * The byte ceiling on the file bounds what arrives; this bounds what it becomes.
+ * A page is held as a bitmap while it is rendered, ten times over in the worst
+ * case (the page, the filtered scanlines, the deflated bytes, the copy the
+ * engine keeps, the base64 of the call), so an A0 sheet at twice its own size —
+ * 4768 by 6741 pixels, about 128 MB of pixels — is more than a process serving
+ * every account on the installation can hold for one page of one file. Four
+ * thousand pixels a side is about 64 MB of pixels and still more than a model
+ * reads: past it the page is rendered **smaller**, which is the direction that
+ * keeps the words legible where refusing would keep nothing.
+ */
+const PAGE_PIXELS_MAX = 4000 * 4000;
+
+/**
  * Pages of a PDF rendered to PNG images, in the order asked for.
  *
  * PDFium renders to a bitmap in the process and offers nothing else: no
@@ -283,9 +298,8 @@ export async function renderPages(
   try {
     const out: PageImage[] = [];
     for (const page of pages) {
-      const rendered = await document.getPage(page - 1).render({
-        scale: PAGE_RENDER_SCALE,
-      });
+      const sheet = document.getPage(page - 1);
+      const rendered = await sheet.render({ scale: fitScale(sheet, page) });
       out.push({
         page,
         png: await pngFromRgba(rendered.data, rendered.width, rendered.height),
@@ -364,6 +378,23 @@ async function pngFromRgba(
     pngChunk("IDAT", await deflate(rows)),
     pngChunk("IEND", new Uint8Array(0)),
   ]);
+}
+
+/**
+ * The scale a page is rendered at, brought down until its bitmap fits the
+ * ceiling: the size a sheet wants, then the largest scale that keeps it inside.
+ */
+function fitScale(sheet: PdfPage, page: number): number {
+  let size: { originalWidth: number; originalHeight: number };
+  try {
+    size = sheet.getOriginalSize();
+  } catch (err) {
+    throw unreadable(`page ${page} of this PDF`, err);
+  }
+  const pixels =
+    size.originalWidth * size.originalHeight * PAGE_RENDER_SCALE * PAGE_RENDER_SCALE;
+  if (!Number.isFinite(pixels) || pixels <= PAGE_PIXELS_MAX) return PAGE_RENDER_SCALE;
+  return PAGE_RENDER_SCALE * Math.sqrt(PAGE_PIXELS_MAX / pixels);
 }
 
 /** `zlib.deflate`, as a promise: the async half of the one encoder. */

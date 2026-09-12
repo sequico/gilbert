@@ -30,6 +30,9 @@ process.env.MOCK_PORT = String(PORT);
 // The stub model these suites call lives on loopback: the deployment says so,
 // which is the operator's statement and never a document's.
 process.env.GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER = "1";
+// One reading a month, so the budget below is one call away: the ceiling an
+// installation sets for itself is what the test pins.
+process.env.GILBERT_AGENT_AUTHORING_MAX_PER_MONTH = "1";
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";
 process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
@@ -1360,4 +1363,58 @@ test("the installation's bounds are written where it states its model", async ()
   const restored = after.body as { maxChainHops: number; maxPages: number };
   assert.equal(restored.maxChainHops, config.agent.maxChainHops);
   assert.equal(restored.maxPages, 12, "and the other bound is untouched");
+});
+
+/**
+ * The ceiling on what authoring may spend (ADR 0010).
+ *
+ * A reading is not a run, so no job's ceiling bounds it and no lease is taken:
+ * the bound is the installation's own month, counted from the authoring
+ * document, and the call past it is refused before it is made rather than after
+ * it is paid for.
+ */
+test("a reading past the month's ceiling is refused before it is made", async () => {
+  configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
+  const agentAuth = `Basic ${Buffer.from(
+    `${mock.AGENT_ADDRESS}:${mock.AGENT_PASS}`,
+  ).toString("base64")}`;
+  const agentCtx = {
+    authorization: agentAuth,
+    session: await fetchUpstreamSession(agentAuth, BASE),
+    username: mock.AGENT_ADDRESS,
+  };
+  const agentAccount = filesAccountId(agentCtx);
+  const master = new AgentStore(agentCtx, agentAccount);
+  await master.writeConfig({
+    v: 1,
+    address: mock.AGENT_ADDRESS,
+    provider: {
+      provider: "stub",
+      model: "stub",
+      baseUrl: `http://127.0.0.1:${READING_PORT}/v1`,
+      apiKey: "stub-key",
+    },
+  });
+  // The ceiling this test sets is one, and the month is filled here rather than
+  // borrowed from the test above: a reading the installation already paid for is
+  // what the next one is refused against.
+  await master.appendAuthoring({
+    at: new Date().toISOString(),
+    about: "the group's standing instruction",
+    by: DEMO,
+  });
+  assert.ok(
+    (await master.readAuthoring(monthOf(new Date())))?.entries.length,
+    "the month holds a reading the installation already paid for",
+  );
+
+  const refused = await call(`/api/admin/groups/${TEAM}/agent/reading`, {
+    method: "POST",
+    body: JSON.stringify({ about: "a draft", draft: "File the invoices." }),
+  });
+  assert.equal(refused.status, 409);
+  assert.deepEqual(refused.body, {
+    error: "authoring_budget_spent",
+    max: config.agent.authoringMonthlyMax,
+  });
 });

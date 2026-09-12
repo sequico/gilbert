@@ -92,6 +92,10 @@ export const AGENT_ERROR_SENTENCES = {
   no_provider:
     "This installation has no model configured, so there is nothing to read a draft with: set the provider under Agents first.",
   reading_failed: "The model could not be asked to read this draft: {detail}",
+  envelope_too_long:
+    "What the draft belongs to is at most {max} characters; this is {length}.",
+  authoring_budget_spent:
+    "This installation has already asked the model to read {max} drafts this month, which is the ceiling it set for itself: it starts again next month, or an operator raises GILBERT_AGENT_AUTHORING_MAX_PER_MONTH.",
   group_labels_unreadable:
     "This group's labels.json holds entries Gilbert cannot read. The agent's labels were not added, rather than overwriting them.",
   manual_run_refused: "That automation did not start: {reason}.",
