@@ -65,4 +65,11 @@ and the line to upstream, live there and are not repeated here.
   constraint rather than a hope, *Run now* asks for one run on one message, and
   what a run cost in tokens is metered per group and per agent. One model,
   configured once, serves every automation.
+- **0014 — Agents admin UI: three surfaces, and audit made visible.** The
+  agents admin area is Master (the installation, configured once), Group
+  Agents (one group's automations, standing instruction, memory, audit and
+  fleet, behind a single picker) and Approvals (cross-group oversight,
+  read-only by construction — an operator answers in the group's chat, never
+  here). Supersedes the *Admin surfaces* bullet of ADR 0003 and fulfils the
+  audit-window resolution of ADR 0010.
 
