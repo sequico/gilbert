@@ -26,6 +26,7 @@ import { client } from "@/jmap/client";
 import type { Email, Id } from "@/jmap/types";
 import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { plural, t } from "@/lib/i18n";
+import { visibleMessages } from "@/lib/openMessage";
 import { threadScrollTarget } from "@/lib/threadScroll";
 import { useEdgeBack } from "@/lib/touch";
 import { useCompose } from "@/store/compose";
@@ -48,6 +49,12 @@ interface Props {
   onNavigate: (delta: number) => void;
   hasPrev: boolean;
   hasNext: boolean;
+  /**
+   * With conversation view off, the single message to show. The thread is still
+   * what loads -- one request, and the reply/forward paths keep the context
+   * they need -- but only this message is rendered.
+   */
+  messageId?: Id | null;
 }
 
 export function ThreadView({
@@ -58,6 +65,7 @@ export function ThreadView({
   onNavigate,
   hasPrev,
   hasNext,
+  messageId = null,
 }: Props) {
   const loadThread = useMail((s) => s.loadThread);
   const thread = useMail((s) => s.threads[threadId]);
@@ -116,10 +124,10 @@ export function ThreadView({
       if (junk && e.mailboxIds[junk]) return false;
       return true;
     });
-    return (filtered.length ? filtered : all).sort((a, b) =>
+    return visibleMessages(filtered.length ? filtered : all, messageId).sort((a, b) =>
       a.receivedAt.localeCompare(b.receivedAt),
     );
-  }, [thread, emails, fullIds, mailboxId]);
+  }, [thread, emails, fullIds, mailboxId, messageId]);
 
   /*
    * Keep the previous conversation on screen while a newly opened one loads:

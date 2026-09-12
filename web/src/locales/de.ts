@@ -953,6 +953,8 @@ export const catalog: Catalog = {
       "Ihr aktives Sieve-Skript wurde von Hand geschrieben, daher können Regeln nicht automatisch hinzugefügt werden. Öffnen Sie {where}, um das Skript zu bearbeiten oder zu verwalteten Regeln zu wechseln.",
     "Only languages Gilbert has been translated into appear here, so this list grows as translations land rather than ahead of them — a language offered without strings behind it would leave the page claiming to be in a language it is not.":
       "Hier erscheinen nur Sprachen, in die Gilbert übersetzt wurde; die Liste wächst also mit den Übersetzungen und nicht vorab — eine Sprache ohne hinterlegte Texte würde die Seite behaupten lassen, sie sei in einer Sprache, in der sie nicht ist.",
+    "Select a message to read it here · Press {key} for shortcuts":
+      "Wählen Sie eine Nachricht, um sie hier zu lesen · {key} für Tastenkürzel",
 
     // ── Labels defined as constants, translated where they render ──────
     // The catalogue checker cannot see these: they reach t() as a variable,
@@ -993,6 +995,7 @@ export const catalog: Catalog = {
     Nothing: "Nichts",
 
     "No conversation selected": "Keine Konversation ausgewählt",
+    "No message selected": "Keine Nachricht ausgewählt",
     "Drop here for the top level": "Hierher ziehen für die oberste Ebene",
 
     // ── Remaining prose ────────────────────────────────────────────────
@@ -1039,6 +1042,8 @@ export const catalog: Catalog = {
     "folder\u0004Junk Mail": "Spam",
     "folder\u0004Important": "Wichtig",
     "folder\u0004All mail": "Alle Nachrichten",
+    "share sheet\u0004Share": "Teilen",
+    "share sheet\u0004Share…": "Teilen…",
     folder: "Ordner",
     "“{name}” moved into “{parent}”": "„{name}“ wurde nach „{parent}“ verschoben",
     "“{name}” moved to the top level": "„{name}“ wurde auf die oberste Ebene verschoben",
@@ -1050,6 +1055,9 @@ export const catalog: Catalog = {
 
     // ── Composer status, calendar title ────────────────────────────────
     "New message": "Neue Nachricht",
+    "New mail": "Neue E-Mail",
+    "Could not do that — open Gilbert and try again":
+      "Nicht möglich – öffnen Sie Gilbert und versuchen Sie es erneut",
     "Sending…": "Wird gesendet…",
     "Saving…": "Wird gespeichert…",
     Error: "Fehler",
@@ -1095,6 +1103,7 @@ export const catalog: Catalog = {
     "Could not copy the address": "Die Adresse konnte nicht kopiert werden",
     "Could not empty folder: {error}": "Ordner konnte nicht geleert werden: {error}",
     "Could not load source: {error}": "Quelltext konnte nicht geladen werden: {error}",
+    "Could not share: {error}": "Teilen nicht möglich: {error}",
     "Could not mark as read: {error}":
       "Konnte nicht als gelesen markiert werden: {error}",
     "Could not save draft: {error}": "Entwurf konnte nicht gespeichert werden: {error}",

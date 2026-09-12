@@ -46,8 +46,93 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+/*
+ * Where a share from the operating system is left for a tab to collect.
+ *
+ * Absolute and anchored to the mount, for the same reason the verification key
+ * below is: a relative key is resolved against the URL of whoever asks, and the
+ * worker and a tab deep in `/mail/inbox/…` are not at the same place.
+ *
+ * The files go in one entry each and the rest in a JSON index beside them,
+ * because the Cache API stores Responses and a File is already one body.
+ */
+const SHARE_KEY = `${BASE}/gilbert-share`;
+const SHARE_MAX_FILES = 20;
+
+/*
+ * Take delivery of a share.
+ *
+ * This is a POST that navigates: the operating system submits a form at the
+ * app and expects a page back. Nothing in Gilbert can answer it directly --
+ * the app is a client-side router with no endpoint at that address, and the
+ * server behind it would have to grow one that understood the composer. So the
+ * worker takes the body, puts it where a tab can find it, and redirects to the
+ * app, which then opens a draft holding it.
+ *
+ * The redirect happens whatever went wrong. A share that fails to stash costs
+ * whatever was being shared, which is bad; a share that fails to *respond*
+ * costs that and leaves the reader looking at a browser error page where they
+ * expected their mail, which is worse.
+ *
+ * There is one case this cannot cover, and the server is deliberately not
+ * taught to: an app still installed whose worker has been cleared away. The
+ * POST then reaches the server, which answers 405, and the share is lost
+ * either way -- the payload only ever existed in that request body. A server
+ * route would trade a plain error for a silent nothing, and a share that
+ * vanishes without saying so is the harder of the two to notice.
+ */
+async function stashShare(request) {
+  try {
+    const form = await request.formData();
+    const cache = await caches.open(VERSION);
+    const meta = {
+      at: Date.now(),
+      title: String(form.get("title") ?? ""),
+      text: String(form.get("text") ?? ""),
+      url: String(form.get("url") ?? ""),
+      files: [],
+    };
+    const files = form
+      .getAll("files")
+      .filter((f) => f && typeof f === "object" && "name" in f && f.size > 0);
+    for (const [i, f] of files.slice(0, SHARE_MAX_FILES).entries()) {
+      const key = `${SHARE_KEY}/${i}`;
+      await cache.put(
+        key,
+        new Response(f, {
+          headers: { "content-type": f.type || "application/octet-stream" },
+        }),
+      );
+      meta.files.push({
+        key,
+        name: f.name || `file-${i + 1}`,
+        type: f.type || "application/octet-stream",
+      });
+    }
+    await cache.put(
+      SHARE_KEY,
+      new Response(JSON.stringify(meta), {
+        headers: { "content-type": "application/json" },
+      }),
+    );
+  } catch {
+    /* nothing to hand on: the app opens on an empty inbox rather than an error */
+  }
+  // Absolute, because `Response.redirect` rejects a bare path outright rather
+  // than resolving it -- so `${BASE}/mail` would throw here and the share
+  // would end at a browser error page instead of the inbox.
+  return Response.redirect(
+    new URL(`${BASE}/mail?share=1`, self.location.origin).href,
+    303,
+  );
+}
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
+  if (req.method === "POST" && new URL(req.url).pathname === `${BASE}/share`) {
+    event.respondWith(stashShare(req));
+    return;
+  }
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
@@ -83,14 +168,22 @@ self.addEventListener("fetch", (event) => {
 
 /*
  * Stalwart signs with VAPID and pushes straight to the browser's push service;
- * nothing here talks to gilbert's server. The payload is an EmailPush object
- * (draft-ietf-jmap-emailpush) carrying enough of the message to show a useful
- * notification without a round-trip — which matters, because when this fires
- * there may be no session to make one with.
+ * nothing here talks to Gilbert's server on the way in. The payload is an
+ * EmailPush object (draft-ietf-jmap-emailpush) carrying enough of the message
+ * to show a useful notification without a round-trip, which is what lets a
+ * notification appear immediately rather than after a request.
+ *
+ * What it can do is ask; what it cannot do is be sure of an answer, since the
+ * session may be gone by the time it does — see the note on `jmap()`. So the
+ * payload still carries the message and the request is only made when
+ * somebody presses something.
  *
  * A JMAP subscription also delivers a PushVerification first, and stays silent
- * until the client echoes its code back. That cannot be done from here (no
- * credentials), so it is stashed for a tab to collect and confirm.
+ * until the client echoes its code back. It is stashed for a tab to confirm
+ * rather than answered here — on the same reasoning, and because a
+ * verification that failed silently would leave push looking broken with
+ * nothing to show for it. Answering it directly is now possible and is worth
+ * revisiting.
  */
 
 /*
@@ -106,11 +199,95 @@ self.addEventListener("fetch", (event) => {
  */
 const VERIFY_KEY = `${BASE}/gilbert-push-verification`;
 
-function textOf(email) {
+/*
+ * What a tab wrote down for this worker: the account, which mailbox is the
+ * archive, and the worker's own text in the reader's language. See
+ * `lib/swFacts.ts` for why any of that has to be handed over rather than
+ * worked out here.
+ *
+ * Everything that depends on it is skipped when it is missing, which is the
+ * state between installing this worker and next opening the app. An action
+ * button with no label, or one that files mail into a mailbox guessed by name,
+ * is worse than the notification that was here before.
+ */
+const FACTS_KEY = `${BASE}/gilbert-worker-facts`;
+
+async function readFacts() {
+  try {
+    const hit = await (await caches.open(VERSION)).match(FACTS_KEY);
+    return hit ? await hit.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+/*
+ * A JMAP call, made as the reader.
+ *
+ * This worker was written believing it could not do this -- that acting on
+ * mail needed a session it had no way to hold. It does not: Gilbert's session
+ * is an httpOnly cookie against its own origin, and the only other thing the
+ * API asks for is a fixed `x-requested-with` header that is not a secret and
+ * is not held anywhere. A same-origin fetch from here carries the cookie like
+ * any other, so `Email/set` from a notification is an ordinary request.
+ *
+ * What is genuinely not available is anything the *tab* holds in memory, and
+ * the answer is that the API asks for none of it.
+ *
+ * The session can still be gone -- expired, signed out, or a cookie that did
+ * not survive the browser closing -- which arrives as a 401 and is reported
+ * rather than swallowed. A tap that silently does nothing is the failure worth
+ * avoiding here: the reader has already put the phone down.
+ */
+async function jmap(methodCalls) {
+  const res = await fetch(`${BASE}/api/jmap`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json",
+      "x-requested-with": "gilbert",
+    },
+    body: JSON.stringify({
+      using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
+      methodCalls,
+    }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const body = await res.json();
+  // A JMAP method can fail inside a 200. Treat that as a failure too, rather
+  // than reporting success because the transport was fine.
+  const first = body?.methodResponses?.[0];
+  if (!first || first[0] === "error") throw new Error(first?.[1]?.type || "error");
+  const notUpdated = first[1]?.notUpdated;
+  if (notUpdated && Object.keys(notUpdated).length) throw new Error("notUpdated");
+  return body;
+}
+
+function textOf(email, strings) {
   const from = email?.from?.[0];
-  const who = from?.name || from?.email || "New message";
-  const what = email?.subject || "(no subject)";
+  const who = from?.name || from?.email || strings.newMessage;
+  const what = email?.subject || strings.noSubject;
   return { title: who, body: what, preview: email?.preview || "" };
+}
+
+/*
+ * Two, because that is what a phone shows. `Notification.maxActions` is 2 on
+ * Android Chrome, and anything past it is dropped silently -- so these are the
+ * two worth having rather than the two that happened to come first. Both are
+ * triage: they are what somebody does to a notification they have read the
+ * whole of on the lock screen and does not need to open.
+ *
+ * Reply is deliberately not among them. It cannot be done from here, so it
+ * would have to open the app -- and an action that opens the app is what
+ * tapping the notification already does.
+ */
+function actionsFor(facts) {
+  if (!facts) return [];
+  const actions = [];
+  if (facts.archiveId) actions.push({ action: "archive", title: facts.strings.archive });
+  actions.push({ action: "read", title: facts.strings.markRead });
+  return actions;
 }
 
 self.addEventListener("push", (event) => {
@@ -149,10 +326,29 @@ self.addEventListener("push", (event) => {
       : [];
   event.waitUntil(
     (async () => {
+      const facts = await readFacts();
+      const strings = facts?.strings ?? {
+        newMail: "New mail",
+        newMessage: "New message",
+        noSubject: "(no subject)",
+      };
+      /*
+       * Mark the app icon, without claiming a number.
+       *
+       * `setAppBadge()` with no count shows a dot rather than a figure, which
+       * is the only honest thing to show from here: this worker has no session,
+       * so it cannot ask how many messages are unread, and a push carries the
+       * new mail rather than a total. Counting the payload would badge "2" over
+       * an inbox holding forty. The next time a tab opens, `setUnreadBadge`
+       * writes the real count over the dot.
+       */
+      if ("setAppBadge" in self.navigator)
+        await self.navigator.setAppBadge().catch(() => {});
+
       if (!emails.length) {
         // A StateChange, or a payload too large to carry the message. Say
         // something true rather than inventing a sender.
-        await self.registration.showNotification("New mail", {
+        await self.registration.showNotification(strings.newMail, {
           icon: `${BASE}/img/icon-192.png`,
           badge: `${BASE}/img/favicon-64.png`,
           tag: "gilbert-mail",
@@ -163,22 +359,71 @@ self.addEventListener("push", (event) => {
       // One notification per message, collapsing repeats of the same message by
       // tag so a re-push does not stack.
       for (const email of emails.slice(0, 5)) {
-        const { title, body, preview } = textOf(email);
+        const { title, body, preview } = textOf(email, strings);
         await self.registration.showNotification(title, {
           body: preview ? `${body}\n${preview}` : body,
           icon: `${BASE}/img/icon-192.png`,
           badge: `${BASE}/img/favicon-64.png`,
           tag: `gilbert-${email.id || body}`,
-          data: { url: email.id ? `${BASE}/mail/inbox/${email.id}` : `${BASE}/mail` },
+          // Only where there is a message to act on: a payload without an id can
+          // be shown but not archived, and a button that cannot work should not
+          // be drawn.
+          actions: email.id ? actionsFor(facts) : [],
+          data: {
+            url: email.id ? `${BASE}/mail/inbox/${email.id}` : `${BASE}/mail`,
+            id: email.id || null,
+            title,
+            accountId: facts?.accountId ?? null,
+            archiveId: facts?.archiveId ?? null,
+            failed: strings.failed ?? null,
+          },
         });
       }
     })(),
   );
 });
 
+/*
+ * Do what the button said, without opening anything.
+ *
+ * The whole point of an action is that the phone goes back in the pocket, so
+ * this must not fall back to opening the app when the call fails -- that is
+ * the same interruption the action existed to avoid. It re-notifies instead,
+ * saying it did not happen, and leaves opening Gilbert to the reader.
+ *
+ * Archiving replaces the mailbox set rather than adding to it, which is what
+ * archiving is: the message leaves the inbox. Marking read is a keyword and
+ * touches nothing else.
+ */
+async function runAction(action, data) {
+  const { id, accountId, archiveId } = data;
+  if (!id || !accountId) return;
+  const patch =
+    action === "archive"
+      ? { mailboxIds: { [archiveId]: true } }
+      : { "keywords/$seen": true };
+  try {
+    if (action === "archive" && !archiveId) throw new Error("no archive mailbox");
+    await jmap([["Email/set", { accountId, update: { [id]: patch } }, "0"]]);
+  } catch {
+    await self.registration.showNotification(data.title || "Gilbert", {
+      body: data.failed || "Could not do that — open Gilbert and try again",
+      icon: `${BASE}/img/icon-192.png`,
+      badge: `${BASE}/img/favicon-64.png`,
+      tag: `gilbert-failed-${id}`,
+      data: { url: data.url },
+    });
+  }
+}
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || `${BASE}/mail`;
+  const data = event.notification.data || {};
+  if (event.action === "archive" || event.action === "read") {
+    event.waitUntil(runAction(event.action, data));
+    return;
+  }
+  const url = data.url || `${BASE}/mail`;
   event.waitUntil(
     (async () => {
       const clients = await self.clients.matchAll({

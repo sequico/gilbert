@@ -778,6 +778,8 @@ export const catalog: Catalog = {
       "Gmail 风格的快捷键始终启用。在任意位置按 {key} 即可查看此列表。",
     "Select a conversation to read it here · Press {key} for shortcuts":
       "选择一个会话即可在此阅读 · 按 {key} 查看快捷键",
+    "Select a message to read it here · Press {key} for shortcuts":
+      "选择一封邮件即可在此阅读 · 按 {key} 查看快捷键",
     "Tip: press {key} on a conversation to apply labels. Search with {operator}.":
       "提示：在会话上按 {key} 可添加标签。使用 {operator} 搜索。",
     "A fast, friendly, open-source webmail for {server}, built on JMAP.":
@@ -925,6 +927,7 @@ export const catalog: Catalog = {
     "Not spam": "不是垃圾邮件",
     Nothing: "不执行任何操作",
     "No conversation selected": "未选择会话",
+    "No message selected": "未选择邮件",
     "Drop here for the top level": "拖放到此处可移至顶层",
     "Later today": "今天晚些时候",
     "Tomorrow morning": "明天上午",
@@ -943,6 +946,8 @@ export const catalog: Catalog = {
     "folder\u0004Junk Mail": "垃圾邮件",
     "folder\u0004Important": "重要",
     "folder\u0004All mail": "全部邮件",
+    "share sheet\u0004Share": "分享",
+    "share sheet\u0004Share…": "分享…",
     folder: "文件夹",
     "“{name}” moved into “{parent}”": "「{name}」已移入「{parent}」",
     "“{name}” moved to the top level": "「{name}」已移至顶层",
@@ -953,6 +958,8 @@ export const catalog: Catalog = {
 
     // ── Composer status, calendar title ────────────────────────────────
     "New message": "新邮件",
+    "New mail": "新邮件",
+    "Could not do that — open Gilbert and try again": "无法执行 — 请打开 Gilbert 后重试",
     "Sending…": "正在发送…",
     "Saving…": "正在保存…",
     Error: "错误",
@@ -995,6 +1002,7 @@ export const catalog: Catalog = {
     "Could not copy the address": "无法复制该地址",
     "Could not empty folder: {error}": "无法清空文件夹：{error}",
     "Could not load source: {error}": "无法加载原文：{error}",
+    "Could not share: {error}": "无法分享：{error}",
     "Could not mark as read: {error}": "无法标为已读：{error}",
     "Could not save draft: {error}": "无法保存草稿：{error}",
     "Could not save filter: {error}": "无法保存过滤器：{error}",

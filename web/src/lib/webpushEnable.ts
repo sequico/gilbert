@@ -25,6 +25,7 @@ import {
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { withBase } from "./basePath";
+import { SW_CACHE_NAME } from "./swCache";
 
 let listening = false;
 
@@ -50,7 +51,7 @@ export function listenForVerification(): void {
 /** Pick up a code that arrived while no tab was open. */
 async function collectStoredVerification(): Promise<void> {
   try {
-    const cache = await caches.open("gilbert-v2");
+    const cache = await caches.open(SW_CACHE_NAME);
     // The same absolute key the worker writes. Relative would be resolved
     // against this document's URL, which is a different place on every route.
     const key = withBase("/gilbert-push-verification");

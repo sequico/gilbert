@@ -17,6 +17,7 @@ import { sanitizeEditorHtml, sanitizeEmailHtml } from "@/lib/html";
 import { t as translate } from "@/lib/i18n";
 import { remoteImagesAllowed } from "@/lib/remoteImages";
 import { formatScheduleTime, holdUntil } from "@/lib/schedule";
+import { type SharedContent, shareBody } from "@/lib/shareTarget";
 import { fillPlaceholders, type PlaceholderContext } from "@/lib/templatePlaceholders";
 import { escapeHtml, htmlToText, quoteText, replySubject, textToHtml } from "@/lib/text";
 import { toast } from "@/ui/toast";
@@ -93,6 +94,8 @@ interface ComposeState {
   activeKey: string | null;
   pendingSends: Record<string, { timer: number; toastId: number; draft: Draft }>;
   open(init?: Partial<Draft>): string;
+  /** Open a draft holding what the operating system's share sheet sent us. */
+  openFromShare(share: SharedContent): string;
   openDraftEmail(email: Email): Promise<string>;
   /** Open a message again as a mail that has not been sent yet. */
   composeAsNew(email: Email): Promise<string>;
@@ -264,6 +267,33 @@ export const useCompose = create<ComposeState>((set, get) => ({
       activeKey: d.key,
     }));
     return d.key;
+  },
+
+  /*
+   * A share from the operating system, as a message being written.
+   *
+   * The subject and body are filled in but nothing is addressed and nothing is
+   * sent: a share says what to send, never who to. What arrives is somebody
+   * part-way through a thought, and the composer is where the rest of it goes.
+   *
+   * Opened empty first and the body pushed in above afterwards, rather than
+   * passed to `open()`. `open()` only fits a signature when it is given no
+   * body at all, so handing it the shared text would quietly drop the
+   * signature from every message that started as a share.
+   */
+  openFromShare(share) {
+    const body = shareBody(share);
+    const key = get().open({ subject: share.title.trim() });
+    if (body) {
+      const d = get().drafts.find((x) => x.key === key);
+      if (d)
+        get().update(key, {
+          html: `<div>${textToHtml(body)}</div>${d.html}`,
+          text: `${body}\n${d.text}`,
+        });
+    }
+    if (share.files.length) get().addFiles(key, share.files);
+    return key;
   },
 
   async openDraftEmail(email) {

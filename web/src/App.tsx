@@ -21,6 +21,7 @@ import {
   settingsSyncAvailable,
 } from "@/lib/settingsSync";
 import { reloadIfServerRebuilt } from "@/lib/staleBuild";
+import { publishWorkerFacts } from "@/lib/swFacts";
 import { confirmLeaveUnsaved, hasUnsavedChanges } from "@/lib/unsavedChanges";
 import { listenForVerification, renewWebPush } from "@/lib/webpushEnable";
 import { useCalendar } from "@/store/calendar";
@@ -416,6 +417,21 @@ function AuthedApp() {
     setBaseTitle(appName);
     setUnreadBadge(inboxUnread);
   }, [inboxUnread, appName]);
+
+  /*
+   * Leave the service worker its briefing.
+   *
+   * Written from here rather than once at startup because everything in it can
+   * change while the app is open -- the language from Settings, the archive
+   * folder from the mailbox list arriving -- and what is written is what the
+   * worker will still be reading a week from now, with no tab to correct it.
+   * See lib/swFacts.ts.
+   */
+  const archiveId = useMail((s) => s.roleId("archive"));
+  const languageVersion = useLanguageVersion();
+  useEffect(() => {
+    void publishWorkerFacts(accountId, archiveId);
+  }, [accountId, archiveId, languageVersion]);
 
   // Request notification permission lazily when enabled
   const notif = useSettings((s) => s.settings.desktopNotifications);

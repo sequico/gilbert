@@ -13,7 +13,21 @@ import { globSync, readFileSync } from "node:fs";
  * in the file looking correct, is never looked up, and the app renders English
  * for ever. Nothing warns, because a catalogue is only ever read by key.
  */
-import ts from "typescript";
+/*
+ * The parser, not the compiler.
+ *
+ * TypeScript 7 is the native port: its package ships a `tsc` shim over a Go
+ * binary and nothing else, so `typescript` now exports `version` and
+ * `versionMajorMinor` and no compiler API at all. Every `ts.createSourceFile`
+ * in this directory started throwing "Cannot read properties of undefined
+ * (reading 'Latest')" the day the bump landed, and nothing noticed, because no
+ * workflow runs these.
+ *
+ * `typescript-ast` is an npm alias for the last TypeScript that carries the JS
+ * API (see package.json). It parses; `typescript` still type-checks and builds.
+ * Two entries, two jobs -- not a version someone forgot to remove.
+ */
+import ts from "typescript-ast";
 
 const wanted = new Set();
 for (const file of globSync("web/src/**/*.{ts,tsx}").filter(

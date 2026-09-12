@@ -57,6 +57,7 @@ import { formatListDate } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
 import { rowClick } from "@/lib/listSelection";
 import { mailboxDisplayName } from "@/lib/mailboxName";
+import { rowIsOpen } from "@/lib/openMessage";
 import {
   describeSwipe,
   type SwipeAction,
@@ -104,6 +105,12 @@ interface Props {
   title: string;
   list: ListState | null;
   openThreadId: Id | null;
+  /**
+   * With conversation view off, the one message the reading pane is showing.
+   * The row highlight follows this instead of the thread, or every message in
+   * a thread lights up when one of them is opened.
+   */
+  openMessageId: Id | null;
   focusId: Id | null;
   setFocusId: (id: Id | null) => void;
   onOpen: (rowId: Id) => void;
@@ -116,6 +123,7 @@ export function MessageList({
   title,
   list,
   openThreadId,
+  openMessageId,
   focusId,
   setFocusId,
   onOpen,
@@ -824,7 +832,7 @@ export function MessageList({
                       height={vi.size}
                       selected={Boolean(selected[id])}
                       focused={focusId === id}
-                      open={openThreadId === e.threadId}
+                      open={rowIsOpen(id, e.threadId, openMessageId, openThreadId)}
                       twoLine={twoLine}
                       showAvatar={settings.showAvatars}
                       showPreview={settings.showPreview}

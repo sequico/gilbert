@@ -795,6 +795,8 @@ export const catalog: Catalog = {
       "Gmail 形式のショートカットは常に有効です。どこでも {key} を押すとこの一覧を表示します。",
     "Select a conversation to read it here · Press {key} for shortcuts":
       "スレッドを選ぶとここに表示されます · {key} でショートカット一覧",
+    "Select a message to read it here · Press {key} for shortcuts":
+      "メールを選ぶとここに表示されます · {key} でショートカット一覧",
     "Tip: press {key} on a conversation to apply labels. Search with {operator}.":
       "ヒント: スレッド上で {key} を押すとラベルを付けられます。検索には {operator} が使えます。",
     "A fast, friendly, open-source webmail for {server}, built on JMAP.":
@@ -948,6 +950,7 @@ export const catalog: Catalog = {
     "Not spam": "迷惑メールではない",
     Nothing: "何もしない",
     "No conversation selected": "スレッドが選択されていません",
+    "No message selected": "メールが選択されていません",
     "Drop here for the top level": "ここにドロップすると最上位へ移動します",
     "Later today": "今日のうちに",
     "Tomorrow morning": "明日の朝",
@@ -966,6 +969,8 @@ export const catalog: Catalog = {
     "folder\u0004Junk Mail": "迷惑メール",
     "folder\u0004Important": "重要",
     "folder\u0004All mail": "すべてのメール",
+    "share sheet\u0004Share": "共有",
+    "share sheet\u0004Share…": "共有…",
     folder: "フォルダー",
     "“{name}” moved into “{parent}”": "「{name}」を「{parent}」に移動しました",
     "“{name}” moved to the top level": "「{name}」を最上位に移動しました",
@@ -976,6 +981,9 @@ export const catalog: Catalog = {
 
     // ── Composer status, calendar title ────────────────────────────────
     "New message": "新規メール",
+    "New mail": "新着メール",
+    "Could not do that — open Gilbert and try again":
+      "実行できませんでした - Gilbert を開いてやり直してください",
     "Sending…": "送信中…",
     "Saving…": "保存中…",
     Error: "エラー",
@@ -1020,6 +1028,7 @@ export const catalog: Catalog = {
     "Could not copy the address": "アドレスをコピーできませんでした",
     "Could not empty folder: {error}": "フォルダーを空にできませんでした: {error}",
     "Could not load source: {error}": "ソースを読み込めませんでした: {error}",
+    "Could not share: {error}": "共有できませんでした: {error}",
     "Could not mark as read: {error}": "既読にできませんでした: {error}",
     "Could not save draft: {error}": "下書きを保存できませんでした: {error}",
     "Could not save filter: {error}": "フィルターを保存できませんでした: {error}",
