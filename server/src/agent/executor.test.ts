@@ -25,7 +25,9 @@ process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { filesAccountId, writeAppFileAt } = await import("../appFolder.js");
+const { filesAccountId, writeAppFileAt, writeBytesIntoVisibleFolder } = await import(
+  "../appFolder.js"
+);
 const { JMAP_MAIL, JMAP_SUBMISSION, JmapClient } = await import("../jmap.js");
 const { GROUP_LABELS_FILE } = await import("../shared/labels.js");
 const { fetchEmailRecord, findMailboxByName } = await import("./actions.js");
@@ -1399,8 +1401,12 @@ test("a chain carries its lineage, and the run past the bound is refused loudly"
 
   // The file changes, pass by pass: the run of each pass writes the file that
   // wakes the next one, and the fifth pass reports the file the fifth hop wrote.
+  // The claim that pass read from is kept, because reconciling it again reads the
+  // same change a second time.
+  let lastPass = await claimFor();
   for (let pass = 0; pass < 5; pass++) {
-    await executor.reconcile(GROUP, "FileNode", await claimFor());
+    lastPass = await claimFor();
+    await executor.reconcile(GROUP, "FileNode", lastPass);
   }
 
   const chain = await jobsOf("chain-second");
@@ -1443,5 +1449,148 @@ test("a chain carries its lineage, and the run past the bound is refused loudly"
       (line) => line.includes("Chain: read it") && line.includes("past 5 hops"),
     ),
     "and the log carries the same line",
+  );
+
+  // One change read twice is one refusal: no job document remembers a refusal,
+  // so the entry under the refusal's own subject is what makes this a no-op,
+  // rather than a second line in the group's chat about the same change.
+  await executor.reconcile(GROUP, "FileNode", lastPass);
+  const reread = await store.readAuditAt(new Date());
+  assert.equal(
+    (reread?.entries ?? []).filter((entry) => entry.outcome === "refused").length,
+    1,
+    "the refusal is recorded once, however often the change is read",
+  );
+  assert.equal(
+    (await readChat(ctx, GROUP, client)).filter((message) =>
+      message.text.includes("past 5 hops"),
+    ).length,
+    1,
+    "and the group is told once",
+  );
+});
+
+test("a change somebody else made to a record a run wrote is hop one", async () => {
+  /*
+   * The lineage is the cause of the wake, not the record's last writer: a person
+   * who writes a record a deep run once wrote makes a change of their own, and
+   * the run that follows is theirs, at hop one — not the deep run's sixth hop.
+   */
+  const writes = (name: string) => ({
+    summary: "Wrote a note.",
+    confidence: 1,
+    actions: [{ do: "file.write", with: { folder: "Deep", name, text: "the note" } }],
+  });
+  // No automation while the deep run's write is reported, so that pass only
+  // records where it read up to.
+  await store.writeRules([]);
+  await executor.reconcile(GROUP, "FileNode", {
+    ...(await claimFor()),
+    states: {},
+  });
+
+  const nodeId = await writeBytesIntoVisibleFolder(
+    ctx,
+    GROUP,
+    "Deep",
+    "deep.txt",
+    new TextEncoder().encode("deep"),
+    "text/plain",
+  );
+  // A run five hops into its chain wrote that file, and its write is older than
+  // the state the next pass reads from.
+  const at = new Date(Date.now() - 60_000).toISOString();
+  const deep = newJob({
+    id: "deep-run",
+    accountId: GROUP,
+    rule: { id: "deep-rule", version: 1 },
+    trigger: { on: "filenode", nodeId, hop: 5, at },
+  });
+  await store.writeJob({
+    ...deep,
+    state: "done",
+    effects: [{ type: "FileNode", id: nodeId, at }],
+  });
+  // The pass that reports the deep run's own write, and reads past it.
+  await executor.reconcile(GROUP, "FileNode", await claimFor());
+
+  const watcher = rule({
+    id: "watch-notes",
+    name: "Watch the notes",
+    trigger: { on: "filenode" },
+    capabilities: ["file.write"],
+  });
+  answerFor("Watch the notes", writes("from-the-watch.txt"));
+  await store.writeRules([watcher]);
+  // Somebody writes that file again: the change names a record a deep run wrote,
+  // and the run it wakes is the person's.
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    GROUP,
+    "Deep",
+    "deep.txt",
+    new TextEncoder().encode("a person edited this"),
+    "text/plain",
+  );
+  await executor.reconcile(GROUP, "FileNode", await claimFor());
+
+  const jobs = await jobsOf("watch-notes");
+  assert.deepEqual(
+    jobs.map((job) => job.trigger.hop),
+    [1],
+    "the change a person made wakes its rule at hop one",
+  );
+  assert.equal(jobs[0]!.trigger.parentJobId, undefined, "with no parent to name");
+  const audit = (await store.readAuditAt(new Date()))?.entries ?? [];
+  assert.equal(
+    audit.filter((entry) => entry.outcome === "refused" && entry.ruleId === "watch-notes")
+      .length,
+    0,
+    "and nothing is refused as a sixth hop of a chain nobody was in",
+  );
+});
+
+test("a job whose write no pass has read past is not pruned", async () => {
+  /*
+   * Retention is a window, and the run that wrote a record is what names the wake
+   * of the change to it: dropping that document before a pass has read past the
+   * write would reset the chain to hop one (ADR 0010). Once a pass has read past
+   * it, the ordinary retention applies again.
+   */
+  const nodeId = await writeBytesIntoVisibleFolder(
+    ctx,
+    GROUP,
+    "Kept",
+    "kept.txt",
+    new TextEncoder().encode("kept"),
+    "text/plain",
+  );
+  const at = new Date().toISOString();
+  const job = newJob({
+    id: "kept-by-anchor",
+    accountId: GROUP,
+    rule: { id: "kept-rule", version: 1 },
+    trigger: { on: "filenode", nodeId, hop: 2, at },
+  });
+  await store.writeJob({
+    ...job,
+    state: "done",
+    effects: [{ type: "FileNode", id: nodeId, at }],
+  });
+
+  const retention = new Date(Date.now() + 60_000);
+  await executor.prune(GROUP, retention);
+  assert.ok(
+    await store.readJob("kept-by-anchor"),
+    "a finished run whose write the account has still to report is kept",
+  );
+
+  // The pass that reads past the write, and the ordinary retention with it.
+  await executor.reconcile(GROUP, "FileNode", await claimFor());
+  await executor.prune(GROUP, retention);
+  assert.equal(
+    await store.readJob("kept-by-anchor"),
+    null,
+    "and dropped once a pass has read past it",
   );
 });

@@ -168,16 +168,20 @@ export async function claimStillMine(
 }
 
 /**
- * Record what a claim has reconciled up to.
+ * Record what a claim has reconciled up to, and when it was observed.
  *
  * The new state is written together with the claim so that a takeover can
  * catch up: a worker that dies mid-pass leaves the anchor at the last thing it
  * finished, and the next worker re-reads from there rather than from nothing.
+ *
+ * `statesAt` carries the instant each state was read, so a later pass can tell
+ * the write it is reporting from a write to the same record that came earlier.
  */
 export async function saveClaimStates(
   store: AgentStore,
   claim: AgentClaim,
   states: Record<string, string>,
+  statesAt: Record<string, string> = {},
 ): Promise<AgentClaim | null> {
   for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
     const token = await store.state();
@@ -195,6 +199,7 @@ export async function saveClaimStates(
     const updated: AgentClaim = {
       ...found.doc,
       states: { ...found.doc.states, ...states },
+      statesAt: { ...found.doc.statesAt, ...statesAt },
     };
     try {
       await store.writeClaim(updated, { ifInState: token });

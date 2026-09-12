@@ -181,6 +181,17 @@ bound, with a line in the group's chat that says why. The number is carried in
 the installation's configuration rather than compiled in, so a deployment with a
 legitimately longer pipeline raises it instead of waiting for a release.
 
+**The count is read from the run that woke this one.** A run inherits a hop
+number only from a write its predecessor made *inside the window the pass is
+reporting* — the record's own state is what says so, so a run that touched a
+message a week ago, and a person who read or labelled it since, explain nothing
+and wake their rule at hop one. The count therefore ends where its explanation
+ends: a run whose job document has been pruned (the retention above is a month),
+or one written before the effect ledger existed, names nothing and starts again
+at hop one. A chain that outlives that window is bounded per window and not
+across it, which is the honest statement of a bound whose evidence lives in the
+account's own documents.
+
 **The count starts at the trigger.** What wakes a rule by itself — an arrival, a
 file, a request in the group's chat, the clock — is **hop one**, and a run woken
 by another run's effect is one more; an ask a person made is hop one like any
@@ -212,12 +223,14 @@ the provider reports — input that hit the cache, input that missed, and the
 answer — into the group's own account, beside the work that spent them: one
 document per month, carrying the agent that spent each count and whether that run
 reasoned. The readings the surface needs are readings of that one record, which
-is what keeps them from disagreeing: the group's meter is its own document, the
-installation's total is the sum over the groups the administrator can reach, and
-an agent's share is the same record grouped by agent. The **Master's own
-account** holds the authoring counts, one document per month as well, and the
-installation total adds them while the per-agent split shows them as a line that
-is nobody's run.
+is what keeps them from disagreeing: the group's meter is its own document, and
+the installation's total is the sum over the **groups the agent holds**, which
+is where its runs can be — a group the agent is not granted on cannot be
+counted, and a group whose audit could not be read leaves the total a floor
+rather than a silent zero. The per-agent split is the same record grouped by
+agent. Counting begins with the runs a group's own audit holds: the counts an
+administrator's authoring spends are not in it yet, and the split names no line
+for them.
 
 Counting in **tokens and not in money** is deliberate. A price list belongs to a
 vendor and changes without asking, so a figure in currency would be a claim the
@@ -455,8 +468,8 @@ stops asking an author to classify what they want.
   are, and the installation's total with the split per agent where the fleet is
   read. The installation-wide total is as complete as the agent's reach — every
   group the agent holds, which is where its runs can be — and a group the agent
-  is not granted on cannot be counted, which the surface says the same way the
-  approvals queue does.
+  is not granted on cannot be counted; a group whose audit could not be read
+  leaves it a floor, which the surface says outright.
 
 ## Alternatives considered
 

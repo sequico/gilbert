@@ -288,7 +288,16 @@ export async function hasMailStore(
 ): Promise<boolean> {
   try {
     return (await mailboxesOf(client, accountId, null)).length > 0;
-  } catch {
+  } catch (err) {
+    // "This is not a group" and "I could not ask" are two different answers:
+    // the account is not served as a group either way (the safe direction for
+    // the surfaces that write), but the reason is said out loud rather than
+    // swallowed, so an operator is not left reading a broken probe as a group
+    // that is not granted (ADR 0005).
+    console.warn(
+      `[gilbert] could not probe the account ${accountId} for a mail store:`,
+      (err as Error).message,
+    );
     return false;
   }
 }

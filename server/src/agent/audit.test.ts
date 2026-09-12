@@ -14,9 +14,15 @@ process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { auditEntry, decisionAuditEntry, errorMessage, recordAudit } = await import(
-  "./audit.js"
-);
+const {
+  auditEntry,
+  decisionAuditEntry,
+  errorMessage,
+  missedAuditEntry,
+  recordAudit,
+  refusedAuditEntry,
+  refusedSubject,
+} = await import("./audit.js");
 const { AgentStore } = await import("./store.js");
 const { monthOf, newJob } = await import("./documents.js");
 
@@ -32,6 +38,36 @@ const rule = { id: "r1", name: "File the invoices", version: 3 };
 
 after(() => {
   (mock as { server?: { close(): void } }).server?.close();
+});
+
+test("a refusal is an entry of its own, named by the change it refused", () => {
+  // A run a chain refused never started, so there is no job to name: the entry
+  // carries the rule and the change, and the change is what a second pass reads
+  // to recognise a refusal it already recorded (ADR 0010).
+  const trigger = {
+    on: "filenode" as const,
+    nodeId: "n1",
+    at: "2026-09-10T12:00:00Z",
+  };
+  const entry = refusedAuditEntry(rule, trigger, "the chain passed 5 hops");
+  assert.equal(entry.outcome, "refused");
+  assert.equal(entry.jobId, refusedSubject(rule.id, trigger));
+  assert.equal(entry.ruleId, rule.id);
+  assert.equal(entry.ruleVersion, rule.version);
+  assert.deepEqual(entry.actions, []);
+  assert.match(String(entry.detail), /the chain passed 5 hops/);
+  // The record is what the refusal is remembered by, not the instant of the pass
+  // that read the change: a re-read names the same entry, another record does
+  // not, and a due run nothing fired is named by its own instant.
+  assert.equal(
+    refusedSubject(rule.id, { ...trigger, at: "2026-09-10T13:00:00Z" }),
+    entry.jobId,
+  );
+  assert.notEqual(refusedSubject(rule.id, { ...trigger, nodeId: "n2" }), entry.jobId);
+  assert.equal(
+    missedAuditEntry(rule, "2026-09-10T12:00:00Z").jobId,
+    `${rule.id}@2026-09-10T12:00:00Z`,
+  );
 });
 
 test("an entry names the job, the pinned rule version and the actor", () => {

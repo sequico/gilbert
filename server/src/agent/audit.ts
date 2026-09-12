@@ -16,7 +16,9 @@ import type {
   AgentDecision,
   AgentJob,
   AgentRule,
+  AgentTriggerRecord,
 } from "./documents.js";
+import { changeIdOf } from "./documents.js";
 import type { AgentStore } from "./store.js";
 
 /** What one line of the trail needs to know about its rule. */
@@ -106,6 +108,17 @@ export function auditEntry(
 }
 
 /**
+ * The id an entry carries when no job exists to name: the rule, and what the run
+ * was about.
+ *
+ * A due run nothing fired and a run a chain refused are both runs that never
+ * started, so neither has a job document and the trail names them by that pair.
+ */
+function unstartedRunId(ruleId: string, what: string): string {
+  return `${ruleId}@${what}`;
+}
+
+/**
  * A run the schedule moved past while no worker was serving the group.
  *
  * There is no job to name — nobody ever started one — so the entry names the
@@ -119,12 +132,24 @@ export function missedAuditEntry(
   detail?: string,
 ): AgentAuditEntry {
   return build(
-    { jobId: `${rule.id}@${at}`, ruleId: rule.id, ruleVersion: rule.version },
+    { jobId: unstartedRunId(rule.id, at), ruleId: rule.id, ruleVersion: rule.version },
     rule,
     "missed",
     [],
     detail,
   );
+}
+
+/**
+ * The id a refusal is recorded under.
+ *
+ * A refusal has no job to name — nothing was started — and what it is about is
+ * the change, not the pass that read it: the same change read twice is one
+ * refusal. An id built from the instant of the pass would put a second entry in
+ * the trail for a change the worker read again.
+ */
+export function refusedSubject(ruleId: string, trigger: AgentTriggerRecord): string {
+  return unstartedRunId(ruleId, changeIdOf(trigger));
 }
 
 /**
@@ -137,11 +162,15 @@ export function missedAuditEntry(
  */
 export function refusedAuditEntry(
   rule: AuditRule,
-  at: string,
+  trigger: AgentTriggerRecord,
   detail: string,
 ): AgentAuditEntry {
   return build(
-    { jobId: `${rule.id}@${at}`, ruleId: rule.id, ruleVersion: rule.version },
+    {
+      jobId: refusedSubject(rule.id, trigger),
+      ruleId: rule.id,
+      ruleVersion: rule.version,
+    },
     rule,
     "refused",
     [],

@@ -188,9 +188,16 @@ belong to the group, not to any member.
   The probe is the classifier — an account that answers `Mailbox/get` with a
   folder tree is a group, one that answers with none is a share — and it is one
   rule with one owner on the server (`groupAccounts`) and the same rule in the
-  client's mailbox probe. An account nobody can probe is not treated as a
-  group: reading a share as one would put a group's documents in somebody's
-  shared folder.
+  client's mailbox probe. (`hasChatGroupAccounts` is not a third answer: it is
+  the deliberate wire-level **superset** for the push subscription, generous by
+  name shape on purpose, and its own note records the trade.) An account nobody
+  can probe is not treated as a group, and the probe's failure is logged rather
+  than swallowed, because "this is not a group" and "I could not ask" are two
+  different answers. What a mailbox read proves is that the account answers as
+  a mail store from *this* session; a dated live probe against a real 0.16
+  server — a group mailbox, a mailbox share and a folder share — is owed and
+  recorded as such (`scripts/probe-group-classifier.mjs`), because the premise
+  decides what the write-capable agent serves.
 - **Shape.** An array of `Label` (`{ keyword, name, color, … }`), the same
   shape as the personal `settings.labels`. The keyword is the stable identity
   that rides on the messages; name, colour and nesting are display only.
@@ -205,7 +212,17 @@ belong to the group, not to any member.
   the administrator's session otherwise. The catalog is the *group's* — members
   apply it — but the pen that reaches a group's files is the agent's, so the
   grant that surface needs is the agent's on the group and not the
-  administrator's own membership.
+  administrator's own membership. The consequence is stated rather than
+  implied: **a deployment with no usable agent has no group catalog
+  administration**, and the surface answers `agent_not_configured` (no agent
+  named, or a credential the server refuses) rather than a permission error,
+  because the documents are the agent's and there is no second pen.
+- **Who is named as the author.** The catalog document carries no author field,
+  so the write is the one through this door whose author is not in the
+  document: what Stalwart's own record shows is the agent, or the composite
+  `{agent}%{admin}` when the door is impersonation. A reader asking who changed
+  the catalog is answered by the server's record where there is one, and by
+  nothing where the deployment wrote as the agent alone.
 - **Effective catalog.** Browsing a group mailbox uses the group's own
   catalog, never the reader's personal labels; the reader's own mailbox keeps
   the personal labels.

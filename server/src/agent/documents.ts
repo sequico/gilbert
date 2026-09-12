@@ -907,6 +907,25 @@ export function hopOf(trigger: { hop?: number }): number {
   return typeof hop === "number" && Number.isInteger(hop) && hop >= 1 ? hop : 1;
 }
 
+/**
+ * What identifies the change a trigger names: the record it was about, or the
+ * instant when it names none.
+ *
+ * A trigger's `at` is when the pass read the change, so the same change read
+ * twice is the same thing only when the record is: this is what a job is
+ * deduplicated by, and what a refusal is remembered under.
+ *
+ * A manual ask is the exception, and it is one on purpose: the deduplication
+ * exists so a re-read change does not run twice, and a person pressing a button
+ * twice is not a re-read — it is two asks, and the second one is theirs to make.
+ */
+export function changeIdOf(
+  trigger: Pick<AgentTriggerRecord, "on" | "emailId" | "nodeId" | "chatId" | "at">,
+): string {
+  if (trigger.on === "manual") return trigger.at;
+  return trigger.emailId ?? trigger.nodeId ?? trigger.chatId ?? trigger.at;
+}
+
 export interface AgentJob {
   v: 1;
   id: string;
@@ -957,13 +976,24 @@ export interface AgentJob {
 export interface AgentEffect {
   type: "Email" | "FileNode";
   id: string;
+  /**
+   * When the write landed, as the worker's clock read it when the action
+   * returned.
+   *
+   * A change says nothing about when the record it names moved, so this is what
+   * separates the write a pass is reporting from an earlier write to the same
+   * record: only a write inside the window the pass reads explains its change,
+   * and a write without an instant explains nothing (ADR 0010).
+   */
+  at?: string;
 }
 
 export function isAgentEffect(x: unknown): x is AgentEffect {
   if (!x || typeof x !== "object") return false;
   const e = x as Record<string, unknown>;
   if (e.type !== "Email" && e.type !== "FileNode") return false;
-  return typeof e.id === "string" && e.id.length > 0;
+  if (typeof e.id !== "string" || !e.id.length) return false;
+  return e.at === undefined || typeof e.at === "string";
 }
 
 export function isAgentLease(x: unknown): x is AgentLease {
@@ -1171,6 +1201,15 @@ export interface AgentClaim {
   epoch?: number;
   /** JMAP data type → the state the worker has reconciled up to. */
   states: Record<string, string>;
+  /**
+   * When each of those states was observed, by the same keys.
+   *
+   * The states say what a worker has read up to; these say when, which is the
+   * only thing that tells a change a run's own effect caused from a change
+   * somebody else made to the same record afterwards. A type with no instant is
+   * a state of unknown age, and a wake is then not attributed to any run.
+   */
+  statesAt?: Record<string, string>;
 }
 
 /** The epoch a claim is in, with claims written before epochs read as 0. */
@@ -1191,9 +1230,15 @@ export function isAgentClaim(x: unknown): x is AgentClaim {
   if (typeof c.leasedAt !== "string" || typeof c.heartbeatAt !== "string") return false;
   if (c.epoch !== undefined && (!Number.isInteger(c.epoch) || (c.epoch as number) < 0))
     return false;
-  if (!c.states || typeof c.states !== "object" || Array.isArray(c.states)) return false;
-  return Object.values(c.states as Record<string, unknown>).every(
-    (s) => typeof s === "string",
+  if (!isStringMap(c.states)) return false;
+  return c.statesAt === undefined || isStringMap(c.statesAt);
+}
+
+/** Whether a value is a map of keys to strings: the claim's states and instants. */
+function isStringMap(x: unknown): x is Record<string, string> {
+  if (!x || typeof x !== "object" || Array.isArray(x)) return false;
+  return Object.values(x as Record<string, unknown>).every(
+    (value) => typeof value === "string",
   );
 }
 
@@ -1434,6 +1479,22 @@ export function isAgentAuditOutcome(x: unknown): x is AgentAuditOutcome {
   return typeof x === "string" && AGENT_AUDIT_OUTCOMES.includes(x);
 }
 
+/**
+ * The outcomes that record no call a provider could answer for.
+ *
+ * A refusal is the absence of a run (`refused`), a due run nothing could fire
+ * never asked a provider anything (`missed`), and a holder that stopped
+ * reporting answers for nothing (`timeout`). An entry carrying one of these adds
+ * nothing to a meter: counting them would make `runs` a count of entries and
+ * `uncounted` a count of silences, and the meter is the group's reading of what
+ * its own runs cost (ADR 0010).
+ */
+export const UNMETERED_OUTCOMES: ReadonlyArray<AgentAuditOutcome> = [
+  "refused",
+  "missed",
+  "timeout",
+];
+
 export interface AgentAuditEntry {
   at: string;
   jobId: string;
@@ -1508,8 +1569,9 @@ export interface AgentMeter {
 /** What one entry adds to one meter: the only place that rule is written. */
 export function meterOf(
   meter: AgentMeter,
-  entry: Pick<AgentAuditEntry, "usage">,
+  entry: Pick<AgentAuditEntry, "usage" | "outcome">,
 ): AgentMeter {
+  if (UNMETERED_OUTCOMES.includes(entry.outcome)) return meter;
   const usage = entry.usage;
   if (!usage) return { ...meter, runs: meter.runs + 1, uncounted: meter.uncounted + 1 };
   const add = (total: number | null, value: number | null): number | null =>
@@ -1545,7 +1607,7 @@ export function meterOver(entries: ReadonlyArray<AgentAuditEntry>): AgentMeter {
  * parts have to add up to the total, or the split is a second, quieter number.
  */
 export function metersByAgent(
-  entries: ReadonlyArray<Pick<AgentAuditEntry, "agent" | "usage">>,
+  entries: ReadonlyArray<Pick<AgentAuditEntry, "agent" | "usage" | "outcome">>,
 ): Array<{ agent: string; meter: AgentMeter }> {
   const by = new Map<string, AgentMeter>();
   for (const entry of entries) {

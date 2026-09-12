@@ -18,6 +18,7 @@ import {
   agentRuleJsonSchema,
   CHAT_CONTEXT_DEFAULT,
   CHAT_CONTEXT_MAX,
+  changeIdOf,
   clampChatContext,
   consentRequired,
   FENCED_ACTIONS,
@@ -448,8 +449,14 @@ test("the notebook reaches the prompt as one line per fact, in the order the gro
 
 test("a meter adds what was reported and counts the runs that said nothing", () => {
   const full = meterOver([
-    { usage: { inputHitTokens: 900, inputMissTokens: 30, outputTokens: 7 } },
-    { usage: { inputHitTokens: 100, inputMissTokens: null, outputTokens: 3 } },
+    {
+      outcome: "running",
+      usage: { inputHitTokens: 900, inputMissTokens: 30, outputTokens: 7 },
+    },
+    {
+      outcome: "failed",
+      usage: { inputHitTokens: 100, inputMissTokens: null, outputTokens: 3 },
+    },
   ]);
   assert.deepEqual(full, {
     inputHitTokens: 1000,
@@ -461,8 +468,11 @@ test("a meter adds what was reported and counts the runs that said nothing", () 
   // A run the provider gave no numbers for is counted, not added as a zero: a
   // reading has to be able to say "twelve runs, nine counted" (ADR 0010).
   const mixed = meterOver([
-    { usage: { inputHitTokens: 5, inputMissTokens: null, outputTokens: null } },
-    {},
+    {
+      outcome: "done",
+      usage: { inputHitTokens: 5, inputMissTokens: null, outputTokens: null },
+    },
+    { outcome: "awaiting_approval" },
   ]);
   assert.deepEqual(mixed, {
     inputHitTokens: 5,
@@ -470,6 +480,21 @@ test("a meter adds what was reported and counts the runs that said nothing", () 
     outputTokens: null,
     runs: 2,
     uncounted: 1,
+  });
+  // A refusal is the absence of a run, a due run nothing fired never asked a
+  // provider anything, and a holder that stopped reporting answers for nothing:
+  // none of the three is a run, and none is a run whose provider was silent.
+  const absent = meterOver([
+    { outcome: "refused" },
+    { outcome: "missed" },
+    { outcome: "timeout" },
+  ]);
+  assert.deepEqual(absent, {
+    inputHitTokens: null,
+    inputMissTokens: null,
+    outputTokens: null,
+    runs: 0,
+    uncounted: 0,
   });
   assert.deepEqual(meterOver([]), {
     inputHitTokens: null,
@@ -664,5 +689,15 @@ test("a job's trigger carries its lineage, and a trigger with no count is hop on
   assert.ok(
     AGENT_AUDIT_OUTCOMES.includes("refused"),
     "a refusal is an outcome of its own, beside missed and timeout",
+  );
+  assert.equal(
+    changeIdOf({ on: "filenode", nodeId: "n1", at }),
+    "n1",
+    "a change is identified by the record it names, not by the pass that read it",
+  );
+  assert.equal(
+    changeIdOf({ on: "manual", emailId: "m1", at }),
+    at,
+    "and a person's ask by the instant it was made",
   );
 });
