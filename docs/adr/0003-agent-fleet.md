@@ -1,6 +1,9 @@
 # ADR 0003 — Agent fleet: agents that act on Stalwart events and schedules
 
-Status: Proposed (2026-09-11; rewritten 2026-09-12)
+Status: Proposed (2026-09-11; rewritten 2026-09-12). The automation model this
+record decides — the tier, the material each tier carries, the provider per
+tier, the classification an author picks — is superseded by ADR 0010, which is
+Proposed; the fleet this record decides stands.
 
 > **Scope (owner decision 2026-09-06):** Gilbert's own agents — each with its
 > own address in Stalwart (e.g. `gilbert@…`) — acting on Stalwart events and
@@ -100,10 +103,11 @@ groups it is granted, never by becoming someone: the agent
   deployment's, and membership is Stalwart's.
 - **The agent's account holds its configuration; each group's account holds its
   work.** The Master's settings are documents in the Master's own account's
-  `gilbert/` app folder (§4): its registration record and the **model provider**
-  — one entry naming a provider, model, base URL and API key, because one model
-  serves the installation and nothing asks an author to classify the work
-  (ADR 0010). Provider keys are write-only in the
+  `gilbert/` app folder (§4): its registration record and the **model
+  providers** — one entry per tier that calls a model (`T1`, `T2`), each naming
+  a provider, model, base URL and API key, because which vendor serves a tier is
+  a deployment's choice; `T0` is deterministic, calls no model, and holds no
+  provider. Provider keys are write-only in the
   admin UI (stored, never read back, like app passwords) and are read by the
   executor through the Master's own session. The Master's account belongs to the
   installation and is never shared with users. Everything members must be able
@@ -118,9 +122,9 @@ groups it is granted, never by becoming someone: the agent
 - **Admin surfaces.** The Gilbert admin (ADR 0001) gains an Agents section:
   show the agent the deployment declares and the groups that have
 granted it (and say so plainly when a group has not), author and version
-  per-group rule documents, configure the model provider, and read agent status
-  and audit across groups. (ADR 0010 settles the shape: one model, one kind of
-  automation, no classification for an author to choose.)
+  per-group rule documents — the form asks the author which tier a rule runs at
+  — configure the providers its tiers call, and read agent status
+  and audit across groups.
   Membership is not written there: a group without the grant shows the
   consequence — no agent in its chat, no automations offered — instead of a
   control that cannot work. Every write happens through the signed-in admin's
@@ -152,7 +156,7 @@ addressed *to* the agent is ordinary mail: it lands in the Master's own mailbox
 and wakes it like any other state change — that is how "tell the agent to do
 something by mailing it" works. The agent's own password is the one bootstrap
 secret the agent holds, and it belongs to the installation, not to a person
-(*The Master The Master's identity*).
+(*The Master's identity*).
 
 ### 2. Agents are headless, stateless, disposable processes
 
@@ -302,8 +306,9 @@ What the field locks in:
 - **Audit is an append-only per-run event log** (LangSmith/Conductor-style
   observability), stored as a Stalwart document — §4.
 - **Deterministic routing first, a model only where needed** (Inngest
-  agent-kit's phrasing); the decision layer in force puts the model first and
-  keeps the invariants (*The automation model*, §4).
+  agent-kit's phrasing); the decision layer in force is the tier a rule declares
+  — no model, one question, or the model's own judgement — and the invariants
+  hold at every tier (*The automation model*, §4).
 - **Delegation by handoff**: an orchestrating agent composes specialist agents
   (CrewAI's manager, OpenAI's handoffs, Microsoft's agents-as-tools) — which,
   with one address per agent (§1), is native: an agent mails the specialist.
@@ -337,7 +342,7 @@ neither is in scope. Finally, mailbox-as-interface is a live product pattern:
 AgentMail (2026) gives agents their own inboxes, instructions by ordinary mail
 and thread-grouped conversation, confirming §1; thread-as-conversation-unit is
 a candidate rule semantic (Open questions).
-## The Master The Master's identity
+## The Master's identity
 
 The agent's address and password are the deployment's, not the product's. The
 pair lives in the environment of whoever runs the containers or the built
@@ -385,19 +390,31 @@ the web tier reads it live.
   constants the runtime reads, and the checks a document cannot state — that a
   rule's actions are inside its capability allowlist, and that a `G-` label it
   names exists in that group's catalog — stay in code and reach the author as
-  one list. ADR 0010 settles what the document is: an automation is a trigger, an
-  instruction, a capability allowlist and a review policy, the instruction being
-  the prose its administrator wrote, and no separate compiled form exists. The
-  document and its schema remain the form the runtime validates.
-- **One shape, and the model chooses the actions.** Every run asks the configured
-  model what to do and the answer carries actions from the catalogue; what an
-  automation may do is its capability allowlist, checked on every answer, and
-  nothing about that check depends on how the answer was produced. Which model
-  serves the installation is configuration, not code, and lives in the agent's
-  own account (Scope in force); the notebook a run reads, the ordering that keeps
-  the prompt cacheable and the meter that counts what a run cost are ADR 0010's.
-- **The model's role.** For the decision layer the LLM is the primary decider
-  and executor; Gilbert itself runs deterministic, catalogue-style work. The
+  one list. A rule also declares a **tier** — how much model its decision costs
+  — and each tier carries the material it runs on: `T0` the actions a match runs
+  in order, `T1` the closed set of categories a classifier chooses between, `T2`
+  the prose instruction a model decides from, beside the trigger, the review
+  policy and the capability allowlist that every tier carries. The schema is one
+  document shape; its checks are tier-aware, so a `T2` rule without an
+  instruction, a `T1` rule without categories and a `T0` rule without actions
+  are each refused rather than stored to match and do nothing. The document and
+  its schema are the form the runtime validates. A rule's decision belongs to a
+  model only where its tier calls one, and there is no separate compiled form:
+  what a tier carries is what the run is held to.
+- **The tier decides how much model a run calls.** `T0` calls none: its
+  declared actions run on a match, at confidence 1, in the order written. `T1`
+  asks a model one small question — which of the rule's categories this material
+  is — and the answer is matched against the categories the rule defines before
+  that category's fixed actions run. `T2` hands its instruction to a model that
+  decides and answers with actions from the catalogue. What an automation may do
+  is its capability allowlist in every case, and nothing about that check
+  depends on how the answer was produced: a `T0` rule's actions must be a subset
+  of it, a `T1` category's actions are guarded the same way, and a model answer
+  is validated against it. Which provider serves a tier is configuration, not
+  code, and lives in the agent's own account (Scope in force).
+- **The model's role.** Where a tier calls one, the model is the decider and
+  executor of that run — `T1`'s single question, `T2`'s whole choice; where it
+  does not, Gilbert runs deterministic, catalogue-style work. The
   safety invariants hold: the model acts only through the same capability-gated
   actions, inside the Master's ACL scope, with every run audited. Rules decide
   triggers, permissions and context, not every step.
@@ -807,9 +824,11 @@ are only worth what their failure paths are.
   per-user writes, hidden app folders, the boot channel)
 - ADR 0004 — live policy propagation (the settings-policy document)
 - ADR 0005 — group chat and the group label catalog
-- ADR 0010 — an automation is an instruction a model carries out (Proposed): the
-  shape of the document this record validates, the notebook a run reads, the
-  prompt's order, the meter, and the run a person asks for
+- ADR 0010 — an automation is an instruction a model carries out (Proposed): it
+  supersedes this record's automation model — the tier, the material each tier
+  carries, the provider per tier and the classification an author picks — and
+  states the notebook, the prompt's order, the meter, the chains, the document
+  tools and the run a person asks for
 - `server/src/app.ts` — `/api/events` push relay, the admin agent routes
 - `server/src/agentAdmin.ts` — the Master's own session, grants, group views,
   rules, providers, instruction, audit export

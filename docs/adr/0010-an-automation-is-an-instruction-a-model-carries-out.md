@@ -290,6 +290,100 @@ outcome is the fact, a run that succeeds clears it, and there is nothing to keep
 in step. A group nobody has run anything in yet has no state to report, which is
 not the same as one whose agents are broken.
 
+## What this record changes in ADR 0003
+
+ADR 0003 keeps everything it decides about the fleet: the Master's identity and
+its grants, the claim and its epoch, the fence, the version pin, the review gate
+and the consent floor, the audit, the scheduler, and coordination by lease with
+nothing supervising it. What this record supersedes is its **automation model**
+— the classification a rule declares, the material each classification carries,
+and the providers that serve it. Item by item:
+
+1. **The document's shape** — *The automation model*, first bullet: a rule
+   declares a **tier** and the material that tier runs on (`actions` for `T0`,
+   `categories` for `T1`, `instruction` for `T2`), beside the trigger, the
+   review policy and the capability allowlist, and the schema's checks are
+   tier-aware. Here the shape is one — trigger, instruction, capability
+   allowlist, review policy — so the schema and its checks validate a rule one
+   way rather than three.
+2. **The decision** — the same section, second bullet: `T0` runs its declared
+   actions with no model, `T1` asks one small question and runs the category's
+   fixed actions, `T2` hands its instruction to a model that decides. Here every
+   run asks the model and answers with actions from the catalogue; the tier, the
+   categories and the fixed plan are gone.
+3. **The classification an author picks** — *Scope in force*, *Admin surfaces*:
+   the form asks the author which tier a rule runs at. Here nothing asks an
+   author to classify the work; what takes judgement is the envelope — trigger,
+   capabilities, review policy — which a model may suggest and a person accepts
+   or rejects, with the form left beside it as the exact path.
+4. **The review policy a rule starts at** — the same section, *Review policy and
+   human approval*: a new rule starts at `threshold` with a number beside it,
+   and a tier that runs at confidence 1 passes any of them. Here confidence is
+   universal because a model is in every run, so the policy is the rule's own
+   declared one and the suggestion proposes it: a policy nobody chose is what
+   makes routine work ask a person in the group's chat for nothing.
+5. **The providers** — *Scope in force*, *The agent's account holds its
+   configuration*: one provider entry per tier that calls a model, indexed by
+   `AgentModelTier`. Here one entry serves the installation — provider, model,
+   base URL, key — the key stays write-only and is read through the Master's own
+   session, and the surface that held the slots loses them; an installation that
+   has more than one configured keeps one, by a person's choice rather than a
+   silent pick.
+6. **The ceiling on an answer** — ADR 0003 sets none, a call being bounded only
+   by its timeout: the request gains a **maximum output tokens**. `temperature:
+   0` and `response_format: json_object` stay, because they are what make an
+   answer parseable and a run repeatable.
+7. **The agent's own parameters** — ADR 0003 has the group's standing
+   instruction ride every model call and stops there. Thinking becomes a
+   parameter of an agent, set beside its timings and recorded in the trail with
+   the tokens a run spent, so a behaviour that changed with the machine that ran
+   it is readable rather than inferred.
+8. **What a run carries** — the **notebook** is what memory means: a document in
+   the group's own account, read in the prompt's stable head. The prompt's order
+   is a declared constraint rather than an expectation — system preamble,
+   catalogue, notebook, group instruction, rule instruction, volatile content
+   last — and nothing volatile goes before that tail.
+9. **What a run costs** — nothing in ADR 0003 counts a call. Every call here
+   records the tokens the provider reports into the group's own monthly
+   document, split by the agent that spent them, with the authoring calls in the
+   Master's account instead; a provider that reports no usage is shown as
+   unknown rather than as zero, and the count is in tokens, never in money.
+10. **What can wake a run** — ADR 0003's triggers are the four a rule may be
+    woken by. A fifth value, `manual`, is a job's provenance with **Run now**
+    beside them, and one run's work may wake another's: a chain of five hops,
+    the sixth refused loudly as an outcome of its own in the audit and said in
+    the group's chat.
+11. **What a run can do** — the catalogue gains a document family: page work
+    (split, merge, extract) and reading a PDF's own text layer or a `.docx`,
+    run by the executor **in memory** on the group's own file. Two engines are
+    deliberately absent: an OCR engine, because a page that is only pixels is
+    the model's to read, and a `.docx` writer, because producing one is not work
+    the fleet has.
+12. **Beside a field that takes prose** — **notes** under the group's
+    instruction and under each automation's, and a **reading** the author may
+    ask for: the draft, its envelope, the group's instruction and the notebook
+    go to the model, which answers in words about the gaps. It compiles
+    nothing, stores nothing, and is counted as authoring.
+13. **A provider is required** — with a tier that calls no model, ADR 0003
+    leaves an installation without a provider its `T0` automations. Here a rule
+    that cannot call a model has nothing to decide with: no provider, no
+    automations, and the admin surface says so where it already says what is
+    missing.
+14. **A group told when its agents cannot work** — ADR 0003 reports the states
+    of a deployment (`agent_not_configured`, `agent_credentials_rejected`,
+    `agent_unreachable`). Two states are derived from the trail here — *nobody
+    is serving this group* and *the model is refusing* — and raised in the two
+    places a person looks, each naming the cause from a code in the reader's
+    language.
+
+**The supersession is partial, and its mechanics are part of it.** ADR 0003
+stays the record of the fleet, so its `Status` line points here rather than
+moving to `Superseded` wholesale, and the edits it owes are exactly the passages
+above: the provider sentence and the *Admin surfaces* sentence in *Scope in
+force*, the first two bullets of *The automation model*, the clause in §7 that
+reads the decision layer as model-first, and its References line to this record.
+Nothing else in its body moves.
+
 ## Consequences
 
 - Determinism is traded deliberately, and bought back in three parts: temperature
