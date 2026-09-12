@@ -1611,8 +1611,10 @@ needed nothing in either half.
   signed-out Gilbert work — it waits through the sign-in page and opens after,
   which the query string could not have survived. One nobody comes back for
   expires after ten minutes rather than opening a composer full of a forgotten
-  photo the next time you look. Android and Chromium only; iOS does not
-  implement share targets.
+  photo the next time you look. The worker is what answers it: with the worker
+  unregistered the POST has nothing to receive it and the share is lost, which
+  is the one cost of a target the manifest announces unconditionally. Android
+  and Chromium only; iOS does not implement share targets.
 - **Acting on a notification.** Archive and Mark as read sit on the
   notification itself, and both happen where you are — the phone stays in your
   hand, or in your pocket. They are the two a phone shows: `maxActions` is two

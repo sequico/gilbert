@@ -118,8 +118,8 @@ export function ContactEditor({
   /*
    * The target book, qualified by the account that holds it. A bare id is
    * ambiguous: an own book and a shared book can carry the same id in their
-   * different accounts, and the id alone always resolved to the reader's own
-   * -- which is how choosing the shared book silently saved into the own one.
+   * different accounts, and a bare id resolves to the reader's own -- so
+   * choosing a shared book would silently save into the own one.
    */
   const [bookSel, setBookSel] = useState<{ accountId: string; bookId: string }>(() => {
     const own = contacts.accountId ?? "";

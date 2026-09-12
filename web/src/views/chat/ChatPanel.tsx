@@ -129,7 +129,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   /*
    * Who the `@` picker offers. The client knows only the participants it has
    * seen in the transcript, so a freshly granted agent that has never posted
-   * could not be mentioned at all; the group's own agent association is the
+   * cannot be mentioned at all; the group's own agent association is the
    * picker's second source, and the agent is offered exactly when it is
    * granted — membership is presence.
    */

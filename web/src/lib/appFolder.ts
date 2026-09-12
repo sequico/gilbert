@@ -12,9 +12,9 @@
  * Which folder that is is **one rule, applied on both sides**: this module and
  * the server's `server/src/appFolder.ts`. There is one name, and the name is
  * the whole rule: no marker to leave, no second name to fall back to, nothing
- * for the two sides to resolve differently. Gilbert is pre-release, so a folder
- * an earlier build created under another name is not read and its documents are
- * not migrated.
+ * for the two sides to resolve differently. Gilbert is pre-release, so there is
+ * no compatibility path for a folder under any other name: its documents are
+ * neither read nor migrated.
  *
  * The lookup below filters on `parentId`/`isTopLevel` alone and matches the
  * name here rather than asking the server to. Those are the filters Files

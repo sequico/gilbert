@@ -162,9 +162,9 @@ export function ContactsSidebar() {
     >
       <BookOpen size={17} />
       <span className="grow truncate">{book.name}</span>
-      {/* A menu rather than the bare X it replaces: somebody else's book can
-          still be exported, and losing that when the sidebar's export button
-          went would have been a regression dressed as a tidy-up. */}
+      {/* A menu rather than a bare X: somebody else's book can still be
+          exported, and a single dismiss control would have nowhere to put
+          that. */}
       <button
         className="icon-btn xs nav-more"
         onClick={(e) => openMenu(e, { kind: "shared", accountId, book })}

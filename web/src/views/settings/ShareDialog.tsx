@@ -159,10 +159,10 @@ export function ShareDialog({
       }
     >
       {/* The list of who it is shared with is rendered whether or not anybody
-          can be *added*. It used to sit inside the branch below, so a server
-          with directory queries switched off -- which is the default, and which
-          returns no principals -- showed nothing but the hint, and an existing
-          share could not be seen, let alone removed. */}
+          can be *added*. Inside the branch below it would be hidden on a
+          server with directory queries switched off -- which is the default,
+          and which returns no principals -- leaving nothing but the hint, with
+          an existing share neither seen nor removed. */}
       {!principals.length && (
         <p className="hint" style={{ marginBottom: 12 }}>
           {t(

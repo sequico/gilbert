@@ -6,10 +6,10 @@ import { choiceDialog } from "@/ui/dialog";
  * Editors that would lose work if you walked away from them.
  *
  * The filter editors keep their edits in component state, so every way out of
- * the page -- a settings link, the app rail, the Rules/Scripts switch -- threw
- * them away without a word, and the only sign there had been anything to lose
- * was a Save button that a screenful of rules had already pushed past the
- * bottom of the window. That is issue #175.
+ * the page -- a settings link, the app rail, the Rules/Scripts switch -- would
+ * throw them away without a word, and the only sign there is anything to lose
+ * is a Save button that a screenful of rules has already pushed past the bottom
+ * of the window. That is issue #175.
  *
  * An editor registers what it has pending here; navigation asks before it
  * happens. The question is deliberately not a yes/no: "leave without saving?"

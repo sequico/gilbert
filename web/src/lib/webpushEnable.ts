@@ -123,9 +123,8 @@ export async function enableWebPush(): Promise<
  *
  * The local subscription is created when it is missing rather than only reused.
  * A browser may drop or rotate one on its own -- a `pushsubscriptionchange`
- * nobody was open to hear -- and the version that only reused an existing one
- * gave up there, leaving push off for good with the switch still saying it was
- * on.
+ * nobody was open to hear -- and reusing only an existing one would give up
+ * there, leaving push off for good with the switch still saying it is on.
  */
 async function registerThisBrowser(key: string): Promise<void> {
   const reg = await navigator.serviceWorker.ready;
@@ -177,11 +176,11 @@ export async function disableWebPush(): Promise<void> {
 /**
  * Whether *this browser* has a subscription registered at the server.
  *
- * The device has to match. This used to answer "does the account have any
- * subscription at all", which is true the moment one other device has one --
- * so a phone that had never successfully registered, or whose registration had
- * since expired, showed the switch already on and delivered nothing. The
- * account-wide question is not one this switch is asking.
+ * The device has to match. "Does the account have any subscription at all", the
+ * account-wide question, is true the moment one other device has one -- so a
+ * phone that has never successfully registered, or whose registration has
+ * expired, would show the switch already on and deliver nothing. That question
+ * is not one this switch is asking.
  */
 export async function webPushActive(): Promise<boolean> {
   try {

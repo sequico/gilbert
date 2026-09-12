@@ -1,12 +1,12 @@
 /**
  * The sentence an agent surface reads as, composed from its code.
  *
- * The admin surface used to answer with the sentence itself, in English, which
- * is English no catalogue can ever translate. It answers with a code and its
- * parameters now (`AgentErrorReason`), and the sentence is composed here — one
- * entry per code, so a code added on the server without a sentence here does
- * not compile, and a code answered before this file learns it falls back to
- * whatever prose the body carried.
+ * The admin surface answers with a code and its parameters
+ * (`AgentErrorReason`), never with the sentence itself: an English sentence from
+ * the server is one no catalogue can ever translate. The sentence is composed
+ * here — one entry per code, so a code added on the server without a sentence
+ * here does not compile, and a code answered before this file learns it falls
+ * back to whatever prose the body carried.
  *
  * The sentences are the catalogue's keys: English in, English out, and a
  * language whose catalogue does not carry one reads the English — the declared

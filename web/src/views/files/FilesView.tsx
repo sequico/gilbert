@@ -298,9 +298,8 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     toast.success(t("Saved"));
   };
 
-  /* Double-clicking a file used to download it, which is a decision made for
-     you: to look at a picture you had to put it on disk first. Now it opens
-     what can be opened and downloads the rest. */
+  /* Double-clicking a file opens what can be opened and downloads the rest,
+     so looking at a picture does not mean putting it on disk first. */
   const activate = (n: FileNode) => {
     if (n.nodeType === "directory") navigate(`/files/${n.id}`);
     else if (canPreview(n)) openPreview(n);

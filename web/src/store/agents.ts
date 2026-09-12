@@ -83,10 +83,10 @@ interface AgentsState {
   /**
    * What is in flight and what failed, **per operation**.
    *
-   * One shared pair was wrong in the way these surfaces are actually read: the
+   * One shared pair does not fit the way these surfaces are actually read: the
    * agent section runs several independent reads and writes at once, so a save
-   * refused in one panel appeared as an error in another, and any unrelated
-   * request in flight made a panel that had failed say "Loading…" instead of
+   * refused in one panel appears as an error in another, and any unrelated
+   * request in flight makes a panel that has failed say "Loading…" instead of
    * what went wrong. Each operation has its own line, keyed by
    * `status`, `providers`, `approvals`, `password`, or `group:<name>`.
    */

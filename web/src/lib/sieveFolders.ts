@@ -10,10 +10,10 @@ export interface FolderRef {
 /**
  * Whether a rule files mail into this folder.
  *
- * Rules record the folder both ways: `mailboxId` since the rule editor started
- * setting it, and `mailbox` as the path Sieve actually needs. The id is the
- * reliable half — it survives a rename — but rules written before it existed,
- * or by hand in the Scripts tab, only have the path.
+ * Rules record the folder both ways: `mailboxId`, which the rule editor sets,
+ * and `mailbox`, the path Sieve actually needs. The id is the reliable half —
+ * it survives a rename — and rules that carry no id, such as ones written by
+ * hand in the Scripts tab, are matched on the path.
  */
 function filesInto(rule: SieveRule, ref: FolderRef): boolean {
   return rule.actions.some(

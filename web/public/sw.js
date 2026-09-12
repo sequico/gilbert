@@ -326,6 +326,13 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     (async () => {
       const facts = await readFacts();
+      /*
+       * What a tab has not written yet: the worker is installed and a push
+       * arrives before the app has been opened once, which is the state the
+       * first notification after installing always finds. English, because the
+       * worker sits outside the catalogues -- the app hands it the reader's own
+       * strings, in `facts.strings`, the first time it runs.
+       */
       const strings = facts?.strings ?? {
         newMail: "New mail",
         newMessage: "New message",

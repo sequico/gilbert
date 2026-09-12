@@ -425,8 +425,8 @@ function EventForm({
 
   /*
    * What the bars cover: whole days, from the day the event starts to the day
-   * it ends. It used to be the start day and nothing else, which meant an event
-   * spanning two days showed availability for one of them without saying so.
+   * it ends. The start day alone would show availability for one of the two
+   * days a two-day event spans, without saying so.
    */
   const fbWindow = useMemo(
     () => availabilityWindow(start, end, { offsetDays: fbOffset }),
@@ -437,8 +437,8 @@ function EventForm({
 
   /*
    * Everyone the event concerns, you first. Scheduling around the other people
-   * and not around yourself is how two things end up at the same time, and the
-   * organiser's own calendar was the one row the panel never showed.
+   * and not around yourself is how two things end up at the same time, so the
+   * organiser's own calendar is a row the panel shows like any other.
    */
   const people = useMemo(() => {
     const seen = new Set<string>();

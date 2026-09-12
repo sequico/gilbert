@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { withBase } from "@/lib/basePath";
 import { setCatalog } from "@/lib/i18n";
 import { SW_CACHE_NAME } from "@/lib/swCache";
 import { FACTS_KEY, publishWorkerFacts, type WorkerFacts } from "@/lib/swFacts";
@@ -35,7 +36,7 @@ function fakeCaches() {
 }
 
 const written = (store: Map<string, string>) =>
-  JSON.parse(store.get(FACTS_KEY)!) as WorkerFacts;
+  JSON.parse(store.get(withBase(FACTS_KEY))!) as WorkerFacts;
 
 afterEach(() => {
   vi.unstubAllGlobals();

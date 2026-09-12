@@ -921,9 +921,9 @@ function MailboxMenu({
       {/* Sharing a mail folder is withdrawn, not removed: Stalwart accepts and
           stores the share, and it never reaches the other account -- its own
           docs list calendars, address books and files as shareable and not mail
-          folders. Offering it produced shares that looked real and did nothing.
+          folders. Offering it produces shares that look real and do nothing.
           One that already exists can still be cleared here, which is the only
-          reason this entry survives at all. */}
+          reason this entry is offered at all. */}
       {shared && (
         <MenuItem
           icon={<Share2 size={16} />}

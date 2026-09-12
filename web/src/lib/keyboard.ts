@@ -105,12 +105,12 @@ class Keyboard {
  * Is the focused element somewhere the reader is typing?
  *
  * This guard exists so that pressing "a" in the search box searches for "a"
- * rather than archiving the message behind it. The test used to be
- * `tagName === "INPUT"`, which is true of a checkbox — and a checkbox keeps
- * focus after you click it, so ticking "select all" silently disabled every
- * shortcut until the reader clicked somewhere else (#260). Nothing about a
- * checkbox swallows a keystroke: space toggles it and the browser handles
- * that before this listener ever runs.
+ * rather than archiving the message behind it. `tagName === "INPUT"` is not the
+ * test: it is true of a checkbox, and a checkbox keeps focus after you click
+ * it, so ticking "select all" would silently disable every shortcut until the
+ * reader clicked somewhere else (#260). Nothing about a checkbox swallows a
+ * keystroke: space toggles it and the browser handles that before this listener
+ * ever runs.
  *
  * So the question is not "is this an input" but "does this input take text".
  * A `<select>` does, in the sense that matters here: typing a letter jumps to

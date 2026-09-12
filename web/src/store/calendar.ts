@@ -56,12 +56,11 @@ export interface EventInstance {
  * A `Calendar/get` with no `properties` comes back without it -- not null, not
  * empty, absent -- confirmed against 0.16.19 on 2026-08-27 with a calendar that
  * was genuinely shared: omit the list and there is no `shareWith`; name it and
- * the sharee is right there. So the client believed nothing was ever shared.
- * The badge never appeared, "Stop sharing" never appeared, and the share dialog
- * opened on "not shared with anyone yet" over a live share.
+ * the sharee is right there. Omitting it leaves the client with nothing to read
+ * a share from: no badge, no "Stop sharing", and a share dialog that opens on
+ * "not shared with anyone yet" over a live share.
  *
- * Files had this right already, for the same reason and after the same
- * surprise; calendars and address books did not.
+ * Files and address books ask for their properties by name for the same reason.
  */
 export const CALENDAR_PROPS = [
   "id",
@@ -88,11 +87,11 @@ export const CALENDAR_PROPS = [
  * master it was expanded from. Sending one where the other was meant is not a
  * distinction the server will make for us:
  *
- * - Through 0.16.19 a synthetic id was refused outright — *"Updating synthetic
- *   ids is not yet supported"* — so a slip was loud and arrived as a toast.
- * - 0.16.20 accepts it, and writes a `recurrenceOverrides` entry instead. A
- *   destroy that meant the series now removes one date and reports success,
- *   under a dialog that said "Delete all occurrences?".
+ * - 0.16.19 refuses a synthetic id outright — *"Updating synthetic ids is not
+ *   yet supported"*.
+ * - 0.16.20 accepts it, and writes a `recurrenceOverrides` entry instead: a
+ *   destroy that means the series removes one date and reports success, under
+ *   a dialog that said "Delete all occurrences?".
  *
  * So the choice is named and required rather than left to each caller to
  * remember a `??`. There is exactly one place that turns an event into an id,
@@ -131,8 +130,8 @@ export function isOccurrence(event: CalendarEvent): boolean {
  * - Everything else, which is applied to the override.
  *
  * The middle group is the whole problem. It is the same failure as [#26], where
- * a participant map addressed the RFC 8984 way was discarded without an error
- * and the client showed the guests as saved: a successful response is not
+ * a participant map addressed the RFC 8984 way is discarded without an error
+ * and the client shows the guests as saved: a successful response is not
  * evidence that anything was written. So a per-occurrence patch is checked here
  * before it is sent — rejected properties throw, inherited ones are reported to
  * the caller — rather than being posted hopefully and believed.
@@ -515,8 +514,8 @@ function forImport(event: Partial<CalendarEvent>): Partial<CalendarEvent> {
  * The events a calendar already holds, for recognising a re-import.
  *
  * A UID is what makes an event the same event across calendars, and the import
- * already keeps the file's own wherever there is one -- so the thing needed to
- * recognise a re-import was there all along and nothing looked at it. Asked for
+ * keeps the file's own wherever there is one -- which is what makes a re-import
+ * recognisable. Asked for
  * once per import rather than once per event: `CalendarEvent/query` does take a
  * `uid` filter, but a file of two thousand events would be two thousand
  * queries.
@@ -561,8 +560,8 @@ async function eventsInCalendar(
 /**
  * uid -> the id of the event carrying it, for deciding what a re-import updates.
  *
- * The id and not just the UID, because an event already here is now updated
- * rather than skipped and updating needs something to address -- the same
+ * The id and not just the UID, because an event already here is updated rather
+ * than skipped, and updating needs something to address -- the same
  * arrangement, and for the same reason, as contacts' `scanBook`. A UID the
  * calendar somehow holds twice keeps the first: two events with one UID is
  * already a state nothing here can make sense of, and addressing one of them
@@ -1314,7 +1313,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
    * Subscribed from the start, the same way a new task list is: the reader
    * made the calendar to use it, and a server that leaves a new calendar
    * unsubscribed unless the client says otherwise (Stalwart does; the mock
-   * used to hide it by filling the flag in) would keep it invisible to
+   * hides it by filling the flag in) would keep it invisible to
    * every client that honours `isSubscribed`.
    */
   async createCalendar(data, accountId?: Id) {
@@ -1457,8 +1456,8 @@ export const useCalendar = create<CalendarState>((set, get) => ({
    * The events go out `maxObjectsInSet` at a time -- the ceiling the session
    * advertises, 500 where a server does not say. A call carrying more than that
    * is refused whole with `requestTooLarge` and creates nothing, so a real
-   * export -- an 800 KB file is thousands of events -- imported nothing at all
-   * while this went out in a single call.
+   * export -- an 800 KB file is thousands of events -- imports nothing at all
+   * when it goes out in a single call.
    *
    * Batches rather than a call per event, though: `createEvent` refreshes on
    * the way out, and a refresh re-fetches every cached range, so importing a
@@ -1494,7 +1493,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
        * file's own is kept wherever it has one. Only what arrives without gets
        * invented, and an event with no UID is not one anything can match to --
        * which is also why an event without one is imported rather than guessed
-       * about. Re-importing an export used to leave second copies of
+       * about. Re-importing an export without that match leaves second copies of
        * everything; asked for on #173, decided there.
        */
       const existing = rest.uid ? already.get(rest.uid) : undefined;
@@ -1503,7 +1502,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
          * An event this calendar already holds is updated from the file, the
          * way a re-imported contact is (#242, #274): the reason to import a
          * file a second time is usually that the first one was not right, and
-         * skipping meant a corrected export corrected nothing.
+         * skipping means a corrected export corrects nothing.
          *
          * Two properties are held back, decided on #279. `participants` carries
          * every attendee's accepted/declined and `recurrenceOverrides` holds
@@ -1665,8 +1664,8 @@ export const useCalendar = create<CalendarState>((set, get) => ({
 /**
  * Whether an event is part of a series.
  *
- * Three things had to be checked against a live 0.16.19 to get this right, none
- * of which the mock reproduces:
+ * Three facts about a live 0.16.19 decide this, and the mock reproduces none of
+ * them:
  *
  * - `baseEventId` says nothing. `CalendarEvent/query` runs with
  *   `expandRecurrences`, and a one-off comes back as id `eaaaaai` over base
@@ -1959,7 +1958,7 @@ export function eventRule(ev: CalendarEvent): JSCalendarRecurrenceRule | undefin
  * Builds a participant the way Stalwart 0.16 stores them: the address under
  * `calendarAddress`. Sent under RFC 8984's `sendTo`/`email` instead, the server
  * keeps the event and drops the whole participant map without saying so — which
- * is how invitations came to vanish (#26).
+ * is why an invitation sent that way vanishes (#26).
  */
 export function makeParticipant(
   email: string,

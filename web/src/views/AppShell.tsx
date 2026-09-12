@@ -140,14 +140,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [openShare, navigate]);
 
   /*
-   * There is no account switcher any more.
+   * No account switcher.
    *
-   * It existed to reach what other people shared, and was the wrong door: it
-   * moved the whole app to somebody else's account, and Stalwart advertises
-   * every capability on a shared account, so mail, calendar and contacts went
-   * with it and were refused. Shares are listed where they belong now -- in
-   * Files and in Contacts, beside the reader's own -- and found without anyone
-   * having to know an account switch was involved.
+   * Switching the whole app to somebody else's account is the wrong door to
+   * what other people share: Stalwart advertises every capability on a shared
+   * account, so mail, calendar and contacts go with it and are refused. Shares
+   * are listed where they belong -- in Files and in Contacts, beside the
+   * reader's own -- and found without anyone having to know an account switch
+   * is involved.
    */
 
   return (
@@ -333,8 +333,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               </button>
             </div>
           )}
-          {/* Whatever this pane is for. Files offered Compose, which wrote mail
-              from the file manager and was the one thing nobody wanted there. */}
+          {/* Whatever this pane is for. In Files it starts an upload rather
+              than a message: Compose belongs to mail, not to the file
+              manager. */}
           <button
             className="compose-btn"
             onClick={() => {
@@ -598,7 +599,7 @@ function ThemeToggle() {
   );
   // Name where it is going, and by the palette when the palette is changing --
   // going back to Gilbert's own colours is not the same as "dark mode".
-  // The palette never changes now, so the label is only ever the side.
+  // The palette is the same in both modes, so the label is only ever the side.
   const label = next.mode === "light" ? t("light mode") : t("dark mode");
   return (
     <button

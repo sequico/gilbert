@@ -3,7 +3,7 @@
  *
  * A blank page is the shape of two very different failures, and both end the
  * same way — with a reload being the only repair. The first is a tab running
- * a build the server no longer serves: a lazy chunk 404s and the import
+ * a build the server does not serve: a lazy chunk 404s and the import
  * fails. The second happens at the same build: a chunk fetch that died with
  * the connection while the tab sat idle, or a view whose in-memory state went
  * stale over hours. `reloadIfServerRebuilt` only reloads when the version

@@ -79,10 +79,10 @@ export function ContactsView({ id }: { id?: string }) {
   useEffect(() => {
     const onNew = () => setEditing({});
     /*
-     * Both carry the book they were asked for. They used to mean "whatever the
-     * list is showing", which was the whole of the complaint on #174: two
-     * buttons at the foot of the sidebar that did not say which address book
-     * they acted on. Now they are opened from a book's own menu and say so.
+     * Both carry the book they were asked for, so each action names the address
+     * book it acts on instead of meaning "whatever the list is showing" -- the
+     * ambiguity behind #174. They are opened from a book's own menu, which is
+     * where that book is chosen.
      */
     const onImport = (ev: Event) => {
       const d = (ev as CustomEvent<{ file: File; bookId: string }>).detail;
@@ -157,9 +157,9 @@ export function ContactsView({ id }: { id?: string }) {
 
   /*
    * The cards of the book that was asked for, rather than the cards on screen.
-   * Exporting used to hand you the current list, which meant a search box with
-   * something in it quietly narrowed the export -- fine while the button sat
-   * under that list, wrong now that it is opened from a book in the sidebar.
+   * Exporting the current list would let a search box with something in it
+   * quietly narrow the export, which is wrong for an action opened from a book
+   * in the sidebar.
    */
   const cardsOf = (accountId: string | null, book: string) => {
     if (accountId) {

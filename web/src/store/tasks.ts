@@ -171,7 +171,7 @@ export const useTasks = create<TaskState>((set, get) => ({
            ids and the server answers the rest of the tasks to later pages,
            so the query is paged on `position` the way the calendar and
            contacts scans are. A list past the first thousand otherwise
-           silently lost its tail -- invisible in the view and impossible to
+           silently loses its tail -- invisible in the view and impossible to
            reorder by keyword. */
         for (let position = 0; ; ) {
           const q = await client.call<QueryResponse>("CalendarEvent/query", {
@@ -323,8 +323,8 @@ export const useTasks = create<TaskState>((set, get) => ({
     /*
      * Subscribed from the start: a list the reader just made is theirs to
      * use, and a server that leaves a new calendar unsubscribed unless the
-     * client says otherwise (Stalwart does; the mock used to hide it by
-     * filling the flag in) would keep the fresh list invisible to every
+     * client says otherwise (Stalwart does; the mock hides it by filling the
+     * flag in) would keep the fresh list invisible to every
      * client that honours `isSubscribed`.
      */
     const res = await client.call<SetResponse<{ id: Id }>>("Calendar/set", {

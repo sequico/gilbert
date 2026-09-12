@@ -709,10 +709,10 @@ function styledLuminance(el: HTMLElement, rules: BackgroundRule[]): number | nul
  *
  * The distinction that matters is that being *inside* a painted surface is not
  * inherited past a sheet. A light table nested in a dark 600px card is still a
- * sheet and is still neutralised — that is issue #310, where a dark campaign
- * rendered with beige cards inside it because the exemption used to be
- * `[data-ihm-keep] *` in CSS and could not see the difference. Paint resumes
- * below it: a dark button inside that nested table is kept as usual.
+ * sheet and is still neutralised — the exemption is structural rather than a
+ * `[data-ihm-keep] *` CSS rule, which cannot see that difference and is what
+ * issue #310 turns on: a dark campaign with beige cards inside it. Paint
+ * resumes below it: a dark button inside that nested table is kept as usual.
  *
  * Nothing the sender wrote is removed, so turning the switch off puts the
  * message back exactly as it was — and a colour that arrived from a `<style>`

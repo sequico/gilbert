@@ -169,8 +169,8 @@ export function FilePreviewDialog({
    * Hand the file to another app rather than to the filesystem.
    *
    * This is the surface where it matters most on a phone: opening an
-   * attachment lands here, and until now the only way onward was Download,
-   * which on Android and iOS means "put it somewhere and go and find it".
+   * attachment lands here, and Download alone means "put it somewhere and go
+   * and find it" on Android and iOS.
    *
    * The bytes have to be fetched rather than the URL passed along, because the
    * share sheet takes a File. `same-origin` credentials because both URLs are
@@ -179,9 +179,9 @@ export function FilePreviewDialog({
    * reaching for the JMAP client: it is a plain fetch of a URL the caller
    * already handed over.
    *
-   * Anything that goes wrong, including a share the browser turned out not to
-   * support, falls through to the download. That is the button that was here
-   * before, so the worst case costs a tap rather than the file.
+   * Anything that goes wrong, including a share the browser turns out not to
+   * support, falls through to the download button beside it, so the worst case
+   * costs a tap rather than the file.
    */
   const shareIt = useCallback(async () => {
     if (!file) return;

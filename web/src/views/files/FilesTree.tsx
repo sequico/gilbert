@@ -94,10 +94,10 @@ export function FilesTree() {
    *
    * Shared accounts arrive in the JMAP session, which is fetched at sign-in and
    * refreshed only when a session-state change is pushed to this tab. A share
-   * granted while the tab was open therefore stayed invisible until the next
-   * sign-in -- and a share removed stayed on offer, which is why two browsers
-   * disagreed about whether an account still existed. Opening Files is the
-   * moment the answer matters, so that is when it is asked for.
+   * granted while the tab is open would otherwise stay invisible until the next
+   * sign-in, and a share removed would stay on offer, so two browsers would
+   * disagree about whether an account still exists. Opening Files is the moment
+   * the answer matters, so that is when it is asked for.
    */
   useEffect(() => {
     void refreshShares();
@@ -252,10 +252,9 @@ export function FilesTree() {
         </p>
       )}
 
-      {/* Reaching a share used to mean switching the whole app to the other
-          account from the profile menu, which pointed mail, calendar and
-          contacts at them as well. Shared folders belong here, beside your
-          own. */}
+      {/* Shared folders belong here, beside your own: reaching a share by
+          switching the whole app to the other account from the profile menu
+          would point mail, calendar and contacts at them as well. */}
       {(viewingShare || sharedAccounts.length > 0) && (
         <>
           <div className="nav-section">

@@ -61,8 +61,8 @@ export function NotificationsSettings() {
       />
       {/*
         The distinction worth drawing for the user: the switch above needs a tab
-        open, this one does not. Everything before this shipped only the first
-        kind, while calling it "desktop notifications".
+        open, this one does not. One label for both would call the tab-bound
+        kind "desktop notifications" and promise more than it delivers.
       */}
       <Switch
         checked={background}

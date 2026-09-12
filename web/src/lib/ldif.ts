@@ -109,8 +109,9 @@ export function parseLdif(text: string): LdifRecord[] {
 /**
  * An identity for an entry, derived from its distinguished name.
  *
- * Mozilla's schema has no UID, so a re-import had nothing to be recognised by
- * and duplicated everything (#223). The `dn` is what the file actually carries,
+ * Mozilla's schema has no UID, so a re-import has nothing to recognise the
+ * entry by and duplicates everything (#223). The `dn` is what the file actually
+ * carries,
  * and it does not need to be a durable identity to answer the only question
  * being asked of it: have I imported this exact entry before? A migration is
  * import, notice something wrong, correct the export, import again -- and the
@@ -128,7 +129,8 @@ export function parseLdif(text: string): LdifRecord[] {
  * against a differently-produced export of the same directory.
  *
  * Null for an entry with no usable `dn`: that entry gets an identity of its own
- * and duplicates on re-import, as everything did before.
+ * and duplicates on re-import, which is the behaviour of anything without a
+ * stable key.
  */
 export function uidFromDn(dn: string): string | null {
   const normalised = dn

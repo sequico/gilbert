@@ -634,18 +634,18 @@ function rrule(r: JSCalendarRecurrenceRule, allDay: boolean): string {
 /**
  * A zone's definition, worked out from the one the browser already has.
  *
- * This exists because leaving it out was wrong, and provably so. A `TZID`
- * naming an IANA zone with nothing defining it is not resolved by ical.js --
- * Mozilla's own iCalendar library, and the one Thunderbird's calendar uses --
- * which falls back to *floating* time. A 09:00 in Phoenix then reads as 09:00
- * wherever the file is opened: seven hours out, silently, on every timed event.
- * Measured, not assumed.
+ * Omitting it is not an option, and provably so. A `TZID` naming an IANA zone
+ * with nothing defining it is not resolved by ical.js -- Mozilla's own
+ * iCalendar library, and the one Thunderbird's calendar uses -- which falls
+ * back to *floating* time. A 09:00 in Phoenix then reads as 09:00 wherever the
+ * file is opened: seven hours out, silently, on every timed event. Measured,
+ * not assumed.
  *
- * The reason it was left out -- that generating one means shipping a zone
- * database -- was also wrong. The browser has the IANA database already, behind
- * `Intl`, and an offset for an instant is a formatting question. Transitions
- * are then found by looking for the months where the answer changes and
- * bisecting inside them, rather than by knowing any rules.
+ * Shipping a zone database is not the price of that either. The browser has the
+ * IANA database already, behind `Intl`, and an offset for an instant is a
+ * formatting question. Transitions are found by looking for the months where
+ * the answer changes and bisecting inside them, rather than by knowing any
+ * rules.
  *
  * Each transition is written as its own dated sub-component instead of as an
  * RRULE. It is more lines and no cleverness: a rule has to be *derived*, and a
@@ -658,7 +658,7 @@ export function vtimezone(tzid: string, fromYear: number, toYear: number): strin
     offsetAt = offsetFinder(tzid);
   } catch {
     /* A zone `Intl` does not know: say nothing rather than say something wrong.
-       The TZID stays on the events, which is where it was before this. */
+       The TZID stays on the events regardless. */
     return [];
   }
 

@@ -304,12 +304,12 @@ export function PasswordForm({
 /* ------------------------------------------------------------------ */
 
 /**
- * Only the way *out*. Setting two-factor authentication up is gone until
- * signing in with a code works: Stalwart takes a TOTP code through an OAuth
- * flow alone and offers no password grant, so Gilbert has nowhere to send one
- * (#75). Turning it on here would lock the account out of webmail on its next
- * sign-in. Turning it off is a plain registry write, works today, and has to
- * stay — whoever is already enrolled needs a way back.
+ * Only the way *out*. There is no way to set two-factor authentication up
+ * until signing in with a code works: Stalwart takes a TOTP code through an
+ * OAuth flow alone and offers no password grant, so Gilbert has nowhere to send
+ * one (#75). Turning it on here would lock the account out of webmail on its
+ * next sign-in. Turning it off is a plain registry write, works today, and has
+ * to stay — whoever is already enrolled needs a way back.
  */
 function TwoFactorOff({ reload }: { reload: () => Promise<void> }) {
   const [code, setCode] = useState("");

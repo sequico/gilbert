@@ -38,8 +38,8 @@ import { type Anchor, anchorFromEl, Popover } from "./popover";
  * page's, so a German user on an English browser gets mm/dd/yyyy no matter
  * what the app says. These replace those controls: a text box in the
  * configured order (see lib/datetime) plus a calendar or time-list popover.
- * Values in and out keep the native ISO shapes, so they drop straight into
- * the places the native inputs used to sit.
+ * Values in and out keep the native ISO shapes, so anything that reads or
+ * writes a native date or time value takes them unchanged.
  */
 
 /* ------------------------------------------------------------------ */

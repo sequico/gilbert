@@ -13,10 +13,10 @@ export function setBaseTitle(t: string) {
  *
  * The title and the favicon below are the same idea for a tab, and an
  * installed app has neither: in `display: standalone` there is no tab strip
- * and no favicon anywhere on screen, so everything this file did for the
- * unread count vanished at exactly the moment somebody put Gilbert on a home
- * screen. The Badging API is where the count goes instead, and it is the one
- * thing every phone user expects a mail icon to do.
+ * and no favicon anywhere on screen, so nothing this file does for the unread
+ * count is visible at exactly the moment somebody puts Gilbert on a home screen.
+ * The Badging API is where the count goes instead, and it is the one thing every
+ * phone user expects a mail icon to do.
  *
  * Silently nothing where it is unsupported, and silently nothing on iOS until
  * notification permission has been granted, which is that platform's condition

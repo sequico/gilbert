@@ -235,7 +235,8 @@ export class Executor {
    * `UnreadableDocumentError`). The two are opposites — a group with no
    * automation, against every automation of the group stopped — and a caller
    * that took the second for the first would let the group's work stop with no
-   * audit row and no word in the chat, which is what `?doc ?? []` did.
+   * audit row and no word in the chat: a `?doc ?? []` at the call site reads the
+   * two as the same thing.
    *
    * The line is written once per process and cause, because an unreadable
    * document is a state and not an event: it is still unreadable on the next

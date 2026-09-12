@@ -39,8 +39,8 @@ import { useSieve } from "./sieve";
 
 /*
  * Named explicitly so `shareWith` comes back, which it does not otherwise --
- * see the note on CALENDAR_PROPS and the KNOWN-ISSUES entry. Mailboxes were the
- * third and last store fetching everything by asking for nothing.
+ * see the note on CALENDAR_PROPS and the KNOWN-ISSUES entry. Mailboxes, calendars
+ * and address books all name their properties by hand for this reason.
  *
  * It matters here for one narrow but real case. Sharing a mail folder is
  * withdrawn because Stalwart stores the share and never delivers it, and the
@@ -1575,13 +1575,12 @@ export const useMail = create<MailState>((set, get) => ({
             /*
              * The full copy of an updated email is deliberately kept.
              *
-             * This used to drop it so the next read would fetch it again. But
-             * the reading pane renders only the emails it holds in full, so
-             * dropping one took the message out of the open thread until the
-             * refetch at the end of this function put it back. The pane emptied
-             * and refilled -- on an HTML message, a flash to the app's own
-             * background and out again, which is what was left of #100 after
-             * the message view stopped rebuilding its body.
+             * Dropping it would make the next read fetch it again, but the
+             * reading pane renders only the emails it holds in full: dropping
+             * one takes the message out of the open thread until the refetch
+             * at the end of this function puts it back. The pane empties and
+             * refills -- on an HTML message, a flash to the app's own
+             * background and out again, which is what is left of #100.
              *
              * Marking as read causes exactly this: the server echoes our own
              * change back as an update.
@@ -1590,7 +1589,7 @@ export const useMail = create<MailState>((set, get) => ({
              * an Email immutable except `keywords` and `mailboxIds` -- the id
              * is derived from the content, so a body cannot change beneath one
              * -- and both are in LIST_PROPS, which the refresh immediately
-             * below merges over the cached copy. The eviction only ever cost
+             * below merges over the cached copy. Dropping it only ever costs
              * the message its place in the thread.
              */
             return { emails: next, fullIds: nextFull, emailState: since };
@@ -1947,8 +1946,8 @@ async function notifyNewMail(created: Id[], get: () => MailState) {
 /**
  * The store's account is its own. Group mailboxes open without moving the
  * session's selected account, which the other stores read to stay on the
- * reader's own data (settings, Sieve) -- the mistake the old whole-app account
- * switcher made. So this binds to the sign-in *state*, not to the session's
+ * reader's own data (settings, Sieve) -- the mistake a whole-app account
+ * switcher makes. So this binds to the sign-in *state*, not to the session's
  * account id: a session refresh must not yank the reader out of a group
  * mailbox they are looking at.
  */

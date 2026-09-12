@@ -132,10 +132,9 @@ function RulesEditor() {
   /*
    * Warn when saving rules changes which script runs: the editor writes the
    * managed script, and a save activates it, silently retiring the live one.
-   * `rules()` prefers the script named gilbert, so this used to need a
-   * managed script under another name to be active before it fired -- the
-   * case that matters, a hand-written script running while the managed one
-   * sits inactive, never warned at all.
+   * `rules()` prefers the script named gilbert, so it cannot see the case that
+   * matters -- a hand-written script running while the managed one sits
+   * inactive -- which is why the active script is compared here instead.
    */
   const activeIsOther = Boolean(
     activeScript &&
@@ -342,8 +341,9 @@ function RulesEditor() {
         </div>
       ))}
       {/*
-       * Pinned, because with more than a screenful of rules this bar was the
-       * only thing saying there was unsaved work and it sat below the fold.
+       * Pinned, because with more than a screenful of rules this bar is the
+       * only thing saying there is unsaved work, and below the fold it would
+       * be missed.
        */}
       <div className="row save-bar">
         <button className="btn" onClick={() => setEditing(newRule())}>
@@ -463,8 +463,8 @@ function ScriptsEditor() {
     }
   };
 
-  // A hand-written script is the worst thing here to lose, and until now
-  // leaving the page took it without asking.
+  // A hand-written script is the worst thing here to lose, and leaving the
+  // page would take it without asking.
   useUnsavedChanges({
     dirty,
     message: t("Your Sieve script has changes that have not been saved."),
@@ -475,8 +475,8 @@ function ScriptsEditor() {
   });
 
   // One question, asked once: the editor is up exactly while a script is open
-  // in it. Before, this was a pair of identical nested conditions reading name
-  // and body, which is also why saving could not put the editor away.
+  // in it. Reading that off the name and body instead would leave the form up
+  // after a save, since a saved script still has both.
   if (opened !== null) {
     return (
       <div>

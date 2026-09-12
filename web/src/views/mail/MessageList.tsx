@@ -459,10 +459,10 @@ export function MessageList({
             </button>
             {/*
               The three buttons above marked hide-mobile have nowhere to go on
-              a phone, and used to simply not exist there: selecting mail on a
-              touchscreen could archive, delete, mark read and move, and could
-              not report spam, mark unread or label. Now that holding a row is
-              how selection starts, that gap is the first thing a thumb finds.
+              a phone: without this menu, selecting mail on a touchscreen
+              offers archive, delete, mark read and move, and no way to report
+              spam, mark unread or label. Holding a row is how selection
+              starts, so that gap is the first thing a thumb finds.
             */}
             {isMobile && (
               <>

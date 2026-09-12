@@ -130,9 +130,9 @@ const autosaveTimers = new Map<string, number>();
  * two saves that overlap each destroy only the id they captured and the one
  * that finishes last leaves its create behind: an autosave that lands after
  * Send or Discard leaves an orphan $draft of a message that is gone, and two
- * overlapping saves leave two drafts. A save that finishes last also used to
+ * overlapping saves leave two drafts. A save that finishes last would also
  * clear `dirty` over content typed while it was in flight, so a close that
- * followed skipped its own save and dropped that content.
+ * follows skips its own save and drops that content.
  *
  * Every save for a key therefore runs on one chain (`enqueueSave`), and send
  * and discard wait for the chain to drain and destroy the draft the last save
@@ -829,8 +829,8 @@ export const useCompose = create<ComposeState>((set, get) => ({
        * A blob already in this account is attached by reference and nothing is
        * sent, however large it is -- which is the whole point of attaching from
        * Files, and of forwarding a message as an attachment. Applying the limit
-       * to those refused a 60 MB message the server was already holding, on the
-       * grounds that it could not have been uploaded, which it was not being.
+       * to those would refuse a 60 MB message the server is already holding, on
+       * the grounds that it could not have been uploaded, when it is not being.
        *
        * A file from somebody else's account is fetched and re-uploaded into
        * this one, because a message can only carry blobs from the account
@@ -1071,10 +1071,9 @@ function quoteTextOf(text: string, html: string): string {
  * Whether the message being turned into a draft may keep its remote images.
  *
  * The reader answers this per message from the settings and the sender
- * (lib/remoteImages); the composer used to hardcode "yes", so a reply to a
- * tracking-pixel mail fetched the pixels the moment the draft rendered, no
- * consent asked and no proxy in between. Ask the same question, at quote
- * time. The address book is consulted as of now: it may not have loaded yet,
+ * (lib/remoteImages); hardcoding "yes" here would fetch the pixels of a
+ * tracking-pixel mail the moment the draft rendered, no consent asked and no
+ * proxy in between. Ask the same question, at quote time. The address book is consulted as of now: it may not have loaded yet,
  * and erring toward blocking is the safe direction.
  */
 function quoteAllowsRemote(from: EmailAddress | null | undefined): boolean {
