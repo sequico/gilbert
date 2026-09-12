@@ -14,16 +14,16 @@ import { APP_VERSION } from "./version";
  * reload by hand.
  *
  * `index.html` is served `no-cache` and the assets under it are content-hashed
- * and immutable, so a reload is all it takes; the only missing part was
- * something to ask for one. Comparing versions rather than reloading on every
- * 401 means an ordinary session expiry still lands on the sign-in form with the
- * page intact -- only a build that actually moved costs the page.
+ * and immutable, so a reload is all it takes, and the only other thing needed
+ * is something to ask for one. Comparing versions rather than reloading on
+ * every 401 means an ordinary session expiry still lands on the sign-in form
+ * with the page intact -- only a build that actually moved costs the page.
  *
  * The reload is unconditional once the versions differ. A compose window can
  * be holding text that never reached the server, and after a deploy it cannot
  * be saved either, since the session went with the container -- so this will
  * sometimes take an unsent draft with it. That is a deliberate trade: a tab
- * running code the server no longer speaks is the worse failure, and one that
+ * running code the server does not speak is the worse failure, and one that
  * stays behind because someone left a draft open is not automatic at all.
  */
 const TRIED_KEY = "gilbert:reloaded-for";
@@ -116,18 +116,18 @@ async function check(): Promise<boolean> {
 /**
  * Watch for a deploy without waiting to be asked.
  *
- * Checking on a 401 alone was not automatic, only deferred: it needs the tab to
- * make a request, so one sitting idle keeps running the old build until someone
- * touches it.
+ * Checking on a 401 alone is deferred rather than automatic: it needs the tab
+ * to make a request, so one sitting idle keeps running the old build until
+ * someone touches it.
  *
- * The obvious signal turned out to be the wrong one. A deploy kills the
- * EventSource behind `/api/events`, which looks like the perfect cue -- except
- * it arrives while the container is still being replaced, so the check that
- * follows cannot reach the server. Waiting for the stream to come back instead
- * does not work either: the session died with the old container, so the
- * reconnect is answered with a 401 and never reaches "connected" at all. The
- * drop is kept below because it is free and sometimes lands early enough to be
- * useful, but nothing depends on it.
+ * The stream drop is not the signal either. A deploy kills the EventSource
+ * behind `/api/events`, which looks like the perfect cue -- except it arrives
+ * while the container is still being replaced, so the check that follows cannot
+ * reach the server. Waiting for the stream to come back does not work either:
+ * the session died with the old container, so the reconnect is answered with a
+ * 401 and never reaches "connected" at all. The drop is kept below because it
+ * is free and sometimes lands early enough to be useful, but nothing depends on
+ * it.
  *
  * What the guarantee rests on is a slow poll while the tab is visible, plus a
  * check when it becomes visible again. Neither cares what the stream is doing

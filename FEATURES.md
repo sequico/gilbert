@@ -540,7 +540,10 @@ more attempt. A drag that is merely more sideways than not stays a scroll.
   height follows density and the one- or two-line layout.
 - **Infinite scroll** with server-side paging, 50 at a time by default.
 - **Conversation view** groups a thread into one row, with the thread's own
-  message count; it can be switched off to list messages individually.
+  message count; it can be switched off to list messages individually — and with
+  it off a row is one message: opening one highlights that message alone, the
+  reading pane shows it alone, and its id rides in the URL (`?m=`) so a link
+  lands on the message it named.
 - **Message order** is a setting: newest or oldest first, unread first, starred
   first, largest first, by sender or by subject — or up to three levels of your
   own, chosen in Settings › General. It covers the Inbox alone by default,
@@ -703,6 +706,10 @@ same query string — so what it builds can be read, edited and learned from.
 - **Sanitised HTML**, rendered inside a **Shadow DOM** so the sender's CSS
   cannot reach the app. DOMPurify strips scripts, event handlers, forms and
   anything that could navigate the top window.
+- **Plain-text mail keeps its shape.** A message with no HTML goes into the
+  reader as the text it is — the sender's line breaks kept, a step per level of
+  quoting and the quoted block collapsible — rather than run together into one
+  paragraph. The rules are in `EMAIL_BASE_CSS` (`web/src/lib/html.ts`).
 - **Remote images load by default.** *Always show* is what Gilbert ships with,
   so a message arrives drawn the way the sender made it; a reader who would
   rather approve each one switches to *Ask before showing* in *Privacy &
@@ -775,8 +782,9 @@ same query string — so what it builds can be read, edited and learned from.
 
 ### Conversations
 
-- A conversation opens on its **first unread message**, not the newest, so
-  unread mail is never above the fold with only a marker to hint at it.
+- With conversation view on, a conversation opens on its **first unread
+  message**, not the newest, so unread mail is never above the fold with only
+  a marker to hint at it.
 - The opening scroll is held until the thread settles, so the reading position
   does not jump as messages measure themselves.
 - `n` / `p` move between messages in the thread; `]` archives and opens the
@@ -1594,9 +1602,9 @@ needed nothing in either half.
   icon while the app is closed, with a dot rather than a figure: the service
   worker is not told how many messages are unread — a push carries the new mail
   rather than a total, so counting the payload would badge "2" over an inbox
-  holding forty. The next tab to open writes the real count over it. It could
-  now ask, which is a change since this was written; whether a badge is worth a
-  request on every push is a separate question and has not been answered yet.
+  holding forty. The next tab to open writes the real count over it. The worker
+  could ask for the count instead, though whether a badge is worth a request on
+  every push is a separate question and has not been answered yet.
   Unsupported browsers show nothing, as does iOS until notification permission
   has been granted, which is that platform's condition for a badge.
 - **In the share sheet** — share a photo, a link or a file from any other app
@@ -1611,8 +1619,10 @@ needed nothing in either half.
   signed-out Gilbert work — it waits through the sign-in page and opens after,
   which the query string could not have survived. One nobody comes back for
   expires after ten minutes rather than opening a composer full of a forgotten
-  photo the next time you look. Android and Chromium only; iOS does not
-  implement share targets.
+  photo the next time you look. The worker is what answers it: with the worker
+  unregistered the POST has nothing to receive it and the share is lost, which
+  is the one cost of a target the manifest announces unconditionally. Android
+  and Chromium only; iOS does not implement share targets.
 - **Acting on a notification.** Archive and Mark as read sit on the
   notification itself, and both happen where you are — the phone stays in your
   hand, or in your pocket. They are the two a phone shows: `maxActions` is two
@@ -1621,8 +1631,8 @@ needed nothing in either half.
   among them, because it would have to open the app, and tapping the
   notification already does that.
 
-  This was described here as impossible, and it is worth saying why it was not.
-  Gilbert's session is an httpOnly cookie against its own origin, and the only
+  Nothing in the worker's shape stands in the way. Gilbert's session is an
+  httpOnly cookie against its own origin, and the only
   other thing the API asks for is a fixed header that is not a secret. A
   same-origin request from the service worker carries the cookie like any
   other, so `Email/set` from a notification is an ordinary call. What the

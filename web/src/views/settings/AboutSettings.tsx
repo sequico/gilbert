@@ -110,9 +110,8 @@ export function AboutSettings() {
 /**
  * Stalwart deliberately withholds its version from clients (it reports a fixed
  * "1.0.0" wherever it publishes one at all), so the edition is all there is to
- * show. The generation used to be reported here too, back when Gilbert spoke
- * to both 0.15 and 0.16; it requires 0.16 now, so signing in at all is the
- * answer to that question.
+ * show. The generation is not reported: Gilbert requires 0.16, so signing in at
+ * all is the answer to that question.
  */
 function describeServer(server: { edition?: string | null } | undefined): string {
   return server?.edition ? `0.16 or newer (${server.edition})` : "0.16 or newer";

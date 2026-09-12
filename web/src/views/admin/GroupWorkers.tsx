@@ -2,13 +2,12 @@
  * What the worker does in each group (ADR 0003).
  *
  * A group's agent work, in the order a person asks about it: the automations it
- * runs there (Automations, moved in from Agents — an automation is exactly a
- * per-group thing), what is waiting on a person across every group (Approvals,
- * moved in for the same reason), and the workers themselves (Workers — a worker
- * is a process of its own, and the process list is where it becomes visible
- * that one is not reporting). The installation's own identity and its models
- * stay in Agents; this section is what the fleet does once it is working in a
- * group.
+ * runs there (Automations — an automation is exactly a per-group thing), what
+ * is waiting on a person across every group (Approvals — the same reason), and
+ * the workers themselves (Workers — a worker is a process of its own, and the
+ * process list is where it becomes visible that one is not reporting). The
+ * installation's own identity and its models stay in Agents; this section is
+ * what the fleet does once it is working in a group.
  *
  * One group at a time, and the picker under the title is how a person says
  * which: the automations the group's agent runs, what is waiting on a person

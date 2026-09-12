@@ -102,7 +102,7 @@ export function cardFromLdif(rec: LdifRecord): Partial<ContactCard> | null {
   // `cn` is the name as the directory renders it, which is not always the parts
   // put back together -- "Doe, Jane", or a name with no surname attribute at
   // all. Keep it as the full name when it disagrees, so the card reads the way
-  // the export did.
+  // the exporting directory renders it.
   const name = buildName({ given, surname });
   if (name) card.name = full && full !== name.full ? { ...name, full } : name;
   else if (full) card.name = { "@type": "Name", full };

@@ -26,8 +26,8 @@ const PREFIX = "gilbert:";
  *   and is what the renewal on app start keys off. It is kept because this
  *   function runs on two different endings and only one of them is a sign-out:
  *   a *deploy* expires every session, and the handler for that clears local
- *   data without removing the push subscription, because there is no longer a
- *   session to remove it with. Dropping the flag there would leave the
+ *   data without removing the push subscription, because there is no session to
+ *   remove it with. Dropping the flag there would leave the
  *   subscription registered, the switch still reading as on, and nothing
  *   renewing it -- so push would go quiet a week after every deploy, which is
  *   the exact failure the renewal exists to prevent. Signing out for real

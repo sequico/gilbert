@@ -614,11 +614,11 @@ export function localeOptions(): LocaleOption[] {
 /**
  * Weekday names in the reader's locale, indexed by JSCalendar's two-letter day.
  *
- * These used to be a table of English strings with a `short` of "M", "T", "W"…
- * which could not become catalogue entries at all: "T" is both Tuesday and
- * Thursday and "S" is both Saturday and Sunday, so the key collides with
- * itself. A catalogue cannot hold two translations under one key, and no
- * amount of translating fixes that — the data was wrong, not the wiring.
+ * A catalogue cannot carry these: a `short` of "M", "T", "W"… collapses,
+ * since "T" is both Tuesday and Thursday and "S" is both Saturday and Sunday,
+ * so the key collides with itself. One key cannot hold two translations, and no
+ * amount of translating fixes that — the data is the wrong shape for a
+ * catalogue, not the wiring.
  *
  * Intl has the names already, in every locale, in three widths, and gets the
  * plural and capitalisation conventions right without anybody maintaining a

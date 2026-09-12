@@ -1,11 +1,10 @@
 /**
- * Palettes, and the two axes they replaced.
+ * Palettes, and the two axes a theme is chosen on.
  *
- * The theme used to be one enum — `system | light | dark | gilbert` — where
- * "gilbert" carried a whole palette and implied dark. That works for exactly
- * one palette. With several, the two questions come apart: **which palette**
- * (the colours) and **which mode** (light or dark), and they are chosen
- * separately.
+ * A single enum — `system | light | dark | gilbert` — works for exactly one
+ * palette, because "gilbert" then has to carry a whole palette and imply dark.
+ * With several, the two questions come apart: **which palette** (the colours)
+ * and **which mode** (light or dark), and they are chosen separately.
  *
  * Every palette here is taken from the project that publishes it, all MIT, and
  * from that project's own repository rather than from anyone's reimplementation
@@ -102,11 +101,9 @@ export function paletteMeta(id: PaletteId | string | null | undefined): PaletteM
  * Which of light and dark is actually being drawn.
  *
  * Every palette has both halves, so this is only ever resolving "system"
- * against the OS. That was not true while `gilbert` was dark-only: the mode
- * then had to be overridden by the palette, and the toggle had to remember
- * which palette it had set aside on the way to light. Giving that palette a
- * light half removed the override, the memory and the greyed-out control in
- * one go.
+ * against the OS: no palette overrides the mode, and the mode toggle keeps no
+ * memory of a palette set aside, because there is never a dark-only palette to
+ * leave behind.
  */
 export function effectiveMode(mode: Mode, prefersDark: boolean): ResolvedMode {
   if (mode === "system") return prefersDark ? "dark" : "light";
@@ -154,8 +151,8 @@ export function legacyTheme(
   choice: ThemeChoice,
   prefersDark = false,
 ): "system" | "light" | "dark" | "gilbert" {
-  // Only the dark half of gilbert's own palette has an old name; its light
-  // half is new, and an older build has no word for it beyond "light".
+  // Only the dark half of gilbert's own palette has an old name; the light
+  // half has none, and an older build has no word for it beyond "light".
   if (choice.palette === "gilbert" && effectiveMode(choice.mode, prefersDark) === "dark")
     return "gilbert";
   if (choice.palette === "default" && choice.mode === "system") return "system";
@@ -165,10 +162,9 @@ export function legacyTheme(
 /**
  * Where the top-bar toggle goes.
  *
- * The palette never changes: only the mode flips. This used to be the awkward
- * part -- leaving a dark-only palette for light meant changing palette too,
- * and remembering which one to come back to -- and it stopped being awkward
- * when every palette gained both halves.
+ * The palette never changes: only the mode flips. Every palette has both a
+ * light and a dark half, so switching mode never means leaving a palette behind
+ * and remembering which one to come back to.
  */
 export function toggleTarget(current: ThemeChoice, prefersDark: boolean): ThemeChoice {
   return {

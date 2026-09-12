@@ -20,8 +20,8 @@
  *   - what is *mine*          -> `ownAccountForCapability`, never does
  *
  * There is a third rule hiding in the first. A capability the selected account
- * does not advertise used to fall back to that account anyway, so a session
- * with no primary account for something would aim it at whoever was selected —
+ * does not advertise must not fall back to that account anyway: a session with
+ * no primary account for something would then aim it at whoever was selected —
  * someone else. Falling back to nothing is the honest answer: the feature is
  * unavailable, which is true, rather than pointed at a stranger's data.
  */

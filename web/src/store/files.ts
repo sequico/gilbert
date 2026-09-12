@@ -44,8 +44,8 @@ interface FilesState {
    * crosses between them -- a row dragged onto the sidebar tree, a folder in
    * the tree dragged onto a row -- and every possible target has to know what
    * is in flight to say whether it will take it. Two panes each holding their
-   * own copy meant the one that did not start the drag never lit up and never
-   * accepted the drop.
+   * own copy leave the one that did not start the drag unable to light up or
+   * accept the drop.
    *
    * It cannot be read from the drag itself: `dataTransfer.getData` is blocked
    * during dragover, which is exactly when the answer is needed.
@@ -112,10 +112,9 @@ export function withoutAppFolder(nodes: FileNode[]): FileNode[] {
  * to somebody else's. `treeLoaded` is the one that bites: leave it true and the
  * sidebar never asks the new account for its folders, while `dirIds` still
  * names the old account's, which no longer resolve -- so the tree is simply
- * empty, with nothing to say why. That shipped, and is what this exists to stop
- * happening again: the test asserts the whole set, so a field added to the
- * store and forgotten here fails rather than quietly persisting across
- * accounts.
+ * empty, with nothing to say why. That is what this exists to prevent: the
+ * test asserts the whole set, so a field added to the store and forgotten here
+ * fails rather than quietly persisting across accounts.
  */
 export function emptyForAccount(accountId: Id | null) {
   return {
@@ -155,11 +154,11 @@ export const useFiles = create<FilesState>((set, get) => ({
      * actually shared (checked on 0.16.19, 2026-08-27). So each one is asked
      * for its files, and only the ones that answer with any are listed.
      *
-     * Listing them all and letting the folders speak for themselves was the
-     * first attempt, and it put an account holding nothing at all under
-     * "Shared with me" -- an invitation to open an empty pane, offered by an
-     * account whose calendar or contacts were the thing actually shared. An
-     * account that shares no files does not belong in a list of shared files.
+     * Listing them all and letting the folders speak for themselves puts an
+     * account holding nothing at all under "Shared with me" -- an invitation to
+     * open an empty pane, offered by an account whose calendar or contacts were
+     * the thing actually shared. An account that shares no files does not
+     * belong in a list of shared files.
      */
     const s = session.session;
     const candidates = Object.entries(s?.accounts ?? {}).filter(
@@ -292,10 +291,10 @@ export const useFiles = create<FilesState>((set, get) => ({
         };
       });
     } catch (err) {
-      // There used to be a fallback here that abandoned filters and fetched
-      // every node in the account, because 0.15 refused parentId/isTopLevel.
-      // 0.16 supports them, and quietly loading the whole tree instead would
-      // hide a real fault behind a performance cliff nobody would notice.
+      // No fallback abandons the filters and fetches every node in the
+      // account: 0.16 supports parentId/isTopLevel, and quietly loading the
+      // whole tree instead would hide a real fault behind a performance cliff
+      // nobody would notice.
       set({ loading: false, error: (err as Error).message });
     }
   },

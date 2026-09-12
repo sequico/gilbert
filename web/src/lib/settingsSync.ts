@@ -1,20 +1,20 @@
 /**
  * Settings that follow the account rather than the browser.
  *
- * Everything used to live in localStorage, which meant no preference travelled
- * between devices — most painfully the default identity, where the fallback is
- * whichever address sorts first, so a forgotten setting sends mail from an
- * address the recipient may not know (issue #54).
+ * A setting kept only in localStorage does not travel between devices — most
+ * painfully the default identity, where the fallback is whichever address sorts
+ * first, so a forgotten setting sends mail from an address the recipient may
+ * not know (issue #54).
  *
  * The store is a `settings.json` in the account's own JMAP Files, beside the
  * signature images that are already kept there. That keeps Gilbert itself
  * stateless: no volume, no database, nothing to back up separately, and the
  * settings are covered by whatever backs up the mail store.
  *
- * localStorage stays, demoted to a cache: it is what paints the first frame,
- * and the file overwrites it once it lands. A browser with no cache (a private
- * window) therefore shows defaults for one frame before the account's real
- * settings arrive.
+ * localStorage stays as a cache: it is what paints the first frame, and the
+ * file overwrites it once it lands. A browser with no cache (a private window)
+ * therefore shows defaults for one frame before the account's real settings
+ * arrive.
  */
 import { CAP, client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, Id, SetResponse } from "@/jmap/types";
@@ -73,9 +73,9 @@ export async function loadRemoteSettings(): Promise<Record<string, unknown> | nu
  * is deliberately remounted whenever somebody picks a language. The account
  * is claimed only once the read has actually settled (`armSettingsSync`), so
  * a remount that cancels a read still in flight is answered "not yet" and
- * reads again -- claiming at the start used to let a cancelled read consume
- * the claim, after which the remount skipped the read entirely and never
- * armed sync for that session.
+ * reads again -- claiming at the start would let a cancelled read consume the
+ * claim, after which the remount would skip the read entirely and never arm
+ * sync for that session.
  *
  * Cleared by `stopSettingsSync`, so signing out and back in reads again.
  */
@@ -117,11 +117,11 @@ export function queueSettingsPush(synced: Record<string, unknown>): void {
   /*
    * Held, not dropped, before the first load has settled.
    *
-   * This used to return here, which silently threw the change away: a
-   * language picked in the second or so before the settings file came back
-   * was never written, so it survived until the next reload and no further.
-   * That is the other half of "sometimes it takes several clicks" -- the
-   * click that stuck was one made after the read had finished.
+   * Returning here would silently throw the change away: a language picked in
+   * the second or so before the settings file comes back is never written, so
+   * it survives until the next reload and no further. That is the other half of
+   * "sometimes it takes several clicks" -- the click that sticks is one made
+   * after the read has finished.
    *
    * Keeping it is safe because `hydrate` refuses to overwrite a key that is
    * still queued, so the newer local change wins over the older file rather
@@ -141,10 +141,10 @@ export function queueSettingsPush(synced: Record<string, unknown>): void {
  *
  * `hydrate` needs these: a settings file read from the server is older than an
  * unflushed local change by definition, so applying it wholesale hands the
- * user back the value they just replaced. Switching language made that visible
- * — it remounts the tree, the remount re-reads the file, and the file still
- * says the old language — but the race is general and a slow read would lose
- * any click made inside the debounce window.
+ * user back the value they just replaced. Switching language shows it — it
+ * remounts the tree, the remount re-reads the file, and the file still says the
+ * older language — but the race is general and a slow read would lose any click
+ * made inside the debounce window.
  */
 export function pendingSettingsKeys(): ReadonlySet<string> {
   return new Set(pending ? Object.keys(pending) : []);

@@ -3,12 +3,13 @@ import type { Id } from "@/jmap/types";
 /**
  * What a click on a message row means.
  *
- * Lifted out of the list so the rules sit together and can be tested. They had
- * drifted apart while they were two branches of one handler: shift-click
- * selected the whole range including the row it started from, and ctrl-click
- * selected only the row clicked, leaving the message you had open highlighted
- * but unticked. Both looked picked; one was. That is issue #186, and the reason
- * this is a function rather than a comment asking the next person to be careful.
+ * Lifted out of the list so the rules sit together and can be tested, because
+ * the same click can be read two ways and what this returns is what the list
+ * draws. Shift-click and ctrl-click sit in two branches of one handler and must
+ * agree: a range includes the row it starts from, a ctrl-click selects one row,
+ * and a row that is open but not selected is highlighted without being ticked —
+ * both look picked, and only one is. That is issue #186, and the reason this is
+ * a function rather than a comment asking the next person to be careful.
  */
 
 export type RowClick =
@@ -48,12 +49,12 @@ export function rowClick(opts: {
 
   if (modifiers.ctrl) {
     /*
-     * The row that was already current joins the selection.
+     * The row that is already current joins the selection.
      *
      * Opening a message does not select it -- it is highlighted because it is
      * the one being read, which is a different state -- so picking a second one
-     * with ctrl used to select only the second, and every action that followed
-     * quietly applied to half of what the screen showed.
+     * with ctrl would otherwise select only the second, and every action that
+     * followed would quietly apply to half of what the screen shows.
      *
      * Only while nothing is selected yet. Once there is a selection, ctrl-click
      * toggles exactly one row, which is the whole point of it.

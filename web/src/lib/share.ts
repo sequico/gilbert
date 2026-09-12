@@ -1,11 +1,11 @@
 /*
  * The operating system's own share sheet.
  *
- * Everything that leaves Gilbert today leaves as a download, and on a phone a
- * download is close to a dead end: the file lands in Downloads and the person
- * who wanted to send it somewhere goes hunting for it in a file manager. Web
- * Share hands the bytes straight to whatever they meant to send them to, which
- * is the thing they were actually trying to do.
+ * Everything that leaves Gilbert without the share sheet leaves as a download,
+ * and on a phone a download is close to a dead end: the file lands in Downloads
+ * and the person who wanted to send it somewhere goes hunting for it in a file
+ * manager. Web Share hands the bytes straight to whatever they meant to send
+ * them to, which is the thing they were actually trying to do.
  *
  * Every entry point feature-detects and disappears where the API is not there
  * rather than failing at the tap: `navigator.share` is absent on desktop Linux
@@ -17,9 +17,9 @@
  * What became of a share.
  *
  * `unsupported` is the interesting one: it says the share did not happen and
- * the caller should do whatever it did before — for an attachment, download
- * it. It covers both "this browser cannot" and "this browser could not this
- * time", because to the caller those are the same instruction.
+ * the caller should take its own fallback — for an attachment, download it. It
+ * covers both "this browser cannot" and "this browser could not this time",
+ * because to the caller those are the same instruction.
  */
 export type ShareOutcome = "shared" | "dismissed" | "unsupported";
 
@@ -102,8 +102,8 @@ async function run(data: ShareData): Promise<ShareOutcome> {
      * afterwards — the fetch has to happen inside the gesture's window, and on
      * a slow connection and a large attachment it will sometimes not fit.
      *
-     * The caller's fallback is a download, which is exactly what the button
-     * did before this existed, so the failure costs a tap rather than the file.
+     * The caller's fallback is a download, which is what the button offers
+     * without Web Share, so the failure costs a tap rather than the file.
      */
     if (name === "NotAllowedError") return "unsupported";
     throw err;

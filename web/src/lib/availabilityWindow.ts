@@ -3,12 +3,11 @@ import { DAY_MS } from "@/lib/dates";
 /**
  * The span an availability bar covers, and the marks along it.
  *
- * The bar used to be a day wide whatever it was showing: it began at midnight
- * on the event's start day and stopped 24 hours later, so an event running over
- * two days showed availability for the first of them and gave no sign that
- * there was more. It also carried no marks at all, which left "is this the
- * whole day or only working hours" unanswerable without dragging the event
- * around to see where its own outline moved. That is issue #172, parts 1 and 2.
+ * The span is whole days and covers every day the event touches, up to
+ * `maxDays`: an event running over two days shows both, and `daysHidden` says
+ * how many the bar could not show. The marks along it answer "is this the whole
+ * day or only working hours" without dragging the event around to see where its
+ * own outline moves. That is issue #172, parts 1 and 2.
  *
  * Whole days, always: a bar that started at the event's own start time would
  * move under the reader every time they adjusted it, and "busy from about a
@@ -34,7 +33,7 @@ export interface AvailabilityWindow {
   /**
    * Days the event covers that the bar does not. An event long enough to need
    * this is not one anybody is checking for a free slot, and drawing a month at
-   * eight pixels a day would say nothing; saying how much was left out is more
+   * eight pixels a day would say nothing; saying how much is left out is more
    * use than showing it.
    */
   daysHidden: number;

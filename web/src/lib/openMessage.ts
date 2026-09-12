@@ -1,11 +1,13 @@
 /**
  * What "open" means when conversation view is off.
  *
- * The setting used to reach only as far as the query -- it set `collapseThreads`
- * and nothing else -- so the list showed individual messages while everything
- * downstream still worked in threads. Opening one message highlighted every row
- * in its thread and filled the reading pane with the whole conversation, which
- * is exactly the grouping the setting was turned off to avoid.
+ * The setting reaches two places: the query, where it sets `collapseThreads`,
+ * and the code that decides which rows and which messages count as open. The
+ * query on its own is not enough -- the list shows individual messages while
+ * everything downstream works in threads, so opening one message highlights
+ * every row in its thread and fills the reading pane with the whole
+ * conversation, which is exactly the grouping the setting is turned off to
+ * avoid.
  *
  * Both halves are the same question asked in two places, so they live together.
  */
@@ -15,7 +17,7 @@ import type { Id } from "@/jmap/types";
  * Whether a list row should be drawn as the open one.
  *
  * With a message singled out the row must match it exactly. Matching on the
- * thread is what lit up every sibling.
+ * thread is what lights up every sibling.
  */
 export function rowIsOpen(
   rowId: Id,

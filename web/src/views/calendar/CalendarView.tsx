@@ -63,12 +63,11 @@ type View = "month" | "week" | "day" | "agenda";
 /**
  * The switcher labels, spelled out rather than derived from the view id.
  *
- * They used to be `v[0].toUpperCase() + v.slice(1)`, which is correct English
- * and untranslatable in every other language: the extractor cannot see a
- * string that is computed, so the four buttons stayed English even in a
- * catalogue that had all four words. Called rather than looked up, because a
- * module-level object would capture the labels for whichever language loaded
- * first.
+ * `v[0].toUpperCase() + v.slice(1)` is correct English and untranslatable in
+ * every other language: the extractor cannot see a string that is computed, so
+ * the four buttons would stay English even in a catalogue that has all four
+ * words. Called rather than looked up, because a module-level object would
+ * capture the labels for whichever language loaded first.
  */
 const VIEW_LABELS: Record<View, () => string> = {
   day: () => translate("Day"),
@@ -325,10 +324,10 @@ export function CalendarView({
    * Opening the editor for an event.
    *
    * The one action a double click means everywhere: an empty slot asks for a
-   * new event there, an event asks to be edited. A single click no longer does
-   * either — it opens nothing, so selecting and dragging are never interrupted
-   * by a dialog — and the popover stays reachable for touch (a tap) and for
-   * the context menu's Open.
+   * new event there, an event asks to be edited. A single click does neither —
+   * it opens nothing, so selecting and dragging are never interrupted by a
+   * dialog — and the popover stays reachable for touch (a tap) and for the
+   * context menu's Open.
    */
   const openEditor = (inst: EventInstance) => {
     setEditor({

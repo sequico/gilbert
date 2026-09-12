@@ -17,14 +17,14 @@ type AdminSection = SectionItem & { el: ReactNode; owner: AdminOwner };
  * The administration's groups, and what each one is for.
  *
  * "Gilbert Mailer" is the mail server's own administration — policy, the group
- * label catalogs, forced password changes — the surfaces ADR 0004/0005
- * added before there was an agent at all. "Assistant" is everything ADR
- * 0003 added: the fleet's own identity and per-tier models, and what it
- * does inside each group. "Stalwart" is the mail server's own records, written
- * over JMAP or over its configuration API: **Enforce Identities**, one section
- * holding a person's and a group's behind two tabs (ADR 0007), and, in time, its
- * system Sieve scripts (ADR 0008). Splitting them is the fix for the section
- * that used to hold both kinds of thing under one unlabelled "Gilbert" heading.
+ * label catalogs, forced password changes — the surfaces ADR 0004/0005 cover,
+ * which stand without an agent. "Assistant" is everything ADR 0003 covers: the
+ * fleet's own identity and per-tier models, and what it does inside each group.
+ * "Stalwart" is the mail server's own records, written over JMAP or over its
+ * configuration API: **Enforce Identities**, one section holding a person's and
+ * a group's behind two tabs (ADR 0007), and, in time, its system Sieve scripts
+ * (ADR 0008). The split keeps each kind of thing under a heading that names it,
+ * rather than both under one unlabelled "Gilbert".
  */
 const SECTIONS: AdminSection[] = [
   {

@@ -224,12 +224,11 @@ async function readFacts() {
 /*
  * A JMAP call, made as the reader.
  *
- * This worker was written believing it could not do this -- that acting on
- * mail needed a session it had no way to hold. It does not: Gilbert's session
- * is an httpOnly cookie against its own origin, and the only other thing the
- * API asks for is a fixed `x-requested-with` header that is not a secret and
- * is not held anywhere. A same-origin fetch from here carries the cookie like
- * any other, so `Email/set` from a notification is an ordinary request.
+ * Gilbert's session is an httpOnly cookie against its own origin, and the only
+ * other thing the API asks for is a fixed `x-requested-with` header that is
+ * not a secret and is not held anywhere. A same-origin fetch from here carries
+ * the cookie like any other, so `Email/set` from a notification is an ordinary
+ * request.
  *
  * What is genuinely not available is anything the *tab* holds in memory, and
  * the answer is that the API asks for none of it.
@@ -327,6 +326,13 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     (async () => {
       const facts = await readFacts();
+      /*
+       * What a tab has not written yet: the worker is installed and a push
+       * arrives before the app has been opened once, which is the state the
+       * first notification after installing always finds. English, because the
+       * worker sits outside the catalogues -- the app hands it the reader's own
+       * strings, in `facts.strings`, the first time it runs.
+       */
       const strings = facts?.strings ?? {
         newMail: "New mail",
         newMessage: "New message",
@@ -336,11 +342,10 @@ self.addEventListener("push", (event) => {
        * Mark the app icon, without claiming a number.
        *
        * `setAppBadge()` with no count shows a dot rather than a figure, which
-       * is the only honest thing to show from here: this worker has no session,
-       * so it cannot ask how many messages are unread, and a push carries the
-       * new mail rather than a total. Counting the payload would badge "2" over
-       * an inbox holding forty. The next time a tab opens, `setUnreadBadge`
-       * writes the real count over the dot.
+       * is the only honest thing to show from here: a push carries the new mail
+       * rather than a total, so counting the payload would badge "2" over an
+       * inbox holding forty, and the count itself is a question the next tab
+       * answers. `setUnreadBadge` writes the real count over the dot.
        */
       if ("setAppBadge" in self.navigator)
         await self.navigator.setAppBadge().catch(() => {});
@@ -407,7 +412,7 @@ async function runAction(action, data) {
     await jmap([["Email/set", { accountId, update: { [id]: patch } }, "0"]]);
   } catch {
     await self.registration.showNotification(data.title || "Gilbert", {
-      body: data.failed || "Could not do that — open Gilbert and try again",
+      body: data.failed ?? undefined,
       icon: `${BASE}/img/icon-192.png`,
       badge: `${BASE}/img/favicon-64.png`,
       tag: `gilbert-failed-${id}`,

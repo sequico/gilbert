@@ -149,18 +149,18 @@ export function ThreadView({
   /*
    * Which messages were unread when this conversation was opened.
    *
-   * Expansion and the unread bar used to read `$seen` directly, so the moment
-   * the auto-mark-read timer fired, every message expanded *because* it was
-   * unread collapsed again -- all but the last -- and the only record of which
-   * ones they were disappeared with them (#69). Opening a thread with several
-   * unread messages gave you a few seconds before the view rearranged itself
-   * underneath you.
+   * Reading `$seen` directly for expansion and for the unread bar breaks on
+   * the moment the auto-mark-read timer fires: every message expanded
+   * *because* it is unread collapses again -- all but the last -- and the only
+   * record of which ones they were goes with it (#69). Opening a thread with
+   * several unread messages gives you a few seconds before the view rearranges
+   * itself underneath you.
    *
    * Marking read on the server is still right: opening the thread is the signal
-   * that you are reading it. What was wrong was letting that change the shape
-   * of what you are looking at. The set only ever grows while a thread is open
-   * -- a message that arrives unread joins it -- and is discarded on the way to
-   * another thread.
+   * that you are reading it. What is wrong is letting that change the shape of
+   * what you are looking at. The set recorded here only ever grows while a
+   * thread is open -- a message that arrives unread joins it -- and is
+   * discarded on the way to another thread.
    *
    * Accumulated during render rather than in an effect because it is derived
    * purely from `messages`, and adding an id twice does nothing. An effect
@@ -217,7 +217,7 @@ export function ThreadView({
    * range as it stands the moment it is called. The read-thread fallback always
    * aims at the last message, which no thread has the room to lift to the top,
    * so that clamp is the whole of the range: measuring it before the images
-   * landed stopped 39px short of the bottom, every time (#89).
+   * land stops 39px short of the bottom, every time (#89).
    *
    * So the target is held against the top of the pane while the thread settles,
    * and let go the moment the reader touches it. A pane that re-scrolls under
@@ -503,10 +503,9 @@ export function ThreadView({
               {/*
                 On a phone this strip is where a thumb goes, and the per-message
                 menu at the top of a card is not somewhere anybody looks for
-                "send this again" -- which is how compose-as-new came to be
-                reported missing on mobile when it was there all along (#181).
-                A fourth full button does not fit at 500px; this does, and it
-                spells the action out once opened.
+                "send this again" -- which is how an action that is there reads
+                as missing on mobile (#181). A fourth full button does not fit
+                at 500px; this does, and it spells the action out once opened.
               */}
               <span className="spacer" />
               <button

@@ -74,7 +74,7 @@ export function t(source: string, vars?: Vars): string {
  * So a context can be given, and the lookup becomes context + source while the
  * fallback stays the plain English. A translator sees the context and knows
  * which sense to render; a catalogue that has not got round to it still
- * renders the English word, which was right in English all along.
+ * renders the English word, which is the right word in English anyway.
  *
  * The separator is a control character rather than a punctuation mark, which
  * is the gettext convention and for the same reason: no English string can
@@ -122,7 +122,7 @@ export function plural(n: number, forms: PluralForms, vars?: Vars): string {
  * in particular…", which are not sentences and cannot be reordered into a
  * language that puts the verb somewhere else. Dropping the element and
  * interpolating plain text keeps the sentence whole but loses the monospace
- * that told the reader it was a literal.
+ * that tells the reader it is a literal.
  *
  * So the sentence stays whole and the elements are placeholders in it:
  *
@@ -180,9 +180,9 @@ export function setCatalog(tag: string, catalog: Catalog): void {
    * everything. Remounting re-runs the effect that fetches the account's
    * settings file, which calls `hydrate`, which calls `applyLang`, which lands
    * back here -- with the identical tag and the identical catalogue. Publishing
-   * that non-change bumped the version again and went round for ever: the
-   * message list refetched on every pass, which is what it looked like from
-   * the outside.
+   * that non-change bumps the version again and goes round for ever: the
+   * message list refetches on every pass, which is what it looks like from the
+   * outside.
    *
    * Reference equality is enough. `EMPTY` is a module constant and a
    * dynamically imported catalogue is cached, so the same language really does
@@ -216,13 +216,13 @@ let inFlight: Promise<void> = Promise.resolve();
 /**
  * Monotonic id of the most recent loadLanguage call.
  *
- * Catalogue imports race: each call overwrites `inFlight`, and whoever
- * resolves last used to win even when it was the loser of the race. Two
- * requests where the second one loads faster than the first -- a cold cache
- * for the newer language, a warm one for the older -- could land out of order,
- * and a newer language choice would be overridden by the older catalogue (or
- * by an older failure falling back to English). The id makes the last request
- * the only one whose result is applied.
+ * Catalogue imports race: each call overwrites `inFlight`, so whoever resolves
+ * last would win even when that is the loser of the race. Two requests where
+ * the second one loads faster than the first -- a cold cache for the newer
+ * language, a warm one for the older -- can land out of order, and a newer
+ * language choice would be overridden by the older catalogue (or by an older
+ * failure falling back to English). The id makes the last request the only one
+ * whose result is applied.
  */
 let loadSeq = 0;
 

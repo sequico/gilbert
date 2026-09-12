@@ -478,9 +478,9 @@ function migratedThemeFields(source: Record<string, unknown>): Record<string, un
  * A change that has not been written up yet is newer than the file by
  * definition, so it wins. Picking a language is where this showed: that
  * remounts the tree, the remount re-reads the file, and the file still holds
- * the language from before the click, so the click came undone. Reported as
- * "sometimes it takes several clicks" — the click that stuck was the one made
- * after the previous write had landed.
+ * the language from before the click, so the click comes undone. The symptom
+ * reads as "sometimes it takes several clicks": the click that sticks is the
+ * one made after the previous write has landed.
  */
 export function mergeRemote(
   current: Settings,
@@ -555,10 +555,10 @@ function deriveTheme(s: Settings): Settings {
  * The account whose settings are in hand, or null while they are only the
  * defaults.
  *
- * A cache is one *account's* settings, so "is there a cache" was never the
- * question -- whose it is, is. This was a constant computed once at module
- * load, and the answer it gave after a sign-out and a second sign-in in the
- * same tab was still yes: the authenticated tree painted the first reader's
+ * A cache is one *account's* settings, so the question is whose it is rather
+ * than whether there is one. A constant computed once at module load answers
+ * yes after a sign-out and a second sign-in in the same tab, and the
+ * authenticated tree then paints the first reader's
  * copy -- their pinned signers, trusted senders, internal domains, language --
  * and an `update` in that window could have pushed the whole of it into the
  * new account's settings file. `discard` clears this at the end of a session,
@@ -679,7 +679,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
       /*
        * Read through the same migration an account's own file gets. An export
        * from before palettes carries `theme` alone, and handing that to `update`
-       * unchanged meant the import reported success and changed nothing: `update`
+       * unchanged makes the import report success while changing nothing: `update`
        * derives `theme` from `palette` and `mode`, so the imported legacy field
        * was written back over by the palette it did not carry. Unknown keys are
        * still handed on -- an import is the reader's own file, and the

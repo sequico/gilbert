@@ -84,9 +84,9 @@ export function decodeApplicationServerKey(key: string): ArrayBuffer {
 /**
  * Base64url, unpadded — the form the W3C Push API produces for its keys.
  *
- * Stalwart 0.16 had to be fixed to accept unpadded keys, so this deliberately
- * does not pad: sending what the browser gave us is the case the server now
- * handles, and re-padding would be inventing a shape nobody tested.
+ * Stalwart 0.16 accepts unpadded keys, so this deliberately does not pad:
+ * sending what the browser gave us is the shape the server handles, and
+ * re-padding would be inventing one nobody tested.
  */
 export function encodeKey(buffer: ArrayBuffer | null): string {
   if (!buffer) return "";
@@ -209,12 +209,12 @@ export function findSubscription(
  * Whether this browser's subscription needs registering again.
  *
  * A JMAP push subscription expires -- seven days is the ceiling -- and it is
- * the client's job to re-register before it does. Nothing did: `enableWebPush`
- * was reachable only from the Settings switch, so the
- * first version of this quietly stopped delivering within a week of being
- * turned on, and stayed off until somebody thought to toggle it. On a phone,
- * where the app is opened for a minute at a time and Settings almost never,
- * that is indistinguishable from the feature not working.
+ * the client's job to re-register before it does. The Settings switch is not
+ * enough on its own: `enableWebPush` is reachable only from there, so a
+ * subscription registered once and never revisited goes quiet within a week of
+ * being turned on -- and on a phone, where the app is opened for a minute at a
+ * time and Settings almost never, that is indistinguishable from the feature
+ * not working.
  *
  * An expiry that will not parse counts as needing renewal. It should never
  * happen; if it does, one extra write is the cheaper way to be wrong.

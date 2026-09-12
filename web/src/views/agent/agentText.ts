@@ -152,8 +152,8 @@ export function triggerText(trigger: AgentTrigger | undefined): string {
  * One phrase per filter key, with the lookup written out.
  *
  * The literal has to be at the call site for the catalogs to see it: passing a
- * key through a variable makes the string invisible to `i18n:check`, which is
- * how thirteen translations became "stale" without anything changing. The table
+ * key through a variable puts the string out of `i18n:check`'s reach, which
+ * leaves thirteen translations reading "stale" with nothing changed. The table
  * is keyed by the canonical list, so a key the matcher gains without a phrase
  * here falls back to the plain line below rather than going unrendered.
  */

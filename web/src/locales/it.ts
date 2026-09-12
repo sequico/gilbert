@@ -1374,6 +1374,15 @@ export const catalog: Catalog = {
     "Search: {query}": "Ricerca: {query}",
 
     "No conversation selected": "Nessuna conversazione selezionata",
+    "No message selected": "Nessun messaggio selezionato",
+    "Select a message to read it here · Press {key} for shortcuts":
+      "Seleziona un messaggio per leggerlo qui · Premi {key} per le scorciatoie",
+    "New mail": "Nuova posta",
+    "Could not share: {error}": "Impossibile condividere: {error}",
+    "Could not do that — open Gilbert and try again":
+      "Non è stato possibile — apri Gilbert e riprova",
+    "share sheet\u0004Share": "Condividi",
+    "share sheet\u0004Share…": "Condividi…",
 
     "Drop here for the top level": "Rilascia qui per il livello superiore",
 

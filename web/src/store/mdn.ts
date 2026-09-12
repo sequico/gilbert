@@ -104,9 +104,9 @@ export async function sendReadReceipt(email: Email): Promise<void> {
   /*
    * The submission succeeding is only half the record: the `$mdnsent` keyword
    * on the original is what stops a later look (or another client) from
-   * offering the receipt again. Only the submission response used to be
-   * inspected, so a failed mark sent the receipt and left it offerable -- and
-   * a reload then produced a duplicate. Try the mark again; if that also
+   * offering the receipt again. Inspecting only the submission response lets a
+   * failed mark send the receipt and leave it offerable -- and a reload then
+   * produces a duplicate. Try the mark again; if that also
    * fails, say so rather than pretending the message is recorded.
    */
   const mark = res.get("k")?.[0] as unknown as SetResponse & {

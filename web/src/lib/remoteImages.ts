@@ -5,11 +5,11 @@ import type { ImagePolicy } from "@/store/settings";
  * the sender.
  *
  * One decision, two seats: the message reader decides before it renders the
- * body, and the composer decides before it quotes a message into a draft —
- * a reply used to fetch the quoted mail's tracking pixels the moment the
- * draft opened, no matter what the reader had decided for that very message.
- * Both seats answer the same question ("may this sender's remote images
- * load?") the same way, so both call this.
+ * body, and the composer decides before it quotes a message into a draft. The
+ * composer is why the second seat exists: quoting a message loads whatever that
+ * quoted mail asks for — tracking pixels included — no matter what the reader
+ * decided for that very message. Both seats answer the same question ("may this
+ * sender's remote images load?") the same way, so both call this.
  *
  * The reader's own "show images for this message" click is deliberately not
  * part of the decision: it is per-view state, not a property of the message.

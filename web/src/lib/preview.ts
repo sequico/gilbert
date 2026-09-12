@@ -55,7 +55,8 @@ function textish(type: string): boolean {
  * SVG is excluded on purpose, and stays excluded. It is a script carrier, the
  * server refuses to serve it inline, and deciding how to show one safely is a
  * question of its own rather than something to settle inside a file lister.
- * An SVG falls through to a download, which is what it did before.
+ * An SVG falls through to a download, which is what every type outside this
+ * list gets.
  */
 export function previewKind(
   type: string | null | undefined,

@@ -324,7 +324,7 @@ export function useTouchRow({
    * Android fires `contextmenu` for a long press of its own, a little after
    * ours, and would open the desktop right-click menu on top of whatever the
    * long press just did. The desktop handler stays untouched for an actual
-   * right-click, which is the only thing that reaches it now.
+   * right-click, which is the only thing that reaches it.
    */
   const onContextMenuCapture = useCallback(
     (e: ReactMouseEvent) => {

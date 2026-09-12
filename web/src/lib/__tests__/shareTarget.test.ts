@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { withBase } from "@/lib/basePath";
 import { collectShare, SHARE_MAX_AGE_MS, shareBody } from "@/lib/shareTarget";
 import { SW_CACHE_NAME } from "@/lib/swCache";
 
@@ -45,16 +46,16 @@ function stash(
 ) {
   const entries: Record<string, Entry> = {};
   const index = files.map((f, i) => ({
-    key: `/gilbert-share/${i}`,
+    key: `${withBase("/gilbert-share")}/${i}`,
     name: f.name,
     type: f.type,
   }));
-  entries["/gilbert-share"] = {
+  entries[withBase("/gilbert-share")] = {
     body: JSON.stringify({ at: Date.now(), files: index, ...meta }),
     type: "application/json",
   };
   for (const [i, f] of files.entries())
-    entries[`/gilbert-share/${i}`] = { body: f.body, type: f.type };
+    entries[`${withBase("/gilbert-share")}/${i}`] = { body: f.body, type: f.type };
   return entries;
 }
 
@@ -114,7 +115,9 @@ describe("collecting a share", () => {
   });
 
   it("does not throw on a stash it cannot read", async () => {
-    fakeCaches({ "/gilbert-share": { body: "not json", type: "application/json" } });
+    fakeCaches({
+      [withBase("/gilbert-share")]: { body: "not json", type: "application/json" },
+    });
     await expect(collectShare()).resolves.toBeNull();
   });
 });

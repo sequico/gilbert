@@ -1,12 +1,11 @@
 /**
  * FileNode shapes, as Stalwart 0.16 defines them.
  *
- * This used to be a compatibility layer spanning 0.15 and 0.16, which differ
- * in ways the server does not report: `nodeType` did not exist and sending it
- * failed the create outright, `FileNode/query` masked directories out of its
- * own results, and rights were a single `mayWrite` rather than the four
- * separate ones. Gilbert requires 0.16 now — sign-in refuses anything older —
- * so a node has one shape and there is nothing left to detect.
+ * Gilbert requires Stalwart 0.16 — sign-in refuses anything older — so a node
+ * always has the 0.16 shape and nothing here probes for a version. The
+ * differences are not ones a response reveals: 0.15 has no `nodeType` and fails
+ * a create that sends it, masks directories out of `FileNode/query` results,
+ * and reports rights as a single `mayWrite` rather than the four separate ones.
  */
 import type { FileNode, Id } from "@/jmap/types";
 import { descendantIds } from "./folderMove";

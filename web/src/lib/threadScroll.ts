@@ -1,11 +1,11 @@
 /**
  * Where a conversation opens.
  *
- * It used to open on the newest message, which is wrong whenever anything in
- * the thread is unread: the unread mail sits above the fold, and the only clue
- * it exists is the marker on a message you have to scroll up to find. The
- * auto-mark-read timer then sweeps the whole thread, so scrolling up late is
- * scrolling up to mail that is already marked read (#87).
+ * The pane opens on the first unread message. Opening on the newest is wrong
+ * whenever anything in the thread is unread: the unread mail sits above the
+ * fold, and the only clue it exists is the marker on a message you have to
+ * scroll up to find. The auto-mark-read timer then sweeps the whole thread, so
+ * scrolling up late is scrolling up to mail that is already marked read (#87).
  *
  * Order is receivedAt, not arrival, so the first unread is not the second-to-
  * last message or any other position you can guess at. A thread where one

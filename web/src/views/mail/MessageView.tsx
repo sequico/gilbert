@@ -395,7 +395,7 @@ export const MessageView = memo(function MessageView({
    * the HTML flattened, which is the same body the sender wrote either way.
    */
   const shareMessage = async () => {
-    const body = textRaw ?? (htmlRaw ? htmlToText(htmlRaw) : "");
+    const body = textRaw?.trim() ? textRaw : htmlRaw ? htmlToText(htmlRaw) : "";
     try {
       await shareText({ title: e.subject || translate("(no subject)"), text: body });
     } catch (err) {

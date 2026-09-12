@@ -3,9 +3,9 @@ import type { Id, Mailbox } from "@/jmap/types";
 /**
  * Whether the folder in the address is one this account does not have.
  *
- * Rendering it as an empty folder was the bug (#111): "Nothing here. This
+ * Rendering it as an empty folder is the bug (#111): "Nothing here. This
  * folder is empty" is a claim about a folder that is not there, so a stale link
- * read as a folder that had emptied itself rather than one that was gone.
+ * reads as a folder that has emptied itself rather than one that is gone.
  *
  * The condition that matters is `loaded`. The folder list arrives after the
  * first paint, so for a moment every id is unknown -- including the right one.

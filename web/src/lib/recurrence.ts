@@ -6,11 +6,10 @@ import { formatList, weekdayName, weekdayNames } from "./datetime";
 /**
  * The seven days, Monday first, named in the reader's locale.
  *
- * This was a table of English strings carrying `label: "Monday"` and
- * `short: "M"`, rendered straight into the picker. The long names could have
- * become catalogue entries; the short ones could not, because "T" is both
- * Tuesday and Thursday and "S" is both Saturday and Sunday, and a catalogue
- * cannot hold two translations under one key. Intl knows all of them.
+ * The long names could live in a catalogue; the short ones cannot, because "T"
+ * is both Tuesday and Thursday and "S" is both Saturday and Sunday, and a
+ * catalogue cannot hold two translations under one key. Intl knows all of them,
+ * in the reader's locale, so nothing here is a table of English strings.
  */
 export const WEEKDAY_KEYS: Array<JSCalendarNDay["day"]> = [
   "mo",

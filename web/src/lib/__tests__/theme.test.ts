@@ -12,7 +12,7 @@ import {
 } from "@/store/settings";
 
 /**
- * "gilbert" is a dark theme wearing ihasmail.org's palette. Everything that
+ * "gilbert" is a dark theme wearing the palette it is named for. Everything that
  * asks "is this dark?" has to say yes for it — the top-bar toggle picks its
  * icon from the answer, and the message frame decides whether mail sits on a
  * light card or follows the app. A theme that painted dark while reporting

@@ -1,11 +1,11 @@
 /**
  * A filename for a message saved or attached as `.eml`.
  *
- * The rule this replaces was `subject.replace(/[^\w.-]+/g, "_")`, and `\w`
- * without the `u` flag is ASCII: every character of a Russian, Japanese or
- * Chinese subject failed the class, so those messages downloaded as a row of
- * underscores. Gilbert ships in ten languages besides English, so the
- * subjects it handled worst were most of the world's.
+ * `\w` without the `u` flag is ASCII, which is what rules out the obvious
+ * `subject.replace(/[^\w.-]+/g, "_")`: every character of a Russian, Japanese
+ * or Chinese subject fails the class, so those messages download as a row of
+ * underscores. Gilbert ships in ten languages besides English, so the subjects
+ * that rule handles worst are most of the world's.
  *
  * What is actually unsafe in a filename is a much shorter list than "not
  * ASCII": the path separators, the characters Windows reserves, and the
@@ -37,8 +37,8 @@ export function sanitizeFilename(subject: string | null | undefined): string {
   const kept = [...(subject ?? "")].filter((ch) => !unsafe(ch)).join("");
   return (
     kept
-      // Whitespace becomes an underscore rather than being kept: it is what the
-      // previous rule did, and it saves a quoting question in a shell later.
+      // Whitespace becomes an underscore rather than being kept: a name with
+      // spaces in it costs a quoting question in a shell later.
       .replace(/\s+/g, "_")
       .slice(0, MAX)
       // Windows refuses a name ending in a dot or a space, and a leading dot

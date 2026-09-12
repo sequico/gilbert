@@ -26,16 +26,15 @@ import { useSettings } from "./settings";
  * `ContactCard/set` is refused whole over `maxObjectsInSet` -- the server does
  * not take the first 500 and drop the rest, it creates nothing and answers
  * `requestTooLarge` -- so an address book big enough to cross the ceiling
- * imported nothing at all. The same bug the calendar import had, found on a
+ * imports nothing at all. The same failure the calendar import meets, found on a
  * real 800 KB export ([#173]).
  *
  * `maxObjectsInSet` is what the session advertises and 500 where a server does
  * not say; splitting by it rather than by a constant follows a deployment that
  * has tuned the limit.
  *
- * Both imports come through here, which is what the LDIF import's "from
- * `ContactCard/set` down they are the same" was always claiming and is now
- * true of.
+ * Both imports come through here, which is what makes the LDIF import the same
+ * as the vCard import from `ContactCard/set` down.
  *
  * [#173]: https://github.com/Coffey-Labs/ihasmail/issues/173
  */
@@ -56,8 +55,8 @@ async function scanBook(
   accountId: Id,
   addressBookId: Id,
 ): Promise<{ byUid: Map<string, Id>; likeness: Set<string> }> {
-  /* The id as well as the UID, because a card that is already here is now
-     updated rather than skipped, and updating needs something to address. */
+  /* The id as well as the UID, because a card that is already here is updated
+     rather than skipped, and updating needs something to address. */
   const byUid = new Map<string, Id>();
   const likeness = new Set<string>();
   const page = client.maxObjectsInGet;
@@ -98,11 +97,11 @@ async function scanBook(
  * looks like a stranger. Either mistake is silent and one of them is
  * unrecoverable, so it counts and never acts.
  *
- * What is left for it to count, now that an LDIF re-import matches on the
- * entry's `dn`, is the entries that matching could not catch: one whose `dn`
- * moved between exports, and anything imported before there was a `dn` to match
- * on. Those arrive as new cards, and saying "40 of these look like contacts you
- * already had" is the honest half of the answer -- the reported harm was
+ * What is left for it to count is the entries that matching could not catch:
+ * one whose `dn` moved between exports, and anything imported before there was
+ * a `dn` to match on. Those arrive as new cards, and saying "40 of these look
+ * like contacts you already had" is the honest half of the answer -- the
+ * reported harm was
  * confusion rather than duplication, and being told costs nothing.
  *
  * One key per address, so a person whose second address matches is still
@@ -182,7 +181,8 @@ export interface Suggestion {
  *
  * An `AddressBook/get` with no `properties` omits it entirely -- confirmed
  * against 0.16.19 on 2026-08-27 on a book that really was shared. See the note
- * on CALENDAR_PROPS; both had the same hole and Files did not.
+ * on CALENDAR_PROPS; address books, calendars and Files all name their
+ * properties for the same reason.
  */
 export const ADDRESS_BOOK_PROPS = [
   "id",
@@ -519,7 +519,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
      * Subscribing is a write to somebody *else's* account, so it is the one
      * call in the app that a perfectly healthy server is entitled to refuse --
      * and a refusal arrives as a successful response carrying a per-object
-     * failure, not as a thrown error. Ignoring it made a refused subscribe look
+     * failure, not as a thrown error. Ignoring it makes a refused subscribe look
      * exactly like a button that does nothing.
      */
     /*
@@ -778,7 +778,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
   /*
    * Batched for the same reason the imports are: a selection larger than
    * `maxObjectsInSet` is refused whole, so "select all" over a big address book
-   * deleted nothing and said why in JMAP's words.
+   * would delete nothing and say why in JMAP's words.
    *
    * The ids that actually went are what leaves the list, rather than everything
    * that was asked for. A batch that fails after earlier ones succeeded must

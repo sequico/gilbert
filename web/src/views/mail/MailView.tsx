@@ -61,11 +61,10 @@ export function MailView({
   /*
    * A folder id this account does not have.
    *
-   * It used to render the ordinary empty state -- "Nothing here. This folder is
-   * empty." -- which is a claim about a folder that is not there, so a stale
-   * link read as a folder that had emptied itself rather than one that was
-   * gone (#111). Only reachable from outside the app: the sidebar links to ids
-   * that exist.
+   * The ordinary empty state -- "Nothing here. This folder is empty." -- is a
+   * claim about a folder that is not there, so it would read a stale link as a
+   * folder that had emptied itself rather than one that is gone (#111). Only
+   * reachable from outside the app: the sidebar links to ids that exist.
    *
    * Inbox is the kinder landing than a dead end, but silently swapping one
    * folder for another would be its own small lie, so it says what happened.
@@ -250,18 +249,16 @@ export function MailView({
       /*
        * Move the focused row off the message that just went away.
        *
-       * Nothing did this before, so `focusId` kept pointing at a row that was
-       * no longer in the list, and two separate complaints in #71 fell out of
-       * it. `targetIds()` falls back to the focused id, so the next `#`
-       * re-targeted the deleted message -- which the optimistic update had
-       * already marked as being in Deleted Items, making it look like a
-       * permanent delete and raising a confirmation the setting had turned
-       * off. And `moveFocus` reads `ids.indexOf(focusId)`, which was -1, which
-       * it treats as "before the start" -- so `k` clamped to the top of the
-       * list.
+       * Leaving `focusId` on a row that is no longer in the list breaks two
+       * things (#71). `targetIds()` falls back to the focused id, so the next
+       * `#` re-targets the deleted message -- which the optimistic update has
+       * already marked as being in Deleted Items, which makes it look like a
+       * permanent delete and raises a confirmation the setting has turned off.
+       * And `moveFocus` reads `ids.indexOf(focusId)`, where -1 is treated as
+       * "before the start", so `k` clamps to the top of the list.
        *
-       * Clicking a row was unaffected, because that sets focus to a row that
-       * exists, which is why it only ever happened from the keyboard.
+       * Clicking a row is unaffected, because that sets focus to a row that
+       * exists, so only the keyboard reaches this.
        *
        * `currentRowIndex` here is the value from the render that started this
        * action, so it is the index the message had *before* it was removed.
@@ -318,8 +315,8 @@ export function MailView({
           (id) => trashId && mail.emails[id]?.mailboxIds[trashId],
         );
         if (permanent || settings.confirmDelete) {
-          // "message(s)" was doing the work a plural form should: every
-          // language that inflects got a parenthesis instead of agreement.
+          // A plural form rather than "message(s)": that spelling puts a
+          // parenthesis where every language that inflects wants agreement.
           const ok = await confirmDialog({
             title: permanent ? translate("Delete forever?") : translate("Delete?"),
             message: permanent
@@ -379,7 +376,7 @@ export function MailView({
   useEffect(() => {
     const moveFocus = (delta: number) => {
       // A focused id that is no longer in the list gives -1, which must not be
-      // read as "just before the first row" -- that is what sent `k` to the
+      // read as "just before the first row" -- that is what sends `k` to the
       // top. Fall back to where the list thinks we are instead.
       const fromFocus = focusRef.current ? ids.indexOf(focusRef.current) : -1;
       const cur = fromFocus >= 0 ? fromFocus : currentRowIndex;

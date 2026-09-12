@@ -100,9 +100,9 @@ export function formatDuration(seconds: number): string {
  * carries a wall-clock `start` and a `timeZone`, and the grid draws it at the
  * reader's local time. Working out a new time from those local hours and then
  * re-expressing it in the event's zone converts twice, and the two conversions
- * do not cancel: an event in a zone two hours from the reader's moved two
- * hours the first time it was dragged, and then sat still, because after that
- * its stored time and the reader's happened to agree.
+ * do not cancel: an event in a zone two hours from the reader's shifts by two
+ * hours on the first drag and then sits still, because its stored time and the
+ * reader's agree by then.
  *
  * Parsing the stored string into its parts and adding minutes to those parts
  * touches no zone at all, so there is nothing to get wrong. The zone itself is
@@ -153,9 +153,9 @@ export function movePatch(storedStart: string, deltaMinutes: number): DragPatch 
  * A day *delta*, not a target date, and the difference matters whenever the
  * event's zone is not the reader's. The month grid's cells are local days; the
  * event's stored date is in its own zone. Rewriting the stored date to the day
- * that was dropped on put a Tokyo event dropped on the 11th onto the 10th,
- * because 15:00 in Tokyo on the 11th is 23:00 in Phoenix on the 10th — the
- * event went where its own calendar said, not where the pointer did.
+ * that was dropped on puts a Tokyo event dropped on the 11th onto the 10th,
+ * because 15:00 in Tokyo on the 11th is 23:00 in Phoenix on the 10th — it lands
+ * where its own calendar says, not where the pointer does.
  *
  * Shifting by the difference between the two local days moves it exactly as
  * far as the hand did, and adding whole days to a wall clock leaves the time
