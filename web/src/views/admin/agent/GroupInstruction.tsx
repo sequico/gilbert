@@ -93,23 +93,23 @@ export function GroupInstruction({ groups }: { groups: readonly string[] }) {
         </p>
       ) : (
         <>
-          {groups.length > 1 && (
-            <div className="field">
-              <label htmlFor="agent-instruction-group">{t("Group")}</label>
-              <select
-                id="agent-instruction-group"
-                className="input"
-                value={group}
-                onChange={(e) => setGroup(e.target.value)}
-              >
-                {groups.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* Shown even with a single granted group: the picker is how a person
+              reads which group's instruction the field below belongs to. */}
+          <div className="field">
+            <label htmlFor="agent-instruction-group">{t("Group")}</label>
+            <select
+              id="agent-instruction-group"
+              className="input"
+              value={group}
+              onChange={(e) => setGroup(e.target.value)}
+            >
+              {groups.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="field">
             <label htmlFor="agent-instruction-text">
               {t("How this group's agent works")}

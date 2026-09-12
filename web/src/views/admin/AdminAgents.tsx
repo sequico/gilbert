@@ -3,12 +3,13 @@
  *
  * The installation's own agent and its per-tier models live here, split into
  * three questions asked in the order a person actually asks them: is there an
- * agent and how does it sign in (Overview), which groups does it work in and
- * what does each one tell it (Groups), and which model serves which tier
- * (Models). What a group's agent actually *does* — its automations, the
- * approvals waiting on a person, and the workers serving them — lives in Group
- * workers instead: that section already reads one group at a time, and an
- * automation is exactly that.
+ * agent and how does it sign in (Overview), which model serves which tier
+ * (Models) — the installation's own configuration, settled once — and which
+ * groups it works in and what each one tells it (Groups), last because it
+ * follows Stalwart's directory rather than anything written here. What a
+ * group's agent actually *does* — its automations, the approvals waiting on a
+ * person, and the workers serving them — lives in Group workers instead: that
+ * section already reads one group at a time, and an automation is exactly that.
  *
  * Nothing here grants anything, and nothing here names the agent. The
  * deployment names it in the environment it starts with, and a group's
@@ -32,8 +33,8 @@ export function AdminAgents() {
   // to report, and it has its own line here.
   const error = useAgents((s) => s.problems.status);
   const loadStatus = useAgents((s) => s.loadStatus);
-  // One part at a time: the installation's own health, what each group has
-  // granted and told it, and which models serve it are three questions, and
+  // One part at a time: the installation's own health, which models serve each
+  // tier, and what each group has granted and told it are three questions, and
   // every surface on one page was a page nobody read.
   const [part, setPart] = useState<AgentPart>("overview");
 
@@ -94,8 +95,8 @@ export function AdminAgents() {
       </div>
 
       {part === "overview" && <Registration status={status} />}
-      {part === "groups" && <Groups status={status} />}
       {part === "models" && <AgentProviders />}
+      {part === "groups" && <Groups status={status} />}
     </div>
   );
 }
@@ -105,8 +106,8 @@ export function AdminAgents() {
  */
 const AGENT_PARTS = [
   { id: "overview", label: "Overview" },
-  { id: "groups", label: "Groups" },
   { id: "models", label: "Models" },
+  { id: "groups", label: "Groups" },
 ] as const;
 
 type AgentPart = (typeof AGENT_PARTS)[number]["id"];
