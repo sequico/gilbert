@@ -131,6 +131,28 @@ export async function recordAudit(
   await store.appendAudit(entry, new Date(entry.at));
 }
 
+/**
+ * A line for a group whose own document cannot be read.
+ *
+ * There is no run and no job to name: what failed is the document every run of
+ * the group is written in, and the group's whole automation is stopped by it.
+ * The subject is the document itself, so the trail says which one a person has
+ * to look at, and the outcome is `failed` — no run of the group happened, and
+ * `missed` is the outcome for one the schedule moved past.
+ */
+export function unreadableDocumentAuditEntry(
+  document: string,
+  detail: string,
+): AgentAuditEntry {
+  return build(
+    { jobId: document, ruleId: document, ruleVersion: 0 },
+    { id: document, name: document, version: 0 },
+    "failed",
+    [],
+    detail,
+  );
+}
+
 /** How a failure reads in the trail, the chat and the admin surface. */
 export function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);

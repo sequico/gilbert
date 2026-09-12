@@ -36,6 +36,14 @@ const syncMock = vi.hoisted(() => {
 vi.mock("@/lib/settingsSync", () => ({
   queueSettingsPush: syncMock.push,
   pendingSettingsKeys: syncMock.pendingKeys,
+  /*
+   * The settings store reaches the session store (it drops what it holds when
+   * a session ends), and the session store imports these two for `logout` and
+   * the 401 handler. A mock stands in for the whole module, so everything on
+   * the way in has to be here.
+   */
+  flushSettingsPush: vi.fn(),
+  stopSettingsSync: vi.fn(),
 }));
 
 beforeEach(() => {

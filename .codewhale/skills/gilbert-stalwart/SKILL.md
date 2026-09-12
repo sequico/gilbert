@@ -201,15 +201,13 @@ citizen, and its changes ride the same push rail as Email:
 6. **Conditional writes (`ifInState`) are the agent design's lock** (ADR 0003
    §6): the token is a **whole-account FileNode state**, not a per-document one,
    so any unrelated write — a member's upload, another document, a prune in the
-   same pass — invalidates it. `server/src/mock/index.ts` `checkIfInState`
-   carries the **owed** live probe (ADR 0003 resolution 19, owner decision
-   2026-09-10) with four questions: that `FileNode/set` honours `ifInState` at
-   all; that a mismatch arrives as `stateMismatch` rather than
-   `invalidArguments`; that the token advances on every write that matters; and
-   whether a blob **upload**, which writes no node, advances it. The mock's own
-   answer to the last one — no, it does not — is an assumption the production
-   write path depends on (`writeAppFileIn` uploads between the token read and
-   the conditional write), and it is pinned by a test in
-   `server/src/mock/compare-and-set.test.ts` so a change there fails loudly
-   instead of being inherited. Until the probe is run and recorded, tests prove
-   the client's logic against the simulation, not the server's behaviour.
+   same pass — invalidates it. The four questions it rests on are answered
+   live (2026-09-11, `scripts/probe-conditional-writes.mjs`, 0.16.21) and
+   recorded in ADR 0003's *Verified against Stalwart*: `FileNode/set` honours
+   `ifInState`; a stale token is refused as `stateMismatch` rather than
+   `invalidArguments`; the token advances on every write that matters and does
+   **not** advance on a blob upload. That last answer is what makes the
+   production write path safe — `writeAppFileAt` uploads between the token read
+   and the conditional write — and the mock reproduces every one of the four,
+   pinned by `server/src/mock/compare-and-set.test.ts` so a change in the
+   simulation fails loudly instead of being inherited.

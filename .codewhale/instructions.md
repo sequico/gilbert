@@ -106,8 +106,7 @@ test suites (the parent runs the gate); large reviews are split into small
 parallel reviewers by area; deep reasoning is reserved for security-critical
 surfaces. An agent that drifts into wide exploration gets a converge-now
 instruction rather than being left to widen scope.
-**Reviewer dispatch (owner decision 2026-09-09, after one over-budget
-reviewer drifted):** every review is split into small parallel reviewers by
+**Reviewer dispatch (owner decision 2026-09-09):** every review is split into small parallel reviewers by
 area, each with an explicit bounded file list, a diff range limited to the
 change under review (never a stale merge-base that drags unrelated history
 in), a tool-call budget stated in the prompt (~12), and the read-only grammar
@@ -133,8 +132,7 @@ combined diff output is small — never a directory-level diff. Tool output is
 capped; a truncated diff gets re-read and re-run, which is what burns
 hundreds of k tokens. A reviewer whose output was truncated narrows with
 `read_file`/single grep — it never re-issues the same wide command.
-**Claims, docs and parallel writers (owner decision 2026-09-10, after the agent
-branch):** a comment, an ADR sentence and a FEATURES bullet are **claims about
+**Claims, docs and parallel writers (owner decision 2026-09-10):** a comment, an ADR sentence and a FEATURES bullet are **claims about
 the code**. Three rules follow, and they bind parent and child alike.
 
 1. **Write only what you have read.** A docs/ADR writer dispatched beside code
@@ -182,8 +180,7 @@ repo's project instructions and nothing else. Owner-global counterparts live
 in global memory and are labelled "(global user rule, active here)" when
 mirrored here. Change the global entry first, then mirror; never keep a third
 copy (skills and dispatch prompts restate the recipe by reference only).
-**Merge/edit hygiene (owner decision 2026-09-09, after conflict-marker lines
-were committed twice):** when resolving a conflict with the edit tool, the
+**Merge/edit hygiene (owner decision 2026-09-09):** when resolving a conflict with the edit tool, the
 oldText span must include the full `<<<<<<<`/`=======`/`>>>>>>>` marker lines
 — never start below the opening marker; when taking a whole side wholesale,
 strip markers with sed in the same command. No file is staged or committed

@@ -27,7 +27,7 @@ const { fetchUpstreamSession } = await import("../upstream.js");
 const { writeAppFileAt } = await import("../appFolder.js");
 const { JMAP_MAIL, JMAP_SUBMISSION, JmapClient } = await import("../jmap.js");
 const { GROUP_LABELS_FILE } = await import("../shared/labels.js");
-const { fetchEmailRecord } = await import("./actions.js");
+const { fetchEmailRecord, findMailboxByName } = await import("./actions.js");
 const { postMessage, readChat } = await import("./chat.js");
 const { newJob } = await import("./documents.js");
 const { Executor, JOB_MAX_ATTEMPTS } = await import("./executor.js");
@@ -943,3 +943,127 @@ test("an extraction that fails is not retried, because it leaves a file behind",
   );
   assert.equal(failed?.doc.nextAttemptAt, undefined);
 });
+
+/*
+ * The two ways a run is stopped before it has an effect: the draft a paused run
+ * prepares passes the same fence as the plan's own actions, and a rules document
+ * nobody can read is recorded instead of being taken for no automation.
+ */
+
+test("a paused run whose unit was taken over leaves no draft", async () => {
+  // The draft is the one effect a paused run has, and it is an effect in a
+  // mailbox the group shares: a run whose claim a successor took must not leave
+  // one beside the draft that successor is preparing (ADR 0003 §6, resolution
+  // 20). The fence is asked before the action, the same hook the plan's own
+  // actions are fenced by.
+  const proposing = rule({
+    id: "draft-on-approval",
+    name: "Ask before replying",
+    review: { mode: "always" },
+    actions: [
+      { do: "mail.draft", with: { to: ADA, subject: "Re: invoice", text: "Filed." } },
+    ],
+    capabilities: ["mail.draft"],
+  });
+  await store.writeRules([proposing]);
+  const emailId = await createMessage("An invoice that would be drafted for approval");
+  const claim = await claimFor();
+  const job = newJob({
+    id: "draft-job",
+    accountId: GROUP,
+    rule: { id: "draft-on-approval", version: 1 },
+    trigger: { on: "email", emailId, at: new Date().toISOString() },
+  });
+  await store.writeJob(job);
+
+  const before = await draftsInDrafts();
+  // The unit moves to a successor after the fence every run passes before it
+  // starts working: the first read is this worker's, everything read after it
+  // belongs to the worker that took over.
+  const real = AgentStore.prototype.readClaim;
+  let reads = 0;
+  AgentStore.prototype.readClaim = async function (
+    this: InstanceType<typeof AgentStore>,
+  ) {
+    reads += 1;
+    const held = await real.call(this);
+    if (reads > 1 && held) return { ...held, doc: { ...held.doc, worker: "successor" } };
+    return held;
+  };
+  try {
+    await executor.runJob(GROUP, job, proposing, claim);
+  } finally {
+    AgentStore.prototype.readClaim = real;
+  }
+
+  const after = await store.readJob("draft-job");
+  assert.equal(
+    after?.doc.state,
+    "failed",
+    "a run that lost its unit ends loudly, not paused on a decision nobody can answer",
+  );
+  assert.match(String(after?.doc.error), /taken over/);
+  assert.equal(after?.doc.proposal?.draft ?? null, null, "no draft is recorded either");
+  assert.equal(
+    await draftsInDrafts(),
+    before,
+    "and nothing landed in the group's Drafts mailbox",
+  );
+});
+
+test("a rules document nobody can read stops the group's runs and says so", async () => {
+  // One malformed rule invalidates the whole document, so every automation of
+  // the group stops. A reader that answered "no rules" for it would stop the
+  // group's work with no audit row and no word in the chat (ADR 0003, failure
+  // paths: an unreadable document), and the reconcile would consume the changes
+  // it never acted on.
+  await writeAppFileAt(ctx, GROUP, "agent/rules.json", {
+    v: 1,
+    rules: [{ v: 1, id: "half", version: 1, name: "Half an automation" }],
+  });
+  const jobsBefore = (await store.listJobs()).length;
+
+  const ran = await executor.runPending(GROUP);
+  assert.equal(ran, 0, "not one job is run while the automation cannot be read");
+
+  const claim = await claimFor();
+  const anchor = claim.states.Email;
+  await createMessage("An invoice arriving while the automation is unreadable");
+  await executor.reconcile(GROUP, "Email", claim);
+
+  const audit = await store.readAuditAt(new Date());
+  const anomalies = (audit?.entries ?? []).filter(
+    (entry) => entry.outcome === "failed" && entry.ruleId === "rules.json",
+  );
+  assert.equal(
+    anomalies.length,
+    1,
+    "the trail carries the anomaly once per process, not once per pass",
+  );
+  assert.match(String(anomalies[0]?.detail), /does not read as a rules document/);
+  const chat = await readChat(ctx, GROUP, client);
+  assert.ok(
+    chat.some((message) => message.text.includes("cannot read this group's automations")),
+    "and the group is told why nothing of its automation runs",
+  );
+  assert.equal(
+    (await store.readClaim())?.doc.states.Email,
+    anchor,
+    "the reconcile leaves the anchor where it is: changes it could not match are not consumed",
+  );
+  assert.equal((await store.listJobs()).length, jobsBefore, "and no job is opened");
+
+  await store.writeRules([rule()]);
+});
+
+/** How many messages wait in the group's Drafts: what a paused run may not add to. */
+async function draftsInDrafts(): Promise<number> {
+  const mailboxId = await findMailboxByName(client, GROUP, "Drafts");
+  assert.ok(mailboxId, "the group has a Drafts mailbox");
+  const found = await client.call<{ total?: number }>(
+    "Email/query",
+    { accountId: GROUP, filter: { inMailbox: mailboxId } },
+    [JMAP_MAIL],
+  );
+  return found.total ?? 0;
+}

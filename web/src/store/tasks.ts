@@ -130,44 +130,6 @@ function isTasklist(c: { description?: string | null }): boolean {
   return c.description === TASKLIST_MARKER;
 }
 
-const PRINCIPALS_CAP = "urn:ietf:params:jmap:principals";
-
-/**
- * The directory id of the principal that owns a shared mailbox account —
- * the thing `shareWith` names. Tried by email first, then by name; a
- * directory that refuses the query yields null and the caller skips the
- * share rather than failing the creation.
- */
-async function principalIdForAccount(accountName: string): Promise<Id | null> {
-  const session = useSession.getState();
-  const own = session.ownAccountFor(PRINCIPALS_CAP);
-  if (!own || !accountName) return null;
-  // Stalwart's Principal/query filter is a single object, not an array: the
-  // array form is answered with notRequest on a real 0.16 server (verified
-  // live 2026-09-07), and the filter fields are email and name.
-  for (const field of ["email", "name"] as const) {
-    try {
-      const q = await client.call<QueryResponse>("Principal/query", {
-        accountId: own,
-        filter: { [field]: accountName },
-        limit: 20,
-      });
-      const ids = q.ids ?? [];
-      if (!ids.length) continue;
-      const g = await client.call<GetResponse<{ id: Id; name?: string; email?: string }>>(
-        "Principal/get",
-        { accountId: own, ids, properties: ["id", "name", "email"] },
-      );
-      const hit = g.list?.find((p) => (p.email ?? p.name) === accountName) ?? g.list?.[0];
-      if (hit?.id) return hit.id;
-    } catch {
-      /* a directory that refuses the query has no principal to name */
-      return null;
-    }
-  }
-  return null;
-}
-
 export const useTasks = create<TaskState>((set, get) => ({
   accountId: null,
   lists: [],
@@ -316,13 +278,22 @@ export const useTasks = create<TaskState>((set, get) => ({
    * members of a group list the same way any task edit does.
    */
   async reorder(list, orderedIds) {
+    /*
+     * Both sides of the match carry the account: a task is held under its
+     * account-qualified key, and the list is addressed by its own, so a bare
+     * calendar id or a bare task id cannot pull in a same-numbered object of
+     * another account and write this order onto it. `update` itself is keyed
+     * by the object id the set call names -- one account's ids -- and each
+     * object behind it is the one the qualified lookup resolved to.
+     */
     const update: Record<Id, Record<string, unknown>> = {};
-    const mine = Object.values(get().tasks).filter(
-      (x) => x.calendarIds?.[list.calendarId],
-    );
-    const byId = new Map(mine.map((t) => [t.id, t]));
+    const mine = new Map<string, TaskItem>();
+    for (const [key, x] of Object.entries(get().tasks)) {
+      if (key !== taskKey(list.accountId, x.id)) continue;
+      if (x.calendarIds?.[list.calendarId]) mine.set(key, x);
+    }
     orderedIds.forEach((id, i) => {
-      const t = byId.get(id);
+      const t = mine.get(taskKey(list.accountId, id));
       if (t) update[id] = { keywords: orderKeywords(t, i) };
     });
     // Tasks that just left the open list keep their old key, which is harmless:
@@ -355,45 +326,11 @@ export const useTasks = create<TaskState>((set, get) => ({
     if (err) throw new Error(setErrorMessage(err));
     const createdId = res.created!.c!.id;
     /*
-     * A list created on a shared mailbox account belongs to the group, so it
-     * is shared back to the group's principal right away: Stalwart resolves
-     * access through that principal at read time, which is what makes a
-     * member added after the list exists see it without per-user ACL
-     * maintenance. Best-effort — a directory that refuses the lookup, or a
-     * server that will not take the share, leaves the list as created rather
-     * than failing the creation. (Principal id lookup and the shareWith
-     * write re-verified live with a dated comment per repo convention.)
+     * The account that owns the list is the grant: a group list is the
+     * group's own calendar, reached by every member through their session on
+     * the group account. No `shareWith` back to a principal, and a member
+     * added after the list exists needs no per-object ACL maintenance.
      */
-    if (accountId !== own) {
-      const accountName =
-        useSession.getState().session?.accounts?.[accountId]?.name ?? "";
-      const pid = await principalIdForAccount(accountName);
-      if (pid) {
-        try {
-          await client.call("Calendar/set", {
-            accountId,
-            update: {
-              [createdId]: {
-                shareWith: {
-                  [pid]: {
-                    mayReadFreeBusy: true,
-                    mayReadItems: true,
-                    mayWriteAll: true,
-                    mayWriteOwn: true,
-                    mayUpdatePrivate: true,
-                    mayRSVP: true,
-                    mayShare: false,
-                    mayDelete: false,
-                  },
-                },
-              },
-            },
-          });
-        } catch {
-          /* non-fatal: see above */
-        }
-      }
-    }
     if (accountId === own) await useCalendar.getState().loadCalendars();
     else await useCalendar.getState().loadSharedCalendars();
     await get().load();

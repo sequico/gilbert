@@ -881,6 +881,19 @@ export const useCompose = create<ComposeState>((set, get) => ({
     const d = get().drafts.find((x) => x.key === key);
     if (!d) return;
     const delay = settings().undoSendSeconds;
+    /*
+     * Settled here, when Send is pressed, and carried to the submission: the
+     * undo window is long enough to switch mailbox or sign out, and a send
+     * that resolved its account afterwards would go out from whichever
+     * mailbox is on screen by then -- or from none at all.
+     */
+    const mail = useMail.getState();
+    const identity =
+      mail.identities.find((i) => i.id === d.identityId) ?? mail.defaultIdentity();
+    const target: SendTarget = {
+      accountId: mail.accountId,
+      identityId: identity?.id ?? null,
+    };
     // A schedule the user left sitting until it passed is just a send now.
     const scheduling = d.sendAt !== null && d.sendAt > Date.now();
     // Hide the composer immediately; actually send after the undo window.
@@ -897,7 +910,7 @@ export const useCompose = create<ComposeState>((set, get) => ({
         return { pendingSends: rest };
       });
       try {
-        await sendInternal(d, get);
+        await sendInternal(d, target);
         toast.success(
           scheduling
             ? translate("Send scheduled for {when}", {
@@ -1466,10 +1479,33 @@ export function buildSubmission(opts: {
   };
 }
 
-async function sendInternal(d: Draft, _get: () => ComposeState): Promise<void> {
+/**
+ * The mailbox and identity a Send was pressed under, resolved once and
+ * carried to the submission: a message goes out from the mailbox it was
+ * written in, or not at all.
+ */
+interface SendTarget {
+  accountId: Id | null;
+  identityId: Id | null;
+}
+
+async function sendInternal(d: Draft, target: SendTarget): Promise<void> {
   const mail = useMail.getState();
-  const accountId = mail.accountId!;
-  const ident = mail.identities.find((i) => i.id === d.identityId) ?? mail.identities[0];
+  const accountId = target.accountId;
+  if (!accountId) throw new Error(translate("Not signed in"));
+  /*
+   * The account on screen is compared against the one Send was pressed
+   * under, before anything is submitted: the ids below -- the sent mailbox,
+   * the drafts folder, the identity -- are read from whichever account is
+   * active, and writing this message through another account's identity is
+   * not a mistake the reader could undo.
+   */
+  if (mail.accountId !== accountId)
+    throw new Error(translate("The mailbox changed before this message was sent"));
+  const ident =
+    target.identityId === null
+      ? undefined
+      : mail.identities.find((i) => i.id === target.identityId);
   if (!ident) throw new Error(translate("No sending identity available"));
   if (d.attachments.some((a) => !a.blobId && !a.error))
     throw new Error(translate("Attachments are still uploading"));

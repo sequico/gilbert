@@ -39,7 +39,7 @@ and the block it belongs to is said where that is not obvious.
 
 That same section of the README draws the line to upstream, and it is short on
 purpose: `gilbertmailer`, and inside `gilbertserver` the layer that serves it,
-came from ihasmail. Everything else in this file is Gilbert's own — which is
+came from upstream. Everything else in this file is Gilbert's own — which is
 most of it — and has no upstream to be compared against.
 
 ### Capabilities, and what happens without them
@@ -439,7 +439,7 @@ wants to retire a chat clears the folders through Files.
 # The upstream client
 
 The mail client, calendar, contacts, files, sharing and Sieve editing come from
-**upstream ihasmail**, renamed for this build: this project does not re-document
+**upstream**, renamed for this build: this project does not re-document
 them, and the reference for installing, configuring or driving them is
 upstream's own documentation — [docs.ihasmail.org](https://docs.ihasmail.org).
 The sections below are kept so this inventory is complete, and they are not the
@@ -1453,9 +1453,8 @@ offering to translate a page the reader cannot read.
 
 ## Themes
 
-Two questions, asked separately: **which palette** and **light or dark**. They
-used to be one setting, which works for exactly one palette and stops working
-at two.
+Two questions, asked separately: **which palette** and **light or dark**. One
+setting for both works for exactly one palette and stops working at two.
 
 | Palette | |
 | --- | --- |
@@ -1495,9 +1494,9 @@ editors rather than for prose at this size: Dracula's comment grey is 3.03:1 on
 its own background, and Rosé Pine's gold is 2.7:1 on Dawn. Shipping them as
 published would have quietly ended the WCAG AA claim two sections down.
 
-Body text is lifted the same way, which it was not at first. It used to be
-checked and then either accepted or rejected, and that rule would have turned
-away five of the six palettes added in September 2026: most of them target
+Body text is lifted the same way. Checking each body colour and either
+accepting or rejecting it would turn away five of the six palettes added in
+September 2026: most of them target
 around 4.5:1 for body text, their own goal, where Gilbert asks 7:1 of the text
 a reader looks at all day. Rejecting a palette over a bar its designers never
 aimed at is the wrong answer when the same arithmetic already adjusts muted
@@ -1648,7 +1647,8 @@ away from a signed-in screen, which is the case that matters.
 
 - **CSP** on the app: `default-src 'self'`, `script-src 'self'`, `object-src
   'none'`, `frame-ancestors 'none'`, `base-uri 'self'`, `form-action 'self'`.
-  Proxied blobs get a far stricter one — `sandbox; default-src 'none'`.
+  Proxied blobs get a far stricter one — `sandbox; default-src 'none';
+  style-src 'unsafe-inline'; img-src data:`.
 - `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
   `Referrer-Policy: no-referrer`, a `Permissions-Policy` denying camera,
   microphone, geolocation, payment and USB, `Cross-Origin-Opener-Policy:
@@ -1895,11 +1895,14 @@ against with no real mailbox. `npm run dev:mock`, then `demo@example.com` /
 It reproduces the things a naive fake would get wrong, because each cost a live
 debugging session: `urn:stalwart:jmap` advertised **per-account** rather than
 session-level, identity signatures capped at 2047 **bytes**, `CalendarEvent/set`
-speaking Stalwart's vocabulary rather than RFC 8984's, and an override that
-moves an occurrence renumbering the ids around it. Two switches:
+speaking Stalwart's vocabulary rather than RFC 8984's, and an occurrence's id
+staying put across a write that adds or changes an override. Four switches:
 `MOCK_NO_FUTURE_RELEASE=1` advertises FUTURERELEASE and then drops every hold;
 `MOCK_NO_REGISTRY=1` omits the Stalwart capability so the sign-in refusal can be
-tested.
+tested; `MOCK_NO_SCHEDULING_SEND=1` refuses a calendar write that asks for
+scheduling messages, the way an account without that permission is refused; and
+`MOCK_NO_KEYWORD_SORT=1` serves a server that does not implement sorting on
+keywords.
 
 ---
 

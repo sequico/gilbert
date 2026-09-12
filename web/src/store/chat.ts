@@ -515,6 +515,8 @@ export const useChat = create<ChatState>((set, get) => {
       try {
         let since = conv.stateToken;
         const created: Id[] = [];
+        const destroyed = new Set<Id>();
+        const updated = new Set<Id>();
         let hasMore = true;
         let guard = 0;
         while (hasMore && guard++ < 8) {
@@ -524,6 +526,8 @@ export const useChat = create<ChatState>((set, get) => {
             maxChanges: 500,
           });
           created.push(...ch.created);
+          for (const id of ch.destroyed) destroyed.add(id);
+          for (const id of ch.updated) updated.add(id);
           since = ch.newState;
           hasMore = ch.hasMoreChanges;
         }
@@ -534,10 +538,30 @@ export const useChat = create<ChatState>((set, get) => {
           void get().reload(accountId);
           return;
         }
-        const nodes = [...conv.nodes];
+        const nodes = conv.nodes.filter((n) => !destroyed.has(n.id));
+        let changed = nodes.length !== conv.nodes.length;
+        /*
+         * A marker or a reply target names a node by id, and a node that has
+         * been destroyed -- the retirement path ADR 0005 names, an
+         * administrator clearing the chat folders through Files -- leaves
+         * both pointing at nothing: the marker falls into `unreadCount`'s
+         * `at < 0` branch and reads as nothing unread, and a reply would name
+         * a message nobody can open.
+         */
+        const markerGone =
+          conv.marker !== null &&
+          ((conv.marker.id !== null && destroyed.has(conv.marker.id)) ||
+            (conv.marker.lastRead !== null && destroyed.has(conv.marker.lastRead)));
+        const replyGone = conv.replyTo !== null && destroyed.has(conv.replyTo);
+        /*
+         * A message document is otherwise immutable, so an updated node we
+         * hold in the transcript has changed under us and the copy on screen
+         * is stale.
+         */
+        const copyStale = conv.nodes.some((n) => updated.has(n.id));
+        const stale = markerGone || replyGone || copyStale;
         const known = new Set(nodes.map((n) => n.id));
         const fresh = created.filter((id) => !known.has(id));
-        let changed = false;
         if (fresh.length) {
           // One get for the batch, then the shared parser keeps only the
           // nodes that actually live in this conversation's chat folder.
@@ -550,15 +574,28 @@ export const useChat = create<ChatState>((set, get) => {
           for (const m of await parseMessages(accountId, onlyHere))
             changed = sortedInsert(nodes, m) || changed;
         }
-        if (changed || since !== conv.stateToken) {
-          set((s) => ({
-            conversations: {
-              ...s.conversations,
-              [accountId]: { ...s.conversations[accountId]!, nodes, stateToken: since },
-            },
-          }));
+        if (changed || since !== conv.stateToken || stale) {
+          set((s) => {
+            const c = s.conversations[accountId];
+            if (!c) return {};
+            return {
+              conversations: {
+                ...s.conversations,
+                [accountId]: {
+                  ...c,
+                  nodes,
+                  stateToken: since,
+                  ...(markerGone ? { marker: null } : {}),
+                  ...(replyGone ? { replyTo: null } : {}),
+                },
+              },
+            };
+          });
           if (changed && get().openAccountId === accountId) markAt(accountId);
         }
+        // What names a destroyed node is not patched but re-read from the
+        // server, which re-derives the marker from what is left.
+        if (stale) void get().reload(accountId);
       } catch {
         /* the next event or the next open retries; a failed sync loses nothing */
       }

@@ -1,6 +1,6 @@
 # ADR 0003 — Agent worker fleet: workers that act on Stalwart events and schedules
 
-Status: Accepted (2026-09-11)
+Status: Accepted (2026-09-11; amended 2026-09-12)
 
 > **Scope (owner decision 2026-09-06):** Gilbert's own agents — each with its
 > own address in Stalwart (e.g. `gilbert@…`) — acting on Stalwart events and
@@ -471,7 +471,11 @@ are only worth what their failure paths are.
   away believing they hold the unit.
 - **Claims carry an epoch**, incremented on takeover and never on renewal, and a
   run asks `claimStillMine` before anything leaves the process — sending,
-  posting, filing. A worker whose lease lapsed stops instead of writing results
+  posting, filing, drafting. The fenced set is one explicit list,
+  `FENCED_ACTIONS` in `documents.ts` (`mail.send`, `chat.post`, `mail.draft`,
+  `file.write`, `mail.extract`), read by the fence and by the retry decision
+  alike, so an action cannot be fenced in one and repeatable in the other. A
+  worker whose lease lapsed stops instead of writing results
   the worker that replaced it will write again. A worker that holds no claim on
   an account starts nothing there: the pending sweep logs it and goes on, and a due
   timer waits for the worker that holds it.

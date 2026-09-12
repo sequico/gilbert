@@ -23,8 +23,9 @@ import {
   policyEnforced,
 } from "@/lib/settingsPolicy";
 import { pendingSettingsKeys, queueSettingsPush } from "@/lib/settingsSync";
-import { hasCachedJson, loadJson, saveJson } from "@/lib/storage";
+import { hasCachedJson, isDeviceTrusted, loadJson, saveJson } from "@/lib/storage";
 import type { SwipeAction } from "@/lib/swipe";
+import { useSession } from "@/store/session";
 
 /**
  * "gilbert" is a dark theme carrying the palette from ihasmail.org. It is a
@@ -241,8 +242,12 @@ export interface Settings {
   templates: Template[];
   labels: Label[];
   /**
-   * Folder colours, by mailbox id. Local to this browser, like every other
-   * colour here: JMAP has nowhere on a Mailbox to keep one.
+   * Folder colours, by mailbox id.
+   *
+   * The ids are mailboxes of the reader's own account, so this follows the
+   * account like the rest of the settings -- a colour picked on the desktop is
+   * there on the laptop -- rather than staying on the machine it was chosen on.
+   * JMAP has nowhere on a Mailbox to keep one, which is why it is here at all.
    */
   folderColors: Record<string, string>;
   sidebarCollapsed: boolean;
@@ -440,25 +445,31 @@ export function acceptRemote(remote: Record<string, unknown>): Partial<Settings>
     if (value === undefined) continue;
     out[key] = value;
   }
-  /*
-   * A file written before palettes existed carries `theme` and neither
-   * `palette` nor `mode`, so it is read through the old enum. Settings live in
-   * the account's own Files and are opened by whatever version happens to run
-   * next, so this is not a one-release migration -- it has to keep working.
-   *
-   * Only when the new fields are absent: a file that has both is newer, and
-   * its `theme` is the derived copy rather than the choice.
-   */
+  return migratedThemeFields(out) as Partial<Settings>;
+}
+
+/**
+ * A settings file written before palettes existed carries `theme` and neither
+ * `palette` nor `mode`, so it is read through the old enum. Settings live in
+ * the account's own Files and are opened by whatever version happens to run
+ * next, so this is not a one-release migration -- it has to keep working. An
+ * imported file is the same shape of thing, and is read through it too.
+ *
+ * Only when the new fields are absent: a file that has both is newer, and its
+ * `theme` is the derived copy rather than the choice. Nothing is dropped, so a
+ * caller that trusts its input (`importJson`) still hands every unknown key on.
+ */
+function migratedThemeFields(source: Record<string, unknown>): Record<string, unknown> {
+  if (!source || typeof source !== "object") return source;
   if (
-    out.palette === undefined &&
-    out.mode === undefined &&
-    typeof remote.theme === "string"
+    source.palette === undefined &&
+    source.mode === undefined &&
+    typeof source.theme === "string"
   ) {
-    const migrated = migrateTheme(remote.theme);
-    out.palette = migrated.palette;
-    out.mode = migrated.mode;
+    const migrated = migrateTheme(source.theme);
+    return { ...source, palette: migrated.palette, mode: migrated.mode };
   }
-  return out as Partial<Settings>;
+  return source;
 }
 
 /**
@@ -485,6 +496,18 @@ interface SettingsState {
   settings: Settings;
   update(patch: Partial<Settings>): void;
   reset(): void;
+  /**
+   * Drop what is in hand, without writing anything.
+   *
+   * Not `reset`: reset is the reader asking for the installation's starting
+   * point, and it writes that to the account. This is the session ending, and
+   * there is nobody left to write for -- the copy the app is holding is the one
+   * `clearSignedInData` cannot reach, so it is dropped here instead of at the
+   * next sign-in, where it would paint the previous reader's pins, trusted
+   * senders, internal domains and language over the new account's first frames.
+   * Driven by the session store; see the subscription at the foot of this file.
+   */
+  discard(): void;
   exportJson(): string;
   importJson(json: string): boolean;
   /** Apply the account's settings file over the cached ones. */
@@ -510,27 +533,53 @@ interface SettingsState {
 const initialSettings = loadJson<Settings>("settings", DEFAULT_SETTINGS);
 
 /**
- * Whether the first frame is this account's settings or merely the defaults.
+ * The settings with `theme` brought back into line.
  *
- * False after every deploy, because deploys sign everyone out and sign-out
- * clears the cache -- and false on any untrusted device, where the cache is
- * never read. In that state `uiLanguage` starts as English and only becomes
- * the account's choice once the settings file lands, which is why the
- * authenticated tree waits for it.
+ * `theme` is derived, never chosen: whatever set the palette or the mode -- the
+ * toggle, Appearance, an imported file, a reset -- the legacy field is written
+ * from the two that replaced it here, rather than at the call sites, so a
+ * fourth way to change the theme cannot forget to update it and leave a device
+ * on an older build showing a theme nobody picked.
  */
-export const PAINTED_FROM_CACHE = hasCachedJson("settings");
+function deriveTheme(s: Settings): Settings {
+  const prefersDark = Boolean(
+    window.matchMedia?.("(prefers-color-scheme: dark)").matches,
+  );
+  return {
+    ...s,
+    theme: legacyTheme({ palette: s.palette, mode: s.mode }, prefersDark),
+  };
+}
+
+/**
+ * The account whose settings are in hand, or null while they are only the
+ * defaults.
+ *
+ * A cache is one *account's* settings, so "is there a cache" was never the
+ * question -- whose it is, is. This was a constant computed once at module
+ * load, and the answer it gave after a sign-out and a second sign-in in the
+ * same tab was still yes: the authenticated tree painted the first reader's
+ * copy -- their pinned signers, trusted senders, internal domains, language --
+ * and an `update` in that window could have pushed the whole of it into the
+ * new account's settings file. `discard` clears this at the end of a session,
+ * and `hydrate` claims it for the account whose file just landed.
+ *
+ * False on any untrusted device, where the cache is never read: in that state
+ * `uiLanguage` starts as English and only becomes the account's choice once
+ * the settings file lands, which is why the authenticated tree waits for it.
+ */
+let inHandFor: string | null = null;
+
+/** Whether the settings in hand are this account's, or merely the defaults. */
+export function settingsInHandFor(accountId: string | null | undefined): boolean {
+  return Boolean(accountId) && inHandFor === accountId;
+}
+
 applyDateTimePrefs(initialSettings);
 
 export const useSettings = create<SettingsState>((set, get) => ({
   settings: initialSettings,
   update(patch) {
-    /*
-     * `theme` is derived, never chosen: whatever set the palette or the mode --
-     * the toggle, Appearance, an imported file -- the legacy field is brought
-     * back into line here rather than at the call sites, so a fourth way to
-     * change the theme cannot forget to update it and strand an older device
-     * on a theme nobody picked.
-     */
     /*
      * Enforcement lives here rather than only on the controls. The controls are
      * disabled and say why, which is the part a reader sees -- but a setting
@@ -538,14 +587,11 @@ export const useSettings = create<SettingsState>((set, get) => ({
      * settings file, a keyboard shortcut, or a control somebody adds later and
      * forgets to check. There is one door, so the lock is on it. Issue #207.
      */
-    const merged = { ...get().settings, ...patch, ...policyEnforced() };
-    const prefersDark = Boolean(
-      window.matchMedia?.("(prefers-color-scheme: dark)").matches,
-    );
-    const settings = {
-      ...merged,
-      theme: legacyTheme({ palette: merged.palette, mode: merged.mode }, prefersDark),
-    };
+    const settings = deriveTheme({
+      ...get().settings,
+      ...patch,
+      ...policyEnforced(),
+    });
     saveJson("settings", settings);
     set({ settings });
     applyTheme(settings);
@@ -593,8 +639,15 @@ export const useSettings = create<SettingsState>((set, get) => ({
   reset() {
     /* Back to how this installation starts an account, not to how Gilbert
        starts one: resetting must not be a way around a policy, and the defaults
-       an admin chose are the honest meaning of "reset" where there are any. */
-    const base = { ...DEFAULT_SETTINGS, ...policyDefaults(), ...policyEnforced() };
+       an admin chose are the honest meaning of "reset" where there are any.
+       Through the same derivation every other way of changing a setting uses:
+       a policy may choose a palette or a mode, and the legacy `theme` an older
+       device reads has to be told about it here as much as anywhere. */
+    const base = deriveTheme({
+      ...DEFAULT_SETTINGS,
+      ...policyDefaults(),
+      ...policyEnforced(),
+    });
     saveJson("settings", base);
     set({ settings: base });
     applyTheme(base);
@@ -602,13 +655,37 @@ export const useSettings = create<SettingsState>((set, get) => ({
     applyLang(base);
     queueSettingsPush(syncedPart(base));
   },
+  /*
+   * The defaults, and nothing written: a session ending is not a change anybody
+   * asked to keep, and a copy left in the cache would be claimed by the next
+   * sign-in. `clearSignedInData` has already dropped the stored copy by the
+   * time this runs, and on a device we do not trust `saveJson` writes nothing
+   * at all, so there is nothing to leave behind either way.
+   */
+  discard() {
+    inHandFor = null;
+    const settings = { ...DEFAULT_SETTINGS };
+    set({ settings });
+    applyTheme(settings);
+    applyDateTimePrefs(settings);
+    applyLang(settings);
+  },
   exportJson() {
     return JSON.stringify(get().settings, null, 2);
   },
   importJson(json) {
     try {
-      const parsed = JSON.parse(json) as Partial<Settings>;
-      get().update(parsed);
+      const parsed = JSON.parse(json) as Record<string, unknown>;
+      /*
+       * Read through the same migration an account's own file gets. An export
+       * from before palettes carries `theme` alone, and handing that to `update`
+       * unchanged meant the import reported success and changed nothing: `update`
+       * derives `theme` from `palette` and `mode`, so the imported legacy field
+       * was written back over by the palette it did not carry. Unknown keys are
+       * still handed on -- an import is the reader's own file, and the
+       * known-keys-only rule is `acceptRemote`'s, for files off the server.
+       */
+      get().update(migratedThemeFields(parsed) as Partial<Settings>);
       return true;
     } catch {
       return false;
@@ -628,6 +705,10 @@ export const useSettings = create<SettingsState>((set, get) => ({
     applyTheme(settings);
     applyDateTimePrefs(settings);
     applyLang(settings);
+    /* This account's own settings are in hand now, so a remount -- picking a
+       language throws the authenticated subtree away and builds it again --
+       may paint with them rather than waiting for the file a second time. */
+    inHandFor = useSession.getState().accountId ?? null;
   },
 }));
 
@@ -721,6 +802,45 @@ function paletteThemeColor(_palette: PaletteId, mode: "light" | "dark"): string 
 export function isDarkTheme(theme: Theme, prefersDark = false): boolean {
   return theme === "dark" || theme === "gilbert" || (theme === "system" && prefersDark);
 }
+
+/*
+ * Whose settings are in hand, answered again when a session starts or ends.
+ *
+ * A sign-out, a 401 and a sign-in on a device that is not ours all end with
+ * nothing of the last reader's. `clearSignedInData`/`clearAllData` drop the
+ * stored copy, but by then the copy the app is holding is this one, not
+ * storage's -- so the reset has to happen here as well. Calendar, tasks, files
+ * and contacts clear themselves the same way, for the same reason.
+ *
+ * The other direction is the cache. A settings file is read over the network,
+ * so the frame before it lands is painted from localStorage, and a cache that
+ * survived to a sign-in is this account's own: every sign-out, 401 and
+ * untrusted sign-in clears it first. Without one there is nothing to paint and
+ * `settingsInHandFor` stays false, which is what makes the authenticated tree
+ * wait rather than show English to somebody who chose otherwise. (A cache left
+ * by a tab closed mid-session is not attributable to an account, since
+ * localStorage gives it no label; the account's own file still corrects that
+ * frame.)
+ *
+ * A session that merely changes -- a refresh, a push-state change -- is neither
+ * of those events and is left alone on purpose: on an untrusted device a
+ * refresh must not throw away the settings that account's own file just gave
+ * us.
+ */
+useSession.subscribe((s, prev) => {
+  if (s.status !== "authenticated") {
+    /* Ends the session from a state that had one; a boot that never got one has
+       nothing of anybody's to drop, and the cache is still worth its frame. */
+    if (prev.status === "authenticated") useSettings.getState().discard();
+    return;
+  }
+  if (prev.status === "authenticated") return;
+  if (isDeviceTrusted()) {
+    if (inHandFor === null && hasCachedJson("settings")) inHandFor = s.accountId;
+    return;
+  }
+  useSettings.getState().discard();
+});
 
 if (typeof window !== "undefined") {
   applyTheme();

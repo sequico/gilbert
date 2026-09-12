@@ -73,11 +73,17 @@ const NEVER_TRANSLATED = new Set([
 const looksLikeUi = (s) =>
   /[a-z]/.test(s) && /^[A-Z(“]/.test(s) && (/\s/.test(s) || /[.?!…]$/.test(s));
 
+/*
+ * Every shipped catalogue, not one of them: a literal the catalogue files
+ * already translate is a string nobody forgot to wrap, whichever language
+ * carries it -- and a key only one catalogue has is still a key. The match is
+ * indent-agnostic, so reformatting a catalogue cannot blind this half.
+ */
 const keys = new Set();
-{
-  const src = readFileSync("web/src/locales/de.ts", "utf8");
-  for (const m of src.matchAll(/^\s{4}"((?:[^"\\]|\\.)*)":/gm))
-    keys.add(m[1].replace("\\u0004", ""));
+for (const file of globSync("web/src/locales/*.ts")) {
+  const src = readFileSync(file, "utf8");
+  for (const m of src.matchAll(/^\s+"((?:[^"\\]|\\.)*)":/gm))
+    keys.add(m[1].replaceAll("\\u0004", ""));
 }
 
 const found = [];

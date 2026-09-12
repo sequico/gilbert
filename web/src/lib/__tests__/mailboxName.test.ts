@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { Mailbox } from "@/jmap/types";
-import { type Catalog, setCatalog } from "@/lib/i18n";
+import { type Catalog, CONTEXT_SEPARATOR, setCatalog } from "@/lib/i18n";
 import {
   isLocalisedName,
   mailboxDisplayName,
@@ -14,7 +14,11 @@ import {
  * lets Gilbert say "Papierkorb" without writing anything to the server.
  */
 const de: Catalog = {
-  strings: { Inbox: "Posteingang", "Deleted Items": "Papierkorb", Drafts: "Entwürfe" },
+  strings: {
+    [`folder${CONTEXT_SEPARATOR}Inbox`]: "Posteingang",
+    [`folder${CONTEXT_SEPARATOR}Deleted Items`]: "Papierkorb",
+    [`folder${CONTEXT_SEPARATOR}Drafts`]: "Entwürfe",
+  },
   plurals: {},
 };
 const mb = (

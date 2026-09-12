@@ -24,7 +24,6 @@ const {
   claimStillMine,
   releaseClaim,
   releaseStreamClaim,
-  renewClaim,
   saveClaimStates,
   workerId,
 } = await import("./lease.js");
@@ -67,8 +66,9 @@ test("a claim held by another worker with a live lease is not taken", async () =
 test("the holder renews, keeping the instant its lease started", async () => {
   const held = await store.readClaim();
   assert.ok(held);
-  const renewed = await renewClaim(store, held.doc, {
+  const renewed = await claimAccount(store, "w1", {
     now: new Date(Date.now() + 1_000),
+    leaseMs: LEASE,
   });
   assert.ok(renewed);
   assert.equal(renewed.leasedAt, held.doc.leasedAt);
@@ -108,12 +108,9 @@ test("renewal and release only touch the claim of the holder", async () => {
   const held = await store.readClaim();
   assert.ok(held);
   assert.equal(
-    await renewClaim(
-      store,
-      { ...held.doc, worker: "somebody-else" },
-      { now: new Date() },
-    ),
+    await claimAccount(store, "somebody-else", { now: new Date(), leaseMs: LEASE }),
     null,
+    "somebody else finds a live lease, not a claim to renew",
   );
   assert.equal(await releaseClaim(store, "not-me"), false);
   assert.equal(await releaseClaim(store, "w3"), true);

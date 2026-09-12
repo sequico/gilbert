@@ -51,6 +51,14 @@ interface AccountPush {
   /** The https origin Stalwart POSTs back to, derived from the request that started it. */
   origin: string;
   token: string; // what Stalwart puts in the URL
+  /**
+   * What Stalwart is told this subscription's device is: stable for the entry,
+   * so a renewal replaces the subscription rather than piling another one up.
+   * Its own value, not a slice of the token -- the token is the only thing
+   * authenticating the callback URL, and what Stalwart records about the
+   * subscription is not the place for a piece of it.
+   */
+  deviceId: string;
   authorization: string; // one live session's credential, for set/verify/renew
   subscriptionId: string | null;
   state: "pending" | "verified" | "failed";
@@ -60,6 +68,17 @@ interface AccountPush {
   /** Tabs still on the per-tab relay, with the hook that ends their upstream request. */
   relays: Map<ServerResponse, () => void>;
 }
+
+/**
+ * The largest notification Stalwart may send us.
+ *
+ * A StateChange names the accounts whose data moved and a PushVerification
+ * carries a code: neither is near this size, and every byte of one is written
+ * to every open tab of the account, so the ceiling is here rather than left to
+ * whoever reads the request. The push route checks the declared length first
+ * with the same number; `receive` bounds what it is actually handed.
+ */
+export const MAX_PUSH_BODY_BYTES = 64 * 1024;
 
 const byKey = new Map<string, AccountPush>();
 const byToken = new Map<string, AccountPush>();
@@ -103,7 +122,7 @@ async function subscribe(entry: AccountPush) {
       {
         create: {
           s: {
-            deviceClientId: `gilbert-${entry.token.slice(0, 8)}`,
+            deviceClientId: `gilbert-${entry.deviceId}`,
             url,
             types,
           },
@@ -194,6 +213,7 @@ export function prepare(
       base,
       origin,
       token: randomBytes(32).toString("base64url"),
+      deviceId: randomBytes(12).toString("base64url"),
       authorization,
       subscriptionId: null,
       state: "pending",
@@ -303,8 +323,23 @@ function endStaleFanout(entry: AccountPush): void {
 export async function receive(token: string, body: unknown): Promise<number> {
   const entry = byToken.get(token);
   if (!entry) return 404;
+  /* Measured on the frame a tab would be handed, not on a header: this has to
+     hold for whatever the caller passes, and Stalwart's own statement about
+     how long the body is has not been checked against what arrived. */
+  let json: string;
+  try {
+    json = JSON.stringify(body) ?? "";
+  } catch {
+    return 400; // a body that cannot be framed for a tab is not a notification
+  }
+  if (json.length > MAX_PUSH_BODY_BYTES) return 413;
   const msg = body as { "@type"?: string; verificationCode?: string; changed?: unknown };
   if (msg["@type"] === "PushVerification" && typeof msg.verificationCode === "string") {
+    /* Only a subscription we are waiting on can be verified. A code that
+       arrives after the entry gave up would revive it as "verified" while the
+       subscription it names may be gone -- the sweeper re-subscribes instead,
+       and answering 200 stops Stalwart retrying a verification we cannot use. */
+    if (entry.state !== "pending") return 200;
     try {
       await verify(entry, msg.verificationCode);
       return 200;
@@ -314,7 +349,12 @@ export async function receive(token: string, body: unknown): Promise<number> {
     }
   }
   if (msg["@type"] === "StateChange") {
-    const frame = `event: state\ndata: ${JSON.stringify(msg)}\n\n`;
+    /* Believed only for a verified subscription (RFC 8620 §7.2): while the
+       entry is pending or failed, nothing legitimate is being delivered to
+       this URL, and writing it to the tabs would hand whoever found the URL a
+       way to drive every open tab of the account. */
+    if (entry.state !== "verified") return 200;
+    const frame = `event: state\ndata: ${json}\n\n`;
     for (const out of entry.tabs) {
       if (!out.destroyed) out.write(frame);
     }

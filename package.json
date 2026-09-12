@@ -18,7 +18,7 @@
     "start": "node server/dist/index.js",
     "typecheck": "npm run typecheck -w web && npm run typecheck -w server",
     "test": "npm run test -w web && npm run test -w server",
-    "prepush": "npm run typecheck && npm run lint && npm run adr:owed && TZ=UTC npm test",
+    "prepush": "npm run typecheck && npm run lint && npm run adr:owed && npm run i18n:check && TZ=UTC npm test",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "lint:unsafe": "biome check --write --unsafe .",

@@ -425,6 +425,26 @@ describe("CSS escapes and comments cannot hide remote content", () => {
   });
 });
 
+/**
+ * Where the plain-text rewrite stops short, and what actually covers the gap.
+ * The rewrite is best-effort and the residual is deliberate (see the note on
+ * decodeCss in lib/html.ts); this pins the residual's shape so a future
+ * parser-shaped rewrite cannot widen it unnoticed.
+ */
+describe("the plain-text url() rewrite is best-effort", () => {
+  it("leaves a quoted url() containing ')' alone, and counts nothing", () => {
+    // CSS_URL_RE's character class excludes the closing paren, so a quoted
+    // URL holding one is neither rewritten, nor proxied, nor counted, and
+    // gets no blocked-image mark. What refuses that fetch is the app's CSP
+    // (`img-src 'self' data: blob:`), not this sanitizer.
+    const src = `<p style="background:url('http://x.example/a)b')">x</p>`;
+    const r = sanitizeEmailHtml(src);
+    expect(r.remoteCount).toBe(0);
+    expect(r.html).toContain("http://x.example/a)b");
+    expect(r.html).not.toContain("data-ihm-blocked");
+  });
+});
+
 describe("the <body> style the sanitizer returns is hardened like any other CSS", () => {
   it("neutralises position and rewrites url() per the remote-content option", () => {
     const src = `<body style="position:fixed;background:url(https://t.example/p.gif)"><p>x</p></body>`;

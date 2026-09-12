@@ -84,7 +84,11 @@ export const CONTEXT_SEPARATOR = "\u0004";
 
 export function tc(context: string, source: string, vars?: Vars): string {
   const keyed = current.strings[`${context}${CONTEXT_SEPARATOR}${source}`];
-  return interpolate(keyed ?? current.strings[source] ?? source, vars);
+  // Deliberately not `?? current.strings[source]`: the plain entry is the other
+  // sense of the word ("Archive" the button, not the folder), and rendering it
+  // here would be confidently wrong rather than merely untranslated. Falling
+  // back to the English source is what the paragraph above promises.
+  return interpolate(keyed ?? source, vars);
 }
 
 /**

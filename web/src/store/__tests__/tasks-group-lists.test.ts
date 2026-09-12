@@ -41,6 +41,25 @@ function stubServer() {
             },
             id,
           ]);
+        } else if (name === "Principal/query") {
+          // A directory that would happily name the group's principal: what
+          // must not happen is the share, not the lookup failing.
+          methodResponses.push([
+            name,
+            { accountId: args.accountId, state: "1", ids: ["p1"], notFound: [] },
+            id,
+          ]);
+        } else if (name === "Principal/get") {
+          methodResponses.push([
+            name,
+            {
+              accountId: args.accountId,
+              state: "1",
+              list: [{ id: "p1", name: "team@example.org", email: "team@example.org" }],
+              notFound: [],
+            },
+            id,
+          ]);
         } else {
           methodResponses.push([
             name,
@@ -120,5 +139,20 @@ describe("task lists in a group account", () => {
     expect(set?.args.accountId).toBe("a2");
     expect(set?.args.destroy).toEqual(["gt1"]);
     expect(set?.args.onDestroyRemoveEvents).toBe(true);
+  });
+
+  it("writes no shareWith back to the group's principal: the account is the grant", async () => {
+    const calls = stubServer();
+    await useTasks.getState().createList("a2", "Team chores");
+    // A list created in the group account is the group's -- reached by every
+    // member through their session on it. Naming the owning principal and
+    // granting it write rights is the per-object ACL the group law forbids,
+    // and a directory that answers the query is exactly when it used to happen.
+    expect(calls.some((c) => c.name === "Principal/query")).toBe(false);
+    expect(calls.some((c) => c.name === "Principal/get")).toBe(false);
+    const sets = calls.filter((c) => c.name === "Calendar/set");
+    expect(sets).toHaveLength(1);
+    expect(sets[0]?.args.accountId).toBe("a2");
+    expect(sets[0]?.args).not.toHaveProperty("update");
   });
 });

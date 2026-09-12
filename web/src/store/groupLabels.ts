@@ -4,8 +4,9 @@ import { client } from "@/jmap/client";
 import { push } from "@/jmap/push";
 import type { Id } from "@/jmap/types";
 import { ensureFolder, findInFolder } from "@/lib/appFolder";
-import { isGroupMailbox } from "@/lib/mailAccounts";
+import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import type { Label } from "@/store/settings";
+import { useMail } from "./mail";
 
 /**
  * Group-owned label catalogs (ADR 0005, "group label catalog").
@@ -37,6 +38,10 @@ export const useGroupLabels = create<GroupLabelsState>((set, get) => ({
   byAccount: {},
   loading: {},
   load: async (accountId) => {
+    // A group mailbox is one the mail store's probe answered with a folder
+    // tree; an account that only shared a calendar or a book is not a group,
+    // and `readGroupLabels` writes folders into whatever account it is given.
+    if (!isProbedGroupMailbox(accountId)) return;
     if (get().loading[accountId]) return;
     set((s) => ({ loading: { ...s.loading, [accountId]: true } }));
     const labels = await readGroupLabels(accountId);
@@ -45,6 +50,12 @@ export const useGroupLabels = create<GroupLabelsState>((set, get) => ({
       // An unreadable file keeps whatever is cached (or nothing) rather than wiping it.
       byAccount: labels === null ? s.byAccount : { ...s.byAccount, [accountId]: labels },
     }));
+    // The sidebar's counts come from the mail store, and a catalog that lands
+    // after the account tree — or is edited by an administrator — changes them.
+    // The recount belongs to the one place that writes `byAccount`, so the two
+    // stores do not need to observe each other.
+    if (labels !== null && accountId === useMail.getState().accountId)
+      void useMail.getState().loadLabelCounts();
   },
   reset: () => set({ byAccount: {}, loading: {} }),
 }));
@@ -70,16 +81,25 @@ async function readGroupLabels(accountId: Id): Promise<Label[] | null> {
 }
 
 /**
+ * Whether this is a group mailbox, by the one classifier: an account the mail
+ * store's probe answered `Mailbox/get` with a folder tree (`kind: "group"`).
+ * The mail probe and nothing wider -- session capabilities say every listed
+ * account is a mailbox, and "any account that is not mine" counts a
+ * calendar-only share as a group.
+ */
+function isProbedGroupMailbox(accountId: Id | null): boolean {
+  if (!accountId) return false;
+  return groupMailboxAccounts(useMail.getState().mailAccounts).some(
+    (a) => a.accountId === accountId,
+  );
+}
+
+/**
  * The labels for an account as the mail UI must see them: a group mailbox's
  * own catalog, or the reader's personal labels for their own mailbox.
  */
-export function labelsForAccount(
-  accountId: Id | null,
-  ownAccountId: Id | null,
-  personal: Label[],
-): Label[] {
-  const isGroup = isGroupMailbox(accountId, ownAccountId);
-  if (!isGroup || !accountId) return personal;
+export function labelsForAccount(accountId: Id | null, personal: Label[]): Label[] {
+  if (!isProbedGroupMailbox(accountId) || !accountId) return personal;
   return useGroupLabels.getState().byAccount[accountId] ?? [];
 }
 

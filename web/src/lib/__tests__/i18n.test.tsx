@@ -181,9 +181,13 @@ describe("tc", () => {
     expect(tc("folder", "Archive")).toBe("Archiv");
   });
 
-  it("falls back to the plain translation, then to English", () => {
+  it("falls back to English, never to another sense of the same word", () => {
+    // A plain "Drafts" belongs to whatever other use of the word the catalogue
+    // translated. Handing it to a folder call site would render the wrong
+    // sense as confidently as a correct translation; English is merely
+    // untranslated.
     setCatalog("de", { strings: { Drafts: "Entwürfe" }, plurals: {} });
-    expect(tc("folder", "Drafts")).toBe("Entwürfe"); // no context entry yet
+    expect(tc("folder", "Drafts")).toBe("Drafts"); // no context entry yet
     expect(tc("folder", "Sent")).toBe("Sent"); // nothing at all
   });
 });

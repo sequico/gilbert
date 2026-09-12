@@ -135,6 +135,19 @@ export function impersonationAuthorization(
   return `Basic ${Buffer.from(`${composite}:${password}`, "utf8").toString("base64")}`;
 }
 
+/**
+ * One normaliser for an account name.
+ *
+ * An account name is an address, and addresses do not differ by case or by
+ * surrounding space. Every place that matches a session by name goes through
+ * this -- the session list, ending an account's sessions, and the keys app.ts
+ * caches per account -- so a session opened as `Bob@Example.com` is the same
+ * account as one opened as `bob@example.com`, in all of them or in none.
+ */
+export function normalizeUsername(username: string): string {
+  return username.trim().toLowerCase();
+}
+
 const COOKIE_SEP = ".";
 
 export class SessionStore implements SessionBackend {
@@ -331,10 +344,10 @@ export class SessionStore implements SessionBackend {
    * miss the one session it was meant for.
    */
   destroyAllForUser(username: string, exceptId?: string): number {
-    const want = username.trim().toLowerCase();
+    const want = normalizeUsername(username);
     let n = 0;
     for (const [id, s] of this.sessions) {
-      if (s.username.trim().toLowerCase() === want && id !== exceptId) {
+      if (normalizeUsername(s.username) === want && id !== exceptId) {
         this.sessions.delete(id);
         this.onDestroy?.(id);
         n++;
@@ -361,9 +374,10 @@ export class SessionStore implements SessionBackend {
   }
 
   listForUser(username: string): SessionSummary[] {
+    const want = normalizeUsername(username);
     const out = [];
     for (const s of this.sessions.values()) {
-      if (s.username !== username) continue;
+      if (normalizeUsername(s.username) !== want) continue;
       const {
         secretHash: _h,
         salt: _s,

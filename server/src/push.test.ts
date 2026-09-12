@@ -460,6 +460,20 @@ test("a lost verification is retried, not stuck, while a relay tab stays open", 
         null,
       "still unverified after the lapse",
     );
+    // A verification that arrives for a subscription which already gave up does
+    // not revive it: nothing is waiting on that entry any more.
+    assert.equal(
+      await push.receive(capture.token()!, {
+        "@type": "PushVerification",
+        verificationCode: "v",
+      }),
+      200,
+    );
+    assert.equal(
+      push.pushStatus().accounts.failed,
+      1,
+      "a late verification leaves the entry as the sweep left it",
+    );
     // A later sweep re-subscribes, and the verification can then land.
     t.mock.timers.tick(5 * 60_000 + 1_000);
     push.runSweep();

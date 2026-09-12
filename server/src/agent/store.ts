@@ -73,6 +73,30 @@ export interface AgentDoc<T> {
 }
 
 /**
+ * A document that is there and does not read as its shape.
+ *
+ * The readers that cannot work without a document raise this rather than answer
+ * `null`, because for them "nothing is there" and "something is there that is
+ * not this document" are opposite answers: the first is an account with no
+ * automation, or a unit nobody holds, and the second is every automation of the
+ * group stopped — or a live claim that must not be taken for a free one (see
+ * `readDocChecked`). The type is what lets a caller tell an unreadable document
+ * from a store that could not answer at all.
+ */
+export class UnreadableDocumentError extends Error {
+  constructor(
+    readonly path: string,
+    what: string,
+  ) {
+    super(
+      `the document ${path} is there but does not read as ${what}; ` +
+        `refusing to report it as absent`,
+    );
+    this.name = "UnreadableDocumentError";
+  }
+}
+
+/**
  * How many times the audit's append retries, with a pause and jitter between
  * tries.
  *
@@ -167,6 +191,13 @@ export class AgentStore {
     }
   }
 
+  /**
+   * A document, `null` meaning "nothing at this path **or** something that does
+   * not read as this document". That is the answer for a caller that works on
+   * what it can read and nothing else — a listed record it cannot parse is one
+   * it does not act on — and it is the wrong answer wherever the two mean
+   * opposite things: those readers use `readDocChecked`.
+   */
   private async readDoc<T>(
     path: string,
     valid: (x: unknown) => x is T,
@@ -176,6 +207,33 @@ export class AgentStore {
     const state = await this.state();
     const raw = await readAppJsonAt(this.ctx, this.accountId, path);
     if (raw === null || !valid(raw)) return null;
+    return { doc: raw, state };
+  }
+
+  /**
+   * A document, with "nothing is at this path" told apart from "something is
+   * there that is not this document".
+   *
+   * Missing is an empty account and unreadable is a fault, and for the rules and
+   * the claim the two are opposites. No rules document is a group with no
+   * automation; a rules document nobody can read is every automation of the
+   * group stopped, and a reader that reported the second as the first would stop
+   * the group's work with nothing anywhere saying so. The claim is sharper
+   * still: a claim read as absent is a unit nobody holds, so the next worker
+   * takes it and writes `epoch: 0` over an ownership it could not read — the
+   * fence of the run that still holds it stops matching. `readAudit` raises for
+   * the same reason, and this is the same answer for the documents whose callers
+   * record what they could not read instead of carrying on.
+   */
+  private async readDocChecked<T>(
+    path: string,
+    valid: (x: unknown) => x is T,
+    what: string,
+  ): Promise<AgentDoc<T> | null> {
+    const state = await this.state();
+    const raw = await readAppJsonAt(this.ctx, this.accountId, path);
+    if (raw === null) return null;
+    if (!valid(raw)) throw new UnreadableDocumentError(path, what);
     return { doc: raw, state };
   }
 
@@ -212,10 +270,19 @@ export class AgentStore {
 
   /* ---------------- rules (group account) ---------------- */
 
+  /**
+   * The group's rules, raising when the document is there and does not read.
+   *
+   * "No rules" and "rules nobody can read" are opposite answers
+   * (`readDocChecked`), and the callers that must act on the difference — the
+   * pending sweep and the reconcile — record this instead of taking the group
+   * for one with no automation.
+   */
   async readRules(): Promise<AgentDoc<AgentRule[]> | null> {
-    const found = await this.readDoc<AgentRulesDoc>(
+    const found = await this.readDocChecked<AgentRulesDoc>(
       this.path(AGENT_RULES_FILE),
       isAgentRulesDoc,
+      "a rules document",
     );
     return found ? { doc: found.doc.rules, state: found.state } : null;
   }
@@ -337,8 +404,21 @@ export class AgentStore {
 
   /* ---------------- claim (group account) ---------------- */
 
+  /**
+   * The account's claim, raising when the document is there and does not read.
+   *
+   * A claim nobody can read is not a free unit: `claimAccount` takes a missing
+   * claim as its own to create, and treating an unreadable one the same way
+   * would replace a live ownership with a new claim at `epoch: 0`, which is the
+   * answer every fence of the run that holds it stops agreeing with (see
+   * `readDocChecked`).
+   */
   async readClaim(): Promise<AgentDoc<AgentClaim> | null> {
-    return this.readDoc<AgentClaim>(this.path(AGENT_CLAIM_FILE), isAgentClaim);
+    return this.readDocChecked<AgentClaim>(
+      this.path(AGENT_CLAIM_FILE),
+      isAgentClaim,
+      "a claim",
+    );
   }
 
   async writeClaim(claim: AgentClaim, opts: { ifInState?: string } = {}): Promise<void> {

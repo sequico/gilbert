@@ -30,7 +30,7 @@ import { useFiles } from "@/store/files";
 import { useMail } from "@/store/mail";
 import { scheduleSupported, useScheduled } from "@/store/scheduled";
 import { useSession } from "@/store/session";
-import { PAINTED_FROM_CACHE, syncedPart, useSettings } from "@/store/settings";
+import { settingsInHandFor, syncedPart, useSettings } from "@/store/settings";
 import { useSieve } from "@/store/sieve";
 import { useTasks } from "@/store/tasks";
 import { ConfirmHost } from "@/ui/dialog";
@@ -207,8 +207,16 @@ function AuthedApp() {
    * language version, so picking a language throws it away and builds it
    * again. Re-reading the settings file there would apply a copy written
    * before the change and undo it.
+   *
+   * "Already painted" is asked of the account rather than of the browser
+   * (`settingsInHandFor`): a cache that survived into this sign-in is this
+   * account's, and one that did not -- every sign-out clears it -- leaves the
+   * tree waiting instead of painting the last reader's settings. The constant
+   * this replaced answered "is there a cache at all", computed once at module
+   * load, so a second sign-in in the same tab painted the first reader's copy
+   * and could push it into the new account before its file landed.
    */
-  const [ready, setReady] = useState(PAINTED_FROM_CACHE);
+  const [ready, setReady] = useState(() => settingsInHandFor(accountId));
   useEffect(() => {
     if (settingsAlreadyLoadedFor(accountId)) {
       setReady(true);

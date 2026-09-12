@@ -139,6 +139,9 @@ test("a forced sign-in is flagged and every data route answers 403", async () =>
     ["/api/image", { method: "GET" }],
     ["/api/ics", { method: "GET" }],
     ["/api/events", { method: "GET" }],
+    // A route this build does not have is walled too: the door is the list of
+    // what stays open, so a route added later is born behind it.
+    ["/api/not-a-route-yet", { method: "GET" }],
   ] as const) {
     const r = await call(path, res.cookie, init);
     assert.equal(r.status, 403, `${path} should be gated`);

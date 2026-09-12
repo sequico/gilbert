@@ -48,23 +48,40 @@ export type OnDue = (entry: AgentScheduleEntry) => void;
  */
 
 /**
- * The due runs no rule can run any more.
+ * Whether an entry is one no rule can run any more.
  *
  * A due entry is normally fired late rather than dropped — a worker that was
- * away catches up — so the runs that vanish are the ones whose rule is disabled
- * or gone: the schedule moves to the next instant and nothing anywhere says the
- * group's automation did not happen. These are the entries worth a line in the
- * trail, and the caller that knows which ones it could not fire is the one that
- * records them.
+ * away catches up — so what cannot run is the entry whose rule is disabled,
+ * gone, or no longer a rule the clock wakes: its instant has arrived, nothing
+ * will run it, and the schedule moves on with nothing anywhere saying the
+ * group's automation did not happen. Those are the entries worth a line in the
+ * trail.
+ *
+ * One predicate for that question, read by the pass that records the vanished
+ * runs (`unrunEntries`) and by the writer that carries an entry a peer owns
+ * (`carryingForeign`): two answers to "can this entry still run" would leave a
+ * run dropped by one of them and unrecorded by the other.
+ */
+export function unrunEntry(
+  entry: AgentScheduleEntry,
+  rules: ReadonlyArray<AgentRule>,
+): boolean {
+  const rule = rules.find((candidate) => candidate.id === entry.ruleId);
+  return !rule?.enabled || rule.trigger.on !== "schedule";
+}
+
+/**
+ * The due runs no rule can run any more.
+ *
+ * The caller that knows which entries it could not fire is the one that records
+ * them, and it records them as `missed` runs — an automation that was due and
+ * did not happen.
  */
 export function unrunEntries(
   due: ReadonlyArray<AgentScheduleEntry>,
   rules: ReadonlyArray<AgentRule>,
 ): AgentScheduleEntry[] {
-  return due.filter((entry) => {
-    const rule = rules.find((candidate) => candidate.id === entry.ruleId);
-    return !rule?.enabled;
-  });
+  return due.filter((entry) => unrunEntry(entry, rules));
 }
 
 export function planSchedule(
@@ -127,9 +144,9 @@ export function advance(
  * would be lost with no line anywhere saying the group's automation did not
  * happen.
  *
- * A rule that is disabled or gone is not carried: the document drops it and the
- * pass records it as a missed run, which is the one vanishing the record
- * accounts for.
+ * A rule that is disabled, gone, or no longer on the clock is not carried: the
+ * document drops it and the pass records it as a missed run, which is the one
+ * vanishing the record accounts for.
  */
 export function carryingForeign(
   next: ReadonlyArray<AgentScheduleEntry>,
@@ -139,8 +156,7 @@ export function carryingForeign(
 ): AgentScheduleEntry[] {
   const carried = stored.filter((entry) => {
     if (ownedRuleIds.has(entry.ruleId)) return false;
-    const rule = rules.find((candidate) => candidate.id === entry.ruleId);
-    return Boolean(rule?.enabled && rule.trigger.on === "schedule");
+    return !unrunEntry(entry, rules);
   });
   if (!carried.length) return [...next];
   const carriedIds = new Set(carried.map((entry) => entry.ruleId));

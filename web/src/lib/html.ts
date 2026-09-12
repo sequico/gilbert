@@ -48,8 +48,18 @@ function ensureHooks() {
  * `fixed` spelled `\66ixed` are to it `url(...)`, `url(...)` and
  * `position:fixed`. Decoding the same way here means
  * the surgery sees what the browser will see, and the decoded form is what is
- * emitted -- a hostile escape sequence cannot hide a remote fetch, an @import
- * or a `position:fixed` from it any more than it can hide them from the parser.
+ * emitted -- an escape sequence cannot hide an @import or a `position:fixed`
+ * from it any more than it can hide them from the parser.
+ *
+ * The rewrite itself is best-effort plain text, not a CSS tokenizer, and one
+ * shape slips through: `CSS_URL_RE` does not match a quoted url() whose URL
+ * contains `)`, so `style="background:url('http://x/a)b')"` is returned
+ * unchanged, is not counted in `remoteCount`, and gets no "blocked image"
+ * mark. Nothing in this file refuses that fetch; the app's Content Security
+ * Policy does (`img-src 'self' data: blob:`, see APP_CSP in
+ * server/src/static.ts), by refusing the request the browser would make. That
+ * is the residual, and it is deliberate: the alternative is teaching this file
+ * to parse CSS.
  *
  * Comments are stripped first, on the raw text: a CSS comment ends at the
  * first literal star-slash and ignores escapes inside it, so that is also

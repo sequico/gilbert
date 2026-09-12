@@ -32,7 +32,7 @@ import { playNewMailSound, showNotification } from "@/lib/notify";
 import type { FolderRef } from "@/lib/sieveFolders";
 import { SPAM_HEADER_PROPS } from "@/lib/spamScore";
 import { toast } from "@/ui/toast";
-import { labelsForAccount, useGroupLabels } from "./groupLabels";
+import { labelsForAccount } from "./groupLabels";
 import { useSession } from "./session";
 import { settings, useSettings } from "./settings";
 import { useSieve } from "./sieve";
@@ -354,6 +354,13 @@ export const useMail = create<MailState>((set, get) => ({
       selectedAll: false,
       anchorId: null,
       lastSeenInboxEmailIds: null,
+      /* The rest names objects of the account that was on screen: ids of its
+         own, a label count from its folders, a conversation, a thread. Kept,
+         they would be read against the folders of the new account. */
+      labelCounts: {},
+      loadingThreads: {},
+      lastThreadEmailIds: [],
+      openThreadId: null,
     });
   },
 
@@ -366,53 +373,64 @@ export const useMail = create<MailState>((set, get) => ({
    * A session refresh can land at any moment, so this must be cheap when
    * nothing changed: probing every account on every refresh would turn the
    * session's own change beat into a loop. Skip when the candidate list is
-   * already the one on screen, and collapse overlapping runs.
+   * already the one on screen, and share the probe that is already on its
+   * way, so overlapping callers get one round of Mailbox/get -- and its
+   * answer -- rather than a second caller returning as if it had one.
    */
   async discoverMailAccounts() {
-    if (discoveringMailAccounts) return;
-    const session = useSession.getState().session;
-    const candidates = mailAccountCandidates(session);
-    const current = get().mailAccounts;
-    if (
-      candidates.length === current.length &&
-      candidates.every(
-        (c, i) =>
-          current[i]?.accountId === c.accountId &&
-          current[i]?.kind === c.kind &&
-          current[i]?.name === c.name,
-      )
-    )
-      return;
-    discoveringMailAccounts = true;
-    try {
-      const ownInfo = candidates.find((c) => c.kind === "own") ?? null;
-      const groups: MailAccountInfo[] = [];
-      const trees: Record<Id, Record<Id, Mailbox>> = {};
-      for (const c of candidates) {
-        if (c.kind !== "group") continue;
-        try {
-          const res = await client.call<GetResponse<Mailbox>>("Mailbox/get", {
-            accountId: c.accountId,
-            ids: null,
-            properties: MAILBOX_PROPS,
-          });
-          if (!res.list.length) continue;
-          const tree: Record<Id, Mailbox> = {};
-          for (const m of res.list) tree[m.id] = m;
-          trees[c.accountId] = tree;
-          groups.push(c);
-        } catch {
-          /* an account whose mail cannot be read is not a mailbox account */
+    if (discoverInFlight) return discoverInFlight;
+    discoverInFlight = (async () => {
+      try {
+        const session = useSession.getState().session;
+        const candidates = mailAccountCandidates(session);
+        const current = get().mailAccounts;
+        if (
+          candidates.length === current.length &&
+          candidates.every(
+            (c, i) =>
+              current[i]?.accountId === c.accountId &&
+              current[i]?.kind === c.kind &&
+              current[i]?.name === c.name,
+          )
+        )
+          return;
+        const ownInfo = candidates.find((c) => c.kind === "own") ?? null;
+        const groups: MailAccountInfo[] = [];
+        const trees: Record<Id, Record<Id, Mailbox>> = {};
+        for (const c of candidates) {
+          if (c.kind !== "group") continue;
+          try {
+            const res = await client.call<GetResponse<Mailbox>>("Mailbox/get", {
+              accountId: c.accountId,
+              ids: null,
+              properties: MAILBOX_PROPS,
+            });
+            if (!res.list.length) continue;
+            const tree: Record<Id, Mailbox> = {};
+            for (const m of res.list) tree[m.id] = m;
+            trees[c.accountId] = tree;
+            groups.push(c);
+          } catch {
+            /* an account whose mail cannot be read is not a mailbox account */
+          }
         }
+        /*
+         * The answer belongs to the session it was asked of. A sign-out, or a
+         * fresh session, can land while the probe is in flight, and writing
+         * this one then would put the previous reader's accounts back on
+         * screen under the new session.
+         */
+        if (useSession.getState().session !== session) return;
+        set((s) => ({
+          ownAccountId: ownInfo?.accountId ?? null,
+          mailAccounts: ownInfo ? [ownInfo, ...groups] : [],
+          accountTrees: { ...s.accountTrees, ...trees },
+        }));
+      } finally {
+        discoverInFlight = null;
       }
-      set((s) => ({
-        ownAccountId: ownInfo?.accountId ?? null,
-        mailAccounts: ownInfo ? [ownInfo, ...groups] : [],
-        accountTrees: { ...s.accountTrees, ...trees },
-      }));
-    } finally {
-      discoveringMailAccounts = false;
-    }
+    })();
+    return discoverInFlight;
   },
 
   async refreshAccountTree(accountId) {
@@ -1423,7 +1441,7 @@ export const useMail = create<MailState>((set, get) => ({
   },
   async loadLabelCounts() {
     const accountId = get().accountId;
-    const labels = labelsForAccount(accountId, get().ownAccountId, settings().labels);
+    const labels = labelsForAccount(accountId, settings().labels);
     if (!accountId || !labels.length) {
       if (Object.keys(get().labelCounts).length) set({ labelCounts: {} });
       return;
@@ -1650,8 +1668,8 @@ function sortIdentities(list: Identity[], accountId: Id): Identity[] {
  */
 let sortRefused = false;
 
-/** A discovery run is in flight; collapse the next session-refresh trigger. */
-let discoveringMailAccounts = false;
+/** The discovery run already on its way, shared by every caller that joins it. */
+let discoverInFlight: Promise<void> | null = null;
 
 async function runQuery(accountId: Id, q: ListQuery, position: number, limit: number) {
   /*
@@ -1944,20 +1962,6 @@ useSession.subscribe((s, prev) => {
   const own = mailAccountCandidates(s.session).find((c) => c.kind === "own");
   mail.setAccount(own?.accountId ?? null);
   void mail.discoverMailAccounts();
-});
-
-/**
- * A group's label catalog can land after the account tree — and with it the
- * label counts — has loaded, and it re-lands when an administrator edits it.
- * Recount when the labels of the account on screen change, so the sidebar
- * numbers follow the catalog.
- */
-useGroupLabels.subscribe((state, prev) => {
-  if (state.byAccount === prev.byAccount) return;
-  const { accountId } = useMail.getState();
-  if (!accountId) return;
-  if (state.byAccount[accountId] === prev.byAccount[accountId]) return;
-  void useMail.getState().loadLabelCounts();
 });
 
 export function mailboxIcon(role: MailboxRole): string {

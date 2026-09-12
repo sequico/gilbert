@@ -211,6 +211,7 @@ export function AppearanceSettings() {
         <label htmlFor="ui-language">{translate("Interface language")}</label>
         <select
           id="ui-language"
+          disabled={isEnforced("uiLanguage")}
           className="select"
           value={s.uiLanguage}
           onChange={(e) => update({ uiLanguage: e.target.value })}

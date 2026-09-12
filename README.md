@@ -69,7 +69,7 @@ feature, is in [FEATURES.md](FEATURES.md).
 - **Agents** — a worker fleet that acts inside mail and file storage on a group's behalf. Each automation is a document in the group's own account — when it reacts, which messages it looks at, what it then does — with a tier that decides how much model it uses (T0 deterministic, T1 a category, T2 the model's own judgement), a review policy that can pause a run for a person, a capability allowlist that bounds every answer, and the approval itself happening in the group's chat. Every run is audited, one document per month per group, and an administrator can export that trail before the retention prunes it. The installation's agent is **named by the deployment's environment** — `GILBERT_AGENT_ADDRESS` and the account's own password — and each group can be **narrowed to the kinds of work** (mail, files, tasks, calendars, contacts) it is served for. It runs as its own process, holds its claims in the documents themselves, and no model can widen what a rule was granted
 - **Nothing of its own to keep** — no database, no search index, no cache tier: every durable thing lives in the mail store, under the account's quota, and the container is disposable (`IMMUTABLE=1` needs no writable root)
 - **Platform** — installable PWA, Web Push with Gilbert closed, `mailto:` handler, no credentials in the browser, strict CSP, SSRF-safe image proxy
-- **Everything else is upstream's** — the mail client, calendar, contacts, files, sharing and Sieve editing come from [ihasmail](https://github.com/Coffey-Labs/ihasmail), renamed for this build. This project does not re-document them; upstream's own documentation is the reference — [Using ihasmail](https://docs.ihasmail.org/using/). What this build adds on top: twelve themes, nine interface languages (beta), signature checking, and a container that can run read-only
+- **Everything else is upstream's** — the mail client, calendar, contacts, files, sharing and Sieve editing come from [ihasmail](https://github.com/Coffey-Labs/ihasmail), renamed for this build. This project does not re-document them; upstream's own documentation is the reference — [Using ihasmail](https://docs.ihasmail.org/using/). What this build adds on top: twelve themes, eleven interface languages (beta), signature checking, and a container that can run read-only
 
 The feature-by-feature inventory, with Gilbert's own part first, is
 [FEATURES.md](FEATURES.md).
@@ -520,11 +520,13 @@ without a real mailbox. It reproduces the things a naive fake would get wrong,
 because each cost a live debugging session: `urn:stalwart:jmap` advertised
 **per-account** rather than session-level, identity signatures capped at 2047
 **bytes**, and `CalendarEvent/set` speaking Stalwart's vocabulary rather than
-RFC 8984's. Three switches: `MOCK_NO_FUTURE_RELEASE=1` advertises FUTURERELEASE
+RFC 8984's. Four switches: `MOCK_NO_FUTURE_RELEASE=1` advertises FUTURERELEASE
 and then drops every hold; `MOCK_NO_REGISTRY=1` omits the Stalwart capability so
-the sign-in refusal can be tested; and `MOCK_NO_SCHEDULING_SEND=1` refuses a
+the sign-in refusal can be tested; `MOCK_NO_SCHEDULING_SEND=1` refuses a
 calendar write that asks for scheduling messages, the way an account without
-that permission is refused.
+that permission is refused; and `MOCK_NO_KEYWORD_SORT=1` serves a server that
+does not implement sorting on keywords, so the fallback can be developed
+against.
 
 It tracks the current release rather than 0.16 in general, and each behaviour
 is confirmed against a real server before it is copied here — the comments say
@@ -553,10 +555,11 @@ out for itself — pass it in. Left out, the build reports `0.0.0`, which is mea
 to look wrong: a version with no `+pr` or `+g` means whoever built the image did
 not pass one.
 
-The version says nothing about Stalwart, deliberately. It used to: `2.16.x` had
-`16` for the 0.16 generation it targeted, which leaves nowhere to go once
-Stalwart reaches 1.0 — `2.1` sorts *below* the `2.16` already deployed, so every
-image and About screen would read as a downgrade. Which Stalwart a build needs is
+The version says nothing about Stalwart, deliberately. A version that carried
+the generation it targeted would have nowhere to go once Stalwart reaches 1.0:
+`2.16.x` put `16` there for the 0.16 generation, and `2.1` sorts *below* the
+`2.16` already deployed, so every image and About screen would read as a
+downgrade. Which Stalwart a build needs is
 stated where it can be precise, in the badge at the top of this file and in
 [KNOWN-ISSUES.md](KNOWN-ISSUES.md), rather than compressed into one digit.
 

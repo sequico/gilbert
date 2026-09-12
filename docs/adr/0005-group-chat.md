@@ -1,6 +1,6 @@
 # ADR 0005 — Group chat on the group's own Files
 
-Status: Accepted (2026-09-08)
+Status: Accepted (2026-09-08; amended 2026-09-12)
 
 ## Context
 
@@ -8,7 +8,7 @@ Groups (team mailboxes such as `freight@…`) are Stalwart principals whose
 members reach the group's own account through their JMAP session. Product law
 in this repository says everything a group owns lives in the group's own
 account, owned by the group from creation — calendars, address books and task
-lists follow it (ADR 0001's admin group excepted), and chat must not become
+lists follow it, and chat must not become
 the exception that tasks, calendars and contacts used to be before they were
 aligned: objects created in a member's personal account and shared out to the
 group require per-object ACL maintenance and never cover a member added after
@@ -78,9 +78,10 @@ document per message, with the group as owner from the first second.
   or by id is verified live before implementation (see below) and the mock is
   kept in step.
 - **UI placement and shape** (detailed below). The launcher is offered only
-  when the session holds group mailboxes (the probed mail accounts), and the
-  product-admin group is excluded: it is an administration surface, not a
-  working group (ADR 0001).
+  when the session holds group mailboxes (the probed mail accounts). Every
+  non-personal mail account is a working group, so there is no product-admin
+  account to exclude: ADR 0001 leaves administration to Stalwart's own admin
+  role and nothing else.
 
 ### UI placement and shape
 

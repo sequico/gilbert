@@ -50,6 +50,7 @@ import {
   errorMessage,
   missedAuditEntry,
   recordAudit,
+  unreadableDocumentAuditEntry,
 } from "./audit.js";
 import {
   conversationContext,
@@ -64,6 +65,7 @@ import {
 import {
   AGENT_AUDIT_DIR,
   AGENT_DIR,
+  AGENT_RULES_FILE,
   type AgentAction,
   type AgentClaim,
   type AgentDecision,
@@ -103,8 +105,9 @@ import {
   dueEntries,
   planSchedule,
   unrunEntries,
+  unrunEntry,
 } from "./scheduler.js";
-import { type AgentDoc, AgentStore } from "./store.js";
+import { type AgentDoc, AgentStore, UnreadableDocumentError } from "./store.js";
 
 /** The JMAP types the executor reconciles, plus the schedule. */
 export type ChangeType = "Email" | "FileNode";
@@ -165,6 +168,14 @@ export class Executor {
   /** The agent's own account: configuration, the stream claim, heartbeats. */
   private readonly agentStore: AgentStore;
 
+  /**
+   * The documents this process has already reported as unreadable, by what
+   * said so. Per process, because the report is a line in the trail and a
+   * sentence in the group's chat, and an unreadable document is a state every
+   * pass finds again rather than an event that happened once.
+   */
+  private readonly reportedUnreadable = new Set<string>();
+
   constructor(private readonly deps: ExecutorDeps) {
     this.agentStore = new AgentStore(deps.ctx, filesAccountId(deps.ctx));
   }
@@ -203,11 +214,60 @@ export class Executor {
     }
     const ids = [...new Set([...changes.created, ...changes.updated])];
     if (ids.length) {
-      const rules = (await store.readRules())?.doc ?? [];
+      const rules = await this.rulesOrReport(store, accountId, `the ${type} reconcile`);
+      // A group whose rules nobody can read is not a group with no automation:
+      // the anchor is left where it is, so the changes this pass could not act
+      // on are read again once the document can be read, instead of being
+      // consumed by a pass that had nothing to match them against.
+      if (!rules) return;
       if (type === "Email") await this.emailRecords(store, accountId, ids, rules, claim);
       else await this.fileRecords(store, accountId, ids, rules, claim);
     }
     await this.recordState(store, claim, type, changes.newState);
+  }
+
+  /**
+   * The group's rules, with a document nobody can read recorded rather than
+   * taken for no automation.
+   *
+   * `null` is the account having no rules document at all; a document that is
+   * there and does not read as rules raises out of `readRules` (see
+   * `UnreadableDocumentError`). The two are opposites — a group with no
+   * automation, against every automation of the group stopped — and a caller
+   * that took the second for the first would let the group's work stop with no
+   * audit row and no word in the chat, which is what `?doc ?? []` did.
+   *
+   * The line is written once per process and cause, because an unreadable
+   * document is a state and not an event: it is still unreadable on the next
+   * pass, and the group's chat would carry the same sentence every poll. The
+   * log carries the pass it happened in either way.
+   */
+  private async rulesOrReport(
+    store: AgentStore,
+    accountId: string,
+    where: string,
+  ): Promise<AgentRule[] | null> {
+    try {
+      return (await store.readRules())?.doc ?? [];
+    } catch (err) {
+      // Anything that is not the unreadable document itself — a server that
+      // could not answer, a refused read — keeps its own handling: this path is
+      // about a document a person has to fix, not about a read that failed.
+      if (!(err instanceof UnreadableDocumentError)) throw err;
+      const detail = errorMessage(err);
+      this.deps.log(
+        `${accountId}: ${where} cannot read the group's automation: ${detail}`,
+      );
+      if (this.reportedUnreadable.has(detail)) return null;
+      this.reportedUnreadable.add(detail);
+      await recordAudit(store, unreadableDocumentAuditEntry(AGENT_RULES_FILE, detail));
+      await this.tellChat(
+        accountId,
+        "I cannot read this group's automations, so nothing of them runs here " +
+          `until a person fixes it: ${detail}`,
+      );
+      return null;
+    }
   }
 
   private async recordState(
@@ -545,7 +605,7 @@ export class Executor {
       if (reviewOutcome(rule.review, plan.actions, plan.confidence) === "execute") {
         await this.execute(store, accountId, planned, rule, plan, claim);
       } else {
-        await this.pause(store, accountId, planned, rule, plan);
+        await this.pause(store, accountId, planned, rule, plan, claim);
       }
     } catch (err) {
       const latest = (await store.readJob(job.id))?.doc ?? running;
@@ -624,6 +684,29 @@ export class Executor {
       );
   }
 
+  /**
+   * The fence asked before an action that leaves the process.
+   *
+   * A lease can lapse during a long run, and a run whose unit was taken over
+   * must not send, post, draft or file what its successor is doing too. Both
+   * paths that run actions — the plan itself and the draft a paused run leaves
+   * for a person — ask through this one hook, so a new call site cannot run
+   * effects unfenced by forgetting it.
+   */
+  private leavingProcessFence(
+    store: AgentStore,
+    claim: AgentClaim,
+  ): (action: AgentAction) => Promise<void> {
+    return async (action: AgentAction) => {
+      if (!leavesTheProcess(action)) return;
+      const mine = await claimStillMine(store, this.deps.workerId, claimEpoch(claim));
+      if (!mine)
+        throw new RefusedError(
+          "the unit was taken over while this run was working: nothing more is run",
+        );
+    };
+  }
+
   private async execute(
     store: AgentStore,
     accountId: string,
@@ -668,17 +751,7 @@ export class Executor {
           landed.push(action.do);
           await store.writeJob({ ...job, applied: [...landed] });
         },
-        // Fenced again before an action that leaves the process: a lease can
-        // lapse during a long run, and a run whose unit was taken over must not
-        // send, post or file what its successor is doing too.
-        beforeAction: async (action: AgentAction) => {
-          if (!leavesTheProcess(action)) return;
-          const mine = await claimStillMine(store, this.deps.workerId, claimEpoch(claim));
-          if (!mine)
-            throw new RefusedError(
-              "the unit was taken over while this run was working: nothing more is run",
-            );
-        },
+        beforeAction: this.leavingProcessFence(store, claim),
       },
     );
     const done = closeState({ ...job, applied: [...landed] }, "done");
@@ -701,6 +774,7 @@ export class Executor {
     job: AgentJob,
     rule: AgentRule,
     plan: RunPlan,
+    claim: AgentClaim,
   ): Promise<void> {
     // The proposal is written down before the draft exists: a draft is an
     // effect in a mailbox the group shares, and nothing the agent leaves behind
@@ -735,7 +809,7 @@ export class Executor {
     );
     // Only now the draft, and both documents carry its reference: the answer
     // submits what the person read instead of preparing it a second time.
-    const draft = await this.prepareDraft(accountId, plan);
+    const draft = await this.prepareDraft(store, accountId, claim, plan);
     if (draft) {
       paused.proposal = { ...proposal, draft };
       await store.writeJob(paused);
@@ -757,9 +831,15 @@ export class Executor {
    * The draft a paused run leaves in the group's Drafts. A proposal that sends
    * mail needs something a member can read and send themselves, and a proposal
    * that only prepares a draft has already named it.
+   *
+   * A draft is an effect a person reads, so it passes the same fence the plan's
+   * own actions pass: a run whose unit was taken over while it was writing the
+   * decision leaves no draft beside the one its successor is preparing.
    */
   private async prepareDraft(
+    store: AgentStore,
     accountId: string,
+    claim: AgentClaim,
     plan: RunPlan,
   ): Promise<AgentDraftRef | null> {
     const draft = plan.actions.find((action) => action.do === "mail.draft");
@@ -776,10 +856,16 @@ export class Executor {
         text,
       },
     };
-    const [result] = await runActions(this.deps.ctx, accountId, [action], {
-      from: this.deps.address,
-      now: this.deps.now(),
-    });
+    const [result] = await runActions(
+      this.deps.ctx,
+      accountId,
+      [action],
+      {
+        from: this.deps.address,
+        now: this.deps.now(),
+      },
+      { beforeAction: this.leavingProcessFence(store, claim) },
+    );
     const ref = draftRefOf(result);
     if (!ref) return null;
     await this.labelQuietly(
@@ -1571,7 +1657,10 @@ export class Executor {
     let started = 0;
     for (const entry of mine) {
       const rule = rules.find((candidate) => candidate.id === entry.ruleId);
-      if (!rule?.enabled) continue;
+      // The entry is not started here when no rule can run it: the run is
+      // recorded as missed by the pass instead of being started under a rule
+      // the clock no longer wakes (see `unrunEntry`).
+      if (!rule || unrunEntry(entry, rules)) continue;
       // Read again where the run starts: the lease can lapse between the read
       // that chose the entry and this one, and a unit that is not this worker's
       // is not this worker's to start.
@@ -1615,7 +1704,10 @@ export class Executor {
     const rules = (await store.readRules())?.doc ?? [];
     const rule = rules.find((candidate) => candidate.id === entry.ruleId);
     const scheduleDoc = await store.readSchedule();
-    if (!rule?.enabled || rule.trigger.on !== "schedule") return;
+    // A rule that is off, gone, or no longer on the clock leaves the entry to
+    // the pass, which drops it from the document and records it as a missed
+    // run; nothing here consumes it.
+    if (!rule || unrunEntry(entry, rules)) return;
     // A timer fires outside any reconcile, so the unit is read where the
     // worker's claim lives: a schedule that outlived the worker's lease does
     // not start a run nobody can fence, and it does not consume the entry
@@ -1672,7 +1764,8 @@ export class Executor {
   /** Retry the jobs a failed run left pending. */
   async runPending(accountId: string): Promise<number> {
     const store = new AgentStore(this.deps.ctx, accountId);
-    const rules = (await store.readRules())?.doc ?? [];
+    const rules = await this.rulesOrReport(store, accountId, "the pending sweep");
+    if (!rules) return 0;
     if (!rules.length) return 0;
     let ran = 0;
     for (const entry of await store.listJobs()) {

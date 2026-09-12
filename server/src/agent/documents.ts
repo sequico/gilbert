@@ -176,7 +176,7 @@ export interface AgentActionSpec {
    * True when running the action twice is not the same as running it once: it
    * leaves something a person will find, and a second attempt files a second
    * copy beside the first. A run whose plan holds one of these is not retried
-   * (resolution 20) — the flag is what `leavesTheProcess` reads, and it is
+   * (resolution 20), and what a retry asks is `leavesTheProcess`. The flag is
    * deliberately not `irreversible`, which also asks a person first.
    */
   unrepeatable?: boolean;
@@ -260,6 +260,29 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
   },
 ];
 
+/**
+ * The actions that leave the process: sending, posting, drafting, filing.
+ *
+ * Named here rather than read off the specs' flags, because those flags answer
+ * three other questions — `external` is the consent floor (resolution 10),
+ * `irreversible` asks a person whatever the rule says, `unrepeatable` is about
+ * a second copy nobody asked for — and two of the actions a person ends up
+ * reading carry none of them: a posted chat message and a prepared draft are
+ * effects in the group's own state, and a run whose claim a successor took must
+ * not produce a second one.
+ *
+ * The set is the authority for `leavesTheProcess`, which is what the executor's
+ * fence and the retry decision both ask: one list, so an action cannot be
+ * fenced in one place and repeatable in the other.
+ */
+export const FENCED_ACTIONS: ReadonlySet<AgentActionName> = new Set<AgentActionName>([
+  "mail.send",
+  "chat.post",
+  "mail.draft",
+  "file.write",
+  "mail.extract",
+]);
+
 export function agentActionSpec(name: string): AgentActionSpec | undefined {
   return AGENT_ACTION_SPECS.find((s) => s.name === name);
 }
@@ -306,20 +329,23 @@ export function irreversible(actions: ReadonlyArray<AgentAction>): boolean {
 }
 
 /**
- * Whether one action reaches outside the group's own state: it sends, or it
- * leaves something a person will find.
+ * Whether one action leaves the process: it sends, posts, drafts or files.
  *
  * This is the set a run must not repeat, and it is also what the fence asks
  * about before an action runs: a label or a mailbox move is either idempotent
  * or harmless to do twice, so a retry may redo it. A message that has left
- * cannot be recalled, a second send is a second message, and an extraction or
- * a file the group can already see leaves a duplicate beside itself.
+ * cannot be recalled, a second send is a second message, an extraction or a
+ * file the group can see leaves a duplicate beside itself, and a posted message
+ * or a prepared draft is read by a person who cannot tell it from the one they
+ * were already shown.
+ *
+ * The answer is `FENCED_ACTIONS`, not the spec's flags: `chat.post` and
+ * `mail.draft` reach people without being `external`, `irreversible` or
+ * `unrepeatable`, and a fence that read the flags would let a run whose claim a
+ * successor took post in the group's chat again.
  */
 export function leavesTheProcess(action: AgentAction): boolean {
-  const spec = agentActionSpec(action.do);
-  return (
-    spec?.external === true || spec?.irreversible === true || spec?.unrepeatable === true
-  );
+  return FENCED_ACTIONS.has(action.do);
 }
 
 /* ------------------------------------------------------------------ */

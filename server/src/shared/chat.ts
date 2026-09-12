@@ -257,19 +257,23 @@ export function compareMessages(
  * (never opened) reads as 0 and the transcript shows in full; a marker born on
  * an empty chat (lastRead null) makes everything that came after it unread; a
  * marker whose message is gone reads as nothing unread rather than flooding.
+ *
+ * `fromStart` says whether `nodes` is the whole transcript or its newest page
+ * (the chat store pages the transcript from the tail, see `loadOlder`). It
+ * decides only the case below where the marker is not in hand: with the whole
+ * transcript, a missing marker means the message was deleted; with a page, it
+ * means the marker sits in the older part, so everything held is newer than it
+ * and the page is the unread count. Reading that as 0 is how a member who was
+ * away for more than a page is told "no unread" over hundreds.
  */
 export function unreadCount(
   nodes: Array<Pick<ChatMessage, "id">>,
   marker: { lastRead: string | null } | null,
+  fromStart = true,
 ): number {
   if (!marker) return 0;
   if (!marker.lastRead) return nodes.length;
   const at = nodes.findIndex((n) => n.id === marker.lastRead);
-  // Known limitation, by design: once the oldest messages have been trimmed
-  // off the transcript window, a marker that pointed into the trimmed part is
-  // indistinguishable from one ahead of the window, and reads as nothing
-  // unread. The badge under-counts for a member who never reopened a chat
-  // that outgrew the window -- accepted until chat gains paging.
-  if (at < 0) return 0;
+  if (at < 0) return fromStart ? 0 : nodes.length;
   return nodes.length - at - 1;
 }

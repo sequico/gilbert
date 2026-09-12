@@ -21,7 +21,7 @@ const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const { filesAccountId } = await import("../appFolder.js");
 type Ctx = import("../appFolder.js").Ctx;
-const { AgentStore } = await import("./store.js");
+const { AgentStore, UnreadableDocumentError } = await import("./store.js");
 const { writeAppFileAt } = await import("../appFolder.js");
 const { newJob } = await import("./documents.js");
 
@@ -225,4 +225,47 @@ test("an audit document that is there but unreadable is loud, not empty", async 
     /refusing to write over it/,
     "appending must not replace the unreadable document with a single entry",
   );
+});
+
+test("rules that are there but unreadable are loud, not no automation", async () => {
+  // One malformed rule invalidates the whole document, and a reader that
+  // answered `null` for it would report a group with automations as a group with
+  // none: every rule of the group stops, and nothing in the trail or the chat
+  // says why. Missing really is an empty account; unreadable is loud, which is
+  // the line the audit document already holds.
+  await writeAppFileAt(ctx, store.accountId, "agent/rules.json", {
+    v: 1,
+    rules: [{ v: 1, id: "r1", version: 1, name: "Half a rule" }],
+  });
+
+  await assert.rejects(
+    () => store.readRules(),
+    /there but does not read as a rules document/,
+    'a rules document nobody can read is not "no rules"',
+  );
+
+  // The document is left exactly as it was found: reading never writes, so the
+  // same read meets the same answer, and a person is who fixes it.
+  await assert.rejects(() => store.readRules(), UnreadableDocumentError);
+  await store.writeRules([]);
+});
+
+test("a claim that is there but unreadable is not a free unit", async () => {
+  // `claimAccount` takes a missing claim as its own to create, so a claim read
+  // as absent is a unit written over at `epoch: 0` — and every fence of the run
+  // that holds it stops agreeing with it. Present-but-unreadable is the other
+  // answer, and it is raised, not returned.
+  await writeAppFileAt(ctx, store.accountId, "agent/claim.json", {
+    worker: "w1",
+    heartbeatAt: "2026-09-10T08:00:00Z",
+  });
+
+  await assert.rejects(
+    () => store.readClaim(),
+    /there but does not read as a claim/,
+    "an unreadable claim is not a unit nobody holds",
+  );
+
+  await store.destroyClaim();
+  assert.equal(await store.readClaim(), null);
 });

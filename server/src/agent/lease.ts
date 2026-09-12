@@ -56,11 +56,19 @@ const CAS_ATTEMPTS = 4;
  * Claim (or renew, or take over) one account.
  *
  * - nobody holds it → take it;
- * - I hold it → renew the heartbeat, keeping the instant the lease started;
+ * - I hold it → renew the heartbeat, keeping the instant the lease started and
+ *   keeping the epoch, because a renewal is the same ownership and a fence
+ *   taken before it still holds;
  * - another worker holds it with a live lease → null, it is theirs;
  * - another worker holds it with a stale lease → take it over, **keeping the
  *   states it recorded**, so catch-up continues where the dead worker stopped
  *   instead of starting from nothing.
+ *
+ * This is the one renewal path: a holder keeps its claim live by asking for it
+ * again under its own worker id, so the epoch, the lease instant and the
+ * ownership are decided in a single place. A renewal written beside it would
+ * have to restate all three, and the one that read the worker alone would renew
+ * a claim that had moved to a new epoch under the same id.
  */
 export async function claimAccount(
   store: AgentStore,
@@ -113,27 +121,6 @@ export async function claimAccount(
     }
   }
   opts.onRefused?.("contended");
-  return null;
-}
-
-/** Renew a claim I still hold. Null means it is somebody else's now. */
-export async function renewClaim(
-  store: AgentStore,
-  claim: AgentClaim,
-  opts: { now: Date },
-): Promise<AgentClaim | null> {
-  const heartbeatAt = opts.now.toISOString();
-  for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
-    const found = await store.readClaim();
-    if (!found || found.doc.worker !== claim.worker) return null;
-    try {
-      const renewed = { ...found.doc, heartbeatAt };
-      await store.writeClaim(renewed, { ifInState: found.state });
-      return renewed;
-    } catch (err) {
-      if (!isStateMismatch(err)) throw err;
-    }
-  }
   return null;
 }
 
@@ -223,6 +210,10 @@ export async function saveClaimStates(
  * Claim the agent's event stream, in the agent's own account. Exactly one
  * worker holds it (ADR §6): the others poll, which is why the default
  * deployment is one worker and a second one is a deliberate choice.
+ *
+ * Claiming with the same worker id is also the stream's renewal: the holder
+ * keeps its claim live through this function, so the epoch and the lease
+ * instant are decided in the one place that answers who holds the stream.
  */
 export async function claimStream(
   store: AgentStore,
@@ -251,27 +242,6 @@ export async function claimStream(
     try {
       await store.writeStreamClaim(claim, { ifInState: token });
       return claim;
-    } catch (err) {
-      if (!isStateMismatch(err)) throw err;
-    }
-  }
-  return null;
-}
-
-/** Renew the stream claim I still hold. Null means it is somebody else's now. */
-export async function renewStreamClaim(
-  store: AgentStore,
-  claim: AgentStreamClaim,
-  opts: { now: Date },
-): Promise<AgentStreamClaim | null> {
-  const heartbeatAt = opts.now.toISOString();
-  for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
-    const found = await store.readStreamClaim();
-    if (!found || found.doc.worker !== claim.worker) return null;
-    try {
-      const renewed = { ...found.doc, heartbeatAt };
-      await store.writeStreamClaim(renewed, { ifInState: found.state });
-      return renewed;
     } catch (err) {
       if (!isStateMismatch(err)) throw err;
     }

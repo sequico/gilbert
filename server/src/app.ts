@@ -70,6 +70,7 @@ import {
 } from "./identityAdmin.js";
 import { imageProxyHandler } from "./imageproxy.js";
 import {
+  MAX_PUSH_BODY_BYTES,
   attach as pushAttach,
   attachRelay as pushAttachRelay,
   prepare as pushPrepare,
@@ -80,6 +81,7 @@ import { RateLimiter } from "./ratelimit.js";
 import {
   impersonationAuthorization,
   type LiveSession,
+  normalizeUsername,
   type SessionBackend,
   SessionStore,
 } from "./sessions.js";
@@ -236,12 +238,13 @@ async function sessionForcedState(
   upstream?: UpstreamSession,
 ): Promise<boolean> {
   if (session.appPassword) return false;
-  const hit = directiveCache.get(session.username);
+  const key = normalizeUsername(session.username);
+  const hit = directiveCache.get(key);
   if (hit && Date.now() - hit.checkedAt < DIRECTIVE_CACHE_TTL_MS) return hit.forced;
   // A stale entry is dropped, not overwritten in place: the map would
   // otherwise keep one entry per user ever checked for the life of the
   // process, with nothing ever deleting the ones that stop requesting.
-  if (hit) directiveCache.delete(session.username);
+  if (hit) directiveCache.delete(key);
   let forced = false;
   try {
     const up =
@@ -265,7 +268,7 @@ async function sessionForcedState(
       (err as Error).message,
     );
   }
-  directiveCache.set(session.username, { forced, checkedAt: Date.now() });
+  directiveCache.set(key, { forced, checkedAt: Date.now() });
   return forced;
 }
 
@@ -306,16 +309,17 @@ async function forcedFlagsFor(
 /**
  * Whether a mount-relative `/api` path is a data route the door covers.
  *
- * The list is ADR 0004's: the JMAP proxy, uploads, blobs, the image and
- * calendar proxies, the push stream and every `/account/*` route except the
- * password change itself (the wall's one way out). Auth, config, health and
- * the admin endpoints stay open.
+ * The exemptions are named rather than the data routes, so a route that is not
+ * here is behind the wall: a new `/api/*` surface is born closed, and opening
+ * one is a deliberate edit to this list. ADR 0004's own list is what is open —
+ * signing in, signing out, the session the wall reads, the password change that
+ * clears the directive, the config and health the sign-in page reads before it
+ * has a session, and the admin endpoints, which answer for an administrator
+ * acting on somebody else's account rather than for the account being forced.
  */
 function isDoorPath(rel: string): boolean {
-  if (rel === "/jmap" || rel === "/image" || rel === "/ics" || rel === "/events")
-    return true;
-  if (rel.startsWith("/upload/") || rel.startsWith("/blob/")) return true;
-  return rel.startsWith("/account/") && rel !== "/account/password";
+  if (rel.startsWith("/auth/") || rel.startsWith("/admin/")) return false;
+  return rel !== "/config" && rel !== "/health" && rel !== "/account/password";
 }
 
 const _HOP_BY_HOP = new Set([
@@ -596,7 +600,10 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   const forcedPasswordDoor: MiddlewareHandler<Env> = async (c, next) => {
     const path = new URL(c.req.url).pathname;
     const prefix = `${basePath}/api`;
-    const rel = path.startsWith(prefix) ? path.slice(prefix.length) || "/" : path;
+    // Only the API mount is judged: the static shell is not a data route, and
+    // it is reached without a session at all.
+    if (!path.startsWith(prefix)) return next();
+    const rel = path.slice(prefix.length) || "/";
     if (!isDoorPath(rel)) return next();
     const cookie = getCookie(c, config.cookieName);
     const session = c.get("session") ?? sessions.resolve(cookie);
@@ -636,8 +643,10 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       !(c.req.header("content-type") ?? "").toLowerCase().startsWith("application/json")
     )
       return c.body(null, 415);
+    // The declared length is the cheap first refusal; `pushReceive` bounds what
+    // it is handed, and the two share one number so they cannot drift.
     const len = Number(c.req.header("content-length") ?? "0");
-    if (!len || len > 64 * 1024) return c.body(null, 413);
+    if (!len || len > MAX_PUSH_BODY_BYTES) return c.body(null, 413);
     let body: unknown;
     try {
       body = await c.req.json();
@@ -646,7 +655,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
     return c.body(
       null,
-      (await pushReceive(c.req.param("token"), body)) as 200 | 400 | 404 | 500,
+      (await pushReceive(c.req.param("token"), body)) as 200 | 400 | 404 | 413 | 500,
     );
   });
 
@@ -952,7 +961,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     // pre-force answer, and the old credential is dead the moment the change
     // lands upstream. Password changes are rare, so a fresh read is cheap.
     const fresh = sessions.resolve(getCookie(c, config.cookieName));
-    directiveCache.delete(session.username);
+    directiveCache.delete(normalizeUsername(session.username));
     if (fresh && (await sessionForcedState(fresh))) {
       // ADR 0004: a successful change clears the directive in the user's own
       // folder. The user's own (freshly resealed) session is enough — no
@@ -978,7 +987,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       }
       // The read above cached "forced"; the file is gone now, so the door
       // must not answer from that entry.
-      directiveCache.delete(session.username);
+      directiveCache.delete(normalizeUsername(session.username));
     }
     return c.json({ ok: true, revokedSessions: revoked });
   });
@@ -1268,7 +1277,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       return accountFailure(c, err);
     }
     // The door's cache must not answer from before the change.
-    directiveCache.delete(target);
+    directiveCache.delete(normalizeUsername(target));
     return c.json({ ok: true });
   });
 

@@ -47,6 +47,24 @@ export function isAddress(value: string): boolean {
 }
 
 /**
+ * One reading of a policy section (`defaults`, `enforced`), shared by the boot
+ * reader in `config.ts` and the editor here.
+ *
+ * A JSON null is absent — the boot reader's `?? {}` for a document that says
+ * `"defaults": null`. A plain object is the section. Anything else is refused
+ * with the reason: a scalar cast into an object loads as settings that are not
+ * there, so the document is an error wherever it is read.
+ */
+export function readPolicySection(
+  name: string,
+  v: unknown,
+): Record<string, unknown> | string {
+  if (v == null) return {};
+  if (isRecord(v)) return v;
+  return `"${name}" must be an object`;
+}
+
+/**
  * Parse and validate one policy document text.
  *
  * Mirrors `readSettingsPolicy` in `server/src/config.ts`: strict JSON; an
@@ -56,10 +74,10 @@ export function isAddress(value: string): boolean {
  * plain-object `settings`. Unknown top-level keys are ignored, as the boot
  * reader ignores them.
  *
- * One deliberate difference: where the boot reader would silently cast a
- * scalar `defaults`/`enforced` into an object, the surface refuses the
- * document — a policy that would corrupt settings on load is an error at
- * save time, not at sign-in.
+ * The two sections go through `readPolicySection`, which both readers share: a
+ * scalar where an object belongs is refused here and refused at boot, so a
+ * hand-written document cannot slip past the editor and corrupt settings on
+ * load.
  */
 export function parsePolicyDocument(raw: string): PolicyDocument | null {
   const result = parsePolicyDocumentDetailed(raw);
@@ -86,15 +104,10 @@ export function parsePolicyDocumentDetailed(
     return {
       problem: "The document must be a JSON object with defaults, enforced and changes.",
     };
-  const pick = (name: string, v: unknown): Record<string, unknown> | string => {
-    if (v == null) return {};
-    if (isRecord(v)) return v;
-    return `"${name}" must be an object.`;
-  };
-  const defaults = pick("defaults", whole.defaults);
-  if (typeof defaults === "string") return { problem: defaults };
-  const enforced = pick("enforced", whole.enforced);
-  if (typeof enforced === "string") return { problem: enforced };
+  const defaults = readPolicySection("defaults", whole.defaults);
+  if (typeof defaults === "string") return { problem: `${defaults}.` };
+  const enforced = readPolicySection("enforced", whole.enforced);
+  if (typeof enforced === "string") return { problem: `${enforced}.` };
   const changes: PolicyChangeDocument[] = [];
   if (whole.changes !== undefined) {
     if (!Array.isArray(whole.changes))

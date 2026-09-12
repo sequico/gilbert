@@ -11,9 +11,15 @@ import type { AgentRule, AgentScheduleEntry } from "./documents.js";
  * pinned without a sleeping test.
  */
 
-const { advance, armTimers, carryingForeign, dueEntries, planSchedule } = await import(
-  "./scheduler.js"
-);
+const {
+  advance,
+  armTimers,
+  carryingForeign,
+  dueEntries,
+  planSchedule,
+  unrunEntries,
+  unrunEntry,
+} = await import("./scheduler.js");
 
 const NOW = new Date("2026-09-10T10:00:30.000Z");
 
@@ -176,6 +182,39 @@ test("the disposer stops every timer, including a pending re-check", () => {
   assert.equal(clock.armed(), 0);
   clock.advanceTo(at("2026-09-10T11:00:00.000Z"));
   assert.deepEqual(due, []);
+});
+
+test("a due run no rule can run is the same entry for the record and for the writer", () => {
+  // A due entry is normally fired late rather than dropped — a worker that was
+  // away catches up — so what vanishes is the entry no rule can run: disabled,
+  // gone, or a rule the clock no longer wakes. One predicate answers that
+  // question for both readers, so an entry cannot be dropped by the writer that
+  // carries a peer's entries and left unrecorded by the pass that writes the
+  // missed runs down (ADR 0003 §5).
+  const now = new Date("2026-09-10T10:00:00.000Z");
+  const due: AgentScheduleEntry[] = [{ ruleId: "r1", at: now.toISOString() }];
+  const moved = [rule({ trigger: { on: "email" } })];
+
+  assert.equal(unrunEntry(due[0]!, moved), true, "the clock no longer wakes it");
+  assert.deepEqual(
+    unrunEntries(due, moved).map((entry) => entry.ruleId),
+    ["r1"],
+    "so the pass has an entry to record as a missed run",
+  );
+  assert.deepEqual(
+    carryingForeign([], due, moved, new Set()),
+    [],
+    "and the writer drops it: the vanishing the record accounts for",
+  );
+
+  assert.equal(unrunEntry(due[0]!, [rule({ enabled: false })]), true);
+  assert.equal(unrunEntry(due[0]!, []), true, "a rule that is gone cannot run");
+
+  // A rule still on the clock is fired late, never dropped: both answers agree.
+  const onTime = [rule()];
+  assert.equal(unrunEntry(due[0]!, onTime), false);
+  assert.deepEqual(unrunEntries(due, onTime), []);
+  assert.deepEqual(carryingForeign([], due, onTime, new Set()), due);
 });
 
 /**

@@ -4,7 +4,12 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizeBasePath } from "../../scripts/basePath.mjs";
 import { resolveVersion } from "../../scripts/version.mjs";
-import { isAddress, type PolicyDocument, type PolicyIdentities } from "./adminPolicy.js";
+import {
+  isAddress,
+  type PolicyDocument,
+  type PolicyIdentities,
+  readPolicySection,
+} from "./adminPolicy.js";
 
 /** Minimal .env loader (no dependency): first match wins, never overrides real env. */
 function loadDotEnv() {
@@ -148,17 +153,40 @@ if (immutable)
  * ideas of what a policy is.
  */
 function readSettingsPolicy(): PolicyDocument {
-  const parse = (raw: string, where: string): Record<string, unknown> => {
+  /**
+   * One environment variable or file, as strict JSON.
+   *
+   * Loud, and fatal: a policy that silently did not apply would look like the
+   * feature not working, and the admin would have no way to tell. Wrapped here
+   * so every value the policy comes from fails in the same words, however it
+   * was written -- a bare SyntaxError names neither the variable nor the file.
+   */
+  const parseJson = (raw: string, where: string): unknown => {
     try {
-      const v = JSON.parse(raw) as unknown;
-      if (!v || typeof v !== "object" || Array.isArray(v))
-        throw new Error("not a JSON object");
-      return v as Record<string, unknown>;
+      return JSON.parse(raw);
     } catch (err) {
-      /* Loud, and fatal. A policy that silently did not apply would look like
-         the feature not working, and the admin would have no way to tell. */
       throw new Error(`Invalid ${where}: ${(err as Error).message}`);
     }
+  };
+
+  const parse = (raw: string, where: string): Record<string, unknown> => {
+    const v = parseJson(raw, where);
+    if (!v || typeof v !== "object" || Array.isArray(v))
+      throw new Error(`Invalid ${where}: not a JSON object`);
+    return v as Record<string, unknown>;
+  };
+
+  /**
+   * One section of a policy document, under the editor's rule (ADR 0004 §1).
+   *
+   * `defaults` and `enforced` are objects or they are not a policy: the editor
+   * refuses a scalar where an object belongs, and so does this, because a cast
+   * would load a string or an array as settings that are not there.
+   */
+  const section = (name: "defaults" | "enforced", v: unknown, where: string) => {
+    const got = readPolicySection(name, v);
+    if (typeof got === "string") throw new Error(`Invalid ${where}: ${got}`);
+    return got;
   };
 
   /**
@@ -227,12 +255,13 @@ function readSettingsPolicy(): PolicyDocument {
   if (file) {
     if (!existsSync(file))
       throw new Error(`SETTINGS_POLICY_FILE does not exist: ${file}`);
-    const whole = parse(readFileSync(file, "utf8"), `SETTINGS_POLICY_FILE (${file})`);
+    const where = `SETTINGS_POLICY_FILE (${file})`;
+    const whole = parse(readFileSync(file, "utf8"), where);
     return {
-      defaults: (whole.defaults as Record<string, unknown>) ?? {},
-      enforced: (whole.enforced as Record<string, unknown>) ?? {},
-      changes: parseChanges(whole.changes, `SETTINGS_POLICY_FILE (${file})`),
-      ...parseIdentities(whole.identities, `SETTINGS_POLICY_FILE (${file})`),
+      defaults: section("defaults", whole.defaults, where),
+      enforced: section("enforced", whole.enforced, where),
+      changes: parseChanges(whole.changes, where),
+      ...parseIdentities(whole.identities, where),
     };
   }
   return {
@@ -242,8 +271,13 @@ function readSettingsPolicy(): PolicyDocument {
     enforced: process.env.SETTINGS_ENFORCED
       ? parse(process.env.SETTINGS_ENFORCED, "SETTINGS_ENFORCED")
       : {},
+    // Through the same guard as the file's list: a malformed value here is a
+    // configuration error that has to say which variable it came from.
     changes: process.env.SETTINGS_CHANGES
-      ? parseChanges(JSON.parse(process.env.SETTINGS_CHANGES), "SETTINGS_CHANGES")
+      ? parseChanges(
+          parseJson(process.env.SETTINGS_CHANGES, "SETTINGS_CHANGES"),
+          "SETTINGS_CHANGES",
+        )
       : [],
   };
 }

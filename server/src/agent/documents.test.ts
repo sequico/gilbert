@@ -18,11 +18,13 @@ import {
   CHAT_CONTEXT_MAX,
   clampChatContext,
   consentRequired,
+  FENCED_ACTIONS,
   irreversible,
   isAgentAction,
   isAgentJob,
   isAgentRule,
   isAgentRulesDoc,
+  leavesTheProcess,
   matchEmailFilter,
   missingActionParams,
   monthOf,
@@ -125,6 +127,47 @@ test("sending reaches outside the group, so it needs consent", () => {
   );
   assert.equal(irreversible([send]), true);
   assert.equal(irreversible([label]), false);
+});
+
+test("every action the fence names is fenced, whatever its spec flags say", () => {
+  // The set a run must not repeat after its unit moved on is written out in the
+  // code rather than read off the specs: `chat.post` and `mail.draft` reach
+  // people without being `external`, `irreversible` or `unrepeatable`, and a
+  // fence that read the flags let a run whose claim a successor took post in the
+  // group's chat a second time.
+  assert.deepEqual(
+    [...FENCED_ACTIONS].sort(),
+    ["chat.post", "file.write", "mail.draft", "mail.extract", "mail.send"],
+    "the set names sending, posting, drafting and filing",
+  );
+  for (const name of FENCED_ACTIONS) {
+    assert.equal(
+      leavesTheProcess({ do: name }),
+      true,
+      `${name} leaves the process, so the fence stops for it`,
+    );
+  }
+  // The actions the catalogue deliberately leaves outside it are the ones a
+  // retry may redo: a label or a mailbox move is either idempotent or harmless
+  // to do twice.
+  const inside = AGENT_ACTION_SPECS.map((spec) => spec.name)
+    .filter((name) => !FENCED_ACTIONS.has(name))
+    .sort();
+  assert.deepEqual(inside, ["keyword.add", "keyword.remove", "mail.move", "noop"]);
+  for (const name of inside) {
+    assert.equal(leavesTheProcess({ do: name }), false, `${name} may run twice`);
+  }
+  // A spec that says it reaches a person is in the set: the flags and the fence
+  // cannot drift apart with an action fenced in one place and not in the other.
+  for (const spec of AGENT_ACTION_SPECS) {
+    if (spec.external || spec.irreversible || spec.unrepeatable) {
+      assert.equal(
+        FENCED_ACTIONS.has(spec.name),
+        true,
+        `${spec.name} is flagged as leaving the process and is fenced for it`,
+      );
+    }
+  }
 });
 
 test("the review gate follows the mode, the confidence and the T0 convention", () => {

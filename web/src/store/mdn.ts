@@ -51,8 +51,10 @@ export async function sendReadReceipt(email: Email): Promise<void> {
   const blob = new Blob([mime], { type: "message/rfc822" });
   const uploaded = await client.upload(accountId, blob, { type: "message/rfc822" });
 
-  // It has to live somewhere to be submitted; Sent is where it honestly belongs.
-  const sentId = mail.roleId("sent") ?? mail.roleId("archive") ?? mail.roleId("inbox");
+  // It has to live somewhere to be submitted; Sent is where it honestly
+  // belongs, and Archive is the one other honest home. Inbox is deliberately
+  // not among them: a receipt filed there reads as mail the reader received.
+  const sentId = mail.roleId("sent") ?? mail.roleId("archive");
   if (!sentId) throw new Error("No folder to file the receipt in");
   const mdnId = await mail.importEml(uploaded.blobId, sentId, { $seen: true });
   if (!mdnId) throw new Error("The server would not accept the receipt");
@@ -87,9 +89,11 @@ export async function sendReadReceipt(email: Email): Promise<void> {
     { allowErrors: true },
   );
 
-  const sub = res.get("s")?.[0] as unknown as SetResponse & {
-    __error?: { type: string; description?: string };
-  };
+  const sub = res.get("s")?.[0] as unknown as
+    | (SetResponse & { __error?: { type: string; description?: string } })
+    | undefined;
+  // The submission is the receipt: no response at all means it did not go.
+  if (!sub) throw new Error("The server would not accept the receipt");
   if (sub.__error) throw new Error(setErrorMessage(sub.__error));
   if (sub.notCreated?.s) {
     // Do not leave an unsent receipt sitting in Sent looking like it went.
