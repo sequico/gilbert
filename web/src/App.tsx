@@ -310,8 +310,8 @@ function AuthedApp() {
      * and re-registering before that is the client's job. Nothing did it, so
      * background notifications lapsed within a week of being switched on and
      * only came back if somebody happened to toggle the switch. Opening the app
-     * is the only moment this can be done -- registering is a JMAP call, and
-     * the service worker has no session to make one with -- so it is done on
+     * is the moment this is done -- registering is a JMAP call, and a start is
+     * when the app is open and about to use the subscription -- so it runs on
      * every start, chained onto the mailbox load above.
      */
     const pending = new Map<string, Set<string>>();

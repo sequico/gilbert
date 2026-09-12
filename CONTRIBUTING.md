@@ -48,7 +48,7 @@ For larger changes, please open an issue to discuss the approach **before** subm
    - Related issue number(s), if any
    - Screenshots/GIFs for UI changes
    - Any manual testing you performed
-8. **Add translations** for any new user-visible string. Nine languages ship
+8. **Add translations** for any new user-visible string. Ten languages ship
    alongside English in `web/src/locales/`, and a missing key renders its
    English source rather than failing — so an untranslated string is invisible
    until somebody reading that language finds it. `npm run i18n:check` and
@@ -71,13 +71,13 @@ deliberately and knowingly.
 
 ### Translations
 
-Nine languages ship alongside English: German, Spanish, French, Dutch,
+Ten languages ship alongside English: German, Spanish, French, Italian, Dutch,
 Portuguese (Brazil), Russian, Ukrainian, Simplified Chinese and Japanese, in
 `web/src/locales/`. A missing key renders its English source rather than
 failing, so an untranslated string is invisible until somebody reading that
 language finds it.
 
-**Any change that adds or alters a user-visible string adds work in all nine
+**Any change that adds or alters a user-visible string adds work in all ten
 catalogues.** Say so explicitly in the PR — how many keys, and the fallback
 count before and after — and say so just as explicitly when a change adds none,
 so it is never left to be inferred.
@@ -92,7 +92,7 @@ plural(n, { one: "Deleted {n} contact", other: "Deleted {n} contacts" })
 
 is keyed on **`"Deleted {n} contacts"`**. Keying the catalogue on the `one`
 form type-checks, builds, passes every test, and silently falls back to English
-in all nine languages. Nothing errors. The only signal is the fallback count
+in all ten languages. Nothing errors. The only signal is the fallback count
 going up, so read it:
 
 ```sh
@@ -111,10 +111,10 @@ distinction, not being thorough.
 
 ### Verifying UI work
 
-Store tests do not exercise the component. At least one bug in this repo's
-history — a shift-click range measured inside a `setState` updater, which React
-runs after the anchor ref has already moved — passed every store assertion and
-failed the moment the built app was driven. If a change is visible on screen,
+Store tests do not exercise the component. A range measured inside a
+`setState` updater, for instance, is applied after React has already moved the
+anchor that measured it: every store assertion can pass while the built app
+does the wrong thing. If a change is visible on screen,
 run it: `npm run dev:mock` (mock Stalwart, credentials printed on start), then
 drive the real thing. Add a component test for what you find; there are
 examples in `web/src/views/*/__tests__/`.
