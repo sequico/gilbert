@@ -180,6 +180,51 @@ after(() => {
  * These are the file's first tests because the account has to be untouched for
  * the first of them to exercise the create path.
  */
+test("a group's memory is read, written, and bounded where the document says", async () => {
+  configureAgent("");
+  const empty = await call(`/api/admin/groups/${TEAM}/agent/notebook`);
+  assert.equal(empty.status, 200);
+  assert.deepEqual((empty.body as { facts: unknown[] }).facts, []);
+
+  const saved = await call(`/api/admin/groups/${TEAM}/agent/notebook`, {
+    method: "POST",
+    body: JSON.stringify({ facts: [{ text: "The group works in Italian." }] }),
+  });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  const view = saved.body as {
+    facts: Array<{ id: string; text: string; addedBy?: string }>;
+    updatedBy: string | null;
+  };
+  assert.equal(view.facts.length, 1);
+  assert.ok(view.facts[0]?.id, "the server gives a fact that arrives without one its id");
+  assert.equal(view.facts[0]?.text, "The group works in Italian.");
+  assert.equal(view.updatedBy, "demo@example.com");
+
+  const tooLong = await call(`/api/admin/groups/${TEAM}/agent/notebook`, {
+    method: "POST",
+    body: JSON.stringify({ facts: [{ text: "x".repeat(600) }] }),
+  });
+  assert.equal(tooLong.status, 400);
+  assert.equal((tooLong.body as { error: string }).error, "notebook_fact_too_long");
+});
+
+test("the ceiling on an answer is the installation's to set, and a bad one is refused", async () => {
+  configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
+  const saved = await call("/api/admin/agent/providers", {
+    method: "POST",
+    body: JSON.stringify({ maxOutputTokens: 512 }),
+  });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  const read = await call("/api/admin/agent/providers");
+  assert.equal((read.body as { maxOutputTokens: number }).maxOutputTokens, 512);
+
+  const tooHigh = await call("/api/admin/agent/providers", {
+    method: "POST",
+    body: JSON.stringify({ maxOutputTokens: 999_999 }),
+  });
+  assert.equal(tooHigh.status, 400);
+  assert.equal((tooHigh.body as { error: string }).error, "max_output_tokens_invalid");
+});
 
 test("the first save of the model creates the folders and the document in one go", async () => {
   configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
@@ -373,7 +418,11 @@ test("providers: empty without an agent, refused when the agent is out of reach"
   configureAgent("");
   const none = await call("/api/admin/agent/providers");
   assert.equal(none.status, 200);
-  assert.deepEqual(none.body, { address: "", provider: null });
+  assert.deepEqual(none.body, {
+    address: "",
+    provider: null,
+    maxOutputTokens: 2048,
+  });
 
   configureAgent(TEAM);
   const unreachable = await call("/api/admin/agent/providers");

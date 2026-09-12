@@ -58,7 +58,7 @@ test("a claim nobody holds is taken", async () => {
   assert.deepEqual(claim.states, {});
 });
 
-test("a claim held by another worker with a live lease is not taken", async () => {
+test("a claim held by another agent with a live lease is not taken", async () => {
   const claim = await claimAccount(store, "w2", { now: new Date(), leaseMs: LEASE });
   assert.equal(claim, null, "losing a race is normal, not an error");
 });
@@ -130,7 +130,7 @@ test("the stream claim is exclusive, in the agent's own account", async () => {
   assert.equal(await agentStore.readStreamClaim(), null);
 });
 
-test("a worker id is stable for the process and names the agent", () => {
+test("an agent id is stable for the process and names the agent", () => {
   const id = workerId("gilbert@example.com");
   assert.equal(id, workerId("gilbert@example.com"));
   assert.match(id, /^gilbert@example\.com#[0-9]+-/);
@@ -183,7 +183,7 @@ test("a takeover moves the epoch, a renewal does not", async () => {
   assert.equal(await claimStillMine(store, "w2", claimEpoch(taken)), true);
 });
 
-test("two workers racing for one unit: exactly one wins", async () => {
+test("two agents racing for one unit: exactly one wins", async () => {
   await freeUnit();
   const now = new Date();
   const [one, two] = await Promise.all([

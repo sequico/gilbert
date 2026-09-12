@@ -8,9 +8,11 @@ import {
 } from "../shared/chat.js";
 import {
   AGENT_ACTION_SPECS,
+  AGENT_NOTEBOOK_FACT_MAX,
   AGENT_TRIGGERS,
   type AgentAction,
   type AgentEmailView,
+  type AgentNotebookDoc,
   type AgentRule,
   agentRuleJsonSchema,
   CHAT_CONTEXT_DEFAULT,
@@ -21,6 +23,7 @@ import {
   irreversible,
   isAgentAction,
   isAgentJob,
+  isAgentNotebookDoc,
   isAgentRule,
   isAgentRulesDoc,
   leavesTheProcess,
@@ -30,6 +33,7 @@ import {
   monthsSince,
   newJob,
   nextRunAfter,
+  notebookFor,
   reviewOutcome,
   ruleProblem,
   ruleProblems,
@@ -385,6 +389,57 @@ test("the published schema is the same catalogue the runtime reads", () => {
   // interval, a threshold needs its number.
   assert.ok(Array.isArray(schema.properties.trigger?.allOf));
   assert.ok(Array.isArray(schema.properties.review?.allOf));
+});
+
+test("a notebook is facts, and a fact the document cannot hold is refused", () => {
+  const doc: AgentNotebookDoc = {
+    v: 1,
+    facts: [{ id: "f1", text: "Invoices are filed under the client's name." }],
+    updatedAt: "2026-09-12T10:00:00.000Z",
+    updatedBy: "demo@example.com",
+  };
+  assert.equal(isAgentNotebookDoc(doc), true);
+  assert.equal(
+    isAgentNotebookDoc({ ...doc, facts: [] }),
+    true,
+    "a group may hold nothing",
+  );
+  assert.equal(
+    isAgentNotebookDoc({
+      ...doc,
+      facts: [{ id: "f1", text: "x".repeat(AGENT_NOTEBOOK_FACT_MAX + 1) }],
+    }),
+    false,
+    "a fact longer than the document allows is not a fact",
+  );
+  assert.equal(
+    isAgentNotebookDoc({
+      v: 1,
+      facts: [{ text: "no id" }],
+      updatedAt: "x",
+      updatedBy: "y",
+    }),
+    false,
+    "every fact carries the id a surface changes it by",
+  );
+});
+
+test("the notebook reaches the prompt as one line per fact, in the order the group keeps them", () => {
+  assert.equal(notebookFor(null), "");
+  assert.equal(
+    notebookFor({
+      v: 1,
+      facts: [
+        { id: "a", text: "The group works in Italian." },
+        { id: "b", text: "   " },
+        { id: "c", text: "Ada's invoices are filed under the client." },
+      ],
+      updatedAt: "2026-09-12T10:00:00.000Z",
+      updatedBy: "demo@example.com",
+    }),
+    "- The group works in Italian.\n- Ada's invoices are filed under the client.",
+    "a blank fact is nothing to say, not a blank line",
+  );
 });
 
 test("the published schema is what a save is refused against", () => {

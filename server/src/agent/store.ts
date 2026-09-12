@@ -33,6 +33,7 @@ import {
   AGENT_DIR,
   AGENT_INSTRUCTION_FILE,
   AGENT_JOBS_DIR,
+  AGENT_NOTEBOOK_FILE,
   AGENT_RULES_FILE,
   AGENT_SCHEDULE_FILE,
   AGENT_STREAM_FILE,
@@ -44,6 +45,8 @@ import {
   type AgentDecision,
   type AgentInstructionDoc,
   type AgentJob,
+  type AgentNotebookDoc,
+  type AgentNotebookFact,
   type AgentRule,
   type AgentRulesDoc,
   type AgentScheduleDoc,
@@ -58,6 +61,7 @@ import {
   isAgentDecision,
   isAgentInstructionDoc,
   isAgentJob,
+  isAgentNotebookDoc,
   isAgentRulesDoc,
   isAgentScheduleDoc,
   isAgentStreamClaim,
@@ -311,6 +315,44 @@ export class AgentStore {
       this.ctx,
       this.accountId,
       this.path(AGENT_INSTRUCTION_FILE),
+      doc,
+      opts,
+    );
+    return doc;
+  }
+
+  /* ---------------- the group's notebook ---------------- */
+
+  async readNotebook(): Promise<AgentDoc<AgentNotebookDoc> | null> {
+    return this.readDoc<AgentNotebookDoc>(
+      this.path(AGENT_NOTEBOOK_FILE),
+      isAgentNotebookDoc,
+    );
+  }
+
+  /**
+   * Write the group's notebook.
+   *
+   * The whole list goes at once: the surface reads the facts, changes one, and
+   * writes them back, and the document is the group's own — so a lost race is a
+   * lost race, and the surface re-reads rather than merging behind a person's
+   * back.
+   */
+  async writeNotebook(
+    facts: ReadonlyArray<AgentNotebookFact>,
+    by: string,
+    opts: { ifInState?: string } = {},
+  ): Promise<AgentNotebookDoc> {
+    const doc: AgentNotebookDoc = {
+      v: 1,
+      facts: [...facts],
+      updatedAt: new Date().toISOString(),
+      updatedBy: by,
+    };
+    await writeAppFileAt(
+      this.ctx,
+      this.accountId,
+      this.path(AGENT_NOTEBOOK_FILE),
       doc,
       opts,
     );

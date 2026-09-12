@@ -842,7 +842,7 @@ test("a run nobody came back for is closed as a timeout, not a failure", async (
   );
 });
 
-test("a run whose worker died is taken up again by the next pass", async () => {
+test("a run whose agent died is taken up again by the next pass", async () => {
   const resume = rule({ id: "resume", name: "Resume automation" });
   await store.writeRules([resume]);
   const emailId = await createMessage("An invoice to resume");

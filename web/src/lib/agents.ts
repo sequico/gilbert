@@ -19,7 +19,7 @@
  * no route hands them back.
  */
 
-import type { AgentJob, AgentRule } from "@gilbert/agent/documents";
+import type { AgentJob, AgentNotebookFact, AgentRule } from "@gilbert/agent/documents";
 import type {
   AgentApprovalsView,
   AgentAuditExport,
@@ -27,6 +27,7 @@ import type {
   AgentProvidersView,
   AgentStatus,
   GroupInstructionView,
+  GroupNotebookView,
   MemberAgentView,
 } from "@gilbert/agent/views";
 import { apiFetch } from "@/jmap/client";
@@ -50,6 +51,7 @@ export type {
   AgentStatusWorker,
   GroupEnumeration,
   GroupInstructionView,
+  GroupNotebookView,
   MemberAgentRule,
   MemberAgentView,
   PendingApproval,
@@ -70,6 +72,8 @@ export interface AgentProviderInput {
 /** The write body: one entry, or none to clear the installation's model. */
 export interface AgentProvidersInput {
   provider?: AgentProviderInput | null;
+  /** The ceiling on one answer, in tokens; `null` restores the default. */
+  maxOutputTokens?: number | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -238,4 +242,32 @@ export function actionCatalog(
     });
   }
   return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* The group's notebook — what memory means for a group                */
+/* ------------------------------------------------------------------ */
+
+/** `GET /api/admin/groups/:name/agent/notebook` — the facts its agent holds. */
+export function fetchGroupNotebook(name: string): Promise<GroupNotebookView> {
+  return apiFetch<GroupNotebookView>(
+    `/api/admin/groups/${encodeURIComponent(name)}/agent/notebook`,
+  );
+}
+
+/**
+ * `POST /api/admin/groups/:name/agent/notebook` — replace the facts.
+ *
+ * The whole list goes at once, which is what the document holds: the surface
+ * reads the facts, changes one, and writes them back. An id the surface keeps
+ * is the fact it edits; one it leaves out is a fact the server gives an id to.
+ */
+export async function saveAgentNotebook(
+  name: string,
+  facts: ReadonlyArray<Pick<AgentNotebookFact, "id" | "text">>,
+): Promise<GroupNotebookView> {
+  return apiFetch<GroupNotebookView>(
+    `/api/admin/groups/${encodeURIComponent(name)}/agent/notebook`,
+    { method: "POST", body: JSON.stringify({ facts }) },
+  );
 }

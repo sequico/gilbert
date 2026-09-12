@@ -198,6 +198,16 @@ refused, so the prose steers inside the grant and never widens it — and every
 run is audited. One model, configured once (provider, model, base URL and a
 write-only key), serves every automation: nothing asks an administrator to
 classify what a piece of work deserves.
+- **A group has a memory.** Beside the documents a group already keeps, its
+agent carries a **notebook**: the facts about the group that no automation
+should have to repeat — how its mail is filed, what its clients are called,
+which language the group works in, the exceptions somebody wrote down. It is a
+document in the group's own account, so it survives a container, a deploy and a
+replacement agent; the administration shows it as a list and lets an
+administrator add, correct and remove one fact at a time; and it sits in the
+prompt's stable head, so carrying it into every call costs a cache hit rather
+than a miss. It steers and it never widens: what an automation may do is its
+own capability allowlist.
 - **Labels, not folders.** `G-needattention`, `G-processed`, `G-awaiting`,
 `G-rejected` mark Gilbert's processing state on the individual message; the
 catalog is created from the admin surface once the grant exists. State is per

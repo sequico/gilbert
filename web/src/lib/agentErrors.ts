@@ -76,6 +76,11 @@ export const AGENT_ERROR_SENTENCES = {
   base_url_invalid: "The base URL is not a URL.",
   base_url_not_https:
     "The base URL must use https: the api key travels in a header, and plain http would send it in the clear.",
+  notebook_not_an_object: "A notebook write must name the facts it sends.",
+  notebook_too_many: "A notebook holds at most {max} facts.",
+  notebook_fact_too_long: "A fact is at most {max} characters.",
+  max_output_tokens_invalid:
+    "The ceiling on one answer must be between 1 and {max} tokens.",
   base_url_private:
     "The base URL points at {host}, which is inside the network: a worker must not be pointed at an address that is not a model provider.",
   instruction_too_long:

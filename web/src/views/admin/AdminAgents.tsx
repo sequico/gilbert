@@ -26,6 +26,7 @@ import { useAgents } from "@/store/agents";
 import { fleetReasonText } from "@/views/agent/agentText";
 import { AgentProviders } from "./agent/AgentProviders";
 import { GroupInstruction } from "./agent/GroupInstruction";
+import { GroupMemory } from "./agent/GroupMemory";
 
 export function AdminAgents() {
   const status = useAgents((s) => s.status);
@@ -261,6 +262,7 @@ function Groups({ status }: { status: AgentStatus | null }) {
             </p>
           )}
           <GroupInstruction groups={status.groups.map((g) => g.name)} />
+          <GroupMemory groups={status.groups.map((g) => g.name)} />
         </>
       )}
     </section>

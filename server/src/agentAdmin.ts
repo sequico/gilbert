@@ -28,16 +28,22 @@ import { hasSpoken, readChat } from "./agent/chat.js";
 import {
   AGENT_INSTRUCTION_MAX,
   AGENT_JOB_OPEN_STATES,
+  AGENT_NOTEBOOK_FACT_MAX,
+  AGENT_NOTEBOOK_FACTS_MAX,
   type AgentAuditEntry,
   type AgentConfigDoc,
   type AgentJob,
+  type AgentNotebookFact,
   type AgentProvider,
   type AgentRule,
   type AgentWorkerRecord,
   filterNeedsBody,
   filterProblems,
   isAgentRule,
+  isModelMaxOutput,
   leaseExpired,
+  MODEL_MAX_OUTPUT_CEILING,
+  MODEL_MAX_OUTPUT_DEFAULT,
   matchEmailFilter,
   monthOf,
   monthsSince,
@@ -65,6 +71,7 @@ import type {
   GroupEnumeration,
   GroupInstructionView,
   GroupNeed,
+  GroupNotebookView,
   MemberAgentView,
   PendingApproval,
 } from "./agent/views.js";
@@ -867,12 +874,14 @@ function stableJson(value: unknown): string {
  * error — there is nothing to show, and that is a state, not a failure.
  */
 export async function readProviders(admin: LiveSession): Promise<AgentProvidersView> {
-  if (!agentAddress()) return { address: "", provider: null };
+  if (!agentAddress())
+    return { address: "", provider: null, maxOutputTokens: MODEL_MAX_OUTPUT_DEFAULT };
   const { store, address } = await agentStore(admin);
   const found = await store.readConfig();
   return {
     address: found?.doc.address || address,
     provider: providerView(found?.doc.provider),
+    maxOutputTokens: found?.doc.maxOutputTokens ?? MODEL_MAX_OUTPUT_DEFAULT,
   };
 }
 
@@ -907,14 +916,31 @@ export async function writeProviders(admin: LiveSession, input: unknown): Promis
     throw new AgentAdminError({ code: "provider_not_an_object" }, 400);
   const given = input as Record<string, unknown>;
   for (const key of Object.keys(given)) {
-    if (key !== "provider")
+    if (key !== "provider" && key !== "maxOutputTokens")
       throw new AgentAdminError({ code: "provider_not_an_object" }, 400);
   }
+  // The ceiling is the installation's own statement about what an answer may
+  // cost. `null` clears it back to the default; a value the ceiling forbids is
+  // refused here, where an administrator reads a sentence, rather than at the
+  // call, where the bill is the diagnosis.
+  const hasProvider = Object.hasOwn(given, "provider");
+  const hasCeiling = Object.hasOwn(given, "maxOutputTokens");
+  const ceiling = given.maxOutputTokens;
+  if (hasCeiling && ceiling !== null && !isModelMaxOutput(ceiling))
+    throw new AgentAdminError(
+      { code: "max_output_tokens_invalid", max: MODEL_MAX_OUTPUT_CEILING },
+      400,
+    );
 
   for (let attempt = 0; ; attempt++) {
     const found = await store.readConfig();
     const existing = found?.doc;
-    const provider = providerEntry(given.provider, existing?.provider);
+    // A key the write does not mention is left as it is: a write that states
+    // the ceiling alone must not clear the model, and one that replaces the
+    // model must not clear the ceiling (ADR 0010).
+    const provider = hasProvider
+      ? providerEntry(given.provider, existing?.provider)
+      : undefined;
     const doc: AgentConfigDoc = existing
       ? { ...existing }
       : {
@@ -926,8 +952,12 @@ export async function writeProviders(admin: LiveSession, input: unknown): Promis
     // A cleared entry leaves no `provider` key behind rather than a `null` one:
     // the document says what the installation runs on, and "nothing" is said by
     // absence.
-    if (provider) doc.provider = provider;
-    else delete doc.provider;
+    if (provider === null) delete doc.provider;
+    else if (provider) doc.provider = provider;
+    if (hasCeiling) {
+      if (typeof ceiling === "number") doc.maxOutputTokens = ceiling;
+      else delete doc.maxOutputTokens;
+    }
     try {
       // A token only when there is a document to compare against: the first
       // save has none, and the folder tree it creates moves the account state
@@ -1090,6 +1120,78 @@ export async function saveGroupInstruction(
     updatedBy: doc.updatedBy,
     max: AGENT_INSTRUCTION_MAX,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* The group's notebook                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The group's notebook, as an administrator reads it.
+ *
+ * Memory is a document in the group's own account (ADR 0010): the facts its
+ * agent holds in every call, each one a line a person can read, change, remove
+ * or add. A group that has none answers with an empty list rather than an
+ * error, which is a state and not a failure — and the bounds travel with the
+ * answer, so a form states the ones the document enforces rather than its own.
+ */
+export async function readGroupNotebook(access: GroupAccess): Promise<GroupNotebookView> {
+  const store = new AgentStore(access.ctx, access.accountId);
+  const found = await store.readNotebook();
+  return {
+    facts: found?.doc.facts ?? [],
+    updatedAt: found?.doc.updatedAt ?? null,
+    updatedBy: found?.doc.updatedBy ?? null,
+    maxFact: AGENT_NOTEBOOK_FACT_MAX,
+    maxFacts: AGENT_NOTEBOOK_FACTS_MAX,
+  };
+}
+
+/**
+ * Replace the group's notebook with the facts the surface sent.
+ *
+ * Ids and stamps are the server's: a fact that arrives without an id is given
+ * one here, and every fact is stamped with who wrote it now — so no surface
+ * carries its own rule for either, and the same fact edited twice does not
+ * become two. An empty fact is dropped rather than stored as a blank line.
+ */
+export async function saveGroupNotebook(
+  access: GroupAccess,
+  input: unknown,
+  by: string,
+): Promise<GroupNotebookView> {
+  if (!input || typeof input !== "object" || Array.isArray(input))
+    throw new AgentAdminError({ code: "notebook_not_an_object" }, 400);
+  const raw = (input as { facts?: unknown }).facts;
+  if (!Array.isArray(raw))
+    throw new AgentAdminError({ code: "notebook_not_an_object" }, 400);
+  if (raw.length > AGENT_NOTEBOOK_FACTS_MAX)
+    throw new AgentAdminError(
+      { code: "notebook_too_many", max: AGENT_NOTEBOOK_FACTS_MAX },
+      400,
+    );
+  const at = new Date().toISOString();
+  const facts: AgentNotebookFact[] = [];
+  for (const entry of raw) {
+    const fact = (entry ?? {}) as { id?: unknown; text?: unknown };
+    const text = typeof fact.text === "string" ? fact.text.trim() : "";
+    if (!text) continue;
+    if (text.length > AGENT_NOTEBOOK_FACT_MAX)
+      throw new AgentAdminError(
+        { code: "notebook_fact_too_long", max: AGENT_NOTEBOOK_FACT_MAX },
+        400,
+      );
+    facts.push({
+      id: typeof fact.id === "string" && fact.id ? fact.id : randomUUID(),
+      text,
+      addedAt: at,
+      addedBy: by,
+    });
+  }
+  const store = new AgentStore(access.ctx, access.accountId);
+  const found = await store.readNotebook();
+  await store.writeNotebook(facts, by, found ? { ifInState: found.state } : {});
+  return readGroupNotebook(access);
 }
 
 /* The reserved labels a group's agent needs                           */

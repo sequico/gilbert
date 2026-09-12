@@ -280,6 +280,30 @@ test("the group's standing instruction is read first, and the automation's after
   assert.match(user, /THE MESSAGE/);
 });
 
+test("the notebook comes before the group's standing instruction, and the rule's last", async () => {
+  answerWith({ summary: "s", confidence: 1, actions: [{ do: "noop" }] });
+  await decideActions(
+    provider,
+    { name: "Reply", instruction: "File invoices into the right folder." },
+    { text: "hi" },
+    ["noop"],
+    "Answer in Italian",
+    "- The group works in Italian.",
+  );
+  const messages = seen?.body.messages as Array<{ role: string; content: string }>;
+  const system = messages[0]?.content ?? "";
+  assert.match(system, /The group works in Italian/, "the facts are in the prompt");
+  assert.ok(
+    system.indexOf("What this group's agent remembers") <
+      system.indexOf("Answer in Italian"),
+    "the facts come before the group's standing instruction",
+  );
+  assert.ok(
+    system.indexOf("Answer in Italian") < system.indexOf("File invoices into"),
+    "and the rule's own instruction comes last of the three",
+  );
+});
+
 test("an instruction that says to ignore the capability list changes nothing it may do", async () => {
   // The sentence beside the field, as a test: the allowlist is the server's,
   // and a standing instruction cannot widen it.

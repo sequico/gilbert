@@ -89,6 +89,7 @@ import {
   monthOf,
   newDecision,
   newJob,
+  notebookFor,
   reviewOutcome,
   ruleProblem,
   UnsupportedFilterError,
@@ -667,12 +668,16 @@ export class Executor {
     // agent makes (ADR 0003 resolution 17): read once per run, first in the
     // prompt.
     const standing = instructionFor((await store.readInstruction())?.doc ?? null);
+    // The group's notebook rides every call too, before the standing
+    // instruction: what is true about the group, then how it wants work done.
+    const notebook = notebookFor((await store.readNotebook())?.doc ?? null);
     const answer = await decideActions(
       providerFor(configDoc),
       rule,
       context,
       rule.capabilities,
       standing,
+      notebook,
       // The call's own shape: the installation's ceiling on an answer, and the
       // agent's own decision about paying for a chain of thought.
       { maxOutputTokens: configDoc?.maxOutputTokens, thinking: config.agent.thinking },

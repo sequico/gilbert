@@ -256,7 +256,7 @@ test("a run that fired arms its next occurrence, planned from the document the f
   assert.deepEqual(fired, ["2026-09-10T11:00:00.000Z"], "the next occurrence runs");
 });
 
-test("an entry this worker does not own keeps its instant instead of being re-planned away", () => {
+test("an entry this agent does not own keeps its instant instead of being re-planned away", () => {
   const now = new Date("2026-09-10T10:00:00.000Z");
   const rules = [rule(), rule({ id: "filing", name: "File it" })];
   // The document as the account holds it: both entries are due at once, and

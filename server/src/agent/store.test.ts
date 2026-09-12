@@ -101,6 +101,29 @@ test("rules round-trip through the group's own app folder", async () => {
   );
 });
 
+test("the notebook round-trips through the group's own app folder", async () => {
+  await store.writeNotebook(
+    [
+      {
+        id: "f1",
+        text: "Ada's invoices are filed under the client.",
+        addedAt: "2026-09-12T10:00:00.000Z",
+        addedBy: "demo@example.com",
+      },
+    ],
+    "demo@example.com",
+  );
+  const read = await store.readNotebook();
+  assert.ok(read, "the document is there after the write");
+  assert.equal(read.doc.facts.length, 1);
+  assert.equal(read.doc.facts[0]?.text, "Ada's invoices are filed under the client.");
+  assert.equal(read.doc.updatedBy, "demo@example.com");
+  assert.ok(
+    read.state.length > 0,
+    "the read carries the state a write can be conditioned on",
+  );
+});
+
 test("a job document is addressed by id and lists with the others", async () => {
   const job = newJob({
     id: "job-1",
@@ -147,7 +170,7 @@ test("the audit appends to the month's document instead of replacing it", async 
   );
 });
 
-test("a claim carries the states its worker has reconciled up to", async () => {
+test("a claim carries the states its agent has reconciled up to", async () => {
   await store.writeClaim({
     v: 1,
     accountId: store.accountId,
@@ -166,7 +189,7 @@ test("a claim carries the states its worker has reconciled up to", async () => {
   assert.equal(updated?.doc.accountId, store.accountId);
 });
 
-test("the worker heartbeat is a document like any other", async () => {
+test("the agent heartbeat is a document like any other", async () => {
   await store.writeWorker({
     v: 1,
     id: "w1",

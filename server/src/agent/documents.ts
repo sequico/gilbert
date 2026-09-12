@@ -1233,6 +1233,9 @@ export function nextRunAfter(rule: AgentRule, now: Date): Date | null {
  */
 export const AGENT_INSTRUCTION_FILE = "agent/instruction.json";
 
+/** The group's notebook: the facts its agent holds in every call (ADR 0010). */
+export const AGENT_NOTEBOOK_FILE = "agent/notebook.json";
+
 /** Long enough for a page of house rules, short enough to stay a prompt. */
 export const AGENT_INSTRUCTION_MAX = 4000;
 
@@ -1258,6 +1261,70 @@ export function isAgentInstructionDoc(x: unknown): x is AgentInstructionDoc {
 /** The instruction a model call carries, or "" when the group has none. */
 export function instructionFor(doc: AgentInstructionDoc | null): string {
   return (doc?.text ?? "").trim();
+}
+
+/* ------------------------------------------------------------------ */
+/* The notebook — what memory means for a group                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One fact the group's agent holds in every call.
+ *
+ * A fact is prose rather than a field: it is what a person wrote down about the
+ * group — how its mail is filed, what its clients are called, which language it
+ * works in, the exceptions — and it is read as data like everything else in a
+ * prompt. It is a list of them rather than one blob so a surface can show,
+ * change, remove and add one at a time (ADR 0010).
+ */
+export interface AgentNotebookFact {
+  /** Stable across edits, so a surface can name the fact it is changing. */
+  id: string;
+  /** The fact itself, in the author's words. */
+  text: string;
+  addedAt?: string;
+  addedBy?: string;
+}
+
+export interface AgentNotebookDoc {
+  v: 1;
+  facts: AgentNotebookFact[];
+  updatedAt: string;
+  updatedBy: string;
+}
+
+/** How many facts a notebook may hold, and how long one may be. */
+export const AGENT_NOTEBOOK_FACTS_MAX = 100;
+export const AGENT_NOTEBOOK_FACT_MAX = 500;
+
+export function isAgentNotebookFact(x: unknown): x is AgentNotebookFact {
+  if (!x || typeof x !== "object") return false;
+  const f = x as Record<string, unknown>;
+  if (typeof f.id !== "string" || !f.id) return false;
+  if (typeof f.text !== "string" || f.text.length > AGENT_NOTEBOOK_FACT_MAX) return false;
+  if (f.addedAt !== undefined && typeof f.addedAt !== "string") return false;
+  if (f.addedBy !== undefined && typeof f.addedBy !== "string") return false;
+  return true;
+}
+
+export function isAgentNotebookDoc(x: unknown): x is AgentNotebookDoc {
+  if (!x || typeof x !== "object") return false;
+  const d = x as Record<string, unknown>;
+  if (d.v !== 1 || !Array.isArray(d.facts)) return false;
+  if (d.facts.length > AGENT_NOTEBOOK_FACTS_MAX) return false;
+  if (!d.facts.every(isAgentNotebookFact)) return false;
+  return typeof d.updatedAt === "string" && typeof d.updatedBy === "string";
+}
+
+/**
+ * The notebook as a prompt carries it, or "" when there is nothing to say.
+ *
+ * One line per fact, in the order the group keeps them: the block sits in the
+ * prompt's stable head, so it is built the same way every time (ADR 0010).
+ */
+export function notebookFor(doc: AgentNotebookDoc | null): string {
+  const facts = (doc?.facts ?? []).map((fact) => fact.text.trim()).filter(Boolean);
+  if (!facts.length) return "";
+  return facts.map((text) => `- ${text}`).join("\n");
 }
 
 /* ------------------------------------------------------------------ */

@@ -12,6 +12,10 @@
  * rendered back.
  */
 
+import {
+  MODEL_MAX_OUTPUT_CEILING,
+  MODEL_MAX_OUTPUT_DEFAULT,
+} from "@gilbert/agent/documents";
 import { BrainCircuit } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
@@ -38,11 +42,13 @@ export function AgentProviders() {
   }, [loadProviders]);
 
   /**
-   * The one write: an entry saves the installation's model, `null` clears it.
-   * A cleared installation runs no automation, which is the state the executor
-   * refuses in plainly rather than a silent skip (ADR 0010).
+   * The one write: an entry saves the installation's model, `null` clears it,
+   * and the ceiling travels with it because both are statements about the same
+   * call. A cleared installation runs no automation, which is the state the
+   * executor refuses in plainly rather than a silent skip (ADR 0010).
    */
-  const write = (patch: AgentProviderInput | null) => saveProviders({ provider: patch });
+  const write = (patch: AgentProviderInput | null, maxOutputTokens: number) =>
+    saveProviders({ provider: patch, maxOutputTokens });
 
   return (
     <section>
@@ -74,7 +80,11 @@ export function AgentProviders() {
           )}
         </p>
       ) : (
-        <ProviderEditor view={view.provider} onSave={write} />
+        <ProviderEditor
+          view={view.provider}
+          maxOutputTokens={view.maxOutputTokens}
+          onSave={write}
+        />
       )}
     </section>
   );
@@ -82,16 +92,20 @@ export function AgentProviders() {
 
 function ProviderEditor({
   view,
+  maxOutputTokens,
   onSave,
 }: {
   view: AgentProviderView | null;
+  /** The ceiling in force, which is the default when the installation set none. */
+  maxOutputTokens: number;
   /** `null` clears the entry, which is how the installation stops running a model. */
-  onSave(patch: AgentProviderInput | null): Promise<void>;
+  onSave(patch: AgentProviderInput | null, maxOutputTokens: number): Promise<void>;
 }) {
   const [provider, setProvider] = useState(view?.provider ?? "");
   const [model, setModel] = useState(view?.model ?? "");
   const [baseUrl, setBaseUrl] = useState(view?.baseUrl ?? "");
   const [apiKey, setApiKey] = useState("");
+  const [ceiling, setCeiling] = useState(String(maxOutputTokens));
   const [busy, setBusy] = useState(false);
 
   /*
@@ -103,7 +117,8 @@ function ProviderEditor({
     setProvider(view?.provider ?? "");
     setModel(view?.model ?? "");
     setBaseUrl(view?.baseUrl ?? "");
-  }, [view?.provider, view?.model, view?.baseUrl]);
+    setCeiling(String(maxOutputTokens));
+  }, [view?.provider, view?.model, view?.baseUrl, maxOutputTokens]);
 
   /*
    * What the fields were seeded from is what "unchanged" means, so the button
@@ -116,7 +131,8 @@ function ProviderEditor({
     apiKey.trim() !== "" ||
     provider.trim() !== (view?.provider ?? "") ||
     model.trim() !== (view?.model ?? "") ||
-    baseUrl.trim() !== (view?.baseUrl ?? "");
+    baseUrl.trim() !== (view?.baseUrl ?? "") ||
+    Number(ceiling) !== maxOutputTokens;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -132,7 +148,7 @@ function ProviderEditor({
     setBusy(true);
     try {
       // The store rejects with the server's reason when the write is refused.
-      await onSave(patch);
+      await onSave(patch, Number(ceiling));
       setApiKey("");
       toast.success(t("Model saved"));
     } catch (err) {
@@ -163,7 +179,7 @@ function ProviderEditor({
     setBusy(true);
     try {
       // The store rejects with the server's reason when the write is refused.
-      await onSave(null);
+      await onSave(null, Number(ceiling));
       setApiKey("");
       toast.success(t("Model removed"));
     } catch (err) {
@@ -234,6 +250,26 @@ function ProviderEditor({
             )}
           </p>
         </div>
+      </div>
+      <div className="field">
+        <label htmlFor="agent-max-output">{t("Ceiling on one answer (tokens)")}</label>
+        <input
+          id="agent-max-output"
+          className="input"
+          type="number"
+          min={1}
+          max={MODEL_MAX_OUTPUT_CEILING}
+          value={ceiling}
+          onChange={(e) => setCeiling(e.target.value)}
+        />
+        <p className="hint">
+          {t(
+            "The most one answer may cost. The provider0027s own ceiling is enormous, and an uncapped answer is an uncapped bill.",
+          )}{" "}
+          {t("An installation that sets none gets {n} tokens.", {
+            n: MODEL_MAX_OUTPUT_DEFAULT,
+          })}
+        </p>
       </div>
       <div className="row" style={{ gap: 8 }}>
         <button

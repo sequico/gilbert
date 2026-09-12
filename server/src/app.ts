@@ -45,11 +45,13 @@ import {
   memberAgentView,
   pendingApprovals,
   readGroupInstruction,
+  readGroupNotebook,
   readProviders,
   readRules,
   resolveGroupAccess,
   runRuleNow,
   saveGroupInstruction,
+  saveGroupNotebook,
   saveRules,
   writeProviders,
 } from "./agentAdmin.js";
@@ -1748,6 +1750,47 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
         const { added } = await addAgentLabels(access, access.accountId);
         return c.json({ ok: true, added });
+      } catch (err) {
+        return agentFailure(c, err);
+      }
+    },
+  );
+
+  /**
+   * The group's notebook: the facts its agent holds in every call (ADR 0010).
+   * Administrator-only, like the standing instruction beside it — memory the
+   * model is given on every run is configuration, and members read it rather
+   * than write it.
+   */
+  api.get(
+    "/admin/groups/:name/agent/notebook",
+    requireSession,
+    requireAdmin,
+    async (c) => {
+      const session = c.get("session");
+      const name = c.req.param("name") ?? "";
+      try {
+        const access = await resolveGroupAccess(session, name, { need: "notebook" });
+        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+        return c.json(await readGroupNotebook(access));
+      } catch (err) {
+        return agentFailure(c, err);
+      }
+    },
+  );
+
+  api.post(
+    "/admin/groups/:name/agent/notebook",
+    requireSession,
+    requireAdmin,
+    async (c) => {
+      const session = c.get("session");
+      const name = c.req.param("name") ?? "";
+      try {
+        const body = await readJson<{ facts?: unknown }>(c);
+        const access = await resolveGroupAccess(session, name, { need: "notebook" });
+        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+        return c.json(await saveGroupNotebook(access, body, session.username));
       } catch (err) {
         return agentFailure(c, err);
       }

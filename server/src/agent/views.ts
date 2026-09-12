@@ -19,6 +19,7 @@ import type {
   AgentAuditEntry,
   AgentDecision,
   AgentJob,
+  AgentNotebookFact,
   AgentRule,
   AgentScheduleEntry,
 } from "./documents.js";
@@ -167,6 +168,10 @@ export type AgentErrorReason =
   | { code: "base_url_invalid" }
   | { code: "base_url_not_https" }
   | { code: "base_url_private"; host: string }
+  | { code: "max_output_tokens_invalid"; max: number }
+  | { code: "notebook_not_an_object" }
+  | { code: "notebook_too_many"; max: number }
+  | { code: "notebook_fact_too_long"; max: number }
   | { code: "instruction_too_long"; max: number; length: number }
   | { code: "group_labels_unreadable" };
 
@@ -302,6 +307,7 @@ export type GroupNeed =
   | "labels"
   | "automations"
   | "standing instruction"
+  | "notebook"
   | "approvals"
   | "agent documents";
 
@@ -340,11 +346,26 @@ export interface AgentProvidersView {
   address: string;
   /** The one model every automation runs on; null when none is configured. */
   provider: AgentProviderView | null;
+  /** The ceiling on one answer, in tokens, as it stands. */
+  maxOutputTokens: number;
 }
 
 /* ------------------------------------------------------------------ */
 /* Approvals and the standing instruction                              */
 /* ------------------------------------------------------------------ */
+
+/**
+ * The group's notebook as a surface reads it: the facts themselves — the same
+ * shape the document stores, never a second spelling of one — the stamps, and
+ * the bounds the document enforces, so a form can say them.
+ */
+export interface GroupNotebookView {
+  facts: AgentNotebookFact[];
+  updatedAt: string | null;
+  updatedBy: string | null;
+  maxFact: number;
+  maxFacts: number;
+}
 
 /** One pending decision, with the group it waits in (resolution 10). */
 export interface PendingApproval {

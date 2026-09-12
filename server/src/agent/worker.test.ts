@@ -37,7 +37,7 @@ after(() => {
   (mock as { server?: { close(): void } }).server?.close();
 });
 
-test("the accounts a v1 worker may serve are the group mailboxes", () => {
+test("the accounts a v1 agent may serve are the group mailboxes", () => {
   const candidates = candidateAccounts(session);
   assert.ok(candidates.includes(GROUP), "a group mailbox is served");
   assert.ok(candidates.includes("a5"), "a second group is served too");
@@ -49,7 +49,7 @@ test("the accounts a v1 worker may serve are the group mailboxes", () => {
   }
 });
 
-test("the authorization header a worker derives its session with", () => {
+test("the authorization header an agent derives its session with", () => {
   assert.equal(
     basicAuth(AGENT, "an-app-password"),
     `Basic ${Buffer.from(`${AGENT}:an-app-password`).toString("base64")}`,
@@ -146,7 +146,7 @@ test("the health endpoint answers a probe and nothing else", async () => {
   }
 });
 
-test("a second worker takes over a stale lease, and never double-serves", async () => {
+test("a second agent takes over a stale lease, and never double-serves", async () => {
   // Two handles are two processes as far as the documents are concerned: the
   // claim is the only thing that says who serves an account (ADR 0003 §6).
   // What has to hold is that a live holder is left alone and a dead one is
