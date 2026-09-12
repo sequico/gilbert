@@ -177,6 +177,9 @@ export type AgentErrorReason =
   | { code: "notebook_too_many"; max: number }
   | { code: "notebook_fact_too_long"; max: number }
   | { code: "instruction_too_long"; max: number; length: number }
+  | { code: "notes_too_long"; max: number; length: number }
+  | { code: "no_provider" }
+  | { code: "reading_failed"; detail: string }
   | { code: "group_labels_unreadable" };
 
 /* ------------------------------------------------------------------ */
@@ -397,10 +400,29 @@ export interface AgentApprovalsView {
 
 export interface GroupInstructionView {
   text: string;
+  /**
+   * The author's remarks beside the prose. Carried in the document so they
+   * survive a container, and read by nobody's model: a run's prompt is the
+   * instruction and nothing beside it (ADR 0010).
+   */
+  notes: string;
   updatedAt: string | null;
   updatedBy: string | null;
   /** The ceiling the document is validated against, in characters. */
   max: number;
+  /** The ceiling on the remarks, in characters. */
+  notesMax: number;
+}
+
+/**
+ * What an author's reading answered: prose, and nothing else.
+ *
+ * The answer is shown where it was asked for and stored nowhere — it compiles
+ * nothing, produces no document, and is not a run — so this is the whole shape
+ * of it (ADR 0010).
+ */
+export interface AgentReadingView {
+  text: string;
 }
 
 /* ------------------------------------------------------------------ */

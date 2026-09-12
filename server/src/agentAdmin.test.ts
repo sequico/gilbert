@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
 import { after, before, test } from "node:test";
 
 /**
@@ -45,11 +46,28 @@ const BASE = `http://127.0.0.1:${PORT}`;
 
 const mock = await import("./mock/index.js");
 const { config } = await import("./config.js");
-const { AGENT_INSTRUCTION_MAX } = await import("./agent/documents.js");
+const { AGENT_INSTRUCTION_MAX, AGENT_NOTES_MAX } = await import("./agent/documents.js");
 const { createApp } = await import("./app.js");
 const { fetchUpstreamSession } = await import("./upstream.js");
 const { filesAccountId, writeAppFile } = await import("./appFolder.js");
 const { AgentStore } = await import("./agent/store.js");
+const { monthOf } = await import("./agent/documents.js");
+
+/**
+ * The stub model the reading is asked of: a loopback address is exactly what
+ * the admin route refuses, so a reading's own call is exercised against this.
+ */
+const READING_PORT = 18839;
+let readingAnswer = "";
+const readingStub = createServer((req, res) => {
+  void (async () => {
+    for await (const _ of req) {
+      /* the request body is read and dropped: what this stub answers is fixed */
+    }
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message: { content: readingAnswer } }] }));
+  })();
+});
 const { EMPTY_METER } = await import("./agent/documents.js");
 
 const app = createApp();
@@ -135,6 +153,9 @@ function rule(overrides: Record<string, unknown> = {}): Record<string, unknown> 
 }
 
 before(async () => {
+  await new Promise<void>((resolve) =>
+    readingStub.listen(READING_PORT, "127.0.0.1", resolve),
+  );
   const res = await call("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({ username: DEMO, password: "demo-password" }),
@@ -143,6 +164,7 @@ before(async () => {
 });
 
 after(() => {
+  readingStub.close();
   (mock as { server?: { close(): void } }).server?.close();
 });
 
@@ -791,9 +813,11 @@ test("a member reads the group's standing instruction, and nobody else reads it"
   assert.equal(none.status, 200);
   assert.deepEqual((none.body as { instruction: unknown }).instruction, {
     text: "",
+    notes: "",
     updatedAt: null,
     updatedBy: null,
     max: AGENT_INSTRUCTION_MAX,
+    notesMax: AGENT_NOTES_MAX,
   });
 
   // Written where it is written today: the admin surface, which reaches the
@@ -1140,4 +1164,133 @@ test("an ask that cannot run is answered, and writes nothing", async () => {
     before,
     "a refusal is answered to whoever asked, and the group's trail is untouched",
   );
+});
+
+/**
+ * The author's notes, and the author's reading (ADR 0010).
+ *
+ * A note is carried in the same document as the prose it belongs to — so it
+ * survives a container and the next editor reads why the prose is written the
+ * way it is — and it never reaches a model: what a run sends is the instruction
+ * and nothing beside it (the prompt itself is pinned in `agent/llm.test.ts`).
+ *
+ * The reading is the one call that answers in words. It is not a run: nothing
+ * is compiled, no job is written, and its tokens are counted in the Master's
+ * own account as authoring, because an administrator reading a draft is the
+ * installation's own work and belongs to no group's ledger.
+ */
+test("an author's notes ride the document, and a reading answers in words", async () => {
+  configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
+  const agentAuth = `Basic ${Buffer.from(
+    `${mock.AGENT_ADDRESS}:${mock.AGENT_PASS}`,
+  ).toString("base64")}`;
+  const agentCtx = {
+    authorization: agentAuth,
+    session: await fetchUpstreamSession(agentAuth, BASE),
+    username: mock.AGENT_ADDRESS,
+  };
+  const agentAccount = filesAccountId(agentCtx);
+  // The installation's model, written through the store: the admin route
+  // refuses a plaintext address on purpose, and a stub on loopback is exactly
+  // that.
+  const master = new AgentStore(agentCtx, agentAccount);
+  await master.writeConfig({
+    v: 1,
+    address: mock.AGENT_ADDRESS,
+    provider: {
+      provider: "stub",
+      model: "stub",
+      baseUrl: `http://127.0.0.1:${READING_PORT}/v1`,
+      apiKey: "stub-key",
+    },
+  });
+
+  const written = await call(`/api/admin/groups/${TEAM}/agent/instruction`, {
+    method: "POST",
+    body: JSON.stringify({
+      text: "Answer in Italian, and always cite the invoice number.",
+      notes: "Italian is what the group speaks; the citation is for the auditor.",
+    }),
+  });
+  assert.equal(written.status, 200, JSON.stringify(written.body));
+  assert.equal(
+    (written.body as { notes?: string }).notes,
+    "Italian is what the group speaks; the citation is for the auditor.",
+  );
+  const read = await call(`/api/admin/groups/${TEAM}/agent/instruction`);
+  assert.equal(
+    (read.body as { notes?: string }).notes,
+    "Italian is what the group speaks; the citation is for the auditor.",
+    "the note is in the document the group holds",
+  );
+
+  // A rule carries its own, and a save that does not name one keeps the one it
+  // has: the notes are part of what the document already is.
+  const withNotes = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
+    method: "POST",
+    body: JSON.stringify({
+      rules: [{ ...rule(), notes: "Written for the 2026 audit; revisit in January." }],
+    }),
+  });
+  assert.equal(withNotes.status, 200);
+  assert.equal(
+    ((withNotes.body as { rules: Array<{ notes?: string }> }).rules[0] ?? {}).notes,
+    "Written for the 2026 audit; revisit in January.",
+  );
+
+  // The reading: the draft goes out, the model's words come back, and the call
+  // is counted where the ADR says — in the Master's account, as authoring.
+  readingAnswer =
+    "It says which language to answer in. It never says who reads the reply.";
+  const reading = await call(`/api/admin/groups/${TEAM}/agent/reading`, {
+    method: "POST",
+    body: JSON.stringify({
+      about: "the group's standing instruction",
+      draft: "Answer in Italian, and always cite the invoice number.",
+    }),
+  });
+  assert.equal(reading.status, 200, JSON.stringify(reading.body));
+  assert.equal(
+    (reading.body as { text?: string }).text,
+    "It says which language to answer in. It never says who reads the reply.",
+    "the answer is the model's prose, shown as prose",
+  );
+
+  const counted = await master.readAuthoring(monthOf(new Date()));
+  assert.equal(counted?.entries.length, 1, "the reading is counted");
+  assert.equal(counted?.entries[0]?.about, "the group's standing instruction");
+  assert.equal(counted?.entries[0]?.by, DEMO, "and it names who asked");
+  assert.equal(counted?.entries[0]?.group, TEAM);
+  assert.ok(counted?.entries[0]?.usage, "with what the provider reported it cost");
+});
+
+test("a reading with no usable model says so, and never calls upstream", async () => {
+  configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
+  const agentAuth = `Basic ${Buffer.from(
+    `${mock.AGENT_ADDRESS}:${mock.AGENT_PASS}`,
+  ).toString("base64")}`;
+  const agentCtx = {
+    authorization: agentAuth,
+    session: await fetchUpstreamSession(agentAuth, BASE),
+    username: mock.AGENT_ADDRESS,
+  };
+  // An installation whose provider has no key cannot call anything, which is
+  // the state `providerFor` refuses: the reading answers with its own code
+  // rather than pretending an upstream failed.
+  await new AgentStore(agentCtx, filesAccountId(agentCtx)).writeConfig({
+    v: 1,
+    address: mock.AGENT_ADDRESS,
+    provider: {
+      provider: "stub",
+      model: "stub",
+      baseUrl: "https://example.invalid/v1",
+      apiKey: "",
+    },
+  });
+  const reading = await call(`/api/admin/groups/${TEAM}/agent/reading`, {
+    method: "POST",
+    body: JSON.stringify({ about: "a draft", draft: "File the invoices." }),
+  });
+  assert.equal(reading.status, 409);
+  assert.deepEqual(reading.body, { error: "no_provider" });
 });

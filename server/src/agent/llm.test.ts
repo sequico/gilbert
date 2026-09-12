@@ -55,6 +55,12 @@ function answerWith(value: unknown): void {
   body = JSON.stringify({ choices: [{ message: { content: JSON.stringify(value) } }] });
 }
 
+/** Answer the next call with prose, the way a reading is answered. */
+function answerProseWith(text: string): void {
+  status = 200;
+  body = JSON.stringify({ choices: [{ message: { content: text } }] });
+}
+
 const provider = {
   provider: "openai",
   model: "a-small-model",
@@ -62,7 +68,7 @@ const provider = {
   apiKey: "sk-test-key",
 };
 
-const { callModel, decideActions, providerFor } = await import("./llm.js");
+const { callModel, decideActions, providerFor, readProse } = await import("./llm.js");
 const { AGENT_MAX_PAGES_DEFAULT, MODEL_MAX_OUTPUT_DEFAULT } = await import(
   "./documents.js"
 );
@@ -515,4 +521,60 @@ test("how many pages one run may hand over is bounded, and the prompt says the n
     new RegExp(`At most ${AGENT_MAX_PAGES_DEFAULT} pages`),
     "and the installation's default when nothing set one",
   );
+});
+
+/**
+ * The author's notes, and the author's reading (ADR 0010).
+ *
+ * A note lives in the document beside the prose so a later editor reads why it
+ * is written the way it is, and it is **not** part of any call: the prompt a run
+ * sends is the instruction and nothing beside it, so a note that reached the
+ * model would be the one claim this pair exists to refuse.
+ *
+ * The reading is the one call that answers in words. It asks for no JSON shape
+ * and pays for no chain of thought — "is this prose coherent" is a question
+ * about text — and what comes back is taken as it arrived.
+ */
+test("an author's notes ride the document and never the prompt", async () => {
+  answerWith({ summary: "s", confidence: 1, actions: [{ do: "noop" }] });
+  const ruleWithNotes: { name: string; instruction?: string; notes?: string } = {
+    name: "File the invoices",
+    instruction: "File invoices into invoices/2026.",
+    notes: "THE AUTHOR'S OWN REMARKS",
+  };
+  await decideActions(
+    provider,
+    ruleWithNotes,
+    { text: "THE MESSAGE" },
+    ["noop"],
+    "Answer in Italian, and never quote a price.",
+  );
+  const sent = sentContent();
+  assert.match(
+    sent.system,
+    /File invoices into invoices\/2026\./,
+    "the prose is carried",
+  );
+  assert.ok(
+    !sent.system.includes("THE AUTHOR'S OWN REMARKS"),
+    "and the remarks beside it are not",
+  );
+});
+
+test("a reading asks for prose, and takes the answer as it arrived", async () => {
+  answerProseWith("It says where the invoices go and leaves the review policy unsaid.");
+  const answer = await readProse(provider, {
+    system: "READ THIS DRAFT",
+    user: "File the invoices.",
+    thinking: false,
+  });
+  assert.equal(
+    answer.text,
+    "It says where the invoices go and leaves the review policy unsaid.",
+    "the words are the answer, unparsed",
+  );
+  assert.equal(answer.answer, null, "and there is nothing structured to act on");
+  const sent = seen?.body as { response_format?: unknown; thinking?: unknown };
+  assert.equal(sent.response_format, undefined, "no JSON shape is asked for");
+  assert.deepEqual(sent.thinking, { type: "disabled" }, "and no thinking is paid for");
 });

@@ -27,6 +27,7 @@ import {
 import { isStateMismatch } from "../jmap.js";
 import {
   AGENT_AUDIT_DIR,
+  AGENT_AUTHORING_DIR,
   AGENT_CLAIM_FILE,
   AGENT_CONFIG_FILE,
   AGENT_DECISIONS_DIR,
@@ -40,6 +41,8 @@ import {
   AGENT_WORKERS_DIR,
   type AgentAuditDoc,
   type AgentAuditEntry,
+  type AgentAuthoringDoc,
+  type AgentAuthoringEntry,
   type AgentClaim,
   type AgentConfigDoc,
   type AgentDecision,
@@ -56,6 +59,7 @@ import {
   agentDocName,
   auditDocName,
   isAgentAuditDoc,
+  isAgentAuthoringDoc,
   isAgentClaim,
   isAgentConfigDoc,
   isAgentDecision,
@@ -304,10 +308,15 @@ export class AgentStore {
     text: string,
     by: string,
     opts: { ifInState?: string } = {},
+    notes?: string,
   ): Promise<AgentInstructionDoc> {
+    const trimmed = (notes ?? "").trim();
     const doc: AgentInstructionDoc = {
       v: 1,
       text,
+      // The author's remarks ride the document and never the prompt: an empty
+      // note is no note at all, so the field is absent rather than empty.
+      ...(trimmed ? { notes: trimmed } : {}),
       updatedAt: new Date().toISOString(),
       updatedBy: by,
     };
@@ -562,6 +571,65 @@ export class AgentStore {
   /** The audit document for an instant's month. */
   async readAuditAt(at: Date): Promise<AgentAuditDoc | null> {
     return this.readAudit(monthOf(at));
+  }
+
+  /**
+   * The month's authoring document, in the account that holds it.
+   *
+   * A document that is **there but does not read as one** is an error, not an
+   * empty month, for the same reason the trail's is: replacing what an
+   * installation spent with a count that lies about it is the one failure a
+   * meter cannot have.
+   */
+  async readAuthoring(month: string): Promise<AgentAuthoringDoc | null> {
+    const path = this.path(AGENT_AUTHORING_DIR, auditDocName(month));
+    const raw = await readAppJsonAt(this.ctx, this.accountId, path);
+    if (raw === null) return null;
+    if (!isAgentAuthoringDoc(raw)) {
+      throw new Error(
+        `the authoring document ${path} is there but does not read as one; ` +
+          `refusing to report it as an empty month`,
+      );
+    }
+    return raw;
+  }
+
+  /**
+   * Append one authoring call to the month's document.
+   *
+   * Simpler than the trail's append on purpose: a count that lost a race is
+   * repaired by asking again, while a run's record is what a group's work is
+   * answered from. Missing is empty, unreadable is loud, and a lost race is
+   * retried the ordinary number of times before it fails in the open.
+   */
+  async appendAuthoring(entry: AgentAuthoringEntry, at = new Date()): Promise<void> {
+    const month = monthOf(at);
+    const path = this.path(AGENT_AUTHORING_DIR, auditDocName(month));
+    for (let attempt = 0; attempt < AUDIT_CAS_ATTEMPTS; attempt++) {
+      if (attempt) await sleep(backoffMs(attempt));
+      const state = await this.state();
+      const raw = await readAppJsonAt(this.ctx, this.accountId, path);
+      if (raw !== null && !isAgentAuthoringDoc(raw)) {
+        throw new Error(
+          `the authoring document ${path} is there but does not read as one; ` +
+            `refusing to write over it`,
+        );
+      }
+      const doc: AgentAuthoringDoc = isAgentAuthoringDoc(raw)
+        ? raw
+        : { v: 1, month, entries: [] };
+      doc.entries = [...doc.entries, entry];
+      try {
+        await writeAppFileAt(this.ctx, this.accountId, path, doc, { ifInState: state });
+        return;
+      } catch (err) {
+        if (!isStateMismatch(err)) throw err;
+      }
+    }
+    throw new Error(
+      `the authoring document ${path} kept changing under the writer; ` +
+        `the call is not counted`,
+    );
   }
 
   /**

@@ -30,6 +30,7 @@ import {
   AGENT_JOB_OPEN_STATES,
   AGENT_NOTEBOOK_FACT_MAX,
   AGENT_NOTEBOOK_FACTS_MAX,
+  AGENT_NOTES_MAX,
   type AgentAuditEntry,
   type AgentConfigDoc,
   type AgentJob,
@@ -40,6 +41,7 @@ import {
   EMPTY_METER,
   filterNeedsBody,
   filterProblems,
+  instructionFor,
   isAgentRule,
   isModelMaxOutput,
   leaseExpired,
@@ -51,9 +53,17 @@ import {
   monthOf,
   monthsSince,
   newJob,
+  notebookFor,
   ruleProblems,
 } from "./agent/documents.js";
 import { AUDIT_RETENTION_MS } from "./agent/executor.js";
+import {
+  DATA_NOT_INSTRUCTIONS,
+  notebookBlock,
+  providerFor,
+  readProse,
+  standingBlock,
+} from "./agent/llm.js";
 import { AgentStore } from "./agent/store.js";
 // The shapes this API answers with have one definition, shared with the client
 // that reads them (SSOT): `server/src/agent/views.ts`. Declaring them here as
@@ -65,6 +75,7 @@ import type {
   AgentErrorReason,
   AgentGroupDocuments,
   AgentProvidersView,
+  AgentReadingView,
   AgentStatus,
   AgentStatusGroup,
   AgentStatusMeter,
@@ -1075,9 +1086,11 @@ export async function readGroupInstruction(
   const found = await store.readInstruction();
   return {
     text: found?.doc.text ?? "",
+    notes: found?.doc.notes ?? "",
     updatedAt: found?.doc.updatedAt ?? null,
     updatedBy: found?.doc.updatedBy ?? null,
     max: AGENT_INSTRUCTION_MAX,
+    notesMax: AGENT_NOTES_MAX,
   };
 }
 
@@ -1092,8 +1105,15 @@ export async function saveGroupInstruction(
   access: GroupAccess,
   text: string,
   by: string,
+  notes = "",
 ): Promise<GroupInstructionView> {
   const trimmed = text.trim();
+  const remarks = notes.trim();
+  if (remarks.length > AGENT_NOTES_MAX)
+    throw new AgentAdminError(
+      { code: "notes_too_long", max: AGENT_NOTES_MAX, length: remarks.length },
+      400,
+    );
   if (trimmed.length > AGENT_INSTRUCTION_MAX)
     throw new AgentAdminError(
       {
@@ -1107,19 +1127,119 @@ export async function saveGroupInstruction(
   const found = await store.readInstruction();
   if (!trimmed) {
     if (found) await store.removeInstruction();
-    return { text: "", updatedAt: null, updatedBy: null, max: AGENT_INSTRUCTION_MAX };
+    return {
+      text: "",
+      notes: "",
+      updatedAt: null,
+      updatedBy: null,
+      max: AGENT_INSTRUCTION_MAX,
+      notesMax: AGENT_NOTES_MAX,
+    };
   }
   const doc = await store.writeInstruction(
     trimmed,
     by,
     found ? { ifInState: found.state } : {},
+    remarks,
   );
   return {
     text: doc.text,
+    notes: doc.notes ?? "",
     updatedAt: doc.updatedAt,
     updatedBy: doc.updatedBy,
     max: AGENT_INSTRUCTION_MAX,
+    notesMax: AGENT_NOTES_MAX,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* The author's reading                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * An author's reading: the draft, the envelope it belongs to, the group's
+ * instruction and the group's notebook go to the installation's model, which
+ * answers in words about the gaps (ADR 0010).
+ *
+ * It is **not a run**. Nothing is compiled, no document is produced, no job is
+ * written and no claim is taken — it is a call from the web tier with a timeout
+ * and no lease, which is why neither the executor nor a worker is anywhere in
+ * this path. Thinking is off: "is this prose coherent" is a question about
+ * text, and its answer is a sentence rather than a chain of thought.
+ *
+ * Its tokens are counted in the **Master's own account**, marked as authoring,
+ * and not in the group's: a run's record belongs to the group it works in and
+ * is written by the agent holding it, while an administrator reading a draft is
+ * the installation's own work, belongs to no group's ledger, and leaves the
+ * group's usage document with a single writer.
+ */
+export async function readDraft(
+  admin: LiveSession,
+  input: { access: GroupAccess; about: string; draft: string; envelope?: string },
+): Promise<AgentReadingView> {
+  const { store } = await agentStore(admin);
+  // The installation's own provider, configured once (ADR 0010). An
+  // installation without one has nothing to read a draft with, which is a state
+  // the surface names rather than an upstream failure.
+  let provider: ReturnType<typeof providerFor>;
+  try {
+    provider = providerFor((await store.readConfig())?.doc ?? null);
+  } catch {
+    throw new AgentAdminError({ code: "no_provider" }, 409);
+  }
+  // The two documents as a prompt carries them: the same renderers the runs
+  // use (`instructionFor`, `notebookFor`), so a reading is asked about the same
+  // prose a run would be given.
+  const group = new AgentStore(input.access.ctx, input.access.accountId);
+  const [instruction, notebook] = await Promise.all([
+    group.readInstruction(),
+    group.readNotebook(),
+  ]);
+  const system = [
+    DATA_NOT_INSTRUCTIONS,
+    "You are reading a draft an administrator is writing for an agent that acts",
+    "in a group's mail. Answer in words about the draft, in the language it is",
+    "written in: is it coherent, and where are the gaps?",
+    "Name the gaps concretely — what the draft leaves the agent to decide for",
+    "itself — and answer in one short paragraph.",
+    "Do not rewrite the draft, do not propose an envelope, and ask for nothing.",
+    input.envelope ? `The draft's envelope: ${input.envelope}` : "",
+    notebookBlock(notebookFor(notebook?.doc ?? null)),
+    standingBlock(instructionFor(instruction?.doc ?? null)),
+  ]
+    .filter(Boolean)
+    .join("\n");
+  let answer: Awaited<ReturnType<typeof readProse>>;
+  try {
+    answer = await readProse(provider, {
+      system,
+      user: input.draft,
+      thinking: false,
+    });
+  } catch (err) {
+    // A refusal is a code and what the provider said beside it, never a
+    // sentence of ours on the wire.
+    throw new AgentAdminError(
+      { code: "reading_failed", detail: (err as Error).message },
+      502,
+    );
+  }
+  const text = answer.text.trim();
+  if (!text)
+    throw new AgentAdminError(
+      { code: "reading_failed", detail: "the provider answered with nothing" },
+      502,
+    );
+  await store.appendAuthoring({
+    at: new Date().toISOString(),
+    about: input.about,
+    group: (
+      input.access.ctx.session.accounts?.[input.access.accountId] as { name?: string }
+    )?.name,
+    by: admin.username,
+    usage: answer.usage,
+  });
+  return { text };
 }
 
 /* ------------------------------------------------------------------ */

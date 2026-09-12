@@ -210,6 +210,18 @@ administrator add, correct and remove one fact at a time; and it sits in the
 prompt's stable head, so carrying it into every call costs a cache hit rather
 than a miss. It steers and it never widens: what an automation may do is its
 own capability allowlist.
+- **Notes beside the prose, and a reading.** Beside the group's instruction and
+each automation's instruction the surface carries the author's **notes** — what
+the prose is for, what the automation reacts to, what it may do — kept in the
+same document so they survive a container, and read by no model: a run's prompt
+is the instruction and nothing beside it. Beside the same field, **Ask the model
+to read it** sends the draft, the envelope it belongs to, the group's instruction
+and its notebook to the installation's model, which answers in words about the
+gaps. It is not a run: nothing is compiled, nothing is stored, there is no job
+and no claim — a call with a timeout instead of a lease, thinking off — and its
+tokens are counted in the **Master's account** as authoring rather than in a
+group's ledger. Its refusals travel as codes like every other refusal, and the
+answer is model prose shown as prose.
 - **Documents, read by the model that has eyes.** A run can act on a PDF: split
 it into pages, merge them, extract one, and *read* — a PDF's own text layer, or a
 `.docx`. A page that carries no text layer is **rasterised**: the executor

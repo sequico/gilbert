@@ -25,6 +25,7 @@ import type {
   AgentAuditExport,
   AgentGroupSurface,
   AgentProvidersView,
+  AgentReadingView,
   AgentStatus,
   GroupInstructionView,
   GroupNotebookView,
@@ -140,14 +141,40 @@ export async function fetchGroupInstruction(name: string): Promise<GroupInstruct
   );
 }
 
-/** `POST` the same route — replace it. An empty text removes it. */
+/**
+ * `POST` the same route — replace it. An empty text removes it.
+ *
+ * `notes` ride the same document and are the author's own: they are carried
+ * there and read by nobody's model (ADR 0010).
+ */
 export async function saveGroupInstruction(
   name: string,
   text: string,
+  notes = "",
 ): Promise<GroupInstructionView> {
   return apiFetch<GroupInstructionView>(
     `/api/admin/groups/${encodeURIComponent(name)}/agent/instruction`,
-    { method: "POST", body: JSON.stringify({ text }) },
+    { method: "POST", body: JSON.stringify({ text, notes }) },
+  );
+}
+
+/**
+ * The author's reading (ADR 0010): the draft, its envelope, the group's
+ * instruction and its notebook go to the installation's model, which answers in
+ * words about the gaps.
+ *
+ * It is not a run — nothing is compiled, nothing is stored, and the answer is
+ * prose shown as prose. Its refusals travel as codes like any other, so the
+ * sentence a person reads is composed from the catalogue in force.
+ */
+export async function readDraft(
+  name: string,
+  draft: string,
+  about: string,
+): Promise<AgentReadingView> {
+  return apiFetch<AgentReadingView>(
+    `/api/admin/groups/${encodeURIComponent(name)}/agent/reading`,
+    { method: "POST", body: JSON.stringify({ draft, about }) },
   );
 }
 

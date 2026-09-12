@@ -44,6 +44,7 @@ import {
   impersonateAs,
   memberAgentView,
   pendingApprovals,
+  readDraft,
   readGroupInstruction,
   readGroupNotebook,
   readProviders,
@@ -1842,13 +1843,58 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       const session = c.get("session");
       const name = c.req.param("name") ?? "";
       try {
-        const body = await readJson<{ text?: string }>(c);
+        const body = await readJson<{ text?: string; notes?: string }>(c);
         const text = typeof body?.text === "string" ? body.text : "";
+        const notes = typeof body?.notes === "string" ? body.notes : "";
         const access = await resolveGroupAccess(session, name, {
           need: "standing instruction",
         });
         if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
-        return c.json(await saveGroupInstruction(access, text, session.username));
+        return c.json(await saveGroupInstruction(access, text, session.username, notes));
+      } catch (err) {
+        return agentFailure(c, err);
+      }
+    },
+  );
+
+  /**
+   * An author's reading (ADR 0010): the draft, the envelope it belongs to, the
+   * group's instruction and the group's notebook go to the installation's
+   * model, which answers in words about the gaps.
+   *
+   * Not a run: nothing is compiled, no document is produced, and its tokens are
+   * counted in the Master's account as authoring. The answer is model prose
+   * shown as prose — unlike a refusal, which travels as a code the surface
+   * composes a sentence from.
+   */
+  api.post(
+    "/admin/groups/:name/agent/reading",
+    requireSession,
+    requireAdmin,
+    async (c) => {
+      const session = c.get("session");
+      const name = c.req.param("name") ?? "";
+      const body = await readJson<{
+        about?: unknown;
+        draft?: unknown;
+        envelope?: unknown;
+      }>(c);
+      const draft = typeof body?.draft === "string" ? body.draft.trim() : "";
+      if (!draft)
+        return c.json({ error: "bad_request", message: "draft must be a string" }, 400);
+      try {
+        const access = await resolveGroupAccess(session, name, {
+          need: "standing instruction",
+        });
+        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+        return c.json(
+          await readDraft(session, {
+            access,
+            about: typeof body?.about === "string" ? body.about : "a draft",
+            draft,
+            ...(typeof body?.envelope === "string" ? { envelope: body.envelope } : {}),
+          }),
+        );
       } catch (err) {
         return agentFailure(c, err);
       }

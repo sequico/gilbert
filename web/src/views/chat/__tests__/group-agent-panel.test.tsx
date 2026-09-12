@@ -39,9 +39,11 @@ function memberView(overrides: Partial<MemberAgentView> = {}): MemberAgentView {
     ],
     instruction: {
       text: "Answer in Italian.\nAlways cite the invoice number.",
+      notes: "",
       updatedAt: "2026-09-10T09:00:00.000Z",
       updatedBy: "demo@example.com",
       max: 4000,
+      notesMax: 2000,
     },
     jobs: [],
     audit: [],
@@ -120,7 +122,14 @@ describe("the group's agent panel", () => {
     useAgents.setState({
       memberViews: {
         [GROUP]: memberView({
-          instruction: { text: "  ", updatedAt: null, updatedBy: null, max: 4000 },
+          instruction: {
+            text: "  ",
+            notes: "",
+            updatedAt: null,
+            updatedBy: null,
+            max: 4000,
+            notesMax: 2000,
+          },
         }),
       },
     });

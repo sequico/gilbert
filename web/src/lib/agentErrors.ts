@@ -85,6 +85,10 @@ export const AGENT_ERROR_SENTENCES = {
     "The base URL points at {host}, which is inside the network: a worker must not be pointed at an address that is not a model provider.",
   instruction_too_long:
     "A standing instruction is at most {max} characters; this one is {length}.",
+  notes_too_long: "Your notes are at most {max} characters; these are {length}.",
+  no_provider:
+    "This installation has no model configured, so there is nothing to read a draft with: set the provider under Agents first.",
+  reading_failed: "The model could not be asked to read this draft: {detail}",
   group_labels_unreadable:
     "This group's labels.json holds entries Gilbert cannot read. The agent's labels were not added, rather than overwriting them.",
   manual_run_refused: "That automation did not start: {reason}.",

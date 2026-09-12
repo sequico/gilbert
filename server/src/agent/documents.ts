@@ -41,6 +41,13 @@ export const AGENT_DECISIONS_DIR = "decisions";
 export const AGENT_CLAIM_FILE = "claim.json";
 export const AGENT_AUDIT_DIR = "audit";
 export const AGENT_WORKERS_DIR = "workers";
+/**
+ * Where the installation's own authoring calls are counted, in the Master's
+ * account: one document a month, beside the runs' audit rather than in it
+ * (ADR 0010). A reading is not a run, so it is not a group's ledger that holds
+ * it.
+ */
+export const AGENT_AUTHORING_DIR = "authoring";
 
 /** The job/decision document name for an id. One writer, one shape. */
 export function agentDocName(id: string): string {
@@ -447,6 +454,13 @@ export interface AgentRule {
   capabilities: AgentActionName[];
   updatedAt?: string;
   updatedBy?: string;
+  /**
+   * The author's remarks beside the prose: what it is for, what the automation
+   * reacts to, what it may do. Carried in the document so it survives a
+   * container, and never part of a run's call — the prompt carries the
+   * instruction and nothing beside it (ADR 0010).
+   */
+  notes?: string;
 }
 
 /** The parsed `agent/rules.json`. */
@@ -501,6 +515,7 @@ export function isAgentRule(x: unknown): x is AgentRule {
   if (typeof r.instruction !== "string") return false;
   if (!Array.isArray(r.capabilities)) return false;
   if (!r.capabilities.every(isAgentActionName)) return false;
+  if (!isAgentNotes(r.notes)) return false;
   return true;
 }
 
@@ -1399,9 +1414,26 @@ export const AGENT_NOTEBOOK_FILE = "agent/notebook.json";
 /** Long enough for a page of house rules, short enough to stay a prompt. */
 export const AGENT_INSTRUCTION_MAX = 4000;
 
+/**
+ * How long an author's notes may be, beside the prose they belong to.
+ *
+ * Notes are the author's own: what the prose is for, what the automation reacts
+ * to, what it may do. They are carried in the document so they survive a
+ * container, and they are **not** part of any call a run makes — the prompt a
+ * run sends is the instruction and nothing beside it (ADR 0010).
+ */
+export const AGENT_NOTES_MAX = 2000;
+
+/** Whether an optional notes field is one this build accepts. */
+export function isAgentNotes(x: unknown): x is string | undefined {
+  return x === undefined || (typeof x === "string" && x.length <= AGENT_NOTES_MAX);
+}
+
 export interface AgentInstructionDoc {
   v: 1;
   text: string;
+  /** The author's remarks beside the prose; never sent to a model. */
+  notes?: string;
   updatedAt: string;
   updatedBy: string;
 }
@@ -1413,6 +1445,7 @@ export function isAgentInstructionDoc(x: unknown): x is AgentInstructionDoc {
     d.v === 1 &&
     typeof d.text === "string" &&
     d.text.length <= AGENT_INSTRUCTION_MAX &&
+    isAgentNotes(d.notes) &&
     typeof d.updatedAt === "string" &&
     typeof d.updatedBy === "string"
   );
@@ -1675,6 +1708,45 @@ export interface AgentAuditDoc {
   v: 1;
   month: string;
   entries: AgentAuditEntry[];
+}
+
+/**
+ * One authoring call: what a reading spent, and what it was a reading of.
+ *
+ * It carries the counts and no prose: the answer is shown where it was asked
+ * for and stored nowhere, so what survives is that the installation spent this
+ * much asking about that draft (ADR 0010).
+ */
+export interface AgentAuthoringEntry {
+  at: string;
+  /** What the reading was about: the group's instruction, or one automation. */
+  about: string;
+  /** The group whose documents the reading carried, when it carried one. */
+  group?: string;
+  /** Who asked for it, as the session names them. */
+  by?: string;
+  usage?: AgentUsage;
+}
+
+export interface AgentAuthoringDoc {
+  v: 1;
+  month: string;
+  entries: AgentAuthoringEntry[];
+}
+
+export function isAgentAuthoringDoc(x: unknown): x is AgentAuthoringDoc {
+  if (!x || typeof x !== "object" || Array.isArray(x)) return false;
+  const d = x as Record<string, unknown>;
+  if (d.v !== 1 || typeof d.month !== "string" || !Array.isArray(d.entries)) return false;
+  return d.entries.every((e) => {
+    const a = e as Record<string, unknown>;
+    if (!a || typeof a !== "object") return false;
+    if (typeof a.at !== "string" || typeof a.about !== "string") return false;
+    if (a.group !== undefined && typeof a.group !== "string") return false;
+    if (a.by !== undefined && typeof a.by !== "string") return false;
+    if (a.usage !== undefined && !isAgentUsage(a.usage)) return false;
+    return true;
+  });
 }
 
 export function isAgentAuditDoc(x: unknown): x is AgentAuditDoc {
@@ -1995,6 +2067,12 @@ export function agentRuleJsonSchema(): Record<string, unknown> {
         type: "string",
         description:
           "The prose its administrator wrote: the whole of what a run is asked to do.",
+      },
+      notes: {
+        type: "string",
+        maxLength: AGENT_NOTES_MAX,
+        description:
+          "The author's remarks beside the prose. Carried in the document, never sent to a model.",
       },
       capabilities: {
         type: "array",

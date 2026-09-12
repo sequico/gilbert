@@ -14,7 +14,7 @@
  * it can read it.
  */
 import { useEffect, useState } from "react";
-import { fetchGroupInstruction, saveGroupInstruction } from "@/lib/agents";
+import { fetchGroupInstruction, readDraft, saveGroupInstruction } from "@/lib/agents";
 import { t } from "@/lib/i18n";
 
 export function GroupInstruction({ groups }: { groups: readonly string[] }) {
@@ -28,6 +28,15 @@ export function GroupInstruction({ groups }: { groups: readonly string[] }) {
     by: null,
   });
   const [max, setMax] = useState(4000);
+  // The author's remarks beside the prose: carried in the same document, read by
+  // nobody's model (ADR 0010).
+  const [notes, setNotes] = useState("");
+  const [notesBaseline, setNotesBaseline] = useState("");
+  const [notesMax, setNotesMax] = useState(2000);
+  // The reading: what the model answered about this draft, or the refusal in
+  // the reader's language. Neither is stored, so neither outlives the panel.
+  const [reading, setReading] = useState<string | null>(null);
+  const [readingBusy, setReadingBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -47,7 +56,11 @@ export function GroupInstruction({ groups }: { groups: readonly string[] }) {
         if (!live) return;
         setText(view.text);
         setBaseline(view.text);
+        setNotes(view.notes);
+        setNotesBaseline(view.notes);
         setMax(view.max);
+        setNotesMax(view.notesMax);
+        setReading(null);
         setSaved({ at: view.updatedAt, by: view.updatedBy });
       })
       .catch((err) => {
@@ -66,15 +79,33 @@ export function GroupInstruction({ groups }: { groups: readonly string[] }) {
     setBusy(true);
     setProblem(null);
     setDone(false);
-    void saveGroupInstruction(group, text)
+    void saveGroupInstruction(group, text, notes)
       .then((view) => {
         setText(view.text);
         setBaseline(view.text);
+        setNotes(view.notes);
+        setNotesBaseline(view.notes);
         setSaved({ at: view.updatedAt, by: view.updatedBy });
         setDone(true);
       })
       .catch((err) => setProblem(err instanceof Error ? err.message : String(err)))
       .finally(() => setBusy(false));
+  };
+
+  /**
+   * Ask the installation's model to read this draft (ADR 0010). Nothing is
+   * saved: the answer is shown beside the field it is about and forgotten when
+   * the panel closes, which is what an author's reading is.
+   */
+  const askReading = () => {
+    if (!group || readingBusy || !text.trim()) return;
+    setReadingBusy(true);
+    setReading(null);
+    setProblem(null);
+    void readDraft(group, text, t("the group's standing instruction"))
+      .then((answer) => setReading(answer.text))
+      .catch((err) => setReading(err instanceof Error ? err.message : String(err)))
+      .finally(() => setReadingBusy(false));
   };
 
   return (
@@ -132,13 +163,51 @@ export function GroupInstruction({ groups }: { groups: readonly string[] }) {
               {t("An empty text removes it. At most {max} characters.", { max })}
             </p>
           </div>
+          <div className="field">
+            <label htmlFor="agent-instruction-notes">{t("Your notes beside it")}</label>
+            <textarea
+              id="agent-instruction-notes"
+              className="textarea"
+              rows={3}
+              value={notes}
+              maxLength={notesMax}
+              placeholder={t(
+                "What this instruction is for, and what it deliberately leaves out. Nobody's model reads this.",
+              )}
+              onChange={(e) => {
+                setNotes(e.target.value);
+                setDone(false);
+              }}
+            />
+            <p className="hint">
+              {t(
+                "Kept with the instruction for whoever edits it next, and never sent to a model: a run carries the instruction and nothing beside it.",
+              )}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={askReading}
+            disabled={readingBusy || !text.trim()}
+          >
+            {readingBusy ? t("Reading…") : t("Ask the model to read it")}
+          </button>
+          {reading && (
+            <div className="card" style={{ marginTop: 12 }}>
+              <p className="hint" style={{ marginTop: 0 }}>
+                {t("What the model said about this draft:")}
+              </p>
+              <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{reading}</p>
+            </div>
+          )}
           {problem && <div className="error-box">{problem}</div>}
           {done && !problem && <p className="hint">{t("Saved.")}</p>}
           <button
             type="button"
             className="btn"
             onClick={save}
-            disabled={busy || text === baseline}
+            disabled={busy || (text === baseline && notes === notesBaseline)}
           >
             {busy ? t("Saving…") : t("Save the instruction")}
           </button>
