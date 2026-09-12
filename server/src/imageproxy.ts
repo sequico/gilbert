@@ -12,21 +12,37 @@ const UA = "Mozilla/5.0 (compatible; gilbert-image-proxy)";
 export function isPrivateAddress(addr: string): boolean {
   const v = isIP(addr);
   if (v === 4) {
-    const [a, b] = addr.split(".").map(Number) as [number, number];
+    const [a, b, c] = addr.split(".").map(Number) as [number, number, number];
     if (a === 10 || a === 127 || a === 0) return true;
     if (a === 169 && b === 254) return true;
     if (a === 172 && b >= 16 && b <= 31) return true;
     if (a === 192 && b === 168) return true;
     if (a === 100 && b >= 64 && b <= 127) return true;
+    // Benchmarking (198.18.0.0/15), IETF protocol assignments (192.0.0.0/24)
+    // and the deprecated 6to4 relay anycast (192.88.99.0/24). Not residential
+    // space, but every one of them is a route to somewhere that is not the
+    // public internet.
+    if (a === 198 && (b === 18 || b === 19)) return true;
+    if (a === 192 && b === 0 && c === 0) return true;
+    if (a === 192 && b === 88 && c === 99) return true;
     if (a >= 224) return true;
     return false;
   }
   if (v === 6) {
     const lower = addr.toLowerCase();
     if (lower === "::1" || lower === "::") return true;
-    if (lower.startsWith("fe80") || lower.startsWith("fc") || lower.startsWith("fd"))
+    // fe80::/10 link-local, fec0::/10 site-local (deprecated, still routed)
+    // and fc00::/7 unique-local, in any spelling of the first hextet.
+    if (/^fe[89a-f]/.test(lower) || lower.startsWith("fc") || lower.startsWith("fd"))
       return true;
     if (lower.startsWith("ff")) return true; // multicast
+    // Tunnels that carry an IPv4 address inside an IPv6 one, and so reach the
+    // private IPv4 space above through an address that looks public: 6to4
+    // (2002::/16) keeps it in bits 17-48, Teredo (2001:0000::/32) in the last
+    // 32. Both /32 spellings are written out, since a compressed address
+    // reads as `2001::` and an expanded one as `2001:0:`.
+    if (lower.startsWith("2002:")) return true;
+    if (lower.startsWith("2001:0:") || lower.startsWith("2001::")) return true;
     if (lower.startsWith("::ffff:")) return isPrivateAddress(lower.slice(7));
     if (lower.startsWith("64:ff9b:")) return true; // NAT64, reaches IPv4 space
     return false;
@@ -213,6 +229,56 @@ export function safeFetchStatus(err: SafeFetchError): number {
   return SAFE_FETCH_STATUS[err];
 }
 
+/**
+ * Hand an upstream image to the client.
+ *
+ * The upstream's `Content-Length` is deliberately *not* forwarded. The limiter
+ * below can end the stream early, and a declared length over a body that was
+ * cut short is a response the client cannot tell from a complete one -- issue
+ * #76, which is why the other proxy routes decide this in
+ * `forwardedContentLength`. Left off, the response goes out chunked, which
+ * promises nothing and so cannot lie.
+ *
+ * `signal` is the client's. An aborted request means nobody downstream is
+ * reading any more, so the upstream response is destroyed here rather than
+ * left streaming megabytes of image into a dead socket.
+ */
+export function imageResponse(
+  res: IncomingMessage,
+  type: string,
+  signal: AbortSignal,
+  done: () => void,
+): Response {
+  // Enforce the size limit while streaming.
+  let total = 0;
+  const limiter = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller2) {
+      total += chunk.byteLength;
+      if (total > MAX_IMAGE_BYTES) controller2.error(new Error("too large"));
+      else controller2.enqueue(chunk);
+    },
+  });
+  const abandoned = () => {
+    res.destroy();
+    done();
+  };
+  if (signal.aborted) abandoned();
+  else signal.addEventListener("abort", abandoned, { once: true });
+  res.on("close", () => {
+    signal.removeEventListener("abort", abandoned);
+    done();
+  });
+  const headers = new Headers({
+    "Content-Type": type,
+    "Cache-Control": "private, max-age=86400",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "sandbox; default-src 'none'",
+    "Cross-Origin-Resource-Policy": "same-origin",
+  });
+  const body = Readable.toWeb(res) as unknown as ReadableStream<Uint8Array>;
+  return new Response(body.pipeThrough(limiter), { status: 200, headers });
+}
+
 export async function imageProxyHandler(c: Context) {
   if (!config.imageProxy) return c.json({ error: "disabled" }, 404);
   const got = await safeFetch(c.req.query("url") ?? "");
@@ -235,25 +301,5 @@ export async function imageProxyHandler(c: Context) {
     res.resume();
     return c.json({ error: "too_large" }, 413);
   }
-
-  // Enforce the size limit while streaming.
-  let total = 0;
-  const limiter = new TransformStream<Uint8Array, Uint8Array>({
-    transform(chunk, controller2) {
-      total += chunk.byteLength;
-      if (total > MAX_IMAGE_BYTES) controller2.error(new Error("too large"));
-      else controller2.enqueue(chunk);
-    },
-  });
-  res.on("close", done);
-  const headers = new Headers({
-    "Content-Type": type,
-    "Cache-Control": "private, max-age=86400",
-    "X-Content-Type-Options": "nosniff",
-    "Content-Security-Policy": "sandbox; default-src 'none'",
-    "Cross-Origin-Resource-Policy": "same-origin",
-  });
-  if (len) headers.set("Content-Length", String(len));
-  const body = Readable.toWeb(res) as unknown as ReadableStream<Uint8Array>;
-  return new Response(body.pipeThrough(limiter), { status: 200, headers });
+  return imageResponse(res, type, c.req.raw.signal, done);
 }
