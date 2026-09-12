@@ -147,11 +147,11 @@ npm run agent
 `GILBERT_AGENT_HEALTH_PORT` say how often it re-reads, how long a claim lives,
 and how a restart policy reaches it. **Admin → Agents** shows the groups the agent is in,
 read from the agent's own session in Stalwart, and **Admin → Group workers**
-narrows what it does inside each of them (the kinds of work, per group, for as
-many groups as are selected at once). With the pair unset the server runs with
-no agent — that screen says what is missing and how to set it — and the worker
-process starts too and serves nothing, warning once about what is missing
-instead of refusing to come up.
+narrows what it does inside them, one group at a time: the automations it runs
+there, what is waiting on a person, and the workers carrying them out. With the
+pair unset the server runs with no agent — that screen says what is missing and
+how to set it — and the worker process starts too and serves nothing, warning
+once about what is missing instead of refusing to come up.
 
 **What it does.** An **automation** is a document in the group's own account:
 when it reacts (an email arriving, a chat message, a file, a time), which

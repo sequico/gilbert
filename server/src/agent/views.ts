@@ -57,6 +57,14 @@ export interface AgentStatusWorker {
   heartbeatAt: string;
   version: string;
   alive: boolean;
+  /**
+   * The groups this worker is holding, as its last heartbeat named them.
+   *
+   * A claim is per account, so this is what one worker is serving and the
+   * surface reads one group's workers off it. Empty is a worker that is up and
+   * holding nothing — a state a person is meant to see, not a missing answer.
+   */
+  groups: string[];
 }
 
 /**

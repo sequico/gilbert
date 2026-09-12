@@ -80,6 +80,14 @@ test("one pass claims its units, heartbeats, and gives everything back on stop",
   const record = (await agentStore.listWorkers()).find((w) => w.id === "w-worker-test");
   assert.ok(record, "the worker says it is alive, in the agent's own account");
   assert.equal(record.address, AGENT);
+  // The groups it holds, by the names the session gave those accounts: the
+  // admin surface reads one group's workers off this and has nothing else to
+  // read them from — the claim lives in the group's own account, not here.
+  assert.deepEqual(
+    [...(record.serves ?? [])].sort(),
+    served.map((id) => groupNameOf(session, id)).sort(),
+    "the heartbeat names the groups it is holding",
+  );
   assert.equal(
     (await agentStore.readStreamClaim())?.doc.worker,
     "w-worker-test",

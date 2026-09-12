@@ -1,5 +1,5 @@
 /**
- * The approval queue across groups (ADR 0003 "Admin surfaces" and resolution 10).
+ * The approval queue for one group (ADR 0003 "Admin surfaces" and resolution 10).
  *
  * A run that pauses for a person opens a decision document in the group's own
  * account and posts its proposal in the group's chat. The human answers in
@@ -10,10 +10,17 @@
  * So this queue is oversight, and the escape hatch for a decision nobody has
  * looked at.
  *
+ * The group is the section's own pick, and the queue is cut to it here rather
+ * than asked for again: the read already walks every group the directory
+ * returned, and one group's rows are a filter over that answer. The pick never
+ * invents a group either — a group the directory did not return simply has
+ * nothing to show, and the answer says whether the walk was complete.
+ *
  * It can only show the groups the directory enumeration returned, and a session
  * whose directory query is refused falls back on the groups it already holds:
  * the shorter queue and a complete one that happens to be empty read
- * identically, so this panel states which it is.
+ * identically, so this panel states which it is. A queue cut to one group keeps
+ * that caveat: an enumeration that failed can hide the picked group too.
  */
 import { useEffect } from "react";
 import { Link } from "wouter";
@@ -21,7 +28,7 @@ import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
 
-export function AgentApprovals() {
+export function AgentApprovals({ group }: { group: string }) {
   const approvals = useAgents((s) => s.approvals);
   const loadApprovals = useAgents((s) => s.loadApprovals);
   // This section's own line in the store. A queue nobody could read is not an
@@ -34,6 +41,8 @@ export function AgentApprovals() {
    * status's: they are two different questions about the directory.
    */
   const reach = useAgents((s) => s.approvalsReach);
+  /** The picked group's own rows, out of the queue the read returned. */
+  const queue = approvals.filter((a) => a.group === group);
 
   useEffect(() => {
     void loadApprovals();
@@ -44,7 +53,7 @@ export function AgentApprovals() {
       <h2>{t("Waiting for a person")}</h2>
       <p className="lead">
         {t(
-          "An automation that pauses posts what it proposes in the group's chat, and a member answers there in words. Approving therefore happens in the chat, not here — this queue is oversight across groups, and the way to see what has been waiting.",
+          "An automation that pauses posts what it proposes in the group's chat, and a member answers there in words. Approving therefore happens in the chat, not here — this queue is the oversight for the group picked above, and the way to see what has been waiting in it.",
         )}
       </p>
       {reach?.enumeration === false && (
@@ -61,15 +70,18 @@ export function AgentApprovals() {
       )}
       {problem ? (
         <div className="error-box">{problem}</div>
-      ) : approvals.length === 0 ? (
+      ) : queue.length === 0 ? (
         <p className="hint">
-          {reading ? t("Loading…") : t("Nothing is waiting for a person.")}
+          {reading
+            ? t("Loading…")
+            : group
+              ? t("Nothing is waiting for a person in {group}.", { group })
+              : t("No group is picked, so there is no queue to read here.")}
         </p>
       ) : (
         <table className="sessions-table">
           <thead>
             <tr>
-              <th>{t("Group")}</th>
               <th>{t("What it proposes")}</th>
               <th>{t("Confidence")}</th>
               <th>{t("Raised")}</th>
@@ -77,11 +89,8 @@ export function AgentApprovals() {
             </tr>
           </thead>
           <tbody>
-            {approvals.map((a) => (
+            {queue.map((a) => (
               <tr key={`${a.group}:${a.decisionId}`}>
-                <td className="notranslate" translate="no">
-                  {a.group}
-                </td>
                 <td>{a.summary}</td>
                 <td>{`${Math.round(a.confidence * 100)}%`}</td>
                 <td>{formatListDate(a.createdAt)}</td>

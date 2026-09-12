@@ -299,6 +299,15 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
       version: config.version,
       startedAt,
       heartbeatAt: stamp,
+      // What it is holding right now, by the names the session gave those
+      // accounts: the claims below are per account, and the surface that reads
+      // a group's workers reads it off this. The set it renews next is the set
+      // it names here, so a heartbeat is at most one interval behind its own
+      // renewals — and the aliveness above never waits on them.
+      serves: [...servedAccounts]
+        .map((accountId) => knownAccounts.get(accountId) ?? "")
+        .filter(Boolean)
+        .sort(),
     };
     await agentStore.writeWorker(record);
     for (const accountId of [...servedAccounts]) {

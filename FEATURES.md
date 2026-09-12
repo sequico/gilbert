@@ -124,7 +124,10 @@ declare it.
   a member of, and nothing else: a group is served when it holds the agent, so
   the grant is Stalwart's and there is no second record to keep. The surface
   reads the agent's membership from the agent's own session and shows it, rather
-  than writing one or asking anyone to declare it.
+  than writing one or asking anyone to declare it. The same answer says which
+  workers are serving a group: a claim is per account, so a worker names the
+  groups it is holding in its heartbeat, and the surface reads one group's
+  workers off that rather than listing a fleet with no group attached.
 - **A withdrawn grant is reported, and the group stops being served.** The
 worker re-reads its session at most once per poll interval — a minute, a third
 of a lease, so no new setting arrives with it — and an account it was serving
@@ -258,7 +261,8 @@ agentless group the moment the agent arrives.
 - **Where the documents live.** Rules, jobs, decisions, claims, the schedule
 and the audit trail are documents in the group's own `gilbert` app folder —
 what members may read. The agent's own account holds its configuration, the
-provider keys and the worker heartbeats. Nothing durable is kept anywhere else:
+provider keys and the worker heartbeats, each heartbeat naming the groups its
+worker is holding. Nothing durable is kept anywhere else:
 no database, no volume.
 - **Failures are loud.** An unreachable provider, a refused key or a malformed
 answer never skips work silently: the run is recorded in the audit, the

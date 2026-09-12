@@ -501,6 +501,9 @@ async function readWorkers(ctx: Ctx): Promise<AgentStatusWorker[]> {
     heartbeatAt: w.heartbeatAt,
     version: w.version,
     alive: !leaseExpired(w.heartbeatAt, now, tolerance),
+    // A record written before the field existed names no group, and a worker
+    // holding nothing names none either: both read as "serves nothing here".
+    groups: w.serves ?? [],
   }));
 }
 

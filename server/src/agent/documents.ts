@@ -1419,6 +1419,17 @@ export interface AgentWorkerRecord {
   version: string;
   startedAt: string;
   heartbeatAt: string;
+  /**
+   * The groups this worker is holding as it writes this heartbeat, by name —
+   * the accounts it has claimed under lease. A worker claims per account, so
+   * this is what the fleet is spread over, and it is how the admin surface can
+   * say which workers are serving one group.
+   *
+   * Empty when the worker is up and holding nothing, which is a state the
+   * surface shows rather than hides. Absent on records written before the field
+   * existed, and read as none.
+   */
+  serves?: string[];
 }
 
 export function isAgentWorkerRecord(x: unknown): x is AgentWorkerRecord {
@@ -1430,7 +1441,9 @@ export function isAgentWorkerRecord(x: unknown): x is AgentWorkerRecord {
     typeof w.address === "string" &&
     typeof w.version === "string" &&
     typeof w.startedAt === "string" &&
-    typeof w.heartbeatAt === "string"
+    typeof w.heartbeatAt === "string" &&
+    (w.serves === undefined ||
+      (Array.isArray(w.serves) && w.serves.every((g) => typeof g === "string")))
   );
 }
 

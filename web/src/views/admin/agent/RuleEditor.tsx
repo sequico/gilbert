@@ -9,10 +9,14 @@
  * The grant itself is never written here. Membership of the agent is granted in
  * Stalwart's own administration; this surface verifies it and, when it is
  * missing, says what that costs.
+ *
+ * The group is handed in rather than picked here: the section this editor lives
+ * in owns one pick for all of its tabs, and a second picker inside a tab was a
+ * second answer to the same question.
  */
 import { type AgentRule, ruleProblems } from "@gilbert/agent/documents";
 import { Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
 import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
@@ -27,12 +31,17 @@ import {
 } from "@/views/agent/agentText";
 import { RuleForm } from "./RuleForm";
 
-export function RuleEditor({ groups }: { groups: readonly string[] }) {
+export function RuleEditor({
+  groups,
+  group,
+}: {
+  groups: readonly string[];
+  group: string;
+}) {
   const groupViews = useAgents((s) => s.groupViews);
   const busyReads = useAgents((s) => s.busy);
   const loadGroup = useAgents((s) => s.loadGroup);
   const saveRules = useAgents((s) => s.saveRules);
-  const [group, setGroup] = useState<string | null>(null);
   // This group's own line, not a global one: a provider read in another panel
   // must not turn this panel's read failure into "Loading…".
   const loading = group ? busyReads[groupOperation(group)] === true : false;
@@ -44,7 +53,7 @@ export function RuleEditor({ groups }: { groups: readonly string[] }) {
   const [problem, setProblem] = useState<string | null>(null);
 
   const view = group ? groupViews[agentViewKey(group)] : undefined;
-  const known = group !== null && groups.includes(group);
+  const known = group !== "" && groups.includes(group);
   const rules = view?.granted ? view.rules : [];
   // Why the document would be refused as it stands, if it would: the server's
   // own reason, so the form cannot drift from what the executor accepts
@@ -56,15 +65,19 @@ export function RuleEditor({ groups }: { groups: readonly string[] }) {
   // with the copy it started from.
   const changed = draft !== null && draft !== baseline;
 
-  const pick = (name: string) => {
-    setGroup(name);
+  /*
+   * The rules are a document in the group's own account; reading them is a
+   * session on that account, which is exactly what the grant is. The group is
+   * the section's own pick, so the read follows it — and a draft belongs to the
+   * group it was opened in, so switching drops it rather than carrying one
+   * group's automation into another's document.
+   */
+  useEffect(() => {
     setDraft(null);
     setBaseline(null);
     setProblem(null);
-    // The rules are a document in the group's own account; reading them is a
-    // session on that account, which is exactly what the grant is.
-    void loadGroup(name);
-  };
+    if (group) void loadGroup(group);
+  }, [group, loadGroup]);
 
   const save = async () => {
     if (!group || !draft) return;
@@ -171,25 +184,6 @@ export function RuleEditor({ groups }: { groups: readonly string[] }) {
           "Two automations that write to the same message have no order between them — not even inside one kind of work — so write each one to hold whatever order it gets. The audit names the rule and its version per run, so the order they actually took can be read back afterwards.",
         )}
       </p>
-      <div className="field" style={{ maxWidth: 380 }}>
-        <label htmlFor="agent-rule-group">{t("Group mailbox")}</label>
-        <select
-          id="agent-rule-group"
-          className="select"
-          value={group ?? ""}
-          disabled={busy}
-          onChange={(e) => {
-            if (e.target.value) pick(e.target.value);
-          }}
-        >
-          <option value="">{t("Choose a group…")}</option>
-          {groups.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-      </div>
 
       {group && !known && (
         <div className="warn-box" style={{ marginBottom: 12 }}>
