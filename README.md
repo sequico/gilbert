@@ -135,23 +135,29 @@ long version is the first part of [FEATURES.md](FEATURES.md).
 administration** and adds it to the groups it may work in: membership *is* the
 grant, and no switch in the product can replace it. The account's address and
 its own password — not an app password: the agent signs in as itself — are then
-given to the deployment, and both processes read them from the same variables:
+given to the deployment, and that pair is the whole of it:
 
 ```
 GILBERT_AGENT_ADDRESS=gilbert@example.com \
 GILBERT_AGENT_PASSWORD=<the account's own password> \
-npm run agent
+npm start
 ```
+
+That one command is an installation that both serves and acts: with the pair
+set, the server runs a worker beside the web tier in its own process (ADR 0012),
+and the worker is the same entrypoint either way — `node
+server/dist/agent/worker.js` is what a deployment that wants the fleet apart
+runs instead, with `GILBERT_AGENT_INPROCESS=0`.
 
 `GILBERT_AGENT_POLL_MS`, `GILBERT_AGENT_LEASE_MS` and
 `GILBERT_AGENT_HEALTH_PORT` say how often it re-reads, how long a claim lives,
-and how a restart policy reaches it. **Admin → Agents** shows the groups the agent is in,
-read from the agent's own session in Stalwart, and **Admin → Group workers**
-narrows what it does inside them, one group at a time: the automations it runs
-there, what is waiting on a person, and the workers carrying them out. With the
-pair unset the server runs with no agent — that screen says what is missing and
-how to set it — and the worker process starts too and serves nothing, warning
-once about what is missing instead of refusing to come up.
+and how a restart policy reaches it. **Admin → Agents** shows the groups the
+agent is in, read from the agent's own session in Stalwart, and **Admin → Group
+workers** narrows what it does inside them, one group at a time: the automations
+it runs there, what is waiting on a person, and the workers carrying them out.
+With the pair unset the server runs with no agent — that screen says what is
+missing and how to set it — and a worker started without it, or with a pair
+Stalwart refuses, warns once and serves nothing rather than failing to come up.
 
 **What it does.** An **automation** is a document in the group's own account:
 when it reacts (an email arriving, a chat message, a file, a time), which

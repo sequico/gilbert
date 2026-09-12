@@ -224,7 +224,8 @@ answer in words; the conversation is the interface, not a button. Nothing that
 leaves the group is ever sent on a guessed approval — an external send always
 needs explicit consent, whatever the policy says.
 - **The worker is its own process.** The same image and codebase as the server,
-a second entrypoint (`npm run agent`), never a replica of the web tier. It
+a second entrypoint (`node server/dist/agent/worker.js`), never a replica of the
+web tier. It
 holds the agent's event stream, wakes on it, and reconciles from the last
 state it recorded; polling is the fallback after a lost stream. Work claims
 live in the documents themselves, so no coordinator exists and none is needed:
@@ -235,7 +236,10 @@ because nothing reported one — the process that would have is gone. It answers
 a health probe when the deployment
 names a port (`GILBERT_AGENT_HEALTH_PORT`), reporting the accounts
 it actually holds, so a restart policy can tell "running" from "running and
-serving nothing".
+serving nothing". **The server starts one beside itself** when the deployment
+names an agent (ADR 0012), so the one command that starts the web tier is an
+installation that also works; `GILBERT_AGENT_INPROCESS=0` is how a deployment
+keeps the fleet in a process of its own.
 - **Members see, never change.** Next to the group's chat, an indicator opens
 the group's agent surface: which agent works for the group, what instructions
 it carries, what it has done. Everything a member reads lives in the group's

@@ -67,7 +67,9 @@ groups it is granted, never by becoming someone: the agent
   as `gilbert@` the way the web tier does and claims the accounts it serves by
   lease (§6), so it needs no coordinator: the documents are the coordination.
   v1 runs one worker; more throughput or availability is another worker,
-  declared at deployment.
+  declared at deployment. The server starts one beside itself when the
+  deployment names an agent (ADR 0012), and `GILBERT_AGENT_INPROCESS=0` is how a
+  deployment keeps the two apart.
 - **One bootstrap secret, from the deployment's environment**: the agent's
   address and its account's own password — the account's, not an app password,
   because the agent signs in as itself. No impersonation at boot, no operator
@@ -717,7 +719,10 @@ are only worth what their failure paths are.
   identity unit.
 - **Workers embedded in the web server container**: rejected — it mixes the
   disposable, request-scoped web tier with long-lived claim-holding processes
-  and scales them together. The worker is its own process.
+  and scales them together. The worker is its own process. Superseded by ADR
+  0012 for an installation that names an agent: the server starts a worker in a
+  process of its own beside the web tier, and the container split above stays
+  available through `GILBERT_AGENT_INPROCESS=0`.
 - **Cron inside the container**: rejected — disposable containers offer no
   durability or overlap guarantees; the scheduler document does.
 - **Polling as the primary trigger**: rejected; kept only as the recovery

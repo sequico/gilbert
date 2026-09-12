@@ -55,4 +55,10 @@ and the line to upstream, live there and are not repeated here.
 - **0010 — An automation is written in prose and compiled into its rule.** An
   automation is authored as prose, and one model call compiles that prose into
   the rule document the fleet runs.
+- **0011 — The share target and the worker's cache.** A shared file or page
+  lands in the store the app already uses, and the service worker's cache is
+  versioned per build.
+- **0012 — The server starts the fleet beside itself.** An installation whose
+  deployment names an agent runs the web tier and a worker in one process, from
+  one command; `GILBERT_AGENT_INPROCESS=0` keeps the fleet separate.
 

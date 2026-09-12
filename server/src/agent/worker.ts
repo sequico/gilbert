@@ -503,12 +503,28 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     return [...servedAccounts];
   };
 
+  /*
+   * The work in flight, so a stop can wait for it.
+   *
+   * A pass renews every claim it finds and writes a heartbeat, and both of them
+   * recreate a claim the release has just removed: a `stop()` that raced one
+   * would hand the account back and have it taken again by the same worker, with
+   * a live lease nobody will release. So the two writers are tracked, and
+   * `stop()` waits for them before it releases anything.
+   */
+  const inFlight = new Set<Promise<unknown>>();
+  const track = <T>(work: Promise<T>): Promise<T> => {
+    inFlight.add(work);
+    void work.catch(() => {}).finally(() => inFlight.delete(work));
+    return work;
+  };
+
   if (timers) {
     disposers.push(
       pollLoop(
         pollMs,
         async () => {
-          await pass();
+          await track(pass());
         },
         {
           onError: (err) =>
@@ -518,7 +534,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     );
     disposers.push(
       pollLoop(heartbeatMs, async () => {
-        await heartbeat();
+        await track(heartbeat());
       }),
     );
   }
@@ -543,6 +559,9 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
       for (const dispose of disposers) dispose();
       for (const dispose of scheduleDisposers.values()) dispose();
       scheduleDisposers.clear();
+      // Whatever was already running finishes first: a pass renews the claims it
+      // found, so a release that raced one would be undone by it.
+      await Promise.allSettled([...inFlight]);
       if (closeStream) {
         closeStream();
         closeStream = null;
@@ -729,17 +748,31 @@ function idleHealth(identity: AgentIdentity, startedAt: number): WorkerHealth {
 }
 
 /**
- * The worker's own entrypoint: it starts, configured or not.
+ * A running fleet, and the only way to stop it.
+ *
+ * The seam the two entrypoints share — the worker's own process, and the server
+ * that runs one beside itself (ADR 0012) — so the boot retry, the identity
+ * watch and the stop are written once. Nothing here owns the process: the
+ * caller wires the signals it cares about, and `stop()` is what releases the
+ * claims.
+ */
+export interface AgentFleet {
+  /** Stop serving, release the claims, and stop following the identity. */
+  stop(): Promise<void>;
+}
+
+/**
+ * Start serving as the agent the deployment names, and keep doing it.
  *
  * A deployment that names no agent, or names one Stalwart refuses, is not a
- * failed process: the admin surface is where that is read
- * (`agent_not_configured`, `agent_credentials_rejected`), and a worker that
+ * failed start: the admin surface is where that is read
+ * (`agent_not_configured`, `agent_credentials_rejected`), and a fleet that
  * exited would take down the health endpoint a restart policy reads. So this
  * warns, keeps running, serves nothing, and keeps asking — a deployment that
  * starts naming an agent finds a fleet already waiting. The notice is not
  * repeated while nothing changes; the newest one is what an operator reads.
  */
-export async function main(): Promise<void> {
+export async function startAgentFleet(): Promise<AgentFleet> {
   const startedAt = Date.now();
   let identity = currentIdentity();
   let lastNotice = "";
@@ -805,11 +838,27 @@ export async function main(): Promise<void> {
     })();
   }, AGENT_IDENTITY_RECHECK_MS);
 
+  return {
+    stop: async () => {
+      clearInterval(watch);
+      closeHealth?.();
+      await worker?.stop();
+    },
+  };
+}
+
+/**
+ * The worker's own entrypoint: a fleet, and the signals that end it.
+ *
+ * The server starts the same fleet beside itself and stops it in its own
+ * shutdown instead (ADR 0012); this is the process a deployment runs on its own
+ * when it wants the two apart.
+ */
+export async function main(): Promise<void> {
+  const fleet = await startAgentFleet();
   const shutdown = async (signal: string) => {
     console.log(`[gilbert] ${signal} received, stopping the agent worker`);
-    clearInterval(watch);
-    closeHealth?.();
-    await worker?.stop();
+    await fleet.stop();
     process.exit(0);
   };
   process.on("SIGINT", () => void shutdown("SIGINT"));

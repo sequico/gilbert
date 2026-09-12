@@ -405,6 +405,14 @@ const agentWorkerSettings = {
    * a worker nobody asks anything needs no listening socket.
    */
   healthPort: int("GILBERT_AGENT_HEALTH_PORT", 0),
+  /*
+   * Whether the server starts a fleet of its own beside the web tier, which is
+   * what makes `node server/dist/index.js` an installation that also works
+   * (ADR 0012). A deployment that wants the fleet isolated — its own container,
+   * its own restart policy — says `GILBERT_AGENT_INPROCESS=0` and runs
+   * `node server/dist/agent/worker.js` itself.
+   */
+  inprocess: bool("GILBERT_AGENT_INPROCESS", true),
 };
 
 /**
