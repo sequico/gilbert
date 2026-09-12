@@ -54,9 +54,9 @@ export const MANUAL_RUN_REFUSALS: Record<ManualRunRefusal, string> = {
  */
 export const AGENT_ERROR_SENTENCES = {
   agent_not_configured:
-    "This deployment names no agent, so the agents are not operational: set GILBERT_AGENT_ADDRESS to the agent's own address and GILBERT_AGENT_PASSWORD to that account's password, in the environment that starts the server and the worker, then restart both.",
+    "This deployment names no agent, so the agents are not operational: set GILBERT_AGENT_ADDRESS to the agent's own address and GILBERT_AGENT_PASSWORD to that account's password, in the environment that starts the server and its agent, then restart both.",
   agent_credentials_rejected:
-    "The server refused the agent's credential, so the agents are not operational: {detail}. Check that GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD name the agent's own address and its account password, then restart the server and the worker.",
+    "The server refused the agent's credential, so the agents are not operational: {detail}. Check that GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD name the agent's own address and its account password, then restart the server and its agent.",
   agent_unreachable: "The agent's session could not be opened: {detail}",
   agent_files_account_missing:
     "The agent {address} has no account holding its own Files, so there is nothing for it to read or write.",
@@ -85,7 +85,7 @@ export const AGENT_ERROR_SENTENCES = {
   max_pages_invalid:
     "How many pages one run may hand the model must be between 1 and {max}.",
   base_url_private:
-    "The base URL points at {host}, which is inside the network: a worker must not be pointed at an address that is not a model provider.",
+    "The base URL points at {host}, which is inside the network: an agent must not be pointed at an address that is not a model provider.",
   instruction_too_long:
     "A standing instruction is at most {max} characters; this one is {length}.",
   notes_too_long: "Your notes are at most {max} characters; these are {length}.",
@@ -99,7 +99,7 @@ export const AGENT_ERROR_SENTENCES = {
   group_labels_unreadable:
     "This group's labels.json holds entries Gilbert cannot read. The agent's labels were not added, rather than overwriting them.",
   manual_run_refused: "That automation did not start: {reason}.",
-  workers_unreadable: "Could not read the agent's worker records: {detail}",
+  agents_unreadable: "Could not read the agent's own records: {detail}",
 } as const satisfies Record<AgentErrorReason["code"] | AgentStatusReason["code"], string>;
 
 /** The codes this surface composes a sentence for: the catalogue's own keys. */

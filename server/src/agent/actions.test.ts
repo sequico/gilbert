@@ -26,9 +26,7 @@ const { fetchEmailRecord, runActions, undefinedAgentLabels } = await import(
 );
 const { GROUP_LABELS_FILE } = await import("../shared/labels.js");
 const { readChat } = await import("./chat.js");
-const { AGENT_ATTENTION_FOLDER, AGENT_SPLIT_PAGES_MAX } = await import(
-  "./documents.js"
-);
+const { AGENT_ATTENTION_FOLDER, AGENT_SPLIT_PAGES_MAX } = await import("./documents.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
 const GROUP = "a3";

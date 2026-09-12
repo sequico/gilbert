@@ -100,7 +100,7 @@ export function RuleEditor({
   /**
    * Ask for one automation, now.
    *
-   * What comes back is a job in the group's own account, which the worker that
+   * What comes back is a job in the group's own account, which the agent that
    * holds the group picks up: nothing runs in this process, and the terms are
    * the rule's own — its filter decides whether the message is one it acts on,
    * and its review policy still pauses what needs a person. So the ask is
@@ -429,7 +429,7 @@ function RuleItem({
         ) : (
           <span className="agent-state off">{t("Disabled")}</span>
         )}
-        {/* The person-shaped door into an automation about mail: the worker
+        {/* The person-shaped door into an automation about mail: the agent
             that holds this group runs it on its next pass, on the terms the
             rule already carries. */}
         <button
@@ -467,7 +467,7 @@ function RuleItem({
       ) : run === "asked" ? (
         <p className="hint">
           {t(
-            "Asked for. The worker holding this group picks it up on its next pass — a minute by default — and the group's audit is where what it did is read.",
+            "Asked for. The agent holding this group picks it up on its next pass — a minute by default — and the group's audit is where what it did is read.",
           )}
         </p>
       ) : null}

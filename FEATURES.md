@@ -204,7 +204,11 @@ own bounds — the ceiling on one answer, how many hops a chain may run, how man
 pages one run may hand the model — in the same document and the same panel.
 A bound the installation has not set is the deployment's: the environment
 declares the two chain and page bounds, and the ceiling on an answer is the
-build's own default. A file larger than the byte ceiling a run reads is not
+build's own default. Both of the installation's own bounds are held to fifty
+whatever the document or the environment asks — a value no surface could have
+written is a value no run obeys, and the panel shows the number a run is held
+to rather than the one a hand-edited document states. A file larger than the
+byte ceiling a run reads is not
 read, one split writes at most a hundred pages, and a page too large to hold is
 rendered smaller rather than refused — all said in the run's own notes rather
 than discovered as an outage. A deployment whose model cannot read an image says

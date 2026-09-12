@@ -186,7 +186,7 @@ describe("fleetReasonText", () => {
     expect(unreachable).toContain("HTTP 500");
     expect(unreachable).not.toContain("{detail}");
     expect(
-      fleetReasonText({ code: "workers_unreadable", detail: "held elsewhere" }),
+      fleetReasonText({ code: "agents_unreadable", detail: "held elsewhere" }),
     ).toContain("held elsewhere");
     expect(fleetReasonText({ code: "agent_not_configured" })).not.toContain("{");
   });

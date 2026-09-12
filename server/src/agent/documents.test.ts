@@ -523,6 +523,33 @@ test("a meter adds what was reported and counts the runs that said nothing", () 
     runs: 0,
     uncounted: 0,
   });
+  // Silence arrives in two shapes and reads as one fact: a provider that
+  // reported no field at all is the same run whether the entry carries no
+  // usage or a row of nulls (ADR 0010).
+  assert.deepEqual(
+    meterOver([
+      {
+        outcome: "done",
+        usage: { inputHitTokens: null, inputMissTokens: null, outputTokens: null },
+      },
+    ]),
+    {
+      inputHitTokens: null,
+      inputMissTokens: null,
+      outputTokens: null,
+      runs: 1,
+      uncounted: 1,
+    },
+  );
+  // A pass that resumed a plan already decided was counted where the plan was
+  // made: counting it here would bill one run twice (ADR 0010).
+  assert.deepEqual(meterOver([{ outcome: "running", resumed: true }]), {
+    inputHitTokens: null,
+    inputMissTokens: null,
+    outputTokens: null,
+    runs: 0,
+    uncounted: 0,
+  });
 });
 
 test("the published schema is what a save is refused against", () => {
@@ -657,7 +684,11 @@ test("a note past the bound is refused with the code and the number it may be", 
     max: AGENT_NOTES_MAX,
     length: AGENT_NOTES_MAX + 1,
   });
-  assert.equal(ruleNotesProblem(rule({ notes: atBound })), null, "a note at the bound fits here too");
+  assert.equal(
+    ruleNotesProblem(rule({ notes: atBound })),
+    null,
+    "a note at the bound fits here too",
+  );
   assert.equal(
     ruleNotesProblem({ hello: "world" }),
     null,

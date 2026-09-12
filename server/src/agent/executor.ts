@@ -97,7 +97,6 @@ import {
   CHAT_CONTEXT_MAX,
   changeIdOf,
   claimEpoch,
-  EMPTY_USAGE,
   filterNeedsBody,
   filterProblems,
   hopOf,
@@ -165,8 +164,15 @@ interface RunPlan {
   confidence: number;
   summary: string;
   rationale?: string;
-  /** What the deciding call cost, for the group's own meter (ADR 0010). */
-  usage: AgentUsage;
+  /**
+   * What the deciding call cost, for the group's own meter (ADR 0010).
+   *
+   * Absent when this pass did not decide anything: a plan a job already carried
+   * is resumed rather than decided again, and it was counted where it was made.
+   */
+  usage?: AgentUsage;
+  /** Set on a plan a job already carried, so the meter counts the run once. */
+  resumed?: true;
 }
 
 /**
@@ -575,11 +581,15 @@ export class Executor {
       const doc = (await this.agentStore.readConfig())?.doc;
       // What the document says, held to what this build accepts: a value above
       // the ceiling is one no surface would have written, and a chain that ran
-      // to it would be one nobody could have set from the product.
-      return Math.min(
-        doc?.maxChainHops ?? config.agent.maxChainHops,
-        AGENT_CHAIN_HOPS_CEILING,
-      );
+      // to it would be one nobody could have set from the product. The number
+      // that is spent is the one that is said, so the clamp is named in the log
+      // rather than a document quietly meaning something other than it says.
+      const asked = doc?.maxChainHops ?? config.agent.maxChainHops;
+      if (asked > AGENT_CHAIN_HOPS_CEILING)
+        console.warn(
+          `[gilbert] the installation asks for ${asked} hops on a chain, and this build runs at most ${AGENT_CHAIN_HOPS_CEILING}`,
+        );
+      return Math.min(asked, AGENT_CHAIN_HOPS_CEILING);
     } catch (err) {
       // A configuration this pass cannot read falls back to the deployment's
       // own number rather than stopping the pass: the same document fails the
@@ -605,7 +615,12 @@ export class Executor {
   private async maxPages(): Promise<number> {
     try {
       const doc = (await this.agentStore.readConfig())?.doc;
-      return Math.min(doc?.maxPages ?? config.agent.maxPages, AGENT_PAGES_CEILING);
+      const asked = doc?.maxPages ?? config.agent.maxPages;
+      if (asked > AGENT_PAGES_CEILING)
+        console.warn(
+          `[gilbert] the installation asks for ${asked} pages of a document, and this build reads at most ${AGENT_PAGES_CEILING}`,
+        );
+      return Math.min(asked, AGENT_PAGES_CEILING);
     } catch (err) {
       // A configuration this pass cannot read falls back to the deployment's
       // own number rather than failing the run here: the same document is read
@@ -874,7 +889,7 @@ export class Executor {
       actions: answer.actions,
       confidence: answer.confidence,
       summary: answer.summary,
-      usage: answer.usage,
+      ...(answer.usage ? { usage: answer.usage } : {}),
       ...(answer.rationale ? { rationale: answer.rationale } : {}),
     };
   }
@@ -934,7 +949,8 @@ export class Executor {
         // and the counts the provider reported.
         agent: this.deps.address,
         reasoned: config.agent.thinking,
-        usage: plan.usage,
+        ...(plan.usage ? { usage: plan.usage } : {}),
+        ...(plan.resumed ? { resumed: true } : {}),
       }),
     );
     // What already landed is a prefix of this plan — the actions run in order
@@ -1625,10 +1641,19 @@ export class Executor {
         draft: decided.draft ?? null,
       };
       if (job) {
+        // The lease goes in the same write as the state, so the run a person
+        // approved is this worker's from the instant it is in flight: a job
+        // marked `running` with no lease is one the next pass would take for
+        // abandoned and start again, which is how the same mail would leave
+        // twice (ADR 0010).
         const marked = await this.writeJobIfCurrent(store, job.id, (latest) => ({
           ...latest,
           state: "running",
           proposal: approvedPlan,
+          lease: {
+            owner: this.deps.workerId,
+            heartbeatAt: this.deps.now().toISOString(),
+          },
         }));
         // The approval stands and nothing is run: with the document in somebody
         // else's hands, what a person approved is not this run's to run, and a
@@ -2308,9 +2333,9 @@ export class Executor {
       // worker that holds one: a sweep that ran work it does not own would be
       // the very double execution the fence exists to stop.
       const claim = (await store.readClaim())?.doc;
-      if (!claim) {
+      if (claim?.worker !== this.deps.workerId) {
         this.deps.log(
-          `${accountId}: nothing holds the account's automation, so job ${job.id} is not run`,
+          `${accountId}: the account's automation is held by another worker, so job ${job.id} is left to its holder`,
         );
         continue;
       }
@@ -2619,8 +2644,9 @@ function planOf(proposal: AgentProposal): RunPlan {
     confidence: proposal.confidence,
     summary: proposal.summary,
     // A resumed run spends nothing on this pass: the deciding call it resumes
-    // was already counted when it was made.
-    usage: EMPTY_USAGE,
+    // was already counted when it was made, and this is what says so to the
+    // meter rather than a row of nulls that reads as a run nobody priced.
+    resumed: true,
   };
   if (proposal.rationale) plan.rationale = proposal.rationale;
   return plan;

@@ -107,7 +107,7 @@ The determinism that matters is the JSON answer plus the allowlist, never the
 temperature: a provider reasoning in thinking mode accepts the sampling
 parameters and ignores them.
 - **Identifiers follow those words**, in the sweep listed in `ROADMAP.md`. Two
-halves: the names (`worker.ts`, `WorkerHandle`, …) and the things that are
+halves: the names (`agent.ts`, `WorkerHandle`, …) and the things that are
 contracts rather than names — a field in a document an installation has already
 written, a refusal code a client composes a sentence from, an environment
 variable an operator set. A contract moves with every reader and writer of it in

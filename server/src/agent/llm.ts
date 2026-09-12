@@ -119,7 +119,11 @@ export interface ModelAnswer {
   answer: unknown;
   /** The message as the provider sent it, for a call that asked for prose. */
   text: string;
-  usage: AgentUsage;
+  /**
+   * What the call cost, when the provider said: absent is "it reported
+   * nothing", which is a fact of its own and not a row of zeros (ADR 0010).
+   */
+  usage?: AgentUsage;
 }
 
 /**
@@ -182,9 +186,14 @@ export async function callModel(
   if (content === null)
     throw new Error(`${provider.provider} answered without a message: ${firstLine(raw)}`);
   const usage = usageOf(body);
-  if (req.answer === "prose") return { answer: null, text: content, usage };
+  if (req.answer === "prose")
+    return { answer: null, text: content, ...(usage ? { usage } : {}) };
   try {
-    return { answer: JSON.parse(content) as unknown, text: content, usage };
+    return {
+      answer: JSON.parse(content) as unknown,
+      text: content,
+      ...(usage ? { usage } : {}),
+    };
   } catch {
     throw new Error(
       `${provider.provider} answered with content that is not JSON: ${firstLine(content)}`,
@@ -246,17 +255,26 @@ function count(value: unknown): number | null {
  * (`prompt_cache_hit_tokens` and its miss counterpart). A provider that reports
  * neither leaves both null, and one that reports only a total is not guessed
  * at: the whole of it stays unknown rather than being written down as a miss.
+ *
+ * A provider that reported none of the three said nothing about the cost, and
+ * nothing is what this answers with: a run whose call was never counted is
+ * `uncounted` in the meter, not a run that cost zero (ADR 0010).
  */
-function usageOf(body: unknown): AgentUsage {
+function usageOf(body: unknown): AgentUsage | undefined {
   const usage =
     body && typeof body === "object"
       ? ((body as { usage?: unknown }).usage as Record<string, unknown> | undefined)
       : undefined;
-  return {
+  const reported: AgentUsage = {
     inputHitTokens: count(usage?.prompt_cache_hit_tokens),
     inputMissTokens: count(usage?.prompt_cache_miss_tokens),
     outputTokens: count(usage?.completion_tokens),
   };
+  return reported.inputHitTokens === null &&
+    reported.inputMissTokens === null &&
+    reported.outputTokens === null
+    ? undefined
+    : reported;
 }
 
 function messageContent(body: unknown): string | null {
@@ -368,8 +386,11 @@ export interface DecisionAnswer {
   confidence: number;
   rationale?: string;
   summary: string;
-  /** What this call cost, as the provider reported it. */
-  usage: AgentUsage;
+  /**
+   * What this call cost, as the provider reported it: absent when it reported
+   * nothing, so the meter can say `uncounted` rather than nothing (ADR 0010).
+   */
+  usage?: AgentUsage;
 }
 
 /**
@@ -458,7 +479,7 @@ export async function decideActions(
     confidence: confidenceOf(answer, provider),
     ...rationaleOf(answer),
     summary,
-    usage,
+    ...(usage ? { usage } : {}),
   };
 }
 

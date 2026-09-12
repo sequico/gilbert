@@ -79,9 +79,9 @@ export function GroupAgents() {
         </p>
       ) : (
         <div className="field" style={{ maxWidth: 380, marginBottom: 16 }}>
-          <label htmlFor="agent-worker-group">{t("Group")}</label>
+          <label htmlFor="agent-fleet-group">{t("Group")}</label>
           <select
-            id="agent-worker-group"
+            id="agent-fleet-group"
             className="select"
             value={group}
             onChange={(e) => setGroup(e.target.value)}

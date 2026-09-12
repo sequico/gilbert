@@ -1,7 +1,11 @@
-import { GROUP_NOT_ACCESSIBLE, type GroupNeed } from "@gilbert/agent/views";
+import {
+  GROUP_NOT_ACCESSIBLE,
+  GROUP_UNREADABLE,
+  type GroupNeed,
+} from "@gilbert/agent/views";
 import { agentErrorSentence } from "@/lib/agentErrors";
 import { withBase } from "@/lib/basePath";
-import { groupAccessSentence } from "@/lib/groupAccess";
+import { groupAccessSentence, groupUnreadableSentence } from "@/lib/groupAccess";
 import type {
   Id,
   Invocation,
@@ -131,9 +135,11 @@ export async function apiFetch<T = unknown>(
      * know falls through to it rather than being given a sentence of its own.
      */
     const composed =
-      body.error === GROUP_NOT_ACCESSIBLE && body.need
+      body.need && body.error === GROUP_NOT_ACCESSIBLE
         ? groupAccessSentence(body.need)
-        : agentErrorSentence(body as Record<string, unknown>);
+        : body.need && body.error === GROUP_UNREADABLE
+          ? groupUnreadableSentence(body.need)
+          : agentErrorSentence(body as Record<string, unknown>);
     const message =
       composed ?? body.message ?? body.detail ?? body.title ?? res.statusText;
     throw new ApiError(res.status, body.error ?? body.type ?? "error", message);

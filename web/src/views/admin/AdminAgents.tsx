@@ -154,7 +154,7 @@ function Registration({ status }: { status: AgentStatus | null }) {
           </div>
           <p className="hint" style={{ marginTop: 12 }}>
             {t(
-              "The deployment names the agent and this reads it back: GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD live in the environment of whoever starts the server and the worker, so there is one place they come from. Nothing here mints a secret, reads one back, or stores one.",
+              "The deployment names the agent and this reads it back: GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD live in the environment of whoever starts the server and its agent, so there is one place they come from. Nothing here mints a secret, reads one back, or stores one.",
             )}
           </p>
           {/* What the installation has spent, read from every group the agent

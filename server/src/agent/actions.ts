@@ -312,23 +312,33 @@ async function mailboxesOf(
  * none and is not a group. An account this cannot read is not served as one —
  * "I could not prove it is a mailbox" is not "it is a mailbox".
  */
-export async function hasMailStore(
+export type MailStoreProbe = "mailbox" | "share" | "unreadable";
+
+/**
+ * What the mail store says about an account: it has one, it has none, or nobody
+ * could ask.
+ *
+ * Three answers rather than two, because the third is not a fact about the
+ * account: "this is not a group" and "I could not reach the server" are
+ * different sentences, and a surface that showed the first for the second would
+ * be telling a person to fix a grant that was never the problem (ADR 0005).
+ * Writes stay closed on the third answer — nothing is written into an account
+ * nobody could prove is a mailbox — while a read names it.
+ */
+export async function probeMailStore(
   client: JmapClient,
   accountId: string,
-): Promise<boolean> {
+): Promise<MailStoreProbe> {
   try {
-    return (await mailboxesOf(client, accountId, null)).length > 0;
+    return (await mailboxesOf(client, accountId, null)).length > 0 ? "mailbox" : "share";
   } catch (err) {
-    // "This is not a group" and "I could not ask" are two different answers:
-    // the account is not served as a group either way (the safe direction for
-    // the surfaces that write), but the reason is said out loud rather than
-    // swallowed, so an operator is not left reading a broken probe as a group
-    // that is not granted (ADR 0005).
+    // The reason is said out loud rather than swallowed, so an operator is not
+    // left reading a broken probe as a group that is not granted (ADR 0005).
     console.warn(
       `[gilbert] could not probe the account ${accountId} for a mail store:`,
       (err as Error).message,
     );
-    return false;
+    return "unreadable";
   }
 }
 
@@ -339,12 +349,21 @@ export async function hasMailStore(
  * One rule, one owner: every surface that needs to know which accounts are
  * groups (the administration's doors, the member's read, the daemon's list of
  * what it may serve) reads it here. The candidates are the non-personal
- * accounts that carry an address; the probe is `hasMailStore`, because a folder
- * share with an address looks exactly like a group mailbox from the session
- * alone and only the mail store tells them apart. Nothing is cached: a grant
- * withdrawn in Stalwart is read here the next time a surface asks.
+ * accounts that carry an address; the probe is `probeMailStore`, because a
+ * folder share with an address looks exactly like a group mailbox from the
+ * session alone and only the mail store tells them apart. Nothing is cached: a
+ * grant withdrawn in Stalwart is read here the next time a surface asks.
  */
-export async function groupAccounts(ctx: Ctx): Promise<Map<string, string>> {
+export interface GroupReach {
+  /** The groups, by name, with the account each one answers as. */
+  groups: Map<string, string>;
+  /**
+   * The candidates the mail server did not answer about: not groups this
+   * reader can prove, and not proven shares either.
+   */
+  unreadable: string[];
+}
+export async function groupAccountsDetailed(ctx: Ctx): Promise<GroupReach> {
   const candidates: Array<[string, string]> = [];
   for (const [accountId, account] of Object.entries(ctx.session.accounts ?? {})) {
     const a = account as { name?: unknown; isPersonal?: unknown };
@@ -356,13 +375,30 @@ export async function groupAccounts(ctx: Ctx): Promise<Map<string, string>> {
   }
   const client = new JmapClient(ctx);
   const probed = await Promise.all(
-    candidates.map(async ([accountId, name]) =>
-      (await hasMailStore(client, accountId)) ? ([accountId, name] as const) : null,
-    ),
+    candidates.map(async ([accountId, name]) => {
+      const probe = await probeMailStore(client, accountId);
+      return { accountId, name, probe };
+    }),
   );
   // The map is read by group name — `Map<name, accountId>` — so the pairs are
-  // turned around here, once, where the probe's own order is still visible.
-  return new Map(probed.filter((row) => row !== null).map(([id, name]) => [name, id]));
+  // turned around here, once, where the probe's own order is still visible. A
+  // candidate nobody could ask about is named rather than dropped: the caller
+  // that writes ignores it, and the caller that shows a person says so.
+  const groups = new Map<string, string>();
+  const unreadable: string[] = [];
+  for (const row of probed) {
+    if (row.probe === "mailbox") groups.set(row.name, row.accountId);
+    else if (row.probe === "unreadable") unreadable.push(row.name);
+  }
+  return { groups, unreadable };
+}
+
+/**
+ * The groups alone, for the callers that have nothing to say about a probe that
+ * did not answer.
+ */
+export async function groupAccounts(ctx: Ctx): Promise<Map<string, string>> {
+  return (await groupAccountsDetailed(ctx)).groups;
 }
 
 /**

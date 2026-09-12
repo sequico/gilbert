@@ -85,7 +85,7 @@ export type AgentStatusReason =
   | { code: "agent_not_configured" }
   | { code: "agent_credentials_rejected"; detail: string }
   | { code: "agent_unreachable"; detail: string }
-  | { code: "workers_unreadable"; detail: string };
+  | { code: "agents_unreadable"; detail: string };
 
 /**
  * The installation's fleet, as the status route answers it.
@@ -238,7 +238,7 @@ export interface AgentGroupSurface {
    * and the section whose documents are out of reach. The sentence a person
    * reads is composed where it is shown.
    */
-  error?: typeof GROUP_NOT_ACCESSIBLE;
+  error?: GroupDeniedCode;
   need?: GroupNeed;
   rules: AgentRule[];
   jobs: AgentJob[];
@@ -255,7 +255,7 @@ export type AgentGroupView = AgentGroupSurface & { granted: true };
 /** The surface for a group this admin cannot reach: empty, with the refusal. */
 export type AgentGroupDenied = AgentGroupSurface & {
   granted: false;
-  error: typeof GROUP_NOT_ACCESSIBLE;
+  error: GroupDeniedCode;
   need: GroupNeed;
 };
 
@@ -328,18 +328,31 @@ export type GroupNeed =
 export const GROUP_NOT_ACCESSIBLE = "group_not_accessible";
 
 /**
+ * The code a group nobody could ask about travels as.
+ *
+ * A probe that did not answer is not a group the agent lacks: the surface says
+ * what it could not establish, so a person retries or looks at the server
+ * rather than editing a grant that was never the problem (ADR 0005).
+ */
+export const GROUP_UNREADABLE = "group_unreadable";
+
+/** The two ways a group's documents are out of reach, as codes a client reads. */
+export type GroupDeniedCode = typeof GROUP_NOT_ACCESSIBLE | typeof GROUP_UNREADABLE;
+
+/**
  * Why a group's documents are out of reach: the code, and the parameter that
  * names the section.
  *
  * The agent's grant is the whole answer — a group's documents live in the
  * group's own account, and the agent is the principal that holds it — so a
- * group the agent is not granted on has no path to them at all. The sentence
- * that says so is composed where it is shown, from the catalogue in force: a
- * language whose catalogue lacks it reads the English source.
+ * group the agent is not granted on has no path to them at all, and a group the
+ * mail server would not answer about has none either. The sentence that says so
+ * is composed where it is shown, from the catalogue in force: a language whose
+ * catalogue lacks it reads the English source.
  */
 export interface GroupAccessDenied {
   ok: false;
-  error: typeof GROUP_NOT_ACCESSIBLE;
+  error: GroupDeniedCode;
   need: GroupNeed;
 }
 

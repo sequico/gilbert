@@ -23,7 +23,11 @@
 
 import { randomUUID } from "node:crypto";
 import { readGroupLabels, writeGroupLabels } from "./account.js";
-import { fetchEmailView, groupAccounts, mailboxIdByRole } from "./agent/actions.js";
+import {
+  fetchEmailView,
+  groupAccountsDetailed,
+  mailboxIdByRole,
+} from "./agent/actions.js";
 import { hasSpoken, readChat } from "./agent/chat.js";
 import {
   AGENT_CHAIN_HOPS_CEILING,
@@ -98,6 +102,8 @@ import type {
 import {
   type AgentProviderView,
   GROUP_NOT_ACCESSIBLE,
+  GROUP_UNREADABLE,
+  type GroupDeniedCode,
   WITHDRAWALS_PATH,
 } from "./agent/views.js";
 import { type Ctx, filesAccountId, readAppJsonAt } from "./appFolder.js";
@@ -213,15 +219,23 @@ export type GroupAccessResult = GroupAccess | GroupAccessDenied;
  * that names no agent, or whose credential the server refuses, says exactly
  * that instead of borrowing the administrator's reach.
  */
-export async function agentGroupReach(
-  admin: LiveSession,
-): Promise<{ ctx: Ctx; accounts: Map<string, string> }> {
+export async function agentGroupReach(admin: LiveSession): Promise<{
+  ctx: Ctx;
+  accounts: Map<string, string>;
+  /** The candidates the mail server would not answer about (ADR 0005). */
+  unreadable: string[];
+}> {
   const address = agentAddress();
   if (!address) throw new AgentAdminError({ code: "agent_not_configured" }, 409);
   const agent = await openAgentSession(admin, address);
   if (!agent.ok)
     throw new AgentAdminError({ code: agent.code, detail: agent.detail }, 409);
-  return { ctx: agent.ctx, accounts: await groupAccounts(agent.ctx) };
+  const reach = await groupAccountsDetailed(agent.ctx);
+  return {
+    ctx: agent.ctx,
+    accounts: reach.groups,
+    unreadable: reach.unreadable,
+  };
 }
 
 /**
@@ -247,8 +261,13 @@ export async function resolveGroupAccess(
   opts: { need: GroupNeed },
 ): Promise<GroupAccessResult> {
   const reach = await agentGroupReach(admin);
-  const accountId = reach.accounts.get(name.trim().toLowerCase());
-  if (!accountId) return deniedGroupAccess(opts.need);
+  const wanted = name.trim().toLowerCase();
+  const accountId = reach.accounts.get(wanted);
+  if (!accountId)
+    return deniedGroupAccess(
+      opts.need,
+      reach.unreadable.includes(wanted) ? GROUP_UNREADABLE : GROUP_NOT_ACCESSIBLE,
+    );
   return { ok: true, accountId, ctx: reach.ctx };
 }
 
@@ -276,14 +295,27 @@ export async function memberGroupAccess(
     session: upstream,
     username: session.username,
   };
-  const accountId = (await groupAccounts(ctx)).get(name.trim().toLowerCase());
-  if (!accountId) return deniedGroupAccess(opts.need);
+  const reach = await groupAccountsDetailed(ctx);
+  const wanted = name.trim().toLowerCase();
+  const accountId = reach.groups.get(wanted);
+  if (!accountId)
+    return deniedGroupAccess(
+      opts.need,
+      reach.unreadable.includes(wanted) ? GROUP_UNREADABLE : GROUP_NOT_ACCESSIBLE,
+    );
   return { ok: true, accountId, ctx };
 }
 
-/** The agent holds no such group: a state the surface names, not a failure. */
-function deniedGroupAccess(need: GroupNeed): GroupAccessDenied {
-  return { ok: false, error: GROUP_NOT_ACCESSIBLE, need };
+/**
+ * Out of reach: the code names which of the two states it is, and the section
+ * that was asked for travels beside it — a state the surface names, not a
+ * failure.
+ */
+function deniedGroupAccess(
+  need: GroupNeed,
+  code: GroupDeniedCode = GROUP_NOT_ACCESSIBLE,
+): GroupAccessDenied {
+  return { ok: false, error: code, need };
 }
 
 /**
@@ -411,23 +443,28 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       reason: { code: agent.code, detail: agent.detail },
     };
 
-  const reach = await groupAccounts(agent.ctx);
-  const groups = [...reach.keys()]
+  const reach = await groupAccountsDetailed(agent.ctx);
+  const groups = [...reach.groups.keys()]
     .sort((a, b) => a.localeCompare(b))
     .map((name) => groupRow(name));
-  const meter = await fleetMeter(agent.ctx, reach);
+  if (reach.unreadable.length)
+    console.warn(
+      "[gilbert] the mail server did not answer about these groups, so they are not counted as the agent's:",
+      reach.unreadable.join(", "),
+    );
+  const meter = await fleetMeter(agent.ctx, reach.groups);
   let workers: AgentStatusWorker[] = [];
   let reason: AgentStatusReason | undefined;
   try {
     workers = await readWorkers(agent.ctx);
   } catch (err) {
-    // The agent's session is open; only its worker records failed. That is a
+    // The agent's session is open; only its own records failed. That is a
     // partial answer, and it says so rather than reporting a still fleet.
     console.warn(
-      "[gilbert] could not read the agent's worker records:",
+      "[gilbert] could not read the agent's own records:",
       (err as Error).message,
     );
-    reason = { code: "workers_unreadable", detail: (err as Error).message };
+    reason = { code: "agents_unreadable", detail: (err as Error).message };
   }
   return {
     operational: true,
@@ -902,8 +939,8 @@ export async function readProviders(admin: LiveSession): Promise<AgentProvidersV
       address: "",
       provider: null,
       maxOutputTokens: MODEL_MAX_OUTPUT_DEFAULT,
-      maxChainHops: config.agent.maxChainHops,
-      maxPages: config.agent.maxPages,
+      maxChainHops: Math.min(config.agent.maxChainHops, AGENT_CHAIN_HOPS_CEILING),
+      maxPages: Math.min(config.agent.maxPages, AGENT_PAGES_CEILING),
     };
   const { store, address } = await agentStore(admin);
   const found = await store.readConfig();
@@ -911,8 +948,14 @@ export async function readProviders(admin: LiveSession): Promise<AgentProvidersV
     address: found?.doc.address || address,
     provider: providerView(found?.doc.provider),
     maxOutputTokens: found?.doc.maxOutputTokens ?? MODEL_MAX_OUTPUT_DEFAULT,
-    maxChainHops: found?.doc.maxChainHops ?? config.agent.maxChainHops,
-    maxPages: found?.doc.maxPages ?? config.agent.maxPages,
+    // The number the runs are held to, not the number a hand-edited document
+    // asks for: the surface shows what is spent, and saving writes that back
+    // rather than leaving a document whose bound nobody applies (ADR 0010).
+    maxChainHops: Math.min(
+      found?.doc.maxChainHops ?? config.agent.maxChainHops,
+      AGENT_CHAIN_HOPS_CEILING,
+    ),
+    maxPages: Math.min(found?.doc.maxPages ?? config.agent.maxPages, AGENT_PAGES_CEILING),
   };
 }
 

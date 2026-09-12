@@ -526,7 +526,7 @@ stops asking an author to classify what they want.
   its vision guide (read 2026-09-12) — the prices, the prefix-unit rule and the
   1024-token image ceiling quoted above, and the image formats a request carries
 - `server/src/agent/llm.ts` — `callModel`: temperature 0, `response_format:
-  json_object`, the timeout, and the missing output cap
+  json_object`, the timeout, and the ceiling on an answer
 - `server/src/agent/executor.ts` — the capability check, `reviewOutcome`, and the
   context a run is given
 - `server/src/agentAdmin.ts` — `runRuleNow`: the ask that writes a job, and the

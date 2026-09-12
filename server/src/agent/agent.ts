@@ -22,7 +22,7 @@ import {
   type UpstreamSession,
   upstreamFor,
 } from "../upstream.js";
-import { groupAccounts } from "./actions.js";
+import { groupAccountsDetailed } from "./actions.js";
 import { greetUnspoken, readChat } from "./chat.js";
 import type { AgentClaim, AgentStreamClaim, AgentWorkerRecord } from "./documents.js";
 import {
@@ -111,7 +111,16 @@ export async function candidateAccounts(ctx: Ctx): Promise<string[]> {
   // The account ids, not the group names: everything downstream — claims,
   // stores, the heartbeat's `serves` — addresses an account by its id, and
   // `groupNameOf` is what turns one back into the name it is served under.
-  return [...(await groupAccounts(ctx)).values()];
+  const reach = await groupAccountsDetailed(ctx);
+  // A candidate the mail server did not answer about is not served: nothing is
+  // written into an account nobody could prove is a mailbox, and the operator
+  // reads which ones those were rather than watching a group quietly vanish.
+  if (reach.unreadable.length)
+    console.warn(
+      "[gilbert] the mail server did not answer about these accounts, so they are not served:",
+      reach.unreadable.join(", "),
+    );
+  return [...reach.groups.values()];
 }
 
 /** The Authorization header a plain principal authenticates with. */

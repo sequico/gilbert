@@ -1628,6 +1628,11 @@ export interface AgentAuditEntry {
   agent?: string;
   /** Whether the run paid for the model's chain of thought. */
   reasoned?: boolean;
+  /**
+   * A pass that resumes a plan already decided and already counted: it spent
+   * nothing of its own, so it is neither a run nor an uncounted one.
+   */
+  resumed?: true;
   /** What the deciding call cost, as the provider reported it. */
   usage?: AgentUsage;
 }
@@ -1646,13 +1651,6 @@ export interface AgentUsage {
   inputMissTokens: number | null;
   outputTokens: number | null;
 }
-
-/** The counts a run that reported nothing contributes. */
-export const EMPTY_USAGE: AgentUsage = {
-  inputHitTokens: null,
-  inputMissTokens: null,
-  outputTokens: null,
-};
 
 /** One reported count, or null: a provider that says nothing says nothing. */
 function countOrNull(value: unknown): number | null {
@@ -1687,11 +1685,23 @@ export interface AgentMeter {
 /** What one entry adds to one meter: the only place that rule is written. */
 export function meterOf(
   meter: AgentMeter,
-  entry: Pick<AgentAuditEntry, "usage" | "outcome">,
+  entry: Pick<AgentAuditEntry, "usage" | "outcome" | "resumed">,
 ): AgentMeter {
   if (UNMETERED_OUTCOMES.includes(entry.outcome)) return meter;
+  // A pass that resumed a plan was counted when the plan was decided: counting
+  // it again would bill one run twice (ADR 0010).
+  if (entry.resumed) return meter;
   const usage = entry.usage;
-  if (!usage) return { ...meter, runs: meter.runs + 1, uncounted: meter.uncounted + 1 };
+  // Not a row of zeros, whichever way the silence arrived: a provider that
+  // reported nothing is a run nobody can price, and it is the only thing the
+  // meter can say about it (ADR 0010).
+  const reported =
+    usage !== undefined &&
+    (usage.inputHitTokens !== null ||
+      usage.inputMissTokens !== null ||
+      usage.outputTokens !== null);
+  if (!reported)
+    return { ...meter, runs: meter.runs + 1, uncounted: meter.uncounted + 1 };
   const add = (total: number | null, value: number | null): number | null =>
     value === null ? total : (total ?? 0) + value;
   return {
