@@ -17,7 +17,7 @@ import { Bell } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
-import { agentViewKey, useAgents } from "@/store/agents";
+import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
 import { AGENT_OUTCOME_LABELS, outcomeText } from "@/views/agent/agentText";
 import { AgentApprovals } from "./agent/AgentApprovals";
 
@@ -85,6 +85,8 @@ export function AdminApprovals() {
 function CrossGroupAudit() {
   const status = useAgents((s) => s.status);
   const groupViews = useAgents((s) => s.groupViews);
+  const busy = useAgents((s) => s.busy);
+  const problems = useAgents((s) => s.problems);
   const loadGroup = useAgents((s) => s.loadGroup);
   const [groupFilter, setGroupFilter] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState("");
@@ -96,15 +98,25 @@ function CrossGroupAudit() {
   // a new server route. Depending on `groupViews` is what makes this converge:
   // each pass requests only the groups still missing a view, and a group that
   // already has one is skipped, so a re-run costs nothing once every group has
-  // landed.
+  // landed. A group whose read failed stays missing from `groupViews` forever
+  // (the store never writes one on a rejected fetch), so this asks again on
+  // every mount rather than looping tightly: `busy`/`problems` below are what
+  // tell "still in flight" apart from "gave up, and here is why".
   useEffect(() => {
     for (const g of status?.groups ?? []) {
       if (!groupViews[agentViewKey(g.name)]) void loadGroup(g.name);
     }
   }, [status, groupViews, loadGroup]);
 
-  const loadedCount = groups.filter((name) => groupViews[agentViewKey(name)]).length;
-  const stillLoading = groups.length > 0 && loadedCount < groups.length;
+  const unreadable = groups.filter((name) => {
+    const op = groupOperation(name);
+    return !groupViews[agentViewKey(name)] && busy[op] !== true && problems[op];
+  });
+  const stillLoading = groups.some((name) => {
+    const key = agentViewKey(name);
+    const op = groupOperation(name);
+    return !groupViews[key] && (busy[op] === true || !problems[op]);
+  });
 
   const entries = groups
     .flatMap((name) => {
@@ -169,6 +181,14 @@ function CrossGroupAudit() {
             </div>
           </div>
           {stillLoading && <p className="hint">{t("Reading every group's trail…")}</p>}
+          {unreadable.length > 0 && (
+            <p className="hint">
+              {t(
+                "The audit of {groups} could not be read, so it is missing from this list.",
+                { groups: unreadable.join(", ") },
+              )}
+            </p>
+          )}
           {entries.length === 0 ? (
             !stillLoading && <p className="hint">{t("Nothing matches here yet.")}</p>
           ) : (
