@@ -66,19 +66,18 @@ export const AGENT_ERROR_SENTENCES = {
     'Two automations share the id "{id}". Ids must be unique: a job records the id and the version it was created from.',
   rule_not_a_document: "Automation #{index} is not a rule document Gilbert can run.",
   rule_cannot_run: '"{name}" cannot run: {problems}.',
-  providers_not_an_object:
-    "The providers must be an object naming the T1 and/or T2 tiers.",
-  unknown_tier: '"{key}" is not a tier: the tiers that call a model are T1 and T2.',
-  tier_incomplete: "{tier} must name a provider, a model and a base URL.",
-  tier_api_key_required:
-    "{tier} needs an api key, issued for the endpoint it is entered against.",
-  tier_api_key_required_after_move:
-    "{tier} moves to {movedTo}, so its api key has to be entered again: a key is issued for the endpoint it was entered against.",
-  tier_base_url_invalid: "{tier} has a base URL that is not a URL.",
-  tier_base_url_not_https:
-    "{tier} must use https: the api key travels in a header, and plain http would send it in the clear.",
-  tier_base_url_private:
-    "{tier} points at {host}, which is inside the network: a worker must not be pointed at an address that is not a model provider.",
+  provider_not_an_object:
+    "The provider must be an object naming a provider, a model and a base URL, or null to clear the installation's model.",
+  provider_incomplete: "The provider must name a provider, a model and a base URL.",
+  api_key_required:
+    "The provider needs an api key, issued for the endpoint it is entered against.",
+  api_key_required_after_move:
+    "The provider moves to {movedTo}, so its api key has to be entered again: a key is issued for the endpoint it was entered against.",
+  base_url_invalid: "The base URL is not a URL.",
+  base_url_not_https:
+    "The base URL must use https: the api key travels in a header, and plain http would send it in the clear.",
+  base_url_private:
+    "The base URL points at {host}, which is inside the network: a worker must not be pointed at an address that is not a model provider.",
   instruction_too_long:
     "A standing instruction is at most {max} characters; this one is {length}.",
   group_labels_unreadable:

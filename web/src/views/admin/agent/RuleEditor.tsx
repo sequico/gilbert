@@ -24,14 +24,12 @@ import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
 import { confirmDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 import {
-  actionText,
   jobStateText,
   reviewText,
-  ruleActions,
-  tierText,
+  ruleInstruction,
   triggerText,
 } from "@/views/agent/agentText";
-import { RuleForm } from "./RuleForm";
+import { type AgentRuleDraft, blankRule, RuleForm, ruleFromDraft } from "./RuleForm";
 
 export function RuleEditor({
   groups,
@@ -43,14 +41,16 @@ export function RuleEditor({
   const groupViews = useAgents((s) => s.groupViews);
   const busyReads = useAgents((s) => s.busy);
   const loadGroup = useAgents((s) => s.loadGroup);
+  const catalogue = useAgents((s) => s.catalogue);
+  const loadCatalogue = useAgents((s) => s.loadCatalogue);
   const saveRules = useAgents((s) => s.saveRules);
   // This group's own line, not a global one: a provider read in another panel
   // must not turn this panel's read failure into "Loading…".
   const loading = group ? busyReads[groupOperation(group)] === true : false;
   /** The rule being edited; null means the list is showing. */
-  const [draft, setDraft] = useState<AgentRule | null>(null);
+  const [draft, setDraft] = useState<AgentRuleDraft | null>(null);
   /** What it held when it was opened: the line "changed" is measured from. */
-  const [baseline, setBaseline] = useState<AgentRule | null>(null);
+  const [baseline, setBaseline] = useState<AgentRuleDraft | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   // The rule being asked for right now, and the one whose ask just landed: two
@@ -67,12 +67,18 @@ export function RuleEditor({
   // Why the document would be refused as it stands, if it would: the server's
   // own reason, so the form cannot drift from what the executor accepts
   // (ADR 0003 §4, `ruleProblem`).
-  const draftProblem = draft ? problemOf(draft) : null;
+  const draftProblem = draft ? draftProblemOf(draft) : null;
   // Saving a rule that is identical to the one it was opened from writes back
   // what is already stored, which is not something to offer: a new automation
   // has no baseline and is always something to save, an edited one is compared
   // with the copy it started from.
   const changed = draft !== null && draft !== baseline;
+
+  // The capability catalogue is the server's, published with the rule schema:
+  // the form builds its allowlist from it rather than from a list of its own.
+  useEffect(() => {
+    void loadCatalogue();
+  }, [loadCatalogue]);
 
   /*
    * The rules are a document in the group's own account; reading them is a
@@ -124,18 +130,23 @@ export function RuleEditor({
       setProblem(t("Give the automation a name before saving it."));
       return;
     }
-    const refused = problemOf(draft);
+    const refused = draftProblemOf(draft);
     if (refused) {
       setProblem(
         t("This automation cannot run as it stands: {reason}", { reason: refused }),
       );
       return;
     }
-    const existing = rules.find((r) => r.id === draft.id);
+    const document = ruleFromDraft(draft);
+    if (!document) {
+      setProblem(t("no review policy has been chosen"));
+      return;
+    }
+    const existing = rules.find((r) => r.id === document.id);
     // `version` and the stamps belong to the server, which returns the saved
     // document; the surface therefore sends what it authored and keeps what
     // comes back.
-    const next: AgentRule = { ...draft, name };
+    const next: AgentRule = { ...document, name };
     const owed = problemOf(next);
     if (owed) {
       // Caught here rather than at the server: the schema is the same one the
@@ -247,7 +258,7 @@ export function RuleEditor({
           )}
           {view?.granted && draft ? (
             <>
-              <RuleForm rule={draft} onChange={setDraft} />
+              <RuleForm rule={draft} catalogue={catalogue} onChange={setDraft} />
               {problem && (
                 <div className="warn-box" style={{ marginBottom: 12 }}>
                   {problem}
@@ -308,7 +319,10 @@ export function RuleEditor({
                 disabled={busy}
                 onClick={() => {
                   setProblem(null);
-                  setDraft(blankRule());
+                  // A new automation gets its id here rather than in the form:
+                  // the form edits a document, and an id is what the group's
+                  // document list names it by.
+                  setDraft({ ...blankRule(), id: `rule-${crypto.randomUUID()}` });
                   setBaseline(null);
                 }}
               >
@@ -337,6 +351,19 @@ export function RuleEditor({
 function problemOf(rule: AgentRule): string | null {
   const refused = ruleProblems(rule);
   return refused.length ? refused.join("; ") : null;
+}
+
+/**
+ * Why the draft could not be saved, if it could not.
+ *
+ * The review policy has no default, so a draft nobody has decided that for is
+ * not a document yet: the form says so rather than saving a policy the author
+ * never chose (ADR 0010).
+ */
+function draftProblemOf(draft: AgentRuleDraft): string | null {
+  const document = ruleFromDraft(draft);
+  if (!document) return t("no review policy has been chosen");
+  return problemOf(document);
 }
 
 /**
@@ -380,7 +407,7 @@ function RuleItem({
   onEdit(): void;
   onDelete(): void;
 }) {
-  const actions = ruleActions(rule);
+  const instruction = ruleInstruction(rule);
   return (
     <div className="card agent-rule-item">
       <div className="card-head">
@@ -413,13 +440,9 @@ function RuleItem({
           <Trash2 size={16} />
         </button>
       </div>
-      <p className="hint">
-        {tierText(rule.tier)} · {triggerText(rule.trigger)}
-      </p>
+      <p className="hint">{triggerText(rule.trigger)}</p>
       <p className="hint">{reviewText(rule.review)}</p>
-      {actions.length > 0 && (
-        <p className="hint">{actions.map((a) => actionText(a)).join(" · ")}</p>
-      )}
+      {instruction && <p className="agent-readonly-text">{instruction}</p>}
       {/* What became of an ask: the run while it is open, and where its outcome
           is read once it is not — the group's chat hears from the agent, and
           the audit keeps the line. */}
@@ -440,22 +463,6 @@ function RuleItem({
   );
 }
 
-/**
- * A new automation starts the way resolution 10 describes one — a confidence
- * threshold, disabled until the admin has finished describing it — on mail
- * events, at the tier that calls no model at all.
- */
-function blankRule(): AgentRule {
-  return {
-    v: 1,
-    id: `rule-${crypto.randomUUID()}`,
-    version: 1,
-    name: "",
-    enabled: false,
-    trigger: { on: "email" },
-    tier: "T0",
-    review: { mode: "threshold", threshold: 0.7 },
-    actions: [],
-    capabilities: [],
-  };
-}
+/** A new automation starts on mail events, with nothing decided yet — its
+ * review policy included, which is why the form refuses to save it until the
+ * author chooses one. */

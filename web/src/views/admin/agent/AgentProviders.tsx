@@ -1,10 +1,10 @@
 /**
- * The model providers, one per tier (ADR 0003 "Admin surfaces").
+ * The installation's model (ADR 0010 "One model serves the installation").
  *
- * T1's cheap classifier and T2's agent each name their own provider, model and
- * base URL, so an installation can run the tiers on different vendors or on a
- * local model. They are documents in the agent's own account — the account
- * belongs to the installation, never to a member — and the executor reads them
+ * One entry — provider, model, base URL and key — serves every automation:
+ * nothing in the product asks an administrator to decide which model a kind of
+ * work deserves. It is a document in the agent's own account — the account
+ * belongs to the installation, never to a member — and the executor reads it
  * through the agent's own session.
  *
  * The API key is write-only, the way an app password is: the surface says
@@ -12,20 +12,14 @@
  * rendered back.
  */
 
-import type { AgentModelTier } from "@gilbert/agent/documents";
 import { BrainCircuit } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
-import {
-  AGENT_MODEL_TIERS,
-  type AgentProviderInput,
-  type AgentProviderView,
-} from "@/lib/agents";
+import type { AgentProviderInput, AgentProviderView } from "@/lib/agents";
 import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
 import { confirmDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
-import { tierText } from "@/views/agent/agentText";
 
 export function AgentProviders() {
   const loadProviders = useAgents((s) => s.loadProviders);
@@ -44,19 +38,18 @@ export function AgentProviders() {
   }, [loadProviders]);
 
   /**
-   * One tier's write: the API takes a map keyed by tier, and an editor holds the
-   * tier it was handed. The tiers themselves come from the catalogue, so the
-   * form cannot offer a tier the server writes no documents for.
+   * The one write: an entry saves the installation's model, `null` clears it.
+   * A cleared installation runs no automation, which is the state the executor
+   * refuses in plainly rather than a silent skip (ADR 0010).
    */
-  const write = (tier: AgentModelTier) => (patch: AgentProviderInput | null) =>
-    saveProviders(tier === "T1" ? { T1: patch } : { T2: patch });
+  const write = (patch: AgentProviderInput | null) => saveProviders({ provider: patch });
 
   return (
     <section>
-      <h2>{t("Model providers")}</h2>
+      <h2>{t("Model")}</h2>
       <p className="lead">
         {t(
-          "The classifier and the agent each name the model they run on, so an installation can run them on different vendors, or on a model of your own. Fixed actions call no model at all.",
+          "The model every automation of this installation runs on: one provider, one model, one key. An installation without one has no automations — a run has nothing to decide with.",
         )}
       </p>
       {problem && (
@@ -65,43 +58,34 @@ export function AgentProviders() {
         </div>
       )}
       {/*
-       * Nothing read means nothing to edit: the editors are seeded from the read,
-       * so two empty ones would read as "this installation runs no provider" when
-       * the truth is that nobody could ask — a read that failed has already said
-       * so above. With no agent registered there is nothing for a tier to run on,
-       * so the editors are withheld rather than offered and then refused, the way
-       * the rules editor withholds itself without a grant.
+       * Nothing read means nothing to edit: the editor is seeded from the read,
+       * so an empty one would read as "this installation runs no model" when the
+       * truth is that nobody could ask — a read that failed has already said so
+       * above. With no agent registered there is nothing for the model to run
+       * on, so the editor is withheld rather than offered and then refused, the
+       * way the rules editor withholds itself without a grant.
        */}
       {view === null ? (
         reading && <p className="hint">{t("Loading…")}</p>
       ) : !view.address ? (
         <p className="hint" style={{ marginBottom: 12 }}>
           {t(
-            "No agent is registered for this installation yet, so there is nothing for a tier to run on.",
+            "No agent is registered for this installation yet, so there is nothing for the model to run on.",
           )}
         </p>
       ) : (
-        AGENT_MODEL_TIERS.map((tier) => (
-          <ProviderEditor
-            key={tier}
-            tier={tier}
-            view={view.providers[tier]}
-            onSave={write(tier)}
-          />
-        ))
+        <ProviderEditor view={view.provider} onSave={write} />
       )}
     </section>
   );
 }
 
 function ProviderEditor({
-  tier,
   view,
   onSave,
 }: {
-  tier: AgentModelTier;
-  view: AgentProviderView | undefined;
-  /** `null` clears the tier, which is how a tier stops calling a model. */
+  view: AgentProviderView | null;
+  /** `null` clears the entry, which is how the installation stops running a model. */
   onSave(patch: AgentProviderInput | null): Promise<void>;
 }) {
   const [provider, setProvider] = useState(view?.provider ?? "");
@@ -150,7 +134,7 @@ function ProviderEditor({
       // The store rejects with the server's reason when the write is refused.
       await onSave(patch);
       setApiKey("");
-      toast.success(t("{tier} provider saved", { tier }));
+      toast.success(t("Model saved"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
     } finally {
@@ -159,17 +143,18 @@ function ProviderEditor({
   };
 
   /*
-   * Clear the tier.
+   * Clear the model.
    *
-   * A tier sent as `null` is the one write that removes it — a tier the write
-   * omits is left as it is — so this is how "no model serves this tier" is
-   * said. The stored key lives on the entry that goes, so it goes with it.
+   * An entry sent as `null` is the one write that removes it — an entry the
+   * write omits is left as it is — so this is how "this installation runs no
+   * model" is said. The stored key lives on the entry that goes, so it goes
+   * with it.
    */
   const remove = async () => {
     const ok = await confirmDialog({
-      title: t("Remove the {tier} provider?", { tier }),
+      title: t("Remove the model?"),
       message: t(
-        "The tier calls no model until another provider is saved for it, and the stored API key is removed with it.",
+        "This installation runs no automation until another model is saved, and the stored API key is removed with it.",
       ),
       confirmLabel: t("Remove"),
       danger: true,
@@ -180,7 +165,7 @@ function ProviderEditor({
       // The store rejects with the server's reason when the write is refused.
       await onSave(null);
       setApiKey("");
-      toast.success(t("{tier} provider removed", { tier }));
+      toast.success(t("Model removed"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
     } finally {
@@ -192,7 +177,7 @@ function ProviderEditor({
     <form className="card agent-provider" onSubmit={(e) => void submit(e)}>
       <div className="card-head">
         <BrainCircuit size={18} className="agent-provider-icon" aria-hidden="true" />
-        <h3>{tierText(tier)}</h3>
+        <h3>{t("The installation0027s model")}</h3>
         {view?.hasKey ? (
           <span className="agent-state ok">{t("A key is stored")}</span>
         ) : (
@@ -201,9 +186,9 @@ function ProviderEditor({
       </div>
       <div className="field-row">
         <div className="field">
-          <label htmlFor={`agent-provider-${tier}`}>{t("Provider")}</label>
+          <label htmlFor={`agent-provider`}>{t("Provider")}</label>
           <input
-            id={`agent-provider-${tier}`}
+            id={`agent-provider`}
             className="input"
             value={provider}
             placeholder={t("openai")}
@@ -211,9 +196,9 @@ function ProviderEditor({
           />
         </div>
         <div className="field">
-          <label htmlFor={`agent-model-${tier}`}>{t("Model")}</label>
+          <label htmlFor={`agent-model`}>{t("Model")}</label>
           <input
-            id={`agent-model-${tier}`}
+            id={`agent-model`}
             className="input"
             value={model}
             placeholder={t("A model name")}
@@ -223,9 +208,9 @@ function ProviderEditor({
       </div>
       <div className="field-row">
         <div className="field">
-          <label htmlFor={`agent-base-${tier}`}>{t("Base URL")}</label>
+          <label htmlFor={`agent-base`}>{t("Base URL")}</label>
           <input
-            id={`agent-base-${tier}`}
+            id={`agent-base`}
             className="input"
             value={baseUrl}
             placeholder={t("https://api.example.com/v1")}
@@ -233,9 +218,9 @@ function ProviderEditor({
           />
         </div>
         <div className="field">
-          <label htmlFor={`agent-key-${tier}`}>{t("API key")}</label>
+          <label htmlFor={`agent-key`}>{t("API key")}</label>
           <input
-            id={`agent-key-${tier}`}
+            id={`agent-key`}
             className="input"
             type="password"
             autoComplete="off"
@@ -266,7 +251,7 @@ function ProviderEditor({
             disabled={busy}
             onClick={() => void remove()}
           >
-            {t("Remove this tier")}
+            {t("Remove the model")}
           </button>
         )}
       </div>

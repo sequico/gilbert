@@ -3,9 +3,10 @@
  *
  * Reads and writes go through `@/lib/agents`; this store is the UI's view of
  * them: the installation's fleet status, one group's documents at a time, the
- * per-tier providers and the approval queue. Nothing secret is kept here: the
- * provider view carries `hasKey` and never a key, and no route this store
- * touches mints a credential or hands one back.
+ * installation's own model, the capability catalogue the rule schema publishes,
+ * and the approval queue. Nothing secret is kept here: the provider view
+ * carries `hasKey` and never a key, and no route this store touches mints a
+ * credential or hands one back.
  *
  * A group is read through two doors, and they are not interchangeable. The
  * admin door (`groupViews`, `/api/admin/groups/:name/agent`) answers the whole
@@ -21,12 +22,15 @@ import type { AgentRule } from "@gilbert/agent/documents";
 import { create } from "zustand";
 import { push } from "@/jmap/push";
 import {
+  type AgentActionCatalogEntry,
   type AgentGroupSurface,
   type AgentProvidersInput,
   type AgentProvidersView,
   type AgentStatus,
+  actionCatalog,
   fetchAgentGroup,
   fetchAgentProviders,
+  fetchAgentRuleSchema,
   fetchAgentStatus,
   fetchMemberAgentView,
   fetchPendingApprovals,
@@ -88,11 +92,14 @@ interface AgentsState {
    * refused in one panel appears as an error in another, and any unrelated
    * request in flight makes a panel that has failed say "Loading…" instead of
    * what went wrong. Each operation has its own line, keyed by
-   * `status`, `providers`, `approvals`, `password`, or `group:<name>`.
+   * `status`, `providers`, `catalogue`, `approvals`, `password`, or
+   * `group:<name>`.
    */
   busy: Record<string, boolean>;
   problems: Record<string, string | null>;
   providers: AgentProvidersView | null;
+  /** The catalogue the rule schema publishes; null until it is read. */
+  catalogue: AgentActionCatalogEntry[] | null;
   loadStatus: () => Promise<void>;
   loadGroup: (name: string) => Promise<void>;
   /** The member door: the same documents, read with this session's own grant. */
@@ -102,6 +109,8 @@ interface AgentsState {
   loadProviders: () => Promise<void>;
   /** Rejects when the server refused the write; a key is never posted back. */
   saveProviders: (providers: AgentProvidersInput) => Promise<void>;
+  /** The capability catalogue, read from the rule schema the server publishes. */
+  loadCatalogue: () => Promise<void>;
   loadApprovals: () => Promise<void>;
   reset: () => void;
 }
@@ -148,6 +157,7 @@ export const useAgents = create<AgentsState>((set) => ({
   busy: {},
   problems: {},
   providers: null,
+  catalogue: null,
 
   loadStatus: async () => {
     set(markBusy("status", true));
@@ -227,6 +237,18 @@ export const useAgents = create<AgentsState>((set) => ({
     }
   },
 
+  loadCatalogue: async () => {
+    set(markBusy("catalogue", true));
+    set(markProblem("catalogue", null));
+    try {
+      set({ catalogue: actionCatalog(await fetchAgentRuleSchema()) });
+    } catch (err) {
+      set(markProblem("catalogue", message(err)));
+    } finally {
+      set(markBusy("catalogue", false));
+    }
+  },
+
   saveProviders: async (providers) => {
     set(markBusy("providers", true));
     set(markProblem("providers", null));
@@ -266,6 +288,7 @@ export const useAgents = create<AgentsState>((set) => ({
       busy: {},
       problems: {},
       providers: null,
+      catalogue: null,
     }),
 }));
 

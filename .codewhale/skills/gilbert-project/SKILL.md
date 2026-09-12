@@ -86,6 +86,37 @@ expect a peer's writes in the same checkout to cost a read-only child its
 
 Companion skills: string/i18n work loads `gilbert-i18n`; anything settings- or policy-shaped loads `gilbert-settings`.
 
+## 3b. The agent vocabulary and what an automation is
+
+- **Three words, and they are not synonyms.** One **Master** is the principal
+everything belongs to: the account in Stalwart (`gilbert@…`), its address, its
+password, its grants and the model it runs on. Its **agents** are the processes
+that act as it — what a deployment starts, what claims a group's account by
+lease and runs its automations, and what the administration counts. The
+group-facing surface calls them **Group Agents**; **automations** are the rules,
+one document per group. An unqualified **"worker"** means the browser's service
+worker and nothing else.
+- **An automation is one shape (ADR 0010).** A trigger, an **instruction** in
+prose, a **capability allowlist** and a **review policy** — and nothing else.
+There is no tier, no category, no compiled plan: every run hands the instruction
+to the model, and the model's answer is checked against the rule's own
+allowlist before anything runs. **One model serves the installation** — provider,
+model, base URL and a write-only key — so nothing asks an administrator which
+model a kind of work deserves; an installation with no model has no automations.
+The determinism that matters is the JSON answer plus the allowlist, never the
+temperature: a provider reasoning in thinking mode accepts the sampling
+parameters and ignores them.
+- **Identifiers follow those words**, in the sweep listed in `ROADMAP.md`. Two
+halves: the names (`worker.ts`, `WorkerHandle`, …) and the things that are
+contracts rather than names — a field in a document an installation has already
+written, a refusal code a client composes a sentence from, an environment
+variable an operator set. A contract moves with every reader and writer of it in
+one change, or it does not move at all; the agent environment variables
+(`GILBERT_AGENT_*`) stay as they are.
+- The tier vocabulary is gone from the tree: grep would find it only in the ADRs
+that record what it was (0003, as superseded by 0010) and in German words like
+"exportiert".
+
 ## 5. Change workflow
 
 - Read `README.md` and the affected area before editing; smallest coherent diff; report adjacent issues rather than silently expanding scope.

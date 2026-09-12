@@ -84,41 +84,12 @@ export function monthsSince(from: Date, to: Date): string[] {
 }
 
 /* ------------------------------------------------------------------ */
-/* Tiers                                                               */
-/* ------------------------------------------------------------------ */
-
-/**
- * How much work a rule's decision costs (ADR 0003): T0 is
- * deterministic and calls no model, T1 asks a small model to pick a category,
- * T2 hands the instruction to a model that decides and executes.
- */
-export type AgentTier = "T0" | "T1" | "T2";
-
-export const AGENT_TIERS: ReadonlyArray<AgentTier> = ["T0", "T1", "T2"];
-
-export function isAgentTier(x: unknown): x is AgentTier {
-  return x === "T0" || x === "T1" || x === "T2";
-}
-
-/**
- * The tiers that call a model. T0 is deterministic and has no provider, so
- * this — not `AgentTier` — is what indexes the provider configuration.
- */
-export type AgentModelTier = "T1" | "T2";
-
-export const AGENT_MODEL_TIERS: ReadonlyArray<AgentModelTier> = ["T1", "T2"];
-
-export function isAgentModelTier(x: unknown): x is AgentModelTier {
-  return x === "T1" || x === "T2";
-}
-
-/* ------------------------------------------------------------------ */
 /* Actions — the capability catalogue                                  */
 /* ------------------------------------------------------------------ */
 
 /**
  * Every effect an automation can have. A rule names the ones it may run
- * (`capabilities`); the executor refuses anything outside that list, and a T2
+ * (`capabilities`); the executor refuses anything outside that list, and the
  * model's answer is validated against it too — the model never widens its own
  * permissions.
  */
@@ -400,12 +371,6 @@ export interface AgentReview {
   allowExternal?: boolean;
 }
 
-/** One T1 category and the fixed actions it runs when the model picks it. */
-export interface AgentCategory {
-  name: string;
-  actions: AgentAction[];
-}
-
 export interface AgentRule {
   v: 1;
   /** Stable across edits; a job records the id it was created from. */
@@ -415,19 +380,19 @@ export interface AgentRule {
   name: string;
   enabled: boolean;
   trigger: AgentTrigger;
-  tier: AgentTier;
   review: AgentReview;
-  /** T2: the instruction the model receives. */
-  instruction?: string;
-  /** T1: the closed set of categories the classifier chooses between. */
-  categories?: AgentCategory[];
-  /** T0: the actions a match runs, in order. */
-  actions?: AgentAction[];
   /**
-   * The capability allowlist. T2's model answer is validated against it; a T0
-   * rule's actions must be a subset of it. Never inferred from `actions`.
+   * The prose its administrator wrote, and the whole of what a run is asked to
+   * do: every run hands it to the model, which answers with actions from the
+   * catalogue (ADR 0010). There is no compiled form to keep in step with it.
    */
-  capabilities?: AgentActionName[];
+  instruction: string;
+  /**
+   * The capability allowlist: the only actions this rule may run. The model is
+   * offered these and nothing else, and an answer outside them is refused, so
+   * the instruction steers inside the grant and never widens it.
+   */
+  capabilities: AgentActionName[];
   updatedAt?: string;
   updatedBy?: string;
 }
@@ -456,12 +421,6 @@ function isActionList(x: unknown): x is AgentAction[] {
   return Array.isArray(x) && x.every(isAgentAction);
 }
 
-export function isAgentCategory(x: unknown): x is AgentCategory {
-  if (!x || typeof x !== "object") return false;
-  const c = x as Record<string, unknown>;
-  return typeof c.name === "string" && c.name.length > 0 && isActionList(c.actions);
-}
-
 export function isAgentTrigger(x: unknown): x is AgentTrigger {
   if (!x || typeof x !== "object") return false;
   const t = x as Record<string, unknown>;
@@ -486,24 +445,10 @@ export function isAgentRule(x: unknown): x is AgentRule {
   if (typeof r.name !== "string") return false;
   if (typeof r.enabled !== "boolean") return false;
   if (!isAgentTrigger(r.trigger)) return false;
-  if (!isAgentTier(r.tier)) return false;
   if (!isAgentReview(r.review)) return false;
-  if (r.instruction !== undefined && typeof r.instruction !== "string") return false;
-  if (
-    r.categories !== undefined &&
-    !(Array.isArray(r.categories) && r.categories.every(isAgentCategory))
-  )
-    return false;
-  if (r.actions !== undefined && !isActionList(r.actions)) return false;
-  if (r.capabilities !== undefined) {
-    if (!Array.isArray(r.capabilities)) return false;
-    if (!r.capabilities.every(isAgentActionName)) return false;
-  }
-  // Each tier needs the material it runs on: T2 an instruction, T1 categories,
-  // T0 actions. A rule without them would match and then do nothing at all.
-  if (r.tier === "T2" && typeof r.instruction !== "string") return false;
-  if (r.tier === "T1" && !Array.isArray(r.categories)) return false;
-  if (r.tier === "T0" && !Array.isArray(r.actions)) return false;
+  if (typeof r.instruction !== "string") return false;
+  if (!Array.isArray(r.capabilities)) return false;
+  if (!r.capabilities.every(isAgentActionName)) return false;
   return true;
 }
 
@@ -611,27 +556,10 @@ export function filterProblems(
 }
 
 export function ruleProblem(rule: AgentRule): string | null {
-  const caps = new Set(rule.capabilities ?? []);
-  const actions =
-    rule.tier === "T0"
-      ? (rule.actions ?? [])
-      : rule.tier === "T1"
-        ? (rule.categories ?? []).flatMap((c) => c.actions)
-        : [];
-  for (const a of actions) {
-    if (!caps.has(a.do))
-      return `the rule uses "${a.do}" but does not list it in its capabilities`;
-    const missing = missingActionParams(a);
-    if (missing.length) return `"${a.do}" is missing ${missing.join(", ")}`;
-  }
-  if (rule.tier === "T2" && !caps.size)
-    return "a T2 rule needs at least one capability to allow";
-  if (rule.tier === "T2" && !(rule.instruction ?? "").trim())
-    return "a T2 rule needs an instruction: it is what the model is asked to do";
-  if (rule.tier === "T1" && !(rule.categories ?? []).length)
-    return "a T1 rule needs at least one category";
-  if (rule.tier !== "T2" && !actions.length)
-    return "the rule would match and then do nothing: it lists no action";
+  if (!rule.instruction.trim())
+    return "the rule needs an instruction: it is what the model is asked to do";
+  if (!rule.capabilities.length)
+    return "the rule needs at least one capability to allow: with none it could do nothing";
   return null;
 }
 
@@ -858,10 +786,10 @@ export type ReviewOutcome = "execute" | "pause";
 /**
  * Whether a run may execute unattended.
  *
- * `threshold` is what a new automation starts at, a T0 decision carries
- * confidence 1 (so `always` is how a group asks for a person on a
- * deterministic rule), and the external-send floor holds whatever the mode
- * says unless the owner has explicitly raised it.
+ * `threshold` is what a new automation starts at, confidence is what the model
+ * answered with (there is no run without one, ADR 0010), and the external-send
+ * floor holds whatever the mode says unless the owner has explicitly raised
+ * it.
  */
 export function reviewOutcome(
   review: AgentReview,
@@ -1407,9 +1335,10 @@ export function isAgentAuditDoc(x: unknown): x is AgentAuditDoc {
 /* ------------------------------------------------------------------ */
 
 /**
- * One model provider, for one tier. The API key is stored here and read by
- * the executor through the agent's own session; it is write-only in the admin
- * surface, the way an app password is.
+ * The installation's model. One entry, not one per classification (ADR 0010).
+ *
+ * The API key is stored here and read by the executor through the agent's own
+ * session; it is write-only in the admin surface, the way an app password is.
  */
 export interface AgentProvider {
   /** A free name for the surface: "openai", "openrouter", "ollama", … */
@@ -1426,8 +1355,8 @@ export interface AgentConfigDoc {
   address: string;
   registeredAt?: string;
   registeredBy?: string;
-  /** Which provider serves each model tier; T0 calls no model and has no entry. */
-  providers: Partial<Record<AgentModelTier, AgentProvider>>;
+  /** The one model every automation of this installation runs on. */
+  provider?: AgentProvider;
 }
 
 export function isAgentProvider(x: unknown): x is AgentProvider {
@@ -1445,12 +1374,7 @@ export function isAgentConfigDoc(x: unknown): x is AgentConfigDoc {
   if (!x || typeof x !== "object" || Array.isArray(x)) return false;
   const d = x as Record<string, unknown>;
   if (d.v !== 1 || typeof d.address !== "string" || !d.address) return false;
-  if (!d.providers || typeof d.providers !== "object" || Array.isArray(d.providers))
-    return false;
-  const p = d.providers as Record<string, unknown>;
-  if (p.T1 !== undefined && !isAgentProvider(p.T1)) return false;
-  if (p.T2 !== undefined && !isAgentProvider(p.T2)) return false;
-  return true;
+  return d.provider === undefined || isAgentProvider(d.provider);
 }
 
 /** One running worker's heartbeat, in the agent's own account. */
@@ -1529,9 +1453,9 @@ export function schemaProblems(rule: unknown): string[] {
  *
  * The schema first — the published contract, which the editor and any other
  * writer is held to — and then the cross-field rules a document cannot state
- * on its own: that a rule's actions are inside its capability allowlist, and
- * that each tier carries the material it runs on. One list, so the admin
- * surface refuses a rule with every reason at once instead of one per attempt.
+ * on its own: a rule with no instruction or no capability would match and then
+ * have nothing to do. One list, so the admin surface refuses a rule with every
+ * reason at once instead of one per attempt.
  */
 export function ruleProblems(rule: unknown): string[] {
   const problems = schemaProblems(rule);
@@ -1592,41 +1516,36 @@ export interface AgentChatRequest {
  * document validated against a standard schema — no new rule language — with
  * the JMAP filter grammar for matching and named, capability-gated actions for
  * effects. The schema is **derived** from the same constants the runtime
- * validator reads (tiers, triggers, and `AGENT_ACTION_SPECS` for the
- * capability names), so there is no second list of what a rule may say; the
+ * validator reads (triggers, and `AGENT_ACTION_SPECS` for the capability
+ * names), so there is no second list of what a rule may say; the
  * drift is caught by the test that builds this and checks the enums against
  * those constants.
  *
- * What the schema cannot express is the *cross-field* half — a T2 rule needs
- * an instruction, a T1 rule needs categories, a threshold needs its number —
- * and that stays in `isAgentRule` and `ruleProblem`, which is what the admin
- * API validates with. The schema is the published contract for anything
+ * What the schema cannot express is the *cross-field* half — a threshold needs
+ * its number, and a filter has to be one the matcher implements — and that
+ * stays in `isAgentRule` and `ruleProblem`, which is what the admin API
+ * validates with. The schema is the published contract for anything
  * outside this codebase; the guards are the enforcer inside it.
  */
 export function agentRuleJsonSchema(): Record<string, unknown> {
-  const actionSchema = {
-    type: "object",
-    required: ["do"],
-    additionalProperties: false,
-    properties: {
-      do: { enum: AGENT_ACTION_SPECS.map((spec) => spec.name) },
-      with: {
-        type: "object",
-        additionalProperties: true,
-        description:
-          "This action's parameters; the names each action takes are published in the same document's `x-actions`.",
-      },
-    },
-  };
-  const actionList = { type: "array", items: actionSchema };
   return {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     $id: "https://gilbert.invalid/schemas/agent-rule.json",
     title: "Gilbert agent rule",
     description:
-      "One automation: what wakes it, how much work its decision may cost, and what it may do about it (ADR 0003).",
+      "One automation: what wakes it, what it is asked to do, and what it may do about it (ADR 0010).",
     type: "object",
-    required: ["v", "id", "version", "name", "enabled", "trigger", "tier", "review"],
+    required: [
+      "v",
+      "id",
+      "version",
+      "name",
+      "enabled",
+      "trigger",
+      "instruction",
+      "capabilities",
+      "review",
+    ],
     additionalProperties: true,
     properties: {
       v: { const: 1 },
@@ -1634,7 +1553,6 @@ export function agentRuleJsonSchema(): Record<string, unknown> {
       version: { type: "integer", minimum: 1 },
       name: { type: "string" },
       enabled: { type: "boolean" },
-      tier: { enum: [...AGENT_TIERS] },
       trigger: {
         type: "object",
         required: ["on"],
@@ -1671,20 +1589,14 @@ export function agentRuleJsonSchema(): Record<string, unknown> {
           },
         ],
       },
-      instruction: { type: "string", description: "T2: what the model is asked to do." },
-      categories: {
-        type: "array",
-        description: "T1: the closed set the classifier chooses between.",
-        items: {
-          type: "object",
-          required: ["name", "actions"],
-          additionalProperties: false,
-          properties: { name: { type: "string", minLength: 1 }, actions: actionList },
-        },
+      instruction: {
+        type: "string",
+        description:
+          "The prose its administrator wrote: the whole of what a run is asked to do.",
       },
-      actions: { ...actionList, description: "T0: what a match runs, in order." },
       capabilities: {
         type: "array",
+        minItems: 1,
         items: { enum: AGENT_ACTION_SPECS.map((spec) => spec.name) },
         description:
           "The allowlist: the only actions this rule may run. A model answer outside it is refused.",

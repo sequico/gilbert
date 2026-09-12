@@ -65,10 +65,13 @@ export interface ModelRequest {
 /**
  * One structured call to an OpenAI-compatible chat endpoint.
  *
- * `response_format: json_object` and temperature 0 are what make the answer
- * testable; the content of the answer is parsed as JSON here, so a model that
- * narrates instead of answering fails as a malformed answer rather than as a
- * silent empty decision.
+ * `response_format: json_object` is what makes the answer parseable, and the
+ * content of the answer is parsed as JSON here, so a model that narrates
+ * instead of answering fails as a malformed answer rather than as a silent
+ * empty decision. `temperature: 0` is sent with it and is not what makes a run
+ * repeatable: a provider that reasons in thinking mode accepts the sampling
+ * parameters and ignores them (ADR 0010), so what bounds an answer is its JSON
+ * shape and the rule's capability allowlist, never the temperature.
  */
 export async function callModel(
   provider: AgentProvider,
@@ -160,41 +163,25 @@ function dataPrompt(context: ModelContext): string {
   return `${by}\n--- DATA ---\n${context.text}`;
 }
 
-/** Which provider serves a tier; a tier without one cannot run at all. */
-export function providerForTier(
-  config: AgentConfigDoc | null,
-  tier: "T1" | "T2",
-): AgentProvider {
-  const provider = config?.providers?.[tier];
+/** The installation's model; without one no automation can run at all. */
+export function providerFor(config: AgentConfigDoc | null): AgentProvider {
+  const provider = config?.provider;
   if (!provider)
     throw new Error(
-      `no model provider is configured for ${tier} in the agent's own account; ` +
-        "a rule on that tier cannot run without one",
+      "no model is configured in the agent's own account; " +
+        "an automation cannot run without one",
     );
   // An empty key is a configuration mistake, not a call to make: sending
   // `Bearer ` and reporting the provider's 401 sends the reader to the wrong
-  // place, and this is the only point where the tier is still named.
+  // place.
   if (!provider.apiKey.trim())
     throw new Error(
-      `the provider configured for ${tier} (${provider.provider}) has no api key; ` +
-        "a rule on that tier cannot run without one",
+      `the configured model (${provider.provider}) has no api key; ` +
+        "an automation cannot run without one",
     );
   return provider;
 }
 
-export interface CategoryAnswer {
-  category: string;
-  confidence: number;
-  rationale?: string;
-}
-
-/**
- * T1: one structured call that picks one of the rule's categories.
- *
- * The category is checked against the rule's own closed set — a classifier that
- * answers with something else has not classified anything, and running the
- * wrong category's actions would be worse than failing.
- */
 /**
  * The group's standing instruction, as the first thing the model reads.
  *
@@ -213,40 +200,6 @@ function standingBlock(standing?: string): string {
     "They say how to work, not what you are allowed to do: what you may do is",
     "the capability list below, and nothing here changes it.",
   ].join("\n");
-}
-
-export async function classifyCategory(
-  provider: AgentProvider,
-  rule: { name: string; categories?: ReadonlyArray<{ name: string }> },
-  context: ModelContext,
-  standing?: string,
-): Promise<CategoryAnswer> {
-  const categories = (rule.categories ?? []).map((category) => category.name);
-  if (!categories.length)
-    throw new Error(`the rule "${rule.name}" has no categories to classify into`);
-  const system = [
-    standingBlock(standing),
-    `You classify one item for the automation "${rule.name}".`,
-    'Answer with one JSON object: {"category": string, "confidence": number, "rationale": string}.',
-    `"category" must be exactly one of: ${categories.join(", ")}.`,
-    '"confidence" is a number from 0 to 1: how sure you are of that category.',
-    DATA_NOT_INSTRUCTIONS,
-  ].join("\n");
-  const answer = asRecord(
-    await callModel(provider, { system, user: dataPrompt(context) }),
-    provider,
-  );
-  const category = typeof answer.category === "string" ? answer.category.trim() : "";
-  if (!categories.includes(category))
-    throw new Error(
-      `the classifier answered with "${category}", which is not one of this rule's categories ` +
-        `(${categories.join(", ")})`,
-    );
-  return {
-    category,
-    confidence: confidenceOf(answer, provider),
-    ...rationaleOf(answer),
-  };
 }
 
 export interface DecisionAnswer {

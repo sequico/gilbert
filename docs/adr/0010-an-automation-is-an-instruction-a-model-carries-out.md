@@ -60,10 +60,17 @@ records the rule, its version and what happened. The model proposes and the
 allowlist disposes — what the decision changes is who chooses the actions, never
 what an automation is allowed to do.
 
-**The call is one shape too.** `temperature: 0` and `response_format:
-json_object` stay, because they are what make an answer parseable and a run
-repeatable, and the request gains a **maximum output tokens**, because the
-provider's own ceiling is enormous and an uncapped answer is an uncapped bill.
+**The call is one shape too.** `response_format: json_object` stays, because it
+is what makes an answer parseable, and the request gains a **maximum output
+tokens**, because the provider's own ceiling is enormous and an uncapped answer
+is an uncapped bill. `temperature: 0` is sent with them, and this record says
+what it is worth rather than what it would be worth if every provider honoured
+it: a provider that reasons **ignores the sampling parameters** in thinking
+mode — it accepts them, and they have no effect — so determinism is not bought
+there. What makes a run repeatable is the **JSON answer**, the **allowlist**
+that refuses everything the rule was not granted, and the trail recording the
+setting each run used; the temperature is sent for the providers and the modes
+that do honour it, and no reader of the trail should mistake it for a guarantee.
 
 **Thinking is a parameter of an agent, set beside its timings.** The provider
 reasons by default; whether a run pays for that is the deployment's decision,
@@ -342,9 +349,10 @@ and the providers that serve it. Item by item:
    has more than one configured keeps one, by a person's choice rather than a
    silent pick.
 6. **The ceiling on an answer** — ADR 0003 sets none, a call being bounded only
-   by its timeout: the request gains a **maximum output tokens**. `temperature:
-   0` and `response_format: json_object` stay, because they are what make an
-   answer parseable and a run repeatable.
+   by its timeout: the request gains a **maximum output tokens**.
+   `response_format: json_object` stays, because it is what makes an answer
+   parseable; `temperature: 0` is sent and is not what makes a run repeatable,
+   since a provider reasoning in thinking mode ignores the sampling parameters.
 7. **The agent's own parameters** — ADR 0003 has the group's standing
    instruction ride every model call and stops there. Thinking becomes a
    parameter of an agent, set beside its timings and recorded in the trail with
@@ -400,9 +408,13 @@ Nothing else in its body moves.
 
 ## Consequences
 
-- Determinism is traded deliberately, and bought back in three parts: temperature
-  0, a JSON answer, and an allowlist that refuses everything the rule was not
-  granted. What is no longer deterministic is *which* granted action a run
+- Determinism is traded deliberately, and bought back in three parts: a JSON
+  answer, an allowlist that refuses everything the rule was not granted, and the
+  model's setting recorded in the trail beside the tokens that run spent.
+  `temperature: 0` is sent, and it is **not** counted among those parts: a
+  provider reasoning in thinking mode ignores the sampling parameters, so what
+  makes a run repeatable is the shape of the answer and the grant, never the
+  temperature. What is no longer deterministic is *which* granted action a run
   chooses.
 - Every run costs a call and its latency. A group that receives a hundred
   messages a day makes a hundred calls; with a warm cache and off-peak pricing
@@ -450,7 +462,7 @@ stops asking an author to classify what they want.
 - **A fixed action plan that calls no model** (a rule whose actions are listed
   and run on match). Rejected: its reason to exist was cost, and the cost is
   gone; what it protected — an installation that runs no model, and a run whose
-  outcome is the same every time — is bought by temperature 0, a JSON answer and
+  outcome is the same every time — is bought by a JSON answer and
   the allowlist, and by saying plainly that a provider is required. Keeping it
   would also keep the classification the author cannot make, since a fixed plan
   and a model-decided run are two kinds of document.

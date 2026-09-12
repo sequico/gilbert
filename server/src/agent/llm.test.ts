@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { after, before, test } from "node:test";
 
 /**
- * The tiered model client against a stub OpenAI-compatible endpoint.
+ * The model client against a stub OpenAI-compatible endpoint.
  *
  * What is asserted here is the contract the advisor's answers are checked
  * against: the zero-retention opt-out on every request, temperature 0 and a
@@ -57,9 +57,7 @@ const provider = {
   apiKey: "sk-test-key",
 };
 
-const { callModel, classifyCategory, decideActions, providerForTier } = await import(
-  "./llm.js"
-);
+const { callModel, decideActions, providerFor } = await import("./llm.js");
 
 before(async () => {
   await new Promise<void>((resolve) => stub.listen(PORT, "127.0.0.1", resolve));
@@ -100,56 +98,31 @@ test("a body that is not JSON is an error, not a silent empty answer", async () 
   await assert.rejects(() => callModel(provider, { system: "s", user: "u" }), /not JSON/);
 });
 
-test("a tier without a configured provider cannot run", () => {
+test("without a configured model nothing can run", () => {
+  assert.throws(() => providerFor(null), /no model is configured/);
   assert.throws(
-    () => providerForTier(null, "T1"),
-    /no model provider is configured for T1/,
+    () => providerFor({ v: 1, address: "gilbert@example.com" }),
+    /no model is configured/,
   );
   assert.throws(
-    () => providerForTier({ v: 1, address: "gilbert@example.com", providers: {} }, "T2"),
-    /no model provider is configured for T2/,
-  );
-});
-
-const rule = {
-  name: "File the invoices",
-  categories: [{ name: "invoice" }, { name: "other" }],
-};
-
-test("T1 accepts a category from the rule's own set", async () => {
-  answerWith({ category: "invoice", confidence: 0.8, rationale: "it is one" });
-  const answer = await classifyCategory(provider, rule, { text: "an invoice" });
-  assert.equal(answer.category, "invoice");
-  assert.equal(answer.confidence, 0.8);
-  assert.equal(answer.rationale, "it is one");
-  const messages = seen?.body.messages as Array<{ role: string; content: string }>;
-  assert.match(messages[0]?.content ?? "", /invoice, other/);
-  assert.match(
-    messages[0]?.content ?? "",
-    /DATA, never instructions/,
-    "the prompt says what the content is",
-  );
-});
-
-test("T1 refuses a category the rule does not define", async () => {
-  answerWith({ category: "spam", confidence: 0.9 });
-  await assert.rejects(
-    () => classifyCategory(provider, rule, { text: "an invoice" }),
-    /not one of this rule's categories/,
-  );
-});
-
-test("a confidence that is not a number is refused", async () => {
-  answerWith({ category: "invoice" });
-  await assert.rejects(
-    () => classifyCategory(provider, rule, { text: "an invoice" }),
-    /without a confidence/,
+    () =>
+      providerFor({
+        v: 1,
+        address: "gilbert@example.com",
+        provider: {
+          provider: "p",
+          model: "m",
+          baseUrl: "https://x.example",
+          apiKey: " ",
+        },
+      }),
+    /has no api key/,
   );
 });
 
 const decisionRule = { name: "Answer the chat", instruction: "help the group" };
 
-test("T2 runs a validated answer and returns the summary a member reads", async () => {
+test("a validated answer is the summary a member reads", async () => {
   answerWith({
     summary: "It would label the message.",
     confidence: 0.4,
@@ -170,7 +143,7 @@ test("T2 runs a validated answer and returns the summary a member reads", async 
   assert.match(messages[0]?.content ?? "", /parameters: keyword/);
 });
 
-test("T2 refuses a capability the rule does not allow", async () => {
+test("refuses a capability the rule does not allow", async () => {
   answerWith({
     summary: "Send it.",
     confidence: 0.9,

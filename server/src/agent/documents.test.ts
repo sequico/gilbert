@@ -8,7 +8,6 @@ import {
 } from "../shared/chat.js";
 import {
   AGENT_ACTION_SPECS,
-  AGENT_TIERS,
   AGENT_TRIGGERS,
   type AgentAction,
   type AgentEmailView,
@@ -48,9 +47,8 @@ function rule(over: Partial<AgentRule> = {}): AgentRule {
     name: "Sort the invoices",
     enabled: true,
     trigger: { on: "email", filter: { subject: "invoice" } },
-    tier: "T0",
     review: { mode: "never" },
-    actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
+    instruction: "Label the invoice so the group can find it.",
     capabilities: ["keyword.add"],
     ...over,
   };
@@ -71,14 +69,14 @@ function email(over: Partial<AgentEmailView> = {}): AgentEmailView {
   };
 }
 
-test("a rule needs the material its tier runs on", () => {
+test("a rule carries the instruction it runs on and a capability to allow", () => {
   assert.equal(isAgentRule(rule()), true);
-  // T0 without actions, T1 without categories, T2 without an instruction would
-  // each match and then do nothing at all, which is the failure this refuses.
-  const { actions: _a, ...noActions } = rule();
-  assert.equal(isAgentRule(noActions), false);
-  assert.equal(isAgentRule(rule({ tier: "T1" })), false);
-  assert.equal(isAgentRule(rule({ tier: "T2", capabilities: ["noop"] })), false);
+  // A rule without an instruction, or with nothing allowed, would match and
+  // then have nothing to do at all, which is the failure these refuse.
+  const { instruction: _i, ...noInstruction } = rule();
+  assert.equal(isAgentRule(noInstruction), false);
+  const { capabilities: _c, ...noCapabilities } = rule();
+  assert.equal(isAgentRule(noCapabilities), false);
 });
 
 test("a threshold review without a number is refused, not guessed", () => {
@@ -189,19 +187,10 @@ test("the review gate follows the mode, the confidence and the T0 convention", (
 
 test("ruleProblem names what would stop a run", () => {
   assert.equal(ruleProblem(rule()), null);
-  assert.match(
-    ruleProblem(rule({ capabilities: [] })) ?? "",
-    /does not list it in its capabilities/,
-  );
-  assert.match(
-    ruleProblem(
-      rule({ actions: [{ do: "mail.move", with: {} }], capabilities: ["mail.move"] }),
-    ) ?? "",
-    /missing mailbox/,
-  );
+  assert.match(ruleProblem(rule({ instruction: "   " })) ?? "", /needs an instruction/);
   assert.equal(
-    ruleProblem(rule({ tier: "T2", instruction: "sort it", capabilities: [] })),
-    "a T2 rule needs at least one capability to allow",
+    ruleProblem(rule({ capabilities: [] })),
+    "the rule needs at least one capability to allow: with none it could do nothing",
   );
 });
 
@@ -296,7 +285,6 @@ test("a job is born pending, with the rule version it started on", () => {
 
 test("the schedule's next instant is in the future and on the grid", () => {
   const scheduled = rule({
-    tier: "T0",
     trigger: { on: "schedule", everyMinutes: 15 },
   });
   const now = new Date("2026-09-10T08:07:00Z");
@@ -356,8 +344,8 @@ test("a message document carries the mention the picker wrote", () => {
 
 test("the published schema is the same catalogue the runtime reads", () => {
   // One source of truth: the schema is built from the constants, and this is
-  // the test that fails if somebody adds a tier, a trigger or an action to one
-  // and not the other.
+  // the test that fails if somebody adds a trigger or an action to one and not
+  // the other.
   type Node = {
     enum?: string[];
     items?: { enum?: string[]; properties?: Record<string, { enum?: string[] }> };
@@ -372,7 +360,8 @@ test("the published schema is the same catalogue the runtime reads", () => {
     "x-filterKeys": string[];
   };
   assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
-  assert.deepEqual(schema.properties.tier?.enum, [...AGENT_TIERS]);
+  assert.ok(schema.required.includes("instruction"));
+  assert.ok(schema.required.includes("capabilities"));
   assert.deepEqual(schema.properties.trigger?.properties?.on?.enum, [...AGENT_TRIGGERS]);
   assert.deepEqual(schema.properties.review?.properties?.mode?.enum, [
     "always",
@@ -381,17 +370,16 @@ test("the published schema is the same catalogue the runtime reads", () => {
   ]);
   const names = AGENT_ACTION_SPECS.map((spec) => spec.name);
   assert.deepEqual(
-    schema.properties.actions?.items?.properties?.do?.enum,
+    schema.properties.capabilities?.items?.enum,
     names,
     "a rule may name exactly the catalogue's actions",
   );
-  assert.deepEqual(schema.properties.capabilities?.items?.enum, names);
   assert.deepEqual(schema["x-filterKeys"], [...SUPPORTED_FILTER_KEYS]);
   assert.deepEqual(
     schema["x-actions"].map((action) => action.name),
     names,
   );
-  assert.ok(schema.required.includes("tier"));
+  assert.ok(schema.required.includes("instruction"));
   assert.ok(schema.required.includes("review"));
   // The cross-field halves the schema can state: a schedule needs its
   // interval, a threshold needs its number.
@@ -492,18 +480,16 @@ test("a group with no conditions is refused, whichever operator groups it", () =
   assert.ok(ruleProblems(fine).length > 0, "and the authoring rules are what refuses it");
 });
 
-test("the material each tier runs on is checked for being there, not just typed", () => {
+test("the material a run needs is checked for being there, not just typed", () => {
   // `""` is a string, so the schema is satisfied and the model is asked
   // nothing; the emptiness is a rule the document cannot state.
   assert.ok(
-    ruleProblems(rule({ tier: "T2", instruction: "" })).some((problem) =>
+    ruleProblems(rule({ instruction: "" })).some((problem) =>
       /instruction/.test(problem),
     ),
   );
   assert.ok(
-    ruleProblems(rule({ tier: "T0", actions: [] })).some((problem) =>
-      /nothing/.test(problem),
-    ),
+    ruleProblems(rule({ capabilities: [] })).some((problem) => /nothing/.test(problem)),
   );
 });
 

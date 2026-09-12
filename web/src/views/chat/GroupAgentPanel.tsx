@@ -24,12 +24,10 @@ import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { agentViewKey, memberOperation, useAgents } from "@/store/agents";
 import {
-  actionText,
   jobStateText,
   outcomeText,
   reviewText,
-  ruleActions,
-  tierText,
+  ruleInstruction,
   triggerText,
 } from "@/views/agent/agentText";
 
@@ -185,33 +183,18 @@ function Instruction({ instruction }: { instruction: GroupInstructionView }) {
   );
 }
 
-/** One automation as a member reads it: what wakes it, and what it then does. */
+/** One automation as a member reads it: what wakes it, and what it is asked to do. */
 function RuleFacts({ rule }: { rule: MemberAgentRule }) {
-  const actions = ruleActions(rule);
+  const instruction = ruleInstruction(rule);
   return (
     <div className="chat-agent-rule">
       <div className="agent-rule-head">
         <b>{rule.name || t("Untitled automation")}</b>
         {!rule.enabled && <span className="agent-state off">{t("Disabled")}</span>}
       </div>
-      <p className="hint">{tierText(rule.tier)}</p>
       <p className="hint">{triggerText(rule.trigger)}</p>
       <p className="hint">{reviewText(rule.review)}</p>
-      {rule.tier === "T2" && rule.instruction && (
-        <p className="agent-readonly-text">{rule.instruction}</p>
-      )}
-      {rule.tier === "T1" &&
-        (rule.categories ?? []).map((category, i) => (
-          <p className="hint" key={`${category.name}-${i}`}>
-            <b>{category.name}</b>
-            {category.actions.length > 0 && (
-              <> — {category.actions.map((a) => actionText(a)).join(" · ")}</>
-            )}
-          </p>
-        ))}
-      {rule.tier === "T0" && actions.length > 0 && (
-        <p className="hint">{actions.map((a) => actionText(a)).join(" · ")}</p>
-      )}
+      {instruction && <p className="agent-readonly-text">{instruction}</p>}
     </div>
   );
 }

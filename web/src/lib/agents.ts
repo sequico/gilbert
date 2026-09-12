@@ -59,7 +59,7 @@ export type {
 /* Providers — the agent's own configuration                           */
 /* ------------------------------------------------------------------ */
 
-/** One tier as the editor sends it; `apiKey` absent keeps the stored one. */
+/** The installation's model as the editor sends it; `apiKey` absent keeps the stored one. */
 export interface AgentProviderInput {
   provider?: string;
   model?: string;
@@ -67,10 +67,9 @@ export interface AgentProviderInput {
   apiKey?: string;
 }
 
-/** An empty tier clears it; a tier the write omits is left alone. */
+/** The write body: one entry, or none to clear the installation's model. */
 export interface AgentProvidersInput {
-  T1?: AgentProviderInput | null;
-  T2?: AgentProviderInput | null;
+  provider?: AgentProviderInput | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -109,16 +108,16 @@ export async function saveAgentRules(
   return res.rules;
 }
 
-/** `GET /api/admin/agent/providers` — which model serves each tier. */
+/** `GET /api/admin/agent/providers` — the installation's one model. */
 export function fetchAgentProviders(): Promise<AgentProvidersView> {
   return apiFetch<AgentProvidersView>("/api/admin/agent/providers");
 }
 
-/** `POST /api/admin/agent/providers` — write the tiers the editor sent. */
-export async function saveAgentProviders(providers: AgentProvidersInput): Promise<void> {
+/** `POST /api/admin/agent/providers` — write the model the editor sent. */
+export async function saveAgentProviders(input: AgentProvidersInput): Promise<void> {
   await apiFetch<{ ok: boolean }>("/api/admin/agent/providers", {
     method: "POST",
-    body: JSON.stringify({ providers }),
+    body: JSON.stringify(input),
   });
 }
 
@@ -193,13 +192,50 @@ export function fetchAgentAuditExport(name: string): Promise<AgentAuditExport> {
 }
 
 /* ------------------------------------------------------------------ */
-/* The model tiers                                                     */
+/* The capability catalogue                                            */
 /* ------------------------------------------------------------------ */
 
-/*
- * The tiers that call a model; T0 is deterministic and has no provider. Read
- * from the catalogue and passed on rather than written down again here: a
- * second copy is how this module and the server come to disagree about which
- * tiers exist, and the provider editor iterates this one.
+/**
+ * One capability, as the rule schema publishes it.
+ *
+ * The catalogue is the server's: the rule schema carries every action with the
+ * label a person reads and the two flags that decide whether an action leaves
+ * the group or cannot be undone. Building the allowlist from it is what keeps
+ * the form and the executor's own check from being two lists.
  */
-export { AGENT_MODEL_TIERS } from "@gilbert/agent/documents";
+export interface AgentActionCatalogEntry {
+  name: string;
+  label: string;
+  description: string;
+  external: boolean;
+  irreversible: boolean;
+}
+
+/** `GET /api/admin/agent/rule-schema` — the published schema, as it is served. */
+export function fetchAgentRuleSchema(): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>("/api/admin/agent/rule-schema");
+}
+
+/** The catalogue a schema publishes, or an empty one for a schema without it. */
+export function actionCatalog(
+  schema: Record<string, unknown>,
+): AgentActionCatalogEntry[] {
+  const raw = schema["x-actions"];
+  if (!Array.isArray(raw)) return [];
+  const out: AgentActionCatalogEntry[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const action = entry as Record<string, unknown>;
+    const name = typeof action.name === "string" ? action.name : "";
+    const label = typeof action.label === "string" ? action.label : "";
+    if (!name || !label) continue;
+    out.push({
+      name,
+      label,
+      description: typeof action.description === "string" ? action.description : "",
+      external: action.external === true,
+      irreversible: action.irreversible === true,
+    });
+  }
+  return out;
+}

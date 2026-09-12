@@ -1,65 +1,31 @@
 /**
- * The automation editor (ADR 0003 resolution 2): an automation is authored as
- * a form — "When [event] / If [filters] / Then [actions]" — and never as raw
- * JSON. One rule document in, one out; the caller owns saving.
+ * The automation editor (ADR 0010): an automation is authored as a form —
+ * "When [event] / If [filters] / then what it is asked to do" — and never as
+ * raw JSON. One rule document in, one out; the caller owns saving.
  *
- * Every option and every parameter comes from the canonical catalogue
- * (`AGENT_ACTION_SPECS`, `AGENT_TIERS`, `AGENT_TRIGGERS` in
- * `@gilbert/agent/documents`), so the editor cannot offer a capability the
- * executor does not have, nor invent a field the document validator refuses.
+ * Every option comes from a canonical catalogue (`AGENT_TRIGGERS` in
+ * `@gilbert/agent/documents`) or from the rule schema the server publishes
+ * (`x-actions`, read into `@/lib/agents`' catalogue), so the editor cannot
+ * offer a trigger the matcher does not know or a capability the executor does
+ * not have.
  */
 import {
-  AGENT_ACTION_SPECS,
-  AGENT_TIERS,
   AGENT_TRIGGERS,
-  type AgentAction,
   type AgentActionName,
-  type AgentActionParam,
-  type AgentCategory,
   type AgentReview,
   type AgentReviewMode,
   type AgentRule,
-  type AgentTier,
   type AgentTrigger,
-  agentActionSpec,
-  isAgentTier,
   isAgentTriggerOn,
 } from "@gilbert/agent/documents";
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
+import type { AgentActionCatalogEntry } from "@/lib/agents";
 import { t } from "@/lib/i18n";
 import {
   AGENT_REVIEW_LABELS,
-  AGENT_TIER_LABELS,
+  AGENT_REVIEW_MEANING_LABELS,
   AGENT_TRIGGER_LABELS,
-  actionLabel,
 } from "@/views/agent/agentText";
-
-/** What each parameter kind holds, as the field's placeholder. */
-const AGENT_PARAM_LABELS: Record<AgentActionParam["kind"], string> = {
-  text: "Text",
-  number: "A number",
-  mailbox: "Mailbox id",
-  folder: "Files folder",
-  keyword: "Label keyword",
-};
-
-/**
- * What each parameter the catalogue declares is called, as the field's label.
- *
- * The catalogue names a parameter by its key — `folder`, `name` — because that
- * is what the executor reads in the document; the form names it for a person.
- * A key that is not here is shown as the catalogue wrote it.
- */
-const AGENT_PARAM_KEY_LABELS: Record<string, string> = {
-  keyword: "Label",
-  mailbox: "Mailbox",
-  create: "Create the mailbox if it is missing",
-  folder: "Folder",
-  name: "File name",
-  to: "To",
-  subject: "Subject",
-  text: "Text",
-};
 
 /** The filter keys whose value is a number, and must be written as one. */
 const AGENT_FILTER_NUMBERS = new Set(["minSize", "maxSize"]);
@@ -124,17 +90,64 @@ function filterValue(condition: unknown, key: string): string {
   return "";
 }
 
+/** The review half of a draft: unset until the author chooses a mode. */
+export interface AgentReviewInput {
+  mode?: AgentReviewMode;
+  threshold?: number;
+  allowExternal?: boolean;
+}
+
+/**
+ * A rule as the form holds it: everything a document carries, except the review
+ * policy, which may not be chosen yet.
+ */
+export type AgentRuleDraft = Omit<AgentRule, "review"> & { review: AgentReviewInput };
+
+/** A new automation, with nothing decided yet — its review policy included. */
+export function blankRule(): AgentRuleDraft {
+  return {
+    v: 1,
+    id: "",
+    version: 1,
+    name: "",
+    enabled: true,
+    trigger: { on: "email" },
+    review: {},
+    instruction: "",
+    capabilities: [],
+  };
+}
+
+/**
+ * The document a draft describes, or null while it is not one yet.
+ *
+ * An automation is armed by a person's decision about who a run stops for, so
+ * the review mode has no default: until it is chosen there is no document to
+ * save (ADR 0010).
+ */
+export function ruleFromDraft(draft: AgentRuleDraft): AgentRule | null {
+  const review = draft.review;
+  if (!review.mode) return null;
+  const settled: AgentReview = { mode: review.mode };
+  if (review.mode === "threshold") settled.threshold = review.threshold ?? 0.7;
+  if (review.allowExternal !== undefined) settled.allowExternal = review.allowExternal;
+  return { ...draft, review: settled };
+}
+
 export function RuleForm({
   rule,
+  catalogue,
   onChange,
 }: {
-  rule: AgentRule;
-  onChange(next: AgentRule): void;
+  rule: AgentRuleDraft;
+  /** The capability catalogue the rule schema publishes; null until it is read. */
+  catalogue: AgentActionCatalogEntry[] | null;
+  onChange(next: AgentRuleDraft): void;
 }) {
-  const set = (patch: Partial<AgentRule>) => onChange({ ...rule, ...patch });
+  const set = (patch: Partial<AgentRuleDraft>) => onChange({ ...rule, ...patch });
   const setTrigger = (patch: Partial<AgentTrigger>) =>
     set({ trigger: { ...rule.trigger, ...patch } });
-  const setReview = (patch: Partial<AgentReview>) =>
+  const setReview = (patch: AgentReviewInput) =>
     set({ review: { ...rule.review, ...patch } });
 
   /*
@@ -214,33 +227,19 @@ export function RuleForm({
     setTrigger({ filter: { operator: next, conditions } });
   };
 
-  /*
-   * Each tier needs the material it runs on — the document validator refuses a
-   * T2 rule without an instruction, a T1 without categories, a T0 without an
-   * action list — so switching tier seeds what is missing. What another tier
-   * already holds is kept: an admin who switches to look at the other shape and
-   * switches back must not lose their work.
-   */
-  const setTier = (tier: AgentTier) => {
-    const patch: Partial<AgentRule> = { tier };
-    if (tier === "T0" && !rule.actions) patch.actions = [];
-    if (tier === "T1" && !rule.categories?.length) {
-      patch.categories = [{ name: "", actions: [] }];
-    }
-    if (tier === "T2" && rule.instruction === undefined) patch.instruction = "";
-    set(patch);
-  };
-
-  const capabilities = new Set(rule.capabilities ?? []);
-  const toggleCapability = (name: AgentActionName) => {
-    if (capabilities.has(name)) capabilities.delete(name);
-    else capabilities.add(name);
+  const capabilities = new Set(rule.capabilities);
+  const toggleCapability = (name: string) => {
+    if (capabilities.has(name as AgentActionName))
+      capabilities.delete(name as AgentActionName);
+    else capabilities.add(name as AgentActionName);
     // Kept in catalogue order rather than click order, so two rules that allow
     // the same capabilities read the same way.
     set({
-      capabilities: AGENT_ACTION_SPECS.filter((s) => capabilities.has(s.name)).map(
-        (s) => s.name,
-      ),
+      capabilities: (catalogue ?? [])
+        .map((entry) => entry.name)
+        .filter((candidate) =>
+          capabilities.has(candidate as AgentActionName),
+        ) as AgentActionName[],
     });
   };
 
@@ -262,7 +261,7 @@ export function RuleForm({
           checked={rule.enabled}
           onChange={(e) => set({ enabled: e.target.checked })}
         />
-        <span>{t("Enabled — the worker reacts to this automation")}</span>
+        <span>{t("Enabled — the agent reacts to this automation")}</span>
       </label>
 
       <h3>{t("When")}</h3>
@@ -365,23 +364,39 @@ export function RuleForm({
         </>
       )}
 
-      <h3>{t("Tier")}</h3>
+      <h3>{t("What it does")}</h3>
       <div className="field">
-        <label htmlFor="agent-rule-tier">{t("Which model serves this automation")}</label>
-        <select
-          id="agent-rule-tier"
-          className="select"
-          value={rule.tier}
-          onChange={(e) => {
-            if (isAgentTier(e.target.value)) setTier(e.target.value);
-          }}
-        >
-          {AGENT_TIERS.map((tier) => (
-            <option key={tier} value={tier}>
-              {t(AGENT_TIER_LABELS[tier])}
-            </option>
-          ))}
-        </select>
+        <label htmlFor="agent-rule-instruction">{t("Instruction")}</label>
+        <textarea
+          id="agent-rule-instruction"
+          className="textarea"
+          rows={6}
+          value={rule.instruction}
+          placeholder={t(
+            "Read the message and say what should happen to it. Useful context, in plain words.",
+          )}
+          onChange={(e) => set({ instruction: e.target.value })}
+        />
+        <p className="hint">
+          {t(
+            "This prose is the whole of what a run is asked to do: every run hands it to the installation's model, which answers with actions from the capability list below.",
+          )}
+        </p>
+        <p className="hint">
+          {t(
+            "The capability list below is the whole grant. The instruction steers inside it and never widens it.",
+          )}
+        </p>
+        <p className="hint">
+          {t(
+            "It is read as data, not obeyed: a message that asks the model to do something is still just a message.",
+          )}
+        </p>
+        <p className="hint">
+          {t(
+            "Say what this automation reacts to and what should happen to it — a bare box produces prose that guesses.",
+          )}
+        </p>
       </div>
 
       <h3>{t("Review")}</h3>
@@ -390,7 +405,7 @@ export function RuleForm({
         <select
           id="agent-rule-review"
           className="select"
-          value={rule.review.mode}
+          value={rule.review.mode ?? ""}
           onChange={(e) => {
             const mode = e.target.value;
             if (!isReviewMode(mode)) return;
@@ -404,6 +419,7 @@ export function RuleForm({
             );
           }}
         >
+          {rule.review.mode === undefined && <option value="">{t("Choose…")}</option>}
           {REVIEW_MODES.map((mode) => (
             <option key={mode} value={mode}>
               {t(AGENT_REVIEW_LABELS[mode])}
@@ -411,6 +427,15 @@ export function RuleForm({
           ))}
         </select>
       </div>
+      {rule.review.mode === undefined ? (
+        <p className="hint">
+          {t(
+            "Nobody has chosen yet, and there is no default: who a run stops for is the author's decision, so nothing can be saved until it is made.",
+          )}
+        </p>
+      ) : (
+        <p className="hint">{t(AGENT_REVIEW_MEANING_LABELS[rule.review.mode])}</p>
+      )}
       {rule.review.mode === "threshold" && (
         <div className="field">
           <label htmlFor="agent-rule-threshold">
@@ -459,51 +484,31 @@ export function RuleForm({
       <h3>{t("Capabilities")}</h3>
       <p className="hint">
         {t(
-          "The allowlist. The executor refuses anything outside it, and a T2 model is validated against it too.",
+          "The allowlist: the only actions this automation may run. The model is offered these and nothing else, and an answer outside them is refused.",
         )}
       </p>
-      {AGENT_ACTION_SPECS.map((spec) => (
-        <label className="agent-check" key={spec.name}>
-          <input
-            type="checkbox"
-            checked={capabilities.has(spec.name)}
-            onChange={() => toggleCapability(spec.name)}
-          />
-          <span>
-            {t(spec.label)}
-            {spec.external && <b className="agent-tag">{t("external")}</b>}
-            {spec.irreversible && <b className="agent-tag">{t("irreversible")}</b>}
-          </span>
-        </label>
-      ))}
-
-      <h3>{t("Then")}</h3>
-      {rule.tier === "T0" && (
-        <ActionListEditor
-          actions={rule.actions ?? []}
-          onChange={(actions) => set({ actions })}
-        />
-      )}
-      {rule.tier === "T1" && (
-        <CategoryEditor
-          categories={rule.categories ?? []}
-          onChange={(categories) => set({ categories })}
-        />
-      )}
-      {rule.tier === "T2" && (
-        <div className="field">
-          <label htmlFor="agent-rule-instruction">{t("Instruction for the model")}</label>
-          <textarea
-            id="agent-rule-instruction"
-            className="textarea"
-            rows={6}
-            value={rule.instruction ?? ""}
-            placeholder={t(
-              "Read the message and say what should happen to it. Useful context, in plain words.",
-            )}
-            onChange={(e) => set({ instruction: e.target.value })}
-          />
-        </div>
+      {catalogue === null ? (
+        <p className="hint">{t("The capability catalogue has not been read yet.")}</p>
+      ) : (
+        catalogue.map((entry) => (
+          <label className="agent-check" key={entry.name}>
+            <input
+              type="checkbox"
+              checked={capabilities.has(entry.name as AgentActionName)}
+              onChange={() => toggleCapability(entry.name)}
+            />
+            <span>
+              {t(entry.label)}
+              {entry.external && <b className="agent-tag">{t("external")}</b>}
+              {entry.irreversible && <b className="agent-tag">{t("irreversible")}</b>}
+              {entry.description && (
+                <span className="hint" style={{ display: "block" }}>
+                  {t(entry.description)}
+                </span>
+              )}
+            </span>
+          </label>
+        ))
       )}
     </div>
   );
@@ -563,216 +568,4 @@ function FilterFields({
       ))}
     </>
   );
-}
-
-/* ------------------------------------------------------------------ */
-
-/** A T1 category: the name the classifier returns, then its fixed actions. */
-function CategoryEditor({
-  categories,
-  onChange,
-}: {
-  categories: AgentCategory[];
-  onChange(next: AgentCategory[]): void;
-}) {
-  return (
-    <div className="agent-actions">
-      <p className="hint">
-        {t(
-          "The model picks one of these categories by name; the actions you attach to it are what actually run.",
-        )}
-      </p>
-      {categories.map((category, i) => (
-        <div className="agent-action" key={`category-${i}`}>
-          <div className="agent-action-head">
-            <input
-              className="input"
-              value={category.name}
-              placeholder={t("Invoice")}
-              aria-label={t("Category name")}
-              onChange={(e) =>
-                onChange(
-                  categories.map((c, k) =>
-                    k === i ? { ...c, name: e.target.value } : c,
-                  ),
-                )
-              }
-            />
-            <button
-              type="button"
-              className="icon-btn xs danger"
-              aria-label={t("Remove category")}
-              onClick={() => onChange(categories.filter((_, k) => k !== i))}
-            >
-              <Trash2 size={13} />
-            </button>
-          </div>
-          <ActionListEditor
-            actions={category.actions}
-            idScope={`category-${i}-`}
-            onChange={(actions) =>
-              onChange(categories.map((c, k) => (k === i ? { ...c, actions } : c)))
-            }
-          />
-        </div>
-      ))}
-      <button
-        type="button"
-        className="btn btn-sm"
-        onClick={() => onChange([...categories, { name: "", actions: [] }])}
-      >
-        <Plus size={14} /> {t("Add a category")}
-      </button>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-
-/** An ordered action list: the order is the order the executor runs them in. */
-function ActionListEditor({
-  actions,
-  onChange,
-  idScope = "",
-}: {
-  actions: AgentAction[];
-  onChange(next: AgentAction[]): void;
-  /**
-   * Distinguishes the fields of two lists on one form: a T1 automation holds
-   * one list per category, and the same action can appear in both.
-   */
-  idScope?: string;
-}) {
-  const move = (from: number, by: number) => {
-    const to = from + by;
-    const a = actions[from];
-    const b = actions[to];
-    if (!a || !b) return;
-    const next = [...actions];
-    next[from] = b;
-    next[to] = a;
-    onChange(next);
-  };
-  return (
-    <div className="agent-actions">
-      {actions.length === 0 && <p className="hint">{t("No actions yet.")}</p>}
-      {actions.map((action, i) => (
-        <div className="agent-action" key={`${action.do}-${i}`}>
-          <div className="agent-action-head">
-            <b>{actionLabel(action.do)}</b>
-            <span className="agent-action-tools">
-              <button
-                type="button"
-                className="icon-btn xs"
-                aria-label={t("Move up")}
-                disabled={i === 0}
-                onClick={() => move(i, -1)}
-              >
-                <ArrowUp size={13} />
-              </button>
-              <button
-                type="button"
-                className="icon-btn xs"
-                aria-label={t("Move down")}
-                disabled={i === actions.length - 1}
-                onClick={() => move(i, 1)}
-              >
-                <ArrowDown size={13} />
-              </button>
-              <button
-                type="button"
-                className="icon-btn xs danger"
-                aria-label={t("Remove action")}
-                onClick={() => onChange(actions.filter((_, k) => k !== i))}
-              >
-                <Trash2 size={13} />
-              </button>
-            </span>
-          </div>
-          <ActionParams
-            action={action}
-            id={`${idScope}${i}`}
-            onChange={(next) => onChange(actions.map((a, k) => (k === i ? next : a)))}
-          />
-        </div>
-      ))}
-      <select
-        className="select"
-        value=""
-        aria-label={t("Add an action")}
-        onChange={(e) => {
-          const name = e.target.value;
-          if (name) onChange([...actions, { do: name as AgentActionName }]);
-        }}
-      >
-        <option value="">{t("Add an action…")}</option>
-        {AGENT_ACTION_SPECS.map((spec) => (
-          <option key={spec.name} value={spec.name}>
-            {t(spec.label)}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-/** The parameters an action's own catalogue entry declares, and no others. */
-function ActionParams({
-  action,
-  id,
-  onChange,
-}: {
-  action: AgentAction;
-  /** The action's position in its list: two of a kind are still two fields. */
-  id: string;
-  onChange(next: AgentAction): void;
-}) {
-  const spec = agentActionSpec(action.do);
-  if (!spec?.params.length) return null;
-  const field = `agent-param-${id}-${action.do}`;
-  return (
-    <div className="agent-action-params">
-      {spec.params.map((p) => (
-        <div className="field" key={p.key}>
-          <label htmlFor={`${field}-${p.key}`}>
-            {t(AGENT_PARAM_KEY_LABELS[p.key] ?? p.key)}
-            {p.required ? "" : ` · ${t("optional")}`}
-          </label>
-          <input
-            id={`${field}-${p.key}`}
-            className="input"
-            type={p.kind === "number" ? "number" : "text"}
-            value={paramValue(action, p.key)}
-            placeholder={t(AGENT_PARAM_LABELS[p.kind])}
-            onChange={(e) => onChange(setParam(action, p.key, e.target.value, p.kind))}
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function paramValue(action: AgentAction, key: string): string {
-  const value = action.with?.[key];
-  if (value === undefined || value === null) return "";
-  return typeof value === "string" ? value : String(value);
-}
-
-/**
- * One parameter written back. A blank field removes the key rather than
- * storing an empty string, because a required parameter that is "present but
- * empty" would pass the document validator and then do nothing.
- */
-function setParam(
-  action: AgentAction,
-  key: string,
-  raw: string,
-  kind: AgentActionParam["kind"],
-): AgentAction {
-  const next: Record<string, unknown> = { ...(action.with ?? {}) };
-  if (raw.trim() === "") delete next[key];
-  else next[key] = kind === "number" ? Number(raw) : raw;
-  const out: AgentAction = { do: action.do };
-  if (Object.keys(next).length) out.with = next;
-  return out;
 }

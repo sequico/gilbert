@@ -47,7 +47,7 @@ describe("the sentence an admin refusal reads as", () => {
     for (const code of codes) {
       const sentence = agentErrorSentence({ error: code, ...FILLED });
       expect(sentence, code).toBeTruthy();
-      // A parameter left unfilled is a sentence with `{tier}` in it, which is
+      // A parameter left unfilled is a sentence with `{host}` in it, which is
       // the failure this whole arrangement exists to avoid: the server stopped
       // knowing the sentence, so nothing else may quietly stop filling it.
       expect(sentence, code).not.toMatch(/\{[a-zA-Z]+\}/);
@@ -55,8 +55,13 @@ describe("the sentence an admin refusal reads as", () => {
   });
 
   it("fills a parameter rather than naming it", () => {
-    expect(agentErrorSentence({ error: "unknown_tier", key: "T3" })).toBe(
-      '"T3" is not a tier: the tiers that call a model are T1 and T2.',
+    expect(
+      agentErrorSentence({
+        error: "api_key_required_after_move",
+        movedTo: "https://x.example/v1",
+      }),
+    ).toBe(
+      "The provider moves to https://x.example/v1, so its api key has to be entered again: a key is issued for the endpoint it was entered against.",
     );
     expect(
       agentErrorSentence({ error: "instruction_too_long", max: 2000, length: 2100 }),
@@ -92,13 +97,13 @@ describe("apiFetch composes an admin refusal from what the route answers", () =>
   }
 
   it("turns a code and its parameters into the sentence a caller reads", async () => {
-    refusingServer({ error: "tier_base_url_private", tier: "T2", host: "10.0.0.5" });
+    refusingServer({ error: "base_url_private", host: "10.0.0.5" });
     const err = await apiFetch("/api/admin/agent/providers", { method: "PUT" }).catch(
       (e: unknown) => e,
     );
     expect(err).toBeInstanceOf(ApiError);
     expect((err as ApiError).message).toBe(
-      "T2 points at 10.0.0.5, which is inside the network: a worker must not be pointed at an address that is not a model provider.",
+      "The base URL points at 10.0.0.5, which is inside the network: a worker must not be pointed at an address that is not a model provider.",
     );
   });
 

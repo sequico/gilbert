@@ -160,14 +160,13 @@ export type AgentErrorReason =
   | { code: "rule_not_a_document"; index: number }
   | { code: "rule_cannot_run"; name: string; problems: string }
   | { code: "manual_run_refused"; why: ManualRunRefusal; rule?: string }
-  | { code: "providers_not_an_object" }
-  | { code: "unknown_tier"; key: string }
-  | { code: "tier_incomplete"; tier: string }
-  | { code: "tier_api_key_required"; tier: string }
-  | { code: "tier_api_key_required_after_move"; tier: string; movedTo: string }
-  | { code: "tier_base_url_invalid"; tier: string }
-  | { code: "tier_base_url_not_https"; tier: string }
-  | { code: "tier_base_url_private"; tier: string; host: string }
+  | { code: "provider_not_an_object" }
+  | { code: "provider_incomplete" }
+  | { code: "api_key_required" }
+  | { code: "api_key_required_after_move"; movedTo: string }
+  | { code: "base_url_invalid" }
+  | { code: "base_url_not_https" }
+  | { code: "base_url_private"; host: string }
   | { code: "instruction_too_long"; max: number; length: number }
   | { code: "group_labels_unreadable" };
 
@@ -328,7 +327,7 @@ export interface GroupAccessDenied {
 /* Providers — the agent's own configuration                           */
 /* ------------------------------------------------------------------ */
 
-/** One tier's provider as the API reads it: `hasKey`, never the key. */
+/** The installation's model as the API reads it: `hasKey`, never the key. */
 export interface AgentProviderView {
   provider: string;
   model: string;
@@ -339,7 +338,8 @@ export interface AgentProviderView {
 export interface AgentProvidersView {
   /** Empty when the installation has no agent registered. */
   address: string;
-  providers: { T1?: AgentProviderView; T2?: AgentProviderView };
+  /** The one model every automation runs on; null when none is configured. */
+  provider: AgentProviderView | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -380,27 +380,18 @@ export interface GroupInstructionView {
 /* ------------------------------------------------------------------ */
 
 /**
- * The rules a member reads: what the automation is, where it works, which tier
- * it runs on, whether it is on, what wakes it, how it is reviewed, and what it
- * then does.
+ * The rules a member reads: what the automation is, whether it is on, what
+ * wakes it, how it is reviewed, and the instruction it carries.
  *
- * The last part (resolution 17) is why the tier's own material is here too: a
- * member who can read that an automation exists but not what it does cannot
- * judge what the agent does in their name. `capabilities`, `version` and the
- * authorship stamps stay out — the allowlist is what a run is checked against,
- * and a member reads the outcome rather than the grant.
+ * The instruction is here (resolution 17) because a member who can read that
+ * an automation exists but not what it does cannot judge what the agent does in
+ * their name. `capabilities`, `version` and the authorship stamps stay out —
+ * the allowlist is what a run is checked against, and a member reads the
+ * outcome rather than the grant.
  */
 export type MemberAgentRule = Pick<
   AgentRule,
-  | "id"
-  | "name"
-  | "tier"
-  | "enabled"
-  | "trigger"
-  | "review"
-  | "instruction"
-  | "categories"
-  | "actions"
+  "id" | "name" | "enabled" | "trigger" | "review" | "instruction"
 >;
 
 export interface MemberAgentView {

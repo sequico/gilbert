@@ -94,12 +94,7 @@ import {
   UnsupportedFilterError,
 } from "./documents.js";
 import { claimStillMine, saveClaimStates } from "./lease.js";
-import {
-  classifyCategory,
-  decideActions,
-  type ModelContext,
-  providerForTier,
-} from "./llm.js";
+import { decideActions, type ModelContext, providerFor } from "./llm.js";
 import {
   advance,
   armTimers,
@@ -655,7 +650,7 @@ export class Executor {
     return next;
   }
 
-  /** What the run should do: deterministic, classified, or decided by a model. */
+  /** What the run should do: the model decides, inside the rule's own grant. */
   private async planFor(
     store: AgentStore,
     accountId: string,
@@ -665,41 +660,16 @@ export class Executor {
     const problem = ruleProblem(rule);
     if (problem) throw new RefusedError(`the rule cannot run: ${problem}`);
     const context = await this.contextFor(accountId, job, rule);
-    if (rule.tier === "T0") {
-      const actions = rule.actions ?? [];
-      await this.guardLabels(accountId, actions);
-      return { actions, confidence: 1, summary: rule.name };
-    }
     const configDoc = (await this.agentStore.readConfig())?.doc ?? null;
     // The group's standing instruction rides every model call this group's
-    // agent makes (ADR 0003 resolution 17): read once per run, applied to the
-    // classifier and to the decider, first in the prompt both times.
+    // agent makes (ADR 0003 resolution 17): read once per run, first in the
+    // prompt.
     const standing = instructionFor((await store.readInstruction())?.doc ?? null);
-    if (rule.tier === "T1") {
-      const answer = await classifyCategory(
-        providerForTier(configDoc, "T1"),
-        rule,
-        context,
-        standing,
-      );
-      const category = (rule.categories ?? []).find((c) => c.name === answer.category);
-      if (!category)
-        throw new RefusedError(
-          `no category named "${answer.category}" is defined on the rule any more`,
-        );
-      await this.guardLabels(accountId, category.actions);
-      return {
-        actions: category.actions,
-        confidence: answer.confidence,
-        summary: `${rule.name}: ${answer.category}`,
-        ...(answer.rationale ? { rationale: answer.rationale } : {}),
-      };
-    }
     const answer = await decideActions(
-      providerForTier(configDoc, "T2"),
+      providerFor(configDoc),
       rule,
       context,
-      rule.capabilities ?? [],
+      rule.capabilities,
       standing,
     );
     await this.guardLabels(accountId, answer.actions);

@@ -109,7 +109,11 @@ Where the integration lives:
 - Stalwart 0.16 added **JMAP impersonation**: a principal granted the
   impersonation right can authenticate to JMAP as another user with a
   composite username `{target}%{master}` (target first), using the master
-  account's credentials. **App passwords are refused for impersonation**
+  account's credentials. Stalwart's `master` there is **its** word for the
+  impersonating principal — in Gilbert that is the signed-in administrator
+  (ADR 0001), which is why the code composes `{agent}%{admin}` when it acts as
+  the agent, and it is not the **Master** account of ADR 0010.
+  **App passwords are refused for impersonation**
   (server source, `authentication.rs`). Consequences to design for: an
   administrator with impersonation can read and write any account's Files —
   including the `gilbert` app folder and its `settings.json` — through the

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createServer, type IncomingMessage } from "node:http";
 import { after, before, test } from "node:test";
 import type { AgentJob, AgentRule } from "./documents.js";
 
@@ -24,7 +25,7 @@ process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { writeAppFileAt } = await import("../appFolder.js");
+const { filesAccountId, writeAppFileAt } = await import("../appFolder.js");
 const { JMAP_MAIL, JMAP_SUBMISSION, JmapClient } = await import("../jmap.js");
 const { GROUP_LABELS_FILE } = await import("../shared/labels.js");
 const { fetchEmailRecord, findMailboxByName } = await import("./actions.js");
@@ -35,6 +36,48 @@ const { claimAccount } = await import("./lease.js");
 const { AgentStore } = await import("./store.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
+/**
+ * The model every run asks. There is one shape now and no tier that runs
+ * without a model (ADR 0010), so a run reaches this stub or it does not run.
+ *
+ * The answer is keyed by the automation's name, which is the one thing the
+ * prompt states about which rule is being decided, so a test that needs a
+ * particular answer — a mail to send, a malformed action — states it for its
+ * own rule instead of moving the answer for every other test.
+ */
+const MODEL_PORT = 18854;
+const answers = new Map<string, unknown>();
+const DEFAULT_ANSWER = {
+  summary: "Labelled it.",
+  confidence: 1,
+  actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
+};
+
+function answerFor(name: string, value: unknown): void {
+  answers.set(name, value);
+}
+
+const modelStub = createServer(async (req: IncomingMessage, res) => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(chunk as Buffer);
+  let system = "";
+  try {
+    const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
+      messages?: Array<{ role?: string; content?: unknown }>;
+    };
+    system = String(
+      body.messages?.find((message) => message.role === "system")?.content ?? "",
+    );
+  } catch {
+    system = "";
+  }
+  const named = /automation "([^"]+)"/.exec(system)?.[1] ?? "";
+  const answer = answers.get(named) ?? DEFAULT_ANSWER;
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(
+    JSON.stringify({ choices: [{ message: { content: JSON.stringify(answer) } }] }),
+  );
+});
 const GROUP = "a3";
 const AGENT = "gilbert@example.com";
 const ADA = "ada@example.org";
@@ -96,9 +139,8 @@ function rule(overrides: Partial<AgentRule> = {}): AgentRule {
     name: "File the invoices",
     enabled: true,
     trigger: { on: "email", filter: { subject: "invoice" } },
-    tier: "T0",
     review: { mode: "threshold", threshold: 0.9 },
-    actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
+    instruction: "Label the invoice so the group can file it.",
     capabilities: ["keyword.add"],
     ...overrides,
   };
@@ -117,6 +159,22 @@ async function jobsOf(ruleId: string): Promise<AgentJob[]> {
 }
 
 before(async () => {
+  await new Promise<void>((resolve) =>
+    modelStub.listen(MODEL_PORT, "127.0.0.1", resolve),
+  );
+  // The installation's model, in the agent's own account — the only place the
+  // executor reads it from. It is written through the store rather than the
+  // admin route, which refuses a plaintext address on purpose.
+  await new AgentStore(ctx, filesAccountId(ctx)).writeConfig({
+    v: 1,
+    address: AGENT,
+    provider: {
+      provider: "stub",
+      model: "stub",
+      baseUrl: `http://127.0.0.1:${MODEL_PORT}/v1`,
+      apiKey: "stub-key",
+    },
+  });
   await writeAppFileAt(ctx, GROUP, GROUP_LABELS_FILE, {
     labels: [
       { keyword: "G-processed", name: "Gilbert: processed", color: "#15803d" },
@@ -136,6 +194,7 @@ before(async () => {
 });
 
 after(() => {
+  modelStub.close();
   (mock as { server?: { close(): void } }).server?.close();
 });
 
@@ -150,7 +209,11 @@ test("a matching message is filed: the job runs, the audit records it, the claim
   const jobs = await jobsOf(rule_.id);
   assert.equal(jobs.length, 1, "one job per (record × rule)");
   const job = jobs[0]!;
-  assert.equal(job.state, "done", "T0 carries confidence 1, so the threshold passes it");
+  assert.equal(
+    job.state,
+    "done",
+    "the model answered with confidence 1, so the threshold passes it",
+  );
   assert.equal(job.ruleVersion, rule_.version);
   assert.equal(job.attempts, 1);
   assert.equal(job.trigger.emailId, emailId);
@@ -164,7 +227,9 @@ test("a matching message is filed: the job runs, the audit records it, the claim
   assert.ok(entry, "the run is in the month's audit document");
   assert.equal(entry.outcome, "done");
   assert.equal(entry.ruleId, rule_.id);
-  assert.deepEqual(entry.actions, rule_.actions);
+  assert.deepEqual(entry.actions, [
+    { do: "keyword.add", with: { keyword: "G-processed" } },
+  ]);
   // The intent line: the trail says what was about to run before it ran, so an
   // effect can never exist without a line that accounts for it.
   assert.equal(
@@ -236,8 +301,12 @@ test("a G- label the group's catalog does not define refuses the run before it a
   const bad = rule({
     id: "unknown-label",
     name: "Label wrongly",
-    actions: [{ do: "keyword.add", with: { keyword: "G-nobody-defined-this" } }],
     capabilities: ["keyword.add"],
+  });
+  answerFor("Label wrongly", {
+    summary: "Labelled it.",
+    confidence: 1,
+    actions: [{ do: "keyword.add", with: { keyword: "G-nobody-defined-this" } }],
   });
   await store.writeRules([bad]);
   const emailId = await createMessage("An invoice for the wrong label");
@@ -266,8 +335,13 @@ test("a G- label the group's catalog does not define refuses the run before it a
 test("duplicate delivery is harmless: the same record never opens a second job", async () => {
   const once = rule({
     id: "once-only",
-    actions: [{ do: "noop" }],
+    name: "Touch the message once",
     capabilities: ["noop"],
+  });
+  answerFor("Touch the message once", {
+    summary: "Left it alone.",
+    confidence: 1,
+    actions: [{ do: "noop" }],
   });
   await store.writeRules([once]);
   const emailId = await createMessage("An invoice delivered twice");
@@ -376,8 +450,14 @@ test("a malformed proposal fails loudly rather than pausing on nothing", async (
   const broken = rule({
     id: "no-action-params",
     name: "Broken on purpose",
-    actions: [{ do: "keyword.add", with: {} }],
     capabilities: ["keyword.add"],
+  });
+  // The model answers with an action missing a parameter the catalogue
+  // requires: the answer is refused before it can become an effect.
+  answerFor("Broken on purpose", {
+    summary: "Labelled it.",
+    confidence: 1,
+    actions: [{ do: "keyword.add", with: {} }],
   });
   await store.writeRules([broken]);
   await createMessage("An invoice for a broken rule");
@@ -386,8 +466,8 @@ test("a malformed proposal fails loudly rather than pausing on nothing", async (
 
   const job = (await jobsOf("no-action-params")).at(-1);
   assert.ok(job);
-  assert.equal(job.state, "failed");
-  assert.match(String(job.error), /cannot run|cannot be honoured/);
+  assert.equal(job.state, "pending", "a refused answer is retried, never executed");
+  assert.match(String(job.error), /without keyword/);
 });
 
 test("a proposal that would send mail leaves the draft in Drafts, unread, and a person sending it settles the decision", async () => {
@@ -395,6 +475,11 @@ test("a proposal that would send mail leaves the draft in Drafts, unread, and a 
     id: "draft-and-send",
     name: "Reply to the invoice",
     review: { mode: "always" },
+    capabilities: ["mail.draft", "mail.send"],
+  });
+  answerFor("Reply to the invoice", {
+    summary: "Replied to the invoice.",
+    confidence: 1,
     actions: [
       {
         do: "mail.draft",
@@ -402,10 +487,9 @@ test("a proposal that would send mail leaves the draft in Drafts, unread, and a 
       },
       {
         do: "mail.send",
-        with: { to: ADA, subject: "Re: invoice", text: "Filed, thank you." },
+        with: { to: ADA },
       },
     ],
-    capabilities: ["mail.draft", "mail.send"],
   });
   await store.writeRules([proposer]);
   const emailId = await createMessage("An invoice that wants a reply");
@@ -416,7 +500,7 @@ test("a proposal that would send mail leaves the draft in Drafts, unread, and a 
     (candidate) => candidate.trigger.emailId === emailId,
   );
   assert.ok(job);
-  assert.equal(job.state, "awaiting_approval");
+  assert.equal(job.state, "awaiting_approval", String(job.error));
   const draft = job.proposal?.draft;
   assert.ok(draft, "the proposal left a draft a member can read and send");
   const decision = (await store.readDecision(String(job.decisionId)))?.doc;
@@ -462,18 +546,22 @@ test("a draft that vanished is not an approval", async () => {
     id: "vanishing-draft",
     name: "Reply and forget",
     review: { mode: "always" },
+    capabilities: ["mail.draft", "mail.send"],
+  });
+  answerFor("Reply and forget", {
+    summary: "Replied to the invoice.",
+    confidence: 1,
     actions: [
       { do: "mail.draft", with: { to: ADA, subject: "Re: gone", text: "Hello." } },
-      { do: "mail.send", with: { to: ADA, subject: "Re: gone", text: "Hello." } },
+      { do: "mail.send", with: { to: ADA } },
     ],
-    capabilities: ["mail.draft", "mail.send"],
   });
   await store.writeRules([proposer]);
   await createMessage("An invoice whose draft will vanish");
 
   await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
   const job = (await jobsOf("vanishing-draft")).at(-1);
-  assert.ok(job?.proposal?.draft);
+  assert.ok(job?.proposal?.draft, String(job?.error));
   await client.call(
     "Email/set",
     { accountId: GROUP, destroy: [job.proposal.draft.emailId] },
@@ -535,9 +623,13 @@ test("the schedule fires what is due and moves the entry on", async () => {
     id: "every-five",
     name: "Every five minutes",
     trigger: { on: "schedule", everyMinutes: 5 },
-    actions: [{ do: "noop" }],
     capabilities: ["noop"],
     review: { mode: "never" },
+  });
+  answerFor("Every five minutes", {
+    summary: "Looked at the clock.",
+    confidence: 1,
+    actions: [{ do: "noop" }],
   });
   await store.writeRules([scheduled]);
   await store.writeSchedule([
@@ -960,10 +1052,14 @@ test("a paused run whose unit was taken over leaves no draft", async () => {
     id: "draft-on-approval",
     name: "Ask before replying",
     review: { mode: "always" },
+    capabilities: ["mail.draft"],
+  });
+  answerFor("Ask before replying", {
+    summary: "Drafted a reply.",
+    confidence: 1,
     actions: [
       { do: "mail.draft", with: { to: ADA, subject: "Re: invoice", text: "Filed." } },
     ],
-    capabilities: ["mail.draft"],
   });
   await store.writeRules([proposing]);
   const emailId = await createMessage("An invoice that would be drafted for approval");

@@ -1560,7 +1560,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   // ---------- The agent worker fleet (ADR 0003) ----------
   /**
    * The agent surfaces (ADR 0003): the installation's one agent, the groups
-   * that have granted it, the workers running for it, its per-tier providers,
+   * that have granted it, the agents running for it, its model,
    * its app password, and the group documents the fleet works from.
    *
    * Membership is not written here — the operator grants the agent in
@@ -1725,11 +1725,11 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   api.post("/admin/agent/providers", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
-    const body = await readJson<{ providers?: unknown }>(c);
+    const body = await readJson<{ provider?: unknown }>(c);
     if (!body)
-      return c.json({ error: "bad_request", message: "providers is required" }, 400);
+      return c.json({ error: "bad_request", message: "provider is required" }, 400);
     try {
-      await writeProviders(session, body.providers);
+      await writeProviders(session, body);
       return c.json({ ok: true });
     } catch (err) {
       return agentFailure(c, err);

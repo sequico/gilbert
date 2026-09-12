@@ -16,7 +16,6 @@ import {
   type AgentReview,
   type AgentReviewMode,
   type AgentRule,
-  type AgentTier,
   type AgentTrigger,
   type AgentTriggerOn,
   agentActionSpec,
@@ -39,18 +38,26 @@ export const AGENT_TRIGGER_LABELS: Record<AgentTriggerOn, string> = {
 };
 
 /**
- * What each tier is called where a person reads it (ADR 0003).
+ * What a review policy means for the runs it governs.
  *
- * T0/T1/T2 are the architecture's names for the tiers, and the ones the
- * documents and the log carry; what someone choosing between them needs is
- * what the tier does, so the label says that and leaves the code to the places
- * that read it.
+ * The label names the mode; these sentences say what the mode does, because
+ * the one thing an author has to decide is who a run stops for. The last two
+ * clauses are what no mode can raise: an action that cannot be undone asks
+ * whatever the policy says, and one that leaves the group asks unless the
+ * consent floor has been raised on purpose.
  */
-export const AGENT_TIER_LABELS: Record<AgentTier, string> = {
-  T0: "Fixed actions, with no model",
-  T1: "A small model picks a category",
-  T2: "A model decides and acts",
+export const AGENT_REVIEW_MEANING_LABELS: Record<AgentReviewMode, string> = {
+  always: "Every run stops here for a person to answer before anything happens.",
+  threshold:
+    "A run at or above the confidence runs unattended; below it, it waits for a person.",
+  never:
+    "Nothing waits for a person — though an action that cannot be undone still asks, and one that leaves the group asks unless the consent floor is raised.",
 };
+
+export function reviewMeaningText(mode: string): string {
+  const label = AGENT_REVIEW_MEANING_LABELS[mode as AgentReviewMode];
+  return label ? t(label) : "";
+}
 
 export const AGENT_REVIEW_LABELS: Record<AgentReviewMode, string> = {
   always: "Always ask a person first",
@@ -80,10 +87,6 @@ export const AGENT_OUTCOME_LABELS: Record<AgentAuditOutcome, string> = {
 export const AGENT_ACTION_LABELS: Record<string, string> = Object.fromEntries(
   AGENT_ACTION_SPECS.map((s): [string, string] => [s.name, s.label]),
 );
-
-export function tierText(tier: string): string {
-  return t(AGENT_TIER_LABELS[tier as AgentTier] ?? tier);
-}
 
 export function actionLabel(name: string): string {
   return t(AGENT_ACTION_LABELS[name] ?? name);
@@ -238,16 +241,13 @@ function paramText(value: unknown): string {
 }
 
 /**
- * Every action a rule runs, in the order it was authored: T0's list, T1's
- * categories flattened, nothing for T2 (the model decides at run time).
+ * The instruction an automation carries — what it is asked to do, in the
+ * author's own words and the whole of what a run is told.
  *
  * It takes either of the two shapes that describe one durable document: the
- * editor holds the stored `AgentRule`, and the member's panel holds the view the
- * server answers with (`MemberAgentRule`), a `Pick` of the same fields. Neither
- * is written out here, so a field added to one of them cannot go unread by both.
+ * editor holds the stored `AgentRule`, and the member's panel holds the view
+ * the server answers with (`MemberAgentRule`), a `Pick` of the same fields.
  */
-export function ruleActions(rule: AgentRule | MemberAgentRule): AgentAction[] {
-  if (rule.tier === "T0") return rule.actions ?? [];
-  if (rule.tier === "T1") return (rule.categories ?? []).flatMap((c) => c.actions);
-  return [];
+export function ruleInstruction(rule: AgentRule | MemberAgentRule): string {
+  return rule.instruction ?? "";
 }

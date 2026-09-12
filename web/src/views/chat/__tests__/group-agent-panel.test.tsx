@@ -31,11 +31,10 @@ function memberView(overrides: Partial<MemberAgentView> = {}): MemberAgentView {
       {
         id: "r1",
         name: "Label processed mail",
-        tier: "T0",
         enabled: true,
         trigger: { on: "email", filter: { subject: "invoice" } },
         review: { mode: "always" },
-        actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
+        instruction: "Label the invoice so the group can file it.",
       },
     ],
     instruction: {
@@ -142,7 +141,8 @@ describe("the group's agent panel", () => {
     expect(text).toContain("Label processed mail");
     expect(text).toContain("An email arrives · subject contains invoice");
     expect(text).toContain("Always ask a person first");
-    expect(text).toContain("Add a label (keyword: G-processed)");
+    expect(text).toContain("Label the invoice so the group can file it.");
+    expect(text).not.toContain("Add a label");
     expect(text).not.toContain("{");
   });
 

@@ -28,13 +28,11 @@ import { hasSpoken, readChat } from "./agent/chat.js";
 import {
   AGENT_INSTRUCTION_MAX,
   AGENT_JOB_OPEN_STATES,
-  AGENT_MODEL_TIERS,
   type AgentAuditEntry,
   type AgentConfigDoc,
   type AgentJob,
   type AgentProvider,
   type AgentRule,
-  type AgentTier,
   type AgentWorkerRecord,
   filterNeedsBody,
   filterProblems,
@@ -70,7 +68,11 @@ import type {
   MemberAgentView,
   PendingApproval,
 } from "./agent/views.js";
-import { GROUP_NOT_ACCESSIBLE, WITHDRAWALS_PATH } from "./agent/views.js";
+import {
+  type AgentProviderView,
+  GROUP_NOT_ACCESSIBLE,
+  WITHDRAWALS_PATH,
+} from "./agent/views.js";
 import { type Ctx, filesAccountId, readAppJsonAt } from "./appFolder.js";
 import { agentAddress, config } from "./config.js";
 import { isStateMismatch, JMAP_MAIL, JmapClient } from "./jmap.js";
@@ -854,11 +856,10 @@ function stableJson(value: unknown): string {
 /* Providers — the agent's own configuration                           */
 /* ------------------------------------------------------------------ */
 
-/** The tiers that call a model — the one list, from the canonical schema. */
-const TIERS = AGENT_MODEL_TIERS;
+/* ------------------------------------------------------------------ */
 
 /**
- * The providers each tier runs on, with `hasKey` in place of the stored key.
+ * The installation's model, with `hasKey` in place of the stored key.
  *
  * The key is write-only, the way an app password is: the surface can say
  * whether one is stored and can replace it, and can never read it back. An
@@ -866,42 +867,34 @@ const TIERS = AGENT_MODEL_TIERS;
  * error — there is nothing to show, and that is a state, not a failure.
  */
 export async function readProviders(admin: LiveSession): Promise<AgentProvidersView> {
-  if (!agentAddress()) return { address: "", providers: {} };
+  if (!agentAddress()) return { address: "", provider: null };
   const { store, address } = await agentStore(admin);
   const found = await store.readConfig();
   return {
     address: found?.doc.address || address,
-    providers: providerViews(found?.doc.providers),
+    provider: providerView(found?.doc.provider),
   };
 }
 
-function providerViews(
-  providers: AgentConfigDoc["providers"] | undefined,
-): AgentProvidersView["providers"] {
-  const out: AgentProvidersView["providers"] = {};
-  for (const tier of TIERS) {
-    const p = providers?.[tier];
-    if (!p) continue;
-    out[tier] = {
-      provider: p.provider,
-      model: p.model,
-      baseUrl: p.baseUrl,
-      hasKey: p.apiKey.length > 0,
-    };
-  }
-  return out;
+function providerView(provider: AgentProvider | undefined): AgentProviderView | null {
+  if (!provider) return null;
+  return {
+    provider: provider.provider,
+    model: provider.model,
+    baseUrl: provider.baseUrl,
+    hasKey: provider.apiKey.length > 0,
+  };
 }
 
 /**
- * Write the tiers the editor sent.
+ * Write the installation's model.
  *
- * A tier present in the body replaces that tier; a tier sent empty is cleared;
- * a tier the body does not mention is left as it is. Inside a tier an absent or
- * empty `apiKey` keeps the stored one — that is the point of a write-only key,
- * since the surface cannot send back what it was never given. The config
- * document is the agent's own (`agent/config.json` in the agent account's app
- * folder) and is created on the first write, stamped with the address it was
- * registered under and who registered it.
+ * The body carries one entry, or none to clear it. An absent or empty `apiKey`
+ * keeps the stored one — that is the point of a write-only key, since the
+ * surface cannot send back what it was never given. The config document is the
+ * agent's own (`agent/config.json` in the agent account's app folder) and is
+ * created on the first write, stamped with the address it was registered under
+ * and who registered it.
  *
  * A lost compare-and-set is retried once, because the token is the account's
  * whole FileNode state (ADR 0003 §6) and this is the account the worker writes
@@ -911,32 +904,30 @@ function providerViews(
 export async function writeProviders(admin: LiveSession, input: unknown): Promise<void> {
   const { store, address } = await agentStore(admin);
   if (!input || typeof input !== "object" || Array.isArray(input))
-    throw new AgentAdminError({ code: "providers_not_an_object" }, 400);
+    throw new AgentAdminError({ code: "provider_not_an_object" }, 400);
   const given = input as Record<string, unknown>;
   for (const key of Object.keys(given)) {
-    if (!(TIERS as ReadonlyArray<string>).includes(key))
-      throw new AgentAdminError({ code: "unknown_tier", key }, 400);
+    if (key !== "provider")
+      throw new AgentAdminError({ code: "provider_not_an_object" }, 400);
   }
 
   for (let attempt = 0; ; attempt++) {
     const found = await store.readConfig();
     const existing = found?.doc;
-    const providers: AgentConfigDoc["providers"] = { ...(existing?.providers ?? {}) };
-    for (const tier of TIERS) {
-      if (!(tier in given)) continue;
-      const entry = tierProvider(given[tier], tier, existing?.providers?.[tier]);
-      if (entry) providers[tier] = entry;
-      else delete providers[tier];
-    }
+    const provider = providerEntry(given.provider, existing?.provider);
     const doc: AgentConfigDoc = existing
-      ? { ...existing, providers }
+      ? { ...existing }
       : {
           v: 1,
           address,
           registeredAt: new Date().toISOString(),
           registeredBy: admin.username,
-          providers,
         };
+    // A cleared entry leaves no `provider` key behind rather than a `null` one:
+    // the document says what the installation runs on, and "nothing" is said by
+    // absence.
+    if (provider) doc.provider = provider;
+    else delete doc.provider;
     try {
       // A token only when there is a document to compare against: the first
       // save has none, and the folder tree it creates moves the account state
@@ -950,26 +941,25 @@ export async function writeProviders(admin: LiveSession, input: unknown): Promis
   }
 }
 
-/** One tier as the editor sends it; null when the tier is being cleared. */
-function tierProvider(
+/** The installation's model as the editor sends it; null when it is cleared. */
+function providerEntry(
   raw: unknown,
-  tier: AgentTier,
   previous: AgentProvider | undefined,
 ): AgentProvider | null {
   if (raw === null || raw === undefined) return null;
   if (typeof raw !== "object" || Array.isArray(raw))
-    throw new AgentAdminError({ code: "tier_incomplete", tier }, 400);
+    throw new AgentAdminError({ code: "provider_incomplete" }, 400);
   const entry = raw as Record<string, unknown>;
   const text = (key: string): string =>
     typeof entry[key] === "string" ? (entry[key] as string).trim() : "";
   const provider = text("provider");
   const model = text("model");
   const baseUrl = text("baseUrl");
-  // A tier with nothing in it is a cleared tier, not an invalid one.
+  // An entry with nothing in it is a cleared entry, not an invalid one.
   if (!provider && !model && !baseUrl) return null;
   if (!provider || !model || !baseUrl)
-    throw new AgentAdminError({ code: "tier_incomplete", tier }, 400);
-  assertUsableBaseUrl(baseUrl, tier);
+    throw new AgentAdminError({ code: "provider_incomplete" }, 400);
+  assertUsableBaseUrl(baseUrl);
   /*
    * The stored key is kept unless a new one arrives — it is never read back —
    * but **not** when the endpoint moves: the key was issued for the host it was
@@ -983,8 +973,8 @@ function tierProvider(
   if (!apiKey)
     throw new AgentAdminError(
       moved
-        ? { code: "tier_api_key_required_after_move", tier, movedTo: baseUrl }
-        : { code: "tier_api_key_required", tier },
+        ? { code: "api_key_required_after_move", movedTo: baseUrl }
+        : { code: "api_key_required" },
       400,
     );
   return { provider, model, baseUrl, apiKey };
@@ -1000,20 +990,17 @@ function tierProvider(
  * gets a sentence, rather than at the call, where a 30-second timeout would be
  * the whole diagnosis.
  */
-function assertUsableBaseUrl(baseUrl: string, tier: AgentTier): void {
+function assertUsableBaseUrl(baseUrl: string): void {
   let url: URL;
   try {
     url = new URL(baseUrl);
   } catch {
-    throw new AgentAdminError({ code: "tier_base_url_invalid", tier }, 400);
+    throw new AgentAdminError({ code: "base_url_invalid" }, 400);
   }
   if (url.protocol !== "https:")
-    throw new AgentAdminError({ code: "tier_base_url_not_https", tier }, 400);
+    throw new AgentAdminError({ code: "base_url_not_https" }, 400);
   if (isPrivateHost(url.hostname))
-    throw new AgentAdminError(
-      { code: "tier_base_url_private", tier, host: url.hostname },
-      400,
-    );
+    throw new AgentAdminError({ code: "base_url_private", host: url.hostname }, 400);
 }
 
 /** Loopback, link-local, and the private ranges — where a provider is not. */
@@ -1243,13 +1230,10 @@ export async function memberAgentView(
     rules: rulesDoc.map((r) => ({
       id: r.id,
       name: r.name,
-      tier: r.tier,
       enabled: r.enabled,
       trigger: r.trigger,
       review: r.review,
       instruction: r.instruction,
-      categories: r.categories,
-      actions: r.actions,
     })),
     instruction,
     jobs: open,

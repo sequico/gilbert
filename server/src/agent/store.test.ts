@@ -86,9 +86,8 @@ test("rules round-trip through the group's own app folder", async () => {
       name: "File the invoices",
       enabled: true,
       trigger: { on: "email" as const, filter: { subject: "invoice" } },
-      tier: "T0" as const,
       review: { mode: "never" as const },
-      actions: [{ do: "keyword.add" as const, with: { keyword: "G-processed" } }],
+      instruction: "File the invoices under G-processed.",
       capabilities: ["keyword.add" as const],
     },
   ];

@@ -66,7 +66,7 @@ feature, is in [FEATURES.md](FEATURES.md).
 
 - **Groups** — a group mailbox is an account of its own on Stalwart, and what it owns lives in that account and belongs to it: its chat, its label catalog, its calendars and files, its agent's documents. Membership *is* the grant, and the grant is administered on the server, never in the product
 - **Chat** — one conversation per group mailbox, stored in the group's own account so a member added later finds all of it (ADR 0005)
-- **Agents** — an agent fleet that acts inside mail and file storage on a group's behalf. Each automation is a document in the group's own account — when it reacts, which messages it looks at, what it then does — with a tier that decides how much model it uses (T0 deterministic, T1 a category, T2 the model's own judgement), a review policy that can pause a run for a person, a capability allowlist that bounds every answer, and the approval itself happening in the group's chat. Every run is audited, one document per month per group, and an administrator can export that trail before the retention prunes it. The installation's Master is **named by the deployment's environment** — `GILBERT_AGENT_ADDRESS` and the account's own password. It runs with the server unless the deployment keeps the two apart, holds its claims in the documents themselves, and no model can widen what a rule was granted
+- **Agents** — an agent fleet that acts inside mail and file storage on a group's behalf. Each automation is a document in the group's own account — when it reacts, which messages it looks at, what it is asked to do — an instruction in prose that the installation's model carries out, a capability allowlist that bounds every answer, a review policy that can pause a run for a person, and the approval itself happening in the group's chat. Every run is audited, one document per month per group, and an administrator can export that trail before the retention prunes it. The installation's Master is **named by the deployment's environment** — `GILBERT_AGENT_ADDRESS` and the account's own password. It runs with the server unless the deployment keeps the two apart, holds its claims in the documents themselves, and no model can widen what a rule was granted
 - **Nothing of its own to keep** — no database, no search index, no cache tier: every durable thing lives in the mail store, under the account's quota, and the container is disposable (`IMMUTABLE=1` needs no writable root)
 - **Platform** — installable PWA, Web Push with Gilbert closed, `mailto:` handler, no credentials in the browser, strict CSP, SSRF-safe image proxy
 - **Everything else is upstream's** — the mail client, calendar, contacts, files, sharing and Sieve editing come from [ihasmail](https://github.com/Coffey-Labs/ihasmail), renamed for this build. This project does not re-document them; upstream's own documentation is the reference — [Using ihasmail](https://docs.ihasmail.org/using/). What this build adds on top: twelve themes, eleven interface languages (beta), signature checking, and a container that can run read-only
@@ -165,9 +165,10 @@ Stalwart refuses, warns once and serves nothing rather than failing to come up.
 when it reacts (an email arriving, a chat message, a file, a time), which
 messages it looks at (the JMAP filter grammar), and what it then does — from the
 capability catalogue: label, move, file attachments into the group's visible
-Files, prepare a draft, send, write a text document. Each carries a **tier**: T0
-is deterministic and calls no model, T1 asks a small model for one of the rule's
-own categories, T2 gives the rule's instruction to a model that decides and acts.
+Files, prepare a draft, send, write a text document. Each carries an
+**instruction** in prose and a **capability allowlist**: every run hands it to
+the installation's model, which decides and acts inside what the automation was
+granted.
 A group also keeps one **standing instruction** — the shape of an `AGENTS.md` —
 which the model is handed first on every call. An automation can also be **run
 now**, on the newest message in the group's inbox: that is how you see one work

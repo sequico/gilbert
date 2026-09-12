@@ -42,7 +42,7 @@ const BASE = `http://127.0.0.1:${PORT}`;
 
 const mock = await import("./mock/index.js");
 const { config } = await import("./config.js");
-const { AGENT_INSTRUCTION_MAX, AGENT_TIERS } = await import("./agent/documents.js");
+const { AGENT_INSTRUCTION_MAX } = await import("./agent/documents.js");
 const { createApp } = await import("./app.js");
 const { fetchUpstreamSession } = await import("./upstream.js");
 const { filesAccountId, writeAppFile } = await import("./appFolder.js");
@@ -143,9 +143,8 @@ function rule(overrides: Record<string, unknown> = {}): Record<string, unknown> 
     name: "Label processed mail",
     enabled: true,
     trigger: { on: "email" },
-    tier: "T0",
-    actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
     capabilities: ["keyword.add"],
+    instruction: "Label the messages this automation was written for.",
     review: { mode: "threshold", threshold: 0.8 },
     ...overrides,
   };
@@ -182,18 +181,16 @@ after(() => {
  * the first of them to exercise the create path.
  */
 
-test("the first save of a tier creates the folders and the document in one go", async () => {
+test("the first save of the model creates the folders and the document in one go", async () => {
   configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
   const saved = await call("/api/admin/agent/providers", {
     method: "POST",
     body: JSON.stringify({
-      providers: {
-        T1: {
-          provider: "openai",
-          model: "gpt-mini",
-          baseUrl: "https://api.example.com/v1",
-          apiKey: "sk-test",
-        },
+      provider: {
+        provider: "openai",
+        model: "gpt-mini",
+        baseUrl: "https://api.example.com/v1",
+        apiKey: "sk-test",
       },
     }),
   });
@@ -201,11 +198,11 @@ test("the first save of a tier creates the folders and the document in one go", 
 
   const read = await call("/api/admin/agent/providers");
   assert.equal(read.status, 200);
-  const providers = (
-    read.body as { providers: Record<string, { model?: string; hasKey?: boolean }> }
-  ).providers;
-  assert.equal(providers.T1?.model, "gpt-mini");
-  assert.equal(providers.T1?.hasKey, true, "the key was stored, and is not handed back");
+  const provider = (
+    read.body as { provider: { model?: string; hasKey?: boolean } | null }
+  ).provider;
+  assert.equal(provider?.model, "gpt-mini");
+  assert.equal(provider?.hasKey, true, "the key was stored, and is not handed back");
 });
 
 test("a save that loses the account-wide compare-and-set is retried, not shown", async () => {
@@ -245,13 +242,11 @@ test("a save that loses the account-wide compare-and-set is retried, not shown",
     saved = await call("/api/admin/agent/providers", {
       method: "POST",
       body: JSON.stringify({
-        providers: {
-          T2: {
-            provider: "anthropic",
-            model: "claude-small",
-            baseUrl: "https://api.anthropic.com/v1",
-            apiKey: "sk-ant-test",
-          },
+        provider: {
+          provider: "anthropic",
+          model: "claude-small",
+          baseUrl: "https://api.anthropic.com/v1",
+          apiKey: "sk-ant-test",
         },
       }),
     });
@@ -262,14 +257,8 @@ test("a save that loses the account-wide compare-and-set is retried, not shown",
   assert.equal(saved.status, 200, JSON.stringify(saved.body));
 
   const read = await call("/api/admin/agent/providers");
-  const providers = (read.body as { providers: Record<string, { model?: string }> })
-    .providers;
-  assert.equal(providers.T2?.model, "claude-small", "the tier this save named landed");
-  assert.equal(
-    providers.T1?.model,
-    "gpt-mini",
-    "and the tier it did not name is the one the re-read found",
-  );
+  const provider = (read.body as { provider: { model?: string } | null }).provider;
+  assert.equal(provider?.model, "claude-small", "the model this save named landed");
 });
 
 test("an installation with no agent says so plainly, and never 500s", async () => {
@@ -384,7 +373,7 @@ test("providers: empty without an agent, refused when the agent is out of reach"
   configureAgent("");
   const none = await call("/api/admin/agent/providers");
   assert.equal(none.status, 200);
-  assert.deepEqual(none.body, { address: "", providers: {} });
+  assert.deepEqual(none.body, { address: "", provider: null });
 
   configureAgent(TEAM);
   const unreachable = await call("/api/admin/agent/providers");
@@ -393,7 +382,7 @@ test("providers: empty without an agent, refused when the agent is out of reach"
   const posted = await call("/api/admin/agent/providers", {
     method: "POST",
     body: JSON.stringify({
-      providers: { T1: { provider: "openai", model: "gpt-mini", baseUrl: "https://x" } },
+      provider: { provider: "openai", model: "gpt-mini", baseUrl: "https://x" },
     }),
   });
   assert.equal(posted.status, 409);
@@ -479,7 +468,6 @@ test("a rule that could never run is refused with its code and its parameters", 
         rule({
           id: "r2",
           name: "Move invoices",
-          actions: [{ do: "mail.move", with: { mailbox: "work" } }],
           capabilities: [],
         }),
       ],
@@ -596,9 +584,7 @@ test("a member reads the group's agent surface, and never a provider", async () 
         rule({
           id: "r2",
           name: "Triage incoming mail",
-          tier: "T2",
           instruction: "Decide what it is and act.",
-          actions: undefined,
         }),
       ],
     }),
@@ -624,10 +610,10 @@ test("a member reads the group's agent surface, and never a provider", async () 
   assert.equal(view.rules.length, 2);
   // The shape is pinned field by field rather than by its key set: the optional
   // halves of a rule are absent from the JSON when the document does not carry
-  // them (`instruction` on a T0 rule), so a key list would only ever describe
-  // the first fixture.
+  // them (`updatedAt`, before the rule has been edited), so a key list would
+  // only ever describe the first fixture.
   const [memberRule] = view.rules;
-  for (const key of ["id", "name", "tier", "enabled", "trigger", "review", "actions"]) {
+  for (const key of ["id", "name", "enabled", "trigger", "review", "instruction"]) {
     assert.ok(key in (memberRule ?? {}), `a member reads the automation's ${key}`);
   }
   for (const key of ["v", "version", "capabilities", "updatedAt", "updatedBy"]) {
@@ -638,16 +624,16 @@ test("a member reads the group's agent surface, and never a provider", async () 
     { mode: "threshold", threshold: 0.8 },
     "the review policy is part of what a member judges",
   );
-  assert.deepEqual(
-    memberRule?.actions,
-    [{ do: "keyword.add", with: { keyword: "G-processed" } }],
-    "and so is what the automation then does",
+  assert.equal(
+    memberRule?.instruction,
+    "Label the messages this automation was written for.",
+    "and so is what the automation is asked to do",
   );
   const t2 = view.rules.find((r) => r.id === "r2");
   assert.equal(
     t2?.instruction,
     "Decide what it is and act.",
-    "a tier that decides says what it was told to decide",
+    "and a second automation carries an instruction of its own",
   );
   assert.ok(!("providers" in view), "no provider configuration reaches a member");
 
@@ -870,11 +856,12 @@ test("the rule schema is published, and it is the catalogue the runtime reads", 
   assert.equal(res.status, 200);
   const schema = res.body as {
     $schema: string;
-    properties: { tier: { enum: string[] } };
+    required: string[];
     "x-actions": Array<{ name: string }>;
   };
   assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
-  assert.deepEqual(schema.properties.tier.enum, [...AGENT_TIERS]);
+  assert.ok(schema.required.includes("instruction"));
+  assert.ok(schema.required.includes("capabilities"));
   assert.ok(schema["x-actions"].some((action) => action.name === "mail.send"));
 });
 
@@ -893,7 +880,7 @@ test("the save path refuses against the published schema, in the schema's words"
   configureAgent("");
   const bad = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
-    body: JSON.stringify({ rules: [rule({ tier: "T9" })] }),
+    body: JSON.stringify({ rules: [rule({ capabilities: [] })] }),
   });
   assert.equal(bad.status, 400);
   const refusal = bad.body as { error: string; name?: string; problems?: string };
@@ -901,8 +888,8 @@ test("the save path refuses against the published schema, in the schema's words"
   assert.equal(refusal.name, "Label processed mail", "by name, as a parameter");
   assert.match(
     String(refusal.problems),
-    /tier|T9/i,
-    "and what the schema objected to, in its own words",
+    /capabilit/i,
+    "and what the rule is missing, in the schema's own words",
   );
 
   // The cross-field half is in the same list: an action outside the allowlist.

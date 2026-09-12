@@ -189,16 +189,15 @@ boundary.
   entries of the accounts it holds, so two agents never fire each
   other’s runs, and the runs that vanish — the rule off, the rule gone — are
   recorded as missed runs rather than disappearing from the trail.
-- **Three tiers.** T0 is deterministic and calls no model; T1 asks a small
-model to pick a category and runs that category's fixed actions; T2 gives the
-automation's instruction to a model that decides and executes. The model
-actions are the same capability-gated catalogue in every tier, inside the
-agent's own access, and every run is audited — a model cannot widen its own
-permissions. Model providers and their keys are configured per tier, so
-different tiers can run on different vendors or on a local model. The surface
-names each tier by what it does — fixed actions with no model, a small model
-that picks a category, a model that decides and acts — and keeps the codes
-where the documents and the API read them.
+- **One shape, and the model decides.** An automation is a trigger, an
+instruction, a capability allowlist and a review policy — nothing else, and no
+compiled plan: every run hands the instruction to the installation's model,
+which answers with actions from the capability catalogue. The allowlist is what
+bounds it — an answer naming an action the automation was not granted is
+refused, so the prose steers inside the grant and never widens it — and every
+run is audited. One model, configured once (provider, model, base URL and a
+write-only key), serves every automation: nothing asks an administrator to
+classify what a piece of work deserves.
 - **Labels, not folders.** `G-needattention`, `G-processed`, `G-awaiting`,
 `G-rejected` mark Gilbert's processing state on the individual message; the
 catalog is created from the admin surface once the grant exists. State is per
@@ -209,7 +208,7 @@ stay the reader's own labels. Moving a message is a separate, content-driven
 action; the agent never moves mail just to record a state.
 - **What it saves, a person can find.** An automation that extracts attachments
 writes them into the group's own Files — in the folder the automation named, or
-the one the model chose for a tier that decides; when neither did, into the
+the one the model chose; when neither did, into the
 `Needs attention` folder rather than loose in the root. A name already taken
 there is that person's file: the run writes `2-note.txt` beside it and reports
 the name it used, and it never replaces what somebody filed. Gilbert's own
@@ -259,8 +258,8 @@ behind the AI indicator answers with the group's own documents, read through the
 member's own session on that group — the same one the chat uses — so it is open
 to every member and not only to an administrator: the group's standing
 instruction as text (who last wrote it, and when), and each automation as a
-short block — name and tier, what wakes it, how it is reviewed, whether it
-is on, and what it then does, in words rather than as a JSON dump. A group with
+short block — name, what wakes it, how it is reviewed, whether it
+is on, and the instruction it carries, in words rather than as a JSON dump. A group with
 no instruction says so instead of showing a blank, and one sentence in the panel
 states that only an administrator of the group changes either. Members read the
 automations without their capability allowlist and without the authorship

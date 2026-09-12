@@ -223,8 +223,6 @@ export const catalog: Catalog = {
     // by the key the executor reads, the form names it for a person.
     Label: "Label",
     Mailbox: "Mailbox",
-    "Create the mailbox if it is missing": "Die Mailbox anlegen, wenn sie fehlt",
-    "File name": "Dateiname",
     Text: "Text",
     // The rest of the agent surfaces (ADR 0003): the outcome an audit entry
     // carries, the row a grouped filter's condition sits in, and the rotation

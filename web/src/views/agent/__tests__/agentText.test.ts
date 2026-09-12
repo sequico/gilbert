@@ -6,8 +6,8 @@ import {
   fleetReasonText,
   jobStateText,
   outcomeText,
+  reviewMeaningText,
   reviewText,
-  ruleActions,
   triggerText,
 } from "../agentText";
 
@@ -89,36 +89,13 @@ describe("actionText", () => {
   });
 });
 
-describe("ruleActions", () => {
-  const base: Omit<AgentRule, "tier"> = {
-    v: 1,
-    id: "r1",
-    version: 1,
-    name: "Invoices",
-    enabled: true,
-    trigger: { on: "email" },
-    review: { mode: "never" },
-  };
-
-  it("keeps a T0 rule's own ordered list", () => {
-    const actions = [{ do: "keyword.add" as const, with: { keyword: "G-processed" } }];
-    expect(ruleActions({ ...base, tier: "T0", actions })).toEqual(actions);
-  });
-
-  it("flattens a T1 rule's categories", () => {
-    const actions = ruleActions({
-      ...base,
-      tier: "T1",
-      categories: [
-        { name: "invoice", actions: [{ do: "keyword.add", with: { keyword: "G-a" } }] },
-        { name: "spam", actions: [{ do: "noop" }] },
-      ],
-    });
-    expect(actions.map((a) => a.do)).toEqual(["keyword.add", "noop"]);
-  });
-
-  it("shows no fixed actions for a T2 rule, which decides at run time", () => {
-    expect(ruleActions({ ...base, tier: "T2", instruction: "Do the thing" })).toEqual([]);
+describe("reviewMeaningText", () => {
+  it("says what a mode does, and nothing for a mode it does not know", () => {
+    const always = reviewMeaningText("always");
+    expect(always.length).toBeGreaterThan(0);
+    expect(reviewMeaningText("threshold")).not.toBe(always);
+    expect(reviewMeaningText("never")).not.toBe(always);
+    expect(reviewMeaningText("something-else")).toBe("");
   });
 });
 
@@ -136,7 +113,6 @@ describe("a partial or unfamiliar document", () => {
       version: 1,
       name: "Filed by a newer version",
       enabled: true,
-      tier: "T0",
     } as unknown as AgentRule;
 
     expect(triggerText(foreign.trigger)).toBe("");
