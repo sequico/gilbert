@@ -242,7 +242,16 @@ export const useTasks = create<TaskState>((set, get) => ({
       update: {
         [task.id]: {
           progress: done ? "completed" : "needs-action",
-          percentComplete: done ? 100 : 0,
+          /*
+           * Completing sets the whole bar; reopening returns the task to the
+           * progress it had before, rather than wiping a half-done task to
+           * zero because somebody unticked it.
+           */
+          percentComplete: done
+            ? 100
+            : task.percentComplete === undefined || task.percentComplete === 100
+              ? 0
+              : task.percentComplete,
         },
       },
     });

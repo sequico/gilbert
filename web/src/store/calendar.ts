@@ -30,7 +30,7 @@ import {
   toUTCDate,
   zonedToDate,
 } from "@/lib/dates";
-import { shiftStoredStart } from "@/lib/eventDrag";
+import { formatDuration, shiftStoredStart } from "@/lib/eventDrag";
 import { t } from "@/lib/i18n";
 import { type IcsEvent, looksLikeCalendar, parseIcs, toIcs } from "@/lib/ics";
 import { useContacts } from "./contacts";
@@ -1765,11 +1765,15 @@ function subscriptionCalendar(sub: {
 
 function synthesiseSubscriptionEvent(subId: string, e: IcsEvent): CalendarEvent {
   const local = `${e.start.getFullYear()}-${String(e.start.getMonth() + 1).padStart(2, "0")}-${String(e.start.getDate()).padStart(2, "0")}T${String(e.start.getHours()).padStart(2, "0")}:${String(e.start.getMinutes()).padStart(2, "0")}:00`;
+  // The feed says when the event ends, and a subscribed event drawn without it
+  // is an event of no length: the grid can only place what it is told.
+  const seconds = Math.max(0, Math.round((e.end.getTime() - e.start.getTime()) / 1000));
   return {
     id: `${subscriptionCalendarId(subId)}:${e.uid}`,
     calendarIds: { [subscriptionCalendarId(subId)]: true },
     title: e.summary,
     start: local,
+    duration: seconds > 0 ? formatDuration(seconds) : "P0D",
     showWithoutTime: e.allDay,
     location: e.location,
     description: e.description,

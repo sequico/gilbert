@@ -1,5 +1,6 @@
 import { PUSH_STATE_TYPES } from "@gilbert/shared/push";
 import { withBase } from "@/lib/basePath";
+import { apiFetch } from "./client";
 import type { Id, StateChange } from "./types";
 
 export type PushListener = (accountId: Id, type: string, newState: string) => void;
@@ -38,6 +39,8 @@ class PushManager {
   /** Called when the connection comes back after a drop, never on the first connect. */
   private reconnectListeners = new Set<() => void>();
   private backoff = 1000;
+  /** Whether this connection has already asked the session a question. */
+  private authChecked = false;
   /** Whether the current EventSource ever opened; see the error handler. */
   private wasOpen = false;
   private reconnectTimer: number | null = null;
@@ -134,6 +137,7 @@ class PushManager {
     this.es = es;
     es.onopen = () => {
       this.wasOpen = true;
+      this.authChecked = false;
       this.backoff = 1000;
       this.setState("connected");
       if (!this.everConnected) {
@@ -177,6 +181,18 @@ class PushManager {
         return;
       }
       if (opened) this.backoff = 1000;
+      /*
+       * A session that ended while a tab sat open leaves the stream failing for
+       * ever: the browser sees a connection error, never a 401, so the tab sits
+       * on "connecting" and never reaches the sign-in screen. One probe of a
+       * cheap route tells the two apart -- `apiFetch` signs the client out on a
+       * 401, which takes this stream down with it -- and it is asked once per
+       * connection rather than on every retry.
+       */
+      if (opened && !this.authChecked) {
+        this.authChecked = true;
+        void apiFetch("/api/config").catch(() => undefined);
+      }
       // A retry is already scheduled below, so this is "trying", not "given up".
       this.setState("connecting");
       const delay = Math.min(this.backoff, 60_000);

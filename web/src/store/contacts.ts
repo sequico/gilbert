@@ -947,18 +947,20 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const { byUid } = await scanBook(accountId, addressBookId);
     const create: Record<string, unknown> = {};
     const update: Record<Id, unknown> = {};
+    // The cards this pass has already queued, by UID: a file may repeat a UID.
+    const queuedByUid = new Map<string, string>();
     cards.forEach((c, i) => {
       const { id: _id, addressBookIds: _ab, ...rest } = c as ContactCard & { id?: Id };
       /*
        * A vCard UID is an identity its author meant, so a card whose UID this
        * book already holds is that card -- and the newer version of it wins.
        *
-       * It used to be skipped. The reporter asked for the opposite on #174 and
-       * he is right: the reason to import a file a second time is usually that
-       * the first one was not right, and skipping means a corrected export
-       * corrects nothing.
+       * A UID the book does not hold yet is still a UID: a file that repeats
+       * one queues a single card, the later version winning, rather than two
+       * cards that then disagree about what the same UID says.
        *
-       * A merge, not a replacement. Properties the file carries overwrite what
+       * The write is a merge, not a replacement. Properties the file carries
+       * overwrite what
        * is here; properties it does not mention are left alone, so a phone
        * number somebody added in Gilbert after the first import survives a
        * re-import of the original file. The cost is that a field genuinely
@@ -971,11 +973,17 @@ export const useContacts = create<ContactsState>((set, get) => ({
         delete (update[existing] as Record<string, unknown>).addressBookIds;
         return;
       }
+      const queued = rest.uid ? queuedByUid.get(rest.uid) : undefined;
+      if (queued) {
+        create[queued] = { ...(create[queued] as Record<string, unknown>), ...rest };
+        return;
+      }
       create[`c${i}`] = {
         ...rest,
         uid: rest.uid || crypto.randomUUID(),
         addressBookIds: { [addressBookId]: true },
       };
+      if (rest.uid) queuedByUid.set(rest.uid, `c${i}`);
     });
     try {
       const { created, updated, refused } = await writeCards(accountId, create, update);
