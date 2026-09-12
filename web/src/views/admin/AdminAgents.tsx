@@ -1,15 +1,16 @@
 /**
  * The Gilbert admin "Agents" section (ADR 0003 "Admin surfaces").
  *
- * The installation's own agent and its per-tier models live here, split into
- * three questions asked in the order a person actually asks them: is there an
- * agent and how does it sign in (Overview), which model serves which tier
- * (Models) — the installation's own configuration, settled once — and which
- * groups it works in and what each one tells it (Groups), last because it
- * follows Stalwart's directory rather than anything written here. What a
- * group's agent actually *does* — its automations, the approvals waiting on a
- * person, and the agents serving them — lives in Group Agents instead: that
- * section already reads one group at a time, and an automation is exactly that.
+ * The installation's own agent, the one model it runs on, and what the fleet
+ * has spent live here, split into three questions asked in the order a person
+ * actually asks them: is there an agent and how does it sign in (Overview),
+ * which model serves it (Model) — the installation's own configuration, settled
+ * once — and which groups it works in and what each one tells it (Groups), last
+ * because it follows Stalwart's directory rather than anything written here.
+ * What a group's agent actually *does* — its automations, the approvals waiting
+ * on a person, the facts it remembers, and the agents serving them — lives in
+ * Group Agents instead: that section already reads one group at a time, and an
+ * automation is exactly that.
  *
  * Nothing here grants anything, and nothing here names the agent. The
  * deployment names it in the environment it starts with, and a group's
@@ -23,7 +24,7 @@ import { useEffect, useState } from "react";
 import { type AgentStatus, fetchAgentAuditExport } from "@/lib/agents";
 import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
-import { fleetReasonText } from "@/views/agent/agentText";
+import { fleetMeterLines, fleetReasonText } from "@/views/agent/agentText";
 import { AgentProviders } from "./agent/AgentProviders";
 import { GroupInstruction } from "./agent/GroupInstruction";
 import { GroupMemory } from "./agent/GroupMemory";
@@ -156,6 +157,19 @@ function Registration({ status }: { status: AgentStatus | null }) {
               "The deployment names the agent and this reads it back: GILBERT_AGENT_ADDRESS and GILBERT_AGENT_PASSWORD live in the environment of whoever starts the server and the worker, so there is one place they come from. Nothing here mints a secret, reads one back, or stores one.",
             )}
           </p>
+          {/* What the installation has spent, read from every group the agent
+              holds — the fleet's own total, with the split per agent (ADR
+              0010). */}
+          {status.operational && (
+            <div className="field" style={{ marginTop: 12 }}>
+              <span className="hint">{t("What the fleet has spent")}</span>
+              {fleetMeterLines(status.meter).map((line) => (
+                <p key={line} className="hint" style={{ margin: 0 }}>
+                  {line}
+                </p>
+              ))}
+            </div>
+          )}
           {!status.operational && status.reason && (
             <div className="error-box" style={{ marginTop: 12 }}>
               {fleetReasonText(status.reason)}

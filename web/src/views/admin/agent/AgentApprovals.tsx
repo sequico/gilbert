@@ -11,16 +11,11 @@
  * looked at.
  *
  * The group is the section's own pick, and the queue is cut to it here rather
- * than asked for again: the read already walks every group the directory
- * returned, and one group's rows are a filter over that answer. The pick never
- * invents a group either — a group the directory did not return simply has
- * nothing to show, and the answer says whether the walk was complete.
- *
- * It can only show the groups the directory enumeration returned, and a session
- * whose directory query is refused falls back on the groups it already holds:
- * the shorter queue and a complete one that happens to be empty read
- * identically, so this panel states which it is. A queue cut to one group keeps
- * that caveat: an enumeration that failed can hide the picked group too.
+ * than asked for again: the read already walks every group the agent holds, and
+ * one group's rows are a filter over that answer. The walk is the agent's own
+ * session, so it is complete by construction — a group the agent does not hold
+ * has no decision to show, and there is no listing that could have fallen short
+ * of it.
  */
 import { useEffect } from "react";
 import { Link } from "wouter";
@@ -35,12 +30,6 @@ export function AgentApprovals({ group }: { group: string }) {
   // empty queue, and the difference is what this panel has to show.
   const problem = useAgents((s) => s.problems.approvals);
   const reading = useAgents((s) => s.busy.approvals);
-  /*
-   * Whether the list behind this queue is complete. The queue answers with the
-   * reach it was built from, so the caveat is that read's own and not the fleet
-   * status's: they are two different questions about the directory.
-   */
-  const reach = useAgents((s) => s.approvalsReach);
   /** The picked group's own rows, out of the queue the read returned. */
   const queue = approvals.filter((a) => a.group === group);
 
@@ -56,18 +45,6 @@ export function AgentApprovals({ group }: { group: string }) {
           "An automation that pauses posts what it proposes in the group's chat, and a member answers there in words. Approving therefore happens in the chat, not here — this queue is the oversight for the group picked above, and the way to see what has been waiting in it.",
         )}
       </p>
-      {reach?.enumeration === false && (
-        <div className="warn-box" style={{ marginBottom: 12 }}>
-          {t(
-            "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.",
-          )}
-          {reach.enumerationMessage && (
-            <p className="hint" style={{ marginTop: 6 }}>
-              <code>{reach.enumerationMessage}</code>
-            </p>
-          )}
-        </div>
-      )}
       {problem ? (
         <div className="error-box">{problem}</div>
       ) : queue.length === 0 ? (

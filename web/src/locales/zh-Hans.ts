@@ -750,8 +750,6 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "列出群组邮箱需要 Stalwart 服务器管理员权限，而此会话没有该权限。",
     "No labels yet.": "暂无标签。",
-    "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
-      "管理群组的标签目录需要是该群组的成员：目录存放在群组自己的文件中，而邮件服务器拒绝代表管理员充当群组邮箱。",
     "You are a member of this group — its labels are managed here.":
       "你是该群组的成员——其标签在此管理。",
     "You are not a member of this group — its label catalog cannot be managed from here.":
@@ -1514,8 +1512,6 @@ export const catalog: Catalog = {
     "itself, or an issuer it does not name": "其自身，或一个未具名的颁发者",
     "no address": "无地址",
     // ── The agent fleet (ADR 0003) ────────────────────────────────────
-    "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
-      "无法列出所有群组邮箱，因此此队列只包含您所属的群组：缺失的群组中可能仍有内容在等待。",
     "Only an administrator of this group changes its instruction and its automations; every member reads them here.":
       "只有该群组的管理员才能更改它的指令和自动化规则；每位成员都可以在这里查看。",
     "No standing instruction has been written for this group.":

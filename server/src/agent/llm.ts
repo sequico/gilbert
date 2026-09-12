@@ -1,12 +1,13 @@
 /**
- * The tiered model client (ADR 0003 resolutions 2 and 7).
+ * The model client: a rule's instruction handed to a model that decides
+ * (ADR 0003 resolutions 2 and 7, ADR 0010).
  *
- * T0 calls no model; T1 asks one small question — which of the rule's
- * categories this is — and runs that category's fixed actions; T2 hands the
- * rule's instruction to a model that decides. Which provider serves a tier is
+ * Every run asks the model, inside the rule's own grant: the answer names
+ * actions from the catalogue, and the review policy decides whether a person
+ * sees it first. Which provider and model serve the installation is
  * per-installation configuration in the agent's own account, never code.
  *
- * Two invariants hold at every tier. The data a run carries is **data**: the
+ * Two invariants hold on every call. The data a run carries is **data**: the
  * prompt says so, and it is stated once here rather than at each call site. And
  * a model answer never becomes an effect on its own: everything it names is
  * validated against the action catalogue and the rule's own capability list, so

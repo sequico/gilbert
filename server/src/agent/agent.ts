@@ -22,6 +22,7 @@ import {
   type UpstreamSession,
   upstreamFor,
 } from "../upstream.js";
+import { groupAccounts } from "./actions.js";
 import { greetUnspoken, readChat } from "./chat.js";
 import type { AgentClaim, AgentStreamClaim, AgentWorkerRecord } from "./documents.js";
 import {
@@ -97,19 +98,20 @@ export interface WorkerHealth {
   uptimeSeconds: number;
 }
 
-/** The accounts a v1 worker may serve: group mailboxes, and nothing personal. */
-export function candidateAccounts(session: UpstreamSession): string[] {
-  const out: string[] = [];
-  for (const [id, account] of Object.entries(session.accounts ?? {})) {
-    const info = account as { isPersonal?: unknown; name?: unknown };
-    // v1 is group agents only (ADR resolution 4): a person's own mailbox is not
-    // this worker's work, whatever the principal can reach.
-    if (info.isPersonal !== false) continue;
-    const name = typeof info.name === "string" ? info.name : "";
-    if (!name.includes("@")) continue;
-    out.push(id);
-  }
-  return out;
+/**
+ * The accounts a v1 agent may serve: the groups its session holds, through the
+ * one classifier rather than a second spelling of it.
+ *
+ * v1 is group agents only (ADR resolution 4): a person's own mailbox is not
+ * this worker's work, whatever the principal can reach, and neither is a share
+ * that happens to carry an address. `groupAccounts` answers with the accounts
+ * that answer as mail stores, which is what a group is.
+ */
+export async function candidateAccounts(ctx: Ctx): Promise<string[]> {
+  // The account ids, not the group names: everything downstream — claims,
+  // stores, the heartbeat's `serves` — addresses an account by its id, and
+  // `groupNameOf` is what turns one back into the name it is served under.
+  return [...(await groupAccounts(ctx)).values()];
 }
 
 /** The Authorization header a plain principal authenticates with. */
@@ -431,7 +433,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
   const pass = async (): Promise<ReadonlyArray<string>> => {
     if (stopped) return [...servedAccounts];
     await refreshSession();
-    const accounts = candidateAccounts(deps.ctx.session);
+    const accounts = await candidateAccounts(deps.ctx);
     // An account the worker was serving and the session no longer lists is a
     // grant that has been withdrawn. It stops being served here and is reported
     // once, rather than failing against it on every pass for as long as the

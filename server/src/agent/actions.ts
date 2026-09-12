@@ -272,6 +272,61 @@ async function mailboxesOf(
 }
 
 /**
+ * Whether an account answers as a mail store — the one group classifier.
+ *
+ * Stalwart advertises the same capabilities on every account a session lists,
+ * so a folder, calendar or address-book share that carries an address looks
+ * exactly like a group mailbox from the session alone. What tells the two apart
+ * is the mail store: an account that answers `Mailbox/get` with a folder tree
+ * is a mailbox, and one that shares only files, calendars or books answers with
+ * none and is not a group. An account this cannot read is not served as one —
+ * "I could not prove it is a mailbox" is not "it is a mailbox".
+ */
+export async function hasMailStore(
+  client: JmapClient,
+  accountId: string,
+): Promise<boolean> {
+  try {
+    return (await mailboxesOf(client, accountId, null)).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The groups of a session: the session's candidates, then the mail store's
+ * probe — the one classifier this product has for what a group is.
+ *
+ * One rule, one owner: every surface that needs to know which accounts are
+ * groups (the administration's doors, the member's read, the daemon's list of
+ * what it may serve) reads it here. The candidates are the non-personal
+ * accounts that carry an address; the probe is `hasMailStore`, because a folder
+ * share with an address looks exactly like a group mailbox from the session
+ * alone and only the mail store tells them apart. Nothing is cached: a grant
+ * withdrawn in Stalwart is read here the next time a surface asks.
+ */
+export async function groupAccounts(ctx: Ctx): Promise<Map<string, string>> {
+  const candidates: Array<[string, string]> = [];
+  for (const [accountId, account] of Object.entries(ctx.session.accounts ?? {})) {
+    const a = account as { name?: unknown; isPersonal?: unknown };
+    if (a.isPersonal !== false) continue;
+    if (typeof a.name !== "string") continue;
+    const name = a.name.trim().toLowerCase();
+    if (name.indexOf("@") <= 0) continue;
+    if (!candidates.some(([, seen]) => seen === name)) candidates.push([accountId, name]);
+  }
+  const client = new JmapClient(ctx);
+  const probed = await Promise.all(
+    candidates.map(async ([accountId, name]) =>
+      (await hasMailStore(client, accountId)) ? ([accountId, name] as const) : null,
+    ),
+  );
+  // The map is read by group name — `Map<name, accountId>` — so the pairs are
+  // turned around here, once, where the probe's own order is still visible.
+  return new Map(probed.filter((row) => row !== null).map(([id, name]) => [name, id]));
+}
+
+/**
  * A mailbox by name. The name is matched here rather than trusted to a server
  * filter: `Mailbox/query` is a hint, and a server that cannot answer it would
  * otherwise turn every move into a failure instead of a lookup over a tree the
@@ -428,9 +483,10 @@ export interface ActionHooks {
   /**
    * After an action has landed and before the next one starts: the executor
    * records it on the job, so a retry resumes after it instead of doing it
-   * twice.
+   * twice. The result rides along, because that is where the id of the record
+   * the action wrote is, and a woken run's lineage is read from that id.
    */
-  onApplied?: (action: AgentAction) => Promise<void>;
+  onApplied?: (action: AgentAction, result: ActionResult) => Promise<void>;
   /**
    * Before an action that leaves the process. A rejection stops the run here,
    * which is the point: a unit somebody else has taken over does nothing more.
@@ -453,8 +509,9 @@ export async function runActions(
       throw new Error(`"${action.do}" needs ${missing.join(", ")} to run`);
     try {
       await hooks.beforeAction?.(action);
-      results.push(await runOne(ctx, client, accountId, action, opts));
-      await hooks.onApplied?.(action);
+      const result = await runOne(ctx, client, accountId, action, opts);
+      results.push(result);
+      await hooks.onApplied?.(action, result);
     } catch (err) {
       throw new Error(
         `"${action.do}" failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -541,7 +598,7 @@ async function runOne(
         folder,
         fileSafeName(textOf(action.with?.name), "note.txt"),
       );
-      await writeBytesIntoVisibleFolder(
+      const nodeId = await writeBytesIntoVisibleFolder(
         ctx,
         accountId,
         folder,
@@ -549,7 +606,11 @@ async function runOne(
         new TextEncoder().encode(textOf(action.with?.text)),
         "text/plain",
       );
-      return { action: action.do, ok: true, result: { path: `${folder}/${name}` } };
+      return {
+        action: action.do,
+        ok: true,
+        result: { path: `${folder}/${name}`, nodeId },
+      };
     }
   }
 }
@@ -628,6 +689,9 @@ async function extractAttachments(
   });
   if (!record) throw new Error(`the message ${emailId} is gone`);
   const saved: string[] = [];
+  // The nodes the extraction made, so the trail and a chain's lineage can name
+  // the files a run wrote rather than the paths it asked for.
+  const nodeIds: string[] = [];
   const used = new Set<string>();
   for (const [index, part] of attachmentParts(record).entries()) {
     const blobId = typeof part.blobId === "string" ? part.blobId : "";
@@ -653,10 +717,18 @@ async function extractAttachments(
     // (ADR 0003 resolution 15), and into the needs-attention folder when
     // nothing determined one — never into the hidden app folder, and never
     // loose in the root.
-    await writeBytesIntoVisibleFolder(ctx, accountId, folder, name, bytes, type);
+    const nodeId = await writeBytesIntoVisibleFolder(
+      ctx,
+      accountId,
+      folder,
+      name,
+      bytes,
+      type,
+    );
+    if (nodeId) nodeIds.push(nodeId);
     saved.push(`${folder}/${name}`);
   }
-  return { emailId, folder, saved };
+  return { emailId, folder, saved, nodeIds };
 }
 
 interface AttachmentPart {

@@ -2,24 +2,26 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The agent worker fleet's admin and member surfaces (ADR 0003), end to end
- * against the mock.
+ * The agent fleet's admin and member surfaces (ADR 0003), end to end against
+ * the mock.
  *
- * Two fixtures carry the whole file. `team@example.org` is a group the demo
- * administrator is a member of, and the group's own documents are reachable
- * through their own session — which is the grant, exactly as it is for the
- * label catalog (ADR 0005). `legal@example.org` is a group they are not a
- * member of, and a non-member administrator has no act-as-the-group path at
- * all: the mock refuses impersonating a group mailbox the way a real 0.16
- * server does.
+ * The group surfaces have one door: they are reached **as the installation's
+ * agent**, the principal that holds a group's documents and executes them, so
+ * what they require is the agent's grant and not the administrator's own
+ * membership. Three fixtures carry the file. `team@example.org` is a group both
+ * the demo administrator and the agent hold; `design@example.org` is the
+ * agent's own group, which the demo is not a member of and still administers
+ * through the agent's grant; `legal@example.org` is a group neither holds, and
+ * the mock refuses impersonating a group mailbox the way a real 0.16 server
+ * does — which is why the documents are reached as the agent and never by
+ * acting as the group.
  *
  * The mock holds an agent principal (`AGENT_ADDRESS`, default
  * `gilbert@example.com`) that an administrator may impersonate, which is what
  * puts the fleet's happy path in reach: a credential provisioned under
  * impersonation, and a sign-in as the agent proving it works. The surfaces that
  * have to answer without one are exercised too: a deployment whose agent cannot
- * be reached is reported rather than invented, and every group write goes
- * through membership.
+ * be reached, and one that names none at all, are reported rather than invented.
  */
 
 const PORT = 18830;
@@ -37,6 +39,7 @@ delete process.env.GILBERT_AGENT_PASSWORD;
 
 const DEMO = "demo@example.com";
 const TEAM = "team@example.org";
+const DESIGN = "design@example.org";
 const LEGAL = "legal@example.org";
 const BASE = `http://127.0.0.1:${PORT}`;
 
@@ -46,6 +49,8 @@ const { AGENT_INSTRUCTION_MAX } = await import("./agent/documents.js");
 const { createApp } = await import("./app.js");
 const { fetchUpstreamSession } = await import("./upstream.js");
 const { filesAccountId, writeAppFile } = await import("./appFolder.js");
+const { AgentStore } = await import("./agent/store.js");
+const { EMPTY_METER } = await import("./agent/documents.js");
 
 const app = createApp();
 let cookie = "";
@@ -84,34 +89,13 @@ function configureAgent(address: string, password = ""): void {
 }
 
 /**
- * Fail one upstream request shape, and hand back the way to put the real
- * `fetch` back.
- *
- * The mock refuses no directory query (it has no `allow_directory_query` gate
- * to close), so a status an answer depends on has to be staged at the one seam
- * every upstream call crosses: the request body says which JMAP method is being
- * asked for, and this makes exactly that one fail.
- */
-function failUpstream(contains: string, status: number): () => void {
-  const real = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const body = typeof init?.body === "string" ? init.body : "";
-    if (body.includes(contains)) return new Response("{}", { status });
-    return real(input, init);
-  }) as typeof fetch;
-  return () => {
-    globalThis.fetch = real;
-  };
-}
-
-/**
  * Fail the agent's own sign-in, and hand back the way to put the real `fetch`
  * back.
  *
  * Signing in is the one call the agent makes that carries no JMAP body — it is
- * a GET on the well-known URL — so `failUpstream` cannot reach it. The request
- * is recognised by the credential it carries, and only the agent's own pair is
- * failed, so a session fetched for anybody else goes through untouched.
+ * a GET on the well-known URL — so no request-body match can reach it. The
+ * request is recognised by the credential it carries, and only the agent's own
+ * pair is failed, so a session fetched for anybody else goes through untouched.
  */
 function failAgentSignIn(status: number): () => void {
   const credential = `Basic ${Buffer.from(
@@ -181,7 +165,7 @@ after(() => {
  * the first of them to exercise the create path.
  */
 test("a group's memory is read, written, and bounded where the document says", async () => {
-  configureAgent("");
+  configureAgent(mock.AGENT_ADDRESS);
   const empty = await call(`/api/admin/groups/${TEAM}/agent/notebook`);
   assert.equal(empty.status, 200);
   assert.deepEqual((empty.body as { facts: unknown[] }).facts, []);
@@ -314,6 +298,9 @@ test("an installation with no agent says so plainly, and never 500s", async () =
     operational: false,
     address: "",
     groups: [],
+    // No group was walked, so there is no use to report: the reason below says
+    // why, and a fleet that is not running spent nothing.
+    meter: { total: EMPTY_METER, byAgent: [], unreadable: [] },
     workers: [],
     // No worker has reported a grant lost, because no worker is serving this
     // installation (ADR 0003 resolution 21).
@@ -414,6 +401,64 @@ test("a deployment carrying the account's own password is operational", async ()
   );
 });
 
+test("the fleet's meter is the installation's use, split per agent", async () => {
+  configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
+  // One run, written by the canonical writer into the group's own audit
+  // document — the only place a run's record lives, which is why the fleet's
+  // total is read group by group (ADR 0010).
+  const agentAuth = `Basic ${Buffer.from(
+    `${mock.AGENT_ADDRESS}:${mock.AGENT_PASS}`,
+  ).toString("base64")}`;
+  const agentCtx = {
+    authorization: agentAuth,
+    session: await fetchUpstreamSession(agentAuth, BASE),
+    username: mock.AGENT_ADDRESS,
+  };
+  const accounts = (agentCtx.session.accounts ?? {}) as Record<string, { name?: string }>;
+  const team = Object.entries(accounts).find(([, a]) => a.name === DESIGN)?.[0];
+  assert.ok(team, "the agent's session holds the group's account");
+  await new AgentStore(agentCtx, team).appendAudit({
+    at: new Date().toISOString(),
+    jobId: "j1",
+    ruleId: "r1",
+    ruleVersion: 1,
+    outcome: "done",
+    actions: [],
+    agent: mock.AGENT_ADDRESS,
+    usage: { inputHitTokens: 40, inputMissTokens: 160, outputTokens: 25 },
+  });
+
+  const body = (await call("/api/admin/agents")).body as {
+    meter: {
+      total: Record<string, number | null>;
+      byAgent: Array<{ agent: string; meter: Record<string, number | null> }>;
+      unreadable: string[];
+    };
+  };
+  assert.deepEqual(
+    body.meter.total,
+    { inputHitTokens: 40, inputMissTokens: 160, outputTokens: 25, runs: 1, uncounted: 0 },
+    "the installation's total is the sum of what its groups spent",
+  );
+  assert.deepEqual(
+    body.meter.byAgent,
+    [
+      {
+        agent: mock.AGENT_ADDRESS,
+        meter: {
+          inputHitTokens: 40,
+          inputMissTokens: 160,
+          outputTokens: 25,
+          runs: 1,
+          uncounted: 0,
+        },
+      },
+    ],
+    "and the split names the agent each entry credits",
+  );
+  assert.deepEqual(body.meter.unreadable, [], "every group's audit was readable");
+});
+
 test("providers: empty without an agent, refused when the agent is out of reach", async () => {
   configureAgent("");
   const none = await call("/api/admin/agent/providers");
@@ -438,8 +483,8 @@ test("providers: empty without an agent, refused when the agent is out of reach"
   assert.equal((posted.body as { error: string }).error, "agent_unreachable");
 });
 
-test("a member administrator reads and saves a group's rules", async () => {
-  configureAgent("");
+test("an administrator reads and saves a group's rules", async () => {
+  configureAgent(mock.AGENT_ADDRESS);
   const before = await call(`/api/admin/groups/${TEAM}/agent`);
   assert.equal(before.status, 200);
   const initial = before.body as { granted: boolean; rules: unknown[]; audit: unknown[] };
@@ -495,7 +540,7 @@ test("a member administrator reads and saves a group's rules", async () => {
 });
 
 test("a rule that could never run is refused with its code and its parameters", async () => {
-  configureAgent("");
+  configureAgent(mock.AGENT_ADDRESS);
   const notARule = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
     body: JSON.stringify({ rules: [{ v: 1, id: "half" }] }),
@@ -536,10 +581,26 @@ test("a rule that could never run is refused with its code and its parameters", 
   assert.equal((duplicate.body as { error: string }).error, "duplicate_rule");
 });
 
-test("a group the admin is not a member of answers with the refusal", async () => {
-  configureAgent("");
+test("a group the agent is not granted on answers with the refusal", async () => {
+  configureAgent(mock.AGENT_ADDRESS);
+  // The meter is a reading of the trail the same answer carries, in the shape
+  // the document declares (ADR 0010): no runs yet, and nothing unknown.
+  const metered = await call(`/api/admin/groups/${TEAM}/agent`);
+  assert.equal(metered.status, 200);
+  assert.deepEqual((metered.body as { meter: unknown }).meter, {
+    inputHitTokens: null,
+    inputMissTokens: null,
+    outputTokens: null,
+    runs: 0,
+    uncounted: 0,
+  });
+
   const view = await call(`/api/admin/groups/${LEGAL}/agent`);
-  assert.equal(view.status, 200, "a missing membership is a state, not a failure");
+  assert.equal(
+    view.status,
+    200,
+    "a group the agent does not hold is a state, not a failure",
+  );
   const body = view.body as {
     group: string;
     granted: boolean;
@@ -554,7 +615,7 @@ test("a group the admin is not a member of answers with the refusal", async () =
   };
   assert.equal(body.granted, false);
   assert.equal(body.group, LEGAL);
-  assert.equal(body.agentAddress, "", "no agent is registered in this installation");
+  assert.equal(body.agentAddress, mock.AGENT_ADDRESS);
   assert.equal(body.error, "group_not_accessible");
   assert.equal(
     body.need,
@@ -592,8 +653,33 @@ test("a group the admin is not a member of answers with the refusal", async () =
   assert.equal(save.status, 403);
 });
 
+test("a group the agent holds is administered without the administrator's membership", async () => {
+  configureAgent(mock.AGENT_ADDRESS);
+  // `design@example.org` is the agent's group and not the demo user's: the door
+  // is the agent's grant, so this administers it where a membership rule would
+  // have refused.
+  const view = await call(`/api/admin/groups/${DESIGN}/agent`);
+  assert.equal(view.status, 200);
+  const body = view.body as { granted: boolean; error?: string; rules: unknown[] };
+  assert.ok(!body.error, "no refusal: the agent is granted here");
+  assert.equal(body.granted, true, "the agent reaches it, so the surface is open");
+
+  const saved = await call(`/api/admin/groups/${DESIGN}/agent/rules`, {
+    method: "POST",
+    body: JSON.stringify({ rules: [rule()] }),
+  });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  const stored = await call(`/api/admin/groups/${DESIGN}/agent/rules`);
+  assert.equal(stored.status, 200);
+  assert.deepEqual(
+    (stored.body as { rules: Array<{ id: string }> }).rules.map((r) => r.id),
+    ["r1"],
+    "the automation lands in a group the administrator is not a member of",
+  );
+});
+
 test("the agent's reserved labels are added once, and existing labels survive", async () => {
-  configureAgent("");
+  configureAgent(mock.AGENT_ADDRESS);
   const existing = { keyword: "urgent", name: "Urgent", color: "#d94f4f" };
   const seeded = await call(`/api/admin/groups/${TEAM}/labels`, {
     method: "POST",
@@ -622,7 +708,7 @@ test("the agent's reserved labels are added once, and existing labels survive", 
 });
 
 test("a member reads the group's agent surface, and never a provider", async () => {
-  configureAgent("");
+  configureAgent(mock.AGENT_ADDRESS);
   // Self-contained: the member view has something to show because the group's
   // own account holds a rule, saved here through the admin surface.
   const seeded = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
@@ -653,7 +739,7 @@ test("a member reads the group's agent surface, and never a provider", async () 
   };
   assert.equal(view.group, TEAM);
   assert.equal(view.granted, true, "the group's own documents are the evidence");
-  assert.equal(view.agentAddress, "", "no agent is registered in this installation");
+  assert.equal(view.agentAddress, mock.AGENT_ADDRESS);
   assert.deepEqual(view.jobs, []);
   assert.deepEqual(view.audit, []);
   assert.equal(view.rules.length, 2);
@@ -678,9 +764,9 @@ test("a member reads the group's agent surface, and never a provider", async () 
     "Label the messages this automation was written for.",
     "and so is what the automation is asked to do",
   );
-  const t2 = view.rules.find((r) => r.id === "r2");
+  const second = view.rules.find((r) => r.id === "r2");
   assert.equal(
-    t2?.instruction,
+    second?.instruction,
     "Decide what it is and act.",
     "and a second automation carries an instruction of its own",
   );
@@ -698,7 +784,7 @@ test("a member reads the group's agent surface, and never a provider", async () 
 });
 
 test("a member reads the group's standing instruction, and nobody else reads it", async () => {
-  configureAgent("");
+  configureAgent(mock.AGENT_ADDRESS);
   // A group with no instruction answers with the empty text rather than an
   // absent field: a panel has to be able to say "there is none" plainly.
   const none = await call(`/api/agent/group/${TEAM}`);
@@ -710,8 +796,8 @@ test("a member reads the group's standing instruction, and nobody else reads it"
     max: AGENT_INSTRUCTION_MAX,
   });
 
-  // Written where it is written today: the admin surface, by a member
-  // administrator, through the group's own files.
+  // Written where it is written today: the admin surface, which reaches the
+  // group's own files as the installation's agent.
   const written = await call(`/api/admin/groups/${TEAM}/agent/instruction`, {
     method: "POST",
     body: JSON.stringify({
@@ -773,60 +859,22 @@ test("a member reads the group's standing instruction, and nobody else reads it"
   assert.ok(!("instruction" in (stranger.body ?? {})), "a refusal carries no document");
 });
 
-test("the approvals queue is empty and needs no agent", async () => {
+test("the approvals queue walks the agent's own groups", async () => {
   configureAgent("");
+  const noAgent = await call("/api/admin/agent/approvals");
+  assert.equal(noAgent.status, 409, "a queue needs the agent it is the queue of");
+  assert.equal((noAgent.body as { error: string }).error, "agent_not_configured");
+
+  configureAgent(mock.AGENT_ADDRESS);
   const res = await call("/api/admin/agent/approvals");
   assert.equal(res.status, 200);
-  assert.deepEqual(res.body, {
-    approvals: [],
-    enumeration: true,
-    enumerationMessage: null,
-  });
-});
-
-test("a queue the directory could not be listed for says so", async () => {
-  // The admin who is not also a Stalwart server administrator hits the
-  // directory gate, and the queue then walks only the groups their own session
-  // holds. The answer has to carry that, or a short queue and an empty one read
-  // the same. The agent is deliberately not configured: the queue is built from
-  // the admin's own reach, which is a different read from the fleet's.
-  configureAgent("");
-  const denied = failUpstream("Principal/query", 403);
-  try {
-    const queue = await call("/api/admin/agent/approvals");
-    assert.equal(queue.status, 200);
-    const body = queue.body as {
-      approvals: unknown[];
-      enumeration: boolean;
-      enumerationMessage: string | null;
-    };
-    assert.deepEqual(body.approvals, []);
-    assert.equal(body.enumeration, false, "the list is the membership fallback");
-    assert.ok(body.enumerationMessage, "and the reason travels with it");
-  } finally {
-    denied();
-  }
-
-  // A directory that fails outright is the same answer, not a 500.
-  const broken = failUpstream("Principal/query", 500);
-  try {
-    const queue = await call("/api/admin/agent/approvals");
-    assert.equal(queue.status, 200);
-    const body = queue.body as {
-      enumeration: boolean;
-      enumerationMessage: string | null;
-    };
-    assert.equal(body.enumeration, false);
-    assert.match(body.enumerationMessage ?? "", /500/);
-  } finally {
-    broken();
-  }
+  assert.deepEqual(res.body, { approvals: [] });
 });
 
 test("every refusal names the section the surface asked for", async () => {
-  configureAgent("");
+  configureAgent(mock.AGENT_ADDRESS);
   /*
-   * One door — membership of the group — and every route that asks for a
+   * One door — the agent's grant on the group — and every route that asks for a
    * group's documents: the refusal has to name what the person was standing at
    * (the label catalog is one section's document, and "labels" is the answer
    * to all of them if the section is not carried), and it has to travel as the
@@ -926,7 +974,7 @@ test("the save path refuses against the published schema, in the schema's words"
   // validator (resolution 16): a rule the form accepts cannot come back
   // rejected, and one it refuses is refused here in the same words — which
   // travel as the refusal's `problems`, so the surface can read them out.
-  configureAgent("");
+  configureAgent(mock.AGENT_ADDRESS);
   const bad = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
     body: JSON.stringify({ rules: [rule({ capabilities: [] })] }),
@@ -960,7 +1008,7 @@ test("the save path refuses against the published schema, in the schema's words"
  * else a group's documents are out of reach.
  */
 test("a group's audit trail is copied, and the copy dates itself", async () => {
-  configureAgent("");
+  configureAgent(mock.AGENT_ADDRESS);
   const res = await call(`/api/admin/groups/${TEAM}/agent/audit`);
   assert.equal(res.status, 200);
   const body = res.body as {
@@ -970,7 +1018,7 @@ test("a group's audit trail is copied, and the copy dates itself", async () => {
     months: unknown[];
   };
   assert.equal(body.group, TEAM);
-  assert.equal(body.agentAddress, "", "no agent is registered in this installation");
+  assert.equal(body.agentAddress, mock.AGENT_ADDRESS);
   assert.ok(
     Number.isFinite(Date.parse(body.exportedAt)),
     "the copy dates itself, so a reader knows the cut of the record",
@@ -982,8 +1030,8 @@ test("a group's audit trail is copied, and the copy dates itself", async () => {
   );
 });
 
-test("the audit copy is refused for a group the admin is not a member of", async () => {
-  configureAgent("");
+test("the audit copy is refused for a group the agent does not hold", async () => {
+  configureAgent(mock.AGENT_ADDRESS);
   const res = await call(`/api/admin/groups/${LEGAL}/agent/audit`);
   assert.equal(res.status, 403);
   const body = res.body as { error?: string; need?: string };
@@ -1010,7 +1058,7 @@ test("the audit copy is refused for a group the admin is not a member of", async
  * anything into the group's trail, because no run happened.
  */
 test("an automation can be asked for, and the ask is a job", async () => {
-  configureAgent(TEAM);
+  configureAgent(mock.AGENT_ADDRESS);
   await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
     body: JSON.stringify({ rules: [rule({ id: "manual-1" })] }),
@@ -1042,7 +1090,7 @@ test("an automation can be asked for, and the ask is a job", async () => {
 });
 
 test("an ask that cannot run is answered, and writes nothing", async () => {
-  configureAgent(TEAM);
+  configureAgent(mock.AGENT_ADDRESS);
   await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
     body: JSON.stringify({

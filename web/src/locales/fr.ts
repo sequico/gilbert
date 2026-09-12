@@ -774,8 +774,6 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "Lister les boîtes de groupe requiert le privilège d'administrateur serveur de Stalwart, que cette session ne possède pas.",
     "No labels yet.": "Aucun libellé pour l'instant.",
-    "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
-      "Gérer le catalogue de libellés d'un groupe exige d'en être membre : le catalogue vit dans les fichiers propres du groupe, et le serveur de messagerie refuse d'agir comme une boîte de groupe pour le compte d'un administrateur.",
     "You are a member of this group — its labels are managed here.":
       "Vous êtes membre de ce groupe — ses libellés se gèrent ici.",
     "You are not a member of this group — its label catalog cannot be managed from here.":
@@ -1577,8 +1575,6 @@ export const catalog: Catalog = {
       "lui-même, ou un émetteur qu'il ne nomme pas",
     "no address": "aucune adresse",
     // ── The agent fleet (ADR 0003) ────────────────────────────────────
-    "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
-      "Les boîtes de groupe n'ont pas toutes pu être listées, cette file ne couvre donc que les groupes dont vous êtes membre : quelque chose attend peut-être dans un groupe absent d'ici.",
     "Only an administrator of this group changes its instruction and its automations; every member reads them here.":
       "Seul un administrateur de ce groupe modifie son instruction et ses automatisations ; chaque membre les lit ici.",
     "No standing instruction has been written for this group.":

@@ -453,9 +453,10 @@ stops asking an author to classify what they want.
   hop with the group told.
 - The admin surface gains the meter: the group's own use where its automations
   are, and the installation's total with the split per agent where the fleet is
-  read. The installation-wide total is as complete as the administrator's reach —
-  a group they are not a member of cannot be counted — and it says so, the same
-  way the approvals queue does.
+  read. The installation-wide total is as complete as the agent's reach — every
+  group the agent holds, which is where its runs can be — and a group the agent
+  is not granted on cannot be counted, which the surface says the same way the
+  approvals queue does.
 
 ## Alternatives considered
 

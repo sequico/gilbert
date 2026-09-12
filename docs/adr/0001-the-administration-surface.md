@@ -327,8 +327,9 @@ never appears (the endpoint always strips it) and is not a usable marker.
 - **Group-in-session facts against a real 0.16 server** (verified at
   implementation time with a dated comment, per repo convention): a member's
   JMAP session exposes the group account whatever the member's domain; only
-  members see it; a member can impersonate the group account (for the
-  admin-owned documents of §5).
+  members see it; and a group mailbox cannot be impersonated (403, live-verified
+  — ADR 0003), which is why a group's agent documents are reached as the
+  installation's agent that holds the group, never by acting as the group.
 - **Roles and principal attributes as the grant (checked 2026-09-07, source
   v0.16.21):** `roles` and the directory attributes are managed through
   Stalwart's own administration (webadmin / Management API) and are not

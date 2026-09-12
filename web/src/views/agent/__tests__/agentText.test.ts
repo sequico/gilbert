@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { type Catalog, setCatalog } from "@/lib/i18n";
 import {
   actionText,
+  fleetMeterLines,
   fleetReasonText,
   jobStateText,
   outcomeText,
@@ -74,6 +75,8 @@ describe("outcomeText", () => {
     expect(outcomeText("missed")).toBe("Missed");
     // A run whose worker stopped holding it, which is an outcome of its own.
     expect(outcomeText("timeout")).toBe("Timed out");
+    // A run a chain refused before it started, which is an outcome of its own.
+    expect(outcomeText("refused")).toBe("Refused");
   });
 });
 
@@ -96,6 +99,48 @@ describe("reviewMeaningText", () => {
     expect(reviewMeaningText("threshold")).not.toBe(always);
     expect(reviewMeaningText("never")).not.toBe(always);
     expect(reviewMeaningText("something-else")).toBe("");
+  });
+});
+
+/*
+ * The fleet's meter is the installation's total and the split behind it: the
+ * lines have to carry both, and say when a group's audit could not be read —
+ * the total is a floor then, and a surface that showed it as complete would be
+ * telling a quieter story than the one the numbers support (ADR 0010).
+ */
+describe("fleetMeterLines", () => {
+  const meter = (runs: number, tokens: number | null) => ({
+    inputHitTokens: tokens,
+    inputMissTokens: null,
+    outputTokens: null,
+    runs,
+    uncounted: 0,
+  });
+
+  it("leads with the total, then one line per agent", () => {
+    const lines = fleetMeterLines({
+      total: meter(3, 120),
+      byAgent: [
+        { agent: "gilbert@example.com", meter: meter(2, 100) },
+        { agent: "", meter: meter(1, 20) },
+      ],
+      unreadable: [],
+    });
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toContain("3 runs");
+    expect(lines[1]).toContain("gilbert@example.com");
+    // An entry that names no agent is still counted, and the line says so
+    // rather than leaving a blank before the colon.
+    expect(lines[2]).toContain("2");
+  });
+
+  it("names the groups that left the total a floor", () => {
+    const lines = fleetMeterLines({
+      total: meter(1, 10),
+      byAgent: [],
+      unreadable: ["legal@example.org"],
+    });
+    expect(lines.join(" ")).toContain("legal@example.org");
   });
 });
 

@@ -423,6 +423,15 @@ const agentWorkerSettings = {
    * readable rather than inferred (ADR 0010).
    */
   thinking: bool("GILBERT_AGENT_THINKING", true),
+  /*
+   * How many hops a chain of automations runs before the next one is refused
+   * (ADR 0010). Hop one is the trigger that wakes a rule by itself, and a run
+   * woken by another run's effect is one more; a cycle of automations that wake
+   * each other ends here. The number is carried in the installation's
+   * configuration rather than compiled in, so a deployment with a legitimately
+   * longer pipeline raises it instead of waiting for a release.
+   */
+  maxChainHops: int("GILBERT_AGENT_MAX_CHAIN_HOPS", 5),
 };
 
 /**

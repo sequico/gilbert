@@ -47,6 +47,8 @@ const BASE = `http://127.0.0.1:${PORT}`;
  */
 const MODEL_PORT = 18854;
 const answers = new Map<string, unknown>();
+/** Every automation a run has asked the model about, in order. */
+const asked: string[] = [];
 const DEFAULT_ANSWER = {
   summary: "Labelled it.",
   confidence: 1,
@@ -72,6 +74,7 @@ const modelStub = createServer(async (req: IncomingMessage, res) => {
     system = "";
   }
   const named = /automation "([^"]+)"/.exec(system)?.[1] ?? "";
+  asked.push(named);
   const answer = answers.get(named) ?? DEFAULT_ANSWER;
   res.writeHead(200, { "content-type": "application/json" });
   res.end(
@@ -1343,5 +1346,102 @@ test("a run somebody asked for tells the group what it did", async () => {
         message.text.includes("as asked") && message.text.includes("Add a label"),
     ),
     "the group reads what the run a person asked for did, in words rather than codes",
+  );
+});
+
+test("a chain carries its lineage, and the run past the bound is refused loudly", async () => {
+  /*
+   * Two automations passing work along (ADR 0010): the first files what the
+   * mail says, and the second wakes on the file it wrote, writes one of its own
+   * and so wakes itself again. That cycle is the case the bound exists for — it
+   * ends by itself, at the bound, with a line in the group's chat that says why.
+   */
+  const filer = rule({
+    id: "chain-first",
+    name: "Chain: file it",
+    trigger: { on: "email", filter: { subject: "chain" } },
+    capabilities: ["file.write"],
+  });
+  const reader = rule({
+    id: "chain-second",
+    name: "Chain: read it",
+    trigger: { on: "filenode" },
+    capabilities: ["file.write"],
+  });
+  const writes = (name: string) => ({
+    summary: "Wrote a note.",
+    confidence: 1,
+    actions: [{ do: "file.write", with: { folder: "Chain", name, text: "the note" } }],
+  });
+  answerFor("Chain: file it", writes("first.txt"));
+  answerFor("Chain: read it", writes("again.txt"));
+
+  // The FileNode state the worker has reconciled up to is anchored before this
+  // test's own files exist, so the passes below see the chain and nothing else.
+  await executor.reconcile(GROUP, "FileNode", {
+    ...(await claimFor()),
+    states: {},
+  });
+  await store.writeRules([filer, reader]);
+
+  await createMessage("the chain starts here");
+  await executor.reconcile(GROUP, "Email", await claimFor());
+
+  const first = (await jobsOf("chain-first")).at(-1);
+  assert.ok(first, "the arrival opened a run");
+  assert.equal(first.trigger.hop, 1, "what wakes a rule by itself is hop one");
+  assert.equal(
+    first.trigger.parentJobId,
+    undefined,
+    "and it records no parent, because nothing woke it but the mail",
+  );
+  const readBefore = asked.filter((name) => name === "Chain: read it").length;
+
+  // The file changes, pass by pass: the run of each pass writes the file that
+  // wakes the next one, and the fifth pass reports the file the fifth hop wrote.
+  for (let pass = 0; pass < 5; pass++) {
+    await executor.reconcile(GROUP, "FileNode", await claimFor());
+  }
+
+  const chain = await jobsOf("chain-second");
+  assert.deepEqual(
+    chain.map((job) => job.trigger.hop),
+    [2, 3, 4, 5],
+    "a run woken by another run's effect is one hop further, and five is the bound",
+  );
+  assert.deepEqual(
+    chain.map((job) => job.trigger.parentJobId),
+    [first.id, chain[0]!.id, chain[1]!.id, chain[2]!.id],
+    "each woken run records the job that woke it",
+  );
+  assert.equal(
+    asked.filter((name) => name === "Chain: read it").length - readBefore,
+    4,
+    "no run happens for the sixth hop, so no model is asked about one",
+  );
+
+  const audit = await store.readAuditAt(new Date());
+  const refusals = (audit?.entries ?? []).filter((entry) => entry.outcome === "refused");
+  assert.equal(refusals.length, 1, "the refusal stands alone in the trail");
+  assert.equal(refusals[0]!.ruleId, "chain-second");
+  assert.match(
+    String(refusals[0]!.detail),
+    /Chain: read it: .*past 5 hops/,
+    "and names the automation and the bound it was refused past",
+  );
+
+  const chat = await readChat(ctx, GROUP, client);
+  assert.ok(
+    chat.some(
+      (message) =>
+        message.text.includes("Chain: read it") && message.text.includes("past 5 hops"),
+    ),
+    "the group is told which automation could not run, and that the chain passed five hops",
+  );
+  assert.ok(
+    logLines.some(
+      (line) => line.includes("Chain: read it") && line.includes("past 5 hops"),
+    ),
+    "and the log carries the same line",
   );
 });

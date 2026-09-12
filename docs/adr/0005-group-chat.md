@@ -181,6 +181,16 @@ belong to the group, not to any member.
 - **Where it lives.** `labels.json` in the group account's own `gilbert` app
   folder, beside the chat folders — the group is the owner from the start,
   membership is the grant, no `shareWith`, no ACL maintenance.
+- **What counts as a group.** An account that answers as a **mail store**: the
+  session's own list is a candidate list, because Stalwart advertises the same
+  capabilities on every account it lists, so a folder, calendar or address-book
+  share that carries an address looks exactly like a group mailbox from there.
+  The probe is the classifier — an account that answers `Mailbox/get` with a
+  folder tree is a group, one that answers with none is a share — and it is one
+  rule with one owner on the server (`groupAccounts`) and the same rule in the
+  client's mailbox probe. An account nobody can probe is not treated as a
+  group: reading a share as one would put a group's documents in somebody's
+  shared folder.
 - **Shape.** An array of `Label` (`{ keyword, name, color, … }`), the same
   shape as the personal `settings.labels`. The keyword is the stable identity
   that rides on the messages; name, colour and nesting are display only.
@@ -188,10 +198,14 @@ belong to the group, not to any member.
   is rewritten, so there are no stale keywords by construction.
 - **Who does what.** Members read the catalog and apply or remove labels
   through their own session on the group account (plain `Email/set` keywords)
-  — no impersonation, no extra privilege. Only an administrator defines or
-  changes the catalog, from the admin surface, through the existing
-  impersonation write (the same grant forced-password uses); an administrator
-  who is a member of that group needs no impersonation.
+  — no impersonation, no extra privilege. An administrator defines or changes
+  the catalog from the admin surface, and that write goes through the door
+  every write into a group's own files goes through: **as the installation's
+  agent**, the deployment's credential when it holds one or impersonation from
+  the administrator's session otherwise. The catalog is the *group's* — members
+  apply it — but the pen that reaches a group's files is the agent's, so the
+  grant that surface needs is the agent's on the group and not the
+  administrator's own membership.
 - **Effective catalog.** Browsing a group mailbox uses the group's own
   catalog, never the reader's personal labels; the reader's own mailbox keeps
   the personal labels.

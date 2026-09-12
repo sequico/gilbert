@@ -436,3 +436,27 @@ test("a draft carries the group's own signature, as the composer writes it", asy
     );
   }
 });
+
+/**
+ * The group classifier: the mail store's probe.
+ *
+ * A group is an account that answers as a mail store, not one the session
+ * merely lists — the share in this session is non-personal and carries an
+ * address, and reading it as a group would put a group's documents in
+ * somebody's shared folder. This is the assertion that fails when the session
+ * alone decides.
+ */
+test("a group is probed, and a share with an address is never one", async () => {
+  const { groupAccounts } = await import("./actions.js");
+  const groups = await groupAccounts(ctx);
+  assert.deepEqual(
+    [...groups.keys()],
+    ["team@example.org"],
+    "the group this session holds, and not the account shared with it",
+  );
+  assert.equal(groups.get("team@example.org"), GROUP, "by name, to its account");
+  assert.ok(
+    !groups.has("grace@example.org"),
+    "a share with an address is not a group: it has no mail store",
+  );
+});

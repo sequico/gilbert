@@ -149,8 +149,10 @@ holding; what a withdrawal left unfinished stays in the group's own audit,
 which the agent can no longer read — the record never claims to know it. And
 nothing is written or deleted in the withdrawn group on the way out: the claim
 is left for its lease to lapse, which is how a withdrawal ends.
-- **The group's standing instruction.** One text per group, written by an
-administrator of that group in the admin surface, handed to the model on
+- **The group's standing instruction.** One text per group, written in the
+admin surface — which reaches a group's own files as the installation's agent,
+so an administrator needs the agent's grant on the group rather than their own
+membership — and handed to the model on
 **every** call the group's agent makes — first in the prompt, before the
 automation's own instruction and before the message it is reading. It says how
 the agent should work for this group (language, tone, conventions) so that does
@@ -208,6 +210,27 @@ administrator add, correct and remove one fact at a time; and it sits in the
 prompt's stable head, so carrying it into every call costs a cache hit rather
 than a miss. It steers and it never widens: what an automation may do is its
 own capability allowlist.
+- **What the work costs, in counts.** Every run records what the call spent —
+tokens read from cache, tokens read fresh, tokens written, and whether the run
+paid for the model's chain of thought — beside the work it did, and a run whose
+provider reported nothing is counted as **uncounted** rather than folded in as
+a zero: a reading that understates the bill is worse than one that admits what
+it does not know. Where a group's automations are read, that group's own use is
+shown; where the fleet is read, the installation's total with the split per
+agent. The counts are tokens, never money — a price list belongs to a vendor and
+changes without asking — and the total is a floor whenever a group's audit could
+not be read, which the surface says instead of hiding behind it.
+- **One automation's work can wake another, and a chain is bounded.** That is the
+point of automations rather than a side effect: "file the invoice where the
+client's name says, then read it and tell the group" is two automations passing
+work along, and the hand-off travels through the group's own documents — a file
+written into its Files wakes a file rule, a decision answered in its chat closes
+the run that was waiting. Every run records the job that woke it, a chain runs
+**five hops** (the number is the installation's, `GILBERT_AGENT_MAX_CHAIN_HOPS`),
+and the sixth is **refused loudly**: no job, an audit entry whose outcome is
+`refused`, and a line in the group's chat naming the automation and the bound.
+A cycle of automations that wake each other therefore ends by itself, at the
+bound, with a reason a person can read.
 - **Labels, not folders.** `G-needattention`, `G-processed`, `G-awaiting`,
 `G-rejected` mark Gilbert's processing state on the individual message; the
 catalog is created from the admin surface once the grant exists. State is per
@@ -341,13 +364,22 @@ composite `{target}%{admin}` (impersonation) — it needs Stalwart's
 `Impersonate` permission and a password session (app passwords are refused
 for impersonation), which the surface states up front.
 - **Group label catalog**: an administrator defines the label catalog of a
-group mailbox (ADR 0005). The catalog lives in the group's own `gilbert`
-app folder; **membership is the grant** — a member administrator reads and
-writes it through their own session on the group's account, with no
-impersonation, and a non-member is refused with that reason. Stalwart 0.16
-refuses to mint a session for an impersonated group account
-(live-verified 2026-09-09), so the member path is the only one; the
-surface marks whether you are a member of each group.
+group mailbox (ADR 0005). The catalog is **the group's** — members apply it —
+and it lives in the group's own `gilbert` app folder. The write is made **as
+the installation's agent**, which is the principal that reaches a group's own
+files (the deployment's credential where there is one, impersonation from the
+administrator's session otherwise), so **the requirement is the agent's grant
+on the group and not the administrator's own membership**: a group the agent
+holds is administered even by an administrator who is not in it, and one it
+does not hold answers with the section that asked. Stalwart 0.16 refuses to
+mint a session for an impersonated group account (live-verified 2026-09-09),
+which is why the door is never the group's own mailbox.
+- **What counts as a group** (ADR 0005): an account that answers as a **mail
+store**. The session's own list is only a candidate list — Stalwart advertises
+the same capabilities on every account it lists, so a folder, calendar or
+address-book share that carries an address would otherwise read as a group —
+and the one classifier is a probe of the account's mailbox tree, server-side
+and in the client alike. A share is never administered or served as a group.
 - **Enforce Identities** (ADR 0007), under *Stalwart* in the administration:
   one section, two tabs — **User identities** for a person's, **Group
   identities** for a group's. Each tab picks its principal from a menu that

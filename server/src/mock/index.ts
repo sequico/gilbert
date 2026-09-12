@@ -1752,8 +1752,10 @@ const principals: Obj[] = people.slice(0, 5).map((p, i) => ({
 }));
 // Group principals, so the directory and the sharing pickers can offer
 // teams. The demo user is a member of `team@example.org` (its account is in
-// the demo session below); `legal@example.org` is a group the demo is not a
-// member of, for the surfaces that must refuse non-members (ADR 0005).
+// the demo session below); `design@example.org` is the agent's own group, which
+// the demo is not a member of and still administers through the agent's grant;
+// `legal@example.org` is a group neither holds, for the surfaces that must
+// refuse (ADR 0005, ADR 0003 "Admin surfaces").
 principals.push(
   {
     id: "pr-team",
@@ -4039,6 +4041,13 @@ const sessionFor = (identity: Identity) => ({
             isReadOnly: false,
             accountCapabilities: SHARED_CAPS,
           },
+        }
+      : {}),
+    /* `design@example.org` is the agent's own group: it grants the agent and
+       not the demo user, which is the membership the group surfaces read -- the
+       administrator who is not a member reaches it by the agent's grant. */
+    ...(identity.username === AGENT_ADDRESS
+      ? {
           [GROUP2_ACCOUNT]: {
             name: "design@example.org",
             isPersonal: false,

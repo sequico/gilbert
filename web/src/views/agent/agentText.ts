@@ -13,6 +13,7 @@ import {
   type AgentAction,
   type AgentAuditOutcome,
   type AgentJobState,
+  type AgentMeter,
   type AgentReview,
   type AgentReviewMode,
   type AgentRule,
@@ -21,7 +22,11 @@ import {
   agentActionSpec,
   SUPPORTED_FILTER_KEYS,
 } from "@gilbert/agent/documents";
-import type { AgentStatusReason, MemberAgentRule } from "@gilbert/agent/views";
+import type {
+  AgentStatusMeter,
+  AgentStatusReason,
+  MemberAgentRule,
+} from "@gilbert/agent/views";
 import { agentSentence } from "@/lib/agentErrors";
 import { t } from "@/lib/i18n";
 
@@ -81,6 +86,7 @@ export const AGENT_OUTCOME_LABELS: Record<AgentAuditOutcome, string> = {
   rejected: "Rejected",
   missed: "Missed",
   timeout: "Timed out",
+  refused: "Refused",
 };
 
 /** The catalogue's own labels, keyed by capability name. */
@@ -90,6 +96,61 @@ export const AGENT_ACTION_LABELS: Record<string, string> = Object.fromEntries(
 
 export function actionLabel(name: string): string {
   return t(AGENT_ACTION_LABELS[name] ?? name);
+}
+
+/**
+ * What a meter reads as, in words.
+ *
+ * The counts are tokens and never money — a price list belongs to a vendor and
+ * changes without asking (ADR 0010) — and a run the provider reported nothing
+ * for is said out loud rather than folded in as a zero, because a reading that
+ * understated the bill would be worse than one that admits what it does not
+ * know.
+ */
+export function meterText(meter: AgentMeter): string {
+  const count = (value: number | null): string =>
+    value === null ? t("unknown") : value.toLocaleString();
+  const base = t(
+    "{runs} runs · {hit} tokens read from cache, {miss} read fresh, {out} written",
+    {
+      runs: meter.runs.toLocaleString(),
+      hit: count(meter.inputHitTokens),
+      miss: count(meter.inputMissTokens),
+      out: count(meter.outputTokens),
+    },
+  );
+  return meter.uncounted > 0
+    ? `${base} · ${t("{n} of them reported no usage", { n: meter.uncounted })}`
+    : base;
+}
+
+/**
+ * The installation's use, as lines a surface renders in order (ADR 0010).
+ *
+ * The total first — the number a deployment is judged by — then one line per
+ * agent that spent a call, and last the groups whose audit could not be read:
+ * the total is a floor then, and saying so is the difference between "this is
+ * everything" and "this is what I could see".
+ */
+export function fleetMeterLines(meter: AgentStatusMeter): string[] {
+  const lines = [
+    t("This installation has spent: {meter}", { meter: meterText(meter.total) }),
+  ];
+  for (const row of meter.byAgent)
+    lines.push(
+      t("{agent}: {meter}", {
+        agent: row.agent || t("no agent named"),
+        meter: meterText(row.meter),
+      }),
+    );
+  if (meter.unreadable.length > 0)
+    lines.push(
+      t(
+        "The audit of {groups} could not be read, so this total is a floor: their runs are in no count here.",
+        { groups: meter.unreadable.join(", ") },
+      ),
+    );
+  return lines;
 }
 
 /**

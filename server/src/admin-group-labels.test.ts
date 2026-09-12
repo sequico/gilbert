@@ -5,13 +5,15 @@ import { after, before, test } from "node:test";
  * The admin group-label catalog surface (ADR 0005), end to end against the
  * mock.
  *
- * Membership is the grant: an administrator who is a member of the group
- * reads and writes the catalog through their own session on the group's
- * account (no impersonation), and a non-member administrator is refused —
- * Stalwart 0.16 refuses to mint a session for an impersonated group account
- * (live-verified 2026-09-09; the mock reproduces the refusal). The demo user
- * is a member of `team@example.org` and not of `legal@example.org`, which
- * the directory also lists.
+ * The catalog is the agent's, so the surface reaches it **as the installation's
+ * agent**: what it needs is the agent's grant on the group, and not the
+ * administrator's own membership. `team@example.org` is a group both hold,
+ * `design@example.org` is the agent's own — administered here by an
+ * administrator who is not a member — and `legal@example.org` is a group the
+ * agent does not hold, which is the refusal. Stalwart 0.16 refuses to mint a
+ * session for an impersonated group account (live-verified 2026-09-09; the mock
+ * reproduces the refusal), which is why the door is the agent and never the
+ * group's own mailbox.
  */
 
 const PORT = 18820;
@@ -24,9 +26,11 @@ process.env.LOGIN_RATE_LIMIT = "10000";
 
 const DEMO = "demo@example.com";
 const TEAM = "team@example.org";
+const DESIGN = "design@example.org";
 const LEGAL = "legal@example.org";
 
 const mock = await import("./mock/index.js");
+const { config } = await import("./config.js");
 const { createApp } = await import("./app.js");
 
 const app = createApp();
@@ -52,6 +56,10 @@ async function call(path: string, init: RequestInit = {}) {
 }
 
 before(async () => {
+  // The installation's agent: read once, at boot, like every other deployment
+  // value (ADR 0003).
+  config.agent.address = mock.AGENT_ADDRESS;
+  config.agent.password = "";
   const res = await call("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({ username: DEMO, password: "demo-password" }),
@@ -73,7 +81,7 @@ test("the directory lists the member and the non-member group", async () => {
   assert.ok(names.includes(LEGAL));
 });
 
-test("a member administrator reads and writes the group's catalog through their own session", async () => {
+test("the group's catalog is read and written as the agent", async () => {
   const initial = await call(`/api/admin/groups/${TEAM}/labels`);
   assert.equal(initial.status, 200);
   assert.deepEqual(initial.body, { labels: [] });
@@ -93,9 +101,23 @@ test("a member administrator reads and writes the group's catalog through their 
     { labels: [label] },
     "the catalog persisted in the group's files",
   );
+
+  // The agent's own group: the administrator is not a member of it, and the
+  // grant the door reads is the agent's.
+  const own = await call(`/api/admin/groups/${DESIGN}/labels`, {
+    method: "POST",
+    body: JSON.stringify({ labels: [label] }),
+  });
+  assert.equal(own.status, 200, JSON.stringify(own.body));
+  const back = await call(`/api/admin/groups/${DESIGN}/labels`);
+  assert.deepEqual(
+    back.body,
+    { labels: [label] },
+    "a group the agent holds is administered without the administrator's membership",
+  );
 });
 
-test("a non-member administrator is refused with an honest 403", async () => {
+test("a group the agent does not hold is refused with an honest 403", async () => {
   const res = await call(`/api/admin/groups/${LEGAL}/labels`);
   assert.equal(res.status, 403);
   const denied = res.body as { error: string; need?: string; message?: unknown };

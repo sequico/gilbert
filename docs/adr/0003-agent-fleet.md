@@ -1,9 +1,8 @@
 # ADR 0003 — Agent fleet: agents that act on Stalwart events and schedules
 
 Status: Proposed (2026-09-11; rewritten 2026-09-12). The automation model this
-record decides — the tier, the material each tier carries, the provider per
-tier, the classification an author picks — is superseded by ADR 0010, which is
-Proposed; the fleet this record decides stands.
+record decides is superseded by ADR 0010, which is Proposed; the fleet this
+record decides stands.
 
 > **Scope (owner decision 2026-09-06):** Gilbert's own agents — each with its
 > own address in Stalwart (e.g. `gilbert@…`) — acting on Stalwart events and
@@ -104,10 +103,9 @@ groups it is granted, never by becoming someone: the agent
 - **The agent's account holds its configuration; each group's account holds its
   work.** The Master's settings are documents in the Master's own account's
   `gilbert/` app folder (§4): its registration record and the **model
-  providers** — one entry per tier that calls a model (`T1`, `T2`), each naming
-  a provider, model, base URL and API key, because which vendor serves a tier is
-  a deployment's choice; `T0` is deterministic, calls no model, and holds no
-  provider. Provider keys are write-only in the
+  provider** — one entry naming a provider, model, base URL and API key, the
+  one model every automation of the installation runs on (ADR 0010). Provider
+  keys are write-only in the
   admin UI (stored, never read back, like app passwords) and are read by the
   executor through the Master's own session. The Master's account belongs to the
   installation and is never shared with users. Everything members must be able
@@ -122,17 +120,24 @@ groups it is granted, never by becoming someone: the agent
 - **Admin surfaces.** The Gilbert admin (ADR 0001) gains an Agents section:
   show the agent the deployment declares and the groups that have
 granted it (and say so plainly when a group has not), author and version
-  per-group rule documents — the form asks the author which tier a rule runs at
-  — configure the providers its tiers call, and read agent status
+  per-group rule documents — the form asks the author what the instruction is
+  and which capabilities it may use (ADR 0010) — keep the group's standing
+  instruction and its notebook of facts, define the labels it files with,
+  configure the provider it calls, and read agent status
   and audit across groups.
   Membership is not written there: a group without the grant shows the
   consequence — no agent in its chat, no automations offered — instead of a
-  control that cannot work. Every write happens through the signed-in admin's
-  session: impersonating the Master where it acts on the Master's account, the
-  admin's own session on group documents, and writes into a group's own account
-  (rules, labels, footer) carry ADR 0005's membership rule — an admin who is a
-  member of that group — because Stalwart refuses to mint a session for an
-  impersonated group mailbox. Nothing is configured by hand.
+  control that cannot work. Every write happens **as the installation's
+  agent**: the agent documents are the agent's own — it is the principal that
+  executes them — and a group's own files are written through that same door,
+  the deployment's own credential when it holds one or impersonation from the
+  administrator's session otherwise. An admin acting on the *agent's* account,
+  never on a group mailbox, because Stalwart refuses to mint a session for an
+  impersonated group mailbox. The requirement on these surfaces is therefore
+  the **agent's** grant and not the administrator's own membership: an admin
+  who is a member but whose agent is not granted could otherwise author a rule
+  the agent can never run, and one who is not a member could author nothing at
+  all in a group they administer. Nothing is configured by hand.
 - **Members see, never change.** Next to the group chat (ADR 0005) an AI
   indicator opens the group's agent surface: which agent serves the
   group, the instruction it carries, what it does and what it has done (the
@@ -255,7 +260,7 @@ the coordination.
 **Nothing supervises the agents, and nothing inside an agent manages
 processes.** The fleet is coordinated by the documents and by nothing else: no
 supervisor process, no in-process process manager, no pool of child processes that
-another tier restarts on a heartbeat that is not moving. A supervisor would be a
+another process restarts on a heartbeat that is not moving. A supervisor would be a
 second coordinator standing beside the claims, and the one thing it can do that
 a lease cannot — restart what looks stuck — is the double execution a claim
 exists to prevent: the lease already hands a dead holder's account to a
@@ -305,10 +310,11 @@ What the field locks in:
   because this design never replays.
 - **Audit is an append-only per-run event log** (LangSmith/Conductor-style
   observability), stored as a Stalwart document — §4.
-- **Deterministic routing first, a model only where needed** (Inngest
-  agent-kit's phrasing); the decision layer in force is the tier a rule declares
-  — no model, one question, or the model's own judgement — and the invariants
-  hold at every tier (*The automation model*, §4).
+- **Deterministic routing first, and a model for the decision** (Inngest
+  agent-kit's phrasing): the trigger, the filter and the capability allowlist
+  decide whether a run happens and what it may do, and the actions it takes are
+  the model's answer inside that grant. The invariants hold on every answer
+  (*The automation model*, §4).
 - **Delegation by handoff**: an orchestrating agent composes specialist agents
   (CrewAI's manager, OpenAI's handoffs, Microsoft's agents-as-tools) — which,
   with one address per agent (§1), is native: an agent mails the specialist.
@@ -390,34 +396,23 @@ the web tier reads it live.
   constants the runtime reads, and the checks a document cannot state — that a
   rule's actions are inside its capability allowlist, and that a `G-` label it
   names exists in that group's catalog — stay in code and reach the author as
-  one list. A rule also declares a **tier** — how much model its decision costs
-  — and each tier carries the material it runs on: `T0` the actions a match runs
-  in order, `T1` the closed set of categories a classifier chooses between, `T2`
-  the prose instruction a model decides from, beside the trigger, the review
-  policy and the capability allowlist that every tier carries. The schema is one
-  document shape; its checks are tier-aware, so a `T2` rule without an
-  instruction, a `T1` rule without categories and a `T0` rule without actions
-  are each refused rather than stored to match and do nothing. The document and
-  its schema are the form the runtime validates. A rule's decision belongs to a
-  model only where its tier calls one, and there is no separate compiled form:
-  what a tier carries is what the run is held to.
-- **The tier decides how much model a run calls.** `T0` calls none: its
-  declared actions run on a match, at confidence 1, in the order written. `T1`
-  asks a model one small question — which of the rule's categories this material
-  is — and the answer is matched against the categories the rule defines before
-  that category's fixed actions run. `T2` hands its instruction to a model that
-  decides and answers with actions from the catalogue. What an automation may do
-  is its capability allowlist in every case, and nothing about that check
-  depends on how the answer was produced: a `T0` rule's actions must be a subset
-  of it, a `T1` category's actions are guarded the same way, and a model answer
-  is validated against it. Which provider serves a tier is configuration, not
-  code, and lives in the agent's own account (Scope in force).
-- **The model's role.** Where a tier calls one, the model is the decider and
-  executor of that run — `T1`'s single question, `T2`'s whole choice; where it
-  does not, Gilbert runs deterministic, catalogue-style work. The
-  safety invariants hold: the model acts only through the same capability-gated
-  actions, inside the Master's ACL scope, with every run audited. Rules decide
-  triggers, permissions and context, not every step.
+  one list. A rule carries a prose **instruction**, a capability allowlist, a
+  trigger and a review policy (ADR 0010), and the schema's checks are the same
+  for every rule: a rule without an instruction, or without a capability, is
+  refused rather than stored to match and do nothing (`ruleProblem`). The
+  document and its schema are the form the runtime validates, and there is no
+  separate compiled form: the instruction is what the run is held to.
+- **Every run asks the model, inside the rule's own grant.** A run hands the
+  rule's instruction to the model, which answers with actions from the
+  catalogue, and the answer is validated against the rule's capability
+  allowlist before any action runs (`planFor` → `decideActions`, `executor.ts`
+  and `llm.ts`) — so a model answer never names an action the rule was not
+  granted. One provider serves the installation, and it lives in the agent's
+  own account (Scope in force; ADR 0010).
+- **The model's role.** The model is the decider of the run and the executor
+  performs its answer. The safety invariants hold: the model acts only through
+  the capability-gated actions, inside the Master's ACL scope, with every run
+  audited. Rules decide triggers, permissions and context, not every step.
 - **Granularity and context.** An automation acts on the single message; the
   context it needs is assembled on demand — the thread (grouped by In-Reply-To)
   and the group's mail folders — fetched narrowly when a rule needs them, never
@@ -427,7 +422,7 @@ the web tier reads it live.
   proceed confidently or a person must look, `G-processed` once handled, and
   the set extends (`G-awaiting`, `G-rejected`, …) as use cases need. Labelling
   never moves the message; moving is a separate, content-driven action, into
-  the folder the classification chose. Labels come from the group's catalog
+  the folder the model chose. Labels come from the group's catalog
   (ADR 0005), and an admin **who is a member of that group** authors it through
   their own session while the agent — a granted member, never an administrator
   — only applies and removes. State is per message, not per thread: a reply in
@@ -598,6 +593,9 @@ are only worth what their failure paths are.
   member's own session is not a group this person may act as, and the answer is
   reached without asking the mail server anything — Stalwart's refusal stops
   being the only thing between a signed-in user and another group's documents.
+  The administration's door is the other one: a group's agent documents are
+  reached as the installation's agent, so the grant the admin surfaces read is
+  the agent's and not the administrator's.
 - **An irreversible action always asks a person**, whatever the rule's mode and
   whatever `allowExternal` says. Sending is today the only external action and
   also the only irreversible one, so the two coincide; the flags stay separate
@@ -648,13 +646,12 @@ are only worth what their failure paths are.
   told which automation could not finish. Notifications are chat-only; mail
   notification is a later extension of the same audit, never a second channel to
   keep in sync.
-- **An admin surface says why it is short, and which membership it needs.** The
-  approvals queue lists the groups this admin can act on and, when the directory
-  cannot be enumerated, falls back to the groups they are already a member of —
-  and the queue reports the reason it could not list a group, so "nothing is
-  waiting" and "I could not look" are different answers. The refusal a non-member
-  meets names the membership the surface needs: `deniedGroupAccess` carries the
-  need, the code and the parameters travel as a pair (`{ error, need }`) and
+- **An admin surface says which grant it needs.** The approvals queue walks the
+  agent's own session — exactly the groups a decision can be waiting in, since
+  the agent is the principal that asks — so the queue is complete by
+  construction and carries no enumeration caveat. The refusal a group the agent
+  does not hold meets names the section that asked: `deniedGroupAccess` carries
+  the need, the code and the parameters travel as a pair (`{ error, need }`) and
   never as a sentence, which is composed where it is read, from the catalogue in
   force, so a language whose catalogue does not carry it reads the English — the
   declared fallback. `AgentAdminError` carries an `AgentErrorReason`, the fleet's
@@ -700,7 +697,8 @@ are only worth what their failure paths are.
   `x:AppPassword/set` create and destroy on the target's account are permitted
   under it: Stalwart's refusal rules cover *authenticating* with app passwords,
   not registry writes by an impersonating admin. Stalwart refuses an
-  impersonated *group* mailbox (403).
+  impersonated *group* mailbox (403), which is why a group's documents are
+  reached as the agent that holds them and never by impersonating the group.
 - **Conditional writes, live (2026-09-11, `scripts/probe-conditional-writes.mjs`).**
   A stale `ifInState` is refused, the refusal arrives as **`stateMismatch`**
   (RFC 8620 §5.3) and never as `invalidArguments`; the FileNode state token
@@ -717,8 +715,24 @@ are only worth what their failure paths are.
 - The agent's own password is the one bootstrap secret the agent holds, and it
   belongs to the installation rather than to a person; on top of ADR 0001's
   administration model (permission marker; `Impersonate` for per-user writes),
-  the only impersonation in the design points the other way — an admin acting on
-  the Master's account.
+  impersonation in the design points one way — an admin acting on the agent's
+  account — and the group's own documents are written through that same door,
+  so no surface ever needs to act as a group mailbox.
+- **The author of a change is the administrator's, and it rides on our own
+  field.** A group's documents are written as the agent, so what Stalwart's own
+  record shows is the agent — except where the door is impersonation, whose
+  composite `{agent}%{admin}` carries the administrator's identity in the
+  credential itself. A deployment that holds the agent's password writes as the
+  agent alone: the author then lives only in the document's `updatedBy`, and in
+  a job's `trigger.by` for a run a person asked for. The stronger posture — no
+  shared password in the web tier — is therefore the one whose authorship is
+  Gilbert's to keep true, and it keeps it in the documents.
+- **The right that opens the door is wider than the door.** Where the
+  deployment holds no password for the agent, impersonation is the only way to
+  reach it — and Stalwart's `impersonate` grants acting as *any* principal, not
+  only as the agent. These surfaces use it toward one target, and never toward
+  a group mailbox (403); what the operator hands an administrator is wider than
+  what the routes ask of it.
 - One agent means one reach: the Master's grants cover every group it is granted,
   so a compromise of the agent exposes all of them at once, not one group at a
   time. Accepted — the same order of risk threshold auto-approval already
@@ -825,10 +839,9 @@ are only worth what their failure paths are.
 - ADR 0004 — live policy propagation (the settings-policy document)
 - ADR 0005 — group chat and the group label catalog
 - ADR 0010 — an automation is an instruction a model carries out (Proposed): it
-  supersedes this record's automation model — the tier, the material each tier
-  carries, the provider per tier and the classification an author picks — and
-  states the notebook, the prompt's order, the meter, the chains, the document
-  tools and the run a person asks for
+  supersedes this record's automation model — the shape of a rule and the
+  provider it calls — and states the notebook, the prompt's order, the meter,
+  the chains, the document tools and the run a person asks for
 - `server/src/app.ts` — `/api/events` push relay, the admin agent routes
 - `server/src/agentAdmin.ts` — the Master's own session, grants, group views,
   rules, providers, instruction, audit export

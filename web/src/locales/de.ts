@@ -233,8 +233,6 @@ export const catalog: Catalog = {
       "Der Selektor sagt, wie diese Bedingungen zusammenspielen: alle, eine oder keine.",
     "This condition uses something this form cannot spell out, so it is shown as the document holds it and left exactly as it is.":
       "Diese Bedingung verwendet etwas, das dieses Formular nicht ausdrücken kann; sie wird daher so angezeigt, wie das Dokument sie enthält, und bleibt unverändert.",
-    "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
-      "Die Gruppenmailboxen konnten nicht alle aufgelistet werden, deshalb umfasst diese Warteschlange nur die Gruppen, in denen Sie Mitglied sind: In einer hier fehlenden Gruppe kann etwas warten.",
     "Header name": "Name der Kopfzeile",
     "Show headers": "Kopfzeilen anzeigen",
     "Show original": "Original anzeigen",
@@ -852,8 +850,6 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "Gruppen-Mailboxen aufzulisten erfordert Stalwart-Serveradministrator-Rechte, über die diese Sitzung nicht verfügt.",
     "No labels yet.": "Noch keine Labels.",
-    "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
-      "Um den Label-Katalog einer Gruppe zu verwalten, musst du Mitglied dieser Gruppe sein: Der Katalog liegt in den eigenen Dateien der Gruppe, und der Mailserver weigert sich, im Namen einer Gruppe zu handeln.",
     "You are a member of this group — its labels are managed here.":
       "Du bist Mitglied dieser Gruppe — ihre Labels werden hier verwaltet.",
     "You are not a member of this group — its label catalog cannot be managed from here.":

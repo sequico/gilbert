@@ -127,6 +127,28 @@ export function missedAuditEntry(
   );
 }
 
+/**
+ * A run a chain refused: the automation was woken past the installation's bound
+ * on hops, so no job exists to name — the refusal happened instead of the run.
+ *
+ * The outcome is `refused` rather than `failed`, because nothing failed: a run
+ * that must not happen is a fact about the agent, and the trail is where a
+ * reader finds it (ADR 0010).
+ */
+export function refusedAuditEntry(
+  rule: AuditRule,
+  at: string,
+  detail: string,
+): AgentAuditEntry {
+  return build(
+    { jobId: `${rule.id}@${at}`, ruleId: rule.id, ruleVersion: rule.version },
+    rule,
+    "refused",
+    [],
+    detail,
+  );
+}
+
 /** The same entry for a decision whose job document is already gone. */
 export function decisionAuditEntry(
   decision: AgentDecision,

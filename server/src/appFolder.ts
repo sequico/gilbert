@@ -385,7 +385,7 @@ async function putFile(
   blobId: string,
   type: string,
   ifInState?: string,
-): Promise<void> {
+): Promise<string> {
   const file = await findInFolder(ctx, accountId, folderId, name);
   const conditional = ifInState ? { ifInState } : {};
   const client = clientOf(ctx);
@@ -400,9 +400,12 @@ async function putFile(
       { accountId, ...conditional, update: { [String(file.id)]: { blobId, type } } },
       [FILENODE_CAP],
     );
-    return;
+    return String(file.id);
   }
-  await client.call(
+  // The node the write made comes back, because a caller that has to say what
+  // it wrote — the trail, and the lineage a chain is read along — can only name
+  // an id the server gave it.
+  const created = await client.call<{ created?: Record<string, { id?: unknown }> }>(
     "FileNode/set",
     {
       accountId,
@@ -411,6 +414,8 @@ async function putFile(
     },
     [FILENODE_CAP],
   );
+  const id = created.created?.n?.id;
+  return typeof id === "string" ? id : "";
 }
 
 /**
@@ -634,10 +639,10 @@ export async function writeBytesIntoVisibleFolder(
   name: string,
   bytes: Uint8Array,
   type: string,
-): Promise<void> {
+): Promise<string> {
   const folderId = await ensureRootFolderPath(ctx, accountId, folderPath);
   const blobId = await uploadBlobBytes(ctx, accountId, bytes, type);
-  await putFile(ctx, accountId, folderId, name, blobId, type);
+  return putFile(ctx, accountId, folderId, name, blobId, type);
 }
 
 /**

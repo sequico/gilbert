@@ -765,8 +765,6 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "グループメールボックスの一覧表示には Stalwart サーバー管理者権限が必要ですが、このセッションにはありません。",
     "No labels yet.": "ラベルはまだありません。",
-    "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
-      "グループのラベルカタログを管理するには、そのグループのメンバーである必要があります。カタログはグループ自身のファイルにあり、メールサーバーは管理者に代わってグループメールボックスとして動作することを拒否するためです。",
     "You are a member of this group — its labels are managed here.":
       "このグループのメンバーです — ラベルはここで管理されます。",
     "You are not a member of this group — its label catalog cannot be managed from here.":
@@ -1561,8 +1559,6 @@ export const catalog: Catalog = {
     "itself, or an issuer it does not name": "自分自身、または名前のない発行者",
     "no address": "アドレスなし",
     // ── The agent fleet (ADR 0003) ────────────────────────────────────
-    "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
-      "グループメールボックスをすべて一覧できなかったため、このキューにはあなたがメンバーであるグループのみが含まれます。ここにないグループで待機中のものがある可能性があります。",
     "Only an administrator of this group changes its instruction and its automations; every member reads them here.":
       "このグループの指示と自動化を変更できるのはグループの管理者だけです。メンバーはここで読むことができます。",
     "No standing instruction has been written for this group.":

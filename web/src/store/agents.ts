@@ -34,7 +34,6 @@ import {
   fetchAgentStatus,
   fetchMemberAgentView,
   fetchPendingApprovals,
-  type GroupEnumeration,
   type MemberAgentView,
   type PendingApproval,
   saveAgentProviders,
@@ -75,15 +74,6 @@ interface AgentsState {
    */
   memberViews: Record<string, MemberAgentView>;
   approvals: PendingApproval[];
-  /**
-   * The reach the last approval queue was built from.
-   *
-   * The queue walks the group mailboxes the directory enumeration returned, so
-   * without this a short queue and an empty one read identically. It belongs to
-   * the queue's own read, which is why it is kept here beside it and not
-   * borrowed from the fleet status.
-   */
-  approvalsReach: GroupEnumeration | null;
   /**
    * What is in flight and what failed, **per operation**.
    *
@@ -153,7 +143,6 @@ export const useAgents = create<AgentsState>((set) => ({
   groupViews: {},
   memberViews: {},
   approvals: [],
-  approvalsReach: null,
   busy: {},
   problems: {},
   providers: null,
@@ -270,7 +259,7 @@ export const useAgents = create<AgentsState>((set) => ({
     set(markProblem("approvals", null));
     try {
       const view = await fetchPendingApprovals();
-      set({ approvals: view.approvals, approvalsReach: view });
+      set({ approvals: view.approvals });
     } catch (err) {
       set(markProblem("approvals", message(err)));
     } finally {
@@ -284,7 +273,6 @@ export const useAgents = create<AgentsState>((set) => ({
       groupViews: {},
       memberViews: {},
       approvals: [],
-      approvalsReach: null,
       busy: {},
       problems: {},
       providers: null,

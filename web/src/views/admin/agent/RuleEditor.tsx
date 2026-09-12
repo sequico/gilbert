@@ -25,6 +25,7 @@ import { confirmDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 import {
   jobStateText,
+  meterText,
   reviewText,
   ruleInstruction,
   triggerText,
@@ -224,10 +225,16 @@ export function RuleEditor({
         )}
       </p>
       <p className="hint" style={{ marginBottom: 12 }}>
-        {t(
-          "Authoring a group's automations needs membership of that group: they live in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.",
-        )}
+        {groupAccessSentence("automations")}
       </p>
+      {/* What this group's runs have cost, read from the same trail the panel
+          below shows: the counts ride the entries, so the two cannot disagree
+          (ADR 0010). */}
+      {view?.granted && (
+        <p className="hint" style={{ marginBottom: 12 }}>
+          {meterText(view.meter)}
+        </p>
+      )}
       <p className="hint" style={{ marginBottom: 12 }}>
         {t(
           "Two automations that write to the same message have no order between them — not even inside one kind of work — so write each one to hold whatever order it gets. The audit names the rule and its version per run, so the order they actually took can be read back afterwards.",

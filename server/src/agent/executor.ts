@@ -50,6 +50,7 @@ import {
   errorMessage,
   missedAuditEntry,
   recordAudit,
+  refusedAuditEntry,
   unreadableDocumentAuditEntry,
 } from "./audit.js";
 import {
@@ -71,6 +72,7 @@ import {
   type AgentClaim,
   type AgentDecision,
   type AgentDraftRef,
+  type AgentEffect,
   type AgentEmailView,
   type AgentJob,
   type AgentProposal,
@@ -84,6 +86,7 @@ import {
   EMPTY_USAGE,
   filterNeedsBody,
   filterProblems,
+  hopOf,
   instructionFor,
   leaseExpired,
   leavesTheProcess,
@@ -137,7 +140,7 @@ export const AUDIT_RETENTION_MS = 365 * 24 * 60 * 60 * 1000;
 /** How many messages of a thread a run reads as context: bounded, never bulk. */
 export const THREAD_CONTEXT_MAX = 20;
 
-/** What a tier decided to do, before the review gate saw it. */
+/** What the model decided to do, before the review gate saw it. */
 interface RunPlan {
   actions: AgentAction[];
   confidence: number;
@@ -357,7 +360,7 @@ export class Executor {
       );
     }
     if (!usable.length) return;
-    const keys = await this.jobKeys(store);
+    const { keys, producers } = await this.jobIndex(store);
     const needsBody = usable.some((rule) => filterNeedsBody(rule.trigger.filter));
     for (const id of ids) {
       const view = await fetchEmailView(this.deps.client, accountId, id, {
@@ -384,7 +387,7 @@ export class Executor {
           continue;
         }
         if (!matched) continue;
-        await this.startJob(store, accountId, rule, trigger, keys, claim);
+        await this.startJob(store, accountId, rule, trigger, keys, producers, claim);
       }
     }
   }
@@ -404,7 +407,7 @@ export class Executor {
     if (!chatRules.length && !nodeRules.length) return;
     const nodes = await this.nodeRecords(accountId, ids);
     if (!nodes.length) return;
-    const keys = await this.jobKeys(store);
+    const { keys, producers } = await this.jobIndex(store);
     const chatFolderId = chatRules.length
       ? await findFolderPath(this.deps.ctx, accountId, CHAT_FOLDER)
       : null;
@@ -436,7 +439,7 @@ export class Executor {
           };
           if (request.author) trigger.by = request.author;
           for (const rule of chatRules)
-            await this.startJob(store, accountId, rule, trigger, keys, claim);
+            await this.startJob(store, accountId, rule, trigger, keys, producers, claim);
         }
       }
     }
@@ -453,7 +456,7 @@ export class Executor {
         at: this.deps.now().toISOString(),
       };
       for (const rule of nodeRules)
-        await this.startJob(store, accountId, rule, trigger, keys, claim);
+        await this.startJob(store, accountId, rule, trigger, keys, producers, claim);
     }
   }
 
@@ -502,10 +505,19 @@ export class Executor {
     return false;
   }
 
-  /** The deduplication key: one job per rule and trigger, whatever arrives twice. */
-  private async jobKeys(store: AgentStore): Promise<Set<string>> {
-    const jobs = await store.listJobs();
-    return new Set(jobs.map((job) => jobKey(job.doc.ruleId, job.doc.trigger)));
+  /**
+   * What the account's jobs say, read once for the two questions a pass asks of
+   * them: which triggers are already a job, and which job wrote each record the
+   * changes just reported — the lineage a chain is read along (ADR 0010).
+   */
+  private async jobIndex(
+    store: AgentStore,
+  ): Promise<{ keys: Set<string>; producers: ReadonlyMap<string, Producer> }> {
+    const jobs = (await store.listJobs()).map((entry) => entry.doc);
+    return {
+      keys: new Set(jobs.map((job) => jobKey(job.ruleId, job.trigger))),
+      producers: producersOf(jobs),
+    };
   }
 
   private async startJob(
@@ -514,16 +526,30 @@ export class Executor {
     rule: AgentRule,
     trigger: AgentTriggerRecord,
     keys: Set<string>,
+    producers: ReadonlyMap<string, Producer>,
     claim: AgentClaim,
   ): Promise<void> {
     const key = jobKey(rule.id, trigger);
     if (keys.has(key)) return;
     keys.add(key);
+    /*
+     * The lineage, and the bound it is read against (ADR 0010). The record this
+     * trigger names is the one the change reported, so a job whose own effect
+     * wrote it is the job that woke this run, and this run is one hop further
+     * than that. Nothing wrote it here — the trigger woke the rule by itself —
+     * and the run is hop one.
+     */
+    const woke = wokenBy(trigger, producers);
+    const hop = woke ? woke.hop + 1 : 1;
+    if (hop > config.agent.maxChainHops) {
+      await this.refuseChain(store, accountId, rule, trigger, woke, hop);
+      return;
+    }
     const job = newJob({
       id: randomUUID(),
       accountId,
       rule,
-      trigger,
+      trigger: { ...trigger, hop, ...(woke ? { parentJobId: woke.jobId } : {}) },
       now: this.deps.now().toISOString(),
     });
     await store.writeJob(job);
@@ -531,6 +557,43 @@ export class Executor {
     // same way a retried one is, and without this the fencing would only ever
     // apply to the pending sweep.
     await this.runJob(accountId, job, rule, claim);
+  }
+
+  /**
+   * The hop past the bound, refused loudly rather than quietly dropped
+   * (ADR 0010): nothing runs, and the group is told which automation could not
+   * run and why.
+   *
+   * No job document is written. A job is a run that is going to happen, and this
+   * one must not: what the trail records is the refusal itself, under its own
+   * outcome, because nothing failed. The one sentence names the automation, the
+   * hop it was woken at and the bound, and it goes to the log and the group's
+   * chat as well as being the entry's detail, so an operator reading either sees
+   * the same line about the same refusal.
+   */
+  private async refuseChain(
+    store: AgentStore,
+    accountId: string,
+    rule: AgentRule,
+    trigger: AgentTriggerRecord,
+    woke: Producer | null,
+    hop: number,
+  ): Promise<void> {
+    const bound = config.agent.maxChainHops;
+    const line =
+      `I did not run "${rule.name}": it was woken ${hop} hops into a chain ` +
+      `started by ${describeTrigger(trigger)}, and this installation refuses a run ` +
+      `past ${bound} hops.`;
+    await recordAudit(
+      store,
+      refusedAuditEntry(
+        rule,
+        trigger.at,
+        woke ? `${line} The run that woke it was ${woke.jobId}.` : line,
+      ),
+    );
+    this.deps.log(line);
+    await this.tellChat(accountId, line);
   }
 
   /* ---------------------------------------------------------------- */
@@ -779,11 +842,16 @@ export class Executor {
       await this.actionOpts(accountId, plan.actions, job),
       {
         // Recorded as each action lands, so a retry resumes after it.
-        onApplied: async (action: AgentAction) => {
+        onApplied: async (action: AgentAction, result: ActionResult) => {
           landed.push(action.do);
+          const wrote = effectsOf(result);
           const recorded = await this.writeJobIfCurrent(store, job.id, (latest) => ({
             ...latest,
             applied: [...landed],
+            // The record the action wrote, beside the action that wrote it: a
+            // change naming that id is how the next run of a chain knows which
+            // job woke it (ADR 0010).
+            ...(wrote.length ? { effects: [...(latest.effects ?? []), ...wrote] } : {}),
           }));
           // What just landed is not recorded, so the run stops here rather than
           // running the rest of a plan whose prefix nobody can read — and a
@@ -1328,12 +1396,14 @@ export class Executor {
       );
       const landed: string[] = [];
       await runActions(this.deps.ctx, accountId, actions, opts, {
-        onApplied: async (action: AgentAction) => {
+        onApplied: async (action: AgentAction, result: ActionResult) => {
           landed.push(action.do);
           if (!job) return;
+          const wrote = effectsOf(result);
           const recorded = await this.writeJobIfCurrent(store, job.id, (latest) => ({
             ...latest,
             applied: [...landed],
+            ...(wrote.length ? { effects: [...(latest.effects ?? []), ...wrote] } : {}),
           }));
           if (!recorded)
             throw new RefusedError(
@@ -1769,7 +1839,7 @@ export class Executor {
       owned,
     );
     await this.writeSchedule(store, next, scheduleDoc?.state);
-    const keys = await this.jobKeys(store);
+    const { keys, producers } = await this.jobIndex(store);
     let started = 0;
     for (const entry of mine) {
       const rule = rules.find((candidate) => candidate.id === entry.ruleId);
@@ -1793,6 +1863,7 @@ export class Executor {
         rule,
         { on: "schedule", at: entry.at },
         keys,
+        producers,
         claim,
       );
       started += 1;
@@ -1849,12 +1920,14 @@ export class Executor {
       owned,
     );
     await this.writeSchedule(store, next, scheduleDoc?.state);
+    const { keys, producers } = await this.jobIndex(store);
     await this.startJob(
       store,
       accountId,
       rule,
       { on: "schedule", at: entry.at },
-      await this.jobKeys(store),
+      keys,
+      producers,
       claim,
     );
   }
@@ -2124,6 +2197,97 @@ function jobKey(ruleId: string, trigger: AgentTriggerRecord): string {
       ? trigger.at
       : (trigger.emailId ?? trigger.nodeId ?? trigger.chatId ?? trigger.at);
   return `${ruleId}:${trigger.on}:${what}`;
+}
+
+/**
+ * A record an action wrote, read from the result the action handed back.
+ *
+ * The result is the only place the ids are: an action reports what it changed,
+ * and the change the executor is told about later names the same id. An action
+ * whose result names nothing — a `noop`, a write the server gave no node for —
+ * contributes nothing rather than a guess.
+ */
+function effectsOf(result: ActionResult): AgentEffect[] {
+  const wrote: AgentEffect[] = [];
+  const named = result.result ?? {};
+  if (typeof named.emailId === "string" && named.emailId)
+    wrote.push({ type: "Email", id: named.emailId });
+  const nodes = [named.nodeId, ...(Array.isArray(named.nodeIds) ? named.nodeIds : [])];
+  for (const node of nodes)
+    if (typeof node === "string" && node) wrote.push({ type: "FileNode", id: node });
+  return wrote;
+}
+
+/**
+ * A job whose own effect wrote a record the change names, and how far into its
+ * chain that job was. A run woken by it is one hop further (ADR 0010).
+ */
+interface Producer {
+  jobId: string;
+  hop: number;
+  /** When that job last moved: the tie between two runs of equal depth. */
+  updatedAt: string;
+}
+
+/** The key a record's producer is looked up by: its kind, then its id. */
+function producerKey(type: AgentEffect["type"], id: string): string {
+  return `${type}:${id}`;
+}
+
+/**
+ * Which job wrote each record, by `kind:id`.
+ *
+ * A chain's lineage is read from the account's own job documents: a change names
+ * the record that moved, and this says which run moved it. Two runs can have
+ * written the same record — two automations reacting to one message both label
+ * it — so the deepest run wins, and a tie is broken by the later write and then
+ * by the id, which makes the parent the same one on every worker that reads the
+ * same documents.
+ */
+function producersOf(jobs: ReadonlyArray<AgentJob>): Map<string, Producer> {
+  const out = new Map<string, Producer>();
+  for (const job of jobs) {
+    const candidate: Producer = {
+      jobId: job.id,
+      hop: hopOf(job.trigger),
+      updatedAt: job.updatedAt,
+    };
+    for (const effect of job.effects ?? []) {
+      const key = producerKey(effect.type, effect.id);
+      const found = out.get(key);
+      if (!found || deeper(candidate, found)) out.set(key, candidate);
+    }
+  }
+  return out;
+}
+
+/** Whether one producer of a record outranks another: deeper first, then later. */
+function deeper(candidate: Producer, found: Producer): boolean {
+  if (candidate.hop !== found.hop) return candidate.hop > found.hop;
+  if (candidate.updatedAt !== found.updatedAt)
+    return candidate.updatedAt > found.updatedAt;
+  return candidate.jobId > found.jobId;
+}
+
+/**
+ * The job that woke a trigger, or null when the trigger woke its rule by itself.
+ *
+ * Two triggers name a record a run's own effect can write: a message change and
+ * a file change. A chat rule wakes when a person addresses the agent — the
+ * agent's own messages are not requests, so a chat turn always has somebody in
+ * it — and the clock and a person's ask wake theirs with nothing behind them.
+ * Those are hop one, which is what the count starting at the trigger means
+ * (ADR 0010).
+ */
+function wokenBy(
+  trigger: AgentTriggerRecord,
+  producers: ReadonlyMap<string, Producer>,
+): Producer | null {
+  if (trigger.on === "email" && trigger.emailId)
+    return producers.get(producerKey("Email", trigger.emailId)) ?? null;
+  if (trigger.on === "filenode" && trigger.nodeId)
+    return producers.get(producerKey("FileNode", trigger.nodeId)) ?? null;
+  return null;
 }
 
 /** A job in a terminal state, with the lease cleared. */

@@ -4,7 +4,7 @@
  *
  * The durable documents live in Stalwart — `agent/documents.ts` is their
  * schema and `agent/store.ts` is the one place they are addressed. This module
- * is the tier between those documents and the routes in `app.ts`: it resolves
+ * is the layer between those documents and the routes in `app.ts`: it resolves
  * which account a surface acts on, and it makes the two decisions the
  * documents themselves do not:
  *
@@ -23,7 +23,7 @@
 
 import { randomUUID } from "node:crypto";
 import { readGroupLabels, writeGroupLabels } from "./account.js";
-import { fetchEmailView, mailboxIdByRole } from "./agent/actions.js";
+import { fetchEmailView, groupAccounts, mailboxIdByRole } from "./agent/actions.js";
 import { hasSpoken, readChat } from "./agent/chat.js";
 import {
   AGENT_INSTRUCTION_MAX,
@@ -37,6 +37,7 @@ import {
   type AgentProvider,
   type AgentRule,
   type AgentWorkerRecord,
+  EMPTY_METER,
   filterNeedsBody,
   filterProblems,
   isAgentRule,
@@ -45,6 +46,8 @@ import {
   MODEL_MAX_OUTPUT_CEILING,
   MODEL_MAX_OUTPUT_DEFAULT,
   matchEmailFilter,
+  meterOver,
+  metersByAgent,
   monthOf,
   monthsSince,
   newJob,
@@ -64,11 +67,11 @@ import type {
   AgentProvidersView,
   AgentStatus,
   AgentStatusGroup,
+  AgentStatusMeter,
   AgentStatusReason,
   AgentStatusWorker,
   AgentWithdrawal,
   GroupAccessDenied,
-  GroupEnumeration,
   GroupInstructionView,
   GroupNeed,
   GroupNotebookView,
@@ -91,11 +94,9 @@ import {
   type LabelCatalogEntry,
 } from "./shared/labels.js";
 import {
-  fetchDirectoryGroups,
   fetchUpstreamSession,
   getUpstreamSession,
   UpstreamError,
-  type UpstreamSession,
   upstreamFor,
 } from "./upstream.js";
 
@@ -184,144 +185,88 @@ export interface GroupAccess {
 export type GroupAccessResult = GroupAccess | GroupAccessDenied;
 
 /**
- * Resolve the group account a document lives on (ADR 0005) and the session to
- * reach it with.
+ * The agent's own session, and the groups it is granted on — the door every
+ * group surface of the administration goes through.
  *
- * Membership is the grant: a member of the group already holds the group's
- * account in their own session, so its documents are read and written with the
- * administrator's own credentials — no impersonation. A non-member
- * administrator falls back to impersonation, which is what Stalwart 0.16
- * refuses for group mailboxes (live-verified 2026-09-09: the composite
- * `{group}%{admin}` answers 403), so the answer for them is an honest 403
- * naming membership as the requirement.
+ * The documents an agent runs on (its rules, the standing instruction, the
+ * notebook, the labels it files with, the jobs and the audit trail) are the
+ * agent's own, and the principal that holds them is the agent. `openAgentSession`
+ * is how it is reached — the deployment's credential when there is one,
+ * impersonation from the administrator's session otherwise — so a deployment
+ * that names no agent, or whose credential the server refuses, says exactly
+ * that instead of borrowing the administrator's reach.
+ */
+export async function agentGroupReach(
+  admin: LiveSession,
+): Promise<{ ctx: Ctx; accounts: Map<string, string> }> {
+  const address = agentAddress();
+  if (!address) throw new AgentAdminError({ code: "agent_not_configured" }, 409);
+  const agent = await openAgentSession(admin, address);
+  if (!agent.ok)
+    throw new AgentAdminError({ code: agent.code, detail: agent.detail }, 409);
+  return { ctx: agent.ctx, accounts: await groupAccounts(agent.ctx) };
+}
+
+/**
+ * A group's own documents, read and written **as the installation's agent**.
  *
- * `allowImpersonation: false` is for the surfaces a **member** reaches. There,
- * a name that is not in the session is not a group this person may act as at
- * all, and reaching for the administrator's mechanism would make Stalwart's
- * refusal the only thing standing between any signed-in user and another
- * group's documents. The membership answer is the same either way, and it is
- * reached without asking the server for anything.
+ * The grant that matters is the agent's, read from the agent's own session. An
+ * administrator who is a member of the group but whose agent is not granted on
+ * it could otherwise author a rule the agent can never run, and one who is not
+ * a member could author nothing at all in a group they administer; the
+ * administrator's own membership is not a requirement of this door.
+ *
+ * A group the agent does not hold answers `deniedGroupAccess(need)` — a state
+ * the surface names (the grant to add in the directory) rather than a
+ * permission error that would read as a bug.
  *
  * `need` is what the calling section asks the group for, and a refusal carries
  * it: one shared sentence about the label catalog would tell a person who had
  * opened the standing instruction about a catalog they were not touching.
  */
 export async function resolveGroupAccess(
+  admin: LiveSession,
+  name: string,
+  opts: { need: GroupNeed },
+): Promise<GroupAccessResult> {
+  const reach = await agentGroupReach(admin);
+  const accountId = reach.accounts.get(name.trim().toLowerCase());
+  if (!accountId) return deniedGroupAccess(opts.need);
+  return { ok: true, accountId, ctx: reach.ctx };
+}
+
+/**
+ * A member's own reach: the group is in their session, or it is not.
+ *
+ * The member's surface never impersonates and never borrows the agent's
+ * credential: a name that is not in the caller's own session is not a group
+ * this person may act as, and the answer is reached without asking the mail
+ * server anything — otherwise Stalwart's refusal would be the only thing
+ * between a signed-in user and another group's documents.
+ */
+export async function memberGroupAccess(
   session: LiveSession,
   name: string,
-  opts: { allowImpersonation?: boolean; need: GroupNeed },
+  opts: { need: GroupNeed },
 ): Promise<GroupAccessResult> {
   const upstream = await getUpstreamSession(
     session.id,
     session.authorization,
     upstreamFor(session.username),
   );
-  const want = name.trim().toLowerCase();
-  for (const [accountId, account] of Object.entries(upstream.accounts ?? {})) {
-    const a = account as { name?: unknown; isPersonal?: unknown };
-    if (a.isPersonal !== false) continue;
-    if (typeof a.name !== "string") continue;
-    // A group is a non-personal account **with an address** — the same rule
-    // `groupNamesInSession` applies. A calendar or a files share is non-personal
-    // too, and reading a share as a group would put the fleet's documents in
-    // somebody's shared calendar.
-    if (a.name.indexOf("@") <= 0) continue;
-    if (a.name.trim().toLowerCase() !== want) continue;
-    return {
-      ok: true,
-      accountId,
-      ctx: {
-        authorization: session.authorization,
-        session: upstream,
-        username: session.username,
-      },
-    };
-  }
-  if (opts.allowImpersonation === false) return deniedGroupAccess(opts.need);
-  const imp = await impersonateAs(session, name);
-  if (imp.ok) {
-    const accountId = filesAccountId(imp.ctx);
-    if (accountId) return { ok: true, ctx: imp.ctx, accountId };
-  }
-  return deniedGroupAccess(opts.need);
+  const ctx: Ctx = {
+    authorization: session.authorization,
+    session: upstream,
+    username: session.username,
+  };
+  const accountId = (await groupAccounts(ctx)).get(name.trim().toLowerCase());
+  if (!accountId) return deniedGroupAccess(opts.need);
+  return { ok: true, accountId, ctx };
 }
 
-/** Membership is the whole answer for a surface that may not impersonate. */
+/** The agent holds no such group: a state the surface names, not a failure. */
 function deniedGroupAccess(need: GroupNeed): GroupAccessDenied {
   return { ok: false, error: GROUP_NOT_ACCESSIBLE, need };
-}
-
-/**
- * The group mailboxes a session holds: a non-personal account with an address.
- *
- * The same rule `hasChatGroupAccounts` applies server-side (see its note in
- * `upstream.ts`): a calendar or files share can be non-personal too, and
- * counting one costs a group row that answers "no access" rather than a
- * missing group.
- */
-export function groupNamesInSession(
-  session: Pick<UpstreamSession, "accounts">,
-): string[] {
-  const out: string[] = [];
-  for (const account of Object.values(session.accounts ?? {})) {
-    const a = account as { name?: unknown; isPersonal?: unknown };
-    if (a.isPersonal !== false) continue;
-    if (typeof a.name !== "string") continue;
-    const name = a.name.trim().toLowerCase();
-    if (name.indexOf("@") <= 0) continue;
-    if (!out.includes(name)) out.push(name);
-  }
-  return out;
-}
-
-/**
- * Every group mailbox this admin can list.
- *
- * The directory is the source when the server lets this session query it; when
- * the gate is closed, the groups the admin's own session holds are the honest
- * answer (enumeration is a capability, and the surface degrades to what it can
- * reach). A directory hiccup is not a failure of the fleet surface: it costs
- * the enumeration and nothing else.
- *
- * That fallback is why the enumeration travels back with the names: a list that
- * could not be made and a list with nothing in it read identically from the
- * outside, and an answer built from the first one has to say so.
- */
-export async function reachableGroupNames(admin: LiveSession): Promise<ReachableGroups> {
-  const upstream = await getUpstreamSession(
-    admin.id,
-    admin.authorization,
-    upstreamFor(admin.username),
-  );
-  const memberships = groupNamesInSession(upstream);
-  try {
-    const directory = await fetchDirectoryGroups(admin.authorization, upstream);
-    if ("denied" in directory)
-      return {
-        names: memberships,
-        enumeration: false,
-        enumerationMessage: directory.denied,
-      };
-    const names = directory.groups
-      .map((g) => g.name.trim().toLowerCase())
-      .filter(Boolean);
-    if (names.length) return { names, enumeration: true, enumerationMessage: null };
-  } catch (err) {
-    const message = (err as Error).message;
-    console.warn(
-      "[gilbert] could not list the directory groups for the agent surface:",
-      message,
-    );
-    return { names: memberships, enumeration: false, enumerationMessage: message };
-  }
-  // The directory answered with no group at all; the groups this session holds
-  // are then the only ones there are to show.
-  return { names: memberships, enumeration: true, enumerationMessage: null };
-}
-
-/** The group mailboxes an admin can act on, and whether the directory listed them. */
-export interface ReachableGroups extends GroupEnumeration {
-  names: string[];
 }
 
 /**
@@ -371,19 +316,6 @@ export async function openAgentSession(
   const imp = await impersonateAs(admin, address);
   if (imp.ok) return { ok: true, ctx: imp.ctx };
   return { ok: false, code: "agent_unreachable", detail: imp.message };
-}
-
-/** The groups an agent's own session shows it holds. */
-function grantedGroupNames(session: UpstreamSession): Set<string> {
-  const out = new Set<string>();
-  for (const account of Object.values(session.accounts ?? {})) {
-    const a = account as { name?: unknown; isPersonal?: unknown };
-    if (a.isPersonal !== false) continue;
-    if (typeof a.name !== "string") continue;
-    const name = a.name.trim().toLowerCase();
-    if (name) out.add(name);
-  }
-  return out;
 }
 
 /** The agent's store, or the honest reason there is nothing to read. */
@@ -444,6 +376,7 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       operational: false,
       address,
       groups: [],
+      meter: noMeter(),
       workers: [],
       withdrawals: [],
       reason: { code: "agent_not_configured" },
@@ -455,14 +388,17 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       operational: false,
       address,
       groups: [],
+      meter: noMeter(),
       workers: [],
       withdrawals: [],
       reason: { code: agent.code, detail: agent.detail },
     };
 
-  const groups = [...grantedGroupNames(agent.ctx.session)]
+  const reach = await groupAccounts(agent.ctx);
+  const groups = [...reach.keys()]
     .sort((a, b) => a.localeCompare(b))
     .map((name) => groupRow(name));
+  const meter = await fleetMeter(agent.ctx, reach);
   let workers: AgentStatusWorker[] = [];
   let reason: AgentStatusReason | undefined;
   try {
@@ -480,9 +416,49 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
     operational: true,
     address,
     groups,
+    meter,
     workers,
     withdrawals: await readWithdrawals(agent.ctx),
     ...(reason ? { reason } : {}),
+  };
+}
+
+/** The meter a fleet that could not be read answers with: a shape, no claim. */
+function noMeter(): AgentStatusMeter {
+  return { total: EMPTY_METER, byAgent: [], unreadable: [] };
+}
+
+/**
+ * What the installation has spent, read from every group the agent holds.
+ *
+ * The one way to a total that is complete by construction: a run's record lives
+ * in the audit document of the group it happened in, and there is no index
+ * anywhere else. A group whose audit cannot be read leaves the total a floor,
+ * which `unreadable` names rather than hiding behind a zero.
+ */
+async function fleetMeter(
+  ctx: Ctx,
+  accounts: Map<string, string>,
+): Promise<AgentStatusMeter> {
+  const entries: AgentAuditEntry[] = [];
+  const unreadable: string[] = [];
+  await Promise.all(
+    [...accounts].map(async ([name, accountId]) => {
+      try {
+        entries.push(...(await auditWindow(new AgentStore(ctx, accountId))));
+      } catch (err) {
+        console.warn(
+          "[gilbert] could not read a group's audit for the meter:",
+          (err as Error).message,
+        );
+        unreadable.push(name);
+      }
+    }),
+  );
+  return {
+    total: meterOver(entries),
+    byAgent: metersByAgent(entries),
+    unreadable: unreadable.sort((a, b) => a.localeCompare(b)),
   };
 }
 
@@ -528,18 +504,27 @@ async function readWorkers(ctx: Ctx): Promise<AgentStatusWorker[]> {
 /* ------------------------------------------------------------------ */
 
 /**
- * The documents of a group the admin cannot reach, in the shape every group
+ * The documents of a group the agent does not hold, in the shape every group
  * answer takes.
  *
- * A non-member administrator has no act-as-the-group path at all (ADR 0005),
- * so the surface answers empty rather than omitting the fields: a consumer
- * renders one shape, and the reason beside it says why there is nothing in it.
+ * The agent has no path to that group's account at all, so the surface answers
+ * empty rather than omitting the fields: a consumer renders one shape, and the
+ * reason beside it says why there is nothing in it.
  */
 export function emptyGroupDocuments(): Pick<
   AgentGroupDocuments,
-  "rules" | "jobs" | "decisions" | "audit" | "schedule"
+  "rules" | "jobs" | "decisions" | "audit" | "meter" | "schedule"
 > {
-  return { rules: [], jobs: [], decisions: [], audit: [], schedule: [] };
+  return {
+    rules: [],
+    jobs: [],
+    decisions: [],
+    audit: [],
+    // A group nobody could read has no runs to count, which is not the same as
+    // a group whose runs cost nothing — and the refusal beside it says which.
+    meter: EMPTY_METER,
+    schedule: [],
+  };
 }
 
 /** The group's rules as the rules editor reads them. */
@@ -564,13 +549,14 @@ export async function groupAgentView(
   accountId: string,
 ): Promise<AgentGroupDocuments> {
   const store = new AgentStore(access.ctx, accountId);
-  const [rules, jobs, decisions, audit, schedule] = await Promise.all([
+  const [rules, jobs, decisions, schedule] = await Promise.all([
     store.readRules(),
     store.listJobs(),
     store.listDecisions(),
-    readRecentAudit(store),
     store.readSchedule(),
   ]);
+  // One read of the window for both the panel and the meter.
+  const window = await auditWindow(store);
   return {
     rules: rules?.doc ?? [],
     jobs: jobs
@@ -581,17 +567,21 @@ export async function groupAgentView(
       .map((d) => d.doc)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, VIEW_LIMIT),
-    audit,
+    audit: window.slice(-VIEW_LIMIT),
+    meter: meterOver(window),
     schedule: schedule?.doc ?? [],
     granted: true,
   };
 }
 
-/** The last entries of the current and the previous month's audit document. */
-async function readRecentAudit(
-  store: AgentStore,
-  limit = VIEW_LIMIT,
-): Promise<AgentAuditEntry[]> {
+/**
+ * The window the surfaces read the trail over: this month and the one before.
+ *
+ * One reader, one window — the panel shows the last few entries of it, and the
+ * meter is a reading of the whole of it, so the two can never disagree about
+ * what "recent" means (ADR 0010).
+ */
+async function auditWindow(store: AgentStore): Promise<AgentAuditEntry[]> {
   const now = new Date();
   const previous = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
   const [last, current] = await Promise.all([
@@ -599,7 +589,15 @@ async function readRecentAudit(
     store.readAudit(monthOf(now)),
   ]);
   // Entries are appended in order, so document order is chronological order.
-  return [...(last?.entries ?? []), ...(current?.entries ?? [])].slice(-limit);
+  return [...(last?.entries ?? []), ...(current?.entries ?? [])];
+}
+
+/** The last entries of the window, for a panel that shows a few. */
+async function readRecentAudit(
+  store: AgentStore,
+  limit = VIEW_LIMIT,
+): Promise<AgentAuditEntry[]> {
+  return (await auditWindow(store)).slice(-limit);
 }
 
 /**
@@ -653,6 +651,7 @@ export async function saveRules(
   access: GroupAccess,
   accountId: string,
   rules: unknown[],
+  by: string,
 ): Promise<AgentRule[]> {
   const checked = rules.map(checkedRule);
   const seen = new Set<string>();
@@ -676,7 +675,7 @@ export async function saveRules(
           : changed
             ? before.version + 1
             : before.version;
-      return { ...rule, version, updatedAt: at, updatedBy: access.ctx.username };
+      return { ...rule, version, updatedAt: at, updatedBy: by };
     });
     try {
       // A token only when there is a document to compare against: a first save
@@ -718,6 +717,7 @@ export async function runRuleNow(
   access: GroupAccess,
   accountId: string,
   ask: { ruleId: unknown; emailId?: unknown },
+  by: string,
 ): Promise<AgentJob> {
   const store = new AgentStore(access.ctx, accountId);
   const rules = (await store.readRules())?.doc ?? [];
@@ -769,7 +769,7 @@ export async function runRuleNow(
     id: randomUUID(),
     accountId,
     rule,
-    trigger: { on: "manual", emailId: view.id, by: access.ctx.username, at },
+    trigger: { on: "manual", emailId: view.id, by, at },
     now: at,
   });
   await store.writeJob(job);
@@ -1228,24 +1228,22 @@ export async function addAgentLabels(
 /* ------------------------------------------------------------------ */
 
 /**
- * Every decision waiting on a person, across the groups this admin can reach.
+ * Every decision waiting on a person, across the groups the agent holds.
  *
  * The chat is where an approval is answered (resolution 10); this queue is the
  * oversight and the escape hatch, so it is read-only and it never invents a
- * group: a group the admin is not a member of simply has nothing to show here.
+ * group: a group the agent does not hold simply has nothing to show here.
  *
- * The queue can only walk the groups `reachableGroupNames` listed, so the
- * answer carries that read's own enumeration: a directory this session cannot
- * query makes a short queue, and "nothing is waiting" and "I could not look"
- * have to read as the two different answers they are.
+ * The walk is the agent's own session — exactly the set of groups a decision
+ * can be waiting in, since the agent is the principal that asks — read once for
+ * the whole queue. There is no directory listing to fall short of it, so the
+ * answer is complete by construction and carries no enumeration caveat.
  */
 export async function pendingApprovals(admin: LiveSession): Promise<AgentApprovalsView> {
   const out: PendingApproval[] = [];
-  const reachable = await reachableGroupNames(admin);
-  for (const name of reachable.names) {
-    const access = await resolveGroupAccess(admin, name, { need: "approvals" });
-    if (!access.ok) continue;
-    const decisions = await new AgentStore(access.ctx, access.accountId).listDecisions();
+  const reach = await agentGroupReach(admin);
+  for (const [name, accountId] of reach.accounts) {
+    const decisions = await new AgentStore(reach.ctx, accountId).listDecisions();
     for (const { doc } of decisions) {
       if (doc.state !== "pending") continue;
       out.push({
@@ -1259,11 +1257,7 @@ export async function pendingApprovals(admin: LiveSession): Promise<AgentApprova
     }
   }
   out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  return {
-    approvals: out,
-    enumeration: reachable.enumeration,
-    enumerationMessage: reachable.enumerationMessage,
-  };
+  return { approvals: out };
 }
 
 /* ------------------------------------------------------------------ */
@@ -1274,9 +1268,9 @@ export async function pendingApprovals(admin: LiveSession): Promise<AgentApprova
  * A group member's read-only view of the agent (ADR 0003, "Members see, never
  * change").
  *
- * Rules are cut down to what a member reads: what the automation is, where it
- * works, which tier it runs on, whether it is on, what wakes it, how it is
- * reviewed, and what it then does — and the group's standing instruction, the
+ * Rules are cut down to what a member reads: what the automation is, whether it
+ * is on, what wakes it, how it is reviewed, what it is asked to do, and which
+ * actions it may take — and the group's standing instruction, the
  * text the agent carries into every model call, is here as text. Nothing on
  * this path can write, and no provider configuration is reachable from it at
  * all — the agent's own account belongs to the installation, not to a member.
@@ -1293,8 +1287,7 @@ export async function memberAgentView(
   session: LiveSession,
   name: string,
 ): Promise<MemberAgentView | GroupAccessDenied> {
-  const access = await resolveGroupAccess(session, name, {
-    allowImpersonation: false,
+  const access = await memberGroupAccess(session, name, {
     need: "agent documents",
   });
   if (!access.ok) return access;
@@ -1304,8 +1297,9 @@ export async function memberAgentView(
     store.listJobs(),
     readRecentAudit(store),
     // The same document the admin surface writes, read here with the member's
-    // own session: membership is the grant for a group's files (ADR 0005), and
-    // this route never impersonates.
+    // own session: the member's own grant is what reaches a group's files (ADR
+    // 0005), and this route never impersonates and never borrows the agent's
+    // credential.
     readGroupInstruction(access),
     // The transcript is the group's own proof that the agent works here: the
     // greeting the agent posts when it takes the group's claim is readable by

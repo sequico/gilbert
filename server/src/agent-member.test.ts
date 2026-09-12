@@ -144,3 +144,15 @@ test("the member route still needs a session", async () => {
   });
   assert.equal(res.status, 401);
 });
+
+test("an account shared with a member is not a group, and stays shut", async () => {
+  // `grace@example.org` is in this member's session — non-personal, carrying an
+  // address — and answers with no mail store: it is somebody's shared folder,
+  // not a group. The door has to refuse it, or a shared folder would be read as
+  // a group's documents. The mail store's probe is what tells the two apart.
+  const res = await call("/api/agent/group/grace@example.org");
+  assert.equal(res.status, 403);
+  const body = res.body as { error: string; need?: string };
+  assert.equal(body.error, "group_not_accessible");
+  assert.equal(body.need, "agent documents", "and it names the section that asked");
+});

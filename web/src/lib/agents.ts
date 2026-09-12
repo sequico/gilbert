@@ -49,7 +49,6 @@ export type {
   AgentStatus,
   AgentStatusGroup,
   AgentStatusWorker,
-  GroupEnumeration,
   GroupInstructionView,
   GroupNotebookView,
   MemberAgentRule,

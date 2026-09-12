@@ -1491,13 +1491,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   /**
    * The group label catalog surface (ADR 0005): list group mailboxes and read
-   * or replace the labels.json in a group's own Files. Reading/writing a
-   * group the administrator is not a member of uses impersonation — the same
-   * grant the forced-password surface uses — so the administrator's session
-   * must be able to impersonate (an app-password sign-in cannot).
+   * or replace the labels.json in a group's own Files. The catalog is the
+   * agent's, and so is the door: it is read and written as the installation's
+   * agent — the deployment's own credential when it holds one, otherwise
+   * impersonation from the administrator's session, which an app-password
+   * sign-in cannot do.
    *
-   * Impersonation and a group's own access are defined once, in
-   * `agentAdmin.ts`, and shared with the agent surfaces (ADR 0003).
+   * The agent's own door is defined once, in `agentAdmin.ts`, and shared with
+   * the agent surfaces (ADR 0003).
    */
   api.get("/admin/groups", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
@@ -1537,7 +1538,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       const labels = await readGroupLabels(access.ctx, access.accountId);
       return c.json({ labels: labels ?? [] });
     } catch (err) {
-      return upstreamFailure(c, err);
+      return agentFailure(c, err);
     }
   });
 
@@ -1555,7 +1556,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       await writeGroupLabels(access.ctx, access.accountId, body.labels);
       return c.json({ ok: true });
     } catch (err) {
-      return upstreamFailure(c, err);
+      return agentFailure(c, err);
     }
   });
 
@@ -1576,9 +1577,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     // particular value.
     if (err instanceof AgentAdminError) {
       // The reason travels flat beside its code — `{ error, ...params }`, the
-      // shape the membership refusal already answers with — so the surface
-      // composes the sentence from the catalogue in force and no English is
-      // put on the wire for it to fall back on.
+      // shape a group refusal already answers with — so the surface composes
+      // the sentence from the catalogue in force and no English is put on the
+      // wire for it to fall back on.
       const { code, ...params } = err.reason;
       return c.json({ error: code, ...params }, err.status as ContentfulStatusCode);
     }
@@ -1606,11 +1607,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * A group's agent surface. A group this admin cannot reach answers 200 with
-   * the refusal and empty documents rather than 403: "you are not a member" is
-   * a state of the surface, not a failed request — and per ADR 0005 a
-   * non-member admin has no act-as-the-group path at all, so the surface says
-   * which membership a section needs instead of failing at the door.
+   * A group's agent surface. A group the agent does not hold answers 200 with
+   * the refusal and empty documents rather than 403: "the agent is not granted
+   * here" is a state of the surface, not a failed request — the documents are
+   * the agent's, so a group it cannot reach has nothing to show — and the
+   * surface names the section a person was standing at instead of failing at
+   * the door.
    */
   api.get("/admin/groups/:name/agent", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
@@ -1682,7 +1684,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     try {
       const access = await resolveGroupAccess(session, name, { need: "automations" });
       if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
-      const rules = await saveRules(access, access.accountId, body.rules);
+      const rules = await saveRules(
+        access,
+        access.accountId,
+        body.rules,
+        session.username,
+      );
       return c.json({ ok: true, rules });
     } catch (err) {
       return agentFailure(c, err);
@@ -1706,10 +1713,15 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
       return c.json({
         ok: true,
-        job: await runRuleNow(access, access.accountId, {
-          ruleId: body.ruleId,
-          emailId: body.emailId,
-        }),
+        job: await runRuleNow(
+          access,
+          access.accountId,
+          {
+            ruleId: body.ruleId,
+            emailId: body.emailId,
+          },
+          session.username,
+        ),
       });
     } catch (err) {
       return agentFailure(c, err);

@@ -19,6 +19,7 @@ import type {
   AgentAuditEntry,
   AgentDecision,
   AgentJob,
+  AgentMeter,
   AgentNotebookFact,
   AgentRule,
   AgentScheduleEntry,
@@ -28,27 +29,28 @@ import type {
 /* The installation's fleet                                            */
 /* ------------------------------------------------------------------ */
 
-/**
- * Whether a group list came from Stalwart's directory, and why not when it did
- * not.
- *
- * The group mailboxes an admin can act on are enumerated from the directory,
- * and a session whose directory query is refused falls back on the group
- * accounts it already holds. The shorter list and the complete one read
- * identically from the outside, so an answer built that way carries this pair
- * with it: "nothing is waiting" and "I could not look" are different
- * sentences, and only one of them is about the groups.
- */
-export interface GroupEnumeration {
-  /** False when the directory could not be listed, so the list is a subset. */
-  enumeration: boolean;
-  /** Why the directory could not be listed; null when it answered. */
-  enumerationMessage: string | null;
-}
-
 /** One group the agent works in, as its own session shows it holds it. */
 export interface AgentStatusGroup {
   name: string;
+}
+
+/**
+ * What the installation has spent, over the window the group panels read
+ * (ADR 0010).
+ *
+ * The total is the sum of every group the agent holds — complete by
+ * construction, because the agent's own session is the reach and there is no
+ * other index of runs — and the split is how each entry names the agent that
+ * made the call. A group whose audit could not be read is named in `unreadable`
+ * rather than folded in as nothing: the total is then a floor, and the surface
+ * says so.
+ */
+export interface AgentStatusMeter {
+  total: AgentMeter;
+  /** One entry per agent address; the empty name is "the entry names none". */
+  byAgent: Array<{ agent: string; meter: AgentMeter }>;
+  /** Groups whose audit could not be read: their runs are in no total here. */
+  unreadable: string[];
 }
 
 /** One running worker, with freshness judged at read time rather than stored. */
@@ -104,6 +106,8 @@ export interface AgentStatus {
   /** The agent's address, as the deployment names it; empty when it names none. */
   address: string;
   groups: AgentStatusGroup[];
+  /** The installation's use, and the split per agent (ADR 0010). */
+  meter: AgentStatusMeter;
   workers: AgentStatusWorker[];
   /** Grants the fleet has lost, newest first, as its workers reported them. */
   withdrawals: AgentWithdrawal[];
@@ -233,6 +237,8 @@ export interface AgentGroupSurface {
   jobs: AgentJob[];
   decisions: AgentDecision[];
   audit: AgentAuditEntry[];
+  /** What this group's runs cost, over the window the trail is read over. */
+  meter: AgentMeter;
   schedule: AgentScheduleEntry[];
 }
 
@@ -255,7 +261,7 @@ export type AgentGroupDenied = AgentGroupSurface & {
  */
 export type AgentGroupDocuments = Pick<
   AgentGroupSurface,
-  "rules" | "jobs" | "decisions" | "audit" | "schedule"
+  "rules" | "jobs" | "decisions" | "audit" | "meter" | "schedule"
 > & { granted: true };
 
 /** What the group route answers with, either way. */
@@ -297,11 +303,11 @@ export interface AgentAuditExport {
 /**
  * What a section asks a group for.
  *
- * Every surface reaches a group's documents for the same grant — membership of
- * the group — but not for the same document, and the refusal a person reads
- * names the section they were standing at. That name travels as this value
- * rather than inside a sentence, so the sentence can be composed in the
- * language the person reads.
+ * Every administration surface reaches a group's documents for the same grant —
+ * the installation's agent holds the group — but not for the same document, and
+ * the refusal a person reads names the section they were standing at. That name
+ * travels as this value rather than inside a sentence, so the sentence can be
+ * composed in the language the person reads.
  */
 export type GroupNeed =
   | "labels"
@@ -311,16 +317,17 @@ export type GroupNeed =
   | "approvals"
   | "agent documents";
 
-/** The code a group-membership refusal travels as, on every surface. */
+/** The code a group the agent does not hold travels as, on every surface. */
 export const GROUP_NOT_ACCESSIBLE = "group_not_accessible";
 
 /**
  * Why a group's documents are out of reach: the code, and the parameter that
  * names the section.
  *
- * Membership is the whole answer — a group's documents live in the group's own
- * account, so a non-member has no path to them at all — and the sentence that
- * says so is composed where it is shown, from the catalogue in force: a
+ * The agent's grant is the whole answer — a group's documents live in the
+ * group's own account, and the agent is the principal that holds it — so a
+ * group the agent is not granted on has no path to them at all. The sentence
+ * that says so is composed where it is shown, from the catalogue in force: a
  * language whose catalogue lacks it reads the English source.
  */
 export interface GroupAccessDenied {
@@ -378,13 +385,13 @@ export interface PendingApproval {
 }
 
 /**
- * The approval queue, with the reach it was built from.
+ * The approval queue.
  *
- * The queue walks the group mailboxes the directory enumeration returned, so a
- * queue the directory could not be asked about is short, and this pair is what
- * tells that apart from a queue with nothing in it.
+ * The queue walks the agent's own session, so it is exactly the groups a
+ * decision can be waiting in and complete by construction: there is no listing
+ * that could fall short of it, and no caveat to carry.
  */
-export interface AgentApprovalsView extends GroupEnumeration {
+export interface AgentApprovalsView {
   approvals: PendingApproval[];
 }
 

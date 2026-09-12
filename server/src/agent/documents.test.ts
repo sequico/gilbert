@@ -8,6 +8,7 @@ import {
 } from "../shared/chat.js";
 import {
   AGENT_ACTION_SPECS,
+  AGENT_AUDIT_OUTCOMES,
   AGENT_NOTEBOOK_FACT_MAX,
   AGENT_TRIGGERS,
   type AgentAction,
@@ -20,12 +21,14 @@ import {
   clampChatContext,
   consentRequired,
   FENCED_ACTIONS,
+  hopOf,
   irreversible,
   isAgentAction,
   isAgentJob,
   isAgentNotebookDoc,
   isAgentRule,
   isAgentRulesDoc,
+  isAgentTriggerRecord,
   leavesTheProcess,
   matchEmailFilter,
   meterOver,
@@ -610,4 +613,56 @@ test("the window's oldest month is the month the prune keeps, not the one it dro
   const months = monthsSince(keepFrom, now);
   assert.equal(months[0], monthOf(keepFrom));
   assert.equal(months[months.length - 1], monthOf(now));
+});
+
+test("a job's trigger carries its lineage, and a trigger with no count is hop one", () => {
+  // The count starts at the trigger (ADR 0010): what wakes a rule by itself is
+  // hop one, and a record written before the count existed reads as that too.
+  const base = { v: 1 as const, id: "j1", accountId: "a3", ruleId: "r1", ruleVersion: 1 };
+  const at = "2026-09-10T12:00:00Z";
+  const made = newJob({
+    id: "j1",
+    accountId: "a3",
+    rule: { id: "r1", version: 1 },
+    trigger: { on: "email", emailId: "m1", at },
+  });
+  assert.equal(made.trigger.hop, 1, "a job nothing woke but its trigger is hop one");
+  assert.equal(made.trigger.parentJobId, undefined);
+
+  const woken = {
+    ...base,
+    state: "pending",
+    trigger: { on: "filenode", nodeId: "n1", parentJobId: "j0", hop: 3, at },
+    attempts: 0,
+    createdAt: at,
+    updatedAt: at,
+  };
+  assert.ok(isAgentJob(woken), "the lineage the job document carries reads back");
+  assert.equal(hopOf({ hop: 3 }), 3);
+  assert.equal(hopOf({}), 1, "and a trigger with no count is hop one");
+  assert.equal(hopOf({ hop: 0 }), 1, "a count below one is not a hop");
+  assert.equal(
+    isAgentTriggerRecord({ on: "filenode", nodeId: "n1", parentJobId: "j0", hop: 0, at }),
+    false,
+    "a hop that is not a hop is refused rather than read as one",
+  );
+  assert.ok(
+    isAgentJob({
+      ...woken,
+      effects: [
+        { type: "Email", id: "m1" },
+        { type: "FileNode", id: "n1" },
+      ],
+    }),
+    "and the records a run wrote ride the job that wrote them",
+  );
+  assert.equal(
+    isAgentJob({ ...woken, effects: [{ type: "Mailbox", id: "x" }] }),
+    false,
+    "a record the change cannot name back is not an effect",
+  );
+  assert.ok(
+    AGENT_AUDIT_OUTCOMES.includes("refused"),
+    "a refusal is an outcome of its own, beside missed and timeout",
+  );
 });

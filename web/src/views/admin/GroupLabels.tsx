@@ -1,6 +1,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/jmap/client";
+import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
 import { labelKeywordFromName } from "@/lib/labelKeyword";
 import { useSession } from "@/store/session";
@@ -15,10 +16,12 @@ interface DirectoryGroup {
 
 /**
  * The admin group-label surface (ADR 0005): the label catalog of a group
- * mailbox lives in the group's own Files, and only an administrator defines
- * or changes it. Members read and apply it; renaming a label changes only its
- * display name — the keyword that rides on the messages is stable, so nothing
- * in the mailbox is rewritten.
+ * mailbox lives in the group's own Files, and it belongs to the group — members
+ * apply it. The pen that reaches those files is the installation's agent's, so
+ * this section is authored as the agent and an administrator needs no
+ * membership of the group to define or change it. Members read and apply it;
+ * renaming a label changes only its display name — the keyword that rides on
+ * the messages is stable, so nothing in the mailbox is rewritten.
  */
 export function GroupLabels() {
   const [groups, setGroups] = useState<DirectoryGroup[] | null>(null);
@@ -122,9 +125,7 @@ export function GroupLabels() {
         )}
       </p>
       <p className="hint" style={{ marginBottom: 12 }}>
-        {t(
-          "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.",
-        )}
+        {groupAccessSentence("labels")}
       </p>
       {loadError && (
         <div className="error-box">

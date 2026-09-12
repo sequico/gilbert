@@ -1202,8 +1202,6 @@ export const catalog: Catalog = {
     "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.":
       "Elencare le caselle di gruppo richiede il privilegio di amministratore del server Stalwart, che questa sessione non ha.",
     "No labels yet.": "Ancora nessuna etichetta.",
-    "Managing a group's label catalog needs membership of that group: the catalog lives in the group's own files, and the mail server refuses to act as a group mailbox on an administrator's behalf.":
-      "Gestire il catalogo etichette di un gruppo richiede di essere membri del gruppo: il catalogo vive nei file propri del gruppo e il server di posta rifiuta di agire come casella di gruppo per conto di un amministratore.",
     "You are a member of this group — its labels are managed here.":
       "Sei membro di questo gruppo — le sue etichette si gestiscono qui.",
     "You are not a member of this group — its label catalog cannot be managed from here.":
@@ -2520,8 +2518,6 @@ export const catalog: Catalog = {
 
     "no address": "nessun indirizzo",
     // ── The agent fleet (ADR 0003) ────────────────────────────────────
-    "The group mailboxes could not all be listed, so this queue covers only the groups you are a member of: something may be waiting in a group that is missing here.":
-      "Non è stato possibile elencare tutte le caselle di gruppo, quindi questa coda copre solo i gruppi di cui sei membro: qualcosa potrebbe essere in attesa in un gruppo che qui manca.",
     "Only an administrator of this group changes its instruction and its automations; every member reads them here.":
       "Solo un amministratore di questo gruppo ne cambia l'istruzione e le automazioni; ogni membro le legge qui.",
     "No standing instruction has been written for this group.":

@@ -37,16 +37,34 @@ after(() => {
   (mock as { server?: { close(): void } }).server?.close();
 });
 
-test("the accounts a v1 agent may serve are the group mailboxes", () => {
-  const candidates = candidateAccounts(session);
-  assert.ok(candidates.includes(GROUP), "a group mailbox is served");
-  assert.ok(candidates.includes("a5"), "a second group is served too");
-  assert.ok(!candidates.includes("a1"), "a person's own account is not v1 work");
-  for (const id of candidates) {
-    const account = session.accounts[id] as { isPersonal?: unknown; name?: unknown };
-    assert.equal(account.isPersonal, false);
-    assert.match(String(account.name), /@/);
-  }
+test("the accounts a v1 agent may serve are the group mailboxes", async () => {
+  // The session the daemon runs with is the agent's own (ADR 0003 §1): it holds
+  // the groups it is granted, and nothing of a person's — `design@example.org`
+  // is the agent's group and not the demo user's, which is why the fixture is
+  // this session and not the demo's.
+  const agentAuth = basicAuth(AGENT, mock.AGENT_PASS);
+  const agentSession = await fetchUpstreamSession(agentAuth, BASE);
+  const served = await candidateAccounts({
+    authorization: agentAuth,
+    session: agentSession,
+    username: AGENT,
+  });
+  assert.ok(served.includes(GROUP), "a group mailbox is served");
+  assert.ok(served.includes("a5"), "a second group is served too");
+  assert.ok(!served.includes("a1"), "a person's own account is not v1 work");
+
+  /*
+   * The demo's session holds `grace@example.org` besides: non-personal, with an
+   * address, and **no mail store**. It is somebody's shared folder, not a group,
+   * and the mail store's probe is what tells the two apart — this assertion is
+   * the one that fails when the probe is removed and the session alone decides.
+   */
+  const demo = await candidateAccounts(ctx);
+  assert.ok(demo.includes(GROUP), "the group the demo is a member of is served");
+  assert.ok(
+    !demo.includes("a2"),
+    "a folder share is not a group, however much it looks like one",
+  );
 });
 
 test("the authorization header an agent derives its session with", () => {
@@ -67,7 +85,7 @@ test("one pass claims its units, heartbeats, and gives everything back on stop",
   });
 
   const served = await worker.pass();
-  assert.deepEqual([...served].sort(), [...candidateAccounts(session)].sort());
+  assert.deepEqual([...served].sort(), [...(await candidateAccounts(ctx))].sort());
   for (const accountId of served) {
     const claim = await new AgentStore(ctx, accountId).readClaim();
     assert.equal(

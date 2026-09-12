@@ -878,7 +878,33 @@ export interface AgentTriggerRecord {
   chatId?: string;
   /** Who caused it: a member's address when a person did. */
   by?: string;
+  /**
+   * The job whose own effect woke this one: the lineage a chain is read along
+   * (ADR 0010). Absent when nothing woke this run but its trigger itself, and a
+   * manual ask is one of those — a person asking is a trigger like any other.
+   */
+  parentJobId?: string;
+  /**
+   * How many hops into its chain this run is, counted from the trigger.
+   *
+   * What wakes a rule by itself — an arrival, a file, a request in the group's
+   * chat, the clock — is hop one, and a run woken by another run's effect is one
+   * more. Absent on records written before the count existed, and read as hop
+   * one, which is what `hopOf` is for (ADR 0010).
+   */
+  hop?: number;
   at: string;
+}
+
+/**
+ * How many hops into its chain a trigger is.
+ *
+ * The one reader of the count: a record that carries no number is a trigger
+ * that woke its rule by itself, which is hop one.
+ */
+export function hopOf(trigger: { hop?: number }): number {
+  const hop = trigger.hop;
+  return typeof hop === "number" && Number.isInteger(hop) && hop >= 1 ? hop : 1;
 }
 
 export interface AgentJob {
@@ -903,6 +929,15 @@ export interface AgentJob {
    * not retried at all (ADR 0003 resolution 18).
    */
   applied?: string[];
+  /**
+   * The records this run's own effects wrote, in the order they landed.
+   *
+   * Beside `applied`, which says which actions ran: this says which records
+   * moved, and that is what a chain's lineage is read from — a change reports
+   * the id of the record that moved, and the job whose effect carried that id is
+   * the job that woke the run the change starts (ADR 0010).
+   */
+  effects?: AgentEffect[];
   /** When the next attempt may start: the backoff between retries. */
   nextAttemptAt?: string;
   decisionId?: string;
@@ -910,6 +945,25 @@ export interface AgentJob {
   error?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * A record a run's own effect wrote: a message it labelled or moved, a chat
+ * message or a file it posted, the copy it sent.
+ *
+ * The kind is JMAP's, because that is what a change names when it reports that
+ * the record moved.
+ */
+export interface AgentEffect {
+  type: "Email" | "FileNode";
+  id: string;
+}
+
+export function isAgentEffect(x: unknown): x is AgentEffect {
+  if (!x || typeof x !== "object") return false;
+  const e = x as Record<string, unknown>;
+  if (e.type !== "Email" && e.type !== "FileNode") return false;
+  return typeof e.id === "string" && e.id.length > 0;
 }
 
 export function isAgentLease(x: unknown): x is AgentLease {
@@ -926,9 +980,11 @@ export function isAgentTriggerRecord(x: unknown): x is AgentTriggerRecord {
   if (!x || typeof x !== "object") return false;
   const t = x as Record<string, unknown>;
   if (!isAgentJobTriggerOn(t.on)) return false;
-  for (const k of ["emailId", "nodeId", "chatId", "by"] as const) {
+  for (const k of ["emailId", "nodeId", "chatId", "by", "parentJobId"] as const) {
     if (t[k] !== undefined && typeof t[k] !== "string") return false;
   }
+  if (t.hop !== undefined && (!Number.isInteger(t.hop) || (t.hop as number) < 1))
+    return false;
   return typeof t.at === "string";
 }
 
@@ -963,6 +1019,11 @@ export function isAgentJob(x: unknown): x is AgentJob {
     (!Array.isArray(j.applied) || j.applied.some((a) => typeof a !== "string"))
   )
     return false;
+  if (
+    j.effects !== undefined &&
+    (!Array.isArray(j.effects) || j.effects.some((effect) => !isAgentEffect(effect)))
+  )
+    return false;
   if (j.nextAttemptAt !== undefined && typeof j.nextAttemptAt !== "string") return false;
   if (j.decisionId !== undefined && typeof j.decisionId !== "string") return false;
   if (j.error !== undefined && typeof j.error !== "string") return false;
@@ -985,7 +1046,9 @@ export function newJob(input: {
     ruleId: input.rule.id,
     ruleVersion: input.rule.version,
     state: "pending",
-    trigger: input.trigger,
+    // The count starts at the trigger: a job whose caller named no lineage is
+    // one that nothing woke but its own trigger, which is hop one (ADR 0010).
+    trigger: { ...input.trigger, hop: hopOf(input.trigger) },
     attempts: 0,
     createdAt: at,
     updatedAt: at,
@@ -1346,6 +1409,14 @@ export const AGENT_AUDIT_OUTCOMES: ReadonlyArray<string> = [
    * trail is entitled to see the difference.
    */
   "timeout",
+  /**
+   * A run a chain refused before it started: an automation woken past the bound
+   * the installation sets on hops. It is an outcome of its own rather than
+   * `failed`, because nothing failed — a run that must not happen is a fact
+   * about the agent, and a reader of the trail is entitled to see it (ADR
+   * 0010).
+   */
+  "refused",
 ];
 
 export type AgentAuditOutcome =
@@ -1355,7 +1426,8 @@ export type AgentAuditOutcome =
   | "awaiting_approval"
   | "rejected"
   | "missed"
-  | "timeout";
+  | "timeout"
+  | "refused";
 
 /** Whether a value names an outcome the audit can carry. */
 export function isAgentAuditOutcome(x: unknown): x is AgentAuditOutcome {
@@ -1451,15 +1523,38 @@ export function meterOf(
   };
 }
 
+/** A meter that has seen nothing: the fold's starting point, written once. */
+export const EMPTY_METER: AgentMeter = {
+  inputHitTokens: null,
+  inputMissTokens: null,
+  outputTokens: null,
+  runs: 0,
+  uncounted: 0,
+};
+
 /** A meter over the entries a surface reads. The one aggregator. */
 export function meterOver(entries: ReadonlyArray<AgentAuditEntry>): AgentMeter {
-  return entries.reduce(meterOf, {
-    inputHitTokens: null,
-    inputMissTokens: null,
-    outputTokens: null,
-    runs: 0,
-    uncounted: 0,
-  });
+  return entries.reduce(meterOf, EMPTY_METER);
+}
+
+/**
+ * The same fold, one meter per agent — the split the fleet view reads.
+ *
+ * The key is the address an entry names as having spent the call, and an entry
+ * that names none is counted under the empty name rather than dropped: the
+ * parts have to add up to the total, or the split is a second, quieter number.
+ */
+export function metersByAgent(
+  entries: ReadonlyArray<Pick<AgentAuditEntry, "agent" | "usage">>,
+): Array<{ agent: string; meter: AgentMeter }> {
+  const by = new Map<string, AgentMeter>();
+  for (const entry of entries) {
+    const agent = entry.agent ?? "";
+    by.set(agent, meterOf(by.get(agent) ?? EMPTY_METER, entry));
+  }
+  return [...by]
+    .map(([agent, meter]) => ({ agent, meter }))
+    .sort((a, b) => a.agent.localeCompare(b.agent));
 }
 
 export interface AgentAuditDoc {
