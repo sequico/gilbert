@@ -32,18 +32,22 @@ prose is renamed to `gilbert`/`Gilbert` during the merge, automatically and
 without asking — including user-visible names such as a shipped theme or
 palette id. Only the upstream-name exceptions above may stay.
 
-The agent vocabulary is three words and they are not synonyms. One **Master
-Agent** is the principal everything belongs to: the account in Stalwart
+The agent vocabulary is three words and they are not synonyms. One **Master**
+is the principal everything belongs to: the account in Stalwart
 (`gilbert@…`), its address, its password, its grants, and the model it uses. Its
 **agents** — **Group Agents** where the surface lists them for one group — are
 the processes that act as it: what a deployment starts, what claims a group's
 account by lease and runs its automations, and what the administration counts
 and shows. **Worker** is kept for what is technically one: the browser's
 service worker. So prose and UI say "agent" where they used to say "worker",
-and an unqualified "worker" means the browser's. Code identifiers are not
-renamed by this rule — it governs prose and the surface, and a rename of
-`worker.ts` or of a wire field is its own change.
+and an unqualified "worker" means the browser's.
 
+**The identifiers follow the same three words, in a sweep listed where the work
+is read (`ROADMAP.md`)** — the file, the types and the functions on one side, and
+on the other the things that are contracts rather than names: a field in a
+document an installation has already written, a refusal code a client composes a
+sentence from, an environment variable an operator set. Each moves with every
+reader and writer of it in the same change, or it does not move at all.
 ## Architecture law
 JMAP only, to Stalwart; no own database; everything durable lives in Stalwart;
 container disposable; `IMMUTABLE=1` = no writable filesystem. Values: fail
