@@ -244,7 +244,7 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
     name: "document.read",
     label: "Read a document",
     description:
-      "Read a file of the group's Files: a PDF's own text layer, or a .docx. A page with no text layer is read by the model from its image.",
+      "Read a file of the group's Files as text: a PDF's own text layer, or a .docx. It answers with the text and names the pages that carry none — those are read by the model, as images, when a run is woken by the file.",
     params: [{ key: "file", required: false, kind: "text" }],
   },
   {
@@ -1822,6 +1822,25 @@ export const MODEL_MAX_OUTPUT_DEFAULT = 2048;
  */
 export const AGENT_MAX_PAGES_DEFAULT = 8;
 
+/**
+ * How many bytes of a document one run may read.
+ *
+ * The blob is fetched whole before anything can look at it, and a page is held
+ * as pixels while it is rendered, so this is the bound on both: a file larger
+ * than this is not read here, and the run says so rather than spending the
+ * process on it (ADR 0010).
+ */
+export const AGENT_DOCUMENT_BYTES_MAX = 32 * 1024 * 1024;
+
+/**
+ * How many pages one `document.split` may write.
+ *
+ * A split turns one file into as many files as it has pages, so the bound is on
+ * what the group's own storage gains from one action rather than on what one
+ * call reads.
+ */
+export const AGENT_SPLIT_PAGES_MAX = 100;
+
 /** What an installation may raise the two bounds to, from its own surface. */
 export const AGENT_CHAIN_HOPS_CEILING = 50;
 export const AGENT_PAGES_CEILING = 50;
@@ -1846,6 +1865,34 @@ export function isModelMaxOutput(x: unknown): x is number {
     x >= 1 &&
     x <= MODEL_MAX_OUTPUT_CEILING
   );
+}
+
+/**
+ * Why a provider's base URL may not be used, or null when it may.
+ *
+ * One rule, two doors: the admin route refuses a write with a sentence, and
+ * every call path re-checks the address it is about to send the installation's
+ * key to — a configuration document can be written by hand, restored from a
+ * backup, or written by a build that predates the guard, and the call is where
+ * the key would actually leave.
+ */
+export function baseUrlProblem(baseUrl: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    return "base_url_invalid";
+  }
+  if (url.protocol !== "https:") return "base_url_not_https";
+  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  const privateHost =
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".internal") ||
+    host === "::1" ||
+    /^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host) ||
+    /^(f[cd][0-9a-f]{2}:|fe80:)/.test(host);
+  return privateHost ? "base_url_private" : null;
 }
 
 export function isAgentProvider(x: unknown): x is AgentProvider {

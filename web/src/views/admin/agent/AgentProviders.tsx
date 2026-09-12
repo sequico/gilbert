@@ -14,6 +14,7 @@
 
 import {
   AGENT_CHAIN_HOPS_CEILING,
+  AGENT_PAGES_CEILING,
   MODEL_MAX_OUTPUT_CEILING,
 } from "@gilbert/agent/documents";
 import { BrainCircuit } from "lucide-react";
@@ -100,9 +101,6 @@ export function AgentProviders() {
  * the model. Each is a number the deployment declares a default for, and the
  * surface shows the number in force.
  */
-/** The ceiling the two bounds that are not the answer's size are held to. */
-const AGENT_BOUND_CEILING = AGENT_CHAIN_HOPS_CEILING;
-
 interface AgentBounds {
   maxOutputTokens: number;
   maxChainHops: number;
@@ -337,7 +335,9 @@ function ProviderEditor({
             max={
               field.key === "maxOutputTokens"
                 ? MODEL_MAX_OUTPUT_CEILING
-                : AGENT_BOUND_CEILING
+                : field.key === "maxChainHops"
+                  ? AGENT_CHAIN_HOPS_CEILING
+                  : AGENT_PAGES_CEILING
             }
             value={typed[field.key]}
             onChange={(e) => setTyped((was) => ({ ...was, [field.key]: e.target.value }))}

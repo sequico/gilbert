@@ -424,6 +424,16 @@ const agentWorkerSettings = {
    * readable rather than inferred (ADR 0010).
    */
   thinking: bool("GILBERT_AGENT_THINKING", true),
+  /**
+   * Whether this deployment may point the installation's model at an address
+   * inside its own network — a model running on the same host, say.
+   *
+   * Off by default, and it is the **operator's** statement rather than a
+   * document's: the configuration an installation writes is refused when it
+   * names a private host, and this is what says the deployment meant one
+   * (ADR 0010).
+   */
+  allowPrivateProvider: bool("GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER", false),
   /*
    * How many pages one run may hand the model as images (ADR 0010). A page
    * whose own text layer is empty is rasterised in the process and read by the

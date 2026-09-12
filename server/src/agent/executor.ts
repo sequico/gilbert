@@ -74,16 +74,21 @@ import {
 import type { AgentUsage } from "./documents.js";
 import {
   AGENT_AUDIT_DIR,
+  AGENT_CHAIN_HOPS_CEILING,
   AGENT_DIR,
+  AGENT_DOCUMENT_BYTES_MAX,
+  AGENT_PAGES_CEILING,
   AGENT_RULES_FILE,
   type AgentAction,
   type AgentClaim,
+  type AgentConfigDoc,
   type AgentDecision,
   type AgentDraftRef,
   type AgentEffect,
   type AgentEmailView,
   type AgentJob,
   type AgentProposal,
+  type AgentProvider,
   type AgentRule,
   type AgentScheduleEntry,
   type AgentTriggerRecord,
@@ -109,7 +114,12 @@ import {
   UnsupportedFilterError,
 } from "./documents.js";
 import { claimStillMine, saveClaimStates } from "./lease.js";
-import { decideActions, type ModelContext, providerFor } from "./llm.js";
+import {
+  assertUsableProvider,
+  decideActions,
+  type ModelContext,
+  providerFor,
+} from "./llm.js";
 import {
   advance,
   armTimers,
@@ -550,11 +560,32 @@ export class Executor {
    * One read, from the account that holds the installation's configuration, and
    * the environment is what an installation that has said nothing runs on.
    */
+  /**
+   * The installation's model, with the address check the call owes: one rule,
+   * applied where the key leaves the process (ADR 0010).
+   */
+  private usableProvider(configDoc: AgentConfigDoc | null): AgentProvider {
+    const provider = providerFor(configDoc);
+    assertUsableProvider(provider, config.agent.allowPrivateProvider);
+    return provider;
+  }
+
   private async chainHops(): Promise<number> {
     try {
       const doc = (await this.agentStore.readConfig())?.doc;
-      return doc?.maxChainHops ?? config.agent.maxChainHops;
+      // What the document says, held to what this build accepts: a value above
+      // the ceiling is one no surface would have written, and a chain that ran
+      // to it would be one nobody could have set from the product.
+      return Math.min(
+        doc?.maxChainHops ?? config.agent.maxChainHops,
+        AGENT_CHAIN_HOPS_CEILING,
+        AGENT_PAGES_CEILING,
+      );
     } catch (err) {
+      // A configuration this pass cannot read falls back to the deployment's
+      // own number rather than stopping the pass: the same document fails the
+      // run itself when the provider is read from it, and a chain is not the
+      // place to report an unreadable configuration.
       console.warn(
         "[gilbert] could not read the installation's bound on a chain:",
         (err as Error).message,
@@ -786,7 +817,10 @@ export class Executor {
     const configDoc = (await this.agentStore.readConfig())?.doc ?? null;
     // The page budget the installation set, or the one the deployment declares:
     // the same shape as every other bound (ADR 0010).
-    const pages = configDoc?.maxPages ?? config.agent.maxPages;
+    const pages = Math.min(
+      configDoc?.maxPages ?? config.agent.maxPages,
+      AGENT_PAGES_CEILING,
+    );
     const context = await this.contextFor(accountId, job, rule, pages);
     // The group's standing instruction rides every model call this group's
     // agent makes (ADR 0003 resolution 17): read once per run, first in the
@@ -796,15 +830,22 @@ export class Executor {
     // instruction: what is true about the group, then how it wants work done.
     const notebook = notebookFor((await store.readNotebook())?.doc ?? null);
     const answer = await decideActions(
-      providerFor(configDoc),
+      this.usableProvider(configDoc),
       rule,
       context,
       rule.capabilities,
       standing,
       notebook,
-      // The call's own shape: the installation's ceiling on an answer, and the
-      // agent's own decision about paying for a chain of thought.
-      { maxOutputTokens: configDoc?.maxOutputTokens, thinking: config.agent.thinking },
+      // The call's own shape: the installation's ceiling on an answer, how many
+      // pages it may hand over, and the agent's own decision about paying for a
+      // chain of thought. The page bound is stated in the prompt from this same
+      // number, so what the model is told and what the run hands over cannot
+      // disagree.
+      {
+        maxOutputTokens: configDoc?.maxOutputTokens,
+        maxPages: pages,
+        thinking: config.agent.thinking,
+      },
     );
     await this.guardLabels(accountId, answer.actions);
     return {
@@ -1174,6 +1215,13 @@ export class Executor {
       context.text += `\n\n"${path}" is no longer in the group's Files.`;
       return;
     }
+    // The blob arrives whole, before anything can look at it, and a rendered
+    // page is held as pixels: this is the bound on both, and a run says it
+    // rather than spending the process on one file (ADR 0010).
+    if (found.bytes.byteLength > AGENT_DOCUMENT_BYTES_MAX) {
+      context.text += `\n\n"${found.name}" is larger than the ${AGENT_DOCUMENT_BYTES_MAX} bytes a run reads, so nothing of it is read here.`;
+      return;
+    }
     const type =
       typeof found.file.type === "string" && found.file.type ? found.file.type : "";
     const kind = documentKindOf(found.name, type);
@@ -1181,6 +1229,9 @@ export class Executor {
       context.text += `\n\n"${found.name}" is neither a PDF nor a .docx, so nothing of it is read here.`;
       return;
     }
+    // Nothing read and no page to render is said out loud: a `.docx` whose text
+    // is empty, or a PDF whose pages carry none, is a document this run could
+    // not read, not a document that says nothing.
     let content: DocumentContent;
     try {
       content = await documentContent(found.bytes, kind, pages);
@@ -1193,7 +1244,15 @@ export class Executor {
     }
     const read = content.read;
     if (read.text) context.text += `\n\nIts own text:\n\n${read.text}`;
-    if (!read.pixelPages.length) return;
+    if (!read.pixelPages.length) {
+      // A document with no text and no page to render is one this run could not
+      // read — an empty `.docx`, or a PDF the text layer of which is empty and
+      // whose pages the engine would not render — and saying so is what keeps
+      // "there is nothing here" from being an answer nobody checked.
+      if (!read.text)
+        context.text += `\n\nNothing of "${found.name}" could be read as text, and it carries no page to render.`;
+      return;
+    }
     const handed = content.images.map((image) => image.page).join(", ");
     context.text +=
       `\n\nPages ${read.pixelPages.join(", ")} of ${read.pages} carry no text layer: ` +

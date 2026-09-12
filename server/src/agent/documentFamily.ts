@@ -40,6 +40,10 @@ export type DocumentErrorCode =
   | "invalid_range"
   /** The document carries no pages at all. */
   | "no_pages"
+  /** The file is larger than one run reads. */
+  | "document_too_large"
+  /** One action would write more pages than it may. */
+  | "document_too_many_pages"
   /** Nothing to work on: no file named, and none woke the run. */
   | "no_file"
   /** The group's Files hold no file at that path. */
@@ -121,15 +125,26 @@ export function documentKindOf(name: string, type?: string): DocumentKind | null
   return null;
 }
 
+/**
+ * The shortest text a page may carry and still be a text layer.
+ *
+ * Below it the page is a stamp, a watermark or a page number: what a person
+ * sees on that page is pixels, so the model is handed the page rather than the
+ * fragment (ADR 0010).
+ */
+const MIN_TEXT_LAYER_CHARS = 12;
+
 /** Read a document's own text: a PDF's text layer, or the text of a `.docx`. */
 export async function readDocument(
   bytes: Uint8Array,
   kind: DocumentKind,
+  /** How many pages this run may work with, as the installation set it. */
+  maxPages: number,
 ): Promise<DocumentRead> {
   if (kind === "docx") {
     return { kind, pages: 1, text: await docxText(bytes), pixelPages: [] };
   }
-  const { pages, texts } = await pdfPageTexts(bytes);
+  const { pages, texts } = await pdfPageTexts(bytes, maxPages);
   const pixelPages: number[] = [];
   texts.forEach((text, index) => {
     if (!text.trim()) pixelPages.push(index + 1);
@@ -159,11 +174,11 @@ export async function documentContent(
   kind: DocumentKind,
   maxPages: number,
 ): Promise<DocumentContent> {
-  const read = await readDocument(bytes, kind);
+  const bound = Number.isFinite(maxPages) ? Math.max(0, Math.floor(maxPages)) : 0;
+  const read = await readDocument(bytes, kind, bound);
   if (read.kind !== "pdf" || !read.pixelPages.length) {
     return { read, images: [], omitted: 0 };
   }
-  const bound = Number.isFinite(maxPages) ? Math.max(0, Math.floor(maxPages)) : 0;
   const wanted = read.pixelPages.slice(0, bound);
   return {
     read,
@@ -175,6 +190,8 @@ export async function documentContent(
 /** A PDF's own text layer, per page, through `pdfjs-dist`. */
 async function pdfPageTexts(
   bytes: Uint8Array,
+  /** How many pages to read: a bound the caller sets, never the file's size. */
+  maxPages: number,
 ): Promise<{ pages: number; texts: string[] }> {
   // `pdfjs` takes ownership of the bytes it is handed, and the same file is
   // read again to render a page, so it is given a copy of its own.
@@ -188,13 +205,16 @@ async function pdfPageTexts(
   try {
     const document = await task.promise;
     const texts: string[] = [];
-    for (let page = 1; page <= document.numPages; page++) {
+    const last = Math.min(document.numPages, Math.max(1, Math.floor(maxPages)));
+    for (let page = 1; page <= last; page++) {
       const content = await (await document.getPage(page)).getTextContent();
-      texts.push(
-        content.items
-          .map((item) => ("str" in item ? item.str + (item.hasEOL ? "\n" : "") : ""))
-          .join(""),
-      );
+      const text = content.items
+        .map((item) => ("str" in item ? item.str + (item.hasEOL ? "\n" : "") : ""))
+        .join("");
+      // A page whose only text is a stamp, a watermark or a page number has no
+      // text layer to read: what a person sees on it is pixels, and the model
+      // gets the page rather than the fragment (ADR 0010).
+      texts.push(text.trim().length < MIN_TEXT_LAYER_CHARS ? "" : text);
     }
     return { pages: document.numPages, texts };
   } catch (err) {
@@ -268,7 +288,7 @@ export async function renderPages(
       });
       out.push({
         page,
-        png: pngFromRgba(rendered.data, rendered.width, rendered.height),
+        png: await pngFromRgba(rendered.data, rendered.width, rendered.height),
       });
     }
     return out;
@@ -310,7 +330,11 @@ const PNG_SIGNATURE = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a,
  * 0 (no prediction) keeps the rest to a copy per row. Nothing here touches the
  * filesystem, which is what this deployment has none of.
  */
-function pngFromRgba(rgba: Uint8Array, width: number, height: number): Uint8Array {
+async function pngFromRgba(
+  rgba: Uint8Array,
+  width: number,
+  height: number,
+): Promise<Uint8Array> {
   const stride = width * 4;
   const rows = new Uint8Array((stride + 1) * height);
   for (let y = 0; y < height; y++) {
@@ -331,12 +355,22 @@ function pngFromRgba(rgba: Uint8Array, width: number, height: number): Uint8Arra
   view.setUint32(4, height);
   header[8] = 8; // eight bits a channel
   header[9] = 6; // red, green, blue, alpha
+  // The deflating is asynchronous on purpose: this process serves every account
+  // on the installation, and a synchronous deflate of a page-sized buffer
+  // stops all of it for as long as the compressing takes.
   return concat([
     PNG_SIGNATURE,
     pngChunk("IHDR", header),
-    pngChunk("IDAT", zlib.deflateSync(rows)),
+    pngChunk("IDAT", await deflate(rows)),
     pngChunk("IEND", new Uint8Array(0)),
   ]);
+}
+
+/** `zlib.deflate`, as a promise: the async half of the one encoder. */
+function deflate(bytes: Uint8Array): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    zlib.deflate(bytes, (err, out) => (err ? reject(err) : resolve(out)));
+  });
 }
 
 /** One PNG chunk: its length, its type and data, and the CRC over both. */

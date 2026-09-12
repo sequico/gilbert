@@ -42,6 +42,9 @@ import {
 } from "./documentFamily.js";
 import {
   AGENT_ATTENTION_FOLDER,
+  AGENT_DOCUMENT_BYTES_MAX,
+  AGENT_MAX_PAGES_DEFAULT,
+  AGENT_SPLIT_PAGES_MAX,
   type AgentAction,
   type AgentActionName,
   type AgentDraftRef,
@@ -641,7 +644,19 @@ async function runOne(
     }
     case "document.read": {
       const source = await documentSourceOf(ctx, accountId, action, opts);
-      const read = await readDocument(source.bytes, kindOfDocument(action, source));
+      // Two bounds stand between a file and this process: how many bytes are
+      // read at all, and how many pages are looked at. A file past either is
+      // refused in words rather than paid for in memory.
+      if (source.bytes.byteLength > AGENT_DOCUMENT_BYTES_MAX)
+        throw new DocumentError(
+          "document_too_large",
+          `${source.path} is larger than the ${AGENT_DOCUMENT_BYTES_MAX} bytes a run reads`,
+        );
+      const read = await readDocument(
+        source.bytes,
+        kindOfDocument(action, source),
+        AGENT_MAX_PAGES_DEFAULT,
+      );
       return {
         action: action.do,
         ok: true,
@@ -650,10 +665,17 @@ async function runOne(
           kind: read.kind,
           pages: read.pages,
           text: read.text,
-          // The pages with no text layer are named rather than passed over:
-          // there is no OCR here, so a caller reading this result has to know
-          // which pages only a model with eyes can read (ADR 0010).
+          // The pages with no text layer are named rather than passed over, and
+          // so is what that means: there is no OCR here, and this action reads
+          // text. A run woken by the file hands those pages to the model as
+          // images; an action that named them and said nothing else would let a
+          // reader conclude the page says nothing (ADR 0010).
           pixelPages: read.pixelPages,
+          ...(read.pixelPages.length && !read.text.trim()
+            ? {
+                note: `${read.pixelPages.length} page(s) carry no text layer: they are read by the model, as images, when a run is woken by this file.`,
+              }
+            : {}),
         },
       };
     }
@@ -661,6 +683,11 @@ async function runOne(
       const source = await documentSourceOf(ctx, accountId, action, opts);
       assertPdf(action, source);
       const pages = await splitPdf(source.bytes);
+      if (pages.length > AGENT_SPLIT_PAGES_MAX)
+        throw new DocumentError(
+          "document_too_many_pages",
+          `${source.path} has ${pages.length} pages, and one split writes at most ${AGENT_SPLIT_PAGES_MAX}`,
+        );
       const folder = textOf(action.with?.folder) || AGENT_ATTENTION_FOLDER;
       const stem = fileSafeName(source.name.replace(/\.pdf$/i, ""), "document");
       const written: string[] = [];

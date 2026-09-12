@@ -27,6 +27,9 @@ import { after, before, test } from "node:test";
 
 const PORT = 18830;
 process.env.MOCK_PORT = String(PORT);
+// The stub model these suites call lives on loopback: the deployment says so,
+// which is the operator's statement and never a document's.
+process.env.GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER = "1";
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";
 process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;

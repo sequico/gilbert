@@ -68,7 +68,8 @@ const provider = {
   apiKey: "sk-test-key",
 };
 
-const { callModel, decideActions, providerFor, readProse } = await import("./llm.js");
+const { assertUsableProvider, callModel, decideActions, providerFor, readProse } =
+  await import("./llm.js");
 const { AGENT_MAX_PAGES_DEFAULT, MODEL_MAX_OUTPUT_DEFAULT } = await import(
   "./documents.js"
 );
@@ -577,4 +578,40 @@ test("a reading asks for prose, and takes the answer as it arrived", async () =>
   const sent = seen?.body as { response_format?: unknown; thinking?: unknown };
   assert.equal(sent.response_format, undefined, "no JSON shape is asked for");
   assert.deepEqual(sent.thinking, { type: "disabled" }, "and no thinking is paid for");
+});
+
+/**
+ * Where the key may go, checked at the call and not only at the write door.
+ *
+ * A configuration document can be written by hand, restored from a backup or
+ * written by a build that predates the check, so the address is re-checked
+ * where the installation's key actually leaves the process. The one thing that
+ * lifts it is the operator's own statement — `allowPrivate` — which a document
+ * an installation wrote can never make for itself.
+ */
+test("an address inside the network is refused unless the deployment says so", () => {
+  const loopback = {
+    provider: "stub",
+    model: "m",
+    baseUrl: "http://127.0.0.1:9/v1",
+    apiKey: "k",
+  };
+  assert.throws(
+    () => assertUsableProvider(loopback, false),
+    /base_url_(private|not_https)/,
+    "a hand-written configuration cannot send the key into the deployment's network",
+  );
+  assert.doesNotThrow(
+    () => assertUsableProvider(loopback, true),
+    "the operator's own model on the same host is what the statement is for",
+  );
+  assert.throws(
+    () =>
+      assertUsableProvider({ ...loopback, baseUrl: "http://api.example.com/v1" }, false),
+    /not_https/,
+    "plaintext is refused wherever it points",
+  );
+  assert.doesNotThrow(() =>
+    assertUsableProvider({ ...loopback, baseUrl: "https://api.example.com/v1" }, false),
+  );
 });

@@ -201,8 +201,12 @@ run is audited. One model, configured once (provider, model, base URL and a
 write-only key), serves every automation: nothing asks an administrator to
 classify what a piece of work deserves. Beside it the installation states its
 own bounds — the ceiling on one answer, how many hops a chain may run, how many
-pages one run may hand the model — in the same document and the same panel,
-each falling back to what the deployment's environment declares until it is set.
+pages one run may hand the model — in the same document and the same panel.
+A bound the installation has not set is the deployment's: the environment
+declares the two chain and page bounds, and the ceiling on an answer is the
+build's own default. A file larger than the byte ceiling a run reads is not
+read, and one split writes at most a hundred pages, both said in the run's own
+notes rather than discovered as an outage.
 - **A group has a memory.** Beside the documents a group already keeps, its
 agent carries a **notebook**: the facts about the group that no automation
 should have to repeat — how its mail is filed, what its clients are called,

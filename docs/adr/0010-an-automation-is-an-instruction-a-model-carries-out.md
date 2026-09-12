@@ -170,9 +170,10 @@ Files wakes a file rule, a decision answered in its chat closes the run that was
 waiting, and a chat rule wakes when a person addresses the agent, which is the
 one hop that always has somebody in it. What a chain needs is a **lineage and a
 bound**: every job's trigger records the job that woke it, a chain runs **five
-hops**, and the sixth is **refused loudly** rather than quietly dropped — the
+hops** by default and the installation's own number where it has set one, and
+the run past the bound is **refused loudly** rather than quietly dropped — the
 group's chat is told which automation could not run and that it is because the
-chain passed five hops, the log carries the same line, and the audit records the
+chain passed that bound, the log carries the same line, and the audit records the
 refusal as its own entry, because nothing failed: a run that must not happen is
 a fact about the agent, and a reader of the trail is entitled to see it. Five is
 chosen to be far more than a useful chain needs and far less than a runaway one:

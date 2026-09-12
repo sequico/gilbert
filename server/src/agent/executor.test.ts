@@ -22,6 +22,9 @@ import type { AgentJob, AgentRule } from "./documents.js";
 
 const PORT = 18845;
 process.env.MOCK_PORT = String(PORT);
+// The stub model this suite calls lives on loopback: the deployment says so,
+// which is the operator's statement and never a document's.
+process.env.GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER = "1";
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");

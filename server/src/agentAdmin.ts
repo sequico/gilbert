@@ -61,6 +61,7 @@ import {
 } from "./agent/documents.js";
 import { AUDIT_RETENTION_MS } from "./agent/executor.js";
 import {
+  assertUsableProvider,
   DATA_NOT_INSTRUCTIONS,
   notebookBlock,
   providerFor,
@@ -1227,6 +1228,9 @@ export async function readDraft(
   let provider: ReturnType<typeof providerFor>;
   try {
     provider = providerFor((await store.readConfig())?.doc ?? null);
+    // The same check the runs make, at the one other place the key leaves the
+    // process: this path is a call the web tier makes (ADR 0010).
+    assertUsableProvider(provider, config.agent.allowPrivateProvider);
   } catch {
     throw new AgentAdminError({ code: "no_provider" }, 409);
   }
@@ -1234,6 +1238,18 @@ export async function readDraft(
   // use (`instructionFor`, `notebookFor`), so a reading is asked about the same
   // prose a run would be given.
   const group = new AgentStore(input.access.ctx, input.access.accountId);
+  // A draft longer than the document that could hold it is a reading of the
+  // wrong thing: the same ceiling the save path applies, applied before the
+  // installation pays for it.
+  if (input.draft.length > AGENT_INSTRUCTION_MAX)
+    throw new AgentAdminError(
+      {
+        code: "instruction_too_long",
+        max: AGENT_INSTRUCTION_MAX,
+        length: input.draft.length,
+      },
+      400,
+    );
   const [instruction, notebook] = await Promise.all([
     group.readInstruction(),
     group.readNotebook(),
@@ -1258,6 +1274,10 @@ export async function readDraft(
       system,
       user: input.draft,
       thinking: false,
+      // The installation's own ceiling on an answer, the same one a run is held
+      // to: a reading spends tokens too, and the lever that bounds spend is not
+      // a lever if the one path beside the runs ignores it (ADR 0010).
+      maxOutputTokens: (await store.readConfig())?.doc.maxOutputTokens,
     });
   } catch (err) {
     // A refusal is a code and what the provider said beside it, never a
@@ -1494,7 +1514,10 @@ export async function memberAgentView(
       review: r.review,
       instruction: r.instruction,
     })),
-    instruction,
+    // A member reads the prose and not the author's remarks beside it: the
+    // instruction's notes are for whoever edits it next, and the rule's notes
+    // are already kept off this door.
+    instruction: { ...instruction, notes: "" },
     jobs: open,
     audit,
   };

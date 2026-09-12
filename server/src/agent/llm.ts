@@ -25,6 +25,7 @@ import {
   type AgentConfigDoc,
   type AgentProvider,
   agentActionSpec,
+  baseUrlProblem,
   isAgentAction,
   MODEL_MAX_OUTPUT_DEFAULT,
   missingActionParams,
@@ -89,6 +90,27 @@ export interface ModelRequest {
    * a draft's reading wants and what a cheap agent is configured for.
    */
   thinking?: boolean;
+}
+
+/**
+ * Where the key is about to go, checked at the call rather than only at the
+ * write door.
+ *
+ * A configuration document can be written by hand, restored from a backup, or
+ * written by a build that predates the check, and the call is the last place
+ * before the installation's key leaves the process. `allowPrivate` is the
+ * operator's own statement — `GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER` — for a
+ * model that really does live inside the deployment's network; it is never read
+ * from a document an installation wrote.
+ */
+export function assertUsableProvider(
+  provider: AgentProvider,
+  allowPrivate: boolean,
+): void {
+  if (allowPrivate) return;
+  const problem = baseUrlProblem(provider.baseUrl);
+  if (problem)
+    throw new Error(`the configured model's address is ${problem}: ${provider.baseUrl}`);
 }
 
 /** One call's answer and its cost. */
