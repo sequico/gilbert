@@ -81,6 +81,9 @@ export const AGENT_ERROR_SENTENCES = {
   notebook_fact_too_long: "A fact is at most {max} characters.",
   max_output_tokens_invalid:
     "The ceiling on one answer must be between 1 and {max} tokens.",
+  max_chain_hops_invalid: "How many hops a chain may run must be between 1 and {max}.",
+  max_pages_invalid:
+    "How many pages one run may hand the model must be between 1 and {max}.",
   base_url_private:
     "The base URL points at {host}, which is inside the network: a worker must not be pointed at an address that is not a model provider.",
   instruction_too_long:

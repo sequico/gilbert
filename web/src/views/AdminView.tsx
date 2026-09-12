@@ -6,8 +6,8 @@ import { AdminAgents } from "@/views/admin/AdminAgents";
 import { AdminPolicy } from "@/views/admin/AdminPolicy";
 import { AdminUsers } from "@/views/admin/AdminUsers";
 import { EnforceIdentities } from "@/views/admin/EnforceIdentities";
+import { GroupAgents } from "@/views/admin/GroupAgents";
 import { GroupLabels } from "@/views/admin/GroupLabels";
-import { GroupWorkers } from "@/views/admin/GroupWorkers";
 import { AboutSettings } from "@/views/settings/AboutSettings";
 
 type AdminOwner = "mailer" | "assistant" | "stalwart" | null;
@@ -59,7 +59,7 @@ const SECTIONS: AdminSection[] = [
     id: "group-workers",
     label: t("Group Agents"),
     icon: <Users size={18} />,
-    el: <GroupWorkers />,
+    el: <GroupAgents />,
     owner: "assistant",
   },
   {

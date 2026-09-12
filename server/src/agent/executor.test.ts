@@ -188,6 +188,10 @@ before(async () => {
       baseUrl: `http://127.0.0.1:${MODEL_PORT}/v1`,
       apiKey: "stub-key",
     },
+    // The installation's own bound on a chain, set here rather than left to the
+    // deployment's default: what the account says is what a run is held to
+    // (ADR 0010), and a build that read only the environment would run to five.
+    maxChainHops: 2,
   });
   await writeAppFileAt(ctx, GROUP, GROUP_LABELS_FILE, {
     labels: [
@@ -1400,11 +1404,11 @@ test("a chain carries its lineage, and the run past the bound is refused loudly"
   const readBefore = asked.filter((name) => name === "Chain: read it").length;
 
   // The file changes, pass by pass: the run of each pass writes the file that
-  // wakes the next one, and the fifth pass reports the file the fifth hop wrote.
-  // The claim that pass read from is kept, because reconciling it again reads the
-  // same change a second time.
+  // wakes the next one, up to the bound the installation set. The claim that
+  // pass read from is kept, because reconciling it again reads the same change
+  // a second time.
   let lastPass = await claimFor();
-  for (let pass = 0; pass < 5; pass++) {
+  for (let pass = 0; pass < 3; pass++) {
     lastPass = await claimFor();
     await executor.reconcile(GROUP, "FileNode", lastPass);
   }
@@ -1412,18 +1416,18 @@ test("a chain carries its lineage, and the run past the bound is refused loudly"
   const chain = await jobsOf("chain-second");
   assert.deepEqual(
     chain.map((job) => job.trigger.hop),
-    [2, 3, 4, 5],
-    "a run woken by another run's effect is one hop further, and five is the bound",
+    [2],
+    "a run woken by another run's effect is one hop further, and two is the bound this installation set",
   );
   assert.deepEqual(
     chain.map((job) => job.trigger.parentJobId),
-    [first.id, chain[0]!.id, chain[1]!.id, chain[2]!.id],
+    [first.id],
     "each woken run records the job that woke it",
   );
   assert.equal(
     asked.filter((name) => name === "Chain: read it").length - readBefore,
-    4,
-    "no run happens for the sixth hop, so no model is asked about one",
+    1,
+    "no run happens for the hop past the bound, so no model is asked about one",
   );
 
   const audit = await store.readAuditAt(new Date());
@@ -1432,7 +1436,7 @@ test("a chain carries its lineage, and the run past the bound is refused loudly"
   assert.equal(refusals[0]!.ruleId, "chain-second");
   assert.match(
     String(refusals[0]!.detail),
-    /Chain: read it: .*past 5 hops/,
+    /Chain: read it: .*past 2 hops/,
     "and names the automation and the bound it was refused past",
   );
 
@@ -1440,13 +1444,13 @@ test("a chain carries its lineage, and the run past the bound is refused loudly"
   assert.ok(
     chat.some(
       (message) =>
-        message.text.includes("Chain: read it") && message.text.includes("past 5 hops"),
+        message.text.includes("Chain: read it") && message.text.includes("past 2 hops"),
     ),
-    "the group is told which automation could not run, and that the chain passed five hops",
+    "the group is told which automation could not run, and which bound it passed",
   );
   assert.ok(
     logLines.some(
-      (line) => line.includes("Chain: read it") && line.includes("past 5 hops"),
+      (line) => line.includes("Chain: read it") && line.includes("past 2 hops"),
     ),
     "and the log carries the same line",
   );
@@ -1463,7 +1467,7 @@ test("a chain carries its lineage, and the run past the bound is refused loudly"
   );
   assert.equal(
     (await readChat(ctx, GROUP, client)).filter((message) =>
-      message.text.includes("past 5 hops"),
+      message.text.includes("past 2 hops"),
     ).length,
     1,
     "and the group is told once",

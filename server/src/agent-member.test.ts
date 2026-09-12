@@ -40,7 +40,7 @@ const TEAM = "team@example.org";
 const LEGAL = "legal@example.org";
 
 const mock = await import("./mock/index.js");
-const { AGENT_INSTRUCTION_MAX } = await import("./agent/documents.js");
+const { AGENT_INSTRUCTION_MAX, AGENT_NOTES_MAX } = await import("./agent/documents.js");
 const { createApp } = await import("./app.js");
 
 const app = createApp();
@@ -103,9 +103,13 @@ test("a member who is not an administrator reads the group's agent view", async 
   // empty text is the answer for a group that has none, not an absent field.
   assert.deepEqual(view.instruction, {
     text: "",
+    // The author's remarks ride the same document and reach a member's read as
+    // empty, because nothing has been written for this group yet.
+    notes: "",
     updatedAt: null,
     updatedBy: null,
     max: AGENT_INSTRUCTION_MAX,
+    notesMax: AGENT_NOTES_MAX,
   });
   assert.ok(!("providers" in view), "no provider configuration reaches a member");
 });

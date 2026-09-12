@@ -265,7 +265,12 @@ export function RuleEditor({
           )}
           {view?.granted && draft ? (
             <>
-              <RuleForm rule={draft} catalogue={catalogue} onChange={setDraft} />
+              <RuleForm
+                rule={draft}
+                group={group}
+                catalogue={catalogue}
+                onChange={setDraft}
+              />
               {problem && (
                 <div className="warn-box" style={{ marginBottom: 12 }}>
                   {problem}

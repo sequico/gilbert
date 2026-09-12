@@ -1801,6 +1801,14 @@ export interface AgentConfigDoc {
    * always carries one: this value, or the default when it is absent.
    */
   maxOutputTokens?: number;
+  /**
+   * How many hops a chain of automations may run, as this installation sets it.
+   * Absent leaves the agent's own default alone, which is what the environment
+   * states (ADR 0010).
+   */
+  maxChainHops?: number;
+  /** How many pages one run may hand the model as images, as it sets it. */
+  maxPages?: number;
 }
 
 /** What one answer may cost when the installation has not said otherwise. */
@@ -1813,6 +1821,15 @@ export const MODEL_MAX_OUTPUT_DEFAULT = 2048;
  * made it, so the count is bounded rather than left to the file.
  */
 export const AGENT_MAX_PAGES_DEFAULT = 8;
+
+/** What an installation may raise the two bounds to, from its own surface. */
+export const AGENT_CHAIN_HOPS_CEILING = 50;
+export const AGENT_PAGES_CEILING = 50;
+
+/** Whether a bound an installation set for itself is one this build accepts. */
+export function isAgentBound(x: unknown, ceiling: number): x is number {
+  return typeof x === "number" && Number.isInteger(x) && x >= 1 && x <= ceiling;
+}
 
 /**
  * The highest ceiling an installation may set. Well under the provider's own,
@@ -1848,6 +1865,15 @@ export function isAgentConfigDoc(x: unknown): x is AgentConfigDoc {
   if (d.v !== 1 || typeof d.address !== "string" || !d.address) return false;
   if (d.maxOutputTokens !== undefined && !isModelMaxOutput(d.maxOutputTokens))
     return false;
+  // The two bounds an installation sets for itself are whole positive numbers,
+  // and a document that carries anything else is refused rather than read as a
+  // default nobody chose.
+  for (const bound of [d.maxChainHops, d.maxPages])
+    if (
+      bound !== undefined &&
+      (typeof bound !== "number" || !Number.isInteger(bound) || bound < 1)
+    )
+      return false;
   return d.provider === undefined || isAgentProvider(d.provider);
 }
 

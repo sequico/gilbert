@@ -173,6 +173,8 @@ export type AgentErrorReason =
   | { code: "base_url_not_https" }
   | { code: "base_url_private"; host: string }
   | { code: "max_output_tokens_invalid"; max: number }
+  | { code: "max_chain_hops_invalid"; max: number }
+  | { code: "max_pages_invalid"; max: number }
   | { code: "notebook_not_an_object" }
   | { code: "notebook_too_many"; max: number }
   | { code: "notebook_fact_too_long"; max: number }
@@ -358,6 +360,10 @@ export interface AgentProvidersView {
   provider: AgentProviderView | null;
   /** The ceiling on one answer, in tokens, as it stands. */
   maxOutputTokens: number;
+  /** How many hops a chain of automations may run, as it stands. */
+  maxChainHops: number;
+  /** How many pages one run may hand the model as images, as it stands. */
+  maxPages: number;
 }
 
 /* ------------------------------------------------------------------ */

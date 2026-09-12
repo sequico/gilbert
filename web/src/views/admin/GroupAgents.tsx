@@ -20,9 +20,9 @@
  * tab is the one place that reads and explains it — this section reuses that same
  * read (`status.groups`, one store) rather than a second table saying the same
  * thing, and the picker is a pick over it, never a write. And the change
- * reaches the **worker** when it starts, not the moment it is saved — the web
- * tier reads the record live, the worker reads it at boot, and the surface says
- * which is which.
+ * reaches a **agent** when it starts, not the moment it is saved — the web tier
+ * reads the record live, and an agent reads it at boot: the surface says which
+ * is which.
  */
 import { useEffect, useState } from "react";
 import type { AgentStatus, AgentStatusGroup } from "@/lib/agents";
@@ -32,18 +32,18 @@ import { useAgents } from "@/store/agents";
 import { AgentApprovals } from "./agent/AgentApprovals";
 import { RuleEditor } from "./agent/RuleEditor";
 
-const WORKER_PARTS = [
+const AGENT_PARTS = [
   { id: "automations", label: "Automations" },
   { id: "approvals", label: "Approvals" },
-  { id: "workers", label: "Agents" },
+  { id: "fleet", label: "Agents" },
 ] as const;
 
-type WorkerPart = (typeof WORKER_PARTS)[number]["id"];
+type AgentPart = (typeof AGENT_PARTS)[number]["id"];
 
-export function GroupWorkers() {
+export function GroupAgents() {
   const status = useAgents((s) => s.status);
   const loadStatus = useAgents((s) => s.loadStatus);
-  const [part, setPart] = useState<WorkerPart>("automations");
+  const [part, setPart] = useState<AgentPart>("automations");
   /*
    * The group every tab below answers about. It is a pick and not a setting:
    * the list it picks from is Stalwart's own membership, read here and written
@@ -100,7 +100,7 @@ export function GroupWorkers() {
         aria-label={t("Group agent sections")}
         style={{ marginBottom: 16 }}
       >
-        {WORKER_PARTS.map((entry) => (
+        {AGENT_PARTS.map((entry) => (
           <button
             key={entry.id}
             className={part === entry.id ? "active" : ""}
@@ -113,7 +113,7 @@ export function GroupWorkers() {
       </div>
       {part === "automations" && <RuleEditor groups={groups} group={group} />}
       {part === "approvals" && <AgentApprovals group={group} />}
-      {part === "workers" && <Workers status={status} group={group} />}
+      {part === "fleet" && <Agents status={status} group={group} />}
     </div>
   );
 }
@@ -130,7 +130,7 @@ function agentGroups(status: AgentStatus | null): AgentStatusGroup[] {
 }
 
 /* ------------------------------------------------------------------ */
-/* Workers: the fleet's own heartbeat                                  */
+/* Agents: the fleet's own heartbeat                                  */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -142,7 +142,7 @@ function agentGroups(status: AgentStatus | null): AgentStatusGroup[] {
  * a worker that has gone quiet is stated plainly, because a fleet whose silence
  * is hidden is a fleet nobody fixes.
  */
-function Workers({ status, group }: { status: AgentStatus | null; group: string }) {
+function Agents({ status, group }: { status: AgentStatus | null; group: string }) {
   /*
    * Who is serving this group. The claim is per account, so an agent holds the
    * groups whose accounts it has claimed and names them in its heartbeat: the

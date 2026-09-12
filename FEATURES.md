@@ -199,7 +199,10 @@ bounds it — an answer naming an action the automation was not granted is
 refused, so the prose steers inside the grant and never widens it — and every
 run is audited. One model, configured once (provider, model, base URL and a
 write-only key), serves every automation: nothing asks an administrator to
-classify what a piece of work deserves.
+classify what a piece of work deserves. Beside it the installation states its
+own bounds — the ceiling on one answer, how many hops a chain may run, how many
+pages one run may hand the model — in the same document and the same panel,
+each falling back to what the deployment's environment declares until it is set.
 - **A group has a memory.** Beside the documents a group already keeps, its
 agent carries a **notebook**: the facts about the group that no automation
 should have to repeat — how its mail is filed, what its clients are called,

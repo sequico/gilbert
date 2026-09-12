@@ -19,7 +19,8 @@ import {
   isAgentTriggerOn,
 } from "@gilbert/agent/documents";
 import { Plus, Trash2 } from "lucide-react";
-import type { AgentActionCatalogEntry } from "@/lib/agents";
+import { useState } from "react";
+import { type AgentActionCatalogEntry, readDraft } from "@/lib/agents";
 import { t } from "@/lib/i18n";
 import {
   AGENT_REVIEW_LABELS,
@@ -136,15 +137,39 @@ export function ruleFromDraft(draft: AgentRuleDraft): AgentRule | null {
 
 export function RuleForm({
   rule,
+  group,
   catalogue,
   onChange,
 }: {
   rule: AgentRuleDraft;
+  /** The group this automation belongs to, for the author's reading. */
+  group: string;
   /** The capability catalogue the rule schema publishes; null until it is read. */
   catalogue: AgentActionCatalogEntry[] | null;
   onChange(next: AgentRuleDraft): void;
 }) {
   const set = (patch: Partial<AgentRuleDraft>) => onChange({ ...rule, ...patch });
+  /*
+   * The author's reading (ADR 0010): the draft, its envelope, the group's
+   * instruction and its notebook go to the installation's model, which answers
+   * in words about the gaps. Nothing is saved: the answer is shown beside the
+   * field it is about and forgotten when the panel closes.
+   */
+  const [reading, setReading] = useState<string | null>(null);
+  const [readingBusy, setReadingBusy] = useState(false);
+  const askReading = () => {
+    if (!group || readingBusy || !rule.instruction.trim()) return;
+    setReadingBusy(true);
+    setReading(null);
+    void readDraft(
+      group,
+      rule.instruction,
+      t('the automation "{name}"', { name: rule.name || t("unnamed") }),
+    )
+      .then((answer) => setReading(answer.text))
+      .catch((err) => setReading(err instanceof Error ? err.message : String(err)))
+      .finally(() => setReadingBusy(false));
+  };
   const setTrigger = (patch: Partial<AgentTrigger>) =>
     set({ trigger: { ...rule.trigger, ...patch } });
   const setReview = (patch: AgentReviewInput) =>
@@ -398,6 +423,41 @@ export function RuleForm({
           )}
         </p>
       </div>
+
+      <div className="field">
+        <label htmlFor="agent-rule-notes">{t("Your notes beside it")}</label>
+        <textarea
+          id="agent-rule-notes"
+          className="textarea"
+          rows={3}
+          value={rule.notes ?? ""}
+          placeholder={t(
+            "Why this automation is written the way it is, and what it deliberately leaves out. Nobody's model reads this.",
+          )}
+          onChange={(e) => set({ notes: e.target.value })}
+        />
+        <p className="hint">
+          {t(
+            "Kept with the automation for whoever edits it next, and never sent to a model: a run carries the instruction and nothing beside it.",
+          )}
+        </p>
+      </div>
+      <button
+        type="button"
+        className="btn btn-ghost"
+        onClick={askReading}
+        disabled={readingBusy || !group || !rule.instruction.trim()}
+      >
+        {readingBusy ? t("Reading…") : t("Ask the model to read it")}
+      </button>
+      {reading && (
+        <div className="card" style={{ marginTop: 12 }}>
+          <p className="hint" style={{ marginTop: 0 }}>
+            {t("What the model said about this draft:")}
+          </p>
+          <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{reading}</p>
+        </div>
+      )}
 
       <h3>{t("Review")}</h3>
       <div className="field">

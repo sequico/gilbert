@@ -26,11 +26,13 @@ import { readGroupLabels, writeGroupLabels } from "./account.js";
 import { fetchEmailView, groupAccounts, mailboxIdByRole } from "./agent/actions.js";
 import { hasSpoken, readChat } from "./agent/chat.js";
 import {
+  AGENT_CHAIN_HOPS_CEILING,
   AGENT_INSTRUCTION_MAX,
   AGENT_JOB_OPEN_STATES,
   AGENT_NOTEBOOK_FACT_MAX,
   AGENT_NOTEBOOK_FACTS_MAX,
   AGENT_NOTES_MAX,
+  AGENT_PAGES_CEILING,
   type AgentAuditEntry,
   type AgentConfigDoc,
   type AgentJob,
@@ -42,6 +44,7 @@ import {
   filterNeedsBody,
   filterProblems,
   instructionFor,
+  isAgentBound,
   isAgentRule,
   isModelMaxOutput,
   leaseExpired,
@@ -886,13 +889,21 @@ function stableJson(value: unknown): string {
  */
 export async function readProviders(admin: LiveSession): Promise<AgentProvidersView> {
   if (!agentAddress())
-    return { address: "", provider: null, maxOutputTokens: MODEL_MAX_OUTPUT_DEFAULT };
+    return {
+      address: "",
+      provider: null,
+      maxOutputTokens: MODEL_MAX_OUTPUT_DEFAULT,
+      maxChainHops: config.agent.maxChainHops,
+      maxPages: config.agent.maxPages,
+    };
   const { store, address } = await agentStore(admin);
   const found = await store.readConfig();
   return {
     address: found?.doc.address || address,
     provider: providerView(found?.doc.provider),
     maxOutputTokens: found?.doc.maxOutputTokens ?? MODEL_MAX_OUTPUT_DEFAULT,
+    maxChainHops: found?.doc.maxChainHops ?? config.agent.maxChainHops,
+    maxPages: found?.doc.maxPages ?? config.agent.maxPages,
   };
 }
 
@@ -926,8 +937,9 @@ export async function writeProviders(admin: LiveSession, input: unknown): Promis
   if (!input || typeof input !== "object" || Array.isArray(input))
     throw new AgentAdminError({ code: "provider_not_an_object" }, 400);
   const given = input as Record<string, unknown>;
+  const settable = ["provider", "maxOutputTokens", "maxChainHops", "maxPages"];
   for (const key of Object.keys(given)) {
-    if (key !== "provider" && key !== "maxOutputTokens")
+    if (!settable.includes(key))
       throw new AgentAdminError({ code: "provider_not_an_object" }, 400);
   }
   // The ceiling is the installation's own statement about what an answer may
@@ -940,6 +952,29 @@ export async function writeProviders(admin: LiveSession, input: unknown): Promis
   if (hasCeiling && ceiling !== null && !isModelMaxOutput(ceiling))
     throw new AgentAdminError(
       { code: "max_output_tokens_invalid", max: MODEL_MAX_OUTPUT_CEILING },
+      400,
+    );
+  // The two bounds a chain and a page budget are held to, the same way: the
+  // installation states them where it states its model, and `null` clears one
+  // back to what the deployment's environment says.
+  const hops = given.maxChainHops;
+  if (
+    Object.hasOwn(given, "maxChainHops") &&
+    hops !== null &&
+    !isAgentBound(hops, AGENT_CHAIN_HOPS_CEILING)
+  )
+    throw new AgentAdminError(
+      { code: "max_chain_hops_invalid", max: AGENT_CHAIN_HOPS_CEILING },
+      400,
+    );
+  const pages = given.maxPages;
+  if (
+    Object.hasOwn(given, "maxPages") &&
+    pages !== null &&
+    !isAgentBound(pages, AGENT_PAGES_CEILING)
+  )
+    throw new AgentAdminError(
+      { code: "max_pages_invalid", max: AGENT_PAGES_CEILING },
       400,
     );
 
@@ -968,6 +1003,14 @@ export async function writeProviders(admin: LiveSession, input: unknown): Promis
     if (hasCeiling) {
       if (typeof ceiling === "number") doc.maxOutputTokens = ceiling;
       else delete doc.maxOutputTokens;
+    }
+    if (Object.hasOwn(given, "maxChainHops")) {
+      if (typeof hops === "number") doc.maxChainHops = hops;
+      else delete doc.maxChainHops;
+    }
+    if (Object.hasOwn(given, "maxPages")) {
+      if (typeof pages === "number") doc.maxPages = pages;
+      else delete doc.maxPages;
     }
     try {
       // A token only when there is a document to compare against: the first

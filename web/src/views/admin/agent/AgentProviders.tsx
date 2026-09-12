@@ -13,8 +13,8 @@
  */
 
 import {
+  AGENT_CHAIN_HOPS_CEILING,
   MODEL_MAX_OUTPUT_CEILING,
-  MODEL_MAX_OUTPUT_DEFAULT,
 } from "@gilbert/agent/documents";
 import { BrainCircuit } from "lucide-react";
 import type { FormEvent } from "react";
@@ -43,12 +43,12 @@ export function AgentProviders() {
 
   /**
    * The one write: an entry saves the installation's model, `null` clears it,
-   * and the ceiling travels with it because both are statements about the same
-   * call. A cleared installation runs no automation, which is the state the
+   * and the bounds travel with it because all of them are statements about the
+   * same call. A cleared installation runs no automation, which is the state the
    * executor refuses in plainly rather than a silent skip (ADR 0010).
    */
-  const write = (patch: AgentProviderInput | null, maxOutputTokens: number) =>
-    saveProviders({ provider: patch, maxOutputTokens });
+  const write = (patch: AgentProviderInput | null, bounds: AgentBounds) =>
+    saveProviders({ provider: patch, ...bounds });
 
   return (
     <section>
@@ -82,7 +82,11 @@ export function AgentProviders() {
       ) : (
         <ProviderEditor
           view={view.provider}
-          maxOutputTokens={view.maxOutputTokens}
+          bounds={{
+            maxOutputTokens: view.maxOutputTokens,
+            maxChainHops: view.maxChainHops,
+            maxPages: view.maxPages,
+          }}
           onSave={write}
         />
       )}
@@ -90,23 +94,76 @@ export function AgentProviders() {
   );
 }
 
+/**
+ * The bounds the installation sets for itself, as the view states them: what one
+ * answer may cost, how far a chain may run, and how many pages one run may hand
+ * the model. Each is a number the deployment declares a default for, and the
+ * surface shows the number in force.
+ */
+/** The ceiling the two bounds that are not the answer's size are held to. */
+const AGENT_BOUND_CEILING = AGENT_CHAIN_HOPS_CEILING;
+
+interface AgentBounds {
+  maxOutputTokens: number;
+  maxChainHops: number;
+  maxPages: number;
+}
+
 function ProviderEditor({
   view,
-  maxOutputTokens,
+  bounds,
   onSave,
 }: {
   view: AgentProviderView | null;
-  /** The ceiling in force, which is the default when the installation set none. */
-  maxOutputTokens: number;
+  /** The bounds in force, which are the defaults when the installation set none. */
+  bounds: AgentBounds;
   /** `null` clears the entry, which is how the installation stops running a model. */
-  onSave(patch: AgentProviderInput | null, maxOutputTokens: number): Promise<void>;
+  onSave(patch: AgentProviderInput | null, bounds: AgentBounds): Promise<void>;
 }) {
   const [provider, setProvider] = useState(view?.provider ?? "");
   const [model, setModel] = useState(view?.model ?? "");
   const [baseUrl, setBaseUrl] = useState(view?.baseUrl ?? "");
   const [apiKey, setApiKey] = useState("");
-  const [ceiling, setCeiling] = useState(String(maxOutputTokens));
   const [busy, setBusy] = useState(false);
+  /*
+   * The three bounds, held as the strings a person typed: one shape, one
+   * dirty check and one write for all of them, because they are edited the same
+   * way and every difference between them was a place for the three to drift.
+   */
+  const [typed, setTyped] = useState<Record<keyof AgentBounds, string>>({
+    maxOutputTokens: String(bounds.maxOutputTokens),
+    maxChainHops: String(bounds.maxChainHops),
+    maxPages: String(bounds.maxPages),
+  });
+  const boundFields: Array<{
+    key: keyof AgentBounds;
+    id: string;
+    label: string;
+    hint: string;
+  }> = [
+    {
+      key: "maxOutputTokens",
+      id: "agent-max-output-tokens",
+      label: t("Ceiling on one answer (tokens)"),
+      hint: t("What a single model answer may cost. 1 to 8192."),
+    },
+    {
+      key: "maxChainHops",
+      id: "agent-max-chain-hops",
+      label: t("Hops a chain of automations may run"),
+      hint: t(
+        "How far one piece of work may pass from automation to automation before the run past it is refused and the group is told.",
+      ),
+    },
+    {
+      key: "maxPages",
+      id: "agent-max-pages",
+      label: t("Pages one run may hand the model"),
+      hint: t(
+        "A page with no text layer travels as an image, which costs input tokens per page.",
+      ),
+    },
+  ];
 
   /*
    * Follow the stored values, keyed on the strings rather than on the view
@@ -117,8 +174,19 @@ function ProviderEditor({
     setProvider(view?.provider ?? "");
     setModel(view?.model ?? "");
     setBaseUrl(view?.baseUrl ?? "");
-    setCeiling(String(maxOutputTokens));
-  }, [view?.provider, view?.model, view?.baseUrl, maxOutputTokens]);
+    setTyped({
+      maxOutputTokens: String(bounds.maxOutputTokens),
+      maxChainHops: String(bounds.maxChainHops),
+      maxPages: String(bounds.maxPages),
+    });
+  }, [
+    view?.provider,
+    view?.model,
+    view?.baseUrl,
+    bounds.maxOutputTokens,
+    bounds.maxChainHops,
+    bounds.maxPages,
+  ]);
 
   /*
    * What the fields were seeded from is what "unchanged" means, so the button
@@ -127,12 +195,19 @@ function ProviderEditor({
    * counts on its own, because that field is never seeded -- the stored one is
    * not handed back.
    */
+  const boundPatch = (): AgentBounds => ({
+    maxOutputTokens: Number(typed.maxOutputTokens),
+    maxChainHops: Number(typed.maxChainHops),
+    maxPages: Number(typed.maxPages),
+  });
   const dirty =
     apiKey.trim() !== "" ||
     provider.trim() !== (view?.provider ?? "") ||
     model.trim() !== (view?.model ?? "") ||
     baseUrl.trim() !== (view?.baseUrl ?? "") ||
-    Number(ceiling) !== maxOutputTokens;
+    (Object.keys(bounds) as Array<keyof AgentBounds>).some(
+      (key) => boundPatch()[key] !== bounds[key],
+    );
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -148,7 +223,7 @@ function ProviderEditor({
     setBusy(true);
     try {
       // The store rejects with the server's reason when the write is refused.
-      await onSave(patch, Number(ceiling));
+      await onSave(patch, boundPatch());
       setApiKey("");
       toast.success(t("Model saved"));
     } catch (err) {
@@ -179,7 +254,7 @@ function ProviderEditor({
     setBusy(true);
     try {
       // The store rejects with the server's reason when the write is refused.
-      await onSave(null, Number(ceiling));
+      await onSave(null, boundPatch());
       setApiKey("");
       toast.success(t("Model removed"));
     } catch (err) {
@@ -251,26 +326,30 @@ function ProviderEditor({
           </p>
         </div>
       </div>
-      <div className="field">
-        <label htmlFor="agent-max-output">{t("Ceiling on one answer (tokens)")}</label>
-        <input
-          id="agent-max-output"
-          className="input"
-          type="number"
-          min={1}
-          max={MODEL_MAX_OUTPUT_CEILING}
-          value={ceiling}
-          onChange={(e) => setCeiling(e.target.value)}
-        />
-        <p className="hint">
-          {t(
-            "The most one answer may cost. The provider0027s own ceiling is enormous, and an uncapped answer is an uncapped bill.",
-          )}{" "}
-          {t("An installation that sets none gets {n} tokens.", {
-            n: MODEL_MAX_OUTPUT_DEFAULT,
-          })}
-        </p>
-      </div>
+      {boundFields.map((field) => (
+        <div className="field" key={field.key}>
+          <label htmlFor={field.id}>{field.label}</label>
+          <input
+            id={field.id}
+            className="input"
+            type="number"
+            min={1}
+            max={
+              field.key === "maxOutputTokens"
+                ? MODEL_MAX_OUTPUT_CEILING
+                : AGENT_BOUND_CEILING
+            }
+            value={typed[field.key]}
+            onChange={(e) => setTyped((was) => ({ ...was, [field.key]: e.target.value }))}
+          />
+          <p className="hint">
+            {field.hint}{" "}
+            {t("An installation that sets none gets {n}.", {
+              n: bounds[field.key],
+            })}
+          </p>
+        </div>
+      ))}
       <div className="row" style={{ gap: 8 }}>
         <button
           className="btn btn-primary"

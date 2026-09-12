@@ -69,11 +69,22 @@ export interface AgentProviderInput {
   apiKey?: string;
 }
 
-/** The write body: one entry, or none to clear the installation's model. */
+/**
+ * The write body: the installation's model, and the bounds it sets for itself.
+ *
+ * One document, one write: the model and every bound on what it may cost or
+ * reach travel together, because they are statements about the same call. A
+ * field the write omits is left as it is; `null` clears one back to what the
+ * deployment's environment declares.
+ */
 export interface AgentProvidersInput {
   provider?: AgentProviderInput | null;
-  /** The ceiling on one answer, in tokens; `null` restores the default. */
+  /** The ceiling on one answer, in tokens. */
   maxOutputTokens?: number | null;
+  /** How many hops a chain of automations may run. */
+  maxChainHops?: number | null;
+  /** How many pages one run may hand the model as images. */
+  maxPages?: number | null;
 }
 
 /* ------------------------------------------------------------------ */

@@ -538,9 +538,29 @@ export class Executor {
     const pass: Pass = {
       keys: new Set(jobs.map((job) => jobKey(job.ruleId, job.trigger))),
       producers: producersOf(jobs),
+      chainHops: await this.chainHops(),
     };
     if (since) pass.since = since;
     return pass;
+  }
+
+  /**
+   * The installation's own bound on a chain, or the deployment's default.
+   *
+   * One read, from the account that holds the installation's configuration, and
+   * the environment is what an installation that has said nothing runs on.
+   */
+  private async chainHops(): Promise<number> {
+    try {
+      const doc = (await this.agentStore.readConfig())?.doc;
+      return doc?.maxChainHops ?? config.agent.maxChainHops;
+    } catch (err) {
+      console.warn(
+        "[gilbert] could not read the installation's bound on a chain:",
+        (err as Error).message,
+      );
+      return config.agent.maxChainHops;
+    }
   }
 
   private async startJob(
@@ -569,8 +589,8 @@ export class Executor {
      */
     const woke = wokenBy(trigger, pass);
     const hop = woke ? woke.hop + 1 : 1;
-    if (hop > config.agent.maxChainHops) {
-      await this.refuseChain(store, accountId, rule, trigger, woke, hop);
+    if (hop > pass.chainHops) {
+      await this.refuseChain(store, accountId, rule, trigger, woke, hop, pass.chainHops);
       return;
     }
     const job = newJob({
@@ -610,12 +630,12 @@ export class Executor {
     trigger: AgentTriggerRecord,
     woke: Producer | null,
     hop: number,
+    bound: number,
   ): Promise<void> {
     const subject = refusedSubject(rule.id, trigger);
     const refused = (await store.readAuditAt(this.deps.now()))?.entries ?? [];
     if (refused.some((entry) => entry.outcome === "refused" && entry.jobId === subject))
       return;
-    const bound = config.agent.maxChainHops;
     const line =
       `I did not run "${rule.name}": it was woken ${hop} hops into a chain ` +
       `started by ${describeTrigger(trigger)}, and this installation refuses a run ` +
@@ -763,8 +783,11 @@ export class Executor {
   ): Promise<RunPlan> {
     const problem = ruleProblem(rule);
     if (problem) throw new RefusedError(`the rule cannot run: ${problem}`);
-    const context = await this.contextFor(accountId, job, rule);
     const configDoc = (await this.agentStore.readConfig())?.doc ?? null;
+    // The page budget the installation set, or the one the deployment declares:
+    // the same shape as every other bound (ADR 0010).
+    const pages = configDoc?.maxPages ?? config.agent.maxPages;
+    const context = await this.contextFor(accountId, job, rule, pages);
     // The group's standing instruction rides every model call this group's
     // agent makes (ADR 0003 resolution 17): read once per run, first in the
     // prompt.
@@ -1056,6 +1079,8 @@ export class Executor {
     accountId: string,
     job: AgentJob,
     rule: AgentRule,
+    /** How many pages a document may hand the model, as the installation set it. */
+    pages: number,
   ): Promise<ModelContext> {
     const trigger = job.trigger;
     if (trigger.on === "email" && trigger.emailId) {
@@ -1109,7 +1134,7 @@ export class Executor {
           ? `A file changed: "${named}" (${String(node.size ?? 0)} bytes).`
           : "(the file this run was triggered by is gone)",
       };
-      if (node && path) await this.readTheFile(accountId, path, rule, context);
+      if (node && path) await this.readTheFile(accountId, path, rule, context, pages);
       return context;
     }
     return {
@@ -1126,7 +1151,9 @@ export class Executor {
    * comes back as text, and the pages that carry no text layer at all are
    * rasterised in the process and handed to the call as images — the model
    * reads them, because it has eyes. How many pages one run may hand over is
-   * `GILBERT_AGENT_MAX_PAGES`, and the bound is stated rather than hidden.
+   * the installation's own bound, or the deployment's `GILBERT_AGENT_MAX_PAGES`
+   * when it has set none, and the bound is stated in the prompt rather than
+   * hidden.
    *
    * A kind this family does not read is said in the run's own notes rather than
    * failing it: a file arriving is not an instruction to read it. A document a
@@ -1138,6 +1165,8 @@ export class Executor {
     path: string,
     rule: AgentRule,
     context: ModelContext,
+    /** How many pages this run may hand the model, as the installation set it. */
+    pages: number,
   ): Promise<void> {
     if (!rule.capabilities.includes("document.read")) return;
     const found = await readVisibleFileBytes(this.deps.ctx, accountId, path);
@@ -1154,7 +1183,7 @@ export class Executor {
     }
     let content: DocumentContent;
     try {
-      content = await documentContent(found.bytes, kind, config.agent.maxPages);
+      content = await documentContent(found.bytes, kind, pages);
     } catch (err) {
       // A library refusing these bytes refuses them again on a retry, so the
       // run stops here, once, with the code: an action this deployment cannot
@@ -1172,7 +1201,7 @@ export class Executor {
         ? `pages ${handed} are handed to you as images`
         : "none of them fits this call") +
       (content.omitted
-        ? `, and ${content.omitted} more are past the ${config.agent.maxPages} pages one run may hand over`
+        ? `, and ${content.omitted} more are past the ${pages} pages one run may hand over`
         : "") +
       ".";
     context.images = content.images;
@@ -2348,6 +2377,12 @@ interface Pass {
   producers: ReadonlyMap<string, Producer>;
   /** When the state this pass reads from was observed, when the claim says. */
   since?: string;
+  /**
+   * How many hops a chain may run, as this installation states it: the bound it
+   * set from its own surface, or the one the deployment's environment declares
+   * (ADR 0010). Read once for the pass, like the other installation settings.
+   */
+  chainHops: number;
 }
 
 /**

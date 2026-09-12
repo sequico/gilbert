@@ -47,6 +47,9 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const mock = await import("./mock/index.js");
 const { config } = await import("./config.js");
 const { AGENT_INSTRUCTION_MAX, AGENT_NOTES_MAX } = await import("./agent/documents.js");
+const { AGENT_CHAIN_HOPS_CEILING, AGENT_PAGES_CEILING } = await import(
+  "./agent/documents.js"
+);
 const { createApp } = await import("./app.js");
 const { fetchUpstreamSession } = await import("./upstream.js");
 const { filesAccountId, writeAppFile } = await import("./appFolder.js");
@@ -489,6 +492,10 @@ test("providers: empty without an agent, refused when the agent is out of reach"
     address: "",
     provider: null,
     maxOutputTokens: 2048,
+    // The two bounds an installation sets for itself keep their defaults when
+    // there is no agent to hold them (ADR 0010).
+    maxChainHops: config.agent.maxChainHops,
+    maxPages: config.agent.maxPages,
   });
 
   configureAgent(TEAM);
@@ -1234,7 +1241,7 @@ test("an author's notes ride the document, and a reading answers in words", asyn
   });
   assert.equal(withNotes.status, 200);
   assert.equal(
-    ((withNotes.body as { rules: Array<{ notes?: string }> }).rules[0] ?? {}).notes,
+    (withNotes.body as { rules: Array<{ notes?: string }> }).rules[0]?.notes,
     "Written for the 2026 audit; revisit in January.",
   );
 
@@ -1293,4 +1300,61 @@ test("a reading with no usable model says so, and never calls upstream", async (
   });
   assert.equal(reading.status, 409);
   assert.deepEqual(reading.body, { error: "no_provider" });
+});
+
+/**
+ * The bounds an installation sets for itself (ADR 0010).
+ *
+ * They live where the model lives — one document, one write — so the surface
+ * that states what the fleet runs on is the surface that states how far a chain
+ * may run and how many pages a run may hand the model. A value the bound
+ * forbids is refused where an administrator reads a sentence, and `null` clears
+ * one back to what the deployment's environment declares.
+ */
+test("the installation's bounds are written where it states its model", async () => {
+  configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
+  const saved = await call("/api/admin/agent/providers", {
+    method: "POST",
+    body: JSON.stringify({ maxChainHops: 7, maxPages: 12 }),
+  });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  const read = await call("/api/admin/agent/providers");
+  const view = read.body as { maxChainHops: number; maxPages: number };
+  assert.equal(
+    view.maxChainHops,
+    7,
+    "the bound the installation set is the one in force",
+  );
+  assert.equal(view.maxPages, 12);
+
+  const bad = await call("/api/admin/agent/providers", {
+    method: "POST",
+    body: JSON.stringify({ maxChainHops: 0 }),
+  });
+  assert.equal(bad.status, 400);
+  assert.deepEqual(bad.body, {
+    error: "max_chain_hops_invalid",
+    max: AGENT_CHAIN_HOPS_CEILING,
+  });
+  const tooMany = await call("/api/admin/agent/providers", {
+    method: "POST",
+    body: JSON.stringify({ maxPages: AGENT_PAGES_CEILING + 1 }),
+  });
+  assert.equal(tooMany.status, 400);
+  assert.deepEqual(tooMany.body, {
+    error: "max_pages_invalid",
+    max: AGENT_PAGES_CEILING,
+  });
+
+  // The write that clears one leaves the other, and the model, exactly as they
+  // were: one field, one statement.
+  const cleared = await call("/api/admin/agent/providers", {
+    method: "POST",
+    body: JSON.stringify({ maxChainHops: null }),
+  });
+  assert.equal(cleared.status, 200);
+  const after = await call("/api/admin/agent/providers");
+  const restored = after.body as { maxChainHops: number; maxPages: number };
+  assert.equal(restored.maxChainHops, config.agent.maxChainHops);
+  assert.equal(restored.maxPages, 12, "and the other bound is untouched");
 });
