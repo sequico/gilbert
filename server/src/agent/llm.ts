@@ -22,6 +22,7 @@ import {
   type AgentProvider,
   agentActionSpec,
   isAgentAction,
+  MODEL_MAX_OUTPUT_DEFAULT,
   missingActionParams,
 } from "./documents.js";
 
@@ -60,6 +61,35 @@ export interface ModelRequest {
   system: string;
   user: string;
   timeoutMs?: number;
+  /** The ceiling on this answer, in tokens; the call's default when absent. */
+  maxOutputTokens?: number;
+  /**
+   * Whether this call pays for the model's chain of thought. Absent leaves the
+   * provider's own default alone; `false` asks it not to reason, which is what
+   * a draft's reading wants and what a cheap agent is configured for.
+   */
+  thinking?: boolean;
+}
+
+/**
+ * What one call cost, as the provider reported it.
+ *
+ * `null` is "the provider did not say", never zero: a count nobody reported and
+ * a count of nothing are different facts, and a meter that showed the first as
+ * the second would be a number nobody can check (ADR 0010). `inputMissTokens`
+ * is what the provider charged full price for, so a provider that reports only
+ * a total leaves it null rather than guessing.
+ */
+export interface ModelUsage {
+  inputHitTokens: number | null;
+  inputMissTokens: number | null;
+  outputTokens: number | null;
+}
+
+/** One call's answer and its cost. */
+export interface ModelAnswer {
+  answer: unknown;
+  usage: ModelUsage;
 }
 
 /**
@@ -76,7 +106,7 @@ export interface ModelRequest {
 export async function callModel(
   provider: AgentProvider,
   req: ModelRequest,
-): Promise<unknown> {
+): Promise<ModelAnswer> {
   const url = `${provider.baseUrl.replace(/\/+$/, "")}/chat/completions`;
   const res = await fetch(url, {
     method: "POST",
@@ -90,6 +120,13 @@ export async function callModel(
       model: provider.model,
       temperature: 0,
       response_format: { type: "json_object" },
+      // Every request carries a ceiling: the provider's own is enormous, and an
+      // uncapped answer is an uncapped bill (ADR 0010).
+      max_tokens: req.maxOutputTokens ?? MODEL_MAX_OUTPUT_DEFAULT,
+      // The provider's own switch, sent only when the agent has one to state.
+      ...(req.thinking === undefined
+        ? {}
+        : { thinking: { type: req.thinking ? "enabled" : "disabled" } }),
       messages: [
         { role: "system", content: req.system },
         { role: "user", content: req.user },
@@ -111,13 +148,39 @@ export async function callModel(
   const content = messageContent(body);
   if (content === null)
     throw new Error(`${provider.provider} answered without a message: ${firstLine(raw)}`);
+  const usage = usageOf(body);
   try {
-    return JSON.parse(content) as unknown;
+    return { answer: JSON.parse(content) as unknown, usage };
   } catch {
     throw new Error(
       `${provider.provider} answered with content that is not JSON: ${firstLine(content)}`,
     );
   }
+}
+
+/** One reported count, or null when the provider did not report it. */
+function count(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+/**
+ * The cost the provider reported for this call.
+ *
+ * The hit and miss counts are the names the cache-aware providers bill by
+ * (`prompt_cache_hit_tokens` and its miss counterpart). A provider that reports
+ * neither leaves both null, and one that reports only a total is not guessed
+ * at: the whole of it stays unknown rather than being written down as a miss.
+ */
+function usageOf(body: unknown): ModelUsage {
+  const usage =
+    body && typeof body === "object"
+      ? ((body as { usage?: unknown }).usage as Record<string, unknown> | undefined)
+      : undefined;
+  return {
+    inputHitTokens: count(usage?.prompt_cache_hit_tokens),
+    inputMissTokens: count(usage?.prompt_cache_miss_tokens),
+    outputTokens: count(usage?.completion_tokens),
+  };
 }
 
 function messageContent(body: unknown): string | null {
@@ -207,6 +270,8 @@ export interface DecisionAnswer {
   confidence: number;
   rationale?: string;
   summary: string;
+  /** What this call cost, as the provider reported it. */
+  usage: ModelUsage;
 }
 
 /**
@@ -223,6 +288,8 @@ export async function decideActions(
   context: ModelContext,
   allowed: ReadonlyArray<AgentActionName>,
   standing?: string,
+  /** The call's own shape: the installation's ceiling and the agent's thinking. */
+  options: { maxOutputTokens?: number; thinking?: boolean } = {},
 ): Promise<DecisionAnswer> {
   if (!allowed.length)
     throw new Error(
@@ -242,10 +309,12 @@ export async function decideActions(
   ]
     .filter(Boolean)
     .join("\n");
-  const answer = asRecord(
-    await callModel(provider, { system, user: dataPrompt(context) }),
-    provider,
-  );
+  const { answer: parsed, usage } = await callModel(provider, {
+    system,
+    user: dataPrompt(context),
+    ...options,
+  });
+  const answer = asRecord(parsed, provider);
   const summary = typeof answer.summary === "string" ? answer.summary.trim() : "";
   if (!summary)
     throw new Error(
@@ -260,6 +329,7 @@ export async function decideActions(
     confidence: confidenceOf(answer, provider),
     ...rationaleOf(answer),
     summary,
+    usage,
   };
 }
 

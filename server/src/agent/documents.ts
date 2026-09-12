@@ -1357,6 +1357,32 @@ export interface AgentConfigDoc {
   registeredBy?: string;
   /** The one model every automation of this installation runs on. */
   provider?: AgentProvider;
+  /**
+   * The ceiling on one answer, in tokens (ADR 0010). The provider's own ceiling
+   * is enormous and an uncapped answer is an uncapped bill, so the request
+   * always carries one: this value, or the default when it is absent.
+   */
+  maxOutputTokens?: number;
+}
+
+/** What one answer may cost when the installation has not said otherwise. */
+export const MODEL_MAX_OUTPUT_DEFAULT = 2048;
+
+/**
+ * The highest ceiling an installation may set. Well under the provider's own,
+ * because a run reads one message and answers with a handful of actions: a
+ * figure in the hundreds of thousands is a bill nobody meant to authorise.
+ */
+export const MODEL_MAX_OUTPUT_CEILING = 32_000;
+
+/** Whether a value may be written as an installation's output ceiling. */
+export function isModelMaxOutput(x: unknown): x is number {
+  return (
+    typeof x === "number" &&
+    Number.isInteger(x) &&
+    x >= 1 &&
+    x <= MODEL_MAX_OUTPUT_CEILING
+  );
 }
 
 export function isAgentProvider(x: unknown): x is AgentProvider {
@@ -1374,6 +1400,8 @@ export function isAgentConfigDoc(x: unknown): x is AgentConfigDoc {
   if (!x || typeof x !== "object" || Array.isArray(x)) return false;
   const d = x as Record<string, unknown>;
   if (d.v !== 1 || typeof d.address !== "string" || !d.address) return false;
+  if (d.maxOutputTokens !== undefined && !isModelMaxOutput(d.maxOutputTokens))
+    return false;
   return d.provider === undefined || isAgentProvider(d.provider);
 }
 

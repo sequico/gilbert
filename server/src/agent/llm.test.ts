@@ -58,6 +58,7 @@ const provider = {
 };
 
 const { callModel, decideActions, providerFor } = await import("./llm.js");
+const { MODEL_MAX_OUTPUT_DEFAULT } = await import("./documents.js");
 
 before(async () => {
   await new Promise<void>((resolve) => stub.listen(PORT, "127.0.0.1", resolve));
@@ -69,18 +70,53 @@ after(() => {
 
 test("every request carries the zero-retention opt-out, temperature 0 and JSON output", async () => {
   answerWith({ ok: true });
-  const parsed = await callModel(provider, { system: "be brief", user: "hello" });
-  assert.deepEqual(parsed, { ok: true });
+  const { answer, usage } = await callModel(provider, {
+    system: "be brief",
+    user: "hello",
+  });
+  assert.deepEqual(answer, { ok: true });
   assert.ok(seen);
   assert.equal(seen.url, "/v1/chat/completions");
-  assert.equal(seen.headers.authorization, "Bearer sk-test-key");
   assert.equal(seen.headers["x-data-opt-out"], "true");
   assert.equal(seen.body.temperature, 0);
   assert.deepEqual(seen.body.response_format, { type: "json_object" });
   assert.equal(seen.body.model, "a-small-model");
+  // Every answer is capped, and a provider that reported no usage is unknown
+  // rather than zero (ADR 0010: an uncapped answer is an uncapped bill).
+  assert.equal(seen.body.max_tokens, MODEL_MAX_OUTPUT_DEFAULT);
+  assert.deepEqual(usage, {
+    inputHitTokens: null,
+    inputMissTokens: null,
+    outputTokens: null,
+  });
   const messages = seen.body.messages as Array<{ role: string; content: string }>;
   assert.equal(messages[0]?.role, "system");
   assert.equal(messages[1]?.content, "hello");
+});
+
+test("the reported usage is read as it is, and the cap and the thinking switch go out", async () => {
+  status = 200;
+  body = JSON.stringify({
+    choices: [{ message: { content: JSON.stringify({ ok: true }) } }],
+    usage: {
+      prompt_cache_hit_tokens: 1200,
+      prompt_cache_miss_tokens: 40,
+      completion_tokens: 12,
+    },
+  });
+  const { usage } = await callModel(provider, {
+    system: "s",
+    user: "u",
+    maxOutputTokens: 512,
+    thinking: false,
+  });
+  assert.deepEqual(usage, {
+    inputHitTokens: 1200,
+    inputMissTokens: 40,
+    outputTokens: 12,
+  });
+  assert.equal(seen?.body.max_tokens, 512);
+  assert.deepEqual(seen?.body.thinking, { type: "disabled" });
 });
 
 test("a non-2xx answer is an error naming the status and the first line", async () => {

@@ -94,7 +94,7 @@ import {
   UnsupportedFilterError,
 } from "./documents.js";
 import { claimStillMine, saveClaimStates } from "./lease.js";
-import { decideActions, type ModelContext, providerFor } from "./llm.js";
+import { decideActions, type ModelContext, type ModelUsage, providerFor } from "./llm.js";
 import {
   advance,
   armTimers,
@@ -140,6 +140,8 @@ interface RunPlan {
   confidence: number;
   summary: string;
   rationale?: string;
+  /** What the deciding call cost, for the group's own meter (ADR 0010). */
+  usage: ModelUsage;
 }
 
 /**
@@ -671,12 +673,16 @@ export class Executor {
       context,
       rule.capabilities,
       standing,
+      // The call's own shape: the installation's ceiling on an answer, and the
+      // agent's own decision about paying for a chain of thought.
+      { maxOutputTokens: configDoc?.maxOutputTokens, thinking: config.agent.thinking },
     );
     await this.guardLabels(accountId, answer.actions);
     return {
       actions: answer.actions,
       confidence: answer.confidence,
       summary: answer.summary,
+      usage: answer.usage,
       ...(answer.rationale ? { rationale: answer.rationale } : {}),
     };
   }
@@ -2135,6 +2141,9 @@ function planOf(proposal: AgentProposal): RunPlan {
     actions: proposal.actions,
     confidence: proposal.confidence,
     summary: proposal.summary,
+    // A resumed run spends nothing on this pass: the deciding call it resumes
+    // was already counted when it was made.
+    usage: { inputHitTokens: null, inputMissTokens: null, outputTokens: null },
   };
   if (proposal.rationale) plan.rationale = proposal.rationale;
   return plan;

@@ -413,6 +413,16 @@ const agentWorkerSettings = {
    * `node server/dist/agent/worker.js` itself.
    */
   inprocess: bool("GILBERT_AGENT_INPROCESS", true),
+  /*
+   * Whether a run pays for the model's chain of thought. The provider reasons
+   * by default; a run that wants a cheaper, faster answer says so here, and an
+   * agent that wants the careful one keeps the default. It is a parameter of
+   * the agent rather than of a rule because a group is held by one agent at a
+   * time — and every run records the setting it used beside the tokens it
+   * spent, so a behaviour that changed with the machine that ran it is
+   * readable rather than inferred (ADR 0010).
+   */
+  thinking: bool("GILBERT_AGENT_THINKING", true),
 };
 
 /**
