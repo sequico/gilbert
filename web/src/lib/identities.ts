@@ -8,7 +8,7 @@
  * field can be added on one side and forgotten on the other.
  *
  * The write needs no credential of its own. A person's identity is written by
- * impersonating them from this session, a group's as the installation's agent,
+ * impersonating them from this session, a group's as the Master,
  * and Stalwart's permission model is the gate: `impersonation: "denied"` is an
  * answer the surface shows, not an error to hide.
  */
@@ -162,7 +162,7 @@ export function fetchGroupIdentity(name: string): Promise<AdminGroupIdentity> {
   );
 }
 
-/** `POST` the same route — set it, as the installation's agent. Answers the id written. */
+/** `POST` the same route — set it, as the Master. Answers the id written. */
 export async function saveGroupIdentity(
   name: string,
   id: string | null,

@@ -50,14 +50,14 @@ const SECTIONS: AdminSection[] = [
   },
   {
     id: "agents",
-    label: "Agents",
+    label: "Master",
     icon: <Bot size={18} />,
     el: <AdminAgents />,
     owner: "assistant",
   },
   {
     id: "group-workers",
-    label: t("Group workers"),
+    label: t("Group Agents"),
     icon: <Users size={18} />,
     el: <GroupWorkers />,
     owner: "assistant",

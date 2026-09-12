@@ -1,12 +1,12 @@
-# ADR 0003 — Agent worker fleet: workers that act on Stalwart events and schedules
+# ADR 0003 — Agent fleet: agents that act on Stalwart events and schedules
 
-Status: Accepted (2026-09-11; amended 2026-09-12 — the fleet may run beside the server, and nothing supervises it)
+Status: Proposed (2026-09-11; rewritten 2026-09-12)
 
 > **Scope (owner decision 2026-09-06):** Gilbert's own agents — each with its
 > own address in Stalwart (e.g. `gilbert@…`) — acting on Stalwart events and
 > on time schedules. First use cases: moving group messages, extracting files
 > from incoming mail, and an open rule set to grow from there. Sieve owns
-> delivery-time actions inside Stalwart; workers act afterwards, on delivered,
+> delivery-time actions inside Stalwart; agents act afterwards, on delivered,
 > durable state.
 
 ## Context
@@ -28,7 +28,7 @@ Facts from the current machinery:
   *which account* and *which type* changed, never *what* changed.
 - The server already relays that stream to browsers (`/api/events` in
   `server/src/app.ts`, type filter, ping), and the web client treats each
-  event as a refresh trigger per type (`web/src/jmap/push.ts`). Workers are
+  event as a refresh trigger per type (`web/src/jmap/push.ts`). Agents are
   headless: no proxy, no browser — a direct JMAP session to Stalwart, using
   the same EventSource protocol.
 - A principal's JMAP session includes every account it is granted over, so one
@@ -50,8 +50,8 @@ Facts from the current machinery:
 ## Scope in force
 
 One self-hosted installation runs **one agent**. What is multiple is its
-**workers**: the agent works in every group it is granted, and a deployment
-declares how many workers run. Further principals (`gilbert1@`, …) and external
+**agents**: the Master works in every group it is granted, and a deployment
+declares how many agents run. Further principals (`gilbert1@`, …) and external
 agent fleets are future work on the same machinery, not a configuration knob.
 
 - **One agent, `gilbert@`**, created operator-side in Stalwart's own
@@ -62,21 +62,35 @@ groups it is granted, never by becoming someone: the agent
   the ability to act as human users, on the identity a model drives. The
   admin-facing direction stays: a signed-in admin impersonates the *agent* to
   manage it.
-- **A worker is its own process** — the same codebase with a second entrypoint,
+- **A agent is its own process** — the same codebase with a second entrypoint,
   not a replica of gilbertserver and never a supervisor. It derives its session
   as `gilbert@` the way the web tier does and claims the accounts it serves by
   lease (§6), so it needs no coordinator: the documents are the coordination.
-  v1 runs one worker; more throughput or availability is another worker,
-  declared at deployment. The server starts one beside itself when the
-  deployment names an agent (ADR 0012), and `GILBERT_AGENT_INPROCESS=0` is how a
-  deployment keeps the two apart.
+  v1 runs one agent; more throughput or availability is another agent,
+  declared at deployment.
+
+  **The server starts one beside itself when the deployment names an agent.**
+  One command — what the image already runs — is an installation that both
+  serves and works; with no agent named the server starts none, which is the
+  state the admin surface reports as `agent_not_configured`. The boot retry, the
+  identity watch and the stop live in one function (`startAgentFleet`) that both
+  entrypoints call, and `node server/dist/agent/worker.js` stays the whole of the
+  separate process: `GILBERT_AGENT_INPROCESS=0` is how a deployment keeps the
+  fleet there, in a container of its own with its own health endpoint and its
+  own restart policy. The fleet's life is then the server's — its shutdown stops
+  it, releasing the claims and the stream, so nothing is left holding an account
+  under a live lease and the work a restart interrupts is taken up by the
+  successor that claims the account when the lease lapses. Nothing about a claim
+  changes: a lease arbitrates two agents on one account whether they are two
+  processes or one, so a scaled web tier scales claimants and the lease keeps
+  that correct — one holder per account, the rest idle.
 - **One bootstrap secret, from the deployment's environment**: the agent's
   address and its account's own password — the account's, not an app password,
-  because the agent signs in as itself. No impersonation at boot, no operator
+  because the Master signs in as itself. No impersonation at boot, no operator
   account, no derivation chain, nothing to mint or rotate in the product. The
-  secret is the agent's, so its reach is exactly the agent's grants and an
+  secret is the agent's, so its reach is exactly the Master's grants and an
   operator leaving cannot strand the agent. Nothing needs a writable
-  filesystem, so `IMMUTABLE=1` holds. Full statement: *The installation's agent
+  filesystem, so `IMMUTABLE=1` holds. Full statement: *The Master
   identity*, below.
 - **Management is the admin surface over Stalwart's own documents.** The
   signed-in admin reads the fleet and edits what the installation decides — the
@@ -85,31 +99,32 @@ groups it is granted, never by becoming someone: the agent
   hand-edited files. Credentials are not among them: the pair is the
   deployment's, and membership is Stalwart's.
 - **The agent's account holds its configuration; each group's account holds its
-  work.** Per-agent settings are documents in the agent account's own
-  `gilbert/` app folder (§4): its registration record and the **model providers
-  per tier** — T1 (classifier) and T2 (agent) each name a provider, model, base
-  URL and API key, so different tiers can run on different vendors or on a
-  local model; T0 calls no model at all. Provider keys are write-only in the
+  work.** The Master's settings are documents in the Master's own account's
+  `gilbert/` app folder (§4): its registration record and the **model provider**
+  — one entry naming a provider, model, base URL and API key, because one model
+  serves the installation and nothing asks an author to classify the work
+  (ADR 0010). Provider keys are write-only in the
   admin UI (stored, never read back, like app passwords) and are read by the
-  executor through the agent's own session. The agent account belongs to the
+  executor through the Master's own session. The Master's account belongs to the
   installation and is never shared with users. Everything members must be able
   to see — the association, the rules, the jobs, the decisions and the audit —
   lives in the **group's** account instead, because that is the account they
   can read.
 - **Membership is presence.** The agent is in a group exactly when the operator
   granted it — there is no second, in-product activation switch — and the
-  surface reads the grant from the agent's own session rather than declaring
+  surface reads the grant from the Master's own session rather than declaring
   it. Runtime scope is per changed account: the event's `accountId` selects
   which group's rules apply, because the agent has no single global brief.
 - **Admin surfaces.** The Gilbert admin (ADR 0001) gains an Agents section:
   show the agent the deployment declares and the groups that have
 granted it (and say so plainly when a group has not), author and version
-  per-group rule documents, configure the model providers per tier, choose the
-  tier each automation runs on, and read worker status and audit across groups.
+  per-group rule documents, configure the model provider, and read agent status
+  and audit across groups. (ADR 0010 settles the shape: one model, one kind of
+  automation, no classification for an author to choose.)
   Membership is not written there: a group without the grant shows the
   consequence — no agent in its chat, no automations offered — instead of a
   control that cannot work. Every write happens through the signed-in admin's
-  session: impersonating the agent where it acts on the agent's account, the
+  session: impersonating the Master where it acts on the Master's account, the
   admin's own session on group documents, and writes into a group's own account
   (rules, labels, footer) carry ADR 0005's membership rule — an admin who is a
   member of that group — because Stalwart refuses to mint a session for an
@@ -121,40 +136,40 @@ granted it (and say so plainly when a group has not), author and version
   construction and never edit them from the product — the folder is writable by
   a member by construction, so this is a UI convention and an accepted trust
   inside the group, not a server ACL. The two member actions are approving or
-  rejecting a proposed action and addressing the agent, both through the group
+  rejecting a proposed action and addressing the Master, both through the group
   chat.
 
 ## Decision
 
-### 1. An agent is a principal with its own address
+### 1. The Master is a principal with its own address
 
 Every agent is a mailbox in Stalwart's directory with its own address (e.g.
 `gilbert@…`), created and granted by the operator in Stalwart's own
 administration — the same surface that creates accounts. The address is the
 agent's identity and its scope unit. The agent's ACL grants decide what it may
 read and act on (a person's mailbox, a group's mailbox, shared Files). Mail
-addressed *to* the agent is ordinary mail: it lands in the agent's own mailbox
+addressed *to* the agent is ordinary mail: it lands in the Master's own mailbox
 and wakes it like any other state change — that is how "tell the agent to do
 something by mailing it" works. The agent's own password is the one bootstrap
-secret the worker holds, and it belongs to the installation, not to a person
-(*The installation's agent identity*).
+secret the agent holds, and it belongs to the installation, not to a person
+(*The Master The Master's identity*).
 
-### 2. Workers are headless, stateless, disposable processes
+### 2. Agents are headless, stateless, disposable processes
 
-A worker is a dedicated entrypoint in this repository (Node, same JMAP client
+A agent is a dedicated entrypoint in this repository (Node, same JMAP client
 library family as the web client but headless) that authenticates to Stalwart
 as exactly one agent principal and runs that agent's rules. It keeps no local
-state and needs no volume; any number of workers may run from the same image,
-and any worker is interchangeable. The "fleet" is agents × workers: more
-agents, more principals; more throughput or availability, more workers. Scope
-in force fixes the first factor at one and exposes the second as a worker count.
+state and needs no volume; any number of agents may run from the same image,
+and any agent is interchangeable. The "fleet" is agents × agents: more
+agents, more principals; more throughput or availability, more agents. Scope
+in force fixes the first factor at one and exposes the second as a agent count.
 
 ### 3. Event push is the wake-up; reconciliation is the work
 
-The worker holds its principal's JMAP EventSource (state-change push, type
+The agent holds its principal's JMAP EventSource (state-change push, type
 filter). An event — "account X, type Y changed" — is a *signal to reconcile*,
-never a payload to trust: the worker re-reads the changed type narrowly via
-JMAP (from the last state it recorded), runs the agent's rules against durable
+never a payload to trust: the agent re-reads the changed type narrowly via
+JMAP (from the last state it recorded), runs the Master's rules against durable
 state, and writes results back via JMAP. Handlers are idempotent by
 construction because they recompute from state: duplicates and reconnects
 (at-least-once delivery) are harmless, and nothing that leaves no durable
@@ -164,9 +179,9 @@ by, minus the browser.
 ### 4. Rules and durable state are Stalwart documents
 
 - **Rules** ("what this agent does": move group messages, extract files, the
-  open set to come) are validated documents in the agent principal's Files,
+  open set to come) are validated documents in the Master's Files,
   not code or environment; per-group rules live in each group's own account
-  (Scope in force). The worker is a generic interpreter plus a library of
+  (Scope in force). The agent is a generic interpreter plus a library of
   capability-gated actions; adding an agent behaviour means adding an action
   the interpreter can run, and shipping a rule is writing a document.
 - **Work state** lives in the principal's Files — per group, in the group's own
@@ -182,7 +197,7 @@ by, minus the browser.
   because the job carries the version *number* and not the body of the rule.
   That is the trade: a job lost loudly, against an effect run under a version
   nobody approved. A job stopped in `awaiting_approval` waits on a person and
-  is resumable after any worker restart: its state is the document.
+  is resumable after any agent restart: its state is the document.
   The pin binds every run that has effects, and a run resumed from an approval
   is one: waiting on a person does not freeze the rule the job was created
   from, so an approval answered on a job whose rule has moved on is that same
@@ -198,25 +213,25 @@ by, minus the browser.
   hidden `gilbert` app folder rather than from the Files a member browses, and
   the copy the retention promises is taken from the admin surface before the
   oldest month is pruned.
-- Nothing durable lives on the worker or in the environment; the environment
+- Nothing durable lives on the agent or in the environment; the environment
   carries only the bootstrap secrets toward Stalwart.
 
 ### 5. Time-based triggers ride the same machinery
 
-The worker also wakes on a schedule, without cron and without trusting any
+The agent also wakes on a schedule, without cron and without trusting any
 particular container to live: a scheduler document (`next-runs`, in the
 principal's Files — per group, beside the rules it schedules, Scope in force)
-holds the agent's due times as UTC instants; the worker that holds the
+holds the Master's due times as UTC instants; the agent that holds the
 account's claim arms a timer for it and updates the document when it fires or when the
 work changes the schedule. Durable next-run times plus a lease are what let a
-replacement worker pick the schedule up from Stalwart after any crash, which
+replacement agent pick the schedule up from Stalwart after any crash, which
 is why the times live in the document rather than in a cron entry. A fired
 timer is spent, so the next arming is planned from the document the fire has
 already moved on, and the due entries are read back out of that same document
-by every pass — the catch-up, and the reason a schedule edited while a worker
+by every pass — the catch-up, and the reason a schedule edited while a agent
 waited is armed as it now is. A due run is started with the claim on its own
 account — the same fence every other run passes — and the entry belongs to the
-worker that holds that account: an entry no live claim covers is carried over
+agent that holds that account: an entry no live claim covers is carried over
 exactly as it stands, still due, rather than re-planned here and consumed by a
 run nobody starts (`carryingForeign`, scheduler.ts). The
 runs that vanish are the ones whose rule is off or gone, and each of those is
@@ -224,18 +239,18 @@ recorded as a missed run.
 
 ### 6. Fleet coordination is lease-based and coordinator-free
 
-Each worker claims the scopes it will serve (the principal's stream, and
+Each agent claims the scopes it will serve (the principal's stream, and
 per-account work units) by writing owner + heartbeat into the appropriate
 Stalwart document; a claim whose heartbeat is stale is re-claimed by any
-worker. The one worker that wins a principal's stream claim keeps that
+agent. The one agent that wins a principal's stream claim keeps that
 principal's EventSource open; the others stay idle for that principal, so idle
-cost is bounded and there is no split-brain: two workers never both hold the
+cost is bounded and there is no split-brain: two agents never both hold the
 same claim. No coordinator, no shared volume, no database — the documents are
 the coordination.
 
-**Nothing supervises the workers, and nothing inside a worker manages
+**Nothing supervises the agents, and nothing inside a agent manages
 processes.** The fleet is coordinated by the documents and by nothing else: no
-supervisor process, no in-process process manager, no pool of subworkers that
+supervisor process, no in-process process manager, no pool of child processes that
 another tier restarts on a heartbeat that is not moving. A supervisor would be a
 second coordinator standing beside the claims, and the one thing it can do that
 a lease cannot — restart what looks stuck — is the double execution a claim
@@ -243,16 +258,16 @@ exists to prevent: the lease already hands a dead holder's account to a
 successor, together with the work it left mid-run, and it does it without
 knowing which machine either of them is on.
 
-Where a worker appears to hang, what is missing is not recovery but
+Where a agent appears to hang, what is missing is not recovery but
 **diagnosis**, and it is bought with visibility rather than with processes: what
-a worker holds (this section, and the heartbeat record that names the groups),
+a agent holds (this section, and the heartbeat record that names the groups),
 the unit and the job it is in the middle of and since when, and the per-call
 timeouts the model and JMAP clients already carry (`AbortSignal.timeout`) made
 readable where a person looks instead of a line in a log.
 
 Concurrency, when it comes, is a bounded fan-out over **units that hold their
 own claim** — a lease per reconcile type and per job — never a process manager:
-subworkers inside one process would contend for the same account claim and buy
+child processes inside one process would contend for the same account claim and buy
 nothing, and the work is I/O, which one process already overlaps. The order and
 the unverified premise it rests on are recorded in `ROADMAP.md`.
 
@@ -274,7 +289,7 @@ What the field locks in:
 - **Per-job retries with backoff, timeouts, compensation and a dead letter**
   after N attempts (Conductor's per-task model), as in §4.
 - **Human-in-the-loop as an interrupt**: a job stops in `awaiting_approval`,
-  the group is asked in its own chat and the worker resumes only on an approved
+  the group is asked in its own chat and the agent resumes only on an approved
   state change — the analogue of LangGraph's interrupts.
 - **Rules are versioned, and a job names the version it was created from**
   (Conductor's versioned definitions, the same concern read the other way). A
@@ -310,7 +325,7 @@ Strands, Dapr Agents) persist state but do not detect failure, restart or
 deduplicate on their own; durable runtimes (Temporal, Restate, Inngest, DBOS,
 Dapr Workflows) do. That line validates this record's side of the contract —
 reconciliation from durable state, leases for takeover — and names the piece it
-leaves to deployment: detecting a dead worker and restarting it (Open
+leaves to deployment: detecting a dead agent and restarting it (Open
 questions). The Postgres-based entrants (DBOS; Kitaru and Absurd) run durable
 execution on an ordinary row store, confirming that a document store is a valid
 engine substrate — here, Stalwart Files with lease documents as the queue,
@@ -322,13 +337,13 @@ neither is in scope. Finally, mailbox-as-interface is a live product pattern:
 AgentMail (2026) gives agents their own inboxes, instructions by ordinary mail
 and thread-grouped conversation, confirming §1; thread-as-conversation-unit is
 a candidate rule semantic (Open questions).
-## The installation's agent identity
+## The Master The Master's identity
 
 The agent's address and password are the deployment's, not the product's. The
 pair lives in the environment of whoever runs the containers or the built
 server — `GILBERT_AGENT_ADDRESS` and `GILBERT_AGENT_PASSWORD` — and both
 processes read it through the one function that defines it (`agentAddress()`).
-The password is the account's own: the agent signs in as itself, not through an
+The password is the account's own: the Master signs in as itself, not through an
 app password and not through an impersonation. The product therefore never
 mints, stores or rotates a credential — rotating it is an operator act in
 Stalwart that lands on the deployment, and the variables are read at boot, so
@@ -336,7 +351,7 @@ the new pair takes effect at the next start.
 
 Nothing about the pair is registered, minted or rotated in the product, and
 nothing in the admin surface names it. Neither process refuses to start for it:
-with the pair missing, or with credentials Stalwart refuses, the worker warns
+with the pair missing, or with credentials Stalwart refuses, the agent warns
 once, keeps answering its health endpoint and serves nothing, and the state is
 read in the admin surface rather than from a process that died. The server
 starts regardless, and the
@@ -345,9 +360,9 @@ admin surface reports the state it finds — `agent_not_configured`,
 set, so an installation without agents is a warning an administrator can read
 and act on, never a boot failure.
 
-Membership is not recorded either: the agent is in a group exactly when the
-operator granted it — the agent added to the group in the mail server's own
-administration — and both the admin surface and the worker read that from the
+Membership is not recorded either: the Master is in a group exactly when the
+operator granted it — the Master added to the group in the mail server's own
+administration — and both the admin surface and the agent read that from the
 agent's own session, which is re-read once per poll interval (a minute by
 default). Nothing per group is written anywhere: a grant is picked up by the
 next session refresh, and a group whose grant is gone is withdrawn from on the
@@ -355,8 +370,8 @@ pass that no longer lists it, without a restart and without a record of ours to
 keep in step.
 
 Two consequences follow. A group that loses the grant stops being served: the
-worker stops renewing the claim and the lease lapses — no worker deletes
-another's claim. And the change reaches the worker at its next session refresh;
+agent stops renewing the claim and the lease lapses — no agent deletes
+another's claim. And the change reaches the agent at its next session refresh;
 the web tier reads it live.
 
 ## The automation model
@@ -370,20 +385,21 @@ the web tier reads it live.
   constants the runtime reads, and the checks a document cannot state — that a
   rule's actions are inside its capability allowlist, and that a `G-` label it
   names exists in that group's catalog — stay in code and reach the author as
-  one list. ADR 0010 proposes writing an automation in prose and compiling it
-  into this document; the document and its schema remain the form the runtime
-  validates.
-- **Tiers, so trivial work never pays for a model.** T0 deterministic (zero
-  tokens, fixed actions); T1 a cheap classifier (one structured-output call — a
-  category, then fixed per-category actions); T2 an agent (instruction, allowed
-  capabilities, review policy — the model decides and executes). The tier is
-  chosen per automation, with the group carrying a default; which model serves
-  a tier is configuration, not code, and lives in the agent's own account
-  (Scope in force).
+  one list. ADR 0010 settles what the document is: an automation is a trigger, an
+  instruction, a capability allowlist and a review policy, the instruction being
+  the prose its administrator wrote, and no separate compiled form exists. The
+  document and its schema remain the form the runtime validates.
+- **One shape, and the model chooses the actions.** Every run asks the configured
+  model what to do and the answer carries actions from the catalogue; what an
+  automation may do is its capability allowlist, checked on every answer, and
+  nothing about that check depends on how the answer was produced. Which model
+  serves the installation is configuration, not code, and lives in the agent's
+  own account (Scope in force); the notebook a run reads, the ordering that keeps
+  the prompt cacheable and the meter that counts what a run cost are ADR 0010's.
 - **The model's role.** For the decision layer the LLM is the primary decider
   and executor; Gilbert itself runs deterministic, catalogue-style work. The
   safety invariants hold: the model acts only through the same capability-gated
-  actions, inside the agent's ACL scope, with every run audited. Rules decide
+  actions, inside the Master's ACL scope, with every run audited. Rules decide
   triggers, permissions and context, not every step.
 - **Granularity and context.** An automation acts on the single message; the
   context it needs is assembled on demand — the thread (grouped by In-Reply-To)
@@ -408,7 +424,7 @@ the web tier reads it live.
   policy — `always` (every run pauses), `threshold` (auto-execute at or above a
   confidence, else pause; the default a new automation starts at, its number
   set per automation) or `never` — and the external-send consent floor is never
-  relaxed by it. T1 and T2 return a confidence (0–1); above the threshold the
+  relaxed by it. Every run returns a confidence (0–1); above the threshold the
   action runs unattended, below it the job pauses in `awaiting_approval` with a
   decision document. Approval is conversational: the proposal is posted in the
   group chat and answered in words — no Approve/Reject buttons — and a pending
@@ -419,9 +435,7 @@ the web tier reads it live.
   expected-owner update, closes the job whichever way the answer arrived, so
   there is one arbiter and no race — and a draft that left Drafts wins over a
   conversational reply, because a person sent it and its content as sent is what
-  was approved. T0 is deterministic and carries confidence 1, so a group that
-  wants a person in the loop on a T0 automation chooses `always`, not a
-  threshold. For reversible in-group actions the model may interpret a reply and
+  was approved. For reversible in-group actions the model may interpret a reply and
   ask a closed clarifying question when the answer is ambiguous; for
   irreversible or external actions the reply must resolve to an unambiguous
   yes/no and only explicit consent proceeds — never a model-guessed approval.
@@ -450,8 +464,8 @@ the web tier reads it live.
   review policy remain the final gate. The audit records who asked, so a
   proactive automation and a human request are told apart afterwards.
 - **Where extracted files land.** In the **group's own Files, in the visible
-  tree** — the folder the automation names, or the folder the model chose when
-  the tier lets it decide, and `Needs attention` when nothing determined one.
+  tree** — the folder the automation names, or the folder the model chose, and
+  `Needs attention` when nothing determined one.
   Never the hidden `gilbert` app folder, where a member would not find it, and
   never loose in the Files root, where a file nobody could place would be a
   shrug rather than a signal. The same destination rule governs every action
@@ -487,13 +501,13 @@ the web tier reads it live.
 
 ## Failure paths
 
-A crash, two workers, an unreadable document, a model choosing a name, a retry
+A crash, two agents, an unreadable document, a model choosing a name, a retry
 that would repeat an effect: each is settled here, because the invariants above
 are only worth what their failure paths are.
 
 - **The claim's compare-and-set token is read before the claim document**
-  (`lease.ts`). Read the other way round, a claim written by another worker
-  between the two reads is invisible to the comparison and both workers walk
+  (`lease.ts`). Read the other way round, a claim written by another agent
+  between the two reads is invisible to the comparison and both agents walk
   away believing they hold the unit.
 - **Claims carry an epoch**, incremented on takeover and never on renewal, and a
   run asks `claimStillMine` before anything leaves the process — sending,
@@ -501,10 +515,10 @@ are only worth what their failure paths are.
   `FENCED_ACTIONS` in `documents.ts` (`mail.send`, `chat.post`, `mail.draft`,
   `file.write`, `mail.extract`), read by the fence and by the retry decision
   alike, so an action cannot be fenced in one and repeatable in the other. A
-  worker whose lease lapsed stops instead of writing results
-  the worker that replaced it will write again. A worker that holds no claim on
+  agent whose lease lapsed stops instead of writing results
+  the agent that replaced it will write again. A agent that holds no claim on
   an account starts nothing there: the pending sweep logs it and goes on, and a due
-  timer waits for the worker that holds it.
+  timer waits for the agent that holds it.
 - **A release is conditional** on the state it was read against; the owner check
   alone could remove a successor's live claim written between the read and the
   removal. `saveClaimStates` never recreates a released claim, and `claimAccount`
@@ -513,12 +527,12 @@ are only worth what their failure paths are.
 - **An unreadable heartbeat is not a free lease.** It throws, because "unknown"
   and "expired" are different answers; the pass contains the throw, naming the
   account it could not read and moving to the next one, and the polling loop
-  hands whatever a tick threw to the worker's log.
+  hands whatever a tick threw to the Master's log.
 - **A job left `running` is not left to nobody.** `runPending` takes up a
-  `running` job whose lease has expired, so a dead worker's work is finished by
+  `running` job whose lease has expired, so a dead agent's work is finished by
   the next pass — with the deduplication key suppressing every new job on the
   same trigger, a job nothing picks up is that trigger's work never happening.
-  A run whose lease expires and that no worker comes back for ends with the
+  A run whose lease expires and that no agent comes back for ends with the
   audit outcome **`timeout`**, not `failed`: nothing reported a failure — the
   process that would have is the one that is gone.
 - **Intent before effect.** A run's plan is written onto the job before the
@@ -578,12 +592,12 @@ are only worth what their failure paths are.
   already in flight: a decision waiting on a person, a job holding a lease, a
   draft left in the group's Drafts marked `G-awaiting`. The withdrawal is taken
   on Stalwart's clock and not Gilbert's — the surface reads grants and reports
-  them, it never writes them — so nothing here delays a revocation. The worker
+  them, it never writes them — so nothing here delays a revocation. The agent
   re-reads its session at most once per poll interval (a minute by default, a
   third of a lease), and an account it was serving that the session no longer
   lists *is* the withdrawal. It stops from that pass on and writes it down once
-  — what the group was called, which account the worker held, and when it noticed
-  — into the worker's **own** account (`agent/withdrawals.json`), the one place
+  — what the group was called, which account the agent held, and when it noticed
+  — into the Master's **own** account (`agent/withdrawals.json`), the one place
   it can still write and the one the status route reads. Nothing on the way out
   writes or deletes anything in the withdrawn account: the claim is left for its
   lease to lapse, because deleting another account's documents would be taking a
@@ -606,7 +620,7 @@ are only worth what their failure paths are.
   gate.** Mail, files and everything else the agent reads are data; nothing in
   them is followed as instruction, and the capability allowlist with the review
   policy bounds an action. For an action that stays inside the group and runs on
-  a T2 confidence threshold, that confidence is the model's own signal about
+  a confidence threshold, that confidence is the model's own signal about
   content the same model read, so a hostile message can move it; the mitigation
   — a person for any action whose trigger arrived from outside the group — is
   not adopted, and the cheaper one between them is a declared gap rather than an
@@ -651,7 +665,7 @@ are only worth what their failure paths are.
   client types nor the mock invent that field. A sendAs identity for the group
   address also exists on a member's own account, and is not used, because it
   would file the sent copy in the member's Sent instead of the group's.
-- **Agent principal, live (2026-09-10).** `gilbert@` exists on a real instance
+- **Master principal, live (2026-09-10).** `gilbert@` exists on a real instance
   and is granted on a real group. Its session shows the group account, its
   `myRights` on the group's mailboxes include `maySubmit`, and it both reads and
   creates nodes in the group's own `gilbert/` app folder — so rules, jobs,
@@ -683,19 +697,19 @@ are only worth what their failure paths are.
 
 ## Consequences
 
-- The agent's own password is the one bootstrap secret the worker holds, and it
+- The agent's own password is the one bootstrap secret the agent holds, and it
   belongs to the installation rather than to a person; on top of ADR 0001's
   administration model (permission marker; `Impersonate` for per-user writes),
   the only impersonation in the design points the other way — an admin acting on
-  the agent's account.
-- One agent means one reach: the agent's grants cover every group it is granted,
+  the Master's account.
+- One agent means one reach: the Master's grants cover every group it is granted,
   so a compromise of the agent exposes all of them at once, not one group at a
   time. Accepted — the same order of risk threshold auto-approval already
   accepts — with per-group agent principals as the future mitigation, not a
   setting.
-- Work claims are the account, so two workers never touch the same account at
+- Work claims are the account, so two agents never touch the same account at
   once; the per-account concurrency cap of §7 bounds how much of a single group
-  the fleet works on. With the default single worker, work per account is
+  the fleet works on. With the default single agent, work per account is
   serialized in arrival order.
 - An agent's scope is exactly its grants: it sees and acts on what the operator
   granted, nothing else. A new group is served by granting the agent in
@@ -705,8 +719,8 @@ are only worth what their failure paths are.
   reports them, it never writes them.
 - Every event costs a reconcile: rules must be written as narrow queries (per
   type, from the recorded state) and the push filter must stay tight, or the
-  worker spends its life re-reading mailboxes nothing changed in.
-- Time triggers require at least one worker per scheduled agent to be up; the
+  agent spends its life re-reading mailboxes nothing changed in.
+- Time triggers require at least one agent per scheduled agent to be up; the
   scheduler document is the source of truth, so a dead container costs only the
   lease interval and a replacement takes over from Stalwart.
 - Reconcile-only semantics means reactions are possible only to changes that
@@ -716,7 +730,7 @@ are only worth what their failure paths are.
   behaviour is testable in the existing CI gate (web and server tests run under
   `TZ=UTC`).
 - A job stopped in `awaiting_approval` may wait indefinitely on a person; it
-  must survive any worker restart (its state is the document) and must never be
+  must survive any agent restart (its state is the document) and must never be
   re-claimed as stale while it is legitimately paused.
 - Rule documents carry an `id` and `version`; the audit records which version
   each run used, and editing a rule ends the runs pinned to the older version,
@@ -726,7 +740,7 @@ are only worth what their failure paths are.
 - Agent work can be slow by design: a reconcile may call an external model or
   wait on a person, so leases and heartbeat intervals must tolerate pauses far
   longer than the request/response web tier's.
-- The worker's lifecycle is the agent's: a deploy or a crash pauses agent work
+- The agent's lifecycle is the agent's: a deploy or a crash pauses agent work
   for the downtime window, and recovery is automatic — session re-derived at
   boot, stale leases re-claimed, catch-up and reconciliation from the recorded
   state. Nothing hangs on a dead process because the state is the documents,
@@ -734,19 +748,29 @@ are only worth what their failure paths are.
 
 ## Alternatives considered
 
-- **A queue or database of the workers' own** (Redis, Postgres, a volume
+- **A queue or database of the agents' own** (Redis, Postgres, a volume
   outbox): rejected — architecture law: everything durable lives in Stalwart.
   The job documents and leases are the queue.
 - **One shared service account serving every agent**: rejected — a shared
   principal cannot be granted per agent, cannot audit per agent, and has no
   per-agent address to be mailed to. Per-agent mailboxes are the scope and
   identity unit.
-- **Workers embedded in the web server container**: rejected — it mixes the
+- **Agents embedded in the web server container**: rejected — it mixes the
   disposable, request-scoped web tier with long-lived claim-holding processes
-  and scales them together. The worker is its own process. Superseded by ADR
-  0012 for an installation that names an agent: the server starts a worker in a
-  process of its own beside the web tier, and the container split above stays
-  available through `GILBERT_AGENT_INPROCESS=0`.
+  and scales them together. The agent is its own process, and what the server
+  starts by default is one of those, not a piece of the web tier.
+- **A launcher that starts both processes**: rejected as the default — it keeps
+  two things to think about, needs a supervisor in the image, and buys isolation
+  only for the deployments that already know they want it, which is what
+  `GILBERT_AGENT_INPROCESS=0` gives them without a second program to maintain.
+- **A agent started unconditionally, credentials or not**: rejected — most
+  installations name no agent, and a process that exists to warn about its own
+  missing configuration is noise. The pair is what makes a fleet meaningful, and
+  it is what the start is conditioned on.
+- **The fleet in a thread or a child process inside the web container**: rejected
+  — that is the launcher with the supervisor removed: the restart policy would
+  still see only the server, and the fleet would be invisible to the operator's
+  own tooling.
 - **Cron inside the container**: rejected — disposable containers offer no
   durability or overlap guarantees; the scheduler document does.
 - **Polling as the primary trigger**: rejected; kept only as the recovery
@@ -760,10 +784,10 @@ are only worth what their failure paths are.
   path: (c) that an operator authenticated by **app password** — not by the
   account password — may impersonate a target, and (d) that `x:AppPassword/get`
   keeps returning the secret to an impersonating admin. Neither is on the
-  default path — the agent's own credentials and the master-credential
+  default path — the Master's own credentials and the master-credential
   impersonation are — so they matter only if an installation chooses that
   alternative.
-- **Detecting and restarting a dead worker is the deployment's job.** Durable
+- **Detecting and restarting a dead agent is the deployment's job.** Durable
   state, leases and the scheduler document make takeover automatic once a
   replacement is running; nothing in the product notices that one is gone.
   A restart policy plus the health endpoint (`GILBERT_AGENT_HEALTH_PORT`) is
@@ -783,10 +807,11 @@ are only worth what their failure paths are.
   per-user writes, hidden app folders, the boot channel)
 - ADR 0004 — live policy propagation (the settings-policy document)
 - ADR 0005 — group chat and the group label catalog
-- ADR 0010 — an automation written in prose and compiled into its rule
-  (Proposed; the prose layer over the document this record validates)
+- ADR 0010 — an automation is an instruction a model carries out (Proposed): the
+  shape of the document this record validates, the notebook a run reads, the
+  prompt's order, the meter, and the run a person asks for
 - `server/src/app.ts` — `/api/events` push relay, the admin agent routes
-- `server/src/agentAdmin.ts` — the agent's own session, grants, group views,
+- `server/src/agentAdmin.ts` — the Master's own session, grants, group views,
   rules, providers, instruction, audit export
 - `server/src/agent/lease.ts` — claims, epochs, conditioned writes
 - `server/src/push.ts` — the inbound push rail (RFC 8620 PushSubscription) the
@@ -795,7 +820,7 @@ are only worth what their failure paths are.
   them
 - `web/src/lib/agentErrors.ts` — the one catalogue every agent error code
   resolves through
-- Stalwart Sieve — the delivery-time boundary, confirmed out of the workers'
+- Stalwart Sieve — the delivery-time boundary, confirmed out of the agents'
   scope (ADR 0008)
 
 - `server/src/agent/views.ts` — the one definition of the agent API's response

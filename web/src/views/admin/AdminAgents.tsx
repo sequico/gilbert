@@ -8,7 +8,7 @@
  * groups it works in and what each one tells it (Groups), last because it
  * follows Stalwart's directory rather than anything written here. What a
  * group's agent actually *does* — its automations, the approvals waiting on a
- * person, and the workers serving them — lives in Group workers instead: that
+ * person, and the agents serving them — lives in Group Agents instead: that
  * section already reads one group at a time, and an automation is exactly that.
  *
  * Nothing here grants anything, and nothing here names the agent. The
@@ -128,7 +128,7 @@ const STATUS_POLL_MS = 30_000;
 function Registration({ status }: { status: AgentStatus | null }) {
   return (
     <section>
-      <h2>{t("The installation's agent")}</h2>
+      <h2>{t("The Master")}</h2>
       <p className="hint" style={{ marginBottom: 12 }}>
         {t(
           "This section checks the agent's grant, it never writes it: membership of a group is granted in Stalwart's own administration, beside the accounts, the same way a person's is.",

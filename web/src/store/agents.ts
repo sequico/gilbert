@@ -1,5 +1,5 @@
 /**
- * The agent worker fleet's client state (ADR 0003).
+ * The agents' client state (ADR 0003).
  *
  * Reads and writes go through `@/lib/agents`; this store is the UI's view of
  * them: the installation's fleet status, one group's documents at a time, the

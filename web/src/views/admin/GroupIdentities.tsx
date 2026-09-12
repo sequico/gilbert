@@ -2,8 +2,8 @@
  * Group identities (ADR 0007 §2, §3), the second tab of **Enforce Identities**:
  * what a group mailbox sends as.
  *
- * Written **as the installation's agent**, always, because Stalwart refuses to
- * impersonate a group mailbox at all — and the agent is the principal the
+ * Written **as the Master**, always, because Stalwart refuses to
+ * impersonate a group mailbox at all — and the Master is the principal the
  * installation already has for acting on its groups. Where the agent is not
  * granted on a group, this surface says so and names the grant that is missing,
  * rather than a permission error that would read as a bug.
@@ -114,7 +114,7 @@ export function GroupIdentities() {
       <h1>{t("Group identities")}</h1>
       <p className="lead">
         {t(
-          "Set what a group mailbox sends as. It is written as the installation's agent, because Stalwart refuses to impersonate a group mailbox — the agent is the principal that exists for acting on a group's behalf.",
+          "Set what a group mailbox sends as. It is written as the Master, because Stalwart refuses to impersonate a group mailbox — the Master is the principal that exists for acting on a group's behalf.",
         )}
       </p>
       <p className="hint" style={{ marginBottom: 12 }}>
@@ -187,7 +187,7 @@ export function GroupIdentities() {
           {!granted && (
             <div className="warn-box" style={{ marginTop: 12, marginBottom: 12 }}>
               {t(
-                "The installation's agent is not a member of this group, so nothing here can write its identity. Grant the agent on that group — the same grant that lets it work in the group at all — and look again.",
+                "The Master is not a member of this group, so nothing here can write its identity. Grant the agent on that group — the same grant that lets it work in the group at all — and look again.",
               )}
             </div>
           )}

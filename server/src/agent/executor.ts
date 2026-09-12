@@ -816,7 +816,7 @@ export class Executor {
       `${rule.name}: ${describeActions(results)} for ${describeTrigger(job.trigger)}`,
     );
     /*
-     * A run somebody asked for says so where the group reads (ADR 0013). Every
+     * A run somebody asked for says so where the group reads (ADR 0010). Every
      * other trigger is the group's own mail, chat or clock, which needs no
      * announcement — but "I ran this because a person asked me to" is a fact
      * about the group's agent that its members should not have to infer from a
@@ -2211,7 +2211,7 @@ function describeActions(results: ReadonlyArray<ActionResult>): string {
 /**
  * What a run did, in the words a person reads rather than the codes a log
  * keeps — the action catalogue's own labels, which is the one vocabulary the
- * server and the admin surface already share (ADR 0013: a run somebody asked
+ * server and the admin surface already share (ADR 0010: a run somebody asked
  * for says what it did where the group can read it).
  */
 function describeActionsInWords(results: ReadonlyArray<ActionResult>): string {

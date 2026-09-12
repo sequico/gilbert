@@ -87,7 +87,7 @@ account of its own on the server, and what it owns — its chat, its label
 catalog, its calendars and files, its agent's documents — lives in that account
 and belongs to it from creation, shared with its members rather than copied to
 them. **Chat** is one conversation per group. And **Agents** is the largest
-thing here: a worker fleet that acts inside mail and file storage on a group's
+thing here: a agent fleet that acts inside mail and file storage on a group's
 behalf, with its own identity, its own permissions and its own audit trail. That
 section is the detailed one; the two beside it are the surfaces a member and an
 administrator actually touch.
@@ -104,33 +104,33 @@ directory, created by the operator in Stalwart's own administration, and it is
 **granted** on a group the same way any principal is. Membership is the
 grant: there is no second, in-product activation switch, so a group the agent
 can see is a group it works for, and a group it cannot see is untouched. The
-Gilbert admin surface reads that membership from the agent's own session in
+Gilbert admin surface reads that membership from the Master's own session in
 Stalwart and shows it; it never writes one, and no screen asks anyone to
 declare it.
 - **The agent's address and password are the deployment's.** The operator names
   the agent with `GILBERT_AGENT_ADDRESS`, beside the account's own password in
   `GILBERT_AGENT_PASSWORD` — the account's own, not an app password: the agent
   signs in as itself — in the environment of whoever starts the server and the
-  worker. Nothing in the product names it and nothing is recorded for it: there
+  agent. Nothing in the product names it and nothing is recorded for it: there
   is one place the pair lives, and it is the deployment. Both processes read the
-  same pair: the worker opens its session with it, and the admin surface signs
+  same pair: the agent opens its session with it, and the admin surface signs
   in as the agent with it, so no screen carries a secret. Absent or incomplete,
   the server runs with no agent and **Admin → Agents** says which state it is in
-  and how to set the pair, while the worker process starts as well and serves
+  and how to set the pair, while the agent process starts as well and serves
   nothing, warning once about what is missing instead of refusing to come up; a
   password Stalwart refuses is its own state, named as such, with the
   installation running and the screen saying the fleet is not operational.
 - **What the fleet serves, per group.** The accounts Stalwart lists the agent as
   a member of, and nothing else: a group is served when it holds the agent, so
   the grant is Stalwart's and there is no second record to keep. The surface
-  reads the agent's membership from the agent's own session and shows it, rather
+  reads the Master's membership from the Master's own session and shows it, rather
   than writing one or asking anyone to declare it. The same answer says which
-  workers are serving a group: a claim is per account, so a worker names the
+  agents are serving a group: a claim is per account, so a agent names the
   groups it is holding in its heartbeat, and the surface reads one group's
-  workers off that rather than listing a fleet with no group attached.
+  agents off that rather than listing a fleet with no group attached.
 - **An automation can be run now, on a message a person names.** *Run now*
 beside a rule asks for one run, on the newest message of the group's own inbox:
-the ask writes a job, and the worker holding the group runs it on the rule's own
+the ask writes a job, and the agent holding the group runs it on the rule's own
 terms — the filter, the capability allowlist, the review policy and the consent
 floor all still decide, and the audit line says it was asked for. It answers the
 question the surface could not: an automation that is not armed, one that is not
@@ -138,13 +138,13 @@ about mail, a message its filter passes over, and a group nobody is holding are
 four different sentences, and none of them is written into the group's audit,
 because none of them is a run that happened.
 - **A withdrawn grant is reported, and the group stops being served.** The
-worker re-reads its session at most once per poll interval — a minute, a third
+agent re-reads its session at most once per poll interval — a minute, a third
 of a lease, so no new setting arrives with it — and an account it was serving
 that the session no longer lists *is* a withdrawal, because the session is the
-whole of a grant. From that pass on the group is not served, and the worker
+whole of a grant. From that pass on the group is not served, and the agent
 writes the loss once into its **own** account: the group's name, the account it
 was holding, and when it noticed, shown on the admin surface beside the fleet
-rather than in a log nobody tails. The report says what the worker was
+rather than in a log nobody tails. The report says what the agent was
 holding; what a withdrawal left unfinished stays in the group's own audit,
 which the agent can no longer read — the record never claims to know it. And
 nothing is written or deleted in the withdrawn group on the way out: the claim
@@ -158,10 +158,10 @@ not have to be repeated in every automation. It can steer and it cannot grant:
 what an automation may do is its capability list, checked on every answer the
 model gives, and nothing written in the instruction widens it. An empty text
 removes it.
-- **One bootstrap secret, and the deployment holds it.** The worker
+- **One bootstrap secret, and the deployment holds it.** The agent
 authenticates as the agent with the account's own password
 (`GILBERT_AGENT_ADDRESS`, `GILBERT_AGENT_PASSWORD`). Nothing derives it, nothing
-impersonates at boot, and nothing durable is kept on the worker's disk: the
+impersonates at boot, and nothing durable is kept on the Master's disk: the
 session is re-established at every start, so the container stays disposable and
 `IMMUTABLE=1` holds. The product neither mints nor rotates a credential, and it
 keeps no second copy of the pair. Rotating it is the operator's act in Stalwart,
@@ -170,7 +170,7 @@ what carries the new value.
 - **Nothing is watched at runtime; a change lands on the deployment.** The
 address and the password are read once, at boot, so changing either means
 restarting the processes. Membership is the
-one thing re-read while the worker runs — at most once per poll interval — so a
+one thing re-read while the agent runs — at most once per poll interval — so a
 group Stalwart no longer lists the agent for stops being served within it
 (below).
 - **Automations, not rules written in code.** The admin surface authors one
@@ -185,8 +185,8 @@ boundary.
   rides the same documents as any other: the next run of every armed rule is
   stored as a UTC instant in the group’s own scheduler document, so a restart, a
   deploy or a crashed container costs the wait and not the schedule — a
-  replacement worker re-plans from Stalwart and re-arms. Each worker fires the
-  entries of the accounts it holds, so two workers never fire each
+  replacement agent re-plans from Stalwart and re-arms. Each agent fires the
+  entries of the accounts it holds, so two agents never fire each
   other’s runs, and the runs that vanish — the rule off, the rule gone — are
   recorded as missed runs rather than disappearing from the trail.
 - **Three tiers.** T0 is deterministic and calls no model; T1 asks a small
@@ -217,7 +217,7 @@ documents (automations, jobs, decisions, audit) stay in the hidden `gilbert`
 folder, which is where they belong and where the Files view deliberately does
 not look — the name is the whole rule: the folder is found by it, and a path
 that names it is refused as a destination in Files.
-- **A run is bounded by what it was granted.** A worker that loses its unit
+- **A run is bounded by what it was granted.** A agent that loses its unit
 mid-run stops before anything leaves the process rather than writing results
 its successor will write again; an approval is consumed exactly once, so two
 answers arriving together cannot send the same mail twice; a run executes the
@@ -232,13 +232,13 @@ unread so a person sees it) and posts the proposal in the chat. Any member may
 answer in words; the conversation is the interface, not a button. Nothing that
 leaves the group is ever sent on a guessed approval — an external send always
 needs explicit consent, whatever the policy says.
-- **The worker is its own process.** The same image and codebase as the server,
+- **The agent is its own process.** The same image and codebase as the server,
 a second entrypoint (`node server/dist/agent/worker.js`), never a replica of the
 web tier. It
-holds the agent's event stream, wakes on it, and reconciles from the last
+holds the Master's event stream, wakes on it, and reconciles from the last
 state it recorded; polling is the fallback after a lost stream. Work claims
 live in the documents themselves, so no coordinator exists and none is needed:
-one process per account, several accounts per agent, and a crashed worker's
+one process per account, several accounts per agent, and a crashed agent's
 claims are re-taken by whoever is running, together with the work it left mid-run; a
 run nobody comes back for is recorded as a timeout rather than as a failure,
 because nothing reported one — the process that would have is gone. It answers
@@ -246,7 +246,7 @@ a health probe when the deployment
 names a port (`GILBERT_AGENT_HEALTH_PORT`), reporting the accounts
 it actually holds, so a restart policy can tell "running" from "running and
 serving nothing". **The server starts one beside itself** when the deployment
-names an agent (ADR 0012), so the one command that starts the web tier is an
+names an agent (ADR 0003), so the one command that starts the web tier is an
 installation that also works; `GILBERT_AGENT_INPROCESS=0` is how a deployment
 keeps the fleet in a process of its own.
 - **Members see, never change.** Next to the group's chat, an indicator opens
@@ -267,15 +267,15 @@ automations without their capability allowlist and without the authorship
 stamps; nothing on that path writes.
 - **The agent says hello once.** A group the agent has been granted but has
 never spoken in hears from it: a chat message — "Hi all! Gilbert here, at your
-service." — posted when a worker takes the group's claim. The greeting is
+service." — posted when a agent takes the group's claim. The greeting is
 itself proof that an agent works in the group, readable through a member's own
 session where the operator's grant list is not, so the panel stops reporting an
 agentless group the moment the agent arrives.
 - **Where the documents live.** Rules, jobs, decisions, claims, the schedule
 and the audit trail are documents in the group's own `gilbert` app folder —
 what members may read. The agent's own account holds its configuration, the
-provider keys and the worker heartbeats, each heartbeat naming the groups its
-worker is holding. Nothing durable is kept anywhere else:
+provider keys and the agent heartbeats, each heartbeat naming the groups its
+agent is holding. Nothing durable is kept anywhere else:
 no database, no volume.
 - **Failures are loud.** An unreachable provider, a refused key or a malformed
 answer never skips work silently: the run is recorded in the audit, the
@@ -380,9 +380,9 @@ surface marks whether you are a member of each group.
 - **Group identities** (ADR 0007 §2, §3), the second tab: a group mailbox
   holds **one** identity —
   a rule of the product, because a group sends as itself — written **as the
-  installation's agent**, always: Stalwart refuses to impersonate a group
-  mailbox, and the agent is the principal the installation has for acting on
-  its groups. Where the agent is not granted on the group, the surface names
+  Master**, always: Stalwart refuses to impersonate a group
+  mailbox, and the Master is the principal the installation has for acting on
+  its groups. Where the Master is not granted on the group, the surface names
   the missing grant rather than showing a permission error.
 - **What an identity reaches**: mail **composed in Gilbert** — the composer and
   the group's agent go through one signature function. Mail written in another
@@ -1551,7 +1551,7 @@ needed nothing in either half.
 - The verification code a subscription needs is handed to an open tab, or left
   in the browser's cache under a key **anchored to where the app is mounted**
   for the next tab to collect. Both sides name it absolutely: a relative key is
-  resolved against the URL of whoever asks, so the worker at `<base>/sw.js` and
+  resolved against the URL of whoever asks, so the agent at `<base>/sw.js` and
   a tab at `/mail/inbox/…` were naming two different entries, and agreed only
   when the open page happened to be the root.
 - **The subscription is renewed on every app start**, because a JMAP push
@@ -1609,9 +1609,9 @@ needed nothing in either half.
   neither -- in `display: standalone` there is no tab strip and no favicon on
   screen, so a home-screen Gilbert showed nothing at all. Web Push marks the
   icon while the app is closed, with a dot rather than a figure: the service
-  worker is not told how many messages are unread — a push carries the new mail
+  agent is not told how many messages are unread — a push carries the new mail
   rather than a total, so counting the payload would badge "2" over an inbox
-  holding forty. The next tab to open writes the real count over it. The worker
+  holding forty. The next tab to open writes the real count over it. The agent
   could ask for the count instead, though whether a badge is worth a request on
   every push is a separate question and has not been answered yet.
   Unsupported browsers show nothing, as does iOS until notification permission
@@ -1628,7 +1628,7 @@ needed nothing in either half.
   signed-out Gilbert work — it waits through the sign-in page and opens after,
   which the query string could not have survived. One nobody comes back for
   expires after ten minutes rather than opening a composer full of a forgotten
-  photo the next time you look. The worker is what answers it: with the worker
+  photo the next time you look. The agent is what answers it: with the agent
   unregistered the POST has nothing to receive it and the share is lost, which
   is the one cost of a target the manifest announces unconditionally. Android
   and Chromium only; iOS does not implement share targets.
@@ -1640,18 +1640,18 @@ needed nothing in either half.
   among them, because it would have to open the app, and tapping the
   notification already does that.
 
-  Nothing in the worker's shape stands in the way. Gilbert's session is an
+  Nothing in the Master's shape stands in the way. Gilbert's session is an
   httpOnly cookie against its own origin, and the only
   other thing the API asks for is a fixed header that is not a secret. A
   same-origin request from the service worker carries the cookie like any
   other, so `Email/set` from a notification is an ordinary call. What the
-  worker genuinely cannot reach is anything a *tab* holds in memory — and the
+  agent genuinely cannot reach is anything a *tab* holds in memory — and the
   API asks for none of it.
 
-  What it cannot reach is a catalogue. The worker is plain JavaScript outside
+  What it cannot reach is a catalogue. The agent is plain JavaScript outside
   the bundle, with no i18n and no idea which mailbox is the archive, so the app
   writes both down for it whenever the language, the account or the folder list
-  changes. Where there is no such note — between installing a new worker and
+  changes. Where there is no such note — between installing a new agent and
   next opening Gilbert — the notification appears with no action buttons at
   all rather than English ones over a guessed mailbox.
 
@@ -1938,7 +1938,7 @@ docker run -e BASE_PATH=/mail ... gilbert
 `/mail`, `mail` and `/mail/` all mean the same mount; unset means the domain
 root, which is exactly what it has always been. Everything moves together —
 `/mail/api/health`, every deep link, the icons, the manifest, the service
-worker's scope and the session cookie's `Path`.
+agent's scope and the session cookie's `Path`.
 
 Two things are worth knowing before you reach for it.
 
@@ -1957,7 +1957,7 @@ checks the built shell against its own `BASE_PATH` at the first request and
 says so in the log rather than leaving you with an empty page and a 404.
 
 The manifest and the service worker need neither: a manifest's URLs resolve
-against the manifest's own address, and the worker's own address tells it where
+against the manifest's own address, and the Master's own address tells it where
 it was mounted. Both follow the prefix with nothing substituted into them.
 
 ## Rebranding

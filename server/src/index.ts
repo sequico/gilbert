@@ -25,7 +25,7 @@ async function main() {
   );
 
   /*
-   * The fleet, beside the web tier in this process (ADR 0012): an installation
+   * The fleet, beside the web tier in this process (ADR 0003): an installation
    * whose deployment names an agent serves and works from one command, and this
    * server's shutdown is what stops it. An installation with no agent named
    * starts none — the admin surface says so — and one that wants the fleet back

@@ -1,5 +1,5 @@
 /**
- * The invariant behind the one-command installation (ADR 0012): the function the
+ * The invariant behind the one-command installation (ADR 0003): the function the
  * server calls to start a fleet really does start one, and stopping it gives the
  * group back.
  *

@@ -131,7 +131,7 @@ it; when the user was forced, the handler additionally deletes the directive
 file with the user's own session — no impersonation needed for the clear —
 before returning. Other sessions are revoked by the existing
 `destroyAllForUser`. Interactive sign-in with password/TOTP is what the wall
-gates; sign-in with an **app password** (no UI; workers and scripts, ADR 0003)
+gates; sign-in with an **app password** (no UI; agents and scripts, ADR 0003)
 is not gated.
 
 ### 8. Mock parity and tests

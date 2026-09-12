@@ -751,7 +751,7 @@ function idleHealth(identity: AgentIdentity, startedAt: number): WorkerHealth {
  * A running fleet, and the only way to stop it.
  *
  * The seam the two entrypoints share — the worker's own process, and the server
- * that runs one beside itself (ADR 0012) — so the boot retry, the identity
+ * that runs one beside itself (ADR 0003) — so the boot retry, the identity
  * watch and the stop are written once. Nothing here owns the process: the
  * caller wires the signals it cares about, and `stop()` is what releases the
  * claims.
@@ -851,7 +851,7 @@ export async function startAgentFleet(): Promise<AgentFleet> {
  * The worker's own entrypoint: a fleet, and the signals that end it.
  *
  * The server starts the same fleet beside itself and stops it in its own
- * shutdown instead (ADR 0012); this is the process a deployment runs on its own
+ * shutdown instead (ADR 0003); this is the process a deployment runs on its own
  * when it wants the two apart.
  */
 export async function main(): Promise<void> {

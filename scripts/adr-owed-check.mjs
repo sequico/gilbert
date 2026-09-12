@@ -4,7 +4,7 @@
  *
  * A debt that has a site in the code is marked twice, once on each side:
  *
- *   docs/adr/0003-agent-worker-fleet.md   <!-- owed: worker-lease-renewal -->
+ *   docs/adr/0003-agent-fleet.md   <!-- owed: worker-lease-renewal -->
  *   server/src/agent/worker.ts            // ADR-0003 OWED: worker-lease-renewal
  *
  * An ADR may describe a debt for ever. What it may not do is keep a marked
@@ -43,7 +43,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-/** The ADR a file name owns the debt of: `0003-agent-worker-fleet.md` -> `0003`. */
+/** The ADR a file name owns the debt of: `0003-agent-fleet.md` -> `0003`. */
 const ADR_FILE = /^(\d{4})-[^/]*\.md$/;
 
 /** The whole body of one HTML comment, so `--` inside it cannot end it early. */

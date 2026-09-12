@@ -101,7 +101,7 @@ verified and how many tabs each path holds instead of guessing.
   relayed tab, and the tests in `server/src/push.test.ts` fail first: one pins
   the subscription to the list, the other reads the stores and fails on a type
   the list does not carry.
-- The agent worker is untouched. Its `TYPES_BY_AREA`
+- The agents are untouched. Their `TYPES_BY_AREA`
   (`server/src/agent/worker.ts`) is a different thing — which types a
   reconciliation pass reads — and is deliberately narrower.
 - Nothing about the callback address is configured, so a deployment behind a

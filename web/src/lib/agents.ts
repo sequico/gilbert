@@ -1,5 +1,5 @@
 /**
- * The agent worker fleet's API, as the client calls it (ADR 0003).
+ * The agents' API, as the client calls it (ADR 0003).
  *
  * One function per route in `server/src/app.ts`. The shapes those routes
  * answer with are declared once, in `@gilbert/agent/views`, and this module
@@ -77,7 +77,7 @@ export interface AgentProvidersInput {
 /* The routes                                                          */
 /* ------------------------------------------------------------------ */
 
-/** `GET /api/admin/agents` — the installation's agent, its groups and workers. */
+/** `GET /api/admin/agents` — the Master, its groups and agents. */
 export function fetchAgentStatus(): Promise<AgentStatus> {
   return apiFetch<AgentStatus>("/api/admin/agents");
 }

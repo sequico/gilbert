@@ -369,7 +369,7 @@ export function isAgentTriggerOn(x: unknown): x is AgentTriggerOn {
  * Whether this is what woke a job: a rule's four, or a person.
  *
  * Separate from `isAgentTriggerOn` on purpose: a rule may not be woken by a
- * person (ADR 0013 — the ask is a job's provenance, and a rule that could carry
+ * person (ADR 0010 — the ask is a job's provenance, and a rule that could carry
  * it would have to say what it acts on), while a job a person asked for is a run
  * like any other and validates as one. One predicate each, so neither the rule
  * path nor the job path can accept the other's answer.

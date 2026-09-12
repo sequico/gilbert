@@ -66,7 +66,7 @@ feature, is in [FEATURES.md](FEATURES.md).
 
 - **Groups** — a group mailbox is an account of its own on Stalwart, and what it owns lives in that account and belongs to it: its chat, its label catalog, its calendars and files, its agent's documents. Membership *is* the grant, and the grant is administered on the server, never in the product
 - **Chat** — one conversation per group mailbox, stored in the group's own account so a member added later finds all of it (ADR 0005)
-- **Agents** — a worker fleet that acts inside mail and file storage on a group's behalf. Each automation is a document in the group's own account — when it reacts, which messages it looks at, what it then does — with a tier that decides how much model it uses (T0 deterministic, T1 a category, T2 the model's own judgement), a review policy that can pause a run for a person, a capability allowlist that bounds every answer, and the approval itself happening in the group's chat. Every run is audited, one document per month per group, and an administrator can export that trail before the retention prunes it. The installation's agent is **named by the deployment's environment** — `GILBERT_AGENT_ADDRESS` and the account's own password. It runs with the server unless the deployment keeps the two apart, holds its claims in the documents themselves, and no model can widen what a rule was granted
+- **Agents** — a agent fleet that acts inside mail and file storage on a group's behalf. Each automation is a document in the group's own account — when it reacts, which messages it looks at, what it then does — with a tier that decides how much model it uses (T0 deterministic, T1 a category, T2 the model's own judgement), a review policy that can pause a run for a person, a capability allowlist that bounds every answer, and the approval itself happening in the group's chat. Every run is audited, one document per month per group, and an administrator can export that trail before the retention prunes it. The installation's Master is **named by the deployment's environment** — `GILBERT_AGENT_ADDRESS` and the account's own password. It runs with the server unless the deployment keeps the two apart, holds its claims in the documents themselves, and no model can widen what a rule was granted
 - **Nothing of its own to keep** — no database, no search index, no cache tier: every durable thing lives in the mail store, under the account's quota, and the container is disposable (`IMMUTABLE=1` needs no writable root)
 - **Platform** — installable PWA, Web Push with Gilbert closed, `mailto:` handler, no credentials in the browser, strict CSP, SSRF-safe image proxy
 - **Everything else is upstream's** — the mail client, calendar, contacts, files, sharing and Sieve editing come from [ihasmail](https://github.com/Coffey-Labs/ihasmail), renamed for this build. This project does not re-document them; upstream's own documentation is the reference — [Using ihasmail](https://docs.ihasmail.org/using/). What this build adds on top: twelve themes, eleven interface languages (beta), signature checking, and a container that can run read-only
@@ -87,7 +87,7 @@ and no other:
   proxies. It is also where the agent fleet runs. Part of it came from
   upstream — the layer that serves the mail client — and the fleet inside it is
   Gilbert's.
-- **gilbertagents** — the agents: the principal, the worker fleet, the
+- **gilbertagents** — the agents: the principal, the agent fleet, the
   automations, the approvals and the audit.
 - **gilbertstalwart** — what is set inside Stalwart itself: the server's own
   configuration and system scripts, written through its management API, and the
@@ -126,15 +126,17 @@ is nothing to merge.
 
 ## Agents, in detail
 
-An agent is an ordinary account on the server that Gilbert acts as. The fleet is
-what acts through it — and it is the largest thing this project owns, so this is
-the short version of how to turn it on, what it does, and what holds it back. The
-long version is the first part of [FEATURES.md](FEATURES.md).
+The installation's **Master** is an ordinary account on the server that
+Gilbert acts as; its **agents** — the fleet — are the processes that act as it,
+and they are the largest thing this project owns, so this is the short version of
+how to turn it on, what it does, and what holds it back. (A *agent* is only ever
+the browser's service worker, which is a different animal with a confusingly
+similar name.) The long version is the first part of [FEATURES.md](FEATURES.md).
 
-**Turning it on.** The operator creates the agent's account in **Stalwart's own
+**Turning it on.** The operator creates the Master's account in **Stalwart's own
 administration** and adds it to the groups it may work in: membership *is* the
 grant, and no switch in the product can replace it. The account's address and
-its own password — not an app password: the agent signs in as itself — are then
+its own password — not an app password: the Master signs in as itself — are then
 given to the deployment, and that pair is the whole of it:
 
 ```
@@ -144,19 +146,19 @@ npm start
 ```
 
 That one command is an installation that both serves and acts: with the pair
-set, the server runs a worker beside the web tier in its own process (ADR 0012),
-and the worker is the same entrypoint either way — `node
+set, the server runs a agent beside the web tier in its own process (ADR 0003),
+and the agent is the same entrypoint either way — `node
 server/dist/agent/worker.js` is what a deployment that wants the fleet apart
 runs instead, with `GILBERT_AGENT_INPROCESS=0`.
 
 `GILBERT_AGENT_POLL_MS`, `GILBERT_AGENT_LEASE_MS` and
 `GILBERT_AGENT_HEALTH_PORT` say how often it re-reads, how long a claim lives,
 and how a restart policy reaches it. **Admin → Agents** shows the groups the
-agent is in, read from the agent's own session in Stalwart, and **Admin → Group
-workers** narrows what it does inside them, one group at a time: the automations
-it runs there, what is waiting on a person, and the workers carrying them out.
+agent is in, read from the Master's own session in Stalwart, and **Admin → Group
+agents** narrows what it does inside them, one group at a time: the automations
+it runs there, what is waiting on a person, and the agents carrying them out.
 With the pair unset the server runs with no agent — that screen says what is
-missing and how to set it — and a worker started without it, or with a pair
+missing and how to set it — and a agent started without it, or with a pair
 Stalwart refuses, warns once and serves nothing rather than failing to come up.
 
 **What it does.** An **automation** is a document in the group's own account:
@@ -182,7 +184,7 @@ document per month, kept twelve months, one line written before any effect so
 that an effect never exists without a record — and an administrator can download
 the whole retained trail as JSON before the oldest month is pruned. A failure
 lands the message in `G-needattention` and tells the group's chat which automation
-could not finish. Work is claimed per account with a lease, so a crashed worker's
+could not finish. Work is claimed per account with a lease, so a crashed agent's
 work is taken up by the next one, and a run whose rule changed under it is
 refused rather than executed.
 

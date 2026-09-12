@@ -1199,7 +1199,7 @@ test("an approval that was consumed and never ran is recorded, not left silent",
 });
 
 test("a run somebody asked for tells the group what it did", async () => {
-  // The door a person comes through (ADR 0013). Every other trigger is the
+  // The door a person comes through (ADR 0010). Every other trigger is the
   // group's own mail, chat or clock, and needs no announcement; a run somebody
   // asked for is a fact about the group's agent that its members should not
   // have to infer from a document they cannot open.

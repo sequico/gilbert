@@ -83,7 +83,7 @@ written and no second credential appears.
    flag rather than inventing a rule of its own about the last one — the same
    flag the person's own settings already read
    (`web/src/views/settings/IdentitiesSettings.tsx:119`).
-2. **A group's identity is set through the installation's agent.** The agent
+2. **A group's identity is set through the Master.** The agent
    is a principal the installation already has; ADR 0003 makes it a member of
    every group the installation is granted on, and the administration can act
    as it by impersonation — `openAgentSession`, the door the agent's own
@@ -91,7 +91,7 @@ written and no second credential appears.
    one actor that exists for this purpose and is named in the record, rather
    than a member the administrator happens to borrow for the occasion.
 
-   No new credential and no second door: the agent's session is a JMAP session
+   No new credential and no second door: the Master's session is a JMAP session
    like any other. Where the agent is **not granted** on a group, the surface
    says so and names the grant that is missing, the way the group surfaces
    already name what a person lacks, rather than a permission error that would

@@ -32,6 +32,18 @@ prose is renamed to `gilbert`/`Gilbert` during the merge, automatically and
 without asking — including user-visible names such as a shipped theme or
 palette id. Only the upstream-name exceptions above may stay.
 
+The agent vocabulary is three words and they are not synonyms. One **Master
+Agent** is the principal everything belongs to: the account in Stalwart
+(`gilbert@…`), its address, its password, its grants, and the model it uses. Its
+**agents** — **Group Agents** where the surface lists them for one group — are
+the processes that act as it: what a deployment starts, what claims a group's
+account by lease and runs its automations, and what the administration counts
+and shows. **Worker** is kept for what is technically one: the browser's
+service worker. So prose and UI say "agent" where they used to say "worker",
+and an unqualified "worker" means the browser's. Code identifiers are not
+renamed by this rule — it governs prose and the surface, and a rename of
+`worker.ts` or of a wire field is its own change.
+
 ## Architecture law
 JMAP only, to Stalwart; no own database; everything durable lives in Stalwart;
 container disposable; `IMMUTABLE=1` = no writable filesystem. Values: fail
@@ -158,7 +170,7 @@ the code**. Three rules follow, and they bind parent and child alike.
 least one test that **fails when the mechanism is removed** — not a test that
 the code merely runs. The list is not decorative: it is how "we implemented X"
 stays true a month later. When a review names a mechanism as untested (claim
-epoch and fencing, the `missed` entry, two workers racing one claim, the
+epoch and fencing, the `missed` entry, two agents racing one claim, the
 recovery of an abandoned run, the per-action ledger, an unreadable document),
 the fix includes the test. A mock that stands in for a server behaviour the code
 depends on pins that assumption with a test **next to the simulation**, and the

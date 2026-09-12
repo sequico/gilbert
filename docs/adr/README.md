@@ -1,7 +1,9 @@
 # Architecture Decision Records — index
 
-One file per decision (`NNNN-kebab-case-title.md`), oldest first, numbers
-sequential with no gaps. Each record states **what the decision is**; this
+One file per decision (`NNNN-kebab-case-title.md`), oldest first. A number is
+never reused: a record whose decision is folded into another retires its number,
+as 0011 did into 0006, 0012 into 0003 and 0013 into 0010, rather than leaving a
+gap to be filled by something unrelated. Each record states **what the decision is**; this
 index is only the map — number, status, one line. What Gilbert *does* is the
 inventory in `FEATURES.md` and the code itself, never a second copy here.
 
@@ -32,9 +34,11 @@ and the line to upstream, live there and are not repeated here.
   Impersonation is the write path into an account.
 - **0002 — Upstream contribution model.** Upstream is download-only: releases
   are fetched at merge time, nothing flows back, and no mirror branch is kept.
-- **0003 — Agent worker fleet.** The installation's agent identity lives in
-  the deployment's environment; the agent is one, its workers are many; the
-  automations, approvals and audit are the agent's record.
+- **0003 — Agent fleet.** The Master's identity lives in the deployment's
+  environment; the Master is one, its agents are many; the automations,
+  approvals and audit are the Master's record. The server starts an agent beside
+  itself when the Master is named, `GILBERT_AGENT_INPROCESS=0` keeps the fleet in
+  a process of its own, and nothing supervises it.
 - **0004 — Administrative writes into a user's account.** Publishing the
   installation settings policy, and forcing a password change, ride the
   sign-in and impersonation paths that already exist.
@@ -42,7 +46,10 @@ and the line to upstream, live there and are not repeated here.
   account's own JMAP Files, one JSON document per conversation.
 
 - **0006 — Mobile companion app.** Companion-only by design: a phone app
-  beside the web client, with durable state staying in Stalwart.
+  beside the web client, with durable state staying in Stalwart. The web client
+  installs on its own too, and its service worker is a boundary: the share
+  sheet's payload, the facts a tab hands it and a notification action taken as
+  the reader, with `CacheStorage` keys pinned on both sides by a test.
 - **0007 — Identities an administrator sets.** The administration gains
   **Enforce Identities**, one section under the existing identity surface, so
   the addresses a user may send as are set for them.
@@ -52,16 +59,10 @@ and the line to upstream, live there and are not repeated here.
 - **0009 — The push subscription covers every live type, at the request's own
   origin.** The subscription names every state type a Gilbert surface keeps
   live, registered at the origin the app was served from.
-- **0010 — An automation is written in prose and compiled into its rule.** An
-  automation is authored as prose, and one model call compiles that prose into
-  the rule document the fleet runs.
-- **0011 — The share target and the worker's cache.** A shared file or page
-  lands in the store the app already uses, and the service worker's cache is
-  versioned per build.
-- **0012 — The server starts the fleet beside itself.** An installation whose
-  deployment names an agent runs the web tier and a worker in one process, from
-  one command; `GILBERT_AGENT_INPROCESS=0` keeps the fleet separate.
-- **0013 — An automation can be run by a person, now.** *Run now* writes a job
-  for one automation on one message, which the worker runs on the rule's own
-  terms; a refusal is answered to whoever asked and written nowhere else.
+- **0010 — An automation is an instruction a model carries out.** One shape —
+  trigger, instruction, allowlist, review — with no tiers and no fixed plan; a
+  group notebook is what memory means, the prompt's order is a caching
+  constraint rather than a hope, *Run now* asks for one run on one message, and
+  what a run cost in tokens is metered per group and per agent. One model,
+  configured once, serves every automation.
 

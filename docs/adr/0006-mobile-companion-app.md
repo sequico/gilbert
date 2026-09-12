@@ -137,7 +137,39 @@ after its own sign-in, mirroring the existing per-account route structure.
 The message view and chat panel already exist; wiring a target parameter
 and a post-auth redirect is the whole web-side change.
 
-### 5. Non-goals for v1
+### 5. The installed web client is a boundary of its own
+
+The web client is installable without the native app — a manifest, a service
+worker and the operating system's share sheet — and that is the other half of
+living on a phone. It is a boundary because the system can hand it a payload it
+did not ask for: the manifest announces a `share_target` (a `POST` with
+`multipart/form-data` to a route inside the app's scope), and a client-side
+router cannot answer a `POST`, so the **service worker** stands at that door — as
+it also stands where a push arrives and where a tab hands over what it knows.
+
+- **The worker holds no credential of its own.** The only credential involved is
+the session cookie the browser attaches to a same-origin request; the one header
+the API additionally requires (`x-requested-with: gilbert`) is not a secret.
+Nothing is stored in the worker, and nothing in a payload is.
+- **Shared state is `CacheStorage`, keyed by fixed names, and both copies of each
+name are pinned by a test.** The worker is copied to `dist` verbatim rather than
+built, so it cannot import the app's constants: every name exists twice, once in
+`web/public/sw.js` and once in `web/src/lib/` — the payload cache
+(`<base>/gilbert-share`), the facts a tab hands it (`<base>/gilbert-worker-facts`)
+and a verification code that arrived with no tab open
+(`<base>/gilbert-push-verification`), under the cache `gilbert-v2`.
+`web/src/lib/__tests__/swCache.test.ts` reads the worker and asserts they agree
+with the app's: a drift there does not fail, it finds nothing.
+- **What waits for a tab expires.** A share nobody collects is dropped after ten
+minutes (`SHARE_MAX_AGE_MS`), so a forgotten payload cannot open a composer days
+later.
+- **A share names what to send, never who to.** The worker writes the payload;
+the app opens a draft with the body and the attachments and **no recipient**.
+- **A notification action is taken as the reader, not as a service.** Archiving or
+marking read from a notification is the same authenticated call the open app
+would make, and a failure is reported rather than swallowed.
+
+### 6. Non-goals for v1
 
 Reading or sending mail/chat inside the app; background sync beyond
 notifications; smartwatch support; App Store / Play Store publication and
@@ -145,7 +177,7 @@ store CI (releases stay manual per standing rule). Android side-loading and
 iOS TestFlight are the v1 distribution paths unless the owner says
 otherwise.
 
-### 6. Effort estimate (owner-requested evaluation, 2026-09-09)
+### 7. Effort estimate (owner-requested evaluation, 2026-09-09)
 
 Assumptions: one full-stack developer; Expo managed workflow, both
 platforms, one codebase; existing `server/src/push.ts` rail reused;
@@ -174,6 +206,16 @@ and is only needed for store builds.
 
 ## Consequences
 
+- A share requires the service worker registered: with it unregistered the `POST`
+  has nothing to answer it and the payload is lost. The manifest announces the
+  target regardless, because that is how a manifest works. Android and Chromium
+  implement share targets; iOS does not.
+- The web client's cache name has to advance whenever the shape of the facts
+  changes — a later tab would otherwise read an older payload as if it were
+  current.
+- That boundary is the browser's own storage, not Stalwart: nothing durable is
+  written server-side by a share, and nothing claims the payload is confidential
+  from anybody with access to the device's profile.
 - The web client remains the only surface that renders content; the phone
   holds identities and alerts. Losing the phone (or the app) leaks account
   *names* at most — credentials sit in the OS keychain, and device
