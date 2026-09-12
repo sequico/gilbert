@@ -14,6 +14,7 @@
  * them.
  */
 
+import type { AgentUsage } from "./documents.js";
 import {
   AGENT_ACTION_SPECS,
   type AgentAction,
@@ -71,25 +72,10 @@ export interface ModelRequest {
   thinking?: boolean;
 }
 
-/**
- * What one call cost, as the provider reported it.
- *
- * `null` is "the provider did not say", never zero: a count nobody reported and
- * a count of nothing are different facts, and a meter that showed the first as
- * the second would be a number nobody can check (ADR 0010). `inputMissTokens`
- * is what the provider charged full price for, so a provider that reports only
- * a total leaves it null rather than guessing.
- */
-export interface ModelUsage {
-  inputHitTokens: number | null;
-  inputMissTokens: number | null;
-  outputTokens: number | null;
-}
-
 /** One call's answer and its cost. */
 export interface ModelAnswer {
   answer: unknown;
-  usage: ModelUsage;
+  usage: AgentUsage;
 }
 
 /**
@@ -171,7 +157,7 @@ function count(value: unknown): number | null {
  * neither leaves both null, and one that reports only a total is not guessed
  * at: the whole of it stays unknown rather than being written down as a miss.
  */
-function usageOf(body: unknown): ModelUsage {
+function usageOf(body: unknown): AgentUsage {
   const usage =
     body && typeof body === "object"
       ? ((body as { usage?: unknown }).usage as Record<string, unknown> | undefined)
@@ -291,7 +277,7 @@ export interface DecisionAnswer {
   rationale?: string;
   summary: string;
   /** What this call cost, as the provider reported it. */
-  usage: ModelUsage;
+  usage: AgentUsage;
 }
 
 /**

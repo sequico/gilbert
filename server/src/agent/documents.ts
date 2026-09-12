@@ -1373,6 +1373,93 @@ export interface AgentAuditEntry {
   actions: AgentAction[];
   /** The rule's name and the failure's message, for a readable trail. */
   detail?: string;
+  /** The agent that held the group and spent the call (ADR 0010). */
+  agent?: string;
+  /** Whether the run paid for the model's chain of thought. */
+  reasoned?: boolean;
+  /** What the deciding call cost, as the provider reported it. */
+  usage?: AgentUsage;
+}
+
+/**
+ * What one call cost, as the provider reported it.
+ *
+ * `null` is "the provider did not say", never zero: a count nobody reported and
+ * a count of nothing are different facts, and a meter that showed the first as
+ * the second would be a number nobody can check (ADR 0010). `inputMissTokens`
+ * is what the provider charged full price for, so a provider that reports only
+ * a total leaves it null rather than guessing.
+ */
+export interface AgentUsage {
+  inputHitTokens: number | null;
+  inputMissTokens: number | null;
+  outputTokens: number | null;
+}
+
+/** The counts a run that reported nothing contributes. */
+export const EMPTY_USAGE: AgentUsage = {
+  inputHitTokens: null,
+  inputMissTokens: null,
+  outputTokens: null,
+};
+
+/** One reported count, or null: a provider that says nothing says nothing. */
+function countOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+export function isAgentUsage(x: unknown): x is AgentUsage {
+  if (!x || typeof x !== "object") return false;
+  const u = x as Record<string, unknown>;
+  return (
+    countOrNull(u.inputHitTokens) === u.inputHitTokens &&
+    countOrNull(u.inputMissTokens) === u.inputMissTokens &&
+    countOrNull(u.outputTokens) === u.outputTokens
+  );
+}
+
+/**
+ * A meter: the counts of many runs, and how many of them said nothing.
+ *
+ * The sum is of what was reported, and a run the provider gave no numbers for
+ * is counted in `uncounted` rather than added as a zero — so a reading can say
+ * "twelve runs, nine counted" instead of quietly understating the bill.
+ */
+export interface AgentMeter {
+  inputHitTokens: number | null;
+  inputMissTokens: number | null;
+  outputTokens: number | null;
+  runs: number;
+  uncounted: number;
+}
+
+/** What one entry adds to one meter: the only place that rule is written. */
+export function meterOf(
+  meter: AgentMeter,
+  entry: Pick<AgentAuditEntry, "usage">,
+): AgentMeter {
+  const usage = entry.usage;
+  if (!usage) return { ...meter, runs: meter.runs + 1, uncounted: meter.uncounted + 1 };
+  const add = (total: number | null, value: number | null): number | null =>
+    value === null ? total : (total ?? 0) + value;
+  return {
+    inputHitTokens: add(meter.inputHitTokens, usage.inputHitTokens),
+    inputMissTokens: add(meter.inputMissTokens, usage.inputMissTokens),
+    outputTokens: add(meter.outputTokens, usage.outputTokens),
+    runs: meter.runs + 1,
+    uncounted: meter.uncounted,
+  };
+}
+
+/** A meter over the entries a surface reads. The one aggregator. */
+export function meterOver(entries: ReadonlyArray<AgentAuditEntry>): AgentMeter {
+  return entries.reduce(meterOf, {
+    inputHitTokens: null,
+    inputMissTokens: null,
+    outputTokens: null,
+    runs: 0,
+    uncounted: 0,
+  });
 }
 
 export interface AgentAuditDoc {
@@ -1393,6 +1480,9 @@ export function isAgentAuditDoc(x: unknown): x is AgentAuditDoc {
     if (!isAgentAuditOutcome(a.outcome)) return false;
     if (a.by !== undefined && typeof a.by !== "string") return false;
     if (a.detail !== undefined && typeof a.detail !== "string") return false;
+    if (a.agent !== undefined && typeof a.agent !== "string") return false;
+    if (a.reasoned !== undefined && typeof a.reasoned !== "boolean") return false;
+    if (a.usage !== undefined && !isAgentUsage(a.usage)) return false;
     return isActionList(a.actions);
   });
 }

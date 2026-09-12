@@ -57,12 +57,23 @@ function subjectOfDecision(decision: AgentDecision): AuditSubject {
   return subject;
 }
 
+/**
+ * What the run that wrote this entry cost, and on what settings.
+ *
+ * The counts ride the entry the run writes when it is decided, so the cost sits
+ * beside the work that spent it, in the same monthly document, pruned by the
+ * same retention — and every reading is a reading of that one record (ADR
+ * 0010). A run that reported nothing carries no counts rather than zeros.
+ */
+export type RunCost = Pick<AgentAuditEntry, "agent" | "reasoned" | "usage">;
+
 function build(
   subject: AuditSubject,
   rule: AuditRule,
   outcome: AgentAuditOutcome,
   actions: ReadonlyArray<AgentAction>,
   detail?: string,
+  cost?: RunCost,
 ): AgentAuditEntry {
   const entry: AgentAuditEntry = {
     at: new Date().toISOString(),
@@ -76,6 +87,9 @@ function build(
     detail: [rule.name, detail].filter(Boolean).join(": "),
   };
   if (subject.by) entry.by = subject.by;
+  if (cost?.agent) entry.agent = cost.agent;
+  if (cost?.reasoned !== undefined) entry.reasoned = cost.reasoned;
+  if (cost?.usage) entry.usage = cost.usage;
   return entry;
 }
 
@@ -86,8 +100,9 @@ export function auditEntry(
   outcome: AgentAuditOutcome,
   actions: ReadonlyArray<AgentAction>,
   detail?: string,
+  cost?: RunCost,
 ): AgentAuditEntry {
-  return build(subjectOf(job), rule, outcome, actions, detail);
+  return build(subjectOf(job), rule, outcome, actions, detail, cost);
 }
 
 /**

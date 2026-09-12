@@ -75,7 +75,16 @@ const modelStub = createServer(async (req: IncomingMessage, res) => {
   const answer = answers.get(named) ?? DEFAULT_ANSWER;
   res.writeHead(200, { "content-type": "application/json" });
   res.end(
-    JSON.stringify({ choices: [{ message: { content: JSON.stringify(answer) } }] }),
+    JSON.stringify({
+      choices: [{ message: { content: JSON.stringify(answer) } }],
+      // A provider that reports what a call cost: the meter is only as good as
+      // this, and a provider that says nothing leaves the counts null.
+      usage: {
+        prompt_cache_hit_tokens: 900,
+        prompt_cache_miss_tokens: 30,
+        completion_tokens: 7,
+      },
+    }),
   );
 });
 const GROUP = "a3";
@@ -237,6 +246,16 @@ test("a matching message is filed: the job runs, the audit records it, the claim
     "running",
     "the audit records the intent before the actions",
   );
+  // The cost rides that entry, beside the work that spent it (ADR 0010), so the
+  // meter is a reading of the trail rather than a second document to keep in
+  // step — and the agent and the setting stay readable a month later.
+  assert.equal(entries[0]?.agent, AGENT, "the entry names the agent that spent it");
+  assert.equal(entries[0]?.reasoned, true, "and the thinking setting it ran under");
+  assert.deepEqual(entries[0]?.usage, {
+    inputHitTokens: 900,
+    inputMissTokens: 30,
+    outputTokens: 7,
+  });
 
   const marked = await fetchEmailRecord(client, GROUP, emailId, {});
   assert.equal(

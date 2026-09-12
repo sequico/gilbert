@@ -28,6 +28,7 @@ import {
   isAgentRulesDoc,
   leavesTheProcess,
   matchEmailFilter,
+  meterOver,
   missingActionParams,
   monthOf,
   monthsSince,
@@ -440,6 +441,40 @@ test("the notebook reaches the prompt as one line per fact, in the order the gro
     "- The group works in Italian.\n- Ada's invoices are filed under the client.",
     "a blank fact is nothing to say, not a blank line",
   );
+});
+
+test("a meter adds what was reported and counts the runs that said nothing", () => {
+  const full = meterOver([
+    { usage: { inputHitTokens: 900, inputMissTokens: 30, outputTokens: 7 } },
+    { usage: { inputHitTokens: 100, inputMissTokens: null, outputTokens: 3 } },
+  ]);
+  assert.deepEqual(full, {
+    inputHitTokens: 1000,
+    inputMissTokens: 30,
+    outputTokens: 10,
+    runs: 2,
+    uncounted: 0,
+  });
+  // A run the provider gave no numbers for is counted, not added as a zero: a
+  // reading has to be able to say "twelve runs, nine counted" (ADR 0010).
+  const mixed = meterOver([
+    { usage: { inputHitTokens: 5, inputMissTokens: null, outputTokens: null } },
+    {},
+  ]);
+  assert.deepEqual(mixed, {
+    inputHitTokens: 5,
+    inputMissTokens: null,
+    outputTokens: null,
+    runs: 2,
+    uncounted: 1,
+  });
+  assert.deepEqual(meterOver([]), {
+    inputHitTokens: null,
+    inputMissTokens: null,
+    outputTokens: null,
+    runs: 0,
+    uncounted: 0,
+  });
 });
 
 test("the published schema is what a save is refused against", () => {

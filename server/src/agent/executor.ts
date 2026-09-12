@@ -62,6 +62,7 @@ import {
   readChat,
   widenRequested,
 } from "./chat.js";
+import type { AgentUsage } from "./documents.js";
 import {
   AGENT_AUDIT_DIR,
   AGENT_DIR,
@@ -80,6 +81,7 @@ import {
   CHAT_CONTEXT_DEFAULT,
   CHAT_CONTEXT_MAX,
   claimEpoch,
+  EMPTY_USAGE,
   filterNeedsBody,
   filterProblems,
   instructionFor,
@@ -95,7 +97,7 @@ import {
   UnsupportedFilterError,
 } from "./documents.js";
 import { claimStillMine, saveClaimStates } from "./lease.js";
-import { decideActions, type ModelContext, type ModelUsage, providerFor } from "./llm.js";
+import { decideActions, type ModelContext, providerFor } from "./llm.js";
 import {
   advance,
   armTimers,
@@ -142,7 +144,7 @@ interface RunPlan {
   summary: string;
   rationale?: string;
   /** What the deciding call cost, for the group's own meter (ADR 0010). */
-  usage: ModelUsage;
+  usage: AgentUsage;
 }
 
 /**
@@ -741,7 +743,14 @@ export class Executor {
     // process dies between the two.
     await recordAudit(
       store,
-      auditEntry(job, rule, "running", plan.actions, plan.summary),
+      auditEntry(job, rule, "running", plan.actions, plan.summary, {
+        // The cost sits beside the work that spent it (ADR 0010): the agent
+        // that held the group, whether this run paid for a chain of thought,
+        // and the counts the provider reported.
+        agent: this.deps.address,
+        reasoned: config.agent.thinking,
+        usage: plan.usage,
+      }),
     );
     // What already landed is a prefix of this plan — the actions run in order
     // and stop at the first failure — so the remainder is what is left to do.
@@ -2148,7 +2157,7 @@ function planOf(proposal: AgentProposal): RunPlan {
     summary: proposal.summary,
     // A resumed run spends nothing on this pass: the deciding call it resumes
     // was already counted when it was made.
-    usage: { inputHitTokens: null, inputMissTokens: null, outputTokens: null },
+    usage: EMPTY_USAGE,
   };
   if (proposal.rationale) plan.rationale = proposal.rationale;
   return plan;
