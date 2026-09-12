@@ -1290,7 +1290,10 @@ test("an author's notes ride the document, and a reading answers in words", asyn
   assert.equal(counted?.entries[0]?.about, "the group's standing instruction");
   assert.equal(counted?.entries[0]?.by, DEMO, "and it names who asked");
   assert.equal(counted?.entries[0]?.group, TEAM);
-  assert.ok(counted?.entries[0]?.usage, "with what the provider reported it cost");
+  // The stub reports no usage, and a provider that reported nothing leaves the
+  // entry with nothing: a row of nulls would be a cost nobody can check
+  // (ADR 0010).
+  assert.equal(counted?.entries[0]?.usage, undefined, "with no cost to record");
   assert.equal(
     (reading.body as { counted?: boolean }).counted,
     true,

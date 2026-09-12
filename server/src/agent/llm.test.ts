@@ -191,14 +191,12 @@ test("every request carries the zero-retention opt-out, temperature 0 and JSON o
   assert.equal(seen.body.temperature, 0);
   assert.deepEqual(seen.body.response_format, { type: "json_object" });
   assert.equal(seen.body.model, "a-small-model");
-  // Every answer is capped, and a provider that reported no usage is unknown
-  // rather than zero (ADR 0010: an uncapped answer is an uncapped bill).
+  // Every answer is capped, and a provider that reported no usage says
+  // nothing at all rather than reporting zeros: the meter reads the second as
+  // "a run nobody can price" (ADR 0010: an uncapped answer is an uncapped
+  // bill).
   assert.equal(seen.body.max_tokens, MODEL_MAX_OUTPUT_DEFAULT);
-  assert.deepEqual(usage, {
-    inputHitTokens: null,
-    inputMissTokens: null,
-    outputTokens: null,
-  });
+  assert.equal(usage, undefined);
   const messages = seen.body.messages as Array<{ role: string; content: string }>;
   assert.equal(messages[0]?.role, "system");
   assert.equal(messages[1]?.content, "hello");
