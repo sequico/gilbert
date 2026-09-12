@@ -24,7 +24,7 @@
  * docs/adr/0009-the-push-subscription-covers-every-live-type.md.
  *
  * The agent worker's wake-up set is a different thing and deliberately
- * narrower: `RECONCILED_TYPES` in `server/src/agent/worker.ts` says which types
+ * narrower: `RECONCILED_TYPES` in `server/src/agent/agent.ts` says which types
  * a reconciliation pass reads, and it acts on mail and files only. This list is
  * what a browser keeps live, not what a worker wakes for.
  */

@@ -242,7 +242,7 @@ answer in words; the conversation is the interface, not a button. Nothing that
 leaves the group is ever sent on a guessed approval — an external send always
 needs explicit consent, whatever the policy says.
 - **The agent is its own process.** The same image and codebase as the server,
-a second entrypoint (`node server/dist/agent/worker.js`), never a replica of the
+a second entrypoint (`node server/dist/agent/agent.js`), never a replica of the
 web tier. It
 holds the Master's event stream, wakes on it, and reconciles from the last
 state it recorded; polling is the fallback after a lost stream. Work claims

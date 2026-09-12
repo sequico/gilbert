@@ -148,7 +148,7 @@ npm start
 That one command is an installation that both serves and acts: with the pair
 set, the server runs an agent beside the web tier in its own process (ADR 0003),
 and the agent is the same entrypoint either way — `node
-server/dist/agent/worker.js` is what a deployment that wants the fleet apart
+server/dist/agent/agent.js` is what a deployment that wants the fleet apart
 runs instead, with `GILBERT_AGENT_INPROCESS=0`.
 
 `GILBERT_AGENT_POLL_MS`, `GILBERT_AGENT_LEASE_MS` and

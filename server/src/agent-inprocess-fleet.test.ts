@@ -36,7 +36,7 @@ process.env.GILBERT_AGENT_HEARTBEAT_MS = "60000";
 delete process.env.GILBERT_AGENT_HEALTH_PORT;
 
 const mock = await import("./mock/index.js");
-const { startAgentFleet } = await import("./agent/worker.js");
+const { startAgentFleet } = await import("./agent/agent.js");
 const { AgentStore } = await import("./agent/store.js");
 const { fetchUpstreamSession } = await import("./upstream.js");
 

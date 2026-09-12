@@ -18,7 +18,7 @@ process.env.MOCK_PORT = String(PORT);
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const { basicAuth, candidateAccounts, groupNameOf, startWorker, withdrawnAccounts } =
-  await import("./worker.js");
+  await import("./agent.js");
 const { AgentStore } = await import("./store.js");
 const { filesAccountId, readAppJsonAt } = await import("../appFolder.js");
 const { WITHDRAWALS_PATH } = await import("./views.js");
@@ -119,7 +119,7 @@ test("the health endpoint answers a probe and nothing else", async () => {
   // Deployment's restart policy asks one question — is this process serving
   // what it claimed — and a port nobody asked for would be surface for
   // nothing, which is why the endpoint exists only when one is named.
-  const { startHealthServer } = await import("./worker.js");
+  const { startHealthServer } = await import("./agent.js");
   const healthPort = 18853;
   const close = startHealthServer({
     port: healthPort,

@@ -45,6 +45,26 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
 
   Worth doing when a measurement says the bottleneck is inside one group. Nothing in the product is slow because of this yet, and the failure it can cause (two effects on the same message) is the one the current design spends a whole document on preventing. What it buys is a bounded fan-out over units that hold their own claim — never a pool of child processes inside one process, which would contend for the same account claim and buy nothing (ADR 0003 §6).
 
-- **The code says "worker" where the product says "agent".** The vocabulary is settled (`instructions.md`): one **master**, its **agents**, its **automations**, and "worker" kept for the browser's service worker. The surface and the prose follow it; the identifiers do not, so a reader who greps for "worker" still lands in the fleet. The sweep has a cheap half and an expensive one. Cheap: `server/src/agent/worker.ts` → `agent.ts`, `WorkerHandle`, `startWorker`, `startFleet`, `AgentWorkerRecord`, `AgentStatusWorker`, and the mock and the tests that name them — renames inside one codebase, with nothing outside it to move. Expensive, because these are contracts rather than names: the `workers` field of the admin status answer (the client reads it), `workers_unreadable` (a refusal code the client composes a sentence from), the `worker` field of a claim document (written in every group's account by every installation that has ever run an agent, and a successor has to recognise the holder of a claim written before the rename), and the `GILBERT_AGENT_*` environment variables, which are an operator's `.env` and not ours to move silently.
-
-  The rule for the sweep is one direction per change: a file with its imports, a wire field with both sides of the wire in the same commit, a durable field with a reader that accepts both spellings until the last installation has re-written it. **The environment variables stay as they are** (owner decision 2026-09-12): `GILBERT_AGENT_ADDRESS` and its neighbours name the master's credentials, and a rename is a change to somebody's deployment file rather than to a codebase.
+- **The code says "worker" where the product says "agent".** The vocabulary is
+  settled (`instructions.md`): one **master**, its **agents**, its
+  **automations**, and "worker" kept for the browser's service worker. The
+  surface and the prose follow it, and the file follows: the fleet's entrypoint
+  is `server/src/agent/agent.ts`, its built path `server/dist/agent/agent.js`,
+  and every reader of that path moved with it — the package script, the two
+  imports, the deployment's own command in `docker-compose.yml`, `.env.example`,
+  the README and the ADRs. What is left of the cheap half is the rest of the
+  names — `WorkerHandle`, `startWorker`, `startFleet`, `AgentWorkerRecord`,
+  `AgentStatusWorker`, the worker-named tests, the mock — cheap because it is
+  inside this codebase.
+- **What moves only with its readers.** The expensive half is contracts rather
+  than names: the `workers` field of the admin status answer, which the client
+  reads; `workers_unreadable`, a refusal code a client composes a sentence from;
+  the `worker` field of a claim document, written in every group's account by
+  every installation that has ever run an agent, so a successor has to recognise
+  a holder named before any rename; and the `agent/workers/<id>.json` path the
+  heartbeats live at. One direction per change: a wire field moves with both
+  sides of the wire in one commit, and a durable field moves only with a reader
+  that accepts both spellings until the last installation has re-written it.
+  **The environment variables stay as they are** (owner decision 2026-09-12):
+  `GILBERT_AGENT_ADDRESS` and its neighbours name the master's credentials, and
+  a rename is a change to somebody's deployment file rather than to a codebase.

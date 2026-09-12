@@ -77,7 +77,7 @@ groups it is granted, never by becoming someone: the agent
   serves and works; with no agent named the server starts none, which is the
   state the admin surface reports as `agent_not_configured`. The boot retry, the
   identity watch and the stop live in one function (`startAgentFleet`) that both
-  entrypoints call, and `node server/dist/agent/worker.js` stays the whole of the
+  entrypoints call, and `node server/dist/agent/agent.js` stays the whole of the
   separate process: `GILBERT_AGENT_INPROCESS=0` is how a deployment keeps the
   fleet there, in a container of its own with its own health endpoint and its
   own restart policy. The fleet's life is then the server's — its shutdown stops

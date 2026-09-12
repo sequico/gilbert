@@ -5,7 +5,7 @@
  * A debt that has a site in the code is marked twice, once on each side:
  *
  *   docs/adr/0003-agent-fleet.md   <!-- owed: worker-lease-renewal -->
- *   server/src/agent/worker.ts            // ADR-0003 OWED: worker-lease-renewal
+ *   server/src/agent/agent.ts            // ADR-0003 OWED: worker-lease-renewal
  *
  * An ADR may describe a debt for ever. What it may not do is keep a marked
  * debt whose code site is gone, or name a site the ADR stopped listing. That

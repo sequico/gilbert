@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { type AgentIdentity, identityToFollow, sameIdentity } from "./worker.js";
+import { type AgentIdentity, identityToFollow, sameIdentity } from "./agent.js";
 
 const running: AgentIdentity = {
   address: "agent@example.com",

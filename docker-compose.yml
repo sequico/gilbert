@@ -50,7 +50,7 @@ services:
         BASE_PATH: ${BASE_PATH:-}
     image: gilbert:2
     restart: unless-stopped
-    command: ["node", "server/dist/agent/worker.js"]
+    command: ["node", "server/dist/agent/agent.js"]
     environment:
       STALWART_URL: ${STALWART_URL:?set STALWART_URL in .env}
       GILBERT_AGENT_ADDRESS: ${GILBERT_AGENT_ADDRESS:-}

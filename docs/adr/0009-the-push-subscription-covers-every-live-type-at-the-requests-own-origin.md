@@ -102,7 +102,7 @@ verified and how many tabs each path holds instead of guessing.
   the subscription to the list, the other reads the stores and fails on a type
   the list does not carry.
 - The agents are untouched. Their `TYPES_BY_AREA`
-  (`server/src/agent/worker.ts`) is a different thing — which types a
+  (`server/src/agent/agent.ts`) is a different thing — which types a
   reconciliation pass reads — and is deliberately narrower.
 - Nothing about the callback address is configured, so a deployment behind a
   proxy it trusts gets fan-out with nothing to set, and one reached directly, or

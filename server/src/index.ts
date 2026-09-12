@@ -1,5 +1,5 @@
 import { serve } from "@hono/node-server";
-import { startAgentFleet } from "./agent/worker.js";
+import { startAgentFleet } from "./agent/agent.js";
 import { createApp, sessions } from "./app.js";
 import { config } from "./config.js";
 
@@ -30,7 +30,7 @@ async function main() {
    * server's shutdown is what stops it. An installation with no agent named
    * starts none — the admin surface says so — and one that wants the fleet back
    * in a process of its own says `GILBERT_AGENT_INPROCESS=0` and runs
-   * `node server/dist/agent/worker.js`.
+   * `node server/dist/agent/agent.js`.
    */
   const fleet =
     config.agent.inprocess && config.agent.address ? await startAgentFleet() : null;
