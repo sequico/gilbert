@@ -1290,7 +1290,11 @@ test("an author's notes ride the document, and a reading answers in words", asyn
   assert.equal(counted?.entries[0]?.about, "the group's standing instruction");
   assert.equal(counted?.entries[0]?.by, DEMO, "and it names who asked");
   assert.equal(counted?.entries[0]?.group, TEAM);
-  assert.ok(counted?.entries[0]?.usage, "with what the provider reported it cost");
+  // The reading stub answers with prose and no `usage` field (line 77 above),
+  // so this reading is counted as a reading — the entry exists, named and
+  // dated — but uncounted for cost: `usage` stays absent rather than a
+  // fabricated zero (ADR 0010, `usageOf` in llm.ts).
+  assert.equal(counted?.entries[0]?.usage, undefined);
   assert.equal(
     (reading.body as { counted?: boolean }).counted,
     true,

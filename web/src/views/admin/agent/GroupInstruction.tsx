@@ -12,6 +12,10 @@
  * automation may do: that is its capability list, checked on every answer the
  * model gives, and the sentence under the field says so where a person writing
  * it can read it.
+ *
+ * The group is handed in rather than picked here (ADR 0014): the Group Agents
+ * workspace owns one pick for all of its tabs, and a second picker inside a
+ * tab was a second answer to the same question.
  */
 import { useEffect, useState } from "react";
 import {
@@ -22,8 +26,7 @@ import {
 } from "@/lib/agents";
 import { t } from "@/lib/i18n";
 
-export function GroupInstruction({ groups }: { groups: readonly string[] }) {
-  const [group, setGroup] = useState<string>(groups[0] ?? "");
+export function GroupInstruction({ group }: { group: string }) {
   const [text, setText] = useState("");
   // What the record holds, beside what the field holds: the difference is the
   // only thing the save button has to say, so it is dimmed until there is one.
@@ -51,10 +54,6 @@ export function GroupInstruction({ groups }: { groups: readonly string[] }) {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    if (!groups.includes(group)) setGroup(groups[0] ?? "");
-  }, [groups, group]);
 
   useEffect(() => {
     if (!group) return;
@@ -131,31 +130,12 @@ export function GroupInstruction({ groups }: { groups: readonly string[] }) {
           "Written once for the whole group and handed to the model on every call, before the automation's own instruction and before the message it is looking at. It says how the agent should work; what an automation may do is its capability list, and nothing written here widens it.",
         )}
       </p>
-      {groups.length === 0 ? (
+      {!group ? (
         <p className="hint">
-          {t(
-            "The agent is not in a group this session can see. Give it a group in Stalwart's own administration first: an instruction for a group the agent does not work in would never be read.",
-          )}
+          {t("No group is picked, so there is no standing instruction to read here.")}
         </p>
       ) : (
         <>
-          {/* Shown even with a single granted group: the picker is how a person
-              reads which group's instruction the field below belongs to. */}
-          <div className="field">
-            <label htmlFor="agent-instruction-group">{t("Group")}</label>
-            <select
-              id="agent-instruction-group"
-              className="input"
-              value={group}
-              onChange={(e) => setGroup(e.target.value)}
-            >
-              {groups.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
           <div className="field">
             <label htmlFor="agent-instruction-text">
               {t("How this group's agent works")}

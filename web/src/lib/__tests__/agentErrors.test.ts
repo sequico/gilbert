@@ -103,7 +103,7 @@ describe("apiFetch composes an admin refusal from what the route answers", () =>
     );
     expect(err).toBeInstanceOf(ApiError);
     expect((err as ApiError).message).toBe(
-      "The base URL points at 10.0.0.5, which is inside the network: a worker must not be pointed at an address that is not a model provider.",
+      "The base URL points at 10.0.0.5, which is inside the network: an agent must not be pointed at an address that is not a model provider.",
     );
   });
 
