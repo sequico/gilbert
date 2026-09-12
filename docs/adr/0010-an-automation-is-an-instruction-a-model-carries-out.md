@@ -19,9 +19,9 @@ should not have to make. And the intent is prose: it is more legible than any
 assembly of fields, both to the person who wrote it and to whoever reads the
 group's automations a month later.
 
-**The model stopped being the expensive part.** Read from DeepSeek's published
-pricing on 2026-09-12 (`deepseek-flash`, per 1M tokens): input that hits the
-context cache costs **$0.003** off-peak ($0.006 at peak), input that misses costs
+**The model stopped being the expensive part.** Read from the provider's own
+published pricing on 2026-09-12 (per 1M tokens): input that hits the context
+cache costs **$0.003** off-peak ($0.006 at peak), input that misses costs
 **$0.15** ($0.30), and output costs **$0.60** ($1.20). A cache hit is therefore
 **50× cheaper than a miss and 200× cheaper than the answer**. Context caching is
 on by default and works in **prefix units**: a request hits only where it fully
@@ -32,10 +32,13 @@ catalogue, the group's own instruction) is nearly free to resend, provided the
 prompt is built so that head is byte-identical from run to run. Off-peak is also
 two thirds of the week: peak is 01:00–04:00 and 06:00–10:00 UTC, Monday to
 Friday, and every other hour is half price. An image is billed the same way and
-is bounded: the Vision guide (read 2026-09-12) puts a ceiling of **1024 tokens
-per image** after resizing — a 2000×2000 and a 5000×5000 image cost the same — so
-a page of a scan is a rounding error beside any answer about it, and no separate
-vision price exists.
+is bounded: the provider's own vision guide (read 2026-09-12) puts a ceiling of
+**1024 tokens per image** after resizing — a 2000×2000 and a 5000×5000 image cost
+the same — so a page of a scan is a rounding error beside any answer about it,
+and no separate vision price exists. What such a request carries is an **image** —
+JPEG, PNG, GIF or WebP, in the user's turn and never in the system's — so a page
+that exists only as pixels reaches the model only through a step that turns it
+into one, and that step is the fleet's to run.
 
 **A model has no memory and its cache is not state.** Every call resends what we
 choose to send; the provider's disk cache is a billing optimisation that expires
@@ -248,27 +251,36 @@ executed code a prompt asked for would move the whole boundary into the prompt.
 
 **A page that is only pixels is read by the model, because it has eyes.**
 Reading a scan is a judgement about what the page says, and the configured model
-does it directly: the page travels as an image (bounded at 1024 tokens) instead
-of through a local OCR engine, which is one fewer dependency, one fewer thing to
-install in an immutable container, and no second vocabulary for how a page is
-read. The trade is stated rather than hidden: what comes back is the model's
-reading, not a deterministic extraction, and text an automation can search,
-store or cite exists only if the run is instructed to write it out as one of its
-actions — there is no OCR artifact behind it to fall back on. The page is
-volatile content like any other: it sits in the tail, so the prompt's stable head
-is unaffected, and an image is never a cache hit.
+does it directly: the page travels as an image (bounded at 1024 tokens) rather
+than through a local OCR engine, so there is no second vocabulary for how a page
+is read and no OCR artifact behind the reading to fall back on. What a vision
+request cannot carry is the page's container: the model takes images, not
+documents, so a page that exists only as pixels is **rasterised first** — the
+executor renders it to a bitmap in the process, in memory, and hands the model
+the image. The rasteriser is part of the document family rather than a second
+engine beside it: it is what reading a file does when a page's own text layer is
+empty, and the rendered pages ride that run's call as volatile content. The trade
+is stated rather than hidden: what comes back is the model's reading, not a
+deterministic extraction, and text an automation can search, store or cite
+exists only if the run is instructed to write it out as one of its actions. The
+page is volatile content like any other: it sits in the tail, so the prompt's
+stable head is unaffected, an image is never a cache hit, and how many pages one
+run may hand over is bounded rather than left to the document's size.
 
 **What such libraries have to be, given the container keeps nothing.** Pure
-JavaScript or WASM under a permissive licence, with no native build step, because
-the deployment is `IMMUTABLE=1` — no writable filesystem — and disposable. Per
-job: `pdf-lib` for a PDF's pages (split, merge, extract, and the page editing
-that goes with them), `pdfjs-dist` for a PDF's own text layer, and `mammoth` for
-reading a `.docx` — the shapes that fit,
-each confirmed by building the image and running the action on a real file with
-no scratch directory, rather than by reading its README. Two engines are
-deliberately absent from that list: no OCR, because a page with no text layer is
-the model's to read, and no `.docx` writer, because producing one is not work the
-fleet has.
+JavaScript or WASM, with no native build step, under a licence this project can
+carry, because the deployment is `IMMUTABLE=1` — no writable filesystem — and
+disposable. Per job: `pdf-lib` for a PDF's pages (split, merge, extract, and the
+page editing that goes with them), `pdfjs-dist` for a PDF's own text layer, and
+`mammoth` for reading a `.docx`; and for the rasteriser a WASM PDF engine —
+PDFium has one (`@hyzyla/pdfium`) and so does MuPDF (`mupdf`) — which has to
+render a page to a bitmap in process, with no canvas implementation and no native
+module to build. Those are the shapes that fit, each confirmed by building the
+image and running the action on a real file with no scratch directory, rather
+than by reading its README; for the rasteriser that probe is the claim itself.
+Two engines are deliberately absent from that list: no OCR, because a page with
+no text layer is the model's to read, and no `.docx` writer, because producing
+one is not work the fleet has.
 
 **A provider is required.** A rule that cannot call a model has nothing to decide
 with, so an installation with no provider configured has no automations — a state
@@ -355,10 +367,12 @@ and the providers that serve it. Item by item:
     the group's chat.
 11. **What a run can do** — the catalogue gains a document family: page work
     (split, merge, extract) and reading a PDF's own text layer or a `.docx`,
-    run by the executor **in memory** on the group's own file. Two engines are
-    deliberately absent: an OCR engine, because a page that is only pixels is
-    the model's to read, and a `.docx` writer, because producing one is not work
-    the fleet has.
+    run by the executor **in memory** on the group's own file. Reading a page
+    that has no text layer means **rasterising** it, so the family carries a
+    rasteriser too: the page is rendered to an image in the process and read by
+    the model. One engine is deliberately absent — an OCR engine, because a page
+    that is only pixels is the model's to read — and so is a `.docx` writer,
+    because producing one is not work the fleet has.
 12. **Beside a field that takes prose** — **notes** under the group's
     instruction and under each automation's, and a **reading** the author may
     ask for: the draft, its envelope, the group's instruction and the notebook
@@ -411,11 +425,12 @@ stops asking an author to classify what they want.
   the trail and the meter both say whether a run reasoned, so a change in cost or
   behaviour can be read against the machine that produced it.
 - The dependency set grows for the first time on the agent side: page work and
-  editing, a PDF's own text layer, and reading a `.docx`, all held to the
-  in-memory constraint above — and no OCR engine, and no `.docx` writer. A deployment
-  that refuses them loses those two actions and nothing else — every other
-  automation runs unchanged, and a rule that names one gets the refusal in its
-  own audit line rather than a silent skip.
+  editing, a PDF's own text layer, reading a `.docx`, and the rasteriser that
+  turns a page with no text layer into an image the model can read — all held to
+  the in-memory constraint above, and no OCR engine, and no `.docx` writer. A
+  deployment that refuses the document family loses those actions and nothing
+  else — every other automation runs unchanged, and a rule that names one gets
+  the refusal in its own audit line rather than a silent skip.
 - The web tier makes a provider call for the first time, on the authoring path:
   a request that can be slow, that needs a timeout, and that answers with a code
   when the installation has no provider or no budget — the same vocabulary the
@@ -476,8 +491,9 @@ stops asking an author to classify what they want.
 - ADR 0003 — the fleet: the claim, the review gate, the consent floor, the audit.
   Its automation model, with a classification per rule, is superseded by this
   record
-- DeepSeek, *Models & Pricing* and *Context Caching* (`api-docs.deepseek.com`,
-  read 2026-09-12) — the prices and the prefix-unit rule quoted above
+- The provider's own documentation, *Models & Pricing*, *Context Caching* and
+  its vision guide (read 2026-09-12) — the prices, the prefix-unit rule and the
+  1024-token image ceiling quoted above, and the image formats a request carries
 - `server/src/agent/llm.ts` — `callModel`: temperature 0, `response_format:
   json_object`, the timeout, and the missing output cap
 - `server/src/agent/executor.ts` — the capability check, `reviewOutcome`, and the
