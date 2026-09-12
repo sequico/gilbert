@@ -161,13 +161,14 @@ Stalwart refuses, warns once and serves nothing rather than failing to come up.
 
 **What it does.** An **automation** is a document in the group's own account:
 when it reacts (an email arriving, a chat message, a file, a time), which
-messages it looks at (the JMAP filter grammar), and what it then does — from the
-capability catalogue: label, move, file attachments into the group's visible
+messages it looks at (the JMAP filter grammar), and what it then does — from thecapability catalogue: label, move, file attachments into the group's visible
 Files, prepare a draft, send, write a text document. Each carries a **tier**: T0
 is deterministic and calls no model, T1 asks a small model for one of the rule's
 own categories, T2 gives the rule's instruction to a model that decides and acts.
 A group also keeps one **standing instruction** — the shape of an `AGENTS.md` —
-which the model is handed first on every call.
+which the model is handed first on every call. An automation can also be **run
+now**, on the newest message in the group's inbox: that is how you see one work
+without waiting for mail to arrive, and the ask is recorded as an ask.
 
 **What holds it back.** The automation's **capability allowlist** bounds every
 answer, checked in code rather than asked for in a prompt, so neither the model

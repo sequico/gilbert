@@ -302,7 +302,7 @@ export async function findMailboxByName(
 }
 
 /** The account's mailbox for a role (`drafts`, `sent`), or null when it has none. */
-async function mailboxIdByRole(
+export async function mailboxIdByRole(
   client: JmapClient,
   accountId: string,
   role: string,

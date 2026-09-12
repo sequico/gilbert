@@ -48,6 +48,7 @@ import {
   readProviders,
   readRules,
   resolveGroupAccess,
+  runRuleNow,
   saveGroupInstruction,
   saveRules,
   writeProviders,
@@ -1681,6 +1682,33 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
       const rules = await saveRules(access, access.accountId, body.rules);
       return c.json({ ok: true, rules });
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  /*
+   * Run one of a group's automations now, on a message a person names (ADR
+   * 0013). The answer is the job, which the worker holding the group's claim
+   * picks up on its next pass: the surface can say when it was asked for and
+   * the run's own record says what came of it.
+   */
+  api.post("/admin/groups/:name/agent/run", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    const name = c.req.param("name") ?? "";
+    const body = await readJson<{ ruleId?: unknown; emailId?: unknown }>(c);
+    if (!body || typeof body.ruleId !== "string")
+      return c.json({ error: "bad_request", message: "ruleId must be a string" }, 400);
+    try {
+      const access = await resolveGroupAccess(session, name, { need: "automations" });
+      if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+      return c.json({
+        ok: true,
+        job: await runRuleNow(access, access.accountId, {
+          ruleId: body.ruleId,
+          emailId: body.emailId,
+        }),
+      });
     } catch (err) {
       return agentFailure(c, err);
     }

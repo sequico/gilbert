@@ -61,4 +61,7 @@ and the line to upstream, live there and are not repeated here.
 - **0012 — The server starts the fleet beside itself.** An installation whose
   deployment names an agent runs the web tier and a worker in one process, from
   one command; `GILBERT_AGENT_INPROCESS=0` keeps the fleet separate.
+- **0013 — An automation can be run by a person, now.** *Run now* writes a job
+  for one automation on one message, which the worker runs on the rule's own
+  terms; a refusal is answered to whoever asked and written nowhere else.
 

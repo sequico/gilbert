@@ -958,3 +958,102 @@ test("the audit copy is refused for a group the admin is not a member of", async
     "the refusal is a code and its parameter, never a sentence",
   );
 });
+
+/* ------------------------------------------------------------------ */
+/* Run now (ADR 0013)                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The ask writes a job and nothing else, and it refuses in words a person can
+ * act on.
+ *
+ * The two halves worth pinning are the ones a surface cannot fake: an ask that
+ * can run leaves a `pending` job in the group's own account whose provenance
+ * says a person asked for it — the worker's sweep is what runs it, and that is
+ * a different process — and an ask that cannot run is answered without writing
+ * anything into the group's trail, because no run happened.
+ */
+test("an automation can be asked for, and the ask is a job", async () => {
+  configureAgent(TEAM);
+  await call(`/api/admin/groups/${TEAM}/agent/rules`, {
+    method: "POST",
+    body: JSON.stringify({ rules: [rule({ id: "manual-1" })] }),
+  });
+
+  const asked = await call(`/api/admin/groups/${TEAM}/agent/run`, {
+    method: "POST",
+    body: JSON.stringify({ ruleId: "manual-1" }),
+  });
+  assert.equal(asked.status, 200);
+  const job = (asked.body as { job: Record<string, unknown> }).job;
+  assert.equal(job.state, "pending", "the worker runs it, not the request");
+  assert.equal(job.ruleId, "manual-1");
+  const trigger = job.trigger as Record<string, unknown>;
+  assert.equal(trigger.on, "manual", "the record says a person asked for it");
+  assert.equal(trigger.by, DEMO, "and which person");
+  assert.equal(typeof trigger.emailId, "string", "on the newest message it found");
+
+  const view = (await call(`/api/admin/groups/${TEAM}/agent`)).body as {
+    jobs: Array<{ id: string }>;
+    audit: unknown[];
+  };
+  assert.deepEqual(
+    view.jobs.map((j) => j.id),
+    [job.id],
+    "the job is in the group's own account, which is where the sweep reads it",
+  );
+  assert.deepEqual(view.audit, [], "and the ask itself is not a run in the trail");
+});
+
+test("an ask that cannot run is answered, and writes nothing", async () => {
+  configureAgent(TEAM);
+  await call(`/api/admin/groups/${TEAM}/agent/rules`, {
+    method: "POST",
+    body: JSON.stringify({
+      rules: [
+        rule({ id: "manual-off", enabled: false }),
+        rule({ id: "manual-chat", trigger: { on: "chat" } }),
+      ],
+    }),
+  });
+
+  const before = (await call(`/api/admin/groups/${TEAM}/agent`)).body as {
+    jobs: unknown[];
+    audit: unknown[];
+  };
+
+  const unarmed = await call(`/api/admin/groups/${TEAM}/agent/run`, {
+    method: "POST",
+    body: JSON.stringify({ ruleId: "manual-off" }),
+  });
+  assert.equal(unarmed.status, 409);
+  assert.deepEqual(unarmed.body, {
+    error: "manual_run_refused",
+    why: "rule_not_armed",
+    rule: "Label processed mail",
+  });
+
+  const chat = await call(`/api/admin/groups/${TEAM}/agent/run`, {
+    method: "POST",
+    body: JSON.stringify({ ruleId: "manual-chat" }),
+  });
+  assert.equal(chat.status, 409);
+  assert.equal((chat.body as { why?: string }).why, "rule_not_email");
+
+  const missing = await call(`/api/admin/groups/${TEAM}/agent/run`, {
+    method: "POST",
+    body: JSON.stringify({ ruleId: "nobody" }),
+  });
+  assert.equal(missing.status, 404);
+  assert.equal((missing.body as { why?: string }).why, "rule_not_found");
+
+  const after = (await call(`/api/admin/groups/${TEAM}/agent`)).body as {
+    jobs: unknown[];
+    audit: unknown[];
+  };
+  assert.deepEqual(
+    after,
+    before,
+    "a refusal is answered to whoever asked, and the group's trail is untouched",
+  );
+});

@@ -128,6 +128,15 @@ declare it.
   workers are serving a group: a claim is per account, so a worker names the
   groups it is holding in its heartbeat, and the surface reads one group's
   workers off that rather than listing a fleet with no group attached.
+- **An automation can be run now, on a message a person names.** *Run now*
+beside a rule asks for one run, on the newest message of the group's own inbox:
+the ask writes a job, and the worker holding the group runs it on the rule's own
+terms — the filter, the capability allowlist, the review policy and the consent
+floor all still decide, and the audit line says it was asked for. It answers the
+question the surface could not: an automation that is not armed, one that is not
+about mail, a message its filter passes over, and a group nobody is holding are
+four different sentences, and none of them is written into the group's audit,
+because none of them is a run that happened.
 - **A withdrawn grant is reported, and the group stops being served.** The
 worker re-reads its session at most once per poll interval — a minute, a third
 of a lease, so no new setting arrives with it — and an account it was serving

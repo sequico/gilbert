@@ -19,7 +19,7 @@
  * no route hands them back.
  */
 
-import type { AgentRule } from "@gilbert/agent/documents";
+import type { AgentJob, AgentRule } from "@gilbert/agent/documents";
 import type {
   AgentApprovalsView,
   AgentAuditExport,
@@ -157,6 +157,25 @@ export function fetchPendingApprovals(): Promise<AgentApprovalsView> {
 /** `GET /api/agent/group/:name` — the member's read-only view. */
 export function fetchMemberAgentView(name: string): Promise<MemberAgentView> {
   return apiFetch<MemberAgentView>(`/api/agent/group/${encodeURIComponent(name)}`);
+}
+
+/**
+ * `POST /api/admin/groups/:name/agent/run` — ask for one automation, now.
+ *
+ * What comes back is the job the ask created: the worker holding the group's
+ * claim picks it up, so the surface says the ask landed and the run's own
+ * record says what came of it. A refusal of the ask itself comes back as the
+ * error `apiFetch` composes the sentence for.
+ */
+export async function runAgentRule(
+  name: string,
+  ask: { ruleId: string; emailId?: string },
+): Promise<AgentJob> {
+  const res = await apiFetch<{ ok: boolean; job: AgentJob }>(
+    `/api/admin/groups/${encodeURIComponent(name)}/agent/run`,
+    { method: "POST", body: JSON.stringify(ask) },
+  );
+  return res.job;
 }
 
 /**

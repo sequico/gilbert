@@ -13,8 +13,33 @@
  * fallback, with the translations owed rather than assumed. `detail` is never
  * translated or invented: it is what the server that refused said.
  */
-import type { AgentErrorReason, AgentStatusReason } from "@gilbert/agent/views";
+import type {
+  AgentErrorReason,
+  AgentStatusReason,
+  ManualRunRefusal,
+} from "@gilbert/agent/views";
 import { t } from "@/lib/i18n";
+
+/**
+ * Why an automation a person asked for did not start, in the reader's language.
+ *
+ * The code carries the reason rather than five codes carrying one each (the
+ * sentence map below is keyed by the *code*, and one code with a parameter is
+ * how a family of answers stays one entry there). Each of these is a sentence
+ * a person can act on: something to arm, something to notice about what the
+ * automation looks at, or nothing to run it on.
+ */
+export const MANUAL_RUN_REFUSALS: Record<ManualRunRefusal, string> = {
+  rule_not_found: "there is no such automation in this group any more",
+  rule_not_armed:
+    '"{rule}" is not armed: an automation that is off runs for nobody, whoever asks',
+  rule_not_email:
+    '"{rule}" is not about mail. A chat automation is asked for by mentioning the agent in the group\'s chat, and a timed one runs on its own clock',
+  no_message:
+    "there is no message to run it on: this group's inbox holds none, or the one named is gone",
+  message_not_matched:
+    '"{rule}" passes this message over: its own filter decides, and this one it does not match',
+};
 
 /**
  * One English sentence per code, with `{parameter}` holes.
@@ -58,6 +83,7 @@ export const AGENT_ERROR_SENTENCES = {
     "A standing instruction is at most {max} characters; this one is {length}.",
   group_labels_unreadable:
     "This group's labels.json holds entries Gilbert cannot read. The agent's labels were not added, rather than overwriting them.",
+  manual_run_refused: "That automation did not start: {reason}.",
   workers_unreadable: "Could not read the agent's worker records: {detail}",
 } as const satisfies Record<AgentErrorReason["code"] | AgentStatusReason["code"], string>;
 
@@ -97,5 +123,16 @@ export function agentSentenceFor(
 
 /** The sentence a refusal reads as, composed from the code its body carries. */
 export function agentErrorSentence(body: Record<string, unknown>): string | null {
-  return agentSentenceFor(typeof body.error === "string" ? body.error : "", body);
+  const code = typeof body.error === "string" ? body.error : "";
+  // A refusal with a reason inside it is the one code whose sentence needs its
+  // own parameter translated first: the reason is a catalogue key too, so a
+  // language that carries it reads it, and one that does not reads the English.
+  if (code === "manual_run_refused") {
+    const why = String(body.why ?? "");
+    const reason = MANUAL_RUN_REFUSALS[why as ManualRunRefusal] ?? why;
+    return agentSentence(code, {
+      reason: t(reason, { rule: String(body.rule ?? "") }),
+    });
+  }
+  return agentSentenceFor(code, body);
 }

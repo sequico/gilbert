@@ -21,7 +21,9 @@
  * impersonated group mailbox.
  */
 
+import { randomUUID } from "node:crypto";
 import { readGroupLabels, writeGroupLabels } from "./account.js";
+import { fetchEmailView, mailboxIdByRole } from "./agent/actions.js";
 import { hasSpoken, readChat } from "./agent/chat.js";
 import {
   AGENT_INSTRUCTION_MAX,
@@ -29,14 +31,19 @@ import {
   AGENT_MODEL_TIERS,
   type AgentAuditEntry,
   type AgentConfigDoc,
+  type AgentJob,
   type AgentProvider,
   type AgentRule,
   type AgentTier,
   type AgentWorkerRecord,
+  filterNeedsBody,
+  filterProblems,
   isAgentRule,
   leaseExpired,
+  matchEmailFilter,
   monthOf,
   monthsSince,
+  newJob,
   ruleProblems,
 } from "./agent/documents.js";
 import { AUDIT_RETENTION_MS } from "./agent/executor.js";
@@ -66,7 +73,7 @@ import type {
 import { GROUP_NOT_ACCESSIBLE, WITHDRAWALS_PATH } from "./agent/views.js";
 import { type Ctx, filesAccountId, readAppJsonAt } from "./appFolder.js";
 import { agentAddress, config } from "./config.js";
-import { isStateMismatch, JmapClient } from "./jmap.js";
+import { isStateMismatch, JMAP_MAIL, JmapClient } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
 import {
   AGENT_LABELS,
@@ -674,6 +681,125 @@ export async function saveRules(
       if (!isStateMismatch(err) || attempt > 0) throw err;
     }
   }
+}
+
+/**
+ * Run one of a group's automations now, on a message a person names.
+ *
+ * The person-shaped door into the one trigger that has no other way in: a chat
+ * automation is asked for by talking to the agent in the group's chat and a
+ * time one by its own clock, while mail arrives when it likes. What this writes
+ * is a job — the same document, the same states, the same sweep — so the worker
+ * that holds the group's claim runs it exactly as it runs an arrival. The
+ * capability allowlist, the review policy, the version pin and the audit are
+ * the ones already in force: a run asked for by a person meets the rule it
+ * names, it does not bypass it.
+ *
+ * What is deliberately *not* written is a refusal into the group's trail. A
+ * message the filter does not match, an automation that is not armed, one asked
+ * for that is not about mail: each is answered to the person who asked, who can
+ * do something about it, and none of them is a run that happened — the audit
+ * records what the agent did, not what somebody tried.
+ *
+ * The message is the one named, or the newest in the group's own inbox: an ask
+ * that names none is asking "does this work at all", and the message somebody
+ * just sent or received is the one they have in mind.
+ */
+export async function runRuleNow(
+  access: GroupAccess,
+  accountId: string,
+  ask: { ruleId: unknown; emailId?: unknown },
+): Promise<AgentJob> {
+  const store = new AgentStore(access.ctx, accountId);
+  const rules = (await store.readRules())?.doc ?? [];
+  const ruleId = typeof ask.ruleId === "string" ? ask.ruleId : "";
+  const rule = rules.find((candidate) => candidate.id === ruleId);
+  if (!rule)
+    throw new AgentAdminError({ code: "manual_run_refused", why: "rule_not_found" }, 404);
+  if (!rule.enabled)
+    throw new AgentAdminError(
+      { code: "manual_run_refused", why: "rule_not_armed", rule: rule.name },
+      409,
+    );
+  if (rule.trigger.on !== "email")
+    throw new AgentAdminError(
+      { code: "manual_run_refused", why: "rule_not_email", rule: rule.name },
+      409,
+    );
+
+  const client = new JmapClient(access.ctx);
+  const named = typeof ask.emailId === "string" ? ask.emailId.trim() : "";
+  const emailId = named || (await newestInboxMessage(client, accountId));
+  const view = emailId
+    ? await fetchEmailView(client, accountId, emailId, {
+        body: filterNeedsBody(rule.trigger.filter),
+      })
+    : null;
+  if (!view)
+    throw new AgentAdminError(
+      { code: "manual_run_refused", why: "no_message", rule: rule.name },
+      409,
+    );
+
+  // A filter this executor cannot evaluate is a fault of the rule rather than
+  // of the message, and it is refused in the words the form refuses it in.
+  const wired = filterProblems(rule.trigger.filter, "the filter");
+  if (wired.length)
+    throw new AgentAdminError(
+      { code: "rule_cannot_run", name: rule.name, problems: wired.join("; ") },
+      409,
+    );
+  if (!matchEmailFilter(rule.trigger.filter, view))
+    throw new AgentAdminError(
+      { code: "manual_run_refused", why: "message_not_matched", rule: rule.name },
+      409,
+    );
+
+  const at = new Date().toISOString();
+  const job = newJob({
+    id: randomUUID(),
+    accountId,
+    rule,
+    trigger: { on: "manual", emailId: view.id, by: access.ctx.username, at },
+    now: at,
+  });
+  await store.writeJob(job);
+  return job;
+}
+
+/**
+ * The newest message of the group's own inbox, or null when there is none.
+ *
+ * A draft is excluded for the same reason the executor excludes one: it is work
+ * in progress rather than mail that arrived, and a run that prepares a draft
+ * would otherwise be the first thing a person found here.
+ */
+async function newestInboxMessage(
+  client: JmapClient,
+  accountId: string,
+): Promise<string | null> {
+  const inbox = await mailboxIdByRole(client, accountId, "inbox");
+  if (!inbox) return null;
+  const result = await client.chain(
+    [
+      [
+        "Email/query",
+        {
+          accountId,
+          filter: { inMailbox: inbox, notKeyword: "$draft" },
+          sort: [{ property: "receivedAt", isAscending: false }],
+          limit: 1,
+        },
+        "q",
+      ],
+    ],
+    [JMAP_MAIL],
+  );
+  const raw = result.raw("q");
+  const ids =
+    raw && raw[0] === "Email/query" && Array.isArray(raw[1].ids) ? raw[1].ids : [];
+  const first = ids[0];
+  return first === undefined ? null : String(first);
 }
 
 /**

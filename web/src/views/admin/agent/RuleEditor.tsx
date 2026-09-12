@@ -14,9 +14,10 @@
  * in owns one pick for all of its tabs, and a second picker inside a tab was a
  * second answer to the same question.
  */
-import { type AgentRule, ruleProblems } from "@gilbert/agent/documents";
+import { type AgentJob, type AgentRule, ruleProblems } from "@gilbert/agent/documents";
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { runAgentRule } from "@/lib/agents";
 import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
 import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
@@ -24,6 +25,7 @@ import { confirmDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 import {
   actionText,
+  jobStateText,
   reviewText,
   ruleActions,
   tierText,
@@ -51,10 +53,17 @@ export function RuleEditor({
   const [baseline, setBaseline] = useState<AgentRule | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  // The rule being asked for right now, and the one whose ask just landed: two
+  // facts about one ask, and the surface says both rather than leaving a press
+  // with nothing to show for it.
+  const [asking, setAsking] = useState<string | null>(null);
+  const [asked, setAsked] = useState<string | null>(null);
 
   const view = group ? groupViews[agentViewKey(group)] : undefined;
   const known = group !== "" && groups.includes(group);
   const rules = view?.granted ? view.rules : [];
+  /** The runs of this group that are still open, by the rule that asked for them. */
+  const openJobs: readonly AgentJob[] = view?.jobs ?? [];
   // Why the document would be refused as it stands, if it would: the server's
   // own reason, so the form cannot drift from what the executor accepts
   // (ADR 0003 §4, `ruleProblem`).
@@ -76,8 +85,37 @@ export function RuleEditor({
     setDraft(null);
     setBaseline(null);
     setProblem(null);
+    setAsked(null);
+    setAsking(null);
     if (group) void loadGroup(group);
   }, [group, loadGroup]);
+
+  /**
+   * Ask for one automation, now.
+   *
+   * What comes back is a job in the group's own account, which the worker that
+   * holds the group picks up: nothing runs in this process, and the terms are
+   * the rule's own — its filter decides whether the message is one it acts on,
+   * and its review policy still pauses what needs a person. So the ask is
+   * marked rather than awaited, and the read follows it: a run already taken up
+   * reads as open, and one already finished leaves the group's audit as its
+   * record.
+   */
+  const ask = async (rule: AgentRule) => {
+    if (!group) return;
+    setAsking(rule.id);
+    setAsked(null);
+    setProblem(null);
+    try {
+      await runAgentRule(group, { ruleId: rule.id });
+      setAsked(rule.id);
+      void loadGroup(group);
+    } catch (err) {
+      setProblem(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAsking(null);
+    }
+  };
 
   const save = async () => {
     if (!group || !draft) return;
@@ -251,6 +289,11 @@ export function RuleEditor({
                     key={rule.id}
                     rule={rule}
                     busy={busy}
+                    run={
+                      asking === rule.id ? "asking" : asked === rule.id ? "asked" : "idle"
+                    }
+                    openJob={openJobs.find((job) => job.ruleId === rule.id)}
+                    onRun={() => void ask(rule)}
                     onEdit={() => {
                       setProblem(null);
                       setDraft(rule);
@@ -321,11 +364,19 @@ function listProblem(rules: AgentRule[]): string | null {
 function RuleItem({
   rule,
   busy,
+  run,
+  openJob,
+  onRun,
   onEdit,
   onDelete,
 }: {
   rule: AgentRule;
   busy: boolean;
+  /** Whether this rule is being asked for right now, or was just asked for. */
+  run: "idle" | "asking" | "asked";
+  /** The run of this rule that is still open, if one is. */
+  openJob: AgentJob | undefined;
+  onRun(): void;
   onEdit(): void;
   onDelete(): void;
 }) {
@@ -339,6 +390,17 @@ function RuleItem({
         ) : (
           <span className="agent-state off">{t("Disabled")}</span>
         )}
+        {/* The person-shaped door into an automation about mail: the worker
+            that holds this group runs it on its next pass, on the terms the
+            rule already carries. */}
+        <button
+          className="btn btn-sm btn-ghost"
+          disabled={busy || run === "asking"}
+          onClick={onRun}
+          title={t("Run this automation now, on the newest message in the group's inbox")}
+        >
+          {run === "asking" ? t("Asking…") : t("Run now")}
+        </button>
         <button className="btn btn-sm btn-ghost" disabled={busy} onClick={onEdit}>
           {t("Edit")}
         </button>
@@ -358,6 +420,22 @@ function RuleItem({
       {actions.length > 0 && (
         <p className="hint">{actions.map((a) => actionText(a)).join(" · ")}</p>
       )}
+      {/* What became of an ask: the run while it is open, and where its outcome
+          is read once it is not — the group's chat hears from the agent, and
+          the audit keeps the line. */}
+      {openJob ? (
+        <p className="hint">
+          {t("Asked for: a run is open ({state}).", {
+            state: jobStateText(openJob.state),
+          })}
+        </p>
+      ) : run === "asked" ? (
+        <p className="hint">
+          {t(
+            "Asked for. The worker holding this group picks it up on its next pass — a minute by default — and the group's audit is where what it did is read.",
+          )}
+        </p>
+      ) : null}
     </div>
   );
 }

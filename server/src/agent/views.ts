@@ -116,6 +116,27 @@ export interface AgentStatus {
 }
 
 /**
+ * Why an automation a person asked for did not start.
+ *
+ * The ask names one automation and, when it wants a particular message, that
+ * message. Every answer here is something the person can act on, and they
+ * travel as one code carrying the reason rather than as six codes: the union
+ * above is the list an agent surface composes a sentence from, and this is one
+ * answer — it did not start, and here is why.
+ *
+ * `rule_not_email` is not a limit of the machinery but of the door: a chat
+ * automation is already asked for by talking to the agent in the group's chat,
+ * and a time one by its own clock, so the person-shaped door is the one mail
+ * has no other way into.
+ */
+export type ManualRunRefusal =
+  | "rule_not_found"
+  | "rule_not_armed"
+  | "rule_not_email"
+  | "no_message"
+  | "message_not_matched";
+
+/**
  * A refusal from the admin surface, as it travels: a code and its parameters.
  *
  * The sentence is composed where it is read — the same rule the membership
@@ -138,6 +159,7 @@ export type AgentErrorReason =
   | { code: "duplicate_rule"; id: string }
   | { code: "rule_not_a_document"; index: number }
   | { code: "rule_cannot_run"; name: string; problems: string }
+  | { code: "manual_run_refused"; why: ManualRunRefusal; rule?: string }
   | { code: "providers_not_an_object" }
   | { code: "unknown_tier"; key: string }
   | { code: "tier_incomplete"; tier: string }

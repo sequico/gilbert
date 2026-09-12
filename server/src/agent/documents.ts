@@ -365,6 +365,19 @@ export function isAgentTriggerOn(x: unknown): x is AgentTriggerOn {
   return typeof x === "string" && (AGENT_TRIGGERS as ReadonlyArray<string>).includes(x);
 }
 
+/**
+ * Whether this is what woke a job: a rule's four, or a person.
+ *
+ * Separate from `isAgentTriggerOn` on purpose: a rule may not be woken by a
+ * person (ADR 0013 — the ask is a job's provenance, and a rule that could carry
+ * it would have to say what it acts on), while a job a person asked for is a run
+ * like any other and validates as one. One predicate each, so neither the rule
+ * path nor the job path can accept the other's answer.
+ */
+export function isAgentJobTriggerOn(x: unknown): x is AgentJobTriggerOn {
+  return x === "manual" || isAgentTriggerOn(x);
+}
+
 export interface AgentTrigger {
   on: AgentTriggerOn;
   /** A JMAP Email filter (RFC 8621, the subset `matchEmailFilter` implements). */
@@ -505,6 +518,25 @@ export function isAgentRulesDoc(x: unknown): x is AgentRulesDoc {
  * it saves (refuse early) and by the executor before it starts a job (refuse
  * loudly).
  */
+/**
+ * Whether a filter reads the body: only then is the body fetched for matching.
+ *
+ * It lives here with the matcher and the problem list because it is a question
+ * about a filter, and it has two readers: the executor, which fetches the mail
+ * it is about to match, and the admin surface, which fetches a message a person
+ * asked a run against. Two answers to "does this filter need the body" would
+ * mean one of the two deciding a rule looks at nothing.
+ */
+export function filterNeedsBody(filter: Record<string, unknown> | undefined): boolean {
+  if (!filter) return false;
+  if (typeof filter.text === "string" || typeof filter.body === "string") return true;
+  const conditions = filter.conditions;
+  if (!Array.isArray(conditions)) return false;
+  return conditions.some((condition) =>
+    filterNeedsBody(condition as Record<string, unknown>),
+  );
+}
+
 /**
  * Every way a trigger filter could not do what it says.
  *
@@ -900,8 +932,19 @@ export interface AgentDraftRef {
 }
 
 /** What woke the rule. Exactly one of the ids is set, by `on`. */
+/**
+ * What started a job: one of a rule's own triggers, or a person.
+ *
+ * A rule has four triggers and they are the whole of what wakes it by itself;
+ * `manual` is a job's provenance and never a rule's — an automation that only
+ * runs when somebody asks for it is a person's habit, not a document, and a
+ * rule that could carry it would have to say what it acts on, which is exactly
+ * the thing a rule's trigger already says.
+ */
+export type AgentJobTriggerOn = AgentTriggerOn | "manual";
+
 export interface AgentTriggerRecord {
-  on: AgentTriggerOn;
+  on: AgentJobTriggerOn;
   emailId?: string;
   nodeId?: string;
   chatId?: string;
@@ -954,7 +997,7 @@ export function isAgentJobState(x: unknown): x is AgentJobState {
 export function isAgentTriggerRecord(x: unknown): x is AgentTriggerRecord {
   if (!x || typeof x !== "object") return false;
   const t = x as Record<string, unknown>;
-  if (!isAgentTriggerOn(t.on)) return false;
+  if (!isAgentJobTriggerOn(t.on)) return false;
   for (const k of ["emailId", "nodeId", "chatId", "by"] as const) {
     if (t[k] !== undefined && typeof t[k] !== "string") return false;
   }

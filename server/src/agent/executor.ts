@@ -79,6 +79,7 @@ import {
   CHAT_CONTEXT_DEFAULT,
   CHAT_CONTEXT_MAX,
   claimEpoch,
+  filterNeedsBody,
   filterProblems,
   instructionFor,
   leaseExpired,
@@ -2107,8 +2108,18 @@ interface FileNodeRecord {
 
 /** One job per rule and trigger: the durable half of at-least-once delivery. */
 function jobKey(ruleId: string, trigger: AgentTriggerRecord): string {
-  const what = trigger.emailId ?? trigger.nodeId ?? trigger.chatId ?? trigger.at;
-  return `${ruleId}:${what}`;
+  /*
+   * A manual ask is its own event, identified by when it was asked rather than
+   * by the message it names: the deduplication key exists so a re-read change
+   * does not run twice, and a person pressing a button twice is not a re-read —
+   * it is two asks, and the second one is theirs to make. Every other trigger
+   * keeps the identity of the thing that woke it.
+   */
+  const what =
+    trigger.on === "manual"
+      ? trigger.at
+      : (trigger.emailId ?? trigger.nodeId ?? trigger.chatId ?? trigger.at);
+  return `${ruleId}:${trigger.on}:${what}`;
 }
 
 /** A job in a terminal state, with the lease cleared. */
@@ -2174,15 +2185,6 @@ function rejectLabel(): AgentAction {
 }
 
 /** Whether a filter reads the body: only then is the body fetched for matching. */
-function filterNeedsBody(filter: Record<string, unknown> | undefined): boolean {
-  if (!filter) return false;
-  if (typeof filter.text === "string" || typeof filter.body === "string") return true;
-  const conditions = filter.conditions;
-  if (!Array.isArray(conditions)) return false;
-  return conditions.some((condition) =>
-    filterNeedsBody(condition as Record<string, unknown>),
-  );
-}
 
 function idList(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String) : [];
@@ -2193,6 +2195,8 @@ function describeActions(results: ReadonlyArray<ActionResult>): string {
 }
 
 function describeTrigger(trigger: AgentTriggerRecord): string {
+  if (trigger.on === "manual")
+    return `message ${trigger.emailId ?? "(gone)"}, asked for by a person`;
   if (trigger.on === "email") return `message ${trigger.emailId ?? "(gone)"}`;
   if (trigger.on === "filenode") return `file ${trigger.nodeId ?? "(gone)"}`;
   if (trigger.on === "chat") return `chat message ${trigger.chatId ?? "(gone)"}`;
