@@ -1586,9 +1586,9 @@ needed nothing in either half.
   icon while the app is closed, with a dot rather than a figure: the service
   worker is not told how many messages are unread — a push carries the new mail
   rather than a total, so counting the payload would badge "2" over an inbox
-  holding forty. The next tab to open writes the real count over it. It could
-  now ask, which is a change since this was written; whether a badge is worth a
-  request on every push is a separate question and has not been answered yet.
+  holding forty. The next tab to open writes the real count over it. The worker
+  could ask for the count instead, though whether a badge is worth a request on
+  every push is a separate question and has not been answered yet.
   Unsupported browsers show nothing, as does iOS until notification permission
   has been granted, which is that platform's condition for a badge.
 - **In the share sheet** — share a photo, a link or a file from any other app
@@ -1613,8 +1613,8 @@ needed nothing in either half.
   among them, because it would have to open the app, and tapping the
   notification already does that.
 
-  This was described here as impossible, and it is worth saying why it was not.
-  Gilbert's session is an httpOnly cookie against its own origin, and the only
+  Nothing in the worker's shape stands in the way. Gilbert's session is an
+  httpOnly cookie against its own origin, and the only
   other thing the API asks for is a fixed header that is not a secret. A
   same-origin request from the service worker carries the cookie like any
   other, so `Email/set` from a notification is an ordinary call. What the
