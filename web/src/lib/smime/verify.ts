@@ -90,6 +90,37 @@ export function looksSigned(root: MimePart): boolean {
 }
 
 /**
+ * Whether the signed part is the message's content, or only one fragment of it.
+ *
+ * A signature is valid wherever its bytes are pasted, so it settles nothing
+ * until it is tied to the part the reader is shown -- and the reader's body is
+ * derived from the part tree, not from whichever signed part this file happens
+ * to find first. A `multipart/mixed` whose first part is a `text/html` body,
+ * with a genuinely signed part lifted from some other message attached below
+ * it, parses cleanly and hashes cleanly; calling that `intact` would be a claim
+ * about bytes nobody is looking at. So a signature counts only when the signed
+ * part *is* the content: the message is `multipart/signed` itself, or the
+ * signed part hangs under wrappers that carry nothing beside it. Anything else
+ * is "cannot check", the honest answer when the checked and the shown bytes may
+ * differ.
+ */
+function signedPartIsTheContent(root: MimePart, signed: MimePart): boolean {
+  const chain = pathTo(root, signed);
+  if (!chain) return false;
+  return chain.slice(0, -1).every((p) => p.parts.length === 1);
+}
+
+/** The parts from `root` down to `target`, or null when it is not below it. */
+function pathTo(root: MimePart, target: MimePart): MimePart[] | null {
+  if (root === target) return [root];
+  for (const child of root.parts) {
+    const below = pathTo(child, target);
+    if (below) return [root, ...below];
+  }
+  return null;
+}
+
+/**
  * Verify the signature on a raw RFC822 message.
  *
  * Answers only the arithmetic question. Whether the certificate has anything to
@@ -106,6 +137,12 @@ export async function verifyMessage(raw: Uint8Array): Promise<Crypto> {
 
   const signedPart = findPart(root, (p) => p.contentType === "multipart/signed");
   if (!signedPart) return { kind: "none" };
+  if (!signedPartIsTheContent(root, signedPart))
+    return {
+      kind: "unsupported",
+      reason: "other",
+      detail: "The signed part is not the content of this message.",
+    };
   if (signedPart.parts.length < 2)
     return { kind: "unsupported", reason: "not-signed-properly" };
 

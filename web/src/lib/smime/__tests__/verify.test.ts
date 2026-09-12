@@ -169,6 +169,83 @@ describe("canonicalisation", () => {
   });
 });
 
+/**
+ * The forged-body case, which is why a signature has to be tied to the part the
+ * reader is shown rather than merely found somewhere in the tree. A signed part
+ * is genuinely signed wherever it is pasted; here it is pasted below a
+ * `text/html` body that is what the message actually shows.
+ */
+const FORGED_HTML = new TextEncoder().encode(
+  'Content-Type: text/html; charset="utf-8"\r\nContent-Transfer-Encoding: 7bit\r\n\r\n<p>what the message shows</p>',
+);
+
+function concat(...chunks: Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+  let at = 0;
+  for (const c of chunks) {
+    out.set(c, at);
+    at += c.length;
+  }
+  return out;
+}
+
+/** Put message bytes into a multipart/mixed wrapper, one part per entry. */
+function wrapped(parts: Uint8Array[]): Uint8Array {
+  const enc = new TextEncoder();
+  const chunks: Uint8Array[] = [
+    enc.encode(
+      'From: someone@example.com\r\nSubject: two parts\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary="mix"\r\n\r\n',
+    ),
+  ];
+  for (const part of parts) {
+    chunks.push(enc.encode("--mix\r\n"), part, enc.encode("\r\n"));
+  }
+  chunks.push(enc.encode("--mix--\r\n"));
+  return concat(...chunks);
+}
+
+describe("a signature that is not the message's content", () => {
+  it("refuses a real signature over somebody else's body", async () => {
+    const mixed = wrapped([FORGED_HTML, fixture("signed-rsa.eml")]);
+
+    // The body a reader is shown comes from this tree, and it is the forged
+    // part: the signature belongs to the part below it.
+    const root = parseMime(mixed);
+    expect(root.contentType).toBe("multipart/mixed");
+    expect(root.parts.map((p) => p.contentType)).toEqual([
+      "text/html",
+      "multipart/signed",
+    ]);
+
+    const result = await verifyMessage(mixed);
+    // Not intact, and not "does not check out" either: nothing here says the
+    // signature fails, only that it is not a statement about this message.
+    expect(result.kind).toBe("unsupported");
+    if (result.kind !== "unsupported") return;
+    expect(result.reason).toBe("other");
+    expect(result.detail).toBeTruthy();
+
+    // And nothing may be pinned off the back of it.
+    const report = judge(result, "ada@example.com", undefined);
+    expect(report.trust).toBeUndefined();
+    expect(shouldRemember(report)).toBe(false);
+  });
+
+  it("still verifies when a wrapper carries the signed part alone", async () => {
+    // The control: the fixture pasted into the wrapper is genuinely signed, so
+    // the refusal above is about where the signature sits, not a broken fixture.
+    const result = await verifyMessage(wrapped([fixture("signed-rsa.eml")]));
+    expect(result.kind).toBe("intact");
+  });
+
+  it("still verifies the ordinary multipart/signed message", async () => {
+    const result = await verifyMessage(fixture("signed-rsa.eml"));
+    expect(result.kind).toBe("intact");
+    if (result.kind !== "intact") return;
+    expect(result.cert.subject.commonName).toBe("Ada Lovelace");
+  });
+});
+
 describe("reading the message structure", () => {
   it("finds the two parts of a signed message and keeps their bytes intact", () => {
     const root = parseMime(fixture("signed-rsa.eml"));

@@ -29,7 +29,7 @@ const { JMAP_MAIL, JMAP_SUBMISSION, JmapClient } = await import("../jmap.js");
 const { GROUP_LABELS_FILE } = await import("../shared/labels.js");
 const { fetchEmailRecord, findMailboxByName } = await import("./actions.js");
 const { postMessage, readChat } = await import("./chat.js");
-const { newJob } = await import("./documents.js");
+const { newDecision, newJob } = await import("./documents.js");
 const { Executor, JOB_MAX_ATTEMPTS } = await import("./executor.js");
 const { claimAccount } = await import("./lease.js");
 const { AgentStore } = await import("./store.js");
@@ -1067,3 +1067,133 @@ async function draftsInDrafts(): Promise<number> {
   );
   return found.total ?? 0;
 }
+
+test("a job write carries the state it was read against, and a refusal writes nothing", async () => {
+  const movedRule = rule({ id: "moved", name: "Moved automation" });
+  await store.writeRules([movedRule]);
+  const emailId = await createMessage("An invoice that moves under the writer");
+  const job = newJob({
+    id: "moved-job",
+    accountId: GROUP,
+    rule: { id: movedRule.id, version: movedRule.version },
+    trigger: { on: "email", emailId, at: new Date().toISOString() },
+  });
+  await store.writeJob({ ...job, state: "running", attempts: 1 });
+  const before = await store.readJob("moved-job");
+  assert.ok(before, "the job document is there");
+
+  // A store whose read hands back a state the account has already moved past:
+  // that is a write landing in the window between the read a run makes and the
+  // write it guards, which is the window a successor's write arrives in. The
+  // failure is still reported — the trail and the chat are the report — but
+  // nothing is written onto a document somebody else holds.
+  const moved = Object.create(store) as AgentStore;
+  moved.readJob = async (id: string) => {
+    const found = await store.readJob(id);
+    return found ? { ...found, state: `${found.state}-moved-past` } : null;
+  };
+
+  await executor.failLoudly(moved, before.doc, movedRule, "the provider was down");
+
+  const untouched = await store.readJob("moved-job");
+  assert.equal(
+    untouched?.doc.state,
+    "running",
+    "a refused write leaves the document where its reader left it",
+  );
+  assert.equal(untouched?.doc.error, undefined, "and records no failure on it");
+  const audit = await store.readAuditAt(new Date());
+  assert.ok(
+    audit?.entries.some((e) => e.jobId === "moved-job" && e.outcome === "failed"),
+    "the failure is in the trail all the same",
+  );
+
+  // The control: the same call against a store whose token is current writes,
+  // so what stopped above is the token and not the writer.
+  await executor.failLoudly(store, before.doc, movedRule, "the provider was down");
+  const written = await store.readJob("moved-job");
+  assert.equal(written?.doc.state, "pending", "a write that still holds its state lands");
+  assert.equal(written?.doc.error, "the provider was down");
+});
+
+test("an approval that was consumed and never ran is recorded, not left silent", async () => {
+  const spent = rule({
+    id: "spent-approval",
+    name: "Spent approval",
+    actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
+  });
+  await store.writeRules([spent]);
+  const emailId = await createMessage("An invoice a person approved");
+  const job = newJob({
+    id: "spent-job",
+    accountId: GROUP,
+    rule: { id: spent.id, version: spent.version },
+    trigger: { on: "email", emailId, at: new Date().toISOString() },
+  });
+  const paused: AgentJob = {
+    ...job,
+    state: "awaiting_approval",
+    proposal: {
+      summary: "File the invoice",
+      actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
+      confidence: 1,
+      draft: null,
+    },
+  };
+  const decision = newDecision(paused);
+  paused.decisionId = decision.id;
+  await store.writeJob(paused);
+  // The stamp every answer leaves, and the crash the process did not survive:
+  // the decision is consumed, the job still waits on the person who answered,
+  // and no runner is left holding it.
+  const at = new Date().toISOString();
+  await store.writeDecision({
+    ...decision,
+    state: "approved",
+    decidedBy: ADA,
+    decidedAt: at,
+    appliedAt: at,
+  });
+
+  await executor.runPending(GROUP);
+
+  const closed = await store.readJob("spent-job");
+  assert.equal(closed?.doc.state, "failed", "the job the spent approval names is closed");
+  assert.match(
+    String(closed?.doc.error),
+    /approved/,
+    "and says the approval was consumed",
+  );
+  const audit = await store.readAuditAt(new Date());
+  const reports = (audit?.entries ?? []).filter(
+    (e) =>
+      e.jobId === "spent-job" &&
+      e.outcome === "failed" &&
+      /no effect of it was ever recorded/.test(e.detail ?? ""),
+  );
+  assert.equal(reports.length, 1, "the trail carries the failure, with its reason");
+  const chat = await readChat(ctx, GROUP, client);
+  assert.ok(
+    chat.some((message) => message.text.includes("Spent approval")),
+    "the group's chat names the rule",
+  );
+  const marked = await fetchEmailRecord(client, GROUP, emailId, {});
+  assert.equal(
+    (marked?.keywords as Record<string, unknown>)?.["G-needattention"],
+    true,
+    "the message it was about is marked for a person",
+  );
+  assert.equal(
+    (marked?.keywords as Record<string, unknown>)?.["G-processed"],
+    undefined,
+    "and nothing the approval asked for is run on a guess",
+  );
+
+  // Closed once: the next pass finds an approval that already has a record.
+  await executor.runPending(GROUP);
+  const again = ((await store.readAuditAt(new Date()))?.entries ?? []).filter(
+    (e) =>
+      e.jobId === "spent-job" && /no effect of it was ever recorded/.test(e.detail ?? ""),
+  );
+  assert.equal(again.length, 1, "a spent approval is recorded once, not every pass");
+});

@@ -590,8 +590,11 @@ export class Executor {
         : await this.planFor(store, accountId, running, rule);
       // The plan is written before it is run: a retry resumes this same work,
       // and a failure can name what was about to happen instead of guessing.
-      const planned: AgentJob = { ...running, proposal: proposalOf(plan) };
-      await store.writeJob(planned);
+      const planned = await this.writeJobIfCurrent(store, job.id, (latest) => ({
+        ...latest,
+        proposal: proposalOf(plan),
+      }));
+      if (!planned) return;
       // Fencing, at the last moment before anything leaves the process: a run
       // whose unit was taken over while it was deciding has had its lease
       // lapse, and what it is about to do — send, post, file — would be done a
@@ -613,6 +616,40 @@ export class Executor {
         deadLetter: err instanceof RefusedError,
       });
     }
+  }
+
+  /**
+   * Write the job against the state it is read in, and write nothing when the
+   * write is refused.
+   *
+   * The token a job write carries is the account's whole FileNode state, and
+   * every write in the account moves it — this run's own audit line and the
+   * action that just landed included — so the state is read here, immediately
+   * before the write it guards. The change is applied to the document as it is
+   * read rather than to the copy a run has carried since it claimed the job,
+   * because a write onto that copy would put a lapsed worker's `applied` and
+   * `attempts` over the view its successor is working on. A refusal means the
+   * document moved in that window, and the answer is to write nothing: `null`
+   * says so, and a job document that is no longer there answers the same way.
+   *
+   * A caller that must not stop (a failure being reported, a rejection being
+   * recorded) may go on with its report; a caller that is working a run stops.
+   */
+  private async writeJobIfCurrent(
+    store: AgentStore,
+    id: string,
+    change: (job: AgentJob) => AgentJob,
+  ): Promise<AgentJob | null> {
+    const found = await store.readJob(id);
+    if (!found) return null;
+    const next = change(found.doc);
+    try {
+      await store.writeJob(next, { ifInState: found.state });
+    } catch (err) {
+      if (isStateMismatch(err)) return null;
+      throw err;
+    }
+    return next;
   }
 
   /** What the run should do: deterministic, classified, or decided by a model. */
@@ -730,8 +767,10 @@ export class Executor {
       // Everything the plan asked for had already run: the failure was in the
       // bookkeeping, not in the work, and closing the job is its honest ending.
       // A second pass here would be the double effect, not the repair.
-      const closed = closeState({ ...job, applied: [...applied] }, "done");
-      await store.writeJob(closed);
+      const closed = await this.writeJobIfCurrent(store, job.id, (latest) =>
+        closeState({ ...latest, applied: [...applied] }, "done"),
+      );
+      if (!closed) return;
       await recordAudit(
         store,
         auditEntry(closed, rule, "done", plan.actions, plan.summary),
@@ -749,13 +788,26 @@ export class Executor {
         // Recorded as each action lands, so a retry resumes after it.
         onApplied: async (action: AgentAction) => {
           landed.push(action.do);
-          await store.writeJob({ ...job, applied: [...landed] });
+          const recorded = await this.writeJobIfCurrent(store, job.id, (latest) => ({
+            ...latest,
+            applied: [...landed],
+          }));
+          // What just landed is not recorded, so the run stops here rather than
+          // running the rest of a plan whose prefix nobody can read — and a
+          // retry would start the whole plan again.
+          if (!recorded)
+            throw new RefusedError(
+              "the job document moved while this run was working, so what it did " +
+                "is not recorded: nothing more is run",
+            );
         },
         beforeAction: this.leavingProcessFence(store, claim),
       },
     );
-    const done = closeState({ ...job, applied: [...landed] }, "done");
-    await store.writeJob(done);
+    const done = await this.writeJobIfCurrent(store, job.id, (latest) =>
+      closeState({ ...latest, applied: [...landed] }, "done"),
+    );
+    if (!done) return;
     await recordAudit(store, auditEntry(done, rule, "done", plan.actions, plan.summary));
     this.deps.log(
       `${rule.name}: ${describeActions(results)} for ${describeTrigger(job.trigger)}`,
@@ -781,22 +833,27 @@ export class Executor {
     // may exist without a line that accounts for it and a decision a person can
     // answer.
     const proposal = proposalOf(plan);
-    const paused: AgentJob = {
-      ...job,
-      state: "awaiting_approval",
-      proposal,
-    };
+    const opening: AgentJob = { ...job, state: "awaiting_approval", proposal };
     // The decision document is written **before** the proposal is posted: the
     // other order leaves a proposal in the group's chat that no answer can
     // resolve, because the reader that settles answers only walks decisions
     // that exist. The id comes from the decision itself, so the job names the
     // document that was actually written.
-    const decision = newDecision(paused);
-    paused.decisionId = decision.id;
+    const decision = newDecision(opening);
     // A paused job belongs to a person now, not to a worker: clearing the lease
-    // keeps it out of the takeover path while it waits.
-    delete paused.lease;
-    await store.writeJob(paused);
+    // keeps it out of the takeover path while it waits. A refused write stops
+    // the pause before a decision a person could answer exists.
+    const paused = await this.writeJobIfCurrent(store, job.id, (latest) => {
+      const waiting: AgentJob = {
+        ...latest,
+        state: "awaiting_approval",
+        proposal,
+        decisionId: decision.id,
+      };
+      delete waiting.lease;
+      return waiting;
+    });
+    if (!paused) return;
     // The decision is written once more as it learns things: the draft it will
     // send, then the chat message that carries it. Both live on the decision —
     // the sweep that notices a sent or deleted draft walks decisions, not jobs
@@ -812,9 +869,14 @@ export class Executor {
     const draft = await this.prepareDraft(store, accountId, claim, plan);
     if (draft) {
       paused.proposal = { ...proposal, draft };
-      await store.writeJob(paused);
-      open = { ...open, draft };
-      await store.writeDecision(open);
+      const recorded = await this.writeJobIfCurrent(store, job.id, (latest) => ({
+        ...latest,
+        proposal: { ...proposal, draft },
+      }));
+      if (recorded) {
+        open = { ...open, draft };
+        await store.writeDecision(open);
+      }
     }
     const chatId = await postMessage(
       this.deps.ctx,
@@ -1024,24 +1086,33 @@ export class Executor {
     const repeatable = !attempted.some(leavesTheProcess);
     const final =
       opts.deadLetter === true || job.attempts >= JOB_MAX_ATTEMPTS || !repeatable;
-    const failed: AgentJob = {
-      ...job,
-      state: final ? "failed" : "pending",
-      error: message,
-    };
-    delete failed.lease;
-    // A job that may still succeed waits a while first: three attempts taken
-    // back to back are one attempt against a provider that is down.
-    if (!final) {
-      failed.nextAttemptAt = this.retryAt(job.attempts);
-    } else {
-      delete failed.nextAttemptAt;
-    }
-    await store.writeJob(failed);
+    const failed = await this.writeJobIfCurrent(store, job.id, (latest) => {
+      const next: AgentJob = {
+        ...latest,
+        state: final ? "failed" : "pending",
+        error: message,
+      };
+      delete next.lease;
+      // A job that may still succeed waits a while first: three attempts taken
+      // back to back are one attempt against a provider that is down.
+      if (!final) {
+        next.nextAttemptAt = this.retryAt(job.attempts);
+      } else {
+        delete next.nextAttemptAt;
+      }
+      return next;
+    });
+    // A refused write is the job being somebody else's now, and the failure is
+    // still recorded: the trail and the group's chat are the report, and a
+    // report is not a write onto the document.
+    if (!failed)
+      this.deps.log(
+        `${rule.name}: the job document moved under the failing run, so its failure is not written onto it`,
+      );
     await recordAudit(
       store,
       auditEntry(
-        failed,
+        failed ?? { ...job, state: final ? "failed" : "pending", error: message },
         rule,
         opts.outcome ?? "failed",
         attempted,
@@ -1161,7 +1232,12 @@ export class Executor {
       version: decided.ruleVersion,
     };
     if (!approved) {
-      if (job) await store.writeJob(closeState(job, "done"));
+      // The rejection is recorded either way; the job is closed only when the
+      // write is still a write that run may make.
+      if (job)
+        await this.writeJobIfCurrent(store, job.id, (latest) =>
+          closeState(latest, "done"),
+        );
       await recordAudit(
         store,
         job
@@ -1215,7 +1291,23 @@ export class Executor {
         confidence: 1,
         draft: decided.draft ?? null,
       };
-      if (job) await store.writeJob({ ...job, state: "running", proposal: approvedPlan });
+      if (job) {
+        const marked = await this.writeJobIfCurrent(store, job.id, (latest) => ({
+          ...latest,
+          state: "running",
+          proposal: approvedPlan,
+        }));
+        // The approval stands and nothing is run: with the document in somebody
+        // else's hands, what a person approved is not this run's to run, and a
+        // guess at it would be the effect nobody approved. The spent approval
+        // is recorded by the pass the sweep makes.
+        if (!marked) {
+          this.deps.log(
+            `${auditRule.name}: the job document moved under the approval, so nothing is run`,
+          );
+          return;
+        }
+      }
       await recordAudit(
         store,
         job
@@ -1232,10 +1324,22 @@ export class Executor {
       await runActions(this.deps.ctx, accountId, actions, opts, {
         onApplied: async (action: AgentAction) => {
           landed.push(action.do);
-          if (job) await store.writeJob({ ...job, applied: [...landed] });
+          if (!job) return;
+          const recorded = await this.writeJobIfCurrent(store, job.id, (latest) => ({
+            ...latest,
+            applied: [...landed],
+          }));
+          if (!recorded)
+            throw new RefusedError(
+              "the job document moved while this approval was running, so what it " +
+                "did is not recorded: nothing more is run",
+            );
         },
       });
-      if (job) await store.writeJob(closeState({ ...job, applied: [...landed] }, "done"));
+      if (job)
+        await this.writeJobIfCurrent(store, job.id, (latest) =>
+          closeState({ ...latest, applied: [...landed] }, "done"),
+        );
       await recordAudit(
         store,
         job
@@ -1299,7 +1403,10 @@ export class Executor {
           throw err;
         }
         const job = (await store.readJob(decision.jobId))?.doc;
-        if (job) await store.writeJob(closeState(job, "done"));
+        if (job)
+          await this.writeJobIfCurrent(store, job.id, (latest) =>
+            closeState(latest, "done"),
+          );
         closed.push(decision.id);
         continue;
       }
@@ -1386,7 +1493,10 @@ export class Executor {
           actions,
           await this.actionOpts(accountId, actions, job),
         );
-      if (job) await store.writeJob(closeState(job, "done"));
+      if (job)
+        await this.writeJobIfCurrent(store, job.id, (latest) =>
+          closeState(latest, "done"),
+        );
       await recordAudit(
         store,
         job
@@ -1761,11 +1871,70 @@ export class Executor {
   /* Housekeeping                                                     */
   /* ---------------------------------------------------------------- */
 
-  /** Retry the jobs a failed run left pending. */
+  /**
+   * An approval that was consumed and no run accounts for.
+   *
+   * A decision is stamped as consumed — `state: approved`, `appliedAt` — in the
+   * write that takes it out of `pending`, before any effect runs, so that two
+   * answers arriving together cannot act on it twice. A process that dies
+   * between that stamp and the effects leaves the approval spent and silent:
+   * the job it names still waits on the person who answered, nothing walks it,
+   * and the trail says only that an approval was given. This is where that
+   * decision is found and recorded: the failure, the message marked for a
+   * person, and the group's chat naming the rule — the same three the failing
+   * run writes, because a spent approval belongs in the same place.
+   *
+   * What the decision asked for is never run here. The stamp says the effects
+   * were about to happen, not that they did, and an effect nobody can account
+   * for is worse than one that did not happen: the message may already have
+   * gone out, and a second send is the one thing an approval is arranged to
+   * prevent.
+   */
+  private async recoverSpentApprovals(
+    store: AgentStore,
+    rules: ReadonlyArray<AgentRule>,
+  ): Promise<number> {
+    let recovered = 0;
+    for (const { doc: decision } of await store.listDecisions()) {
+      if (decision.state !== "approved" && !decision.appliedAt) continue;
+      const job = (await store.readJob(decision.jobId))?.doc;
+      // A job that is gone has nothing left to close: the documents a finished
+      // run leaves are pruned together, decision and job alike.
+      if (!job) continue;
+      // A closed job is a run that happened, and a `running` one is a worker's:
+      // the sweep resumes that, and the outcome it writes is the one to read.
+      if (job.state === "done" || job.state === "failed") continue;
+      if (job.state === "running") continue;
+      const rule = rules.find((candidate) => candidate.id === decision.ruleId) ?? {
+        id: decision.ruleId,
+        name: "the rule is gone",
+        version: decision.ruleVersion,
+      };
+      const at =
+        decision.appliedAt ?? decision.decidedAt ?? "an instant it did not record";
+      await this.failLoudly(
+        store,
+        job,
+        rule,
+        `this run was approved by ${decision.decidedBy ?? "a person"} at ${at} and ` +
+          "no effect of it was ever recorded: nothing is run a second time on a guess",
+        { deadLetter: true },
+      );
+      recovered += 1;
+    }
+    return recovered;
+  }
+
+  /**
+   * Retry the jobs a failed run left pending, and record the approvals that
+   * were consumed with no run to account for them.
+   */
   async runPending(accountId: string): Promise<number> {
     const store = new AgentStore(this.deps.ctx, accountId);
     const rules = await this.rulesOrReport(store, accountId, "the pending sweep");
     if (!rules) return 0;
+    const spent = await this.recoverSpentApprovals(store, rules);
+    if (spent) this.deps.log(`${accountId}: ${spent} spent approval(s) recorded`);
     if (!rules.length) return 0;
     let ran = 0;
     for (const entry of await store.listJobs()) {
