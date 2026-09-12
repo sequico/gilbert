@@ -20,7 +20,11 @@ import {
 } from "@gilbert/agent/documents";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { type AgentActionCatalogEntry, readDraft } from "@/lib/agents";
+import {
+  type AgentActionCatalogEntry,
+  readDraft,
+  readingNotCountedNote,
+} from "@/lib/agents";
 import { t } from "@/lib/i18n";
 import {
   AGENT_REVIEW_LABELS,
@@ -150,23 +154,34 @@ export function RuleForm({
 }) {
   const set = (patch: Partial<AgentRuleDraft>) => onChange({ ...rule, ...patch });
   /*
-   * The author's reading (ADR 0010): the draft, its envelope, the group's
-   * instruction and its notebook go to the installation's model, which answers
-   * in words about the gaps. Nothing is saved: the answer is shown beside the
-   * field it is about and forgotten when the panel closes.
+   * The author's reading (ADR 0010): the draft and what it is about go to the
+   * installation's model, which reads them beside the group's instruction and
+   * its notebook and answers in words about the gaps. Nothing is saved: the
+   * answer is shown beside the field it is about and forgotten when the panel
+   * closes.
    */
   const [reading, setReading] = useState<string | null>(null);
   const [readingBusy, setReadingBusy] = useState(false);
+  /*
+   * Whether the answer on screen reached the month's authoring document, set
+   * from the answer and reset with each ask: a refusal has no count to be
+   * missing, so the note stays away from one.
+   */
+  const [readingCounted, setReadingCounted] = useState(true);
   const askReading = () => {
     if (!group || readingBusy || !rule.instruction.trim()) return;
     setReadingBusy(true);
     setReading(null);
+    setReadingCounted(true);
     void readDraft(
       group,
       rule.instruction,
       t('the automation "{name}"', { name: rule.name || t("unnamed") }),
     )
-      .then((answer) => setReading(answer.text))
+      .then((answer) => {
+        setReading(answer.text);
+        setReadingCounted(answer.counted);
+      })
       .catch((err) => setReading(err instanceof Error ? err.message : String(err)))
       .finally(() => setReadingBusy(false));
   };
@@ -456,6 +471,7 @@ export function RuleForm({
             {t("What the model said about this draft:")}
           </p>
           <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{reading}</p>
+          {!readingCounted && <p className="hint">{readingNotCountedNote()}</p>}
         </div>
       )}
 

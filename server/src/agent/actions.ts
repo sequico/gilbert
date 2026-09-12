@@ -37,6 +37,7 @@ import {
   documentKindOf,
   extractPages,
   mergePdfs,
+  pdfPageCount,
   readDocument,
   splitPdf,
 } from "./documentFamily.js";
@@ -72,6 +73,14 @@ export interface ActionOpts {
    * read in its context back the same way.
    */
   filePath?: string;
+  /**
+   * How many pages of a document this run reads, as the installation set it.
+   *
+   * The run's bound rather than one action's: `document.read` reads at most
+   * this many pages, and the same number is what a run's prompt states, so what
+   * the model is told and what the action reads cannot disagree (ADR 0010).
+   */
+  maxPages?: number;
   /** The instant the run works from, so a test can pin what a draft records. */
   now?: Date;
 }
@@ -655,7 +664,7 @@ async function runOne(
       const read = await readDocument(
         source.bytes,
         kindOfDocument(action, source),
-        AGENT_MAX_PAGES_DEFAULT,
+        opts.maxPages ?? AGENT_MAX_PAGES_DEFAULT,
       );
       return {
         action: action.do,
@@ -682,12 +691,16 @@ async function runOne(
     case "document.split": {
       const source = await documentSourceOf(ctx, accountId, action, opts);
       assertPdf(action, source);
-      const pages = await splitPdf(source.bytes);
-      if (pages.length > AGENT_SPLIT_PAGES_MAX)
+      // The ceiling is asked of the document before a page of it is copied: a
+      // split writes a file a page, so the count is read from the page tree
+      // rather than from the pages a split has already materialised.
+      const count = await pdfPageCount(source.bytes);
+      if (count > AGENT_SPLIT_PAGES_MAX)
         throw new DocumentError(
           "document_too_many_pages",
-          `${source.path} has ${pages.length} pages, and one split writes at most ${AGENT_SPLIT_PAGES_MAX}`,
+          `${source.path} has ${count} pages, and one split writes at most ${AGENT_SPLIT_PAGES_MAX}`,
         );
+      const pages = await splitPdf(source.bytes);
       const folder = textOf(action.with?.folder) || AGENT_ATTENTION_FOLDER;
       const stem = fileSafeName(source.name.replace(/\.pdf$/i, ""), "document");
       const written: string[] = [];

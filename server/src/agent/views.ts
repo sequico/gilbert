@@ -423,14 +423,21 @@ export interface GroupInstructionView {
 }
 
 /**
- * What an author's reading answered: prose, and nothing else.
+ * What an author's reading answered: prose, and whether the month recorded it.
  *
  * The answer is shown where it was asked for and stored nowhere — it compiles
  * nothing, produces no document, and is not a run — so this is the whole shape
  * of it (ADR 0010).
+ *
+ * `counted` is false when the words reached the reader and the month's
+ * authoring document did not take the entry: the tokens are spent either way,
+ * so the surface shows the answer it paid for and says beside it that the
+ * count is missing.
  */
 export interface AgentReadingView {
   text: string;
+  /** Whether the month's authoring document took this call's entry. */
+  counted: boolean;
 }
 
 /* ------------------------------------------------------------------ */

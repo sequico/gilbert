@@ -32,6 +32,7 @@ import type {
   MemberAgentView,
 } from "@gilbert/agent/views";
 import { apiFetch } from "@/jmap/client";
+import { t } from "@/lib/i18n";
 
 /*
  * Read here, declared there: every shape a route answers with, so a consumer of
@@ -170,9 +171,9 @@ export async function saveGroupInstruction(
 }
 
 /**
- * The author's reading (ADR 0010): the draft, its envelope, the group's
- * instruction and its notebook go to the installation's model, which answers in
- * words about the gaps.
+ * The author's reading (ADR 0010): the draft and what it is about go to the
+ * installation's model, which reads them beside the group's instruction and its
+ * notebook and answers in words about the gaps.
  *
  * It is not a run — nothing is compiled, nothing is stored, and the answer is
  * prose shown as prose. Its refusals travel as codes like any other, so the
@@ -187,6 +188,18 @@ export async function readDraft(
     `/api/admin/groups/${encodeURIComponent(name)}/agent/reading`,
     { method: "POST", body: JSON.stringify({ draft, about }) },
   );
+}
+
+/**
+ * The line beside a reading the month's authoring document did not take.
+ *
+ * An answer's tokens are spent whether or not the count of them lands, so a
+ * failed count costs the installation's tally and never the words: the surface
+ * shows what came back and says here that the month did not record it. Both
+ * surfaces that show a reading say it, so the sentence is written once.
+ */
+export function readingNotCountedNote(): string {
+  return t("This reading was not counted toward this month's authoring.");
 }
 
 /** `GET /api/admin/agent/approvals` — every pending decision, by group. */

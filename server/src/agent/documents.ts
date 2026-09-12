@@ -1426,7 +1426,40 @@ export const AGENT_NOTES_MAX = 2000;
 
 /** Whether an optional notes field is one this build accepts. */
 export function isAgentNotes(x: unknown): x is string | undefined {
-  return x === undefined || (typeof x === "string" && x.length <= AGENT_NOTES_MAX);
+  return x === undefined || (typeof x === "string" && notesProblem(x) === null);
+}
+
+/**
+ * Why an author's notes cannot be written, or null when they fit.
+ *
+ * One door for the two documents an author writes notes beside — the group's
+ * standing instruction and each automation — because the bound is one number
+ * (`AGENT_NOTES_MAX`) and the refusal is one code: a caller hands a person back
+ * what this answers with, so a note past the bound is refused in the same words
+ * wherever it was typed rather than as a length complaint about a document.
+ */
+export function notesProblem(
+  notes: string | undefined,
+): { code: "notes_too_long"; max: number; length: number } | null {
+  const length = (notes ?? "").length;
+  if (length <= AGENT_NOTES_MAX) return null;
+  return { code: "notes_too_long", max: AGENT_NOTES_MAX, length };
+}
+
+/**
+ * The same door, read for one automation.
+ *
+ * A rule arrives from a writer as an untyped document, and a note past the bound
+ * is what makes it one this build does not accept (`isAgentRule`), so the field
+ * is read off the document itself: a save can answer the person with the code
+ * and the number rather than with a schema complaint about a length.
+ */
+export function ruleNotesProblem(
+  rule: unknown,
+): { code: "notes_too_long"; max: number; length: number } | null {
+  if (!rule || typeof rule !== "object" || Array.isArray(rule)) return null;
+  const notes = (rule as { notes?: unknown }).notes;
+  return typeof notes === "string" ? notesProblem(notes) : null;
 }
 
 export interface AgentInstructionDoc {

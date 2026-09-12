@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createServer, type IncomingMessage } from "node:http";
 import { after, before, test } from "node:test";
+import { PDFDocument } from "pdf-lib";
 import type { AgentJob, AgentRule } from "./documents.js";
 
 /**
@@ -25,6 +26,10 @@ process.env.MOCK_PORT = String(PORT);
 // The stub model this suite calls lives on loopback: the deployment says so,
 // which is the operator's statement and never a document's.
 process.env.GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER = "1";
+// This installation's model reads no image, stated before the configuration is
+// read: a deployment without vision hands no page over, and what its runs are
+// told is asserted below.
+process.env.GILBERT_AGENT_VISION = "0";
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
@@ -54,6 +59,15 @@ const MODEL_PORT = 18854;
 const answers = new Map<string, unknown>();
 /** Every automation a run has asked the model about, in order. */
 const asked: string[] = [];
+
+/** One call the stub received: the prompt, and the blocks the data arrived in. */
+interface ModelCall {
+  system: string;
+  messages: Array<{ role?: string; content?: unknown }>;
+}
+
+/** Every call the stub received, in order, for the reader of the prompt. */
+const calls: ModelCall[] = [];
 const DEFAULT_ANSWER = {
   summary: "Labelled it.",
   confidence: 1,
@@ -68,18 +82,20 @@ const modelStub = createServer(async (req: IncomingMessage, res) => {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(chunk as Buffer);
   let system = "";
+  let messages: ModelCall["messages"] = [];
   try {
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
       messages?: Array<{ role?: string; content?: unknown }>;
     };
-    system = String(
-      body.messages?.find((message) => message.role === "system")?.content ?? "",
-    );
+    messages = body.messages ?? [];
+    system = String(messages.find((message) => message.role === "system")?.content ?? "");
   } catch {
     system = "";
+    messages = [];
   }
   const named = /automation "([^"]+)"/.exec(system)?.[1] ?? "";
   asked.push(named);
+  calls.push({ system, messages });
   const answer = answers.get(named) ?? DEFAULT_ANSWER;
   res.writeHead(200, { "content-type": "application/json" });
   res.end(
@@ -175,13 +191,15 @@ async function jobsOf(ruleId: string): Promise<AgentJob[]> {
     .filter((job) => job.ruleId === ruleId);
 }
 
-before(async () => {
-  await new Promise<void>((resolve) =>
-    modelStub.listen(MODEL_PORT, "127.0.0.1", resolve),
-  );
-  // The installation's model, in the agent's own account — the only place the
-  // executor reads it from. It is written through the store rather than the
-  // admin route, which refuses a plaintext address on purpose.
+/**
+ * The installation's configuration, written the way its own surface writes it.
+ *
+ * The agent's own account is where the executor reads it from, and a bound
+ * written here is written as a document rather than through the admin route:
+ * the route holds a value to the ceiling this build accepts, and the point of
+ * `maxPages: 100` below is a document somebody wrote by hand.
+ */
+async function installConfig(over: { maxPages?: number } = {}): Promise<void> {
   await new AgentStore(ctx, filesAccountId(ctx)).writeConfig({
     v: 1,
     address: AGENT,
@@ -195,7 +213,40 @@ before(async () => {
     // deployment's default: what the account says is what a run is held to
     // (ADR 0010), and a build that read only the environment would run to five.
     maxChainHops: 2,
+    ...over,
   });
+}
+
+/** The last call a run of this automation made, as the stub received it. */
+function lastCallFor(name: string): ModelCall {
+  const call = [...calls]
+    .reverse()
+    .find((entry) => entry.system.includes(`automation "${name}"`));
+  assert.ok(call, `the run of "${name}" asked the model`);
+  return call;
+}
+
+/** The parts of the user message: the text, and any image the data carried. */
+function userParts(call: ModelCall): Array<{ type?: string; text?: string }> {
+  const user = call.messages.find((message) => message.role === "user")?.content;
+  if (typeof user === "string") return [{ type: "text", text: user }];
+  return Array.isArray(user) ? (user as Array<{ type?: string; text?: string }>) : [];
+}
+
+/** A PDF of `pages` pages, none of which carries a text layer of its own. */
+async function blankPdf(pages: number): Promise<Uint8Array> {
+  const document = await PDFDocument.create();
+  for (let page = 0; page < pages; page++) document.addPage([300, 200]);
+  return document.save();
+}
+
+before(async () => {
+  await new Promise<void>((resolve) =>
+    modelStub.listen(MODEL_PORT, "127.0.0.1", resolve),
+  );
+  // The installation's model, in the agent's own account — the only place the
+  // executor reads it from.
+  await installConfig();
   await writeAppFileAt(ctx, GROUP, GROUP_LABELS_FILE, {
     labels: [
       { keyword: "G-processed", name: "Gilbert: processed", color: "#15803d" },
@@ -1600,4 +1651,121 @@ test("a job whose write no pass has read past is not pruned", async () => {
     null,
     "and dropped once a pass has read past it",
   );
+});
+
+/**
+ * What an installation without vision hands over, and what its runs are told.
+ *
+ * `GILBERT_AGENT_VISION=0` is the operator's statement about the model this
+ * installation runs on, and the request has to follow it: a run told that a page
+ * cannot be read here must not be carrying that page either.
+ */
+test("a run of an installation without vision carries no page, and is told so", async () => {
+  const reader = rule({
+    id: "read-the-scan",
+    name: "Read the scan",
+    trigger: { on: "filenode" },
+    capabilities: ["document.read", "noop"],
+  });
+  answerFor("Read the scan", {
+    summary: "Read it.",
+    confidence: 1,
+    actions: [{ do: "noop" }],
+  });
+  // No automation is armed while the pass catches up, and the state it settles
+  // on is the one the file written below is measured against.
+  await store.writeRules([]);
+  await executor.reconcile(GROUP, "FileNode", { ...(await claimFor()), states: {} });
+  await store.writeRules([reader]);
+  // One page with no text layer of its own: the page a model with eyes would be
+  // handed as an image.
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    GROUP,
+    "Scans",
+    "letter.pdf",
+    await blankPdf(1),
+    "application/pdf",
+  );
+  await executor.reconcile(GROUP, "FileNode", await claimFor());
+
+  const call = lastCallFor("Read the scan");
+  const parts = userParts(call);
+  assert.ok(
+    parts.every((part) => part.type !== "image_url"),
+    "no page travels to a model the installation says cannot read one",
+  );
+  assert.match(
+    parts.map((part) => part.text ?? "").join(""),
+    /configured without vision, so none of them can be read here/,
+    "and the run is told it in words, rather than that a page was handed over",
+  );
+});
+
+/**
+ * The page bound a run is actually told it has.
+ *
+ * The number is stated in the prompt the run sends, not only in the function
+ * that writes the prompt: a document of the installation's own bound is read to
+ * that bound, the pages past it are said out loud rather than left as an
+ * omission, and a document somebody wrote by hand past this build's ceiling is
+ * held to the ceiling (ADR 0010).
+ */
+test("a run's prompt states the installation's page bound, clamped to this build's ceiling", async () => {
+  const reader = rule({
+    id: "page-budget",
+    name: "Page budget",
+    trigger: { on: "filenode" },
+    capabilities: ["document.read", "noop"],
+  });
+  answerFor("Page budget", {
+    summary: "Read it.",
+    confidence: 1,
+    actions: [{ do: "noop" }],
+  });
+  await store.writeRules([]);
+  await executor.reconcile(GROUP, "FileNode", { ...(await claimFor()), states: {} });
+  await store.writeRules([reader]);
+
+  try {
+    await installConfig({ maxPages: 3 });
+    await writeBytesIntoVisibleFolder(
+      ctx,
+      GROUP,
+      "Budget",
+      "five-pages.pdf",
+      await blankPdf(5),
+      "application/pdf",
+    );
+    await executor.reconcile(GROUP, "FileNode", await claimFor());
+    const set = lastCallFor("Page budget");
+    assert.match(set.system, /At most 3 pages/, "the bound the installation set");
+    assert.match(
+      userParts(set)
+        .map((part) => part.text ?? "")
+        .join(""),
+      /the last 2 pages of it were not read at all/,
+      "and the pages past the bound are said rather than left as an omission",
+    );
+
+    // A document the installation's own surface would never have written: the
+    // ceiling is this build's, and a run is held to it whatever the file says.
+    await installConfig({ maxPages: 100 });
+    await writeBytesIntoVisibleFolder(
+      ctx,
+      GROUP,
+      "Budget",
+      "clamped.pdf",
+      await blankPdf(2),
+      "application/pdf",
+    );
+    await executor.reconcile(GROUP, "FileNode", await claimFor());
+    assert.match(
+      lastCallFor("Page budget").system,
+      /At most 50 pages/,
+      "a bound past the ceiling is held to the ceiling",
+    );
+  } finally {
+    await installConfig();
+  }
 });

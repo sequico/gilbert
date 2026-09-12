@@ -579,7 +579,6 @@ export class Executor {
       return Math.min(
         doc?.maxChainHops ?? config.agent.maxChainHops,
         AGENT_CHAIN_HOPS_CEILING,
-        AGENT_PAGES_CEILING,
       );
     } catch (err) {
       // A configuration this pass cannot read falls back to the deployment's
@@ -590,7 +589,32 @@ export class Executor {
         "[gilbert] could not read the installation's bound on a chain:",
         (err as Error).message,
       );
-      return config.agent.maxChainHops;
+      return Math.min(config.agent.maxChainHops, AGENT_CHAIN_HOPS_CEILING);
+    }
+  }
+
+  /**
+   * The installation's own bound on the pages one run reads, or the
+   * deployment's default.
+   *
+   * One read, from the account that holds the installation's configuration, and
+   * the environment is what an installation that has said nothing runs on. The
+   * number is stated in the prompt and spent by the page work, so both read it
+   * here rather than one of them holding a bound of its own (ADR 0010).
+   */
+  private async maxPages(): Promise<number> {
+    try {
+      const doc = (await this.agentStore.readConfig())?.doc;
+      return Math.min(doc?.maxPages ?? config.agent.maxPages, AGENT_PAGES_CEILING);
+    } catch (err) {
+      // A configuration this pass cannot read falls back to the deployment's
+      // own number rather than failing the run here: the same document is read
+      // again for the provider, which is where an unreadable one is refused.
+      console.warn(
+        "[gilbert] could not read the installation's bound on the pages one run reads:",
+        (err as Error).message,
+      );
+      return Math.min(config.agent.maxPages, AGENT_PAGES_CEILING);
     }
   }
 
@@ -816,11 +840,9 @@ export class Executor {
     if (problem) throw new RefusedError(`the rule cannot run: ${problem}`);
     const configDoc = (await this.agentStore.readConfig())?.doc ?? null;
     // The page budget the installation set, or the one the deployment declares:
-    // the same shape as every other bound (ADR 0010).
-    const pages = Math.min(
-      configDoc?.maxPages ?? config.agent.maxPages,
-      AGENT_PAGES_CEILING,
-    );
+    // the same shape as every other bound, and one reader for the prompt and
+    // for the page work (ADR 0010).
+    const pages = await this.maxPages();
     const context = await this.contextFor(accountId, job, rule, pages);
     // The group's standing instruction rides every model call this group's
     // agent makes (ADR 0003 resolution 17): read once per run, first in the
@@ -1120,7 +1142,7 @@ export class Executor {
     accountId: string,
     job: AgentJob,
     rule: AgentRule,
-    /** How many pages a document may hand the model, as the installation set it. */
+    /** How many pages of a document this run reads, as the installation set it. */
     pages: number,
   ): Promise<ModelContext> {
     const trigger = job.trigger;
@@ -1191,7 +1213,7 @@ export class Executor {
    * A rule that holds `document.read` reads the document: its own text layer
    * comes back as text, and the pages that carry no text layer at all are
    * rasterised in the process and handed to the call as images — the model
-   * reads them, because it has eyes. How many pages one run may hand over is
+   * reads them, because it has eyes. How many pages one document is read to is
    * the installation's own bound, or the deployment's `GILBERT_AGENT_MAX_PAGES`
    * when it has set none, and the bound is stated in the prompt rather than
    * hidden. A deployment whose model cannot read an image says so
@@ -1208,7 +1230,7 @@ export class Executor {
     path: string,
     rule: AgentRule,
     context: ModelContext,
-    /** How many pages this run may hand the model, as the installation set it. */
+    /** How many pages of a document this run reads, as the installation set it. */
     pages: number,
   ): Promise<void> {
     if (!rule.capabilities.includes("document.read")) return;
@@ -1236,7 +1258,9 @@ export class Executor {
     // not read, not a document that says nothing.
     let content: DocumentContent;
     try {
-      content = await documentContent(found.bytes, kind, pages);
+      content = await documentContent(found.bytes, kind, pages, {
+        vision: config.agent.vision,
+      });
     } catch (err) {
       // A library refusing these bytes refuses them again on a retry, so the
       // run stops here, once, with the code: an action this deployment cannot
@@ -1245,7 +1269,15 @@ export class Executor {
       throw err;
     }
     const read = content.read;
-    if (read.text) context.text += `\n\nIts own text:\n\n${read.text}`;
+    // The pages this run never looked at are said beside the ones it read
+    // (ADR 0010): a reading bounded to the first pages of a document is not a
+    // reading of the whole of it, and a document whose pages do carry text is
+    // bounded the same way as one whose pages do not.
+    const scope =
+      content.unreadPages && !read.pixelPages.length
+        ? ` (the first ${read.looked} of its ${read.pages} pages)`
+        : "";
+    if (read.text) context.text += `\n\nIts own text${scope}:\n\n${read.text}`;
     if (!read.pixelPages.length) {
       // A document with no text and no page to render is one this run could not
       // read — an empty `.docx`, or a PDF the text layer of which is empty and
@@ -1266,10 +1298,15 @@ export class Executor {
           ? "none of them fits this call"
           : "this installation's model is configured without vision, so none of them can be read here") +
       (content.omitted
-        ? `, and ${content.omitted} more are past the ${pages} pages one run may hand over`
+        ? config.agent.vision
+          ? `, and ${content.omitted} more are past the ${pages} pages one run may hand over`
+          : `, and ${content.omitted} more are past the ${pages} pages this run reads`
+        : "") +
+      (content.unreadPages
+        ? `, and the last ${content.unreadPages} pages of it were not read at all`
         : "") +
       ".";
-    context.images = content.images;
+    context.images = config.agent.vision ? content.images : [];
   }
 
   /**
@@ -1340,6 +1377,8 @@ export class Executor {
       const path = await this.pathOfNode(accountId, job.trigger.nodeId);
       if (path) opts.filePath = path;
     }
+    if (actions.some((action) => action.do.startsWith("document.")))
+      opts.maxPages = await this.maxPages();
     return opts;
   }
 

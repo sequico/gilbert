@@ -143,7 +143,9 @@ function ProviderEditor({
       key: "maxOutputTokens",
       id: "agent-max-output-tokens",
       label: t("Ceiling on one answer (tokens)"),
-      hint: t("What a single model answer may cost. 1 to 8192."),
+      hint: t("What a single model answer may cost. 1 to {max}.", {
+        max: MODEL_MAX_OUTPUT_CEILING,
+      }),
     },
     {
       key: "maxChainHops",

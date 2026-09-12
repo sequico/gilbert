@@ -13,12 +13,15 @@ import { after, before, test } from "node:test";
  * edits are shut to this session, and reading the group's agent through one of
  * them would mean a member saw nothing.
  *
- * What this file does not do is write the group's documents. The member's route
- * is a read and has no write path, and the pen (the admin surface) is refused
- * for this session too. That a document's content reaches a member is exercised
- * in `agentAdmin.test.ts`, where the same `memberAgentView` runs on the same
- * membership rule with a session that is an administrator as well as a member —
- * the member route never asks which, so the two read the same thing.
+ * What this file does not do is write the group's documents through the member's
+ * route: it is a read, it has no write path, and the pen (the admin surface) is
+ * refused for this session too. The one write here stages a document as the
+ * installation's agent, the principal that holds a group's files, which is the
+ * way the admin surface writes one in `agentAdmin.test.ts`. That a document's
+ * content reaches a member is exercised there too, where the same
+ * `memberAgentView` runs on the same membership rule with a session that is an
+ * administrator as well as a member — the member route never asks which, so the
+ * two read the same thing.
  *
  * Mock port: must not collide with any other test file — the runner executes
  * files as parallel child processes, each binding its own mock.
@@ -38,10 +41,14 @@ delete process.env.GILBERT_AGENT_PASSWORD;
 const DEMO = "demo@example.com";
 const TEAM = "team@example.org";
 const LEGAL = "legal@example.org";
+const BASE = `http://127.0.0.1:${PORT}`;
 
 const mock = await import("./mock/index.js");
 const { AGENT_INSTRUCTION_MAX, AGENT_NOTES_MAX } = await import("./agent/documents.js");
+const { groupAccounts } = await import("./agent/actions.js");
+const { AgentStore } = await import("./agent/store.js");
 const { createApp } = await import("./app.js");
+const { fetchUpstreamSession } = await import("./upstream.js");
 
 const app = createApp();
 let cookie = "";
@@ -159,4 +166,57 @@ test("an account shared with a member is not a group, and stays shut", async () 
   const body = res.body as { error: string; need?: string };
   assert.equal(body.error, "group_not_accessible");
   assert.equal(body.need, "agent documents", "and it names the section that asked");
+});
+
+/**
+ * What a member reads of the group's standing instruction, and what stays with
+ * whoever wrote it.
+ *
+ * The document carries the prose the agent is given and, beside it, the author's
+ * remarks — why it is written the way it is. The remarks are for the next editor
+ * and reach no model (the prompt is pinned in `agent/llm.test.ts`), and the same
+ * is true of this door: a member reads what the agent is told and not the
+ * commentary around it, which is the one thing here a stray spread could leak.
+ */
+test("the instruction's remarks do not reach a member", async () => {
+  const remarks = "Italian is what the group speaks; the citation is for the auditor.";
+  const text = "Answer in Italian, and always cite the invoice number.";
+  // Written as the installation's agent — the principal that holds a group's
+  // files — because the pen (the admin surface) is shut to this session and the
+  // member's route has no write path at all. The read below is the member's own.
+  const agentAuth = `Basic ${Buffer.from(
+    `${mock.AGENT_ADDRESS}:${mock.AGENT_PASS}`,
+  ).toString("base64")}`;
+  const agentCtx = {
+    authorization: agentAuth,
+    session: await fetchUpstreamSession(agentAuth, BASE),
+    username: mock.AGENT_ADDRESS,
+  };
+  const team = (await groupAccounts(agentCtx)).get(TEAM);
+  assert.ok(team, "the agent's session holds the group's account");
+  const store = new AgentStore(agentCtx, team);
+  await store.writeInstruction(text, DEMO, {}, remarks);
+  assert.equal(
+    (await store.readInstruction())?.doc.notes,
+    remarks,
+    "the document the group holds carries the author's remarks",
+  );
+
+  const member = await call(`/api/agent/group/${TEAM}`);
+  assert.equal(member.status, 200);
+  const view = member.body as {
+    granted: boolean;
+    instruction: { text: string; notes: string };
+  };
+  assert.equal(
+    view.instruction.text,
+    text,
+    "the member reads the instruction the agent is given",
+  );
+  assert.equal(view.instruction.notes, "", "and not the remarks written beside it");
+  assert.ok(
+    !JSON.stringify(member.body).includes(remarks),
+    "nor are they carried under any other name",
+  );
+  assert.equal(view.granted, true, "and the document is the evidence of one");
 });

@@ -57,6 +57,8 @@ import {
   monthsSince,
   newJob,
   notebookFor,
+  notesProblem,
+  ruleNotesProblem,
   ruleProblems,
 } from "./agent/documents.js";
 import { AUDIT_RETENTION_MS } from "./agent/executor.js";
@@ -835,6 +837,12 @@ async function newestInboxMessage(
  * fixing one per round trip is how a form becomes a chore.
  */
 function checkedRule(rule: unknown, index: number): AgentRule {
+  // The notes beside a rule's prose are bounded by the same number as the
+  // instruction's, and refused with the same code: a writer who typed two
+  // thousand characters of remarks is told which field and what its bound is,
+  // not handed a length complaint about the document (ADR 0010).
+  const notes = ruleNotesProblem(rule);
+  if (notes) throw new AgentAdminError(notes, 400);
   const problems = ruleProblems(rule);
   if (problems.length) {
     const name =
@@ -1153,11 +1161,8 @@ export async function saveGroupInstruction(
 ): Promise<GroupInstructionView> {
   const trimmed = text.trim();
   const remarks = notes.trim();
-  if (remarks.length > AGENT_NOTES_MAX)
-    throw new AgentAdminError(
-      { code: "notes_too_long", max: AGENT_NOTES_MAX, length: remarks.length },
-      400,
-    );
+  const tooLong = notesProblem(remarks);
+  if (tooLong) throw new AgentAdminError(tooLong, 400);
   if (trimmed.length > AGENT_INSTRUCTION_MAX)
     throw new AgentAdminError(
       {
@@ -1312,16 +1317,30 @@ export async function readDraft(
       { code: "reading_failed", detail: "the provider answered with nothing" },
       502,
     );
-  await store.appendAuthoring({
-    at: new Date().toISOString(),
-    about: input.about,
-    group: (
-      input.access.ctx.session.accounts?.[input.access.accountId] as { name?: string }
-    )?.name,
-    by: admin.username,
-    usage: answer.usage,
-  });
-  return { text };
+  // The month's tally is written after the words are paid for, so a count that
+  // will not land — a compare-and-set that kept losing, a document that does not
+  // read as one — costs the record and not the answer: the reading is returned
+  // either way, and the line an operator needs is left on the server rather than
+  // put to the person who asked.
+  let counted = true;
+  try {
+    await store.appendAuthoring({
+      at: new Date().toISOString(),
+      about: input.about,
+      group: (
+        input.access.ctx.session.accounts?.[input.access.accountId] as { name?: string }
+      )?.name,
+      by: admin.username,
+      usage: answer.usage,
+    });
+  } catch (err) {
+    counted = false;
+    console.warn(
+      "[gilbert] could not count a reading in the month's authoring document:",
+      (err as Error).message,
+    );
+  }
+  return { text, counted };
 }
 
 /* ------------------------------------------------------------------ */

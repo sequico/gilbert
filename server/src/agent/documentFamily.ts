@@ -88,6 +88,12 @@ export interface DocumentRead {
    * pages a model reads from an image.
    */
   pixelPages: number[];
+  /**
+   * How many of the document's pages this reading looked at, counted from the
+   * first: a PDF's text layer is read page by page up to the bound, and a
+   * `.docx` is one body of text read whole.
+   */
+  looked: number;
 }
 
 /** One page, rendered in the process, as the model is handed it. */
@@ -104,6 +110,17 @@ export interface DocumentContent {
   images: PageImage[];
   /** How many of those pages the bound left out. */
   omitted: number;
+  /**
+   * The pages of the document past the ones this reading looked at: nothing of
+   * them was read here at all.
+   *
+   * A separate fact from `omitted`, which counts the pages with no text layer
+   * the bound left out of the reading. A document longer than the bound has
+   * pages whose own text layer was never opened, and a run handed the first
+   * pages of such a document without being told so would take them for the
+   * whole of it (ADR 0010).
+   */
+  unreadPages: number;
 }
 
 /**
@@ -142,9 +159,9 @@ export async function readDocument(
   maxPages: number,
 ): Promise<DocumentRead> {
   if (kind === "docx") {
-    return { kind, pages: 1, text: await docxText(bytes), pixelPages: [] };
+    return { kind, pages: 1, text: await docxText(bytes), pixelPages: [], looked: 1 };
   }
-  const { pages, texts } = await pdfPageTexts(bytes, maxPages);
+  const { pages, texts, last } = await pdfPageTexts(bytes, maxPages);
   const pixelPages: number[] = [];
   texts.forEach((text, index) => {
     if (!text.trim()) pixelPages.push(index + 1);
@@ -157,6 +174,7 @@ export async function readDocument(
       .filter(Boolean)
       .join("\n\n"),
     pixelPages,
+    looked: last,
   };
 }
 
@@ -168,22 +186,30 @@ export async function readDocument(
  * is reported rather than dropped, so a run is never told a half of a document
  * as though it were the whole of it (ADR 0010: how many pages one run may hand
  * over is bounded rather than left to the document's size).
+ *
+ * `opts.vision` is what the installation's model can read: a deployment without
+ * vision is handed no page at all, so no page is rendered for it rather than
+ * rendered and then dropped (ADR 0010).
  */
 export async function documentContent(
   bytes: Uint8Array,
   kind: DocumentKind,
   maxPages: number,
+  opts: { vision?: boolean } = {},
 ): Promise<DocumentContent> {
+  const vision = opts.vision !== false;
   const bound = Number.isFinite(maxPages) ? Math.max(0, Math.floor(maxPages)) : 0;
   const read = await readDocument(bytes, kind, bound);
+  const unreadPages = Math.max(0, read.pages - read.looked);
   if (read.kind !== "pdf" || !read.pixelPages.length) {
-    return { read, images: [], omitted: 0 };
+    return { read, images: [], omitted: 0, unreadPages };
   }
   const wanted = read.pixelPages.slice(0, bound);
   return {
     read,
-    images: await renderPages(bytes, wanted),
+    images: vision ? await renderPages(bytes, wanted) : [],
     omitted: read.pixelPages.length - wanted.length,
+    unreadPages,
   };
 }
 
@@ -192,7 +218,7 @@ async function pdfPageTexts(
   bytes: Uint8Array,
   /** How many pages to read: a bound the caller sets, never the file's size. */
   maxPages: number,
-): Promise<{ pages: number; texts: string[] }> {
+): Promise<{ pages: number; texts: string[]; last: number }> {
   // `pdfjs` takes ownership of the bytes it is handed, and the same file is
   // read again to render a page, so it is given a copy of its own.
   const task = pdfjs.getDocument({
@@ -216,7 +242,7 @@ async function pdfPageTexts(
       // gets the page rather than the fragment (ADR 0010).
       texts.push(text.trim().length < MIN_TEXT_LAYER_CHARS ? "" : text);
     }
-    return { pages: document.numPages, texts };
+    return { pages: document.numPages, texts, last };
   } catch (err) {
     throw unreadable("this PDF", err);
   } finally {
@@ -439,6 +465,17 @@ async function loadPdf(bytes: Uint8Array): Promise<PDFDocument> {
   } catch (err) {
     throw unreadable("this PDF", err);
   }
+}
+
+/**
+ * How many pages a PDF carries, read from its own page tree.
+ *
+ * Materialising the pages is the expensive half of the page work, so a caller
+ * with a ceiling on how many pages it will write asks this first and refuses
+ * the document without copying a page of it.
+ */
+export async function pdfPageCount(bytes: Uint8Array): Promise<number> {
+  return (await loadPdf(bytes)).getPageCount();
 }
 
 /** Every page of a PDF, as a PDF of its own, in page order. */

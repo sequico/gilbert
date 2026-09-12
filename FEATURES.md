@@ -208,8 +208,9 @@ build's own default. A file larger than the byte ceiling a run reads is not
 read, one split writes at most a hundred pages, and a page too large to hold is
 rendered smaller rather than refused — all said in the run's own notes rather
 than discovered as an outage. A deployment whose model cannot read an image says
-so (`GILBERT_AGENT_VISION=0`) and its runs are told that the page could not be
-read instead of being told one was handed over.
+so (`GILBERT_AGENT_VISION=0`), no page is rendered for it at all, and its runs
+are told that the page could not be read instead of being told one was handed
+over.
 - **A group has a memory.** Beside the documents a group already keeps, its
 agent carries a **notebook**: the facts about the group that no automation
 should have to repeat — how its mail is filed, what its clients are called,
@@ -225,7 +226,7 @@ each automation's instruction the surface carries the author's **notes** — wha
 the prose is for, what the automation reacts to, what it may do — kept in the
 same document so they survive a container, and read by no model: a run's prompt
 is the instruction and nothing beside it. Beside the same field, **Ask the model
-to read it** sends the draft, the envelope it belongs to, the group's instruction
+to read it** sends the draft and what it is about, the group's instruction
 and its notebook to the installation's model, which answers in words about the
 gaps. It is not a run: nothing is compiled, nothing is stored, there is no job
 and no claim — a call with a timeout instead of a lease, thinking off — and its
@@ -233,7 +234,9 @@ tokens are counted in the **Master's account** as authoring rather than in a
 group's ledger. Its refusals travel as codes like every other refusal, and the
 answer is model prose shown as prose. What it may spend is the installation's
 own month (`GILBERT_AGENT_AUTHORING_MAX_PER_MONTH`), counted from the authoring
-document and refused before the call rather than after it.
+document and refused before the call rather than after it; two readings asked
+for at the same moment can both pass it, and a reading the month could not
+record says so rather than being lost.
 - **Documents, read by the model that has eyes.** A run can act on a PDF: split
 it into pages, merge them, extract one, and *read* — a PDF's own text layer, or a
 `.docx`. A page that carries no text layer is **rasterised**: the executor
@@ -243,7 +246,9 @@ in the tail, so the prompt's stable head is unaffected and an image is never a
 cache hit. A vision request carries images and not documents, which is why the
 page is rendered rather than handed over; how many pages one run may hand over
 is bounded (`GILBERT_AGENT_MAX_PAGES`, eight by default) rather than left to the
-file's size. There is deliberately no OCR engine — a page that is only pixels is
+file's size, and a document longer than the bound is read as the first pages of
+it — which the run is told, so a part of a document is never presented as the
+whole of it. There is deliberately no OCR engine — a page that is only pixels is
 the model's to read — and no `.docx` writer. Everything happens in memory,
 because the deployment has no writable filesystem.
 - **What the work costs, in counts.** Every run records what the call spent —

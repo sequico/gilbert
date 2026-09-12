@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { PDFDocument } from "pdf-lib";
 
 /**
  * The capability runner against the mock (ADR 0003 resolution 2).
@@ -17,16 +18,17 @@ process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { readAppFileAt, readVisibleFileAt, writeAppFileAt } = await import(
-  "../appFolder.js"
-);
+const { readAppFileAt, readVisibleFileAt, writeAppFileAt, writeBytesIntoVisibleFolder } =
+  await import("../appFolder.js");
 const { JmapClient } = await import("../jmap.js");
 const { fetchEmailRecord, runActions, undefinedAgentLabels } = await import(
   "./actions.js"
 );
 const { GROUP_LABELS_FILE } = await import("../shared/labels.js");
 const { readChat } = await import("./chat.js");
-const { AGENT_ATTENTION_FOLDER } = await import("./documents.js");
+const { AGENT_ATTENTION_FOLDER, AGENT_SPLIT_PAGES_MAX } = await import(
+  "./documents.js"
+);
 
 const BASE = `http://127.0.0.1:${PORT}`;
 const GROUP = "a3";
@@ -40,6 +42,13 @@ const client = new JmapClient({ authorization: AUTH, session });
 let draftsId = "";
 let messageId = "";
 let attachedId = "";
+
+/** A PDF of `pages` pages, none of which carries a text layer of its own. */
+async function blankPdf(pages: number): Promise<Uint8Array> {
+  const document = await PDFDocument.create();
+  for (let page = 0; page < pages; page++) document.addPage([300, 200]);
+  return document.save();
+}
 
 async function createMessage(input: {
   subject: string;
@@ -223,7 +232,6 @@ test("attachments are written into the folder the rule names, with their own byt
 test("a name the group already filed is kept: the run writes beside it", async () => {
   // Somebody's file is not the run's to replace. The second save of the same
   // attachment name gets a numbered one instead, and the first is untouched.
-  const { writeBytesIntoVisibleFolder } = await import("../appFolder.js");
   await writeBytesIntoVisibleFolder(
     ctx,
     GROUP,
@@ -374,6 +382,98 @@ test("chat.post without the agent's address is refused", async () => {
 test("noop runs and returns nothing", async () => {
   const results = await runActions(ctx, GROUP, [{ do: "noop" }]);
   assert.deepEqual(results, [{ action: "noop", ok: true }]);
+});
+
+/**
+ * `document.read` reads the pages the run is bounded to.
+ *
+ * The bound is the run's own — the number a run's prompt states — so an action
+ * that read the deployment's default instead would read a document further than
+ * the run was told it would (ADR 0010).
+ */
+test("document.read reads the pages the run is bounded to", async () => {
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    GROUP,
+    "Reads",
+    "four.pdf",
+    await blankPdf(4),
+    "application/pdf",
+  );
+  const [bounded] = await runActions(
+    ctx,
+    GROUP,
+    [{ do: "document.read", with: { file: "Reads/four.pdf" } }],
+    { maxPages: 2 },
+  );
+  assert.equal(bounded?.result?.pages, 4, "the document's own length is reported");
+  assert.deepEqual(bounded?.result?.pixelPages, [1, 2], "and the pages the run may read");
+
+  const [whole] = await runActions(ctx, GROUP, [
+    { do: "document.read", with: { file: "Reads/four.pdf" } },
+  ]);
+  assert.deepEqual(
+    whole?.result?.pixelPages,
+    [1, 2, 3, 4],
+    "with no bound of its own the action reads what the deployment allows",
+  );
+});
+
+/**
+ * A split's ceiling is asked of the document, not of the files it has become.
+ *
+ * A PDF carries as many pages as whoever sent it made, and one split writes a
+ * file a page: the count is read from the document's own page tree, so a
+ * document past the ceiling is refused rather than copied page by page first.
+ */
+test("a split refuses a document past its page ceiling, before copying a page", async () => {
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    GROUP,
+    "Splits",
+    "long.pdf",
+    await blankPdf(AGENT_SPLIT_PAGES_MAX + 1),
+    "application/pdf",
+  );
+  await assert.rejects(
+    () =>
+      runActions(ctx, GROUP, [
+        {
+          do: "document.split",
+          with: { file: "Splits/long.pdf", folder: "Splits/out" },
+        },
+      ]),
+    /has 101 pages, and one split writes at most 100 \(document_too_many_pages\)/,
+    "the refusal carries its own code, in the words the ceiling is stated in",
+  );
+  assert.equal(
+    await readVisibleFileAt(ctx, GROUP, "Splits/out/long-page-1.pdf"),
+    null,
+    "and not one page of it was written",
+  );
+});
+
+test("a split within the ceiling writes one file a page", async () => {
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    GROUP,
+    "Splits",
+    "two.pdf",
+    await blankPdf(2),
+    "application/pdf",
+  );
+  const [result] = await runActions(ctx, GROUP, [
+    { do: "document.split", with: { file: "Splits/two.pdf", folder: "Splits/two" } },
+  ]);
+  assert.equal(result?.result?.pages, 2, "the count the split reports");
+  assert.deepEqual(result?.result?.written, [
+    "Splits/two/two-page-1.pdf",
+    "Splits/two/two-page-2.pdf",
+  ]);
+  assert.ok(
+    await readVisibleFileAt(ctx, GROUP, "Splits/two/two-page-2.pdf"),
+    "and each page is a file a member can open",
+  );
 });
 
 test("a draft carries the group's own signature, as the composer writes it", async () => {

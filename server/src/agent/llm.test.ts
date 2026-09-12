@@ -132,6 +132,23 @@ async function textPdf(): Promise<Uint8Array> {
 }
 
 /**
+ * A PDF of one page whose only text is a stamp: a reference somebody printed on
+ * it, well under the shortest text a text layer may be.
+ */
+async function stampedPdf(): Promise<Uint8Array> {
+  const document = await PDFDocument.create();
+  document.addPage([300, 200]).drawText("Ref 42", { x: 20, y: 120, size: 12 });
+  return document.save();
+}
+
+/** A PDF of `pages` pages, none of which carries a text layer. */
+async function blankPdf(pages: number): Promise<Uint8Array> {
+  const document = await PDFDocument.create();
+  for (let page = 0; page < pages; page++) document.addPage([300, 200]);
+  return document.save();
+}
+
+/**
  * What is inside a PNG the rasteriser produced: its size, and its first pixel.
  *
  * The encoder writes on one IDAT chunk of filter-0 scanlines, RGBA, so the
@@ -522,6 +539,65 @@ test("how many pages one run may hand over is bounded, and the prompt says the n
     new RegExp(`At most ${AGENT_MAX_PAGES_DEFAULT} pages`),
     "and the installation's default when nothing set one",
   );
+});
+
+/**
+ * The shortest text a page may carry and still be a text layer.
+ *
+ * What a person sees on a page stamped with a reference is the page itself, not
+ * the couple of words the stamp happens to spell, so a page whose own text is
+ * only that is read by the model from its image — the same treatment a scanned
+ * page gets, and the assertion that fails if the bound on the text layer is
+ * dropped.
+ */
+test("a page whose only text is a stamp is handed over as an image", async () => {
+  const stamped = await documentContent(
+    await stampedPdf(),
+    "pdf",
+    AGENT_MAX_PAGES_DEFAULT,
+  );
+  assert.equal(stamped.read.text, "", "a stamp is not a text layer");
+  assert.deepEqual(stamped.read.pixelPages, [1], "so the page is the one to read");
+  assert.equal(stamped.images.length, 1, "and it is rendered for the model");
+});
+
+/**
+ * What an installation without vision is handed, and what it is told.
+ *
+ * A deployment whose model cannot read an image hands over no page — the run is
+ * told the pages cannot be read here, and no page is rasterised for a call that
+ * would carry one anyway.
+ */
+test("a deployment without vision renders no page at all", async () => {
+  const bytes = await scannedPdf();
+  const blind = await documentContent(bytes, "pdf", AGENT_MAX_PAGES_DEFAULT, {
+    vision: false,
+  });
+  assert.deepEqual(
+    blind.read.pixelPages,
+    [1],
+    "the page with no text layer is still named",
+  );
+  assert.deepEqual(blind.images, [], "and nothing is rendered for it");
+  const sighted = await documentContent(bytes, "pdf", AGENT_MAX_PAGES_DEFAULT);
+  assert.equal(sighted.images.length, 1, "where a model with eyes is handed it");
+});
+
+/**
+ * The pages a document is longer than the bound by.
+ *
+ * The text layer is read only up to the bound, so a document of a hundred pages
+ * read to eight does not merely leave pages out of the call: it never looks at
+ * the rest of them. That is a different fact from `omitted` (the pages with no
+ * text layer the budget left out of what was read), and it is reported beside it.
+ */
+test("a document longer than the bound says how many pages were never read", async () => {
+  const longer = await documentContent(await blankPdf(5), "pdf", 2);
+  assert.equal(longer.read.pages, 5, "the document's own length is reported");
+  assert.equal(longer.read.looked, 2, "and the pages this reading looked at");
+  assert.deepEqual(longer.read.pixelPages, [1, 2], "which are the pages to read");
+  assert.equal(longer.omitted, 0, "nothing of what was read was left out");
+  assert.equal(longer.unreadPages, 3, "and three pages were never looked at");
 });
 
 /**

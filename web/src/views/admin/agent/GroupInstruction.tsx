@@ -14,7 +14,12 @@
  * it can read it.
  */
 import { useEffect, useState } from "react";
-import { fetchGroupInstruction, readDraft, saveGroupInstruction } from "@/lib/agents";
+import {
+  fetchGroupInstruction,
+  readDraft,
+  readingNotCountedNote,
+  saveGroupInstruction,
+} from "@/lib/agents";
 import { t } from "@/lib/i18n";
 
 export function GroupInstruction({ groups }: { groups: readonly string[] }) {
@@ -36,6 +41,12 @@ export function GroupInstruction({ groups }: { groups: readonly string[] }) {
   // The reading: what the model answered about this draft, or the refusal in
   // the reader's language. Neither is stored, so neither outlives the panel.
   const [reading, setReading] = useState<string | null>(null);
+  /*
+   * Whether the answer on screen reached the month's authoring document, set
+   * from the answer and reset with each ask: a refusal has no count to be
+   * missing, so the note stays away from one.
+   */
+  const [readingCounted, setReadingCounted] = useState(true);
   const [readingBusy, setReadingBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -101,9 +112,13 @@ export function GroupInstruction({ groups }: { groups: readonly string[] }) {
     if (!group || readingBusy || !text.trim()) return;
     setReadingBusy(true);
     setReading(null);
+    setReadingCounted(true);
     setProblem(null);
     void readDraft(group, text, t("the group's standing instruction"))
-      .then((answer) => setReading(answer.text))
+      .then((answer) => {
+        setReading(answer.text);
+        setReadingCounted(answer.counted);
+      })
       .catch((err) => setReading(err instanceof Error ? err.message : String(err)))
       .finally(() => setReadingBusy(false));
   };
@@ -199,6 +214,7 @@ export function GroupInstruction({ groups }: { groups: readonly string[] }) {
                 {t("What the model said about this draft:")}
               </p>
               <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{reading}</p>
+              {!readingCounted && <p className="hint">{readingNotCountedNote()}</p>}
             </div>
           )}
           {problem && <div className="error-box">{problem}</div>}

@@ -608,6 +608,22 @@ test("a rule that could never run is refused with its code and its parameters", 
   assert.equal(body.name, "Move invoices");
   assert.match(body.problems, /capabilities/, "in the validator's own words");
 
+  // Remarks past the bound are refused by the field they were typed in, with
+  // the number, rather than as a length complaint about the document: the same
+  // code the group's instruction answers with (ADR 0010).
+  const chatty = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
+    method: "POST",
+    body: JSON.stringify({
+      rules: [rule({ id: "r3", notes: "x".repeat(AGENT_NOTES_MAX + 1) })],
+    }),
+  });
+  assert.equal(chatty.status, 400);
+  assert.deepEqual(chatty.body, {
+    error: "notes_too_long",
+    max: AGENT_NOTES_MAX,
+    length: AGENT_NOTES_MAX + 1,
+  });
+
   const duplicate = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
     body: JSON.stringify({ rules: [rule({ id: "dup" }), rule({ id: "dup" })] }),
@@ -1275,6 +1291,132 @@ test("an author's notes ride the document, and a reading answers in words", asyn
   assert.equal(counted?.entries[0]?.by, DEMO, "and it names who asked");
   assert.equal(counted?.entries[0]?.group, TEAM);
   assert.ok(counted?.entries[0]?.usage, "with what the provider reported it cost");
+  assert.equal(
+    (reading.body as { counted?: boolean }).counted,
+    true,
+    "and the view says the month took it",
+  );
+});
+
+/**
+ * Two things a reading does beside the words it brings back.
+ *
+ * It bounds what it is asked to read by the same ceiling the document enforces,
+ * so an envelope past it is refused before the installation pays for a reading
+ * of the wrong thing. And it records what it spent last: the words are the
+ * model's and are already paid for when the month's document is written, so a
+ * count that will not land costs the tally and never the answer.
+ */
+test("a reading refuses an envelope past the bound the instruction enforces", async () => {
+  configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
+  const agentAuth = `Basic ${Buffer.from(
+    `${mock.AGENT_ADDRESS}:${mock.AGENT_PASS}`,
+  ).toString("base64")}`;
+  const agentCtx = {
+    authorization: agentAuth,
+    session: await fetchUpstreamSession(agentAuth, BASE),
+    username: mock.AGENT_ADDRESS,
+  };
+  // A usable model, so the bound is what the refusal is about rather than a
+  // reading that could not have been made at all.
+  await new AgentStore(agentCtx, filesAccountId(agentCtx)).writeConfig({
+    v: 1,
+    address: mock.AGENT_ADDRESS,
+    provider: {
+      provider: "stub",
+      model: "stub",
+      baseUrl: `http://127.0.0.1:${READING_PORT}/v1`,
+      apiKey: "stub-key",
+    },
+  });
+
+  const reading = await call(`/api/admin/groups/${TEAM}/agent/reading`, {
+    method: "POST",
+    body: JSON.stringify({
+      about: "the group's standing instruction",
+      draft: "Answer in Italian, and always cite the invoice number.",
+      envelope: "x".repeat(AGENT_INSTRUCTION_MAX + 1),
+    }),
+  });
+  assert.equal(reading.status, 400, JSON.stringify(reading.body));
+  assert.deepEqual(reading.body, {
+    error: "envelope_too_long",
+    max: AGENT_INSTRUCTION_MAX,
+    length: AGENT_INSTRUCTION_MAX + 1,
+  });
+});
+
+test("a reading the month cannot record is still the model's answer", async () => {
+  configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
+  const agentAuth = `Basic ${Buffer.from(
+    `${mock.AGENT_ADDRESS}:${mock.AGENT_PASS}`,
+  ).toString("base64")}`;
+  const agentCtx = {
+    authorization: agentAuth,
+    session: await fetchUpstreamSession(agentAuth, BASE),
+    username: mock.AGENT_ADDRESS,
+  };
+  const agentAccount = filesAccountId(agentCtx);
+  const master = new AgentStore(agentCtx, agentAccount);
+  await master.writeConfig({
+    v: 1,
+    address: mock.AGENT_ADDRESS,
+    provider: {
+      provider: "stub",
+      model: "stub",
+      baseUrl: `http://127.0.0.1:${READING_PORT}/v1`,
+      apiKey: "stub-key",
+    },
+  });
+  readingAnswer = "It names the language, and never who reads the reply.";
+
+  // The month's ceiling is beside this test's point: an entry another test
+  // already paid for would refuse the call before the count it is about, so the
+  // bound is raised for the length of the call and put back after it.
+  const ceiling = config.agent.authoringMonthlyMax;
+  config.agent.authoringMonthlyMax = ceiling + 1;
+  // The count is the last thing a reading does, and this is the failure it has
+  // to survive: the store the route uses is handed a writer whose append fails,
+  // which is what a compare-and-set that kept losing does (`store.ts`).
+  const realAppend = AgentStore.prototype.appendAuthoring;
+  AgentStore.prototype.appendAuthoring = async () => {
+    throw new Error("the authoring document kept changing under the writer");
+  };
+  const warned: string[] = [];
+  const realWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    warned.push(String(args[0]));
+  };
+  let reading: Awaited<ReturnType<typeof call>>;
+  try {
+    reading = await call(`/api/admin/groups/${TEAM}/agent/reading`, {
+      method: "POST",
+      body: JSON.stringify({
+        about: "the group's standing instruction",
+        draft: "Answer in Italian, and always cite the invoice number.",
+      }),
+    });
+  } finally {
+    AgentStore.prototype.appendAuthoring = realAppend;
+    console.warn = realWarn;
+    config.agent.authoringMonthlyMax = ceiling;
+  }
+
+  assert.equal(reading.status, 200, JSON.stringify(reading.body));
+  assert.equal(
+    (reading.body as { text?: string }).text,
+    readingAnswer,
+    "the answer the installation already paid for reaches the administrator",
+  );
+  assert.equal(
+    (reading.body as { counted?: boolean }).counted,
+    false,
+    "and the view says the month did not record it",
+  );
+  assert.ok(
+    warned.some((line) => line.startsWith("[gilbert]")),
+    "the missed count is left where an operator reads it",
+  );
 });
 
 test("a reading with no usable model says so, and never calls upstream", async () => {

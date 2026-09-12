@@ -10,6 +10,7 @@ import {
   AGENT_ACTION_SPECS,
   AGENT_AUDIT_OUTCOMES,
   AGENT_NOTEBOOK_FACT_MAX,
+  AGENT_NOTES_MAX,
   AGENT_TRIGGERS,
   type AgentAction,
   type AgentEmailView,
@@ -27,6 +28,7 @@ import {
   isAgentAction,
   isAgentJob,
   isAgentNotebookDoc,
+  isAgentNotes,
   isAgentRule,
   isAgentRulesDoc,
   isAgentTriggerRecord,
@@ -39,7 +41,9 @@ import {
   newJob,
   nextRunAfter,
   notebookFor,
+  notesProblem,
   reviewOutcome,
+  ruleNotesProblem,
   ruleProblem,
   ruleProblems,
   SUPPORTED_FILTER_KEYS,
@@ -625,6 +629,46 @@ test("the material a run needs is checked for being there, not just typed", () =
   assert.ok(
     ruleProblems(rule({ capabilities: [] })).some((problem) => /nothing/.test(problem)),
   );
+});
+
+/**
+ * One door for an author's notes (ADR 0010).
+ *
+ * The bound is one number and the refusal is one code, wherever a person writes
+ * notes: the group's standing instruction answers with the code and the maximum,
+ * and an automation's own notes are read through the same door rather than
+ * coming back as a complaint about the shape of a document.
+ */
+test("a note past the bound is refused with the code and the number it may be", () => {
+  const atBound = "x".repeat(AGENT_NOTES_MAX);
+  const over = "x".repeat(AGENT_NOTES_MAX + 1);
+  assert.equal(notesProblem(atBound), null, "a note at the bound fits");
+  assert.equal(notesProblem(undefined), null, "and no notes at all is no problem");
+  assert.deepEqual(notesProblem(over), {
+    code: "notes_too_long",
+    max: AGENT_NOTES_MAX,
+    length: AGENT_NOTES_MAX + 1,
+  });
+
+  // A rule arrives as an untyped document: this is what a save answers a person
+  // with, instead of a schema complaint about a length.
+  assert.deepEqual(ruleNotesProblem(rule({ notes: over })), {
+    code: "notes_too_long",
+    max: AGENT_NOTES_MAX,
+    length: AGENT_NOTES_MAX + 1,
+  });
+  assert.equal(ruleNotesProblem(rule({ notes: atBound })), null, "a note at the bound fits here too");
+  assert.equal(
+    ruleNotesProblem({ hello: "world" }),
+    null,
+    "and a document that carries no notes field has no note to refuse",
+  );
+
+  // The validator reads the same door, so a note the door refuses is a document
+  // this build does not accept.
+  assert.equal(isAgentNotes(over), false);
+  assert.equal(isAgentNotes(atBound), true);
+  assert.equal(isAgentRule(rule({ notes: over })), false);
 });
 
 test("a retention window is the months it spans, oldest first", () => {

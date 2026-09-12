@@ -110,8 +110,8 @@ carries **notes** — what the prose is for, what the automation reacts to, what
 may do, that it steers inside the grant and never widens it, and that it is read
 as data rather than obeyed — because a bare text box produces prose that guesses,
 and guessing is the one thing the executor will not repair. Beside the same field
-the author can ask for a **reading**: the helper sends the draft, with the
-envelope it belongs to, the group's instruction and the group's notebook, and
+the author can ask for a **reading**: the helper sends the draft and what it is
+about, the group's instruction and the group's notebook, and
 asks one question — is this coherent, and where are the gaps — answering in words
 in the same place. That is neither of the two things this record does not have
 and does not want: it compiles nothing, produces no document, stores nothing, and
@@ -127,7 +127,11 @@ carries a timeout and no lease. Its tokens are counted in the **Master's
 own account**, marked as authoring, and not in the group's: a run's record
 belongs to the group it works in and is written by the agent holding it, while an
 administrator reading a draft is the installation's own work, belongs to no
-group's ledger, and leaves the group's usage document with a single writer.
+group's ledger, and leaves the group's usage document with a single writer. What
+bounds the month is read before the call, so two readings asked for at the same
+moment can both pass a month between them that is otherwise spent; and a count
+that could not be written is said rather than lost, because the answer was paid
+for before the record of it was attempted.
 
 **A run can be asked for by a person, and it is a job like any other.** Three of
 a rule's four triggers a person can bring about deliberately — mail the group,
