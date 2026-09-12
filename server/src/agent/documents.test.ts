@@ -144,8 +144,17 @@ test("every action the fence names is fenced, whatever its spec flags say", () =
   // group's chat a second time.
   assert.deepEqual(
     [...FENCED_ACTIONS].sort(),
-    ["chat.post", "file.write", "mail.draft", "mail.extract", "mail.send"],
-    "the set names sending, posting, drafting and filing",
+    [
+      "chat.post",
+      "document.extract",
+      "document.merge",
+      "document.split",
+      "file.write",
+      "mail.draft",
+      "mail.extract",
+      "mail.send",
+    ],
+    "the set names sending, posting, drafting, filing, and the page work that writes a file",
   );
   for (const name of FENCED_ACTIONS) {
     assert.equal(
@@ -156,11 +165,18 @@ test("every action the fence names is fenced, whatever its spec flags say", () =
   }
   // The actions the catalogue deliberately leaves outside it are the ones a
   // retry may redo: a label or a mailbox move is either idempotent or harmless
-  // to do twice.
+  // to do twice, and reading a page writes nothing at all — it hands the model
+  // what the page says and leaves no trace to repeat.
   const inside = AGENT_ACTION_SPECS.map((spec) => spec.name)
     .filter((name) => !FENCED_ACTIONS.has(name))
     .sort();
-  assert.deepEqual(inside, ["keyword.add", "keyword.remove", "mail.move", "noop"]);
+  assert.deepEqual(inside, [
+    "document.read",
+    "keyword.add",
+    "keyword.remove",
+    "mail.move",
+    "noop",
+  ]);
   for (const name of inside) {
     assert.equal(leavesTheProcess({ do: name }), false, `${name} may run twice`);
   }

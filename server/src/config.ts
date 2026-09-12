@@ -10,6 +10,7 @@ import {
   type PolicyIdentities,
   readPolicySection,
 } from "./adminPolicy.js";
+import { AGENT_MAX_PAGES_DEFAULT } from "./agent/documents.js";
 
 /** Minimal .env loader (no dependency): first match wins, never overrides real env. */
 function loadDotEnv() {
@@ -423,6 +424,14 @@ const agentWorkerSettings = {
    * readable rather than inferred (ADR 0010).
    */
   thinking: bool("GILBERT_AGENT_THINKING", true),
+  /*
+   * How many pages one run may hand the model as images (ADR 0010). A page
+   * whose own text layer is empty is rasterised in the process and read by the
+   * model, and a document is as long as whoever sent it made it — so the count
+   * is a bound the installation sets rather than one the file decides. The run
+   * is told the number in its own prompt.
+   */
+  maxPages: int("GILBERT_AGENT_MAX_PAGES", AGENT_MAX_PAGES_DEFAULT),
   /*
    * How many hops a chain of automations runs before the next one is refused
    * (ADR 0010). Hop one is the trigger that wakes a rule by itself, and a run

@@ -555,20 +555,37 @@ export async function readVisibleFileAt(
   accountId: string,
   path: string,
 ): Promise<{ text: string; file: FileNodeLike } | null> {
+  const found = await readVisibleFileBytes(ctx, accountId, path);
+  if (!found) return null;
+  return { text: new TextDecoder().decode(found.bytes), file: found.file };
+}
+
+/**
+ * The bytes of a file in the account's visible Files, or null when it is not
+ * there.
+ *
+ * The primitive the readers of the visible tree are built on, because bytes
+ * are what a file is: text is a decode of them, and a PDF, a `.docx` or an
+ * image is nothing else (ADR 0010: the document family works on the blob).
+ */
+export async function readVisibleFileBytes(
+  ctx: Ctx,
+  accountId: string,
+  path: string,
+): Promise<{ bytes: Uint8Array; file: FileNodeLike; name: string } | null> {
   const found = await findVisibleFile(ctx, accountId, path);
   if (!found) return null;
   const type =
     typeof found.file.type === "string" && found.file.type
       ? found.file.type
-      : "text/plain";
-  const text = await downloadBlobText(
-    ctx,
+      : "application/octet-stream";
+  const bytes = await clientOf(ctx).downloadBlob(
     accountId,
     String(found.file.blobId),
+    found.name,
     type,
-    typeof found.file.name === "string" ? found.file.name : found.name,
   );
-  return { text, file: found.file };
+  return { bytes, file: found.file, name: found.name };
 }
 
 /**

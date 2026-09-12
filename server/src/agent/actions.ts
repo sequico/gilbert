@@ -16,6 +16,7 @@
 import {
   type Ctx,
   readAppJsonAt,
+  readVisibleFileBytes,
   unusedVisibleName,
   writeBytesIntoVisibleFolder,
 } from "../appFolder.js";
@@ -30,6 +31,15 @@ import {
 } from "../shared/labels.js";
 import { textSignatureBlock } from "../shared/signature.js";
 import { postMessage } from "./chat.js";
+import {
+  DocumentError,
+  type DocumentKind,
+  documentKindOf,
+  extractPages,
+  mergePdfs,
+  readDocument,
+  splitPdf,
+} from "./documentFamily.js";
 import {
   AGENT_ATTENTION_FOLDER,
   type AgentAction,
@@ -51,6 +61,14 @@ export interface ActionOpts {
   /** The draft a paused run already prepared, which `mail.send` submits. */
   draftEmailId?: string;
   draftMailboxId?: string;
+  /**
+   * The path of the file this run was woken by, in the group's own Files.
+   *
+   * A document action that names no file works on this one: the run that a
+   * file woke is the run that has it in hand, and the model names the file it
+   * read in its context back the same way.
+   */
+  filePath?: string;
   /** The instant the run works from, so a test can pin what a draft records. */
   now?: Date;
 }
@@ -621,7 +639,228 @@ async function runOne(
         result: { path: `${folder}/${name}`, nodeId },
       };
     }
+    case "document.read": {
+      const source = await documentSourceOf(ctx, accountId, action, opts);
+      const read = await readDocument(source.bytes, kindOfDocument(action, source));
+      return {
+        action: action.do,
+        ok: true,
+        result: {
+          file: source.path,
+          kind: read.kind,
+          pages: read.pages,
+          text: read.text,
+          // The pages with no text layer are named rather than passed over:
+          // there is no OCR here, so a caller reading this result has to know
+          // which pages only a model with eyes can read (ADR 0010).
+          pixelPages: read.pixelPages,
+        },
+      };
+    }
+    case "document.split": {
+      const source = await documentSourceOf(ctx, accountId, action, opts);
+      assertPdf(action, source);
+      const pages = await splitPdf(source.bytes);
+      const folder = textOf(action.with?.folder) || AGENT_ATTENTION_FOLDER;
+      const stem = fileSafeName(source.name.replace(/\.pdf$/i, ""), "document");
+      const written: string[] = [];
+      const nodeIds: string[] = [];
+      for (const [index, bytes] of pages.entries()) {
+        const name = await unusedVisibleName(
+          ctx,
+          accountId,
+          folder,
+          `${stem}-page-${index + 1}.pdf`,
+        );
+        const nodeId = await writeBytesIntoVisibleFolder(
+          ctx,
+          accountId,
+          folder,
+          name,
+          bytes,
+          PDF_TYPE,
+        );
+        if (nodeId) nodeIds.push(nodeId);
+        written.push(`${folder}/${name}`);
+      }
+      return {
+        action: action.do,
+        ok: true,
+        result: { file: source.path, folder, pages: pages.length, written, nodeIds },
+      };
+    }
+    case "document.extract": {
+      const source = await documentSourceOf(ctx, accountId, action, opts);
+      assertPdf(action, source);
+      const range = textOf(action.with?.pages);
+      const cut = await extractPages(source.bytes, range);
+      const folder = textOf(action.with?.folder) || AGENT_ATTENTION_FOLDER;
+      const stem = fileSafeName(source.name.replace(/\.pdf$/i, ""), "document");
+      const wanted =
+        textOf(action.with?.name) ||
+        `${stem}-pages-${fileSafeName(range, "extract").replace(/,/g, "-")}.pdf`;
+      const name = await unusedVisibleName(
+        ctx,
+        accountId,
+        folder,
+        fileSafeName(wanted, "extract.pdf"),
+      );
+      const nodeId = await writeBytesIntoVisibleFolder(
+        ctx,
+        accountId,
+        folder,
+        name,
+        cut.bytes,
+        PDF_TYPE,
+      );
+      return {
+        action: action.do,
+        ok: true,
+        result: {
+          file: source.path,
+          folder,
+          pages: cut.pages,
+          written: `${folder}/${name}`,
+          nodeIds: nodeId ? [nodeId] : [],
+        },
+      };
+    }
+    case "document.merge": {
+      const paths = documentPathsOf(textOf(action.with?.files));
+      const sources: Uint8Array[] = [];
+      for (const path of paths) {
+        const source = await readDocumentSource(ctx, accountId, path, action.do);
+        assertPdf(action, source);
+        sources.push(source.bytes);
+      }
+      const merged = await mergePdfs(sources);
+      const folder = textOf(action.with?.folder) || AGENT_ATTENTION_FOLDER;
+      const stem = fileSafeName(
+        (paths[0] ?? "")
+          .split("/")
+          .pop()
+          ?.replace(/\.pdf$/i, "") || "merged",
+        "merged",
+      );
+      const name = await unusedVisibleName(
+        ctx,
+        accountId,
+        folder,
+        fileSafeName(textOf(action.with?.name) || `${stem}-merged.pdf`, "merged.pdf"),
+      );
+      const nodeId = await writeBytesIntoVisibleFolder(
+        ctx,
+        accountId,
+        folder,
+        name,
+        merged,
+        PDF_TYPE,
+      );
+      return {
+        action: action.do,
+        ok: true,
+        result: {
+          files: paths,
+          folder,
+          written: `${folder}/${name}`,
+          nodeIds: nodeId ? [nodeId] : [],
+        },
+      };
+    }
   }
+}
+
+/** The media type everything the page work writes carries. */
+const PDF_TYPE = "application/pdf";
+
+/** A file the document family works on: where it is, and what it holds. */
+interface DocumentSource {
+  path: string;
+  name: string;
+  type: string;
+  bytes: Uint8Array;
+}
+
+/**
+ * The file a document action works on: the one it names, or the one that woke
+ * the run.
+ *
+ * A file the action cannot name is refused by its own code rather than skipped
+ * (ADR 0010): an action that quietly did nothing would leave the run reading
+ * "done" over work that never happened.
+ */
+async function documentSourceOf(
+  ctx: Ctx,
+  accountId: string,
+  action: AgentAction,
+  opts: ActionOpts,
+): Promise<DocumentSource> {
+  const named = textOf(action.with?.file);
+  const path = named || opts.filePath || "";
+  if (!path)
+    throw new DocumentError(
+      "no_file",
+      `"${action.do}" names no file, and no file woke this run`,
+    );
+  return readDocumentSource(ctx, accountId, path, action.do);
+}
+
+/** The bytes of one file of the group's Files, by path. */
+async function readDocumentSource(
+  ctx: Ctx,
+  accountId: string,
+  path: string,
+  action: AgentActionName,
+): Promise<DocumentSource> {
+  const found = await readVisibleFileBytes(ctx, accountId, path);
+  if (!found)
+    throw new DocumentError(
+      "no_such_file",
+      `the group's Files hold no file at "${path}", so "${action}" has nothing to work on`,
+    );
+  const type =
+    typeof found.file.type === "string" && found.file.type ? found.file.type : "";
+  return { path, name: found.name, type, bytes: found.bytes };
+}
+
+/** Which of the two document kinds this is, or a refusal naming what it is. */
+function kindOfDocument(action: AgentAction, source: DocumentSource): DocumentKind {
+  const kind = documentKindOf(source.name, source.type);
+  if (!kind)
+    throw new DocumentError(
+      "unsupported_type",
+      `"${source.name}" is neither a PDF nor a .docx, so "${action.do}" cannot read it`,
+    );
+  return kind;
+}
+
+/** The page work is PDFs only, and says so rather than parsing something else. */
+function assertPdf(action: AgentAction, source: DocumentSource): void {
+  if (documentKindOf(source.name, source.type) === "pdf") return;
+  throw new DocumentError(
+    "unsupported_type",
+    `"${source.name}" is not a PDF, so "${action.do}" cannot work on its pages`,
+  );
+}
+
+/**
+ * The paths a `files` list names: one to a line, in the order written.
+ *
+ * One line a path, rather than a separator inside a line, because a file's own
+ * name can hold anything — a comma and a space included — and a list that
+ * guessed at one would merge the wrong documents.
+ */
+function documentPathsOf(text: string): string[] {
+  const paths = text
+    .split("\n")
+    .map((path) => path.trim())
+    .filter(Boolean);
+  if (!paths.length)
+    throw new DocumentError(
+      "no_file",
+      '"document.merge" names no file to merge: give the paths one to a line',
+    );
+  return paths;
 }
 
 async function setKeyword(

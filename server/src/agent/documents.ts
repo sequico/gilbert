@@ -102,7 +102,11 @@ export type AgentActionName =
   | "mail.draft"
   | "mail.send"
   | "chat.post"
-  | "file.write";
+  | "file.write"
+  | "document.read"
+  | "document.split"
+  | "document.merge"
+  | "document.extract";
 
 export interface AgentAction {
   /** The capability name. */
@@ -229,6 +233,49 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
     ],
     unrepeatable: true,
   },
+  {
+    name: "document.read",
+    label: "Read a document",
+    description:
+      "Read a file of the group's Files: a PDF's own text layer, or a .docx. A page with no text layer is read by the model from its image.",
+    params: [{ key: "file", required: false, kind: "text" }],
+  },
+  {
+    name: "document.split",
+    label: "Split a PDF into pages",
+    description:
+      "Write every page of a PDF of the group's Files as a PDF of its own, into a folder of the group's Files.",
+    params: [
+      { key: "file", required: false, kind: "text" },
+      { key: "folder", required: false, kind: "folder" },
+    ],
+    unrepeatable: true,
+  },
+  {
+    name: "document.extract",
+    label: "Extract pages",
+    description:
+      'Cut pages out of a PDF of the group\'s Files into one new PDF: "2-4,7" is pages 2, 3, 4 and 7.',
+    params: [
+      { key: "file", required: false, kind: "text" },
+      { key: "pages", required: true, kind: "text" },
+      { key: "folder", required: false, kind: "folder" },
+      { key: "name", required: false, kind: "text" },
+    ],
+    unrepeatable: true,
+  },
+  {
+    name: "document.merge",
+    label: "Merge PDFs",
+    description:
+      "Join PDFs of the group's Files, in the order given, into one new PDF: the paths one per line, in the order they are to be joined.",
+    params: [
+      { key: "files", required: true, kind: "text" },
+      { key: "folder", required: false, kind: "folder" },
+      { key: "name", required: false, kind: "text" },
+    ],
+    unrepeatable: true,
+  },
 ];
 
 /**
@@ -240,7 +287,9 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
  * a second copy nobody asked for — and two of the actions a person ends up
  * reading carry none of them: a posted chat message and a prepared draft are
  * effects in the group's own state, and a run whose claim a successor took must
- * not produce a second one.
+ * not produce a second one. The document family's page work is here for the
+ * same reason a file write is: what it produces is a file the group can see,
+ * and a second pass leaves a second copy beside it.
  *
  * The set is the authority for `leavesTheProcess`, which is what the executor's
  * fence and the retry decision both ask: one list, so an action cannot be
@@ -252,6 +301,9 @@ export const FENCED_ACTIONS: ReadonlySet<AgentActionName> = new Set<AgentActionN
   "mail.draft",
   "file.write",
   "mail.extract",
+  "document.split",
+  "document.merge",
+  "document.extract",
 ]);
 
 export function agentActionSpec(name: string): AgentActionSpec | undefined {
@@ -1681,6 +1733,14 @@ export interface AgentConfigDoc {
 
 /** What one answer may cost when the installation has not said otherwise. */
 export const MODEL_MAX_OUTPUT_DEFAULT = 2048;
+
+/**
+ * How many pages one run hands the model as images when the installation has
+ * not said otherwise (ADR 0010): a page whose own text layer is empty is
+ * rendered and read by the model, and a document is as long as whoever sent it
+ * made it, so the count is bounded rather than left to the file.
+ */
+export const AGENT_MAX_PAGES_DEFAULT = 8;
 
 /**
  * The highest ceiling an installation may set. Well under the provider's own,

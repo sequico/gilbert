@@ -22,6 +22,7 @@ import {
   findAppFolder,
   findFolderPath,
   listAppDir,
+  readVisibleFileBytes,
 } from "../appFolder.js";
 import { config } from "../config.js";
 import { isStateMismatch, JMAP_MAIL, type JmapClient, JmapError } from "../jmap.js";
@@ -64,6 +65,12 @@ import {
   readChat,
   widenRequested,
 } from "./chat.js";
+import {
+  type DocumentContent,
+  DocumentError,
+  documentContent,
+  documentKindOf,
+} from "./documentFamily.js";
 import type { AgentUsage } from "./documents.js";
 import {
   AGENT_AUDIT_DIR,
@@ -1095,17 +1102,103 @@ export class Executor {
     }
     if (trigger.on === "filenode" && trigger.nodeId) {
       const node = await this.nodeRecord(accountId, trigger.nodeId);
-      return {
+      const path = node ? await this.pathOfNode(accountId, trigger.nodeId) : null;
+      const named = path ?? String(node?.name ?? "");
+      const context: ModelContext = {
         text: node
-          ? `A file changed: "${String(node.name ?? "")}" (${String(node.size ?? 0)} bytes).`
+          ? `A file changed: "${named}" (${String(node.size ?? 0)} bytes).`
           : "(the file this run was triggered by is gone)",
       };
+      if (node && path) await this.readTheFile(accountId, path, rule, context);
+      return context;
     }
     return {
       text: `The automation "${rule.name}" runs on its own, every ${
         rule.trigger.everyMinutes ?? 0
       } minutes.`,
     };
+  }
+
+  /**
+   * What a run reads of the file that woke it (ADR 0010), into its own context.
+   *
+   * A rule that holds `document.read` reads the document: its own text layer
+   * comes back as text, and the pages that carry no text layer at all are
+   * rasterised in the process and handed to the call as images — the model
+   * reads them, because it has eyes. How many pages one run may hand over is
+   * `GILBERT_AGENT_MAX_PAGES`, and the bound is stated rather than hidden.
+   *
+   * A kind this family does not read is said in the run's own notes rather than
+   * failing it: a file arriving is not an instruction to read it. A document a
+   * library refuses is another matter, and is refused loudly with its own code,
+   * because the run was woken to read something this deployment cannot read.
+   */
+  private async readTheFile(
+    accountId: string,
+    path: string,
+    rule: AgentRule,
+    context: ModelContext,
+  ): Promise<void> {
+    if (!rule.capabilities.includes("document.read")) return;
+    const found = await readVisibleFileBytes(this.deps.ctx, accountId, path);
+    if (!found) {
+      context.text += `\n\n"${path}" is no longer in the group's Files.`;
+      return;
+    }
+    const type =
+      typeof found.file.type === "string" && found.file.type ? found.file.type : "";
+    const kind = documentKindOf(found.name, type);
+    if (!kind) {
+      context.text += `\n\n"${found.name}" is neither a PDF nor a .docx, so nothing of it is read here.`;
+      return;
+    }
+    let content: DocumentContent;
+    try {
+      content = await documentContent(found.bytes, kind, config.agent.maxPages);
+    } catch (err) {
+      // A library refusing these bytes refuses them again on a retry, so the
+      // run stops here, once, with the code: an action this deployment cannot
+      // do is refused, never silently dropped (ADR 0010).
+      if (err instanceof DocumentError) throw new RefusedError(err.message);
+      throw err;
+    }
+    const read = content.read;
+    if (read.text) context.text += `\n\nIts own text:\n\n${read.text}`;
+    if (!read.pixelPages.length) return;
+    const handed = content.images.map((image) => image.page).join(", ");
+    context.text +=
+      `\n\nPages ${read.pixelPages.join(", ")} of ${read.pages} carry no text layer: ` +
+      (handed
+        ? `pages ${handed} are handed to you as images`
+        : "none of them fits this call") +
+      (content.omitted
+        ? `, and ${content.omitted} more are past the ${config.agent.maxPages} pages one run may hand over`
+        : "") +
+      ".";
+    context.images = content.images;
+  }
+
+  /**
+   * The path of a node in the group's Files: the names from the root down to
+   * it, joined as every surface writes a path.
+   *
+   * A run told the path of the file it was woken by can name that file to a
+   * document action, or name another beside it. A node whose parents do not
+   * reach the root within the walk's depth is not named at all, rather than
+   * named wrongly.
+   */
+  private async pathOfNode(accountId: string, nodeId: string): Promise<string | null> {
+    const names: string[] = [];
+    let current = nodeId;
+    for (let depth = 0; depth < 32; depth++) {
+      const record = await this.nodeRecord(accountId, current);
+      if (!record) return null;
+      names.unshift(String(record.name ?? ""));
+      const parentId = typeof record.parentId === "string" ? record.parentId : "";
+      if (!parentId) return names.join("/");
+      current = parentId;
+    }
+    return null;
   }
 
   /** A bounded slice of the message's thread: at most `THREAD_CONTEXT_MAX`. */
@@ -1149,6 +1242,10 @@ export class Executor {
     }
     if (actions.some((action) => action.do === "chat.post"))
       opts.participants = await this.chatParticipants(accountId);
+    if (job?.trigger.nodeId) {
+      const path = await this.pathOfNode(accountId, job.trigger.nodeId);
+      if (path) opts.filePath = path;
+    }
     return opts;
   }
 

@@ -15,9 +15,11 @@
  * them.
  */
 
+import type { PageImage } from "./documentFamily.js";
 import type { AgentUsage } from "./documents.js";
 import {
   AGENT_ACTION_SPECS,
+  AGENT_MAX_PAGES_DEFAULT,
   type AgentAction,
   type AgentActionName,
   type AgentConfigDoc,
@@ -57,11 +59,19 @@ export interface ModelContext {
   text: string;
   /** Who caused the run, when a person did. */
   by?: string;
+  /**
+   * The pages the run hands over as images: the ones a document carries no
+   * text layer for (ADR 0010). They ride after the text, so the prompt's
+   * stable head is unaffected.
+   */
+  images?: ReadonlyArray<PageImage>;
 }
 
 export interface ModelRequest {
   system: string;
   user: string;
+  /** The images the user message hands over, after its text. */
+  images?: ReadonlyArray<PageImage>;
   timeoutMs?: number;
   /** The ceiling on this answer, in tokens; the call's default when absent. */
   maxOutputTokens?: number;
@@ -116,7 +126,7 @@ export async function callModel(
         : { thinking: { type: req.thinking ? "enabled" : "disabled" } }),
       messages: [
         { role: "system", content: req.system },
-        { role: "user", content: req.user },
+        { role: "user", content: contentBlocks(req.user, req.images) },
       ],
     }),
     signal: AbortSignal.timeout(req.timeoutMs ?? MODEL_TIMEOUT_MS),
@@ -143,6 +153,33 @@ export async function callModel(
       `${provider.provider} answered with content that is not JSON: ${firstLine(content)}`,
     );
   }
+}
+
+/**
+ * The user message's content: its text, then one block a page handed over as an
+ * image.
+ *
+ * A page travels in the OpenAI-compatible image shape, a PNG data URL rendered
+ * in the process (ADR 0010). The blocks sit in the request's tail, after the
+ * text, so the prompt's stable head is untouched: what a provider caches on the
+ * next call is the same prefix, and an image — fresh bytes on every run — is
+ * never part of a cache hit. A call with no page keeps its content a string,
+ * which is the shape the text-only call has always sent.
+ */
+function contentBlocks(
+  text: string,
+  images?: ReadonlyArray<PageImage>,
+): string | Array<Record<string, unknown>> {
+  if (!images?.length) return text;
+  return [
+    { type: "text", text },
+    ...images.map((image) => ({
+      type: "image_url",
+      image_url: {
+        url: `data:image/png;base64,${Buffer.from(image.png).toString("base64")}`,
+      },
+    })),
+  ];
 }
 
 /** One reported count, or null when the provider did not report it. */
@@ -282,6 +319,21 @@ export interface DecisionAnswer {
 }
 
 /**
+ * How many pages this call may be handed as images, in the prompt's own words.
+ *
+ * A run reads a bounded number of pages rather than as many as a document
+ * happens to have (ADR 0010), and the number is stated here so the run knows
+ * its budget: what it cannot see, it cannot be asked to decide about.
+ */
+function pageBudget(maxPages: number): string {
+  return (
+    `At most ${maxPages} pages of a document reach you as images in one call; ` +
+    "a page whose own text layer is empty is read from its image, and pages past " +
+    "that count are not handed over."
+  );
+}
+
+/**
  * T2: the model decides which of the **allowed** capabilities to run.
  *
  * Every answer is validated: the capability must be one the rule lists, the
@@ -298,7 +350,12 @@ export async function decideActions(
   /** The group's notebook, as `notebookFor` renders it; "" when it has none. */
   notebook?: string,
   /** The call's own shape: the installation's ceiling and the agent's thinking. */
-  options: { maxOutputTokens?: number; thinking?: boolean } = {},
+  options: {
+    maxOutputTokens?: number;
+    thinking?: boolean;
+    /** How many pages this call may be handed as images (ADR 0010). */
+    maxPages?: number;
+  } = {},
 ): Promise<DecisionAnswer> {
   if (!allowed.length)
     throw new Error(
@@ -313,6 +370,7 @@ export async function decideActions(
     '"do" must be one of these capabilities and nothing else:',
     ...capabilityLines(allowed),
     'Parameters a capability does not take are refused; leave "with" out when the capability takes none.',
+    pageBudget(options.maxPages ?? AGENT_MAX_PAGES_DEFAULT),
     // The stable head ends here and the group's own context begins, in the
     // order ADR 0010 declares it: the notebook, then the group's standing
     // instruction, then the rule's — and nothing volatile before the tail.
@@ -325,7 +383,11 @@ export async function decideActions(
   const { answer: parsed, usage } = await callModel(provider, {
     system,
     user: dataPrompt(context),
-    ...options,
+    ...(context.images?.length ? { images: context.images } : {}),
+    ...(options.maxOutputTokens === undefined
+      ? {}
+      : { maxOutputTokens: options.maxOutputTokens }),
+    ...(options.thinking === undefined ? {} : { thinking: options.thinking }),
   });
   const answer = asRecord(parsed, provider);
   const summary = typeof answer.summary === "string" ? answer.summary.trim() : "";

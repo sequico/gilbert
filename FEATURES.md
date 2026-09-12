@@ -210,6 +210,18 @@ administrator add, correct and remove one fact at a time; and it sits in the
 prompt's stable head, so carrying it into every call costs a cache hit rather
 than a miss. It steers and it never widens: what an automation may do is its
 own capability allowlist.
+- **Documents, read by the model that has eyes.** A run can act on a PDF: split
+it into pages, merge them, extract one, and *read* — a PDF's own text layer, or a
+`.docx`. A page that carries no text layer is **rasterised**: the executor
+renders it to an image in the process (a WASM PDF engine — no canvas, no native
+build, no child process) and the page rides that run's call as volatile content
+in the tail, so the prompt's stable head is unaffected and an image is never a
+cache hit. A vision request carries images and not documents, which is why the
+page is rendered rather than handed over; how many pages one run may hand over
+is bounded (`GILBERT_AGENT_MAX_PAGES`, eight by default) rather than left to the
+file's size. There is deliberately no OCR engine — a page that is only pixels is
+the model's to read — and no `.docx` writer. Everything happens in memory,
+because the deployment has no writable filesystem.
 - **What the work costs, in counts.** Every run records what the call spent —
 tokens read from cache, tokens read fresh, tokens written, and whether the run
 paid for the model's chain of thought — beside the work it did, and a run whose
