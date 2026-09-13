@@ -3412,7 +3412,13 @@ const handlers: Record<string, Handler> = {
     const notUpdated: Obj = {};
     for (const [id, patch] of Object.entries((a.update as Obj) ?? {})) {
       const s = systemSieveScripts.find((x) => x.id === id);
-      if (!s) continue;
+      if (!s) {
+        notUpdated[id] = new SetError(
+          "notFound",
+          "That system Sieve script no longer exists.",
+        ).toJSON();
+        continue;
+      }
       const p = patch as Obj;
       const name = p.name !== undefined ? String(p.name).trim() : String(s.name);
       const contents = p.contents !== undefined ? p.contents : s.contents;

@@ -2235,6 +2235,8 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     description?: unknown;
     contents?: unknown;
     activate?: unknown;
+    /** The `state` this write was read against — omitted only for a create. */
+    state?: unknown;
   }
 
   function readSystemSieveBody(body: SystemSieveScriptBody | null) {
@@ -2245,13 +2247,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       typeof body?.description === "string" && body.description.trim()
         ? body.description.trim()
         : null;
-    return { name, description, contents, activate: Boolean(body?.activate) };
+    const state = typeof body?.state === "string" && body.state ? body.state : undefined;
+    return { name, description, contents, activate: Boolean(body?.activate), state };
   }
 
   api.get("/admin/sieve/system", requireSession, requireAdmin, async (c) => {
     try {
       const ctx = await accountCtx(c);
-      return c.json({ scripts: await listSystemSieveScripts(ctx) });
+      return c.json(await listSystemSieveScripts(ctx));
     } catch (err) {
       return systemSieveFailure(c, err);
     }
@@ -2269,9 +2272,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   api.post("/admin/sieve/system", requireSession, requireAdmin, async (c) => {
     const parsed = readSystemSieveBody(await readJson<SystemSieveScriptBody>(c));
     if (!parsed) return c.json({ error: "bad_request" }, 400);
+    // A create has no prior read to lose, so `state` (if the body carried one)
+    // is dropped rather than sent as `ifInState`.
+    const { state: _ignored, ...create } = parsed;
     try {
       const ctx = await accountCtx(c);
-      const id = await saveSystemSieveScript(ctx, { id: null, ...parsed });
+      const id = await saveSystemSieveScript(ctx, { id: null, ...create });
       return c.json({ id });
     } catch (err) {
       return systemSieveFailure(c, err);
@@ -2281,9 +2287,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   api.put("/admin/sieve/system/:id", requireSession, requireAdmin, async (c) => {
     const parsed = readSystemSieveBody(await readJson<SystemSieveScriptBody>(c));
     if (!parsed) return c.json({ error: "bad_request" }, 400);
+    const { state, ...rest } = parsed;
     try {
       const ctx = await accountCtx(c);
-      const id = await saveSystemSieveScript(ctx, { id: c.req.param("id"), ...parsed });
+      const id = await saveSystemSieveScript(ctx, {
+        id: c.req.param("id"),
+        ...rest,
+        ifInState: state,
+      });
       return c.json({ id });
     } catch (err) {
       return systemSieveFailure(c, err);
@@ -2291,10 +2302,16 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   api.post("/admin/sieve/system/:id/active", requireSession, requireAdmin, async (c) => {
-    const body = await readJson<{ active?: unknown }>(c);
+    const body = await readJson<{ active?: unknown; state?: unknown }>(c);
+    const state = typeof body?.state === "string" && body.state ? body.state : undefined;
     try {
       const ctx = await accountCtx(c);
-      await setSystemSieveScriptActive(ctx, c.req.param("id"), Boolean(body?.active));
+      await setSystemSieveScriptActive(
+        ctx,
+        c.req.param("id"),
+        Boolean(body?.active),
+        state,
+      );
       return c.json({ ok: true });
     } catch (err) {
       return systemSieveFailure(c, err);
@@ -2302,9 +2319,11 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   api.delete("/admin/sieve/system/:id", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ state?: unknown }>(c);
+    const state = typeof body?.state === "string" && body.state ? body.state : undefined;
     try {
       const ctx = await accountCtx(c);
-      await deleteSystemSieveScript(ctx, c.req.param("id"));
+      await deleteSystemSieveScript(ctx, c.req.param("id"), state);
       return c.json({ ok: true });
     } catch (err) {
       return systemSieveFailure(c, err);

@@ -11,6 +11,12 @@
  * no separate validate call for a system script the way there is for a
  * personal one, so a bad script surfaces as a save error rather than a
  * preflight check.
+ *
+ * Every write carries the `state` its data was last read with, so Stalwart
+ * refuses (409) a write built on a since-changed read instead of silently
+ * overwriting whatever changed it — `list`'s own `state` backs the
+ * list-level actions (activate/deactivate, delete), reloaded after every one
+ * of them whether it succeeded or not so the next attempt starts fresh.
  */
 import { AlertTriangle, Plus, Power, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -37,8 +43,10 @@ interface Opened {
 
 export function SystemSieve() {
   const [scripts, setScripts] = useState<SystemSieveScript[] | null>(null);
+  const [listState, setListState] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sel, setSel] = useState<SystemSieveScript | null>(null);
+  const [openState, setOpenState] = useState<string | undefined>(undefined);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [content, setContent] = useState("");
@@ -53,7 +61,9 @@ export function SystemSieve() {
   async function load() {
     setLoadError(null);
     try {
-      setScripts(await listSystemSieveScripts());
+      const res = await listSystemSieveScripts();
+      setScripts(res.scripts);
+      setListState(res.state);
     } catch (err) {
       setLoadError((err as Error).message);
     }
@@ -63,8 +73,9 @@ export function SystemSieve() {
     void load();
   }, []);
 
-  const start = (script: SystemSieveScript | null, source: string) => {
+  const start = (script: SystemSieveScript | null, source: string, state?: string) => {
     setSel(script);
+    setOpenState(state);
     setName(script?.name ?? "");
     setDescription(script?.description ?? "");
     setContent(source);
@@ -77,6 +88,7 @@ export function SystemSieve() {
 
   const close = () => {
     setSel(null);
+    setOpenState(undefined);
     setName("");
     setDescription("");
     setContent("");
@@ -90,7 +102,7 @@ export function SystemSieve() {
     }
     try {
       const full = await getSystemSieveScript(script.id);
-      start(script, full.contents);
+      start(script, full.contents, full.state);
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -108,6 +120,7 @@ export function SystemSieve() {
         description: description.trim() || null,
         contents: content,
         activate,
+        state: openState,
       });
       toast.success(t("System script saved"));
       close();
@@ -226,10 +239,18 @@ export function SystemSieve() {
               className="btn btn-sm"
               onClick={async () => {
                 try {
-                  await setSystemSieveScriptActive(s.id, !s.isActive);
-                  await load();
+                  await setSystemSieveScriptActive(
+                    s.id,
+                    !s.isActive,
+                    listState ?? undefined,
+                  );
                 } catch (err) {
                   toast.error((err as Error).message);
+                } finally {
+                  // Reload whether it worked or not: a lost race is exactly
+                  // when the list this button reads from is stale, and the
+                  // next attempt needs the current state to have a chance.
+                  await load();
                 }
               }}
             >
@@ -247,10 +268,11 @@ export function SystemSieve() {
                   })
                 ) {
                   try {
-                    await deleteSystemSieveScript(s.id);
-                    await load();
+                    await deleteSystemSieveScript(s.id, listState ?? undefined);
                   } catch (err) {
                     toast.error((err as Error).message);
+                  } finally {
+                    await load();
                   }
                 }
               }}

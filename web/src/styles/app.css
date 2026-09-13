@@ -1676,10 +1676,21 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 /* A header typed by hand needs a box of its own, alongside the comparator. */
 .rule-row.named-header { grid-template-columns: 1fr 1fr 1fr 1fr auto; }
 .code { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.5; white-space: pre; overflow: auto; background: var(--bg-sunken); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; min-height: 240px; width: 100%; resize: vertical; tab-size: 2; }
-/* CodeMirror mounts its own box (`SieveEditor.tsx`); this only bounds it the way `.code`'s textarea is bounded. */
+/*
+ * CodeMirror mounts its own box as a child of `.sieve-editor` (`SieveEditor.tsx`).
+ * `.sieve-editor` itself is an auto-height block, so a percentage height on
+ * `.cm-editor` would resolve against nothing and be ignored -- the min-height
+ * and the scroll cap both have to live on `.cm-editor` itself, sized from the
+ * `--sieve-min-h` custom property `SieveEditor.tsx` sets per instance. The
+ * max-height is what makes a long script scroll inside the box instead of
+ * growing the page without bound, the way `.code`'s textarea always did.
+ */
 .sieve-editor { width: 100%; }
-.sieve-editor .cm-editor { height: 100%; }
-.sieve-editor .cm-scroller { font-family: var(--font-mono); }
+.sieve-editor .cm-editor {
+  min-height: var(--sieve-min-h, 240px);
+  max-height: 60vh;
+}
+.sieve-editor .cm-scroller { overflow: auto; font-family: var(--font-mono); }
 .shortcut-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px 32px; }
 .shortcut-grid h3 { margin: 0 0 6px; font-size: .9em; text-transform: uppercase; letter-spacing: .05em; color: var(--fg-faint); }
 .shortcut-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; gap: 12px; }

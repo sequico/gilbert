@@ -9,10 +9,16 @@
  * session for their own account. `accountId(ctx)` is passed because JMAP
  * requires one on every call, not because Stalwart uses it here — the
  * registry ignores it for an object type that is not account-filtered.
+ *
+ * Every read hands back the type's own `state`, and every write that follows
+ * a read (update, activate/deactivate, destroy) carries it as `ifInState` —
+ * the same compare-and-set guard `FileNode/set` already relies on elsewhere
+ * (ADR 0003 §6) — so a plain "Save" from a stale editor cannot silently
+ * overwrite a change made from the list in between; it is refused instead.
  */
 
 import { accountId, type Ctx } from "./account.js";
-import { JmapClient } from "./jmap.js";
+import { isStateMismatch, JmapClient } from "./jmap.js";
 
 const OBJECT = "x:SieveSystemScript";
 
@@ -23,8 +29,14 @@ export interface SystemSieveScript {
   isActive: boolean;
 }
 
+export interface SystemSieveScriptList {
+  scripts: SystemSieveScript[];
+  state: string;
+}
+
 export interface SystemSieveScriptContent extends SystemSieveScript {
   contents: string;
+  state: string;
 }
 
 /** An error with a message meant for the administrator using the surface. */
@@ -57,6 +69,10 @@ function describeSetError(err: SetErrorShape): string {
   return `Stalwart refused the change (${err.type ?? "error"}).`;
 }
 
+/** The one message for a lost race: reload and see the current version before trying again. */
+const CONFLICT_MESSAGE =
+  "This script was changed by someone else since it was last read here. Reload and try again.";
+
 function clientOf(ctx: Ctx): JmapClient {
   return new JmapClient(ctx);
 }
@@ -70,26 +86,37 @@ function toRow(o: Record<string, unknown>): SystemSieveScript {
   };
 }
 
-export async function listSystemSieveScripts(ctx: Ctx): Promise<SystemSieveScript[]> {
-  const res = await clientOf(ctx).call<{ list?: Record<string, unknown>[] }>(
-    `${OBJECT}/get`,
-    {
-      accountId: accountId(ctx),
-      ids: null,
-      properties: ["name", "description", "isActive"],
-    },
-  );
-  return (res.list ?? []).map(toRow);
+/** Run a conditional `/set`; a lost `ifInState` race becomes one clear refusal. */
+async function conditionalSet<T>(ctx: Ctx, args: Record<string, unknown>): Promise<T> {
+  try {
+    return await clientOf(ctx).call<T>(`${OBJECT}/set`, args);
+  } catch (err) {
+    if (isStateMismatch(err))
+      throw new SystemSieveError(CONFLICT_MESSAGE, 409, "conflict");
+    throw err;
+  }
+}
+
+export async function listSystemSieveScripts(ctx: Ctx): Promise<SystemSieveScriptList> {
+  const res = await clientOf(ctx).call<{
+    list?: Record<string, unknown>[];
+    state?: string;
+  }>(`${OBJECT}/get`, {
+    accountId: accountId(ctx),
+    ids: null,
+    properties: ["name", "description", "isActive"],
+  });
+  return { scripts: (res.list ?? []).map(toRow), state: String(res.state ?? "") };
 }
 
 export async function getSystemSieveScript(
   ctx: Ctx,
   id: string,
 ): Promise<SystemSieveScriptContent> {
-  const res = await clientOf(ctx).call<{ list?: Record<string, unknown>[] }>(
-    `${OBJECT}/get`,
-    { accountId: accountId(ctx), ids: [id] },
-  );
+  const res = await clientOf(ctx).call<{
+    list?: Record<string, unknown>[];
+    state?: string;
+  }>(`${OBJECT}/get`, { accountId: accountId(ctx), ids: [id] });
   const o = res.list?.[0];
   if (!o)
     throw new SystemSieveError(
@@ -97,7 +124,11 @@ export async function getSystemSieveScript(
       404,
       "not_found",
     );
-  return { ...toRow(o), contents: typeof o.contents === "string" ? o.contents : "" };
+  return {
+    ...toRow(o),
+    contents: typeof o.contents === "string" ? o.contents : "",
+    state: String(res.state ?? ""),
+  };
 }
 
 export interface SystemSieveScriptWrite {
@@ -106,12 +137,16 @@ export interface SystemSieveScriptWrite {
   description: string | null;
   contents: string;
   activate: boolean;
+  /** The state read alongside this script when it was opened; omitted for a create, which has no baseline to lose. */
+  ifInState?: string;
 }
 
 /**
  * Create or update, in the shape Stalwart's own `x:SieveSystemScript/set`
  * validates: a bad script (or a name collision among active scripts) is
- * refused as a `SetError` here, not compiled or checked client-side.
+ * refused as a `SetError` here, not compiled or checked client-side. An
+ * update additionally carries `ifInState` when the caller has one, so a save
+ * built on a since-changed read is refused rather than silently overwriting it.
  */
 export async function saveSystemSieveScript(
   ctx: Ctx,
@@ -124,13 +159,17 @@ export async function saveSystemSieveScript(
     isActive: opts.activate,
   };
   const args: Record<string, unknown> = { accountId: accountId(ctx) };
-  if (opts.id) args.update = { [opts.id]: properties };
-  else args.create = { s: properties };
-  const res = await clientOf(ctx).call<{
+  if (opts.id) {
+    args.update = { [opts.id]: properties };
+    if (opts.ifInState) args.ifInState = opts.ifInState;
+  } else {
+    args.create = { s: properties };
+  }
+  const res = await conditionalSet<{
     created?: Record<string, { id: string }>;
     notCreated?: Record<string, SetErrorShape>;
     notUpdated?: Record<string, SetErrorShape>;
-  }>(`${OBJECT}/set`, args);
+  }>(ctx, args);
   if (opts.id) {
     const err = res.notUpdated?.[opts.id];
     if (err) throw new SystemSieveError(describeSetError(err), 400, "invalid");
@@ -152,19 +191,29 @@ export async function setSystemSieveScriptActive(
   ctx: Ctx,
   id: string,
   active: boolean,
+  ifInState?: string,
 ): Promise<void> {
-  const res = await clientOf(ctx).call<{ notUpdated?: Record<string, SetErrorShape> }>(
-    `${OBJECT}/set`,
-    { accountId: accountId(ctx), update: { [id]: { isActive: active } } },
-  );
+  const res = await conditionalSet<{ notUpdated?: Record<string, SetErrorShape> }>(ctx, {
+    accountId: accountId(ctx),
+    update: { [id]: { isActive: active } },
+    ...(ifInState ? { ifInState } : {}),
+  });
   const err = res.notUpdated?.[id];
   if (err) throw new SystemSieveError(describeSetError(err), 400, "invalid");
 }
 
-export async function deleteSystemSieveScript(ctx: Ctx, id: string): Promise<void> {
-  const res = await clientOf(ctx).call<{ notDestroyed?: Record<string, SetErrorShape> }>(
-    `${OBJECT}/set`,
-    { accountId: accountId(ctx), destroy: [id] },
+export async function deleteSystemSieveScript(
+  ctx: Ctx,
+  id: string,
+  ifInState?: string,
+): Promise<void> {
+  const res = await conditionalSet<{ notDestroyed?: Record<string, SetErrorShape> }>(
+    ctx,
+    {
+      accountId: accountId(ctx),
+      destroy: [id],
+      ...(ifInState ? { ifInState } : {}),
+    },
   );
   const err = res.notDestroyed?.[id];
   if (err) throw new SystemSieveError(describeSetError(err), 400, "invalid");

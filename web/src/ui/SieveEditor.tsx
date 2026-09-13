@@ -27,7 +27,7 @@ import {
 import { sieve } from "@codemirror/legacy-modes/mode/sieve";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
-import { useEffect, useRef } from "react";
+import { type CSSProperties, useEffect, useRef } from "react";
 
 const sieveHighlight = HighlightStyle.define([
   { tag: tags.keyword, color: "var(--accent)", fontWeight: 600 },
@@ -57,7 +57,6 @@ const theme = EditorView.theme({
     border: "none",
   },
   "&.cm-focused": { outline: "none", boxShadow: "var(--focus-ring)" },
-  ".cm-scroller": { overflow: "auto" },
 });
 
 export function SieveEditor({
@@ -124,7 +123,7 @@ export function SieveEditor({
       ref={hostRef}
       className="sieve-editor notranslate"
       translate="no"
-      style={{ minHeight }}
+      style={{ "--sieve-min-h": `${minHeight}px` } as CSSProperties}
     />
   );
 }

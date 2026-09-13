@@ -5,6 +5,11 @@
  * section, which writes `x:SieveSystemScript` as the signed-in
  * administrator's own session — a global registry object, not an account's
  * script, so unlike the agents' API there is no per-account scoping to carry.
+ *
+ * Every read carries the type's own `state`; a write built on one sends it
+ * back as `state` so the server can pass it to Stalwart as `ifInState` —
+ * a write whose baseline has since changed is refused (409) rather than
+ * silently overwriting whatever changed it.
  */
 
 import { apiFetch } from "@/jmap/client";
@@ -16,14 +21,19 @@ export interface SystemSieveScript {
   isActive: boolean;
 }
 
+export interface SystemSieveScriptList {
+  scripts: SystemSieveScript[];
+  state: string;
+}
+
 export interface SystemSieveScriptContent extends SystemSieveScript {
   contents: string;
+  state: string;
 }
 
 /** `GET /api/admin/sieve/system` — every system script, without its contents. */
-export async function listSystemSieveScripts(): Promise<SystemSieveScript[]> {
-  const res = await apiFetch<{ scripts: SystemSieveScript[] }>("/api/admin/sieve/system");
-  return res.scripts;
+export function listSystemSieveScripts(): Promise<SystemSieveScriptList> {
+  return apiFetch<SystemSieveScriptList>("/api/admin/sieve/system");
 }
 
 /** `GET /api/admin/sieve/system/:id` — one script, contents included. */
@@ -38,12 +48,15 @@ export interface SystemSieveScriptWrite {
   description: string | null;
   contents: string;
   activate: boolean;
+  /** The `state` this edit was opened with; omitted for a new script. */
+  state?: string;
 }
 
 /**
  * `POST` to create, `PUT .../:id` to update — Stalwart's own compile check
- * runs on the write itself; a bad script comes back as a thrown `ApiError`
- * whose message is Stalwart's own `SetError` description.
+ * runs on the write itself; a bad script, or a save whose `state` is stale,
+ * comes back as a thrown `ApiError` whose message is already one a person
+ * can act on.
  */
 export async function saveSystemSieveScript(
   id: string | null,
@@ -60,16 +73,21 @@ export async function saveSystemSieveScript(
 }
 
 /** `POST /api/admin/sieve/system/:id/active` — activate or deactivate one script. */
-export function setSystemSieveScriptActive(id: string, active: boolean): Promise<void> {
+export function setSystemSieveScriptActive(
+  id: string,
+  active: boolean,
+  state?: string,
+): Promise<void> {
   return apiFetch<void>(`/api/admin/sieve/system/${encodeURIComponent(id)}/active`, {
     method: "POST",
-    body: JSON.stringify({ active }),
+    body: JSON.stringify({ active, state }),
   });
 }
 
 /** `DELETE /api/admin/sieve/system/:id`. */
-export function deleteSystemSieveScript(id: string): Promise<void> {
+export function deleteSystemSieveScript(id: string, state?: string): Promise<void> {
   return apiFetch<void>(`/api/admin/sieve/system/${encodeURIComponent(id)}`, {
     method: "DELETE",
+    body: JSON.stringify({ state }),
   });
 }

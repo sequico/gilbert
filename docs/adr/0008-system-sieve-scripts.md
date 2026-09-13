@@ -75,6 +75,22 @@ surface reads the compile error straight off the save's own refusal
 into the message `SystemSieve.tsx` shows). No Sieve compiler is written or
 bundled on the client for either surface.
 
+## Concurrency
+
+Every read hands back `x:SieveSystemScript`'s own `state`, and every write
+built on one — an update, an activate/deactivate, a delete — sends it back as
+`ifInState`, the same compare-and-set guard `FileNode/set` already relies on
+for the agent's writes (ADR 0003 §6, `gilbert-stalwart` working rule 6). A
+write whose `state` has moved since it was read is refused (409, `conflict`)
+rather than applied over whatever changed it — a plain "Save" from an editor
+left open cannot silently undo an activation flipped from the list in the
+meantime, and a stale list-level toggle or delete cannot either. The list
+surface reloads after every activate/deactivate/delete attempt, whether it
+succeeded or was refused, so its own `state` is current for the next one. The
+state is a single token for the whole `SieveSystemScript` type, not one per
+script — the same "whole-account state" shape ADR 0003 already notes for
+`FileNode` — so any write to any system script advances it.
+
 ## The editor
 
 CodeMirror 6 (`@codemirror/state`, `@codemirror/view`, `@codemirror/commands`,
@@ -128,11 +144,14 @@ system script does not deactivate another, and there is no separate
   the personal and the admin surface carry it; a regression there reaches
   both.
 - `server/src/mock/index.ts` carries `x:SieveSystemScript/get` and `/set`
-  handlers for mock parity (`gilbert-stalwart`); the mock does not model
-  Stalwart's own `sysSieveSystemScript*` permission split, only
-  `requireAdmin` — a brace-balance check stands in for a real Sieve compile,
-  enough to exercise "a bad script is refused, not stored" without a Sieve
-  compiler in the mock.
+  handlers for mock parity (`gilbert-stalwart`), `ifInState` included; the
+  mock does not model Stalwart's own `sysSieveSystemScript*` permission
+  split, only `requireAdmin` — a brace-balance check stands in for a real
+  Sieve compile, enough to exercise "a bad script is refused, not stored"
+  without a Sieve compiler in the mock.
+- A stale write costs a round trip an unguarded one would not: the caller
+  reloads and tries again rather than the surface silently choosing whose
+  edit wins.
 
 ## Verified against Stalwart
 
