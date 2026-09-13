@@ -76,10 +76,26 @@ metadata:
   (Admin > Installation policy) writes `installation-policy.json` into every
   individual account's own app folder, by impersonation (`fetchDirectoryUsers`
   + `impersonateAs`, `server/src/app.ts`) — the publishing administrator's
-  account included. `GET /admin/policy` and the authenticated
-  `GET /api/account/policy` each read from the signed-in account's own file
-  (`readAccountPolicy`, `server/src/adminPolicy.ts`), fetched once by
-  `web/src/lib/settingsPolicy.ts`.
+  account included — conditionally on that account's own file state
+  (`ifInState`, read after its app folder exists). `GET /admin/policy` and the
+  authenticated `GET /api/account/policy` each read from the signed-in
+  account's own file (`readAccountPolicy`, `server/src/adminPolicy.ts`), fetched
+  once by `web/src/lib/settingsPolicy.ts`.
+- **A publish is a job with an id (ADR 0016).** One id is minted before the
+  first copy goes out, every copy carries it beside the policy as
+  `published: { id, at }` (`PolicyPublished`), and the job itself is one
+  document — `gilbert/publish-job.json`, in the publishing administrator's own
+  app folder (`PublishJob`, `PUBLISH_JOB_FILE`, `readPublishJob`) — holding the
+  population the directory reported (`read`/`complete`/`total`), the accounts
+  the copy reached, the ones it did not with a code each
+  (`impersonation-refused`, `no-files-account`, `write-failed`, `policy-moved`,
+  `directory-denied`), and whether the installation can be said to carry the
+  policy. `GET /admin/policy` answers it beside the policy, so the editor names
+  the last publish even when another instance made it, and a publish whose own
+  record could not be stored answers `record: "failed"`. A publish that answered
+  is not a publish that covered the installation: `complete` is true only when
+  the directory's listing *was* the whole directory and every account it listed
+  was reached.
 - The policy is per account and only per account: there is no
   installation-wide copy behind it and no bootstrap beside it. An account no
   publish has reached carries no document, which its reader reports as the

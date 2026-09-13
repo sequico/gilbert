@@ -145,21 +145,26 @@ GILBERT_AGENT_PASSWORD=<the account's own password> \
 npm start
 ```
 
-That one command is an installation that both serves and acts: with the pair
-set, the server runs an agent beside the web tier in its own process (ADR 0003),
-and the agent is the same entrypoint either way — `node
-server/dist/agent/agent.js` is what a deployment that wants the fleet apart
-runs instead, with `GILBERT_AGENT_INPROCESS=0`.
+That one command is an installation that both serves and acts: the pair is the
+boot's handshake, and with it the server runs an agent beside the web tier in its
+own process (ADR 0003). The agent is the same entrypoint either way — `node
+server/dist/agent/agent.js` is what a deployment that wants the fleet apart runs
+instead, with `agent.inProcess` false in the installation document.
 
-`GILBERT_AGENT_POLL_MS`, `GILBERT_AGENT_LEASE_MS` and
-`GILBERT_AGENT_HEALTH_PORT` say how often it re-reads, how long a claim lives,
-and how a restart policy reaches it. **Admin → Agents** shows the groups the
-agent is in, read from the Master's own session in Stalwart, and **Admin → Group
-agents** narrows what it does inside them, one group at a time: the automations
-it runs there, what is waiting on a person, and the agents carrying them out.
-With the pair unset the server runs with no agent — that screen says what is
-missing and how to set it — and an agent started without it, or with a pair
-Stalwart refuses, warns once and serves nothing rather than failing to come up.
+How often it re-reads, how long a claim lives, and how a restart policy reaches
+it are that document's `agent.poll`, `agent.lease` and `agent.healthPort` — the
+`GILBERT_AGENT_*` variables of the same names are what a process with no boot
+runs on (see [The installation's own
+configuration](#the-installations-own-configuration)). **Admin → Agents** shows
+the groups the agent is in, read from the Master's own session in Stalwart, and
+**Admin → Group agents** narrows what it does inside them, one group at a time:
+the automations it runs there, what is waiting on a person, and the agents
+carrying them out. The pair is what a boot cannot do without: a deployment that
+states neither, or whose pair Stalwart refuses, does not come up, and the boot
+names what is missing rather than serving an installation whose document nobody
+can read. An agent process started on its own is the other half of that
+sentence — with nothing named it warns once, keeps running and serves nothing
+rather than failing to come up.
 
 **What it does.** An **automation** is a document in the group's own account:
 when it reacts (an email arriving, a chat message, a file, a time), which
@@ -222,7 +227,8 @@ reproduces all four.
 
 ```bash
 cp .env.example .env
-# edit: STALWART_URL=https://mail.example.com  and  APP_SECRET=$(openssl rand -base64 48)
+# edit: STALWART_URL=https://mail.example.com, and the Master's own account in
+# GILBERT_AGENT_ADDRESS / GILBERT_AGENT_PASSWORD (.env.example says what for)
 docker compose up --build -d
 # → http://localhost:8080  (put Caddy/nginx in front for TLS; see Caddyfile.example / nginx.example.conf)
 ```
@@ -233,10 +239,11 @@ settings — Stalwart accepts a TOTP code only through an OAuth flow and offers 
 password grant, so no client holding a username and password can exchange them
 plus a code for a token.
 
-Full instructions, TLS, and every environment variable — upstream's docs,
-still the reference for the underlying client:
+Full instructions and TLS — upstream's docs, still the reference for the
+underlying client:
 [Installing](https://docs.ihasmail.org/install/) ·
-[Configuring](https://docs.ihasmail.org/configure/).
+[Configuring](https://docs.ihasmail.org/configure/). The variables *this* build
+reads, and what each one is for, are in [`.env.example`](.env.example).
 
 ### Container images
 
@@ -309,7 +316,8 @@ open-connection count stops tracking its open tabs.
 There is no address to configure. The origin Stalwart POSTs back to is taken
 from the request itself, and only when that request is believable: it arrived
 over https -- RFC 8620 requires the scheme -- from a proxy Gilbert runs, that is
-`TRUST_PROXY` is on and the peer is inside `TRUSTED_PROXIES`. A Gilbert reached
+the installation's `server.trustProxy` is on and the peer is inside
+`server.trustedProxies`. A Gilbert reached
 directly, or over plain http, keeps the per-tab relay for every account: nothing
 is lost, reconnecting is simply not local. An account that never verifies stays
 on the relay for its whole life. The fan-out covers every surface -- mail, files
@@ -318,8 +326,64 @@ every account.
 
 `GET /api/health` says what actually happened: `push.accounts` counts the
 verified, pending and failed subscriptions, and `push.tabs` splits the open tabs
-into `fanout` and `relay`. Set `PUSH_MODE=relay` to keep the per-tab stream and
-never subscribe.
+into `fanout` and `relay`. `push.mode` set to `relay` in the installation's own
+document keeps the per-tab stream and never subscribes.
+
+### The installation's own configuration
+
+The installation's configuration is **one document in Stalwart**:
+`installation.json` in the Master account's own `gilbert` app folder. A boot
+signs in as the Master, reads that document whole, and runs on it; the first
+boot writes it — the defaults and a freshly generated app secret — and
+**Administration → Installation** edits it from then on. Nothing about it is on
+the container, so a redeploy reads back exactly what the last edit wrote, and a
+publish is in force from the **next boot**: the running process keeps the
+configuration it booted with.
+
+The environment carries four classes of value:
+
+- **The handshake** — `STALWART_URL`, `GILBERT_AGENT_ADDRESS`,
+  `GILBERT_AGENT_PASSWORD`, and `STALWART_FOLLOW_ADVERTISED_URLS` for a
+  deployment whose proxy rewrites the host: how Stalwart is reached, and which
+  account holds the document. The three have no defaults, and a boot that finds
+  one missing stops and names it. They cannot come from the document, because
+  the document lives in Stalwart.
+- **The container's own facts** — `HOST`, `PORT`, `IMMUTABLE`: which interface
+  and port this process was given, and whether its root filesystem is read-only.
+  A container that states `HOST`/`PORT` overrides the document's; one that
+  states neither takes the document's.
+- **The image's facts** — `STATIC_DIR`, `SOURCE_URL`, `GILBERT_ADMIN_PERMISSION`,
+  the version the build calls itself (`GILBERT_VERSION`), and `NODE_ENV`, which
+  is what the two refusals below read.
+- **The operator's own statement** — `GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`:
+  whether this deployment may point the installation's model at an address
+  inside its own network. It is read from the environment and nowhere else,
+  because an installation must not grant itself that right.
+
+**`BASE_PATH` is the image's fact, one value in two places.** The build argument
+bakes the prefix into the web bundle's asset URLs, and `BASE_PATH` in the
+running container tells the server which prefix to serve (`""` is the domain
+root). It is deliberately **not** in the installation's document: a document
+that could move it could disagree with the bundle, and the symptom is a blank
+page. `assertServable` refuses two
+configurations no production process may serve on — one that states no prefix at
+all, and one whose app secret is ephemeral, minted because nothing stated one.
+
+The document's `secret` is the key every stored session is sealed with, and it
+is **generated on the first boot** and written into the document, because a
+secret the container holds is a secret a redeploy loses. `APP_SECRET` is what a
+process with no boot runs on — a test, a tool, a development
+server started without a sign-in — and the document decides for a booted one, so
+rotating `APP_SECRET` signs nobody out. `appSecretSource` travels with the
+configuration and says which of the three it was.
+
+Every other knob — the session lifetimes, the upload ceiling, the routing table,
+whether a proxy is trusted, the cookie's name, the fleet's timers and bounds — is
+a field of that document, with the `TRUST_PROXY`, `SESSION_TTL`,
+`GILBERT_AGENT_*` and other names of the same settings being what a process with
+no boot runs on. The sections, and what each one holds, are listed in
+[`.env.example`](.env.example) and in
+[FEATURES.md](FEATURES.md#configuration).
 
 ### Several Stalwart servers
 
@@ -414,20 +478,37 @@ Publishing applies at once: every account the directory lists gets the document
 written into its own app folder (impersonated), the publishing administrator's
 account included, and every other signed-in session is kicked so its next
 sign-in reads the new policy (ADR 0001). One account's refusal — no
-impersonation grant, an unreachable session — does not stop the rest, and the
-outcome says what the installation now is: the population the directory
-reported, the accounts the policy reached, each account it did not with the
-reason behind it, and whether every listed account received it. A count of
-successes is not that claim, so the surface does not make it.
+impersonation grant, an unreachable session, an account with no Files to hold it
+— does not stop the rest.
+
+**The publish is a job with an id** (ADR 0016). One id is minted before the
+first copy goes out, and every copy written carries it as
+`published: { id, at }` beside the policy, so any account an administrator opens
+says which publish reached it. The job itself is one document,
+`gilbert/publish-job.json` in the publishing administrator's own app folder,
+holding the id, when the publish started, who published, the population the
+directory reported (the accounts it listed, whether that listing was the whole
+directory, and the total when the server stated one), the accounts the policy
+reached, the ones it did not with a code for each — `impersonation-refused`,
+`no-files-account`, `write-failed`, `policy-moved`, `directory-denied` — and
+whether the installation can be said to carry the policy. It lives in the
+account rather than in the process, so **Administration → Installation policy**
+reads the same answer back after a restart and names the publish it is showing.
+A publish that could not store its own record says `record: "failed"` rather
+than answering a job no later read can find.
+
+**Every per-account write is conditional**, against the state of the account it
+lands in, so a copy that would replace one somebody else just wrote is refused
+instead (`policy-moved`) and the account keeps the copy it had. And no publish
+claims more than it reached: it counts as complete only when the directory it
+read *was* the whole directory and every account the directory listed received
+the policy. A count of successes is not that claim, so the surface does not make
+it.
 
 An account no publish has reached reads the built-in defaults, and an account the
 last publish did not list falls back to them until the next publish reaches it.
 There is no environment variable for this: an installation states its policy in
 the editor, or it states none.
-
-This is what every account reads before any administrator has ever used the
-live editor, and what a brand-new account (not yet listed at the last publish)
-falls back to until the next publish reaches it.
 
 ### Writing a policy
 

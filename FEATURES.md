@@ -114,12 +114,13 @@ declare it.
   agent. Nothing in the product names it and nothing is recorded for it: there
   is one place the pair lives, and it is the deployment. Both processes read the
   same pair: the agent opens its session with it, and the admin surface signs
-  in as the agent with it, so no screen carries a secret. Absent or incomplete,
-  the server runs with no agent and **Admin → Master** says which state it is in
-  and how to set the pair, while the agent process starts as well and serves
-  nothing, warning once about what is missing instead of refusing to come up; a
-  password Stalwart refuses is its own state, named as such, with the
-  installation running and the screen saying the fleet is not operational.
+  in as the agent with it, so no screen carries a secret. It is the boot's
+  handshake, so absent or incomplete the deployment does not come up — the boot
+  names the variable that is missing and exits, and a pair Stalwart refuses
+  fails the Master's sign-in the same way. **Admin → Master** reports the state
+  it finds, and the agent process started on its own is the other half of the
+  sentence: with nothing named it warns once, keeps running and serves nothing
+  instead of refusing to come up.
 - **What the fleet serves, per group.** The accounts Stalwart lists the agent as
   a member of, and nothing else: a group is served when it holds the agent, so
   the grant is Stalwart's and there is no second record to keep. The surface
@@ -214,9 +215,10 @@ write-only key), serves every automation: nothing asks an administrator to
 classify what a piece of work deserves. Beside it the installation states its
 own bounds — the ceiling on one answer, how many hops a chain may run, how many
 pages one run may hand the model — in the same document and the same panel.
-A bound the installation has not set is the deployment's: the environment
-declares the two chain and page bounds, and the ceiling on an answer is the
-build's own default. Both of the installation's own bounds are held to fifty
+A bound the installation has not set is the build's own default: the ceiling on
+one answer is a constant, while how many hops a chain may run and how many pages
+one run may hand the model are the document's `agent.chainHops` and
+`agent.pages`. Both of the installation's own bounds are held to fifty
 whatever the document or the environment asks — a value no surface could have
 written is a value no run obeys, and the panel shows the number a run is held
 to rather than the one a hand-edited document states. A file larger than the
@@ -224,9 +226,9 @@ byte ceiling a run reads is not
 read, one split writes at most a hundred pages, and a page too large to hold is
 rendered smaller rather than refused — all said in the run's own notes rather
 than discovered as an outage. A deployment whose model cannot read an image says
-so (`GILBERT_AGENT_VISION=0`), no page is rendered for it at all, and its runs
-are told that the page could not be read instead of being told one was handed
-over.
+so (`agent.vision` false in that document), no page is rendered for it at all,
+and its runs are told that the page could not be read instead of being told one
+was handed over.
 - **A group has a memory.** Beside the documents a group already keeps, its
 agent carries a **notebook**: the facts about the group that no automation
 should have to repeat — how its mail is filed, what its clients are called,
@@ -249,7 +251,7 @@ and no claim — a call with a timeout instead of a lease, thinking off — and 
 tokens are counted in the **Master's account** as authoring rather than in a
 group's ledger. Its refusals travel as codes like every other refusal, and the
 answer is model prose shown as prose. What it may spend is the installation's
-own month (`GILBERT_AGENT_AUTHORING_MAX_PER_MONTH`), counted from the authoring
+own month (`agent.authoringMaxPerMonth`), counted from the authoring
 document and refused before the call rather than after it; two readings asked
 for at the same moment can both pass it, and a reading the month could not
 record says so rather than being lost.
@@ -261,7 +263,7 @@ build, no child process) and the page rides that run's call as volatile content
 in the tail, so the prompt's stable head is unaffected and an image is never a
 cache hit. A vision request carries images and not documents, which is why the
 page is rendered rather than handed over; how many pages one run may hand over
-is bounded (`GILBERT_AGENT_MAX_PAGES`, eight by default) rather than left to the
+is bounded (`agent.pages`, eight by default) rather than left to the
 file's size, and a document longer than the bound is read as the first pages of
 it — which the run is told, so a part of a document is never presented as the
 whole of it. There is deliberately no OCR engine — a page that is only pixels is
@@ -283,7 +285,7 @@ client's name says, then read it and tell the group" is two automations passing
 work along, and the hand-off travels through the group's own documents — a file
 written into its Files wakes a file rule, a decision answered in its chat closes
 the run that was waiting. Every run records the job that woke it, a chain runs
-**five hops** (the number is the installation's, `GILBERT_AGENT_MAX_CHAIN_HOPS`),
+**five hops** (the number is the installation's, `agent.chainHops`),
 and the sixth is **refused loudly**: no job, an audit entry whose outcome is
 `refused`, and a line in the group's chat naming the automation and the bound.
 A cycle of automations that wake each other therefore ends by itself, at the
@@ -333,12 +335,12 @@ one process per account, several accounts per agent, and a crashed agent's
 claims are re-taken by whoever is running, together with the work it left mid-run; a
 run nobody comes back for is recorded as a timeout rather than as a failure,
 because nothing reported one — the process that would have is gone. It answers
-a health probe when the deployment
-names a port (`GILBERT_AGENT_HEALTH_PORT`), reporting the accounts
-it actually holds, so a restart policy can tell "running" from "running and
-serving nothing". **The server starts one beside itself** when the deployment
-names an agent (ADR 0003), so the one command that starts the web tier is an
-installation that also works; `GILBERT_AGENT_INPROCESS=0` is how a deployment
+a health probe when the deployment names a port (`agent.healthPort` in the
+installation document), reporting the accounts it actually holds, so a restart
+policy can tell "running" from "running and serving nothing". **The server starts
+one beside itself** when the deployment names an agent (ADR 0003), so the one
+command that starts the web tier is an installation that also works;
+`agent.inProcess` set to false in the installation document is how a deployment
 keeps the fleet in a process of its own.
 - **Members see, never change.** Next to the group's chat, an indicator opens
 the group's agent surface: which agent works for the group, what instructions
@@ -417,26 +419,44 @@ publishing administrator's account included — rather than into a file or
 an environment variable, so it survives a redeploy and needs no volume
 even under `IMMUTABLE=1` (ADR 0001). It applies at once and signs the
 other signed-in clients out so their next sign-in reads it (`GET`/`POST
-/api/admin/policy`, `GET /api/account/policy`; ADR 0001).
+/api/admin/policy`, `GET /api/account/policy`; ADR 0001). **Each publish is a
+job with an id** (ADR 0016): one id is minted before the first copy goes
+out, every copy carries it beside the policy as `published: { id, at }`, and
+the job itself is one document — `gilbert/publish-job.json` in the publishing
+administrator's own app folder — holding when it started, who published, the
+population the directory reported (how many accounts it listed, whether that
+listing was the whole directory, and the total when the server stated one),
+the accounts the policy reached, each account it did not with a code
+(`impersonation-refused`, `no-files-account`, `write-failed`, `policy-moved`,
+`directory-denied`), and whether the installation can be said to carry the
+policy. Every per-account write is conditional on that account's own file
+state, so a copy that would replace one somebody else just wrote is refused
+(`policy-moved`) instead; a publish whose own record could not be stored says
+`record: "failed"` rather than answering a job no later read can find; and
+the editor reads the job back out of the account, so it names the last
+publish it is showing even when this process never made one.
 - **Installation document editor**: the Installation section beside Policy
-shows the installation's own configuration — one JSON document in the
-account's own `gilbert` app folder, which is what the boot reads, whole,
-after signing in as the Master — and publishes it. The read answers the
-text as the account holds it, including a document this build cannot
-read, and whether there is one at all; publishing validates with the
-boot's own validator and refuses anything that is not a document, with
-the reason, before a byte is written: a document with no app secret is
-refused too, because a boot cannot invent one and every stored session is
-sealed with it. A publish writes into the publishing administrator's own
-app folder through the same writer the boot reads with (the epoch moves
-on; nothing here reloads the process), and the answer says when it
-applies — the running process keeps the configuration it booted with, and
-the next boot reads what was just written — and which account's document
-that is: the account the installation signs in as (the Master,
-`GILBERT_AGENT_ADDRESS`) is the one a boot reads, and a publish made
-from any other administrator is stated as landing in their own account
-rather than left to read as a change to the installation. The three
-values that reach Stalwart (`STALWART_URL` and the Master's own
+shows the installation's own configuration — one JSON document,
+`installation.json` in the `gilbert` app folder of **the Master's own
+account**, which is what a boot reads whole after signing in as the
+Master — and publishes it. Both halves of that door act on the Master's
+account by impersonation, so an administrator whose own account is
+elsewhere administers the installation's document rather than one in their
+own Files; a deployment that names no Master (`GILBERT_AGENT_ADDRESS`
+unset) is refused as a value, with its own code, rather than opened onto
+whoever is asking (ADR 0017). The read answers the text as the account holds
+it, including a document this build cannot read, and whether there is one at
+all; publishing validates with the boot's own validator and refuses anything
+that is not a document, with the reason, before a byte is written: a document
+with no app secret is refused too, because a boot cannot invent one and every
+stored session is sealed with it. A publish writes through the same writer the boot reads
+with, conditionally, and from the epoch the **stored** document carries rather
+than the one submitted — a save from an editor opened before somebody else's
+publish cannot move the stored epoch backwards, and a document that moved
+while the publish was in flight is refused with its own code and left exactly
+as it was. The answer says when it applies — the running process keeps the
+configuration it booted with, and the next boot reads what was just written.
+The three values that reach Stalwart (`STALWART_URL` and the Master's own
 credential) are not in the document: they are what reads it
 (`GET`/`POST /api/admin/installation`; `server/src/installationAdmin.ts`,
 `server/src/shared/installation.ts`).
@@ -1842,8 +1862,9 @@ The full reference is at [docs.ihasmail.org/shortcuts](https://docs.ihasmail.org
 ## The browser never holds a credential
 
 Sign-in posts the username and password once. The server seals them with a key
-derived from the session's own cookie secret combined with `APP_SECRET`
-(HKDF-SHA256 → AES-256-GCM), and keeps only the ciphertext plus a hash of the
+derived from the session's own cookie secret combined with the app secret —
+`secret` in the installation's own document, and `APP_SECRET` in a process with
+no boot (HKDF-SHA256 → AES-256-GCM) — and keeps only the ciphertext plus a hash of the
 cookie secret. A stolen session file cannot be turned back into passwords
 without also holding the users' cookies. The browser gets an `HttpOnly`,
 `SameSite=Lax`, `Secure`-when-HTTPS cookie and nothing else; every JMAP call
@@ -2027,28 +2048,90 @@ docker inspect <name> --format '{{json .Mounts}}'    # the one people skip
 
 ## Configuration
 
-Every knob is an environment variable; there is no config file and no setup
-wizard, because either would be state.
+The installation's configuration is **one document in Stalwart**:
+`installation.json`, in the Master account's own `gilbert` app folder. A boot
+signs in as the Master, reads it whole, and runs on it
+(`server/src/bootstrap.ts` → `server/src/config.ts`); the first boot creates it —
+the defaults and a freshly generated app secret — and **Administration →
+Installation** edits it from then on. Nothing about it is on the container, so a
+redeploy reads back exactly what the last edit wrote, and a publish is in force
+from the **next boot**: the running process keeps the configuration it booted
+with.
+
+The environment carries four classes of value. The names and
+the defaults are the same in both paths, so a process that never boots — a test,
+a tool, a development server started without a sign-in — runs on what the
+environment states (`server/src/configuration.ts`).
+
+**The handshake** — how Stalwart is reached, and which account holds the
+document. The three below have no defaults: a boot that finds one missing stops
+and names it. They cannot come from the document, because the document lives in
+Stalwart.
+
+| Variable | Does |
+| --- | --- |
+| `STALWART_URL` | Where Stalwart is; the JMAP session is discovered at `/.well-known/jmap`, and it is the default for a domain the routing table does not list |
+| `GILBERT_AGENT_ADDRESS` | The Master's own address (ADR 0003): the account a boot signs in as, and whose app folder holds this installation's document |
+| `GILBERT_AGENT_PASSWORD` | The credential that account signs in with — its own password, never an app password |
+| `STALWART_FOLLOW_ADVERTISED_URLS` | Off by default: only the path and query are taken from a URL Stalwart advertises, with scheme, host and port from `STALWART_URL`; a deployment that must reach Stalwart at a different origin than the one it was given sets it |
+
+**The container's own facts** — what this process was given, not what the
+installation decided. `HOST` and `PORT` override the document when the container
+states them; when it states neither, the document's `server.host`/`server.port`
+decide. `IMMUTABLE` is an assertion the server checks rather than a switch: it
+probes the filesystem and refuses to boot when it turns out to be writable after
+all.
 
 | Variable | Default | Does |
 | --- | --- | --- |
-| `STALWART_URL` | — | Where Stalwart is; the JMAP session is discovered at `/.well-known/jmap` |
-| `APP_SECRET` | — | Key material for sealing sessions. **Required in production** — the server refuses to start without it |
-| `HOST` / `PORT` | `0.0.0.0` / `8080` | Listen address |
-| `BASE_PATH` | — (the domain root) | Subpath to serve from, e.g. `/mail`. Must be set for the **build** as well as the run — see below |
-| `TRUST_PROXY` | `1` | Believe `X-Forwarded-*` |
-| `TRUSTED_PROXIES` | loopback + private ranges | Which peers to believe |
-| `SECURE_COOKIES` | `auto` | `Secure` when the request arrived over HTTPS; `1`/`0` to force |
-| `SESSION_TTL` | `43200` (12h) | Idle session lifetime |
-| `SESSION_REMEMBER_TTL` | `2592000` (30d) | "This is my own device" lifetime |
-| `IMMUTABLE` | off | Assert and verify that nothing is writable |
-| `UPSTREAM_TIMEOUT` | `30000` | Milliseconds |
-| `MAX_UPLOAD_BYTES` | `52428800` | 50 MB |
-| `IMAGE_PROXY` | `1` | Privacy proxy for remote images |
-| `LOGIN_RATE_LIMIT` | `10` | Attempts per window |
-| `COOKIE_NAME` | `ihm_session` | |
-| `APP_NAME` | `Gilbert` | Branding |
+| `HOST` / `PORT` | the document's | Listen address |
+| `IMMUTABLE` | off | Assert **and verify** that nothing is writable |
+| `BASE_PATH` | the domain root | Which prefix this instance serves — the image's fact, and not in the document — see below |
+
+**The image's own facts** — what this process *is*, rather than what this
+installation decided.
+
+| Variable | Default | Does |
+| --- | --- | --- |
+| `STATIC_DIR` | the built bundle inside the image | Where the web bundle is |
 | `SOURCE_URL` | this repository | Where **your** source is, for the AGPL offer |
+| `GILBERT_ADMIN_PERMISSION` | `sysAccountCreate` | The `/api/account` permission that marks a Stalwart admin (ADR 0001) |
+| `GILBERT_VERSION` | from git in a checkout | The version this build calls itself; the image is built with it (`--build-arg`) |
+| `NODE_ENV` | — | Whether this is a production process, which is what the two boot refusals below read |
+
+**The operator's own statement** — `GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`, off
+by default: whether this deployment may point the installation's model at an
+address inside its own network. It is read from the environment and nowhere
+else, because an installation must not grant itself that right; the document
+does not carry the field, and a document that still carries
+`agent.allowPrivateProvider` is read as though it did not.
+
+**Everything else is the document's**, in the sections the Installation editor
+shows: `server` (whether a proxy is trusted and which peers, the `Secure`-cookie
+posture, the session cookie's name — `gilbert_session` unless the installation
+names it otherwise — and whether the JMAP response is compressed),
+`limits` (the upstream timeout, the largest upload, the remote-image proxy, the
+sign-in rate limit, and the per-session budget on the data path), `sessions` (how
+long a session lives, and how long "remember me" extends it), `push` (the
+live-update mode and the raw-push relay), `upstreams` (the domains served by
+another Stalwart — see below), `agent` (the fleet's timers and bounds, whether it
+may think or read images, its health port, and whether it runs in the server's
+own process) and `branding` (the name this installation shows). Every
+`GILBERT_AGENT_*` variable the agent sections below name — `agent.poll`,
+`agent.lease`, `agent.chainHops`, `agent.pages`, `agent.vision`,
+`agent.authoringMaxPerMonth`, `agent.healthPort`, `agent.inProcess` — is one of
+those fields in a booted deployment, and the variable is what a process with no
+boot runs on.
+
+The document's `secret` is the key every stored session is sealed with. It is
+**generated on the first boot** and written into the document, because a secret
+the container holds is a secret a redeploy loses; `APP_SECRET` is what a process
+with no boot runs on, and the document decides for a
+booted one, so rotating `APP_SECRET` — or leaving it unset — signs nobody out:
+a booted deployment is never refused for a missing one, because its secret is
+the document's. What `assertServable` (`server/src/config.ts`) refuses, for a
+**production** process, is a configuration that states no served prefix at all,
+and one whose secret is ephemeral because nothing stated one.
 
 Full documentation, including TLS and reverse proxies:
 [Configuring](https://docs.ihasmail.org/configure/). `Caddyfile.example` and
@@ -2064,18 +2147,26 @@ docker build --build-arg BASE_PATH=/mail -t gilbert .
 docker run -e BASE_PATH=/mail ... gilbert
 ```
 
-`/mail`, `mail` and `/mail/` all mean the same mount; unset means the domain
-root, which is exactly what it has always been. Everything moves together —
-`/mail/api/health`, every deep link, the icons, the manifest, the service
-agent's scope and the session cookie's `Path`.
+`/mail`, `mail` and `/mail/` all mean the same mount; an empty value means the
+domain root. Everything moves together — `/mail/api/health`, every deep link,
+the icons, the manifest, the service worker's scope and the session cookie's
+`Path`.
 
-Two things are worth knowing before you reach for it.
+Three things are worth knowing before you reach for it.
+
+**The prefix is the image's, not the installation's.** It is deliberately not a
+field of the installation document: the value the bundle was built with and the
+value the server serves are the same variable, and a document that could move it
+could disagree with the bundle it is serving. A production process where
+`BASE_PATH` is not set at all refuses to serve rather than guessing, because a
+page whose own asset URLs point somewhere else cannot load itself.
 
 **The prefix must arrive intact.** Point the proxy at Gilbert without
 stripping it: `proxy_pass http://127.0.0.1:8080;` with no trailing slash in
 nginx, `reverse_proxy` without a `uri strip_prefix` in Caddy. A proxy that
-strips the prefix is talking to an app at the root, and should be paired with
-no `BASE_PATH` at all.
+strips the prefix is talking to an app at the root, and the build has to agree:
+both are made with `BASE_PATH=""`, which is a stated prefix rather than a
+missing one.
 
 **It is baked in at build time, not only at run time.** This is the one setting
 that cannot wait for the process to start: the web bundle writes its own
@@ -2086,12 +2177,16 @@ checks the built shell against its own `BASE_PATH` at the first request and
 says so in the log rather than leaving you with an empty page and a 404.
 
 The manifest and the service worker need neither: a manifest's URLs resolve
-against the manifest's own address, and the Master's own address tells it where
-it was mounted. Both follow the prefix with nothing substituted into them.
+against the manifest's own address, and the worker is registered with the
+prefix in its script address and in its scope (`web/src/main.tsx`) rather than
+inheriting a scope from wherever the file happens to sit. Both follow the
+prefix with nothing substituted into them.
 
 ## Rebranding
 
-`APP_NAME` and `SOURCE_URL` are variables; the logo, icons and palette are
+The installation's own name is `branding.appName` in its document (the `APP_NAME`
+variable is what a process with no boot runs on), and where **your** source can
+be had is a variable the image states; the logo, icons and palette are
 files. See [Rebranding](https://docs.ihasmail.org/rebranding/). If you run a
 modified Gilbert, `SOURCE_URL` must point at **your** tree — the AGPL's offer
 is for the source of the version being run, and it is shown on the sign-in page

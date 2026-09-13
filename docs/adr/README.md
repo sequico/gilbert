@@ -56,3 +56,16 @@ is, not what a user sees.
   own origin.** One subscription per account names every state type a
   Gilbert surface keeps live, and its callback address is derived from the
   request rather than configured.
+- **0016 — The policy publish is a job with an id.** One id per publish,
+  carried by every copy it writes, and the job — the population the
+  directory reported, the accounts the policy reached, the ones it did not
+  with a code each, and whether the installation can be said to carry the
+  policy — is one document in the publishing administrator's own app
+  folder. Every per-account write is conditional, and the outcome cannot
+  claim more than it reached. Supersedes ADR 0001's policy-publish bullet.
+- **0017 — The installation's configuration is the Master's own document.**
+  `installation.json` in the Master account's `gilbert` app folder, read
+  whole at boot and written by the administration through the same
+  impersonation door; the environment carries only the handshake, the
+  container's and the image's own facts, the operator's own switch, and the
+  facts about the process itself. A publish applies from the next boot.
