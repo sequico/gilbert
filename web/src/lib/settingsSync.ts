@@ -17,7 +17,12 @@
  * arrive.
  */
 import { CAP, client } from "@/jmap/client";
-import { ensureFolder, findInFolder, writeAppJson } from "@/lib/appFolder";
+import {
+  ensureFolder,
+  findInFolderWithState,
+  isStateMismatch,
+  writeAppJson,
+} from "@/lib/appFolder";
 import { t } from "@/lib/i18n";
 import { useSession } from "@/store/session";
 import { toast } from "@/ui/toast";
@@ -29,6 +34,17 @@ const TYPE = "application/json";
 const DEBOUNCE_MS = 3000;
 /** How long a failed write waits before trying again. */
 const RETRY_DEBOUNCE_MS = 15_000;
+/**
+ * How many times one save re-reads the file and re-applies its change.
+ *
+ * The server's own appends answer a lost compare-and-set the same way — read
+ * again rather than write the stale copy harder (`AUDIT_CAS_ATTEMPTS`,
+ * `server/src/agent/store.ts`) — and the number is small because a save that
+ * loses this many races in a row is a save against an account somebody or
+ * something is writing continuously, which the caller's own retry
+ * (`flushSettingsPush`) is the better answer for.
+ */
+const CAS_ATTEMPTS = 3;
 
 let timer: number | null = null;
 let pending: Record<string, unknown> | null = null;
@@ -57,16 +73,45 @@ export async function loadRemoteSettings(): Promise<Record<string, unknown> | nu
   const accountId = useSession.getState().ownAccountFor(CAP.filenode)!;
   try {
     const folderId = await ensureFolder(accountId);
-    const node = await findInFolder(accountId, folderId, FILE);
-    if (!node?.blobId) return null;
-    const text = await client.fetchBlobText(accountId, node.blobId, TYPE);
-    const parsed = JSON.parse(text) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-    return parsed as Record<string, unknown>;
+    return (await readSettingsFile(accountId, folderId)).doc;
   } catch {
     // A settings file we cannot read must not cost anyone their session; the
     // cached settings are still perfectly good.
     return null;
+  }
+}
+
+/**
+ * The settings document as it stands, with the FileNode state that read saw.
+ *
+ * The two have to come from one read. A token taken at one moment and a
+ * document read at another is the race the writer exists to avoid: it would
+ * compare the write against a state the document was never seen in, so a change
+ * somebody else made in between would pass as the writer's own and be
+ * overwritten. A file that is absent, or that does not read as a settings
+ * document, is answered as absent — the same answer the loader gives, and the
+ * only honest one for a writer, which cannot preserve what it cannot read.
+ *
+ * The state comes back either way, so the save that creates the file is as
+ * conditional as the one that replaces it: an account with no `settings.json`
+ * yet is exactly where two tabs first saving at once would otherwise make two
+ * of them.
+ */
+async function readSettingsFile(
+  accountId: string,
+  folderId: string,
+): Promise<{ doc: Record<string, unknown> | null; state: string }> {
+  const { file, state } = await findInFolderWithState(accountId, folderId, FILE);
+  if (!file?.blobId) return { doc: null, state };
+  try {
+    const text = await client.fetchBlobText(accountId, file.blobId, TYPE);
+    const parsed = JSON.parse(text) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { doc: null, state };
+    }
+    return { doc: parsed as Record<string, unknown>, state };
+  } catch {
+    return { doc: null, state };
   }
 }
 
@@ -207,10 +252,57 @@ export async function flushSettingsPush(): Promise<void> {
   }
 }
 
+/**
+ * Write the queued settings into the account's file, against the state the
+ * document was read in.
+ *
+ * `settings.json` is one fixed name that every tab of every device of this
+ * account saves whole, so two saves can overlap and the later one can be the
+ * older one. The write therefore carries the FileNode state of the read it was
+ * built from, and the mail server refuses it when anything in the account has
+ * changed since — a lost compare-and-set rather than a last-write-wins that
+ * silently reverts whichever tab saved first.
+ *
+ * Losing it is not a failure, it is a slower save: the file is read again, the
+ * pending change is applied on top of what is there now, and it is written
+ * against the token that read produced. The queued body is the whole synced
+ * document, so the retry is not a merge of two tabs' edits — it is this save
+ * landing on the document as the account holds it, with every key this client
+ * does not carry left where the file has it.
+ */
 async function writeSettings(body: Record<string, unknown>): Promise<void> {
   if (!settingsSyncAvailable()) return;
   const accountId = useSession.getState().ownAccountFor(CAP.filenode)!;
-  await writeAppJson(accountId, FILE, body, { type: TYPE });
+  /*
+   * The folder first, then the read, then the write. Creating the app folder is
+   * itself a FileNode write, so a token read before `ensureFolder` would be
+   * stale before the write that meant to compare against it — and a first save
+   * into an account that keeps no app folder yet is exactly when that happens.
+   * `writeAppJson` finds the folder already there when it runs.
+   */
+  const folderId = await ensureFolder(accountId);
+  for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
+    const { doc, state } = await readSettingsFile(accountId, folderId);
+    /*
+     * The queued settings over the document as it reads now. The queued body is
+     * the whole synced document — `queueSettingsPush` is handed
+     * `syncedPart(settings)` — so this save lands as it was meant to for every
+     * key this client owns, and a key it has never heard of, written by a newer
+     * client into the same file, is left where it is rather than dropped on the
+     * way past.
+     */
+    const next = { ...(doc ?? {}), ...body };
+    try {
+      await writeAppJson(accountId, FILE, next, { ifInState: state, type: TYPE });
+      return;
+    } catch (err) {
+      // Somebody wrote the file between the read and this write. Round again:
+      // the next read is the one whose token is current. Any other refusal — a
+      // server that will not take the write at all — is the caller's to report.
+      if (!isStateMismatch(err)) throw err;
+    }
+  }
+  throw new Error("the settings file kept changing under the writer");
 }
 
 /**

@@ -21,6 +21,7 @@
  * itself relies on; `name` is not one Stalwart is known to implement, and a
  * filter it does not know fails the whole query rather than being ignored.
  */
+import { appDocumentJson } from "@gilbert/shared/appDocument";
 import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
 import { directoryCreate, fileCreate } from "@/lib/filenode";
@@ -128,28 +129,108 @@ export async function nodeBlobId(accountId: Id, id?: Id): Promise<Id | undefined
   }
 }
 
-/** Find a file by name inside the app folder. */
+/**
+ * A node found in a folder, with the state the read that found it saw.
+ *
+ * The state is the compare-and-set token: pass it to `putFile` as `ifInState`
+ * and the write is refused if anything in the account changed since this read,
+ * which is the only protection JMAP offers in place of a lock.
+ */
+export interface FoundNode extends FileNode {
+  state?: string;
+}
+
+/**
+ * The fields a read of a named file asks for.
+ *
+ * `state` is asked for beside the node's own fields, and the listing answers
+ * with the account's FileNode state either way. It is what a conditional write
+ * compares against: a caller that can find the document it means to replace,
+ * but has nothing to make the write conditional on, cannot write safely
+ * however careful it is.
+ */
+const fileProps = [
+  "id",
+  "name",
+  "parentId",
+  "blobId",
+  "size",
+  "type",
+  "nodeType",
+  "state",
+];
+
+/** Find a file by name inside the app folder, with the state that read saw. */
 export async function findInFolder(
   accountId: Id,
   folderId: Id,
   name: string,
-): Promise<FileNode | undefined> {
-  const props = ["id", "name", "parentId", "blobId", "size", "type", "nodeType"];
-  const list = await children(accountId, folderId, props);
-  return list.find((n) => n.name === name && n.parentId === folderId);
+): Promise<FoundNode | undefined> {
+  return (await findInFolderWithState(accountId, folderId, name)).file;
+}
+
+/**
+ * The same read, answering the state even when no file carries that name.
+ *
+ * A writer that means to *create* the file needs a token as much as one that
+ * means to replace it. The first save into an account is a create — the folder
+ * holds no `settings.json` yet — and without a state to compare, two tabs that
+ * each find nothing both create a file, and one of the two saves ends up in a
+ * document nothing ever reads. With the state of the read that found nothing,
+ * the second create is refused as a lost compare-and-set and retried against
+ * the file the first tab made.
+ */
+export async function findInFolderWithState(
+  accountId: Id,
+  folderId: Id,
+  name: string,
+): Promise<{ file?: FoundNode; state: string }> {
+  const { list, state } = await listChildrenWithState(accountId, folderId, fileProps);
+  const found = list.find((n) => n.name === name && n.parentId === folderId);
+  // One state per type per account, so any node changing anywhere in the
+  // account invalidates the token — the comparison `FileNode/set` makes.
+  return { file: found ? { ...found, state } : undefined, state };
+}
+
+/**
+ * Whether a refusal is a lost compare-and-set.
+ *
+ * A write carrying a stale `ifInState` is refused with the error RFC 8620 §5.3
+ * defines for it, which the client raises as its own typed error with the
+ * server's `type` on it (`JmapMethodError`, `web/src/jmap/client.ts`) — so the
+ * type is read off whatever arrived rather than off one error class, since the
+ * refusal reaches the caller through `putFile` and has to be recognisable
+ * there. Stalwart 0.16 answers exactly this type rather than masking it as
+ * `invalidArguments` (live, `scripts/probe-conditional-writes.mjs`), and the
+ * server tier recognises the same refusal the same way (`isStateMismatch`,
+ * `server/src/jmap.ts`).
+ */
+export function isStateMismatch(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { type?: unknown }).type === "stateMismatch"
+  );
 }
 
 /**
  * One file write, whatever the bytes came from: create when the name is new
  * in this folder, update when it is taken.
  *
- * The one writer this client has for "a named file in a folder" — before this,
- * `chat.ts`, `signatureImages.ts` and `settingsSync.ts` each reimplemented
- * find-then-`FileNode/set` on their own, one of them (`settings.json`, a fixed
- * name every save writes to) racing a second tab's save with no protection at
- * all. `ifInState` makes the write conditional, the compare-and-set JMAP
- * offers in place of a lock — the server's own twin, `putFile` in
- * `server/src/appFolder.ts`, is the shape this mirrors.
+ * The one writer this client has for "a named file in a folder": `chat.ts`,
+ * `signatureImages.ts`, the chat store and `settingsSync.ts` all go through it,
+ * so find-then-`FileNode/set` exists once in this tree. `ifInState` is what
+ * makes a write safe against a second writer — the caller passes the FileNode
+ * state its own read saw, which is the `state` on the node `findInFolder`
+ * returned, and the server refuses the write when anything in the account has
+ * changed since. That refusal is the compare-and-set JMAP offers in place of a
+ * lock: a save that loses it lands on nothing rather than on a document somebody
+ * else has replaced in the meantime, and the caller that cares — the settings
+ * writer, where `settings.json` is a name every tab saves to — retries by
+ * re-reading. A caller with nothing to lose omits `opts.ifInState` and takes the
+ * unconditional write; nothing here is conditional unless it is asked for. The
+ * server's own twin, `putFile` in `server/src/appFolder.ts`, is the shape this
+ * mirrors.
  */
 export async function putFile(
   accountId: Id,
@@ -213,6 +294,8 @@ export async function writeAppJson(
 ): Promise<{ id: Id; blobId: Id }> {
   const folderId = await ensureFolder(accountId);
   const type = opts.type ?? "application/json";
-  const blob = new Blob([JSON.stringify(value)], { type });
+  // The bytes come from the one serializer both tiers write through, so the
+  // document a browser saves is the document the server saves.
+  const blob = new Blob([appDocumentJson(value)], { type });
   return writeBlobInFolder(accountId, folderId, name, blob, type, opts);
 }

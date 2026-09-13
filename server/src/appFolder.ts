@@ -24,6 +24,7 @@
  */
 
 import { JmapClient } from "./jmap.js";
+import { appDocumentJson } from "./shared/appDocument.js";
 import type { UpstreamSession } from "./upstream.js";
 
 /** The folder Gilbert keeps its own documents in, in every account. */
@@ -323,7 +324,7 @@ export async function uploadJsonBlob(
 ): Promise<string> {
   const blobId = await clientOf(ctx).upload(
     accountId,
-    JSON.stringify(value),
+    appDocumentJson(value),
     "application/json",
   );
   return blobId;

@@ -13,6 +13,8 @@
  * opened. New messages arrive over the FileNode state-change rail the App
  * dispatches into `applyChanges`.
  */
+
+import { appDocumentJson } from "@gilbert/shared/appDocument";
 import { create } from "zustand";
 import { client } from "@/jmap/client";
 import type { ChangesResponse, FileNode, GetResponse, Id } from "@/jmap/types";
@@ -302,7 +304,7 @@ export const useChat = create<ChatState>((set, get) => {
       let markerId = marker?.id ?? null;
       if (marker?.id) {
         // Rewrite the existing marker node's blob.
-        const json = JSON.stringify(doc);
+        const json = appDocumentJson(doc);
         const blob = new Blob([json], { type: MESSAGE_TYPE });
         const up = await client.upload(accountId, blob, { type: MESSAGE_TYPE });
         await client.call("FileNode/set", {

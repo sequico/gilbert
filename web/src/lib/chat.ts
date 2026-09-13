@@ -17,6 +17,7 @@
  * shared half, so `@/lib/chat` stays the one import a view needs.
  */
 
+import { appDocumentJson } from "@gilbert/shared/appDocument";
 import {
   CHAT_FOLDER,
   CHAT_STATE_FOLDER,
@@ -86,7 +87,7 @@ export async function writeDoc(
   name: string,
   doc: object,
 ): Promise<Id> {
-  const blob = new Blob([JSON.stringify(doc)], { type: MESSAGE_TYPE });
+  const blob = new Blob([appDocumentJson(doc)], { type: MESSAGE_TYPE });
   const written = await writeBlobInFolder(accountId, folderId, name, blob, MESSAGE_TYPE);
   return written.id;
 }
