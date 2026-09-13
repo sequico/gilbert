@@ -7,11 +7,10 @@ import { APP_VERSION } from "./version";
  * from.
  *
  * Signing out and picking up a new version are separate things, and only the
- * first happens on its own. An immutable instance holds sessions in memory, so
- * a deploy signs everyone out -- but the tab that was open still has the old
- * bundle in it, and a 401 only swaps the view to the sign-in form. The old
- * JavaScript would go on talking to the new server until someone happened to
- * reload by hand.
+ * first happens on its own. A deploy replaces the container, and the tab that
+ * was open still has the old bundle in it -- a 401 swaps the view to the
+ * sign-in form and changes nothing else. The old JavaScript would go on talking
+ * to the new server until someone happened to reload by hand.
  *
  * `index.html` is served `no-cache` and the assets under it are content-hashed
  * and immutable, so a reload is all it takes, and the only other thing needed
@@ -20,11 +19,12 @@ import { APP_VERSION } from "./version";
  * with the page intact -- only a build that actually moved costs the page.
  *
  * The reload is unconditional once the versions differ. A compose window can
- * be holding text that never reached the server, and after a deploy it cannot
- * be saved either, since the session went with the container -- so this will
- * sometimes take an unsent draft with it. That is a deliberate trade: a tab
- * running code the server does not speak is the worse failure, and one that
- * stays behind because someone left a draft open is not automatic at all.
+ * be holding text that never reached the server, and this will sometimes take
+ * an unsent draft with it -- the session survives the deploy (it lives in the
+ * account's own document), but the text in a form does not survive a reload.
+ * That is a deliberate trade: a tab running code the server does not speak is
+ * the worse failure, and one that stays behind because someone left a draft
+ * open is not automatic at all.
  */
 const TRIED_KEY = "gilbert:reloaded-for";
 

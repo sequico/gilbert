@@ -293,9 +293,8 @@ refuses to boot when that filesystem turns out to be writable after all — the
 flag without the fact. Without the flag the same misconfiguration is silent,
 and the first thing that tries to write is the one that notices.
 
-Sessions used to be the exception, held in memory because there was nowhere
-else to keep them. They live in Stalwart now, so a redeploy no longer signs
-anyone out and this costs nothing to keep on.
+Sessions are in that set like everything else, so a redeploy does not sign
+anybody out and the mode costs nothing to keep on.
 
 ### Live updates
 

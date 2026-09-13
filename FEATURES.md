@@ -2046,10 +2046,8 @@ without the fact, which is the half-applied deployment this exists to catch.
 Without the flag, the same misconfiguration is silent, and the first thing that
 tries to write is the one that notices.
 
-Sessions used to be the exception, held in memory because there was nowhere
-else to keep them; they now live in Stalwart like everything else
-(`server/src/sessions.ts`), so a redeploy no longer signs anyone out and the
-flag costs nothing to keep on.
+Sessions are in that set like everything else (`server/src/sessions.ts`), so a
+redeploy does not sign anybody out and the flag costs nothing to keep on.
 
 The image ships no `VOLUME` line: one would make Docker mount an anonymous
 volume whether asked for or not, and that mount stays **writable under
