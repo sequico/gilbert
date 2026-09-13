@@ -1646,6 +1646,13 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       try {
         await ensureAppFolder(ctx, accountId);
         const state = await appFolderState(ctx, accountId);
+        /*
+         * No token means no way to tell a folder that moved from one that did
+         * not, and a write without one would be counted as reached while it
+         * could have overwritten a copy this publish never saw. The account is
+         * named instead.
+         */
+        if (!state) throw new Error("the account would not state its file state");
         await writeAccountPolicy(ctx, accountId, copy, { ifInState: state });
         reached.push(address);
       } catch (err) {
@@ -1728,7 +1735,20 @@ export function createApp(basePath = config.basePath): Hono<Env> {
      * with no Files account at all has nowhere to keep it, and that is already
      * named in `unreached`.
      */
-    if (ownAccountId) await writePublishJob(own, ownAccountId, job);
+    if (ownAccountId) {
+      /*
+       * The record is what makes this answer worth anything later, so a write
+       * that fails is said rather than swallowed -- but it is not the publish:
+       * every copy is already in its account, and the report of what was
+       * reached must not be thrown away because the note about it was.
+       */
+      try {
+        await writePublishJob(own, ownAccountId, job);
+      } catch (err) {
+        job.record = "failed";
+        job.recordMessage = (err as Error).message;
+      }
+    }
     return job;
   }
 

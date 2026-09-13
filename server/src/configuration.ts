@@ -69,13 +69,21 @@ import { AGENT_PAGES_DEFAULT } from "./shared/installation.js";
 export function configurationFromEnvironment(environment: InstallationEnvironment) {
   const isProd = environment.NODE_ENV === "production";
   let appSecret = environment.APP_SECRET ?? "";
+  /*
+   * The secret is not this resolver's to demand any more. A process that boots
+   * takes it from the installation's own document, which is where a deployment
+   * states it now; one started without a boot has no document to read and mints
+   * an ephemeral secret, loudly. The refusal a production deployment needs is
+   * "this process serves with no secret at all", and the boot is where that is
+   * decidable -- an import cannot know whether a boot is coming, and refusing
+   * here refused exactly the deployments this path reads for.
+   */
   if (!appSecret || appSecret === "change-me") {
-    if (isProd) {
-      throw new Error("APP_SECRET must be set to a strong random value in production");
-    }
     appSecret = randomBytes(32).toString("base64");
     console.warn(
-      "[gilbert] APP_SECRET not set - using an ephemeral secret (persisted sessions will not survive restarts)",
+      isProd
+        ? "[gilbert] APP_SECRET not set - using an ephemeral secret until the installation's own document supplies one"
+        : "[gilbert] APP_SECRET not set - using an ephemeral secret (persisted sessions will not survive restarts)",
     );
   }
 

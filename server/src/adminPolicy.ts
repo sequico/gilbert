@@ -312,6 +312,13 @@ export interface PublishJob {
   complete: boolean;
   /** What the server said when it refused to list the directory at all. */
   directory?: string;
+  /**
+   * Whether the account actually keeps this job: `"failed"` means the publish
+   * ran and this report could not be stored, with the reason beside it. A job
+   * read back from an account never carries it.
+   */
+  record?: "failed";
+  recordMessage?: string;
 }
 
 /**
