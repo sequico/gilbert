@@ -28,12 +28,12 @@
 #                 likely.
 #
 # The container is replaced rather than restarted, because the image is rebuilt
-# from the new checkout. Nothing of the container's own survives that: the
-# default is immutable -- no writable filesystem, no volume, sessions in memory
-# -- so a replace signs everyone out rather than restoring anything.
-# GILBERT_IMMUTABLE=0 mounts the named volume back. What survives either way is
-# outside the container: the environment file below, and everything durable in
-# Stalwart.
+# from the new checkout. Nothing of the container's own survives that, and by
+# default nothing of it is meant to: the server keeps no writable state at all,
+# so a replace is a replace and not a restoration.
+# IMMUTABLE=0 mounts the named volume back. Everything durable is in Stalwart
+# either way -- sessions, settings, the installation's own document -- so the
+# volume is only ever a place to look at, not a place to keep.
 set -euo pipefail
 
 # --- what to deploy, and where ----------------------------------------------
@@ -55,12 +55,11 @@ NAME="${GILBERT_NAME:-gilbert}"
 BIND="${GILBERT_BIND:-127.0.0.1:8090}"
 # Named volume for /data (sessions). Unused when running immutably.
 VOLUME="${GILBERT_VOLUME:-gilbert-data}"
-# Run the container immutably: read-only root filesystem, no volume, sessions
-# held in memory only. See "Running immutably" in the README. The server is told
-# the same thing through IMMUTABLE=1 and checks it, so a half-applied switch --
-# the flag without the read-only filesystem, or a SESSION_FILE still pointing
-# somewhere -- refuses to start here instead of looking fine until the next
-# redeploy signs everyone out.
+# Run the container immutably: read-only root filesystem, no volume. See
+# "Running immutably" in the README. The server is told the same thing through
+# IMMUTABLE=1 and checks it, so a half-applied switch -- the flag without the
+# read-only filesystem -- refuses to start here instead of looking fine until
+# something needs to write and cannot.
 #
 # It defaults to on, and the reason is what happens when it does not. Forgetting
 # the variable used to hand back a writable container with a volume mounted --
@@ -69,14 +68,13 @@ VOLUME="${GILBERT_VOLUME:-gilbert-data}"
 # is what you get by default, and giving it up is the half that has to be
 # deliberate, which is the way round these two should always have been.
 #
-# The standing cost is that sessions do not outlive a deploy, because there is
-# nowhere left to keep them. Going back is this variable and nothing else:
+# Nothing is lost to this. Going back is this variable and nothing else:
 #
-#   GILBERT_IMMUTABLE=0 ./gilbert-deploy.sh --yes
+#   IMMUTABLE=0 ./gilbert-deploy.sh --yes
 #
 # The named volume is never touched either way, so whatever was in it when the
 # switch was thrown is still there to come back to.
-IMMUTABLE="${GILBERT_IMMUTABLE:-1}"
+IMMUTABLE="${IMMUTABLE:-1}"
 # Image repository. Each build is tagged with its version as well, so an
 # earlier one can be run again without rebuilding it.
 IMAGE_REPO="${GILBERT_IMAGE:-gilbert}"
@@ -238,11 +236,11 @@ docker build \
 
 RUN_ARGS=(-d --name "$NAME" --restart unless-stopped -p "$BIND:8080" --env-file "$ENVF")
 if [ "$IMMUTABLE" = "1" ]; then
-  # -e wins over --env-file, so this clears a SESSION_FILE set there or baked
-  # into the image, rather than needing the environment file edited to match.
-  RUN_ARGS+=(--read-only --tmpfs /tmp -e IMMUTABLE=1 -e SESSION_FILE=)
-  echo "==> restarting container -- immutable: read-only, no volume, sessions in memory"
-  echo "    (everyone signed in is signed out; GILBERT_IMMUTABLE=0 puts it back)"
+  # -e wins over --env-file, so the switch is set here rather than needing the
+  # environment file edited to match.
+  RUN_ARGS+=(--read-only --tmpfs /tmp -e IMMUTABLE=1)
+  echo "==> restarting container -- immutable: read-only, no volume, nothing written"
+  echo "    (sessions live in Stalwart, so nothing is signed out; IMMUTABLE=0 puts the volume back)"
 else
   RUN_ARGS+=(-v "$VOLUME:/data")
   echo "==> restarting container"

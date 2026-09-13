@@ -36,6 +36,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
  * defect rather than a curiosity.
  */
 const RETIRED = [
+  "SESSION_FILE",
   "SETTINGS_POLICY_FILE",
   "SETTINGS_DEFAULTS",
   "SETTINGS_ENFORCED",
@@ -79,6 +80,26 @@ const ENV_ALLOWED = new Map([
 ]);
 
 const ROOTS = ["server", "web", "scripts", ".codewhale", "docs"];
+
+/**
+ * Files at the repository root, which a walk of the roots above does not
+ * reach. They are what an operator reads before setting anything: a
+ * deployment example that still names `SESSION_FILE` is a deployment that
+ * still believes a session lives in a file, and the rule is about what the
+ * tree says, not only about what it compiles.
+ */
+const ROOT_FILES = [
+  ".env.example",
+  "Caddyfile.example",
+  "CONTRIBUTING.md",
+  "FEATURES.md",
+  "README.md",
+  "SECURITY.md",
+  "CODE_OF_CONDUCT.md",
+  "deploy.example.sh",
+  "docker-compose.yml",
+  "nginx.example.conf",
+];
 const TEXT_EXT = new Set([
   ".ts",
   ".tsx",
@@ -235,6 +256,17 @@ export function collectRepoInput(root = ROOT) {
       }
       files.push({ path, text });
     }
+  }
+  for (const path of ROOT_FILES) {
+    if (!TEXT_EXT.has(extname(path))) continue;
+    if (RETIRED_ALLOWED.has(path)) continue;
+    let text;
+    try {
+      text = readFileSync(join(root, path), "utf8");
+    } catch {
+      continue;
+    }
+    files.push({ path, text });
   }
   return { files };
 }

@@ -1971,24 +1971,26 @@ no analytics. The only network calls the browser makes are same-origin.
 
 ## Immutable, in the exact sense
 
-The server writes to exactly one path, the optional `SESSION_FILE`. Clear it and
-there is nothing left to write:
+The server keeps **no writable state of its own**: sessions, settings, the
+installation's own configuration and every document a feature owns live in
+Stalwart, in the accounts they belong to. There is no path to clear and nothing
+to mount, so a deployment is a container and a mail server:
 
 ```bash
-docker run --read-only --tmpfs /tmp -e IMMUTABLE=1 -e SESSION_FILE= ...
+docker run --read-only --tmpfs /tmp -e IMMUTABLE=1 ...
 ```
 
 `IMMUTABLE=1` is an **assertion the server checks at startup**, not a switch
-that changes behaviour. It refuses to boot if `SESSION_FILE` is still set, or if
-the filesystem it is installed on turns out to be writable after all. Without
-it, the same misconfiguration is silent — sessions are held in memory and
-persisting them is best-effort, so a read-only `/data` costs one warning at the
-first sign-in and nothing else until the instance is replaced and everyone is
-signed out.
+that changes behaviour. It probes the filesystem it is installed on and refuses
+to boot when that filesystem turns out to be writable after all — the flag
+without the fact, which is the half-applied deployment this exists to catch.
+Without the flag, the same misconfiguration is silent, and the first thing that
+tries to write is the one that notices.
 
-That sign-out is the standing cost of the mode today, since sessions have
-nowhere to live across a restart. Removing it means moving the session upstream
-into a token Stalwart issues and can revoke — the OAuth work in the roadmap.
+Sessions used to be the exception, held in memory because there was nowhere
+else to keep them; they now live in Stalwart like everything else
+(`server/src/sessions.ts`), so a redeploy no longer signs anyone out and the
+flag costs nothing to keep on.
 
 The image ships no `VOLUME` line: one would make Docker mount an anonymous
 volume whether asked for or not, and that mount stays **writable under
@@ -2016,7 +2018,6 @@ wizard, because either would be state.
 | `SECURE_COOKIES` | `auto` | `Secure` when the request arrived over HTTPS; `1`/`0` to force |
 | `SESSION_TTL` | `43200` (12h) | Idle session lifetime |
 | `SESSION_REMEMBER_TTL` | `2592000` (30d) | "This is my own device" lifetime |
-| `SESSION_FILE` | `./data/sessions.json` | Where sessions persist; empty means memory only |
 | `IMMUTABLE` | off | Assert and verify that nothing is writable |
 | `UPSTREAM_TIMEOUT` | `30000` | Milliseconds |
 | `MAX_UPLOAD_BYTES` | `52428800` | 50 MB |
@@ -2088,8 +2089,8 @@ and in Settings › About.
   rebuilds with the right version baked in, replaces the container, waits for
   healthy, and prunes all but the newest `GILBERT_KEEP_VERSIONS` images —
   never the one running. `--yes` skips the prompt but never a hold.
-- **Sessions survive a restart** when `SESSION_FILE` is set; an immutable
-  instance trades that away knowingly.
+- **Sessions survive a restart** because they live in Stalwart, so an immutable
+  instance loses nothing to being replaced.
 
 ## The mock server
 

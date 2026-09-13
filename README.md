@@ -271,26 +271,24 @@ docker build --build-arg GILBERT_VERSION="$(node scripts/version.mjs)" -t gilber
 
 ### Running immutably
 
-The server writes to exactly one path, the optional `SESSION_FILE`. Clear it
-and there is nothing left to write, so the container can run with no writable
-filesystem at all:
+The server keeps **no writable state of its own**: sessions, settings, the
+installation's configuration and every document a feature owns live in Stalwart,
+in the accounts they belong to. There is no path to clear, so the container can
+run with no writable filesystem at all:
 
 ```bash
-docker run --read-only --tmpfs /tmp -e IMMUTABLE=1 -e SESSION_FILE= ...
+docker run --read-only --tmpfs /tmp -e IMMUTABLE=1 ...
 ```
 
 `IMMUTABLE=1` is an assertion the server checks at startup rather than a switch
-that changes what it does: it refuses to start if `SESSION_FILE` is still set,
-or if the filesystem it is installed on turns out to be writable after all.
-Without it the same misconfiguration is silent — sessions are held in memory
-and persisting them is best-effort, so a read-only `/data` costs one warning at
-the first sign-in and nothing else until the instance is replaced and everyone
-is signed out.
+that changes what it does: it probes the filesystem it is installed on and
+refuses to boot when that filesystem turns out to be writable after all — the
+flag without the fact. Without the flag the same misconfiguration is silent,
+and the first thing that tries to write is the one that notices.
 
-That sign-out is the standing cost of this mode today, since sessions have
-nowhere to live across a restart. Removing it means moving the session upstream
-into a token Stalwart itself issues and can revoke, which is what the OAuth work
-in [ROADMAP.md](ROADMAP.md) is for.
+Sessions used to be the exception, held in memory because there was nowhere
+else to keep them. They live in Stalwart now, so a redeploy no longer signs
+anyone out and this costs nothing to keep on.
 
 ### Live updates
 
@@ -366,14 +364,13 @@ already works through JMAP sharing.
 
 ### Settings the installation decides
 
-A deployment can seed and lock user settings, which is what a school wanting
+An installation decides and locks user settings, which is what a school wanting
 "warn about outside senders" on for three thousand pupils needs — asking three
 thousand pupils is not a plan.
 
-```bash
--e SETTINGS_DEFAULTS='{"externalSenderBanner":true}' \
--e SETTINGS_ENFORCED='{"externalRecipientConfirm":true}'
-```
+It says so in a document, published from **Administration → Installation
+policy**. Nothing about it is passed in the environment and nothing is mounted:
+the policy lives in Stalwart, in each account it applies to.
 
 Three powers, and the differences between them matter:
 
@@ -421,23 +418,16 @@ Publishing applies at once: every account the directory lists gets the document
 written into its own app folder (impersonated), the publishing administrator's
 account included, and every other signed-in session is kicked so its next
 sign-in reads the new policy (ADR 0001). One account's refusal — no
-impersonation grant, an unreachable session — does not stop the rest; the
-response names how many accounts were reached and which were not.
+impersonation grant, an unreachable session — does not stop the rest, and the
+outcome says what the installation now is: the population the directory
+reported, the accounts the policy reached, each account it did not with the
+reason behind it, and whether every listed account received it. A count of
+successes is not that claim, so the surface does not make it.
 
-`SETTINGS_DEFAULTS`, `SETTINGS_ENFORCED` and `SETTINGS_CHANGES` are the
-*bootstrap* an account runs on before any publish has reached it — read once at
-startup, from the environment, exactly as before:
-
-```bash
-docker run -d --name gilbert --read-only --tmpfs /tmp \
-  -e IMMUTABLE=1 -e SESSION_FILE= \
-  -e STALWART_URL=https://mail.example.org \
-  -e APP_SECRET="$(openssl rand -hex 32)" \
-  -e SETTINGS_DEFAULTS='{"externalSenderBanner":true}' \
-  -e SETTINGS_ENFORCED='{"externalRecipientConfirm":true}' \
-  -e SETTINGS_CHANGES='[{"version":"20260902084513","settings":{"externalSenderBanner":true}}]' \
-  -p 8080:8080 ghcr.io/sequico/gilbert:latest
-```
+An account no publish has reached reads the built-in defaults, and an account the
+last publish did not list falls back to them until the next publish reaches it.
+There is no environment variable for this: an installation states its policy in
+the editor, or it states none.
 
 This is what every account reads before any administrator has ever used the
 live editor, and what a brand-new account (not yet listed at the last publish)
@@ -451,10 +441,9 @@ quickest way to write one — copy the keys you care about out of the file.
 
 Checks worth knowing about, because they fail loudly rather than quietly:
 
-- **Malformed JSON is refused at publish time (400, nothing changes) or stops
-  the server at startup** for the bootstrap variables. Either way, a policy
-  that silently did not apply would be indistinguishable from the feature not
-  working.
+- **Malformed JSON is refused at publish time (400, nothing changes).** A
+  policy that silently did not apply would be indistinguishable from the
+  feature not working.
 - **Every change needs a unique `version`.** Two changes sharing one, or a
   change with no `version` or no `settings`, is refused.
 - **Keys this build does not have are dropped**, the same rule an imported

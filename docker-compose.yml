@@ -57,7 +57,6 @@ services:
       GILBERT_AGENT_PASSWORD: ${GILBERT_AGENT_PASSWORD:-}
       GILBERT_AGENT_HEALTH_PORT: "8081"
       IMMUTABLE: "1"
-      SESSION_FILE: ""
     # What the restart policy asks: is this worker serving what it claimed.
     # `restart: unless-stopped` restarts a dead process; this catches one that
     # is up and holding nothing.
