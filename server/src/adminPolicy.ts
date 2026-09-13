@@ -1,12 +1,23 @@
 import { type Ctx, readAppJsonAt, writeAppFile } from "./appFolder.js";
+import { isStateMismatch } from "./jmap.js";
 
 /**
  * The installation-wide settings policy, as the administration surface edits
- * it (ADR 0001). `{ defaults, enforced, changes }` (issue #207), published into
+ * it (ADR 0001), and the job each publish records about itself.
+ *
+ * The policy is `{ defaults, enforced, changes }` (issue #207), published into
  * every individual account's own app folder rather than kept in one file or
- * environment variable — see `writeAccountPolicy`/`readAccountPolicy` below. An
- * account no publish has reached carries no document at all, which is what its
- * reader reports as this empty policy.
+ * environment variable — see `writeAccountPolicy`/`readAccountPolicy` below.
+ * An account no publish has reached carries no document at all, which is what
+ * its reader reports as this empty policy. A copy a publish did write carries
+ * `published` as well: which job wrote it, and when, so the account can be
+ * compared against the job's record.
+ *
+ * The job (`PublishJob`) is one document per publishing administrator, in that
+ * administrator's own app folder: what one publish reached, what it did not and
+ * why, and the population it measured itself against. It lives in the account
+ * rather than in the process, so the administration reads the same answer after
+ * a restart as the publish that made it answered with.
  */
 
 export interface PolicyChangeDocument {
@@ -14,10 +25,31 @@ export interface PolicyChangeDocument {
   settings: Record<string, unknown>;
 }
 
+/**
+ * Which publish put this copy of the policy into the account.
+ *
+ * Every account's document says which job wrote it and when, so "the policy I
+ * am following" and "the publish that reached me" are the same fact: an
+ * administrator comparing an account against a job can tell a copy that job
+ * made from one an earlier one left, and a copy a job's conditional write was
+ * refused for keeps the id of the publish it really came from.
+ */
+export interface PolicyPublished {
+  /** The publishing job's id: the same one the job document carries. */
+  id: string;
+  /** When that publish started, as the job recorded it. */
+  at: string;
+}
+
 export interface PolicyDocument {
   defaults: Record<string, unknown>;
   enforced: Record<string, unknown>;
   changes: PolicyChangeDocument[];
+  /**
+   * Absent on a document no publish wrote — the empty policy an account with
+   * no copy follows — and on one written before this field existed.
+   */
+  published?: PolicyPublished;
 }
 
 /**
@@ -28,6 +60,14 @@ export const EMPTY_POLICY: PolicyDocument = { defaults: {}, enforced: {}, change
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
+
+/** One publish's provenance, read back out of a stored document. */
+function readPolicyPublished(v: unknown): PolicyPublished | undefined {
+  if (!isRecord(v)) return undefined;
+  const id = typeof v.id === "string" ? v.id.trim() : "";
+  const at = typeof v.at === "string" ? v.at.trim() : "";
+  return id && at ? { id, at } : undefined;
+}
 
 /** The one test for "this is an address", for every field that names one. */
 export function isAddress(value: string): boolean {
@@ -173,18 +213,193 @@ export async function readAccountPolicy(
           isRecord(e) && typeof e.version === "string" && isRecord(e.settings),
       )
     : [];
-  return { defaults, enforced, changes };
+  const published = readPolicyPublished(r.published);
+  return { defaults, enforced, changes, ...(published ? { published } : {}) };
 }
 
-/** Write the published policy into one account's own app folder. */
+/**
+ * Write the published policy into one account's own app folder.
+ *
+ * `ifInState` makes the write conditional on the FileNode state read from this
+ * same account, which is the compare-and-set JMAP offers in place of a lock
+ * (ADR 0003, §6): a publish that read an account and then had the account move
+ * under it is refused rather than overwriting a document it never saw.
+ *
+ * The caller reads that state **after** the app folder is known to exist: an
+ * account whose folder this write has to create pays one write for the folder,
+ * which moves the account's state, and a token read before it would make the
+ * conditional write lose a race with its own call (the reason
+ * `AgentStore.provision` runs before a worker's first conditional write).
+ */
 export async function writeAccountPolicy(
   ctx: Ctx,
   accountId: string,
   doc: PolicyDocument,
+  opts: { ifInState?: string } = {},
 ): Promise<void> {
-  await writeAppFile(ctx, accountId, INSTALLATION_POLICY_FILE, {
-    defaults: doc.defaults,
-    enforced: doc.enforced,
-    changes: doc.changes,
-  });
+  await writeAppFile(
+    ctx,
+    accountId,
+    INSTALLATION_POLICY_FILE,
+    {
+      defaults: doc.defaults,
+      enforced: doc.enforced,
+      changes: doc.changes,
+      ...(doc.published ? { published: doc.published } : {}),
+    },
+    opts,
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* The publish job: what one publish did, kept in the publisher's own account  */
+/* so the administration surface reads the same answer back later              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Why one account did not receive a publish's copy.
+ *
+ * A code rather than a sentence, because a caller composes prose from it: the
+ * client shows the reason in the reader's own language, and a test can assert
+ * on the reason without matching a message.
+ */
+export type PublishRefusal =
+  | "impersonation-refused"
+  | "no-files-account"
+  | "write-failed"
+  /** The folder moved between the read and the write: nothing was written. */
+  | "policy-moved";
+
+/** One account a publish could not write to, and why. */
+export interface PublishUnreached {
+  address: string;
+  code: PublishRefusal | "directory-denied";
+  message: string;
+}
+
+/**
+ * One publish, as the account that made it holds it.
+ *
+ * A publish is a job with an id: the id rides the copies it wrote into every
+ * account (`PolicyPublished`), the population it measured itself against is
+ * the directory as it read it, and `complete` is the claim itself — true only
+ * when the directory was the whole directory and every account it listed got
+ * the policy. The record lives in the publishing administrator's own app
+ * folder rather than in the process, so the surface that shows it can be
+ * restarted, redeployed, or answered by another instance and still say the
+ * same thing.
+ */
+export interface PublishJob {
+  /** The document's own version, so a later shape can tell itself apart. */
+  v: 1;
+  /** This publish's id; the same one every copy it wrote carries. */
+  id: string;
+  /** When the publish started. */
+  startedAt: string;
+  /** Who published, as the address they signed in with. */
+  by: string;
+  /**
+   * The directory as the publish read it: how many individual accounts it
+   * listed, whether that list was the whole directory, and how many there are
+   * in total when the server said so.
+   */
+  population: { read: number; complete: boolean; total: number | null };
+  /** The addresses the policy was written to, the publisher's own included. */
+  reached: string[];
+  /** The ones it was not written to, each with the reason and what was said. */
+  unreached: PublishUnreached[];
+  /** Whether the installation can be said to carry this policy. */
+  complete: boolean;
+  /** What the server said when it refused to list the directory at all. */
+  directory?: string;
+}
+
+/**
+ * The job document's name, in the publisher's own app folder.
+ *
+ * One document, replaced by each publish: the question it answers is "what did
+ * the last publish do", and a history of publishes is a different document
+ * with a different retention rule. Its own file rather than a key of
+ * `installation-policy.json`, because the two are written at different moments
+ * for different readers: the copy is what an account follows, the job is what
+ * the administrator reads back.
+ */
+export const PUBLISH_JOB_FILE = "publish-job.json";
+
+const isUnreached = (v: unknown): v is PublishUnreached =>
+  isRecord(v) &&
+  typeof v.address === "string" &&
+  typeof v.code === "string" &&
+  typeof v.message === "string";
+
+/**
+ * Whether what was read is a job document, rather than a document that happens
+ * to be shaped like one: an unreadable job is not an answer about a publish.
+ */
+export function isPublishJob(raw: unknown): raw is PublishJob {
+  if (!isRecord(raw)) return false;
+  if (raw.v !== 1) return false;
+  if (typeof raw.id !== "string" || !raw.id) return false;
+  if (typeof raw.startedAt !== "string" || !raw.startedAt) return false;
+  if (typeof raw.by !== "string") return false;
+  if (typeof raw.complete !== "boolean") return false;
+  const population = raw.population;
+  if (
+    !isRecord(population) ||
+    typeof population.read !== "number" ||
+    typeof population.complete !== "boolean" ||
+    (population.total !== null && typeof population.total !== "number")
+  )
+    return false;
+  if (!Array.isArray(raw.reached) || !raw.reached.every((a) => typeof a === "string"))
+    return false;
+  if (!Array.isArray(raw.unreached) || !raw.unreached.every(isUnreached)) return false;
+  if (raw.directory !== undefined && typeof raw.directory !== "string") return false;
+  return true;
+}
+
+/**
+ * The last publish this account recorded, or null when it recorded none.
+ *
+ * Missing, unreadable and "there but not a job" are one answer here, the way
+ * every unreadable document in this module reads: a surface shows the last
+ * record it can read, and a corrupt file cannot take the administration down
+ * (ADR 0001's rule about a bad document, applied to the job too).
+ */
+export async function readPublishJob(
+  ctx: Ctx,
+  accountId: string,
+): Promise<PublishJob | null> {
+  if (!accountId) return null;
+  const raw = await readAppJsonAt(ctx, accountId, PUBLISH_JOB_FILE);
+  return isPublishJob(raw) ? raw : null;
+}
+
+/**
+ * Record a publish in the publisher's own app folder, replacing the last one.
+ *
+ * Unconditional on purpose: this is the latest publish's record, and a second
+ * publish by the same administrator replaces it rather than being refused by a
+ * state the first one moved.
+ */
+export async function writePublishJob(
+  ctx: Ctx,
+  accountId: string,
+  job: PublishJob,
+): Promise<void> {
+  await writeAppFile(ctx, accountId, PUBLISH_JOB_FILE, job);
+}
+
+/**
+ * Whether a write into one account that failed was that account moving under
+ * the publish (`policy-moved`) or something else (`write-failed`).
+ *
+ * They are different facts to an administrator: the first says the account was
+ * written by somebody else at that instant and still carries whatever publish
+ * reached it before, the second says the write itself did not work. JMAP says
+ * which one happened with its own error type (`stateMismatch`), and this is
+ * the one place that reads it.
+ */
+export function refusalCodeFor(err: unknown): "policy-moved" | "write-failed" {
+  return isStateMismatch(err) ? "policy-moved" : "write-failed";
 }

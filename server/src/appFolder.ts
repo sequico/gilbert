@@ -455,16 +455,20 @@ export async function writeAppFileAt(
 
 /**
  * Write (or replace) a named document in the app folder's own top level.
- * The settings-shaped documents (the directive, a label catalog) live there.
+ * The settings-shaped documents (the directive, a label catalog, the
+ * published policy and the job that wrote it) live there. `ifInState` makes
+ * the write conditional on the account's FileNode state, exactly as it does
+ * for `writeAppFileAt` above.
  */
 export async function writeAppFile(
   ctx: Ctx,
   accountId: string,
   name: string,
   value: unknown,
+  opts: { ifInState?: string; type?: string } = {},
 ): Promise<void> {
   const folderId = await ensureAppFolder(ctx, accountId);
-  await writeAppFileIn(ctx, accountId, folderId, name, value);
+  await writeAppFileIn(ctx, accountId, folderId, name, value, opts);
 }
 
 /** Read a document at a path, or null when it is not there. */

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { getConnInfo } from "@hono/node-server/conninfo";
@@ -28,10 +29,15 @@ import {
 import {
   EMPTY_POLICY,
   type PolicyDocument,
+  type PublishJob,
+  type PublishUnreached,
   parsePolicyDocumentDetailed,
   policyDocumentText,
   readAccountPolicy,
+  readPublishJob,
+  refusalCodeFor,
   writeAccountPolicy,
+  writePublishJob,
 } from "./adminPolicy.js";
 import { agentRuleJsonSchema } from "./agent/documents.js";
 import type { AgentGroupAnswer } from "./agent/views.js";
@@ -57,7 +63,14 @@ import {
   saveRules,
   writeProviders,
 } from "./agentAdmin.js";
-import { type Ctx, filesAccountId, readAppFileAt, writeAppFileAt } from "./appFolder.js";
+import {
+  appFolderState,
+  type Ctx,
+  ensureAppFolder,
+  filesAccountId,
+  readAppFileAt,
+  writeAppFileAt,
+} from "./appFolder.js";
 import { isTrustedProxy, resolveClientIp } from "./clientip.js";
 import { agentAddress, config } from "./config.js";
 import { icsProxyHandler } from "./icsproxy.js";
@@ -723,47 +736,20 @@ function upstreamFailure(c: Context, err: unknown) {
 }
 
 /**
+ * What a publish reports is the job it recorded.
+ *
+ * One document, two names: the route answers it as the outcome of the run it
+ * just made, and the same document is what the account holds, so the
+ * administration surface reads the identical answer back after a restart
+ * (`PublishJob`, `server/src/adminPolicy.ts`).
+ */
+export type PublishOutcome = PublishJob;
+
+/**
  * `basePath` is a parameter rather than read straight from the config so the
  * tests can mount the same app twice, at the root and under a prefix, without
  * re-importing the module to change one environment variable.
  */
-/**
- * Why one account did not receive the policy.
- *
- * A code rather than a sentence, because a caller composes prose from it: the
- * client shows the reason in the reader's own language, and a test can assert
- * on the reason without matching a message.
- */
-export type PublishRefusal =
-  | "impersonation-refused"
-  | "no-files-account"
-  | "write-failed";
-
-/**
- * What a publish reached, what it did not, and the population it measured
- * itself against.
- */
-export interface PublishOutcome {
-  /**
-   * The directory as the publish read it: how many individual accounts it
-   * listed, whether that list was the whole directory, and how many there are
-   * in total when the server said so.
-   */
-  population: { read: number; complete: boolean; total: number | null };
-  /** The accounts the policy was written to, the publisher's own included. */
-  reached: string[];
-  /** The accounts it was not written to, each with the reason and what was said. */
-  unreached: Array<{
-    address: string;
-    code: PublishRefusal | "directory-denied";
-    message: string;
-  }>;
-  /** Whether the installation can be said to carry this policy. */
-  complete: boolean;
-  /** What the server said when it refused to list the directory at all. */
-  directory?: string;
-}
-
 export function createApp(basePath = config.basePath): Hono<Env> {
   const app = new Hono<Env>();
   app.use("*", securityHeaders);
@@ -1547,14 +1533,16 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    *
    * GET reads the signed-in administrator's own account — the last publish
    * wrote there like everywhere else, so the editor's next load shows exactly
-   * what it just saved. POST validates the document and writes it into every
-   * individual account the directory lists (fetchDirectoryUsers), the
-   * publishing administrator's own account included, by impersonation —
-   * there is no other shared copy to swap. One account's refusal does not stop
-   * the rest; the response names how many were reached and which were not.
-   * Every other signed-in session is kicked so the enforcement it is already
-   * holding is dropped at once rather than waiting for that account's own
-   * next load to refetch it.
+   * what it just saved — and answers the job that publish recorded in the same
+   * account, so the surface says what the last publish did even when this
+   * process never made one. POST validates the document and writes it into
+   * every individual account the directory lists (fetchDirectoryUsers), the
+   * publishing administrator's own account included, by impersonation — there
+   * is no other shared copy to swap. One account's refusal does not stop the
+   * rest; the response names how many were reached and which were not. Every
+   * other signed-in session is kicked so the enforcement it is already holding
+   * is dropped at once rather than waiting for that account's own next load to
+   * refetch it.
    */
   api.get("/admin/policy", requireSession, requireAdmin, async (c) => {
     const session = c.get("session");
@@ -1572,7 +1560,11 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       const accountId = filesAccountId(ctx);
       const doc =
         (accountId ? await readAccountPolicy(ctx, accountId) : null) ?? EMPTY_POLICY;
-      return c.json({ policy: policyDocumentText(doc) });
+      // The last publish this account recorded, read from the account itself:
+      // the answer does not depend on which instance made it, or on whether
+      // this one ever did.
+      const job = accountId ? await readPublishJob(ctx, accountId) : null;
+      return c.json({ policy: policyDocumentText(doc), job });
     } catch (err) {
       return upstreamFailure(c, err);
     }
@@ -1580,13 +1572,18 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   /**
    * Write the policy into every individual account the directory lists, by
-   * impersonation — the administrator's own account included.
+   * impersonation — the administrator's own account included — and record the
+   * publish as a job in the administrator's own app folder.
    *
-   * What comes back is the outcome of an attempt, not a verdict on it: the
-   * population the directory listed, whether that list was the whole directory,
-   * the accounts the policy reached and the ones it did not with the reason for
-   * each. A publish that could not read the directory, or read part of it, says
-   * so here rather than letting a count of successes stand for the whole
+   * What comes back is that job: the id this publish minted (the copies carry
+   * it), when it started, who published, the population the directory listed,
+   * whether that list was the whole directory, the accounts the policy reached
+   * and the ones it did not with the reason for each. It is the same document
+   * the account now holds, so the surface reads the same answer back after
+   * this process is gone.
+   *
+   * A publish that could not read the directory, or read part of it, says so
+   * here rather than letting a count of successes stand for the whole
    * installation: "eight accounts were reached" and "the installation carries
    * this policy" are different claims, and only the second is what an
    * administrator is being asked to believe.
@@ -1594,9 +1591,23 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   async function publishAccountPolicy(
     admin: LiveSession,
     doc: PolicyDocument,
-  ): Promise<PublishOutcome> {
+  ): Promise<PublishJob> {
+    /*
+     * One id for the whole publish, minted before the first copy goes out: the
+     * copies carry it (`PolicyPublished`), so any account an administrator
+     * looks into says which publish reached it, and the job recorded below
+     * carries the same id.
+     */
+    const id = randomUUID();
+    const startedAt = new Date().toISOString();
+    /*
+     * Every copy this publish writes carries the job it came from: the id and
+     * the moment, so any account an administrator looks into says which publish
+     * reached it, and whether the copy it holds is the one this job made.
+     */
+    const copy: PolicyDocument = { ...doc, published: { id, at: startedAt } };
     const reached: string[] = [];
-    const unreached: PublishOutcome["unreached"] = [];
+    const unreached: PublishUnreached[] = [];
     const upstream = await getUpstreamSession(
       admin.id,
       admin.authorization,
@@ -1608,6 +1619,39 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       username: admin.username,
     };
     const ownAccountId = filesAccountId(own);
+
+    /**
+     * One account's copy, written conditionally against that account's own
+     * folder.
+     *
+     * The state token is read after the app folder is known to exist: creating
+     * that folder moves the account's own state, and a token read before it
+     * would make the conditional write lose a race with this very call (the
+     * reason `AgentStore.provision` runs before a worker's first conditional
+     * write). A refusal — the folder moved between the read and the write —
+     * leaves the account with the document it already had, is named as its own
+     * code rather than counted as reached, and never overwrites a copy this
+     * publish did not see.
+     */
+    const deliver = async (
+      address: string,
+      ctx: Ctx,
+      accountId: string,
+    ): Promise<void> => {
+      try {
+        await ensureAppFolder(ctx, accountId);
+        const state = await appFolderState(ctx, accountId);
+        await writeAccountPolicy(ctx, accountId, copy, { ifInState: state });
+        reached.push(address);
+      } catch (err) {
+        unreached.push({
+          address,
+          code: refusalCodeFor(err),
+          message: (err as Error).message,
+        });
+      }
+    };
+
     if (!ownAccountId) {
       unreached.push({
         address: admin.username,
@@ -1615,74 +1659,72 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         message: "this account has no Files account to hold the policy",
       });
     } else {
-      try {
-        await writeAccountPolicy(own, ownAccountId, doc);
-        reached.push(admin.username);
-      } catch (err) {
-        unreached.push({
-          address: admin.username,
-          code: "write-failed",
-          message: (err as Error).message,
-        });
-      }
+      await deliver(admin.username, own, ownAccountId);
     }
 
     // The rest of the directory, one impersonated write per account. A failure
     // here does not undo the write just made to the publisher's own account --
     // there is no shared document for it to be undone against.
     const directory = await fetchDirectoryUsers(admin.authorization, upstream);
+    let population: PublishJob["population"] = { read: 0, complete: false, total: null };
+    let carrying = false;
+    let refusal: string | undefined;
     if ("denied" in directory) {
-      return {
-        population: { read: 0, complete: false, total: null },
-        reached,
-        unreached,
-        complete: false,
-        directory: directory.denied,
-      };
-    }
-    for (const user of directory.users) {
-      if (normalizeUsername(user.name) === normalizeUsername(admin.username)) continue;
-      const imp = await impersonateAs(admin, user.name);
-      if (!imp.ok) {
-        unreached.push({
-          address: user.name,
-          code: "impersonation-refused",
-          message: imp.message,
-        });
-        continue;
+      refusal = directory.denied;
+    } else {
+      for (const user of directory.users) {
+        if (normalizeUsername(user.name) === normalizeUsername(admin.username)) continue;
+        const imp = await impersonateAs(admin, user.name);
+        if (!imp.ok) {
+          unreached.push({
+            address: user.name,
+            code: "impersonation-refused",
+            message: imp.message,
+          });
+          continue;
+        }
+        const accountId = filesAccountId(imp.ctx);
+        if (!accountId) {
+          unreached.push({
+            address: user.name,
+            code: "no-files-account",
+            message: "this account has no Files account to hold the policy",
+          });
+          continue;
+        }
+        await deliver(user.name, imp.ctx, accountId);
       }
-      const accountId = filesAccountId(imp.ctx);
-      if (!accountId) {
-        unreached.push({
-          address: user.name,
-          code: "no-files-account",
-          message: "this account has no Files account to hold the policy",
-        });
-        continue;
-      }
-      try {
-        await writeAccountPolicy(imp.ctx, accountId, doc);
-        reached.push(user.name);
-      } catch (err) {
-        unreached.push({
-          address: user.name,
-          code: "write-failed",
-          message: (err as Error).message,
-        });
-      }
-    }
-    return {
-      population: {
+      population = {
         read: directory.users.length,
         complete: directory.complete,
         total: directory.total,
-      },
-      reached,
-      unreached,
+      };
       // The installation carries the policy when every account the directory
       // lists received it -- and the directory was the whole directory.
-      complete: directory.complete && unreached.length === 0,
+      carrying = directory.complete && unreached.length === 0;
+    }
+
+    const job: PublishJob = {
+      v: 1,
+      id,
+      startedAt,
+      by: admin.username,
+      population,
+      reached,
+      unreached,
+      complete: carrying,
+      ...(refusal ? { directory: refusal } : {}),
     };
+    /*
+     * The record, in the publishing administrator's own app folder. A publish
+     * whose record cannot be written fails loudly rather than answering a job
+     * no later read can find: what makes this answer worth anything is that
+     * the account holds it, not that this process remembers it. An account
+     * with no Files account at all has nowhere to keep it, and that is already
+     * named in `unreached`.
+     */
+    if (ownAccountId) await writePublishJob(own, ownAccountId, job);
+    return job;
   }
 
   api.post("/admin/policy", requireSession, requireAdmin, async (c) => {
@@ -1695,16 +1737,20 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     /*
      * The publisher's own account is written in the same pass as the rest, so
      * one answer describes the whole attempt: what the directory held, what was
-     * reached, and what the installation therefore is now.
+     * reached, and what the installation therefore is now. The outcome and the
+     * job are one document — the run's report is the record the account keeps,
+     * under the same id the copies carry — answered under both names because
+     * the editor reads the outcome and a later read of this surface returns
+     * the job.
      */
-    let outcome: PublishOutcome;
+    let job: PublishJob;
     try {
-      outcome = await publishAccountPolicy(session, parsed.doc);
+      job = await publishAccountPolicy(session, parsed.doc);
     } catch (err) {
       return upstreamFailure(c, err);
     }
     const kicked = sessions.destroyAllExcept(session.id);
-    return c.json({ outcome, kicked });
+    return c.json({ outcome: job, job, kicked });
   });
 
   /**

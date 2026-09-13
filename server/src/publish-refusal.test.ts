@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import type { PublishOutcome } from "./app.js";
+import type { PublishJob, PublishOutcome } from "./app.js";
 
 /**
  * A publish into an installation where one account refuses (ADR 0001).
@@ -98,4 +98,23 @@ test("the account the server refuses to act as is named, with its reason", async
     false,
     "one account short of the directory is not an installation that carries the policy",
   );
+
+  /*
+   * And the job this publish recorded says the same thing, read back from the
+   * publisher's own account: a refusal is a fact about the installation that
+   * has to survive the process which learned it, not only the answer it gave.
+   */
+  const read = await call("/api/admin/policy", adminCookie);
+  const job = (read.body as unknown as { job: PublishJob | null }).job;
+  assert.ok(job, "the publish recorded a job even though an account refused");
+  assert.equal(job!.complete, false);
+  assert.deepEqual(
+    job!.unreached.map((one) => one.address),
+    [REFUSED],
+    "the record names the account the answer named",
+  );
+  assert.equal(job!.unreached[0]?.code, "impersonation-refused");
+  assert.deepEqual(job!.reached, outcome.reached);
+  assert.deepEqual(job!.population, outcome.population);
+  assert.equal(job!.by, ADMIN, "and who published it");
 });

@@ -2162,6 +2162,34 @@ function enforceLimits(name: string, args: Obj): void {
 }
 
 /**
+ * The compare-and-set a test can make this server lose, for one principal.
+ *
+ * A conditional write is refused when the account moved between the read and
+ * the write, and a test cannot arrange that race from the outside: both happen
+ * inside one publish, with no request boundary between them to interrupt. So a
+ * test names the principal whose conditional writes are to lose
+ * (`casLoses.forAddress`) and how many of them lose (`casLoses.count`, counted
+ * down as they do), and this server answers exactly as a real folder that
+ * moved answers: the state advances, the whole `FileNode/set` is refused with
+ * `stateMismatch`, and nothing the request asked for is applied. The account
+ * really does move, so the refusal is not a lie about it — whatever document
+ * was there before the attempt is still there after it, which is what a caller
+ * that lost its race has to be able to count on.
+ *
+ * Empty and zero, the defaults, refuse nothing: every other run of the mock
+ * behaves as it does everywhere else. The account a refusal lands on is
+ * resolved from the principal's own address, because that is what a test can
+ * name — the mock's accounts are not one per person, and the state it keeps is
+ * per type rather than per account (see above).
+ */
+export const casLoses = {
+  /** The address whose conditional writes lose; empty for none. */
+  forAddress: "",
+  /** How many of them lose, counted down as they do. */
+  count: 0,
+};
+
+/**
  * The compare-and-set every `/set` on the mock honours: `ifInState` names the
  * state the client read, and a set whose type has moved on since is refused --
  * the whole method call, with the error object RFC 8620 §5.3 defines for it,
@@ -3812,7 +3840,20 @@ const handlers: Record<string, Handler> = {
       destroyed: pick("destroyed"),
     };
   },
-  "FileNode/set": (a) => {
+  "FileNode/set": (a, who) => {
+    /*
+     * The compare-and-set a test asked this server to lose (`casLoses`):
+     * somebody else's write lands first, so the caller's `ifInState` is stale
+     * and the whole call is refused, exactly as a folder that moved refuses it.
+     */
+    if (
+      casLoses.count > 0 &&
+      a.ifInState != null &&
+      who.username === casLoses.forAddress
+    ) {
+      casLoses.count -= 1;
+      bumpState("FileNode");
+    }
     const res = genericSet(
       nodesFor(a.accountId),
       "f",
