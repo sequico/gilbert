@@ -1,6 +1,7 @@
 import {
   Bell,
   Bot,
+  Code,
   Info,
   KeyRound,
   ServerCog,
@@ -21,6 +22,7 @@ import { AdminUsers } from "@/views/admin/AdminUsers";
 import { EnforceIdentities } from "@/views/admin/EnforceIdentities";
 import { GroupAgents } from "@/views/admin/GroupAgents";
 import { GroupLabels } from "@/views/admin/GroupLabels";
+import { SystemSieve } from "@/views/admin/SystemSieve";
 import { AboutSettings } from "@/views/settings/AboutSettings";
 
 type AdminOwner = "mailer" | "assistant" | "stalwart" | null;
@@ -38,10 +40,10 @@ type AdminSection = SectionItem & { el: ReactNode; owner: AdminOwner };
  * configured once), **Group Agents** (one group's automations, standing
  * instruction, memory, audit and fleet, behind a single picker) and
  * **Approvals** (cross-group oversight, read-only by construction). "Stalwart"
- * is the mail server's own records, written over JMAP or over its
- * configuration API: **Enforce Identities**, one section holding a person's and
- * a group's behind two tabs (ADR 0007), and, in time, its system Sieve scripts
- * (ADR 0008). The split keeps each kind of thing under a heading that names it,
+ * is the mail server's own records, written over JMAP: **Enforce Identities**,
+ * one section holding a person's and a group's behind two tabs (ADR 0007), and
+ * **System Sieve**, its trusted, server-wide Sieve scripts (ADR 0008). The
+ * split keeps each kind of thing under a heading that names it,
  * rather than both under one unlabelled "Gilbert".
  */
 function sections(pendingApprovals: number): AdminSection[] {
@@ -121,6 +123,13 @@ function sections(pendingApprovals: number): AdminSection[] {
       owner: "stalwart",
     },
     {
+      id: "system-sieve",
+      label: t("System Sieve"),
+      icon: <Code size={18} />,
+      el: <SystemSieve />,
+      owner: "stalwart",
+    },
+    {
       id: "about",
       label: "About",
       icon: <Info size={18} />,
@@ -140,8 +149,8 @@ function sections(pendingApprovals: number): AdminSection[] {
  * Assistant" for the agent fleet (ADR 0003) — Master, Group Agents and
  * Approvals — and "Stalwart"
  * for the mail server's own records — the identities an administrator sets, as
- * one section with a tab per kind of principal (ADR 0007), and, in time, its
- * system Sieve scripts (ADR 0008) — with About ungrouped at the tail.
+ * one section with a tab per kind of principal (ADR 0007), and its trusted,
+ * server-wide Sieve scripts (ADR 0008) — with About ungrouped at the tail.
  */
 export function AdminView({ section }: { section?: string }) {
   const loadStatus = useAgents((s) => s.loadStatus);

@@ -39,6 +39,14 @@ import {
   writeAccountPolicy,
   writePublishJob,
 } from "./adminPolicy.js";
+import {
+  deleteSystemSieveScript,
+  getSystemSieveScript,
+  listSystemSieveScripts,
+  SystemSieveError,
+  saveSystemSieveScript,
+  setSystemSieveScriptActive,
+} from "./adminSieve.js";
 import { agentRuleJsonSchema } from "./agent/documents.js";
 import type { AgentGroupAnswer } from "./agent/views.js";
 import {
@@ -2615,6 +2623,115 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       return c.json({ outcome: result.published });
     } catch (err) {
       return upstreamFailure(c, err);
+    }
+  });
+
+  // ---------- System Sieve scripts (ADR 0008) ----------
+
+  /** A refusal from this surface: the code and the sentence, or upstream's. */
+  function systemSieveFailure(c: Context, err: unknown) {
+    if (err instanceof SystemSieveError)
+      return c.json({ error: err.code, message: err.message }, err.status as 400);
+    return upstreamFailure(c, err);
+  }
+
+  interface SystemSieveScriptBody {
+    name?: unknown;
+    description?: unknown;
+    contents?: unknown;
+    activate?: unknown;
+    /** The `state` this write was read against — omitted only for a create. */
+    state?: unknown;
+  }
+
+  function readSystemSieveBody(body: SystemSieveScriptBody | null) {
+    const name = typeof body?.name === "string" ? body.name.trim() : "";
+    const contents = typeof body?.contents === "string" ? body.contents : null;
+    if (!name || contents === null) return null;
+    const description =
+      typeof body?.description === "string" && body.description.trim()
+        ? body.description.trim()
+        : null;
+    const state = typeof body?.state === "string" && body.state ? body.state : undefined;
+    return { name, description, contents, activate: Boolean(body?.activate), state };
+  }
+
+  api.get("/admin/sieve/system", requireSession, requireAdmin, async (c) => {
+    try {
+      const ctx = await accountCtx(c);
+      return c.json(await listSystemSieveScripts(ctx));
+    } catch (err) {
+      return systemSieveFailure(c, err);
+    }
+  });
+
+  api.get("/admin/sieve/system/:id", requireSession, requireAdmin, async (c) => {
+    try {
+      const ctx = await accountCtx(c);
+      return c.json(await getSystemSieveScript(ctx, c.req.param("id")));
+    } catch (err) {
+      return systemSieveFailure(c, err);
+    }
+  });
+
+  api.post("/admin/sieve/system", requireSession, requireAdmin, async (c) => {
+    const parsed = readSystemSieveBody(await readJson<SystemSieveScriptBody>(c));
+    if (!parsed) return c.json({ error: "bad_request" }, 400);
+    // A create has no prior read to lose, so `state` (if the body carried one)
+    // is dropped rather than sent as `ifInState`.
+    const { state: _ignored, ...create } = parsed;
+    try {
+      const ctx = await accountCtx(c);
+      const id = await saveSystemSieveScript(ctx, { id: null, ...create });
+      return c.json({ id });
+    } catch (err) {
+      return systemSieveFailure(c, err);
+    }
+  });
+
+  api.put("/admin/sieve/system/:id", requireSession, requireAdmin, async (c) => {
+    const parsed = readSystemSieveBody(await readJson<SystemSieveScriptBody>(c));
+    if (!parsed) return c.json({ error: "bad_request" }, 400);
+    const { state, ...rest } = parsed;
+    try {
+      const ctx = await accountCtx(c);
+      const id = await saveSystemSieveScript(ctx, {
+        id: c.req.param("id"),
+        ...rest,
+        ifInState: state,
+      });
+      return c.json({ id });
+    } catch (err) {
+      return systemSieveFailure(c, err);
+    }
+  });
+
+  api.post("/admin/sieve/system/:id/active", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ active?: unknown; state?: unknown }>(c);
+    const state = typeof body?.state === "string" && body.state ? body.state : undefined;
+    try {
+      const ctx = await accountCtx(c);
+      await setSystemSieveScriptActive(
+        ctx,
+        c.req.param("id"),
+        Boolean(body?.active),
+        state,
+      );
+      return c.json({ ok: true });
+    } catch (err) {
+      return systemSieveFailure(c, err);
+    }
+  });
+
+  api.delete("/admin/sieve/system/:id", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ state?: unknown }>(c);
+    const state = typeof body?.state === "string" && body.state ? body.state : undefined;
+    try {
+      const ctx = await accountCtx(c);
+      await deleteSystemSieveScript(ctx, c.req.param("id"), state);
+      return c.json({ ok: true });
+    } catch (err) {
+      return systemSieveFailure(c, err);
     }
   });
 
