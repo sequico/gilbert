@@ -121,6 +121,48 @@ const MOCK_ADMIN = process.env.MOCK_ADMIN !== "0";
 /** Exercise the guard that refuses to force another Gilbert admin (the
  *  target principal holds the admin marker too). */
 const TARGET_IS_ADMIN = process.env.MOCK_TARGET_IS_ADMIN === "1";
+/**
+ * A principal the directory lists and the mock refuses to impersonate, named
+ * by `MOCK_REFUSED_USER=carol@example.com`.
+ *
+ * The publish that writes the installation policy into every account walks
+ * the directory and seals a session onto each one; an account the server will
+ * not seal a session onto costs that account alone, leaving every other
+ * publish written, and that branch is reachable only while the directory
+ * holds such an account. Empty, the default, leaves the mock listing the
+ * principals it will impersonate, because the admin-policy tests pin that
+ * every listed account is reached -- a test that wants the refusal names the
+ * address it stands in for.
+ *
+ * The refusal the mock answers is the 401 it answers for any composite it
+ * will not seal (`resolveIdentity`), which the administrator's publish
+ * reports as "no such account". A real 0.16.21 server refuses an
+ * impersonation it will not grant with 403 (live-verified 2026-09-09 for a
+ * group target, where the mock also answers 401, pinned by
+ * `admin-group-labels.test.ts`). The live probe this owes: what a real server
+ * answers for a listed individual it refuses, and whether that refusal is
+ * distinguishable from the unknown-account one at all.
+ */
+const REFUSED_USER = process.env.MOCK_REFUSED_USER?.trim() ?? "";
+/**
+ * Whether this session may query the directory at all.
+ *
+ * A real 0.16 server gates `Principal/query` behind `allow_directory_query` or
+ * the JmapPrincipalQuery permission (crates/jmap/src/principal/query.rs,
+ * checked on source 2026-09-07) and refuses the request when the gate is
+ * closed for the session, which is why a client degrades to typing an address
+ * rather than failing the surface. `MOCK_NO_DIRECTORY_QUERY=1` at boot, or
+ * `directoryGate.open = false` from a test that drives the mock in-process,
+ * closes it. A mock run leaves it open, because the surfaces it stands in for
+ * need the directory.
+ *
+ * The live probe this owes: which of 400 and 403 a real server answers a
+ * closed gate with, and whether the refusal is the whole request or one
+ * refused method call. The client treats the two alike (`fetchDirectoryPrincipals`
+ * in `server/src/upstream.ts` turns either into a denied read), so the mock
+ * answers 403 and nothing turns on the difference.
+ */
+export const directoryGate = { open: process.env.MOCK_NO_DIRECTORY_QUERY !== "1" };
 /** The user-role permissions `/api/account` reports (ADR 0001). */
 const USER_PERMISSIONS = ["jmapEmailGet", "sysAccountSettingsGet"];
 /**
@@ -1742,7 +1784,14 @@ const cards: Obj[] = people.slice(0, 6).map((p, i) => {
       : undefined,
   };
 });
-const principals: Obj[] = people.slice(0, 5).map((p, i) => ({
+/**
+ * The directory: every principal this server knows, which is what
+ * `Principal/query` and `Principal/get` answer from. Exported so a test can
+ * enlarge it: a directory larger than one page is the only way to exercise the
+ * paging a reader of a real installation needs, and the mock's own handful of
+ * principals fit in a single page.
+ */
+export const principals: Obj[] = people.slice(0, 5).map((p, i) => ({
   id: `pr${i}`,
   type: "individual",
   name: p[0],
@@ -1750,6 +1799,21 @@ const principals: Obj[] = people.slice(0, 5).map((p, i) => ({
   email: p[1],
   timeZone: "UTC",
 }));
+// A principal the directory lists and the mock will not seal a session onto,
+// so the publish's "one account refused, the rest written" branch is reachable
+// here (see `REFUSED_USER`). It sits before the agent principal in the
+// directory on purpose: a fan-out that stopped at the refusal would leave the
+// accounts after it -- the agent's own among them -- without the policy.
+// Present only when the environment names it.
+if (REFUSED_USER)
+  principals.push({
+    id: "pr-refused",
+    type: "individual",
+    name: "Refused Account",
+    description: null,
+    email: REFUSED_USER,
+    timeZone: "UTC",
+  });
 // Group principals, so the directory and the sharing pickers can offer
 // teams. The demo user is a member of `team@example.org` (its account is in
 // the demo session below); `design@example.org` is the agent's own group, which
@@ -3451,8 +3515,17 @@ const handlers: Record<string, Handler> = {
   // (crates/jmap/src/principal/query.rs; checked on source 2026-09-07,
   // re-verify against a live server with a dated comment per repo
   // convention). Other filters are ignored here — nothing in Gilbert sends
-  // them yet. The real server also gates directory queries behind
-  // allow_directory_query / a JMAP permission; the mock does not.
+  // them yet. Directory queries are gated the way the real server gates them:
+  // see `directoryGate` and the refusal in the request handler below.
+  //
+  // It honours `position` and `limit` the way a 0.16 query method does, and
+  // answers `total` when `calculateTotal` asks for it (the JMAP query shape
+  // Stalwart implements; assumed 2026-09-13 from the spec and its own query
+  // code, never probed live). The live probe this owes: a directory of more
+  // than one page read with `position`/`limit` and again with
+  // `calculateTotal`, against a real 0.16.21 server, to see whether the total
+  // and the page offsets are the ones assumed here — it is written down as
+  // owed in `src/mock/directory-paging.test.ts`.
   "Principal/query": (a) => {
     // A real 0.16 server wants the filter as a single object and refuses an
     // array with notRequest (verified live 2026-09-07); the mock accepts the
@@ -3470,12 +3543,33 @@ const handlers: Record<string, Handler> = {
       if (name && pName !== name && pEmail !== name) return false;
       return true;
     });
+    const total = list.length;
+    // `position` is where the page starts within the whole result, counting
+    // back from the end when negative; `limit` is how many ids come back.
+    // A caller that names no limit — absent, null or negative — gets the rest
+    // of the list, which is also what a caller that names none got before
+    // paging existed. Whether a real server refuses the negative forms with
+    // invalidArguments instead is part of the live probe above.
+    const asked =
+      typeof a.position === "number" && Number.isFinite(a.position)
+        ? Math.trunc(a.position)
+        : 0;
+    const start = asked < 0 ? Math.max(0, total + asked) : Math.min(asked, total);
+    const askedLimit =
+      typeof a.limit === "number" && Number.isFinite(a.limit) && a.limit > 0
+        ? Math.trunc(a.limit)
+        : total - start;
+    const page = list.slice(start, start + askedLimit);
     return {
       accountId: ACCOUNT,
       queryState: "1",
       canCalculateChanges: false,
-      position: 0,
-      ids: list.map((p) => p.id),
+      position: start,
+      ids: page.map((p) => p.id),
+      // `total` is the population the query matched, answered only when the
+      // caller asks for it: it is the number a paging reader uses to know
+      // which page was the last one.
+      ...(a.calculateTotal ? { total } : {}),
     };
   },
   "Principal/get": genericGet(principals, "Principal"),
@@ -3824,15 +3918,18 @@ function validCredential(
 }
 
 const knownPrincipal = (username: string) =>
-  username === USER ||
-  username === TARGET_USER ||
-  // The agent principal is a real account in the directory (ADR 0003 §1), so it
-  // authenticates by itself and an admin may also impersonate it to manage it.
-  username === AGENT_ADDRESS ||
-  // The impersonation probe acts on a real account from the directory, the
-  // way a force would; the directory principals are valid targets for a
-  // master that holds the right (group principals are refused separately).
-  principals.some((p) => p.email === username);
+  // The refused principal is listed in the directory and is one the mock will
+  // not seal a session onto, in either direction (see `REFUSED_USER`).
+  username !== REFUSED_USER &&
+  (username === USER ||
+    username === TARGET_USER ||
+    // The agent principal is a real account in the directory (ADR 0003 §1), so it
+    // authenticates by itself and an admin may also impersonate it to manage it.
+    username === AGENT_ADDRESS ||
+    // The impersonation probe acts on a real account from the directory, the
+    // way a force would; the directory principals are valid targets for a
+    // master that holds the right (group principals are refused separately).
+    principals.some((p) => p.email === username));
 
 /**
  * Authenticate the request and say who it acts as.
@@ -4248,6 +4345,24 @@ export const server = createServer(async (req, res) => {
           type: "urn:ietf:params:jmap:error:unknownCapability",
           status: 400,
           detail: `Unknown capability: ${JSON.stringify(unknown)}`,
+        }),
+      );
+    }
+    // The directory gate (`directoryGate`): a session the server will not let
+    // query the directory is refused here, before any method runs, rather than
+    // in a method answer — which is why a client that reads the directory has
+    // to treat a refused request as a refused read.
+    if (
+      !directoryGate.open &&
+      body.methodCalls.some(([name]) => name === "Principal/query")
+    ) {
+      res.writeHead(403, { "content-type": "application/json" });
+      return res.end(
+        JSON.stringify({
+          type: "about:blank",
+          status: 403,
+          title: "Forbidden",
+          detail: "Directory queries are not allowed for this account.",
         }),
       );
     }

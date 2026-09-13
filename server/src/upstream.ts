@@ -438,6 +438,68 @@ export async function getAccountInfo(
 }
 
 /**
+ * The most principals one request of the directory read carries.
+ *
+ * The number the read has always asked a query for, so an installation
+ * smaller than a page sends the request it sent before; a smaller figure is
+ * used when the session advertises one (see `directoryBatch`), because a
+ * server refuses a whole method call that carries more ids than it will
+ * process at once rather than the overflow alone. `DIRECTORY_PAGE` is the
+ * ceiling for both the query page and the `Principal/get` that fetches it, so
+ * one page is always one get.
+ */
+const DIRECTORY_PAGE = 1000;
+
+/**
+ * A ceiling on the pages one directory read walks.
+ *
+ * The read fans out over every account on the installation, and a server that
+ * kept answering with the same page -- a `position` it never advances past --
+ * would otherwise spin for ever. At this many pages the read stops and reports
+ * itself incomplete: a partial publish that says so is the honest answer, and
+ * a hundred thousand accounts is past any installation this runs against.
+ */
+const DIRECTORY_MAX_PAGES = 100;
+
+/**
+ * What a directory read found, and whether it found all of it.
+ *
+ * `complete` is the part its callers did not have. The read took one page of
+ * a thousand principals for the population, so an installation with more
+ * accounts than that kept the published policy on everyone past the page and
+ * nothing said so. `total` is the population the server reported when it
+ * reports one, and null when it did not: it is what makes `complete`
+ * checkable rather than merely claimed.
+ */
+export interface DirectoryPrincipals {
+  /** The principals of the requested kind, deduplicated, in server order. */
+  principals: Array<{ id: string; name: string }>;
+  /** Whether every principal the server holds was read. */
+  complete: boolean;
+  /** The population the server reported, or null when it reported none. */
+  total: number | null;
+}
+
+/**
+ * How many objects one method call of this session may carry.
+ *
+ * Stalwart advertises `maxObjectsInGet` in the session's core capability and
+ * refuses a whole get that exceeds it, so a read that gathered every id and
+ * asked for them in one call would be refused on exactly the installations
+ * this paging exists for. The advertised figure wins over the default; a
+ * session that advertises nothing gets `DIRECTORY_PAGE`.
+ */
+function directoryBatch(session: UpstreamSession): number {
+  const core = session.capabilities?.["urn:ietf:params:jmap:core"] as
+    | { maxObjectsInGet?: unknown }
+    | undefined;
+  const advertised = core?.maxObjectsInGet;
+  return typeof advertised === "number" && advertised > 0
+    ? Math.min(DIRECTORY_PAGE, Math.trunc(advertised))
+    : DIRECTORY_PAGE;
+}
+
+/**
  * Enumerate the individual accounts on this server (the admin Users
  * surface), when the server lets this session do it.
  *
@@ -456,12 +518,22 @@ export async function getAccountInfo(
  * and the client degrades to typing an address. Roles are deliberately not
  * consulted - Stalwart exposes roles only through its own administration
  * surfaces, never over JMAP.
+ *
+ * The read pages (`position`/`limit`, Stalwart 0.16's query shape) and says
+ * whether the walk it made reached the end of the directory: `complete` is
+ * false when the population outran the pages or the server stopped advancing,
+ * and `total` carries the population the server named. The administrator's
+ * publish fans out over exactly this list, so an incomplete read is the
+ * difference between "every account holds the policy" and "every account this
+ * read could see holds it". Read `complete` wherever the list is treated as
+ * the installation (app.ts's `/admin/policy` fan-out) rather than as a
+ * directory page.
  */
 export async function fetchDirectoryPrincipals(
   authorization: string,
   session: UpstreamSession,
   kind: "individual" | "group",
-): Promise<{ principals: Array<{ id: string; name: string }> } | { denied: string }> {
+): Promise<DirectoryPrincipals | { denied: string }> {
   // The account that owns the principals capability, picked the way the
   // client picks it: the personal account advertising it, then any account
   // that does.
@@ -475,7 +547,10 @@ export async function fetchDirectoryPrincipals(
     withCap.find(([, a]) => (a as { isPersonal?: unknown }).isPersonal === true) ??
     withCap[0];
   const accountId = personal?.[0] ?? accounts[0]?.[0];
-  if (!accountId) return { principals: [] };
+  // No account advertises the principals capability, so there is no directory
+  // this session can read and nothing it missed reading.
+  if (!accountId) return { principals: [], complete: true, total: null };
+  const batch = directoryBatch(session);
 
   const post = async (
     methodCalls: unknown[][],
@@ -523,26 +598,85 @@ export async function fetchDirectoryPrincipals(
   };
 
   try {
-    const query = await method(
-      [["Principal/query", { accountId, limit: 1000 }, "q"]],
-      "Principal/query",
-    );
-    const ids = (query.ids as string[] | undefined) ?? [];
-    if (!ids.length) return { principals: [] };
-    const got = await method(
-      [
+    // Walk the query a page at a time. `calculateTotal` on the first page is
+    // the termination rule whenever the server answers it: the read holds the
+    // whole population as soon as it holds as many principals as the server
+    // named. The rule that asks nothing of the server is the empty page below,
+    // which a server that ignores `calculateTotal` still answers when the
+    // directory ends -- one request later than it could have stopped.
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    let position = 0;
+    let total: number | null = null;
+    let complete = false;
+    for (let page = 0; page < DIRECTORY_MAX_PAGES; page++) {
+      const query = await method(
         [
-          "Principal/get",
-          { accountId, ids, properties: ["id", "type", "name", "email"] },
-          "g",
+          [
+            "Principal/query",
+            {
+              accountId,
+              position,
+              limit: batch,
+              ...(page === 0 ? { calculateTotal: true } : {}),
+            },
+            "q",
+          ],
         ],
-      ],
-      "Principal/get",
-    );
-    const list =
-      (got.list as
-        | Array<{ id?: string; type?: unknown; name?: unknown; email?: unknown }>
-        | undefined) ?? [];
+        "Principal/query",
+      );
+      const pageIds = (query.ids as string[] | undefined) ?? [];
+      if (typeof query.total === "number") total = query.total;
+      for (const id of pageIds) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        ids.push(id);
+      }
+      if (!pageIds.length) {
+        complete = true;
+        break;
+      }
+      if (total !== null && ids.length >= total) {
+        complete = true;
+        break;
+      }
+      // Where the next page starts: the offset the server says this page began
+      // at, plus the ids it sent. A page that does not move past the one before
+      // it is a server this walk cannot follow, and looping on it would hang
+      // the publish -- so stop and report the read as partial.
+      const next =
+        (typeof query.position === "number" ? query.position : position) + pageIds.length;
+      if (next <= position) break;
+      position = next;
+    }
+    if (!ids.length) return { principals: [], complete, total };
+    const list: Array<{
+      id?: string;
+      type?: unknown;
+      name?: unknown;
+      email?: unknown;
+    }> = [];
+    for (let at = 0; at < ids.length; at += batch) {
+      const got = await method(
+        [
+          [
+            "Principal/get",
+            {
+              accountId,
+              ids: ids.slice(at, at + batch),
+              properties: ["id", "type", "name", "email"],
+            },
+            "g",
+          ],
+        ],
+        "Principal/get",
+      );
+      const batchList =
+        (got.list as
+          | Array<{ id?: string; type?: unknown; name?: unknown; email?: unknown }>
+          | undefined) ?? [];
+      list.push(...batchList);
+    }
     const principals = list
       .filter((p) => p.type === kind)
       .map((p) => {
@@ -552,28 +686,55 @@ export async function fetchDirectoryPrincipals(
         return typeof p.id === "string" && name ? { id: p.id, name } : null;
       })
       .filter((p): p is { id: string; name: string } => p !== null);
-    return { principals };
+    return { principals, complete, total };
   } catch (err) {
     if (err instanceof DirectoryQueryDenied) return { denied: err.message };
     throw err;
   }
 }
 
+/**
+ * The individual accounts of the directory, plus the two fields that say what
+ * the read was: `complete` (the walk reached the end of the directory) and
+ * `total` (the population the server reported, or null). A caller that lists
+ * users reads `users`; a caller that is about to fan out over every account on
+ * the installation reads `complete` first, because a publish that writes to
+ * part of an installation and then reports success is the failure these fields
+ * exist to make visible.
+ */
 export async function fetchDirectoryUsers(
   authorization: string,
   session: UpstreamSession,
-): Promise<{ users: Array<{ id: string; name: string }> } | { denied: string }> {
+): Promise<
+  | {
+      users: Array<{ id: string; name: string }>;
+      complete: boolean;
+      total: number | null;
+    }
+  | { denied: string }
+> {
   const result = await fetchDirectoryPrincipals(authorization, session, "individual");
-  return "denied" in result ? { denied: result.denied } : { users: result.principals };
+  return "denied" in result
+    ? { denied: result.denied }
+    : { users: result.principals, complete: result.complete, total: result.total };
 }
 
 /** Group mailboxes on this server (for the admin group-labels surface). */
 export async function fetchDirectoryGroups(
   authorization: string,
   session: UpstreamSession,
-): Promise<{ groups: Array<{ id: string; name: string }> } | { denied: string }> {
+): Promise<
+  | {
+      groups: Array<{ id: string; name: string }>;
+      complete: boolean;
+      total: number | null;
+    }
+  | { denied: string }
+> {
   const result = await fetchDirectoryPrincipals(authorization, session, "group");
-  return "denied" in result ? { denied: result.denied } : { groups: result.principals };
+  return "denied" in result
+    ? { denied: result.denied }
+    : { groups: result.principals, complete: result.complete, total: result.total };
 }
 
 /** The directory gate closed on this session (see fetchDirectoryUsers). */
