@@ -1,4 +1,4 @@
-# ADR 0016 — System Sieve scripts
+# ADR 0008 — System Sieve scripts
 
 The administration gains **System Sieve**, an editor for the Sieve scripts
 Stalwart itself runs — the trusted, server-wide filters an operator writes for
@@ -115,12 +115,6 @@ difference that activating a system script does not deactivate another.
 - `server/src/mock/index.ts` carries no `x:SieveSystemScript` handlers yet: an
   implementation of this decision owes the mock the same parity every JMAP
   behaviour Gilbert depends on already requires (`gilbert-stalwart`).
-- This ADR record replaces a retired one: 0008 covered the same territory,
-  proposed before Stalwart 0.16's registry objects existed, and was dropped
-  because nothing was ever built against it. The number stays retired —
-  `docs/adr/README.md` is corrected to point a reader at this one instead —
-  and the stale "(ADR 0008)" forward references left in `AdminView.tsx`'s own
-  comment are corrected to name this record.
 
 ## Verified against Stalwart
 
