@@ -220,8 +220,10 @@ export async function readProse(
  * The user message's content: its text, then one block a page handed over as an
  * image.
  *
- * A page travels in the OpenAI-compatible image shape, a PNG data URL rendered
- * in the process (ADR 0003). The blocks sit in the request's tail, after the
+ * A page travels in the OpenAI-compatible image shape, a data URL of the bytes
+ * `documentFamily.ts` handed over — a PNG rendered in the process for a
+ * scanned page, or an image file's own bytes read through unchanged (ADR
+ * 0003). The blocks sit in the request's tail, after the
  * text, so the prompt's stable head is untouched: what a provider caches on the
  * next call is the same prefix, and an image — fresh bytes on every run — is
  * never part of a cache hit. A call with no page keeps its content a string,
@@ -237,7 +239,7 @@ function contentBlocks(
     ...images.map((image) => ({
       type: "image_url",
       image_url: {
-        url: `data:image/png;base64,${Buffer.from(image.png).toString("base64")}`,
+        url: `data:${image.mime ?? "image/png"};base64,${Buffer.from(image.png).toString("base64")}`,
       },
     })),
   ];

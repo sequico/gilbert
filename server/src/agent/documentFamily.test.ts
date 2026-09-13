@@ -136,3 +136,67 @@ test("a workbook past the page bound is its first sheets, and the rest are unrea
   assert.match(read.text, /# Due/);
   assert.ok(!read.text.includes("# Tre"), "a sheet past the bound contributes nothing");
 });
+
+/* ------------------------------------------------------------------ */
+/* Images                                                              */
+/* ------------------------------------------------------------------ */
+
+/** The smallest valid PNG: a signature and nothing this family looks past. */
+const PNG_BYTES = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2]);
+/** A JPEG's own magic bytes, and nothing more. */
+const JPEG_BYTES = Uint8Array.from([0xff, 0xd8, 0xff, 1, 2, 3]);
+
+test("an image is a kind of its own, by name and by media type", () => {
+  assert.equal(documentKindOf("scansione.png"), "image");
+  assert.equal(documentKindOf("foto.JPG"), "image");
+  assert.equal(documentKindOf("foto.jpeg"), "image");
+  assert.equal(documentKindOf("animazione.gif"), "image");
+  assert.equal(documentKindOf("moderna.webp"), "image");
+  assert.equal(documentKindOf("dati", "image/png"), "image");
+});
+
+test("an image carries no text layer at all: one page, all of it pixels", async () => {
+  const read = await readDocument(PNG_BYTES, "image", 8);
+  assert.equal(read.kind, "image");
+  assert.equal(read.pages, 1);
+  assert.equal(read.looked, 1);
+  assert.equal(read.text, "", "an image has nothing of its own to read as text");
+  assert.deepEqual(read.pixelPages, [1], "the one page it has is pixels, not text");
+  assert.equal(read.truncated, false);
+});
+
+test("an image reaches the call as its own bytes, mislabelled as neither PNG nor anything else", async () => {
+  const content = await documentContent(JPEG_BYTES, "image", 8);
+  assert.equal(content.images.length, 1, "the one page an image carries is handed over");
+  assert.equal(content.images[0]?.page, 1);
+  assert.deepEqual(
+    content.images[0]?.png,
+    JPEG_BYTES,
+    "the bytes travel through unchanged: nothing here decodes or re-encodes a pixel",
+  );
+  assert.equal(
+    content.images[0]?.mime,
+    "image/jpeg",
+    "the MIME is read from the bytes' own magic number, not guessed from a name",
+  );
+  assert.equal(content.omitted, 0);
+  assert.equal(content.unreadPages, 0);
+});
+
+test("a bound of zero pages hands an image over the same way it hands over none of a PDF", async () => {
+  const content = await documentContent(PNG_BYTES, "image", 0);
+  assert.deepEqual(content.images, [], "no page is rendered past the bound");
+  assert.equal(content.omitted, 1, "the one page the file has was left out, honestly");
+});
+
+test("a deployment without vision reads no image, image file included", async () => {
+  const content = await documentContent(PNG_BYTES, "image", 8, { vision: false });
+  assert.deepEqual(content.images, []);
+});
+
+test("a file named as an image but carrying none of the four formats is refused, not mislabelled", async () => {
+  await assert.rejects(
+    () => documentContent(new TextEncoder().encode("not a picture"), "image", 8),
+    /unreadable_document/,
+  );
+});

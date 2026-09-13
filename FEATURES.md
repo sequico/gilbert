@@ -263,16 +263,20 @@ record says so rather than being lost.
 - **Documents, read by the model that has eyes.** A run can act on a PDF: split
 it into pages, merge them, extract one, and *read* — a PDF's own text layer, a
 `.docx`, a workbook (`.xls` and `.xlsx`, read sheet by sheet, one sheet
-counting as one page) or a text file (`.csv`, `.txt` and the other
-plain-text types, read as they stand: no delimiter parsed, no column named). A
+counting as one page), a text file (`.csv`, `.txt` and the other
+plain-text types, read as they stand: no delimiter parsed, no column named), or
+an image (`.png`, `.jpg`/`.jpeg`, `.gif`, `.webp`). A
 text file or a workbook longer than the 200 000 characters one reading
 carries is handed over as the beginning of itself, and the run is told so. A
 page that carries no text layer is **rasterised**: the executor
 renders it to an image in the process (a WASM PDF engine — no canvas, no native
 build, no child process) and the page rides that run's call as volatile content
 in the tail, so the prompt's stable head is unaffected and an image is never a
-cache hit. A vision request carries images and not documents, which is why the
-page is rendered rather than handed over; how many pages one run may hand over
+cache hit. An image file carries no text layer by definition, so it needs no
+rasteriser and rides the same way as its own bytes, sniffed against the four
+formats' magic numbers rather than trusted from its name or its declared type.
+A vision request carries images and not documents, which is why a scanned page
+is rendered rather than handed over; how many pages one run may hand over
 is bounded (`agent.pages`, eight by default) rather than left to the
 file's size, and a document longer than the bound is read as the first pages of
 it — which the run is told, so a part of a document is never presented as the

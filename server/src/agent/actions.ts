@@ -928,7 +928,7 @@ function kindOfDocument(action: AgentAction, source: DocumentSource): DocumentKi
   if (!kind)
     throw new DocumentError(
       "unsupported_type",
-      `"${source.name}" is none of the kinds this installation reads — a PDF, a .docx, a spreadsheet (.xls, .xlsx) or a text file — so "${action.do}" cannot read it`,
+      `"${source.name}" is none of the kinds this installation reads — a PDF, a .docx, a spreadsheet (.xls, .xlsx), a text file or an image (.png, .jpg, .gif, .webp) — so "${action.do}" cannot read it`,
     );
   return kind;
 }

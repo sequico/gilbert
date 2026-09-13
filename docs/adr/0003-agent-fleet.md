@@ -241,10 +241,14 @@ The capability catalogue includes deterministic document work, run by the
 executor rather than asked of the model, on a blob already in the group's own
 Files and entirely in memory: page work on a PDF (split, merge, extract) and
 reading — a PDF's own text layer, a `.docx`, a workbook (`.xls`, `.xlsx`), a
-text file (`.csv`, `.txt` and the other plain-text types). A page with no
-text layer is rasterised to an image in the same process and handed to the
-model, which reads it directly — vision, not OCR, so there is no separate
-extraction engine and no artifact behind the reading.
+text file (`.csv`, `.txt` and the other plain-text types), or an image
+(`.png`, `.jpg`/`.jpeg`, `.gif`, `.webp`). A page with no text layer is
+rasterised to an image in the same process and handed to the model, which
+reads it directly — vision, not OCR, so there is no separate extraction
+engine and no artifact behind the reading. A file that is already an image
+carries no text layer by construction, so it takes the same path with
+nothing to rasterise: its own bytes, sniffed against the four formats' magic
+numbers rather than trusted from its name, ride the call as that one page.
 
 `document.read` answers text and nothing else, and says what it did not read
 rather than passing a part off as the whole. A PDF's pages with no text layer

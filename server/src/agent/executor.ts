@@ -1375,7 +1375,7 @@ export class Executor {
       typeof found.file.type === "string" && found.file.type ? found.file.type : "";
     const kind = documentKindOf(found.name, type);
     if (!kind) {
-      context.text += `\n\n"${found.name}" is neither a PDF nor a .docx, so nothing of it is read here.`;
+      context.text += `\n\n"${found.name}" is none of the kinds this installation reads — a PDF, a .docx, a spreadsheet (.xls, .xlsx), a text file or an image (.png, .jpg, .gif, .webp) — so nothing of it is read here.`;
       return;
     }
     // Nothing read and no page to render is said out loud: a `.docx` whose text

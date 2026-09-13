@@ -16,8 +16,12 @@
  * page somebody scanned, and there is no OCR engine here on purpose: those
  * pages are rendered and handed to the run's call as images, and the model
  * reads them (ADR 0003: a page that is only pixels is read by the model,
- * because it has eyes). Nothing here writes a `.docx` either, for the reason
- * the ADR gives: producing one is a job for a person's word processor.
+ * because it has eyes). A file that already is a picture — a `.png`, a
+ * `.jpg`/`.jpeg`, a `.gif`, a `.webp` — is the same case with nothing to
+ * rasterise: it carries no text layer by definition, so it is handed to the
+ * call as its own bytes, one page of one image. Nothing here writes a `.docx`
+ * either, for the reason the ADR gives: producing one is a job for a person's
+ * word processor.
  */
 
 import zlib from "node:zlib";
@@ -29,21 +33,24 @@ import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { errorMessage } from "./audit.js";
 
 /**
- * The four kinds this family reads.
+ * The five kinds this family reads.
  *
  * `sheet` is one kind for `.xls` and `.xlsx` alike: the reader sniffs which
  * container it was handed, and what a run needs to know is that it is a
  * workbook, not which decade it was written in. `text` is everything a person
  * could open in an editor — a `.csv`, a `.txt`, and the other plain-text types
- * `documentKindOf` names.
+ * `documentKindOf` names. `image` is a file that is already a picture — a
+ * `.png`, a `.jpg`/`.jpeg`, a `.gif`, a `.webp` — and carries no text layer to
+ * read, the same as a PDF's scanned page; it differs from that page only in
+ * needing no rasteriser, since it is pixels already.
  */
-export type DocumentKind = "pdf" | "docx" | "sheet" | "text";
+export type DocumentKind = "pdf" | "docx" | "sheet" | "text" | "image";
 
 /** What went wrong, in a word the trail can name. */
 export type DocumentErrorCode =
   /** A library refused the bytes. */
   | "unreadable_document"
-  /** The file is neither a PDF nor a `.docx`. */
+  /** The file is none of the five kinds this family reads. */
   | "unsupported_type"
   /** The page range names no page of this document. */
   | "invalid_range"
@@ -119,6 +126,15 @@ export interface PageImage {
   /** 1-based, as a person counts the pages. */
   page: number;
   png: Uint8Array;
+  /**
+   * The MIME type `png`'s bytes actually are.
+   *
+   * Absent means PNG, which is what every page this family rasterises comes
+   * out as. An `image` document is handed over as its own bytes rather than
+   * re-encoded, so the field beside it carries whatever format those bytes
+   * are — `png`'s name is then the shape, not the type.
+   */
+  mime?: string;
 }
 
 /** What a run's call carries for one document: what it says, and what it looks like. */
@@ -142,8 +158,8 @@ export interface DocumentContent {
 }
 
 /**
- * Which of the two kinds a file is, from its name or its media type, or null
- * when it is neither.
+ * Which of the five kinds a file is, from its name or its media type, or null
+ * when it is none of them.
  *
  * The name is the reliable signal in Stalwart's Files — a type is often absent
  * and sometimes somebody else's guess — so the extension decides first and the
@@ -154,6 +170,7 @@ export function documentKindOf(name: string, type?: string): DocumentKind | null
   if (lower.endsWith(".pdf")) return "pdf";
   if (lower.endsWith(".docx")) return "docx";
   if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) return "sheet";
+  if (IMAGE_EXTENSIONS.some((extension) => lower.endsWith(extension))) return "image";
   if (TEXT_EXTENSIONS.some((extension) => lower.endsWith(extension))) return "text";
   const media = ((type ?? "").toLowerCase().split(";")[0] ?? "").trim();
   if (media === "application/pdf") return "pdf";
@@ -165,9 +182,22 @@ export function documentKindOf(name: string, type?: string): DocumentKind | null
   // a server says about a `.csv` it does not know — a type that is the only
   // signal there is falls back to here.
   if (media === "application/vnd.ms-excel") return "sheet";
+  if (IMAGE_MEDIA_TYPES.has(media)) return "image";
   if (media.startsWith("text/")) return "text";
   return null;
 }
+
+/**
+ * The image formats this family reads as a page of their own.
+ *
+ * The same four an OpenAI-compatible vision call takes as an `image_url` data
+ * URL — nothing here decodes or re-encodes a pixel, so a format the call could
+ * not read is a format nothing here should claim either.
+ */
+const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
+
+/** The media types naming the same four formats, for the fallback. */
+const IMAGE_MEDIA_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
 
 /**
  * The extensions whose content is text a person could open in an editor.
@@ -253,6 +283,19 @@ export async function readDocument(
       truncated: cut.truncated,
     };
   }
+  if (kind === "image") {
+    // One page, carrying no text layer at all — the same fact a scanned PDF
+    // page states about itself, and stated the same way, so `documentContent`
+    // hands it to the call exactly as it would that page.
+    return {
+      kind,
+      pages: 1,
+      text: "",
+      pixelPages: [1],
+      looked: 1,
+      truncated: false,
+    };
+  }
   if (kind === "sheet") return sheetRead(bytes, maxPages);
   const { pages, texts, last } = await pdfPageTexts(bytes, maxPages);
   const pixelPages: number[] = [];
@@ -295,13 +338,20 @@ export async function documentContent(
   const bound = Number.isFinite(maxPages) ? Math.max(0, Math.floor(maxPages)) : 0;
   const read = await readDocument(bytes, kind, bound);
   const unreadPages = Math.max(0, read.pages - read.looked);
-  if (read.kind !== "pdf" || !read.pixelPages.length) {
+  if (!read.pixelPages.length) {
     return { read, images: [], omitted: 0, unreadPages };
   }
+  // A bound of zero pages hands over no image, the same rule a scanned PDF
+  // follows: `wanted` is what the bound still allows through.
   const wanted = read.pixelPages.slice(0, bound);
+  const images = vision
+    ? read.kind === "image"
+      ? wanted.map((page) => ({ page, png: bytes, mime: imageMime(bytes) }))
+      : await renderPages(bytes, wanted)
+    : [];
   return {
     read,
-    images: vision ? await renderPages(bytes, wanted) : [],
+    images,
     omitted: read.pixelPages.length - wanted.length,
     unreadPages,
   };
@@ -501,6 +551,51 @@ export async function renderPages(
   } finally {
     document.destroy();
   }
+}
+
+/**
+ * An image file's own MIME type, read from its magic bytes rather than
+ * trusted from its name or from Stalwart's own type — the same reasoning
+ * `sheetRead` and `textFile` follow, that a file's own bytes are what a
+ * reader answers from. A file whose extension said `image` but whose bytes
+ * match none of the four formats is refused the way an unreadable PDF is:
+ * loudly, with its own code, rather than handed to the call mislabelled.
+ */
+function imageMime(bytes: Uint8Array): string {
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
+  )
+    return "image/png";
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff)
+    return "image/jpeg";
+  if (
+    bytes.length >= 6 &&
+    bytes[0] === 0x47 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x38
+  )
+    return "image/gif";
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  )
+    return "image/webp";
+  throw new DocumentError(
+    "unreadable_document",
+    "this file's name says it is an image, but its own bytes are none of the formats this family reads (PNG, JPEG, GIF or WEBP)",
+  );
 }
 
 function unreadable(what: string, err: unknown): DocumentError {
