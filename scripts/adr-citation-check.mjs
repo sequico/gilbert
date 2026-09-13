@@ -3,23 +3,21 @@
  * Keep every citation of a decision record pointing at a record that exists.
  *
  * A comment that says `(ADR 0003)` is a claim about where a reader can go to
- * read why the code is shaped the way it is. The records were consolidated
- * once — six of them now hold what ten and fifteen used to — and the numbers
- * they retired are listed in `docs/adr/README.md` for anyone meeting one in
- * the history. That list is for the history; it is not a licence for the code
- * to keep citing a number whose file is gone, because a reader following it
- * finds the index and then has to search, which is the lookup this check
- * exists to save them.
+ * read why the code is shaped the way it is, so it has to name a record that
+ * is a file: a number nothing answers to sends the reader to the index and
+ * then to a search, which is the lookup this check exists to save them.
  *
- * Two rules, both of them about the code and the skills rather than about the
- * records themselves:
+ * Two rules, and they hold wherever a citation may appear:
  *
  *   - `ADR <nnnn>` / `ADR-<nnnn>` must name a record that is a file:
  *     `docs/adr/<nnnn>-*.md`. A number nothing answers to is an error.
- *   - A section citation is out. The records carry named sections, and the
- *     index says section numbers do not carry over between revisions, so
- *     `§6` after a number points at a structure that no longer exists, and
+ *   - A section citation is out. The records carry named sections, so `§6`
+ *     after a number points at a structure the record does not have, and
  *     `ADR §6` — which names no record at all — is the same error twice.
+ *
+ * The scan covers the code, the skills, and the documents and deployment
+ * files a reader meets by name: a number left in a stylesheet or a compose
+ * file misleads exactly as one left in a module.
  *
  * Tests are read: a test that says which decision it pins is doing useful
  * work. The one exception is this check's own test, whose fixtures have to
@@ -41,14 +39,33 @@ const ADR_FILE = /^(\d{4})-[^/]*\.md$/;
  * `ADR 0003`, `ADR-0003`, and the same with a section pinned to it.
  *
  * The gap between the two may hold the line break and the comment leader of a
- * wrapped sentence (`ADR\n * 0010`), which is how five citations to a retired
- * record stayed invisible: a reader sees one sentence, and so must this.
+ * wrapped sentence (`ADR\n * 0003`): a reader sees one sentence, and so must
+ * this.
  */
 const CITATION = /\bADR[-\s][*/\s]*(\d{1,4}|§)/g;
 
 /** Where a citation may appear: the code, and the skills that guide it. */
 const ROOTS = ["server/src", "web/src", ".codewhale/skills"];
-const EXT = new Set([".ts", ".tsx", ".mts", ".mjs", ".md"]);
+
+/**
+ * The documents and deployment files a reader meets by name rather than by
+ * directory. Read whole, wherever they sit: the extension of a compose file
+ * or a Caddyfile says nothing about whether it cites a record.
+ */
+const FILES = [
+  "README.md",
+  "FEATURES.md",
+  "ROADMAP.md",
+  "KNOWN-ISSUES.md",
+  ".codewhale/instructions.md",
+  "docker-compose.yml",
+  "Caddyfile.example",
+  "nginx.example.conf",
+  "deploy.example.sh",
+  ".env.example",
+];
+
+const EXT = new Set([".ts", ".tsx", ".mts", ".mjs", ".md", ".css"]);
 const SKIP_DIRS = new Set(["node_modules", "dist", "dev-dist", "coverage", ".git"]);
 
 /** This check's own fixtures contain the shapes it refuses. */
@@ -180,12 +197,21 @@ export function collectRepoInput(root = ROOT) {
       files.push({ path, text: readFileSync(join(root, path), "utf8") });
     }
   }
+  for (const path of FILES) {
+    if (SKIP_FILES.has(path)) continue;
+    try {
+      files.push({ path, text: readFileSync(join(root, path), "utf8") });
+    } catch {
+      // A file this installation does not ship is not a citation.
+    }
+  }
   return { files, records };
 }
 
 const USAGE =
-  "Every `ADR <nnnn>` in server/, web/ and .codewhale/ must name a record that " +
-  "is a file in docs/adr/, and sections are cited by name or not at all. " +
+  "Every `ADR <nnnn>` in the code, the skills and the documents that ship " +
+  "beside them must name a record that is a file in docs/adr/, and sections " +
+  "are cited by name or not at all. " +
   "This check takes no arguments; running it is checking.";
 
 /** Run the check over the repository, and say what is wrong. 0 or 1. */

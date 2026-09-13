@@ -8,13 +8,13 @@ import {
 } from "../../scripts/adr-citation-check.mjs";
 
 /**
- * Every citation points at a record that exists (docs/adr/README.md).
+ * Every citation points at a record that exists.
  *
  * A comment saying `(ADR 0003)` is a promise that a reader can go and read why
- * the code is shaped this way. The records were consolidated — six of them now
- * hold what fifteen used to — and this is the check that keeps a citation from
- * pointing at a number whose file is gone, or at a section the record does not
- * have. It is the machine half of "a comment is a claim about the code".
+ * the code is shaped this way, and this is the check that keeps a citation
+ * from pointing at a number whose file is gone, or at a section the record
+ * does not have. It is the machine half of "a comment is a claim about the
+ * code".
  */
 
 const file = (path: string, text: string) => ({ path, text });
@@ -31,13 +31,13 @@ test("a citation naming a record that exists passes", () => {
 
 test("a citation naming a number no file answers to is reported", () => {
   const result = checkCitations({
-    files: [file("server/src/a.ts", "// The policy (ADR 0015).")],
+    files: [file("server/src/a.ts", "// The policy (ADR 9999).")],
     records: RECORDS,
   });
   assert.equal(result.ok, false);
   assert.deepEqual(
     result.unknown.map((one) => one.number),
-    ["0015"],
+    ["9999"],
   );
 });
 
@@ -76,12 +76,12 @@ test("a three-digit number is refused rather than read as a record", () => {
 
 test("the report says where the citation is", () => {
   const result = checkCitations({
-    files: [file("web/src/lib/x.ts", "one\n// (ADR 0014)\n")],
+    files: [file("web/src/lib/x.ts", "one\n// (ADR 9999)\n")],
     records: RECORDS,
   });
   assert.equal(
     formatReport(result)[0],
-    "no record: web/src/lib/x.ts:2 cites ADR 0014, and no such file exists",
+    "no record: web/src/lib/x.ts:2 cites ADR 9999, and no such file exists",
   );
 });
 

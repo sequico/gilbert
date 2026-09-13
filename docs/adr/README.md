@@ -2,15 +2,9 @@
 
 One file per decision (`NNNN-kebab-case-title.md`), numbered by the owner.
 
-Retired numbers, and where their content lives now (a code comment citing a
-retired number is looked up here, not in a deleted file): 0004 → 0001;
-0006 — a native mobile companion app: no record; the client is installable
-as a PWA, which `FEATURES.md` describes; 0010 → 0003; 0011 — the share
-target and the service worker's cache: no record; both are the web
-client's own and `FEATURES.md` describes them; 0012 → 0003; 0013 → 0003;
-0014 → 0003; 0015 → 0001. A section letter or number is not part of what a
-citation names (`§4`, `resolution 11`, …): the surviving record's own
-structure is what a code comment is read against.
+A citation names a record that is a file here, and a section inside it is
+named rather than numbered: the record's own structure is what a code
+comment is read against.
 
 Each record describes the decision as it stands and how it is built —
 architecture, not a changelog. A record is edited in place when the thing it

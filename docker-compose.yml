@@ -34,7 +34,7 @@ services:
   # lives in Stalwart, so a replacement picks the work up from the documents
   # (ADR 0003). Whether the server runs a worker beside itself or a deployment
   # puts it in a container of its own is the installation's own decision
-  # (`agent.inProcess` in its document, ADR 0012), so this profile is for a
+  # (`agent.inProcess` in its document, ADR 0003), so this profile is for a
   # deployment that wants the two apart: bring this service up and leave the
   # server's own worker out of its document.
   #

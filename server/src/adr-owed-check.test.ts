@@ -64,11 +64,11 @@ test("the comparison is per ADR, so one slug in two ADRs is two debts", () => {
   const result = checkOwed({
     adrFiles: [
       file("docs/adr/0003-one.md", marked),
-      file("docs/adr/0004-two.md", marked),
+      file("docs/adr/9999-two.md", marked),
     ],
     codeFiles: [
       file("server/src/x.ts", tagged("0003")),
-      file("server/src/y.ts", tagged("0004")),
+      file("server/src/y.ts", tagged("9999")),
     ],
   });
   assert.equal(result.ok, true, formatReport(result));
