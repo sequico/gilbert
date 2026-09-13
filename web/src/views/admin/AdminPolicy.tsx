@@ -17,6 +17,57 @@ const EXAMPLE = JSON.stringify(
 );
 
 /**
+ * What a publish reached, as the server reports it: the population it measured
+ * itself against, the accounts it wrote the policy to, and the ones it did not
+ * with the reason for each.
+ */
+interface PublishOutcome {
+  population: { read: number; complete: boolean; total: number | null };
+  reached: string[];
+  unreached: Array<{
+    address: string;
+    code:
+      | "impersonation-refused"
+      | "no-files-account"
+      | "write-failed"
+      | "directory-denied";
+    message: string;
+  }>;
+  complete: boolean;
+  directory?: string;
+}
+
+/**
+ * The sentence a publish earns.
+ *
+ * "Published" is only true of an installation that carries the policy in every
+ * account the directory lists, so anything short of that says what is missing
+ * — a directory that could not be read at all, a list that was not the whole
+ * directory, or the accounts that were not written to — instead of letting a
+ * count of successes read as success.
+ */
+function publishNotice(outcome: PublishOutcome): string {
+  if (outcome.complete) {
+    return t(
+      "Policy published and applied — other signed-in clients will sign in again.",
+    );
+  }
+  const parts = [t("The policy was not published everywhere.")];
+  if (outcome.directory) {
+    parts.push(t("The directory could not be listed at all."));
+  } else if (!outcome.population.complete) {
+    parts.push(t("The directory listed only part of the installation."));
+  }
+  if (outcome.unreached.length) {
+    parts.push(t("These accounts were not written to:"));
+    parts.push(
+      outcome.unreached.map((one) => `${one.address} (${one.message})`).join(", "),
+    );
+  }
+  return parts.filter(Boolean).join(" ");
+}
+
+/**
  * The installation-wide policy editor (ADR 0001).
  *
  * v1 edits the policy as one JSON document — the same shape upstream's boot
@@ -66,7 +117,7 @@ export function AdminPolicy() {
     }
     setSaving(true);
     try {
-      await apiFetch<{ ok: boolean }>("/api/admin/policy", {
+      const res = await apiFetch<{ outcome: PublishOutcome }>("/api/admin/policy", {
         method: "POST",
         body: text,
       });
@@ -85,9 +136,7 @@ export function AdminPolicy() {
         useSettings.getState().update({ ...enforced });
       }
       useSettings.getState().applyPolicyChanges();
-      setNotice(
-        t("Policy published and applied — other signed-in clients will sign in again."),
-      );
+      setNotice(publishNotice(res.outcome));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

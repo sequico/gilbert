@@ -36,7 +36,9 @@ test("a retired name in the check's own files is not reported", () => {
 });
 
 test("an environment read in server code is reported, however it is written", () => {
-  const dotted = judgeFile(file("server/src/whatever.ts", "const port = process.env.PORT;"));
+  const dotted = judgeFile(
+    file("server/src/whatever.ts", "const port = process.env.PORT;"),
+  );
   assert.deepEqual(
     dotted.env.map((one) => one.name),
     ["PORT"],
@@ -48,7 +50,9 @@ test("an environment read in server code is reported, however it is written", ()
     bracketed.env.map((one) => one.name),
     ["SESSION_FILE"],
   );
-  const computed = judgeFile(file("server/src/whatever.ts", "const v = process.env[name];"));
+  const computed = judgeFile(
+    file("server/src/whatever.ts", "const v = process.env[name];"),
+  );
   assert.equal(computed.env.length, 1, "a read through a variable is still a read");
 });
 
@@ -60,7 +64,9 @@ test("the two modules whose job is the environment may read it", () => {
 });
 
 test("a test reads the environment freely: it is what sets one up", () => {
-  const judged = judgeFile(file("server/src/app.test.ts", "process.env.APP_SECRET = 'x';"));
+  const judged = judgeFile(
+    file("server/src/app.test.ts", "process.env.APP_SECRET = 'x';"),
+  );
   assert.deepEqual(judged.env, []);
 });
 

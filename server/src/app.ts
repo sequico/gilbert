@@ -727,6 +727,43 @@ function upstreamFailure(c: Context, err: unknown) {
  * tests can mount the same app twice, at the root and under a prefix, without
  * re-importing the module to change one environment variable.
  */
+/**
+ * Why one account did not receive the policy.
+ *
+ * A code rather than a sentence, because a caller composes prose from it: the
+ * client shows the reason in the reader's own language, and a test can assert
+ * on the reason without matching a message.
+ */
+export type PublishRefusal =
+  | "impersonation-refused"
+  | "no-files-account"
+  | "write-failed";
+
+/**
+ * What a publish reached, what it did not, and the population it measured
+ * itself against.
+ */
+export interface PublishOutcome {
+  /**
+   * The directory as the publish read it: how many individual accounts it
+   * listed, whether that list was the whole directory, and how many there are
+   * in total when the server said so.
+   */
+  population: { read: number; complete: boolean; total: number | null };
+  /** The accounts the policy was written to, the publisher's own included. */
+  reached: string[];
+  /** The accounts it was not written to, each with the reason and what was said. */
+  unreached: Array<{
+    address: string;
+    code: PublishRefusal | "directory-denied";
+    message: string;
+  }>;
+  /** Whether the installation can be said to carry this policy. */
+  complete: boolean;
+  /** What the server said when it refused to list the directory at all. */
+  directory?: string;
+}
+
 export function createApp(basePath = config.basePath): Hono<Env> {
   const app = new Hono<Env>();
   app.use("*", securityHeaders);
@@ -1543,49 +1580,109 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   /**
    * Write the policy into every individual account the directory lists, by
-   * impersonation — the administrator's own account included. One account's
-   * refusal is named rather than aborting every account behind it, the way a
-   * lost reconcile in the agent fleet names the account it could not finish.
+   * impersonation — the administrator's own account included.
+   *
+   * What comes back is the outcome of an attempt, not a verdict on it: the
+   * population the directory listed, whether that list was the whole directory,
+   * the accounts the policy reached and the ones it did not with the reason for
+   * each. A publish that could not read the directory, or read part of it, says
+   * so here rather than letting a count of successes stand for the whole
+   * installation: "eight accounts were reached" and "the installation carries
+   * this policy" are different claims, and only the second is what an
+   * administrator is being asked to believe.
    */
   async function publishAccountPolicy(
     admin: LiveSession,
     doc: PolicyDocument,
-  ): Promise<{
-    reached: number;
-    unreached: Array<{ address: string; message: string }>;
-  }> {
+  ): Promise<PublishOutcome> {
+    const reached: string[] = [];
+    const unreached: PublishOutcome["unreached"] = [];
     const upstream = await getUpstreamSession(
       admin.id,
       admin.authorization,
       upstreamFor(admin.username),
     );
+    const own = {
+      authorization: admin.authorization,
+      session: upstream,
+      username: admin.username,
+    };
+    const ownAccountId = filesAccountId(own);
+    if (!ownAccountId) {
+      unreached.push({
+        address: admin.username,
+        code: "no-files-account",
+        message: "this account has no Files account to hold the policy",
+      });
+    } else {
+      try {
+        await writeAccountPolicy(own, ownAccountId, doc);
+        reached.push(admin.username);
+      } catch (err) {
+        unreached.push({
+          address: admin.username,
+          code: "write-failed",
+          message: (err as Error).message,
+        });
+      }
+    }
+
+    // The rest of the directory, one impersonated write per account. A failure
+    // here does not undo the write just made to the publisher's own account --
+    // there is no shared document for it to be undone against.
     const directory = await fetchDirectoryUsers(admin.authorization, upstream);
-    if ("denied" in directory) return { reached: 0, unreached: [] };
-    let reached = 0;
-    const unreached: Array<{ address: string; message: string }> = [];
+    if ("denied" in directory) {
+      return {
+        population: { read: 0, complete: false, total: null },
+        reached,
+        unreached,
+        complete: false,
+        directory: directory.denied,
+      };
+    }
     for (const user of directory.users) {
       if (normalizeUsername(user.name) === normalizeUsername(admin.username)) continue;
       const imp = await impersonateAs(admin, user.name);
       if (!imp.ok) {
-        unreached.push({ address: user.name, message: imp.message });
+        unreached.push({
+          address: user.name,
+          code: "impersonation-refused",
+          message: imp.message,
+        });
         continue;
       }
       const accountId = filesAccountId(imp.ctx);
       if (!accountId) {
         unreached.push({
           address: user.name,
+          code: "no-files-account",
           message: "this account has no Files account to hold the policy",
         });
         continue;
       }
       try {
         await writeAccountPolicy(imp.ctx, accountId, doc);
-        reached++;
+        reached.push(user.name);
       } catch (err) {
-        unreached.push({ address: user.name, message: (err as Error).message });
+        unreached.push({
+          address: user.name,
+          code: "write-failed",
+          message: (err as Error).message,
+        });
       }
     }
-    return { reached, unreached };
+    return {
+      population: {
+        read: directory.users.length,
+        complete: directory.complete,
+        total: directory.total,
+      },
+      reached,
+      unreached,
+      // The installation carries the policy when every account the directory
+      // lists received it -- and the directory was the whole directory.
+      complete: directory.complete && unreached.length === 0,
+    };
   }
 
   api.post("/admin/policy", requireSession, requireAdmin, async (c) => {
@@ -1595,42 +1692,19 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     if ("problem" in parsed) {
       return c.json({ error: "invalid_policy", message: parsed.problem }, 400);
     }
-    let ownAccountId: string;
+    /*
+     * The publisher's own account is written in the same pass as the rest, so
+     * one answer describes the whole attempt: what the directory held, what was
+     * reached, and what the installation therefore is now.
+     */
+    let outcome: PublishOutcome;
     try {
-      const upstream = await getUpstreamSession(
-        session.id,
-        session.authorization,
-        upstreamFor(session.username),
-      );
-      const ctx = {
-        authorization: session.authorization,
-        session: upstream,
-        username: session.username,
-      };
-      ownAccountId = filesAccountId(ctx);
-      if (!ownAccountId)
-        return c.json(
-          {
-            error: "no_files_account",
-            message: "This account has no Files account to hold the policy.",
-          },
-          409,
-        );
-      await writeAccountPolicy(ctx, ownAccountId, parsed.doc);
+      outcome = await publishAccountPolicy(session, parsed.doc);
     } catch (err) {
       return upstreamFailure(c, err);
     }
-    // The rest of the directory, one impersonated write per account. A
-    // failure here does not undo the write just made to the publisher's own
-    // account -- there is no shared document for it to be undone against.
-    const fanout = await publishAccountPolicy(session, parsed.doc);
     const kicked = sessions.destroyAllExcept(session.id);
-    return c.json({
-      ok: true,
-      kicked,
-      reached: fanout.reached + 1,
-      unreached: fanout.unreached,
-    });
+    return c.json({ outcome, kicked });
   });
 
   /**

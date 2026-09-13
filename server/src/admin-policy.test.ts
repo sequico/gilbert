@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import type { PublishOutcome } from "./app.js";
 
 /**
  * The installation-wide policy document (ADR 0001, ADR 0001, ADR 0001):
@@ -176,15 +177,28 @@ test("a valid publish writes into the publisher's own account and every other on
     body: DOC,
   });
   assert.equal(res.status, 200);
-  assert.equal((res.body as { ok: boolean }).ok, true);
-  const { reached, unreached } = res.body as {
-    reached: number;
-    unreached: Array<{ address: string; message: string }>;
-  };
+  const outcome = (res.body as { outcome: PublishOutcome }).outcome;
   // The mock directory lists five people plus the agent principal, besides
-  // the publishing admin itself: every one of them is reached, none refused.
-  assert.ok(reached >= 6, `expected at least 6 accounts reached, got ${reached}`);
-  assert.deepEqual(unreached, [], "nothing in the mock directory refused the write");
+  // the publishing admin itself: every one of them is reached, none refused,
+  // and the count is set against the population the directory reported.
+  assert.ok(
+    outcome.reached.length >= 6,
+    `expected at least 6 accounts reached, got ${outcome.reached.length}`,
+  );
+  assert.deepEqual(
+    outcome.unreached,
+    [],
+    "nothing in the mock directory refused the write",
+  );
+  assert.ok(
+    outcome.reached.length >= outcome.population.read,
+    "every account the directory listed was written to",
+  );
+  assert.equal(
+    outcome.complete,
+    true,
+    "the installation carries the policy, and the outcome says so",
+  );
 
   // The publisher's own next read of the editor shows exactly what it wrote.
   const admin = await call("/api/admin/policy", adminCookie);
@@ -255,4 +269,39 @@ test("a signed-in account with no publish yet reads the environment's bootstrap"
   assert.equal(res.status, 200);
   const policy = (res.body as unknown as AccountPolicy).policy;
   assert.ok("defaults" in policy && "enforced" in policy && "changes" in policy);
+});
+
+test("a publish that could not read the directory says the installation does not carry the policy", async () => {
+  /*
+   * The directory is how a publish learns who exists. A server that refuses the
+   * listing is not an error in the publish: it is an installation whose policy
+   * reached only the publisher's own account, and the outcome has to say that
+   * rather than count one success and call it a publish.
+   */
+  mock.directoryGate.open = false;
+  try {
+    const res = await call("/api/admin/policy", adminCookie, {
+      method: "POST",
+      body: DOC,
+    });
+    assert.equal(res.status, 200);
+    const outcome = (res.body as { outcome: PublishOutcome }).outcome;
+    assert.equal(outcome.population.read, 0, "no account was listed");
+    assert.equal(outcome.population.complete, false);
+    assert.equal(
+      outcome.complete,
+      false,
+      "the installation carries the policy only when every listed account does",
+    );
+    assert.ok(
+      outcome.directory,
+      "what the server said when it refused the listing is carried, not swallowed",
+    );
+    assert.ok(
+      outcome.reached.includes(ADMIN),
+      "the publisher's own account was still written, and the outcome says which",
+    );
+  } finally {
+    mock.directoryGate.open = true;
+  }
 });
