@@ -125,7 +125,11 @@ test("a value changed in the document changes what this process runs on", async 
 
   const after = await boot(store);
   assert.equal(after.configuration.agent.pollMs, 9000);
-  assert.equal(after.configuration.port, 9090, "the document decides when the container is silent");
+  assert.equal(
+    after.configuration.port,
+    9090,
+    "the document decides when the container is silent",
+  );
   assert.equal(after.created, false, "and an edited document is still a document");
 });
 
@@ -137,7 +141,11 @@ test("the container's own facts win over the document", async () => {
   store.set(edited);
 
   const after = await boot(store, [], { ...ENV, PORT: "7777" });
-  assert.equal(after.configuration.port, 7777, "a container does not choose its own port");
+  assert.equal(
+    after.configuration.port,
+    7777,
+    "a container does not choose its own port",
+  );
 });
 
 test("a document that is there but unreadable is refused, and left alone", async () => {
@@ -159,5 +167,9 @@ test("the app secret is generated once and is nobody's literal", async () => {
   assert.ok(!logs.join("\n").includes(secret), "and it is never written to the log");
 
   const second = await boot(store);
-  assert.equal(second.configuration.appSecret, secret, "a redeploy does not sign everyone out");
+  assert.equal(
+    second.configuration.appSecret,
+    secret,
+    "a redeploy does not sign everyone out",
+  );
 });
