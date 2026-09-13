@@ -38,8 +38,47 @@ export interface SettingsPolicy {
 
 const EMPTY: SettingsPolicy = { defaults: {}, enforced: {}, changes: [] };
 
+/**
+ * What this client knows about the installation's policy.
+ *
+ * A policy object that starts empty cannot tell "this installation sets
+ * nothing" from "nobody has managed to ask", and only the first of those is an
+ * answer a write may be measured against. Asking is the difference: the
+ * endpoint is the signed-in account's own copy of the published document
+ * (ADR 0015), so a session that has just signed in can meet a 401 on it, a
+ * server having a bad minute a 5xx -- and a page load with no enforced map at
+ * all, an administrator's setting neither applied nor locked, with nothing on
+ * screen saying the policy was never read.
+ *
+ * `unread` is not that state: nobody has asked yet, the fetch is in flight
+ * while the first frames of a session are on screen, and the load completion
+ * re-applies enforcement over anything written in that window.
+ */
+export type PolicyStatus = "unread" | "read" | "unavailable";
+
+/**
+ * What a read of the installation's policy came back with.
+ *
+ * The union is the guarantee: an empty policy is only ever reached through
+ * `read`, so no caller can take a request that did not answer for an
+ * installation that sets nothing.
+ */
+export type PolicyRead =
+  | { status: "read"; policy: SettingsPolicy }
+  | { status: "unavailable" };
+
+let standing: PolicyStatus = "unread";
+/**
+ * The policy in hand: what the last answer brought, and `EMPTY` until one does.
+ *
+ * A read that fails leaves the last answer standing for what is already on
+ * screen -- a control the installation locked stays locked rather than
+ * unlocking itself because a request failed -- and no write lands on it: the
+ * door in the settings store refuses every patch while the status is
+ * `unavailable`.
+ */
 let policy: SettingsPolicy = EMPTY;
-let fetched: Promise<SettingsPolicy> | null = null;
+let fetched: Promise<PolicyRead> | null = null;
 
 /**
  * Keys the installation names that this build does not have.
@@ -58,49 +97,160 @@ function known(obj: Record<string, unknown>): Partial<Settings> {
   return out as Partial<Settings>;
 }
 
-export async function loadSettingsPolicy(): Promise<SettingsPolicy> {
-  if (fetched) return fetched;
-  fetched = (async () => {
-    try {
-      const res = await fetch(withBase("/api/account/policy"), {
-        credentials: "same-origin",
-      });
-      if (!res.ok) return EMPTY;
-      const body = (await res.json()) as {
-        policy?: {
-          defaults?: Record<string, unknown>;
-          enforced?: Record<string, unknown>;
-          changes?: Array<{ version: string; settings: Record<string, unknown> }>;
+/** A plain object, which is what every section of a policy document is. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * The published policy out of the answer, or `null` when the answer is not one.
+ *
+ * The endpoint answers `{ policy: { defaults, enforced, changes } }`, built from
+ * a document the server validated when it was published
+ * (`server/src/adminPolicy.ts`), so anything else -- a proxy's error page, a
+ * body from something that does not know this endpoint, a `changes` that is not
+ * a list -- is a request that did not bring a policy back. Reading it as an
+ * installation that sets nothing is the mistake this module is shaped against,
+ * so it is refused here rather than forgiven. A section that is not an object
+ * is refused for the same reason the server refuses one at publish time: a
+ * scalar where an object belongs loads as settings that are not there.
+ */
+function policyDocument(body: unknown): SettingsPolicy | null {
+  if (!isRecord(body)) return null;
+  const policy = body.policy;
+  if (!isRecord(policy)) return null;
+  const { defaults, enforced, changes } = policy;
+  if (defaults !== undefined && !isRecord(defaults)) return null;
+  if (enforced !== undefined && !isRecord(enforced)) return null;
+  if (changes !== undefined && !Array.isArray(changes)) return null;
+  return {
+    defaults: known(isRecord(defaults) ? defaults : {}),
+    enforced: known(isRecord(enforced) ? enforced : {}),
+    /* A change whose every key this build does not have is dropped whole:
+       applying nothing and then recording it as applied would mean it never
+       ran on the gilbert that does have the setting. An entry that is not a
+       change at all is dropped the same way. */
+    changes: (Array.isArray(changes) ? changes : [])
+      .map((entry) => {
+        const c = isRecord(entry) ? entry : {};
+        return {
+          version: typeof c.version === "string" ? c.version : "",
+          settings: known(isRecord(c.settings) ? c.settings : {}),
         };
-      };
-      policy = {
-        defaults: known(body.policy?.defaults ?? {}),
-        enforced: known(body.policy?.enforced ?? {}),
-        /* A change whose every key this build does not have is dropped whole:
-           applying nothing and then recording it as applied would mean it never
-           ran on the gilbert that does have the setting. */
-        changes: (body.policy?.changes ?? [])
-          .map((c) => ({ version: c.version, settings: known(c.settings ?? {}) }))
-          .filter((c) => c.version && Object.keys(c.settings).length),
-      };
-      /*
-       * A change made while the fetch was in flight went through `update`
-       * with no enforcement to apply, and is queued for the settings file
-       * as-is. Re-run the door over the current settings now and re-queue the
-       * corrected snapshot, so the queued write cannot land a value the
-       * policy forbids. (Without this the first flush -- which happens only
-       * after the load has settled -- writes the pre-policy value.)
-       */
-      if (Object.keys(policy.enforced).length && pendingSettingsKeys().size)
-        useSettings.getState().update({ ...policy.enforced });
-      return policy;
-    } catch {
-      /* No policy is the ordinary case and an unreachable one must not stop a
-         sign-in: an installation that sets nothing looks exactly like this. */
-      return EMPTY;
-    }
-  })();
+      })
+      .filter((c) => c.version && Object.keys(c.settings).length),
+  };
+}
+
+/**
+ * Read the installation's policy.
+ *
+ * The answer says which of the two silences it is: `unavailable` when the
+ * request did not bring the document back -- a refusal, a server error, a
+ * connection that failed, a body that is not the document -- and a policy whose
+ * `enforced` is empty when the installation genuinely sets nothing. Only the
+ * second of those is a licence to write settings, which is what the return type
+ * is for.
+ *
+ * A read that answered is memoised for the page lifetime. A read that failed is
+ * not: the memo goes at the moment the failure lands, so the next caller
+ * reaches the endpoint rather than the memory of a request that did not answer.
+ */
+export function loadSettingsPolicy(): Promise<PolicyRead> {
+  if (!fetched) {
+    const attempt = readPolicy();
+    /*
+     * One answer for everybody who is waiting, and the only place a read
+     * reaches the state the rest of the app consults. A read that throws is a
+     * read that did not answer, and it is turned into `unavailable` here
+     * rather than handed on as a rejection: nothing on the sign-in path
+     * catches, and a rejection held in the memo is a failure nobody could ask
+     * past.
+     */
+    const read = attempt.then(
+      (result) => {
+        if (fetched === read) return settle(result);
+        return result;
+      },
+      () => {
+        const refused: PolicyRead = { status: "unavailable" };
+        if (fetched === read) return settle(refused);
+        return refused;
+      },
+    );
+    fetched = read;
+  }
   return fetched;
+}
+
+/**
+ * What an accepted read leaves behind, and what it corrects.
+ *
+ * Only the read the memo still holds may speak for the client: a
+ * `refreshSettingsPolicy` that started later has a newer answer, and an older
+ * read settling late must neither reopen the door with a policy a publication
+ * has already replaced nor shut it with a failure that has since been answered.
+ */
+function settle(read: PolicyRead): PolicyRead {
+  if (read.status === "unavailable") {
+    standing = "unavailable";
+    /*
+     * A failure is not an answer to keep: the memo goes, so the next caller
+     * asks the endpoint again instead of being handed the memory of a request
+     * that did not answer. Only the read the memo still holds reaches here,
+     * so a newer read is never forgotten by an older one settling late.
+     */
+    fetched = null;
+    return read;
+  }
+  policy = read.policy;
+  standing = "read";
+  /*
+   * A change made while the fetch was in flight went through `update`
+   * with no enforcement to apply, and is queued for the settings file
+   * as-is. Re-run the door over the current settings now and re-queue the
+   * corrected snapshot, so the queued write cannot land a value the
+   * policy forbids. (Without this the first flush -- which happens only
+   * after the load has settled -- writes the pre-policy value.)
+   *
+   * The answer is in whichever way the correction goes, so a correction that
+   * throws is caught here rather than reported to the caller as a policy that
+   * never arrived.
+   */
+  try {
+    if (Object.keys(read.policy.enforced).length && pendingSettingsKeys().size)
+      useSettings.getState().update({ ...read.policy.enforced });
+  } catch {
+    /* The policy is in hand; there is nothing left to do about the queue. */
+  }
+  return read;
+}
+
+/**
+ * One attempt at the endpoint, and what it means for the settings in force.
+ *
+ * Everything that can go wrong is inside the try, reading the document
+ * included: `res.json()` on a body that is not JSON throws, and a body that is
+ * JSON and not the published shape is refused by `policyDocument`. Either way
+ * the attempt answers `unavailable`, because a throw that escapes here is a
+ * read the client can neither report nor ask past.
+ */
+async function readPolicy(): Promise<PolicyRead> {
+  try {
+    const res = await fetch(withBase("/api/account/policy"), {
+      credentials: "same-origin",
+    });
+    if (!res.ok) return { status: "unavailable" };
+    const policy = policyDocument(await res.json());
+    /* An installation that cannot be reached and one that sets nothing are
+       the same silence here. Neither is a policy, and a sign-in does not stop
+       for either. */
+    if (!policy) return { status: "unavailable" };
+    return { status: "read", policy };
+  } catch {
+    /* Nothing came back, or nothing that parses. */
+    return { status: "unavailable" };
+  }
 }
 
 /**
@@ -110,11 +260,24 @@ export async function loadSettingsPolicy(): Promise<SettingsPolicy> {
  * re-signs-in on the same page — or an administrator who has just published a
  * policy (ADR 0004) — would keep the policy fetched before the publish. This
  * forgets it and loads again, and the load completion logic (the enforcement
- * re-apply) runs exactly as it does for the first fetch.
+ * re-apply) runs exactly as it does for the first fetch. A load that comes back
+ * `unavailable` is not kept either, so asking again is always a real attempt.
  */
-export async function refreshSettingsPolicy(): Promise<SettingsPolicy> {
+export async function refreshSettingsPolicy(): Promise<PolicyRead> {
   fetched = null;
   return loadSettingsPolicy();
+}
+
+/**
+ * What this client knows about the installation's policy.
+ *
+ * The door in the settings store reads this, and reads nothing else, to decide
+ * whether a patch may be applied: `policyEnforced()` cannot answer the
+ * question, because an installation nobody could ask and one that enforces
+ * nothing are both `{}` there.
+ */
+export function policyStatus(): PolicyStatus {
+  return standing;
 }
 
 /** What the installation has settled, for a reader who has none of their own. */
@@ -122,7 +285,13 @@ export function policyDefaults(): Partial<Settings> {
   return policy.defaults;
 }
 
-/** What the installation has settled that a reader may not change. */
+/**
+ * What the installation has settled that a reader may not change.
+ *
+ * The values are the last answer a read brought. Ask `policyStatus()` for
+ * whether there is an answer at all: a patch that goes through the door while
+ * no policy is in hand is a patch nobody could measure.
+ */
 export function policyEnforced(): Partial<Settings> {
   return policy.enforced;
 }
@@ -149,6 +318,10 @@ export function resetSettingsPolicyForTest(next: Partial<SettingsPolicy> = {}): 
       }))
       .filter((c) => c.version && Object.keys(c.settings).length),
   };
+  // The hook stands for an installation that answered with this document, so
+  // the status is `read`; a test that wants a read that did not arrive stubs
+  // `fetch` and calls `loadSettingsPolicy`.
+  standing = "read";
   // Forget the fetch too: `loadSettingsPolicy` re-runs its completion logic
   // (the enforcement re-apply) against whatever the next test feeds it.
   fetched = null;

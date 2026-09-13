@@ -21,6 +21,7 @@ import {
   policyChanges,
   policyDefaults,
   policyEnforced,
+  policyStatus,
 } from "@/lib/settingsPolicy";
 import { pendingSettingsKeys, queueSettingsPush } from "@/lib/settingsSync";
 import { hasCachedJson, isDeviceTrusted, loadJson, saveJson } from "@/lib/storage";
@@ -492,9 +493,30 @@ export function mergeRemote(
   return { ...current, ...incoming };
 }
 
+/**
+ * Why the door refused a patch: the installation's policy has not been read.
+ *
+ * A code rather than a sentence, because the sentence belongs where codes are
+ * turned into the reader's language, and named once here, beside the only place
+ * that refuses, so that catalogue can be keyed by it instead of every caller
+ * carrying its own copy of the string.
+ */
+export const SETTINGS_POLICY_UNKNOWN = "policy_unknown";
+
+/** What the door answers: `null` when the patch went through, or why it did not. */
+export type SettingsWriteRefusal = typeof SETTINGS_POLICY_UNKNOWN;
+
 interface SettingsState {
   settings: Settings;
-  update(patch: Partial<Settings>): void;
+  /**
+   * Change the settings, whichever route asks.
+   *
+   * Answers `null` when the patch is applied, and a refusal code when it is
+   * not, so a caller can say why nothing moved. A policy nobody could read is
+   * not a policy that enforces nothing, and the patch is refused rather than
+   * applied as though the installation had decided nothing.
+   */
+  update(patch: Partial<Settings>): SettingsWriteRefusal | null;
   reset(): void;
   /**
    * Drop what is in hand, without writing anything.
@@ -581,6 +603,18 @@ export const useSettings = create<SettingsState>((set, get) => ({
   settings: initialSettings,
   update(patch) {
     /*
+     * A policy nobody could read is not a policy that enforces nothing, and
+     * `policyEnforced()` cannot tell them apart: it answers `{}` for both, so a
+     * 401 or a 5xx on `/api/account/policy` -- the endpoint is the signed-in
+     * account's own copy, ADR 0015 -- lets a whole page load apply every patch
+     * as though the installation had decided nothing, silently, with the
+     * administrator's setting neither applied nor locked and nothing on screen
+     * saying so. So the door asks what is known first, and with nothing known
+     * it refuses: the patch is not merged, not cached and not queued, and the
+     * caller is handed the code that says why.
+     */
+    if (policyStatus() === "unavailable") return SETTINGS_POLICY_UNKNOWN;
+    /*
      * Enforcement lives here rather than only on the controls. The controls are
      * disabled and say why, which is the part a reader sees -- but a setting
      * the installation has decided must not be changeable through an imported
@@ -602,6 +636,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
     if (Object.keys(patch).some((k) => !DEVICE_KEYS.has(k as keyof Settings))) {
       queueSettingsPush(syncedPart(settings));
     }
+    return null;
   },
   seedFromPolicy() {
     const defaults = policyDefaults();
@@ -640,11 +675,14 @@ export const useSettings = create<SettingsState>((set, get) => ({
     if (!pending.length) return [];
     let patch: Partial<Settings> = {};
     for (const c of pending) patch = { ...patch, ...c.settings };
-    get().update({
+    const refusal = get().update({
       ...patch,
       appliedPolicyChanges: [...seen, ...pending.map((c) => c.version)],
     });
-    return pending;
+    /* A refused write applied nothing, and the caller tells the reader which
+       settings moved: naming one that did not happen is the same lie in the
+       other direction. */
+    return refusal ? [] : pending;
   },
   reset() {
     /* Back to how this installation starts an account, not to how Gilbert

@@ -7,7 +7,12 @@ import {
   refreshSettingsPolicy,
   resetSettingsPolicyForTest,
 } from "@/lib/settingsPolicy";
-import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
+import {
+  DEFAULT_SETTINGS,
+  SETTINGS_POLICY_UNKNOWN,
+  type SettingsWriteRefusal,
+  useSettings,
+} from "@/store/settings";
 
 /*
  * Settings an installation decides, from #207.
@@ -178,6 +183,180 @@ describe("enforced settings, which the reader may not change", () => {
   it("survives an imported settings file", () => {
     useSettings.getState().importJson(JSON.stringify({ conversationMode: false }));
     expect(useSettings.getState().settings.conversationMode).toBe(true);
+  });
+});
+
+/** A fetch that answers with this body, which is all these tests vary. */
+const answering = (body: string) => async () => new Response(body);
+
+/** A fetch that refuses: one status, and no body at all. */
+const refusing = (status: number) => async () => new Response("", { status });
+
+/** The endpoint's answer, from the policy document it would carry. */
+const answered = (policy: unknown) => JSON.stringify({ policy });
+
+/*
+ * A policy that did not arrive is not a policy that sets nothing.
+ *
+ * The endpoint is the signed-in account's own copy of the published document
+ * (ADR 0015), so a session that has just signed in can meet a 401 on it and a
+ * server having a bad minute a 5xx. Read as an empty policy, that leaves a page
+ * load with no enforced map at all: an administrator's setting neither applied
+ * nor locked, silently, and nothing on screen saying the policy was never read.
+ */
+describe("a policy that did not arrive", () => {
+  it("is unavailable rather than an empty policy", async () => {
+    vi.stubGlobal("fetch", refusing(401));
+    await expect(loadSettingsPolicy()).resolves.toEqual({ status: "unavailable" });
+  });
+
+  it("is unavailable when the server answers with an error", async () => {
+    vi.stubGlobal("fetch", refusing(503));
+    await expect(loadSettingsPolicy()).resolves.toEqual({ status: "unavailable" });
+  });
+
+  it("is unavailable when the body is not the document", async () => {
+    // A proxy's error page arrives with a 200 and is not a policy.
+    vi.stubGlobal("fetch", answering("<html>maintenance</html>"));
+    await expect(loadSettingsPolicy()).resolves.toEqual({ status: "unavailable" });
+  });
+
+  it("is unavailable when the body is JSON and still not the document", async () => {
+    // Valid JSON, no policy in it: the answer is not an installation that sets
+    // nothing, it is an answer from something that does not know this endpoint.
+    vi.stubGlobal("fetch", answering("null"));
+    await expect(loadSettingsPolicy()).resolves.toEqual({ status: "unavailable" });
+  });
+
+  it("is unavailable when a section is not the shape it must be", async () => {
+    const body = answered({ changes: "soon" });
+    vi.stubGlobal("fetch", answering(body));
+    await expect(loadSettingsPolicy()).resolves.toEqual({ status: "unavailable" });
+  });
+
+  it("is unavailable when the request itself fails", async () => {
+    const fetchMock = vi.fn();
+    fetchMock.mockRejectedValueOnce(new Error("offline"));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(loadSettingsPolicy()).resolves.toEqual({ status: "unavailable" });
+  });
+
+  it("is asked for again rather than remembered", async () => {
+    const body = answered({ enforced: { readingPane: "off" } });
+    const fetchMock = vi.fn();
+    fetchMock.mockResolvedValueOnce(new Response("", { status: 401 }));
+    fetchMock.mockResolvedValueOnce(new Response(body));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(loadSettingsPolicy()).resolves.toEqual({ status: "unavailable" });
+    // A failure kept as the answer answers without asking, and the policy stays
+    // unknown for the rest of the page.
+    await expect(loadSettingsPolicy()).resolves.toMatchObject({ status: "read" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(policyEnforced()).toEqual({ readingPane: "off" });
+  });
+});
+
+/*
+ * The code the door refuses with is one string, and a sentence somewhere else
+ * is looked up by it: a rename that touched only this repository's constant
+ * would orphan that sentence, so the value is pinned here beside the type that
+ * says it is a refusal this store can answer with.
+ */
+describe("the refusal code", () => {
+  it("is the one a catalogue elsewhere is keyed by", () => {
+    const code: SettingsWriteRefusal = "policy_unknown";
+    expect(SETTINGS_POLICY_UNKNOWN).toBe(code);
+  });
+});
+
+/*
+ * The door, which is where a policy holds whatever route a setting is changed
+ * by. With no policy in hand there is nothing to measure a patch against, so
+ * the patch is refused whole and the caller is told which code to report.
+ */
+describe("the door, with no policy in hand", () => {
+  /** Nothing could be read, so every write is measured against nothing. */
+  const unreadable = async () => {
+    vi.stubGlobal("fetch", refusing(500));
+    await loadSettingsPolicy();
+  };
+
+  it("refuses the write and says which code", async () => {
+    await unreadable();
+    const before = useSettings.getState().settings.conversationMode;
+    expect(useSettings.getState().update({ conversationMode: !before })).toBe(
+      SETTINGS_POLICY_UNKNOWN,
+    );
+    expect(useSettings.getState().settings.conversationMode).toBe(before);
+  });
+
+  it("refuses the whole patch, not only what a policy might name", async () => {
+    await unreadable();
+    useSettings.getState().update({ showAvatars: false, density: "compact" });
+    const settings = useSettings.getState().settings;
+    expect(settings.showAvatars).toBe(DEFAULT_SETTINGS.showAvatars);
+    expect(settings.density).toBe(DEFAULT_SETTINGS.density);
+  });
+
+  it("queues nothing for the account", async () => {
+    await unreadable();
+    useSettings.getState().update({ conversationMode: false });
+    expect(syncMock.latest()).toBeNull();
+  });
+
+  it("opens again once a later read brings the policy", async () => {
+    await unreadable();
+    // The door is shut while the policy is unknown ...
+    expect(useSettings.getState().update({ conversationMode: false })).toBe(
+      SETTINGS_POLICY_UNKNOWN,
+    );
+    const body = answered({ enforced: { readingPane: "off" } });
+    vi.stubGlobal("fetch", answering(body));
+    await refreshSettingsPolicy();
+    // ... and open again once one arrives, which is what makes it a refusal
+    // rather than a wall.
+    expect(useSettings.getState().update({ readingPane: "right" })).toBeNull();
+    // The policy that arrived is in force, so the patch is measured against it.
+    expect(useSettings.getState().settings.readingPane).toBe("off");
+  });
+
+  it("does not report a change as applied when the write was refused", async () => {
+    // A read that answered, then a re-read that did not: the changes in hand
+    // are still whatever the last answer brought, and none of them is applied
+    // while the policy is unknown -- the toast names what moved.
+    const body = answered({
+      changes: [{ version: "A", settings: { showPreview: false } }],
+    });
+    vi.stubGlobal("fetch", answering(body));
+    await loadSettingsPolicy();
+    vi.stubGlobal("fetch", refusing(500));
+    await refreshSettingsPolicy();
+    expect(useSettings.getState().applyPolicyChanges()).toEqual([]);
+    const settings = useSettings.getState().settings;
+    expect(settings.appliedPolicyChanges).toEqual([]);
+    expect(settings.showPreview).toBe(DEFAULT_SETTINGS.showPreview);
+  });
+});
+
+/*
+ * The ordinary case, and the one that must keep working: an installation that
+ * answered with a policy of nothing is an answer, so the account starts on
+ * Gilbert's own defaults and the reader may move them.
+ */
+describe("an installation that sets nothing", () => {
+  it("is an answer, and an account on it keeps the product defaults", async () => {
+    // What the endpoint answers for an account with no published policy: the
+    // document, with nothing in any of its three sections.
+    const body = answered({ defaults: {}, enforced: {}, changes: [] });
+    vi.stubGlobal("fetch", answering(body));
+    await expect(loadSettingsPolicy()).resolves.toEqual({
+      status: "read",
+      policy: { defaults: {}, enforced: {}, changes: [] },
+    });
+    useSettings.getState().seedFromPolicy();
+    expect(useSettings.getState().settings).toEqual(DEFAULT_SETTINGS);
+    expect(useSettings.getState().update({ conversationMode: false })).toBeNull();
+    expect(useSettings.getState().settings.conversationMode).toBe(false);
   });
 });
 
