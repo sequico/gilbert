@@ -130,7 +130,7 @@ describe("the line a reading gets when the month did not count it", () => {
 
   it("says so under the answer the group's instruction shows", async () => {
     stubApi(false);
-    await render(<GroupInstruction groups={[GROUP]} />);
+    await render(<GroupInstruction group={GROUP} />);
     await ask();
 
     const text = host.textContent ?? "";
@@ -140,7 +140,7 @@ describe("the line a reading gets when the month did not count it", () => {
 
   it("says nothing beside an answer the month did record there", async () => {
     stubApi(true);
-    await render(<GroupInstruction groups={[GROUP]} />);
+    await render(<GroupInstruction group={GROUP} />);
     await ask();
 
     const text = host.textContent ?? "";

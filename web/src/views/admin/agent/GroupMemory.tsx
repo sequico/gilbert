@@ -9,6 +9,9 @@
  *
  * The bounds the form states are the ones the document enforces: they arrive
  * with the read rather than being written down a second time here.
+ *
+ * The group is handed in rather than picked here (ADR 0014): the Group Agents
+ * workspace owns one pick for all of its tabs.
  */
 
 import type { AgentNotebookFact } from "@gilbert/agent/documents";
@@ -25,8 +28,7 @@ interface FactDraft {
   text: string;
 }
 
-export function GroupMemory({ groups }: { groups: readonly string[] }) {
-  const [group, setGroup] = useState("");
+export function GroupMemory({ group, known }: { group: string; known: boolean }) {
   const [facts, setFacts] = useState<FactDraft[] | null>(null);
   const [stamps, setStamps] = useState<{ at: string | null; by: string | null }>({
     at: null,
@@ -103,8 +105,6 @@ export function GroupMemory({ groups }: { groups: readonly string[] }) {
     setChanged(true);
   };
 
-  const known = group !== "" && groups.includes(group);
-
   return (
     <section>
       <h2>{t("Memory")}</h2>
@@ -114,22 +114,11 @@ export function GroupMemory({ groups }: { groups: readonly string[] }) {
         )}
       </p>
 
-      <div className="field">
-        <label htmlFor="agent-memory-group">{t("Group")}</label>
-        <select
-          id="agent-memory-group"
-          className="select"
-          value={group}
-          onChange={(e) => setGroup(e.target.value)}
-        >
-          <option value="">{t("Choose a group…")}</option>
-          {groups.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {!group && (
+        <p className="hint">
+          {t("No group is picked, so there is no memory to read here.")}
+        </p>
+      )}
 
       {problem && (
         <div className="error-box" style={{ marginBottom: 12 }}>

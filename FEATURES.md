@@ -115,7 +115,7 @@ declare it.
   is one place the pair lives, and it is the deployment. Both processes read the
   same pair: the agent opens its session with it, and the admin surface signs
   in as the agent with it, so no screen carries a secret. Absent or incomplete,
-  the server runs with no agent and **Admin → Agents** says which state it is in
+  the server runs with no agent and **Admin → Master** says which state it is in
   and how to set the pair, while the agent process starts as well and serves
   nothing, warning once about what is missing instead of refusing to come up; a
   password Stalwart refuses is its own state, named as such, with the
@@ -175,6 +175,18 @@ restarting the processes. Membership is the
 one thing re-read while the agent runs — at most once per poll interval — so a
 group Stalwart no longer lists the agent for stops being served within it
 (below).
+- **Three admin surfaces, not one trying to answer everything (ADR 0014).**
+  **Master** is the installation, configured once: identity, the one model and
+  its bounds, and the plain list of granted groups. **Group Agents** is one
+  group's own workspace behind a single picker: its automations, its standing
+  instruction, its memory, its audit trail and the agents serving it —
+  including a control that makes sure its reserved label catalogue exists.
+  **Approvals** is cross-group oversight: what is waiting for a person and
+  what the fleet has done, across every granted group at once, read-only by
+  construction — an operator still answers a paused run in the group's own
+  chat, never on this surface. Master's own Groups list is a plain read of
+  Stalwart's membership with a link into each group's Group Agents workspace,
+  not a second table of what the agent does there.
 - **Automations, not rules written in code.** The admin surface authors one
 document per automation, as a form — “When [event] / If [filters] / Then
 [actions]” — validated against the JMAP filter grammar (RFC 8621) and the
@@ -278,7 +290,9 @@ A cycle of automations that wake each other therefore ends by itself, at the
 bound, with a reason a person can read.
 - **Labels, not folders.** `G-needattention`, `G-processed`, `G-awaiting`,
 `G-rejected` mark Gilbert's processing state on the individual message; the
-catalog is created from the admin surface once the grant exists. State is per
+catalog is created from the Group Agents workspace once the grant exists —
+idempotently, so asking again when it is already complete adds nothing and
+says so. State is per
 message: a reply arriving in an already-processed thread starts unlabelled and
 is evaluated on its own, and it is shown on that message — never aggregated
 onto a thread or list row, and never offered in the manual label picker, which
@@ -360,9 +374,11 @@ message lands in `G-needattention`, and the group's chat is told which
 automation could not finish. The audit is one document per month per group,
 kept twelve months and pruned a month at a time. The months live in the
 group's own hidden `gilbert` folder, not in the Files a member browses: a
-member reads them through the group's agent panel, and an administrator takes
-the copy before the oldest month goes — the group's row in the admin Agents
-section hands over every retained month as JSON.
+member reads them through the group's agent panel, an administrator reads the
+same trail as a table in the group's own Audit tab in Group Agents (or merged
+across every granted group in Approvals' own Audit tab), and takes the copy
+before the oldest month goes — that same tab hands over every retained month
+as JSON.
 - **A refusal reads in the reader's language.** The admin surface answers a
 refusal as a code and its parameters — never as a sentence — and the client
 composes the sentence from the catalogue the reader's language loaded: a

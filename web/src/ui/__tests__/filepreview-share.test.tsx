@@ -38,12 +38,20 @@ describe("sharing from the file preview", () => {
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
+    /*
+     * A plain object with just the shape `shareIt` reads (`ok`, `blob()`)
+     * rather than a real `Response` wrapping jsdom's `Blob`: constructing one
+     * crosses realms — Node's own `Response` expects its body to answer
+     * `.stream()`, which jsdom's `Blob` polyfill does not implement — and
+     * throws before the test ever gets to `navigator.share`.
+     */
     vi.stubGlobal(
       "fetch",
-      vi.fn(
-        async () =>
-          new Response(new Blob(["bytes"], { type: "image/png" }), { status: 200 }),
-      ),
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        blob: async () => new Blob(["bytes"], { type: "image/png" }),
+      })),
     );
   });
 

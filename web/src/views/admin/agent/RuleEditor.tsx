@@ -18,6 +18,7 @@ import { type AgentJob, type AgentRule, ruleProblems } from "@gilbert/agent/docu
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { runAgentRule } from "@/lib/agents";
+import { formatListDate } from "@/lib/format";
 import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
 import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
@@ -65,6 +66,8 @@ export function RuleEditor({
   const rules = view?.granted ? view.rules : [];
   /** The runs of this group that are still open, by the rule that asked for them. */
   const openJobs: readonly AgentJob[] = view?.jobs ?? [];
+  /** A scheduled rule's next due instant, read from the group's own scheduler document. */
+  const schedule = view?.granted ? view.schedule : [];
   // Why the document would be refused as it stands, if it would: the server's
   // own reason, so the form cannot drift from what the executor accepts
   // (ADR 0003 §4, `ruleProblem`).
@@ -316,6 +319,7 @@ export function RuleEditor({
                       asking === rule.id ? "asking" : asked === rule.id ? "asked" : "idle"
                     }
                     openJob={openJobs.find((job) => job.ruleId === rule.id)}
+                    nextDue={schedule.find((s) => s.ruleId === rule.id)?.at}
                     onRun={() => void ask(rule)}
                     onEdit={() => {
                       setProblem(null);
@@ -405,6 +409,7 @@ function RuleItem({
   busy,
   run,
   openJob,
+  nextDue,
   onRun,
   onEdit,
   onDelete,
@@ -415,6 +420,8 @@ function RuleItem({
   run: "idle" | "asking" | "asked";
   /** The run of this rule that is still open, if one is. */
   openJob: AgentJob | undefined;
+  /** This rule's next due instant, for a schedule trigger, when one is armed. */
+  nextDue: string | undefined;
   onRun(): void;
   onEdit(): void;
   onDelete(): void;
@@ -453,6 +460,17 @@ function RuleItem({
         </button>
       </div>
       <p className="hint">{triggerText(rule.trigger)}</p>
+      {rule.trigger.on === "schedule" && (
+        <p className="hint">
+          {nextDue
+            ? t("Next due: {when}", { when: formatListDate(nextDue) })
+            : rule.enabled
+              ? t(
+                  "Not yet scheduled — the agent holding this group arms it on its next pass.",
+                )
+              : t("Not scheduled while disabled.")}
+        </p>
+      )}
       <p className="hint">{reviewText(rule.review)}</p>
       {instruction && <p className="agent-readonly-text">{instruction}</p>}
       {/* What became of an ask: the run while it is open, and where its outcome

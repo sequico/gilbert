@@ -196,6 +196,8 @@ test("every request carries the zero-retention opt-out, temperature 0 and JSON o
   // "a run nobody can price" (ADR 0010: an uncapped answer is an uncapped
   // bill).
   assert.equal(seen.body.max_tokens, MODEL_MAX_OUTPUT_DEFAULT);
+  // This mock reports no `usage` field at all, so the call is uncounted —
+  // `undefined`, not a null-filled reading (`usageOf` in llm.ts, ADR 0010).
   assert.equal(usage, undefined);
   const messages = seen.body.messages as Array<{ role: string; content: string }>;
   assert.equal(messages[0]?.role, "system");

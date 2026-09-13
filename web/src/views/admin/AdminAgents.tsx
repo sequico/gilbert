@@ -1,16 +1,16 @@
 /**
- * The Gilbert admin "Agents" section (ADR 0003 "Admin surfaces").
+ * The Gilbert admin "Master" section (ADR 0003 "Admin surfaces", restructured
+ * by ADR 0014).
  *
- * The installation's own agent, the one model it runs on, and what the fleet
- * has spent live here, split into three questions asked in the order a person
- * actually asks them: is there an agent and how does it sign in (Overview),
- * which model serves it (Model) — the installation's own configuration, settled
- * once — and which groups it works in and what each one tells it (Groups), last
- * because it follows Stalwart's directory rather than anything written here.
- * What a group's agent actually *does* — its automations, the approvals waiting
- * on a person, the facts it remembers, and the agents serving them — lives in
- * Group Agents instead: that section already reads one group at a time, and an
- * automation is exactly that.
+ * The installation's own agent, the one model it runs on, and the groups it
+ * has been granted — configured once, and rarely returned to. Everything that
+ * is a fact about *one* group (its automations, its standing instruction and
+ * memory, what it has done, the agents serving it) lives in Group Agents
+ * instead; what is waiting across every group lives in Approvals. This page
+ * answers three short questions in the order a person asks them — is there an
+ * agent and how does it sign in, which model serves it, which groups does it
+ * work in — as one page rather than tabs, because each answer is now short
+ * enough to read at a glance.
  *
  * Nothing here grants anything, and nothing here names the agent. The
  * deployment names it in the environment it starts with, and a group's
@@ -19,15 +19,23 @@
  * membership there is. So this list follows Stalwart by itself and keeps no
  * record of its own to fall out of step.
  */
-import { Bot } from "lucide-react";
-import { useEffect, useState } from "react";
-import { type AgentStatus, fetchAgentAuditExport } from "@/lib/agents";
+import { ArrowRight, Bot } from "lucide-react";
+import { useEffect } from "react";
+import { Link } from "wouter";
+import type { AgentStatus } from "@/lib/agents";
 import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
 import { fleetMeterLines, fleetReasonText } from "@/views/agent/agentText";
 import { AgentProviders } from "./agent/AgentProviders";
-import { GroupInstruction } from "./agent/GroupInstruction";
-import { GroupMemory } from "./agent/GroupMemory";
+
+/**
+ * How often the fleet is re-read while this section is open.
+ *
+ * The one thing an administrator changes elsewhere is a group's membership in
+ * Stalwart's own administration, and the surface has no way to hear about it:
+ * a poll is what makes that change appear without a reload.
+ */
+const STATUS_POLL_MS = 30_000;
 
 export function AdminAgents() {
   const status = useAgents((s) => s.status);
@@ -35,10 +43,6 @@ export function AdminAgents() {
   // to report, and it has its own line here.
   const error = useAgents((s) => s.problems.status);
   const loadStatus = useAgents((s) => s.loadStatus);
-  // One part at a time: the installation's own health, which models serve each
-  // tier, and what each group has granted and told it are three questions, and
-  // every surface on one page was a page nobody read.
-  const [part, setPart] = useState<AgentPart>("overview");
 
   useEffect(() => {
     void loadStatus();
@@ -65,72 +69,38 @@ export function AdminAgents() {
     <div>
       <h1>
         <Bot size={22} style={{ verticalAlign: "-3px", marginRight: 8 }} />
-        {t("Agents")}
+        {t("Master")}
       </h1>
       <p className="lead">
         {t(
-          "Gilbert's own agent acts inside mail and file storage: it works on Stalwart events and on time schedules, in the groups it has been granted. This installation runs one agent — this is how to see it, which groups it works in, which models serve it, and how it signs in.",
+          "Gilbert's own agent acts inside mail and file storage: it works on Stalwart events and on time schedules, in the groups it has been granted. This installation runs one agent — this is how to see it, which model serves it, and which groups it works in. What it does inside a group lives in Group Agents.",
         )}
       </p>
       {error && (
-        <div className="error-box" style={{ marginBottom: 12 }}>
+        <div className="error-box" style={{ marginBottom: 20 }}>
           {error}
         </div>
       )}
 
-      <div
-        className="segmented"
-        role="group"
-        aria-label={t("Agent sections")}
-        style={{ marginBottom: 16 }}
-      >
-        {AGENT_PARTS.map((entry) => (
-          <button
-            key={entry.id}
-            className={part === entry.id ? "active" : ""}
-            aria-pressed={part === entry.id}
-            onClick={() => setPart(entry.id)}
-          >
-            {t(entry.label)}
-          </button>
-        ))}
-      </div>
-
-      {part === "overview" && <Registration status={status} />}
-      {part === "models" && <AgentProviders />}
-      {part === "groups" && <Groups status={status} />}
+      <Identity status={status} />
+      <section style={{ marginTop: 28 }}>
+        <AgentProviders />
+      </section>
+      <section style={{ marginTop: 28 }}>
+        <Groups status={status} />
+      </section>
     </div>
   );
 }
 
-/**
- * The parts of the agent section, in the order a person asks about them.
- */
-const AGENT_PARTS = [
-  { id: "overview", label: "Overview" },
-  { id: "models", label: "Models" },
-  { id: "groups", label: "Groups" },
-] as const;
-
-type AgentPart = (typeof AGENT_PARTS)[number]["id"];
-
-/**
- * How often the fleet is re-read while this section is open.
- *
- * The one thing an administrator changes elsewhere is a group's membership in
- * Stalwart's own administration, and the surface has no way to hear about it:
- * a poll is what makes that change appear without a reload.
- */
-const STATUS_POLL_MS = 30_000;
-
 /* ------------------------------------------------------------------ */
-/* Overview: the installation's own agent                             */
+/* Identity: the installation's own agent                              */
 /* ------------------------------------------------------------------ */
 
-function Registration({ status }: { status: AgentStatus | null }) {
+function Identity({ status }: { status: AgentStatus | null }) {
   return (
     <section>
-      <h2>{t("The Master")}</h2>
+      <h2>{t("Identity")}</h2>
       <p className="hint" style={{ marginBottom: 12 }}>
         {t(
           "This section checks the agent's grant, it never writes it: membership of a group is granted in Stalwart's own administration, beside the accounts, the same way a person's is.",
@@ -141,7 +111,7 @@ function Registration({ status }: { status: AgentStatus | null }) {
       ) : (
         <div className="card agent-registration">
           <div className="card-head">
-            <h3>{t("Identity")}</h3>
+            <h3>{t("The Master")}</h3>
             <span className={status.operational ? "agent-state ok" : "agent-state off"}>
               {status.operational ? t("Operational") : t("Not operational")}
             </span>
@@ -182,40 +152,10 @@ function Registration({ status }: { status: AgentStatus | null }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Groups: which groups the agent works in, and what each one tells it */
+/* Groups: which groups the agent works in, read only                  */
 /* ------------------------------------------------------------------ */
 
 function Groups({ status }: { status: AgentStatus | null }) {
-  // The group whose trail is being copied, and what went wrong when something
-  // did: the copy is one request with its own line to report it on.
-  const [copying, setCopying] = useState<string | null>(null);
-  const [copyProblem, setCopyProblem] = useState<string | null>(null);
-
-  /**
-   * Take the copy of a group's audit trail, as JSON named for the group.
-   *
-   * Nothing is kept here: the file is the group's own documents, handed over
-   * so an administrator holds them before the oldest month is pruned.
-   */
-  async function copyAudit(name: string) {
-    setCopying(name);
-    setCopyProblem(null);
-    try {
-      const trail = await fetchAgentAuditExport(name);
-      const blob = new Blob([JSON.stringify(trail, null, 2)], {
-        type: "application/json",
-      });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `${name.replace(/[^\w.-]+/g, "_")}.audit.json`;
-      a.click();
-    } catch (err) {
-      setCopyProblem(err instanceof Error ? err.message : String(err));
-    } finally {
-      setCopying(null);
-    }
-  }
-
   return (
     <section>
       <h2>{t("Groups")}</h2>
@@ -233,51 +173,34 @@ function Groups({ status }: { status: AgentStatus | null }) {
           )}
         </p>
       ) : (
-        <>
-          <table className="sessions-table" style={{ marginBottom: 20 }}>
-            <thead>
-              <tr>
-                <th>{t("Group")}</th>
-                <th>{t("What that means")}</th>
-                <th>{t("Audit trail")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {status.groups.map((g) => (
-                <tr key={g.name}>
-                  <td className="notranslate" translate="no">
-                    {g.name}
-                  </td>
-                  <td className="hint">
-                    {t(
-                      "The agent is in this group: it appears in the group's chat and its automations run here.",
+        <table className="sessions-table">
+          <thead>
+            <tr>
+              <th>{t("Group")}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {status.groups.map((g) => (
+              <tr key={g.name}>
+                <td className="notranslate" translate="no">
+                  {g.name}
+                </td>
+                <td style={{ textAlign: "right" }}>
+                  <Link
+                    href={`/admin/group-agents?group=${encodeURIComponent(g.name)}`}
+                    className="btn btn-sm btn-ghost"
+                    title={t(
+                      "Open this group's automations, standing instruction, memory and audit trail",
                     )}
-                  </td>
-                  <td>
-                    <button
-                      className="btn btn-sm"
-                      type="button"
-                      disabled={copying === g.name}
-                      onClick={() => void copyAudit(g.name)}
-                      title={t(
-                        "Download every retained month of this group's audit trail as JSON",
-                      )}
-                    >
-                      {copying === g.name ? t("Copying…") : t("Download as JSON")}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {copyProblem && (
-            <p className="error-box" style={{ marginBottom: 20 }}>
-              {copyProblem}
-            </p>
-          )}
-          <GroupInstruction groups={status.groups.map((g) => g.name)} />
-          <GroupMemory groups={status.groups.map((g) => g.name)} />
-        </>
+                  >
+                    {t("Open in Group Agents")} <ArrowRight size={14} />
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </section>
   );
