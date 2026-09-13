@@ -197,7 +197,7 @@ describe("refreshSettingsPolicy", () => {
         async () =>
           new Response(
             JSON.stringify({
-              settingsPolicy: { enforced: { readingPane: "off" } },
+              policy: { enforced: { readingPane: "off" } },
             }),
             { status: 200 },
           ),
@@ -213,7 +213,7 @@ describe("refreshSettingsPolicy", () => {
         async () =>
           new Response(
             JSON.stringify({
-              settingsPolicy: { enforced: { readingPane: "right" } },
+              policy: { enforced: { readingPane: "right" } },
             }),
             { status: 200 },
           ),
@@ -239,7 +239,7 @@ describe("a change made before the policy fetch landed", () => {
         async () =>
           new Response(
             JSON.stringify({
-              settingsPolicy: { enforced: { conversationMode: true } },
+              policy: { enforced: { conversationMode: true } },
             }),
             { status: 200 },
           ),
@@ -264,7 +264,7 @@ describe("a change made before the policy fetch landed", () => {
         async () =>
           new Response(
             JSON.stringify({
-              settingsPolicy: { enforced: { conversationMode: true } },
+              policy: { enforced: { conversationMode: true } },
             }),
             { status: 200 },
           ),

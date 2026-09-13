@@ -28,8 +28,8 @@ import {
 } from "@gilbert/shared/chat";
 import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
-import { ensureFolder, findInFolder } from "@/lib/appFolder";
-import { directoryCreate, fileCreate } from "@/lib/filenode";
+import { ensureFolder, findInFolder, writeBlobInFolder } from "@/lib/appFolder";
+import { directoryCreate } from "@/lib/filenode";
 
 export * from "@gilbert/shared/chat";
 
@@ -76,10 +76,9 @@ export async function readDoc(accountId: Id, blobId: Id): Promise<unknown> {
 /**
  * Upload a JSON document and create it as a named file in a chat folder.
  *
- * One writer for every chat document (messages, markers): same upload, same
- * FileNode/set shape, same error formatter. The node's blobId is not asked
- * for here -- FileNode/set returns none on create and the callers re-fetch
- * the node (for its `created`) or the doc (for a marker) right after.
+ * One writer for every chat document (messages, markers): the shared
+ * `writeBlobInFolder` (`appFolder.ts`), same as every other document this
+ * client keeps in Files.
  */
 export async function writeDoc(
   accountId: Id,
@@ -87,18 +86,9 @@ export async function writeDoc(
   name: string,
   doc: object,
 ): Promise<Id> {
-  const json = JSON.stringify(doc);
-  const blob = new Blob([json], { type: MESSAGE_TYPE });
-  const up = await client.upload(accountId, blob, { type: MESSAGE_TYPE });
-  const set = await client.call<SetResponse<FileNode>>("FileNode/set", {
-    accountId,
-    create: { m: fileCreate(folderId, name, up.blobId, MESSAGE_TYPE) },
-  });
-  const err = set.notCreated?.m;
-  if (err) throw new Error(setErrorMessage(err));
-  const id = (set.created!.m as Partial<FileNode> | undefined)?.id;
-  if (!id) throw new Error("chat document created without an id");
-  return id;
+  const blob = new Blob([JSON.stringify(doc)], { type: MESSAGE_TYPE });
+  const written = await writeBlobInFolder(accountId, folderId, name, blob, MESSAGE_TYPE);
+  return written.id;
 }
 
 /**

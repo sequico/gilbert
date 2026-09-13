@@ -16,10 +16,8 @@
  * therefore shows defaults for one frame before the account's real settings
  * arrive.
  */
-import { CAP, client, setErrorMessage } from "@/jmap/client";
-import type { FileNode, Id, SetResponse } from "@/jmap/types";
-import { ensureFolder, findInFolder, nodeBlobId } from "@/lib/appFolder";
-import { fileCreate } from "@/lib/filenode";
+import { CAP, client } from "@/jmap/client";
+import { ensureFolder, findInFolder, writeAppJson } from "@/lib/appFolder";
 import { t } from "@/lib/i18n";
 import { useSession } from "@/store/session";
 import { toast } from "@/ui/toast";
@@ -212,33 +210,7 @@ export async function flushSettingsPush(): Promise<void> {
 async function writeSettings(body: Record<string, unknown>): Promise<void> {
   if (!settingsSyncAvailable()) return;
   const accountId = useSession.getState().ownAccountFor(CAP.filenode)!;
-  const json = JSON.stringify(body, null, 2);
-  // Byte length, not character count: a template or a signature with any
-  // non-ASCII in it would otherwise be reported shorter than it is.
-  const blob = new Blob([json], { type: TYPE });
-  const up = await client.upload(accountId, blob, { type: TYPE });
-  const folderId = await ensureFolder(accountId);
-  const existing = await findInFolder(accountId, folderId, FILE);
-  if (existing) {
-    const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
-      accountId,
-      update: { [existing.id]: { blobId: up.blobId, type: TYPE, size: blob.size } },
-    });
-    const err = res.notUpdated?.[existing.id];
-    if (err) throw new Error(setErrorMessage(err));
-    return;
-  }
-  const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
-    accountId,
-    create: { s: fileCreate(folderId, FILE, up.blobId, TYPE) },
-  });
-  const err = res.notCreated?.s;
-  if (err) throw new Error(setErrorMessage(err));
-  // Some servers hand back no blobId on create; ask, so the next read finds it.
-  await nodeBlobId(
-    accountId,
-    (res.created?.s as Partial<FileNode> | undefined)?.id as Id | undefined,
-  );
+  await writeAppJson(accountId, FILE, body, { type: TYPE });
 }
 
 /**

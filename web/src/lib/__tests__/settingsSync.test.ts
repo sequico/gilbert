@@ -13,7 +13,6 @@ import {
 import { toast } from "@/ui/toast";
 import * as appFolder from "../appFolder";
 import { APP_FOLDER, isAppFolder } from "../appFolder";
-import * as filenode from "../filenode";
 import {
   armSettingsSync,
   flushSettingsPush,
@@ -224,17 +223,6 @@ describe("a settings write that fails", () => {
     stopSettingsSync();
     useSession.setState({ status: "authenticated", session: FAKE_SESSION(), accountId: "a1" });
     vi.spyOn(client, "hasCapability").mockReturnValue(true);
-    vi.spyOn(client, "upload").mockResolvedValue({
-      blobId: "b1",
-      type: "application/json",
-      size: 2,
-    } as never);
-    vi.spyOn(appFolder, "ensureFolder").mockResolvedValue("folder1");
-    vi.spyOn(appFolder, "findInFolder").mockResolvedValue(undefined);
-    vi.spyOn(appFolder, "nodeBlobId").mockResolvedValue("b1");
-    vi.spyOn(filenode, "fileCreate").mockReturnValue({
-      name: "settings.json",
-    } as never);
     vi.useFakeTimers();
   });
 
@@ -247,10 +235,10 @@ describe("a settings write that fails", () => {
 
   it("re-queues the change, reports it, and retries until it lands", async () => {
     let attempt = 0;
-    vi.spyOn(client, "call").mockImplementation((async () => {
+    vi.spyOn(appFolder, "writeAppJson").mockImplementation((async () => {
       attempt += 1;
       if (attempt === 1) throw new Error("upstream unavailable");
-      return { created: { s: { id: "n1", blobId: "b1" } } };
+      return { id: "n1", blobId: "b1" };
     }) as never);
     const errorSpy = vi.spyOn(toast, "error").mockImplementation(() => 1);
 
@@ -272,20 +260,18 @@ describe("a settings write that fails", () => {
 
   it("merges a newer change into the retried write rather than losing either", async () => {
     let attempt = 0;
-    vi.spyOn(client, "call").mockImplementation((async () => {
+    const written: unknown[] = [];
+    vi.spyOn(appFolder, "writeAppJson").mockImplementation((async (
+      _accountId: string,
+      _name: string,
+      value: unknown,
+    ) => {
       attempt += 1;
+      written.push(value);
       if (attempt === 1) throw new Error("upstream unavailable");
-      return { created: { s: { id: "n1", blobId: "b1" } } };
+      return { id: "n1", blobId: "b1" };
     }) as never);
     vi.spyOn(toast, "error").mockImplementation(() => 1);
-    const uploaded: string[] = [];
-    vi.spyOn(client, "upload").mockImplementation((async (
-      _accountId: string,
-      blob: Blob,
-    ) => {
-      uploaded.push(await blob.text());
-      return { blobId: "b1", type: "application/json", size: blob.size };
-    }) as never);
 
     armSettingsSync();
     queueSettingsPush({ theme: "dark" });
@@ -296,9 +282,9 @@ describe("a settings write that fails", () => {
     queueSettingsPush({ theme: "dark", locale: "it-IT" });
     await vi.advanceTimersByTimeAsync(3_000); // the newer change's own debounce
     expect(attempt).toBe(2);
-    expect(uploaded).toHaveLength(2);
+    expect(written).toHaveLength(2);
     // The retry sent the newer value, not the stale one it first tried and
     // failed to write — the newer change is not lost behind a failed one.
-    expect(JSON.parse(uploaded[1]!)).toEqual({ theme: "dark", locale: "it-IT" });
+    expect(written[1]).toEqual({ theme: "dark", locale: "it-IT" });
   });
 });

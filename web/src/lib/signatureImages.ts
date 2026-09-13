@@ -4,10 +4,9 @@
  * blobs) under the app folder (see `appFolder.ts`) and reference them by blob URL; the
  * composer turns such references into inline cid: parts when sending.
  */
-import { CAP, client, setErrorMessage } from "@/jmap/client";
-import type { FileNode, QueryResponse, SetResponse } from "@/jmap/types";
-import { ensureFolder, nodeBlobId } from "@/lib/appFolder";
-import { fileCreate } from "@/lib/filenode";
+import { CAP, client } from "@/jmap/client";
+import type { QueryResponse } from "@/jmap/types";
+import { ensureFolder, writeBlobInFolder } from "@/lib/appFolder";
 import { t } from "@/lib/i18n";
 import { useSession } from "@/store/session";
 import { toast } from "@/ui/toast";
@@ -27,20 +26,10 @@ export async function uploadSignatureImage(file: File): Promise<string> {
   }
   try {
     const type = file.type || "image/png";
-    const up = await client.upload(accountId, file, { type });
     const folderId = await ensureFolder(accountId);
     const name = `${Date.now()}-${file.name.replace(/[^\w.-]+/g, "_")}`;
-    const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
-      accountId,
-      create: { f: fileCreate(folderId, name, up.blobId, type) },
-    });
-    const err = res.notCreated?.f;
-    if (err) throw new Error(setErrorMessage(err));
-    const created = res.created?.f as Partial<FileNode> | undefined;
-    // Prefer the node's (persistent) blobId if the server returned one.
-    const blobId =
-      created?.blobId ?? (await nodeBlobId(accountId, created?.id)) ?? up.blobId;
-    return client.downloadUrl(accountId, blobId, name, type, true);
+    const written = await writeBlobInFolder(accountId, folderId, name, file, type);
+    return client.downloadUrl(accountId, written.blobId, name, type, true);
   } catch (err) {
     toast.error(t("Could not store image: {error}", { error: (err as Error).message }));
     throw err;
@@ -54,19 +43,11 @@ export async function storeSignatureHtml(html: string): Promise<string> {
     throw new Error(
       "This signature is too long for the server and the Files feature (needed to store long signatures) is not available.",
     );
-  const up = await client.upload(accountId, new Blob([html], { type: "text/html" }), {
-    type: "text/html",
-  });
   const folderId = await ensureFolder(accountId);
   const name = `signature-${Date.now()}.html`;
-  const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
-    accountId,
-    create: { f: fileCreate(folderId, name, up.blobId, "text/html") },
-  });
-  const err = res.notCreated?.f;
-  if (err) throw new Error(setErrorMessage(err));
-  const created = res.created?.f as Partial<FileNode> | undefined;
-  return created?.blobId ?? (await nodeBlobId(accountId, created?.id)) ?? up.blobId;
+  const blob = new Blob([html], { type: "text/html" });
+  const written = await writeBlobInFolder(accountId, folderId, name, blob, "text/html");
+  return written.blobId;
 }
 
 /**

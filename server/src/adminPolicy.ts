@@ -1,12 +1,14 @@
-import { rename, writeFile } from "node:fs/promises";
+import { type Ctx, readAppJsonAt, writeAppFile } from "./appFolder.js";
 
 /**
  * The installation-wide settings policy, as the administration surface edits
- * it (ADR 0001 §4, ADR 0004). The document is the same shape upstream's boot
- * path reads — `{ defaults, enforced, changes }` (issue #207) — so a document
- * written here can seed `SETTINGS_POLICY_FILE` and vice versa. The upstream
- * reader is never forked: this module mirrors its rules so the two stay in
- * step, and the surface refuses what the boot reader would only half-accept.
+ * it (ADR 0001 §4, ADR 0004, ADR 0011). `{ defaults, enforced, changes }`
+ * (issue #207), published into every individual account's own app folder
+ * rather than kept in one file or environment variable — see
+ * `writeAccountPolicy`/`readAccountPolicy` below. `SETTINGS_DEFAULTS` /
+ * `SETTINGS_ENFORCED` / `SETTINGS_CHANGES` (`config.ts`) read the same shape
+ * from the environment, as the bootstrap an account falls back to before any
+ * administrator has published one through this document.
  */
 
 export interface PolicyChangeDocument {
@@ -14,28 +16,10 @@ export interface PolicyChangeDocument {
   settings: Record<string, unknown>;
 }
 
-/**
- * The identities an administrator has taken over (ADR 0007 §4).
- *
- * `locked` names the accounts whose identity an administrator set: the product
- * offers such an account no Identities & signatures section at all, so what was
- * set here is what it shows and sends. An address, because that is what names
- * an account everywhere else in this document.
- *
- * The lock is a rule about **this product's surface**, not a boundary: Stalwart
- * has no per-field permission on an identity, so an account that speaks JMAP
- * directly can still write one. What the entry guarantees is that Gilbert
- * offers nobody the edit.
- */
-export interface PolicyIdentities {
-  locked: string[];
-}
-
 export interface PolicyDocument {
   defaults: Record<string, unknown>;
   enforced: Record<string, unknown>;
   changes: PolicyChangeDocument[];
-  identities?: PolicyIdentities;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -131,72 +115,72 @@ export function parsePolicyDocumentDetailed(
       changes.push({ version, settings: entry.settings });
     }
   }
-  const parsedIdentities = parseIdentities(whole.identities);
-  if (parsedIdentities && "problem" in parsedIdentities)
-    return { problem: parsedIdentities.problem };
-  return {
-    doc: {
-      defaults,
-      enforced,
-      changes,
-      ...(parsedIdentities ? { identities: parsedIdentities.identities } : {}),
-    },
-  };
-}
-
-/**
- * The identity half of the document, checked field by field, or null when the
- * document says nothing about identities at all.
- *
- * An empty `locked` list and an absent one mean the same thing — nobody is
- * locked — so the empty form parses to a record with nothing in it and
- * `policyDocumentText` writes neither. A present-but-unusable entry is an error
- * at save time, like every other field here.
- */
-function parseIdentities(
-  v: unknown,
-): { identities: PolicyIdentities } | { problem: string } | null {
-  if (v == null) return null;
-  if (!isRecord(v))
-    return { problem: '"identities" must be an object with a "locked" list.' };
-  const raw = v.locked;
-  if (raw === undefined) return { identities: { locked: [] } };
-  if (!Array.isArray(raw) || raw.some((entry) => typeof entry !== "string"))
-    return { problem: '"identities.locked" must be a list of account addresses.' };
-  const locked: string[] = [];
-  for (const entry of raw) {
-    const address = entry.trim().toLowerCase();
-    if (!isAddress(address))
-      return {
-        problem: `"identities.locked" names something that is not an address: ${entry}.`,
-      };
-    if (!locked.includes(address)) locked.push(address);
-  }
-  return { identities: { locked } };
+  return { doc: { defaults, enforced, changes } };
 }
 
 /** The document text the editor shows, stable keys and two-space indent. */
 export function policyDocumentText(policy: PolicyDocument): string {
-  const locked = policy.identities?.locked ?? [];
   return JSON.stringify(
     {
       defaults: policy.defaults ?? {},
       enforced: policy.enforced ?? {},
       changes: policy.changes ?? [],
-      ...(locked.length ? { identities: { locked } } : {}),
     },
     null,
     2,
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Where the document lives: one account's own app folder (ADR 0011)   */
+/* ------------------------------------------------------------------ */
+
 /**
- * Atomically replace `SETTINGS_POLICY_FILE` with the published document, so a
- * restart of the process keeps the change (ADR 0004 §2). Write to a sibling
- * temp file, then rename into place.
+ * The published policy, inside the account's own app folder.
+ *
+ * A file of its own, not a key of `settings.json` — the client whole-file
+ * replaces that document on every save, so a key its own schema does not own
+ * would not survive the account's next settings save (the same reason
+ * `must-change-password.json`, `server/src/account.ts`, is its own file).
  */
-export async function persistPolicyFile(file: string, raw: string): Promise<void> {
-  const tmp = `${file}.tmp`;
-  await writeFile(tmp, raw.endsWith("\n") ? raw : `${raw}\n`, "utf8");
-  await rename(tmp, file);
+export const INSTALLATION_POLICY_FILE = "installation-policy.json";
+
+/**
+ * This account's own copy of the published policy, or null when publishing
+ * has never reached it (a corrupt or unreadable document reads the same way:
+ * ADR 0001's rule that a bad document must not refuse a surface, applied here
+ * too — the caller falls back to the environment's bootstrap policy).
+ */
+export async function readAccountPolicy(
+  ctx: Ctx,
+  accountId: string,
+): Promise<PolicyDocument | null> {
+  if (!accountId) return null;
+  const raw = await readAppJsonAt(ctx, accountId, INSTALLATION_POLICY_FILE);
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const r = raw as Record<string, unknown>;
+  const defaults = readPolicySection("defaults", r.defaults);
+  if (typeof defaults === "string") return null;
+  const enforced = readPolicySection("enforced", r.enforced);
+  if (typeof enforced === "string") return null;
+  const changes = Array.isArray(r.changes)
+    ? r.changes.filter(
+        (e): e is PolicyChangeDocument =>
+          isRecord(e) && typeof e.version === "string" && isRecord(e.settings),
+      )
+    : [];
+  return { defaults, enforced, changes };
+}
+
+/** Write the published policy into one account's own app folder. */
+export async function writeAccountPolicy(
+  ctx: Ctx,
+  accountId: string,
+  doc: PolicyDocument,
+): Promise<void> {
+  await writeAppFile(ctx, accountId, INSTALLATION_POLICY_FILE, {
+    defaults: doc.defaults,
+    enforced: doc.enforced,
+    changes: doc.changes,
+  });
 }

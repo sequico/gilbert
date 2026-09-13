@@ -21,23 +21,25 @@
  * account's app folder, so the value an administrator sets is the value the
  * account's own Identities & signatures section shows and sends from.
  *
- * The lock (ADR 0007 §4) is the installation's record, not Stalwart's: it says
- * which accounts have had their identity taken over, and the product offers
- * those accounts no edit at all. It is a rule about this surface — an account
- * that speaks JMAP directly can still write its own identity — and it is
- * recorded as one.
+ * The lock (ADR 0007 §4, ADR 0011) says which accounts have had their identity
+ * taken over, and the product offers those accounts no edit at all. It is a
+ * rule about this surface — an account that speaks JMAP directly can still
+ * write its own identity — and it is recorded as a fact about that one
+ * account, in that account's own app folder, not in an installation-wide
+ * list: everything Gilbert owns lives in Stalwart, one account at a time.
  */
 
-import { isAddress, type PolicyDocument } from "./adminPolicy.js";
+import { isAddress } from "./adminPolicy.js";
 import { impersonateAs, openAgentSession } from "./agentAdmin.js";
 import {
   type Ctx,
+  destroyAppNode,
   findAppFileAt,
   readAppJsonAt,
   writeAppBytesAt,
   writeAppFile,
 } from "./appFolder.js";
-import { agentAddress, config } from "./config.js";
+import { agentAddress } from "./config.js";
 import { JMAP_SUBMISSION, JmapClient } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
 import { SIGNATURE_LIMIT, utf8Length } from "./shared/signature.js";
@@ -89,37 +91,84 @@ export interface IdentityPatch {
 }
 
 /* ------------------------------------------------------------------ */
-/* The lock                                                            */
+/* The lock (ADR 0011)                                                 */
 /* ------------------------------------------------------------------ */
 
-/** Whether this installation has locked the account's identity (ADR 0007 §4). */
-export function identityLocked(address: string): boolean {
-  const want = address.trim().toLowerCase();
-  if (!want) return false;
-  return (config.settingsPolicy.identities?.locked ?? []).includes(want);
+/**
+ * The lock file, inside the locked account's own app folder.
+ *
+ * Deliberately a file of its own rather than a key of `settings.json`: the
+ * client whole-file-replaces that document on every save (the same reason
+ * `must-change-password.json`, `server/src/account.ts`, is its own file), so a
+ * key the client's own schema does not own would not survive the account's
+ * next settings save. Missing file = not locked.
+ */
+const IDENTITY_LOCK_FILE = "identity-lock.json";
+
+/** Whether this account is locked (ADR 0007 §4, ADR 0011): its own lock file. */
+export async function identityLocked(ctx: Ctx, accountId: string): Promise<boolean> {
+  if (!accountId) return false;
+  const doc = await readAppJsonAt(ctx, accountId, IDENTITY_LOCK_FILE);
+  if (!doc || typeof doc !== "object" || Array.isArray(doc)) return false;
+  return (doc as Record<string, unknown>).locked === true;
 }
 
 /**
- * The document with one account's lock set or cleared.
+ * Whether the signed-in session's own account is locked.
  *
- * Pure, so the policy door does the reading, the writing and the compare-and-set
- * like every other change to this document. An empty list is written as no
- * `identities` key at all, the way an empty per-group narrowing is.
+ * Reads that account's own file directly -- no impersonation needed, the way
+ * a session never needs to impersonate itself to read its own settings.
  */
-export function withIdentityLock(
-  doc: PolicyDocument,
+export async function identityLockedForSession(ctx: Ctx): Promise<boolean> {
+  const accountId = ownIdentityAccount(ctx);
+  return accountId ? identityLocked(ctx, accountId) : false;
+}
+
+/** Set or release the lock on one account's own file. */
+async function setIdentityLock(
+  ctx: Ctx,
+  accountId: string,
+  locked: boolean,
+  setBy: string,
+): Promise<void> {
+  if (locked) {
+    await writeAppFile(ctx, accountId, IDENTITY_LOCK_FILE, {
+      locked: true,
+      lockedAt: new Date().toISOString(),
+      lockedBy: setBy,
+    });
+    return;
+  }
+  const { folderId, file } = await findAppFileAt(ctx, accountId, IDENTITY_LOCK_FILE);
+  if (!folderId || !file?.id) return;
+  await destroyAppNode(ctx, accountId, String(file.id));
+}
+
+/**
+ * Set or release the lock on a person's identity, as the administrator —
+ * the same impersonating door `setPersonDefaultIdentity` writes through.
+ */
+export async function setUserIdentityLock(
+  admin: LiveSession,
   address: string,
   locked: boolean,
-): PolicyDocument {
-  const want = address.trim().toLowerCase();
-  const current = doc.identities?.locked ?? [];
-  const next = locked
-    ? current.includes(want)
-      ? current
-      : [...current, want]
-    : current.filter((a) => a !== want);
-  const { identities: _dropped, ...rest } = doc;
-  return next.length ? { ...rest, identities: { locked: next } } : rest;
+): Promise<void> {
+  const target = identityAddress(address);
+  const imp = await impersonateAs(admin, target);
+  if (!imp.ok)
+    throw new IdentityAdminError(
+      imp.status === 403 ? "impersonation_denied" : "account_unreachable",
+      imp.message,
+      imp.status,
+    );
+  const accountId = ownIdentityAccount(imp.ctx);
+  if (!accountId)
+    throw new IdentityAdminError(
+      "no_identity_account",
+      `${target} holds no account this session can lock identities on.`,
+      409,
+    );
+  await setIdentityLock(imp.ctx, accountId, locked, admin.username);
 }
 
 /* ------------------------------------------------------------------ */
@@ -469,7 +518,11 @@ export async function personIdentities(
     if (imp.status === 403)
       return {
         address: target,
-        locked: identityLocked(target),
+        // The lock lives in the target's own account (ADR 0011): a session
+        // that cannot impersonate it cannot read that file either, so this
+        // is "unknown" rather than a verified "no" -- the same honesty the
+        // empty identity list beside it already carries.
+        locked: false,
         impersonation: "denied",
         identities: [],
         defaultIdentityId: null,
@@ -489,7 +542,7 @@ export async function personIdentities(
     );
   return {
     address: target,
-    locked: identityLocked(target),
+    locked: await identityLocked(imp.ctx, accountId),
     impersonation: "ok",
     identities: await readIdentities(imp.ctx, accountId),
     defaultIdentityId: await readDefaultIdentity(imp.ctx, accountId),

@@ -65,4 +65,9 @@ and the line to upstream, live there and are not repeated here.
   constraint rather than a hope, *Run now* asks for one run on one message, and
   what a run cost in tokens is metered per group and per agent. One model,
   configured once, serves every automation.
+- **0011 — The installation policy lives in every account it touches.** The
+  settings policy and the identity lock move off local disk and the
+  environment into every individual account's own Stalwart storage, written by
+  impersonation at publish time — so the surface runs under `IMMUTABLE=1` like
+  the rest of the product, and `SETTINGS_POLICY_FILE` is retired.
 

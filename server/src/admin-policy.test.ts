@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The installation-wide policy document (ADR 0001 §4, ADR 0004), end to end
- * against the mock: only admins read or publish it; an invalid document is
- * refused; a valid publish replaces the running copy at once (GET /api/config
- * answers it immediately) and kicks every other session so the next sign-in
- * applies the new policy at boot.
+ * The installation-wide policy document (ADR 0001 §4, ADR 0004, ADR 0011):
+ * only admins read or publish it; an invalid document is refused; a valid
+ * publish writes into every individual account the directory lists — the
+ * publisher's own account included — and each account's own authenticated
+ * `GET /api/account/policy` answers with what the publish just wrote there.
  */
 
 const PORT = 18799;
@@ -30,8 +30,8 @@ const BOB_PASS = "bob-password";
 
 type Body = Record<string, unknown>;
 
-interface PolicyOnConfig {
-  settingsPolicy: {
+interface AccountPolicy {
+  policy: {
     defaults: Record<string, unknown>;
     enforced: Record<string, unknown>;
     changes: Array<{ version: string; settings: Record<string, unknown> }>;
@@ -40,7 +40,11 @@ interface PolicyOnConfig {
 
 const mock = await import("./mock/index.js");
 const { createApp } = await import("./app.js");
+const { readAccountPolicy } = await import("./adminPolicy.js");
+const { filesAccountId } = await import("./appFolder.js");
+const { fetchUpstreamSession } = await import("./upstream.js");
 
+const BASE = `http://127.0.0.1:${PORT}`;
 const app = createApp();
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
 
@@ -120,7 +124,7 @@ test("an admin reads the current policy as the editor document", async () => {
   assert.deepEqual(
     Object.keys(policy).sort(),
     ["changes", "defaults", "enforced"],
-    "the editor document has the three upstream sections",
+    "the editor document has the three sections",
   );
 });
 
@@ -154,28 +158,66 @@ test("an invalid document is refused with a message that says what is wrong", as
       `message should say: ${expected} — got: ${message}`,
     );
   }
-  const config = await call("/api/config", "");
-  const enforced = (config.body as unknown as PolicyOnConfig).settingsPolicy.enforced;
+  // No invalid publish reached the admin's own account either.
+  const read = await call("/api/admin/policy", adminCookie);
+  const policy = JSON.parse((read.body as { policy: string }).policy) as {
+    enforced: Record<string, unknown>;
+  };
   assert.equal(
-    Object.keys(enforced).length,
+    Object.keys(policy.enforced).length,
     0,
     "no invalid publish reached the running policy",
   );
 });
 
-test("a valid publish replaces the running policy at once", async () => {
+test("a valid publish writes into the publisher's own account and every other one the directory lists", async () => {
   const res = await call("/api/admin/policy", adminCookie, {
     method: "POST",
     body: DOC,
   });
   assert.equal(res.status, 200);
   assert.equal((res.body as { ok: boolean }).ok, true);
-  // Unauthenticated /api/config answers the new policy immediately.
-  const config = await call("/api/config", "");
-  const sp = (config.body as unknown as PolicyOnConfig).settingsPolicy;
-  assert.equal(sp.enforced.readingPane, false);
-  assert.equal(sp.defaults.density, "cozy");
-  assert.equal(sp.changes[0]!.version, "v1");
+  const { reached, unreached } = res.body as {
+    reached: number;
+    unreached: Array<{ address: string; message: string }>;
+  };
+  // The mock directory lists five people plus the agent principal, besides
+  // the publishing admin itself: every one of them is reached, none refused.
+  assert.ok(reached >= 6, `expected at least 6 accounts reached, got ${reached}`);
+  assert.deepEqual(unreached, [], "nothing in the mock directory refused the write");
+
+  // The publisher's own next read of the editor shows exactly what it wrote.
+  const admin = await call("/api/admin/policy", adminCookie);
+  const adminDoc = JSON.parse((admin.body as { policy: string }).policy) as {
+    defaults: Record<string, unknown>;
+    enforced: Record<string, unknown>;
+  };
+  assert.equal(adminDoc.enforced.readingPane, false);
+  assert.equal(adminDoc.defaults.density, "cozy");
+
+  // A directory account that never signs in (it has no password in this
+  // mock) still has the publish in its own account -- verified the way the
+  // administrator reaches it, by impersonation, rather than by signing in.
+  const adaAuth = `Basic ${Buffer.from(`ada@example.org%${ADMIN}:${ADMIN_PASS}`).toString("base64")}`;
+  const adaSession = await fetchUpstreamSession(adaAuth, BASE);
+  const adaCtx = { authorization: adaAuth, session: adaSession, username: "ada@example.org" };
+  const adaAccountId = filesAccountId(adaCtx);
+  assert.ok(adaAccountId, "ada's impersonated session has a Files account");
+  const adaPolicy = await readAccountPolicy(adaCtx, adaAccountId);
+  assert.ok(adaPolicy, "the publish reached ada's own account");
+  assert.equal(adaPolicy!.enforced.readingPane, false);
+  assert.equal(adaPolicy!.defaults.density, "cozy");
+  assert.equal(adaPolicy!.changes[0]!.version, "v1");
+
+  // Bob is not part of this mock's enumerable directory (he exists only as a
+  // separate impersonation-test target), so the publish does not reach him —
+  // his own read falls back to the environment's bootstrap, unchanged.
+  const bob = await login(BOB, BOB_PASS);
+  assert.equal(bob.status, 200);
+  const bobPolicy = await call("/api/account/policy", bob.cookie);
+  assert.equal(bobPolicy.status, 200);
+  const sp = (bobPolicy.body as unknown as AccountPolicy).policy;
+  assert.equal(sp.enforced.readingPane, undefined, "bob was never reached by this publish");
 });
 
 test("publishing kicks every session except the caller's", async () => {
@@ -193,4 +235,16 @@ test("publishing kicks every session except the caller's", async () => {
   assert.equal(dead.status, 401, "the kicked session lands on sign-in");
   const stillAdmin = await call("/api/admin/policy", adminCookie);
   assert.equal(stillAdmin.status, 200, "the publishing admin's session survives");
+});
+
+test("a signed-in account with no publish yet reads the environment's bootstrap", async () => {
+  // Bob has been reached by every publish above, so this only pins the shape
+  // of the authenticated door itself: any signed-in account, not just an
+  // admin, may read its own policy.
+  const bob = await login(BOB, BOB_PASS);
+  assert.equal(bob.status, 200);
+  const res = await call("/api/account/policy", bob.cookie);
+  assert.equal(res.status, 200);
+  const policy = (res.body as unknown as AccountPolicy).policy;
+  assert.ok("defaults" in policy && "enforced" in policy && "changes" in policy);
 });
