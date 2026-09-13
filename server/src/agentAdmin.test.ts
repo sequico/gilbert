@@ -1379,10 +1379,13 @@ test("a reading the month cannot record is still the model's answer", async () =
   const ceiling = config.agent.authoringMonthlyMax;
   config.agent.authoringMonthlyMax = ceiling + 1;
   // The count is the last thing a reading does, and this is the failure it has
-  // to survive: the store the route uses is handed a writer whose append fails,
-  // which is what a compare-and-set that kept losing does (`store.ts`).
-  const realAppend = AgentStore.prototype.appendAuthoring;
-  AgentStore.prototype.appendAuthoring = async () => {
+  // to survive: the store the route uses is handed a writer whose settlement
+  // fails, which is what a compare-and-set that kept losing does (`store.ts`).
+  // The reservation itself must still succeed — only settling it afterwards
+  // is stubbed to fail — so the call is made and answered before the count is
+  // lost.
+  const realFinalize = AgentStore.prototype.finalizeAuthoring;
+  AgentStore.prototype.finalizeAuthoring = async () => {
     throw new Error("the authoring document kept changing under the writer");
   };
   const warned: string[] = [];
@@ -1400,7 +1403,7 @@ test("a reading the month cannot record is still the model's answer", async () =
       }),
     });
   } finally {
-    AgentStore.prototype.appendAuthoring = realAppend;
+    AgentStore.prototype.finalizeAuthoring = realFinalize;
     console.warn = realWarn;
     config.agent.authoringMonthlyMax = ceiling;
   }

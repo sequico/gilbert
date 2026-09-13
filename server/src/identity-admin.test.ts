@@ -564,7 +564,7 @@ test("an app-password session cannot set a default: the refusal is impersonation
   // keeps its own code instead of reading as a failed write.
   const created = await call("/api/account/app-passwords", adminCookie, {
     method: "POST",
-    body: JSON.stringify({ description: "identity-default" }),
+    body: JSON.stringify({ description: "identity-default", current: ADMIN_PASS }),
   });
   assert.equal(created.status, 200, JSON.stringify(created.body));
   const viaApp = await login(ADMIN, created.body?.secret as string);

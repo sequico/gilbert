@@ -459,7 +459,12 @@ const agentWorkerSettings = {
    * is a bound the installation sets rather than one the file decides. The run
    * is told the number in its own prompt.
    */
-  maxPages: int("GILBERT_AGENT_MAX_PAGES", AGENT_MAX_PAGES_DEFAULT),
+  // Floored at one the same way the installation's own stored bound is
+  // (`isAgentBound`): a deployment that sets this to 0 or a negative number
+  // must not have every run refused as though it were over its chain bound
+  // instead of under its page one — the two validators disagreeing was a
+  // business logic review finding.
+  maxPages: Math.max(1, int("GILBERT_AGENT_MAX_PAGES", AGENT_MAX_PAGES_DEFAULT)),
   /*
    * How many hops a chain of automations runs before the next one is refused
    * (ADR 0010). Hop one is the trigger that wakes a rule by itself, and a run
@@ -468,7 +473,11 @@ const agentWorkerSettings = {
    * configuration rather than compiled in, so a deployment with a legitimately
    * longer pipeline raises it instead of waiting for a release.
    */
-  maxChainHops: int("GILBERT_AGENT_MAX_CHAIN_HOPS", 5),
+  // Floored at one the same way the installation's own stored bound is: a
+  // deployment that sets this to 0 or a negative number would otherwise
+  // refuse every run, even an unchained hop-one trigger, as though it were a
+  // runaway chain (a business logic review finding).
+  maxChainHops: Math.max(1, int("GILBERT_AGENT_MAX_CHAIN_HOPS", 5)),
 };
 
 /**

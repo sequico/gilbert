@@ -91,6 +91,7 @@ test("the registry reports an account with nothing set up yet", async () => {
 test("app passwords are created, listed once with their secret, and revoked", async () => {
   const created = await post("/api/account/app-passwords", {
     description: "Thunderbird",
+    current: "demo-password",
   });
   assert.equal(created.status, 200);
   assert.match(
@@ -117,9 +118,36 @@ test("app passwords are created, listed once with their secret, and revoked", as
 });
 
 test("an app password needs a name", async () => {
-  const res = await post("/api/account/app-passwords", { description: "   " });
+  const res = await post("/api/account/app-passwords", {
+    description: "   ",
+    current: "demo-password",
+  });
   assert.equal(res.status, 400);
   assert.equal(res.body.error, "missing_fields");
+});
+
+test("an app password needs the account's current password", async () => {
+  // Business logic review finding: minting a standing credential that skips
+  // 2FA and outlives a plain password change must not be one unauthenticated
+  // call away from a session that is merely open — it is asked for again,
+  // the same way disabling 2FA is.
+  const missing = await post("/api/account/app-passwords", { description: "No password" });
+  assert.equal(missing.status, 400);
+  assert.equal(missing.body.error, "missing_fields");
+
+  const wrong = await post("/api/account/app-passwords", {
+    description: "Wrong password",
+    current: "not-my-password",
+  });
+  assert.equal(wrong.status, 401);
+  assert.equal(wrong.body.error, "wrong_password");
+
+  const list = await call("/api/account/security");
+  assert.deepEqual(
+    list.body.appPasswords,
+    [],
+    "no app password was minted for either refused attempt",
+  );
 });
 
 test("the wrong current password is refused with the server's reason", async () => {

@@ -44,6 +44,7 @@ import {
   type AgentAuthoringDoc,
   type AgentAuthoringEntry,
   type AgentClaim,
+  type AgentUsage,
   type AgentConfigDoc,
   type AgentDecision,
   type AgentInstructionDoc,
@@ -629,6 +630,122 @@ export class AgentStore {
     throw new Error(
       `the authoring document ${path} kept changing under the writer; ` +
         `the call is not counted`,
+    );
+  }
+
+  /**
+   * Reserve one authoring call against the month's ceiling, before the call is
+   * paid for.
+   *
+   * The plain read-then-append `appendAuthoring` does after the call is what
+   * let two overlapping readings each read "room under the ceiling" and both
+   * spend: neither write disagreed with what it had read, so both landed.
+   * Here the check and the write are the same compare-and-set attempt — on
+   * every retry the ceiling is tested against the document as it now reads,
+   * so a second caller that raced the first and lost re-reads a document that
+   * already carries the first's reservation and is refused by the same rule
+   * that would have refused a third call arriving after both had finished.
+   * `token` names the reservation so the caller can settle it once the call
+   * either answers (`finalizeAuthoring`) or never happens
+   * (`cancelAuthoring`).
+   */
+  async reserveAuthoring(
+    max: number,
+    entry: { token: string; about: string; group?: string; by?: string },
+    at = new Date(),
+  ): Promise<boolean> {
+    const month = monthOf(at);
+    const path = this.path(AGENT_AUTHORING_DIR, auditDocName(month));
+    for (let attempt = 0; attempt < AUDIT_CAS_ATTEMPTS; attempt++) {
+      if (attempt) await sleep(backoffMs(attempt));
+      const state = await this.state();
+      const raw = await readAppJsonAt(this.ctx, this.accountId, path);
+      if (raw !== null && !isAgentAuthoringDoc(raw)) {
+        throw new Error(
+          `the authoring document ${path} is there but does not read as one; ` +
+            `refusing to write over it`,
+        );
+      }
+      const doc: AgentAuthoringDoc = isAgentAuthoringDoc(raw)
+        ? raw
+        : { v: 1, month, entries: [] };
+      if (doc.entries.length >= max) return false;
+      doc.entries = [
+        ...doc.entries,
+        { at: at.toISOString(), pending: true, ...entry },
+      ];
+      try {
+        await writeAppFileAt(this.ctx, this.accountId, path, doc, { ifInState: state });
+        return true;
+      } catch (err) {
+        if (!isStateMismatch(err)) throw err;
+      }
+    }
+    throw new Error(
+      `the authoring document ${path} kept changing under the writer; ` +
+        `the reservation could not be made`,
+    );
+  }
+
+  /** Settle a reservation with the call's usage, once it has answered. */
+  async finalizeAuthoring(
+    token: string,
+    usage: AgentUsage | undefined,
+    at = new Date(),
+  ): Promise<void> {
+    await this.updateAuthoringEntry(token, at, (found) => {
+      const { pending: _pending, ...rest } = found;
+      return usage ? { ...rest, usage } : rest;
+    });
+  }
+
+  /** Drop a reservation whose call never happened: it must not count. */
+  async cancelAuthoring(token: string, at = new Date()): Promise<void> {
+    await this.updateAuthoringEntry(token, at, () => null);
+  }
+
+  /**
+   * Find the reservation by its token and replace or remove it, retrying
+   * across the same contention `appendAuthoring` retries.
+   *
+   * Throws past the last attempt, the same as `appendAuthoring`: the call
+   * this reservation stood for already happened (or was refused before it
+   * did), so the caller decides how to answer the person waiting on it — the
+   * ledger falling behind must not become their problem too.
+   */
+  private async updateAuthoringEntry(
+    token: string,
+    at: Date,
+    change: (entry: AgentAuthoringEntry) => AgentAuthoringEntry | null,
+  ): Promise<void> {
+    const month = monthOf(at);
+    const path = this.path(AGENT_AUTHORING_DIR, auditDocName(month));
+    for (let attempt = 0; attempt < AUDIT_CAS_ATTEMPTS; attempt++) {
+      if (attempt) await sleep(backoffMs(attempt));
+      const state = await this.state();
+      const raw = await readAppJsonAt(this.ctx, this.accountId, path);
+      if (!isAgentAuthoringDoc(raw)) return;
+      const idx = raw.entries.findIndex((entry) => entry.token === token);
+      const current = idx < 0 ? undefined : raw.entries[idx];
+      if (!current) return;
+      const replaced = change(current);
+      const doc: AgentAuthoringDoc = {
+        ...raw,
+        entries:
+          replaced === null
+            ? raw.entries.filter((_, i) => i !== idx)
+            : raw.entries.map((entry, i) => (i === idx ? replaced : entry)),
+      };
+      try {
+        await writeAppFileAt(this.ctx, this.accountId, path, doc, { ifInState: state });
+        return;
+      } catch (err) {
+        if (!isStateMismatch(err)) throw err;
+      }
+    }
+    throw new Error(
+      `the authoring document ${path} kept changing under the writer; ` +
+        `the reservation for ${token} could not be settled`,
     );
   }
 

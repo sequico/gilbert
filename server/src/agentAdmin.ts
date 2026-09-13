@@ -285,10 +285,19 @@ export async function memberGroupAccess(
   name: string,
   opts: { need: GroupNeed },
 ): Promise<GroupAccessResult> {
+  // Forced live, not the ordinary cached read: this is a membership check
+  // (ADR 0005 — "a member who leaves loses access", stated as immediate), and
+  // the cache this session's other calls otherwise share can be up to five
+  // minutes old. A cached answer here would let a member removed from the
+  // group in Stalwart's own directory keep reading its standing instruction,
+  // rules, notebook and chat for up to that long after the grant was
+  // withdrawn — a gap the admin path (`agentGroupReach`) never had, since it
+  // always signs in fresh.
   const upstream = await getUpstreamSession(
     session.id,
     session.authorization,
     upstreamFor(session.username),
+    true,
   );
   const ctx: Ctx = {
     authorization: session.authorization,
@@ -1307,12 +1316,21 @@ export async function readDraft(
       },
       400,
     );
-  // What this month has already been spent on, read before the call rather
-  // than after it: a reading is not a run, so no job's ceiling bounds it, and
-  // the one record of what the installation bought is the authoring document
-  // (ADR 0010).
-  const spent = (await store.readAuthoring(monthOf(new Date())))?.entries.length ?? 0;
-  if (spent >= config.agent.authoringMonthlyMax)
+  // The reservation and the ceiling check are the same compare-and-set
+  // attempt (`reserveAuthoring`), so two overlapping calls can no longer both
+  // read "room under the ceiling" and both spend — the loser re-reads the
+  // document the winner just wrote and is refused by the same rule. A reading
+  // is not a run, so no job's ceiling bounds it, and the one record of what
+  // the installation bought is the authoring document (ADR 0010).
+  const token = randomUUID();
+  const reserved = await store.reserveAuthoring(config.agent.authoringMonthlyMax, {
+    token,
+    about: input.about,
+    group: (input.access.ctx.session.accounts?.[input.access.accountId] as { name?: string })
+      ?.name,
+    by: admin.username,
+  });
+  if (!reserved)
     throw new AgentAdminError(
       { code: "authoring_budget_spent", max: config.agent.authoringMonthlyMax },
       409,
@@ -1347,6 +1365,10 @@ export async function readDraft(
       maxOutputTokens: (await store.readConfig())?.doc.maxOutputTokens,
     });
   } catch (err) {
+    // The call never happened, so the reservation must not count against the
+    // month's ceiling either — a provider outage otherwise spends the
+    // installation's budget on answers nobody received.
+    await store.cancelAuthoring(token).catch(() => {});
     // A refusal is a code and what the provider said beside it, never a
     // sentence of ours on the wire.
     throw new AgentAdminError(
@@ -1355,31 +1377,25 @@ export async function readDraft(
     );
   }
   const text = answer.text.trim();
-  if (!text)
+  if (!text) {
+    await store.cancelAuthoring(token).catch(() => {});
     throw new AgentAdminError(
       { code: "reading_failed", detail: "the provider answered with nothing" },
       502,
     );
-  // The month's tally is written after the words are paid for, so a count that
-  // will not land — a compare-and-set that kept losing, a document that does not
-  // read as one — costs the record and not the answer: the reading is returned
-  // either way, and the line an operator needs is left on the server rather than
-  // put to the person who asked.
+  }
+  // The reservation is settled with the call's usage after the words are paid
+  // for, so a count that will not land — a compare-and-set that kept losing, a
+  // document that does not read as one — costs the record and not the answer:
+  // the reading is returned either way, and the line an operator needs is left
+  // on the server rather than put to the person who asked.
   let counted = true;
   try {
-    await store.appendAuthoring({
-      at: new Date().toISOString(),
-      about: input.about,
-      group: (
-        input.access.ctx.session.accounts?.[input.access.accountId] as { name?: string }
-      )?.name,
-      by: admin.username,
-      usage: answer.usage,
-    });
+    await store.finalizeAuthoring(token, answer.usage);
   } catch (err) {
     counted = false;
     console.warn(
-      "[gilbert] could not count a reading in the month's authoring document:",
+      "[gilbert] could not settle a reading in the month's authoring document:",
       (err as Error).message,
     );
   }

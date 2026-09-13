@@ -134,8 +134,15 @@ const loginFloodLimiter = new RateLimiter(config.loginRateLimit * 20, 15 * 60_00
  * fail2ban counts those failures against the *caller's* IP — which for a proxy
  * is shared by every user. Keep our own lid on it so one person guessing
  * cannot get the whole deployment banned.
+ *
+ * Shared across every credential-mutating endpoint on this account: changing
+ * the password, enabling or disabling 2FA, and minting or revoking an app
+ * password. 20 is enough for a person doing several of these in one sitting
+ * (setting up 2FA, then an app password for each of a couple of devices)
+ * while still bounding a guessing script to the same handful of attempts per
+ * 15 minutes it always had.
  */
-const accountLimiter = new RateLimiter(10, 15 * 60_000);
+const accountLimiter = new RateLimiter(20, 15 * 60_000);
 const apiLimiter = new RateLimiter(config.apiRateLimit, 60_000);
 
 /*
@@ -1007,8 +1014,15 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   api.post("/account/app-passwords", requireSession, async (c) => {
-    const _session = c.get("session");
-    const body = await readJson<{ description?: string }>(c);
+    // Minting a standing credential that skips 2FA and outlives a plain
+    // password change is exactly what a hijacked session must not be able to
+    // do silently in one call: it is guarded against brute-forcing like every
+    // other credential-mutating endpoint here, and it re-asks the account's
+    // own password first, the same way disabling 2FA does.
+    const limited = guarded(c);
+    if (limited) return limited;
+    const session = c.get("session");
+    const body = await readJson<{ description?: string; current?: string }>(c);
     if (!body) return c.json({ error: "bad_request" }, 400);
     const description = (body.description ?? "").trim().slice(0, 120);
     if (!description)
@@ -1016,6 +1030,29 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         { error: "missing_fields", message: "Give the app password a name." },
         400,
       );
+    const current = body.current ?? "";
+    if (!current)
+      return c.json(
+        { error: "missing_fields", message: "Enter your current password." },
+        400,
+      );
+    try {
+      // `x:AppPassword/set` carries no `currentSecret` field to delegate this
+      // check to (unlike `x:AccountPassword/set`), so it is verified the same
+      // way a sign-in is: a fresh session request with the password the caller
+      // just submitted.
+      await fetchUpstreamSession(
+        `Basic ${Buffer.from(`${session.username}:${current}`, "utf8").toString("base64")}`,
+        upstreamFor(session.username),
+      );
+    } catch (err) {
+      if (err instanceof UpstreamError && err.status === 401)
+        return c.json(
+          { error: "wrong_password", message: "That password is not correct." },
+          401,
+        );
+      return accountFailure(c, err);
+    }
     try {
       return c.json(await createAppPassword(await accountCtx(c), { description }));
     } catch (err) {
@@ -1024,6 +1061,8 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   api.post("/account/app-passwords/revoke", requireSession, async (c) => {
+    const limited = guarded(c);
+    if (limited) return limited;
     const _session = c.get("session");
     const body = await readJson<{ id?: string }>(c);
     if (!body?.id) return c.json({ error: "bad_request" }, 400);

@@ -511,7 +511,15 @@ test("a page that is only pixels reaches the model as an image, and a text layer
 test("how many pages one run may hand over is bounded, and the prompt says the number", async () => {
   const pages = await documentContent(await scannedPdf(), "pdf", 0);
   assert.deepEqual(pages.images, [], "a bound of zero hands over no page at all");
-  assert.equal(pages.omitted, 1, "and says what it left out");
+  // A bound of zero means zero pages read at all, not "page one's text layer
+  // is checked anyway" (a business logic review finding: the text side of
+  // this same bound used to be floored to at least one page regardless of
+  // what was asked for). With nothing read, `pixelPages` classifies nothing
+  // either, so `omitted` -- which counts pixel pages past the image bound --
+  // is honestly zero; `unreadPages` is the field that says the whole
+  // document was left unread.
+  assert.equal(pages.omitted, 0, "nothing was read, so nothing was classified as a pixel page");
+  assert.equal(pages.unreadPages, 1, "and the page never read is reported there instead");
 
   answerWith({ summary: "s", confidence: 1, actions: [{ do: "noop" }] });
   await decideActions(

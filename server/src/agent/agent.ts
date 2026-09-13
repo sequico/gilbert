@@ -256,8 +256,51 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
       // long timer; the same cap keeps a paused container's clock jump honest.
       scheduleDisposers.set(
         accountId,
-        await executor.armSchedule(accountId, { maxDelayMs: pollMs }),
+        await executor.armSchedule(accountId, {
+          maxDelayMs: pollMs,
+          // The timer fires on its own clock, outside any poll or push: without
+          // this it is a fourth, unguarded way into `runJob` for this account.
+          // Routing it through the same lock as `pass`/`drain` means a fire that
+          // lands mid-reconcile is deferred to that reconcile's own schedule
+          // catch-up instead of running the same due entry a second time.
+          guard: (work) => withAccountLock(accountId, work),
+        }),
       );
+    }
+  };
+
+  /**
+   * Run one unit of work for an account with at most one in flight at a time.
+   *
+   * `reconcileAccount` is reached from three independent triggers — the poll
+   * timer (`pass`), a push wake (`drain`), and a rule's own schedule timer
+   * (`armSchedule`'s callback, wired through `guardedSchedule` below) — and
+   * before this, only `drain` checked `reconciling` at all. A push wake
+   * arriving mid-poll, or a scheduled rule firing mid-reconcile, could start a
+   * second `reconcileAccount` (or a second `runJob`, by the same path) for the
+   * same account while the first was still running, which is exactly the
+   * duplicate execution the job document's own deduplication assumes cannot
+   * happen (ADR 0003 §6). Every caller now goes through here instead of
+   * touching `reconciling` itself, so at most one unit of work per account is
+   * ever in flight, whichever trigger started it. A caller that finds the
+   * account already busy does not wait for it — it marks the account dirty so
+   * a plain reconcile follows once the busy one is done, which is enough: a
+   * scheduled fire that is skipped this way is simply picked up by that
+   * reconcile's own `runDueSchedules` catch-up instead of running twice.
+   */
+  const withAccountLock = async (
+    accountId: string,
+    work: () => Promise<void>,
+  ): Promise<void> => {
+    if (reconciling.has(accountId)) {
+      dirty.add(accountId);
+      return;
+    }
+    reconciling.add(accountId);
+    try {
+      await work();
+    } finally {
+      reconciling.delete(accountId);
     }
   };
 
@@ -266,12 +309,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     for (const accountId of [...dirty]) {
       if (stopped || reconciling.has(accountId)) continue;
       dirty.delete(accountId);
-      reconciling.add(accountId);
-      try {
-        await reconcileAccount(accountId);
-      } finally {
-        reconciling.delete(accountId);
-      }
+      await withAccountLock(accountId, () => reconcileAccount(accountId));
     }
   };
 
@@ -510,7 +548,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
       openStreamIfHeld();
     }
     for (const accountId of servedAccounts)
-      await guarded(accountId, () => reconcileAccount(accountId));
+      await guarded(accountId, () => withAccountLock(accountId, () => reconcileAccount(accountId)));
     return [...servedAccounts];
   };
 

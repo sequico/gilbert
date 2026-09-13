@@ -231,7 +231,10 @@ async function pdfPageTexts(
   try {
     const document = await task.promise;
     const texts: string[] = [];
-    const last = Math.min(document.numPages, Math.max(1, Math.floor(maxPages)));
+    // A bound of zero means zero, the same as it does for the images below: a
+    // deployment or installation that asks for no pages must get none, not
+    // page one's text read and billed anyway.
+    const last = Math.min(document.numPages, Math.max(0, Math.floor(maxPages)));
     for (let page = 1; page <= last; page++) {
       const content = await (await document.getPage(page)).getTextContent();
       const text = content.items
