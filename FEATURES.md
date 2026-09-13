@@ -493,6 +493,21 @@ and in the client alike. A share is never administered or served as a group.
   the group's agent go through one signature function. Mail written in another
   client carries that client's own body and signature; there is no server-side
   footer and none is planned (ADR 0007).
+- **System Sieve** (ADR 0008), under *Stalwart* in the administration: an
+  editor for Stalwart's own **trusted, server-wide** Sieve scripts — the
+  `x:SieveSystemScript` JMAP registry object, not an account's own filters
+  (Settings → Filters & rules). The write runs as the signed-in
+  administrator's own session — no impersonation, since the object belongs to
+  no account — gated by `requireAdmin` and, on Stalwart's side, permissions
+  separate from Gilbert's own admin marker. Stalwart compiles the script on
+  save and a bad one comes back as a refusal, not a stored document. Unlike a
+  person's own filters, **more than one system script can be active at
+  once** — each is invoked by name from Stalwart's own pipeline
+  configuration, which this surface does not manage — and two active scripts
+  cannot share a case-insensitive name. The source is edited in
+  **`SieveEditor`**, the CodeMirror 6 (`@codemirror/legacy-modes`' `mode/sieve`
+  grammar) widget this surface shares with the personal "Scripts (advanced)"
+  tab, which the same component now backs in place of a plain textarea.
 - **A save button offers only a change it would make.** Every save in the
   administration is dimmed until there is something to apply and enabled from
   the moment there is, measured against what the surface last read back from
@@ -504,14 +519,14 @@ and in the client alike. A share is never administered or served as a group.
 Gilbert Mailer (policy, forced passwords, group label catalogs), Gilbert
 Assistant (the agent fleet and what it does per group), server configuration
 under “Stalwart” (**Enforce Identities**, one section with a tab per kind of
-principal, and a future Sieve editor with its peers), and About ungrouped at
-the tail.
+principal, and **System Sieve**, its trusted, server-wide Sieve scripts), and
+About ungrouped at the tail.
 - **Where the documents live**: policy and settings documents sit in each
 account's hidden `gilbert` app folder; the per-user policy layer (values
 and enforced flags per user, named profiles, publishing per user or per
 group) is the next layer on the same document shape (ADR 0001).
 
-This section is written for the state of 2026-09-11 and is kept current on
+This section is written for the state of 2026-09-13 and is kept current on
 every change that touches a feature and on every upstream merge (repo rule:
 `.codewhale/instructions.md`, "The feature inventory stays current").
 

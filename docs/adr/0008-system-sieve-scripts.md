@@ -20,16 +20,26 @@ is one such object.
 Stalwart 0.16.21 (the release this product validates against) holds a system
 script as `SieveSystemScript { name, description, isActive, contents }`
 (`crates/registry/src/schema/structs.rs`), reachable over JMAP as
-`x:SieveSystemScript/get`, `/set` and `/query` — the same `x:{Object}/{method}`
-shape Gilbert already speaks for `x:AppPassword`, `x:AccountPassword` and
+`x:SieveSystemScript/get` and `/set` — the same `x:{Object}/{method}` shape
+Gilbert already speaks for `x:AppPassword`, `x:AccountPassword` and
 `x:AccountSettings` (`server/src/account.ts`, `server/src/upstream.ts`). This
 is not a new integration mechanism, only a new object type on the door the
 product already opens; `STALWART_CAP` (`server/src/jmap.ts`) stays the
-capability that gates it.
+capability that gates it. Stalwart also exposes `/query`
+(`SysSieveSystemScriptQuery`); this decision does not call it — `/get` with
+`ids: null` already lists every script, the way `x:AppPassword/get` already
+does for a person's own app passwords.
 
 A system script is not scoped to any account, so writing one needs no
-impersonation (ADR 0001): the call runs directly as the signed-in
-administrator's own session. More than one system script can be active at
+impersonation (ADR 0001): the call runs as the signed-in administrator's own
+session, through a bespoke route (`server/src/adminSieve.ts`, wired in
+`server/src/app.ts`'s "System Sieve scripts" section) rather than the client
+calling JMAP directly — the shape every other admin write in this product
+already takes (identities, policy, forced passwords), so `requireAdmin` gates
+the route itself and not only whether the section is shown. `accountId(ctx)`
+(exported from `server/src/account.ts`) is threaded through because JMAP
+requires one on every call; Stalwart ignores it for an object type that is
+not account-filtered. More than one system script can be active at
 once — Stalwart keeps them in a name-keyed map and refuses two active scripts
 sharing a case-insensitive name (`crates/common/src/config/mailstore/scripts.rs`)
 — because each is invoked individually, by name, from wherever Stalwart's own
@@ -58,10 +68,12 @@ names it rather than showing a bare failure.
 `x:SieveSystemScript/set` compiles the script against Stalwart's trusted
 runtime before accepting it (`validate_sieve_script(..., is_system: true)` in
 `crates/jmap/src/registry/set.rs`) and answers a bad script with a structured
-`SetError` rather than storing it. The admin surface reads that error exactly
-as `ScriptsEditor`'s `sieve.validate` already reads a personal script's
-compile error — no Sieve compiler is written or bundled on the client for
-either surface.
+`SetError` rather than storing it. Unlike a personal script, there is no
+separate `SieveScript/validate`-shaped preflight for a system one: the admin
+surface reads the compile error straight off the save's own refusal
+(`saveSystemSieveScript` in `server/src/adminSieve.ts` turns the `SetError`
+into the message `SystemSieve.tsx` shows). No Sieve compiler is written or
+bundled on the client for either surface.
 
 ## The editor
 
@@ -86,17 +98,20 @@ widget syntax-highlighting both a person's script and a system one, never two.
 
 ## The admin surface
 
-A new section, **System Sieve**, under the admin navigation's existing
-**Stalwart** group (`web/src/views/AdminView.tsx`), beside **Enforce
-Identities** (ADR 0007) — the same group, the same precedent for a
-Stalwart-record surface reading and writing JMAP straight from the client
-through the existing `/api/jmap` proxy rather than a bespoke server route
-(`AdminUsers.tsx` already does this for `Principal/query` and `Principal/get`).
-It lists every system script by name and active state
-(`x:SieveSystemScript/query` + `/get`), opens one in `SieveEditor`, and offers
-the same verbs `ScriptsEditor` already gives a person for their own script —
-create, edit, validate, save, activate, deactivate, delete — with the one
-difference that activating a system script does not deactivate another.
+A new section, **System Sieve** (`web/src/views/admin/SystemSieve.tsx`),
+under the admin navigation's existing **Stalwart** group
+(`web/src/views/AdminView.tsx`), beside **Enforce Identities** (ADR 0007).
+The client reaches it through `web/src/lib/adminSieve.ts`, one function per
+route on `/api/admin/sieve/system*` — the same shape `web/src/lib/agents.ts`
+already gives the agent admin surfaces, not a direct JMAP call from the
+browser. It lists every system script by name, description and active state
+(without contents, kept out of the list answer), opens one in `SieveEditor`
+with its contents fetched separately, and offers the same verbs
+`ScriptsEditor` already gives a person for their own script — create, edit,
+save, activate, deactivate, delete — with two differences: activating a
+system script does not deactivate another, and there is no separate
+"Validate" step, since Stalwart's own compile check runs on save itself
+(there is no system-script equivalent of `SieveScript/validate`).
 
 ## Consequences
 
@@ -109,12 +124,15 @@ difference that activating a system script does not deactivate another.
   still lack `sysSieveSystemScript*`, and the surface must say which grant is
   missing rather than report a bare 403.
 - `SieveEditor` being shared means a change to how Sieve is edited —
-  highlighting, how a validation error is shown, the keymap — is made once
-  and both the personal and the admin surface carry it; a regression there
-  reaches both.
-- `server/src/mock/index.ts` carries no `x:SieveSystemScript` handlers yet: an
-  implementation of this decision owes the mock the same parity every JMAP
-  behaviour Gilbert depends on already requires (`gilbert-stalwart`).
+  highlighting, how a save error is shown, the keymap — is made once and both
+  the personal and the admin surface carry it; a regression there reaches
+  both.
+- `server/src/mock/index.ts` carries `x:SieveSystemScript/get` and `/set`
+  handlers for mock parity (`gilbert-stalwart`); the mock does not model
+  Stalwart's own `sysSieveSystemScript*` permission split, only
+  `requireAdmin` — a brace-balance check stands in for a real Sieve compile,
+  enough to exercise "a bad script is refused, not stored" without a Sieve
+  compiler in the mock.
 
 ## Verified against Stalwart
 
@@ -132,18 +150,29 @@ probe, the way ADR 0003's live checks are recorded.
 
 ## References
 
+- `server/src/adminSieve.ts` — the five operations, over `JmapClient` as the
+  administrator's own session
+- `server/src/app.ts` — the "System Sieve scripts" route section
+  (`requireAdmin`), `accountCtx`
+- `server/src/account.ts` — `accountId(ctx)`, exported for this module; the
+  existing `x:AppPassword`/`x:AccountPassword` call pattern this one repeats
+- `server/src/jmap.ts` — `STALWART_CAP`, `JmapClient`
+- `server/src/mock/index.ts` — the `x:SieveSystemScript` handlers
+- `server/src/admin-sieve.test.ts`, `server/src/admin-sieve-nonadmin.test.ts`
+  — the CRUD flow, the two refusals, the `requireAdmin` gate
+- `web/src/lib/adminSieve.ts` — one function per route, the shape
+  `web/src/lib/agents.ts` already gives the agent admin surfaces
+- `web/src/views/admin/SystemSieve.tsx` — the admin surface
+- `web/src/ui/SieveEditor.tsx` — the shared CodeMirror component
 - `web/src/views/settings/FiltersSettings.tsx` — `ScriptsEditor`, the personal
-  script editor this reuses `SieveEditor` from
+  script editor `SieveEditor` also backs
 - `web/src/store/sieve.ts` — the existing per-account Sieve store
-  (`GILBERT_SCRIPT`)
+  (`GILBERT_SCRIPT`), for contrast: a blob-backed JMAP object, not a registry
+  one
 - `web/src/views/AdminView.tsx` — the **Stalwart** admin nav group
-- `web/src/views/admin/AdminUsers.tsx` — precedent for an admin surface
-  speaking JMAP directly through `/api/jmap`
-- `server/src/account.ts`, `server/src/upstream.ts` — the existing `x:`
-  registry call pattern
-- `server/src/jmap.ts` — `STALWART_CAP`
 - `@codemirror/state`, `@codemirror/view`, `@codemirror/commands`,
-  `@codemirror/language`, `@codemirror/legacy-modes` (npm, MIT)
+  `@codemirror/language`, `@codemirror/legacy-modes`, `@lezer/highlight`
+  (npm, MIT)
 - ADR 0001 — `requireAdmin`, impersonation, a permission grantable apart from
   the admin marker
 - ADR 0007 — the **Stalwart** admin nav group, a form shared between a

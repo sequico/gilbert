@@ -32,6 +32,14 @@ import {
   readAccountPolicy,
   writeAccountPolicy,
 } from "./adminPolicy.js";
+import {
+  deleteSystemSieveScript,
+  getSystemSieveScript,
+  listSystemSieveScripts,
+  SystemSieveError,
+  saveSystemSieveScript,
+  setSystemSieveScriptActive,
+} from "./adminSieve.js";
 import { agentRuleJsonSchema } from "./agent/documents.js";
 import type { AgentGroupAnswer } from "./agent/views.js";
 import {
@@ -2212,6 +2220,96 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       }
     },
   );
+
+  // ---------- System Sieve scripts (ADR 0008) ----------
+
+  /** A refusal from this surface: the code and the sentence, or upstream's. */
+  function systemSieveFailure(c: Context, err: unknown) {
+    if (err instanceof SystemSieveError)
+      return c.json({ error: err.code, message: err.message }, err.status as 400);
+    return upstreamFailure(c, err);
+  }
+
+  interface SystemSieveScriptBody {
+    name?: unknown;
+    description?: unknown;
+    contents?: unknown;
+    activate?: unknown;
+  }
+
+  function readSystemSieveBody(body: SystemSieveScriptBody | null) {
+    const name = typeof body?.name === "string" ? body.name.trim() : "";
+    const contents = typeof body?.contents === "string" ? body.contents : null;
+    if (!name || contents === null) return null;
+    const description =
+      typeof body?.description === "string" && body.description.trim()
+        ? body.description.trim()
+        : null;
+    return { name, description, contents, activate: Boolean(body?.activate) };
+  }
+
+  api.get("/admin/sieve/system", requireSession, requireAdmin, async (c) => {
+    try {
+      const ctx = await accountCtx(c);
+      return c.json({ scripts: await listSystemSieveScripts(ctx) });
+    } catch (err) {
+      return systemSieveFailure(c, err);
+    }
+  });
+
+  api.get("/admin/sieve/system/:id", requireSession, requireAdmin, async (c) => {
+    try {
+      const ctx = await accountCtx(c);
+      return c.json(await getSystemSieveScript(ctx, c.req.param("id")));
+    } catch (err) {
+      return systemSieveFailure(c, err);
+    }
+  });
+
+  api.post("/admin/sieve/system", requireSession, requireAdmin, async (c) => {
+    const parsed = readSystemSieveBody(await readJson<SystemSieveScriptBody>(c));
+    if (!parsed) return c.json({ error: "bad_request" }, 400);
+    try {
+      const ctx = await accountCtx(c);
+      const id = await saveSystemSieveScript(ctx, { id: null, ...parsed });
+      return c.json({ id });
+    } catch (err) {
+      return systemSieveFailure(c, err);
+    }
+  });
+
+  api.put("/admin/sieve/system/:id", requireSession, requireAdmin, async (c) => {
+    const parsed = readSystemSieveBody(await readJson<SystemSieveScriptBody>(c));
+    if (!parsed) return c.json({ error: "bad_request" }, 400);
+    try {
+      const ctx = await accountCtx(c);
+      const id = await saveSystemSieveScript(ctx, { id: c.req.param("id"), ...parsed });
+      return c.json({ id });
+    } catch (err) {
+      return systemSieveFailure(c, err);
+    }
+  });
+
+  api.post("/admin/sieve/system/:id/active", requireSession, requireAdmin, async (c) => {
+    const body = await readJson<{ active?: unknown }>(c);
+    try {
+      const ctx = await accountCtx(c);
+      await setSystemSieveScriptActive(ctx, c.req.param("id"), Boolean(body?.active));
+      return c.json({ ok: true });
+    } catch (err) {
+      return systemSieveFailure(c, err);
+    }
+  });
+
+  api.delete("/admin/sieve/system/:id", requireSession, requireAdmin, async (c) => {
+    try {
+      const ctx = await accountCtx(c);
+      await deleteSystemSieveScript(ctx, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (err) {
+      return systemSieveFailure(c, err);
+    }
+  });
 
   // ---------- JMAP API proxy ----------
   api.post("/jmap", requireSession, apiRateLimited, async (c) => {

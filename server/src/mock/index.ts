@@ -1007,6 +1007,12 @@ let vacation: Obj = {
   htmlBody: null,
 };
 const sieveScripts: Obj[] = [];
+/**
+ * System Sieve scripts (ADR 0008): the `x:SieveSystemScript` registry
+ * object, installation-wide rather than per-account — one list, not one per
+ * principal, unlike `sieveScripts` above.
+ */
+const systemSieveScripts: Obj[] = [];
 /* A calendar in the shared account, so "Shared with me" and a colleague's
    events appearing in the grid can be exercised. Read-only, as a share is. */
 const sharedCalendars: Obj[] = [
@@ -3344,6 +3350,112 @@ const handlers: Record<string, Handler> = {
     return r;
   },
   "SieveScript/validate": () => ({ accountId: ACCOUNT, error: null }),
+  /**
+   * `x:SieveSystemScript` (ADR 0008): a global registry object, so unlike
+   * every other `x:` handler here it does not read `who` at all — one list
+   * for the whole mock installation. Content is not compiled for real; a
+   * brace-balance check stands in for it, enough to exercise "a bad script
+   * is refused with a structured error" without a Sieve compiler in the
+   * mock. Stalwart's own `sysSieveSystemScript*` permission split (ADR
+   * 0008, "Authorization") is not modelled — `requireAdmin` alone gates the
+   * route this reaches.
+   */
+  "x:SieveSystemScript/get": genericGet(systemSieveScripts, "x:SieveSystemScript"),
+  "x:SieveSystemScript/set": (a) => {
+    checkIfInState(a, "x:SieveSystemScript");
+    const badContents = (contents: unknown): string | null => {
+      if (typeof contents !== "string" || !contents.trim())
+        return "Sieve script is empty.";
+      const opens = (contents.match(/\{/g) ?? []).length;
+      const closes = (contents.match(/\}/g) ?? []).length;
+      if (opens !== closes) return "Unbalanced braces in Sieve script.";
+      return null;
+    };
+    const activeNameClash = (name: string, selfId: string | null): boolean =>
+      systemSieveScripts.some(
+        (s) =>
+          s.id !== selfId &&
+          s.isActive &&
+          String(s.name).toLowerCase() === name.toLowerCase(),
+      );
+
+    const created: Obj = {};
+    const notCreated: Obj = {};
+    for (const [cid, obj] of Object.entries((a.create as Obj) ?? {})) {
+      const o = obj as Obj;
+      const name = String(o.name ?? "").trim();
+      const isActive = Boolean(o.isActive);
+      const problem =
+        (!name && "A script needs a name.") ||
+        badContents(o.contents) ||
+        (isActive && activeNameClash(name, null)
+          ? `Another active system Sieve script is already named ${JSON.stringify(name)}, script names are case insensitive.`
+          : null);
+      if (problem) {
+        notCreated[cid] = new SetError("invalidProperties", problem, [
+          "contents",
+        ]).toJSON();
+        continue;
+      }
+      const id = `ss${randomUUID().slice(0, 6)}`;
+      systemSieveScripts.push({
+        id,
+        name,
+        description: typeof o.description === "string" ? o.description : null,
+        isActive,
+        contents: o.contents,
+      });
+      created[cid] = { id };
+    }
+
+    const updated: Obj = {};
+    const notUpdated: Obj = {};
+    for (const [id, patch] of Object.entries((a.update as Obj) ?? {})) {
+      const s = systemSieveScripts.find((x) => x.id === id);
+      if (!s) continue;
+      const p = patch as Obj;
+      const name = p.name !== undefined ? String(p.name).trim() : String(s.name);
+      const contents = p.contents !== undefined ? p.contents : s.contents;
+      const isActive =
+        p.isActive !== undefined ? Boolean(p.isActive) : Boolean(s.isActive);
+      const problem =
+        (!name && "A script needs a name.") ||
+        badContents(contents) ||
+        (isActive && activeNameClash(name, id)
+          ? `Another active system Sieve script is already named ${JSON.stringify(name)}, script names are case insensitive.`
+          : null);
+      if (problem) {
+        notUpdated[id] = new SetError("invalidProperties", problem, [
+          "contents",
+        ]).toJSON();
+        continue;
+      }
+      Object.assign(s, {
+        name,
+        contents,
+        isActive,
+        description: p.description !== undefined ? p.description : s.description,
+      });
+      updated[id] = null;
+    }
+
+    const destroyed: string[] = [];
+    for (const id of (a.destroy as string[]) ?? []) {
+      const i = systemSieveScripts.findIndex((x) => x.id === id);
+      if (i >= 0) {
+        systemSieveScripts.splice(i, 1);
+        destroyed.push(id);
+      }
+    }
+
+    return setResp("x:SieveSystemScript", {
+      created,
+      updated,
+      destroyed,
+      ...(Object.keys(notCreated).length ? { notCreated } : {}),
+      ...(Object.keys(notUpdated).length ? { notUpdated } : {}),
+    });
+  },
   "Calendar/get": (a) => genericGet(calendarsFor(a.accountId), "Calendar")(a),
   /*
    * `isSubscribed` is deliberately not among the defaults a new calendar is

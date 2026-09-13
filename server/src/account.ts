@@ -58,7 +58,13 @@ export class AccountError extends Error {
 /* Transport                                                           */
 /* ------------------------------------------------------------------ */
 
-function accountId(ctx: Ctx): string {
+/**
+ * The signed-in session's own account — exported for `adminSieve.ts`, which
+ * writes a global registry object (no account of its own to scope to) as the
+ * administrator's own session rather than an impersonated one, and needs the
+ * same accountId Stalwart's `x:*` calls otherwise ignore but still require.
+ */
+export function accountId(ctx: Ctx): string {
   return (
     ctx.session.primaryAccounts?.[STALWART_CAP] ??
     ctx.session.primaryAccounts?.["urn:ietf:params:jmap:mail"] ??

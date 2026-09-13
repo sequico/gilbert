@@ -26,6 +26,7 @@ import { useMail } from "@/store/mail";
 import { useSieve } from "@/store/sieve";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { Spinner, Switch } from "@/ui/misc";
+import { SieveEditor } from "@/ui/SieveEditor";
 import { toast } from "@/ui/toast";
 import { saveAndApply } from "../mail/FilterFromMessage";
 import { RuleDialog } from "./RuleDialog";
@@ -491,14 +492,7 @@ function ScriptsEditor() {
         </div>
         <div className="field">
           <label>{t("Sieve source")}</label>
-          <textarea
-            className="code notranslate"
-            translate="no"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            spellCheck={false}
-            style={{ minHeight: 320 }}
-          />
+          <SieveEditor value={content} onChange={setContent} minHeight={320} />
         </div>
         {validation && <div className="error-box mb-16">{validation}</div>}
         <div className="row save-bar">
