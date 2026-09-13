@@ -193,11 +193,11 @@ test("every request carries the zero-retention opt-out, temperature 0 and JSON o
   assert.equal(seen.body.model, "a-small-model");
   // Every answer is capped, and a provider that reported no usage says
   // nothing at all rather than reporting zeros: the meter reads the second as
-  // "a run nobody can price" (ADR 0010: an uncapped answer is an uncapped
+  // "a run nobody can price" (ADR 0003: an uncapped answer is an uncapped
   // bill).
   assert.equal(seen.body.max_tokens, MODEL_MAX_OUTPUT_DEFAULT);
   // This mock reports no `usage` field at all, so the call is uncounted —
-  // `undefined`, not a null-filled reading (`usageOf` in llm.ts, ADR 0010).
+  // `undefined`, not a null-filled reading (`usageOf` in llm.ts, ADR 0003).
   assert.equal(usage, undefined);
   const messages = seen.body.messages as Array<{ role: string; content: string }>;
   assert.equal(messages[0]?.role, "system");
@@ -613,7 +613,7 @@ test("a document longer than the bound says how many pages were never read", asy
 });
 
 /**
- * The author's notes, and the author's reading (ADR 0010).
+ * The author's notes, and the author's reading (ADR 0003).
  *
  * A note lives in the document beside the prose so a later editor reads why it
  * is written the way it is, and it is **not** part of any call: the prompt a run
@@ -705,7 +705,7 @@ test("an address inside the network is refused unless the deployment says so", (
 });
 
 /**
- * What one page may cost the process (ADR 0010).
+ * What one page may cost the process (ADR 0003).
  *
  * The byte ceiling on a file bounds what arrives, and this bounds what a page
  * becomes: an A0 sheet at twice its own size is about 128 MB of pixels, which a

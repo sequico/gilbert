@@ -1,5 +1,5 @@
 /**
- * The worker: the agent's own process (ADR 0003 §2, v1 scope).
+ * The worker: the agent's own process (ADR 0003, v1 scope).
  *
  * Same codebase, second entrypoint. It authenticates as the one structure agent
  * the installation registered, claims the group accounts it will serve, and
@@ -283,7 +283,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
    * second `reconcileAccount` (or a second `runJob`, by the same path) for the
    * same account while the first was still running, which is exactly the
    * duplicate execution the job document's own deduplication assumes cannot
-   * happen (ADR 0003 §6). Every caller now goes through here instead of
+   * happen (ADR 0003). Every caller now goes through here instead of
    * touching `reconciling` itself, so at most one unit of work per account is
    * ever in flight, whichever trigger started it. A caller that finds the
    * account already busy does not wait for it — it marks the account dirty so
@@ -497,7 +497,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     // once, rather than failing against it on every pass for as long as the
     // worker runs — and nothing here writes or touches a claim: the leases it
     // still holds under that account lapse on their own, which is how a
-    // withdrawal is meant to end (ADR 0003 §2).
+    // withdrawal is meant to end (ADR 0003).
     const gone = withdrawnAccounts(knownAccounts, accounts);
     knownAccounts = new Map(
       accounts.map((accountId) => [accountId, groupNameOf(deps.ctx.session, accountId)]),

@@ -78,7 +78,7 @@ export interface ActionOpts {
    *
    * The run's bound rather than one action's: `document.read` reads at most
    * this many pages, and the same number is what a run's prompt states, so what
-   * the model is told and what the action reads cannot disagree (ADR 0010).
+   * the model is told and what the action reads cannot disagree (ADR 0003).
    */
   maxPages?: number;
   /** The instant the run works from, so a test can pin what a draft records. */
@@ -714,7 +714,7 @@ async function runOne(
           // so is what that means: there is no OCR here, and this action reads
           // text. A run woken by the file hands those pages to the model as
           // images; an action that named them and said nothing else would let a
-          // reader conclude the page says nothing (ADR 0010).
+          // reader conclude the page says nothing (ADR 0003).
           pixelPages: read.pixelPages,
           ...(read.pixelPages.length && !read.text.trim()
             ? {
@@ -862,7 +862,7 @@ interface DocumentSource {
  * the run.
  *
  * A file the action cannot name is refused by its own code rather than skipped
- * (ADR 0010): an action that quietly did nothing would leave the run reading
+ * (ADR 0003): an action that quietly did nothing would leave the run reading
  * "done" over work that never happened.
  */
 async function documentSourceOf(

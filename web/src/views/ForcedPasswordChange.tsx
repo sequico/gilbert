@@ -6,7 +6,7 @@ import { useSession } from "@/store/session";
 import { PasswordForm } from "@/views/settings/SecuritySettings";
 
 /**
- * The forced-password-change wall (ADR 0004).
+ * The forced-password-change wall (ADR 0001).
  *
  * The server answers 403 `password_change_required` on every data route while
  * the account's directive stands, so this screen is the only usable one for

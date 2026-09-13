@@ -13,7 +13,7 @@
  * model gives, and the sentence under the field says so where a person writing
  * it can read it.
  *
- * The group is handed in rather than picked here (ADR 0014): the Group Agents
+ * The group is handed in rather than picked here (ADR 0003): the Group Agents
  * workspace owns one pick for all of its tabs, and a second picker inside a
  * tab was a second answer to the same question.
  */
@@ -37,7 +37,7 @@ export function GroupInstruction({ group }: { group: string }) {
   });
   const [max, setMax] = useState(4000);
   // The author's remarks beside the prose: carried in the same document, read by
-  // nobody's model (ADR 0010).
+  // nobody's model (ADR 0003).
   const [notes, setNotes] = useState("");
   const [notesBaseline, setNotesBaseline] = useState("");
   const [notesMax, setNotesMax] = useState(2000);
@@ -103,7 +103,7 @@ export function GroupInstruction({ group }: { group: string }) {
   };
 
   /**
-   * Ask the installation's model to read this draft (ADR 0010). Nothing is
+   * Ask the installation's model to read this draft (ADR 0003). Nothing is
    * saved: the answer is shown beside the field it is about and forgotten when
    * the panel closes, which is what an author's reading is.
    */

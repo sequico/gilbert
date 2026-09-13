@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The admin Users surface (ADR 0001 §5, ADR 0001): the directory
+ * The admin Users surface (ADR 0001): the directory
  * enumeration returns individual accounts only (groups filtered out by the
  * Principal/query type filter), the impersonation probe says whether this
  * session may act, and non-admins get 403.

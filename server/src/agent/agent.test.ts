@@ -38,7 +38,7 @@ after(() => {
 });
 
 test("the accounts a v1 agent may serve are the group mailboxes", async () => {
-  // The session the daemon runs with is the agent's own (ADR 0003 §1): it holds
+  // The session the daemon runs with is the agent's own (ADR 0003): it holds
   // the groups it is granted, and nothing of a person's — `design@example.org`
   // is the agent's group and not the demo user's, which is why the fixture is
   // this session and not the demo's.
@@ -166,7 +166,7 @@ test("the health endpoint answers a probe and nothing else", async () => {
 
 test("a second agent takes over a stale lease, and never double-serves", async () => {
   // Two handles are two processes as far as the documents are concerned: the
-  // claim is the only thing that says who serves an account (ADR 0003 §6).
+  // claim is the only thing that says who serves an account (ADR 0003).
   // What has to hold is that a live holder is left alone and a dead one is
   // taken over with its catch-up states intact.
   const store = new AgentStore(ctx, GROUP);
@@ -269,7 +269,7 @@ test("a grant that is withdrawn is reported, and stops being served", async () =
   // this installation never sees: the group simply leaves the agent's session.
   // What the pass must do then is stop serving it and say so where it can still
   // write — its own account — rather than failing against it on every pass
-  // (ADR 0003 §2).
+  // (ADR 0003).
   const own = {
     authorization: AUTH,
     session: await fetchUpstreamSession(AUTH, BASE),

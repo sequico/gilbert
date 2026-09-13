@@ -11,7 +11,7 @@
  * must not lose a race passes the FileNode state it read as `ifInState`, and
  * the server refuses the write when anything in the account changed since.
  * That is the whole coordination model: documents plus compare-and-set
- * (ADR 0003 §6).
+ * (ADR 0003).
  */
 
 import {

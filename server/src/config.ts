@@ -124,7 +124,7 @@ if (immutable)
 
 /**
  * The bootstrap policy: what an account runs on before any administrator has
- * published one through `POST /admin/policy` (ADR 0015), and what an account
+ * published one through `POST /admin/policy` (ADR 0001), and what an account
  * the last publish did not yet reach falls back to.
  *
  * A school turning on "warn about outside senders" for three thousand pupils
@@ -143,7 +143,7 @@ if (immutable)
  *   reporter's own analogy is a schema migration and this is that shape.
  *
  * Read once from the environment at boot -- not from a file: everything this
- * installation decides durably lives in Stalwart (ADR 0015), one account at a
+ * installation decides durably lives in Stalwart (ADR 0001), one account at a
  * time, and an environment variable is the one piece of that which is allowed
  * to live beside the container instead, because it is what seeds the very
  * first account before any publish has happened at all.
@@ -362,7 +362,7 @@ const agentWorkerSettings = {
    * the agent rather than of a rule because a group is held by one agent at a
    * time — and every run records the setting it used beside the tokens it
    * spent, so a behaviour that changed with the machine that ran it is
-   * readable rather than inferred (ADR 0010).
+   * readable rather than inferred (ADR 0003).
    */
   thinking: bool("GILBERT_AGENT_THINKING", true),
   /**
@@ -372,7 +372,7 @@ const agentWorkerSettings = {
    * Off by default, and it is the **operator's** statement rather than a
    * document's: the configuration an installation writes is refused when it
    * names a private host, and this is what says the deployment meant one
-   * (ADR 0010).
+   * (ADR 0003).
    */
   allowPrivateProvider: bool("GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER", false),
   /**
@@ -381,7 +381,7 @@ const agentWorkerSettings = {
    * True is the common case and the default; a deployment running a
    * text-only model says so, and then a run handed a page with no text layer is
    * told that the page could not be read rather than being told an image was
-   * handed over (ADR 0010).
+   * handed over (ADR 0003).
    */
   vision: bool("GILBERT_AGENT_VISION", true),
   /**
@@ -390,11 +390,11 @@ const agentWorkerSettings = {
    * A reading is a call the installation pays for and it is not a run, so no
    * job's ceiling bounds it: this is the bound, counted from the authoring
    * document of the month, and a reading past it is refused before it is made
-   * (ADR 0010).
+   * (ADR 0003).
    */
   authoringMonthlyMax: int("GILBERT_AGENT_AUTHORING_MAX_PER_MONTH", 200),
   /*
-   * How many pages one run may hand the model as images (ADR 0010). A page
+   * How many pages one run may hand the model as images (ADR 0003). A page
    * whose own text layer is empty is rasterised in the process and read by the
    * model, and a document is as long as whoever sent it made it — so the count
    * is a bound the installation sets rather than one the file decides. The run
@@ -408,7 +408,7 @@ const agentWorkerSettings = {
   maxPages: Math.max(1, int("GILBERT_AGENT_MAX_PAGES", AGENT_MAX_PAGES_DEFAULT)),
   /*
    * How many hops a chain of automations runs before the next one is refused
-   * (ADR 0010). Hop one is the trigger that wakes a rule by itself, and a run
+   * (ADR 0003). Hop one is the trigger that wakes a rule by itself, and a run
    * woken by another run's effect is one more; a cycle of automations that wake
    * each other ends here. The number is carried in the installation's
    * configuration rather than compiled in, so a deployment with a legitimately

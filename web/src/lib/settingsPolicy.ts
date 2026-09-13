@@ -11,7 +11,7 @@ import { DEFAULT_SETTINGS, type Settings, useSettings } from "@/store/settings";
  * visible and go dead, which is what the issue asked for: hiding them confuses
  * somebody who has used Gilbert somewhere without a policy.
  *
- * Fetched once per account, from `/api/account/policy` (ADR 0015) —
+ * Fetched once per account, from `/api/account/policy` (ADR 0001) —
  * authenticated, since the policy is now a fact about the signed-in account's
  * own copy of the published document rather than a fact about the
  * installation everybody saw before signing in. Called after `accountId` is
@@ -45,7 +45,7 @@ const EMPTY: SettingsPolicy = { defaults: {}, enforced: {}, changes: [] };
  * nothing" from "nobody has managed to ask", and only the first of those is an
  * answer a write may be measured against. Asking is the difference: the
  * endpoint is the signed-in account's own copy of the published document
- * (ADR 0015), so a session that has just signed in can meet a 401 on it, a
+ * (ADR 0001), so a session that has just signed in can meet a 401 on it, a
  * server having a bad minute a 5xx -- and a page load with no enforced map at
  * all, an administrator's setting neither applied nor locked, with nothing on
  * screen saying the policy was never read.
@@ -258,7 +258,7 @@ async function readPolicy(): Promise<PolicyRead> {
  *
  * The first fetch is cached for the page lifetime, so a session that
  * re-signs-in on the same page — or an administrator who has just published a
- * policy (ADR 0004) — would keep the policy fetched before the publish. This
+ * policy (ADR 0001) — would keep the policy fetched before the publish. This
  * forgets it and loads again, and the load completion logic (the enforcement
  * re-apply) runs exactly as it does for the first fetch. A load that comes back
  * `unavailable` is not kept either, so asking again is always a real attempt.

@@ -211,6 +211,13 @@ enabled per clone with `git config core.hooksPath .githooks`, bypass only
 deliberately with `--no-verify`. Remote CI does not run on push: it is the
 release pre-check, with one exception -- pull requests opened by Dependabot run
 it automatically (their branches never pass through the local hook).
+**The full gate closes a turn; it is not a during-turn habit** (owner decision
+2026-09-13): while a turn is working, the checks are the narrow ones —
+`npm run typecheck`, `biome check` on the files touched, the affected test
+files, the check scripts — and `npm run prepush` runs once, at the end, on a
+tree whose work has stopped moving (the push hook runs it too). A dispatched
+child never runs `prepush`, and a full run in the middle of a turn is not
+evidence of anything except that the work waited for it.
 No commit or push unless the user's message in the current turn says so.
 **The feature inventory stays current.** `FEATURES.md` is the inventory of
 what Gilbert does (its upstream text arrives by merge, renamed); every

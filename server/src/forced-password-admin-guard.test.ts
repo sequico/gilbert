@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The admin half of the forced-password-change endpoints (ADR 0004): without
+ * The admin half of the forced-password-change endpoints (ADR 0001): without
  * the admin marker in the session's `/api/account` permission list the guard
  * answers 403 before anything touches the target. The mock also refuses the
  * composite `{target}%{admin}` impersonation username when the master does

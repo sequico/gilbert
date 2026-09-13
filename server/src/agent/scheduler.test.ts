@@ -3,7 +3,7 @@ import { test } from "node:test";
 import type { AgentRule, AgentScheduleEntry } from "./documents.js";
 
 /**
- * Time triggers on documents (ADR 0003 §5).
+ * Time triggers on documents (ADR 0003).
  *
  * The planning, the due check and the advance are pure, so they are tested
  * against instants; `armTimers` is armed with a clock and a timer queue the
@@ -238,7 +238,7 @@ test("a due run no rule can run is the same entry for the record and for the wri
   // gone, or a rule the clock no longer wakes. One predicate answers that
   // question for both readers, so an entry cannot be dropped by the writer that
   // carries a peer's entries and left unrecorded by the pass that writes the
-  // missed runs down (ADR 0003 §5).
+  // missed runs down (ADR 0003).
   const now = new Date("2026-09-10T10:00:00.000Z");
   const due: AgentScheduleEntry[] = [{ ruleId: "r1", at: now.toISOString() }];
   const moved = [rule({ trigger: { on: "email" } })];

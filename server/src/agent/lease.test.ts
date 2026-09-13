@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 
 /**
- * The claim machinery against the mock's FileNode store (ADR 0003 §6).
+ * The claim machinery against the mock's FileNode store (ADR 0003).
  *
  * The mock **does** enforce `ifInState` (`compare-and-set.test.ts` pins it), so
  * a write whose state moved is refused exactly as a real 0.16 server refuses
@@ -193,7 +193,7 @@ test("two agents racing for one unit: exactly one wins", async () => {
   assert.equal(
     [one, two].filter(Boolean).length,
     1,
-    "two workers must never both believe they hold the same unit (ADR 0003 §6)",
+    "two workers must never both believe they hold the same unit (ADR 0003)",
   );
   const held = await store.readClaim();
   assert.ok(held);

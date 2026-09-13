@@ -36,7 +36,7 @@ export interface AgentStatusGroup {
 
 /**
  * What the installation has spent, over the window the group panels read
- * (ADR 0010).
+ * (ADR 0003).
  *
  * The total is the sum of every group the agent holds — complete by
  * construction, because the agent's own session is the reach and there is no
@@ -106,7 +106,7 @@ export interface AgentStatus {
   /** The agent's address, as the deployment names it; empty when it names none. */
   address: string;
   groups: AgentStatusGroup[];
-  /** The installation's use, and the split per agent (ADR 0010). */
+  /** The installation's use, and the split per agent (ADR 0003). */
   meter: AgentStatusMeter;
   workers: AgentStatusWorker[];
   /** Grants the fleet has lost, newest first, as its workers reported them. */
@@ -424,7 +424,7 @@ export interface GroupInstructionView {
   /**
    * The author's remarks beside the prose. Carried in the document so they
    * survive a container, and read by nobody's model: a run's prompt is the
-   * instruction and nothing beside it (ADR 0010).
+   * instruction and nothing beside it (ADR 0003).
    */
   notes: string;
   updatedAt: string | null;
@@ -440,7 +440,7 @@ export interface GroupInstructionView {
  *
  * The answer is shown where it was asked for and stored nowhere — it compiles
  * nothing, produces no document, and is not a run — so this is the whole shape
- * of it (ADR 0010).
+ * of it (ADR 0003).
  *
  * `counted` is false when the words reached the reader and the month's
  * authoring document did not take the entry: the tokens are spent either way,

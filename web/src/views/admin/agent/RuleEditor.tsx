@@ -70,7 +70,7 @@ export function RuleEditor({
   const schedule = view?.granted ? view.schedule : [];
   // Why the document would be refused as it stands, if it would: the server's
   // own reason, so the form cannot drift from what the executor accepts
-  // (ADR 0003 §4, `ruleProblem`).
+  // (ADR 0003, `ruleProblem`).
   const draftProblem = draft ? draftProblemOf(draft) : null;
   // Saving a rule that is identical to the one it was opened from writes back
   // what is already stored, which is not something to offer: a new automation
@@ -232,7 +232,7 @@ export function RuleEditor({
       </p>
       {/* What this group's runs have cost, read from the same trail the panel
           below shows: the counts ride the entries, so the two cannot disagree
-          (ADR 0010). */}
+          (ADR 0003). */}
       {view?.granted && (
         <p className="hint" style={{ marginBottom: 12 }}>
           {meterText(view.meter)}
@@ -374,7 +374,7 @@ function problemOf(rule: AgentRule): string | null {
  *
  * The review policy has no default, so a draft nobody has decided that for is
  * not a document yet: the form says so rather than saving a policy the author
- * never chose (ADR 0010).
+ * never chose (ADR 0003).
  */
 function draftProblemOf(draft: AgentRuleDraft): string | null {
   const document = ruleFromDraft(draft);

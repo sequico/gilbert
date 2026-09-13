@@ -4,7 +4,7 @@ import { after, before, test } from "node:test";
 /**
  * Identities an administrator sets (ADR 0007): a person's through impersonation,
  * a group's as the installation's agent, and the lock that is a fact about that
- * one account, written into its own app folder (ADR 0015).
+ * one account, written into its own app folder (ADR 0001).
  *
  * Three invariants this file exists for, each of which fails if the mechanism
  * goes away:
@@ -15,7 +15,7 @@ import { after, before, test } from "node:test";
  *    granted on is refused by name rather than written anyway;
  *  - the lock changes what the product *offers* — a session that reads it says
  *    so, and no session is ended to make it so — and it does not change what
- *    the server *permits*, which is ADR 0007 §5 stated as a test rather than as
+ *    the server *permits*, which is ADR 0007 stated as a test rather than as
  *    a sentence;
  *  - the lock is answered in three states and not two: an account whose file
  *    this session cannot reach says "unknown" rather than passing for free,
@@ -248,7 +248,7 @@ test("the lock reaches an open session, and ends none", async () => {
     "and the open session is what is told not to offer this account its Identities & signatures section",
   );
 
-  // ADR 0007 §5, as a test: the lock is a rule about the surface. The account
+  // ADR 0007, as a test: the lock is a rule about the surface. The account
   // can still write its own identity, and the administrator still can, because
   // Stalwart has no per-field permission here and this feature does not pretend
   // to be one.
@@ -324,7 +324,7 @@ test("an account this session cannot impersonate answers unknown, never false", 
   /*
    * An app-password session is the way Stalwart refuses impersonation, which is
    * exactly the state the lock file cannot be read from: the file is inside the
-   * account's own app folder (ADR 0015).
+   * account's own app folder (ADR 0001).
    */
   const created = await call("/api/account/app-passwords", adminCookie, {
     method: "POST",
@@ -453,7 +453,7 @@ test("a malformed address is refused before any server is asked", async () => {
 });
 
 /* ------------------------------------------------------------------ */
-/* The default sending identity (ADR 0007 §7)                          */
+/* The default sending identity (ADR 0007)                          */
 /* ------------------------------------------------------------------ */
 
 /**

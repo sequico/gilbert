@@ -567,7 +567,7 @@ export async function readVisibleFileAt(
  *
  * The primitive the readers of the visible tree are built on, because bytes
  * are what a file is: text is a decode of them, and a PDF, a `.docx` or an
- * image is nothing else (ADR 0010: the document family works on the blob).
+ * image is nothing else (ADR 0003: the document family works on the blob).
  */
 export async function readVisibleFileBytes(
   ctx: Ctx,

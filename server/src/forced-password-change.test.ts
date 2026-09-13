@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The forced-password-change door (ADR 0004), end to end against the mock.
+ * The forced-password-change door (ADR 0001), end to end against the mock.
  *
  * The mock knows two principals: the demo user, an admin by default, and the
  * target principal (bob@example.com) whose account the admin acts on through
@@ -248,7 +248,7 @@ test("an app-password sign-in is not gated", async () => {
   assert.equal(
     viaApp.body.gilbert.mustChangePassword,
     false,
-    "an app-password session is not forced (ADR 0004)",
+    "an app-password session is not forced (ADR 0001)",
   );
   const proxied = await jmap(viaApp.cookie);
   assert.equal(proxied.status, 200, "the data path stays open for the app password");

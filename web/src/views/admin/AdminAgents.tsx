@@ -1,6 +1,6 @@
 /**
  * The Gilbert admin "Master" section (ADR 0003 "Admin surfaces", restructured
- * by ADR 0014).
+ * by ADR 0003).
  *
  * The installation's own agent, the one model it runs on, and the groups it
  * has been granted — configured once, and rarely returned to. Everything that

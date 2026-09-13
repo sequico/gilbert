@@ -147,7 +147,7 @@ test("the group's mailboxes answer the agent with maySubmit", async () => {
   assert.equal(
     inbox.myRights.maySubmit,
     true,
-    "a group agent sends as the group: maySubmit is the signal (ADR 0003 §12)",
+    "a group agent sends as the group: maySubmit is the signal (ADR 0003)",
   );
   assert.equal(inbox.myRights.mayAddItems, true);
   assert.equal(inbox.myRights.maySetKeywords, true, "labels are what agent work rides");

@@ -1,5 +1,5 @@
 /**
- * Push is the wake-up, polling is the fallback (ADR 0003 §3).
+ * Push is the wake-up, polling is the fallback (ADR 0003).
  *
  * The agent's own JMAP EventSource says *which account* and *which type*
  * changed — never what changed. That is all this module extracts: an event is

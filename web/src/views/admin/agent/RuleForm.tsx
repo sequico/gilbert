@@ -1,5 +1,5 @@
 /**
- * The automation editor (ADR 0010): an automation is authored as a form —
+ * The automation editor (ADR 0003): an automation is authored as a form —
  * "When [event] / If [filters] / then what it is asked to do" — and never as
  * raw JSON. One rule document in, one out; the caller owns saving.
  *
@@ -128,7 +128,7 @@ export function blankRule(): AgentRuleDraft {
  *
  * An automation is armed by a person's decision about who a run stops for, so
  * the review mode has no default: until it is chosen there is no document to
- * save (ADR 0010).
+ * save (ADR 0003).
  */
 export function ruleFromDraft(draft: AgentRuleDraft): AgentRule | null {
   const review = draft.review;
@@ -154,7 +154,7 @@ export function RuleForm({
 }) {
   const set = (patch: Partial<AgentRuleDraft>) => onChange({ ...rule, ...patch });
   /*
-   * The author's reading (ADR 0010): the draft and what it is about go to the
+   * The author's reading (ADR 0003): the draft and what it is about go to the
    * installation's model, which reads them beside the group's instruction and
    * its notebook and answers in words about the gaps. Nothing is saved: the
    * answer is shown beside the field it is about and forgotten when the panel

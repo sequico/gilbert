@@ -121,7 +121,7 @@ const SECTIONS: Array<SectionItem & { el: ReactNode }> = [
 ];
 
 export function SettingsView({ section }: { section?: string }) {
-  // ADR 0007 §4: an account whose identity an administrator has taken over is
+  // ADR 0007: an account whose identity an administrator has taken over is
   // offered no Identity & signatures section, and no route to one either.
   const identityLocked = useSession((s) => s.identityLocked);
   const sections = visibleSettingsSections(SECTIONS, identityLocked);

@@ -44,7 +44,7 @@ export const AGENT_WORKERS_DIR = "workers";
 /**
  * Where the installation's own authoring calls are counted, in the Master's
  * account: one document a month, beside the runs' audit rather than in it
- * (ADR 0010). A reading is not a run, so it is not a group's ledger that holds
+ * (ADR 0003). A reading is not a run, so it is not a group's ledger that holds
  * it.
  */
 export const AGENT_AUTHORING_DIR = "authoring";
@@ -399,7 +399,7 @@ export function isAgentTriggerOn(x: unknown): x is AgentTriggerOn {
  * Whether this is what woke a job: a rule's four, or a person.
  *
  * Separate from `isAgentTriggerOn` on purpose: a rule may not be woken by a
- * person (ADR 0010 — the ask is a job's provenance, and a rule that could carry
+ * person (ADR 0003 — the ask is a job's provenance, and a rule that could carry
  * it would have to say what it acts on), while a job a person asked for is a run
  * like any other and validates as one. One predicate each, so neither the rule
  * path nor the job path can accept the other's answer.
@@ -443,7 +443,7 @@ export interface AgentRule {
   /**
    * The prose its administrator wrote, and the whole of what a run is asked to
    * do: every run hands it to the model, which answers with actions from the
-   * catalogue (ADR 0010). There is no compiled form to keep in step with it.
+   * catalogue (ADR 0003). There is no compiled form to keep in step with it.
    */
   instruction: string;
   /**
@@ -458,7 +458,7 @@ export interface AgentRule {
    * The author's remarks beside the prose: what it is for, what the automation
    * reacts to, what it may do. Carried in the document so it survives a
    * container, and never part of a run's call — the prompt carries the
-   * instruction and nothing beside it (ADR 0010).
+   * instruction and nothing beside it (ADR 0003).
    */
   notes?: string;
 }
@@ -854,7 +854,7 @@ export type ReviewOutcome = "execute" | "pause";
  * Whether a run may execute unattended.
  *
  * `threshold` is what a new automation starts at, confidence is what the model
- * answered with (there is no run without one, ADR 0010), and the external-send
+ * answered with (there is no run without one, ADR 0003), and the external-send
  * floor holds whatever the mode says unless the owner has explicitly raised
  * it.
  */
@@ -947,7 +947,7 @@ export interface AgentTriggerRecord {
   by?: string;
   /**
    * The job whose own effect woke this one: the lineage a chain is read along
-   * (ADR 0010). Absent when nothing woke this run but its trigger itself, and a
+   * (ADR 0003). Absent when nothing woke this run but its trigger itself, and a
    * manual ask is one of those — a person asking is a trigger like any other.
    */
   parentJobId?: string;
@@ -957,7 +957,7 @@ export interface AgentTriggerRecord {
    * What wakes a rule by itself — an arrival, a file, a request in the group's
    * chat, the clock — is hop one, and a run woken by another run's effect is one
    * more. Absent on records written before the count existed, and read as hop
-   * one, which is what `hopOf` is for (ADR 0010).
+   * one, which is what `hopOf` is for (ADR 0003).
    */
   hop?: number;
   at: string;
@@ -1021,7 +1021,7 @@ export interface AgentJob {
    * Beside `applied`, which says which actions ran: this says which records
    * moved, and that is what a chain's lineage is read from — a change reports
    * the id of the record that moved, and the job whose effect carried that id is
-   * the job that woke the run the change starts (ADR 0010).
+   * the job that woke the run the change starts (ADR 0003).
    */
   effects?: AgentEffect[];
   /** When the next attempt may start: the backoff between retries. */
@@ -1050,7 +1050,7 @@ export interface AgentEffect {
    * A change says nothing about when the record it names moved, so this is what
    * separates the write a pass is reporting from an earlier write to the same
    * record: only a write inside the window the pass reads explains its change,
-   * and a write without an instant explains nothing (ADR 0010).
+   * and a write without an instant explains nothing (ADR 0003).
    */
   at?: string;
 }
@@ -1144,7 +1144,7 @@ export function newJob(input: {
     ruleVersion: input.rule.version,
     state: "pending",
     // The count starts at the trigger: a job whose caller named no lineage is
-    // one that nothing woke but its own trigger, which is hop one (ADR 0010).
+    // one that nothing woke but its own trigger, which is hop one (ADR 0003).
     trigger: { ...input.trigger, hop: hopOf(input.trigger) },
     attempts: 0,
     createdAt: at,
@@ -1309,7 +1309,7 @@ function isStringMap(x: unknown): x is Record<string, string> {
   );
 }
 
-/** The stream claim: exactly one worker holds the agent's EventSource (ADR §6). */
+/** The stream claim: exactly one worker holds the agent's EventSource (ADR 0003). */
 export interface AgentStreamClaim {
   v: 1;
   worker: string;
@@ -1408,7 +1408,7 @@ export function nextRunAfter(rule: AgentRule, now: Date): Date | null {
  */
 export const AGENT_INSTRUCTION_FILE = "agent/instruction.json";
 
-/** The group's notebook: the facts its agent holds in every call (ADR 0010). */
+/** The group's notebook: the facts its agent holds in every call (ADR 0003). */
 export const AGENT_NOTEBOOK_FILE = "agent/notebook.json";
 
 /** Long enough for a page of house rules, short enough to stay a prompt. */
@@ -1420,7 +1420,7 @@ export const AGENT_INSTRUCTION_MAX = 4000;
  * Notes are the author's own: what the prose is for, what the automation reacts
  * to, what it may do. They are carried in the document so they survive a
  * container, and they are **not** part of any call a run makes — the prompt a
- * run sends is the instruction and nothing beside it (ADR 0010).
+ * run sends is the instruction and nothing beside it (ADR 0003).
  */
 export const AGENT_NOTES_MAX = 2000;
 
@@ -1500,7 +1500,7 @@ export function instructionFor(doc: AgentInstructionDoc | null): string {
  * group — how its mail is filed, what its clients are called, which language it
  * works in, the exceptions — and it is read as data like everything else in a
  * prompt. It is a list of them rather than one blob so a surface can show,
- * change, remove and add one at a time (ADR 0010).
+ * change, remove and add one at a time (ADR 0003).
  */
 export interface AgentNotebookFact {
   /** Stable across edits, so a surface can name the fact it is changing. */
@@ -1545,7 +1545,7 @@ export function isAgentNotebookDoc(x: unknown): x is AgentNotebookDoc {
  * The notebook as a prompt carries it, or "" when there is nothing to say.
  *
  * One line per fact, in the order the group keeps them: the block sits in the
- * prompt's stable head, so it is built the same way every time (ADR 0010).
+ * prompt's stable head, so it is built the same way every time (ADR 0003).
  */
 export function notebookFor(doc: AgentNotebookDoc | null): string {
   const facts = (doc?.facts ?? []).map((fact) => fact.text.trim()).filter(Boolean);
@@ -1605,7 +1605,7 @@ export function isAgentAuditOutcome(x: unknown): x is AgentAuditOutcome {
  * reporting answers for nothing (`timeout`). An entry carrying one of these adds
  * nothing to a meter: counting them would make `runs` a count of entries and
  * `uncounted` a count of silences, and the meter is the group's reading of what
- * its own runs cost (ADR 0010).
+ * its own runs cost (ADR 0003).
  */
 export const UNMETERED_OUTCOMES: ReadonlyArray<AgentAuditOutcome> = [
   "refused",
@@ -1624,7 +1624,7 @@ export interface AgentAuditEntry {
   actions: AgentAction[];
   /** The rule's name and the failure's message, for a readable trail. */
   detail?: string;
-  /** The agent that held the group and spent the call (ADR 0010). */
+  /** The agent that held the group and spent the call (ADR 0003). */
   agent?: string;
   /** Whether the run paid for the model's chain of thought. */
   reasoned?: boolean;
@@ -1642,7 +1642,7 @@ export interface AgentAuditEntry {
  *
  * `null` is "the provider did not say", never zero: a count nobody reported and
  * a count of nothing are different facts, and a meter that showed the first as
- * the second would be a number nobody can check (ADR 0010). `inputMissTokens`
+ * the second would be a number nobody can check (ADR 0003). `inputMissTokens`
  * is what the provider charged full price for, so a provider that reports only
  * a total leaves it null rather than guessing.
  */
@@ -1689,12 +1689,12 @@ export function meterOf(
 ): AgentMeter {
   if (UNMETERED_OUTCOMES.includes(entry.outcome)) return meter;
   // A pass that resumed a plan was counted when the plan was decided: counting
-  // it again would bill one run twice (ADR 0010).
+  // it again would bill one run twice (ADR 0003).
   if (entry.resumed) return meter;
   const usage = entry.usage;
   // Not a row of zeros, whichever way the silence arrived: a provider that
   // reported nothing is a run nobody can price, and it is the only thing the
-  // meter can say about it (ADR 0010).
+  // meter can say about it (ADR 0003).
   const reported =
     usage !== undefined &&
     (usage.inputHitTokens !== null ||
@@ -1758,7 +1758,7 @@ export interface AgentAuditDoc {
  *
  * It carries the counts and no prose: the answer is shown where it was asked
  * for and stored nowhere, so what survives is that the installation spent this
- * much asking about that draft (ADR 0010).
+ * much asking about that draft (ADR 0003).
  */
 export interface AgentAuthoringEntry {
   at: string;
@@ -1828,7 +1828,7 @@ export function isAgentAuditDoc(x: unknown): x is AgentAuditDoc {
 /* ------------------------------------------------------------------ */
 
 /**
- * The installation's model. One entry, not one per classification (ADR 0010).
+ * The installation's model. One entry, not one per classification (ADR 0003).
  *
  * The API key is stored here and read by the executor through the agent's own
  * session; it is write-only in the admin surface, the way an app password is.
@@ -1851,7 +1851,7 @@ export interface AgentConfigDoc {
   /** The one model every automation of this installation runs on. */
   provider?: AgentProvider;
   /**
-   * The ceiling on one answer, in tokens (ADR 0010). The provider's own ceiling
+   * The ceiling on one answer, in tokens (ADR 0003). The provider's own ceiling
    * is enormous and an uncapped answer is an uncapped bill, so the request
    * always carries one: this value, or the default when it is absent.
    */
@@ -1859,7 +1859,7 @@ export interface AgentConfigDoc {
   /**
    * How many hops a chain of automations may run, as this installation sets it.
    * Absent leaves the agent's own default alone, which is what the environment
-   * states (ADR 0010).
+   * states (ADR 0003).
    */
   maxChainHops?: number;
   /** How many pages one run may hand the model as images, as it sets it. */
@@ -1871,7 +1871,7 @@ export const MODEL_MAX_OUTPUT_DEFAULT = 2048;
 
 /**
  * How many pages one run hands the model as images when the installation has
- * not said otherwise (ADR 0010): a page whose own text layer is empty is
+ * not said otherwise (ADR 0003): a page whose own text layer is empty is
  * rendered and read by the model, and a document is as long as whoever sent it
  * made it, so the count is bounded rather than left to the file.
  */
@@ -1883,7 +1883,7 @@ export const AGENT_MAX_PAGES_DEFAULT = 8;
  * The blob is fetched whole before anything can look at it, and a page is held
  * as pixels while it is rendered, so this is the bound on both: a file larger
  * than this is not read here, and the run says so rather than spending the
- * process on it (ADR 0010).
+ * process on it (ADR 0003).
  */
 export const AGENT_DOCUMENT_BYTES_MAX = 32 * 1024 * 1024;
 
@@ -2135,7 +2135,7 @@ export function agentRuleJsonSchema(): Record<string, unknown> {
     $id: "https://gilbert.invalid/schemas/agent-rule.json",
     title: "Gilbert agent rule",
     description:
-      "One automation: what wakes it, what it is asked to do, and what it may do about it (ADR 0010).",
+      "One automation: what wakes it, what it is asked to do, and what it may do about it (ADR 0003).",
     type: "object",
     required: [
       "v",

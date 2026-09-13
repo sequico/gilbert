@@ -1,6 +1,6 @@
 /**
  * The model client: a rule's instruction handed to a model that decides
- * (ADR 0003 resolutions 2 and 7, ADR 0010).
+ * (ADR 0003 resolutions 2 and 7, ADR 0003).
  *
  * Every run asks the model, inside the rule's own grant: the answer names
  * actions from the catalogue, and the review policy decides whether a person
@@ -63,7 +63,7 @@ export interface ModelContext {
   by?: string;
   /**
    * The pages the run hands over as images: the ones a document carries no
-   * text layer for (ADR 0010). They ride after the text, so the prompt's
+   * text layer for (ADR 0003). They ride after the text, so the prompt's
    * stable head is unaffected.
    */
   images?: ReadonlyArray<PageImage>;
@@ -79,7 +79,7 @@ export interface ModelRequest {
    * The shape of the answer this call asks for: `json` (the default) is a
    * structured answer a run acts on, and `prose` is an answer in words — what
    * an author's reading is, since nothing parses it and nothing acts on it
-   * (ADR 0010).
+   * (ADR 0003).
    */
   answer?: "json" | "prose";
   /** The ceiling on this answer, in tokens; the call's default when absent. */
@@ -121,7 +121,7 @@ export interface ModelAnswer {
   text: string;
   /**
    * What the call cost, when the provider said: absent is "it reported
-   * nothing", which is a fact of its own and not a row of zeros (ADR 0010).
+   * nothing", which is a fact of its own and not a row of zeros (ADR 0003).
    */
   usage?: AgentUsage;
 }
@@ -134,7 +134,7 @@ export interface ModelAnswer {
  * instead of answering fails as a malformed answer rather than as a silent
  * empty decision. `temperature: 0` is sent with it and is not what makes a run
  * repeatable: a provider that reasons in thinking mode accepts the sampling
- * parameters and ignores them (ADR 0010), so what bounds an answer is its JSON
+ * parameters and ignores them (ADR 0003), so what bounds an answer is its JSON
  * shape and the rule's capability allowlist, never the temperature.
  */
 export async function callModel(
@@ -155,10 +155,10 @@ export async function callModel(
       temperature: 0,
       // A structured answer is what a run acts on; a reading answers in words,
       // and asking for JSON there would make the model answer a question nobody
-      // asked (ADR 0010).
+      // asked (ADR 0003).
       ...(req.answer === "prose" ? {} : { response_format: { type: "json_object" } }),
       // Every request carries a ceiling: the provider's own is enormous, and an
-      // uncapped answer is an uncapped bill (ADR 0010).
+      // uncapped answer is an uncapped bill (ADR 0003).
       max_tokens: req.maxOutputTokens ?? MODEL_MAX_OUTPUT_DEFAULT,
       // The provider's own switch, sent only when the agent has one to state.
       ...(req.thinking === undefined
@@ -221,7 +221,7 @@ export async function readProse(
  * image.
  *
  * A page travels in the OpenAI-compatible image shape, a PNG data URL rendered
- * in the process (ADR 0010). The blocks sit in the request's tail, after the
+ * in the process (ADR 0003). The blocks sit in the request's tail, after the
  * text, so the prompt's stable head is untouched: what a provider caches on the
  * next call is the same prefix, and an image — fresh bytes on every run — is
  * never part of a cache hit. A call with no page keeps its content a string,
@@ -258,7 +258,7 @@ function count(value: unknown): number | null {
  *
  * A provider that reported none of the three said nothing about the cost, and
  * nothing is what this answers with: a run whose call was never counted is
- * `uncounted` in the meter, not a run that cost zero (ADR 0010).
+ * `uncounted` in the meter, not a run that cost zero (ADR 0003).
  */
 function usageOf(body: unknown): AgentUsage | undefined {
   const usage =
@@ -322,7 +322,7 @@ function rationaleOf(answer: Record<string, unknown>): { rationale?: string } {
  * two: what is true about the group, then how this group wants work done. It is
  * data like everything else — `DATA_NOT_INSTRUCTIONS` says so from the other
  * side — and it lives in the prompt's stable head, so carrying it into every
- * call costs a cache hit rather than a miss (ADR 0010).
+ * call costs a cache hit rather than a miss (ADR 0003).
  */
 /** The group's notebook, as the prompt carries it. One renderer, two callers. */
 export function notebookBlock(notebook?: string): string {
@@ -388,7 +388,7 @@ export interface DecisionAnswer {
   summary: string;
   /**
    * What this call cost, as the provider reported it: absent when it reported
-   * nothing, so the meter can say `uncounted` rather than nothing (ADR 0010).
+   * nothing, so the meter can say `uncounted` rather than nothing (ADR 0003).
    */
   usage?: AgentUsage;
 }
@@ -397,7 +397,7 @@ export interface DecisionAnswer {
  * How many pages this call may be handed as images, in the prompt's own words.
  *
  * A run reads a bounded number of pages rather than as many as a document
- * happens to have (ADR 0010), and the number is stated here so the run knows
+ * happens to have (ADR 0003), and the number is stated here so the run knows
  * its budget: what it cannot see, it cannot be asked to decide about.
  */
 function pageBudget(maxPages: number): string {
@@ -428,7 +428,7 @@ export async function decideActions(
   options: {
     maxOutputTokens?: number;
     thinking?: boolean;
-    /** How many pages this call may be handed as images (ADR 0010). */
+    /** How many pages this call may be handed as images (ADR 0003). */
     maxPages?: number;
   } = {},
 ): Promise<DecisionAnswer> {
@@ -447,7 +447,7 @@ export async function decideActions(
     'Parameters a capability does not take are refused; leave "with" out when the capability takes none.',
     pageBudget(options.maxPages ?? AGENT_MAX_PAGES_DEFAULT),
     // The stable head ends here and the group's own context begins, in the
-    // order ADR 0010 declares it: the notebook, then the group's standing
+    // order ADR 0003 declares it: the notebook, then the group's standing
     // instruction, then the rule's — and nothing volatile before the tail.
     notebookBlock(notebook),
     standingBlock(standing),

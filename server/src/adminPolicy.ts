@@ -2,7 +2,7 @@ import { type Ctx, readAppJsonAt, writeAppFile } from "./appFolder.js";
 
 /**
  * The installation-wide settings policy, as the administration surface edits
- * it (ADR 0001 §4, ADR 0004, ADR 0015). `{ defaults, enforced, changes }`
+ * it (ADR 0001, ADR 0001, ADR 0001). `{ defaults, enforced, changes }`
  * (issue #207), published into every individual account's own app folder
  * rather than kept in one file or environment variable — see
  * `writeAccountPolicy`/`readAccountPolicy` below. `SETTINGS_DEFAULTS` /
@@ -132,7 +132,7 @@ export function policyDocumentText(policy: PolicyDocument): string {
 }
 
 /* ------------------------------------------------------------------ */
-/* Where the document lives: one account's own app folder (ADR 0015)   */
+/* Where the document lives: one account's own app folder (ADR 0001)   */
 /* ------------------------------------------------------------------ */
 
 /**

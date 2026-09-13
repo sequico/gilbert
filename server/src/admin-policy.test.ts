@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The installation-wide policy document (ADR 0001 §4, ADR 0004, ADR 0015):
+ * The installation-wide policy document (ADR 0001, ADR 0001, ADR 0001):
  * only admins read or publish it; an invalid document is refused; a valid
  * publish writes into every individual account the directory lists — the
  * publisher's own account included — and each account's own authenticated

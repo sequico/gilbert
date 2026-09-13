@@ -180,7 +180,7 @@ after(() => {
 /**
  * The two halves of one defect: an administrative write into the agent's own
  * account carries a compare-and-set token, and that token is the account's
- * **whole** FileNode state, not the document's (ADR 0003 §6).
+ * **whole** FileNode state, not the document's (ADR 0003).
  *
  * It is therefore stale for two reasons that have nothing to do with the
  * document being written. The first save creates the folder tree, and creating
@@ -413,7 +413,7 @@ test("a credential the server refuses is its own state, named as one", async () 
 test("a deployment carrying the account's own password is operational", async () => {
   // The happy path, and the only one that shows membership at all: the agent
   // signs in as itself, and the groups it is in are the ones its session hands
-  // it (ADR 0003 §2). No record of ours is consulted, so there is nothing to
+  // it (ADR 0003). No record of ours is consulted, so there is nothing to
   // keep in step.
   configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
   const res = await call("/api/admin/agents");
@@ -436,7 +436,7 @@ test("the fleet's meter is the installation's use, split per agent", async () =>
   configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
   // One run, written by the canonical writer into the group's own audit
   // document — the only place a run's record lives, which is why the fleet's
-  // total is read group by group (ADR 0010).
+  // total is read group by group (ADR 0003).
   const agentAuth = `Basic ${Buffer.from(
     `${mock.AGENT_ADDRESS}:${mock.AGENT_PASS}`,
   ).toString("base64")}`;
@@ -499,7 +499,7 @@ test("providers: empty without an agent, refused when the agent is out of reach"
     provider: null,
     maxOutputTokens: 2048,
     // The two bounds an installation sets for itself keep their defaults when
-    // there is no agent to hold them (ADR 0010).
+    // there is no agent to hold them (ADR 0003).
     maxChainHops: config.agent.maxChainHops,
     maxPages: config.agent.maxPages,
   });
@@ -610,7 +610,7 @@ test("a rule that could never run is refused with its code and its parameters", 
 
   // Remarks past the bound are refused by the field they were typed in, with
   // the number, rather than as a length complaint about the document: the same
-  // code the group's instruction answers with (ADR 0010).
+  // code the group's instruction answers with (ADR 0003).
   const chatty = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
     body: JSON.stringify({
@@ -635,7 +635,7 @@ test("a rule that could never run is refused with its code and its parameters", 
 test("a group the agent is not granted on answers with the refusal", async () => {
   configureAgent(mock.AGENT_ADDRESS);
   // The meter is a reading of the trail the same answer carries, in the shape
-  // the document declares (ADR 0010): no runs yet, and nothing unknown.
+  // the document declares (ADR 0003): no runs yet, and nothing unknown.
   const metered = await call(`/api/admin/groups/${TEAM}/agent`);
   assert.equal(metered.status, 200);
   assert.deepEqual((metered.body as { meter: unknown }).meter, {
@@ -1097,7 +1097,7 @@ test("the audit copy is refused for a group the agent does not hold", async () =
 });
 
 /* ------------------------------------------------------------------ */
-/* Run now (ADR 0010)                                                  */
+/* Run now (ADR 0003)                                                  */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -1196,7 +1196,7 @@ test("an ask that cannot run is answered, and writes nothing", async () => {
 });
 
 /**
- * The author's notes, and the author's reading (ADR 0010).
+ * The author's notes, and the author's reading (ADR 0003).
  *
  * A note is carried in the same document as the prose it belongs to — so it
  * survives a container and the next editor reads why the prose is written the
@@ -1293,7 +1293,7 @@ test("an author's notes ride the document, and a reading answers in words", asyn
   // The reading stub above answers with prose and no `usage` field, so this
   // reading is counted as a reading — the entry exists, named and dated — but
   // uncounted for cost: `usage` stays absent rather than a row of nulls, a
-  // fabricated cost nobody can check (ADR 0010, `usageOf` in llm.ts).
+  // fabricated cost nobody can check (ADR 0003, `usageOf` in llm.ts).
   assert.equal(counted?.entries[0]?.usage, undefined, "with no cost to record");
   assert.equal(
     (reading.body as { counted?: boolean }).counted,
@@ -1458,7 +1458,7 @@ test("a reading with no usable model says so, and never calls upstream", async (
 });
 
 /**
- * The bounds an installation sets for itself (ADR 0010).
+ * The bounds an installation sets for itself (ADR 0003).
  *
  * They live where the model lives — one document, one write — so the surface
  * that states what the fleet runs on is the surface that states how far a chain
@@ -1515,7 +1515,7 @@ test("the installation's bounds are written where it states its model", async ()
 });
 
 /**
- * The ceiling on what authoring may spend (ADR 0010).
+ * The ceiling on what authoring may spend (ADR 0003).
  *
  * A reading is not a run, so no job's ceiling bounds it and no lease is taken:
  * the bound is the installation's own month, counted from the authoring

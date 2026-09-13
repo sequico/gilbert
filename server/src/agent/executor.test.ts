@@ -49,7 +49,7 @@ const { AgentStore } = await import("./store.js");
 const BASE = `http://127.0.0.1:${PORT}`;
 /**
  * The model every run asks. There is one shape now and no tier that runs
- * without a model (ADR 0010), so a run reaches this stub or it does not run.
+ * without a model (ADR 0003), so a run reaches this stub or it does not run.
  *
  * The answer is keyed by the automation's name, which is the one thing the
  * prompt states about which rule is being decided, so a test that needs a
@@ -214,7 +214,7 @@ async function installConfig(
     },
     // The installation's own bound on a chain, set here rather than left to the
     // deployment's default: what the account says is what a run is held to
-    // (ADR 0010), and a build that read only the environment would run to five.
+    // (ADR 0003), and a build that read only the environment would run to five.
     maxChainHops: 2,
     ...over,
   });
@@ -312,7 +312,7 @@ test("a matching message is filed: the job runs, the audit records it, the claim
     "running",
     "the audit records the intent before the actions",
   );
-  // The cost rides that entry, beside the work that spent it (ADR 0010), so the
+  // The cost rides that entry, beside the work that spent it (ADR 0003), so the
   // meter is a reading of the trail rather than a second document to keep in
   // step — and the agent and the setting stay readable a month later.
   assert.equal(entries[0]?.agent, AGENT, "the entry names the agent that spent it");
@@ -1299,7 +1299,7 @@ test("an extraction that fails is not retried, because it leaves a file behind",
 test("a paused run whose unit was taken over leaves no draft", async () => {
   // The draft is the one effect a paused run has, and it is an effect in a
   // mailbox the group shares: a run whose claim a successor took must not leave
-  // one beside the draft that successor is preparing (ADR 0003 §6, resolution
+  // one beside the draft that successor is preparing (ADR 0003, resolution
   // 20). The fence is asked before the action, the same hook the plan's own
   // actions are fenced by.
   const proposing = rule({
@@ -1549,7 +1549,7 @@ test("an approval that was consumed and never ran is recorded, not left silent",
 });
 
 test("a run somebody asked for tells the group what it did", async () => {
-  // The door a person comes through (ADR 0010). Every other trigger is the
+  // The door a person comes through (ADR 0003). Every other trigger is the
   // group's own mail, chat or clock, and needs no announcement; a run somebody
   // asked for is a fact about the group's agent that its members should not
   // have to infer from a document they cannot open.
@@ -1583,7 +1583,7 @@ test("a run somebody asked for tells the group what it did", async () => {
 
 test("a chain carries its lineage, and the run past the bound is refused loudly", async () => {
   /*
-   * Two automations passing work along (ADR 0010): the first files what the
+   * Two automations passing work along (ADR 0003): the first files what the
    * mail says, and the second wakes on the file it wrote, writes one of its own
    * and so wakes itself again. That cycle is the case the bound exists for — it
    * ends by itself, at the bound, with a line in the group's chat that says why.
@@ -1888,7 +1888,7 @@ test("a job whose write no pass has read past is not pruned", async () => {
   /*
    * Retention is a window, and the run that wrote a record is what names the wake
    * of the change to it: dropping that document before a pass has read past the
-   * write would reset the chain to hop one (ADR 0010). Once a pass has read past
+   * write would reset the chain to hop one (ADR 0003). Once a pass has read past
    * it, the ordinary retention applies again.
    */
   const nodeId = await writeBytesIntoVisibleFolder(
@@ -1985,7 +1985,7 @@ test("a run of an installation without vision carries no page, and is told so", 
  * that writes the prompt: a document of the installation's own bound is read to
  * that bound, the pages past it are said out loud rather than left as an
  * omission, and a document somebody wrote by hand past this build's ceiling is
- * held to the ceiling (ADR 0010).
+ * held to the ceiling (ADR 0003).
  */
 test("a run's prompt states the installation's page bound, clamped to this build's ceiling", async () => {
   const reader = rule({

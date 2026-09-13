@@ -1,5 +1,5 @@
 /**
- * What a person's Settings nav may offer (ADR 0007 §4).
+ * What a person's Settings nav may offer (ADR 0007).
  *
  * An administrator who has taken over an account's identity records it in the
  * installation's policy, and the product then offers that person no **Identity &

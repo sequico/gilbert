@@ -66,7 +66,7 @@ export function App() {
   const status = useSession((s) => s.status);
   const bootstrap = useSession((s) => s.bootstrap);
   /*
-   * The forced-password-change wall (ADR 0004): while it stands, the data
+   * The forced-password-change wall (ADR 0001): while it stands, the data
    * routes answer 403 and the only usable screen is the change form. Gating
    * here rather than inside AuthedApp means the wall mounts instead of the
    * app — AuthedApp's data loads and push stream never start, and its

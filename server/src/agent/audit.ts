@@ -158,7 +158,7 @@ export function refusedSubject(ruleId: string, trigger: AgentTriggerRecord): str
  *
  * The outcome is `refused` rather than `failed`, because nothing failed: a run
  * that must not happen is a fact about the agent, and the trail is where a
- * reader finds it (ADR 0010).
+ * reader finds it (ADR 0003).
  */
 export function refusedAuditEntry(
   rule: AuditRule,

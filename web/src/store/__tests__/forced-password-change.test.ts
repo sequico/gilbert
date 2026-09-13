@@ -4,7 +4,7 @@ import type { JmapSession } from "@/jmap/types";
 import { useSession } from "@/store/session";
 
 /**
- * The forced-password-change wall (ADR 0004), client side: the session store
+ * The forced-password-change wall (ADR 0001), client side: the session store
  * lifts the wall flag when the server says `gilbert.mustChangePassword`, and
  * a mid-session 403 `password_change_required` from any data request raises
  * it the way a 401 signs the session out. A refreshed session without the

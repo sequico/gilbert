@@ -102,7 +102,7 @@ export function actionLabel(name: string): string {
  * What a meter reads as, in words.
  *
  * The counts are tokens and never money — a price list belongs to a vendor and
- * changes without asking (ADR 0010) — and a run the provider reported nothing
+ * changes without asking (ADR 0003) — and a run the provider reported nothing
  * for is said out loud rather than folded in as a zero, because a reading that
  * understated the bill would be worse than one that admits what it does not
  * know.
@@ -125,7 +125,7 @@ export function meterText(meter: AgentMeter): string {
 }
 
 /**
- * The installation's use, as lines a surface renders in order (ADR 0010).
+ * The installation's use, as lines a surface renders in order (ADR 0003).
  *
  * The total first — the number a deployment is judged by — then one line per
  * agent that spent a call, and last the groups whose audit could not be read:
@@ -173,7 +173,7 @@ export function outcomeText(outcome: string): string {
  * Why the fleet cannot be read, in the language the surface is set to.
  *
  * The status answer carries a code and, beside it, whatever the server that
- * refused said — never a sentence of the server's own English (ADR 0003 §4,
+ * refused said — never a sentence of the server's own English (ADR 0003,
  * "Members see, never change" covers the admin's read the same way). The
  * sentence comes from the one table an admin refusal reads as well
  * (`agentErrors`), composed in the catalogue in force, so a language whose

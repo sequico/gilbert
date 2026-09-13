@@ -1,5 +1,5 @@
 /**
- * What the agents do in each group (ADR 0003, restructured by ADR 0014).
+ * What the agents do in each group (ADR 0003, restructured by ADR 0003).
  *
  * One group at a time, behind a single picker that drives every tab below it:
  * the automations the group's agent runs (Automations), its standing
@@ -55,7 +55,7 @@ export function GroupAgents() {
 
   /*
    * The group every tab below answers about. Master's Groups list can deep-link
-   * here with `?group=name` (ADR 0014) — read once, on mount, as the starting
+   * here with `?group=name` (ADR 0003) — read once, on mount, as the starting
    * pick; after that the picker below is the one source of truth.
    */
   const search = useSearch();

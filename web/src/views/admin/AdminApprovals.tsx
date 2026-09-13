@@ -1,11 +1,11 @@
 /**
  * Cross-group oversight: what is waiting for a person, and what the fleet has
- * done — across every group the Master holds, at once (ADR 0014).
+ * done — across every group the Master holds, at once (ADR 0003).
  *
  * Both tabs are **read-only by construction**, and stay that way: an operator
  * answers a paused run as a member, in the group's own chat (ADR 0003
  * "Members see, never change") — never through this admin surface. A future
- * change that wants an approve/reject control here supersedes ADR 0014
+ * change that wants an approve/reject control here supersedes ADR 0003
  * explicitly rather than adding one quietly.
  *
  * Neither tab adds a server route. Pending reads the same cross-group queue

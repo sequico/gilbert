@@ -1,5 +1,5 @@
 /**
- * The document family's engine (ADR 0010 resolution 11): page work on a PDF,
+ * The document family's engine (ADR 0003 resolution 11): page work on a PDF,
  * the text a document carries of its own, and the rasteriser.
  *
  * `documents.ts` is the catalogue the model and the rule editor read; this is
@@ -15,7 +15,7 @@
  * Reading spans the two halves. A page whose own text layer is empty is the
  * page somebody scanned, and there is no OCR engine here on purpose: those
  * pages are rendered and handed to the run's call as images, and the model
- * reads them (ADR 0010: a page that is only pixels is read by the model,
+ * reads them (ADR 0003: a page that is only pixels is read by the model,
  * because it has eyes). Nothing here writes a `.docx` either, for the reason
  * the ADR gives: producing one is a job for a person's word processor.
  */
@@ -54,7 +54,7 @@ export type DocumentErrorCode =
  *
  * Every one carries its own code, and the message ends with it: a run's audit
  * line is the message, so a file the deployment cannot read is refused by name
- * rather than skipped (ADR 0010: an action the deployment cannot do is refused,
+ * rather than skipped (ADR 0003: an action the deployment cannot do is refused,
  * never dropped).
  */
 export class DocumentError extends Error {
@@ -118,7 +118,7 @@ export interface DocumentContent {
    * the bound left out of the reading. A document longer than the bound has
    * pages whose own text layer was never opened, and a run handed the first
    * pages of such a document without being told so would take them for the
-   * whole of it (ADR 0010).
+   * whole of it (ADR 0003).
    */
   unreadPages: number;
 }
@@ -147,7 +147,7 @@ export function documentKindOf(name: string, type?: string): DocumentKind | null
  *
  * Below it the page is a stamp, a watermark or a page number: what a person
  * sees on that page is pixels, so the model is handed the page rather than the
- * fragment (ADR 0010).
+ * fragment (ADR 0003).
  */
 const MIN_TEXT_LAYER_CHARS = 12;
 
@@ -184,12 +184,12 @@ export async function readDocument(
  *
  * The bound is the caller's — one knob per installation — and what it left out
  * is reported rather than dropped, so a run is never told a half of a document
- * as though it were the whole of it (ADR 0010: how many pages one run may hand
+ * as though it were the whole of it (ADR 0003: how many pages one run may hand
  * over is bounded rather than left to the document's size).
  *
  * `opts.vision` is what the installation's model can read: a deployment without
  * vision is handed no page at all, so no page is rendered for it rather than
- * rendered and then dropped (ADR 0010).
+ * rendered and then dropped (ADR 0003).
  */
 export async function documentContent(
   bytes: Uint8Array,
@@ -242,7 +242,7 @@ async function pdfPageTexts(
         .join("");
       // A page whose only text is a stamp, a watermark or a page number has no
       // text layer to read: what a person sees on it is pixels, and the model
-      // gets the page rather than the fragment (ADR 0010).
+      // gets the page rather than the fragment (ADR 0003).
       texts.push(text.trim().length < MIN_TEXT_LAYER_CHARS ? "" : text);
     }
     return { pages: document.numPages, texts, last };

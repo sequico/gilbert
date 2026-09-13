@@ -157,7 +157,7 @@ export async function fetchGroupInstruction(name: string): Promise<GroupInstruct
  * `POST` the same route — replace it. An empty text removes it.
  *
  * `notes` ride the same document and are the author's own: they are carried
- * there and read by nobody's model (ADR 0010).
+ * there and read by nobody's model (ADR 0003).
  */
 export async function saveGroupInstruction(
   name: string,
@@ -171,7 +171,7 @@ export async function saveGroupInstruction(
 }
 
 /**
- * The author's reading (ADR 0010): the draft and what it is about go to the
+ * The author's reading (ADR 0003): the draft and what it is about go to the
  * installation's model, which reads them beside the group's instruction and its
  * notebook and answers in words about the gaps.
  *

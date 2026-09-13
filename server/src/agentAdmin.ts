@@ -399,7 +399,7 @@ async function agentStore(
  * One group row.
  *
  * Membership is not a field here. A row exists because the agent's own session
- * showed it holds the group (ADR 0003 §2), so every row is granted by
+ * showed it holds the group (ADR 0003), so every row is granted by
  * construction and a row that is not has nothing to carry.
  */
 function groupRow(name: string): AgentStatusGroup {
@@ -642,7 +642,7 @@ export async function groupAgentView(
  *
  * One reader, one window — the panel shows the last few entries of it, and the
  * meter is a reading of the whole of it, so the two can never disagree about
- * what "recent" means (ADR 0010).
+ * what "recent" means (ADR 0003).
  */
 async function auditWindow(store: AgentStore): Promise<AgentAuditEntry[]> {
   const now = new Date();
@@ -706,7 +706,7 @@ export async function groupAuditExport(
  * bumped, one whose content did not is left alone, so a save that changes
  * nothing invalidates nothing. A save that does change the rule ends the runs
  * pinned to the older version: they are dead-lettered rather than executed as
- * something nobody approved (`executor.ts`, ADR 0003 §4). The write is
+ * something nobody approved (`executor.ts`, ADR 0003). The write is
  * conditional on the state the document was read at, and a lost race is retried
  * once — JMAP offers no lock, so the compare-and-set is the whole coordination.
  */
@@ -886,7 +886,7 @@ function checkedRule(rule: unknown, index: number): AgentRule {
   // The notes beside a rule's prose are bounded by the same number as the
   // instruction's, and refused with the same code: a writer who typed two
   // thousand characters of remarks is told which field and what its bound is,
-  // not handed a length complaint about the document (ADR 0010).
+  // not handed a length complaint about the document (ADR 0003).
   const notes = ruleNotesProblem(rule);
   if (notes) throw new AgentAdminError(notes, 400);
   const problems = ruleProblems(rule);
@@ -959,7 +959,7 @@ export async function readProviders(admin: LiveSession): Promise<AgentProvidersV
     maxOutputTokens: found?.doc.maxOutputTokens ?? MODEL_MAX_OUTPUT_DEFAULT,
     // The number the runs are held to, not the number a hand-edited document
     // asks for: the surface shows what is spent, and saving writes that back
-    // rather than leaving a document whose bound nobody applies (ADR 0010).
+    // rather than leaving a document whose bound nobody applies (ADR 0003).
     maxChainHops: Math.min(
       found?.doc.maxChainHops ?? config.agent.maxChainHops,
       AGENT_CHAIN_HOPS_CEILING,
@@ -989,7 +989,7 @@ function providerView(provider: AgentProvider | undefined): AgentProviderView | 
  * and who registered it.
  *
  * A lost compare-and-set is retried once, because the token is the account's
- * whole FileNode state (ADR 0003 §6) and this is the account the worker writes
+ * whole FileNode state (ADR 0003) and this is the account the worker writes
  * its heartbeat and its audit in: the agent's own bookkeeping invalidates a
  * save that overlaps it, for no reason to do with this document.
  */
@@ -1044,7 +1044,7 @@ export async function writeProviders(admin: LiveSession, input: unknown): Promis
     const existing = found?.doc;
     // A key the write does not mention is left as it is: a write that states
     // the ceiling alone must not clear the model, and one that replaces the
-    // model must not clear the ceiling (ADR 0010).
+    // model must not clear the ceiling (ADR 0003).
     const provider = hasProvider
       ? providerEntry(given.provider, existing?.provider)
       : undefined;
@@ -1260,7 +1260,7 @@ export async function saveGroupInstruction(
 /**
  * An author's reading: the draft, the envelope it belongs to, the group's
  * instruction and the group's notebook go to the installation's model, which
- * answers in words about the gaps (ADR 0010).
+ * answers in words about the gaps (ADR 0003).
  *
  * It is **not a run**. Nothing is compiled, no document is produced, no job is
  * written and no claim is taken — it is a call from the web tier with a timeout
@@ -1279,14 +1279,14 @@ export async function readDraft(
   input: { access: GroupAccess; about: string; draft: string; envelope?: string },
 ): Promise<AgentReadingView> {
   const { store } = await agentStore(admin);
-  // The installation's own provider, configured once (ADR 0010). An
+  // The installation's own provider, configured once (ADR 0003). An
   // installation without one has nothing to read a draft with, which is a state
   // the surface names rather than an upstream failure.
   let provider: ReturnType<typeof providerFor>;
   try {
     provider = providerFor((await store.readConfig())?.doc ?? null);
     // The same check the runs make, at the one other place the key leaves the
-    // process: this path is a call the web tier makes (ADR 0010).
+    // process: this path is a call the web tier makes (ADR 0003).
     assertUsableProvider(provider, config.agent.allowPrivateProvider);
   } catch {
     throw new AgentAdminError({ code: "no_provider" }, 409);
@@ -1321,7 +1321,7 @@ export async function readDraft(
   // read "room under the ceiling" and both spend — the loser re-reads the
   // document the winner just wrote and is refused by the same rule. A reading
   // is not a run, so no job's ceiling bounds it, and the one record of what
-  // the installation bought is the authoring document (ADR 0010).
+  // the installation bought is the authoring document (ADR 0003).
   const token = randomUUID();
   const reserved = await store.reserveAuthoring(config.agent.authoringMonthlyMax, {
     token,
@@ -1362,7 +1362,7 @@ export async function readDraft(
       thinking: false,
       // The installation's own ceiling on an answer, the same one a run is held
       // to: a reading spends tokens too, and the lever that bounds spend is not
-      // a lever if the one path beside the runs ignores it (ADR 0010).
+      // a lever if the one path beside the runs ignores it (ADR 0003).
       maxOutputTokens: (await store.readConfig())?.doc.maxOutputTokens,
     });
   } catch (err) {
@@ -1410,7 +1410,7 @@ export async function readDraft(
 /**
  * The group's notebook, as an administrator reads it.
  *
- * Memory is a document in the group's own account (ADR 0010): the facts its
+ * Memory is a document in the group's own account (ADR 0003): the facts its
  * agent holds in every call, each one a line a person can read, change, remove
  * or add. A group that has none answers with an empty list rather than an
  * error, which is a state and not a failure — and the bounds travel with the

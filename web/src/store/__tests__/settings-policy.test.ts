@@ -199,7 +199,7 @@ const answered = (policy: unknown) => JSON.stringify({ policy });
  * A policy that did not arrive is not a policy that sets nothing.
  *
  * The endpoint is the signed-in account's own copy of the published document
- * (ADR 0015), so a session that has just signed in can meet a 401 on it and a
+ * (ADR 0001), so a session that has just signed in can meet a 401 on it and a
  * server having a bad minute a 5xx. Read as an empty policy, that leaves a page
  * load with no enforced map at all: an administrator's setting neither applied
  * nor locked, silently, and nothing on screen saying the policy was never read.

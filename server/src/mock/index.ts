@@ -44,7 +44,7 @@ const MAX_DELAYED_SEND = 86400 * 30;
  * the mock makes -- a node's `created`/`modified`, a message's `receivedAt`,
  * a submission's `sendAt` and the deadline behind its `undoStatus`, the `at`
  * of a chat document -- comes from here, so a test can put a schedule in the
- * past without waiting a minute for it (ADR 0003 §5: the agent's time
+ * past without waiting a minute for it (ADR 0003: the agent's time
  * triggers) and can watch a queued send become final.
  *
  * It is an offset against real time, not a frozen instant: with no override
@@ -68,7 +68,7 @@ const GROUP_ACCOUNT = "a3";
 /** A second group (team) mailbox, so the chat switcher has two teams. */
 const GROUP2_ACCOUNT = "a5";
 /**
- * A second principal the mock knows, so the impersonation paths (ADR 0004)
+ * A second principal the mock knows, so the impersonation paths (ADR 0001)
  * have a target that is not the admin themselves. The mock has one data set
  * per principal; the target's account starts empty, like a fresh account's.
  */
@@ -229,7 +229,7 @@ const nextState = () => String(state.n++);
  * `Email` state move because somebody uploaded a file. One counter for every
  * type makes the two indistinguishable -- and the agent's reconcile, which
  * walks `Email/changes` and `FileNode/changes` from separate recorded states
- * and writes back against the state it read (ADR 0003 §3 and §6), cannot be
+ * and writes back against the state it read (ADR 0003 and §6), cannot be
  * exercised against a mock that answers them from the same number.
  *
  * The tokens are per type but **not** per account: a real server scopes them
@@ -1203,7 +1203,7 @@ const group2Identities: Obj[] = [
   },
 ];
 /*
- * The agent principal's own account (ADR 0003 §1).
+ * The agent principal's own account (ADR 0003).
  *
  * A real account of the directory ships its own mailbox tree and its own
  * identity, so the mock gives it both: mail addressed to the agent is ordinary
@@ -1244,7 +1244,7 @@ const agentIdentities: Obj[] = [
  * the mock says no so the two kinds stay apart, and the client's mailbox
  * probe lists only the accounts that answer with a tree.
  *
- * The target principal (ADR 0004) is a fresh account: it has its own Files
+ * The target principal (ADR 0001) is a fresh account: it has its own Files
  * (see `targetFileNodes`) and nothing else yet. The agent principal has the
  * mailbox and identity an account of the directory has, and nothing else.
  */
@@ -1840,7 +1840,7 @@ principals.push(
 );
 // The agent principal, a directory account like any other: it can be found in
 // the directory, mentioned in a group chat and impersonated by an admin who
-// manages it (ADR 0003 §1 and the v1 scope).
+// manages it (ADR 0003 and the v1 scope).
 principals.push({
   id: "pr-agent",
   type: "individual",
@@ -1968,7 +1968,7 @@ const nodesFor = (accountId: unknown): Obj[] =>
 /** The second group's Files: chat provisions its `gilbert` folder on demand. */
 const group2FileNodes: Obj[] = [];
 
-/** The node list the target principal (ADR 0004) owns: an empty account. */
+/** The node list the target principal (ADR 0001) owns: an empty account. */
 const targetFileNodes: Obj[] = [];
 
 /**
@@ -2173,7 +2173,7 @@ function enforceLimits(name: string, args: Obj): void {
  * Not checked against a live server: the error *type* is the RFC's, not a
  * string quoted from 0.16. The behaviour it stands for is the one the agent
  * design rests on -- documents plus conditional writes, no lock anywhere
- * (ADR 0003 §4, §6) -- so a mock that ignored `ifInState` would leave every
+ * (ADR 0003, §6) -- so a mock that ignored `ifInState` would leave every
  * lease and every job update untested.
  *
  * Asked of a real Stalwart 0.16 instance on 2026-09-11, on credentials the
@@ -2851,7 +2851,7 @@ const handlers: Record<string, Handler> = {
    * (see `parseRawMessage`, which says what it does not decode), and it
    * announces the arrival the way a delivery would: a change log entry and a
    * state change. Mail that lands silently is mail no worker reconciling from
-   * a recorded state ever sees (ADR 0003 §3).
+   * a recorded state ever sees (ADR 0003).
    */
   "Email/import": (a) => {
     const created: Obj = {};
@@ -3923,7 +3923,7 @@ const knownPrincipal = (username: string) =>
   username !== REFUSED_USER &&
   (username === USER ||
     username === TARGET_USER ||
-    // The agent principal is a real account in the directory (ADR 0003 §1), so it
+    // The agent principal is a real account in the directory (ADR 0003), so it
     // authenticates by itself and an admin may also impersonate it to manage it.
     username === AGENT_ADDRESS ||
     // The impersonation probe acts on a real account from the directory, the
@@ -3958,7 +3958,7 @@ const isGroupPrincipal = (username: string): boolean =>
 
 /**
  * The account a known individual actually owns. Impersonation lands on the
- * target's own account: the demo's, the target principal's (ADR 0004).
+ * target's own account: the demo's, the target principal's (ADR 0001).
  * Group principals are refused before this runs; directory individuals the
  * mock does not give an account to resolve to the demo account, matching a
  * probe that only ever names a real account.
@@ -4091,7 +4091,7 @@ const personalCapabilities = (): Obj => ({
  * the account somebody shared with them and the two group mailboxes (ADR
  * 0005); the agent principal (ADR 0003), whose session lists the group
  * accounts it was granted and nothing else of anybody's; and the target
- * principal of the impersonation flows (ADR 0004), whose session is a single
+ * principal of the impersonation flows (ADR 0001), whose session is a single
  * fresh personal account. Admin state is not a
  * session fact — it lives in the `/api/account` permission list (ADR 0001),
  * which is why no account in here marks an admin.
@@ -4106,7 +4106,7 @@ const personalCapabilities = (): Obj => ({
  *
  * `authType` is the one thing this document carries that a real 0.16
  * session resource does not: the proxy needs to know whether the session may
- * be put behind the forced-password-change wall (ADR 0004), and Stalwart's
+ * be put behind the forced-password-change wall (ADR 0001), and Stalwart's
  * session resource does not expose how the principal authenticated (checked
  * 2026-09-07, stalwartlabs/stalwart `crates/jmap/src/api/session.rs`, v0.16.21;
  * re-verify against a live server with a dated comment per repo convention).
@@ -4118,7 +4118,7 @@ const sessionFor = (identity: Identity) => ({
   capabilities: sessionCapabilities,
   accounts: {
     /* A share is a person's business, a group is a membership. The agent is
-       granted on the groups (ADR 0003 §1), so it is handed those accounts --
+       granted on the groups (ADR 0003), so it is handed those accounts --
        and never the account somebody shared with the demo user. */
     ...(identity.username === USER
       ? {

@@ -1,5 +1,5 @@
 /**
- * A group's audit trail, as an administrator reads it (ADR 0014).
+ * A group's audit trail, as an administrator reads it (ADR 0003).
  *
  * The same bounded document the member panel already reads
  * (`AgentGroupSurface.audit`, read once with the rest of the group's agent

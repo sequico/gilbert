@@ -1,5 +1,5 @@
 /**
- * The installation's model (ADR 0010 "One model serves the installation").
+ * The installation's model (ADR 0003 "One model serves the installation").
  *
  * One entry — provider, model, base URL and key — serves every automation:
  * nothing in the product asks an administrator to decide which model a kind of
@@ -46,7 +46,7 @@ export function AgentProviders() {
    * The one write: an entry saves the installation's model, `null` clears it,
    * and the bounds travel with it because all of them are statements about the
    * same call. A cleared installation runs no automation, which is the state the
-   * executor refuses in plainly rather than a silent skip (ADR 0010).
+   * executor refuses in plainly rather than a silent skip (ADR 0003).
    */
   const write = (patch: AgentProviderInput | null, bounds: AgentBounds) =>
     saveProviders({ provider: patch, ...bounds });

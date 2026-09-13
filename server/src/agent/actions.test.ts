@@ -387,7 +387,7 @@ test("noop runs and returns nothing", async () => {
  *
  * The bound is the run's own — the number a run's prompt states — so an action
  * that read the deployment's default instead would read a document further than
- * the run was told it would (ADR 0010).
+ * the run was told it would (ADR 0003).
  */
 test("document.read reads the pages the run is bounded to", async () => {
   await writeBytesIntoVisibleFolder(

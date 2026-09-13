@@ -1,5 +1,5 @@
 /**
- * Time triggers on documents (ADR 0003 §5).
+ * Time triggers on documents (ADR 0003).
  *
  * The schedule is a document in the group's own account (`agent/schedule.json`)
  * holding the next run instant of every `schedule` rule, so no container has to

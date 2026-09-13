@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 
 /**
- * The trail's one builder and the month it lands in (ADR 0003 §4).
+ * The trail's one builder and the month it lands in (ADR 0003).
  *
  * One audit document per month per group: the entry's own instant decides which
  * month, so an entry recorded just after midnight on the first of a month goes
@@ -43,7 +43,7 @@ after(() => {
 test("a refusal is an entry of its own, named by the change it refused", () => {
   // A run a chain refused never started, so there is no job to name: the entry
   // carries the rule and the change, and the change is what a second pass reads
-  // to recognise a refusal it already recorded (ADR 0010).
+  // to recognise a refusal it already recorded (ADR 0003).
   const trigger = {
     on: "filenode" as const,
     nodeId: "n1",

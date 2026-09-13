@@ -9,7 +9,7 @@ import { AgentProviders } from "../AgentProviders";
 
 /**
  * What the installation's model panel states about the ceiling on one answer
- * (ADR 0010).
+ * (ADR 0003).
  *
  * The sentence a reader sees and the number the field refuses are one fact, so
  * both are read here from the constant the field is bounded by

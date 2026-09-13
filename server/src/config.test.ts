@@ -43,7 +43,7 @@ test("IMMUTABLE accepts a root it cannot write to", () => {
 });
 
 /* ------------------------------------------------------------------ */
-/* The settings policy bootstrap at boot (ADR 0004 §1, ADR 0015)       */
+/* The settings policy bootstrap at boot (ADR 0001)       */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -56,7 +56,7 @@ test("IMMUTABLE accepts a root it cannot write to", () => {
  * it guards against is silent -- the installation looks healthy and the
  * settings an administrator wrote are simply not in force.
  *
- * This is the environment-only bootstrap (ADR 0015): what an account runs on
+ * This is the environment-only bootstrap (ADR 0001): what an account runs on
  * before any administrator has published a policy into its own account.
  * `SETTINGS_POLICY_FILE` is gone -- everything this installation decides
  * durably lives in Stalwart, one account at a time.
@@ -116,7 +116,7 @@ const NOT_OBJECTS: Array<[string, string]> = [
 
 for (const [name, value] of NOT_OBJECTS) {
   test(`${name} that is not an object stops the boot`, async () => {
-    // The editor refuses a scalar where an object belongs (ADR 0004 §1), and so
+    // The editor refuses a scalar where an object belongs (ADR 0001), and so
     // does the boot: cast into an object it would load as settings that are not
     // there, and nothing downstream could tell.
     const failed = await bootFailure(`not-an-object-${name}`, {

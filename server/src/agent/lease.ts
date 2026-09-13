@@ -1,5 +1,5 @@
 /**
- * Coordination without a coordinator (ADR 0003 §6).
+ * Coordination without a coordinator (ADR 0003).
  *
  * A worker serves the accounts it wins, and exactly one worker
  * holds the agent's event stream. There is no lock to take and no coordinator
@@ -213,7 +213,7 @@ export async function saveClaimStates(
 
 /**
  * Claim the agent's event stream, in the agent's own account. Exactly one
- * worker holds it (ADR §6): the others poll, which is why the default
+ * worker holds it (ADR 0003): the others poll, which is why the default
  * deployment is one worker and a second one is a deliberate choice.
  *
  * Claiming with the same worker id is also the stream's renewal: the holder

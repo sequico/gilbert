@@ -35,13 +35,13 @@ export interface JmapSession {
     /** Stalwart-admin state resolved at sign-in (ADR 0001): enables the admin surface. */
     isAdmin: boolean;
     /**
-     * ADR 0004: the account must change its password before any data route
+     * ADR 0001: the account must change its password before any data route
      * will serve it. Enforcement is server-side; this only tells the client
      * which screen to show.
      */
     mustChangePassword?: boolean;
     /**
-     * ADR 0007 §4: an administrator has taken this account's identity over, and
+     * ADR 0007: an administrator has taken this account's identity over, and
      * the product offers the person no Identity & signatures section at all.
      */
     identityLocked?: boolean;

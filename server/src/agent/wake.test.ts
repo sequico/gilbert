@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 
 /**
- * Push as the wake-up and polling as the fallback (ADR 0003 §3).
+ * Push as the wake-up and polling as the fallback (ADR 0003).
  *
  * `parseSseChunk` is pure, so the framing is tested directly — including the
  * case that matters most, a chunk boundary landing in the middle of a frame.

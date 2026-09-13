@@ -606,7 +606,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
      * A policy nobody could read is not a policy that enforces nothing, and
      * `policyEnforced()` cannot tell them apart: it answers `{}` for both, so a
      * 401 or a 5xx on `/api/account/policy` -- the endpoint is the signed-in
-     * account's own copy, ADR 0015 -- lets a whole page load apply every patch
+     * account's own copy, ADR 0001 -- lets a whole page load apply every patch
      * as though the installation had decided nothing, silently, with the
      * administrator's setting neither applied nor locked and nothing on screen
      * saying so. So the door asks what is known first, and with nothing known

@@ -1,5 +1,5 @@
 /**
- * A group's notebook, as an administrator keeps it (ADR 0010).
+ * A group's notebook, as an administrator keeps it (ADR 0003).
  *
  * Memory is a document in the group's own account: the facts its agent holds in
  * every call — how this group's mail is filed, what its clients are called,
@@ -10,7 +10,7 @@
  * The bounds the form states are the ones the document enforces: they arrive
  * with the read rather than being written down a second time here.
  *
- * The group is handed in rather than picked here (ADR 0014): the Group Agents
+ * The group is handed in rather than picked here (ADR 0003): the Group Agents
  * workspace owns one pick for all of its tabs.
  */
 

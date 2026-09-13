@@ -21,7 +21,7 @@
  * account's app folder, so the value an administrator sets is the value the
  * account's own Identities & signatures section shows and sends from.
  *
- * The lock (ADR 0007 §4, ADR 0015) says which accounts have had their identity
+ * The lock (ADR 0007, ADR 0001) says which accounts have had their identity
  * taken over, and the product offers those accounts no edit at all. It is a
  * rule about this surface — an account that speaks JMAP directly can still
  * write its own identity — and it is recorded as a fact about that one
@@ -91,7 +91,7 @@ export interface IdentityPatch {
 }
 
 /* ------------------------------------------------------------------ */
-/* The lock (ADR 0015)                                                 */
+/* The lock (ADR 0001)                                                 */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -111,7 +111,7 @@ const IDENTITY_LOCK_FILE = "identity-lock.json";
  * `true` and `false` are reads: the account's own file records a lock, or it
  * does not. `"unknown"` is the third answer, for an account whose file no
  * session here can open at all -- the lock lives inside the locked account's
- * own app folder (ADR 0015), so a session that cannot impersonate that account
+ * own app folder (ADR 0001), so a session that cannot impersonate that account
  * cannot read that folder either. Answering `false` there tells an
  * administrator that an account is free when it may be taken over, which is
  * the one thing this surface must not guess. The reason travels with the state,
@@ -123,7 +123,7 @@ export type IdentityLockState = true | false | "unknown";
 export type IdentityLockUnknownReason = "impersonation_denied";
 
 /**
- * Whether this account is locked (ADR 0007 §4, ADR 0015): its own lock file.
+ * Whether this account is locked (ADR 0007, ADR 0001): its own lock file.
  *
  * Two answers, because the caller already holds the account: `false` is the
  * file's own answer, its absence, or an account id that names nothing to read --
@@ -562,7 +562,7 @@ export async function personIdentities(
     if (imp.status === 403)
       return {
         address: target,
-        // The lock lives in the target's own account (ADR 0015): a session
+        // The lock lives in the target's own account (ADR 0001): a session
         // that cannot impersonate it cannot read that file either, so the
         // state is "unknown" rather than a verified "no" -- the same honesty
         // the empty identity list beside it already carries. Answering false
@@ -733,7 +733,7 @@ export async function groupIdentity(
 /**
  * Write the group's identity, as the agent.
  *
- * A group holds one identity (ADR 0007 §3): when it already has one, this is an
+ * A group holds one identity (ADR 0007): when it already has one, this is an
  * update of that one rather than a second identity beside it — the product's
  * rule, applied here so no surface has to know it.
  */

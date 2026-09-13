@@ -17,11 +17,11 @@ const EXAMPLE = JSON.stringify(
 );
 
 /**
- * The installation-wide policy editor (ADR 0001 §4, ADR 0004).
+ * The installation-wide policy editor (ADR 0001).
  *
  * v1 edits the policy as one JSON document — the same shape upstream's boot
  * path reads — with the key list beside it; there is no per-key form yet, and
- * the per-user surface (ADR 0001 §5) is a later layer on the same document
+ * the per-user surface (ADR 0001) is a later layer on the same document
  * shape. Publishing validates server-side with the boot path's rules,
  * replaces the running copy at once, and kicks the other signed-in sessions
  * so their next sign-in applies it.
@@ -76,7 +76,7 @@ export function AdminPolicy() {
       /*
        * The published policy applies to this session at once: the client
        * caches the policy per page, and the publisher's own session is
-       * deliberately not kicked (ADR 0004), so without a refresh this tab
+       * deliberately not kicked (ADR 0001), so without a refresh this tab
        * would keep enforcing the pre-publish policy.
        */
       await refreshSettingsPolicy();

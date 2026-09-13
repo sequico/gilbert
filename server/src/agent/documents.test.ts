@@ -486,7 +486,7 @@ test("a meter adds what was reported and counts the runs that said nothing", () 
     uncounted: 0,
   });
   // A run the provider gave no numbers for is counted, not added as a zero: a
-  // reading has to be able to say "twelve runs, nine counted" (ADR 0010).
+  // reading has to be able to say "twelve runs, nine counted" (ADR 0003).
   const mixed = meterOver([
     {
       outcome: "done",
@@ -525,7 +525,7 @@ test("a meter adds what was reported and counts the runs that said nothing", () 
   });
   // Silence arrives in two shapes and reads as one fact: a provider that
   // reported no field at all is the same run whether the entry carries no
-  // usage or a row of nulls (ADR 0010).
+  // usage or a row of nulls (ADR 0003).
   assert.deepEqual(
     meterOver([
       {
@@ -542,7 +542,7 @@ test("a meter adds what was reported and counts the runs that said nothing", () 
     },
   );
   // A pass that resumed a plan already decided was counted where the plan was
-  // made: counting it here would bill one run twice (ADR 0010).
+  // made: counting it here would bill one run twice (ADR 0003).
   assert.deepEqual(meterOver([{ outcome: "running", resumed: true }]), {
     inputHitTokens: null,
     inputMissTokens: null,
@@ -659,7 +659,7 @@ test("the material a run needs is checked for being there, not just typed", () =
 });
 
 /**
- * One door for an author's notes (ADR 0010).
+ * One door for an author's notes (ADR 0003).
  *
  * The bound is one number and the refusal is one code, wherever a person writes
  * notes: the group's standing instruction answers with the code and the maximum,
@@ -732,7 +732,7 @@ test("the window's oldest month is the month the prune keeps, not the one it dro
 });
 
 test("a job's trigger carries its lineage, and a trigger with no count is hop one", () => {
-  // The count starts at the trigger (ADR 0010): what wakes a rule by itself is
+  // The count starts at the trigger (ADR 0003): what wakes a rule by itself is
   // hop one, and a record written before the count existed reads as that too.
   const base = { v: 1 as const, id: "j1", accountId: "a3", ruleId: "r1", ruleVersion: 1 };
   const at = "2026-09-10T12:00:00Z";

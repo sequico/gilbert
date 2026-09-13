@@ -106,7 +106,7 @@ describe("reviewMeaningText", () => {
  * The fleet's meter is the installation's total and the split behind it: the
  * lines have to carry both, and say when a group's audit could not be read —
  * the total is a floor then, and a surface that showed it as complete would be
- * telling a quieter story than the one the numbers support (ADR 0010).
+ * telling a quieter story than the one the numbers support (ADR 0003).
  */
 describe("fleetMeterLines", () => {
   const meter = (runs: number, tokens: number | null) => ({

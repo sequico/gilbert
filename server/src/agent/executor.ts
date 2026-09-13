@@ -194,7 +194,7 @@ interface RunPlan {
   summary: string;
   rationale?: string;
   /**
-   * What the deciding call cost, for the group's own meter (ADR 0010).
+   * What the deciding call cost, for the group's own meter (ADR 0003).
    *
    * Absent when this pass did not decide anything: a plan a job already carried
    * is resumed rather than decided again, and it was counted where it was made.
@@ -266,7 +266,7 @@ export class Executor {
    * Re-read one changed type from the state the claim recorded and run what
    * matches.
    *
-   * An event is a signal, never a payload (ADR §3), so nothing is trusted from
+   * An event is a signal, never a payload (ADR 0003), so nothing is trusted from
    * it: the records are fetched again, matched against the account's enabled
    * rules, and turned into jobs. A record a rule has already handled is not
    * turned into a second job — the durable job document is the deduplication,
@@ -277,7 +277,7 @@ export class Executor {
     const since = claim.states[type] ?? "0";
     // When that anchor was observed: the window this pass reports is everything
     // after it, and only a write inside that window explains a change in it
-    // (ADR 0010).
+    // (ADR 0003).
     const observedAt = this.deps.now().toISOString();
     const changes = await this.changes(accountId, type, since);
     if (!changes) {
@@ -595,7 +595,7 @@ export class Executor {
 
   /**
    * What one pass knows about the changes it is reporting: the account's jobs,
-   * and when the state it reads from was observed (ADR 0010).
+   * and when the state it reads from was observed (ADR 0003).
    */
   private async jobIndex(store: AgentStore, since?: string): Promise<Pass> {
     const jobs = (await store.listJobs()).map((entry) => entry.doc);
@@ -616,7 +616,7 @@ export class Executor {
    */
   /**
    * The installation's model, with the address check the call owes: one rule,
-   * applied where the key leaves the process (ADR 0010).
+   * applied where the key leaves the process (ADR 0003).
    */
   private usableProvider(configDoc: AgentConfigDoc | null): AgentProvider {
     const provider = providerFor(configDoc);
@@ -658,7 +658,7 @@ export class Executor {
    * One read, from the account that holds the installation's configuration, and
    * the environment is what an installation that has said nothing runs on. The
    * number is stated in the prompt and spent by the page work, so both read it
-   * here rather than one of them holding a bound of its own (ADR 0010).
+   * here rather than one of them holding a bound of its own (ADR 0003).
    */
   private async maxPages(): Promise<number> {
     try {
@@ -693,7 +693,7 @@ export class Executor {
     if (pass.keys.has(key)) return;
     pass.keys.add(key);
     /*
-     * The lineage, and the bound it is read against (ADR 0010). `wokenBy` is the
+     * The lineage, and the bound it is read against (ADR 0003). `wokenBy` is the
      * run whose own write caused this change, when the account's own documents
      * still say so, and this run is one hop further than that one. A trigger no
      * run wrote — an arrival, a file, the clock, a person's ask — wakes its rule
@@ -727,7 +727,7 @@ export class Executor {
 
   /**
    * The hop past the bound, refused loudly rather than quietly dropped
-   * (ADR 0010): nothing runs, and the group is told which automation could not
+   * (ADR 0003): nothing runs, and the group is told which automation could not
    * run and why.
    *
    * No job document is written. A job is a run that is going to happen, and this
@@ -929,7 +929,7 @@ export class Executor {
     const configDoc = (await this.agentStore.readConfig())?.doc ?? null;
     // The page budget the installation set, or the one the deployment declares:
     // the same shape as every other bound, and one reader for the prompt and
-    // for the page work (ADR 0010).
+    // for the page work (ADR 0003).
     const pages = await this.maxPages();
     const context = await this.contextFor(accountId, job, rule, pages);
     // The group's standing instruction rides every model call this group's
@@ -1017,7 +1017,7 @@ export class Executor {
     await recordAudit(
       store,
       auditEntry(job, rule, "running", plan.actions, plan.summary, {
-        // The cost sits beside the work that spent it (ADR 0010): the agent
+        // The cost sits beside the work that spent it (ADR 0003): the agent
         // that held the group, whether this run paid for a chain of thought,
         // and the counts the provider reported.
         agent: this.deps.address,
@@ -1061,7 +1061,7 @@ export class Executor {
             applied: [...landed],
             // The record the action wrote, beside the action that wrote it: a
             // change naming that id is how the next run of a chain knows which
-            // job woke it (ADR 0010).
+            // job woke it (ADR 0003).
             ...(wrote.length ? { effects: [...(latest.effects ?? []), ...wrote] } : {}),
           }));
           // What just landed is not recorded, so the run stops here rather than
@@ -1085,7 +1085,7 @@ export class Executor {
       `${rule.name}: ${describeActions(results)} for ${describeTrigger(job.trigger)}`,
     );
     /*
-     * A run somebody asked for says so where the group reads (ADR 0010). Every
+     * A run somebody asked for says so where the group reads (ADR 0003). Every
      * other trigger is the group's own mail, chat or clock, which needs no
      * announcement — but "I ran this because a person asked me to" is a fact
      * about the group's agent that its members should not have to infer from a
@@ -1297,7 +1297,7 @@ export class Executor {
   }
 
   /**
-   * What a run reads of the file that woke it (ADR 0010), into its own context.
+   * What a run reads of the file that woke it (ADR 0003), into its own context.
    *
    * A rule that holds `document.read` reads the document: its own text layer
    * comes back as text, and the pages that carry no text layer at all are
@@ -1330,7 +1330,7 @@ export class Executor {
     }
     // The blob arrives whole, before anything can look at it, and a rendered
     // page is held as pixels: this is the bound on both, and a run says it
-    // rather than spending the process on one file (ADR 0010).
+    // rather than spending the process on one file (ADR 0003).
     if (found.bytes.byteLength > AGENT_DOCUMENT_BYTES_MAX) {
       context.text += `\n\n"${found.name}" is larger than the ${AGENT_DOCUMENT_BYTES_MAX} bytes a run reads, so nothing of it is read here.`;
       return;
@@ -1353,13 +1353,13 @@ export class Executor {
     } catch (err) {
       // A library refusing these bytes refuses them again on a retry, so the
       // run stops here, once, with the code: an action this deployment cannot
-      // do is refused, never silently dropped (ADR 0010).
+      // do is refused, never silently dropped (ADR 0003).
       if (err instanceof DocumentError) throw new RefusedError(err.message);
       throw err;
     }
     const read = content.read;
     // The pages this run never looked at are said beside the ones it read
-    // (ADR 0010): a reading bounded to the first pages of a document is not a
+    // (ADR 0003): a reading bounded to the first pages of a document is not a
     // reading of the whole of it, and a document whose pages do carry text is
     // bounded the same way as one whose pages do not.
     const scope =
@@ -1670,7 +1670,7 @@ export class Executor {
       await this.tellChat(accountId, `Rejected by ${by}: ${decided.summary}`);
       return;
     }
-    // The pin reaches a run resumed from an approval too (ADR 0003 §4): an
+    // The pin reaches a run resumed from an approval too (ADR 0003): an
     // answer is about the plan a person read, and the rule it came from has
     // moved on since. The run is refused rather than started, and the person
     // who answered is told why.
@@ -1718,7 +1718,7 @@ export class Executor {
         // approved is this worker's from the instant it is in flight: a job
         // marked `running` with no lease is one the next pass would take for
         // abandoned and start again, which is how the same mail would leave
-        // twice (ADR 0010).
+        // twice (ADR 0003).
         const marked = await this.writeJobIfCurrent(store, job.id, (latest) => ({
           ...latest,
           state: "running",
@@ -2608,7 +2608,7 @@ export class Executor {
      * A finished job whose own write the account has still to report is what
      * names the wake its change makes, so its document waits for the pass that
      * reads past the write: pruning it first would reset that chain to hop one
-     * (ADR 0010). Once a pass has read past it, the ordinary retention applies.
+     * (ADR 0003). Once a pass has read past it, the ordinary retention applies.
      */
     const anchors = (await store.readClaim())?.doc.statesAt ?? {};
     let removed = 0;
@@ -2677,7 +2677,7 @@ interface Pass {
   /**
    * How many hops a chain may run, as this installation states it: the bound it
    * set from its own surface, or the one the deployment's environment declares
-   * (ADR 0010). Read once for the pass, like the other installation settings.
+   * (ADR 0003). Read once for the pass, like the other installation settings.
    */
   chainHops: number;
 }
@@ -2687,7 +2687,7 @@ interface Pass {
  *
  * The hop is that run's own, so a run woken by it is one hop further, and the
  * instant is when the write landed, which is what makes it the explanation of a
- * change rather than an earlier write to the same record (ADR 0010).
+ * change rather than an earlier write to the same record (ADR 0003).
  */
 interface Producer {
   jobId: string;
@@ -2882,7 +2882,7 @@ function describeActions(results: ReadonlyArray<ActionResult>): string {
 /**
  * What a run did, in the words a person reads rather than the codes a log
  * keeps — the action catalogue's own labels, which is the one vocabulary the
- * server and the admin surface already share (ADR 0010: a run somebody asked
+ * server and the admin surface already share (ADR 0003: a run somebody asked
  * for says what it did where the group can read it).
  */
 function describeActionsInWords(results: ReadonlyArray<ActionResult>): string {

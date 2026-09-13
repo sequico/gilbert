@@ -1,6 +1,6 @@
 /**
  * The pending-approval queue, across every group (ADR 0003 "Admin surfaces"
- * and resolution 10, cross-group per ADR 0014).
+ * and resolution 10, cross-group per ADR 0003).
  *
  * A run that pauses for a person opens a decision document in the group's own
  * account and posts its proposal in the group's chat. The human answers in

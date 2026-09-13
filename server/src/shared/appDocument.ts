@@ -26,9 +26,9 @@
  * call site happened to write the file.
  *
  * The value is fixed, so the same value is always the same bytes. That is what
- * a writer re-applying a change after it lost a compare-and-set needs (ADR 0003
- * §6): the retry writes the document it meant to write, not a differently
- * shaped copy of it.
+ * a writer re-applying a change after it lost a compare-and-set needs (ADR
+ * 0003, *Coordination: leases, claims and fencing*): the retry writes the
+ * document it meant to write, not a differently shaped copy of it.
  */
 export function appDocumentJson(value: unknown): string {
   return JSON.stringify(value, null, 2);

@@ -11,7 +11,7 @@ interface DirectoryUser {
 type Impersonation = "ok" | "denied" | "unknown";
 
 /**
- * The admin Force passwords surface (ADR 0001 §5, ADR 0004): every
+ * The admin Force passwords surface (ADR 0001): every
  * individual account on the server, with a per-row controller that shows
  * whether the password change is currently forced and offers Force/Release.
  * The server refuses to force another Gilbert administrator, so the list is

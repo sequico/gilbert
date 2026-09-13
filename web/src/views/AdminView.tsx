@@ -28,16 +28,16 @@ type AdminSection = SectionItem & { el: ReactNode; owner: AdminOwner };
  * The administration's groups, and what each one is for.
  *
  * "Gilbert Mailer" is the mail server's own administration — policy, the group
- * label catalogs, forced password changes — the surfaces ADR 0004/0005 cover,
+ * label catalogs, forced password changes — the surfaces ADR 0001/0005 cover,
  * which stand without an agent. "Assistant" is everything ADR 0003 covers,
- * restructured by ADR 0014 into three sections: **Master** (the installation,
+ * restructured by ADR 0003 into three sections: **Master** (the installation,
  * configured once), **Group Agents** (one group's automations, standing
  * instruction, memory, audit and fleet, behind a single picker) and
  * **Approvals** (cross-group oversight, read-only by construction). "Stalwart"
  * is the mail server's own records, written over JMAP or over its
  * configuration API: **Enforce Identities**, one section holding a person's and
- * a group's behind two tabs (ADR 0007), and, in time, its system Sieve scripts
- * (ADR 0008). The split keeps each kind of thing under a heading that names it,
+ * a group's behind two tabs (ADR 0007), and, in time, its system Sieve scripts.
+ * The split keeps each kind of thing under a heading that names it,
  * rather than both under one unlabelled "Gilbert".
  */
 function sections(pendingApprovals: number): AdminSection[] {
@@ -126,10 +126,10 @@ function sections(pendingApprovals: number): AdminSection[] {
  * these sections stay consistent. The nav groups the surfaces by owner:
  * "Gilbert Mailer" for the mail server's own administration (policy, forced
  * passwords, group label catalogs), "Gilbert Assistant" for the agent fleet
- * (ADR 0003, ADR 0014) — Master, Group Agents and Approvals — and "Stalwart"
+ * (ADR 0003) — Master, Group Agents and Approvals — and "Stalwart"
  * for the mail server's own records — the identities an administrator sets, as
  * one section with a tab per kind of principal (ADR 0007), and, in time, its
- * system Sieve scripts (ADR 0008) — with About ungrouped at the tail.
+ * system Sieve scripts — with About ungrouped at the tail.
  */
 export function AdminView({ section }: { section?: string }) {
   const loadStatus = useAgents((s) => s.loadStatus);

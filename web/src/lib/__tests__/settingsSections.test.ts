@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { IDENTITIES_SECTION, visibleSettingsSections } from "@/lib/settingsSections";
 
 /**
- * ADR 0007 §4: an account whose identity an administrator has taken over is
+ * ADR 0007: an account whose identity an administrator has taken over is
  * offered **no** Identities & signatures section. This is the invariant that
  * names, and it fails the moment the filtering goes away — which is the point:
  * the lock is a rule about the surface, so it is the surface's list that has to

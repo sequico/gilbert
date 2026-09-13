@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 
 /**
- * The mock serves the account's own settings document (ADR 0007 §7): a
+ * The mock serves the account's own settings document (ADR 0007): a
  * `settings.json` inside the account's `gilbert` app folder, written whole and
  * read back whole.
  *

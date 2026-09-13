@@ -60,7 +60,7 @@ export class ApiError extends Error {
 }
 
 /**
- * The server's answer when the forced-password-change door (ADR 0004) stops
+ * The server's answer when the forced-password-change door (ADR 0001) stops
  * a data request: 403 with this error code. The client turns it into the
  * full-screen forced-change view, like a 401 turns into the sign-in screen.
  */
@@ -230,7 +230,7 @@ export class JmapClient {
   }
 
   /**
-   * Fired when the forced-password-change door stops a request (ADR 0004).
+   * Fired when the forced-password-change door stops a request (ADR 0001).
    * The session is still valid — this is a wall, not a sign-out — but the app
    * must stop its data loops and show the forced-change view.
    */

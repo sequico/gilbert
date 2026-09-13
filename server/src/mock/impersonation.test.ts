@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The mock's authentication surface for the impersonation paths (ADR 0004).
+ * The mock's authentication surface for the impersonation paths (ADR 0001).
  *
  * Real 0.16 facts reproduced here, checked in stalwartlabs/stalwart source
  * (v0.16.21, 2026-09-07; re-verify against a live server with a dated comment
