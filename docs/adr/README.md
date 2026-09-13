@@ -40,12 +40,12 @@ is, not what a user sees.
 - **0006 — The minimal automation.** A group authors one enabled automation
   per trigger it actually uses — up to the four `AGENT_TRIGGERS`, never one
   per business case — with the filter left empty and the branching carried
-  in prose; the capability allowlist and the review policy stay mandatory,
-  since they are the allowlist's actual enforcement points, not authoring
-  overhead. On `chat`, `filenode` and `schedule`, which carry no filter, a
-  second enabled rule on the same trigger is not a finer split of the work
-  but a duplicate: every enabled rule on the trigger runs against every
-  matching event.
+  in prose. The capability checklist is chosen by area (Posta, Chat, File e
+  documenti) instead of by twelve individual actions; whatever the catalogue
+  marks `external` or `irreversible` — today only `mail.send` — is excluded
+  from every area and stays its own separate checkbox, so ticking an area can
+  never grant it as a side effect. `AgentRule.capabilities` is unchanged; the
+  area is metadata the editor groups by, not a new document field.
 - **0007 — Identity administration.** An administrator sets a person's or a
   group's identity through the same doors impersonation and the agent
   already open; a locked account has no path of its own to change it.
