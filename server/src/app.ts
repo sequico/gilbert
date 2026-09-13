@@ -26,6 +26,7 @@ import {
   writeGroupLabels,
 } from "./account.js";
 import {
+  EMPTY_POLICY,
   type PolicyDocument,
   parsePolicyDocumentDetailed,
   policyDocumentText,
@@ -797,10 +798,10 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   /**
    * A signed-in account's own copy of the installation's settings policy
    * (ADR 0001): what the last publish wrote into this account's own app
-   * folder, or the environment's bootstrap when nothing has reached it yet.
-   * Authenticated, unlike the old `settingsPolicy` field of `/config` this
-   * replaces — the policy is a fact about one account now, not a fact about
-   * the installation everybody sees before signing in.
+   * folder, or the empty policy when no publish has reached it — an account
+   * that carries nothing follows the product's own defaults. Authenticated:
+   * the policy is a fact about one account, not something a visitor reads
+   * before signing in.
    */
   api.get("/account/policy", requireSession, async (c) => {
     const session = c.get("session");
@@ -816,9 +817,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         username: session.username,
       };
       const accountId = filesAccountId(ctx);
+      /*
+       * An account no publish has reached carries no document: it follows the
+       * product's own defaults, which is what the empty policy says. There is
+       * no installation-wide copy behind it — the policy lives in each
+       * account's own storage, and nowhere else (ADR 0001).
+       */
       const doc =
-        (accountId ? await readAccountPolicy(ctx, accountId) : null) ??
-        config.settingsPolicy;
+        (accountId ? await readAccountPolicy(ctx, accountId) : null) ?? EMPTY_POLICY;
       return c.json({
         policy: { defaults: doc.defaults, enforced: doc.enforced, changes: doc.changes },
       });
@@ -1500,8 +1506,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       };
       const accountId = filesAccountId(ctx);
       const doc =
-        (accountId ? await readAccountPolicy(ctx, accountId) : null) ??
-        config.settingsPolicy;
+        (accountId ? await readAccountPolicy(ctx, accountId) : null) ?? EMPTY_POLICY;
       return c.json({ policy: policyDocumentText(doc) });
     } catch (err) {
       return upstreamFailure(c, err);

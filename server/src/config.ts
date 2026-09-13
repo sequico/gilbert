@@ -4,7 +4,6 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizeBasePath } from "../../scripts/basePath.mjs";
 import { resolveVersion } from "../../scripts/version.mjs";
-import type { PolicyDocument } from "./adminPolicy.js";
 import { AGENT_MAX_PAGES_DEFAULT } from "./agent/documents.js";
 
 /** Minimal .env loader (no dependency): first match wins, never overrides real env. */
@@ -75,34 +74,25 @@ const stalwartUrl = env("STALWART_URL", "https://mail.example.com").replace(/\/+
  * root filesystem, nothing durable of its own, replaceable by its image.
  *
  * It is a claim the process checks rather than one it takes on trust, because
- * the failure it guards against is silent. Left to itself the server survives
- * a read-only filesystem perfectly well -- sessions are held in memory and the
- * write is best-effort, so the only sign that `SESSION_FILE` is going nowhere
- * is one warning at the first login, long after anyone was watching. The
- * instance looks healthy right up until it is replaced and everyone is signed
- * out. Setting IMMUTABLE turns both halves of that into a refusal to start.
+ * the failure it guards against is silent. Setting the variable while
+ * forgetting `--read-only` is the easy mistake, and an instance that believed
+ * it would look healthy while keeping whatever it wrote where the next image
+ * will not find it. Nothing Gilbert holds durably lives on this filesystem any
+ * more — the sessions, the policy, the lock and the agent's records are all
+ * documents in Stalwart — so what is left to check is the property itself.
  */
 const immutable = bool("IMMUTABLE", false);
-const sessionFile = process.env.SESSION_FILE ?? "";
 
 /**
  * Refuse to run when the promise IMMUTABLE makes is not one this instance can
  * keep. Exported so it can be tested without a read-only filesystem to hand.
  */
-export function assertImmutable(sessionFile: string, root: string): void {
-  // The image sets SESSION_FILE=/data/sessions.json, so this is a deliberate
-  // refusal rather than a formality: running immutably means clearing it. It
-  // is not quietly ignored, because a configured path that silently persists
-  // nothing is exactly the failure this flag exists to surface.
-  if (sessionFile) {
-    throw new Error(
-      `IMMUTABLE is set, but SESSION_FILE is ${sessionFile}. An immutable instance keeps no durable state of its own: ` +
-        "pass SESSION_FILE= (empty) to hold sessions in memory, or unset IMMUTABLE.",
-    );
-  }
-  // And check the property itself, not just the intention to have it. Setting
-  // the variable while forgetting `--read-only` is the easy mistake, and it
-  // leaves an instance claiming a guarantee it does not have.
+export function assertImmutable(root: string): void {
+  /*
+   * The property itself, not the intention to have it: a probe written and
+   * removed, because a variable set while `--read-only` was forgotten would
+   * leave an instance claiming a guarantee it does not have.
+   */
   const probe = resolve(root, ".immutable-probe");
   let writable = false;
   try {
@@ -119,110 +109,7 @@ export function assertImmutable(sessionFile: string, root: string): void {
   }
 }
 
-if (immutable)
-  assertImmutable(sessionFile, fileURLToPath(new URL("../..", import.meta.url)));
-
-/**
- * The bootstrap policy: what an account runs on before any administrator has
- * published one through `POST /admin/policy` (ADR 0001), and what an account
- * the last publish did not yet reach falls back to.
- *
- * A school turning on "warn about outside senders" for three thousand pupils
- * cannot ask three thousand pupils to turn it on -- issue #207. Two sections,
- * which are two different powers:
- *
- * - `defaults` seed an account that has never had settings of its own. The
- *   reader can change any of them afterwards; they are a starting point, not a
- *   rule.
- * - `enforced` are applied on every load and cannot be changed here at all. The
- *   controls stay visible and go dead, which the issue asked for by name: a
- *   missing control confuses somebody who has used Gilbert elsewhere.
- * - `changes` are applied once each, to everybody, including accounts that
- *   already exist -- and can be changed back afterwards. Each carries its own
- *   `version`, which is how an account remembers the ones it has had. The
- *   reporter's own analogy is a schema migration and this is that shape.
- *
- * Read once from the environment at boot -- not from a file: everything this
- * installation decides durably lives in Stalwart (ADR 0001), one account at a
- * time, and an environment variable is the one piece of that which is allowed
- * to live beside the container instead, because it is what seeds the very
- * first account before any publish has happened at all.
- *
- * The shape is the document's, declared once in `adminPolicy.ts` and shared with
- * the surface that edits it, so the reader and the editor cannot drift into two
- * ideas of what a policy is.
- */
-function readSettingsPolicy(): PolicyDocument {
-  /**
-   * One environment variable or file, as strict JSON.
-   *
-   * Loud, and fatal: a policy that silently did not apply would look like the
-   * feature not working, and the admin would have no way to tell. Wrapped here
-   * so every value the policy comes from fails in the same words, however it
-   * was written -- a bare SyntaxError names neither the variable nor the file.
-   */
-  const parseJson = (raw: string, where: string): unknown => {
-    try {
-      return JSON.parse(raw);
-    } catch (err) {
-      throw new Error(`Invalid ${where}: ${(err as Error).message}`);
-    }
-  };
-
-  const parse = (raw: string, where: string): Record<string, unknown> => {
-    const v = parseJson(raw, where);
-    if (!v || typeof v !== "object" || Array.isArray(v))
-      throw new Error(`Invalid ${where}: not a JSON object`);
-    return v as Record<string, unknown>;
-  };
-
-  /**
-   * A change list, checked rather than trusted.
-   *
-   * Every entry needs a `version` that is unique within the file: it is what an
-   * account stores to say it has had this one, so a duplicate would make two
-   * changes indistinguishable and a missing one would apply for ever.
-   */
-  const parseChanges = (
-    v: unknown,
-    where: string,
-  ): Array<{ version: string; settings: Record<string, unknown> }> => {
-    if (v === undefined) return [];
-    if (!Array.isArray(v)) throw new Error(`Invalid ${where}: "changes" must be a list`);
-    const seen = new Set<string>();
-    return v.map((entry, i) => {
-      const e = entry as { version?: unknown; settings?: unknown };
-      const version = typeof e.version === "string" ? e.version.trim() : "";
-      if (!version) throw new Error(`Invalid ${where}: changes[${i}] has no "version"`);
-      if (seen.has(version))
-        throw new Error(`Invalid ${where}: two changes share the version "${version}"`);
-      seen.add(version);
-      if (!e.settings || typeof e.settings !== "object" || Array.isArray(e.settings)) {
-        throw new Error(
-          `Invalid ${where}: changes[${i}] ("${version}") has no "settings" object`,
-        );
-      }
-      return { version, settings: e.settings as Record<string, unknown> };
-    });
-  };
-
-  return {
-    defaults: process.env.SETTINGS_DEFAULTS
-      ? parse(process.env.SETTINGS_DEFAULTS, "SETTINGS_DEFAULTS")
-      : {},
-    enforced: process.env.SETTINGS_ENFORCED
-      ? parse(process.env.SETTINGS_ENFORCED, "SETTINGS_ENFORCED")
-      : {},
-    // A malformed value here is a configuration error that has to say which
-    // variable it came from.
-    changes: process.env.SETTINGS_CHANGES
-      ? parseChanges(
-          parseJson(process.env.SETTINGS_CHANGES, "SETTINGS_CHANGES"),
-          "SETTINGS_CHANGES",
-        )
-      : [],
-  };
-}
+if (immutable) assertImmutable(fileURLToPath(new URL("../..", import.meta.url)));
 
 /**
  * Which Stalwart a domain signs in to.
@@ -433,7 +320,6 @@ const agent = { ...resolveAgentBootstrap(), ...agentWorkerSettings };
 export const config = {
   isProd,
   appName: env("APP_NAME", "Gilbert"),
-  settingsPolicy: readSettingsPolicy(),
   /**
    * What this build calls itself: `2.16.57`. Set by the image build from
    * `--build-arg GILBERT_VERSION`, since `.dockerignore` keeps `.git` out of
@@ -482,7 +368,6 @@ export const config = {
   secureCookies: (process.env.SECURE_COOKIES ?? "auto").toLowerCase(),
   sessionTtl: int("SESSION_TTL", 12 * 60 * 60),
   sessionRememberTtl: int("SESSION_REMEMBER_TTL", 30 * 24 * 60 * 60),
-  sessionFile,
   /** True when this instance has asserted, and verified, that it is immutable. */
   immutable,
   upstreamTimeout: int("UPSTREAM_TIMEOUT", 30_000),

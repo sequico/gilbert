@@ -71,10 +71,9 @@ save.
   one document, not two stores to keep in step.
 
   An account the directory did not yet list at the last publish carries no
-  file yet and falls back to a bootstrap policy read once at boot from the
-  environment (`SETTINGS_DEFAULTS`, `SETTINGS_ENFORCED`, `SETTINGS_CHANGES`)
-  — the same bootstrap every account reads before any administrator has
-  published anything. Nothing here touches local disk, so this surface runs
+  document and follows the product's own defaults: there is no
+  installation-wide copy behind the account's own, and no bootstrap beside it.
+  Nothing here touches local disk, so this surface runs
   under `IMMUTABLE=1` like the rest of the product: everything Gilbert owns is
   a document in Stalwart.
 

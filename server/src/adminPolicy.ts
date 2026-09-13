@@ -2,13 +2,11 @@ import { type Ctx, readAppJsonAt, writeAppFile } from "./appFolder.js";
 
 /**
  * The installation-wide settings policy, as the administration surface edits
- * it (ADR 0001, ADR 0001, ADR 0001). `{ defaults, enforced, changes }`
- * (issue #207), published into every individual account's own app folder
- * rather than kept in one file or environment variable — see
- * `writeAccountPolicy`/`readAccountPolicy` below. `SETTINGS_DEFAULTS` /
- * `SETTINGS_ENFORCED` / `SETTINGS_CHANGES` (`config.ts`) read the same shape
- * from the environment, as the bootstrap an account falls back to before any
- * administrator has published one through this document.
+ * it (ADR 0001). `{ defaults, enforced, changes }` (issue #207), published into
+ * every individual account's own app folder rather than kept in one file or
+ * environment variable — see `writeAccountPolicy`/`readAccountPolicy` below. An
+ * account no publish has reached carries no document at all, which is what its
+ * reader reports as this empty policy.
  */
 
 export interface PolicyChangeDocument {
@@ -21,6 +19,12 @@ export interface PolicyDocument {
   enforced: Record<string, unknown>;
   changes: PolicyChangeDocument[];
 }
+
+/**
+ * The policy an account with no document has: none, said in the document's own
+ * shape so every reader can hold one type rather than two.
+ */
+export const EMPTY_POLICY: PolicyDocument = { defaults: {}, enforced: {}, changes: [] };
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
@@ -51,7 +55,7 @@ export function readPolicySection(
 /**
  * Parse and validate one policy document text.
  *
- * Mirrors `readSettingsPolicy` in `server/src/config.ts`: strict JSON; an
+ * Strict JSON; an
  * object at the top; `defaults` and `enforced` optional objects (a JSON null
  * reads as absent, exactly like the boot reader's `?? {}`); `changes` an
  * optional list whose entries each carry a unique non-empty `version` and a

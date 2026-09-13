@@ -41,7 +41,7 @@ metadata:
 
 ## 3. Architecture law
 
-- JMAP only, to Stalwart. No IMAP/POP3/SMTP fallback and no database of its own: everything durable lives in Stalwart; the container is disposable; with `IMMUTABLE=1` there is no writable filesystem (`SESSION_FILE` is the one optional write path).
+- JMAP only, to Stalwart. No IMAP/POP3/SMTP fallback and no database of its own: everything durable lives in Stalwart; the container is disposable; with `IMMUTABLE=1` there is no writable filesystem, and nothing Gilbert keeps durably is on it anyway (sessions included).
 - `web/` = React 19 + TypeScript SPA (Vite): `src/jmap` (client/push/types), `src/store` (zustand: session, mail, compose, contacts, calendar, tasks, files, sieve, settings, mdn, scheduled), `src/lib` (incl. `src/lib/smime`: pure-TS S/MIME verification over WebCrypto), `src/views`, `src/ui`, `src/locales`. `server/` = Node + Hono proxy (`/api/jmap`, blob, upload, EventSource, image, ics) — responses compressed, the data path per-session rate-limited (`apiRateLimited`), with an optional `rawPushRelay` — and an in-memory mock Stalwart in `server/src/mock` (which serves really-signed S/MIME fixtures from `signedMessages.ts`).
 - Standing values: graceful degradation per JMAP capability; fail loudly rather than quietly; sanitised HTML with remote images blocked; strict CSP; settings follow the account (`settings.json` in the account's Files) with localStorage only as a cache.
 - The mock reproduces real-server quirks on purpose (per-account `urn:stalwart:jmap`, 2047-byte signatures, Stalwart's calendar vocabulary, renumbering synthetic ids). Where mock and server disagree, ask a real server.

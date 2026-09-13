@@ -80,14 +80,14 @@ metadata:
   `GET /api/account/policy` each read from the signed-in account's own file
   (`readAccountPolicy`, `server/src/adminPolicy.ts`), fetched once by
   `web/src/lib/settingsPolicy.ts`.
-- `SETTINGS_DEFAULTS` / `SETTINGS_ENFORCED` / `SETTINGS_CHANGES` (env, read
-  once at boot in `server/src/config.ts`'s `readSettingsPolicy`) are the
-  *bootstrap* an account falls back to when its own app folder carries no
-  published policy yet — not the live document itself. `SETTINGS_POLICY_FILE`
-  is gone; do not reintroduce a file-based path.
+- The policy is per account and only per account: there is no
+  installation-wide copy behind it and no bootstrap beside it. An account no
+  publish has reached carries no document, which its reader reports as the
+  empty policy (`EMPTY_POLICY`, `server/src/adminPolicy.ts`) and the client
+  reads as the product's own defaults.
   Validation is strict: malformed JSON or duplicate / missing `version`s are
-  refused (400 at publish time; fatal at boot for the bootstrap envs) — a
-  policy that silently did not apply is the failure mode being prevented.
+  refused (400 at publish time) — a policy that silently did not apply is the
+  failure mode being prevented.
 - `defaults`: seed an account that never had settings of its own; changeable
   afterwards. `enforced`: re-applied every load, unchangeable. `changes`:
   applied once per account (reaching people who already exist), changeable
@@ -110,8 +110,6 @@ metadata:
   `web/src/lib/__tests__/` (brand/config neighbours). Run the narrow test
   first: `npm test -w web` / `npm test -w server`, `TZ=UTC` when not on UTC.
 - Try a policy locally: sign in as the mock's demo admin, publish one from
-  Admin > Installation policy, and sign back in to see it applied — or set
-  `SETTINGS_DEFAULTS` / `SETTINGS_ENFORCED` / `SETTINGS_CHANGES` before
-  `npm run dev:mock` to see the bootstrap path. The demo accounts' state lives
+  Admin > Installation policy, and sign back in to see it applied. The demo accounts' state lives
   in the mock's memory: restarting `dev:mock` clears every published policy,
   so `changes` fire again from scratch.
