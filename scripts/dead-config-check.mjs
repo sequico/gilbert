@@ -69,6 +69,10 @@ const NOT_PROSE = new Set([".codewhale/state"]);
 const ENV_ALLOWED = new Map([
   ["server/src/bootstrap.ts", "the handshake: where Stalwart is, and who the Master is"],
   [
+    "server/src/configuration.ts",
+    "the installation's configuration as the environment states it, for a process with no boot",
+  ],
+  [
     "server/src/mock/index.ts",
     "the fixture's own knobs (MOCK_*), set by the test that starts it",
   ],
@@ -100,7 +104,7 @@ const SKIP_DIRS = new Set([
 ]);
 const TEST_FILE = /\.test\.(?:ts|tsx|mts|mjs)$/;
 const ENV_READ =
-  /process\.env(?:\.([A-Za-z_][A-Za-z0-9_]*)|\[["'`]([A-Za-z_][A-Za-z0-9_]*)["'`]\])/g;
+  /process\.env(?:\.([A-Za-z_][A-Za-z0-9_]*)|\[\s*(?:["'`]([A-Za-z_][A-Za-z0-9_]*)["'`]|([A-Za-z_][A-Za-z0-9_]*))\s*\])/g;
 
 /** The line number of an offset, for a report a reader can act on. */
 function lineOf(text, index) {
@@ -133,7 +137,7 @@ export function envReadsIn(text) {
   const found = [];
   for (const match of text.matchAll(ENV_READ)) {
     found.push({
-      name: match[1] ?? match[3] ?? "<computed>",
+      name: match[1] ?? match[2] ?? "<computed>",
       line: lineOf(text, match.index),
     });
   }
