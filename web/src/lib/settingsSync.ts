@@ -16,17 +16,19 @@
  * therefore shows defaults for one frame before the account's real settings
  * arrive.
  */
-import { CAP, client, setErrorMessage } from "@/jmap/client";
-import type { FileNode, Id, SetResponse } from "@/jmap/types";
-import { ensureFolder, findInFolder, nodeBlobId } from "@/lib/appFolder";
-import { fileCreate } from "@/lib/filenode";
+import { CAP, client } from "@/jmap/client";
+import { ensureFolder, findInFolder, writeAppJson } from "@/lib/appFolder";
+import { t } from "@/lib/i18n";
 import { useSession } from "@/store/session";
+import { toast } from "@/ui/toast";
 
 const FILE = "settings.json";
 const TYPE = "application/json";
 
 /** How long a change sits before it is written up. */
 const DEBOUNCE_MS = 3000;
+/** How long a failed write waits before trying again. */
+const RETRY_DEBOUNCE_MS = 15_000;
 
 let timer: number | null = null;
 let pending: Record<string, unknown> | null = null;
@@ -35,6 +37,8 @@ let inFlight: Promise<void> | null = null;
 let armed = false;
 let loadedFor: string | null = null;
 let listenersBound = false;
+/** One toast per failing streak, not one per retry. */
+let warnedOfFailure = false;
 
 export function settingsSyncAvailable(): boolean {
   return (
@@ -150,7 +154,17 @@ export function pendingSettingsKeys(): ReadonlySet<string> {
   return new Set(pending ? Object.keys(pending) : []);
 }
 
-/** Write anything queued now, rather than waiting out the debounce. */
+/**
+ * Write anything queued now, rather than waiting out the debounce.
+ *
+ * A write that fails here used to be swallowed outright: the change stayed
+ * applied in memory for the rest of the session, with nothing that ever put
+ * it back on the write queue — so the account's `settings.json` quietly kept
+ * the old value, and the next `hydrate()` (another device, the next sign-in)
+ * silently reverted a change the person believed had stuck. A failure now
+ * re-queues the change, merged under anything newer that arrived while it was
+ * in flight, retries shortly, and tells the person once per failing streak.
+ */
 export async function flushSettingsPush(): Promise<void> {
   if (timer !== null) {
     window.clearTimeout(timer);
@@ -159,43 +173,44 @@ export async function flushSettingsPush(): Promise<void> {
   if (!pending || !armed) return;
   const body = pending;
   pending = null;
-  // Serialise: two overlapping writes could land in either order.
-  inFlight = (inFlight ?? Promise.resolve())
-    .then(() => writeSettings(body))
-    .catch(() => undefined);
+  let failure: unknown;
+  // Serialise: two overlapping writes could land in either order. The failure
+  // is caught inside this chain so it can never break that ordering for the
+  // next flush, and captured separately so this call can act on it below.
+  inFlight = (inFlight ?? Promise.resolve()).then(() =>
+    writeSettings(body).catch((err: unknown) => {
+      failure = err;
+    }),
+  );
   await inFlight;
+  if (!failure) {
+    warnedOfFailure = false;
+    return;
+  }
+  // The newer value always wins over the one that just failed to write.
+  const arrivedSince = pending;
+  pending = Object.assign({}, body, arrivedSince ?? {});
+  if (armed) {
+    if (timer !== null) window.clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      timer = null;
+      void flushSettingsPush();
+    }, RETRY_DEBOUNCE_MS);
+  }
+  if (!warnedOfFailure) {
+    warnedOfFailure = true;
+    toast.error(
+      t("Your settings could not be saved: {error}", {
+        error: (failure as Error).message ?? String(failure),
+      }),
+    );
+  }
 }
 
 async function writeSettings(body: Record<string, unknown>): Promise<void> {
   if (!settingsSyncAvailable()) return;
   const accountId = useSession.getState().ownAccountFor(CAP.filenode)!;
-  const json = JSON.stringify(body, null, 2);
-  // Byte length, not character count: a template or a signature with any
-  // non-ASCII in it would otherwise be reported shorter than it is.
-  const blob = new Blob([json], { type: TYPE });
-  const up = await client.upload(accountId, blob, { type: TYPE });
-  const folderId = await ensureFolder(accountId);
-  const existing = await findInFolder(accountId, folderId, FILE);
-  if (existing) {
-    const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
-      accountId,
-      update: { [existing.id]: { blobId: up.blobId, type: TYPE, size: blob.size } },
-    });
-    const err = res.notUpdated?.[existing.id];
-    if (err) throw new Error(setErrorMessage(err));
-    return;
-  }
-  const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
-    accountId,
-    create: { s: fileCreate(folderId, FILE, up.blobId, TYPE) },
-  });
-  const err = res.notCreated?.s;
-  if (err) throw new Error(setErrorMessage(err));
-  // Some servers hand back no blobId on create; ask, so the next read finds it.
-  await nodeBlobId(
-    accountId,
-    (res.created?.s as Partial<FileNode> | undefined)?.id as Id | undefined,
-  );
+  await writeAppJson(accountId, FILE, body, { type: TYPE });
 }
 
 /**

@@ -1,6 +1,11 @@
 # ADR 0007 — Identities an administrator sets
 
-Status: Proposed (2026-09-11)
+Status: Proposed (2026-09-11). The lock's storage — a list inside the
+installation's shared policy document — is superseded by ADR 0015
+(2026-09-13): it is a fact about one account now, stored in that account's
+own app folder. The rest of this record — impersonation as the write door,
+the group identity written as the agent, the default identity's own key of
+`settings.json` — stands unchanged.
 
 > **Owner direction (2026-09-11):** an administrator sets a principal's
 > identity — display name, address, reply-to and signature — through the same

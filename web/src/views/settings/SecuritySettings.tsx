@@ -413,6 +413,7 @@ function AppPasswords({
   reload: () => Promise<void>;
 }) {
   const [name, setName] = useState("");
+  const [current, setCurrent] = useState("");
   const [busy, setBusy] = useState(false);
   const [issued, setIssued] = useState<{ description: string; secret: string } | null>(
     null,
@@ -428,11 +429,12 @@ function AppPasswords({
         "/api/account/app-passwords",
         {
           method: "POST",
-          body: JSON.stringify({ description: name }),
+          body: JSON.stringify({ description: name, current }),
         },
       );
       setIssued({ description: name, secret: res.secret });
       setName("");
+      setCurrent("");
       await reload();
     } catch (err) {
       toast.error((err as Error).message);
@@ -513,7 +515,18 @@ function AppPasswords({
             required
           />
         </div>
-        <button className="btn" disabled={busy || !name.trim()}>
+        <div className="field" style={{ marginBottom: 0, minWidth: 200 }}>
+          <label htmlFor="ap-current">{t("Your current password")}</label>
+          <input
+            id="ap-current"
+            type="password"
+            autoComplete="current-password"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+            required
+          />
+        </div>
+        <button className="btn" disabled={busy || !name.trim() || !current}>
           {busy ? "Creating…" : "Create"}
         </button>
       </form>

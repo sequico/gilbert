@@ -6,7 +6,7 @@ import { t } from "@/lib/i18n";
 import { labelKeywordFromName } from "@/lib/labelKeyword";
 import { useSession } from "@/store/session";
 import type { Label } from "@/store/settings";
-import { promptDialog } from "@/ui/dialog";
+import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { CALENDAR_COLORS, ColorSwatches } from "@/ui/misc";
 
 interface DirectoryGroup {
@@ -225,7 +225,24 @@ export function GroupLabels() {
                         aria-label={t("Delete label")}
                         disabled={busy}
                         onClick={() =>
-                          void save(labels.filter((x) => x.keyword !== l.keyword))
+                          void (async () => {
+                            // Persists immediately for the whole group, and
+                            // any message already carrying the keyword loses
+                            // its visible label for every member until it is
+                            // re-added — unlike removing an identity or a
+                            // rule elsewhere in the admin surface, this had no
+                            // confirmation at all.
+                            const ok = await confirmDialog({
+                              title: t("Delete “{name}”?", { name: l.name }),
+                              message: t(
+                                "Messages already carrying this label lose it for everyone in the group.",
+                              ),
+                              confirmLabel: t("Delete"),
+                              danger: true,
+                            });
+                            if (!ok) return;
+                            await save(labels.filter((x) => x.keyword !== l.keyword));
+                          })()
                         }
                       >
                         <Trash2 size={16} />

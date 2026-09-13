@@ -393,19 +393,14 @@ in shape, and that is deliberately whose idea it was ([#207]).
 Nothing is configured by default: an installation that sets none of these
 behaves exactly as Gilbert always has.
 
-### Passing a policy to Docker
+### Publishing a policy (ADR 0015)
 
-Where a file is easier to manage than JSON quoted in a unit file — and it
-usually is once there are `changes` in it — mount one and name it:
-
-```bash
-docker run -d --name gilbert \
-  -e STALWART_URL=https://mail.example.org \
-  -e APP_SECRET="$(openssl rand -hex 32)" \
-  -e SETTINGS_POLICY_FILE=/etc/gilbert/policy.json \
-  -v /srv/gilbert/policy.json:/etc/gilbert/policy.json:ro \
-  -p 8080:8080 ghcr.io/sequico/gilbert:latest
-```
+The live policy is not a file or a variable: **Administration → Installation
+policy** publishes it into every individual account's own Stalwart storage, by
+impersonation, the same way an administrator sets a person's default identity.
+There is nothing to mount and nothing that needs a volume — publishing works
+identically under `IMMUTABLE=1`, and a redeploy or a second replica reads
+exactly what the last publish wrote, because that is where it lives.
 
 ```json
 {
@@ -419,14 +414,19 @@ docker run -d --name gilbert \
 ```
 
 [`settings-policy.example.json`](settings-policy.example.json) in this repo is
-that file with every section explained in it — copy it and delete what you do
-not want.
+that document with every section explained in it — paste it into the editor and
+delete what you do not want.
 
-Mount it read-only: the server only ever reads it, and `:ro` keeps that true
-under `--read-only` as well.
+Publishing applies at once: every account the directory lists gets the document
+written into its own app folder (impersonated), the publishing administrator's
+account included, and every other signed-in session is kicked so its next
+sign-in reads the new policy (ADR 0004). One account's refusal — no
+impersonation grant, an unreachable session — does not stop the rest; the
+response names how many accounts were reached and which were not.
 
-Or without a file at all, which is what an immutable deployment with no volume
-wants:
+`SETTINGS_DEFAULTS`, `SETTINGS_ENFORCED` and `SETTINGS_CHANGES` are the
+*bootstrap* an account runs on before any publish has reached it — read once at
+startup, from the environment, exactly as before:
 
 ```bash
 docker run -d --name gilbert --read-only --tmpfs /tmp \
@@ -439,26 +439,9 @@ docker run -d --name gilbert --read-only --tmpfs /tmp \
   -p 8080:8080 ghcr.io/sequico/gilbert:latest
 ```
 
-In `docker-compose.yml`:
-
-```yaml
-services:
-  gilbert:
-    build: .
-    image: gilbert:2
-    environment:
-      SETTINGS_POLICY_FILE: /etc/gilbert/policy.json
-    volumes:
-      - ./policy.json:/etc/gilbert/policy.json:ro
-```
-
-The file is read at startup, and **Administration → Policy** publishes a new one
-without a restart: the running copy is swapped and every other session is signed
-out, so the next sign-in applies it at boot (ADR 0004). Editing the file by hand
-still means restarting the container. With no `SETTINGS_POLICY_FILE` — the
-immutable posture, where nothing on disk survives a replace — that publish is
-runtime-only, and the next container comes back on the `SETTINGS_*` variables it
-was started with.
+This is what every account reads before any administrator has ever used the
+live editor, and what a brand-new account (not yet listed at the last publish)
+falls back to until the next publish reaches it.
 
 ### Writing a policy
 
@@ -466,12 +449,14 @@ Both sections take the same names and values a settings export uses, so
 `Settings → General → Export` on one account you have configured by hand is the
 quickest way to write one — copy the keys you care about out of the file.
 
-Three checks worth knowing about, because they fail loudly rather than quietly:
+Checks worth knowing about, because they fail loudly rather than quietly:
 
-- **Malformed JSON stops the server at startup.** A policy that silently did not
-  apply is indistinguishable from the feature not working.
-- **Every change needs a unique `version`.** Two changes sharing one, or a change
-  with no `version` or no `settings`, is a startup error.
+- **Malformed JSON is refused at publish time (400, nothing changes) or stops
+  the server at startup** for the bootstrap variables. Either way, a policy
+  that silently did not apply would be indistinguishable from the feature not
+  working.
+- **Every change needs a unique `version`.** Two changes sharing one, or a
+  change with no `version` or no `settings`, is refused.
 - **Keys this build does not have are dropped**, the same rule an imported
   settings file gets. A `changes` entry whose keys are *all* unknown is dropped
   whole rather than recorded as applied, so it still runs on a Gilbert that

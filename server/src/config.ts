@@ -4,12 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizeBasePath } from "../../scripts/basePath.mjs";
 import { resolveVersion } from "../../scripts/version.mjs";
-import {
-  isAddress,
-  type PolicyDocument,
-  type PolicyIdentities,
-  readPolicySection,
-} from "./adminPolicy.js";
+import type { PolicyDocument } from "./adminPolicy.js";
 import { AGENT_MAX_PAGES_DEFAULT } from "./agent/documents.js";
 
 /** Minimal .env loader (no dependency): first match wins, never overrides real env. */
@@ -128,7 +123,9 @@ if (immutable)
   assertImmutable(sessionFile, fileURLToPath(new URL("../..", import.meta.url)));
 
 /**
- * Settings an installation decides, rather than each reader.
+ * The bootstrap policy: what an account runs on before any administrator has
+ * published one through `POST /admin/policy` (ADR 0015), and what an account
+ * the last publish did not yet reach falls back to.
  *
  * A school turning on "warn about outside senders" for three thousand pupils
  * cannot ask three thousand pupils to turn it on -- issue #207. Two sections,
@@ -145,9 +142,11 @@ if (immutable)
  *   `version`, which is how an account remembers the ones it has had. The
  *   reporter's own analogy is a schema migration and this is that shape.
  *
- * Read from a file or straight from the environment, because Gilbert's own
- * production runs read-only with no volume -- an installation that cannot mount
- * a file can still set a variable.
+ * Read once from the environment at boot -- not from a file: everything this
+ * installation decides durably lives in Stalwart (ADR 0015), one account at a
+ * time, and an environment variable is the one piece of that which is allowed
+ * to live beside the container instead, because it is what seeds the very
+ * first account before any publish has happened at all.
  *
  * The shape is the document's, declared once in `adminPolicy.ts` and shared with
  * the surface that edits it, so the reader and the editor cannot drift into two
@@ -175,19 +174,6 @@ function readSettingsPolicy(): PolicyDocument {
     if (!v || typeof v !== "object" || Array.isArray(v))
       throw new Error(`Invalid ${where}: not a JSON object`);
     return v as Record<string, unknown>;
-  };
-
-  /**
-   * One section of a policy document, under the editor's rule (ADR 0004 §1).
-   *
-   * `defaults` and `enforced` are objects or they are not a policy: the editor
-   * refuses a scalar where an object belongs, and so does this, because a cast
-   * would load a string or an array as settings that are not there.
-   */
-  const section = (name: "defaults" | "enforced", v: unknown, where: string) => {
-    const got = readPolicySection(name, v);
-    if (typeof got === "string") throw new Error(`Invalid ${where}: ${got}`);
-    return got;
   };
 
   /**
@@ -220,51 +206,6 @@ function readSettingsPolicy(): PolicyDocument {
     });
   };
 
-  /**
-   * The identities an administrator has taken over (ADR 0007 §4).
-   *
-   * Mirrors the surface's rule: an entry that is not an address is a
-   * configuration error at boot, not a value to fall back from silently. An
-   * empty list and an absent one both mean nobody is locked.
-   */
-  const parseIdentities = (
-    v: unknown,
-    where: string,
-  ): { identities?: PolicyIdentities } => {
-    if (v == null) return {};
-    if (typeof v !== "object" || Array.isArray(v))
-      throw new Error(`Invalid ${where}: "identities" must be an object`);
-    const locked = (v as { locked?: unknown }).locked;
-    if (locked === undefined) return {};
-    if (!Array.isArray(locked) || locked.some((entry) => typeof entry !== "string"))
-      throw new Error(
-        `Invalid ${where}: "identities.locked" must be a list of account addresses`,
-      );
-    const addresses: string[] = [];
-    for (const entry of locked as string[]) {
-      const address = entry.trim().toLowerCase();
-      if (!isAddress(address))
-        throw new Error(
-          `Invalid ${where}: "identities.locked" names something that is not an address: ${entry}`,
-        );
-      if (!addresses.includes(address)) addresses.push(address);
-    }
-    return addresses.length ? { identities: { locked: addresses } } : {};
-  };
-
-  const file = process.env.SETTINGS_POLICY_FILE;
-  if (file) {
-    if (!existsSync(file))
-      throw new Error(`SETTINGS_POLICY_FILE does not exist: ${file}`);
-    const where = `SETTINGS_POLICY_FILE (${file})`;
-    const whole = parse(readFileSync(file, "utf8"), where);
-    return {
-      defaults: section("defaults", whole.defaults, where),
-      enforced: section("enforced", whole.enforced, where),
-      changes: parseChanges(whole.changes, where),
-      ...parseIdentities(whole.identities, where),
-    };
-  }
   return {
     defaults: process.env.SETTINGS_DEFAULTS
       ? parse(process.env.SETTINGS_DEFAULTS, "SETTINGS_DEFAULTS")
@@ -272,8 +213,8 @@ function readSettingsPolicy(): PolicyDocument {
     enforced: process.env.SETTINGS_ENFORCED
       ? parse(process.env.SETTINGS_ENFORCED, "SETTINGS_ENFORCED")
       : {},
-    // Through the same guard as the file's list: a malformed value here is a
-    // configuration error that has to say which variable it came from.
+    // A malformed value here is a configuration error that has to say which
+    // variable it came from.
     changes: process.env.SETTINGS_CHANGES
       ? parseChanges(
           parseJson(process.env.SETTINGS_CHANGES, "SETTINGS_CHANGES"),
@@ -459,7 +400,12 @@ const agentWorkerSettings = {
    * is a bound the installation sets rather than one the file decides. The run
    * is told the number in its own prompt.
    */
-  maxPages: int("GILBERT_AGENT_MAX_PAGES", AGENT_MAX_PAGES_DEFAULT),
+  // Floored at one the same way the installation's own stored bound is
+  // (`isAgentBound`): a deployment that sets this to 0 or a negative number
+  // must not have every run refused as though it were over its chain bound
+  // instead of under its page one — the two validators disagreeing was a
+  // business logic review finding.
+  maxPages: Math.max(1, int("GILBERT_AGENT_MAX_PAGES", AGENT_MAX_PAGES_DEFAULT)),
   /*
    * How many hops a chain of automations runs before the next one is refused
    * (ADR 0010). Hop one is the trigger that wakes a rule by itself, and a run
@@ -468,7 +414,11 @@ const agentWorkerSettings = {
    * configuration rather than compiled in, so a deployment with a legitimately
    * longer pipeline raises it instead of waiting for a release.
    */
-  maxChainHops: int("GILBERT_AGENT_MAX_CHAIN_HOPS", 5),
+  // Floored at one the same way the installation's own stored bound is: a
+  // deployment that sets this to 0 or a negative number would otherwise
+  // refuse every run, even an unchained hop-one trigger, as though it were a
+  // runaway chain (a business logic review finding).
+  maxChainHops: Math.max(1, int("GILBERT_AGENT_MAX_CHAIN_HOPS", 5)),
 };
 
 /**

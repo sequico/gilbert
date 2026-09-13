@@ -411,11 +411,14 @@ Product administration inside Gilbert, for users who are **Stalwart admins**
 - **Installation-wide policy editor**: the shield opens the administration
 surface; its Policy section edits one JSON document with upstream's
 `defaults` / `enforced` / `changes` shape (issue #207) and publishes it.
-Publishing validates with the boot path's rules, replaces the running
-policy at once (no restart), rewrites `SETTINGS_POLICY_FILE` when the
-deployment gives it a writable file, and signs the other signed-in
-clients out so their next sign-in applies it (`GET`/`POST
-/api/admin/policy`; ADR 0001 §4, ADR 0004).
+Publishing validates with the same rules, then writes the document into
+every individual account's own Stalwart storage by impersonation — the
+publishing administrator's account included — rather than into a file or
+an environment variable, so it survives a redeploy and needs no volume
+even under `IMMUTABLE=1` (ADR 0015). It applies at once and signs the
+other signed-in clients out so their next sign-in reads it (`GET`/`POST
+/api/admin/policy`, `GET /api/account/policy`; ADR 0001 §4, ADR 0004,
+ADR 0015).
 - **Forced password change**: an administrator can require a user to change
 their password (ADR 0004). The directive lives as a file in the target
 user's own hidden `gilbert` app folder; the server door answers 403 on
@@ -461,9 +464,10 @@ and in the client alike. A share is never administered or served as a group.
   whole of the gate. The account's **entire** list is shown and editable — add,
   change, remove, with the server's own `mayDelete` respected so nothing is
   left behind as an identity the administrator cannot see and the composer
-  still offers. A **lock** can be applied instead, recorded in the
-  installation's policy document beside the settings policy: the person's
-  Identities & signatures section is not offered at all. **Enforce** and
+  still offers. A **lock** can be applied instead, recorded in that account's
+  own Stalwart storage (`identity-lock.json`, its own app folder — ADR 0015,
+  not a shared installation-wide list): the person's Identities & signatures
+  section is not offered at all. **Enforce** and
   **Release** write and give it back from the page, with no sign-in in
   between — the button reads **Enforced** while it holds, the session at hand
   re-reads its own record at once, and a session already open does so the next

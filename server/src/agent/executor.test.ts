@@ -199,7 +199,9 @@ async function jobsOf(ruleId: string): Promise<AgentJob[]> {
  * the route holds a value to the ceiling this build accepts, and the point of
  * `maxPages: 100` below is a document somebody wrote by hand.
  */
-async function installConfig(over: { maxPages?: number } = {}): Promise<void> {
+async function installConfig(
+  over: { maxPages?: number; maxChainHops?: number } = {},
+): Promise<void> {
   await new AgentStore(ctx, filesAccountId(ctx)).writeConfig({
     v: 1,
     address: AGENT,
@@ -657,6 +659,73 @@ test("a draft that vanished is not an approval", async () => {
     "nothing can be sent from a draft that is gone",
   );
   assert.equal((await store.readJob(String(job.id)))?.doc.state, "done");
+});
+
+test("a draft moved to Trash is a rejection, not a send", async () => {
+  const madeTrash = await client.call<{ created?: Record<string, { id: string }> }>(
+    "Mailbox/set",
+    {
+      accountId: GROUP,
+      create: { t: { name: "Trash", role: "trash", parentId: null } },
+    },
+    [JMAP_MAIL],
+  );
+  const trashId = madeTrash.created?.t?.id;
+  assert.ok(trashId, "the mock assigns the Trash mailbox its own id");
+  const proposer = rule({
+    id: "trashed-draft",
+    name: "Reply and get discarded",
+    review: { mode: "always" },
+    capabilities: ["mail.draft", "mail.send"],
+  });
+  answerFor("Reply and get discarded", {
+    summary: "Replied to the invoice.",
+    confidence: 1,
+    actions: [
+      { do: "mail.draft", with: { to: ADA, subject: "Re: no thanks", text: "Hello." } },
+      { do: "mail.send", with: { to: ADA } },
+    ],
+  });
+  await store.writeRules([proposer]);
+  const emailId = await createMessage("An invoice whose reply will be rejected");
+
+  await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
+  const job = (await jobsOf("trashed-draft")).at(-1);
+  assert.ok(job?.proposal?.draft, String(job?.error));
+
+  const before = await submissionCount();
+  // The most ordinary way a person rejects a proposal: they delete the draft,
+  // which in JMAP is a move to Trash, not a destroy — the message still
+  // exists. This must not be read as "a person sent it".
+  await client.call(
+    "Email/set",
+    {
+      accountId: GROUP,
+      update: { [job.proposal.draft.emailId]: { mailboxIds: { [trashId as string]: true } } },
+    },
+    [JMAP_MAIL],
+  );
+  const swept = await executor.sweepDrafts(GROUP, [String(job.decisionId)]);
+  assert.deepEqual(swept, [String(job.decisionId)]);
+
+  const settled = (await store.readDecision(String(job.decisionId)))?.doc;
+  assert.equal(
+    settled?.state,
+    "expired",
+    "a draft discarded to Trash was never sent, so the decision is not approved",
+  );
+  assert.equal((await store.readJob(String(job.id)))?.doc.state, "done");
+  assert.equal(
+    await submissionCount(),
+    before,
+    "nothing was ever submitted, so nothing is sent on the draft's behalf",
+  );
+  const original = await fetchEmailRecord(client, GROUP, emailId, {});
+  assert.equal(
+    (original?.keywords as Record<string, unknown>)?.["G-processed"],
+    undefined,
+    "the rest of a rejected plan does not run either",
+  );
 });
 
 test("a failure retries to a point and then dead-letters, telling the group", async () => {
@@ -1605,6 +1674,110 @@ test("a change somebody else made to a record a run wrote is hop one", async () 
       .length,
     0,
     "and nothing is refused as a sixth hop of a chain nobody was in",
+  );
+});
+
+test("an unrelated shallow write does not reset a chain's own depth", async () => {
+  /*
+   * Business logic review finding: a record's producer used to be whichever
+   * write landed latest, so an unrelated, shallow rule touching the same
+   * record after a genuinely deep chain's own write could make the next hop
+   * look shallower than it really is — letting a chain evade `maxChainHops`
+   * by being interleaved with an unrelated, frequently-firing rule. The
+   * deepest write inside the window must win instead, however the writes are
+   * ordered in time.
+   */
+  await store.writeRules([]);
+  await executor.reconcile(GROUP, "FileNode", { ...(await claimFor()), states: {} });
+
+  const nodeId = await writeBytesIntoVisibleFolder(
+    ctx,
+    GROUP,
+    "Attribution",
+    "shared.txt",
+    new TextEncoder().encode("shared"),
+    "text/plain",
+  );
+  // A pass with no rules to run still reads past this creation, which is what
+  // moves the window's anchor to here — after it, the two synthetic producers
+  // below (dated relative to this same anchor, not to "now") are inside the
+  // window the final pass reads from.
+  await executor.reconcile(GROUP, "FileNode", await claimFor());
+  const anchor = Date.parse((await store.readClaim())!.doc.statesAt?.FileNode ?? "");
+  assert.ok(Number.isFinite(anchor), "the pass recorded when it last read this account");
+
+  const deepAt = new Date(anchor + 1_000).toISOString();
+  const shallowAt = new Date(anchor + 2_000).toISOString();
+  const deep = newJob({
+    id: "deep-two",
+    accountId: GROUP,
+    rule: { id: "deep-rule", version: 1 },
+    trigger: { on: "filenode", nodeId, hop: 2, at: deepAt },
+  });
+  await store.writeJob({
+    ...deep,
+    state: "done",
+    effects: [{ type: "FileNode", id: nodeId, at: deepAt }],
+  });
+  // Later in time than the deep run's own write, but shallower: an unrelated
+  // rule that happened to touch the same file for reasons of its own.
+  const shallow = newJob({
+    id: "shallow-one",
+    accountId: GROUP,
+    rule: { id: "shallow-rule", version: 1 },
+    trigger: { on: "filenode", nodeId, hop: 1, at: shallowAt },
+  });
+  await store.writeJob({
+    ...shallow,
+    state: "done",
+    effects: [{ type: "FileNode", id: nodeId, at: shallowAt }],
+  });
+
+  const watcher = rule({
+    id: "watch-attribution",
+    name: "Watch the shared file",
+    trigger: { on: "filenode" },
+    capabilities: ["file.write"],
+  });
+  answerFor("Watch the shared file", {
+    summary: "Noted.",
+    confidence: 1,
+    actions: [
+      { do: "file.write", with: { folder: "Attribution", name: "noted.txt", text: "x" } },
+    ],
+  });
+  await store.writeRules([watcher]);
+  // The bound is raised for this one pass: hop three is exactly what the
+  // installation's ordinary bound of two would refuse, and this test is about
+  // which hop is computed, not about the refusal itself (already covered
+  // above).
+  await installConfig({ maxChainHops: 5 });
+  // The record changes once more for real: the wake this triggers must be
+  // attributed to the deepest chain that produced it, not the latest write.
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    GROUP,
+    "Attribution",
+    "shared.txt",
+    new TextEncoder().encode("changed again"),
+    "text/plain",
+  );
+  try {
+    await executor.reconcile(GROUP, "FileNode", await claimFor());
+  } finally {
+    await installConfig();
+  }
+
+  const jobs = await jobsOf("watch-attribution");
+  assert.deepEqual(
+    jobs.map((job) => job.trigger.hop),
+    [3],
+    "the deepest producer of the record explains the wake, not merely the latest one",
+  );
+  assert.equal(
+    jobs[0]!.trigger.parentJobId,
+    "deep-two",
+    "and it names that deeper run as its parent, not the shallow one that wrote later",
   );
 });
 

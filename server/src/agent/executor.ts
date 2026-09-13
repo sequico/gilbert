@@ -38,9 +38,11 @@ import {
   type ActionOpts,
   type ActionResult,
   draftRefOf,
+  type EmailRecord,
   fetchEmailRecord,
   fetchEmailView,
   findMailboxByName,
+  mailboxIdByRole,
   runActions,
   undefinedAgentLabels,
 } from "./actions.js";
@@ -553,7 +555,7 @@ export class Executor {
     const jobs = (await store.listJobs()).map((entry) => entry.doc);
     const pass: Pass = {
       keys: new Set(jobs.map((job) => jobKey(job.ruleId, job.trigger))),
-      producers: producersOf(jobs),
+      producers: producersOf(jobs, since),
       chainHops: await this.chainHops(),
     };
     if (since) pass.since = since;
@@ -692,6 +694,12 @@ export class Executor {
    * A refusal that is already in the trail is not made twice: nothing but the
    * trail remembers one, so a change the worker reads again would otherwise
    * refuse again, with a second entry and the same sentence in the group's chat.
+   *
+   * The trail is checked in both this month's document and last month's: the
+   * dedup used to read only the current month, so the same change re-observed
+   * just after a month boundary found no record of a refusal that in fact
+   * already happened, a few days earlier, in the previous month's document —
+   * and refused (and announced) the same chain a second time.
    */
   private async refuseChain(
     store: AgentStore,
@@ -703,7 +711,13 @@ export class Executor {
     bound: number,
   ): Promise<void> {
     const subject = refusedSubject(rule.id, trigger);
-    const refused = (await store.readAuditAt(this.deps.now()))?.entries ?? [];
+    const now = this.deps.now();
+    const lastMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    const [thisMonth, previous] = await Promise.all([
+      store.readAuditAt(now),
+      store.readAuditAt(lastMonth),
+    ]);
+    const refused = [...(previous?.entries ?? []), ...(thisMonth?.entries ?? [])];
     if (refused.some((entry) => entry.outcome === "refused" && entry.jobId === subject))
       return;
     const line =
@@ -835,6 +849,16 @@ export class Executor {
     const found = await store.readJob(id);
     if (!found) return null;
     const next = change(found.doc);
+    // Every checkpoint a running job's own work already writes here — planned,
+    // then each landed action — is also where its lease can be renewed for
+    // free. Without this the lease is only ever set once, at the moment a job
+    // enters `running`, and a run whose actions take longer than `leaseMs`
+    // combined looks abandoned to a peer that takes this account over mid-run,
+    // which would then start the same job a second time believing the first
+    // worker is gone rather than merely slow.
+    if (next.state === "running" && next.lease?.owner === this.deps.workerId) {
+      next.lease = { owner: this.deps.workerId, heartbeatAt: this.deps.now().toISOString() };
+    }
     try {
       await store.writeJob(next, { ifInState: found.state });
     } catch (err) {
@@ -1724,11 +1748,18 @@ export class Executor {
   /**
    * The draft-leaving-Drafts rule (ADR resolution 10).
    *
-   * A pending decision whose draft is no longer in the Drafts mailbox was sent
-   * by a person, and what they sent — edits included — is what was approved.
-   * That wins over the conversational reply, so it is settled here, and a draft
-   * that vanished entirely is not an approval at all: nothing can be sent from
-   * it.
+   * A pending decision whose draft is no longer in the Drafts mailbox, and is
+   * not in Trash either, was sent by a person, and what they sent — edits
+   * included — is what was approved. That wins over the conversational reply,
+   * so it is settled here.
+   *
+   * A draft that vanished entirely, or that a person moved to Trash — the
+   * ordinary way to discard a draft one disagrees with, in any mail client —
+   * is not an approval at all: nothing was ever submitted, so nothing is
+   * settled as sent. Treating a trashed draft as "sent" was a real gap this
+   * rule had: a member rejecting a proposal by deleting its draft used to have
+   * the rest of the plan run anyway and the audit trail record a send that
+   * never happened.
    */
   async sweepDrafts(
     accountId: string,
@@ -1749,31 +1780,48 @@ export class Executor {
       );
       const inDrafts = record?.mailboxIds?.[decision.draft.mailboxId] === true;
       if (inDrafts) continue;
-      if (!record) {
-        const expired: AgentDecision = {
-          ...decision,
-          state: "expired",
-          decidedBy: "draft",
-          decidedAt: this.deps.now().toISOString(),
-        };
-        try {
-          await store.writeDecision(expired, { ifInState: found.state });
-        } catch (err) {
-          if (isStateMismatch(err)) continue;
-          throw err;
-        }
-        const job = (await store.readJob(decision.jobId))?.doc;
-        if (job)
-          await this.writeJobIfCurrent(store, job.id, (latest) =>
-            closeState(latest, "done"),
-          );
-        closed.push(decision.id);
+      const inTrash = record ? await this.inTrash(accountId, record) : false;
+      if (!record || inTrash) {
+        if (await this.expireDraftDecision(store, found)) closed.push(decision.id);
         continue;
       }
       await this.settleSentDraft(store, accountId, found, "draft");
       closed.push(decision.id);
     }
     return closed;
+  }
+
+  /** Whether an email record sits in the account's Trash mailbox, if it has one. */
+  private async inTrash(accountId: string, record: EmailRecord): Promise<boolean> {
+    const trashId = await mailboxIdByRole(this.deps.client, accountId, "trash");
+    return trashId ? record.mailboxIds?.[trashId] === true : false;
+  }
+
+  /**
+   * Settle a decision whose draft is gone or discarded: nothing was sent, so
+   * the job closes without running the rest of the plan.
+   */
+  private async expireDraftDecision(
+    store: AgentStore,
+    found: AgentDoc<AgentDecision>,
+  ): Promise<boolean> {
+    const decision = found.doc;
+    const expired: AgentDecision = {
+      ...decision,
+      state: "expired",
+      decidedBy: "draft",
+      decidedAt: this.deps.now().toISOString(),
+    };
+    try {
+      await store.writeDecision(expired, { ifInState: found.state });
+    } catch (err) {
+      if (isStateMismatch(err)) return false;
+      throw err;
+    }
+    const job = (await store.readJob(decision.jobId))?.doc;
+    if (job)
+      await this.writeJobIfCurrent(store, job.id, (latest) => closeState(latest, "done"));
+    return true;
   }
 
   /**
@@ -1991,8 +2039,22 @@ export class Executor {
    */
   async armSchedule(
     accountId: string,
-    opts: { maxDelayMs: number },
+    opts: {
+      maxDelayMs: number;
+      /**
+       * What a fired entry runs inside of. The timer is armed once per account
+       * and then fires on its own clock, independent of any poll or push
+       * reconcile for the same account — so without a guard here, a fire that
+       * lands while a reconcile is already running this account would call
+       * `startJob` concurrently with it, a second unfenced way to the same
+       * duplicate-execution risk `reconciling` exists to close in `agent.ts`.
+       * Defaults to running the work directly, which is what a test that arms
+       * a schedule without a live worker around it wants.
+       */
+      guard?: (work: () => Promise<void>) => Promise<void>;
+    },
   ): Promise<() => void> {
+    const guard = opts.guard ?? ((work) => work());
     const store = new AgentStore(this.deps.ctx, accountId);
     const rules = (await store.readRules())?.doc ?? [];
     const scheduleDoc = await store.readSchedule();
@@ -2021,7 +2083,7 @@ export class Executor {
           mine.has(entry.ruleId),
         ),
         (entry) => {
-          void this.fireScheduled(accountId, entry)
+          void guard(() => this.fireScheduled(accountId, entry))
             .then(() => arm())
             .catch((err: unknown) =>
               this.deps.log(`scheduled run failed: ${errorMessage(err)}`),
@@ -2538,32 +2600,48 @@ function producerKey(type: AgentEffect["type"], id: string): string {
  * A chain's lineage is read from the account's own job documents: a change names
  * the record that moved, and this says which run moved it and when. Two runs can
  * have written the same record — two automations reacting to one message both
- * label it — so the later write wins, and two writes at one instant are ordered
- * by depth and then by the job, which makes the answer the same one on every
- * worker that reads the same documents.
+ * label it — so among the writes that could explain a wake, the deepest one
+ * wins, and two at the same depth are ordered by time and then by the job,
+ * which makes the answer the same one on every worker that reads the same
+ * documents.
+ *
+ * The deepest write wins rather than the latest one because "latest" let an
+ * unrelated, shallow rule reset a record's perceived chain depth: a rule
+ * frequently touching the same record for its own reasons — labelling every
+ * arrival, say — could land after a genuinely deep chain's own write and make
+ * the next hop look like hop two when it was really hop five, letting the
+ * chain evade `maxChainHops` by being interleaved with that unrelated rule
+ * (a gap the business logic review named). The bound this map exists to
+ * enforce must never be measured too shallow, only ever too deep — the safe
+ * direction for a chain-loop guard to err in is refusing a run, not missing
+ * one.
  *
  * A write with no instant recorded is left out: it cannot be told from a write
- * that came before the change being reported, so it explains nothing.
+ * that came before the change being reported, so it explains nothing. A write
+ * from before this pass's own anchor is left out too — it was already the
+ * explanation for an earlier wake, or predates the window this pass reports at
+ * all, so it cannot be what explains one happening now.
  */
-function producersOf(jobs: ReadonlyArray<AgentJob>): Map<string, Producer> {
+function producersOf(jobs: ReadonlyArray<AgentJob>, since?: string): Map<string, Producer> {
   const out = new Map<string, Producer>();
   for (const job of jobs) {
     const hop = hopOf(job.trigger);
     for (const effect of job.effects ?? []) {
       if (!effect.at) continue;
+      if (since && effect.at < since) continue;
       const candidate: Producer = { jobId: job.id, hop, at: effect.at };
       const key = producerKey(effect.type, effect.id);
       const found = out.get(key);
-      if (!found || later(candidate, found)) out.set(key, candidate);
+      if (!found || deeper(candidate, found)) out.set(key, candidate);
     }
   }
   return out;
 }
 
-/** Whether one write to a record outranks another: later first, then deeper. */
-function later(candidate: Producer, found: Producer): boolean {
-  if (candidate.at !== found.at) return candidate.at > found.at;
+/** Whether one write to a record outranks another: deeper first, then later. */
+function deeper(candidate: Producer, found: Producer): boolean {
   if (candidate.hop !== found.hop) return candidate.hop > found.hop;
+  if (candidate.at !== found.at) return candidate.at > found.at;
   return candidate.jobId > found.jobId;
 }
 
@@ -2585,6 +2663,10 @@ function later(candidate: Producer, found: Producer): boolean {
  * before it has already been reported.
  */
 function wokenBy(trigger: AgentTriggerRecord, pass: Pass): Producer | null {
+  // No anchor, no window: `producersOf` was built with nothing to filter
+  // against, so nothing in it can be trusted to be inside this pass's own
+  // range rather than merely the account's history.
+  if (!pass.since) return null;
   const key =
     trigger.on === "email" && trigger.emailId
       ? producerKey("Email", trigger.emailId)
@@ -2592,9 +2674,7 @@ function wokenBy(trigger: AgentTriggerRecord, pass: Pass): Producer | null {
         ? producerKey("FileNode", trigger.nodeId)
         : "";
   if (!key) return null;
-  const producer = pass.producers.get(key);
-  if (!producer || !pass.since || producer.at < pass.since) return null;
-  return producer;
+  return pass.producers.get(key) ?? null;
 }
 
 /**

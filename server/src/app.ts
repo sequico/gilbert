@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { getConnInfo } from "@hono/node-server/conninfo";
@@ -29,10 +28,12 @@ import {
 import {
   type PolicyDocument,
   parsePolicyDocumentDetailed,
-  persistPolicyFile,
   policyDocumentText,
+  readAccountPolicy,
+  writeAccountPolicy,
 } from "./adminPolicy.js";
 import { agentRuleJsonSchema } from "./agent/documents.js";
+import { filesAccountId } from "./appFolder.js";
 import type { AgentGroupAnswer } from "./agent/views.js";
 import {
   AgentAdminError,
@@ -63,12 +64,12 @@ import {
   groupIdentity,
   IdentityAdminError,
   identityAddress,
-  identityLocked,
+  identityLockedForSession,
   personIdentities,
   removePersonIdentity,
   setPersonDefaultIdentity,
+  setUserIdentityLock,
   storeSignatureHtml,
-  withIdentityLock,
   writeGroupIdentity,
   writePersonIdentity,
 } from "./identityAdmin.js";
@@ -134,8 +135,15 @@ const loginFloodLimiter = new RateLimiter(config.loginRateLimit * 20, 15 * 60_00
  * fail2ban counts those failures against the *caller's* IP — which for a proxy
  * is shared by every user. Keep our own lid on it so one person guessing
  * cannot get the whole deployment banned.
+ *
+ * Shared across every credential-mutating endpoint on this account: changing
+ * the password, enabling or disabling 2FA, and minting or revoking an app
+ * password. 20 is enough for a person doing several of these in one sitting
+ * (setting up 2FA, then an app password for each of a couple of devices)
+ * while still bounding a guessing script to the same handful of attempts per
+ * 15 minutes it always had.
  */
-const accountLimiter = new RateLimiter(10, 15 * 60_000);
+const accountLimiter = new RateLimiter(20, 15 * 60_000);
 const apiLimiter = new RateLimiter(config.apiRateLimit, 60_000);
 
 /*
@@ -274,6 +282,59 @@ async function sessionForcedState(
   }
   directiveCache.set(key, { forced, checkedAt: Date.now() });
   return forced;
+}
+
+/* ------------------------------------------------------------------ */
+/* The identity lock (ADR 0007 §4, ADR 0015)                           */
+/* ------------------------------------------------------------------ */
+
+interface LockCheck {
+  locked: boolean;
+  checkedAt: number;
+}
+
+/**
+ * Short-TTL cache of a session's own lock state, the same shape as
+ * `directiveCache` above and for the same reason: every session refresh would
+ * otherwise pay for a FileNode read of the account's own app folder. The
+ * lock endpoint deletes the entry it just changed, so applying or releasing
+ * one is immediate; the TTL bounds how long a lock written behind the
+ * server's back takes to land.
+ */
+const identityLockCache = new Map<string, LockCheck>();
+const IDENTITY_LOCK_CACHE_TTL_MS = 30_000;
+
+/** Whether the signed-in session's own account is currently locked. */
+async function sessionIdentityLockState(
+  session: LiveSession,
+  upstream?: UpstreamSession,
+): Promise<boolean> {
+  const key = normalizeUsername(session.username);
+  const hit = identityLockCache.get(key);
+  if (hit && Date.now() - hit.checkedAt < IDENTITY_LOCK_CACHE_TTL_MS) return hit.locked;
+  if (hit) identityLockCache.delete(key);
+  let locked = false;
+  try {
+    const up =
+      upstream ??
+      (await getUpstreamSession(
+        session.id,
+        session.authorization,
+        upstreamFor(session.username),
+      ));
+    locked = await identityLockedForSession({
+      authorization: session.authorization,
+      session: up,
+      username: session.username,
+    });
+  } catch (err) {
+    console.warn(
+      `[gilbert] could not check the identity lock for ${session.username}:`,
+      (err as Error).message,
+    );
+  }
+  identityLockCache.set(key, { locked, checkedAt: Date.now() });
+  return locked;
 }
 
 /** Batched: whether each listed account currently carries the directive (ADR 0004). */
@@ -669,11 +730,40 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       sourceUrl: config.sourceUrl,
       imageProxy: config.imageProxy,
       maxUploadBytes: config.maxUploadBytes,
-      /* Sent before sign-in like the rest of this: it says what the
-         installation has decided, not anything about who is asking. */
-      settingsPolicy: config.settingsPolicy,
     }),
   );
+
+  /**
+   * A signed-in account's own copy of the installation's settings policy
+   * (ADR 0015): what the last publish wrote into this account's own app
+   * folder, or the environment's bootstrap when nothing has reached it yet.
+   * Authenticated, unlike the old `settingsPolicy` field of `/config` this
+   * replaces — the policy is a fact about one account now, not a fact about
+   * the installation everybody sees before signing in.
+   */
+  api.get("/account/policy", requireSession, async (c) => {
+    const session = c.get("session");
+    try {
+      const upstream = await getUpstreamSession(
+        session.id,
+        session.authorization,
+        upstreamFor(session.username),
+      );
+      const ctx = {
+        authorization: session.authorization,
+        session: upstream,
+        username: session.username,
+      };
+      const accountId = filesAccountId(ctx);
+      const doc =
+        (accountId ? await readAccountPolicy(ctx, accountId) : null) ?? config.settingsPolicy;
+      return c.json({
+        policy: { defaults: doc.defaults, enforced: doc.enforced, changes: doc.changes },
+      });
+    } catch (err) {
+      return upstreamFailure(c, err);
+    }
+  });
 
   // ---------- Auth ----------
   api.post("/auth/login", loginBody, async (c) => {
@@ -777,6 +867,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
             // The session document was just fetched; hand it over instead of
             // making the directive check fetch it again.
             await sessionForcedState(session, upstream),
+            await sessionIdentityLockState(session, upstream),
           ),
         ),
       );
@@ -839,6 +930,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
             info,
             await resolveAdminState(session),
             await sessionForcedState(session),
+            await sessionIdentityLockState(session),
           ),
         ),
       );
@@ -1007,8 +1099,15 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   api.post("/account/app-passwords", requireSession, async (c) => {
-    const _session = c.get("session");
-    const body = await readJson<{ description?: string }>(c);
+    // Minting a standing credential that skips 2FA and outlives a plain
+    // password change is exactly what a hijacked session must not be able to
+    // do silently in one call: it is guarded against brute-forcing like every
+    // other credential-mutating endpoint here, and it re-asks the account's
+    // own password first, the same way disabling 2FA does.
+    const limited = guarded(c);
+    if (limited) return limited;
+    const session = c.get("session");
+    const body = await readJson<{ description?: string; current?: string }>(c);
     if (!body) return c.json({ error: "bad_request" }, 400);
     const description = (body.description ?? "").trim().slice(0, 120);
     if (!description)
@@ -1016,6 +1115,29 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         { error: "missing_fields", message: "Give the app password a name." },
         400,
       );
+    const current = body.current ?? "";
+    if (!current)
+      return c.json(
+        { error: "missing_fields", message: "Enter your current password." },
+        400,
+      );
+    try {
+      // `x:AppPassword/set` carries no `currentSecret` field to delegate this
+      // check to (unlike `x:AccountPassword/set`), so it is verified the same
+      // way a sign-in is: a fresh session request with the password the caller
+      // just submitted.
+      await fetchUpstreamSession(
+        `Basic ${Buffer.from(`${session.username}:${current}`, "utf8").toString("base64")}`,
+        upstreamFor(session.username),
+      );
+    } catch (err) {
+      if (err instanceof UpstreamError && err.status === 401)
+        return c.json(
+          { error: "wrong_password", message: "That password is not correct." },
+          401,
+        );
+      return accountFailure(c, err);
+    }
     try {
       return c.json(await createAppPassword(await accountCtx(c), { description }));
     } catch (err) {
@@ -1024,6 +1146,8 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   api.post("/account/app-passwords/revoke", requireSession, async (c) => {
+    const limited = guarded(c);
+    if (limited) return limited;
     const _session = c.get("session");
     const body = await readJson<{ id?: string }>(c);
     if (!body?.id) return c.json({ error: "bad_request" }, 400);
@@ -1286,116 +1410,84 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * The installation-wide settings policy (ADR 0001 §4, ADR 0004 §2).
+   * The installation-wide settings policy (ADR 0001 §4, ADR 0004 §2, ADR 0015).
    *
-   * GET returns the current policy as the JSON document the editor shows;
-   * POST replaces it. Publishing validates with the same rules the boot path
-   * applies (invalid → 400), rewrites `SETTINGS_POLICY_FILE` when one is
-   * configured and writable (failure → 500, nothing changes), swaps the
-   * running copy — effective immediately, no restart — and kicks every other
-   * session so the next sign-in applies the new policy at boot.
+   * GET reads the signed-in administrator's own account — the last publish
+   * wrote there like everywhere else, so the editor's next load shows exactly
+   * what it just saved. POST validates the document and writes it into every
+   * individual account the directory lists (fetchDirectoryUsers), the
+   * publishing administrator's own account included, by impersonation —
+   * there is no other shared copy to swap. One account's refusal does not stop
+   * the rest; the response names how many were reached and which were not.
+   * Every other signed-in session is kicked so the enforcement it is already
+   * holding is dropped at once rather than waiting for that account's own
+   * next load to refetch it.
    */
-  api.get("/admin/policy", requireSession, requireAdmin, (c) =>
-    c.json({ policy: policyDocumentText(config.settingsPolicy) }),
-  );
-
-  /**
-   * Write a policy document where the deployment keeps it.
-   *
-   * With `SETTINGS_POLICY_FILE` configured, that file is the durable copy — the
-   * one the boot path reads — so a write that fails leaves the running copy
-   * alone rather than pretending. With no file the running copy is the only
-   * copy, which is what a disposable container is.
-   */
-  async function persistPolicy(
-    raw: string,
-  ): Promise<{ ok: true } | { ok: false; error: string; message: string }> {
-    const file = process.env.SETTINGS_POLICY_FILE;
-    if (!file) return { ok: true };
+  api.get("/admin/policy", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
     try {
-      await persistPolicyFile(file, raw);
-      return { ok: true };
-    } catch (err) {
-      console.error("[gilbert] could not persist the settings policy:", err);
-      return {
-        ok: false,
-        error: "policy_not_persisted",
-        message:
-          "SETTINGS_POLICY_FILE is set but could not be written; the policy was not changed.",
+      const upstream = await getUpstreamSession(
+        session.id,
+        session.authorization,
+        upstreamFor(session.username),
+      );
+      const ctx = {
+        authorization: session.authorization,
+        session: upstream,
+        username: session.username,
       };
+      const accountId = filesAccountId(ctx);
+      const doc =
+        (accountId ? await readAccountPolicy(ctx, accountId) : null) ??
+        config.settingsPolicy;
+      return c.json({ policy: policyDocumentText(doc) });
+    } catch (err) {
+      return upstreamFailure(c, err);
     }
-  }
-
-  /** How many times a write is re-applied when the record moved under it. */
-  const POLICY_WRITE_ATTEMPTS = 3;
-
-  /** Every policy write in this process, one after the other. */
-  let policyWrites: Promise<unknown> = Promise.resolve();
-
-  /** The installation's record as the deployment keeps it, or the running copy. */
-  async function readPolicyRecord(): Promise<PolicyDocument> {
-    const file = process.env.SETTINGS_POLICY_FILE;
-    if (file) {
-      try {
-        const parsed = parsePolicyDocumentDetailed(await readFile(file, "utf8"));
-        if (!("problem" in parsed)) return parsed.doc;
-      } catch {
-        /* no file yet: the running copy is the record */
-      }
-    }
-    return config.settingsPolicy;
-  }
+  });
 
   /**
-   * Apply one change to the installation's record, and to the record that is
-   * actually there (ADR 0003).
-   *
-   * Two doors write this document — the policy editor and the agent's address —
-   * so a change that read the running copy and then wrote the whole document
-   * back would drop whatever another administrator saved in
-   * between, groups this caller never named included. The shape is the same
-   * compare-and-set the fleet uses for its own documents: read the record, apply
-   * the change, write it, and keep the write only if the record still says what
-   * the change was merged into — otherwise read again and re-apply. After the
-   * attempts the write is refused loudly rather than clobbering somebody.
-   *
-   * Writes in one process are serialized, so two administrators on one replica
-   * cannot interleave; the compare-and-set is what covers a second replica,
-   * where the file is the only thing they share.
+   * Write the policy into every individual account the directory lists, by
+   * impersonation — the administrator's own account included. One account's
+   * refusal is named rather than aborting every account behind it, the way a
+   * lost reconcile in the agent fleet names the account it could not finish.
    */
-  async function changePolicy(
-    change: (doc: PolicyDocument) => PolicyDocument,
-  ): Promise<
-    { ok: true; doc: PolicyDocument } | { ok: false; error: string; message: string }
-  > {
-    const run = policyWrites.then(async () => {
-      const file = process.env.SETTINGS_POLICY_FILE;
-      for (let attempt = 0; attempt < POLICY_WRITE_ATTEMPTS; attempt++) {
-        const before = await readPolicyRecord();
-        const parsed = parsePolicyDocumentDetailed(policyDocumentText(change(before)));
-        if ("problem" in parsed)
-          return { ok: false as const, error: "invalid_policy", message: parsed.problem };
-        const written = policyDocumentText(parsed.doc);
-        const persisted = await persistPolicy(written);
-        if (!persisted.ok) return persisted;
-        // The file is the record: the write is ours only if it still says what
-        // this change was merged into. With no file there is nothing shared to
-        // guard — the queue above covers the process, and a second replica can
-        // only exist where a file does.
-        if (!file || policyDocumentText(await readPolicyRecord()) === written) {
-          config.settingsPolicy = parsed.doc;
-          return { ok: true as const, doc: parsed.doc };
-        }
+  async function publishAccountPolicy(
+    admin: LiveSession,
+    doc: PolicyDocument,
+  ): Promise<{ reached: number; unreached: Array<{ address: string; message: string }> }> {
+    const upstream = await getUpstreamSession(
+      admin.id,
+      admin.authorization,
+      upstreamFor(admin.username),
+    );
+    const directory = await fetchDirectoryUsers(admin.authorization, upstream);
+    if ("denied" in directory) return { reached: 0, unreached: [] };
+    let reached = 0;
+    const unreached: Array<{ address: string; message: string }> = [];
+    for (const user of directory.users) {
+      if (normalizeUsername(user.name) === normalizeUsername(admin.username)) continue;
+      const imp = await impersonateAs(admin, user.name);
+      if (!imp.ok) {
+        unreached.push({ address: user.name, message: imp.message });
+        continue;
       }
-      return {
-        ok: false as const,
-        error: "policy_moved",
-        message:
-          "The installation's policy changed while this was being saved, so nothing was written. Look at the record and save again.",
-      };
-    });
-    policyWrites = run.catch(() => undefined);
-    return run;
+      const accountId = filesAccountId(imp.ctx);
+      if (!accountId) {
+        unreached.push({
+          address: user.name,
+          message: "this account has no Files account to hold the policy",
+        });
+        continue;
+      }
+      try {
+        await writeAccountPolicy(imp.ctx, accountId, doc);
+        reached++;
+      } catch (err) {
+        unreached.push({ address: user.name, message: (err as Error).message });
+      }
+    }
+    return { reached, unreached };
   }
 
   api.post("/admin/policy", requireSession, requireAdmin, async (c) => {
@@ -1405,25 +1497,42 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     if ("problem" in parsed) {
       return c.json({ error: "invalid_policy", message: parsed.problem }, 400);
     }
-    // Through the same compare-and-set as the narrower door: the editor
-    // replaces the document, but it must replace the document that is there. The
-    // locks survive an editor that does not mention them — and an editor that
-    // does mention them is taken at its word.
-    const written = await changePolicy((doc) => ({
-      ...parsed.doc,
-      ...(parsed.doc.identities
-        ? {}
-        : doc.identities
-          ? { identities: doc.identities }
-          : {}),
-    }));
-    if (!written.ok)
-      return c.json(
-        { error: written.error, message: written.message },
-        written.error === "policy_moved" ? 409 : 500,
+    let ownAccountId: string;
+    try {
+      const upstream = await getUpstreamSession(
+        session.id,
+        session.authorization,
+        upstreamFor(session.username),
       );
+      const ctx = {
+        authorization: session.authorization,
+        session: upstream,
+        username: session.username,
+      };
+      ownAccountId = filesAccountId(ctx);
+      if (!ownAccountId)
+        return c.json(
+          {
+            error: "no_files_account",
+            message: "This account has no Files account to hold the policy.",
+          },
+          409,
+        );
+      await writeAccountPolicy(ctx, ownAccountId, parsed.doc);
+    } catch (err) {
+      return upstreamFailure(c, err);
+    }
+    // The rest of the directory, one impersonated write per account. A
+    // failure here does not undo the write just made to the publisher's own
+    // account -- there is no shared document for it to be undone against.
+    const fanout = await publishAccountPolicy(session, parsed.doc);
     const kicked = sessions.destroyAllExcept(session.id);
-    return c.json({ ok: true, kicked });
+    return c.json({
+      ok: true,
+      kicked,
+      reached: fanout.reached + 1,
+      unreached: fanout.unreached,
+    });
   });
 
   /**
@@ -1988,15 +2097,15 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * The lock an administrator applies to a person's identity (ADR 0007 §4).
+   * The lock an administrator applies to a person's identity (ADR 0007 §4,
+   * ADR 0015).
    *
-   * It is recorded in the installation's policy document, beside the settings
-   * policy, through the same compare-and-set every other change to that document
-   * uses — so an administrator saving the policy editor at the same moment
-   * neither drops the locks nor is dropped by them. Applying one ends nothing:
-   * a lock is a rule about what the product offers, read from the policy where
-   * the product asks, so the session that writes one sees it at once (ADR 0007
-   * §4) and a session already open sees it the next time it reads its own.
+   * Recorded in that account's own app folder, by impersonation — the same
+   * door `setPersonDefaultIdentity` writes through. Applying one ends
+   * nothing: a lock is a rule about what the product offers, so the session
+   * that writes one sees it at once (ADR 0007 §4, the cache below is cleared
+   * for exactly that) and a session already open sees it the next time it
+   * reads its own.
    */
   api.post("/admin/identities/user/lock", requireSession, requireAdmin, async (c) => {
     const body = await readJson<{ address?: unknown; locked?: unknown }>(c);
@@ -2005,12 +2114,8 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         typeof body?.address === "string" ? body.address : "",
       );
       const locked = body?.locked === true;
-      const written = await changePolicy((doc) => withIdentityLock(doc, address, locked));
-      if (!written.ok)
-        return c.json(
-          { error: written.error, message: written.message },
-          written.error === "policy_moved" ? 409 : 500,
-        );
+      await setUserIdentityLock(c.get("session"), address, locked);
+      identityLockCache.delete(normalizeUsername(address));
       return c.json({ ok: true, locked });
     } catch (err) {
       return identityFailure(c, err);
@@ -2361,6 +2466,7 @@ function sessionExtras(
   info: AccountInfo = { locale: null, edition: null },
   isAdmin = false,
   mustChangePassword = false,
+  identityLocked = false,
 ) {
   return {
     gilbert: {
@@ -2384,12 +2490,13 @@ function sessionExtras(
       /** What the upstream server would tell us about itself. */
       server: { edition: info.edition },
       /**
-       * ADR 0007 §4: an administrator has taken this account's identity over,
-       * so the product offers it no Identities & signatures section at all. The
-       * lock is the installation's record, read here; it is a rule about the
+       * ADR 0007 §4, ADR 0015: an administrator has taken this account's
+       * identity over, so the product offers it no Identities & signatures
+       * section at all. Read from the account's own app folder (the caller
+       * resolves it, since that is an async lookup); it is a rule about the
        * surface, and the section is all it removes.
        */
-      identityLocked: identityLocked(session.username),
+      identityLocked,
     },
   };
 }

@@ -1,6 +1,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Id } from "@/jmap/types";
+import { isValidEmail } from "@/lib/address";
 import { t as translate } from "@/lib/i18n";
 import {
   HEADER_CHOICES,
@@ -50,6 +51,12 @@ export function RuleDialog({
     setR({ ...r, tests: r.tests.map((x, j) => (j === i ? t : x)) });
   const setAction = (i: number, a: SieveAction) =>
     setR({ ...r, actions: r.actions.map((x, j) => (j === i ? a : x)) });
+  // A typo'd forward address saves silently otherwise: the composer validates
+  // every recipient before Send, but this field had nothing stopping a rule
+  // that will simply never route mail from being saved as though it worked.
+  const hasInvalidRedirect = r.actions.some(
+    (a) => a.type === "redirect" && !isValidEmail(a.address.trim()),
+  );
 
   return (
     <Dialog
@@ -81,7 +88,7 @@ export function RuleDialog({
           <button
             className="btn btn-primary"
             onClick={() => onSave(r, applyNow && Boolean(applyMailbox))}
-            disabled={!r.name.trim()}
+            disabled={!r.name.trim() || hasInvalidRedirect}
           >
             {saveLabel ?? "Done"}
           </button>
@@ -371,10 +378,15 @@ export function RuleDialog({
           ) : a.type === "redirect" ? (
             <div className="row">
               <input
-                className="input"
+                className={
+                  a.address.trim() && !isValidEmail(a.address.trim())
+                    ? "input invalid"
+                    : "input"
+                }
                 type="email"
                 placeholder={translate("someone@example.com")}
                 value={a.address}
+                aria-invalid={Boolean(a.address.trim() && !isValidEmail(a.address.trim()))}
                 onChange={(e) => setAction(i, { ...a, address: e.target.value })}
               />
               <label className="check nowrap">

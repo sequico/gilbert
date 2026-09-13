@@ -23,7 +23,7 @@
  */
 import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
-import { directoryCreate } from "@/lib/filenode";
+import { directoryCreate, fileCreate } from "@/lib/filenode";
 
 /** The folder Gilbert keeps its own documents in, in every account. */
 export const APP_FOLDER = "gilbert";
@@ -137,4 +137,82 @@ export async function findInFolder(
   const props = ["id", "name", "parentId", "blobId", "size", "type", "nodeType"];
   const list = await children(accountId, folderId, props);
   return list.find((n) => n.name === name && n.parentId === folderId);
+}
+
+/**
+ * One file write, whatever the bytes came from: create when the name is new
+ * in this folder, update when it is taken.
+ *
+ * The one writer this client has for "a named file in a folder" — before this,
+ * `chat.ts`, `signatureImages.ts` and `settingsSync.ts` each reimplemented
+ * find-then-`FileNode/set` on their own, one of them (`settings.json`, a fixed
+ * name every save writes to) racing a second tab's save with no protection at
+ * all. `ifInState` makes the write conditional, the compare-and-set JMAP
+ * offers in place of a lock — the server's own twin, `putFile` in
+ * `server/src/appFolder.ts`, is the shape this mirrors.
+ */
+export async function putFile(
+  accountId: Id,
+  folderId: Id,
+  name: string,
+  blobId: Id,
+  type: string,
+  opts: { ifInState?: string } = {},
+): Promise<{ id: Id; blobId: Id }> {
+  const existing = await findInFolder(accountId, folderId, name);
+  const conditional = opts.ifInState ? { ifInState: opts.ifInState } : {};
+  if (existing) {
+    const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
+      accountId,
+      ...conditional,
+      update: { [existing.id]: { blobId, type } },
+    });
+    const err = res.notUpdated?.[existing.id];
+    if (err) throw new Error(setErrorMessage(err));
+    return { id: existing.id, blobId };
+  }
+  const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
+    accountId,
+    ...conditional,
+    create: { n: fileCreate(folderId, name, blobId, type) },
+  });
+  const err = res.notCreated?.n;
+  if (err) throw new Error(setErrorMessage(err));
+  const created = res.created?.n as Partial<FileNode> | undefined;
+  const id = created?.id;
+  if (!id) throw new Error("the file was created but the mail server returned no id");
+  // Some servers hand back no blobId on create; ask, so a caller that needs
+  // the persistent one straight away (a signature image's blob URL) has it.
+  const resolvedBlobId = created?.blobId ?? (await nodeBlobId(accountId, id)) ?? blobId;
+  return { id, blobId: resolvedBlobId };
+}
+
+/** Upload bytes and write them into a named file in a folder — one call. */
+export async function writeBlobInFolder(
+  accountId: Id,
+  folderId: Id,
+  name: string,
+  data: Blob,
+  type: string,
+  opts: { ifInState?: string } = {},
+): Promise<{ id: Id; blobId: Id }> {
+  const up = await client.upload(accountId, data, { type });
+  return putFile(accountId, folderId, name, up.blobId, type, opts);
+}
+
+/**
+ * Upload a JSON document and write it into a named file in the account's app
+ * folder, creating the folder when missing — the client-side twin of the
+ * server's `writeAppFile`/`writeAppFileAt` (`server/src/appFolder.ts`).
+ */
+export async function writeAppJson(
+  accountId: Id,
+  name: string,
+  value: unknown,
+  opts: { ifInState?: string; type?: string } = {},
+): Promise<{ id: Id; blobId: Id }> {
+  const folderId = await ensureFolder(accountId);
+  const type = opts.type ?? "application/json";
+  const blob = new Blob([JSON.stringify(value)], { type });
+  return writeBlobInFolder(accountId, folderId, name, blob, type, opts);
 }

@@ -164,7 +164,22 @@ export function CalendarContextMenu({ ctx, onClose, onOpen, onEdit, onCreate }: 
        uid and the server stamps created/updated), everything else -- title,
        description, guests, alerts, recurrence -- is carried over untouched. A
        duplicate that silently renames itself "Copy of …" is a duplicate the
-       reader did not ask for. */
+       reader did not ask for.
+
+       Recurrence is that rule only when `ev` *is* the series -- right-clicking
+       the master event and duplicating it as a whole new series is exactly
+       the "everything untouched" promise above. But `ev` here can also be one
+       expanded occurrence of a series (`isOccurrence`), and an occurrence's
+       own recurrence fields describe the series it belongs to, not anything
+       "Duplicate" on one date was ever asked to copy: without stripping them,
+       duplicating a single Tuesday of a weekly meeting would silently create
+       an entire new weekly series starting there. */
+    if (isOccurrence(ev)) {
+      delete rest.recurrenceRule;
+      delete rest.recurrenceRules;
+      delete rest.excludedRecurrenceRules;
+      delete rest.recurrenceOverrides;
+    }
     try {
       await cal.createEvent(
         rest as Partial<CalendarEvent>,

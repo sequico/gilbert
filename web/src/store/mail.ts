@@ -933,14 +933,19 @@ export const useMail = create<MailState>((set, get) => ({
     try {
       const { notDestroyed } = await destroyEmails(accountId, ids);
       const failed = Object.keys(notDestroyed);
-      if (failed.length)
+      if (failed.length) {
         toast.error(
           plural(failed.length, {
             one: "{n} message could not be deleted",
             other: "{n} messages could not be deleted",
           }),
         );
-      else
+        // The optimistic removal above assumed every id would go; a message
+        // the server refused (ACL, quota, a lock) is still there, so the list
+        // and the lookup map must say so too, instead of leaving it "deleted"
+        // on screen while it still exists on the server.
+        void get().refreshList();
+      } else
         toast.show(
           `${ids.length === 1 ? "Message" : `${ids.length} messages`} deleted forever`,
         );

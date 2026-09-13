@@ -1,6 +1,10 @@
 # ADR 0004 — Administrative writes into a user's account
 
-Status: Accepted (2026-09-09)
+Status: Accepted (2026-09-09). The settings-policy piece this record decides —
+`SETTINGS_POLICY_FILE`/`config.settingsPolicy` as the durable copy — is
+superseded by ADR 0015 (2026-09-13): the published policy lives in every
+individual account's own Stalwart storage instead. The forced-password-change
+piece stands unchanged.
 
 > **Scope confirmed by the owner (2026-09-07):** the administration surface
 > changes rules in two shapes, and both are writes over ordinary JMAP.

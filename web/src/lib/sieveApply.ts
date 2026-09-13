@@ -229,15 +229,27 @@ export async function applyRuleToMailbox(
     for (const a of rule.actions) {
       switch (a.type) {
         case "fileinto": {
+          const named = Object.values(mail.mailboxes).filter(
+            (m) => m.name.toLowerCase() === a.mailbox.toLowerCase(),
+          );
+          // A rule with no id or full path to resolve against (one imported
+          // from a hand-written script, say) used to fall back to whichever
+          // same-named folder happened to be first in iteration order when
+          // two existed in different parents — a silent, arbitrary misfile
+          // rather than the "folder not found" this same fallback already
+          // reports for a name that matches nothing at all. Ambiguous is
+          // treated the same honest way: reported, not guessed at.
           const target =
             (a.mailboxId && mail.mailboxes[a.mailboxId]?.id) ||
             byPath.get(a.mailbox.toLowerCase()) ||
             (a.mailbox.toLowerCase() === "inbox" ? inboxId : null) ||
-            Object.values(mail.mailboxes).find(
-              (m) => m.name.toLowerCase() === a.mailbox.toLowerCase(),
-            )?.id;
+            (named.length === 1 ? named[0]!.id : null);
           if (!target) {
-            skippedActions.push(`move to “${a.mailbox}” (folder not found)`);
+            skippedActions.push(
+              named.length > 1
+                ? `move to “${a.mailbox}” (${named.length} folders share that name; pick one by hand)`
+                : `move to “${a.mailbox}” (folder not found)`,
+            );
             break;
           }
           if (target === mailboxId) break;

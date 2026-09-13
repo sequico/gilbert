@@ -3,8 +3,8 @@ import { after, before, test } from "node:test";
 
 /**
  * Identities an administrator sets (ADR 0007): a person's through impersonation,
- * a group's as the installation's agent, and the lock that is the installation's
- * own record.
+ * a group's as the installation's agent, and the lock that is a fact about that
+ * one account, written into its own app folder (ADR 0015).
  *
  * Three invariants this file exists for, each of which fails if the mechanism
  * goes away:
@@ -40,12 +40,7 @@ const OTHER_GROUP = "sales@example.org";
 
 const mock = await import("./mock/index.js");
 const { createApp } = await import("./app.js");
-const { parsePolicyDocumentDetailed, policyDocumentText } = await import(
-  "./adminPolicy.js"
-);
-const { withIdentityLock, readDefaultIdentity, writeDefaultIdentity } = await import(
-  "./identityAdmin.js"
-);
+const { readDefaultIdentity, writeDefaultIdentity } = await import("./identityAdmin.js");
 const { fetchUpstreamSession } = await import("./upstream.js");
 const { readAppJsonAt, writeAppBytesAt, writeAppFile } = await import("./appFolder.js");
 const { JMAP_SUBMISSION } = await import("./jmap.js");
@@ -130,59 +125,6 @@ before(async () => {
 
 after(() => {
   (mock as { server?: { close(): void } }).server?.close();
-});
-
-/* ------------------------------------------------------------------ */
-/* The document                                                        */
-/* ------------------------------------------------------------------ */
-
-test("the lock list normalises, and an entry that is not an address is refused", () => {
-  const ok = parsePolicyDocumentDetailed(
-    JSON.stringify({ identities: { locked: [" Bob@Example.COM ", "bob@example.com"] } }),
-  );
-  assert.ok("doc" in ok, "a list of addresses is a valid document");
-  assert.deepEqual(
-    ok.doc.identities,
-    { locked: ["bob@example.com"] },
-    "lowercased, once",
-  );
-
-  const bad = parsePolicyDocumentDetailed(
-    JSON.stringify({ identities: { locked: ["not-an-address"] } }),
-  );
-  assert.ok("problem" in bad, "a value that is not an address is refused at save time");
-});
-
-test("no locks and no identities key are the same document", () => {
-  const empty = parsePolicyDocumentDetailed(
-    JSON.stringify({ identities: { locked: [] } }),
-  );
-  assert.ok("doc" in empty);
-  assert.equal(
-    policyDocumentText(empty.doc).includes("identities"),
-    false,
-    "an empty list is written as no key at all",
-  );
-  const absent = parsePolicyDocumentDetailed("{}");
-  assert.ok("doc" in absent);
-  assert.equal(policyDocumentText(absent.doc), policyDocumentText(empty.doc));
-});
-
-test("the lock is added, kept single, and cleared to nothing", () => {
-  const base = { defaults: {}, enforced: {}, changes: [] };
-  const once = withIdentityLock(base, "Bob@Example.com", true);
-  assert.deepEqual(once.identities, { locked: ["bob@example.com"] });
-  const twice = withIdentityLock(once, "bob@example.com", true);
-  assert.deepEqual(twice.identities, { locked: ["bob@example.com"] }, "named once, once");
-  const other = withIdentityLock(twice, "amy@example.com", true);
-  assert.deepEqual(other.identities, { locked: ["bob@example.com", "amy@example.com"] });
-  const cleared = withIdentityLock(other, "bob@example.com", false);
-  assert.deepEqual(cleared.identities, { locked: ["amy@example.com"] });
-  assert.equal(
-    "identities" in withIdentityLock(cleared, "amy@example.com", false),
-    false,
-    "clearing the last lock leaves no identities key",
-  );
 });
 
 /* ------------------------------------------------------------------ */
@@ -564,7 +506,7 @@ test("an app-password session cannot set a default: the refusal is impersonation
   // keeps its own code instead of reading as a failed write.
   const created = await call("/api/account/app-passwords", adminCookie, {
     method: "POST",
-    body: JSON.stringify({ description: "identity-default" }),
+    body: JSON.stringify({ description: "identity-default", current: ADMIN_PASS }),
   });
   assert.equal(created.status, 200, JSON.stringify(created.body));
   const viaApp = await login(ADMIN, created.body?.secret as string);

@@ -11,9 +11,11 @@ import { DEFAULT_SETTINGS, type Settings, useSettings } from "@/store/settings";
  * visible and go dead, which is what the issue asked for: hiding them confuses
  * somebody who has used Gilbert somewhere without a policy.
  *
- * Fetched once. `/api/config` is unauthenticated and already fetched by the
- * sign-in page, so this costs nothing on a cold load and is available before
- * anybody's settings are read.
+ * Fetched once per account, from `/api/account/policy` (ADR 0015) —
+ * authenticated, since the policy is now a fact about the signed-in account's
+ * own copy of the published document rather than a fact about the
+ * installation everybody saw before signing in. Called after `accountId` is
+ * known (`App.tsx`), before anybody's settings are read.
  */
 export interface PolicyChange {
   /** Unique in the policy; what an account stores to say it has had this one. */
@@ -60,22 +62,24 @@ export async function loadSettingsPolicy(): Promise<SettingsPolicy> {
   if (fetched) return fetched;
   fetched = (async () => {
     try {
-      const res = await fetch(withBase("/api/config"), { credentials: "same-origin" });
+      const res = await fetch(withBase("/api/account/policy"), {
+        credentials: "same-origin",
+      });
       if (!res.ok) return EMPTY;
       const body = (await res.json()) as {
-        settingsPolicy?: {
+        policy?: {
           defaults?: Record<string, unknown>;
           enforced?: Record<string, unknown>;
           changes?: Array<{ version: string; settings: Record<string, unknown> }>;
         };
       };
       policy = {
-        defaults: known(body.settingsPolicy?.defaults ?? {}),
-        enforced: known(body.settingsPolicy?.enforced ?? {}),
+        defaults: known(body.policy?.defaults ?? {}),
+        enforced: known(body.policy?.enforced ?? {}),
         /* A change whose every key this build does not have is dropped whole:
            applying nothing and then recording it as applied would mean it never
            ran on the gilbert that does have the setting. */
-        changes: (body.settingsPolicy?.changes ?? [])
+        changes: (body.policy?.changes ?? [])
           .map((c) => ({ version: c.version, settings: known(c.settings ?? {}) }))
           .filter((c) => c.version && Object.keys(c.settings).length),
       };

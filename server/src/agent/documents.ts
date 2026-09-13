@@ -1769,6 +1769,16 @@ export interface AgentAuthoringEntry {
   /** Who asked for it, as the session names them. */
   by?: string;
   usage?: AgentUsage;
+  /**
+   * A reservation made before the call is paid for, not yet a completed
+   * reading. `reserveAuthoring` writes it, `finalizeAuthoring` clears it once
+   * the call answers, and `cancelAuthoring` removes the entry entirely when
+   * the call never happens — closing the window where two overlapping
+   * readings could each see room under the month's ceiling and both spend.
+   */
+  pending?: true;
+  /** The reservation this entry answers to; present only while `pending`. */
+  token?: string;
 }
 
 export interface AgentAuthoringDoc {
@@ -1788,6 +1798,8 @@ export function isAgentAuthoringDoc(x: unknown): x is AgentAuthoringDoc {
     if (a.group !== undefined && typeof a.group !== "string") return false;
     if (a.by !== undefined && typeof a.by !== "string") return false;
     if (a.usage !== undefined && !isAgentUsage(a.usage)) return false;
+    if (a.pending !== undefined && a.pending !== true) return false;
+    if (a.token !== undefined && typeof a.token !== "string") return false;
     return true;
   });
 }

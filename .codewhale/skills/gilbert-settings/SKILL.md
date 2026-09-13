@@ -70,16 +70,24 @@ metadata:
   account data like any other synced key — never a `DEVICE_KEYS` entry, and
   never touched by policy.
 
-## The admin policy (three powers, one file)
+## The admin policy (three powers, per account — ADR 0015)
 
-- The installation decides via `SETTINGS_POLICY_FILE` (JSON, read once at
-  boot — editing means restarting) or the `SETTINGS_DEFAULTS` /
-  `SETTINGS_ENFORCED` / `SETTINGS_CHANGES` envs (for read-only installs).
-  Read in `server/src/config.ts` (`readSettingsPolicy`), served on the
-  unauthenticated `/api/config`, fetched once by `web/src/lib/settingsPolicy.ts`.
-  Validation is strict and **fatal at boot**: malformed JSON or duplicate /
-  missing `version`s refuse to start — a policy that silently did not apply
-  is the failure mode being prevented.
+- The live document is not a file or a variable: `POST /admin/policy`
+  (Admin > Installation policy) writes `installation-policy.json` into every
+  individual account's own app folder, by impersonation (`fetchDirectoryUsers`
+  + `impersonateAs`, `server/src/app.ts`) — the publishing administrator's
+  account included. `GET /admin/policy` and the authenticated
+  `GET /api/account/policy` each read from the signed-in account's own file
+  (`readAccountPolicy`, `server/src/adminPolicy.ts`), fetched once by
+  `web/src/lib/settingsPolicy.ts`.
+- `SETTINGS_DEFAULTS` / `SETTINGS_ENFORCED` / `SETTINGS_CHANGES` (env, read
+  once at boot in `server/src/config.ts`'s `readSettingsPolicy`) are the
+  *bootstrap* an account falls back to when its own app folder carries no
+  published policy yet — not the live document itself. `SETTINGS_POLICY_FILE`
+  is gone; do not reintroduce a file-based path.
+  Validation is strict: malformed JSON or duplicate / missing `version`s are
+  refused (400 at publish time; fatal at boot for the bootstrap envs) — a
+  policy that silently did not apply is the failure mode being prevented.
 - `defaults`: seed an account that never had settings of its own; changeable
   afterwards. `enforced`: re-applied every load, unchangeable. `changes`:
   applied once per account (reaching people who already exist), changeable
@@ -101,8 +109,9 @@ metadata:
   `web/src/store/__tests__/settings-policy.test.ts`, settings store tests,
   `web/src/lib/__tests__/` (brand/config neighbours). Run the narrow test
   first: `npm test -w web` / `npm test -w server`, `TZ=UTC` when not on UTC.
-- Try a policy locally:
-  `SETTINGS_POLICY_FILE=/path/policy.json npm run dev:mock` (env propagates to
-  the server child; policy read at boot). `http://127.0.0.1:8080/api/config`
-  shows it. The demo account's state lives in the mock's memory: restarting
-  `dev:mock` clears the settings file, so `changes` fire again from scratch.
+- Try a policy locally: sign in as the mock's demo admin, publish one from
+  Admin > Installation policy, and sign back in to see it applied — or set
+  `SETTINGS_DEFAULTS` / `SETTINGS_ENFORCED` / `SETTINGS_CHANGES` before
+  `npm run dev:mock` to see the bootstrap path. The demo accounts' state lives
+  in the mock's memory: restarting `dev:mock` clears every published policy,
+  so `changes` fire again from scratch.

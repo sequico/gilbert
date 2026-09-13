@@ -263,6 +263,7 @@ function EventForm({
   const oneDate = scope === "occurrence";
   const cal = useCalendar();
   const contacts = useContacts();
+  const session = useSession((s) => s.session);
   const ev = base;
   const ownAccountId = cal.accountId ?? "";
   /*
@@ -419,8 +420,23 @@ function EventForm({
   );
 
   const identity = cal.identities.find((i) => i.isDefault) ?? cal.identities[0];
-  const myAddress =
-    identity?.calendarAddress ?? (myEmail.includes("@") ? `mailto:${myEmail}` : "");
+  // `cal.identities` is loaded once for the reader's own account only (calendar.ts
+  // `init()`) and never re-scoped to whichever calendar the form has selected.
+  // Filing an event under a shared or group calendar is filing it under a
+  // different account, and "you" attending it is that account's own address,
+  // not the reader's personal one -- the same rule ADR 0005 states for a
+  // group's other documents. `session.accounts[id].name` is what the agent
+  // fleet already reads as a group's own address (`groupNameOf`), so the same
+  // field stands in here rather than fetching that account's own Identity
+  // objects just to find the one thing this form needs from them.
+  const targetAccountId = parseCalOptionKey(calendarKey)?.accountId ?? ownAccountId;
+  const targetAccountAddress =
+    targetAccountId && targetAccountId !== ownAccountId
+      ? (session?.accounts?.[targetAccountId] as { name?: string } | undefined)?.name
+      : undefined;
+  const myAddress = targetAccountAddress
+    ? `mailto:${targetAccountAddress}`
+    : (identity?.calendarAddress ?? (myEmail.includes("@") ? `mailto:${myEmail}` : ""));
   const myPlainEmail = myAddress.replace(/^mailto:/i, "");
 
   /*

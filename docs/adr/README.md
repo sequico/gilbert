@@ -72,4 +72,9 @@ and the line to upstream, live there and are not repeated here.
   read-only by construction — an operator answers in the group's chat, never
   here). Supersedes the *Admin surfaces* bullet of ADR 0003 and fulfils the
   audit-window resolution of ADR 0010.
+- **0015 — The installation policy lives in every account it touches.** The
+  settings policy and the identity lock move off local disk and the
+  environment into every individual account's own Stalwart storage, written by
+  impersonation at publish time — so the surface runs under `IMMUTABLE=1` like
+  the rest of the product, and `SETTINGS_POLICY_FILE` is retired.
 

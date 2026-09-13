@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { CAP, client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, QueryResponse, SetResponse } from "@/jmap/types";
 import { isAppFolder } from "@/lib/appFolder";
-import { foldersNeeded, type PlannedUpload } from "@/lib/dropUpload";
+import { folderPathKey, foldersNeeded, type PlannedUpload } from "@/lib/dropUpload";
 import { directoryCreate, fileCreate, fileNodeProps } from "@/lib/filenode";
 import { t as translate } from "@/lib/i18n";
 import { useSession } from "./session";
@@ -380,10 +380,10 @@ export const useFiles = create<FilesState>((set, get) => ({
     // Folders first, parents before children, so every file has somewhere to go.
     const dirIds = new Map<string, Id | null>([["", parentId]]);
     for (const path of foldersNeeded(plan)) {
-      const parent = dirIds.get(path.slice(0, -1).join(" ")) ?? parentId;
+      const parent = dirIds.get(folderPathKey(path.slice(0, -1))) ?? parentId;
       const name = path[path.length - 1]!;
       try {
-        dirIds.set(path.join(" "), await get().mkdir(parent, name));
+        dirIds.set(folderPathKey(path), await get().mkdir(parent, name));
       } catch (err) {
         // Leave it unmapped: its files land in the nearest folder that exists
         // rather than vanishing, and the error is shown against the upload.
@@ -392,7 +392,7 @@ export const useFiles = create<FilesState>((set, get) => ({
     }
     const byFolder = new Map<string, File[]>();
     for (const item of plan) {
-      const key = item.path.join(" ");
+      const key = folderPathKey(item.path);
       byFolder.set(key, [...(byFolder.get(key) ?? []), item.file]);
     }
     for (const [key, files] of byFolder)

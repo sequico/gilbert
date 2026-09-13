@@ -119,10 +119,19 @@ export function ContactsView({ id }: { id?: string }) {
     return bookId === "all" ? all : all.filter((c) => c.addressBookIds?.[bookId]);
   }, [contacts, q, bookId, sel.accountId]);
 
-  const selected = id
-    ? (contacts.cards[id] ??
-      Object.entries(contacts.sharedCards).find(([key]) => key.endsWith(`:${id}`))?.[1])
-    : undefined;
+  // `selected` is resolved by id alone, not by the sidebar's current book
+  // selection -- a deep link or a search result can land on a shared card
+  // while `sel.accountId` (and so `readOnly` above) still reads as the
+  // reader's own book. Whether *this* card is theirs to write is its own
+  // question: it is theirs only when it is found among their own cards,
+  // never when it was only found by falling through to `sharedCards`.
+  const ownCard = id ? contacts.cards[id] : undefined;
+  const selected =
+    ownCard ??
+    (id
+      ? Object.entries(contacts.sharedCards).find(([key]) => key.endsWith(`:${id}`))?.[1]
+      : undefined);
+  const selectedReadOnly = Boolean(selected) && !ownCard;
   const books = Object.values(contacts.books).sort(
     (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
   );
@@ -493,6 +502,7 @@ export function ContactsView({ id }: { id?: string }) {
         {selected ? (
           <ContactDetail
             card={selected}
+            readOnly={selectedReadOnly}
             onBack={() => navigate("/contacts")}
             onEdit={() => setEditing(selected)}
             narrow={narrow}
@@ -536,12 +546,15 @@ export function ContactsView({ id }: { id?: string }) {
 
 function ContactDetail({
   card: c,
+  readOnly,
   onBack,
   onEdit,
   narrow,
   onEmail,
 }: {
   card: ContactCard;
+  /** A card only found among a shared book's cards: not this reader's to edit or delete. */
+  readOnly: boolean;
   onBack: () => void;
   onEdit: () => void;
   narrow: boolean;
@@ -574,9 +587,11 @@ function ContactDetail({
           </button>
         )}
         <span className="spacer" />
-        <button className="btn btn-sm" onClick={onEdit}>
-          <Pencil size={14} /> {translate("Edit")}
-        </button>
+        {!readOnly && (
+          <button className="btn btn-sm" onClick={onEdit}>
+            <Pencil size={14} /> {translate("Edit")}
+          </button>
+        )}
         <button
           className="btn btn-sm"
           onClick={() => {
@@ -588,35 +603,37 @@ function ContactDetail({
         >
           <Download size={14} /> {translate("vCard")}
         </button>
-        <button
-          className="btn btn-sm btn-ghost"
-          style={{ color: "var(--danger)" }}
-          onClick={async () => {
-            if (
-              await confirmDialog({
-                title: translate("Delete {name}?", { name }),
-                confirmLabel: translate("Delete"),
-                danger: true,
-              })
-            ) {
-              try {
-                const { destroyed, refused } = await contacts.destroyCards([c.id]);
-                if (!destroyed) {
-                  toast.error(
-                    refused ? setErrorMessage(refused) : translate("It was not deleted"),
-                  );
-                  return;
+        {!readOnly && (
+          <button
+            className="btn btn-sm btn-ghost"
+            style={{ color: "var(--danger)" }}
+            onClick={async () => {
+              if (
+                await confirmDialog({
+                  title: translate("Delete {name}?", { name }),
+                  confirmLabel: translate("Delete"),
+                  danger: true,
+                })
+              ) {
+                try {
+                  const { destroyed, refused } = await contacts.destroyCards([c.id]);
+                  if (!destroyed) {
+                    toast.error(
+                      refused ? setErrorMessage(refused) : translate("It was not deleted"),
+                    );
+                    return;
+                  }
+                  toast.success(translate("Contact deleted"));
+                  navigate("/contacts");
+                } catch (err) {
+                  toast.error((err as Error).message);
                 }
-                toast.success(translate("Contact deleted"));
-                navigate("/contacts");
-              } catch (err) {
-                toast.error((err as Error).message);
               }
-            }
-          }}
-        >
-          <Trash2 size={14} />
-        </button>
+            }}
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
       </div>
       <div className="contact-hero">
         <span
