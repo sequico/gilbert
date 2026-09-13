@@ -229,8 +229,7 @@ test("a claim carries the states its agent has reconciled up to", async () => {
     v: 1,
     accountId: store.accountId,
     worker: "w1",
-    leasedAt: "2026-09-10T08:00:00Z",
-    heartbeatAt: "2026-09-10T08:00:00Z",
+    takenAt: "2026-09-10T08:00:00Z",
     states: { Email: "s1" },
   });
   const read = await store.readClaim();
@@ -243,14 +242,14 @@ test("a claim carries the states its agent has reconciled up to", async () => {
   assert.equal(updated?.doc.accountId, store.accountId);
 });
 
-test("the agent heartbeat is a document like any other", async () => {
+test("the worker record is a document like any other", async () => {
   await store.writeWorker({
     v: 1,
     id: "w1",
     address: "gilbert@example.com",
     version: "test",
     startedAt: "2026-09-10T08:00:00Z",
-    heartbeatAt: "2026-09-10T08:00:00Z",
+    updatedAt: "2026-09-10T08:00:00Z",
   });
   const workers = await store.listWorkers();
   assert.equal(workers.length, 1);

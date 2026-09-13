@@ -307,8 +307,44 @@ export class Executor {
       if (type === "Email")
         await this.emailRecords(store, accountId, ids, rules, pass, claim);
       else await this.fileRecords(store, accountId, ids, rules, pass, claim);
+      // Only this worker's own bookkeeping moved: the anchor stays where it is,
+      // so the next pass reads the same nothing-to-do and writes nothing again.
+      // See `onlyBookkeeping` for why writing it would be a loop.
+      if (await this.onlyBookkeeping(accountId, type, ids)) return;
     }
     await this.recordState(store, claim, type, changes.newState, observedAt);
+  }
+
+  /**
+   * Whether everything this pass read is a document the worker wrote itself.
+   *
+   * The claim, the jobs, the decisions and the audit are files in the very
+   * account whose state they report, so writing the anchor **is** the next
+   * change the next pass reads — record it, and the pass after that records it
+   * again. Nothing in the group is happening and the account is charged a blob
+   * a minute for it, forever, and Stalwart never gives one back: that is the
+   * quota the fleet ran a save into. A change of the group's own is news and
+   * still anchors here, and so is a message in the group's chat — the one part
+   * of the app folder that is somebody talking rather than us bookkeeping.
+   *
+   * Only `FileNode` can be our own writing: nothing here sends or files mail.
+   */
+  private async onlyBookkeeping(
+    accountId: string,
+    type: ChangeType,
+    ids: ReadonlyArray<string>,
+  ): Promise<boolean> {
+    if (type !== "FileNode") return false;
+    const appFolderId = await findAppFolder(this.deps.ctx, accountId);
+    if (!appFolderId) return false;
+    const chatFolderId = await findFolderPath(this.deps.ctx, accountId, CHAT_FOLDER);
+    for (const id of ids) {
+      // A file anywhere else in the account is the group's own work.
+      if (!(await this.underAppFolder(accountId, id, appFolderId))) return false;
+      if (chatFolderId && (await this.underAppFolder(accountId, id, chatFolderId)))
+        return false;
+    }
+    return true;
   }
 
   /**

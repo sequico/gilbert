@@ -7,9 +7,10 @@ import { after, test } from "node:test";
  * The process-level half — the poll loop, the event stream, signals — is driven
  * through the same seam with `timers: false`, so one pass is exercised without
  * the test holding a live fleet. What a pass must do is durable and observable:
- * claim every group mailbox the principal can see, write
- * the heartbeat in the agent's own account, hold the single stream claim, and
- * give the claims back on stop.
+ * claim every group mailbox the principal can see, write what it is holding
+ * **when that changes**, hold the single stream claim, and give the claims back
+ * on stop. What a pass must **not** do is write on a clock: that is the mock's
+ * upload counter's business, in `no-periodic-writes.test.ts`.
  */
 
 const PORT = 18849;
@@ -17,8 +18,14 @@ process.env.MOCK_PORT = String(PORT);
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { basicAuth, candidateAccounts, groupNameOf, startWorker, withdrawnAccounts } =
-  await import("./agent.js");
+const {
+  basicAuth,
+  candidateAccounts,
+  groupNameOf,
+  liveWorkers,
+  startWorker,
+  withdrawnAccounts,
+} = await import("./agent.js");
 const { AgentStore } = await import("./store.js");
 const { filesAccountId, readAppJsonAt } = await import("../appFolder.js");
 const { WITHDRAWALS_PATH } = await import("./views.js");
@@ -74,7 +81,7 @@ test("the authorization header an agent derives its session with", () => {
   );
 });
 
-test("one pass claims its units, heartbeats, and gives everything back on stop", async () => {
+test("one pass claims its units, records what it serves, and gives everything back on stop", async () => {
   const lines: string[] = [];
   const worker = await startWorker({
     ctx,
@@ -96,7 +103,7 @@ test("one pass claims its units, heartbeats, and gives everything back on stop",
   }
 
   const record = (await agentStore.listWorkers()).find((w) => w.id === "w-worker-test");
-  assert.ok(record, "the worker says it is alive, in the agent's own account");
+  assert.ok(record, "the worker says what it is doing, in the agent's own account");
   assert.equal(record.address, AGENT);
   // The groups it holds, by the names the session gave those accounts: the
   // admin surface reads one group's workers off this and has nothing else to
@@ -104,7 +111,11 @@ test("one pass claims its units, heartbeats, and gives everything back on stop",
   assert.deepEqual(
     [...(record.serves ?? [])].sort(),
     served.map((id) => groupNameOf(session, id)).sort(),
-    "the heartbeat names the groups it is holding",
+    "the record names the groups it is holding",
+  );
+  assert.ok(
+    Number.isFinite(Date.parse(record.updatedAt)),
+    "and when it last changed, which is the only stamp a record carries",
   );
   assert.equal(
     (await agentStore.readStreamClaim())?.doc.worker,
@@ -112,10 +123,16 @@ test("one pass claims its units, heartbeats, and gives everything back on stop",
     "exactly one worker holds the agent's event stream",
   );
 
-  // A second pass is the same pass: renewal, not a second claim.
+  // A second pass is the same pass: the claim is held, not re-taken, and the
+  // record it wrote is still the record.
   await worker.pass();
   const again = await new AgentStore(ctx, GROUP).readClaim();
   assert.equal(again?.doc.worker, "w-worker-test");
+  assert.equal(
+    (await agentStore.listWorkers()).find((w) => w.id === "w-worker-test")?.updatedAt,
+    record.updatedAt,
+    "a pass that changes nothing writes nothing",
+  );
 
   await worker.stop();
   assert.equal(await agentStore.readStreamClaim(), null, "the stream claim is released");
@@ -127,9 +144,58 @@ test("one pass claims its units, heartbeats, and gives everything back on stop",
     );
   }
   assert.equal(worker.served().length, 0);
+  assert.equal(
+    (await agentStore.listWorkers()).find((w) => w.id === "w-worker-test"),
+    undefined,
+    "a worker that stopped leaves no record behind to be read as a live one",
+  );
   assert.ok(
     lines.some((line) => line.includes(`claimed ${GROUP}`)),
     "a meaningful event is one line",
+  );
+});
+
+test("liveness is the process's own fact, and it goes with the worker", async () => {
+  // The status surface asks the server that hosts the worker, and this is the
+  // answer: a running worker is one this process is running (ADR 0003: the
+  // server starts the fleet and its shutdown stops it). Nothing durable is
+  // consulted, so a record on disk can never make a stopped worker look alive.
+  const worker = await startWorker({
+    ctx,
+    address: AGENT,
+    workerId: "w-live",
+    log: () => {},
+    timers: false,
+  });
+  try {
+    const started = liveWorkers().find((w) => w.id === "w-live");
+    assert.ok(started, "a worker that started is alive before it has claimed anything");
+    assert.equal(started.address, AGENT);
+    assert.deepEqual(
+      started.groups,
+      [],
+      "holding nothing is a state, not a missing answer",
+    );
+
+    const served = await worker.pass();
+    const live = liveWorkers().find((w) => w.id === "w-live");
+    assert.ok(live);
+    assert.deepEqual(
+      [...live.groups].sort(),
+      served.map((id) => groupNameOf(session, id)).sort(),
+      "and what it is serving right now is what the surface reads",
+    );
+    assert.equal(live.streaming, true, "the stream claim is part of what this worker is");
+  } finally {
+    // A test that leaves a claim behind decides the tests after it: the injected
+    // clocks of the ones below are in the past, and a claim taken in real time
+    // is not theirs to take over.
+    await worker.stop();
+  }
+  assert.equal(
+    liveWorkers().find((w) => w.id === "w-live"),
+    undefined,
+    "and a worker that stopped is not alive, with nothing written down to say so",
   );
 });
 
@@ -164,29 +230,43 @@ test("the health endpoint answers a probe and nothing else", async () => {
   }
 });
 
-test("a second agent takes over a stale lease, and never double-serves", async () => {
+test("a process that starts later takes the claim over, and the older one gives it up", async () => {
   // Two handles are two processes as far as the documents are concerned: the
-  // claim is the only thing that says who serves an account (ADR 0003).
-  // What has to hold is that a live holder is left alone and a dead one is
-  // taken over with its catch-up states intact.
+  // claim is the only thing that says who serves an account (ADR 0003), and it
+  // records when it was **taken**. The rule is the process's own start: a claim
+  // taken before this process started belongs to a process that was here first
+  // — dead holding it, or replaced — so it is ours to take over; a claim taken
+  // after this process started belongs to a peer that came up while we were
+  // already running, and is left alone, however long we keep running.
   const store = new AgentStore(ctx, GROUP);
   const start = new Date("2026-09-10T09:00:00Z");
   const later = (ms: number) => () => new Date(start.getTime() + ms);
+  const lines: string[] = [];
 
   const first = await startWorker({
     ctx,
     address: AGENT,
     workerId: "w-first",
-    log: () => {},
+    log: (line) => lines.push(line),
     timers: false,
     now: later(0),
-    leaseMs: 60_000,
   });
   await first.pass();
   const claimed = await store.readClaim();
   assert.equal(claimed?.doc.worker, "w-first");
+  assert.equal(
+    claimed?.doc.takenAt,
+    start.toISOString(),
+    "the claim says when it was taken",
+  );
+  assert.equal(claimed?.doc.epoch, 0, "the first ownership of the unit");
 
-  // The holder is alive: a peer's pass must not take anything from it.
+  // A process that starts half a minute later reads a claim taken before it
+  // existed, and takes it: this is the overlap of a restart, and it is the one
+  // write a takeover costs. The anchor the older process recorded travels with
+  // it, so catch-up continues where it stopped rather than from nothing.
+  const states = { Email: "s-42" };
+  await store.writeClaim({ ...(await store.readClaim())!.doc, states });
   const second = await startWorker({
     ctx,
     address: AGENT,
@@ -194,19 +274,45 @@ test("a second agent takes over a stale lease, and never double-serves", async (
     log: () => {},
     timers: false,
     now: later(30_000),
-    leaseMs: 60_000,
   });
   await second.pass();
-  assert.equal((await store.readClaim())?.doc.worker, "w-first");
-  assert.ok(!second.served().includes(GROUP), "a live holder keeps its unit");
+  const taken = await store.readClaim();
+  assert.equal(taken?.doc.worker, "w-second");
+  assert.equal(taken?.doc.epoch, 1, "a takeover is a new ownership");
+  assert.ok(second.served().includes(GROUP), "the successor serves the unit");
+  assert.equal(
+    typeof taken?.doc.states.Email,
+    "string",
+    "the claim always carries an anchor for the next pass",
+  );
 
-  // Its lease goes stale: the peer takes over and serves the unit. (The
-  // takeover keeps the dead worker's catch-up anchor — `lease.test.ts` proves
-  // that at the claim level; here the reconcile that follows re-anchors it,
-  // because a state this mock never issued is one `Email/changes` cannot
-  // answer from, which is the documented catch-up rule.)
-  const states = { Email: "s-42" };
-  await store.writeClaim({ ...(await store.readClaim())!.doc, states });
+  // The older process finds out on its own next pass — a read, no write — and
+  // does not take it back: the claim it reads was taken after it started, so
+  // the peer that holds it is one that is running now. Its run's late writes
+  // are refused by the epoch (`claimStillMine`), which is the fence at work.
+  const claims = lines.filter((line) => line.includes(`claimed ${GROUP}`)).length;
+  const served = await first.pass();
+  assert.ok(
+    !served.includes(GROUP),
+    "a claim taken after we started is not ours to take back",
+  );
+  assert.equal(
+    (await store.readClaim())?.doc.worker,
+    "w-second",
+    "and it stays the peer's",
+  );
+  assert.ok(
+    lines.some((line) => line === `lost ${GROUP}`),
+    "the older process says it lost the unit instead of working it twice",
+  );
+  assert.equal(
+    lines.filter((line) => line.includes(`claimed ${GROUP}`)).length,
+    claims,
+    "and the pass that found it gone took nothing back from the process running now",
+  );
+
+  // A third process, starting long after, takes it over in turn: what makes a
+  // claim free is the process that reads it starting later, and nothing else.
   const third = await startWorker({
     ctx,
     address: AGENT,
@@ -214,17 +320,9 @@ test("a second agent takes over a stale lease, and never double-serves", async (
     log: () => {},
     timers: false,
     now: later(10 * 60_000),
-    leaseMs: 60_000,
   });
   await third.pass();
-  const taken = await store.readClaim();
-  assert.equal(taken?.doc.worker, "w-third");
-  assert.ok(third.served().includes(GROUP), "the peer serves what the dead worker held");
-  assert.equal(
-    typeof taken?.doc.states.Email,
-    "string",
-    "the claim always carries an anchor for the next pass",
-  );
+  assert.equal((await store.readClaim())?.doc.worker, "w-third");
   await first.stop();
   await second.stop();
   await third.stop();
@@ -283,7 +381,6 @@ test("a grant that is withdrawn is reported, and stops being served", async () =
     log: () => {},
     timers: false,
     now: () => new Date(start.getTime()),
-    leaseMs: 60_000,
   });
 
   assert.ok((await worker.pass()).includes(GROUP), "the group is served to begin with");
@@ -314,11 +411,12 @@ test("a grant that is withdrawn is reported, and stops being served", async () =
 
   // The claim it held is left where it is: a withdrawal is not a release, and a
   // worker that deleted another account's documents on its way out would be
-  // taking a trust it was never given. The lease lapses instead.
+  // taking a trust it was never given. The claim stays in the group's own
+  // account, un-renewed, and the next process to start takes it over.
   assert.equal(
     (await new AgentStore(own, GROUP).readClaim())?.doc.worker,
     "w-withdrawal",
-    "the claim is left for its lease to lapse",
+    "the claim is left for the next process that starts to take over",
   );
   await worker.stop();
 });

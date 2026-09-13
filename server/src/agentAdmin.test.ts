@@ -344,6 +344,60 @@ test("an installation with no agent says so plainly, and never 500s", async () =
   });
 });
 
+test("a worker's liveness is the process that runs it, not a stamp in a document", async () => {
+  // The record is written on change — start, a change in what it serves, stop —
+  // so it can say what a worker is doing and never whether it is up. This
+  // server hosts the fleet, so the worker it is running is the one it can call
+  // alive, and a record with nobody running it here is a worker that stopped or
+  // died: showing its last change as freshness is the lie this refuses.
+  configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
+  const agentAuth = `Basic ${Buffer.from(
+    `${mock.AGENT_ADDRESS}:${mock.AGENT_PASS}`,
+  ).toString("base64")}`;
+  const agentCtx = {
+    authorization: agentAuth,
+    session: await fetchUpstreamSession(agentAuth, BASE),
+    username: mock.AGENT_ADDRESS,
+  };
+  const master = new AgentStore(agentCtx, filesAccountId(agentCtx));
+  await master.writeWorker({
+    v: 1,
+    id: "w-elsewhere",
+    address: mock.AGENT_ADDRESS,
+    version: "test",
+    startedAt: "2026-09-10T08:00:00Z",
+    updatedAt: "2026-09-10T08:00:00Z",
+    serves: [TEAM],
+  });
+  try {
+    const body = (await call("/api/admin/agents")).body as {
+      workers: Array<{
+        id: string;
+        address: string;
+        heartbeatAt: string;
+        alive: boolean;
+        groups: string[];
+      }>;
+    };
+    const row = body.workers.find((w) => w.id === "w-elsewhere");
+    assert.ok(row, "the record the agent's account holds is read");
+    assert.equal(row.address, mock.AGENT_ADDRESS);
+    assert.equal(
+      row.alive,
+      false,
+      "no process here runs it, and no stamp on disk can say that one does",
+    );
+    assert.equal(
+      row.heartbeatAt,
+      "2026-09-10T08:00:00Z",
+      "what the surface shows is when the worker last changed, honestly named",
+    );
+    assert.deepEqual(row.groups, [TEAM], "and which groups that record names");
+  } finally {
+    await master.destroyWorker("w-elsewhere");
+  }
+});
+
 test("an agent that cannot be reached is reported, never guessed at", async () => {
   // The pair is present and the server will not answer it. That is neither the
   // deployment's missing pair nor a refusal of the key — those are separate

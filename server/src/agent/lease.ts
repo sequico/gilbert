@@ -3,30 +3,40 @@
  *
  * A worker serves the accounts it wins, and exactly one worker
  * holds the agent's event stream. There is no lock to take and no coordinator
- * to ask: a claim is a document, its owner and heartbeat are the truth, and a
- * heartbeat older than the tolerance is free for anyone to take over. Every
- * write passes the state it read as `ifInState`, so the two workers that race
- * for the same claim cannot both believe they won — the loser's write is
+ * to ask: a claim is a document, its owner and the instant it was taken are the
+ * truth, and a claim taken before this process started is free to take over.
+ * Every write passes the state it read as `ifInState`, so the two workers that
+ * race for the same claim cannot both believe they won — the loser's write is
  * refused and retried against what the winner left behind.
+ *
+ * A claim is a **fence**, not a lease: it is written when it is taken and
+ * removed when it is let go, and holding it costs nothing and writes nothing.
+ * That is not only cheaper (Stalwart charges the account for every upload and
+ * never gives the blob back) — it is truer: the server and the fleet it runs
+ * share a fate, so a liveness fact renewed on a clock bought nothing.
  *
  * Losing a race is normal here, not an error: the caller simply serves nothing
  * for that unit and comes back next pass.
  */
 
 import { isStateMismatch } from "../jmap.js";
-import {
-  type AgentClaim,
-  type AgentStreamClaim,
-  claimEpoch,
-  leaseExpired,
-} from "./documents.js";
+import { type AgentClaim, type AgentStreamClaim, claimEpoch } from "./documents.js";
 import type { AgentStore } from "./store.js";
 
 export interface ClaimOpts {
-  /** The instant the claim is written for; injected so a test can age a lease. */
+  /**
+   * The instant the claim is written for when it is taken; injected so a test
+   * can decide what a claim's take time is.
+   */
   now: Date;
-  /** How long a claim may go un-renewed before another worker takes it over. */
-  leaseMs: number;
+  /**
+   * When the process asking started, on the clock the claim's own instant is
+   * written with (the mail server's, in production). It answers the one
+   * question a takeover turns on: a claim taken **before** this instant was
+   * taken by a process that cannot have been waiting for us to arrive, so the
+   * unit is free to take over.
+   */
+  startedAt: Date;
   /**
    * Why the claim was refused, when it was: the caller logs the anomaly and
    * stays quiet about the ordinary answer. A bare `null` cannot tell "another
@@ -39,43 +49,94 @@ export interface ClaimOpts {
 
 /** Why a claim came back empty. */
 export type ClaimRefusal =
-  /** A peer holds it with a live lease. */
+  /** A peer holds it, and that peer started after we did. */
   | "held"
   /** Nobody's, but the write lost every compare-and-set: contention, not ownership. */
   | "contended";
 
 /**
  * How many times a read-modify-write retries after losing a compare-and-set.
- * Four attempts cover the ordinary race (another worker's heartbeat landing
- * between the read and the write); a longer fight means somebody else owns the
- * unit now, and giving up is the correct answer.
+ * Four attempts cover the ordinary race (another worker taking the same free
+ * unit between the read and the write); a longer fight means somebody else owns
+ * the unit now, and giving up is the correct answer.
  */
 const CAS_ATTEMPTS = 4;
 
 /**
- * Claim (or renew, or take over) one account.
+ * Whether a claim this process just read is ours to take.
  *
- * - nobody holds it → take it;
- * - I hold it → renew the heartbeat, keeping the instant the lease started and
- *   keeping the epoch, because a renewal is the same ownership and a fence
- *   taken before it still holds;
- * - another worker holds it with a live lease → null, it is theirs;
- * - another worker holds it with a stale lease → take it over, **keeping the
- *   states it recorded**, so catch-up continues where the dead worker stopped
- *   instead of starting from nothing.
+ * Three answers, and the middle one is the whole design of a fence:
  *
- * This is the one renewal path: a holder keeps its claim live by asking for it
- * again under its own worker id, so the epoch, the lease instant and the
- * ownership are decided in a single place. A renewal written beside it would
- * have to restate all three, and the one that read the worker alone would renew
- * a claim that had moved to a new epoch under the same id.
+ * - `mine`: this very worker holds it — the fence is held, and holding it is
+ *   not an event, so nothing is written;
+ * - `free`: nobody holds it, or the holder took it before this process started;
+ * - `held`: another worker took it after this process started.
+ *
+ * The takeover rule is decided on the work's own facts, never on time passing.
+ * A worker that reads a claim taken **before** it started knows the peer cannot
+ * have been waiting for it to arrive — the peer was there first, so it either
+ * died holding the fence or was replaced, and the unit is ours to serve. A
+ * claim taken **after** we started is a peer that was already running when we
+ * came up, which is exactly what a rolling restart looks like: the old process
+ * is still alive and finishing what it holds while the new one starts, the new
+ * one leaves those units alone, and the old one's next conditional write is
+ * refused by the state the new ownership advanced. The overlap lasts as long as
+ * the old process takes to notice, and whatever it loses it reads as `held` on
+ * its next pass.
+ */
+function verdict(
+  held: { worker: string; takenAt: string } | undefined,
+  worker: string,
+  startedAt: Date,
+): "mine" | "free" | "held" {
+  if (!held) return "free";
+  if (held.worker === worker) return "mine";
+  // An unreadable take time is unknown, and taking over on an unknown is how
+  // two workers end up on one unit: it is read as held, which is safe (the
+  // holder serves it) rather than greedy.
+  const taken = Date.parse(held.takenAt);
+  if (!Number.isFinite(taken)) return "held";
+  return taken < startedAt.getTime() ? "free" : "held";
+}
+
+/**
+ * Claim one account: take the fence, or find it somebody else's.
+ *
+ * - nobody holds it → take it (a fresh claim, epoch 0);
+ * - I hold it → **no write at all**: the fence is held, the take time and the
+ *   catch-up states are already the truth, and a renewal would be a durable
+ *   write caused by nothing but the clock;
+ * - another worker holds it, and started after us → null, it is theirs;
+ * - another worker holds it, and took it before we started → take it over with
+ *   `epoch + 1`, **keeping the states it recorded**, so catch-up continues where
+ *   the process that was here before us stopped instead of starting from
+ *   nothing.
+ *
+ * The compare-and-set is unchanged and it is what makes this safe: a stale
+ * holder whose fence has moved on has its next write refused, so a rolling
+ * restart is a brief overlap in reads and never two workers writing one unit.
+ * The epoch is what a run is fenced on (`claimStillMine`), so a holder that
+ * lost the unit mid-run stops before it writes what its successor will write
+ * again.
  */
 export async function claimAccount(
   store: AgentStore,
   worker: string,
   opts: ClaimOpts,
 ): Promise<AgentClaim | null> {
-  const heartbeatAt = opts.now.toISOString();
+  // The cheap answer first, without a token read and without a write: the unit
+  // is mine already, or it is a peer's that is still running. A pass that holds
+  // its claim therefore costs one read of the claim document and no upload at
+  // all — and the pass that knows from memory which units it holds does not
+  // even ask (see `pass` in agent.ts).
+  const opened = await store.readClaim();
+  const answer = verdict(opened?.doc, worker, opts.startedAt);
+  if (answer === "mine" && opened) return opened.doc;
+  if (answer === "held") {
+    opts.onRefused?.("held");
+    return null;
+  }
+  const takenAt = opts.now.toISOString();
   for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
     // The token is read **before** the document, and that order is the whole
     // guard: read the other way round, a claim written by another worker in
@@ -87,12 +148,9 @@ export async function claimAccount(
     const token = await store.state();
     const found = await store.readClaim();
     const held = found?.doc;
-    const mine = held?.worker === worker;
-    if (
-      held &&
-      !mine &&
-      !leaseExpired(held.heartbeatAt, opts.now.getTime(), opts.leaseMs)
-    ) {
+    const answer = verdict(held, worker, opts.startedAt);
+    if (answer === "mine") return held ?? null;
+    if (answer === "held") {
       opts.onRefused?.("held");
       return null;
     }
@@ -100,17 +158,15 @@ export async function claimAccount(
       ? {
           ...held,
           worker,
-          epoch: claimEpoch(held) + (mine ? 0 : 1),
-          leasedAt: mine ? held.leasedAt : heartbeatAt,
-          heartbeatAt,
+          epoch: claimEpoch(held) + 1,
+          takenAt,
         }
       : {
           v: 1,
           accountId: store.accountId,
           worker,
           epoch: 0,
-          leasedAt: heartbeatAt,
-          heartbeatAt,
+          takenAt,
           states: {},
         };
     try {
@@ -176,6 +232,13 @@ export async function claimStillMine(
  *
  * `statesAt` carries the instant each state was read, so a later pass can tell
  * the write it is reporting from a write to the same record that came earlier.
+ *
+ * A state that has not moved is not written at all. A pass that has read no
+ * change reports the state the claim already records — and writing that anyway
+ * would cost a blob the account never gets back, *and* move the account on:
+ * the claim is a file in the very account the state describes, so its own write
+ * is the next change the next pass reads, which is a pass writing a record of
+ * its own writing, once a minute, for as long as nothing happens.
  */
 export async function saveClaimStates(
   store: AgentStore,
@@ -188,7 +251,7 @@ export async function saveClaimStates(
     const found = await store.readClaim();
     // A claim that is not there is not mine to write into: it was released, and
     // recreating it here would put the unit back under a worker that has already
-    // given it away — busy for a whole lease, with nobody serving it. The next
+    // given it away — held by nobody, for as long as it takes to notice. The next
     // pass claims the unit again through `claimAccount`, which is the one place a
     // claim is born.
     if (!found) return null;
@@ -196,6 +259,10 @@ export async function saveClaimStates(
     // A claim that has moved to a new epoch is somebody else's run: the anchor
     // this worker is saving belongs to an ownership that is over.
     if (claimEpoch(found.doc) !== claimEpoch(claim)) return null;
+    const moved = Object.entries(states).some(
+      ([type, state]) => found.doc.states[type] !== state,
+    );
+    if (!moved) return found.doc;
     const updated: AgentClaim = {
       ...found.doc,
       states: { ...found.doc.states, ...states },
@@ -216,33 +283,36 @@ export async function saveClaimStates(
  * worker holds it (ADR 0003): the others poll, which is why the default
  * deployment is one worker and a second one is a deliberate choice.
  *
- * Claiming with the same worker id is also the stream's renewal: the holder
- * keeps its claim live through this function, so the epoch and the lease
- * instant are decided in the one place that answers who holds the stream.
+ * The rule is the accounts' rule (`verdict`): held by another worker that
+ * started after us means theirs, and a stream taken before this process started
+ * is free to take over — one write, at the moment it is taken, and none while it
+ * is held.
  */
 export async function claimStream(
   store: AgentStore,
   worker: string,
   opts: ClaimOpts,
 ): Promise<AgentStreamClaim | null> {
-  const heartbeatAt = opts.now.toISOString();
+  // Mine already: no write, and no token read either. The stream is a fence
+  // like an account's claim, and holding it is not an event.
+  const opened = await store.readStreamClaim();
+  const answer = verdict(opened?.doc, worker, opts.startedAt);
+  if (answer === "mine" && opened) return opened.doc;
+  if (answer === "held") return null;
+  const takenAt = opts.now.toISOString();
   for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
+    // The token before the document, for the same reason as in `claimAccount`.
     const token = await store.state();
     const found = await store.readStreamClaim();
     const held = found?.doc;
-    const mine = held?.worker === worker;
-    if (
-      held &&
-      !mine &&
-      !leaseExpired(held.heartbeatAt, opts.now.getTime(), opts.leaseMs)
-    )
-      return null;
+    const current = verdict(held, worker, opts.startedAt);
+    if (current === "mine") return held ?? null;
+    if (current === "held") return null;
     const claim: AgentStreamClaim = {
       v: 1,
       worker,
-      epoch: held ? claimEpoch(held) + (mine ? 0 : 1) : 0,
-      leasedAt: mine && held ? held.leasedAt : heartbeatAt,
-      heartbeatAt,
+      epoch: held ? claimEpoch(held) + 1 : 0,
+      takenAt,
     };
     try {
       await store.writeStreamClaim(claim, { ifInState: token });
@@ -277,8 +347,10 @@ const PROCESS_STARTED = Date.now().toString(36);
 
 /**
  * How someone is the same worker again: stable for the process, different for
- * every run. A restarted worker therefore waits out the lease of the process it
- * replaced instead of mistaking that process's claims for its own.
+ * every run. A restarted worker therefore never mistakes the process it
+ * replaced for itself, and — with takeover decided against this process's own
+ * start — it takes that process's claims over at once rather than waiting
+ * anything out.
  */
 export function workerId(address: string): string {
   return `${address}#${process.pid}-${PROCESS_STARTED}`;

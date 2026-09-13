@@ -47,7 +47,7 @@ whose grant is withdrawn stops being served from the next poll on, and the
 withdrawal is written once into the Master's own account
 (`agent/withdrawals.json`) for the admin surface to read. Nothing on the way
 out touches the withdrawn account's own documents; the claim is simply left
-for its lease to lapse.
+for whoever serves that account next to take it over.
 
 ## Rules and durable state are Stalwart documents
 
@@ -88,19 +88,33 @@ other run passes; an entry no live claim covers is carried over exactly as
 it stands rather than re-planned, and a run whose rule is off or gone is
 recorded as a missed run.
 
-## Coordination: leases, claims and fencing
+## Coordination: claims and fencing
 
 Each agent claims the scopes it serves — a principal's push stream, and
-per-account work — by writing owner and heartbeat into the claim document; a
-stale heartbeat is re-claimed by any agent (`server/src/agent/lease.ts`).
-Claims carry an epoch, incremented on takeover and never on renewal, and a
-run checks `claimStillMine` immediately before any action that leaves the
-process — sending, posting, filing, drafting. That fenced set is one
-explicit list, `FENCED_ACTIONS` (`mail.send`, `chat.post`, `mail.draft`,
-`file.write`, `mail.extract`), read by both the fence and the retry
-decision, so an action cannot be fenced in one and repeatable in the other.
-An agent whose lease has lapsed stops rather than writing results the
-successor will write again.
+per-account work — by writing owner and epoch into the claim document, and it
+writes that document **when it takes the claim and when it releases it, never
+on a clock**. There is no heartbeat in the account and no lease that lapses on
+time: liveness is a fact about the process that hosts the agent and is held in
+memory, and a claim another agent took is taken over when the claim it reads is
+older than the process reading it — never merely because time passed
+(`server/src/agent/lease.ts`).
+
+That rule is a consequence of what a document is: every durable write in
+Stalwart is a blob an account's upload quota pays for and nothing reclaims
+(JMAP offers no blob removal), so a write on a clock — a heartbeat, a renewed
+lease, a stamp nobody reads — spends a group's finite budget on saying that a
+process is alive. A deployment's server and its agents share a fate, which is
+what makes the in-memory answer sufficient: when the process goes, its claims
+are the ones nobody is holding, and the next process adopts them.
+
+Claims carry an epoch, incremented on takeover and never on a pass over a claim
+that is already one's own, and a run checks `claimStillMine` immediately before
+any action that leaves the process — sending, posting, filing, drafting. That
+fenced set is one explicit list, `FENCED_ACTIONS` (`mail.send`, `chat.post`,
+`mail.draft`, `file.write`, `mail.extract`), read by both the fence and the
+retry decision, so an action cannot be fenced in one and repeatable in the
+other. An agent that finds its claim taken from it stops rather than writing
+results the successor will write again.
 
 Nothing supervises the agents, and nothing inside one manages processes: the
 documents are the only coordinator. A job left `running` past its lease is
@@ -274,8 +288,9 @@ The agents admin area is three sections.
   **Automations** (the rule editor, showing a scheduled rule's next due
   time), **Standing instruction**, **Memory** (the notebook),
   **Audit** (a window on that group's own monthly audit, newest first, with
-  the full month exportable as JSON), and **Agents** (the fleet heartbeat
-  for that group — who is serving it, and which grants it has lost). A
+  the full month exportable as JSON), and **Agents** (who is serving that
+  group, read from the process that hosts the agent, and which grants it has
+  lost). A
   control here also defines the group's label catalog.
 - **Approvals** — cross-group oversight, read-only by construction: a
   **Pending** tab shows every group's paused decisions at once, and an
@@ -293,8 +308,8 @@ The agents admin area is three sections.
   nothing mints, stores or rotates a second one.
 - A deploy or a crash pauses agent work for the downtime window only —
   recovery is automatic from durable state: session re-derived at boot,
-  stale leases re-claimed, schedules and jobs picked up from their
-  documents.
+  claims taken over by the process that comes up, schedules and jobs picked
+  up from their documents.
 - Work claims are the account, so two agents never touch the same account
   at once; with the default single agent, work on one account is serialized
   in arrival order.

@@ -181,7 +181,13 @@ function rule(overrides: Partial<AgentRule> = {}): AgentRule {
 }
 
 async function claimFor() {
-  const claim = await claimAccount(store, WORKER, { now: new Date(), leaseMs: LEASE });
+  // The claim is a fence taken once: `startedAt` is when the process asking
+  // came up, and this one came up before the claim was written, which is what
+  // makes a free unit free to take.
+  const claim = await claimAccount(store, WORKER, {
+    now: new Date(),
+    startedAt: new Date(Date.now() - LEASE),
+  });
   assert.ok(claim, "the worker holds the account");
   return claim;
 }
@@ -1155,10 +1161,11 @@ test("a sweep leaves a job whose unit is somebody else's alone", async () => {
   // The sweep may take up what a dead worker left **only** for a unit this
   // worker holds: with the claim in another worker's hands, the run is the
   // double execution the fence exists to stop (resolution 18). The takeover is
-  // dated past the holder's lease, which is how a successor arrives.
+  // a process starting after the claim was taken, which is how a successor
+  // arrives.
   const taken = await claimAccount(store, "another-worker", {
     now: new Date(Date.now() + 10 * LEASE),
-    leaseMs: LEASE,
+    startedAt: new Date(Date.now() + 10 * LEASE),
   });
   assert.ok(taken, "another worker holds mail now");
 
@@ -1181,7 +1188,7 @@ test("a sweep leaves a job whose unit is somebody else's alone", async () => {
   // hands would decide the tests that come after it.
   await claimAccount(store, WORKER, {
     now: new Date(Date.now() + 20 * LEASE),
-    leaseMs: LEASE,
+    startedAt: new Date(Date.now() + 20 * LEASE),
   });
 });
 

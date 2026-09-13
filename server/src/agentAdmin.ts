@@ -28,6 +28,10 @@ import {
   groupAccountsDetailed,
   mailboxIdByRole,
 } from "./agent/actions.js";
+// Liveness is the process's own fact, and the fleet this server hosts is the one
+// that answers for it (ADR 0003: the server starts the fleet and its shutdown
+// stops it).
+import { liveWorkers } from "./agent/agent.js";
 import { hasSpoken, readChat } from "./agent/chat.js";
 import {
   AGENT_CHAIN_HOPS_CEILING,
@@ -51,7 +55,6 @@ import {
   isAgentBound,
   isAgentRule,
   isModelMaxOutput,
-  leaseExpired,
   MODEL_MAX_OUTPUT_CEILING,
   MODEL_MAX_OUTPUT_DEFAULT,
   matchEmailFilter,
@@ -525,7 +528,9 @@ async function fleetMeter(
   };
 }
 
-/** The agent's worker heartbeats, with `alive` judged against the heartbeat. */
+/**
+ * The agent's own withdrawal report: the grants it has lost, newest first.
+ */
 async function readWithdrawals(ctx: Ctx): Promise<AgentWithdrawal[]> {
   const accountId = filesAccountId(ctx);
   if (!accountId) return [];
@@ -543,23 +548,40 @@ async function readWithdrawals(ctx: Ctx): Promise<AgentWithdrawal[]> {
   }
 }
 
+/**
+ * The agent's workers, with liveness read from the process that runs them.
+ *
+ * A worker's record is written on change — when it starts, when the set of
+ * accounts it serves changes, when it stops — so the record says what a worker
+ * is **doing** and never whether it is up; a durable stamp cannot answer a
+ * question about a process anyway. The answer is in memory, where the process
+ * is: this server hosts the fleet (ADR 0003), so the worker it is running right
+ * now is the one `liveWorkers()` names, and a record nobody here is running is
+ * a worker that stopped, died, or was never this server's.
+ */
 async function readWorkers(ctx: Ctx): Promise<AgentStatusWorker[]> {
   const accountId = filesAccountId(ctx);
   if (!accountId) return [];
   const records: AgentWorkerRecord[] = await new AgentStore(ctx, accountId).listWorkers();
-  const now = Date.now();
-  // The ADR's tolerance: three missed heartbeats is a worker that is gone.
-  const tolerance = config.agent.heartbeatMs * 3;
-  return records.map((w) => ({
-    id: w.id,
-    address: w.address,
-    heartbeatAt: w.heartbeatAt,
-    version: w.version,
-    alive: !leaseExpired(w.heartbeatAt, now, tolerance),
-    // A record written before the field existed names no group, and a worker
-    // holding nothing names none either: both read as "serves nothing here".
-    groups: w.serves ?? [],
-  }));
+  const running = new Map(liveWorkers().map((worker) => [worker.id, worker]));
+  return records.map((w) => {
+    const live = running.get(w.id);
+    return {
+      id: w.id,
+      address: w.address,
+      // When this worker last changed what it does, or when the process that
+      // runs it started answering for it: both are the worker's own fact, and
+      // neither is a clock this surface reads on its behalf.
+      heartbeatAt: live ? live.since : w.updatedAt,
+      version: w.version,
+      alive: live !== undefined,
+      // A record written before the field existed names no group, and a worker
+      // holding nothing names none either: both read as "serves nothing here".
+      // A running worker answers with what it holds now, which is why the
+      // registry is read at all rather than the record alone.
+      groups: live ? [...live.groups] : (w.serves ?? []),
+    };
+  });
 }
 
 /* ------------------------------------------------------------------ */

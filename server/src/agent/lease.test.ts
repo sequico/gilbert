@@ -7,10 +7,14 @@ import { after, test } from "node:test";
  * The mock **does** enforce `ifInState` (`compare-and-set.test.ts` pins it), so
  * a write whose state moved is refused exactly as a real 0.16 server refuses
  * it. What these tests exercise is every ownership decision — take what is
- * free, refuse what somebody holds, renew my own, take over a claim whose
- * heartbeat went stale while keeping the catch-up states it recorded — and,
- * since a refusal is no longer indistinguishable from a loss, why a claim came
- * back empty.
+ * free, leave what a peer that started after us holds, hold our own without
+ * writing anything, take over a claim taken before this process started while
+ * keeping the catch-up states it recorded — and, since a refusal is no longer
+ * indistinguishable from a loss, why a claim came back empty.
+ *
+ * Two of them are read against the mock's upload counter, because the claim is
+ * a fence and not a lease: holding one is worth zero uploads, and a real
+ * Stalwart charges the account for every blob it is asked to store.
  */
 
 const PORT = 18851;
@@ -36,12 +40,22 @@ const GROUP = "a3";
 /** The demo principal's own account, which stands in for the agent's. */
 const AGENT = "a1";
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo").toString("base64")}`;
-const LEASE = 60_000;
 
 const session = await fetchUpstreamSession(AUTH, BASE);
 const ctx = { authorization: AUTH, session, username: "demo@example.com" };
 const store = new AgentStore(ctx, GROUP);
 const agentStore = new AgentStore(ctx, AGENT);
+
+/**
+ * A process start that is after every claim written so far, and one before it.
+ *
+ * The whole of the takeover rule is this comparison, so a test says which side
+ * of it it means instead of aging anything: `startedAfter()` is a process that
+ * came up later (and therefore may take a claim over), `startedBefore()` one
+ * that was already running when the claim was written (and therefore may not).
+ */
+const startedAfter = (ms = 1_000) => new Date(Date.now() + ms);
+const startedBefore = (ms = 1_000) => new Date(Date.now() - ms);
 
 /** The account holds one claim, so a test that needs a free unit drops it. */
 const freeUnit = (): Promise<void> => store.destroyClaim();
@@ -51,28 +65,51 @@ after(() => {
 });
 
 test("a claim nobody holds is taken", async () => {
-  const claim = await claimAccount(store, "w1", { now: new Date(), leaseMs: LEASE });
+  const claim = await claimAccount(store, "w1", {
+    now: new Date(),
+    startedAt: startedBefore(),
+  });
   assert.ok(claim, "the first worker takes the free unit");
   assert.equal(claim.worker, "w1");
   assert.equal(claim.accountId, GROUP);
+  assert.equal(claim.epoch, 0, "a fresh ownership, so the fence starts at zero");
+  assert.ok(
+    Number.isFinite(Date.parse(claim.takenAt)),
+    "the claim records when it was taken, on the clock the fleet agrees on",
+  );
   assert.deepEqual(claim.states, {});
 });
 
-test("a claim held by another agent with a live lease is not taken", async () => {
-  const claim = await claimAccount(store, "w2", { now: new Date(), leaseMs: LEASE });
+test("a claim held by another agent that started after us is not taken", async () => {
+  const claim = await claimAccount(store, "w2", {
+    now: new Date(),
+    startedAt: startedBefore(),
+  });
   assert.equal(claim, null, "losing a race is normal, not an error");
 });
 
-test("the holder renews, keeping the instant its lease started", async () => {
+test("the holder that finds its claim its own writes nothing at all", async () => {
   const held = await store.readClaim();
   assert.ok(held);
+  const uploads = mock.uploads.count;
   const renewed = await claimAccount(store, "w1", {
-    now: new Date(Date.now() + 1_000),
-    leaseMs: LEASE,
+    now: startedAfter(),
+    startedAt: startedBefore(),
   });
   assert.ok(renewed);
-  assert.equal(renewed.leasedAt, held.doc.leasedAt);
-  assert.ok(renewed.heartbeatAt > held.doc.heartbeatAt);
+  assert.equal(renewed.takenAt, held.doc.takenAt, "the take time is not rewritten");
+  assert.equal(claimEpoch(renewed), claimEpoch(held.doc), "and neither is the epoch");
+  const again = await store.readClaim();
+  assert.equal(
+    again?.state,
+    held.state,
+    "the document did not move: holding a fence is not an event",
+  );
+  assert.equal(
+    mock.uploads.count,
+    uploads,
+    "and the account was not charged for anything",
+  );
 });
 
 test("states are recorded on the claim, and merge instead of replacing", async () => {
@@ -86,48 +123,113 @@ test("states are recorded on the claim, and merge instead of replacing", async (
   assert.deepEqual(second.states, { Email: "7", FileNode: "9" });
 });
 
-test("a stale lease is taken over, keeping the catch-up states", async () => {
+test("a claim taken before this process started is taken over, keeping the states", async () => {
   const held = await store.readClaim();
   assert.ok(held);
-  await store.writeClaim({
-    ...held.doc,
-    heartbeatAt: new Date(Date.now() - 2 * LEASE).toISOString(),
+  const taken = await claimAccount(store, "w3", {
+    now: new Date(),
+    startedAt: startedAfter(),
   });
-  const taken = await claimAccount(store, "w3", { now: new Date(), leaseMs: LEASE });
-  assert.ok(taken, "a heartbeat older than the tolerance is free to take");
+  assert.ok(
+    taken,
+    "a peer that was here before us is a peer that cannot have been waiting for us",
+  );
   assert.equal(taken.worker, "w3");
+  assert.equal(
+    claimEpoch(taken),
+    claimEpoch(held.doc) + 1,
+    "a takeover is a new ownership",
+  );
+  assert.ok(taken.takenAt > held.doc.takenAt, "and it records when it happened");
   assert.deepEqual(
     taken.states,
     { Email: "7", FileNode: "9" },
-    "catch-up continues where the dead worker stopped",
+    "catch-up continues where the process before us stopped",
   );
-  assert.equal(taken.leasedAt, taken.heartbeatAt, "a takeover starts a new lease");
 });
 
-test("renewal and release only touch the claim of the holder", async () => {
+test("a claim taken after this process started stays with its holder", async () => {
   const held = await store.readClaim();
   assert.ok(held);
   assert.equal(
-    await claimAccount(store, "somebody-else", { now: new Date(), leaseMs: LEASE }),
+    await claimAccount(store, "somebody-else", {
+      now: startedAfter(),
+      startedAt: startedBefore(),
+    }),
     null,
-    "somebody else finds a live lease, not a claim to renew",
+    "a peer that came up after us is running now, however long we take",
   );
   assert.equal(await releaseClaim(store, "not-me"), false);
   assert.equal(await releaseClaim(store, "w3"), true);
   assert.equal(await store.readClaim(), null);
 });
 
+test("a claim whose take time cannot be read is nobody's to take over", async () => {
+  // An unreadable instant means the answer is unknown, and taking over on an
+  // unknown is how two workers end up on one unit. Read as held, which is the
+  // safe way to be wrong: the holder serves it and the next process that starts
+  // reads it again.
+  await freeUnit();
+  await store.writeClaim({
+    v: 1,
+    accountId: GROUP,
+    worker: "w-broken-clock",
+    takenAt: "not a time",
+    epoch: 3,
+    states: {},
+  });
+  const refused: string[] = [];
+  const claim = await claimAccount(store, "w1", {
+    now: new Date(),
+    startedAt: startedAfter(),
+    onRefused: (reason) => refused.push(reason),
+  });
+  assert.equal(claim, null);
+  assert.deepEqual(refused, ["held"], "unknown is held, not free");
+  assert.equal((await store.readClaim())?.doc.worker, "w-broken-clock");
+  await freeUnit();
+});
+
 test("the stream claim is exclusive, in the agent's own account", async () => {
-  const won = await claimStream(agentStore, "w1", { now: new Date(), leaseMs: LEASE });
+  const won = await claimStream(agentStore, "w1", {
+    now: new Date(),
+    startedAt: startedBefore(),
+  });
   assert.ok(won);
   assert.equal(
-    await claimStream(agentStore, "w2", { now: new Date(), leaseMs: LEASE }),
+    await claimStream(agentStore, "w2", {
+      now: new Date(),
+      startedAt: startedBefore(),
+    }),
     null,
     "one worker holds the agent's EventSource",
   );
+  // Its holder holding it is not an event either.
+  const uploads = mock.uploads.count;
+  const again = await claimStream(agentStore, "w1", {
+    now: startedAfter(),
+    startedAt: startedBefore(),
+  });
+  assert.ok(again);
+  assert.equal(again.takenAt, won.takenAt, "the stream's take time is not rewritten");
+  assert.equal(mock.uploads.count, uploads, "and holding it costs no upload");
   assert.equal(await releaseStreamClaim(agentStore, "w2"), false);
   assert.equal(await releaseStreamClaim(agentStore, "w1"), true);
   assert.equal(await agentStore.readStreamClaim(), null);
+
+  // A stream taken before this process started is free to take, like an account.
+  const earlier = await claimStream(agentStore, "w-old", {
+    now: new Date(),
+    startedAt: startedBefore(),
+  });
+  assert.ok(earlier);
+  const successor = await claimStream(agentStore, "w-new", {
+    now: new Date(),
+    startedAt: startedAfter(),
+  });
+  assert.ok(successor, "a successor takes the stream without waiting anything out");
+  assert.equal(successor.epoch, claimEpoch(earlier) + 1);
+  assert.equal(await releaseStreamClaim(agentStore, "w-new"), true);
 });
 
 test("an agent id is stable for the process and names the agent", () => {
@@ -141,33 +243,29 @@ test("an agent id is stable for the process and names the agent", () => {
  * unit nobody holds and the tests above keep their sequence.
  */
 
-test("a takeover moves the epoch, a renewal does not", async () => {
+test("a takeover moves the epoch, and holding does not", async () => {
   await freeUnit();
   const first = await claimAccount(store, "w1", {
     now: new Date(),
-    leaseMs: LEASE,
+    startedAt: startedBefore(),
   });
   assert.ok(first);
   const atEpoch = claimEpoch(first);
 
-  const renewed = await claimAccount(store, "w1", {
+  const held = await claimAccount(store, "w1", {
     now: new Date(),
-    leaseMs: LEASE,
+    startedAt: startedAfter(),
   });
-  assert.ok(renewed);
+  assert.ok(held);
   assert.equal(
-    claimEpoch(renewed),
+    claimEpoch(held),
     atEpoch,
-    "a renewal is the same ownership, so a fence taken before it still holds",
+    "holding is the same ownership, so a fence taken before it still holds",
   );
 
-  await store.writeClaim({
-    ...renewed,
-    heartbeatAt: new Date(Date.now() - 2 * LEASE).toISOString(),
-  });
   const taken = await claimAccount(store, "w2", {
     now: new Date(),
-    leaseMs: LEASE,
+    startedAt: startedAfter(),
   });
   assert.ok(taken);
   assert.equal(
@@ -186,9 +284,10 @@ test("a takeover moves the epoch, a renewal does not", async () => {
 test("two agents racing for one unit: exactly one wins", async () => {
   await freeUnit();
   const now = new Date();
+  const startedAt = startedBefore();
   const [one, two] = await Promise.all([
-    claimAccount(store, "racer-a", { now, leaseMs: LEASE }),
-    claimAccount(store, "racer-b", { now, leaseMs: LEASE }),
+    claimAccount(store, "racer-a", { now, startedAt }),
+    claimAccount(store, "racer-b", { now, startedAt }),
   ]);
   assert.equal(
     [one, two].filter(Boolean).length,
@@ -204,7 +303,7 @@ test("a released claim is not resurrected by saving states into it", async () =>
   await freeUnit();
   const claim = await claimAccount(store, "w1", {
     now: new Date(),
-    leaseMs: LEASE,
+    startedAt: startedBefore(),
   });
   assert.ok(claim);
   assert.equal(await releaseClaim(store, "w1"), true);
@@ -218,21 +317,30 @@ test("a released claim is not resurrected by saving states into it", async () =>
   assert.equal(
     await store.readClaim(),
     null,
-    "the unit must not come back busy under a worker that already gave it away",
+    "the unit must not come back held by a worker that already gave it away",
   );
 });
 
 test("a refusal says whether a peer holds the unit or the write kept losing", async () => {
   await freeUnit();
-  assert.ok(await claimAccount(store, "holder", { now: new Date(), leaseMs: LEASE }));
+  assert.ok(
+    await claimAccount(store, "holder", {
+      now: new Date(),
+      startedAt: startedBefore(),
+    }),
+  );
   const reasons: string[] = [];
   const refused = await claimAccount(store, "other", {
     now: new Date(),
-    leaseMs: LEASE,
+    startedAt: startedBefore(),
     onRefused: (reason) => reasons.push(reason),
   });
   assert.equal(refused, null);
-  assert.deepEqual(reasons, ["held"], "a live lease is ownership, not contention");
+  assert.deepEqual(
+    reasons,
+    ["held"],
+    "another worker's claim is ownership, not contention",
+  );
   // Free again, so the only thing that can refuse the next attempt is losing
   // the write rather than finding an owner.
   assert.equal(await releaseClaim(store, "holder"), true);
@@ -250,7 +358,7 @@ test("a refusal says whether a peer holds the unit or the write kept losing", as
   const contended: string[] = [];
   const lost = await claimAccount(slippery, "w1", {
     now: new Date(),
-    leaseMs: LEASE,
+    startedAt: startedBefore(),
     onRefused: (reason) => contended.push(reason),
   });
   assert.equal(lost, null);

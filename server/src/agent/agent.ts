@@ -59,7 +59,6 @@ export interface WorkerDeps {
   now?: () => Date;
   pollMs?: number;
   heartbeatMs?: number;
-  leaseMs?: number;
   /**
    * False in a test: the handle then runs only what `pass()` drives, instead of
    * keeping the process alive with timers and a stream.
@@ -160,6 +159,66 @@ export function groupNameOf(session: UpstreamSession, accountId: string): string
 }
 
 /**
+ * The workers this process is running, in memory.
+ *
+ * Liveness is a process fact and it is kept where the process is. A deployment's
+ * server and its agents share a fate (ADR 0003: the fleet runs beside the web
+ * tier, and the server's shutdown stops it), so a worker that is alive is a
+ * worker this process is running — while the record in the agent's own account
+ * is written when the work changes, never on a clock. The status surface asks
+ * the server that hosts the worker, and this is what it reads.
+ *
+ * Nothing here is durable and nothing here asks the store anything: a process
+ * that dies takes its own liveness with it, which is the whole of what a restart
+ * policy or an operator needs to know.
+ */
+export interface LiveWorker {
+  id: string;
+  address: string;
+  version: string;
+  /** When this process started serving as this worker. */
+  since: string;
+  /** The accounts it holds a claim on right now. */
+  accounts: ReadonlyArray<string>;
+  /** The groups those accounts are, by the names the session gave them. */
+  groups: ReadonlyArray<string>;
+  /** Whether it holds the agent's event stream. */
+  streaming: boolean;
+  /** When it last wrote its own record: a change in the work, never a clock. */
+  updatedAt: string;
+}
+
+/**
+ * The fleet this process runs, keyed by worker id.
+ *
+ * A handout rather than a service: `startWorker` registers what it is when it
+ * starts and whenever the set of accounts it serves changes, and removes itself
+ * when it stops, so "is this worker alive" is answered by whether it is here and
+ * not by anything written to Stalwart.
+ */
+const live = new Map<string, LiveWorker>();
+
+/** The workers this process is running right now. */
+export function liveWorkers(): LiveWorker[] {
+  return [...live.values()];
+}
+
+/**
+ * What a running worker is, as the fleet surface reads it.
+ *
+ * A worker that stopped is removed rather than left behind: in-memory liveness
+ * is exactly "is this process running it", and a row that survived the stop
+ * would be the durable lie this exists to remove.
+ */
+function remember(worker: LiveWorker): void {
+  live.set(worker.id, worker);
+}
+
+function forget(id: string): void {
+  live.delete(id);
+}
+
+/**
  * Start serving. The handle is the seam a test drives: `pass()` runs one full
  * round, `stop()` releases the claims and the stream.
  */
@@ -172,7 +231,6 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
   const now = deps.now ?? serverNow;
   const pollMs = deps.pollMs ?? config.agent.pollMs;
   const heartbeatMs = deps.heartbeatMs ?? config.agent.heartbeatMs;
-  const leaseMs = deps.leaseMs ?? config.agent.leaseMs;
   const id = deps.workerId ?? workerIdOf(deps.address);
   const timers = deps.timers !== false;
 
@@ -186,7 +244,8 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     log,
   });
   const agentStore = new AgentStore(deps.ctx, filesAccountId(deps.ctx));
-  const startedAt = now().toISOString();
+  const started = now();
+  const startedAt = started.toISOString();
 
   const servedAccounts = new Set<string>();
   /** The accounts the session listed when the pass last looked, by name. */
@@ -348,39 +407,125 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     log(`holding the agent's event stream (${[...types].join(", ")})`);
   };
 
-  const heartbeat = async (): Promise<void> => {
-    const stamp = now().toISOString();
-    const record: AgentWorkerRecord = {
-      v: 1,
+  /**
+   * What this worker is holding, by the names the session gave those accounts.
+   *
+   * The claims are per account and the group's own surface reads a worker's
+   * groups off this, so it is derived in one place and read by both the record
+   * and the in-memory registry.
+   */
+  const servesNow = (): string[] =>
+    [...servedAccounts]
+      .map((accountId) => knownAccounts.get(accountId) ?? "")
+      .filter(Boolean)
+      .sort();
+
+  /** What the last written record says this worker serves, and when it was written. */
+  let publishedServes: string | null = null;
+  let publishedAt: string | null = null;
+
+  /**
+   * Say what this worker is, in memory and — when it has changed — on disk.
+   *
+   * The record is written on **change**, never on a clock: when the worker
+   * starts, when the set of accounts it serves changes, and (in `stop`) when it
+   * goes away. The three are the same three things that are true of it, and
+   * nothing else about a worker is a fact worth an upload — Stalwart charges
+   * the account for every one, and never gives the blob back. Liveness is not
+   * one of them: that is a fact of this process and lives in `live`.
+   */
+  const publish = async (): Promise<void> => {
+    const serves = servesNow();
+    const asWritten = JSON.stringify(serves);
+    if (asWritten !== publishedServes) {
+      const record: AgentWorkerRecord = {
+        v: 1,
+        id,
+        address: deps.address,
+        version: config.version,
+        startedAt,
+        updatedAt: now().toISOString(),
+        serves,
+      };
+      await agentStore.writeWorker(record);
+      publishedServes = asWritten;
+      publishedAt = record.updatedAt;
+    }
+    remember({
       id,
       address: deps.address,
       version: config.version,
-      startedAt,
-      heartbeatAt: stamp,
-      // What it is holding right now, by the names the session gave those
-      // accounts: the claims below are per account, and the surface that reads
-      // a group's workers reads it off this. The set it renews next is the set
-      // it names here, so a heartbeat is at most one interval behind its own
-      // renewals — and the aliveness above never waits on them.
-      serves: [...servedAccounts]
-        .map((accountId) => knownAccounts.get(accountId) ?? "")
-        .filter(Boolean)
-        .sort(),
-    };
-    await agentStore.writeWorker(record);
+      since: startedAt,
+      accounts: [...servedAccounts],
+      groups: serves,
+      streaming: streamClaim !== null,
+      updatedAt: publishedAt ?? startedAt,
+    });
+  };
+
+  /**
+   * Retention, on the one timer left in the worker's own machinery.
+   *
+   * A sweep is a read until it finds something past its retention, and what it
+   * removes is work that has finished — a change in the work, not a clock. The
+   * interval is the heartbeat's for the same reason it always was: pruning
+   * wants to be unhurried, and a knob nobody has to set twice is one less way a
+   * deployment can be wrong.
+   */
+  const prune = async (): Promise<void> => {
+    if (now().getTime() - lastPrune < heartbeatMs) return;
+    lastPrune = now().getTime();
+    const cutoff = new Date(now().getTime() - DOCUMENT_RETENTION_MS);
+    const auditCutoff = new Date(now().getTime() - AUDIT_RETENTION_MS);
+    for (const accountId of [...servedAccounts]) {
+      const removed = await executor.prune(accountId, cutoff);
+      if (removed) log(`${accountId}: pruned ${removed} finished document(s)`);
+      const months = await executor.pruneAudit(accountId, auditCutoff);
+      if (months) log(`${accountId}: pruned ${months} audit month(s)`);
+    }
+  };
+
+  /**
+   * What a refused claim says: contention out loud, ownership not.
+   *
+   * Losing a claim to a peer is the design working, and saying it every pass
+   * would be noise. Losing every write to a unit nobody holds is the fleet
+   * quietly stopping, and nothing else in the process would ever say so.
+   */
+  const refused = (accountId: string) => (reason: ClaimRefusal) => {
+    if (reason === "contended")
+      log(`${accountId}: nobody holds it and the claim kept losing`);
+  };
+
+  /**
+   * Whether the units this worker believes it holds are still its own.
+   *
+   * A fence that is never renewed is a fence a peer can take over without this
+   * worker noticing, so the pass asks — with a **read**, which costs the account
+   * nothing, and never with a write. What the answer changes is what this worker
+   * serves: an account whose claim has moved on is dropped, and the drop is a
+   * change in the work, so the record is written once for it (`publish`).
+   */
+  const stillMine = async (): Promise<void> => {
     for (const accountId of [...servedAccounts]) {
       const store = new AgentStore(deps.ctx, accountId);
-      const renewed = await claimAccount(store, id, { now: now(), leaseMs });
-      if (!renewed) {
-        // A peer took it over while this worker was renewing: stop serving it
-        // rather than work an account somebody else owns now.
+      const held = await claimAccount(store, id, {
+        now: now(),
+        startedAt: started,
+        onRefused: refused(accountId),
+      });
+      if (!held) {
+        // Somebody else holds it: stop serving rather than work an account
+        // that belongs to a peer's run now. Its next write is refused by the
+        // epoch, which is the fence doing its job.
         servedAccounts.delete(accountId);
+        dirty.delete(accountId);
         log(`lost ${accountId}`);
       }
     }
     if (streamClaim) {
-      const renewed = await claimStream(agentStore, id, { now: now(), leaseMs });
-      if (!renewed && closeStream) {
+      const held = await claimStream(agentStore, id, { now: now(), startedAt: started });
+      if (!held && closeStream) {
         // Somebody else holds the stream now: stop reading, keep polling.
         closeStream();
         closeStream = null;
@@ -388,30 +533,6 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
         log("the event stream claim moved to another worker; polling");
       }
     }
-    if (now().getTime() - lastPrune > heartbeatMs) {
-      lastPrune = now().getTime();
-      const cutoff = new Date(now().getTime() - DOCUMENT_RETENTION_MS);
-      const auditCutoff = new Date(now().getTime() - AUDIT_RETENTION_MS);
-      for (const accountId of servedAccounts) {
-        const removed = await executor.prune(accountId, cutoff);
-        if (removed) log(`${accountId}: pruned ${removed} finished document(s)`);
-        const months = await executor.pruneAudit(accountId, auditCutoff);
-        if (months) log(`${accountId}: pruned ${months} audit month(s)`);
-      }
-    }
-  };
-
-  /**
-   * What a refused claim says: contention out loud, ownership not.
-   *
-   * Losing a claim to a peer that holds a live lease is the design working, and
-   * saying it every pass would be noise. Losing every write to a unit nobody
-   * holds is the fleet quietly stopping, and nothing else in the process would
-   * ever say so.
-   */
-  const refused = (accountId: string) => (reason: ClaimRefusal) => {
-    if (reason === "contended")
-      log(`${accountId}: nobody holds it and the claim kept losing`);
   };
 
   // One account's fault is that account's: an unreadable claim document ends the
@@ -495,8 +616,8 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     // An account the worker was serving and the session no longer lists is a
     // grant that has been withdrawn. It stops being served here and is reported
     // once, rather than failing against it on every pass for as long as the
-    // worker runs — and nothing here writes or touches a claim: the leases it
-    // still holds under that account lapse on their own, which is how a
+    // worker runs — and nothing here writes or touches a claim: the claim it
+    // held is left where it is, un-renewed and un-released, which is how a
     // withdrawal is meant to end (ADR 0003).
     const gone = withdrawnAccounts(knownAccounts, accounts);
     knownAccounts = new Map(
@@ -509,22 +630,10 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     for (const accountId of accounts) {
       await guarded(accountId, async () => {
         const store = new AgentStore(deps.ctx, accountId);
-        if (servedAccounts.has(accountId)) {
-          // Renewal is what keeps a claim from looking stale to a peer.
-          const renewed = await claimAccount(store, id, {
-            now: now(),
-            leaseMs,
-            onRefused: refused(accountId),
-          });
-          if (!renewed) {
-            servedAccounts.delete(accountId);
-            log(`lost ${accountId}`);
-          }
-          return;
-        }
+        if (servedAccounts.has(accountId)) return;
         const claim: AgentClaim | null = await claimAccount(store, id, {
           now: now(),
-          leaseMs,
+          startedAt: started,
           onRefused: refused(accountId),
         });
         if (!claim) return;
@@ -545,12 +654,17 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
         }
       });
     }
-    // The heartbeat is written even when nothing is served: the status surface
-    // has to be able to say that a worker is up and idle.
-    await heartbeat();
-    if (!servedAccounts.size) return [];
+    // What this worker holds is asked, not renewed: holding a fence is not an
+    // event, so the pass reads (which costs nothing) and writes only if the
+    // answer changed. Nothing here is on a clock — the record goes to disk when
+    // this list changes, and never because a pass came round again.
+    await stillMine();
+    if (!servedAccounts.size) {
+      await publish();
+      return [];
+    }
     if (!streamClaim) {
-      const won = await claimStream(agentStore, id, { now: now(), leaseMs });
+      const won = await claimStream(agentStore, id, { now: now(), startedAt: started });
       if (won) {
         streamClaim = won;
         openStreamIfHeld();
@@ -558,6 +672,9 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     } else {
       openStreamIfHeld();
     }
+    // After the stream claim, so what the surface reads is what this pass
+    // actually ended up holding.
+    await publish();
     for (const accountId of servedAccounts)
       await guarded(accountId, () =>
         withAccountLock(accountId, () => reconcileAccount(accountId)),
@@ -568,11 +685,11 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
   /*
    * The work in flight, so a stop can wait for it.
    *
-   * A pass renews every claim it finds and writes a heartbeat, and both of them
-   * recreate a claim the release has just removed: a `stop()` that raced one
-   * would hand the account back and have it taken again by the same worker, with
-   * a live lease nobody will release. So the two writers are tracked, and
-   * `stop()` waits for them before it releases anything.
+   * A pass may claim a unit and write the record, and either recreates what the
+   * release has just removed: a `stop()` that raced one would hand the account
+   * back and have it taken again by the same worker, held with nobody to release
+   * it. So the writers are tracked, and `stop()` waits for them before it
+   * releases anything.
    */
   const inFlight = new Set<Promise<unknown>>();
   const track = <T>(work: Promise<T>): Promise<T> => {
@@ -596,10 +713,15 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     );
     disposers.push(
       pollLoop(heartbeatMs, async () => {
-        await track(heartbeat());
+        await track(prune());
       }),
     );
   }
+
+  // What this process is, before it has asked anybody anything: a worker that
+  // is up and serving nothing is a state the records make visible, and the
+  // registry is what the status surface reads liveness from.
+  await publish();
 
   return {
     pass,
@@ -621,8 +743,8 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
       for (const dispose of disposers) dispose();
       for (const dispose of scheduleDisposers.values()) dispose();
       scheduleDisposers.clear();
-      // Whatever was already running finishes first: a pass renews the claims it
-      // found, so a release that raced one would be undone by it.
+      // Whatever was already running finishes first: a pass claims the units it
+      // finds free, so a release that raced one would be undone by it.
       await Promise.allSettled([...inFlight]);
       if (closeStream) {
         closeStream();
@@ -632,13 +754,21 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
         await releaseStreamClaim(agentStore, id);
         streamClaim = null;
       }
-      // The accounts too: a replacement worker has a fresh id and would
-      // otherwise wait out the lease before serving anything.
+      // The accounts too: the claim is released rather than left to anything
+      // lapsing, because nothing lapses it — a fence that is never renewed is
+      // also a fence that never goes away on its own, and a successor must not
+      // have to wait for this process's start time to be beaten.
       for (const accountId of servedAccounts) {
         const store = new AgentStore(deps.ctx, accountId);
         await releaseClaim(store, id);
       }
       servedAccounts.clear();
+      // And the record goes, so the agent's own account carries what this
+      // worker is **doing** and not a claim about it being up: the process this
+      // answer came from is the only thing that could say that, and it is on its
+      // way out.
+      await agentStore.destroyWorker(id);
+      forget(id);
     },
   };
 }

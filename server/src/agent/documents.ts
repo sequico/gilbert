@@ -1256,13 +1256,19 @@ export interface AgentClaim {
   v: 1;
   accountId: string;
   worker: string;
-  leasedAt: string;
-  heartbeatAt: string;
+  /**
+   * When this worker **took** the unit. The claim is a fence, taken and
+   * released, not a lease renewed on a clock: nothing rewrites this field while
+   * the holder holds the unit, so it is the instant ownership began and the
+   * only thing a peer reads to decide whether the holder can still be running.
+   */
+  takenAt: string;
   /**
    * Which ownership of this unit the holder is. Incremented on every takeover,
-   * never on a renewal, so a worker whose lease expired mid-pass can be told
-   * apart from the one that replaced it: the epoch it holds is behind, and its
-   * late writes are refused rather than landing on the new owner's run.
+   * never while a claim is held, so a worker whose fence was taken over
+   * mid-pass can be told apart from the one that replaced it: the epoch it
+   * holds is behind, and its late writes are refused rather than landing on the
+   * new owner's run.
    *
    * Absent on claims written before the epoch existed, and read as 0.
    */
@@ -1295,7 +1301,7 @@ export function isAgentClaim(x: unknown): x is AgentClaim {
   if (c.v !== 1) return false;
   if (typeof c.accountId !== "string") return false;
   if (typeof c.worker !== "string" || !c.worker) return false;
-  if (typeof c.leasedAt !== "string" || typeof c.heartbeatAt !== "string") return false;
+  if (typeof c.takenAt !== "string") return false;
   if (c.epoch !== undefined && (!Number.isInteger(c.epoch) || (c.epoch as number) < 0))
     return false;
   if (!isStringMap(c.states)) return false;
@@ -1314,8 +1320,8 @@ function isStringMap(x: unknown): x is Record<string, string> {
 export interface AgentStreamClaim {
   v: 1;
   worker: string;
-  leasedAt: string;
-  heartbeatAt: string;
+  /** As `AgentClaim.takenAt`: when this worker took the stream. */
+  takenAt: string;
   /** As `AgentClaim.epoch`: the ownership a held stream belongs to. */
   epoch?: number;
 }
@@ -1326,19 +1332,21 @@ export function isAgentStreamClaim(x: unknown): x is AgentStreamClaim {
   return (
     c.v === 1 &&
     typeof c.worker === "string" &&
-    typeof c.leasedAt === "string" &&
-    typeof c.heartbeatAt === "string" &&
+    typeof c.takenAt === "string" &&
     (c.epoch === undefined || (Number.isInteger(c.epoch) && (c.epoch as number) >= 0))
   );
 }
 
 /**
- * Whether a lease is stale: its heartbeat is older than the tolerance.
+ * Whether a claim's lease is stale: its heartbeat is older than the tolerance.
  *
- * A heartbeat that cannot be read is **not** a free lease: a document whose
- * time is unreadable means the truthful answer is unknown, and taking over on
- * an unknown is how two workers end up on the same unit. It throws instead,
- * which the worker reports as a failure of its pass — loudly, once, rather than
+ * A job lease is judged here, and only a job lease: a **claim** is a fence and
+ * is not renewed on a clock, so what makes it free to take over is decided in
+ * `lease.ts` against the instant the taking process started. A heartbeat that
+ * cannot be read is **not** a free lease either: a document whose time is
+ * unreadable means the truthful answer is unknown, and taking over on an
+ * unknown is how two workers end up on the same job. It throws instead, which
+ * the worker reports as a failure of its pass — loudly, once, rather than
  * silently running the account's work twice.
  */
 export function leaseExpired(
@@ -1349,7 +1357,7 @@ export function leaseExpired(
   const at = Date.parse(heartbeatAt);
   if (!Number.isFinite(at))
     throw new Error(
-      `a claim heartbeat of "${heartbeatAt}" cannot be read as a time, so whether its lease is free is unknown`,
+      `a lease heartbeat of "${heartbeatAt}" cannot be read as a time, so whether the job it belongs to is still held is unknown`,
     );
   return now - at > toleranceMs;
 }
@@ -1980,7 +1988,16 @@ export function isAgentConfigDoc(x: unknown): x is AgentConfigDoc {
   return d.provider === undefined || isAgentProvider(d.provider);
 }
 
-/** One running worker's heartbeat, in the agent's own account. */
+/**
+ * What a running worker has last said about itself, in the agent's own account.
+ *
+ * Written when the worker starts, when the set of accounts it serves changes and
+ * when it stops — never on a clock, because a heartbeat is a durable write and
+ * Stalwart charges the account for every one of them (and never gives the blob
+ * back). Whether a worker is **up** is therefore not a question this document
+ * can answer: that is a fact of the process that hosts it, kept in memory, and
+ * this record is what it is doing and what it last changed.
+ */
 export interface AgentWorkerRecord {
   v: 1;
   id: string;
@@ -1988,12 +2005,13 @@ export interface AgentWorkerRecord {
   /** The version the worker runs, for the status surface. */
   version: string;
   startedAt: string;
-  heartbeatAt: string;
+  /** When this worker last changed what it is doing: the instant this record did. */
+  updatedAt: string;
   /**
-   * The groups this worker is holding as it writes this heartbeat, by name —
-   * the accounts it has claimed under lease. A worker claims per account, so
-   * this is what the fleet is spread over, and it is how the admin surface can
-   * say which workers are serving one group.
+   * The groups this worker is holding as this record was written, by name —
+   * the accounts it has claimed. A worker claims per account, so this is what
+   * the fleet is spread over, and it is how the admin surface can say which
+   * workers are serving one group.
    *
    * Empty when the worker is up and holding nothing, which is a state the
    * surface shows rather than hides. Absent on records written before the field
@@ -2011,7 +2029,7 @@ export function isAgentWorkerRecord(x: unknown): x is AgentWorkerRecord {
     typeof w.address === "string" &&
     typeof w.version === "string" &&
     typeof w.startedAt === "string" &&
-    typeof w.heartbeatAt === "string" &&
+    typeof w.updatedAt === "string" &&
     (w.serves === undefined ||
       (Array.isArray(w.serves) && w.serves.every((g) => typeof g === "string")))
   );
