@@ -261,8 +261,13 @@ document and refused before the call rather than after it; two readings asked
 for at the same moment can both pass it, and a reading the month could not
 record says so rather than being lost.
 - **Documents, read by the model that has eyes.** A run can act on a PDF: split
-it into pages, merge them, extract one, and *read* — a PDF's own text layer, or a
-`.docx`. A page that carries no text layer is **rasterised**: the executor
+it into pages, merge them, extract one, and *read* — a PDF's own text layer, a
+`.docx`, a workbook (`.xls` and `.xlsx`, read sheet by sheet, one sheet
+counting as one page) or a text file (`.csv`, `.txt` and the other
+plain-text types, read as they stand: no delimiter parsed, no column named). A
+text file or a workbook longer than the 200 000 characters one reading
+carries is handed over as the beginning of itself, and the run is told so. A
+page that carries no text layer is **rasterised**: the executor
 renders it to an image in the process (a WASM PDF engine — no canvas, no native
 build, no child process) and the page rides that run's call as volatile content
 in the tail, so the prompt's stable head is unaffected and an image is never a

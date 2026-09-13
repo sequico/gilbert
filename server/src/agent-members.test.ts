@@ -19,12 +19,12 @@ import { after, before, test } from "node:test";
  * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18849;
+const PORT = 18870;
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";
 process.env.MOCK_ADMIN = "0";
-process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
+process.env.STALWART_URL = `http://127.0.0.1:18870`;
 process.env.APP_SECRET = "test-secret-for-agent-members";
 process.env.LOGIN_RATE_LIMIT = "10000";
 process.env.GILBERT_AGENT_ADDRESS = "gilbert@example.com";
@@ -32,7 +32,7 @@ process.env.GILBERT_AGENT_PASSWORD = "gilbert-password";
 
 const DEMO = "demo@example.com";
 const TEAM = "team@example.org";
-const BASE = `http://127.0.0.1:${PORT}`;
+const BASE = `http://127.0.0.1:18870`;
 
 const mock = await import("./mock/index.js");
 const { groupMembers } = await import("./agentAdmin.js");

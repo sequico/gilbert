@@ -32,8 +32,10 @@ import {
 import { textSignatureBlock } from "../shared/signature.js";
 import { postMessage } from "./chat.js";
 import {
+  DOCUMENT_TEXT_MAX,
   DocumentError,
   type DocumentKind,
+  type DocumentRead,
   documentKindOf,
   extractPages,
   mergePdfs,
@@ -716,11 +718,11 @@ async function runOne(
           // images; an action that named them and said nothing else would let a
           // reader conclude the page says nothing (ADR 0003).
           pixelPages: read.pixelPages,
-          ...(read.pixelPages.length && !read.text.trim()
-            ? {
-                note: `${read.pixelPages.length} page(s) carry no text layer: they are read by the model, as images, when a run is woken by this file.`,
-              }
-            : {}),
+          // Text and workbooks have no pages to name, so a reading that stopped
+          // short says so here: what is above is the beginning of the file, not
+          // the whole of it (ADR 0003).
+          truncated: read.truncated,
+          ...(readNote(read) ? { note: readNote(read) } : {}),
         },
       };
     }
@@ -899,13 +901,34 @@ async function readDocumentSource(
   return { path, name: found.name, type, bytes: found.bytes };
 }
 
+/**
+ * What a reading has to say about itself beyond its text, in one line.
+ *
+ * One line rather than one per fact: the result carries a single `note`, and
+ * two spreads writing it would leave whichever came second. A document either
+ * stopped at a bound or carries pages with no text layer, and when both are
+ * true both are said.
+ */
+function readNote(read: DocumentRead): string {
+  const notes: string[] = [];
+  if (read.pixelPages.length && !read.text.trim())
+    notes.push(
+      `${read.pixelPages.length} page(s) carry no text layer: they are read by the model, as images, when a run is woken by this file.`,
+    );
+  if (read.truncated)
+    notes.push(
+      `the text is longer than the ${DOCUMENT_TEXT_MAX} characters one reading carries, so what is above is the beginning of the file.`,
+    );
+  return notes.join(" ");
+}
+
 /** Which of the two document kinds this is, or a refusal naming what it is. */
 function kindOfDocument(action: AgentAction, source: DocumentSource): DocumentKind {
   const kind = documentKindOf(source.name, source.type);
   if (!kind)
     throw new DocumentError(
       "unsupported_type",
-      `"${source.name}" is neither a PDF nor a .docx, so "${action.do}" cannot read it`,
+      `"${source.name}" is none of the kinds this installation reads — a PDF, a .docx, a spreadsheet (.xls, .xlsx) or a text file — so "${action.do}" cannot read it`,
     );
   return kind;
 }

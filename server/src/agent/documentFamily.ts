@@ -21,14 +21,23 @@
  */
 
 import zlib from "node:zlib";
+import * as XLSX from "@e965/xlsx";
 import { PDFiumLibrary, type PDFiumPage as PdfPage } from "@hyzyla/pdfium";
 import mammoth from "mammoth";
 import { PDFDocument } from "pdf-lib";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { errorMessage } from "./audit.js";
 
-/** The two document kinds this family reads. */
-export type DocumentKind = "pdf" | "docx";
+/**
+ * The four kinds this family reads.
+ *
+ * `sheet` is one kind for `.xls` and `.xlsx` alike: the reader sniffs which
+ * container it was handed, and what a run needs to know is that it is a
+ * workbook, not which decade it was written in. `text` is everything a person
+ * could open in an editor — a `.csv`, a `.txt`, and the other plain-text types
+ * `documentKindOf` names.
+ */
+export type DocumentKind = "pdf" | "docx" | "sheet" | "text";
 
 /** What went wrong, in a word the trail can name. */
 export type DocumentErrorCode =
@@ -94,6 +103,15 @@ export interface DocumentRead {
    * `.docx` is one body of text read whole.
    */
   looked: number;
+  /**
+   * Whether the reading stopped before the end of a text file or a workbook.
+   *
+   * A PDF and a `.docx` are bounded by pages, which `looked` and the caller's
+   * `unreadPages` already state. Text has no pages of its own, so the ceiling
+   * that stopped it is named here rather than left to be inferred: a run handed
+   * the beginning of a file has to be told that is what it got (ADR 0003).
+   */
+  truncated: boolean;
 }
 
 /** One page, rendered in the process, as the model is handed it. */
@@ -135,12 +153,43 @@ export function documentKindOf(name: string, type?: string): DocumentKind | null
   const lower = name.toLowerCase();
   if (lower.endsWith(".pdf")) return "pdf";
   if (lower.endsWith(".docx")) return "docx";
-  const media = (type ?? "").toLowerCase().split(";")[0]?.trim();
+  if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) return "sheet";
+  if (TEXT_EXTENSIONS.some((extension) => lower.endsWith(extension))) return "text";
+  const media = ((type ?? "").toLowerCase().split(";")[0] ?? "").trim();
   if (media === "application/pdf") return "pdf";
   if (media === "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     return "docx";
+  if (media === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    return "sheet";
+  // The name is decided first, because `application/vnd.ms-excel` is also what
+  // a server says about a `.csv` it does not know — a type that is the only
+  // signal there is falls back to here.
+  if (media === "application/vnd.ms-excel") return "sheet";
+  if (media.startsWith("text/")) return "text";
   return null;
 }
+
+/**
+ * The extensions whose content is text a person could open in an editor.
+ *
+ * Named rather than sniffed: a file's first bytes say little about whether
+ * somebody meant it as prose, and a wrong guess here hands a run a binary it
+ * will read as characters. Everything else that is text carries a `text/*`
+ * type, which `documentKindOf` falls back to.
+ */
+const TEXT_EXTENSIONS = [
+  ".txt",
+  ".csv",
+  ".tsv",
+  ".md",
+  ".json",
+  ".log",
+  ".xml",
+  ".yaml",
+  ".yml",
+  ".ini",
+  ".conf",
+];
 
 /**
  * The shortest text a page may carry and still be a text layer.
@@ -151,6 +200,31 @@ export function documentKindOf(name: string, type?: string): DocumentKind | null
  */
 const MIN_TEXT_LAYER_CHARS = 12;
 
+/**
+ * The most text one reading carries, in characters.
+ *
+ * A file's own bytes are already bounded before this (`AGENT_DOCUMENT_BYTES_MAX`),
+ * and that bound is what a PDF's text layer and a `.docx` body live inside. A
+ * text file or a workbook is different in kind: its whole content *is* text, so
+ * the byte ceiling alone would hand a run megabytes of characters — an input
+ * bill with no ceiling of its own. This is that ceiling, and a reading that
+ * reaches it says so rather than presenting its beginning as the whole of it
+ * (ADR 0003).
+ */
+export const DOCUMENT_TEXT_MAX = 200_000;
+
+/**
+ * Cut a reading at the character ceiling, and say whether it was cut.
+ *
+ * One rule for text files and workbooks alike: a file is read from its start,
+ * and what a run is handed is the beginning of it rather than a selection
+ * nobody asked for.
+ */
+function cutAtCeiling(text: string): { text: string; truncated: boolean } {
+  if (text.length <= DOCUMENT_TEXT_MAX) return { text, truncated: false };
+  return { text: text.slice(0, DOCUMENT_TEXT_MAX), truncated: true };
+}
+
 /** Read a document's own text: a PDF's text layer, or the text of a `.docx`. */
 export async function readDocument(
   bytes: Uint8Array,
@@ -159,8 +233,27 @@ export async function readDocument(
   maxPages: number,
 ): Promise<DocumentRead> {
   if (kind === "docx") {
-    return { kind, pages: 1, text: await docxText(bytes), pixelPages: [], looked: 1 };
+    return {
+      kind,
+      pages: 1,
+      text: await docxText(bytes),
+      pixelPages: [],
+      looked: 1,
+      truncated: false,
+    };
   }
+  if (kind === "text") {
+    const cut = cutAtCeiling(textFile(bytes));
+    return {
+      kind,
+      pages: 1,
+      text: cut.text,
+      pixelPages: [],
+      looked: 1,
+      truncated: cut.truncated,
+    };
+  }
+  if (kind === "sheet") return sheetRead(bytes, maxPages);
   const { pages, texts, last } = await pdfPageTexts(bytes, maxPages);
   const pixelPages: number[] = [];
   texts.forEach((text, index) => {
@@ -175,6 +268,7 @@ export async function readDocument(
       .join("\n\n"),
     pixelPages,
     looked: last,
+    truncated: false,
   };
 }
 
@@ -262,6 +356,73 @@ async function docxText(bytes: Uint8Array): Promise<string> {
   } catch (err) {
     throw unreadable("this .docx", err);
   }
+}
+
+/**
+ * A text file's own bytes, as text.
+ *
+ * Decoded as UTF-8 with a byte-order mark stripped, and otherwise untouched: a
+ * `.csv` is something a person wrote, and a run reads it as it stands. No
+ * delimiter is parsed and no column is named — a reader that guessed at a
+ * dialect would invent structure the file may not have, and a model reads a
+ * table as well as a table parser does.
+ */
+function textFile(bytes: Uint8Array): string {
+  const text = new TextDecoder("utf-8").decode(bytes);
+  return (text.startsWith("\uFEFF") ? text.slice(1) : text).trim();
+}
+
+/**
+ * A workbook's sheets, as text: one block per sheet, a row to a line, and a
+ * cell separated from the next by a tab.
+ *
+ * **One sheet counts as one page.** That is what makes a run's page bound mean
+ * something here: the first sheets are read whole and the rest are named as
+ * unread by `looked` against `pages`, so a workbook longer than the bound is
+ * never handed over as though it were the whole of it (ADR 0003). Cells are
+ * read as the text the file stores — a number stays a number, a date is the
+ * date it says, a formula's cached value is what is read — and nothing here
+ * evaluates or writes anything.
+ */
+function sheetRead(bytes: Uint8Array, maxPages: number): DocumentRead {
+  let book: XLSX.WorkBook;
+  try {
+    book = XLSX.read(Buffer.from(bytes), { type: "buffer", cellDates: true });
+  } catch (err) {
+    throw unreadable("this spreadsheet", err);
+  }
+  const names = book.SheetNames ?? [];
+  const last = Math.min(names.length, Math.max(0, Math.floor(maxPages)));
+  const blocks: string[] = [];
+  for (const name of names.slice(0, last)) {
+    const sheet = book.Sheets[name];
+    const rows = sheet
+      ? XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+          header: 1,
+          raw: true,
+          blankrows: false,
+        })
+      : [];
+    blocks.push(
+      [`# ${name}`, ...rows.map((row) => row.map(sheetCell).join("\t"))].join("\n"),
+    );
+  }
+  const cut = cutAtCeiling(blocks.join("\n\n"));
+  return {
+    kind: "sheet",
+    pages: names.length,
+    text: cut.text,
+    pixelPages: [],
+    looked: last,
+    truncated: cut.truncated,
+  };
+}
+
+/** One cell, as the text a run reads: what the file stores, never a guess. */
+function sheetCell(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value);
 }
 
 /* ------------------------------------------------------------------ */

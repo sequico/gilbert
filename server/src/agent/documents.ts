@@ -245,7 +245,7 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
     name: "document.read",
     label: "Read a document",
     description:
-      "Read a file of the group's Files as text: a PDF's own text layer, or a .docx. It answers with the text and names the pages that carry none — those are read by the model, as images, when a run is woken by the file.",
+      "Read a file of the group's Files as text: a PDF's own text layer, a .docx, a spreadsheet's sheets (.xls, .xlsx, one block per sheet), or a text file (.csv, .txt and the other plain-text types). It answers with the text and names the pages that carry none — those are read by the model, as images, when a run is woken by the file — and says when a text or a workbook was longer than one reading carries.",
     params: [{ key: "file", required: false, kind: "text" }],
   },
   {

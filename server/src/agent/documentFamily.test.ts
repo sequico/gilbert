@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import * as XLSX from "@e965/xlsx";
 import { PDFDocument, StandardFonts } from "pdf-lib";
-import { documentContent, readDocument } from "./documentFamily.js";
+import {
+  DOCUMENT_TEXT_MAX,
+  documentContent,
+  documentKindOf,
+  readDocument,
+} from "./documentFamily.js";
 
 /** A PDF of `pages` pages, each carrying real, readable text. */
 async function textPdf(pages: number): Promise<Uint8Array> {
@@ -43,4 +49,90 @@ test("a bound past the page count reads every page, not one more", async () => {
   assert.equal(read.looked, 2, "the bound never inflates past what the document has");
   assert.match(read.text, /page 1/);
   assert.match(read.text, /page 2/);
+});
+
+/* ------------------------------------------------------------------ */
+/* Text and spreadsheets                                               */
+/* ------------------------------------------------------------------ */
+
+/** A workbook of `sheets` sheets, one row each, written as `.xlsx` or `.xls`. */
+function workbook(sheets: string[], bookType: "xlsx" | "xls"): Uint8Array {
+  const book = XLSX.utils.book_new();
+  for (const name of sheets) {
+    XLSX.utils.book_append_sheet(
+      book,
+      XLSX.utils.aoa_to_sheet([
+        ["Cliente", "Importo"],
+        [name, 1250],
+      ]),
+      name,
+    );
+  }
+  return new Uint8Array(XLSX.write(book, { type: "buffer", bookType }) as ArrayBuffer);
+}
+
+test("the kinds this family reads are decided by name first and media type second", () => {
+  assert.equal(documentKindOf("fatture.xlsx"), "sheet");
+  assert.equal(documentKindOf("fatture.XLS"), "sheet");
+  assert.equal(documentKindOf("export.csv"), "text");
+  assert.equal(documentKindOf("note.txt"), "text");
+  assert.equal(documentKindOf("dati", "text/csv"), "text");
+  assert.equal(documentKindOf("dati", "application/vnd.ms-excel"), "sheet");
+  assert.equal(
+    documentKindOf(
+      "dati",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ),
+    "sheet",
+  );
+  assert.equal(documentKindOf("relazione.docx"), "docx");
+  assert.equal(documentKindOf("contratto.pdf"), "pdf");
+  assert.equal(
+    documentKindOf("archivio.zip"),
+    null,
+    "a kind nobody named is refused rather than guessed at",
+  );
+});
+
+test("a text file is read as it stands, and a byte-order mark is not text", async () => {
+  const bytes = new TextEncoder().encode("\uFEFFcliente;importo\nACME;1250\n");
+  const read = await readDocument(bytes, "text", 8);
+  assert.equal(read.kind, "text");
+  assert.equal(read.text, "cliente;importo\nACME;1250");
+  assert.equal(read.truncated, false);
+  assert.deepEqual(read.pixelPages, [], "text has no pages that could be images");
+});
+
+test("text past the character ceiling is the beginning of it, and says so", async () => {
+  const bytes = new TextEncoder().encode("x".repeat(DOCUMENT_TEXT_MAX + 5000));
+  const read = await readDocument(bytes, "text", 8);
+  assert.equal(read.text.length, DOCUMENT_TEXT_MAX);
+  assert.equal(
+    read.truncated,
+    true,
+    "a run handed the beginning of a file has to be told that is what it got",
+  );
+});
+
+test("a workbook is one page per sheet, read the same as .xls and as .xlsx", async () => {
+  for (const bookType of ["xlsx", "xls"] as const) {
+    const read = await readDocument(workbook(["Fatture", "Note"], bookType), "sheet", 8);
+    assert.equal(read.kind, "sheet", `${bookType} is the same kind as the other`);
+    assert.equal(read.pages, 2, `${bookType} counts a workbook's sheets`);
+    assert.equal(read.looked, 2);
+    assert.equal(read.truncated, false);
+    assert.match(read.text, /# Fatture/);
+    assert.match(read.text, /# Note/);
+    assert.match(read.text, /Importo/);
+    assert.ok(read.text.includes("\t"), "a cell is separated from the next by a tab");
+  }
+});
+
+test("a workbook past the page bound is its first sheets, and the rest are unread", async () => {
+  const read = await readDocument(workbook(["Uno", "Due", "Tre"], "xlsx"), "sheet", 2);
+  assert.equal(read.pages, 3, "the workbook's own size is still known");
+  assert.equal(read.looked, 2);
+  assert.match(read.text, /# Uno/);
+  assert.match(read.text, /# Due/);
+  assert.ok(!read.text.includes("# Tre"), "a sheet past the bound contributes nothing");
 });

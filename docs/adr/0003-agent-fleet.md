@@ -238,16 +238,34 @@ group's audit, since nothing ran.
 ### Document tools
 
 The capability catalogue includes deterministic document work, run by the
-executor rather than asked of the model: page work on a PDF (split, merge,
-extract) and reading a PDF's own text layer or a `.docx`, on a blob already
-in the group's own Files, entirely in memory. A page with no text layer is
-rasterised to an image in the same process and handed to the model, which
-reads it directly — vision, not OCR, so there is no separate extraction
-engine and no artifact behind the reading. Nothing in this family produces a
-`.docx`: reading one a client sent is worth a library, writing one is a
-job for a person's word processor. Every library here is pure JavaScript or
-WASM with no native build step, matching the container's `IMMUTABLE=1`,
-disposable constraint.
+executor rather than asked of the model, on a blob already in the group's own
+Files and entirely in memory: page work on a PDF (split, merge, extract) and
+reading — a PDF's own text layer, a `.docx`, a workbook (`.xls`, `.xlsx`), a
+text file (`.csv`, `.txt` and the other plain-text types). A page with no
+text layer is rasterised to an image in the same process and handed to the
+model, which reads it directly — vision, not OCR, so there is no separate
+extraction engine and no artifact behind the reading.
+
+`document.read` answers text and nothing else, and says what it did not read
+rather than passing a part off as the whole. A PDF's pages with no text layer
+are named; a workbook is read sheet by sheet, one sheet counting as one page,
+so the sheets past the run's page bound are left out and the gap is readable
+in `looked` against `pages`; a text file or a workbook that runs past the
+character ceiling (`DOCUMENT_TEXT_MAX`, 200 000) is handed over as the
+beginning of itself with `truncated` true, because a file's whole content
+being text is exactly the case the byte ceiling does not bound. A spreadsheet
+is read as the text its cells store — a number as a number, a date as the
+date it says, a formula's cached value — since nothing in this family
+evaluates one. A `.csv` is text and is read as it stands: no delimiter is
+parsed and no column is named, because a reader that guessed at a dialect
+would invent structure the file may not have.
+
+The family reads documents; it never writes one. No `.docx` writer and no
+spreadsheet writer: reading what a client sent is worth a library, writing one
+is a job for a person's word processor. Every library here is pure JavaScript
+or WASM with no native build step, matching the container's `IMMUTABLE=1`,
+disposable constraint, and the workbook reader brings no dependencies of its
+own.
 
 ### When an agent cannot work
 
@@ -349,6 +367,8 @@ grant and the page that carries it is the one that operator reads.
 - `server/src/agent/llm.ts` — the model call: temperature, JSON format,
   token ceiling
 - `server/src/agent/documents.ts` — `FENCED_ACTIONS`, action specs
+- `server/src/agent/documentFamily.ts` — the readers (PDF, `.docx`, workbook,
+  text) and the page work
 - `server/src/agent/scheduler.ts` — due times, catch-up
 - `server/src/agent/chat.ts` — the mention/reply pre-filter
 - `server/src/agentAdmin.ts` — the Master's own session, grants, group
