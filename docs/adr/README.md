@@ -76,3 +76,12 @@ is, not what a user sees.
   are process facts (ADR 0003's claims, the sessions store), a write that would
   store what is already there is not made, and an idle installation therefore
   costs nothing.
+- **0019 — The minimal automation.** A group authors one enabled automation
+  per trigger it actually uses — up to the four `AGENT_TRIGGERS`, never one
+  per business case — with the filter left empty and the branching carried
+  in prose; the capability allowlist and the review policy stay mandatory,
+  since they are the allowlist's actual enforcement points, not authoring
+  overhead. On `chat`, `filenode` and `schedule`, which carry no filter, a
+  second enabled rule on the same trigger is not a finer split of the work
+  but a duplicate: every enabled rule on the trigger runs against every
+  matching event.
