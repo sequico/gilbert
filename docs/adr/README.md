@@ -39,19 +39,21 @@ is, not what a user sees.
   group account's own JMAP Files, owned by the group from creation.
 - **0006 — The minimal automation.** A group authors one enabled automation
   per trigger it actually uses — up to the four `AGENT_TRIGGERS`, never one
-  per business case — with the filter left empty and the branching carried
-  in prose. The capability checklist is chosen by area (Posta, Chat, File e
-  documenti) instead of by twelve individual actions; whatever the catalogue
+  per business case — with no filter and the branching carried in prose. The
+  capability checklist is chosen as three areas (Mail, Chat, Files and
+  documents) instead of eleven individual actions; whatever the catalogue
   marks `external` or `irreversible` — today only `mail.send` — is excluded
-  from every area and stays its own separate checkbox, so ticking an area can
-  never grant it as a side effect. `AgentRule.capabilities` is unchanged; the
-  area is metadata the editor groups by, not a new document field. New
-  context belongs in one of two speeds — distilled into the group's notebook
-  by an infrequent process, staying in the prompt's cached head, or fetched
+  from every area and keeps its own entry, as does `noop`, so ticking an area
+  can never grant sending as a side effect and a rule can still answer that
+  it changes nothing. `AgentRule.capabilities` is unchanged; the area is
+  metadata the editor would group by, not a new document field. New context
+  belongs in one of two speeds — distilled into the group's notebook by an
+  infrequent process, staying in the prompt's cached head, or fetched
   narrowly and by name into the volatile tail — never attached wholesale
   (a full mailbox, an unbounded document set), which would defeat the
   provider's own prompt caching and widen the untrusted-content surface at
-  once.
+  once. The rule recipe is what the code does; the areas and the two speeds
+  of context are decided here and not built.
 - **0007 — Identity administration.** An administrator sets a person's or a
   group's identity through the same doors impersonation and the agent
   already open; a locked account has no path of its own to change it.
