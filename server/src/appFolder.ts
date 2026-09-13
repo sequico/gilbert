@@ -27,6 +27,9 @@ import { JmapClient } from "./jmap.js";
 import { appDocumentJson } from "./shared/appDocument.js";
 import type { UpstreamSession } from "./upstream.js";
 
+/** The one encoder: what a document is about to be written as is bytes. */
+const utf8 = new TextEncoder();
+
 /** The folder Gilbert keeps its own documents in, in every account. */
 export const APP_FOLDER_NAME = "gilbert";
 
@@ -356,8 +359,14 @@ export async function writeAppBytesAt(
   const name = segments.pop();
   if (!name) throw new AppFolderError("a document path needs a file name");
   const folderId = await ensureFolderPath(ctx, accountId, segments.join("/"));
-  const blobId = await uploadBlobBytes(ctx, accountId, bytes, type);
-  await putFile(ctx, accountId, folderId, name, blobId, type);
+  await writeFile(
+    ctx,
+    accountId,
+    folderId,
+    name,
+    { bytes, upload: () => uploadBlobBytes(ctx, accountId, bytes, type) },
+    type,
+  );
 }
 
 /** Read a blob back as text over the principal's own download path. */
@@ -371,23 +380,148 @@ export async function downloadBlobText(
   return clientOf(ctx).downloadText(accountId, blobId, name, type);
 }
 
+/** Whether two byte sequences are the same, byte for byte. */
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.byteLength !== b.byteLength) return false;
+  for (let i = 0; i < a.byteLength; i += 1) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 /**
- * One file write, whatever the body came from.
+ * What a write would store, and how to store it if that turns out to be
+ * needed.
  *
- * The writers below differ only in where their bytes came from and which
- * folder they resolved; the FileNode shape itself — create when the name is
- * new, update when it is taken — exists here and nowhere else.
+ * The upload is a thunk rather than a blob id because the decision that it is
+ * needed is made in `writeFile` and nowhere else: a caller that had already
+ * called `uploadJsonBlob` or `uploadBlobBytes` would have spent the account's
+ * upload quota before anything could notice the document was unchanged.
  */
-async function putFile(
+interface PendingWrite {
+  /** The bytes a write would store, exactly as they would arrive. */
+  bytes: Uint8Array;
+  /** Upload those bytes and return the blob id Stalwart hands back. */
+  upload: () => Promise<string>;
+}
+
+/**
+ * Whether the node already holds exactly this document.
+ *
+ * The comparison is of bytes, not of values: the bytes are what a blob is, and
+ * they are fixed by the writer that made them (`appDocumentJson`,
+ * `shared/appDocument.ts`), so the same value is always the same bytes and two
+ * spellings of one document never look like a change.
+ *
+ * A node whose `type` is reported and differs is not this document whatever
+ * its bytes read — what a file *is* is part of it where a person opens it —
+ * and a blob that cannot be read is not equal either: unknown means the write
+ * has to happen, because answering "unchanged" would leave the caller's change
+ * unwritten.
+ */
+async function holdsSameDocument(
+  ctx: Ctx,
+  accountId: string,
+  file: FileNodeLike,
+  wanted: Uint8Array,
+  type: string,
+): Promise<boolean> {
+  if (typeof file.blobId !== "string") return false;
+  const stored = typeof file.type === "string" ? file.type : "";
+  if (stored && stored !== type) return false;
+  try {
+    const bytes = await clientOf(ctx).downloadBlob(
+      accountId,
+      file.blobId,
+      String(file.name ?? "document"),
+      type,
+    );
+    return sameBytes(bytes, wanted);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * One file write, whatever the body came from — and the one place that decides
+ * a write is not needed.
+ *
+ * An account's upload quota is spent per blob and nothing ever reclaims one
+ * (JMAP offers no blob removal), so a write whose bytes are already stored is
+ * pure loss: it buys the same document again and pushes the account towards the
+ * quota at which *every* write in it fails. Gilbert rewrites the same documents
+ * constantly (a job at every stage of a run, a notebook on every fact, a claim
+ * on every tick), so "write what is already there" is the common case, not the
+ * exceptional one.
+ *
+ * The order is what keeps the check cheap where it matters:
+ *
+ * 1. the node is looked up as the write needed anyway (`size` is one of
+ *    `FILE_PROPS`);
+ * 2. a `size` that differs — or a node that is not there — already proves the
+ *    document changes, so the common changed case costs **nothing beyond that
+ *    lookup** and no extra download;
+ * 3. only when the sizes agree is the stored blob read back and compared byte
+ *    for byte;
+ * 4. equal bytes mean the account already holds this document: no upload, and
+ *    no `FileNode/set`.
+ *
+ * Skipping the set is as much of the point as skipping the upload. The account's
+ * FileNode state does not advance, so a no-op write cannot invalidate another
+ * writer's compare-and-set token — the retry of a write that lost its race
+ * rewrites the document it meant to, and when that document is already there
+ * the retry is a no-op rather than a bump that costs somebody else their turn.
+ *
+ * `ifInState` is deliberately not consulted on that path. A conditional write
+ * is conditional on what the document *is*, and an unchanged document is not a
+ * change to condition: the caller's intent is already true of the account, so
+ * the write succeeds with no upload, no set and no token spent — even when the
+ * token it passed has since moved on, which is exactly the case that made a
+ * retry of an unchanged document look like a failure before.
+ *
+ * The returned id is the one the write would have returned anyway: the existing
+ * node's id when there is one (the update path returned it too), the id the
+ * server minted when the name is new.
+ */
+async function writeFile(
+  ctx: Ctx,
+  accountId: string,
+  folderId: string,
+  name: string,
+  body: PendingWrite,
+  type: string,
+  ifInState?: string,
+): Promise<string> {
+  const file = await findInFolder(ctx, accountId, folderId, name);
+  if (
+    file?.id &&
+    typeof file.size === "number" &&
+    file.size === body.bytes.byteLength &&
+    (await holdsSameDocument(ctx, accountId, file, body.bytes, type))
+  ) {
+    return String(file.id);
+  }
+  const blobId = await body.upload();
+  return setFileNode(ctx, accountId, folderId, name, blobId, type, file, ifInState);
+}
+
+/**
+ * The FileNode half of a write, once its bytes are uploaded.
+ *
+ * The writers differ only in where their bytes came from and which folder they
+ * resolved; the FileNode shape itself — create when the name is new, update
+ * when it is taken — exists here and nowhere else. The node the lookup already
+ * found is handed in, so one write never asks the account the same question
+ * twice.
+ */
+async function setFileNode(
   ctx: Ctx,
   accountId: string,
   folderId: string,
   name: string,
   blobId: string,
   type: string,
+  file: FileNodeLike | null,
   ifInState?: string,
 ): Promise<string> {
-  const file = await findInFolder(ctx, accountId, folderId, name);
   const conditional = ifInState ? { ifInState } : {};
   const client = clientOf(ctx);
   // The bytes are already uploaded by the caller, and JMAP has no blob removal
@@ -433,9 +567,20 @@ export async function writeAppFileIn(
   value: unknown,
   opts: { ifInState?: string; type?: string } = {},
 ): Promise<void> {
-  const blobId = await uploadJsonBlob(ctx, accountId, value);
   const type = opts.type ?? "application/json";
-  await putFile(ctx, accountId, folderId, name, blobId, type, opts.ifInState);
+  // The bytes this document is about to be written as, before any of them are
+  // uploaded: the same serialization `uploadJsonBlob` sends
+  // (`appDocumentJson`), so what is compared is what would be stored.
+  const bytes = utf8.encode(appDocumentJson(value));
+  await writeFile(
+    ctx,
+    accountId,
+    folderId,
+    name,
+    { bytes, upload: () => uploadJsonBlob(ctx, accountId, value) },
+    type,
+    opts.ifInState,
+  );
 }
 
 /** Write (or replace) a document at an app-folder-relative path. */
@@ -663,8 +808,14 @@ export async function writeBytesIntoVisibleFolder(
   type: string,
 ): Promise<string> {
   const folderId = await ensureRootFolderPath(ctx, accountId, folderPath);
-  const blobId = await uploadBlobBytes(ctx, accountId, bytes, type);
-  return putFile(ctx, accountId, folderId, name, blobId, type);
+  return writeFile(
+    ctx,
+    accountId,
+    folderId,
+    name,
+    { bytes, upload: () => uploadBlobBytes(ctx, accountId, bytes, type) },
+    type,
+  );
 }
 
 /**

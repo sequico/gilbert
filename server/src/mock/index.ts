@@ -2190,6 +2190,20 @@ export const casLoses = {
 };
 
 /**
+ * How many blobs this server has been asked to store since it started.
+ *
+ * Stalwart charges an account for every upload and never reclaims one, so a
+ * write that changes nothing is a write that spends quota for no reason --
+ * that is what `writeFile` in `server/src/appFolder.ts` exists to avoid, and
+ * this is the only way a test can see it happen: the upload route is the one
+ * place a blob is bought, and everything a client is shown is unaffected by
+ * counting them. Between tests it keeps counting (the process is the fixture),
+ * so a test reads it before and after the write it is asking about rather than
+ * expecting a zero.
+ */
+export const uploads = { count: 0 };
+
+/**
  * The compare-and-set every `/set` on the mock honours: `ifInState` names the
  * state the client read, and a set whose type has moved on since is refused --
  * the whole method call, with the error object RFC 8620 §5.3 defines for it,
@@ -4475,6 +4489,7 @@ export const server = createServer(async (req, res) => {
      * rather than inherited.
      */
     const blobId = putBlob(data, type);
+    uploads.count += 1;
     res.writeHead(200, { "content-type": "application/json" });
     return res.end(
       JSON.stringify({ accountId: ACCOUNT, blobId, type, size: data.length }),
