@@ -96,7 +96,7 @@ lease and runs its automations, and what the administration counts. The
 group-facing surface calls them **Group Agents**; **automations** are the rules,
 one document per group. An unqualified **"worker"** means the browser's service
 worker and nothing else.
-- **An automation is one shape (ADR 0010).** A trigger, an **instruction** in
+- **An automation is one shape (ADR 0003).** A trigger, an **instruction** in
 prose, a **capability allowlist** and a **review policy** — and nothing else.
 There is no tier, no category, no compiled plan: every run hands the instruction
 to the model, and the model's answer is checked against the rule's own

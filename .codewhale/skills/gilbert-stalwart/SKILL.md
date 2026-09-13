@@ -112,7 +112,7 @@ Where the integration lives:
   account's credentials. Stalwart's `master` there is **its** word for the
   impersonating principal — in Gilbert that is the signed-in administrator
   (ADR 0001), which is why the code composes `{agent}%{admin}` when it acts as
-  the agent, and it is not the **Master** account of ADR 0010.
+  the agent, and it is not the **Master** account of ADR 0003.
   **App passwords are refused for impersonation**
   (server source, `authentication.rs`). Consequences to design for: an
   administrator with impersonation can read and write any account's Files —
@@ -202,12 +202,13 @@ citizen, and its changes ride the same push rail as Email:
 5. Server-side administration of Stalwart (accounts, domains, groups) is not
    something Gilbert does; design around it (group membership, policy docs)
    rather than reaching for the Management API without a decision.
-6. **Conditional writes (`ifInState`) are the agent design's lock** (ADR 0003
-   §6): the token is a **whole-account FileNode state**, not a per-document one,
+6. **Conditional writes (`ifInState`) are the agent design's lock** (ADR 0003,
+   *Coordination: leases, claims and fencing*): the token is a **whole-account
+   FileNode state**, not a per-document one,
    so any unrelated write — a member's upload, another document, a prune in the
    same pass — invalidates it. The four questions it rests on are answered
-   live (2026-09-11, `scripts/probe-conditional-writes.mjs`, 0.16.21) and
-   recorded in ADR 0003's *Verified against Stalwart*: `FileNode/set` honours
+   live (2026-09-11, `scripts/probe-conditional-writes.mjs`, 0.16.21), and
+   these are its answers: `FileNode/set` honours
    `ifInState`; a stale token is refused as `stateMismatch` rather than
    `invalidArguments`; the token advances on every write that matters and does
    **not** advance on a blob upload. That last answer is what makes the

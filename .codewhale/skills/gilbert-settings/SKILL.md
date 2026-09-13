@@ -70,7 +70,7 @@ metadata:
   account data like any other synced key — never a `DEVICE_KEYS` entry, and
   never touched by policy.
 
-## The admin policy (three powers, per account — ADR 0015)
+## The admin policy (three powers, per account — ADR 0001)
 
 - The live document is not a file or a variable: `POST /admin/policy`
   (Admin > Installation policy) writes `installation-policy.json` into every
