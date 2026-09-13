@@ -244,6 +244,13 @@ export async function signInAsMaster(handshake: Handshake): Promise<MasterLogin>
  * account **is** the agent (ADR 0003 — one structure agent per installation),
  * so the Master's credential is the fleet's credential and there is no second
  * secret to keep in step.
+ *
+ * The one agent field this deliberately does not carry is
+ * `allowPrivateProvider`: whether the installation's model may sit inside the
+ * deployment's own network is the **operator's** statement, read from the
+ * environment (`configuration.ts`), and an installation must not grant itself
+ * that right. The boot therefore merges this over the environment's agent
+ * rather than replacing it, which is what leaves that switch where it belongs.
  */
 export interface InstallationAgentConfiguration {
   address: string;
@@ -256,7 +263,6 @@ export interface InstallationAgentConfiguration {
   thinking: boolean;
   vision: boolean;
   authoringMonthlyMax: number;
-  allowPrivateProvider: boolean;
   healthPort: number;
   inprocess: boolean;
 }
@@ -267,13 +273,21 @@ export interface InstallationAgentConfiguration {
  * Every name here is a name `config.ts` already uses for the same value, so
  * the wiring is a translation and not a redesign: `config.agent.pollMs` is
  * `agent.poll` in the document, `config.sessionTtl` is `sessions.ttl`, and so
- * on. Two fields are not the document's: `host` and `port` come from the
+ * on. Three things are not the document's: `host` and `port` come from the
  * container when it states them (`ContainerFacts`) and from the document
- * otherwise.
+ * otherwise, and the agent's `allowPrivateProvider` is the operator's, so it is
+ * not here at all and the environment's value is the one a served process runs
+ * on (see `bootInstallation`).
  */
 export interface InstallationConfiguration {
   appName: string;
   appSecret: string;
+  /**
+   * The document is where a deployment states the app secret, so a served
+   * process is never on an ephemeral one: this says where the value in
+   * `appSecret` came from (`AppSecretSource`).
+   */
+  appSecretSource: "document";
   host: string;
   port: number;
   immutable: boolean;
@@ -281,11 +295,15 @@ export interface InstallationConfiguration {
   trustProxy: boolean;
   trustedProxies: string[];
   secureCookies: string;
+  /** The session cookie's name, `server.cookieName` in the document. */
+  cookieName: string;
   compressJmap: boolean;
   upstreamTimeout: number;
   maxUploadBytes: number;
   imageProxy: boolean;
   loginRateLimit: number;
+  /** The data path's per-session budget, `limits.apiRateLimit` in the document. */
+  apiRateLimit: number;
   sessionTtl: number;
   sessionRememberTtl: number;
   pushMode: "relay" | "subscribe";
@@ -311,6 +329,7 @@ export function configurationFrom(
   return {
     appName: document.branding.appName,
     appSecret: document.secret,
+    appSecretSource: "document",
     // The container's own facts win when it states them: it is the process
     // that knows which interface and port it was given.
     host: facts.host ?? document.server.host,
@@ -320,11 +339,13 @@ export function configurationFrom(
     trustProxy: document.server.trustProxy,
     trustedProxies: document.server.trustedProxies,
     secureCookies: document.server.secureCookies,
+    cookieName: document.server.cookieName,
     compressJmap: document.server.compressJmap,
     upstreamTimeout: document.limits.upstreamTimeout,
     maxUploadBytes: document.limits.maxUploadBytes,
     imageProxy: document.limits.imageProxy,
     loginRateLimit: document.limits.loginRateLimit,
+    apiRateLimit: document.limits.apiRateLimit,
     sessionTtl: document.sessions.ttl,
     sessionRememberTtl: document.sessions.rememberTtl,
     pushMode: document.push.mode,
@@ -342,7 +363,6 @@ export function configurationFrom(
       thinking: agent.thinking,
       vision: agent.vision,
       authoringMonthlyMax: agent.authoringMaxPerMonth,
-      allowPrivateProvider: agent.allowPrivateProvider,
       healthPort: agent.healthPort,
       inprocess: agent.inProcess,
     },
@@ -438,17 +458,26 @@ export async function bootInstallation(deps: BootDeps = {}): Promise<BootConfigu
      */
     const login = await signInWithRetries(handshake);
     const loaded = await readInstallation(openStore(login), { log });
+    const fromEnvironment = environmentConfiguration(env);
+    const installation = configurationFrom(loaded.document, facts, handshake);
     return {
       installation: loaded.document,
       /*
        * The document decides what the installation decides; what it does not
        * carry — the version this build calls itself, where its source is, the
-       * rate limits and the admin marker — stays as the environment stated it,
-       * which is the merge this spread is.
+       * admin marker, and the operator's own provider switch — stays as the
+       * environment stated it, which is the merge this spread is.
        */
       configuration: {
-        ...environmentConfiguration(env),
-        ...configurationFrom(loaded.document, facts, handshake),
+        ...fromEnvironment,
+        ...installation,
+        /*
+         * The agent is the one section both paths own fields of, so it is
+         * merged field by field rather than replaced: the document's timers and
+         * bounds, and `allowPrivateProvider`, which a document may not decide
+         * (see `InstallationAgentConfiguration`).
+         */
+        agent: { ...fromEnvironment.agent, ...installation.agent },
       },
       master: login,
       accountId: loaded.accountId,

@@ -24,10 +24,48 @@ export let config: Config = environmentConfiguration();
  * it runs read-only has that claim checked against the filesystem it is really
  * on, and one that only meant to say it fails at boot instead of keeping what
  * the next image will not find.
+ *
+ * A configuration with no secret at all is refused here as well, because this
+ * is the one door a configuration comes in by: every session this process
+ * stores is sealed with that secret, so a served process running on an empty
+ * one would sign everybody out at its next restart. Whether a secret that is
+ * *there* is one that survives a restart is the deployment's question, asked
+ * by `assertServable` where the deployment is known (`index.ts`).
  */
 export function useConfiguration(next: Config): void {
+  if (!next.appSecret.trim())
+    throw new Error(
+      "Refusing a configuration with no app secret: every session this process stores is sealed with it, so an " +
+        "empty one would sign everybody out at the next restart. Set APP_SECRET in the deployment, or let the " +
+        'installation\'s own document carry one in "secret" — the first boot writes a generated one.',
+    );
   config = next;
   if (config.immutable) assertImmutable(fileURLToPath(new URL("../..", import.meta.url)));
+}
+
+/**
+ * Refuse a configuration a served process cannot run on: a secret nothing will
+ * find again.
+ *
+ * This is the refusal the resolver used to make at an import, before the boot
+ * could read the installation's own document — where a deployment states the
+ * secret now. It is made on data instead of on a string being empty, because an
+ * ephemeral secret is exactly as long as a stated one: what matters is where it
+ * came from (`appSecretSource`), and only production cares, since a development
+ * server or a tool signs in again anyway.
+ *
+ * Called by `index.ts` after the boot has run, so the answer is the one a
+ * deployment deserves: a boot failure, logged with everything else that stopped
+ * the process, rather than a crash at the import of this module — which
+ * refused exactly the deployments that state their secret in the document.
+ */
+export function assertServable(configuration: Config): void {
+  if (configuration.production && configuration.appSecretSource === "ephemeral")
+    throw new Error(
+      "This process would serve production on an ephemeral secret: APP_SECRET is not set and the installation's " +
+        "own document supplied none either, so no restart could read a session this one signed. Set APP_SECRET in " +
+        'the deployment, or let the installation\'s own document carry one in "secret".',
+    );
 }
 
 /**

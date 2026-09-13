@@ -18,6 +18,18 @@
 /** The environment a boot reads: the process's, unless a caller hands over its own. */
 export type InstallationEnvironment = Record<string, string | undefined>;
 
+/**
+ * Where the app secret this process is running on came from.
+ *
+ * Carried rather than inferred from the string, because two of the three cases
+ * produce a secret that is not empty and only one of them can seal a session
+ * that survives a restart: a process that has not stated a secret anywhere
+ * still serves (a development server, a test), and the refusal that belongs to
+ * production is `config.ts`'s `assertServable`, made where the deployment is
+ * known (`index.ts`, after the boot) rather than at an import.
+ */
+export type AppSecretSource = "document" | "environment" | "ephemeral";
+
 function readEnv(
   environment: InstallationEnvironment,
   name: string,
@@ -58,7 +70,45 @@ import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { normalizeBasePath } from "../../scripts/basePath.mjs";
 import { resolveVersion } from "../../scripts/version.mjs";
-import { AGENT_PAGES_DEFAULT } from "./shared/installation.js";
+import { AGENT_PAGES_DEFAULT, PLACEHOLDER_APP_SECRET } from "./shared/installation.js";
+
+/**
+ * The app secret this process runs on, and where it came from.
+ *
+ * The secret is not this resolver's to demand. A process that boots takes it
+ * from the installation's own document, which is where a deployment states it
+ * now; one started without a boot has no document to read and mints an
+ * ephemeral secret, loudly. The refusal a production deployment needs is "this
+ * process serves on a secret that will not survive its restart", and that is
+ * not decidable here: an import cannot know whether a boot is coming, so the
+ * refusal belongs after one — `config.ts`'s `assertServable`, called by
+ * `index.ts` where a refusal is a boot failure rather than an import crash.
+ * What is decidable here is where the value came from, which is what that
+ * refusal reads: `"environment"` for a secret the deployment stated,
+ * `"ephemeral"` for one minted here.
+ *
+ * Empty and the placeholder (`change-me`, `PLACEHOLDER_APP_SECRET`) count as
+ * nothing stated, which is what this file has always meant by them — and the
+ * reason they are decided in one place: a placeholder marked "environment"
+ * would let a production process serve on a secret of exactly that name.
+ */
+function resolveAppSecret(
+  environment: InstallationEnvironment,
+  production: boolean,
+): { appSecret: string; appSecretSource: AppSecretSource } {
+  const stated = environment.APP_SECRET ?? "";
+  if (stated && stated !== PLACEHOLDER_APP_SECRET)
+    return { appSecret: stated, appSecretSource: "environment" };
+  console.warn(
+    production
+      ? "[gilbert] APP_SECRET not set - using an ephemeral secret until the installation's own document supplies one"
+      : "[gilbert] APP_SECRET not set - using an ephemeral secret (persisted sessions will not survive restarts)",
+  );
+  return {
+    appSecret: randomBytes(32).toString("base64"),
+    appSecretSource: "ephemeral",
+  };
+}
 
 /**
  * The runtime configuration, resolved from the environment alone.
@@ -67,25 +117,14 @@ import { AGENT_PAGES_DEFAULT } from "./shared/installation.js";
  * document existed, so a process that never boots behaves as it always has.
  */
 export function configurationFromEnvironment(environment: InstallationEnvironment) {
-  const isProd = environment.NODE_ENV === "production";
-  let appSecret = environment.APP_SECRET ?? "";
-  /*
-   * The secret is not this resolver's to demand any more. A process that boots
-   * takes it from the installation's own document, which is where a deployment
-   * states it now; one started without a boot has no document to read and mints
-   * an ephemeral secret, loudly. The refusal a production deployment needs is
-   * "this process serves with no secret at all", and the boot is where that is
-   * decidable -- an import cannot know whether a boot is coming, and refusing
-   * here refused exactly the deployments this path reads for.
+  /**
+   * `NODE_ENV === "production"`: a fact about the process that happens to be
+   * running rather than about the installation, so it stays the environment's
+   * even when the document decides everything else. `assertServable` is what
+   * reads it, to refuse production on a secret no restart would find again.
    */
-  if (!appSecret || appSecret === "change-me") {
-    appSecret = randomBytes(32).toString("base64");
-    console.warn(
-      isProd
-        ? "[gilbert] APP_SECRET not set - using an ephemeral secret until the installation's own document supplies one"
-        : "[gilbert] APP_SECRET not set - using an ephemeral secret (persisted sessions will not survive restarts)",
-    );
-  }
+  const production = environment.NODE_ENV === "production";
+  const { appSecret, appSecretSource } = resolveAppSecret(environment, production);
 
   const stalwartUrl = readEnv(
     environment,
@@ -169,10 +208,15 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * Whether this deployment may point the installation's model at an address
      * inside its own network — a model running on the same host, say.
      *
-     * Off by default, and it is the **operator's** statement rather than a
-     * document's: the configuration an installation writes is refused when it
-     * names a private host, and this is what says the deployment meant one
-     * (ADR 0003).
+     * Off by default, and it is the **operator's** statement rather than the
+     * installation's: the provider an installation writes is refused when it
+     * names a private host (`assertUsableProvider`, ADR 0003), and this is what
+     * says the deployment meant one. It is read here, from the environment, and
+     * nowhere else — never from the installation's document, which an
+     * installation could otherwise use to grant itself the right to aim its
+     * model at the network the deployment runs in. The boot does not override
+     * it either: the document's agent is spread beside the environment's in
+     * `bootstrap.ts`, so this value is the one a served process runs on.
      */
     allowPrivateProvider: readBool(
       environment,
@@ -241,7 +285,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
    */
   const agent = { ...resolveAgentBootstrap(), ...agentWorkerSettings };
   return {
-    isProd,
+    production,
     appName: readEnv(environment, "APP_NAME", "Gilbert"),
     /**
      * What this build calls itself: `2.16.57`. Set by the image build from
@@ -277,6 +321,11 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
     /* The document carries this table; a process with no boot has none. */
     stalwartServers: {} as Record<string, string>,
     appSecret,
+    /**
+     * Where `appSecret` came from: the environment's own, the boot's document,
+     * or a value minted because neither stated one. See `AppSecretSource`.
+     */
+    appSecretSource,
     trustProxy: readBool(environment, "TRUST_PROXY", true),
     /**
      * Peers whose X-Forwarded-* headers are believed. Empty falls back to
@@ -297,6 +346,11 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
     upstreamTimeout: readInt(environment, "UPSTREAM_TIMEOUT", 30_000),
     maxUploadBytes: readInt(environment, "MAX_UPLOAD_BYTES", 50 * 1024 * 1024),
     imageProxy: readBool(environment, "IMAGE_PROXY", true),
+    /**
+     * The name of the session cookie. The installation decides it --
+     * `server.cookieName` in the document — and this is the value a process
+     * with no boot runs on.
+     */
     cookieName: readEnv(environment, "COOKIE_NAME", "ihm_session"),
     staticDir:
       environment.STATIC_DIR ?? fileURLToPath(new URL("../../web/dist", import.meta.url)),
@@ -308,6 +362,9 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * signed-in user can deny service to everyone else. 1,200 a minute is twenty
      * a second sustained: well above what a busy tab does, and an order of
      * magnitude below where one tab starts to hurt the rest. 0 disables it.
+     *
+     * The installation decides the number — `limits.apiRateLimit` in the
+     * document — and this is the value a process with no boot runs on.
      */
     apiRateLimit: readInt(environment, "API_RATE_LIMIT", 1200),
     /* Whether JMAP responses are gzipped. Measured: see the bake-off rerun. */

@@ -64,6 +64,14 @@ export interface InstallationServer {
   secureCookies: string;
   /** `COMPRESS_JMAP` (default `true`): whether JMAP responses are gzipped. */
   compressJmap: boolean;
+  /**
+   * `COOKIE_NAME` (default `"ihm_session"`): the name of the session cookie.
+   *
+   * The installation decides it because it is a name this installation's own
+   * users' browsers carry: a deployment sharing a host or a parent domain with
+   * something else names it so the two cannot collide.
+   */
+  cookieName: string;
 }
 
 /** The bounds on what one request may cost. */
@@ -76,6 +84,13 @@ export interface InstallationLimits {
   imageProxy: boolean;
   /** `LOGIN_RATE_LIMIT` (default `10`): sign-in attempts per window per client. */
   loginRateLimit: number;
+  /**
+   * `API_RATE_LIMIT` (default `1200`): requests per minute one session may make
+   * on the data path -- JMAP, blobs, the image and calendar proxies. 0 disables
+   * it. The proxy is one Node process, so without this a single signed-in user
+   * can deny service to everyone else.
+   */
+  apiRateLimit: number;
 }
 
 /** How long a sealed session lives. */
@@ -98,7 +113,19 @@ export interface InstallationPush {
   rawRelay: boolean;
 }
 
-/** The agent worker (ADR 0003): the installation's own fleet. */
+/**
+ * The agent worker (ADR 0003): the installation's own fleet.
+ *
+ * One switch that would fit here is deliberately not here: whether the model
+ * may sit inside the deployment's own network.
+ * `GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER` is the **operator's** statement, read
+ * from the environment in `configuration.ts` and nowhere else, because an
+ * installation must not grant itself the right to aim its model at the network
+ * the deployment runs in. A document that still carries
+ * `agent.allowPrivateProvider` is read as though it did not -- see
+ * `parseInstallationDocumentDetailed` -- so the retired key neither decides
+ * anything nor makes the document unreadable.
+ */
 export interface InstallationAgent {
   /** `GILBERT_AGENT_POLL_MS` (default `60000`): the fallback after a lost push stream. */
   poll: number;
@@ -116,8 +143,6 @@ export interface InstallationAgent {
   vision: boolean;
   /** `GILBERT_AGENT_AUTHORING_MAX_PER_MONTH` (default `200`) readings a month. */
   authoringMaxPerMonth: number;
-  /** `GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER` (default `false`): may the model sit inside the network. */
-  allowPrivateProvider: boolean;
   /** `GILBERT_AGENT_HEALTH_PORT` (default `0` = no endpoint). */
   healthPort: number;
   /** `GILBERT_AGENT_INPROCESS` (default `true`): whether the server starts the fleet itself. */
@@ -188,12 +213,14 @@ export function installationDefaults(): InstallationDocument {
       trustedProxies: [], // TRUSTED_PROXIES ("" = loopback and the private ranges)
       secureCookies: "auto", // SECURE_COOKIES
       compressJmap: true, // COMPRESS_JMAP (`"0"` turned it off)
+      cookieName: "ihm_session", // COOKIE_NAME
     },
     limits: {
       upstreamTimeout: 30_000, // UPSTREAM_TIMEOUT
       maxUploadBytes: 50 * 1024 * 1024, // MAX_UPLOAD_BYTES
       imageProxy: true, // IMAGE_PROXY
       loginRateLimit: 10, // LOGIN_RATE_LIMIT
+      apiRateLimit: 1200, // API_RATE_LIMIT (0 turns the limiter off)
     },
     sessions: {
       ttl: 12 * 60 * 60, // SESSION_TTL
@@ -213,7 +240,6 @@ export function installationDefaults(): InstallationDocument {
       thinking: true, // GILBERT_AGENT_THINKING
       vision: true, // GILBERT_AGENT_VISION
       authoringMaxPerMonth: 200, // GILBERT_AGENT_AUTHORING_MAX_PER_MONTH
-      allowPrivateProvider: false, // GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER
       healthPort: 0, // GILBERT_AGENT_HEALTH_PORT
       inProcess: true, // GILBERT_AGENT_INPROCESS
     },
@@ -301,7 +327,11 @@ function readUpstreams(
  * wrong** is a problem, never a silent fallback: a typo'd `port` that quietly
  * became 8080 is how an installation ends up answering somewhere nobody
  * expects. Unknown keys are ignored, as every other document reader here
- * ignores them.
+ * ignores them: a key this build does not know -- one a newer build added, or a
+ * retired one such as `agent.allowPrivateProvider`, which is the operator's and
+ * is read from the environment -- decides nothing and does not refuse the
+ * document, so an installation that still carries one keeps booting and a later
+ * publish drops it.
  *
  * A `version` this build does not know is refused. That is what the field is
  * for: a document written by a newer Gilbert may carry a field whose meaning
@@ -396,6 +426,15 @@ export function parseInstallationDocumentDetailed(
     (!Array.isArray(trustedProxies) || trustedProxies.some((p) => typeof p !== "string"))
   )
     problems.push(`"server.trustedProxies" must be a list of addresses.`);
+  const cookieName = readText(
+    "server.cookieName",
+    server.cookieName,
+    defaults.server.cookieName,
+  );
+  if (!cookieName.trim())
+    problems.push(
+      `"server.cookieName" must not be empty: sessions are held in that cookie, so a nameless one would sign nobody in.`,
+    );
 
   const doc: InstallationDocument = {
     version,
@@ -426,6 +465,7 @@ export function parseInstallationDocumentDetailed(
         server.compressJmap,
         defaults.server.compressJmap,
       ),
+      cookieName,
     },
     limits: {
       upstreamTimeout: readInt(
@@ -447,6 +487,11 @@ export function parseInstallationDocumentDetailed(
         "limits.loginRateLimit",
         limits.loginRateLimit,
         defaults.limits.loginRateLimit,
+      ),
+      apiRateLimit: readInt(
+        "limits.apiRateLimit",
+        limits.apiRateLimit,
+        defaults.limits.apiRateLimit,
       ),
     },
     sessions: {
@@ -474,11 +519,6 @@ export function parseInstallationDocumentDetailed(
         "agent.authoringMaxPerMonth",
         agent.authoringMaxPerMonth,
         defaults.agent.authoringMaxPerMonth,
-      ),
-      allowPrivateProvider: readBool(
-        "agent.allowPrivateProvider",
-        agent.allowPrivateProvider,
-        defaults.agent.allowPrivateProvider,
       ),
       healthPort: readInt(
         "agent.healthPort",

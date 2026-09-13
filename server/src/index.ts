@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import { startAgentFleet } from "./agent/agent.js";
 import { createApp, sessionDocumentIo, sessions, useDurableSessions } from "./app.js";
 import { bootInstallation } from "./bootstrap.js";
-import { config, useConfiguration } from "./config.js";
+import { assertServable, config, useConfiguration } from "./config.js";
 
 async function main() {
   /*
@@ -18,10 +18,20 @@ async function main() {
   /*
    * From here the process runs on the installation's own configuration: what
    * the document decides overrides the environment, and the fields it does not
-   * carry — the version, the source URL, the limits — stay as the deployment
-   * stated them.
+   * carry — the version, the source URL, the admin marker, and the operator's
+   * own provider switch — stay as the deployment stated them.
    */
   useConfiguration(boot.configuration);
+  /*
+   * The boot has run, so the deployment is known and a secret nothing stated is
+   * a fact rather than a guess: this is where a production process that would
+   * serve on an ephemeral one is refused. Making it here, rather than at the
+   * import of `config.ts`, is what lets a deployment state its secret in the
+   * installation's own document — and the refusal is logged with every other
+   * failure that stops this process, which is the only channel a process with
+   * no port has.
+   */
+  assertServable(config);
   await useDurableSessions(
     sessionDocumentIo(
       {
