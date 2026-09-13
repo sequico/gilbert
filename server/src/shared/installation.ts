@@ -163,8 +163,12 @@ export interface InstallationDocument {
   secret: string;
 }
 
-/** The value `AGENT_MAX_PAGES_DEFAULT` has in `server/src/agent/documents.ts`. */
-const AGENT_PAGES_DEFAULT = 8;
+/**
+ * How many pages of a rasterised document one run may read, by default: the one
+ * definition, used by the document's own defaults and by
+ * `AGENT_MAX_PAGES_DEFAULT` in `server/src/agent/documents.ts`.
+ */
+export const AGENT_PAGES_DEFAULT = 8;
 
 /**
  * The defaults: the values the code uses today, and the variable each replaces.

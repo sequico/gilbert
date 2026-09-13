@@ -42,8 +42,17 @@ import {
 import type { InstallationAgent, InstallationDocument } from "./shared/installation.js";
 import type { UpstreamSession } from "./upstream.js";
 
-/** The environment, as this module reads it. */
-export type InstallationEnvironment = Record<string, string | undefined>;
+/**
+ * The environment, as this module reads it: the only place that does, apart
+ * from the resolver in `configuration.ts` that this hands it to.
+ */
+export type { Config, InstallationEnvironment } from "./configuration.js";
+
+import {
+  type Config,
+  environmentConfiguration,
+  type InstallationEnvironment,
+} from "./configuration.js";
 
 /**
  * How long the first request of a boot may take.
@@ -345,7 +354,7 @@ export interface BootConfiguration {
   /** The document exactly as it is stored, which is what a later edit must write back. */
   installation: InstallationDocument;
   /** The installation's configuration, resolved. */
-  configuration: InstallationConfiguration;
+  configuration: Config;
   /** The Master's own session and credential, so the boot signs in once. */
   master: MasterLogin;
   /** The account the document lives in. */
@@ -431,7 +440,16 @@ export async function bootInstallation(deps: BootDeps = {}): Promise<BootConfigu
     const loaded = await readInstallation(openStore(login), { log });
     return {
       installation: loaded.document,
-      configuration: configurationFrom(loaded.document, facts, handshake),
+      /*
+       * The document decides what the installation decides; what it does not
+       * carry — the version this build calls itself, where its source is, the
+       * rate limits and the admin marker — stays as the environment stated it,
+       * which is the merge this spread is.
+       */
+      configuration: {
+        ...environmentConfiguration(env),
+        ...configurationFrom(loaded.document, facts, handshake),
+      },
       master: login,
       accountId: loaded.accountId,
       created: loaded.created,

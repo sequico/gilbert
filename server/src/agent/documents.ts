@@ -26,6 +26,7 @@
 
 import { type Schema, Validator } from "@cfworker/json-schema";
 import type { ChatMention } from "../shared/chat.js";
+import { AGENT_PAGES_DEFAULT } from "../shared/installation.js";
 
 /* ------------------------------------------------------------------ */
 /* Layout                                                              */
@@ -1875,7 +1876,8 @@ export const MODEL_MAX_OUTPUT_DEFAULT = 2048;
  * rendered and read by the model, and a document is as long as whoever sent it
  * made it, so the count is bounded rather than left to the file.
  */
-export const AGENT_MAX_PAGES_DEFAULT = 8;
+/** See `AGENT_PAGES_DEFAULT`: one value, defined where the document is. */
+export const AGENT_MAX_PAGES_DEFAULT = AGENT_PAGES_DEFAULT;
 
 /**
  * How many bytes of a document one run may read.

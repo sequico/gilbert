@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import { startAgentFleet } from "./agent/agent.js";
 import { createApp, sessionDocumentIo, sessions, useDurableSessions } from "./app.js";
 import { bootInstallation } from "./bootstrap.js";
-import { config } from "./config.js";
+import { config, useConfiguration } from "./config.js";
 
 async function main() {
   /*
@@ -15,6 +15,13 @@ async function main() {
    * port has to report with (see `bootstrap.ts`).
    */
   const boot = await bootInstallation();
+  /*
+   * From here the process runs on the installation's own configuration: what
+   * the document decides overrides the environment, and the fields it does not
+   * carry — the version, the source URL, the limits — stay as the deployment
+   * stated them.
+   */
+  useConfiguration(boot.configuration);
   await useDurableSessions(
     sessionDocumentIo(
       {

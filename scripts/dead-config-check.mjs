@@ -122,11 +122,20 @@ export function retiredNamesIn(text) {
   return found.sort((a, b) => a.line - b.line);
 }
 
-/** Every environment read one file's text makes: `{ name, line }` each. */
+/**
+ * Every environment read one file's text makes: `{ name, line }` each.
+ *
+ * A read through a variable (`process.env[name]`) counts as one with the name
+ * unknown: the point of the rule is that a module must not reach for the
+ * process's environment at all, whatever key it computes.
+ */
 export function envReadsIn(text) {
   const found = [];
   for (const match of text.matchAll(ENV_READ)) {
-    found.push({ name: match[1] ?? match[2], line: lineOf(text, match.index) });
+    found.push({
+      name: match[1] ?? match[3] ?? "<computed>",
+      line: lineOf(text, match.index),
+    });
   }
   return found;
 }

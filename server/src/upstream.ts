@@ -49,7 +49,8 @@ const SESSION_CACHE_MS = 5 * 60_000;
  * than refreshed. That costs nothing for a live session: an access this old
  * would have missed the freshness window and refetched anyway.
  */
-const CACHE_MAX_AGE_MS = config.sessionTtl * 1000;
+/** How long a cached upstream lookup may live; the installation decides the session lifetime. */
+const cacheMaxAgeMs = () => config.sessionTtl * 1000;
 
 /**
  * The Stalwart a username belongs to.
@@ -113,7 +114,7 @@ export async function getUpstreamSession(
 ) {
   const cached = sessionCache.get(sessionId);
   if (cached) {
-    if (Date.now() - cached.fetchedAt >= CACHE_MAX_AGE_MS) {
+    if (Date.now() - cached.fetchedAt >= cacheMaxAgeMs()) {
       // The entry outlived any session that could still be using it: drop it
       // so the map does not grow with every session that ever expired.
       sessionCache.delete(sessionId);
@@ -406,7 +407,7 @@ export async function getAccountInfo(
 ): Promise<AccountInfo> {
   const cached = infoCache.get(sessionId);
   if (cached) {
-    if (Date.now() - cached.fetchedAt >= CACHE_MAX_AGE_MS) {
+    if (Date.now() - cached.fetchedAt >= cacheMaxAgeMs()) {
       // Same absolute ceiling as the session cache: an entry this old can
       // only belong to a session that is gone; prune it on the way out.
       infoCache.delete(sessionId);

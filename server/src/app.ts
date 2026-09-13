@@ -177,7 +177,15 @@ export async function useDurableSessions(
 
 /** Whether `useDurableSessions` has already replaced the in-memory store. */
 let durable = false;
-const loginLimiter = new RateLimiter(config.loginRateLimit, 15 * 60_000);
+let loginLimiterInstance: RateLimiter | null = null;
+/*
+ * Built on first use rather than at import: the ceiling comes from the
+ * installation's own configuration, which a deployment replaces at boot
+ * (`useConfiguration`). A module-scope instance would keep whatever the
+ * environment said before anything had been read.
+ */
+const loginLimiter = () =>
+  (loginLimiterInstance ??= new RateLimiter(config.loginRateLimit, 15 * 60_000));
 /*
  * The backstop that is never refunded.
  *
@@ -191,7 +199,18 @@ const loginLimiter = new RateLimiter(config.loginRateLimit, 15 * 60_000);
  * Hence a second ceiling, per address, twenty times looser and refunded never.
  * A person retrying an outage will not come near it; something hammering will.
  */
-const loginFloodLimiter = new RateLimiter(config.loginRateLimit * 20, 15 * 60_000);
+let loginFloodLimiterInstance: RateLimiter | null = null;
+/*
+ * Built on first use rather than at import: the ceiling comes from the
+ * installation's own configuration, which a deployment replaces at boot
+ * (`useConfiguration`). A module-scope instance would keep whatever the
+ * environment said before anything had been read.
+ */
+const loginFloodLimiter = () =>
+  (loginFloodLimiterInstance ??= new RateLimiter(
+    config.loginRateLimit * 20,
+    15 * 60_000,
+  ));
 /**
  * Credential changes verify the current password upstream, and Stalwart's
  * fail2ban counts those failures against the *caller's* IP — which for a proxy
@@ -206,7 +225,15 @@ const loginFloodLimiter = new RateLimiter(config.loginRateLimit * 20, 15 * 60_00
  * 15 minutes it always had.
  */
 const accountLimiter = new RateLimiter(20, 15 * 60_000);
-const apiLimiter = new RateLimiter(config.apiRateLimit, 60_000);
+let apiLimiterInstance: RateLimiter | null = null;
+/*
+ * Built on first use rather than at import: the ceiling comes from the
+ * installation's own configuration, which a deployment replaces at boot
+ * (`useConfiguration`). A module-scope instance would keep whatever the
+ * environment said before anything had been read.
+ */
+const apiLimiter = () =>
+  (apiLimiterInstance ??= new RateLimiter(config.apiRateLimit, 60_000));
 
 /*
  * How many /api/events streams one session may hold open at once.
@@ -270,8 +297,8 @@ const accountBody = bodyLimit({
 const apiRateLimited: MiddlewareHandler<Env> = async (c, next) => {
   if (config.apiRateLimit > 0) {
     const session = c.get("session");
-    if (session && !apiLimiter.check(session.id)) {
-      c.header("Retry-After", String(apiLimiter.retryAfterSeconds(session.id)));
+    if (session && !apiLimiter().check(session.id)) {
+      c.header("Retry-After", String(apiLimiter().retryAfterSeconds(session.id)));
       return c.json({ error: "rate_limited" }, 429);
     }
   }
@@ -650,14 +677,15 @@ const requireSession: MiddlewareHandler<Env> = async (c, next) => {
  * `/` for the root case: an empty Path is not the same thing and browsers
  * would fall back to the directory of the request that set it.
  */
-const cookiePath = config.basePath || "/";
+/** The path the session cookie is scoped to: the prefix this instance answers on. */
+const cookiePath = () => config.basePath || "/";
 
 function setSessionCookie(c: Context, value: string, remember: boolean) {
   setCookie(c, config.cookieName, value, {
     httpOnly: true,
     sameSite: "Lax",
     secure: isSecureRequest(c),
-    path: cookiePath,
+    path: cookiePath(),
     ...(remember ? { maxAge: config.sessionRememberTtl } : {}),
   });
 }
@@ -863,8 +891,8 @@ export function createApp(basePath = config.basePath): Hono<Env> {
      * the other two safely can be.
      */
     const limitKey = `${ip}|${username.toLowerCase()}`;
-    if (!loginFloodLimiter.check(ip)) {
-      c.header("Retry-After", String(loginFloodLimiter.retryAfterSeconds(ip)));
+    if (!loginFloodLimiter().check(ip)) {
+      c.header("Retry-After", String(loginFloodLimiter().retryAfterSeconds(ip)));
       return c.json(
         {
           error: "rate_limited",
@@ -873,8 +901,8 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         429,
       );
     }
-    if (!loginLimiter.check(limitKey) || !loginLimiter.check(ip)) {
-      c.header("Retry-After", String(loginLimiter.retryAfterSeconds(limitKey)));
+    if (!loginLimiter().check(limitKey) || !loginLimiter().check(ip)) {
+      c.header("Retry-After", String(loginLimiter().retryAfterSeconds(limitKey)));
       return c.json(
         {
           error: "rate_limited",
@@ -896,8 +924,8 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       if (!hasStalwartRegistry(upstream)) {
         // The credentials were accepted; only the server is too old. Not an
         // attempt worth counting against them.
-        loginLimiter.refund(limitKey);
-        loginLimiter.refund(ip);
+        loginLimiter().refund(limitKey);
+        loginLimiter().refund(ip);
         return c.json(
           {
             error: "unsupported_server",
@@ -907,7 +935,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           501,
         );
       }
-      loginLimiter.reset(limitKey);
+      loginLimiter().reset(limitKey);
       const { cookie, session } = sessions.create({
         username,
         password: effectivePassword,
@@ -973,8 +1001,8 @@ export function createApp(basePath = config.basePath): Hono<Env> {
        * somebody's attempts while they wait for it to come back (#239).
        */
       if (!(err instanceof UpstreamError && err.status === 401)) {
-        loginLimiter.refund(limitKey);
-        loginLimiter.refund(ip);
+        loginLimiter().refund(limitKey);
+        loginLimiter().refund(ip);
       }
       return upstreamFailure(c, err);
     }
@@ -1008,7 +1036,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         // destroy() already forgets the upstream caches through the store
         // hook; the explicit call keeps this branch self-contained.
         forgetUpstreamSession(session.id);
-        deleteCookie(c, config.cookieName, { path: cookiePath });
+        deleteCookie(c, config.cookieName, { path: cookiePath() });
       }
       return upstreamFailure(c, err);
     }
@@ -1021,7 +1049,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       sessions.destroy(session.id);
       forgetUpstreamSession(session.id);
     }
-    deleteCookie(c, config.cookieName, { path: cookiePath });
+    deleteCookie(c, config.cookieName, { path: cookiePath() });
     return c.json({ ok: true });
   });
 
@@ -2306,7 +2334,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       if (res.status === 401) {
         sessions.destroy(session.id);
         forgetUpstreamSession(session.id);
-        deleteCookie(c, config.cookieName, { path: cookiePath });
+        deleteCookie(c, config.cookieName, { path: cookiePath() });
         return c.json({ error: "unauthenticated" }, 401);
       }
       return passthrough(res);
