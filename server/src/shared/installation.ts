@@ -65,7 +65,7 @@ export interface InstallationServer {
   /** `COMPRESS_JMAP` (default `true`): whether JMAP responses are gzipped. */
   compressJmap: boolean;
   /**
-   * `COOKIE_NAME` (default `"ihm_session"`): the name of the session cookie.
+   * `COOKIE_NAME` (default `"gilbert_session"`): the name of the session cookie.
    *
    * The installation decides it because it is a name this installation's own
    * users' browsers carry: a deployment sharing a host or a parent domain with
@@ -213,7 +213,7 @@ export function installationDefaults(): InstallationDocument {
       trustedProxies: [], // TRUSTED_PROXIES ("" = loopback and the private ranges)
       secureCookies: "auto", // SECURE_COOKIES
       compressJmap: true, // COMPRESS_JMAP (`"0"` turned it off)
-      cookieName: "ihm_session", // COOKIE_NAME
+      cookieName: "gilbert_session", // COOKIE_NAME
     },
     limits: {
       upstreamTimeout: 30_000, // UPSTREAM_TIMEOUT

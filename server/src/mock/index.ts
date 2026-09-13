@@ -3988,11 +3988,12 @@ const knownPrincipal = (username: string) =>
  * server where the admin role bundles it.
  *
  * Group principals never authenticate, directly or as an impersonation
- * target — Stalwart 0.16 has no credential for them and refuses the
- * composite with a 403 (live-verified 2026-09-09). Members reach the
- * group's own account through their own session instead (ADR 0005); the
- * mock reproduces the refusal so no surface can lean on group
- * impersonation.
+ * target — Stalwart has no credential for them. Members reach the group's own
+ * account through their own session instead (ADR 0005); the mock reproduces
+ * the refusal -- with a 401, as `unauthorized` sends -- so no surface can lean
+ * on group impersonation. The client reads 401 and 403 alike
+ * (`fetchUpstreamSession`), and which one a live server sends is what
+ * `scripts/probe-impersonation-refusal.mjs` settles.
  */
 const isGroupPrincipal = (username: string): boolean =>
   principals.some((p) => p.type === "group" && p.email === username);

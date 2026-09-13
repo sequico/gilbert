@@ -12,36 +12,38 @@ services:
     ports:
       - "8080:8080"
     environment:
+      # The handshake: the one thing this container has to be told. Where
+      # Stalwart is, and, when a deployment runs an agent here, the account it
+      # signs in as. Everything else the installation decides lives in its own
+      # document, in Stalwart -- the app name, the proxy posture, the rate
+      # limits, the live-update mode, the agent's timers -- and is published
+      # from Administration > Installation.
       STALWART_URL: ${STALWART_URL:?set STALWART_URL in .env}
-      APP_SECRET: ${APP_SECRET:?set APP_SECRET in .env (openssl rand -base64 48)}
-      APP_NAME: ${APP_NAME:-Gilbert}
+      GILBERT_AGENT_ADDRESS: ${GILBERT_AGENT_ADDRESS:-}
+      GILBERT_AGENT_PASSWORD: ${GILBERT_AGENT_PASSWORD:-}
+      # The container's own facts, and the facts about the image rather than
+      # the installation: what it serves, and where its source can be had.
+      IMMUTABLE: "1"
       BASE_PATH: ${BASE_PATH:-}
       SOURCE_URL: ${SOURCE_URL:-https://github.com/sequico/gilbert}
-      TRUST_PROXY: "1"
-      IMAGE_PROXY: "1"
-      # The worker runs in this container unless the deployment says otherwise
-      # (ADR 0012); set GILBERT_AGENT_INPROCESS=0 in .env to run the `agent`
-      # profile below instead.
-      GILBERT_AGENT_INPROCESS: ${GILBERT_AGENT_INPROCESS:-1}
-      # Live updates. Unset keeps every account on the per-tab relay, which is
-      # what Gilbert does without it -- see .env.example.
-      PUSH_MODE: ${PUSH_MODE:-}
-    volumes:
-      - gilbert-data:/data
+      # The operator's own statement: may the agent reach a model endpoint
+      # inside this network. Not the installation's to decide (ADR 0003).
+      GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER: ${GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER:-}
   # The agent worker in a container of its own: the same image, a second
   # process, no port and no writable path of its own -- everything it knows
   # lives in Stalwart, so a replacement picks the work up from the documents
-  # (ADR 0003). The server runs a worker beside itself by default (ADR 0012),
-  # so this profile is for a deployment that wants the two apart: start it with
-  #   GILBERT_AGENT_INPROCESS=0 docker compose --profile agent up
-  # and stop it by leaving the profile out.
+  # (ADR 0003). Whether the server runs a worker beside itself or a deployment
+  # puts it in a container of its own is the installation's own decision
+  # (`agent.inProcess` in its document, ADR 0012), so this profile is for a
+  # deployment that wants the two apart: bring this service up and leave the
+  # server's own worker out of its document.
   #
   # The pair is read from the environment and is not required to bring the stack
   # up: the server service above starts without it, and Admin > Agents names the
   # state (`agent_not_configured`) beside how to set the two. A worker started
   # without the pair serves nothing, warns once and keeps its health endpoint
-  # up -- so leaving the profile out and the flag at 1 is how a deployment runs
-  # with no agent at all.
+  # up -- so leaving the profile out is how a deployment runs with no agent at
+  # all.
   gilbert-agent:
     profiles: ["agent"]
     build:
@@ -70,6 +72,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
-
-volumes:
-  gilbert-data:

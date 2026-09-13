@@ -351,7 +351,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * `server.cookieName` in the document — and this is the value a process
      * with no boot runs on.
      */
-    cookieName: readEnv(environment, "COOKIE_NAME", "ihm_session"),
+    cookieName: readEnv(environment, "COOKIE_NAME", "gilbert_session"),
     staticDir:
       environment.STATIC_DIR ?? fileURLToPath(new URL("../../web/dist", import.meta.url)),
     loginRateLimit: readInt(environment, "LOGIN_RATE_LIMIT", 10),

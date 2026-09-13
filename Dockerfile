@@ -33,7 +33,6 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=8080 \
     STATIC_DIR=/app/web/dist \
-    SESSION_FILE=/data/sessions.json \
     GILBERT_VERSION=$GILBERT_VERSION \
     BASE_PATH=$BASE_PATH
 WORKDIR /app
