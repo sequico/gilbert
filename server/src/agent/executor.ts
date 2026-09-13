@@ -857,7 +857,10 @@ export class Executor {
     // which would then start the same job a second time believing the first
     // worker is gone rather than merely slow.
     if (next.state === "running" && next.lease?.owner === this.deps.workerId) {
-      next.lease = { owner: this.deps.workerId, heartbeatAt: this.deps.now().toISOString() };
+      next.lease = {
+        owner: this.deps.workerId,
+        heartbeatAt: this.deps.now().toISOString(),
+      };
     }
     try {
       await store.writeJob(next, { ifInState: found.state });
@@ -2622,7 +2625,10 @@ function producerKey(type: AgentEffect["type"], id: string): string {
  * explanation for an earlier wake, or predates the window this pass reports at
  * all, so it cannot be what explains one happening now.
  */
-function producersOf(jobs: ReadonlyArray<AgentJob>, since?: string): Map<string, Producer> {
+function producersOf(
+  jobs: ReadonlyArray<AgentJob>,
+  since?: string,
+): Map<string, Producer> {
   const out = new Map<string, Producer>();
   for (const job of jobs) {
     const hop = hopOf(job.trigger);

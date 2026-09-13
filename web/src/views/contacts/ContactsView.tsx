@@ -619,7 +619,9 @@ function ContactDetail({
                   const { destroyed, refused } = await contacts.destroyCards([c.id]);
                   if (!destroyed) {
                     toast.error(
-                      refused ? setErrorMessage(refused) : translate("It was not deleted"),
+                      refused
+                        ? setErrorMessage(refused)
+                        : translate("It was not deleted"),
                     );
                     return;
                   }

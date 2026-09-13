@@ -701,7 +701,9 @@ test("a draft moved to Trash is a rejection, not a send", async () => {
     "Email/set",
     {
       accountId: GROUP,
-      update: { [job.proposal.draft.emailId]: { mailboxIds: { [trashId as string]: true } } },
+      update: {
+        [job.proposal.draft.emailId]: { mailboxIds: { [trashId as string]: true } },
+      },
     },
     [JMAP_MAIL],
   );

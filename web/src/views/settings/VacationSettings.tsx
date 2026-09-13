@@ -42,7 +42,11 @@ export function VacationSettings() {
     );
 
   const submit = async () => {
-    if (from && to && fromInputDateTime(to).getTime() <= fromInputDateTime(from).getTime()) {
+    if (
+      from &&
+      to &&
+      fromInputDateTime(to).getTime() <= fromInputDateTime(from).getTime()
+    ) {
       toast.error(t("“Ends” must be after “Starts”."));
       return;
     }

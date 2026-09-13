@@ -33,7 +33,6 @@ import {
   writeAccountPolicy,
 } from "./adminPolicy.js";
 import { agentRuleJsonSchema } from "./agent/documents.js";
-import { filesAccountId } from "./appFolder.js";
 import type { AgentGroupAnswer } from "./agent/views.js";
 import {
   AgentAdminError,
@@ -57,6 +56,7 @@ import {
   saveRules,
   writeProviders,
 } from "./agentAdmin.js";
+import { filesAccountId } from "./appFolder.js";
 import { isTrustedProxy, resolveClientIp } from "./clientip.js";
 import { agentAddress, config } from "./config.js";
 import { icsProxyHandler } from "./icsproxy.js";
@@ -756,7 +756,8 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       };
       const accountId = filesAccountId(ctx);
       const doc =
-        (accountId ? await readAccountPolicy(ctx, accountId) : null) ?? config.settingsPolicy;
+        (accountId ? await readAccountPolicy(ctx, accountId) : null) ??
+        config.settingsPolicy;
       return c.json({
         policy: { defaults: doc.defaults, enforced: doc.enforced, changes: doc.changes },
       });
@@ -1455,7 +1456,10 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   async function publishAccountPolicy(
     admin: LiveSession,
     doc: PolicyDocument,
-  ): Promise<{ reached: number; unreached: Array<{ address: string; message: string }> }> {
+  ): Promise<{
+    reached: number;
+    unreached: Array<{ address: string; message: string }>;
+  }> {
     const upstream = await getUpstreamSession(
       admin.id,
       admin.authorization,

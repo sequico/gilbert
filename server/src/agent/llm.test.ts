@@ -520,7 +520,11 @@ test("how many pages one run may hand over is bounded, and the prompt says the n
   // either, so `omitted` -- which counts pixel pages past the image bound --
   // is honestly zero; `unreadPages` is the field that says the whole
   // document was left unread.
-  assert.equal(pages.omitted, 0, "nothing was read, so nothing was classified as a pixel page");
+  assert.equal(
+    pages.omitted,
+    0,
+    "nothing was read, so nothing was classified as a pixel page",
+  );
   assert.equal(pages.unreadPages, 1, "and the page never read is reported there instead");
 
   answerWith({ summary: "s", confidence: 1, actions: [{ do: "noop" }] });

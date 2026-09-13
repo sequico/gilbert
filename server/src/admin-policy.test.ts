@@ -200,7 +200,11 @@ test("a valid publish writes into the publisher's own account and every other on
   // administrator reaches it, by impersonation, rather than by signing in.
   const adaAuth = `Basic ${Buffer.from(`ada@example.org%${ADMIN}:${ADMIN_PASS}`).toString("base64")}`;
   const adaSession = await fetchUpstreamSession(adaAuth, BASE);
-  const adaCtx = { authorization: adaAuth, session: adaSession, username: "ada@example.org" };
+  const adaCtx = {
+    authorization: adaAuth,
+    session: adaSession,
+    username: "ada@example.org",
+  };
   const adaAccountId = filesAccountId(adaCtx);
   assert.ok(adaAccountId, "ada's impersonated session has a Files account");
   const adaPolicy = await readAccountPolicy(adaCtx, adaAccountId);
@@ -217,7 +221,11 @@ test("a valid publish writes into the publisher's own account and every other on
   const bobPolicy = await call("/api/account/policy", bob.cookie);
   assert.equal(bobPolicy.status, 200);
   const sp = (bobPolicy.body as unknown as AccountPolicy).policy;
-  assert.equal(sp.enforced.readingPane, undefined, "bob was never reached by this publish");
+  assert.equal(
+    sp.enforced.readingPane,
+    undefined,
+    "bob was never reached by this publish",
+  );
 });
 
 test("publishing kicks every session except the caller's", async () => {

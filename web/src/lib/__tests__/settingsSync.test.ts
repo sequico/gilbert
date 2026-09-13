@@ -221,7 +221,11 @@ describe("a settings write that fails", () => {
 
   beforeEach(() => {
     stopSettingsSync();
-    useSession.setState({ status: "authenticated", session: FAKE_SESSION(), accountId: "a1" });
+    useSession.setState({
+      status: "authenticated",
+      session: FAKE_SESSION(),
+      accountId: "a1",
+    });
     vi.spyOn(client, "hasCapability").mockReturnValue(true);
     vi.useFakeTimers();
   });

@@ -202,7 +202,11 @@ test("overlapping authoring reservations cannot both spend past the ceiling", as
   await store.finalizeAuthoring(wonToken as string, usage, at);
   const settled = await store.readAuthoring("2026-11");
   const finalized = settled?.entries.find((entry) => entry.token === wonToken);
-  assert.equal(finalized?.pending, undefined, "a settled reservation is no longer pending");
+  assert.equal(
+    finalized?.pending,
+    undefined,
+    "a settled reservation is no longer pending",
+  );
   assert.deepEqual(finalized?.usage, usage);
 
   // Cancelling the other removes it entirely: a call that never happened must

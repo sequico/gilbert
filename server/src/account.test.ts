@@ -131,7 +131,9 @@ test("an app password needs the account's current password", async () => {
   // 2FA and outlives a plain password change must not be one unauthenticated
   // call away from a session that is merely open — it is asked for again,
   // the same way disabling 2FA is.
-  const missing = await post("/api/account/app-passwords", { description: "No password" });
+  const missing = await post("/api/account/app-passwords", {
+    description: "No password",
+  });
   assert.equal(missing.status, 400);
   assert.equal(missing.body.error, "missing_fields");
 

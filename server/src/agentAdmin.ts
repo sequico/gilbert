@@ -1326,8 +1326,9 @@ export async function readDraft(
   const reserved = await store.reserveAuthoring(config.agent.authoringMonthlyMax, {
     token,
     about: input.about,
-    group: (input.access.ctx.session.accounts?.[input.access.accountId] as { name?: string })
-      ?.name,
+    group: (
+      input.access.ctx.session.accounts?.[input.access.accountId] as { name?: string }
+    )?.name,
     by: admin.username,
   });
   if (!reserved)

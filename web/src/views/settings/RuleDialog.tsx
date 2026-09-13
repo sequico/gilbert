@@ -386,7 +386,9 @@ export function RuleDialog({
                 type="email"
                 placeholder={translate("someone@example.com")}
                 value={a.address}
-                aria-invalid={Boolean(a.address.trim() && !isValidEmail(a.address.trim()))}
+                aria-invalid={Boolean(
+                  a.address.trim() && !isValidEmail(a.address.trim()),
+                )}
                 onChange={(e) => setAction(i, { ...a, address: e.target.value })}
               />
               <label className="check nowrap">

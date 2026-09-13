@@ -548,7 +548,9 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
       openStreamIfHeld();
     }
     for (const accountId of servedAccounts)
-      await guarded(accountId, () => withAccountLock(accountId, () => reconcileAccount(accountId)));
+      await guarded(accountId, () =>
+        withAccountLock(accountId, () => reconcileAccount(accountId)),
+      );
     return [...servedAccounts];
   };
 

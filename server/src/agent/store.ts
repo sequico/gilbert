@@ -44,7 +44,6 @@ import {
   type AgentAuthoringDoc,
   type AgentAuthoringEntry,
   type AgentClaim,
-  type AgentUsage,
   type AgentConfigDoc,
   type AgentDecision,
   type AgentInstructionDoc,
@@ -56,6 +55,7 @@ import {
   type AgentScheduleDoc,
   type AgentScheduleEntry,
   type AgentStreamClaim,
+  type AgentUsage,
   type AgentWorkerRecord,
   agentDocName,
   auditDocName,
@@ -670,10 +670,7 @@ export class AgentStore {
         ? raw
         : { v: 1, month, entries: [] };
       if (doc.entries.length >= max) return false;
-      doc.entries = [
-        ...doc.entries,
-        { at: at.toISOString(), pending: true, ...entry },
-      ];
+      doc.entries = [...doc.entries, { at: at.toISOString(), pending: true, ...entry }];
       try {
         await writeAppFileAt(this.ctx, this.accountId, path, doc, { ifInState: state });
         return true;
