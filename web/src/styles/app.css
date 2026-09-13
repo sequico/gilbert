@@ -2352,7 +2352,7 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   font-weight: 600;
 }
 
-/* ---------- Chat (ADR 0006) ---------- */
+/* ---------- Chat (ADR 0005) ---------- */
 
 /* Launcher in the top-bar action cluster; badge hangs off its corner. */
 .chat-launcher { position: relative; }
@@ -2418,7 +2418,7 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .chat-row.mine .chat-sender { color: var(--accent); }
 .chat-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 
-/* Quote reply: the message being answered sits above the reply (ADR 0006). */
+/* Quote reply: the message being answered sits above the reply (ADR 0005). */
 .chat-quote {
   display: flex; flex-direction: column; gap: 1px; text-align: left;
   width: 100%; border: 0; border-left: 3px solid var(--accent);
@@ -2496,7 +2496,7 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   to { transform: none; opacity: 1; }
 }
 
-/* Chat: head actions, search, older-messages paging (ADR 0006). */
+/* Chat: head actions, search, older-messages paging (ADR 0005). */
 .chat-head-actions { display: inline-flex; align-items: center; gap: 2px; }
 .chat-search-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px 2px; }
 .chat-search-input {
@@ -2526,7 +2526,7 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 }
 .chat-older { padding: 6px; font-size: .74em; }
 
-/* Chat: emoji picker (fixed common grid; emoticons are text, ADR 0006). */
+/* Chat: emoji picker (fixed common grid; emoticons are text, ADR 0005). */
 .chat-emoji-grid {
   display: flex; flex-wrap: wrap; gap: 2px;
   max-height: 132px; overflow-y: auto;

@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 import type { Mailbox, MailboxRole } from "@/jmap/types";
 import { formatSize } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
-import { isGroupMailbox } from "@/lib/mailAccounts";
 import { mailboxDisplayPath } from "@/lib/mailboxName";
 import { settingsMailboxTree } from "@/lib/mailboxScope";
 import { useMail } from "@/store/mail";
@@ -78,7 +77,9 @@ export function FoldersSettings() {
    */
   const asOwn = async () => {
     const st = useMail.getState();
-    if (isGroupMailbox(st.accountId, st.ownAccountId) && st.ownAccountId)
+    // Not a question about groups: a folder write must never be aimed at an
+    // account that is not the reader's own, whether or not it is one.
+    if (st.ownAccountId && st.accountId !== st.ownAccountId)
       await st.openAccount(st.ownAccountId);
   };
 

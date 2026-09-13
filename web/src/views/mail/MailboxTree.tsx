@@ -40,7 +40,7 @@ import { canEmpty, confirmAndEmpty, emptyLabel } from "@/lib/emptyFolder";
 import { canDropFolder, folderColor, movable } from "@/lib/folderMove";
 import { plural, t } from "@/lib/i18n";
 import { labelTree, visibleLabels } from "@/lib/labelTree";
-import { isGroupMailbox } from "@/lib/mailAccounts";
+import { isGroupMailboxAccount } from "@/lib/mailAccounts";
 import { mailboxDisplayName } from "@/lib/mailboxName";
 import { loadRaw, saveJson } from "@/lib/storage";
 import { haptic, useTouchRow } from "@/lib/touch";
@@ -218,28 +218,22 @@ export function MailboxTree() {
     setExpanded(next);
     saveJson("mbx-expanded", next);
   };
-  const { rows, childrenOf, subtreeUnread } = useMemo(
-    () =>
-      buildMailTree(
-        mailboxes,
-        expanded,
-        showHidden,
-        Boolean(ownAccountId && accountId && accountId !== ownAccountId),
-        (id) => id,
-      ),
-    [mailboxes, expanded, showHidden, ownAccountId, accountId],
-  );
-
   /*
    * Whether the account on screen is a group mailbox rather than the reader's
-   * own. The folder rows of the active account stay fully manageable either
-   * way -- the store's folder writes aim at the active account, which is this
-   * one -- but the header names the account, the "new folder" button and the
-   * personal label list belong to the reader's own mailbox, and the rows of
-   * the *other* accounts below are read-only launchers: opening a folder
-   * there switches the active account to its owner.
+   * own: the one classifier, the mail store's probe. The folder rows of the
+   * active account stay fully manageable either way -- the store's folder
+   * writes aim at the active account, which is this one -- but the header
+   * names the account, the "new folder" button and the personal label list
+   * belong to the reader's own mailbox, and the rows of the *other* accounts
+   * below are read-only launchers: opening a folder there switches the active
+   * account to its owner. A group's tree also shows every folder it holds,
+   * because Stalwart hands a freshly added member each folder unsubscribed.
    */
-  const inGroup = isGroupMailbox(accountId, ownAccountId);
+  const inGroup = isGroupMailboxAccount(accountId, mailAccounts);
+  const { rows, childrenOf, subtreeUnread } = useMemo(
+    () => buildMailTree(mailboxes, expanded, showHidden, inGroup, (id) => id),
+    [mailboxes, expanded, showHidden, inGroup],
+  );
   const activeAccountName = mailAccounts.find((a) => a.accountId === accountId)?.name;
   /*
    * The mailbox sections under the active tree: every other mailbox account --

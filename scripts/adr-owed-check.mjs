@@ -8,9 +8,9 @@
  *   server/src/agent/agent.ts            // ADR-0003 OWED: worker-lease-renewal
  *
  * An ADR may describe a debt for ever. What it may not do is keep a marked
- * debt whose code site is gone, or name a site the ADR stopped listing. That
- * alignment used to rest on whoever remembered it, which means it rested on
- * nothing: an ADR is read when it is written and almost never afterwards.
+ * debt whose code site is gone, or name a site the ADR stopped listing. An
+ * alignment that rests on whoever remembers it rests on nothing: an ADR is
+ * read when it is written and almost never afterwards.
  *
  * The comparison is per ADR, because the number in `ADR-0003 OWED:` is what
  * says which document owns the debt: two ADRs may both carry a slug such as

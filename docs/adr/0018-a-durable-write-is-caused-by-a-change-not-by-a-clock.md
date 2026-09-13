@@ -12,15 +12,14 @@ that has been given back. A write is therefore not only work — it is a
 permanent expenditure of the account's budget, counted in documents rather than
 in size.
 
-Gilbert's liveness machinery spent that budget on a clock. The agent wrote its
-own worker record on every heartbeat, and the claim on every heartbeat per
-account it served; at the default thirty seconds that is some 8,600 uploads a
-day for one group, which is the account's quota gone in under three hours of
-idle running. The sessions document wrote itself once a minute for as long as
-anybody was signed in, which is the same quota gone in about a day. Neither was
-work: both said that a process was alive, or that somebody had used a session
-recently, and neither fact needs to be durable to be true. The symptom is not a
-slow leak but a wall: once an account is past its quota, *every* write in it
+A write on a clock spends that budget on nothing. A worker record and a claim
+written on every heartbeat, for one group at the default thirty seconds, are
+some 8,600 uploads a day — the account's quota gone in under three hours of
+idle running. A sessions document writing itself once a minute for as long as
+anybody is signed in is the same quota gone in about a day. Neither is work:
+both say that a process is alive, or that somebody has used a session
+recently, and neither fact needs to be durable to be true. The symptom is not
+a slow leak but a wall: once an account is past its quota, *every* write in it
 fails, so the next person to save an instruction meets an error about uploads.
 
 ## Decision

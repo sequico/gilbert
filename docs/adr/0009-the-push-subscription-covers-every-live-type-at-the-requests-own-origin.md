@@ -16,12 +16,11 @@ a deployment's connection count from tracking its open tabs.
 `PUSH_STATE_TYPES` in `server/src/shared/push.ts` names every state type a
 Gilbert surface keeps live, in one list, for every account: mail and its
 quota, files and chat, calendars and tasks, contacts, and filters — the same
-set the relay's `types=*` already covers, so which transport an account
-happens to be on no longer decides which parts of the app stay live. A
-personal account's own Files are as live as a group's; the condition that
-once limited `FileNode` to chat-capable accounts is gone. The relay keeps
-`types=*` regardless, since it is what a tab falls back to and should carry
-whatever the account has.
+set the relay's `types=*` covers, so which transport an account is on does
+not decide which parts of the app stay live. A personal account's own Files
+are as live as a group's, and `FileNode` is not limited to chat-capable
+accounts. The relay keeps `types=*` regardless, since it is what a tab falls
+back to and should carry whatever the account has.
 
 The names are Stalwart's own `DataType` values, not capability URIs — a name
 outside that enum simply fails `PushSubscription/set`, which leaves that
@@ -49,12 +48,11 @@ operator can read which accounts verified and which path each is on.
 ## Consequences
 
 - Fan-out and the relay carry the same live surfaces, so the transport a
-  deployment happens to be on no longer decides which parts of the app
-  update.
-- The subscription set is wider, so Stalwart POSTs more: a personal
-  session's own `settings.json` saves are `FileNode` changes that now
-  stream back to the writing tab, as they always did on the relay — nothing
-  that writes settings listens for the change, so there is no loop.
+  deployment is on does not decide which parts of the app update.
+- Fan-out carries every live type, so Stalwart POSTs one change per save: a
+  personal session's own `settings.json` saves are `FileNode` changes that
+  reach the writing tab, as they do on the relay — nothing that writes
+  settings listens for the change, so there is no loop.
 - A type added to a store but forgotten in `PUSH_STATE_TYPES` still reaches
   a relayed tab; `server/src/push.test.ts` pins the list against the stores
   that read state changes and fails first.

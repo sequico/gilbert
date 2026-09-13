@@ -72,16 +72,9 @@ export function isOwnMailAccount(
   return accountId === ownAccountForCapability(session, CAP.mail);
 }
 
-/**
- * Whether the account on screen is a group mailbox rather than the reader's
- * own. The one classifier for "is this a group context" in the mail UI: a
- * non-own account being browsed is a group mailbox.
- */
-export function isGroupMailbox(
-  accountId: string | null,
-  ownAccountId: string | null,
-): boolean {
-  return Boolean(accountId && ownAccountId && accountId !== ownAccountId);
+/** Whether an account is one of the group mailboxes, per `MailAccountInfo.kind`. */
+function isGroupAccount(a: MailAccountInfo): boolean {
+  return a.kind === "group";
 }
 
 /**
@@ -97,6 +90,27 @@ export function isGroupMailbox(
  * offered here always has its FileNode rail. When the two drift, narrow the
  * client classifier, never the server flag.
  */
-export function groupMailboxAccounts(accounts: MailAccountInfo[]): MailAccountInfo[] {
-  return accounts.filter((a) => a.kind === "group");
+export function groupMailboxAccounts(
+  accounts: ReadonlyArray<MailAccountInfo>,
+): MailAccountInfo[] {
+  return accounts.filter(isGroupAccount);
+}
+
+/**
+ * Whether this account is a group mailbox.
+ *
+ * **The one classifier**, read by every surface that has to know: an account
+ * the mail store's probe answered `Mailbox/get` with a folder tree, which is
+ * what lists it with `kind: "group"`. Nothing asks whether an account is
+ * merely "not mine" -- that counts a calendar or a files share as a group,
+ * and a read reaches the app folder, so the wrong answer creates one in
+ * somebody else's storage. A label list, a label count and "may I create one
+ * here" all read this, so they cannot answer differently.
+ */
+export function isGroupMailboxAccount(
+  accountId: string | null,
+  accounts: ReadonlyArray<MailAccountInfo>,
+): boolean {
+  if (!accountId) return false;
+  return accounts.some((a) => isGroupAccount(a) && a.accountId === accountId);
 }
