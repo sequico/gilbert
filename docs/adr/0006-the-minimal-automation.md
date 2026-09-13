@@ -1,4 +1,4 @@
-# ADR 0019 — The minimal automation
+# ADR 0006 — The minimal automation
 
 ADR 0003 gives a rule one shape — trigger, prose instruction, capability
 allowlist, review policy — and nothing in that shape requires an
