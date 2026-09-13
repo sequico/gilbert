@@ -324,23 +324,19 @@ never subscribe.
 ### Several Stalwart servers
 
 One Gilbert can front more than one Stalwart, choosing by the domain somebody
-signs in with. **`STALWART_URL` stays required and stays the default**, so an
-installation that sets nothing else behaves exactly as it always has.
-
-```bash
--e STALWART_SERVERS_FILE=/etc/gilbert/servers.json \
--v /srv/gilbert/servers.json:/etc/gilbert/servers.json:ro
-```
+signs in with. The installation's own document says which: its `upstreams`
+section, published from **Administration → Installation** like everything else
+the installation decides. **`STALWART_URL` stays the default**, so an
+installation that says nothing here behaves exactly as it always has.
 
 ```json
 {
-  "example.com": "https://mail.example.com",
-  "customer-b.test": "https://jmap.customer-b.test"
+  "upstreams": {
+    "example.com": "https://mail.example.com",
+    "customer-b.test": "https://jmap.customer-b.test"
+  }
 }
 ```
-
-[`stalwart-servers.example.json`](stalwart-servers.example.json) is that file
-with the rules written in it.
 
 A domain nobody listed — and a bare username, which Stalwart accepts and which
 has no domain at all — goes to `STALWART_URL`. **A listed domain never falls

@@ -152,9 +152,7 @@ export interface InstallationDocument {
   push: InstallationPush;
   /**
    * Which Stalwart a domain signs in to: domain (lower-cased, no root dot) to
-   * base URL. This is the table `STALWART_SERVERS_FILE` held in a file on the
-   * container — the same keys and the same values, in the document instead.
-   * Empty means one server, `STALWART_URL`.
+   * base URL. Empty means one server, `STALWART_URL`.
    */
   upstreams: Record<string, string>;
   agent: InstallationAgent;
@@ -205,7 +203,7 @@ export function installationDefaults(): InstallationDocument {
       mode: "subscribe", // PUSH_MODE (only an explicit "relay" used the relay)
       rawRelay: true, // RAW_PUSH_RELAY (`"0"` turned it off)
     },
-    upstreams: {}, // STALWART_SERVERS_FILE
+    upstreams: {},
     agent: {
       poll: 60_000, // GILBERT_AGENT_POLL_MS
       heartbeat: 30_000, // GILBERT_AGENT_HEARTBEAT_MS

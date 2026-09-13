@@ -37,6 +37,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
  */
 const RETIRED = [
   "SESSION_FILE",
+  "STALWART_SERVERS_FILE",
   "SETTINGS_POLICY_FILE",
   "SETTINGS_DEFAULTS",
   "SETTINGS_ENFORCED",
