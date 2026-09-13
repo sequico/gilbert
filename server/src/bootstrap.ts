@@ -368,6 +368,18 @@ export interface BootDeps {
   store?: (login: MasterLogin) => InstallationStore;
   /** How a failed boot ends the process. `process.exit` unless a test says otherwise. */
   exit?: (code: number) => never;
+  /**
+   * How many times the Master's sign-in is tried before the boot gives up.
+   *
+   * More than one because the mail server may be a container starting beside
+   * this one: "nothing is listening yet" is not a configuration error, and a
+   * boot that gave up on it would turn a race into an outage.
+   */
+  signInAttempts?: number;
+  /** How long to wait between those attempts. */
+  signInRetryMs?: number;
+  /** The wait itself, so a test does not spend the seconds it names. */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 /**
@@ -391,6 +403,9 @@ export async function bootInstallation(deps: BootDeps = {}): Promise<BootConfigu
   const log = deps.log ?? ((line: string) => console.log(line));
   const signIn = deps.signIn ?? signInAsMaster;
   const exit = deps.exit ?? ((code: number): never => process.exit(code));
+  const attempts = deps.signInAttempts ?? 10;
+  const retryMs = deps.signInRetryMs ?? 1000;
+  const sleep = deps.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
   const openStore =
     deps.store ??
     ((login: MasterLogin) => {
@@ -405,7 +420,14 @@ export async function bootInstallation(deps: BootDeps = {}): Promise<BootConfigu
   try {
     const handshake = readHandshake(env);
     const facts = readContainerFacts(env);
-    const login = await signIn(handshake);
+    /*
+     * The sign-in is the one step that is retried, and only it: a mail server
+     * that is not listening yet is a container starting beside this one, while
+     * a missing handshake variable and a document that cannot be read are
+     * things no amount of waiting fixes. Every retry says so, so a process that
+     * is waiting is not mistaken for one that is stuck.
+     */
+    const login = await signInWithRetries(handshake);
     const loaded = await readInstallation(openStore(login), { log });
     return {
       installation: loaded.document,
@@ -423,5 +445,20 @@ export async function bootInstallation(deps: BootDeps = {}): Promise<BootConfigu
      * out of the end: a boot that failed must not hand back a configuration.
      */
     return exit(1);
+  }
+
+  /** The Master's sign-in, asked again while the mail server is still coming up. */
+  async function signInWithRetries(handshake: Handshake): Promise<MasterLogin> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await signIn(handshake);
+      } catch (err) {
+        if (attempt >= attempts) throw err;
+        log(
+          `[gilbert] ${handshake.stalwartUrl} did not answer (${err instanceof Error ? err.message : String(err)}) — trying again (${attempt}/${attempts})`,
+        );
+        await sleep(retryMs);
+      }
+    }
   }
 }

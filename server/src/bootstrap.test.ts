@@ -173,3 +173,53 @@ test("the app secret is generated once and is nobody's literal", async () => {
     "a redeploy does not sign everyone out",
   );
 });
+
+test("a sign-in is tried again while the mail server is still coming up", async () => {
+  const store = memoryStore();
+  const logs: string[] = [];
+  const waits: number[] = [];
+  let calls = 0;
+  const configuration = await bootInstallation({
+    env: ENV,
+    log: (line) => logs.push(line),
+    signIn: async (handshake) => {
+      calls++;
+      if (calls < 3) throw new Error("nothing is listening");
+      return signIn(handshake);
+    },
+    store: () => store as never,
+    sleep: async (ms) => {
+      waits.push(ms);
+    },
+    exit: ((code: number): never => {
+      throw new Error(`exit ${code}`);
+    }) as never,
+  });
+  assert.equal(calls, 3, "it asked until the server answered");
+  assert.equal(waits.length, 2, "waiting between attempts, and not after the last");
+  assert.match(logs.join("\n"), /trying again/);
+  assert.equal(configuration.created, true, "and the boot then went on");
+});
+
+test("a mail server that never answers ends the boot", async () => {
+  const logs: string[] = [];
+  await assert.rejects(
+    () =>
+      bootInstallation({
+        env: ENV,
+        log: (line) => logs.push(line),
+        signIn: async () => {
+          throw new Error("nothing is listening");
+        },
+        store: () => memoryStore() as never,
+        signInAttempts: 3,
+        sleep: async () => {},
+        exit: ((code: number): never => {
+          throw new Error(`exit ${code}`);
+        }) as never,
+      }),
+    /exit 1/,
+  );
+  assert.match(logs.join("\n"), /trying again \(2\/3\)/);
+  assert.match(logs.join("\n"), /fatal: nothing is listening/);
+});

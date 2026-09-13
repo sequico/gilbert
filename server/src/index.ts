@@ -1,10 +1,34 @@
 import { serve } from "@hono/node-server";
 import { startAgentFleet } from "./agent/agent.js";
-import { createApp, sessions } from "./app.js";
+import { createApp, sessionDocumentIo, sessions, useDurableSessions } from "./app.js";
+import { bootInstallation } from "./bootstrap.js";
 import { config } from "./config.js";
 
 async function main() {
-  await sessions.init();
+  /*
+   * The boot, before anything is served: the handshake, the Master's sign-in,
+   * and the installation's own document in that account. It is what makes the
+   * session store durable — the sessions are records in that document, so a
+   * redeploy signs nobody out — and it is the only step that can tell a
+   * deployment its handshake is missing. A failure here ends the process with
+   * one line and a non-zero code, which is the whole of what a process with no
+   * port has to report with (see `bootstrap.ts`).
+   */
+  const boot = await bootInstallation();
+  await useDurableSessions(
+    sessionDocumentIo(
+      {
+        authorization: boot.master.authorization,
+        session: boot.master.session,
+        username: boot.master.address,
+      },
+      boot.accountId,
+    ),
+    {
+      ttlSeconds: boot.configuration.sessionTtl,
+      rememberTtlSeconds: boot.configuration.sessionRememberTtl,
+    },
+  );
   const app = createApp();
   const server = serve(
     { fetch: app.fetch, hostname: config.host, port: config.port },
