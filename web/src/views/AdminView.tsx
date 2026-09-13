@@ -37,7 +37,7 @@ type AdminSection = SectionItem & { el: ReactNode; owner: AdminOwner };
  * is the mail server's own records, written over JMAP or over its
  * configuration API: **Enforce Identities**, one section holding a person's and
  * a group's behind two tabs (ADR 0007), and, in time, its system Sieve scripts
- * (ADR 0008). The split keeps each kind of thing under a heading that names it,
+ * (ADR 0016). The split keeps each kind of thing under a heading that names it,
  * rather than both under one unlabelled "Gilbert".
  */
 function sections(pendingApprovals: number): AdminSection[] {
@@ -129,7 +129,7 @@ function sections(pendingApprovals: number): AdminSection[] {
  * (ADR 0003, ADR 0014) — Master, Group Agents and Approvals — and "Stalwart"
  * for the mail server's own records — the identities an administrator sets, as
  * one section with a tab per kind of principal (ADR 0007), and, in time, its
- * system Sieve scripts (ADR 0008) — with About ungrouped at the tail.
+ * system Sieve scripts (ADR 0016) — with About ungrouped at the tail.
  */
 export function AdminView({ section }: { section?: string }) {
   const loadStatus = useAgents((s) => s.loadStatus);
