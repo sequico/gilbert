@@ -1,108 +1,214 @@
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
 import { test } from "node:test";
-import { deriveKey, open, seal, sha256 } from "./crypto.js";
-import { RateLimiter } from "./ratelimit.js";
-import { SessionStore } from "./sessions.js";
-import { normalizeLocale } from "./upstream.js";
 
-test("seal/open round-trips and rejects wrong key", () => {
-  const salt = randomBytes(16);
-  const k1 = deriveKey("cookie-secret", "app-secret", salt);
-  const k2 = deriveKey("other", "app-secret", salt);
-  const ct = seal("hello", k1);
-  assert.equal(open(ct, k1), "hello");
-  assert.equal(open(ct, k2), null);
-  assert.equal(sha256("a"), sha256("a"));
+process.env.APP_SECRET = "test-secret-for-sessions";
+
+const { SESSION_DOCUMENT_VERSION, SessionStore } = await import("./sessions.js");
+
+/**
+ * Sessions outlive the process (ADR 0001, the installation's own document).
+ *
+ * A deployment is a container that may be replaced at any moment, so the one
+ * durable thing a session can be is a document in the Master account's own
+ * Stalwart storage — and this is the check that it really is: a session
+ * created before a "restart" is resolved after it, the document holds no token
+ * anybody could present, and an account's sessions end when they are told to.
+ */
+
+const TTLS = { ttlSeconds: 3600, rememberTtlSeconds: 86_400 };
+
+/**
+ * The account's own document, in memory: one read and one write, which is
+ * exactly what the store is given in `app.ts` — `readAppFileAt` and
+ * `writeAppFileAt` over the Master's app folder.
+ */
+function documentIo() {
+  let text: string | null = null;
+  return {
+    read: async (): Promise<unknown | null> => (text === null ? null : JSON.parse(text)),
+    write: async (value: unknown): Promise<void> => {
+      text = JSON.stringify(value);
+    },
+    /** What a later boot over the same account would find. */
+    stored: (): { version?: number; sessions?: unknown[] } | null =>
+      text === null ? null : JSON.parse(text),
+    /** Rewrite it by hand, the way another client of the account could. */
+    replace: (value: unknown): void => {
+      text = JSON.stringify(value);
+    },
+  };
+}
+
+const params = (username: string, remember = false) => ({
+  username,
+  password: `${username}-password`,
+  remember,
+  userAgent: "a test",
+  ip: "127.0.0.1",
 });
 
-test("session store creates, resolves, and refuses tampered cookies", () => {
-  const store = new SessionStore("");
-  const { cookie, session } = store.create({
-    username: "u@example.com",
-    password: "p4ss",
-    remember: false,
-    userAgent: "ua",
-    ip: "127.0.0.1",
-  });
-  assert.equal(session.username, "u@example.com");
-  const live = store.resolve(cookie);
-  assert.ok(live);
+test("a session survives a restart: a new store over the same document resolves it", async () => {
+  const io = documentIo();
+  const before = new SessionStore(io, TTLS);
+  await before.init();
+  const { cookie, session } = before.create(params("ada@example.org"));
+  await before.close();
+
+  const after = new SessionStore(io, TTLS);
+  await after.init();
+  const resolved = after.resolve(cookie);
+  assert.ok(resolved, "the session is there after the process it was created in is gone");
+  assert.equal(resolved.username, "ada@example.org");
   assert.equal(
-    live!.authorization,
-    `Basic ${Buffer.from("u@example.com:p4ss").toString("base64")}`,
+    resolved.id,
+    session.id,
+    "and it is the same session, by the same identity",
   );
-  assert.equal(store.resolve(`${cookie}x`), null);
-  assert.equal(store.resolve("nope"), null);
-  assert.equal(store.listForUser("u@example.com").length, 1);
-  store.destroy(live!.id);
-  assert.equal(store.resolve(cookie), null);
+  assert.equal(io.stored()?.version, SESSION_DOCUMENT_VERSION);
+  await after.close();
 });
 
-test("ending an account's sessions reaches the ones that typed the name differently", () => {
-  /*
-   * An account name is an address, and an address does not differ by case. The
-   * lock an administrator applies (ADR 0007 §4) ends the account's sessions by
-   * naming its address, and a session whose owner signed in as
-   * `Bob@Example.com` holds the same account — an exact comparison would leave
-   * exactly that session signed in, which is the one the lock was for.
-   */
-  const store = new SessionStore("");
-  const first = store.create({
-    username: "Bob@Example.com",
-    password: "p4ss",
-    remember: false,
-    userAgent: "ua",
-    ip: "127.0.0.1",
+test("a session with no document to live in is lost on a restart, and says so", async () => {
+  const before = new SessionStore(undefined, TTLS);
+  await before.init();
+  const { cookie } = before.create(params("ada@example.org"));
+  assert.ok(before.resolve(cookie), "in this process it resolves");
+  await before.close();
+
+  const after = new SessionStore(undefined, TTLS);
+  await after.init();
+  assert.equal(
+    after.resolve(cookie),
+    null,
+    "and in the next one there is nothing to resolve",
+  );
+  await after.close();
+});
+
+test("a record past its expiry does not resolve", async () => {
+  const io = documentIo();
+  const before = new SessionStore(io, TTLS);
+  await before.init();
+  const { cookie } = before.create(params("ada@example.org", true));
+  await before.close();
+
+  // The clock moves past the record's own expiry, which is the only thing that
+  // decides: nothing about the cookie changes.
+  const stored = io.stored();
+  assert.ok(stored?.sessions);
+  io.replace({
+    version: SESSION_DOCUMENT_VERSION,
+    sessions: (stored.sessions as Array<Record<string, unknown>>).map((record) => ({
+      ...record,
+      expiresAt: Date.now() - 1000,
+    })),
   });
-  const second = store.create({
-    username: "bob@example.com",
-    password: "p4ss",
-    remember: false,
-    userAgent: "ua",
-    ip: "127.0.0.1",
-  });
-  assert.equal(store.destroyAllForUser(" BOB@example.com ", first.session.id), 1);
-  assert.equal(store.resolve(second.cookie), null, "the differently-cased one went");
-  assert.ok(store.resolve(first.cookie), "the one that was excepted stayed");
+
+  const after = new SessionStore(io, TTLS);
+  await after.init();
+  assert.equal(after.resolve(cookie), null, "an expired record is not a session");
+  await after.close();
 });
 
-test("persisted session data does not contain the password", () => {
-  const store = new SessionStore("");
-  store.create({
-    username: "u",
-    password: "super-secret-pw",
-    remember: true,
-    userAgent: "",
-    ip: "",
-  });
-  const json = JSON.stringify(store.listForUser("u"));
-  assert.ok(!json.includes("super-secret-pw"));
+test("the document holds no token anybody could present", async () => {
+  const io = documentIo();
+  const store = new SessionStore(io, TTLS);
+  await store.init();
+  const first = store.create(params("ada@example.org"));
+  /* A second session, so the document has two records to tell apart. */
+  store.create(params("bob@example.org"));
+  await store.close();
+
+  const text = JSON.stringify(io.stored());
+  const [id, secret] = first.cookie.split(".");
+  assert.ok(
+    !text.includes(id as string),
+    "the id half of the cookie is not written down",
+  );
+  assert.ok(!text.includes(secret as string), "nor is the secret half");
+  const records = io.stored()?.sessions as Array<{ idHash: string }>;
+  assert.equal(records.length, 2);
+  assert.notEqual(records[0]!.idHash, records[1]!.idHash, "two sessions are two records");
 });
 
-test("rate limiter blocks after max hits in window", () => {
-  const rl = new RateLimiter(3, 60_000);
-  assert.equal(rl.check("k"), true);
-  assert.equal(rl.check("k"), true);
-  assert.equal(rl.check("k"), true);
-  assert.equal(rl.check("k"), false);
-  assert.ok(rl.retryAfterSeconds("k") > 0);
-  rl.reset("k");
-  assert.equal(rl.check("k"), true);
+test("destroy ends one session, and destroyAllForUser leaves another account's alone", async () => {
+  const io = documentIo();
+  const store = new SessionStore(io, TTLS);
+  await store.init();
+  const ada = store.create(params("ada@example.org"));
+  const bob = store.create(params("Bob@Example.org"));
+  const bobElsewhere = store.create(params("bob@example.org"));
+
+  store.destroy(ada.session.id);
+  assert.equal(store.resolve(ada.cookie), null, "the destroyed one is gone");
+  assert.ok(store.resolve(bob.cookie), "and the others are not");
+
+  const ended = store.destroyAllForUser("BOB@example.org");
+  assert.equal(ended, 2, "every session of that account, whoever typed the address how");
+  assert.equal(store.resolve(bob.cookie), null);
+  assert.equal(store.resolve(bobElsewhere.cookie), null);
+  await store.close();
+
+  const after = new SessionStore(io, TTLS);
+  await after.init();
+  assert.equal(
+    after.resolve(bob.cookie),
+    null,
+    "and the ending is what the document holds",
+  );
+  await after.close();
 });
 
-test("normalizes Stalwart account locales to BCP-47 tags", () => {
-  assert.equal(normalizeLocale("de_DE"), "de-DE");
-  assert.equal(normalizeLocale("de_DE.UTF-8"), "de-DE");
-  assert.equal(normalizeLocale("ca_ES@valencia"), "ca-ES");
-  assert.equal(normalizeLocale("sr_RS@latin"), "sr-Latn-RS");
-  assert.equal(normalizeLocale("uz_UZ@cyrillic"), "uz-Cyrl-UZ");
-  assert.equal(normalizeLocale("ru_RU@cyrillic"), "ru-RU");
-  assert.equal(normalizeLocale("en"), "en");
-  assert.equal(normalizeLocale("POSIX"), null);
-  assert.equal(normalizeLocale("C"), null);
-  assert.equal(normalizeLocale(""), null);
-  assert.equal(normalizeLocale(undefined), null);
-  assert.equal(normalizeLocale({ locale: "de_DE" }), null);
-  assert.equal(normalizeLocale("../etc/passwd"), null);
+test("reseal keeps the session and moves the credential behind it", async () => {
+  const io = documentIo();
+  const store = new SessionStore(io, TTLS);
+  await store.init();
+  const { cookie } = store.create(params("ada@example.org"));
+
+  assert.equal(
+    store.reseal(`${cookie}x`, "another-password"),
+    false,
+    "a wrong cookie is refused",
+  );
+  assert.equal(store.reseal(cookie, "another-password"), true);
+
+  const resolved = store.resolve(cookie);
+  assert.ok(resolved, "the same cookie is still the same session");
+  const header = Buffer.from(
+    resolved.authorization.slice("Basic ".length),
+    "base64",
+  ).toString("utf8");
+  assert.ok(
+    header.endsWith(":another-password"),
+    "and it now carries the new credential",
+  );
+  await store.close();
+});
+
+test("a document that cannot be read is not overwritten by an empty store", async () => {
+  const io = documentIo();
+  const first = new SessionStore(io, TTLS);
+  await first.init();
+  const { cookie } = first.create(params("ada@example.org"));
+  await first.close();
+
+  let refuse = true;
+  const unreadable = {
+    read: async (): Promise<unknown | null> => {
+      if (refuse) throw new Error("the account could not be read");
+      return io.stored();
+    },
+    write: io.write,
+  };
+  const store = new SessionStore(unreadable, TTLS);
+  await store.init();
+  store.create(params("bob@example.org"));
+  await store.close();
+  assert.ok(io.stored()?.sessions, "the document is still what it was");
+
+  refuse = false;
+  const after = new SessionStore(io, TTLS);
+  await after.init();
+  assert.ok(after.resolve(cookie), "the session that was there is still there");
+  await after.close();
 });

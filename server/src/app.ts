@@ -56,7 +56,7 @@ import {
   saveRules,
   writeProviders,
 } from "./agentAdmin.js";
-import { filesAccountId } from "./appFolder.js";
+import { type Ctx, filesAccountId, readAppFileAt, writeAppFileAt } from "./appFolder.js";
 import { isTrustedProxy, resolveClientIp } from "./clientip.js";
 import { agentAddress, config } from "./config.js";
 import { icsProxyHandler } from "./icsproxy.js";
@@ -87,8 +87,11 @@ import {
   impersonationAuthorization,
   type LiveSession,
   normalizeUsername,
+  SESSION_DOCUMENT_NAME,
   type SessionBackend,
+  type SessionDocumentIo,
   SessionStore,
+  type SessionTtls,
 } from "./sessions.js";
 import { staticHandler } from "./static.js";
 import {
@@ -112,9 +115,67 @@ import {
 
 type Env = { Variables: { session: LiveSession } };
 
-export const sessions: SessionBackend = new SessionStore(config.sessionFile, (id) =>
-  forgetUpstreamSession(id),
+/**
+ * Where sessions live between requests.
+ *
+ * In memory until the boot says otherwise: a deployment that names no document
+ * keeps its sessions in this process and loses them on a restart, which is what
+ * one that asked for nothing durable gets. `useDurableSessions` replaces this
+ * once, before the app is built, with a store over the installation's own
+ * document in the Master account -- so a redeploy signs nobody out.
+ */
+export let sessions: SessionBackend = new SessionStore(
+  undefined,
+  {
+    ttlSeconds: config.sessionTtl,
+    rememberTtlSeconds: config.sessionRememberTtl,
+  },
+  (id: string) => forgetUpstreamSession(id),
 );
+
+/**
+ * The installation's session document, as the store reaches it: one read and
+ * one write in the Master account's `gilbert` app folder, and the store owns
+ * everything else (the shape, the expiry, the cache).
+ */
+export function sessionDocumentIo(ctx: Ctx, accountId: string): SessionDocumentIo {
+  return {
+    read: async () => {
+      const found = await readAppFileAt(ctx, accountId, SESSION_DOCUMENT_NAME);
+      if (!found) return null;
+      /*
+       * Parsed here rather than through `readAppJsonAt`, which answers `null`
+       * for a document that does not parse: the store distinguishes a document
+       * that is absent (which it may replace) from one it could not read
+       * (which it may not), and that difference is the whole of `flush`.
+       */
+      return JSON.parse(found.text) as unknown;
+    },
+    write: (value) => writeAppFileAt(ctx, accountId, SESSION_DOCUMENT_NAME, value),
+  };
+}
+
+/**
+ * Point the session store at the installation's own document, before serving.
+ *
+ * The boot calls this once, and it is the only code that has the Master's
+ * session and the account the document lives in. Called twice it would leave
+ * the store it replaces unclosed and holding a document nobody reads, so the
+ * second call is refused rather than silently leaking one.
+ */
+export async function useDurableSessions(
+  io: SessionDocumentIo,
+  ttls: SessionTtls,
+): Promise<void> {
+  if (durable) throw new Error("sessions are already durable");
+  durable = true;
+  await sessions.close();
+  sessions = new SessionStore(io, ttls, (id: string) => forgetUpstreamSession(id));
+  await sessions.init();
+}
+
+/** Whether `useDurableSessions` has already replaced the in-memory store. */
+let durable = false;
 const loginLimiter = new RateLimiter(config.loginRateLimit, 15 * 60_000);
 /*
  * The backstop that is never refunded.
@@ -217,7 +278,7 @@ const apiRateLimited: MiddlewareHandler<Env> = async (c, next) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* The forced-password-change directive (ADR 0004)                     */
+/* The forced-password-change directive (ADR 0001)                     */
 /* ------------------------------------------------------------------ */
 
 interface DirectiveCheck {
@@ -241,7 +302,7 @@ const DIRECTIVE_CACHE_TTL_MS = 30_000;
 /**
  * Whether this session's user is currently forced to change their password.
  *
- * App-password sessions are never forced (ADR 0004): the wall needs the
+ * App-password sessions are never forced (ADR 0001): the wall needs the
  * current account password, and accounts with two-factor authentication on
  * can only sign in with an app password.
  */
@@ -285,7 +346,7 @@ async function sessionForcedState(
 }
 
 /* ------------------------------------------------------------------ */
-/* The identity lock (ADR 0007 §4, ADR 0015)                           */
+/* The identity lock (ADR 0007, ADR 0001)                           */
 /* ------------------------------------------------------------------ */
 
 interface LockCheck {
@@ -337,7 +398,7 @@ async function sessionIdentityLockState(
   return locked;
 }
 
-/** Batched: whether each listed account currently carries the directive (ADR 0004). */
+/** Batched: whether each listed account currently carries the directive (ADR 0001). */
 async function forcedFlagsFor(
   users: Array<{ id: string; name: string }>,
   admin: LiveSession,
@@ -376,7 +437,7 @@ async function forcedFlagsFor(
  *
  * The exemptions are named rather than the data routes, so a route that is not
  * here is behind the wall: a new `/api/*` surface is born closed, and opening
- * one is a deliberate edit to this list. ADR 0004's own list is what is open —
+ * one is a deliberate edit to this list. ADR 0001's own list is what is open —
  * signing in, signing out, the session the wall reads, the password change that
  * clears the directive, the config and health the sign-in page reads before it
  * has a session, and the admin endpoints, which answer for an administrator
@@ -648,7 +709,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   api.use("/admin/*", accountBody);
 
   /*
-   * The forced-password-change door (ADR 0004).
+   * The forced-password-change door (ADR 0001).
    *
    * Answers 403 { error: "password_change_required" } on the data routes
    * while the session's user carries the directive in their own app folder.
@@ -735,7 +796,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   /**
    * A signed-in account's own copy of the installation's settings policy
-   * (ADR 0015): what the last publish wrote into this account's own app
+   * (ADR 0001): what the last publish wrote into this account's own app
    * folder, or the environment's bootstrap when nothing has reached it yet.
    * Authenticated, unlike the old `settingsPolicy` field of `/config` this
    * replaces — the policy is a fact about one account now, not a fact about
@@ -848,7 +909,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         userAgent: c.req.header("user-agent") ?? "",
         ip,
         // Whether the presented secret was an app password decides whether the
-        // forced-password-change wall can ever apply to this session (ADR 0004).
+        // forced-password-change wall can ever apply to this session (ADR 0001).
         appPassword: upstream.authType === "app-password",
       });
       setSessionCookie(c, cookie, session.remember);
@@ -1060,7 +1121,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const fresh = sessions.resolve(getCookie(c, config.cookieName));
     directiveCache.delete(normalizeUsername(session.username));
     if (fresh && (await sessionForcedState(fresh))) {
-      // ADR 0004: a successful change clears the directive in the user's own
+      // ADR 0001: a successful change clears the directive in the user's own
       // folder. The user's own (freshly resealed) session is enough — no
       // impersonation needed for the clear.
       try {
@@ -1301,7 +1362,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   };
 
   /**
-   * Set or clear the forced-password-change directive for a user (ADR 0004).
+   * Set or clear the forced-password-change directive for a user (ADR 0001).
    *
    * The write authenticates to Stalwart as the composite `{target}%{admin}`
    * — impersonation with the administrator's own credentials rebuilt from
@@ -1411,7 +1472,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * The installation-wide settings policy (ADR 0001 §4, ADR 0004 §2, ADR 0015).
+   * The installation-wide settings policy (ADR 0001, ADR 0001, ADR 0001).
    *
    * GET reads the signed-in administrator's own account — the last publish
    * wrote there like everywhere else, so the editor's next load shows exactly
@@ -1540,7 +1601,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * The admin Users surface (ADR 0001 §5, ADR 0001): every individual
+   * The admin Users surface (ADR 0001): every individual
    * account on this server, plus whether this session may act on accounts at
    * all.
    *
@@ -1883,7 +1944,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   );
 
   /**
-   * The group's notebook: the facts its agent holds in every call (ADR 0010).
+   * The group's notebook: the facts its agent holds in every call (ADR 0003).
    * Administrator-only, like the standing instruction beside it — memory the
    * model is given on every run is configuration, and members read it rather
    * than write it.
@@ -1971,7 +2032,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   );
 
   /**
-   * An author's reading (ADR 0010): the draft, the envelope it belongs to, the
+   * An author's reading (ADR 0003): the draft, the envelope it belongs to, the
    * group's instruction and the group's notebook go to the installation's
    * model, which answers in words about the gaps.
    *
@@ -2101,13 +2162,13 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * The lock an administrator applies to a person's identity (ADR 0007 §4,
-   * ADR 0015).
+   * The lock an administrator applies to a person's identity (ADR 0007,
+   * ADR 0001).
    *
    * Recorded in that account's own app folder, by impersonation — the same
    * door `setPersonDefaultIdentity` writes through. Applying one ends
    * nothing: a lock is a rule about what the product offers, so the session
-   * that writes one sees it at once (ADR 0007 §4, the cache below is cleared
+   * that writes one sees it at once (ADR 0007, the cache below is cleared
    * for exactly that) and a session already open sees it the next time it
    * reads its own.
    */
@@ -2127,7 +2188,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * The identity an account sends from by default (ADR 0007 §7).
+   * The identity an account sends from by default (ADR 0007).
    *
    * Not a Stalwart property: it is one key of the client's own settings
    * document, in that account's app folder, so the administrator and the
@@ -2152,7 +2213,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * A group's identity, and the one write that reaches it (ADR 0007 §2).
+   * A group's identity, and the one write that reaches it (ADR 0007).
    *
    * Written as the installation's agent, always: Stalwart refuses to impersonate
    * a group mailbox, and the agent is the principal that exists for this. Where
@@ -2484,7 +2545,7 @@ function sessionExtras(
       /** Stalwart-admin state resolved at sign-in (ADR 0001): enables the admin surface. */
       isAdmin,
       /**
-       * ADR 0004: the account must change its password before any data route
+       * ADR 0001: the account must change its password before any data route
        * will serve it. The wall is the middleware, not this flag — the flag
        * only tells the client which screen to show.
        */
@@ -2494,7 +2555,7 @@ function sessionExtras(
       /** What the upstream server would tell us about itself. */
       server: { edition: info.edition },
       /**
-       * ADR 0007 §4, ADR 0015: an administrator has taken this account's
+       * ADR 0007, ADR 0001: an administrator has taken this account's
        * identity over, so the product offers it no Identities & signatures
        * section at all. Read from the account's own app folder (the caller
        * resolves it, since that is an async lookup); it is a rule about the
