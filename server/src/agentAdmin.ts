@@ -574,7 +574,9 @@ async function readWorkers(ctx: Ctx): Promise<AgentStatusWorker[]> {
       // neither is a clock this surface reads on its behalf.
       heartbeatAt: live ? live.since : w.updatedAt,
       version: w.version,
-      alive: live !== undefined,
+      // Only a server that runs the fleet can answer this. One that does not
+      // says so, rather than reporting every worker as gone.
+      alive: config.agent.inprocess ? live !== undefined : null,
       // A record written before the field existed names no group, and a worker
       // holding nothing names none either: both read as "serves nothing here".
       // A running worker answers with what it holds now, which is why the

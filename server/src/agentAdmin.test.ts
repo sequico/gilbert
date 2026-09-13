@@ -1621,3 +1621,46 @@ test("a reading past the month's ceiling is refused before it is made", async ()
     max: config.agent.authoringMonthlyMax,
   });
 });
+
+/*
+ * The other deployment: the server serves the administration and something else
+ * runs the fleet.
+ *
+ * The registry of running workers is a fact about the process that holds it, so
+ * a server that does not run the fleet has nothing to read it from — and
+ * answering "not reporting" about a worker that is serving in another container
+ * is the surface inventing an answer. It says the one thing it knows.
+ */
+test("a server that does not run the fleet says so instead of reporting it gone", async () => {
+  const agentAuth = `Basic ${Buffer.from(
+    `${mock.AGENT_ADDRESS}:${mock.AGENT_PASS}`,
+  ).toString("base64")}`;
+  const fleet = {
+    authorization: agentAuth,
+    session: await fetchUpstreamSession(agentAuth, BASE),
+    username: mock.AGENT_ADDRESS,
+  };
+  const master = new AgentStore(fleet, filesAccountId(fleet));
+  const was = config.agent.inprocess;
+  await master.writeWorker({
+    v: 1,
+    id: "w-elsewhere-inprocess-off",
+    address: mock.AGENT_ADDRESS,
+    version: "test",
+    startedAt: "2026-09-10T08:00:00Z",
+    updatedAt: "2026-09-10T08:00:00Z",
+    serves: [TEAM],
+  });
+  try {
+    config.agent.inprocess = false;
+    const body = (await call("/api/admin/agents")).body as {
+      workers: Array<{ id: string; alive: boolean | null }>;
+    };
+    const row = body.workers.find((w) => w.id === "w-elsewhere-inprocess-off");
+    assert.ok(row, "the record is still read: what it is doing is a document");
+    assert.equal(row.alive, null, "and whether it is up is not this process's to say");
+  } finally {
+    config.agent.inprocess = was;
+    await master.destroyWorker("w-elsewhere-inprocess-off");
+  }
+});

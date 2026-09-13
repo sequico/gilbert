@@ -59,7 +59,20 @@ export interface AgentStatusWorker {
   address: string;
   heartbeatAt: string;
   version: string;
-  alive: boolean;
+  /**
+   * Whether this worker is up — as far as the server answering can tell.
+   *
+   * `true` and `false` are the answer of a deployment whose server runs the
+   * fleet itself (ADR 0003, `agent.inProcess`): the registry of running workers
+   * is that process's own fact, and a record it is not running is a worker that
+   * stopped, died, or was never its own.
+   *
+   * `null` is a deployment that runs its agents somewhere else: a worker in a
+   * container of its own is not this process's to observe, and saying "not
+   * reporting" about one that is serving would be the surface inventing an
+   * answer. The record still says what it is doing, and when.
+   */
+  alive: boolean | null;
   /**
    * The groups this worker is holding, as its last heartbeat named them.
    *

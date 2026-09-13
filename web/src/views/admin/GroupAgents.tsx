@@ -328,7 +328,9 @@ function Fleet({ status, group }: { status: AgentStatus | null; group: string })
                 <td>{formatListDate(w.heartbeatAt)}</td>
                 <td className="mono small">{w.version}</td>
                 <td>
-                  {w.alive ? (
+                  {w.alive === null ? (
+                    <span className="agent-state">{t("Not this server's to say")}</span>
+                  ) : w.alive ? (
                     <span className="agent-state ok">{t("Alive")}</span>
                   ) : (
                     <span className="agent-state off">{t("Not reporting")}</span>

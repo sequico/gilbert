@@ -27,6 +27,7 @@ const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
 const { startWorker, groupNameOf } = await import("./agent.js");
 const { AgentStore } = await import("./store.js");
+const { writeAppFileAt, writeBytesIntoVisibleFolder } = await import("../appFolder.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
 /** A group mailbox of the demo session, and its second one. */
@@ -150,4 +151,60 @@ test("work still writes what it must, and the documents are readable", async () 
   assert.equal(after?.doc.epoch, 1, "a takeover is a new ownership");
   await worker.stop();
   await successor.stop();
+});
+
+/*
+ * The other writer that used the clock: the pass itself.
+ *
+ * A pass records the state it reconciled up to in the claim, and everything the
+ * worker writes — jobs, decisions, the notebook, the audit — is a file in the
+ * very account whose state it is reading. So recording after one of those writes
+ * makes the next pass read the recording as a change, and record again: a blob a
+ * minute for a group where nothing is happening, forever. A change the group
+ * made is news and anchors; a change Gilbert made to its own bookkeeping does
+ * not.
+ */
+test("a change of our own does not anchor, and the group's own does", async () => {
+  await clearClaims();
+  const worker = await startWorker({
+    ctx,
+    address: AGENT,
+    workerId: "w-anchor",
+    log: () => {},
+    timers: false,
+  });
+  await worker.pass();
+  const store = new AgentStore(ctx, "a3");
+  const anchor = async (): Promise<string> =>
+    (await store.readClaim())?.doc.states?.FileNode ?? "";
+  const settled = await anchor();
+  assert.ok(settled, "the first pass anchored the state it read");
+
+  // A document of Gilbert's own, in the group's app folder: bookkeeping.
+  await writeAppFileAt(ctx, "a3", "agent/notebook.json", { v: 1, facts: [] });
+  const spent = mock.uploads.count;
+  for (let pass = 0; pass < 3; pass += 1) await worker.pass();
+  assert.equal(
+    await anchor(),
+    settled,
+    "a change of our own does not move the anchor, so the next pass reads it again and writes nothing",
+  );
+  assert.equal(mock.uploads.count, spent, "and three passes over it bought no blob");
+
+  // A file of the group's own, outside the app folder: news.
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    "a3",
+    "Documents",
+    "note.txt",
+    new TextEncoder().encode("the group's own change"),
+    "text/plain",
+  );
+  await worker.pass();
+  assert.notEqual(
+    await anchor(),
+    settled,
+    "the group's own change anchors, so the pass after it does not read it again",
+  );
+  await worker.stop();
 });
