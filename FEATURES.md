@@ -175,7 +175,7 @@ restarting the processes. Membership is the
 one thing re-read while the agent runs — at most once per poll interval — so a
 group Stalwart no longer lists the agent for stops being served within it
 (below).
-- **Three admin surfaces, not one trying to answer everything (ADR 0014).**
+- **Three admin surfaces, not one trying to answer everything (ADR 0003).**
   **Master** is the installation, configured once: identity, the one model and
   its bounds, and the plain list of granted groups. **Group Agents** is one
   group's own workspace behind a single picker: its automations, its standing
@@ -191,7 +191,7 @@ group Stalwart no longer lists the agent for stops being served within it
 document per automation, as a form — “When [event] / If [filters] / Then
 [actions]” — validated against the JMAP filter grammar (RFC 8621) and the
 named-action catalogue. The document is validated against a JSON Schema
-Gilbert publishes (ADR 0003 resolution 16), with the same validator and the
+Gilbert publishes (ADR 0003), with the same validator and the
 same schema on both sides, so what the form accepts the server accepts. No new
 rule language, no JSON to type by hand, and Sieve keeps the delivery-time
 boundary.
@@ -415,12 +415,11 @@ Publishing validates with the same rules, then writes the document into
 every individual account's own Stalwart storage by impersonation — the
 publishing administrator's account included — rather than into a file or
 an environment variable, so it survives a redeploy and needs no volume
-even under `IMMUTABLE=1` (ADR 0015). It applies at once and signs the
+even under `IMMUTABLE=1` (ADR 0001). It applies at once and signs the
 other signed-in clients out so their next sign-in reads it (`GET`/`POST
-/api/admin/policy`, `GET /api/account/policy`; ADR 0001 §4, ADR 0004,
-ADR 0015).
+/api/admin/policy`, `GET /api/account/policy`; ADR 0001).
 - **Forced password change**: an administrator can require a user to change
-their password (ADR 0004). The directive lives as a file in the target
+their password (ADR 0001). The directive lives as a file in the target
 user's own hidden `gilbert` app folder; the server door answers 403 on
 every data route until the password changes, and the change clears the
 directive itself. The privileged write authenticates as Stalwart's
@@ -454,7 +453,7 @@ and in the client alike. A share is never administered or served as a group.
   directory from the server — what an administrator reaches for after deleting
   an identity in Stalwart's own administration — leaving an edit in progress
   exactly where it is.
-- **User identities** (ADR 0007 §1): an administrator sets a person's
+- **User identities** (ADR 0007): an administrator sets a person's
   identities — display name, address, Reply-To and signature — from the
   administration, through the **same form** the person's own settings use, so
   an identity means one thing wherever it is written. The write is an
@@ -465,7 +464,7 @@ and in the client alike. A share is never administered or served as a group.
   change, remove, with the server's own `mayDelete` respected so nothing is
   left behind as an identity the administrator cannot see and the composer
   still offers. A **lock** can be applied instead, recorded in that account's
-  own Stalwart storage (`identity-lock.json`, its own app folder — ADR 0015,
+  own Stalwart storage (`identity-lock.json`, its own app folder — ADR 0001,
   not a shared installation-wide list): the person's Identities & signatures
   section is not offered at all. **Enforce** and
   **Release** write and give it back from the page, with no sign-in in
@@ -475,7 +474,7 @@ and in the client alike. A share is never administered or served as a group.
   **this product's surface**, said that way on the surface:
   Stalwart has no per-field permission on an identity, so a client that speaks
   JMAP directly can still write one.
-- **The default sending identity** (ADR 0007 §7), on the User identities tab:
+- **The default sending identity** (ADR 0007), on the User identities tab:
   the surface shows which identity an account sends from by default and sets
   it — **Make default** on one, **Default** on the one that holds the place.
   It is not a Stalwart property but one key of that account's own settings
@@ -483,7 +482,7 @@ and in the client alike. A share is never administered or served as a group.
   Identities & signatures section read and write **one** stored value rather
   than two that can disagree; clearing the choice is a real state, and the
   account then sends with its first identity.
-- **Group identities** (ADR 0007 §2, §3), the second tab: a group mailbox
+- **Group identities** (ADR 0007), the second tab: a group mailbox
   holds **one** identity —
   a rule of the product, because a group sends as itself — written **as the
   Master**, always: Stalwart refuses to impersonate a group
@@ -510,7 +509,7 @@ the tail.
 - **Where the documents live**: policy and settings documents sit in each
 account's hidden `gilbert` app folder; the per-user policy layer (values
 and enforced flags per user, named profiles, publishing per user or per
-group) is the next layer on the same document shape (ADR 0001 §5).
+group) is the next layer on the same document shape (ADR 0001).
 
 This section is written for the state of 2026-09-11 and is kept current on
 every change that touches a feature and on every upstream merge (repo rule:

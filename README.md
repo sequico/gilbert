@@ -393,7 +393,7 @@ in shape, and that is deliberately whose idea it was ([#207]).
 Nothing is configured by default: an installation that sets none of these
 behaves exactly as Gilbert always has.
 
-### Publishing a policy (ADR 0015)
+### Publishing a policy (ADR 0001)
 
 The live policy is not a file or a variable: **Administration → Installation
 policy** publishes it into every individual account's own Stalwart storage, by
@@ -420,7 +420,7 @@ delete what you do not want.
 Publishing applies at once: every account the directory lists gets the document
 written into its own app folder (impersonated), the publishing administrator's
 account included, and every other signed-in session is kicked so its next
-sign-in reads the new policy (ADR 0004). One account's refusal — no
+sign-in reads the new policy (ADR 0001). One account's refusal — no
 impersonation grant, an unreachable session — does not stop the rest; the
 response names how many accounts were reached and which were not.
 
