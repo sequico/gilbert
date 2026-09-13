@@ -291,7 +291,6 @@ export interface InstallationConfiguration {
   host: string;
   port: number;
   immutable: boolean;
-  basePath: string;
   trustProxy: boolean;
   trustedProxies: string[];
   secureCookies: string;
@@ -335,7 +334,6 @@ export function configurationFrom(
     host: facts.host ?? document.server.host,
     port: facts.port ?? document.server.port,
     immutable: facts.immutable,
-    basePath: document.server.basePath,
     trustProxy: document.server.trustProxy,
     trustedProxies: document.server.trustedProxies,
     secureCookies: document.server.secureCookies,

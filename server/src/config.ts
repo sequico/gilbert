@@ -60,6 +60,12 @@ export function useConfiguration(next: Config): void {
  * refused exactly the deployments that state their secret in the document.
  */
 export function assertServable(configuration: Config): void {
+  if (configuration.production && !configuration.basePathStated)
+    throw new Error(
+      "This process would serve without knowing the prefix its bundle was built for: BASE_PATH is not set. " +
+        "The web build bakes that prefix into its asset URLs, so a server on a different one serves a page " +
+        'that cannot load its own scripts. Set BASE_PATH to the prefix the build used ("" is the domain root).',
+    );
   if (configuration.production && configuration.appSecretSource === "ephemeral")
     throw new Error(
       "This process would serve production on an ephemeral secret: APP_SECRET is not set and the installation's " +

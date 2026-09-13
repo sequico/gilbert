@@ -51,8 +51,6 @@ export interface InstallationServer {
   host: string;
   /** `PORT` (default `8080`). */
   port: number;
-  /** `BASE_PATH` (default `""`): the subpath this instance answers on. */
-  basePath: string;
   /** `TRUST_PROXY` (default `true`). */
   trustProxy: boolean;
   /** `TRUSTED_PROXIES` (default `[]` = loopback and the private ranges). */
@@ -208,7 +206,6 @@ export function installationDefaults(): InstallationDocument {
       // environment still overrides this when it is set (see bootstrap.ts).
       host: "0.0.0.0",
       port: 8080, // PORT
-      basePath: "", // BASE_PATH, canonical form ("/mail", never "/mail/")
       trustProxy: true, // TRUST_PROXY
       trustedProxies: [], // TRUSTED_PROXIES ("" = loopback and the private ranges)
       secureCookies: "auto", // SECURE_COOKIES
@@ -442,9 +439,6 @@ export function parseInstallationDocumentDetailed(
     server: {
       host: readText("server.host", server.host, defaults.server.host),
       port,
-      basePath: canonicalBasePath(
-        readText("server.basePath", server.basePath, defaults.server.basePath),
-      ),
       trustProxy: readBool(
         "server.trustProxy",
         server.trustProxy,

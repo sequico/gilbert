@@ -48,6 +48,12 @@ const HANDSHAKE_ENV: InstallationEnvironment = {
   STALWART_URL: HANDSHAKE.stalwartUrl,
   GILBERT_AGENT_ADDRESS: HANDSHAKE.masterAddress,
   GILBERT_AGENT_PASSWORD: HANDSHAKE.masterPassword,
+  /*
+   * The prefix the bundle was built for is stated by every real deployment
+   * (the image states it, from the build argument), so the configurations that
+   * mean to serve here state it too: an empty value is the domain root.
+   */
+  BASE_PATH: "",
 };
 
 /** A secret long enough to be one, and never a literal this repository ships. */
@@ -348,5 +354,41 @@ test("a boot runs on the document's values, and never on the document's provider
   assert.doesNotThrow(
     () => assertServable(configuration),
     "a document-supplied secret serves",
+  );
+});
+
+/*
+ * The prefix the bundle was built for is a fact about the image, not a
+ * decision of the installation: the web build bakes it into its asset URLs, so
+ * a server on another prefix serves a page that cannot load its own scripts.
+ */
+test("a document cannot move the prefix the build was made for", async () => {
+  const booted = await bootWith(
+    { ...HANDSHAKE_ENV, BASE_PATH: "/webmail" },
+    JSON.stringify({ server: { basePath: "" }, secret: A_SECRET }),
+  );
+  assert.equal(
+    booted.basePath,
+    "/webmail",
+    "the environment's prefix survives a document that says otherwise",
+  );
+  assert.equal(booted.basePathStated, true);
+});
+
+test("a production process refuses to serve a prefix nobody stated", () => {
+  /* A secret of its own, so the only thing in question here is the prefix. */
+  const { BASE_PATH: _unstated, ...env } = {
+    ...HANDSHAKE_ENV,
+    NODE_ENV: "production",
+    APP_SECRET: A_SECRET,
+  };
+  assert.throws(
+    () => assertServable(configurationFromEnvironment(env)),
+    /BASE_PATH is not set/,
+    "nothing in the environment tells this process what prefix its bundle asks for",
+  );
+  assert.doesNotThrow(
+    () => assertServable(configurationFromEnvironment({ ...env, BASE_PATH: "" })),
+    "an empty prefix is a statement: the domain root",
   );
 });

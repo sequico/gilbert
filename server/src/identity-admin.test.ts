@@ -50,6 +50,19 @@ const { findAppFileAt, readAppJsonAt, writeAppBytesAt, writeAppFile } = await im
   "./appFolder.js"
 );
 const { JMAP_SUBMISSION } = await import("./jmap.js");
+const { useDurableSessions } = await import("./app.js");
+
+/*
+ * This deployment names a Master, so sessions live in that account's own
+ * document: an app is not built out of in-memory sessions for one (the guard
+ * is what `sessions.test.ts` pins). The store here is the smallest one that
+ * satisfies that -- what this file is about is identities, not session
+ * durability.
+ */
+await useDurableSessions(
+  { read: async () => null, write: async () => {} },
+  { ttlSeconds: 3600, rememberTtlSeconds: 86_400 },
+);
 
 const app = createApp();
 const HEADERS = { "content-type": "application/json", "x-requested-with": "gilbert" };
