@@ -2477,6 +2477,13 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   background: color-mix(in srgb, var(--accent, #0f766e) 10%, transparent);
 }
 .chat-mention.me { color: #fff; background: var(--accent, #0f766e); }
+/* A mention of somebody the roster no longer lists: the words stay readable,
+   the style says the person it names is no longer in the group. */
+.chat-mention.gone {
+  color: var(--fg-muted);
+  background: transparent;
+  font-weight: 500;
+}
 .chat-input-rich .chat-mention-chip {
   display: inline; padding: 1px 4px; border-radius: 6px;
   color: var(--accent, #0f766e); font-weight: 600;

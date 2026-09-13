@@ -58,6 +58,7 @@ import {
   groupAuditExport,
   impersonateAs,
   memberAgentView,
+  memberGroupMembers,
   pendingApprovals,
   readDraft,
   readGroupInstruction,
@@ -2348,6 +2349,29 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const name = c.req.param("name") ?? "";
     try {
       const view = await memberAgentView(session, name);
+      if ("ok" in view) return c.json({ error: view.error, need: view.need }, 403);
+      return c.json(view);
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  /**
+   * A group's members, for the `@` picker beside the chat.
+   *
+   * Its own route rather than a field of the view above, because the picker
+   * asks it when a mention begins and nothing else needs it: the chat opens
+   * without this read, and a reader who never mentions anybody never causes
+   * one. The answer is the installation's own roster read — made as the
+   * Master, the one principal that may ask Stalwart's registry (ADR 0003) —
+   * and `members` is null when nobody could read it, which the surface renders
+   * as the transcript it already has.
+   */
+  api.get("/agent/group/:name/members", requireSession, async (c) => {
+    const session = c.get("session");
+    const name = c.req.param("name") ?? "";
+    try {
+      const view = await memberGroupMembers(session, name);
       if ("ok" in view) return c.json({ error: view.error, need: view.need }, 403);
       return c.json(view);
     } catch (err) {

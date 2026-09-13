@@ -30,6 +30,7 @@ import {
   MAX_TEXT,
   MESSAGE_TYPE,
   markerNameFor,
+  mentionablesOf,
   mentionsFromText,
   messageDoc,
   messageProps,
@@ -461,9 +462,14 @@ export const useChat = create<ChatState>((set, get) => {
            member's, and a member's session cannot open the admin route. */
         const agentView = useAgents.getState().memberViews[agentViewKey(conv.name)];
         const agent = agentView?.granted ? agentView.agentAddress : null;
-        const participants = [
-          ...new Set([...participantsOf(conv.nodes, me), ...(agent ? [agent] : [])]),
-        ];
+        /* The same list the picker offered (ADR 0005): the roster when one was
+           read, the transcript otherwise, so a mention the writer could pick
+           is a mention the document records. */
+        const participants = mentionablesOf(
+          participantsOf(conv.nodes, me),
+          useAgents.getState().groupMembers[agentViewKey(conv.name)] ?? null,
+          [me, agent ?? ""],
+        );
         const doc = messageDoc(
           me,
           body,

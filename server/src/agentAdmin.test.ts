@@ -336,6 +336,9 @@ test("an installation with no agent says so plainly, and never 500s", async () =
     // No worker has reported a grant lost, because no worker is serving this
     // installation (ADR 0003 resolution 21).
     withdrawals: [],
+    // Nothing can read a group's roster either: there is no Master to ask
+    // with, which is the state Admin → Master names (ADR 0005).
+    roster: "unknown",
     // A code, not a sentence: the surface composes the sentence in the
     // reader's language (the same rule the membership refusal follows). Both
     // halves of the pair belong to the deployment — no address and no password
@@ -1662,5 +1665,37 @@ test("a server that does not run the fleet says so instead of reporting it gone"
   } finally {
     config.agent.inprocess = was;
     await master.destroyWorker("w-elsewhere-inprocess-off");
+  }
+});
+
+test("the status says whether a roster can be read, and a refusal is not a fleet failure", async () => {
+  configureAgent(mock.AGENT_ADDRESS, mock.AGENT_PASS);
+  try {
+    const open = await call("/api/admin/agents");
+    assert.equal(open.status, 200);
+    const readable = open.body as { roster: string; operational: boolean };
+    assert.equal(
+      readable.roster,
+      "ok",
+      "the Master holds the permission here, and the status says so",
+    );
+
+    mock.accountRegistryGate.open = false;
+    const refused = await call("/api/admin/agents");
+    assert.equal(refused.status, 200);
+    const blind = refused.body as { roster: string; operational: boolean };
+    assert.equal(
+      blind.roster,
+      "forbidden",
+      "a registry that refuses is the state the surface names",
+    );
+    assert.equal(
+      blind.operational,
+      true,
+      "and a permission the roster needs never makes the fleet unoperational",
+    );
+  } finally {
+    mock.accountRegistryGate.open = true;
+    configureAgent("");
   }
 });

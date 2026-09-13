@@ -29,6 +29,18 @@ marker unchanged.
   it answers; the client renders a quoted snippet by looking that id up in
   the transcript. Messages are immutable, so the reference stays resolvable
   for as long as the chat does.
+- **Mentions, and who may be offered one**: a message may name members
+  (`"mentions": [{ "kind": "principal", "id": <address> }]`), and the composer
+  offers them after an `@`. Who is offered is the group's own **roster**, read
+  for the installation as the Master (`x:Account`, ADR 0003): asked once per
+  conversation on `/api/agent/group/:name/members`, held for a minute, and
+  every member is offered — whether or not they have ever written. The
+  transcript is what stands in when no roster can be read: the addresses the
+  loaded messages carry, which is what the picker offered before there was
+  one, and the reason somebody who has left could be mentioned at all. A
+  mention whose address the roster no longer lists renders **greyed** in the
+  transcript — the words are what was written, and the style says the person
+  they name is no longer here.
 - **Read markers**: one document per member (`read-<member>.json`), written
   by that member's own session, holding the last-read position. A member
   with no marker sees the full transcript and no unread badge; the marker is
@@ -113,12 +125,20 @@ any member.
 - Chat and labels are mail-server data: visible to any JMAP client on the
   group account, never a private channel the product should imply otherwise
   about.
+- A mention is a name in a document and nothing beside it: it carries no
+  delivery of its own, so the roster decides what a writer is offered and
+  never who is told. Somebody who has left keeps every message they wrote —
+  the transcript is the group's — and loses only the offer.
 
 ## References
 
-- `server/src/shared/chat.ts` — message and marker document shapes
+- `server/src/shared/chat.ts` — message and marker document shapes, and the
+  offerable set (`mentionablesOf`)
 - `web/src/views/chat/ChatPanel.tsx`, `web/src/store/chat.ts` — the UI and
   store
+- `server/src/agentAdmin.ts` — `memberGroupMembers`, and the roster read
+  behind it (`groupMembers`)
+- `scripts/probe-group-membership.mjs` — the live probe of the registry read
 - `server/src/push.ts` — the per-account push relay this rides
 - ADR 0001 — the admin group and impersonation
 - ADR 0003 — the agent as the write door into a group's own documents

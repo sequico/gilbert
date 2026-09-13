@@ -28,6 +28,7 @@ import type {
   AgentReadingView,
   AgentStatus,
   GroupInstructionView,
+  GroupMembersView,
   GroupNotebookView,
   MemberAgentView,
 } from "@gilbert/agent/views";
@@ -52,6 +53,7 @@ export type {
   AgentStatusGroup,
   AgentStatusWorker,
   GroupInstructionView,
+  GroupMembersView,
   GroupNotebookView,
   MemberAgentRule,
   MemberAgentView,
@@ -210,6 +212,22 @@ export function fetchPendingApprovals(): Promise<AgentApprovalsView> {
 /** `GET /api/agent/group/:name` — the member's read-only view. */
 export function fetchMemberAgentView(name: string): Promise<MemberAgentView> {
   return apiFetch<MemberAgentView>(`/api/agent/group/${encodeURIComponent(name)}`);
+}
+
+/**
+ * `GET /api/agent/group/:name/members` — the group's members, as the
+ * installation reads them (ADR 0005).
+ *
+ * Its own route, asked once per conversation and kept: the `@` picker offers
+ * only the members, and the transcript greys a mention of somebody who is no
+ * longer one. `members` is null when nobody could read the roster — a Master
+ * without `sysAccountGet`/`sysAccountQuery`, or a directory that refused — and
+ * the surface falls back to the transcript it already has.
+ */
+export function fetchGroupMembers(name: string): Promise<GroupMembersView> {
+  return apiFetch<GroupMembersView>(
+    `/api/agent/group/${encodeURIComponent(name)}/members`,
+  );
 }
 
 /**

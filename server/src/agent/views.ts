@@ -101,6 +101,23 @@ export type AgentStatusReason =
   | { code: "agents_unreadable"; detail: string };
 
 /**
+ * Whether this installation can read a group's roster (ADR 0005).
+ *
+ * The read is Stalwart's account registry, made as the Master, and the
+ * permission it needs — `sysAccountGet` and `sysAccountQuery` — is not one the
+ * built-in user role carries: an installation whose Master is only a member of
+ * its groups cannot enumerate them. That degrades the chat's `@` picker and
+ * nothing else, so it is a state the administration reports rather than a
+ * failure anything fails with.
+ *
+ * `ok` is a registry that answered; `forbidden` is a Master without the
+ * permission, and the surface names the grant that fixes it; `unreadable` is a
+ * registry that did not answer; `unknown` is an installation that cannot even
+ * ask — no Master named, or its session refused.
+ */
+export type RosterReadability = "ok" | "forbidden" | "unreadable" | "unknown";
+
+/**
  * The installation's fleet, as the status route answers it.
  *
  * `groups` is the agent's own membership and nothing else: the groups are read
@@ -119,6 +136,13 @@ export interface AgentStatus {
   /** The agent's address, as the deployment names it; empty when it names none. */
   address: string;
   groups: AgentStatusGroup[];
+  /**
+   * Whether a group's roster can be read, and what to give the Master when it
+   * cannot (ADR 0005). Read on every status call, because the answer is an
+   * operator's grant and a cached one would keep reporting the grant that was
+   * true when it was taken.
+   */
+  roster: RosterReadability;
   /** The installation's use, and the split per agent (ADR 0003). */
   meter: AgentStatusMeter;
   workers: AgentStatusWorker[];
@@ -484,6 +508,27 @@ export type MemberAgentRule = Pick<
   AgentRule,
   "id" | "name" | "enabled" | "trigger" | "review" | "instruction"
 >;
+
+/**
+ * A group's members, as the member door answers them when it is asked.
+ *
+ * The roster is the installation's own read of Stalwart's registry
+ * (`x:Account`), made as the Master — the one principal that may ask (ADR
+ * 0003) — and it travels on a route of its own rather than inside
+ * `MemberAgentView`, because the `@` picker is the only thing that needs it,
+ * and it asks when a mention begins.
+ *
+ * `members` is every address the registry lists as belonging to the group.
+ * `null` is a roster nobody could read: the Master does not hold
+ * `sysAccountGet`/`sysAccountQuery`, or the server refused the read. A
+ * surface that is handed `null` falls back to what the transcript knows,
+ * which is what it did before there was a roster, so the null costs the
+ * refinement and nothing else.
+ */
+export interface GroupMembersView {
+  group: string;
+  members: string[] | null;
+}
 
 export interface MemberAgentView {
   group: string;

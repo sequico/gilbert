@@ -111,6 +111,43 @@ Where the integration lives:
   pages (`position`/`limit`, `calculateTotal`) and reports whether it reached
   the end of the directory; whether a real server pages the way the client
   assumes is asked by `scripts/probe-directory-paging.mjs` (owed).
+- **Group membership** is readable, from the account side only, over the
+  **registry** (`urn:stalwart:jmap`) — not over the standard principals door.
+  The capability is advertised **per account** (and in `primaryAccounts`),
+  not in the session's top-level `capabilities`: ask it the way
+  `hasStalwartRegistry` does, all three places.
+
+  - every account record carries `memberGroupIds` (`{"e":true}`), which is
+    account → groups; a **group** record carries no member list, and
+    `x:Group/get` / `x:Group/query` answer `unknownMethod`; a group
+    `Principal` carries `id`/`type`/`name`/`description`/`email` and nothing
+    about its members.
+  - the roster of a group is therefore `x:Account/query` with
+    `filter: { memberGroupIds: <groupAccountId> }`, then `x:Account/get` on
+    the ids it named (`properties: ["id","@type","emailAddress"]`, and
+    `@type: "User"` is the member; the group's own record is not one).
+    `memberGroupIds` is the **only** membership filter — `groupId` and
+    `memberOf` are refused with `unsupportedFilter`; `ids: null` on
+    `x:Account/get` answers every account, which is true but does not scale.
+  - the door needs **`sysAccountGet`** (`x:Account/get`) and
+    **`sysAccountQuery`** (`x:Account/query`). The built-in **User** and
+    **Group** roles carry neither; **Tenant Administrator** carries both (and
+    not `impersonate`); **System Administrator** carries everything. So a
+    member cannot read their group's roster, and neither can an agent account
+    that is only a member of it.
+  - a credential without them is refused with a **method-level** error inside
+    an HTTP 200 — `{"type":"forbidden"}` in `methodResponses`, not a status —
+    which is why the caller reads the batch rather than the response code.
+  - live-verified 2026-09-13 against a 0.16 instance (a member, a shared
+    account, a group of three and an agent account among them), with the role
+    table read from `x:Role/get`; `scripts/probe-group-membership.mjs` asks
+    all of it and writes nothing.
+
+  Gilbert spends it in one place: the chat's `@` picker reads the group's
+  roster as the Master (`groupMembers` in `server/src/agentAdmin.ts`, cached a
+  minute, `null` when it cannot be read) and falls back to the transcript
+  (ADR 0005).
+
 - Stalwart 0.16 added **JMAP impersonation**: a principal granted the
   impersonation right can authenticate to JMAP as another user with a
   composite username `{target}%{master}` (target first), using the master
@@ -218,9 +255,9 @@ you." (a 404 at the surface). Every other answer is read the other way:
   said. This probe therefore does not settle Stalwart's own app-password rule
   (read in `authentication.rs`, and enforced before the request leaves Gilbert).
 
-Neither probe settles group membership or a group account's Files visibility
-(see `gilbert-groups`), nor the directory's `type` vocabulary beyond
-`individual` and `group`.
+Group membership is settled by the registry read above — the two probes here
+settle neither it nor a group account's Files visibility (see `gilbert-groups`),
+nor the directory's `type` vocabulary beyond `individual` and `group`.
 
 ## Checking Stalwart's own material
 

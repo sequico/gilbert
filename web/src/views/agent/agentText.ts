@@ -26,6 +26,7 @@ import type {
   AgentStatusMeter,
   AgentStatusReason,
   MemberAgentRule,
+  RosterReadability,
 } from "@gilbert/agent/views";
 import { agentSentence } from "@/lib/agentErrors";
 import { t } from "@/lib/i18n";
@@ -184,6 +185,33 @@ export function fleetReasonText(reason: AgentStatusReason): string {
   // The sentences live once, in `AGENT_ERROR_SENTENCES`: a fleet status and an
   // admin refusal carry the same words, and a code cannot drift between them.
   return agentSentence(reason.code, reason);
+}
+
+/**
+ * What the roster read's state means for a person, and what fixes it.
+ *
+ * `ok` answers nothing on purpose: this is the installation working as
+ * designed, and a line about it would be furniture. Every other state says
+ * what a reader loses *and* keeps — the `@` offers the people who have already
+ * written — so nobody goes looking for a bug in the chat.
+ */
+export function rosterText(readability: RosterReadability): string {
+  switch (readability) {
+    case "forbidden":
+      return t(
+        "This installation cannot list a group's members: the Master may not read the account registry. Give it the sysAccountGet and sysAccountQuery permissions — a per-account grant, not an administrator role — and the chat's @ offers the group's members; until then it offers the people who have already written.",
+      );
+    case "unreadable":
+      return t(
+        "The account registry did not answer, so a group's members cannot be listed and the chat's @ offers the people who have already written.",
+      );
+    case "unknown":
+      return t(
+        "No agent is registered, so nothing can read a group's members: the chat's @ offers the people who have already written.",
+      );
+    default:
+      return "";
+  }
 }
 
 /**
