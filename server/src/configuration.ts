@@ -319,9 +319,9 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * `assertServable`).
      *
      * The prefix is expected to arrive intact: a proxy that strips it before
-     * forwarding should leave BASE_PATH unset -- as far as this process is
-     * concerned it *is* at the root -- and what must agree is the build, not
-     * the deployment's routing.
+     * forwarding serves the root, so the deployment states `""` -- never
+     * nothing, which a production process refuses (see `assertServable`). What
+     * must agree is the build, not the deployment's routing.
      */
     basePath: normalizeBasePath(environment.BASE_PATH),
     /** Whether the deployment stated a prefix at all (an empty one is a statement). */

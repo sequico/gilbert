@@ -2116,8 +2116,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /*
-   * Run one of a group's automations now, on a message a person names (ADR
-   * 0010). The answer is the job, which the worker holding the group's claim
+   * Run one of a group's automations now, on a message a person names (ADR 0003). The answer is the job, which the worker holding the group's claim
    * picks up on its next pass: the surface can say when it was asked for and
    * the run's own record says what came of it.
    */

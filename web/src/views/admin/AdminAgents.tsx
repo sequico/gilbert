@@ -128,8 +128,7 @@ function Identity({ status }: { status: AgentStatus | null }) {
             )}
           </p>
           {/* What the installation has spent, read from every group the agent
-              holds — the fleet's own total, with the split per agent (ADR
-              0010). */}
+              holds — the fleet's own total, with the split per agent (ADR 0003). */}
           {status.operational && (
             <div className="field" style={{ marginTop: 12 }}>
               <span className="hint">{t("What the fleet has spent")}</span>

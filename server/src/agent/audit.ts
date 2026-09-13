@@ -64,8 +64,7 @@ function subjectOfDecision(decision: AgentDecision): AuditSubject {
  *
  * The counts ride the entry the run writes when it is decided, so the cost sits
  * beside the work that spent it, in the same monthly document, pruned by the
- * same retention — and every reading is a reading of that one record (ADR
- * 0010). A run that reported nothing carries no counts rather than zeros.
+ * same retention — and every reading is a reading of that one record (ADR 0003). A run that reported nothing carries no counts rather than zeros.
  */
 export type RunCost = Pick<AgentAuditEntry, "agent" | "reasoned" | "usage">;
 

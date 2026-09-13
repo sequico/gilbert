@@ -251,23 +251,6 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return !!v && typeof v === "object" && !Array.isArray(v);
 }
 
-/**
- * Reduce a base path to the canonical form, the way `scripts/basePath.mjs`
- * does: a leading slash and no trailing one, `""` for the root.
- *
- * Reimplemented rather than imported because that module is the web build's
- * shared script and this one is bundled into the browser too; the rule is four
- * lines and is pinned by a test rather than by a comment.
- */
-export function canonicalBasePath(value: unknown): string {
-  if (typeof value !== "string") return "";
-  const trimmed = value
-    .trim()
-    .replace(/\/+/g, "/")
-    .replace(/^\/|\/$/g, "");
-  return trimmed ? `/${trimmed}` : "";
-}
-
 /** The domains and URLs of the routing table, checked the way `config.ts` checked them. */
 function readUpstreams(
   where: string,

@@ -7,8 +7,7 @@ import { type AgentRuleDraft, RuleForm } from "../RuleForm";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * The line beside a reading the month's authoring document did not take (ADR
- * 0010).
+ * The line beside a reading the month's authoring document did not take (ADR 0003).
  *
  * The words are the model's and the tokens are already spent when the count is
  * written, so a failed count costs the installation's tally and never the

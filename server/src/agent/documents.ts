@@ -1577,8 +1577,7 @@ export const AGENT_AUDIT_OUTCOMES: ReadonlyArray<string> = [
    * A run a chain refused before it started: an automation woken past the bound
    * the installation sets on hops. It is an outcome of its own rather than
    * `failed`, because nothing failed — a run that must not happen is a fact
-   * about the agent, and a reader of the trail is entitled to see it (ADR
-   * 0010).
+   * about the agent, and a reader of the trail is entitled to see it (ADR 0003).
    */
   "refused",
 ];

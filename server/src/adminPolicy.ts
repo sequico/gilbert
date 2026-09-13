@@ -222,7 +222,7 @@ export async function readAccountPolicy(
  *
  * `ifInState` makes the write conditional on the FileNode state read from this
  * same account, which is the compare-and-set JMAP offers in place of a lock
- * (ADR 0003, §6): a publish that read an account and then had the account move
+ * (ADR 0003): a publish that read an account and then had the account move
  * under it is refused rather than overwriting a document it never saw.
  *
  * The caller reads that state **after** the app folder is known to exist: an

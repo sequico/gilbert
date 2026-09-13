@@ -37,8 +37,14 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 /** The ADR a file name owns: `0003-agent-fleet.md` -> `0003`. */
 const ADR_FILE = /^(\d{4})-[^/]*\.md$/;
 
-/** `ADR 0003`, `ADR-0003`, and the same with a section pinned to it. */
-const CITATION = /\bADR[-\s](\d{1,4}|\s*§)/g;
+/**
+ * `ADR 0003`, `ADR-0003`, and the same with a section pinned to it.
+ *
+ * The gap between the two may hold the line break and the comment leader of a
+ * wrapped sentence (`ADR\n * 0010`), which is how five citations to a retired
+ * record stayed invisible: a reader sees one sentence, and so must this.
+ */
+const CITATION = /\bADR[-\s][*/\s]*(\d{1,4}|§)/g;
 
 /** Where a citation may appear: the code, and the skills that guide it. */
 const ROOTS = ["server/src", "web/src", ".codewhale/skills"];
