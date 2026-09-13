@@ -273,24 +273,41 @@ test("one account the server will not seal a session onto is named, the rest are
     body: doc,
   });
   assert.equal(published.status, 200);
+  /*
+   * The answer is the publish's outcome: the population the directory was read
+   * as, the accounts the policy reached, and the ones it did not with the
+   * reason for each -- never a count of successes that reads as a publish.
+   */
   const body = published.body as unknown as {
-    ok: boolean;
-    reached: number;
-    unreached: Array<{ address: string; message: string }>;
+    outcome: {
+      population: { read: number; complete: boolean; total: number | null };
+      reached: string[];
+      unreached: Array<{ address: string; code: string; message: string }>;
+      complete: boolean;
+    };
   };
-  assert.equal(body.ok, true);
   assert.deepEqual(
-    body.unreached.map((u) => u.address),
+    body.outcome.unreached.map((one) => one.address),
     [REFUSED],
     "the one refusal is named, and it is the account the mock would not seal",
   );
+  assert.equal(
+    body.outcome.unreached[0]?.code,
+    "impersonation-refused",
+    "and the reason travels as the code the client composes a sentence from",
+  );
   assert.ok(
-    (body.unreached[0]?.message.length ?? 0) > 0,
+    (body.outcome.unreached[0]?.message.length ?? 0) > 0,
     "the refusal carries the message the administrator sees",
+  );
+  assert.equal(
+    body.outcome.complete,
+    false,
+    "one account short of the directory is not an installation carrying the policy",
   );
   // Six of the seven listed accounts are not the refused one -- five people
   // and the agent -- and the publishing admin's own account makes seven.
-  assert.equal(body.reached, 7, "every other account was reached");
+  assert.equal(body.outcome.reached.length, 7, "every other account was reached");
 
   const agentAuth = `Basic ${Buffer.from(`gilbert@example.com%${ADMIN}:${ADMIN_PASS}`).toString("base64")}`;
   const agentSession = await fetchUpstreamSession(agentAuth, BASE);
