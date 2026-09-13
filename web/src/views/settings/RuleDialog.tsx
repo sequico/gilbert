@@ -57,6 +57,12 @@ export function RuleDialog({
   const hasInvalidRedirect = r.actions.some(
     (a) => a.type === "redirect" && !isValidEmail(a.address.trim()),
   );
+  /*
+   * A Save button that is off and says nothing reads as broken, so each reason
+   * Save can have says itself on screen: a blank name beside the name, a forward
+   * address that is no address beside the field that holds it (below).
+   */
+  const nameMissing = !r.name.trim();
 
   return (
     <Dialog
@@ -85,10 +91,15 @@ export function RuleDialog({
           <button className="btn" onClick={onClose}>
             {translate("Cancel")}
           </button>
+          {nameMissing && (
+            <span className="hint" style={{ color: "var(--danger)" }}>
+              {translate("Give the rule a name before it can be saved.")}
+            </span>
+          )}
           <button
             className="btn btn-primary"
             onClick={() => onSave(r, applyNow && Boolean(applyMailbox))}
-            disabled={!r.name.trim() || hasInvalidRedirect}
+            disabled={nameMissing || hasInvalidRedirect}
           >
             {saveLabel ?? "Done"}
           </button>
@@ -399,6 +410,15 @@ export function RuleDialog({
                 />{" "}
                 {translate("keep copy")}
               </label>
+              {!isValidEmail(a.address.trim()) && (
+                <span className="hint" style={{ color: "var(--danger)" }}>
+                  {a.address.trim()
+                    ? translate(
+                        "That is not an email address, so the mail this rule matches would never arrive.",
+                      )
+                    : translate("Give the address to forward to.")}
+                </span>
+              )}
             </div>
           ) : a.type === "reject" ? (
             <input

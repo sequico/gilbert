@@ -164,3 +164,102 @@ describe("selecting contacts in the list", () => {
     expect(host.querySelector(".contacts-selbar")).toBeNull();
   });
 });
+
+/**
+ * Edit and Delete on the contact that is open.
+ *
+ * Withheld only when the store *knows* the card is another account's. Its own
+ * list is empty until `loadAll` answers, so an id missing from `contacts.cards`
+ * says nothing about the right to write it -- and reading that absence as a
+ * refusal took both controls off the reader's own contact, with nothing on
+ * screen to say why. Where the right is unknown they stay, and the write that
+ * follows is the server's to refuse in its own words.
+ */
+describe("editing the contact on screen", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+
+  const SHARED = card("s1", "Sam Shared");
+  const editButton = () =>
+    [...host.querySelectorAll<HTMLButtonElement>(".contact-detail button")].find(
+      (b) => b.textContent?.trim() === "Edit",
+    );
+  /** The detail pane's delete: a ghost button, and the only one in it. */
+  const deleteButton = () => host.querySelector(".contact-detail .btn-ghost");
+  const reason = () => host.querySelector(".contact-detail .hint")?.textContent ?? "";
+
+  const open = async (state: Record<string, unknown>) => {
+    useContacts.setState({
+      accountId: "a1",
+      available: true,
+      books: {},
+      selection: { accountId: null, bookId: "all" },
+      ...state,
+    });
+    await act(async () => {
+      root.render(<ContactsView id="s1" />);
+    });
+  };
+
+  beforeEach(() => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }));
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps them while the reader's own list could still hold the card", async () => {
+    // Another account's book is loaded and the reader's own is not: `cards` is
+    // empty because nothing has answered yet, not because the card is not there.
+    await open({
+      loaded: false,
+      loading: true,
+      cards: {},
+      sharedCards: { "a2:s1": SHARED },
+    });
+    expect(editButton()).not.toBeUndefined();
+    expect(deleteButton()).not.toBeNull();
+    expect(reason()).toBe("");
+  });
+
+  it("withholds them, and says why, for a card another account holds", async () => {
+    await open({
+      loaded: true,
+      loading: false,
+      cards: {},
+      sharedCards: { "a2:s1": SHARED },
+    });
+    expect(editButton()).toBeUndefined();
+    expect(deleteButton()).toBeNull();
+    expect(reason()).toContain("another account shared with you");
+  });
+
+  it("offers them on the reader's own card", async () => {
+    await open({
+      loaded: true,
+      loading: false,
+      cards: { s1: SHARED },
+      sharedCards: {},
+    });
+    expect(editButton()).not.toBeUndefined();
+    expect(deleteButton()).not.toBeNull();
+    expect(reason()).toBe("");
+  });
+});

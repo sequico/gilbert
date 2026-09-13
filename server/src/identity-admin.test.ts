@@ -16,7 +16,11 @@ import { after, before, test } from "node:test";
  *  - the lock changes what the product *offers* — a session that reads it says
  *    so, and no session is ended to make it so — and it does not change what
  *    the server *permits*, which is ADR 0007 §5 stated as a test rather than as
- *    a sentence.
+ *    a sentence;
+ *  - the lock is answered in three states and not two: an account whose file
+ *    this session cannot reach says "unknown" rather than passing for free,
+ *    because the record lives inside that account and a guess here reads as a
+ *    fact to the administrator who has to act on it.
  */
 
 const PORT = 18809;
@@ -42,7 +46,9 @@ const mock = await import("./mock/index.js");
 const { createApp } = await import("./app.js");
 const { readDefaultIdentity, writeDefaultIdentity } = await import("./identityAdmin.js");
 const { fetchUpstreamSession } = await import("./upstream.js");
-const { readAppJsonAt, writeAppBytesAt, writeAppFile } = await import("./appFolder.js");
+const { findAppFileAt, readAppJsonAt, writeAppBytesAt, writeAppFile } = await import(
+  "./appFolder.js"
+);
 const { JMAP_SUBMISSION } = await import("./jmap.js");
 
 const app = createApp();
@@ -269,6 +275,108 @@ test("the lock reaches an open session, and ends none", async () => {
     (after.body?.gilbert as { identityLocked?: boolean } | undefined)?.identityLocked,
     false,
   );
+});
+
+/**
+ * The lock answered as a fact about the account, and as "unknown" when the
+ * account cannot be read.
+ *
+ * The two are different answers with different consequences — one tells an
+ * administrator the account is free to send as itself, the other tells them
+ * nothing has been read — and reading the second as the first is how an
+ * account that *is* taken over is shown as one that is not.
+ */
+test("an account this session can read answers the lock, both ways", async () => {
+  const free = await call(
+    `/api/admin/identities/user?address=${encodeURIComponent(BOB)}`,
+    adminCookie,
+  );
+  assert.equal(free.status, 200, JSON.stringify(free.body));
+  assert.equal(free.body?.impersonation, "ok");
+  assert.equal(free.body?.locked, false, "no lock file is an answer, not a gap");
+  assert.equal(
+    free.body?.lockUnknownReason,
+    null,
+    "and nothing is said to have stopped a read that happened",
+  );
+
+  const applied = await post("/api/admin/identities/user/lock", adminCookie, {
+    address: BOB,
+    locked: true,
+  });
+  assert.equal(applied.status, 200, JSON.stringify(applied.body));
+
+  const taken = await call(
+    `/api/admin/identities/user?address=${encodeURIComponent(BOB)}`,
+    adminCookie,
+  );
+  assert.equal(taken.body?.locked, true, "the file says so, and so does the read");
+  assert.equal(taken.body?.lockUnknownReason, null);
+
+  const off = await post("/api/admin/identities/user/lock", adminCookie, {
+    address: BOB,
+    locked: false,
+  });
+  assert.equal(off.status, 200, JSON.stringify(off.body));
+});
+
+test("an account this session cannot impersonate answers unknown, never false", async () => {
+  /*
+   * An app-password session is the way Stalwart refuses impersonation, which is
+   * exactly the state the lock file cannot be read from: the file is inside the
+   * account's own app folder (ADR 0015).
+   */
+  const created = await call("/api/account/app-passwords", adminCookie, {
+    method: "POST",
+    body: JSON.stringify({ description: "identity-lock-read", current: ADMIN_PASS }),
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const viaApp = await login(ADMIN, created.body?.secret as string);
+  assert.equal(viaApp.status, 200);
+
+  const read = await call(
+    `/api/admin/identities/user?address=${encodeURIComponent(BOB)}`,
+    viaApp.cookie,
+  );
+  assert.equal(read.status, 200, JSON.stringify(read.body));
+  assert.equal(read.body?.impersonation, "denied");
+  assert.equal(
+    read.body?.locked,
+    "unknown",
+    "not false: an unreadable lock file is not an unlocked account",
+  );
+  assert.equal(
+    read.body?.lockUnknownReason,
+    "impersonation_denied",
+    "and the reason is carried, not left for the reader to infer",
+  );
+});
+
+test("releasing a lock that was never taken writes nothing", async () => {
+  // BOB holds no lock file at this point: the release has nothing to remove, so
+  // it answers the state the account is in rather than failing -- which is what
+  // lets the surface offer Release to every account it can read.
+  const { file } = await findAppFileAt(bobCtx, BOB_ACCOUNT, "identity-lock.json");
+  assert.equal(file ?? null, null, "the test starts with no lock file to remove");
+
+  const released = await post("/api/admin/identities/user/lock", adminCookie, {
+    address: BOB,
+    locked: false,
+  });
+  assert.equal(released.status, 200, JSON.stringify(released.body));
+  assert.equal(released.body?.locked, false);
+
+  const after = await findAppFileAt(bobCtx, BOB_ACCOUNT, "identity-lock.json");
+  assert.equal(
+    after.file ?? null,
+    null,
+    "and a release with nothing to release creates no file either",
+  );
+  const read = await call(
+    `/api/admin/identities/user?address=${encodeURIComponent(BOB)}`,
+    adminCookie,
+  );
+  assert.equal(read.body?.locked, false, "the account is still free");
 });
 
 /* ------------------------------------------------------------------ */

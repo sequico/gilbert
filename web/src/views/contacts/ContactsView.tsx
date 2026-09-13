@@ -123,15 +123,30 @@ export function ContactsView({ id }: { id?: string }) {
   // selection -- a deep link or a search result can land on a shared card
   // while `sel.accountId` (and so `readOnly` above) still reads as the
   // reader's own book. Whether *this* card is theirs to write is its own
-  // question: it is theirs only when it is found among their own cards,
-  // never when it was only found by falling through to `sharedCards`.
+  // question: it is another account's when it is found among that account's
+  // cards, never when it was only found by falling through to `sharedCards`.
   const ownCard = id ? contacts.cards[id] : undefined;
   const selected =
     ownCard ??
     (id
       ? Object.entries(contacts.sharedCards).find(([key]) => key.endsWith(`:${id}`))?.[1]
       : undefined);
-  const selectedReadOnly = Boolean(selected) && !ownCard;
+  /*
+   * Whether the controls that write this card are withheld, which takes the
+   * store *knowing* the card is another account's -- not merely failing to find
+   * it among the reader's own.
+   *
+   * `cards` is empty until `loadAll` answers and is cleared the moment the
+   * account changes, so reading an absence there as "not yours" takes Edit and
+   * Delete away from the reader's own contact for as long as the load takes --
+   * and for good on an account whose cards never load -- with nothing on screen
+   * to say why. `loaded` is what separates the two: once the reader's own list
+   * is in, an id missing from it and present in `sharedCards` is another
+   * account's card, and that is a fact this surface can state and explain. Until
+   * then the right is unknown, so the controls stay and the write that follows
+   * is the server's to refuse, in its own words.
+   */
+  const selectedReadOnly = Boolean(selected) && !ownCard && contacts.loaded;
   const books = Object.values(contacts.books).sort(
     (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
   );
@@ -553,7 +568,11 @@ function ContactDetail({
   onEmail,
 }: {
   card: ContactCard;
-  /** A card only found among a shared book's cards: not this reader's to edit or delete. */
+  /**
+   * A card the store knows is another account's: the reader's own list is in,
+   * and this id is not in it. Editing and deleting it are that account's to
+   * allow.
+   */
   readOnly: boolean;
   onBack: () => void;
   onEdit: () => void;
@@ -637,6 +656,13 @@ function ContactDetail({
           </button>
         )}
       </div>
+      {readOnly && (
+        <p className="hint">
+          {translate(
+            "An address book another account shared with you holds this contact, so editing and deleting it are that account's to allow — neither is offered here.",
+          )}
+        </p>
+      )}
       <div className="contact-hero">
         <span
           className="avatar xl"

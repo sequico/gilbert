@@ -19,6 +19,20 @@ import type { Identity } from "@/jmap/types";
 /** Whether this session can act as another principal at all. */
 export type Impersonation = "ok" | "denied" | "unknown";
 
+/**
+ * Whether an account's identity has been taken over, or that the server could
+ * not read the record at all.
+ *
+ * `"unknown"` is the third answer, and it is not the same as "not enforced":
+ * the lock is a file in the locked account's own app folder, so a session that
+ * cannot impersonate the account cannot read it and must not claim the account
+ * is free. `IdentityLockUnknownReason` says what stopped the read.
+ */
+export type IdentityLockState = true | false | "unknown";
+
+/** Why a lock state comes back `"unknown"`: the read the account refused. */
+export type IdentityLockUnknownReason = "impersonation_denied";
+
 /** The identity fields an administrator writes; `id` and `mayDelete` are the server's. */
 export type AdminIdentityPatch = Partial<
   Pick<Identity, "name" | "email" | "replyTo" | "bcc" | "textSignature" | "htmlSignature">
@@ -54,7 +68,13 @@ export interface AdminGroupDirectory {
 /** A person's identities, and whether the installation has taken the account over. */
 export interface AdminUserIdentities {
   address: string;
-  locked: boolean;
+  /** `"unknown"` when the server could not read the account's own lock file. */
+  locked: IdentityLockState;
+  /**
+   * What stopped that read: null exactly when `locked` is `true` or `false`, and
+   * the reason when it is `"unknown"`.
+   */
+  lockUnknownReason: IdentityLockUnknownReason | null;
   impersonation: Impersonation;
   identities: Identity[];
   /** The identity that account sends from by default, or null when it has not

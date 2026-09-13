@@ -25,6 +25,7 @@ import {
   deleteUserIdentity,
   fetchAdminUserDirectory,
   fetchUserIdentities,
+  type IdentityLockState,
   type Impersonation,
   saveUserIdentity,
   setUserDefaultIdentity,
@@ -54,7 +55,12 @@ export function UserIdentities() {
   const [address, setAddress] = useState("");
   const [view, setView] = useState<AdminUserIdentities | null>(null);
   const [loading, setLoading] = useState(false);
-  const [locked, setLocked] = useState(false);
+  /*
+   * The lock as the account's own file answered it, and as this page last wrote
+   * it. `null` is nothing read yet; `"unknown"` is the server saying it could
+   * not read the file at all, which is a different answer from "not enforced".
+   */
+  const [locked, setLocked] = useState<IdentityLockState | null>(null);
   const [editing, setEditing] = useState<Partial<Identity> | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -293,12 +299,19 @@ export function UserIdentities() {
       {view && !denied && (
         <>
           {view.impersonation === "ok" && (
-            <p className="hint" style={{ color: ACTIVE }}>
-              {locked
+            <p
+              className="hint"
+              style={{ color: locked === "unknown" ? "var(--warn)" : ACTIVE }}
+            >
+              {locked === "unknown"
                 ? t(
-                    "Identity active — this account sends with what is set here, and is offered no Identities & signatures section of its own.",
+                    "Identity active — the account sends with what is set here. Whether it is also enforced is unknown, and the Enforce controls below say why.",
                   )
-                : t("Identity active — the account sends with what is set here.")}
+                : locked
+                  ? t(
+                      "Identity active — this account sends with what is set here, and is offered no Identities & signatures section of its own.",
+                    )
+                  : t("Identity active — the account sends with what is set here.")}
             </p>
           )}
           {view.impersonation !== "ok" && (
@@ -409,19 +422,30 @@ export function UserIdentities() {
               "An enforced account is offered no Identity & signatures section at all, and no signature of its own. The lock is a rule about this product's surface, not a boundary: Stalwart has no per-field permission on an identity, so a client that speaks JMAP directly can still write one.",
             )}
           </p>
+          {locked === "unknown" && (
+            <p className="hint" style={{ color: "var(--warn)" }}>
+              {view.lockUnknownReason === "impersonation_denied"
+                ? t(
+                    "Whether this account is enforced is unknown: Stalwart refused the impersonation that reads its lock, which is a file in the account's own folder. Enforce and Release stay off until it answers.",
+                  )
+                : t(
+                    "Whether this account is enforced is unknown: its lock could not be read. Enforce and Release stay off until it answers.",
+                  )}
+            </p>
+          )}
           <div
             style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}
           >
             <button
               className="btn btn-primary"
-              disabled={busy || !reachable || locked}
+              disabled={busy || !reachable || locked === true}
               onClick={() => void setLock(true)}
             >
-              {locked ? t("Enforced") : t("Enforce")}
+              {locked === true ? t("Enforced") : t("Enforce")}
             </button>
             <button
               className="btn"
-              disabled={busy || !reachable || !locked}
+              disabled={busy || !reachable || locked !== true}
               onClick={() => void setLock(false)}
             >
               {t("Release")}

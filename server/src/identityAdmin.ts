@@ -105,7 +105,32 @@ export interface IdentityPatch {
  */
 const IDENTITY_LOCK_FILE = "identity-lock.json";
 
-/** Whether this account is locked (ADR 0007 §4, ADR 0015): its own lock file. */
+/**
+ * Whether an account's identity is locked, or that this server cannot say.
+ *
+ * `true` and `false` are reads: the account's own file records a lock, or it
+ * does not. `"unknown"` is the third answer, for an account whose file no
+ * session here can open at all -- the lock lives inside the locked account's
+ * own app folder (ADR 0015), so a session that cannot impersonate that account
+ * cannot read that folder either. Answering `false` there tells an
+ * administrator that an account is free when it may be taken over, which is
+ * the one thing this surface must not guess. The reason travels with the state,
+ * as `IdentityLockUnknownReason`.
+ */
+export type IdentityLockState = true | false | "unknown";
+
+/** Why a lock state comes back `"unknown"`: the read the account refused. */
+export type IdentityLockUnknownReason = "impersonation_denied";
+
+/**
+ * Whether this account is locked (ADR 0007 §4, ADR 0015): its own lock file.
+ *
+ * Two answers, because the caller already holds the account: `false` is the
+ * file's own answer, its absence, or an account id that names nothing to read --
+ * all of them states where no lock is recorded. A caller that does *not* hold
+ * the account has no file to read and answers `"unknown"` itself rather than
+ * asking here.
+ */
 export async function identityLocked(ctx: Ctx, accountId: string): Promise<boolean> {
   if (!accountId) return false;
   const doc = await readAppJsonAt(ctx, accountId, IDENTITY_LOCK_FILE);
@@ -139,6 +164,11 @@ async function setIdentityLock(
     });
     return;
   }
+  /*
+   * No file is no lock, so releasing one that was never taken is a no-op rather
+   * than an error: a surface that offers Release to every account needs no
+   * separate check for whether there is anything there to release.
+   */
   const { folderId, file } = await findAppFileAt(ctx, accountId, IDENTITY_LOCK_FILE);
   if (!folderId || !file?.id) return;
   await destroyAppNode(ctx, accountId, String(file.id));
@@ -493,7 +523,18 @@ export async function writeDefaultIdentity(
 
 export interface PersonIdentitiesView {
   address: string;
-  locked: boolean;
+  /**
+   * Whether the installation has taken this account's identity over, and
+   * `"unknown"` when the session could not read the account's own lock file.
+   */
+  locked: IdentityLockState;
+  /**
+   * What stopped that read. Null exactly when `locked` is `true` or `false`,
+   * because nothing stopped it then; set when `locked` is `"unknown"`, so the
+   * reason travels with the state that needs it and no consumer has to infer
+   * it from the impersonation answer beside it.
+   */
+  lockUnknownReason: IdentityLockUnknownReason | null;
   impersonation: "ok" | "denied" | "unknown";
   identities: AdminIdentity[];
   /** The identity that account sends from by default, or null when it has not
@@ -506,7 +547,10 @@ export interface PersonIdentitiesView {
  *
  * An app-password session cannot impersonate at all, and that is a state the
  * surface shows rather than an error it hides: it answers `denied` and an empty
- * list, so nothing looks like an account with no identities.
+ * list, so nothing looks like an account with no identities. The lock is
+ * `"unknown"` on that answer for the same reason -- the file that records it is
+ * inside the account this session cannot reach, so "not enforced" is not
+ * something it may claim.
  */
 export async function personIdentities(
   admin: LiveSession,
@@ -519,10 +563,13 @@ export async function personIdentities(
       return {
         address: target,
         // The lock lives in the target's own account (ADR 0015): a session
-        // that cannot impersonate it cannot read that file either, so this
-        // is "unknown" rather than a verified "no" -- the same honesty the
-        // empty identity list beside it already carries.
-        locked: false,
+        // that cannot impersonate it cannot read that file either, so the
+        // state is "unknown" rather than a verified "no" -- the same honesty
+        // the empty identity list beside it already carries. Answering false
+        // here would show an administrator "not enforced" for an account that
+        // may well be taken over.
+        locked: "unknown",
+        lockUnknownReason: "impersonation_denied",
         impersonation: "denied",
         identities: [],
         defaultIdentityId: null,
@@ -543,6 +590,7 @@ export async function personIdentities(
   return {
     address: target,
     locked: await identityLocked(imp.ctx, accountId),
+    lockUnknownReason: null,
     impersonation: "ok",
     identities: await readIdentities(imp.ctx, accountId),
     defaultIdentityId: await readDefaultIdentity(imp.ctx, accountId),
