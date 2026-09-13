@@ -89,6 +89,11 @@ import {
 } from "./identityAdmin.js";
 import { imageProxyHandler } from "./imageproxy.js";
 import {
+  type InstallationRefused,
+  publishInstallation,
+  readInstallationForAdmin,
+} from "./installationAdmin.js";
+import {
   MAX_PUSH_BODY_BYTES,
   attach as pushAttach,
   attachRelay as pushAttachRelay,
@@ -2426,6 +2431,64 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       }
     },
   );
+
+  /**
+   * The installation's own document: the one the boot reads (`bootstrap.ts`,
+   * whose store and rules are `installation.ts` and `shared/installation.ts`).
+   *
+   * GET answers the text as the administrator's own `gilbert` app folder holds
+   * it, and whether there is one at all — including a document this build
+   * cannot read, which is the one a person has come here to repair. POST
+   * validates the text with the boot's own validator and writes it with the
+   * boot's own writer, so a publish cannot store a document this build would
+   * refuse to start from; text that is not one is refused before anything is
+   * written.
+   *
+   * The answer says when the document applies, because it is not now: the
+   * running process keeps the configuration it booted with and the next boot
+   * reads what was just written. Nothing is reloaded and no session is kicked
+   * — nothing about the running process changed.
+   */
+  const installationCtx = async (session: LiveSession): Promise<Ctx> => {
+    const upstream = await getUpstreamSession(
+      session.id,
+      session.authorization,
+      upstreamFor(session.username),
+    );
+    return {
+      authorization: session.authorization,
+      session: upstream,
+      username: session.username,
+    };
+  };
+  const installationRefusal = (c: Context, refused: InstallationRefused) =>
+    c.json({ error: refused.error, message: refused.message }, refused.status);
+
+  api.get("/admin/installation", requireSession, requireAdmin, async (c) => {
+    try {
+      const result = await readInstallationForAdmin(
+        await installationCtx(c.get("session")),
+      );
+      if ("refused" in result) return installationRefusal(c, result.refused);
+      return c.json({ installation: result.view });
+    } catch (err) {
+      return upstreamFailure(c, err);
+    }
+  });
+
+  api.post("/admin/installation", requireSession, requireAdmin, async (c) => {
+    const raw = await c.req.text();
+    try {
+      const result = await publishInstallation(
+        await installationCtx(c.get("session")),
+        raw,
+      );
+      if ("refused" in result) return installationRefusal(c, result.refused);
+      return c.json({ outcome: result.published });
+    } catch (err) {
+      return upstreamFailure(c, err);
+    }
+  });
 
   // ---------- JMAP API proxy ----------
   api.post("/jmap", requireSession, apiRateLimited, async (c) => {

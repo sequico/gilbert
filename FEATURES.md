@@ -418,6 +418,28 @@ an environment variable, so it survives a redeploy and needs no volume
 even under `IMMUTABLE=1` (ADR 0001). It applies at once and signs the
 other signed-in clients out so their next sign-in reads it (`GET`/`POST
 /api/admin/policy`, `GET /api/account/policy`; ADR 0001).
+- **Installation document editor**: the Installation section beside Policy
+shows the installation's own configuration — one JSON document in the
+account's own `gilbert` app folder, which is what the boot reads, whole,
+after signing in as the Master — and publishes it. The read answers the
+text as the account holds it, including a document this build cannot
+read, and whether there is one at all; publishing validates with the
+boot's own validator and refuses anything that is not a document, with
+the reason, before a byte is written: a document with no app secret is
+refused too, because a boot cannot invent one and every stored session is
+sealed with it. A publish writes into the publishing administrator's own
+app folder through the same writer the boot reads with (the epoch moves
+on; nothing here reloads the process), and the answer says when it
+applies — the running process keeps the configuration it booted with, and
+the next boot reads what was just written — and which account's document
+that is: the account the installation signs in as (the Master,
+`GILBERT_AGENT_ADDRESS`) is the one a boot reads, and a publish made
+from any other administrator is stated as landing in their own account
+rather than left to read as a change to the installation. The three
+values that reach Stalwart (`STALWART_URL` and the Master's own
+credential) are not in the document: they are what reads it
+(`GET`/`POST /api/admin/installation`; `server/src/installationAdmin.ts`,
+`server/src/shared/installation.ts`).
 - **Forced password change**: an administrator can require a user to change
 their password (ADR 0001). The directive lives as a file in the target
 user's own hidden `gilbert` app folder; the server door answers 403 on
@@ -501,8 +523,9 @@ and in the client alike. A share is never administered or served as a group.
   identity, a new automation — has no earlier copy to measure against, and asks
   instead whether there is enough to create.
 - **Nav grouping**: the administration sections are grouped by owner —
-Gilbert Mailer (policy, forced passwords, group label catalogs), Gilbert
-Assistant (the agent fleet and what it does per group), server configuration
+Gilbert Mailer (policy, the installation document, forced passwords, group
+label catalogs), Gilbert Assistant (the agent fleet and what it does per
+group), server configuration
 under “Stalwart” (**Enforce Identities**, one section with a tab per kind of
 principal, and a future Sieve editor with its peers), and About ungrouped at
 the tail.

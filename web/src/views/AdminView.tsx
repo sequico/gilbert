@@ -3,6 +3,7 @@ import {
   Bot,
   Info,
   KeyRound,
+  ServerCog,
   ShieldCheck,
   Tag,
   UserCog,
@@ -14,6 +15,7 @@ import { useAgents } from "@/store/agents";
 import { type SectionGroup, type SectionItem, SectionShell } from "@/ui/SectionShell";
 import { AdminAgents } from "@/views/admin/AdminAgents";
 import { AdminApprovals } from "@/views/admin/AdminApprovals";
+import { AdminInstallation } from "@/views/admin/AdminInstallation";
 import { AdminPolicy } from "@/views/admin/AdminPolicy";
 import { AdminUsers } from "@/views/admin/AdminUsers";
 import { EnforceIdentities } from "@/views/admin/EnforceIdentities";
@@ -27,9 +29,11 @@ type AdminSection = SectionItem & { el: ReactNode; owner: AdminOwner };
 /**
  * The administration's groups, and what each one is for.
  *
- * "Gilbert Mailer" is the mail server's own administration — policy, the group
- * label catalogs, forced password changes — the surfaces ADR 0001/0005 cover,
- * which stand without an agent. "Assistant" is everything ADR 0003 covers,
+ * "Gilbert Mailer" is the mail server's own administration — policy, the
+ * installation's own document (ADR 0003's Master, configured once), the group
+ * label catalogs, forced password changes — the surfaces ADR 0001/0003/0005
+ * cover, which stand without an agent. "Assistant" is everything ADR 0003
+ * covers,
  * restructured by ADR 0003 into three sections: **Master** (the installation,
  * configured once), **Group Agents** (one group's automations, standing
  * instruction, memory, audit and fleet, behind a single picker) and
@@ -47,6 +51,13 @@ function sections(pendingApprovals: number): AdminSection[] {
       label: "Policy",
       icon: <ShieldCheck size={18} />,
       el: <AdminPolicy />,
+      owner: "mailer",
+    },
+    {
+      id: "installation",
+      label: t("Installation"),
+      icon: <ServerCog size={18} />,
+      el: <AdminInstallation />,
       owner: "mailer",
     },
     {
@@ -124,9 +135,10 @@ function sections(pendingApprovals: number): AdminSection[] {
  * admin (ADR 0001). It shares the settings layout — `SectionShell` is the one
  * copy both surfaces render through — so the shield icon in the top bar and
  * these sections stay consistent. The nav groups the surfaces by owner:
- * "Gilbert Mailer" for the mail server's own administration (policy, forced
- * passwords, group label catalogs), "Gilbert Assistant" for the agent fleet
- * (ADR 0003) — Master, Group Agents and Approvals — and "Stalwart"
+ * "Gilbert Mailer" for the mail server's own administration (policy, the
+ * installation document, forced passwords, group label catalogs), "Gilbert
+ * Assistant" for the agent fleet (ADR 0003) — Master, Group Agents and
+ * Approvals — and "Stalwart"
  * for the mail server's own records — the identities an administrator sets, as
  * one section with a tab per kind of principal (ADR 0007), and, in time, its
  * system Sieve scripts (ADR 0008) — with About ungrouped at the tail.
