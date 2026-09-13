@@ -4,7 +4,7 @@ import { client } from "@/jmap/client";
 import { push } from "@/jmap/push";
 import type { Id } from "@/jmap/types";
 import { ensureFolder, findInFolder } from "@/lib/appFolder";
-import { groupMailboxAccounts } from "@/lib/mailAccounts";
+import { isGroupMailboxAccount } from "@/lib/mailAccounts";
 import type { Label } from "@/store/settings";
 import { useMail } from "./mail";
 
@@ -38,10 +38,11 @@ export const useGroupLabels = create<GroupLabelsState>((set, get) => ({
   byAccount: {},
   loading: {},
   load: async (accountId) => {
-    // A group mailbox is one the mail store's probe answered with a folder
-    // tree; an account that only shared a calendar or a book is not a group,
-    // and `readGroupLabels` writes folders into whatever account it is given.
-    if (!isProbedGroupMailbox(accountId)) return;
+    // Reading a catalog reaches `ensureFolder`, which creates the `gilbert`
+    // app folder in whatever account it is handed, so the account has to be a
+    // group mailbox and not merely somebody else's: one classifier, the mail
+    // store's probe (`isGroupMailboxAccount`).
+    if (!isGroupMailboxAccount(accountId, useMail.getState().mailAccounts)) return;
     if (get().loading[accountId]) return;
     set((s) => ({ loading: { ...s.loading, [accountId]: true } }));
     const labels = await readGroupLabels(accountId);
@@ -81,25 +82,17 @@ async function readGroupLabels(accountId: Id): Promise<Label[] | null> {
 }
 
 /**
- * Whether this is a group mailbox, by the one classifier: an account the mail
- * store's probe answered `Mailbox/get` with a folder tree (`kind: "group"`).
- * The mail probe and nothing wider -- session capabilities say every listed
- * account is a mailbox, and "any account that is not mine" counts a
- * calendar-only share as a group.
- */
-function isProbedGroupMailbox(accountId: Id | null): boolean {
-  if (!accountId) return false;
-  return groupMailboxAccounts(useMail.getState().mailAccounts).some(
-    (a) => a.accountId === accountId,
-  );
-}
-
-/**
  * The labels for an account as the mail UI must see them: a group mailbox's
  * own catalog, or the reader's personal labels for their own mailbox.
+ *
+ * The question goes to the one classifier rather than to a local "is this
+ * account not mine": that wider test counts a calendar or files share as a
+ * group, so this answer and the one the surfaces render -- `useEffectiveLabels`
+ * -- could differ.
  */
 export function labelsForAccount(accountId: Id | null, personal: Label[]): Label[] {
-  if (!isProbedGroupMailbox(accountId) || !accountId) return personal;
+  if (!accountId || !isGroupMailboxAccount(accountId, useMail.getState().mailAccounts))
+    return personal;
   return useGroupLabels.getState().byAccount[accountId] ?? [];
 }
 

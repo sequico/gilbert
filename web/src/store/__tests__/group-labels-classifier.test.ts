@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { client } from "@/jmap/client";
-import type { MailAccountInfo } from "@/lib/mailAccounts";
+import { isGroupMailboxAccount, type MailAccountInfo } from "@/lib/mailAccounts";
 import { labelsForAccount, useGroupLabels } from "@/store/groupLabels";
 import { useMail } from "@/store/mail";
 import type { Label } from "@/store/settings";
@@ -61,6 +61,20 @@ describe("labelsForAccount", () => {
 
   it("gives the reader's own mailbox their personal labels", () => {
     expect(labelsForAccount("own", PERSONAL)).toEqual(PERSONAL);
+  });
+});
+
+describe("the one classifier", () => {
+  it("is false for no account, and for an account the probe did not answer for", () => {
+    // "Not mine" is not the question: an account that only shares a calendar
+    // or a book is not a group, and reading one creates an app folder in it.
+    expect(isGroupMailboxAccount(null, [OWN, GROUP])).toBe(false);
+    expect(isGroupMailboxAccount("shared", [OWN])).toBe(false);
+  });
+
+  it("is true only for an account the probe listed as a group", () => {
+    expect(isGroupMailboxAccount("gg", [OWN, GROUP])).toBe(true);
+    expect(isGroupMailboxAccount("own", [OWN, GROUP])).toBe(false);
   });
 });
 
