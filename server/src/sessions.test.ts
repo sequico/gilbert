@@ -359,3 +359,94 @@ test("a document that cannot be read is not overwritten by an empty store", asyn
   assert.ok(after.resolve(cookie), "the session that was there is still there");
   await after.close();
 });
+
+/*
+ * Activity is a fact about a process, and the document is written for reasons
+ * of its own.
+ *
+ * The account that holds this document pays for every write and never gets the
+ * blob back, so a write caused by the clock — one a minute, while anybody is
+ * signed in — spends its quota in a day. The extension of a session's window
+ * therefore rides along with the next write that had a reason, and a session
+ * used for hours costs nothing.
+ */
+test("a session used for hours buys no write: activity is not durable state", async () => {
+  let writes = 0;
+  let text: string | null = null;
+  const io = {
+    read: async (): Promise<unknown | null> => (text === null ? null : JSON.parse(text)),
+    write: async (value: unknown): Promise<void> => {
+      writes += 1;
+      text = JSON.stringify(value);
+    },
+  };
+  const realNow = Date.now;
+  let clock = realNow();
+  Date.now = () => clock;
+  try {
+    const store = new SessionStore(io, TTLS, () => {});
+    await store.init();
+    const { cookie } = store.create(params("ada@example.org"));
+    await store.close();
+    const afterSignIn = writes;
+    assert.equal(afterSignIn, 1, "the sign-in itself is written once");
+
+    // Four hours of use, a resolve a minute: every one of them bumps the
+    // session's own window.
+    for (let minute = 1; minute <= 240; minute += 1) {
+      clock += 60_000;
+      assert.ok(store.resolve(cookie), `the session still resolves at minute ${minute}`);
+    }
+    await store.close();
+    assert.equal(
+      writes,
+      afterSignIn,
+      "four hours of activity bought no blob: nothing wrote on a clock",
+    );
+    const kept = (JSON.parse(text!) as { sessions: Array<{ expiresAt: number }> })
+      .sessions;
+    assert.equal(kept.length, 1, "and the session is still the one the document holds");
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test("a write that has a reason carries the window the activity gave it", async () => {
+  let text: string | null = null;
+  const io = {
+    read: async (): Promise<unknown | null> => (text === null ? null : JSON.parse(text)),
+    write: async (value: unknown): Promise<void> => {
+      text = JSON.stringify(value);
+    },
+  };
+  const realNow = Date.now;
+  let clock = realNow();
+  Date.now = () => clock;
+  try {
+    const store = new SessionStore(io, TTLS, () => {});
+    await store.init();
+    const first = store.create(params("ada@example.org"));
+    await store.close();
+    const writtenAtSignIn = (
+      JSON.parse(text!) as { sessions: Array<{ expiresAt: number }> }
+    ).sessions[0]!.expiresAt;
+
+    clock += 600_000; // ten minutes of use, unpersisted
+    assert.ok(store.resolve(first.cookie));
+
+    // A second sign-in: a write with a reason of its own.
+    store.create(params("bob@example.org"));
+    await store.close();
+    const stored = (
+      JSON.parse(text!) as { sessions: Array<{ username: string; expiresAt: number }> }
+    ).sessions;
+    const ada = stored.find((one) => one.username === "ada@example.org");
+    assert.ok(ada, "the first session is still there");
+    assert.ok(
+      ada!.expiresAt > writtenAtSignIn,
+      "and the window the activity extended rode along with that write",
+    );
+  } finally {
+    Date.now = realNow;
+  }
+});

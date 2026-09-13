@@ -580,13 +580,29 @@ export class SessionStore implements SessionBackend {
     } catch {
       return null;
     }
-    // Sliding expiry: bump every few minutes, not on every request.
+    /*
+     * Sliding expiry, held where the activity is.
+     *
+     * `lastSeenAt` is a fact about a process — somebody is using this session
+     * now — and it moves for as long as the process lives; `expiresAt` is a
+     * fact about the session and is what the document keeps. The extension is
+     * therefore bumped here and **not** written here: the document already
+     * carries every live session's current window whenever it is written for a
+     * reason of its own (a sign-in, a reseal, a sign-out), so the extension
+     * rides along with that write instead of buying one of its own.
+     *
+     * A write caused by the clock is what an account pays for and never gets
+     * back — a blob a minute, while anybody is signed in, is the quota of the
+     * account that holds this document gone in a day. The trade this makes:
+     * after a restart, a session's window is the one last written rather than
+     * the one last used, so a session idle longer than that window ends, which
+     * is the safe direction for an idle timeout to err.
+     */
     if (now - stored.lastSeenAt > 60_000) {
       stored.lastSeenAt = now;
       const ttl =
         (stored.remember ? this.ttls.rememberTtlSeconds : this.ttls.ttlSeconds) * 1000;
       stored.expiresAt = now + ttl;
-      this.scheduleSave();
     }
     return this.toLive(stored, creds.u, creds.p);
   }

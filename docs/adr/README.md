@@ -69,3 +69,10 @@ is, not what a user sees.
   impersonation door; the environment carries only the handshake, the
   container's and the image's own facts, the operator's own switch, and the
   facts about the process itself. A publish applies from the next boot.
+- **0018 — A durable write is caused by a change, not by a clock.** Stalwart
+  charges an account for every blob it uploads and never gives one back, so a
+  write on a clock — a heartbeat, a renewed lease, a session's activity stamp —
+  spends a finite budget saying that a process is alive. Liveness and activity
+  are process facts (ADR 0003's claims, the sessions store), a write that would
+  store what is already there is not made, and an idle installation therefore
+  costs nothing.
