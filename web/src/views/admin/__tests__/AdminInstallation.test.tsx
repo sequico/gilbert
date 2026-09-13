@@ -7,9 +7,10 @@ import { AdminInstallation } from "../AdminInstallation";
 
 /**
  * The installation's own document as an administrator reads and publishes it
- * (ADR 0003): what the account holds, what a boot would refuse, and — the part
- * that is the whole point of the surface — that a publish says when it applies
- * rather than reporting a save as though the running process had changed.
+ * (ADR 0003): what the Master's account holds, what a boot would refuse, that a
+ * publish says when it applies rather than reporting a save as though the
+ * running process had changed, and that a refusal — a deployment that names no
+ * Master included — is what the screen shows.
  *
  * The two answers the server gives are stubbed here, in its own shape
  * (`InstallationView`, `InstallationPublished`): the route itself is exercised
@@ -18,6 +19,7 @@ import { AdminInstallation } from "../AdminInstallation";
  */
 
 const LOCATION = "gilbert/installation.json in account a1";
+const MASTER = "gilbert@example.com";
 const DOCUMENT = JSON.stringify({ branding: { appName: "Gilbert" } }, null, 2);
 
 describe("the installation document surface", () => {
@@ -109,8 +111,7 @@ describe("the installation document surface", () => {
             document: DOCUMENT,
             problem,
             account: "a1",
-            master: null,
-            bootsFrom: "unknown",
+            master: MASTER,
             location: LOCATION,
           },
         }),
@@ -138,8 +139,7 @@ describe("the installation document surface", () => {
             document: null,
             problem: null,
             account: "a1",
-            master: null,
-            bootsFrom: "unknown",
+            master: MASTER,
             location: LOCATION,
           },
         }),
@@ -160,8 +160,7 @@ describe("the installation document surface", () => {
   it("publishes the text it holds and reports what applies when", async () => {
     const published = {
       account: "a1",
-      master: null,
-      bootsFrom: "unknown",
+      master: MASTER,
       location: LOCATION,
       document: DOCUMENT,
       epoch: 2,
@@ -206,34 +205,27 @@ describe("the installation document surface", () => {
     expect(button("Publish document").disabled).toBe(true);
   });
 
-  it("says so when the installation's boot reads another account's document", async () => {
+  it("shows the server's refusal when this deployment names no Master", async () => {
     /*
-     * The case the answer exists not to leave silent: the document is real and
-     * stored, and the installation's next boot signs in as the Master and
-     * reads that account's own copy instead.
+     * The read itself is refused there: a deployment with no Master has no
+     * account whose own document a boot reads, so there is nothing for this
+     * surface to read or publish and the screen says so rather than offering
+     * an editor over somebody else's Files.
      */
+    const refusal =
+      "This deployment names no Master (GILBERT_AGENT_ADDRESS), so there is no account whose own app " +
+      "folder a boot reads the installation's document from, and nothing for this surface to read or " +
+      "publish.";
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        answer({
-          installation: {
-            present: true,
-            document: DOCUMENT,
-            problem: null,
-            account: "a1",
-            master: "gilbert@example.com",
-            bootsFrom: "no",
-            location: LOCATION,
-          },
-        }),
-      ),
+      vi.fn(async () => answer({ error: "no_master", message: refusal }, 409)),
     );
 
     await render();
 
     const text = host.textContent ?? "";
-    expect(text).toContain("gilbert@example.com");
-    expect(text).toContain("does not change what the installation boots from");
+    expect(text).toContain(refusal);
+    expect(host.querySelector("textarea")).toBeNull();
   });
 
   it("shows a refusal as the server stated it and keeps the text", async () => {

@@ -311,7 +311,27 @@ const COOKIE_SEP = ".";
 
 export class SessionStore implements SessionBackend {
   private sessions = new Map<string, StoredSession>();
+  /**
+   * Whether what is in memory differs from what the document holds.
+   *
+   * Cleared only by a write that succeeded (see `flushOnce`): a write that
+   * failed leaves the change marked, which is what makes the next flush a retry
+   * rather than a fresh start from a store that believes it has nothing to do.
+   */
   private dirty = false;
+  /**
+   * Which change the memory is at, counted by `scheduleSave`.
+   *
+   * The flag above says *that* something is unwritten; this says *which*
+   * something, and it is what a flush compares against to know whether the
+   * write it just made covered everything the process had when it started. A
+   * change that arrives while a write is in flight moves this on, and the flag
+   * alone would then be cleared by that write's completion — the change would
+   * sit in memory, marked written, and end at the next restart.
+   */
+  private revision = 0;
+  /** The write in flight, so two flushes are two writes in order and never two at once. */
+  private writing: Promise<void> = Promise.resolve();
   private saveTimer: NodeJS.Timeout | null = null;
   private sweepTimer: NodeJS.Timeout | null = null;
   /**
@@ -402,6 +422,12 @@ export class SessionStore implements SessionBackend {
 
   private scheduleSave(): void {
     this.dirty = true;
+    this.revision += 1;
+    this.armSaveTimer();
+  }
+
+  /** One debounced write, whether it is the first or a retry of one that failed. */
+  private armSaveTimer(): void {
     if (!this.document || this.saveTimer) return;
     this.saveTimer = setTimeout(() => {
       this.saveTimer = null;
@@ -410,38 +436,87 @@ export class SessionStore implements SessionBackend {
     this.saveTimer.unref();
   }
 
-  private async flush(): Promise<void> {
-    const document = this.document;
-    if (!document || !this.dirty) return;
-    if (this.unreadable) {
+  /**
+   * Write what is in memory into the document, one flush at a time.
+   *
+   * `flush` can be reached from the debounce timer, from `close` and from a
+   * retry, and two writes overlapping over one document would each believe they
+   * had stored what the process holds. Chaining them is what makes "the next
+   * flush" a real order rather than a hope: the second one runs after the
+   * first, sees whatever the first left marked, and writes it.
+   */
+  private flush(): Promise<void> {
+    this.writing = this.writing
+      .then(() => this.flushOnce())
       /*
-       * A store that could not read its document holds nothing, and a write
-       * from that state would replace every session in it with the ones this
-       * process happens to hold — everyone else signed out by one transient
-       * read failure at boot. So the write asks the document again first, and
-       * only a document that answers is written to.
+       * The belt to `flushOnce`'s braces: it answers a failed *write* itself,
+       * and anything else it could throw would leave a rejected promise here
+       * that every later flush is queued behind — a store that never writes
+       * again, and nothing saying why.
        */
-      await this.load();
+      .catch((err: unknown) =>
+        console.warn("[gilbert] session flush failed:", (err as Error).message),
+      );
+    return this.writing;
+  }
+
+  /**
+   * One flush: write until what is in memory is what the document holds.
+   *
+   * The flag is cleared **after** a successful write and never before it. A
+   * write that failed — the account briefly unreachable, a credential refused —
+   * leaves the change marked and re-arms the timer, so a session created,
+   * resealed or destroyed in that window is stored by the next attempt instead
+   * of ending in silence. And the write is compared against the revision it
+   * started from: a change that arrived while it was in flight is *not* covered
+   * by that write, so this flush loops and writes again rather than clearing
+   * the flag over a change it never stored.
+   */
+  private async flushOnce(): Promise<void> {
+    const document = this.document;
+    if (!document) return;
+    while (this.dirty) {
       if (this.unreadable) {
-        this.dirty = false;
+        /*
+         * A store that could not read its document holds nothing, and a write
+         * from that state would replace every session in it with the ones this
+         * process happens to hold — everyone else signed out by one transient
+         * read failure at boot. So the write asks the document again first, and
+         * only a document that answers is written to.
+         */
+        await this.load();
+        if (this.unreadable) {
+          // The one case where a change is dropped on purpose, and said so:
+          // there is no document to write it into that would not end every
+          // session in it.
+          this.dirty = false;
+          console.warn(
+            `[gilbert] not writing ${SESSION_DOCUMENT_NAME}: it could not be read, and a write from an empty store would end every session in it`,
+          );
+          return;
+        }
+      }
+      const startedAt = this.revision;
+      try {
+        const value: SessionDocumentValue = {
+          version: SESSION_DOCUMENT_VERSION,
+          sessions: [...this.sessions.values()],
+        };
+        await document.write(value);
+      } catch (err) {
         console.warn(
-          `[gilbert] not writing ${SESSION_DOCUMENT_NAME}: it could not be read, and a write from an empty store would end every session in it`,
+          `[gilbert] could not persist sessions to ${SESSION_DOCUMENT_NAME}:`,
+          (err as Error).message,
         );
+        // Still dirty — the change is not lost — and something has to come back
+        // for it, since this attempt is over.
+        this.armSaveTimer();
         return;
       }
-    }
-    this.dirty = false;
-    try {
-      const value: SessionDocumentValue = {
-        version: SESSION_DOCUMENT_VERSION,
-        sessions: [...this.sessions.values()],
-      };
-      await document.write(value);
-    } catch (err) {
-      console.warn(
-        `[gilbert] could not persist sessions to ${SESSION_DOCUMENT_NAME}:`,
-        (err as Error).message,
-      );
+      if (this.revision === startedAt) {
+        this.dirty = false;
+        return;
+      }
     }
   }
 

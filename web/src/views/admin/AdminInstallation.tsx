@@ -4,33 +4,25 @@ import { apiFetch } from "@/jmap/client";
 import { t, tNode } from "@/lib/i18n";
 
 /**
- * The installation's own document, as this account holds it.
+ * The installation's own document, as the Master's account holds it.
  *
  * `present` is the question "is there one at all" answered on its own, and
  * `problem` is why a boot would refuse what is there — the server judges that
  * with the reader the boot itself uses, so the surface says what a restart
- * would do rather than guessing.
+ * would do rather than guessing. There is no field asking whether this is the
+ * account a boot reads: the server answers this route only for that account,
+ * and refuses the read outright when this deployment names no Master.
  */
 interface InstallationView {
   present: boolean;
   document: string | null;
   problem: string | null;
+  /** The Files account whose app folder holds it — the Master's own. */
   account: string;
-  /** The Master's own address — the account a boot signs in as — or null when this deployment named none. */
-  master: string | null;
-  /** Whether the account on screen is that Master's, whose own document a boot reads. */
-  bootsFrom: BootsFrom;
+  /** The address that account belongs to: the Master the installation signs in as. */
+  master: string;
   location: string;
 }
-
-/**
- * Whether the account on screen is the one the installation's boot reads.
- *
- * `"no"` is the case the surface exists to not lie about: the document is real
- * and stored, and the installation's next boot reads the Master's own copy
- * instead, so the reader is told which account that is.
- */
-type BootsFrom = "yes" | "no" | "unknown";
 
 /**
  * What a publish wrote, and when it applies.
@@ -42,10 +34,8 @@ type BootsFrom = "yes" | "no" | "unknown";
  */
 interface Published {
   account: string;
-  /** The Master's own address — the account a boot signs in as — or null when this deployment named none. */
-  master: string | null;
-  /** Whether the account just written to is that Master's, whose own document a boot reads. */
-  bootsFrom: BootsFrom;
+  /** The address of the account just written to: the Master the installation signs in as. */
+  master: string;
   location: string;
   /** The document as it is now stored: byte for byte what a read returns. */
   document: string;
@@ -159,7 +149,6 @@ export function AdminInstallation() {
               problem: null,
               account: res.outcome.account,
               master: res.outcome.master,
-              bootsFrom: res.outcome.bootsFrom,
               location: res.outcome.location,
             }
           : current,
@@ -196,14 +185,14 @@ export function AdminInstallation() {
       <h1>{t("Installation document")}</h1>
       <p className="lead">
         {t(
-          "The configuration this installation runs on: one JSON document in this account's own Files. The server reads it once, at boot — so what you publish here is what the next boot runs on, and the process running now keeps what it booted with.",
+          "The configuration this installation runs on: one JSON document in the Master's own Files — the account this installation signs in as, which the server reads once at boot. What you publish here is what the next boot runs on, and the process running now keeps what it booted with.",
         )}
       </p>
       {view && <p className="hint">{t("Stored at {where}", { where: view.location })}</p>}
       {seeded && (
         <p className="hint">
           {t(
-            "This account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.",
+            "The installation's own account holds no document yet, so the editor starts from the installation's defaults and a freshly generated app secret. Publish it as it stands, or edit it first.",
           )}
         </p>
       )}
@@ -212,14 +201,6 @@ export function AdminInstallation() {
           {t("A boot would refuse the stored document: {reason}", {
             reason: view.problem,
           })}
-        </div>
-      )}
-      {view?.bootsFrom === "no" && (
-        <div className="error-box">
-          {t(
-            "This installation's boot signs in as the Master, {master}, and reads that account's own document: what is edited here is this account's copy, and publishing it does not change what the installation boots from.",
-            { master: view.master ?? "" },
-          )}
         </div>
       )}
       <p className="hint">
@@ -251,10 +232,7 @@ export function AdminInstallation() {
       </div>
       {notice && (
         <div className="hint" style={{ marginTop: 12 }}>
-          {notice.bootsFrom !== "no" && (
-            <strong>{t("Takes effect at the next boot.")}</strong>
-          )}{" "}
-          {notice.message}
+          <strong>{t("Takes effect at the next boot.")}</strong> {notice.message}
         </div>
       )}
       {error && (

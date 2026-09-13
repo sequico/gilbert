@@ -4,24 +4,27 @@
  *
  * `bootstrap.ts` reads the document once, at boot, and hands it to `config.ts`;
  * this module is the administrator's door onto the same file. It signs in as
- * nothing — the caller's `Ctx` arrives as an argument, the way every other
- * store here takes one — and it serves nothing: each function returns a result
- * and `app.ts` owns the HTTP shape. The document's rules stay where they
- * already are: validation is `shared/installation.ts`'s validator (the boot's
- * own) and the write is `installation.ts`'s `writeInstallation`, so a publish
- * cannot produce a document this build would refuse to boot from.
+ * nothing — the `Ctx` arrives as an argument — but the context it is handed
+ * **is the Master's**: `app.ts` reaches that account by the same impersonation
+ * the policy publish uses (`impersonateAs`), so what is read and written here
+ * is the document the next boot of this installation runs on, whoever is doing
+ * the administering. A deployment that names no Master has no such account,
+ * and `app.ts` refuses the door as a value rather than opening it onto somebody
+ * else's Files. It serves nothing: each function returns a result and `app.ts`
+ * owns the HTTP shape. The document's rules stay where they already are:
+ * validation is `shared/installation.ts`'s validator (the boot's own) and the
+ * write is `installation.ts`'s `writeInstallation`, so a publish cannot produce
+ * a document this build would refuse to boot from.
  *
  * Two facts every answer carries, because they are the ones an administrator
  * would otherwise have to guess:
  *
- * - **Where** it lives. `filesAccountId` is the account the caller's own
- *   session holds — the account the client's documents live in — so the
- *   document is read from and written to the administrator's own `gilbert` app
- *   folder. For the session that signs in as the Master (ADR 0003), which is
- *   the account the boot reads, that is exactly the document the installation
- *   runs on; an administrator who is not that account is publishing into their
- *   own Files, and every answer names the account it acted on rather than
- *   implying more.
+ * - **Where** it lives. `account` is the Files account the document was read
+ *   from or written to, `master` is the address that account belongs to — the
+ *   one the installation signs in as at boot (ADR 0003) — and `location` says
+ *   it in words. There is no longer a case in which this is *not* the
+ *   installation's own document: a deployment with no Master to read from is
+ *   refused before anything is read or written.
  * - **When** a publish applies. Nothing here reloads `config.ts`: the running
  *   process keeps the configuration it booted with, and the next boot reads
  *   what was just written. That is said in words rather than reported as a
@@ -29,13 +32,21 @@
  *   claims and only the second is what an administrator is being asked to
  *   believe.
  *
+ * The write is conditional in two directions, and neither of them trusts the
+ * text that was submitted. It carries the state the account states **after**
+ * its app folder is known to exist — creating that folder is itself a write,
+ * and a token read before it would make this publish lose a race with its own
+ * folder creation — so a document that moved is refused with its own code and
+ * the stored document is left exactly as it was. And the epoch it writes from
+ * is the *stored* document's, so a save made from a stale editor cannot move
+ * the stored epoch backwards.
+ *
  * A refusal is a value, never a throw: the one refusal this module can meet
  * before it reaches Stalwart — an account with no Files to hold the document —
  * is a fact about the account, and a surface that answered a 500 for it would
  * report a bug where there is an installation nobody can administer yet.
  */
-import { type Ctx, filesAccountId, readAppFileAt } from "./appFolder.js";
-import { agentAddress } from "./config.js";
+import { type Ctx, ensureAppFolder, filesAccountId, readAppFileAt } from "./appFolder.js";
 import {
   appFolderInstallationStore,
   InstallationError,
@@ -43,9 +54,10 @@ import {
   installationLocation,
   writeInstallation,
 } from "./installation.js";
-import { normalizeUsername } from "./sessions.js";
+import { isStateMismatch } from "./jmap.js";
 import { appDocumentJson } from "./shared/appDocument.js";
 import {
+  INSTALLATION_EPOCH_START,
   INSTALLATION_FILE,
   type InstallationDocument,
   isUsableAppSecret,
@@ -53,33 +65,16 @@ import {
 } from "./shared/installation.js";
 
 /**
- * Whether the account an answer is about is the one the installation's boot
- * reads its document from.
- *
- * `GILBERT_AGENT_ADDRESS` names the Master — the account `bootstrap.ts` signs
- * in as, and the one whose `gilbert` app folder the document is read from — and
- * `config.agent.address` is that same value in a process that booted. An
- * administrator whose session is not that account is still publishing a real
- * document, into a real account; what the answer must not do is let them
- * believe the installation boots from it. A deployment that named no Master at
- * all (a test, a tool, a process that never booted) has no answer, which is
- * `"unknown"` rather than a `"no"` — the same reason `bootstrap.ts` refuses to
- * start without the handshake.
- */
-export type BootsFrom = "yes" | "no" | "unknown";
-
-export function bootDocumentAccount(address: string, master = agentAddress()): BootsFrom {
-  const named = normalizeUsername(master);
-  if (!named) return "unknown";
-  return normalizeUsername(address) === named ? "yes" : "no";
-}
-
-/**
  * A refusal, as the route answers it: a status, a machine-readable code and a
  * message meant for the administrator.
+ *
+ * The statuses are the ones this surface can answer with: a document that is
+ * not one (400), an account this session may not act as (403, 404), a
+ * deployment with no Master to read from or an account with nowhere to keep the
+ * document (409), and Stalwart refusing to read or write (502).
  */
 export interface InstallationRefused {
-  status: 400 | 409 | 502;
+  status: 400 | 403 | 404 | 409 | 502;
   error: string;
   message: string;
 }
@@ -107,24 +102,20 @@ export interface InstallationView {
    * exists.
    */
   problem: string | null;
-  /** The account whose app folder it lives in. */
+  /** The Files account whose app folder holds it — the Master's own, reached by impersonation. */
   account: string;
-  /** The Master's own address — the account a boot signs in as — or null when this deployment named none. */
-  master: string | null;
-  /** Whether the account on screen is that Master's, whose own document a boot reads. */
-  bootsFrom: BootsFrom;
-  /** The same, in the words a message uses: `gilbert/installation.json in account …`. */
+  /** The address that account belongs to: the Master whose own document a boot reads. */
+  master: string;
+  /** Where it is, in words: `gilbert/installation.json in account …`. */
   location: string;
 }
 
 /** What a publish wrote, and when it applies. */
 export interface InstallationPublished {
-  /** The account whose app folder now holds the document. */
+  /** The Files account whose app folder now holds the document. */
   account: string;
-  /** The Master's own address — the account a boot signs in as — or null when this deployment named none. */
-  master: string | null;
-  /** Whether the account just written to is that Master's, whose own document a boot reads. */
-  bootsFrom: BootsFrom;
+  /** The address that account belongs to: the Master whose own document a boot reads. */
+  master: string;
   /** Where that is, in words. */
   location: string;
   /** The document as it is now stored: byte for byte what the next read returns. */
@@ -133,16 +124,14 @@ export interface InstallationPublished {
   epoch: number;
   /**
    * When it takes effect: the document is read at boot, so a publish is never
-   * live in the process that made it. `bootsFrom` says whether this account is
-   * the one a boot reads — the answer for the account the installation signs
-   * in as — and the message names the Master instead when it is not.
+   * live in the process that made it.
    */
   applies: "next-boot";
   /** The same answer as one sentence, for the surface to show as it is. */
   message: string;
 }
 
-/** Read the document, or a refusal when there is nowhere to read it from. */
+/** Read the document the boot reads, or a refusal when there is nowhere to read it from. */
 export async function readInstallationForAdmin(
   ctx: Ctx,
 ): Promise<{ view: InstallationView } | { refused: InstallationRefused }> {
@@ -170,7 +159,7 @@ export async function readInstallationForAdmin(
         document: null,
         problem: null,
         account: accountId,
-        ...whereThisIs(ctx),
+        master: ctx.username,
         location: where,
       },
     };
@@ -180,34 +169,40 @@ export async function readInstallationForAdmin(
       document: found.text,
       problem: readingProblem(found.text),
       account: accountId,
-      ...whereThisIs(ctx),
+      master: ctx.username,
       location: where,
     },
   };
 }
 
 /**
- * Which account holds the document, and whether a boot reads that account's
- * own copy. Part of every answer, because an administrator whose session is
- * not the Master's is otherwise reading a document that looks authoritative
- * and is not the one the installation runs on.
- */
-function whereThisIs(ctx: Ctx): { master: string | null; bootsFrom: BootsFrom } {
-  const master = agentAddress();
-  return { master: master || null, bootsFrom: bootDocumentAccount(ctx.username) };
-}
-
-/**
- * Validate one document text and write it into the caller's own app folder.
+ * Validate one document text and write it into the account a boot reads.
  *
  * The order is the policy publisher's order (`adminPolicy.ts`, ADR 0001) and
  * for the same reason: a document that is not one is refused **before**
  * anything is written, so a typo cannot replace a working installation's
  * configuration with a copy the next boot would refuse. `writeInstallation` is
- * the writer rather than a second one, so the two rules it owns apply here
- * too — the epoch moves on by one, and a document with no usable app secret is
+ * the writer rather than a second one, so the two rules it owns apply here too
+ * — the epoch moves on by one, and a document with no usable app secret is
  * refused rather than written (every stored session is sealed with that
  * secret).
+ *
+ * The epoch is **derived, not accepted**: the document handed to the writer
+ * carries the epoch of the text the account holds right now, whatever the
+ * submitted text says in its own `epoch` field. A save from an editor opened
+ * before somebody else's publish therefore cannot move the stored epoch
+ * backwards — it moves it on by one from what is really there.
+ *
+ * The write is conditional on the account's own FileNode state, read after the
+ * app folder is known to exist (creating that folder is itself a write, and a
+ * token read before it would make this publish lose a race with its own folder
+ * creation — the reason `AgentStore.provision` runs before a worker's first
+ * conditional write, and why the policy publish reads its token there too). A
+ * document that moved after that read is refused with its own code, and the
+ * stored document keeps every byte and every epoch it had: nothing is
+ * overwritten silently. An account that will not state its state at all is
+ * refused as well, because a write that cannot be told the document moved is a
+ * write that can replace one this publish never saw.
  *
  * What comes back says what happened and when it applies; nothing about the
  * running process is reloaded and no session is invalidated, because nothing
@@ -243,10 +238,88 @@ export async function publishInstallation(
     };
   }
 
+  const where = installationLocation(store.accountId);
+
+  // What is stored now — the epoch this write moves on from. Read before
+  // anything is written, so no failure between here and the write can leave
+  // the stored document disagreeing with the epoch this publish reports.
+  let stored: string | null;
+  try {
+    stored = await store.read();
+  } catch (err) {
+    return {
+      refused: {
+        status: 502,
+        error: "read_failed",
+        message: `The installation document (${where}) could not be read: ${messageOf(err)}`,
+      },
+    };
+  }
+
+  /*
+   * The app folder first, then the state: creating that folder is a write that
+   * moves the account's FileNode state, so a token read before it exists would
+   * refuse this publish's own conditional write. `ensureAppFolder` is the
+   * writer's own step (`installation.ts`'s store runs it before every write),
+   * taken here so the token below describes the folder the write is about to
+   * land in.
+   */
+  try {
+    await ensureAppFolder(ctx, store.accountId);
+  } catch (err) {
+    return {
+      refused: {
+        status: 502,
+        error: "write_failed",
+        message: `The installation document could not be written to ${where}: ${messageOf(err)}`,
+      },
+    };
+  }
+
+  let state: string;
+  try {
+    state = await store.state();
+  } catch (err) {
+    return {
+      refused: {
+        status: 502,
+        error: "write_failed",
+        message: `The installation document could not be written to ${where}: ${messageOf(err)}`,
+      },
+    };
+  }
+  if (!state)
+    return {
+      refused: {
+        status: 502,
+        error: "no_state",
+        message:
+          `The account holding the installation document (${where}) would not state the state of its Files, ` +
+          "so this write could not be made conditional — and a write that cannot be refused when the " +
+          "document moved is a write that can replace one somebody else just made. Nothing was written.",
+      },
+    };
+
   let written: InstallationDocument;
   try {
-    written = await writeInstallation(store, parsed.doc);
+    written = await writeInstallation(
+      store,
+      { ...parsed.doc, epoch: storedEpoch(stored) },
+      { ifInState: state },
+    );
   } catch (err) {
+    if (isStateMismatch(err))
+      return {
+        refused: {
+          status: 409,
+          error: "installation_moved",
+          message:
+            `The installation document (${where}) moved while this publish was in flight: the account ` +
+            "changed after the state this write carried was read, so nothing was written. What is stored " +
+            "there now is the document somebody else wrote — read it again and publish what you mean to " +
+            "replace.",
+        },
+      };
     if (err instanceof InstallationError)
       return {
         refused: {
@@ -259,33 +332,19 @@ export async function publishInstallation(
       refused: {
         status: 502,
         error: "write_failed",
-        message: `The installation document could not be written to ${installationLocation(store.accountId)}: ${messageOf(err)}`,
+        message: `The installation document could not be written to ${where}: ${messageOf(err)}`,
       },
     };
   }
 
-  const where = installationLocation(store.accountId);
-  const whereThisIsRead = whereThisIs(ctx);
-  /*
-   * What was written, and when it applies. A publish from an account the boot
-   * does not sign in as is still a real document in a real account, but saying
-   * "the next boot reads what was just written" of it would be a lie about
-   * which account the installation boots from, so the answer names the Master
-   * when the two differ.
-   */
   const applies =
-    whereThisIsRead.bootsFrom === "no"
-      ? `Written to ${where}. This process keeps the configuration it booted with — the document is read at ` +
-        `boot — but this installation's boot signs in as the Master, ${whereThisIsRead.master}, whose own ` +
-        "document is the one it reads: what you just published is stored in this account, where a boot that " +
-        "signs in as it reads it."
-      : `Written to ${where}. This process keeps the configuration it booted with — the document is read at ` +
-        "boot — so what you just published applies from the next boot of this installation, and nothing in " +
-        "the running one has changed.";
+    `Written to ${where}. This process keeps the configuration it booted with — the document is read at ` +
+    "boot — so what you just published applies from the next boot of this installation, and nothing in " +
+    "the running one has changed.";
   return {
     published: {
       account: store.accountId,
-      ...whereThisIsRead,
+      master: ctx.username,
       location: where,
       // The bytes the store was handed, which is what a read reads back
       // (`appDocumentJson` is the one JSON writer for an app-folder document).
@@ -295,6 +354,36 @@ export async function publishInstallation(
       message: applies,
     },
   };
+}
+
+/**
+ * The epoch the stored text carries, which is what the next write moves on from.
+ *
+ * The document's own reader is asked first, so a stored document this build
+ * can boot from answers with the epoch a boot would see — including the
+ * default, for a document that states none. A document that is **there but
+ * unreadable** is the case a person comes to this surface to repair, and it
+ * still has an epoch when it states one a write can move on from: reading it
+ * off directly keeps a repair from resetting the count. Anything else — no
+ * document at all, text that is not JSON, a number no write could move on from
+ * — starts from the epoch a first document starts at.
+ */
+function storedEpoch(text: string | null): number {
+  const parsed = parseInstallationDocumentDetailed(text ?? "");
+  if ("doc" in parsed) return parsed.doc.epoch;
+  try {
+    const raw = JSON.parse(text ?? "") as { epoch?: unknown };
+    const epoch = raw?.epoch;
+    if (
+      typeof epoch === "number" &&
+      Number.isInteger(epoch) &&
+      epoch >= INSTALLATION_EPOCH_START
+    )
+      return epoch;
+  } catch {
+    /* not JSON at all: there is no epoch to move on from */
+  }
+  return INSTALLATION_EPOCH_START;
 }
 
 /**

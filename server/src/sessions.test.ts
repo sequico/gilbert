@@ -185,6 +185,153 @@ test("reseal keeps the session and moves the credential behind it", async () => 
   await store.close();
 });
 
+/**
+ * A write that failed is not a session that was lost.
+ *
+ * `flush` used to clear its own "something changed" flag *before* awaiting the
+ * document write, and the catch only warned: a session created, resealed or
+ * destroyed while the account was briefly unwritable was never written again,
+ * and the next restart ended it without anything having said so. The flag now
+ * goes only when a write came back, and this is the test that fails when that
+ * stops being true.
+ */
+test("a flush that fails keeps the session dirty, and the next flush stores it", async () => {
+  let text: string | null = null;
+  let refuse = true;
+  const io = {
+    read: async (): Promise<unknown | null> => (text === null ? null : JSON.parse(text)),
+    write: async (value: unknown): Promise<void> => {
+      if (refuse) throw new Error("the account could not be written to");
+      text = JSON.stringify(value);
+    },
+  };
+  const stored = (): { sessions?: unknown[] } | null =>
+    text === null ? null : JSON.parse(text);
+
+  const store = new SessionStore(io, TTLS);
+  await store.init();
+  const { cookie } = store.create(params("ada@example.org"));
+
+  await store.close();
+  assert.equal(stored(), null, "the write failed, so nothing was stored");
+
+  refuse = false;
+  await store.close();
+  assert.equal(
+    stored()?.sessions?.length,
+    1,
+    "the session created while the write was failing is stored by the next flush",
+  );
+
+  // And what is stored is the session itself, not a record shaped like one: a
+  // later store over the same document resolves the cookie.
+  const after = new SessionStore(io, TTLS);
+  await after.init();
+  assert.ok(after.resolve(cookie), "and it is the session, not just a record");
+  await after.close();
+});
+
+/**
+ * A change made while a write is in flight is part of what that flush stores.
+ *
+ * Two writes over one document would each believe they had stored what the
+ * process holds, and a flag read before the first `await` cannot tell whether
+ * the change it was set by is the change that was written. The flush compares
+ * the revision it started from and writes again when it moved, and serialises
+ * flushes so "the next one" is an order rather than a hope.
+ */
+test("a session created during a write is stored by that flush, not lost by it", async () => {
+  let text: string | null = null;
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let slow = true;
+  const io = {
+    read: async (): Promise<unknown | null> => (text === null ? null : JSON.parse(text)),
+    write: async (value: unknown): Promise<void> => {
+      if (slow) await gate;
+      text = JSON.stringify(value);
+    },
+  };
+  const stored = (): { sessions?: unknown[] } | null =>
+    text === null ? null : JSON.parse(text);
+
+  const store = new SessionStore(io, TTLS);
+  await store.init();
+  store.create(params("ada@example.org"));
+
+  const flushing = store.close();
+  // The write is in flight — it is waiting inside `write` — so what follows
+  // lands after the bytes it is sending rather than in them.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  store.create(params("bob@example.org"));
+  slow = false;
+  release();
+  await flushing;
+
+  assert.equal(
+    stored()?.sessions?.length,
+    2,
+    "the session created during the write is in the document too",
+  );
+});
+
+/**
+ * An app that serves sessions out of memory has to be asked for.
+ *
+ * `app.ts` used to bind a memory-only store at module scope — reading
+ * `config.sessionTtl` before any boot had replaced the configuration — and a
+ * process that never replaced it served sessions that ended at the next
+ * restart, with nothing saying so. The store is bound by `createApp` now, and a
+ * process that names a Master (the account whose own app folder holds the
+ * installation's documents, sessions included) refuses to have an app built for
+ * it without the durable store: serving is what makes the default dangerous, and
+ * it is the one thing that cannot happen here.
+ */
+test("an app is not built for a process that names a Master without the durable store", async () => {
+  const { createApp, sessions, useDurableSessions } = await import("./app.js");
+  const { config, useConfiguration } = await import("./config.js");
+  const before = config;
+  try {
+    // No Master named: this process has nowhere durable to put sessions, and
+    // the in-memory store is bound here, where the app is, rather than at import.
+    useConfiguration({
+      ...before,
+      agent: { ...before.agent, address: "" },
+    });
+    assert.ok(createApp(), "a process that names no Master still builds an app");
+    const memoryOnly = sessions.create(params("ada@example.org"));
+    assert.ok(sessions.resolve(memoryOnly.cookie), "and it holds that session");
+
+    // A Master named: a deployment, whose sessions live in that account's own
+    // document or which does not come up at all.
+    useConfiguration({
+      ...before,
+      agent: { ...before.agent, address: "gilbert@example.org" },
+    });
+    assert.throws(
+      () => createApp(),
+      /durable session store/,
+      "no app is built out of in-memory sessions for a deployment",
+    );
+
+    const io = documentIo();
+    await useDurableSessions(io, TTLS);
+    assert.ok(createApp(), "with the durable store installed, the app is built");
+    const durable = sessions.create(params("bob@example.org"));
+    await sessions.close();
+    assert.equal(
+      io.stored()?.sessions?.length,
+      1,
+      "and the session it created went into the installation's own document",
+    );
+    assert.ok(sessions.resolve(durable.cookie), "which is where it is served from");
+  } finally {
+    useConfiguration(before);
+  }
+});
+
 test("a document that cannot be read is not overwritten by an empty store", async () => {
   const io = documentIo();
   const first = new SessionStore(io, TTLS);

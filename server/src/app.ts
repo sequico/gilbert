@@ -137,20 +137,56 @@ type Env = { Variables: { session: LiveSession } };
 /**
  * Where sessions live between requests.
  *
- * In memory until the boot says otherwise: a deployment that names no document
- * keeps its sessions in this process and loses them on a restart, which is what
- * one that asked for nothing durable gets. `useDurableSessions` replaces this
- * once, before the app is built, with a store over the installation's own
- * document in the Master account -- so a redeploy signs nobody out.
+ * Bound by `createApp` -- the one function that builds something to serve --
+ * and by `useDurableSessions`, which is what a boot calls before it builds one.
+ * There is deliberately no store here at module scope: this used to be a
+ * memory-only `SessionStore` built from whatever `config.sessionTtl` said
+ * before any boot had replaced the configuration, and `createApp` served it
+ * unless something happened to replace it first -- a deployment whose sessions
+ * ended at the next restart, with nothing saying so.
+ *
+ * What guarantees the replacement now is `createApp` itself, in two halves. A
+ * process that names a Master (`GILBERT_AGENT_ADDRESS`: the account
+ * `bootstrap.ts` signs in as, whose own app folder holds the installation's
+ * documents, this one included) is a deployment, and a deployment's sessions
+ * live in that account's own document or the deployment does not come up --
+ * so `createApp` refuses to build an app for one whose store is not durable
+ * instead of serving sessions out of memory. A process that names no Master
+ * has nowhere durable to put them, and gets the in-memory store bound there,
+ * from the configuration that process is really running on.
+ *
+ * `sessions` is therefore a name for whatever store is bound -- never a store
+ * of its own -- and it refuses out loud before anything has bound one. The
+ * only app that answers a request is one `createApp` built, and that does not
+ * return until a store is bound.
  */
-export let sessions: SessionBackend = new SessionStore(
-  undefined,
-  {
-    ttlSeconds: config.sessionTtl,
-    rememberTtlSeconds: config.sessionRememberTtl,
-  },
-  (id: string) => forgetUpstreamSession(id),
-);
+export const sessions: SessionBackend = {
+  init: () => bound().init(),
+  close: () => bound().close(),
+  create: (params) => bound().create(params),
+  resolve: (cookie) => bound().resolve(cookie),
+  reseal: (cookie, password, appPassword) =>
+    bound().reseal(cookie, password, appPassword),
+  destroy: (id) => bound().destroy(id),
+  destroyAllForUser: (username, exceptId) =>
+    bound().destroyAllForUser(username, exceptId),
+  destroyAllExcept: (exceptId) => bound().destroyAllExcept(exceptId),
+  listForUser: (username) => bound().listForUser(username),
+};
+
+/** The store actually holding sessions, or null until `createApp`/the boot binds one. */
+let store: SessionBackend | null = null;
+
+/** The bound store, or a refusal that names what binds one. */
+function bound(): SessionBackend {
+  if (!store)
+    throw new Error(
+      "No session store has been bound in this process: `createApp` binds the in-memory store for a " +
+        "process that names no Master, and `useDurableSessions` installs the installation's own before a " +
+        "deployment builds its app.",
+    );
+  return store;
+}
 
 /**
  * The installation's session document, as the store reaches it: one read and
@@ -188,9 +224,12 @@ export async function useDurableSessions(
 ): Promise<void> {
   if (durable) throw new Error("sessions are already durable");
   durable = true;
-  await sessions.close();
-  sessions = new SessionStore(io, ttls, (id: string) => forgetUpstreamSession(id));
-  await sessions.init();
+  // A store `createApp` bound before this ran -- a process that built an app
+  // and then signed in as the Master -- is closed rather than left running
+  // beside the durable one, with whatever in-memory sessions it had.
+  if (store) await store.close();
+  store = new SessionStore(io, ttls, (id: string) => forgetUpstreamSession(id));
+  await store.init();
 }
 
 /** Whether `useDurableSessions` has already replaced the in-memory store. */
@@ -756,6 +795,33 @@ export type PublishOutcome = PublishJob;
  * re-importing the module to change one environment variable.
  */
 export function createApp(basePath = config.basePath): Hono<Env> {
+  /*
+   * The store this app will serve with, bound before a single route exists --
+   * the whole of what makes the in-memory default impossible to reach without
+   * asking for it (see `sessions` above). A boot has already installed the
+   * durable store by the time it builds an app; a process that names a Master
+   * but has not installed one is a deployment that would lose every session at
+   * its next restart, and it refuses to serve rather than doing that quietly.
+   */
+  if (!durable) {
+    if (agentAddress())
+      throw new Error(
+        "This process names a Master (GILBERT_AGENT_ADDRESS), so this installation's sessions live in " +
+          "that account's own document -- but no durable session store was installed, and an app that " +
+          "served in-memory sessions would end every one of them at the next restart. A deployment calls " +
+          "useDurableSessions before it builds its app (server/src/index.ts does); a process that wants " +
+          "sessions in memory runs without GILBERT_AGENT_ADDRESS.",
+      );
+    if (!store)
+      store = new SessionStore(
+        undefined,
+        {
+          ttlSeconds: config.sessionTtl,
+          rememberTtlSeconds: config.sessionRememberTtl,
+        },
+        (id: string) => forgetUpstreamSession(id),
+      );
+  }
   const app = new Hono<Env>();
   app.use("*", securityHeaders);
   app.use("*", compressResponses(basePath));
@@ -2456,39 +2522,83 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * The installation's own document: the one the boot reads (`bootstrap.ts`,
    * whose store and rules are `installation.ts` and `shared/installation.ts`).
    *
-   * GET answers the text as the administrator's own `gilbert` app folder holds
-   * it, and whether there is one at all — including a document this build
-   * cannot read, which is the one a person has come here to repair. POST
-   * validates the text with the boot's own validator and writes it with the
-   * boot's own writer, so a publish cannot store a document this build would
-   * refuse to start from; text that is not one is refused before anything is
-   * written.
+   * Both halves of this door open onto **the Master's** account, reached by the
+   * same impersonation the policy publish above uses: `GILBERT_AGENT_ADDRESS`
+   * names the account `bootstrap.ts` signs in as, and the document a boot runs
+   * on is that account's own `gilbert` app folder. An administrator whose own
+   * account is somewhere else administers *that* document rather than
+   * publishing into their own Files -- the difference between a surface called
+   * "Installation" and one that only looks like it.
+   *
+   * GET answers the text as that account holds it, and whether there is one at
+   * all — including a document this build cannot read, which is the one a
+   * person has come here to repair. POST validates the text with the boot's own
+   * validator and writes it with the boot's own writer -- conditionally, and
+   * from the stored epoch rather than the submitted one (`installationAdmin.ts`
+   * says why) -- so a publish cannot store a document this build would refuse
+   * to start from, cannot move a document somebody else just wrote, and cannot
+   * move the stored epoch backwards. Text that is not a document is refused
+   * before anything is written.
+   *
+   * A deployment that names no Master has no account a boot reads from, and
+   * that is a refusal the read and the publish both answer with -- as a value,
+   * with its own code, rather than by opening the door onto whoever is asking.
    *
    * The answer says when the document applies, because it is not now: the
    * running process keeps the configuration it booted with and the next boot
    * reads what was just written. Nothing is reloaded and no session is kicked
    * — nothing about the running process changed.
    */
-  const installationCtx = async (session: LiveSession): Promise<Ctx> => {
-    const upstream = await getUpstreamSession(
-      session.id,
-      session.authorization,
-      upstreamFor(session.username),
-    );
-    return {
-      authorization: session.authorization,
-      session: upstream,
-      username: session.username,
-    };
-  };
   const installationRefusal = (c: Context, refused: InstallationRefused) =>
     c.json({ error: refused.error, message: refused.message }, refused.status);
 
+  /**
+   * The Master's own context, or the reason this session does not get one.
+   *
+   * `impersonateAs` is the one door onto another account (see the policy
+   * publish above): it rebuilds the composite credential from this
+   * administrator's sealed session, and Stalwart refuses an app-password
+   * session for it. Both of its refusals — an app password, and a composite
+   * the server will not accept — are answers this surface can show, so they
+   * come back as values with the server's own words.
+   */
+  const installationMaster = async (
+    session: LiveSession,
+  ): Promise<{ ctx: Ctx } | { refused: InstallationRefused }> => {
+    const master = agentAddress();
+    if (!master)
+      return {
+        refused: {
+          status: 409,
+          error: "no_master",
+          message:
+            "This deployment names no Master (GILBERT_AGENT_ADDRESS), so there is no account whose own " +
+            "app folder a boot reads the installation's document from, and nothing for this surface to " +
+            "read or publish. A process that is not a deployment administers no installation.",
+        },
+      };
+    const imp = await impersonateAs(session, master);
+    if (!imp.ok)
+      return {
+        refused: {
+          status: imp.status,
+          error:
+            imp.status === 403
+              ? "forbidden"
+              : imp.status === 404
+                ? "master_not_found"
+                : "upstream_error",
+          message: imp.message,
+        },
+      };
+    return { ctx: imp.ctx };
+  };
+
   api.get("/admin/installation", requireSession, requireAdmin, async (c) => {
     try {
-      const result = await readInstallationForAdmin(
-        await installationCtx(c.get("session")),
-      );
+      const door = await installationMaster(c.get("session"));
+      if ("refused" in door) return installationRefusal(c, door.refused);
+      const result = await readInstallationForAdmin(door.ctx);
       if ("refused" in result) return installationRefusal(c, result.refused);
       return c.json({ installation: result.view });
     } catch (err) {
@@ -2499,10 +2609,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   api.post("/admin/installation", requireSession, requireAdmin, async (c) => {
     const raw = await c.req.text();
     try {
-      const result = await publishInstallation(
-        await installationCtx(c.get("session")),
-        raw,
-      );
+      const door = await installationMaster(c.get("session"));
+      if ("refused" in door) return installationRefusal(c, door.refused);
+      const result = await publishInstallation(door.ctx, raw);
       if ("refused" in result) return installationRefusal(c, result.refused);
       return c.json({ outcome: result.published });
     } catch (err) {
