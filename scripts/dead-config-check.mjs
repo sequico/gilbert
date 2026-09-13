@@ -9,15 +9,29 @@
  * in Stalwart, in the Master account's own app folder, so the only environment
  * a boot may read is the handshake that reaches Stalwart at all: where it is,
  * who the Master is, and the container's own listening facts. Every other
- * `process.env` read in `server/src` is a value that should have come from the
- * installation document.
+ * reach for `process.env` in `server/src` is a value that should have come from
+ * the installation document.
  *
  * Two rules:
  *
  *   - the retired names (`RETIRED`) appear nowhere in the tree but here and in
  *     this check's test, which has to spell them to prove they are refused;
- *   - in `server/src`, outside tests, `process.env.<NAME>` appears only in the
- *     modules below, each with what it is still allowed to read and why.
+ *   - in `server/src`, outside tests, `process.env` appears only in the modules
+ *     below, each with what it is still allowed to read and why.
+ *
+ * The second rule is about the module, not about a property. `process.env.NAME`,
+ * the bracketed and the computed form, a destructuring (`const { NAME } =
+ * process.env`) and a stored reference (`const env = process.env`) are one
+ * defect, not four: the last two are exactly the reads a rule that knew only
+ * `process.env.NAME` could not see, which is what made "only the handshake and
+ * the resolver read the environment" a sample of the tree rather than a fact
+ * about it.
+ *
+ * What the walk reads is decided by *exclusion* (see `EXCLUDED_DIRS` and
+ * `EXCLUDED_PATHS`): the whole repository, less what is not this tree's own
+ * text. That is what makes "nowhere in the tree" a claim about the tree rather
+ * than about the trees somebody remembered — a `Dockerfile`, a `Makefile`, a
+ * workflow, a file added tomorrow, is covered without being listed here.
  *
  * `checkDeadConfiguration` is pure — it takes text, not paths — so the rules
  * can be exercised without a repository to stage.
@@ -55,18 +69,43 @@ const RETIRED_ALLOWED = new Set([
 ]);
 
 /**
- * Trees that are not the repository's prose: the agent runtime's own records
- * quote whatever a session said, this check's own fixtures spell the names it
- * refuses, and a built tree repeats its sources.
+ * What the walk steps over, and why. The perimeter is this list: everything
+ * else in the repository is read. Each entry is something that is not this
+ * tree's own code or prose, where a name would be a copy of a copy rather than
+ * a claim about what the installation honours:
+ *
+ *   - `node_modules` — installed dependencies, other people's text;
+ *   - `.git` — history, not the tree (and a *file* rather than a directory
+ *     inside a worktree, which is why the exclusion matches an entry's own
+ *     name wherever it appears);
+ *   - `dist`, `dev-dist`, `coverage`, `.vite`, `.turbo` — build and test
+ *     output: a built tree repeats its sources, and a stale copy would report
+ *     the same name a second time;
+ *   - `.codewhale/state` — the agent runtime's own records, which quote
+ *     whatever a session said, including the names this check refuses;
+ *   - `package-lock.json` — npm's file, generated from `package.json`.
  */
-const NOT_PROSE = new Set([".codewhale/state"]);
+const EXCLUDED_DIRS = new Set([
+  ".git",
+  "node_modules",
+  "dist",
+  "dev-dist",
+  "coverage",
+  ".vite",
+  ".turbo",
+]);
+
+/** Repository-relative paths the walk steps over, whether a tree or a file. */
+const EXCLUDED_PATHS = new Set([".codewhale/state", "package-lock.json"]);
 
 /**
  * The modules in `server/src` that may still read the environment, and what
- * each is allowed to read. `bootstrap.ts` is the handshake: it is the only
- * place that knows how Stalwart is reached, and it reads nothing else. The
- * mock is a fixture that stands in for a server, configured by the test that
- * starts it.
+ * each is allowed to read. The list is per module because the permission is
+ * about the module's job, not about a key: a module that may reach for the
+ * environment at all may read what its job needs and nothing more. `bootstrap.ts`
+ * is the handshake: it is the only place that knows how Stalwart is reached,
+ * and it reads nothing else. The mock is a fixture that stands in for a server,
+ * configured by the test that starts it, and its knobs are its own.
  */
 const ENV_ALLOWED = new Map([
   ["server/src/bootstrap.ts", "the handshake: where Stalwart is, and who the Master is"],
@@ -80,53 +119,66 @@ const ENV_ALLOWED = new Map([
   ],
 ]);
 
-const ROOTS = ["server", "web", "scripts", ".codewhale", "docs"];
-
 /**
- * Files at the repository root, which a walk of the roots above does not
- * reach. They are what an operator reads before setting anything: a
- * deployment example that still names `SESSION_FILE` is a deployment that
- * still believes a session lives in a file, and the rule is about what the
- * tree says, not only about what it compiles.
+ * What counts as text, and so what is read. A file whose extension is not here
+ * is a binary — an icon, a photo, a captured message fixture — and is not read
+ * at all, which is what keeps a whole-repository walk fast enough for
+ * `prepush`. An extensionless file is text far more often than not: a
+ * `Dockerfile`, a `Makefile`, `LICENSE`, a git hook.
  */
-const ROOT_FILES = [
-  ".env.example",
-  "Caddyfile.example",
-  "CONTRIBUTING.md",
-  "FEATURES.md",
-  "README.md",
-  "SECURITY.md",
-  "CODE_OF_CONDUCT.md",
-  "deploy.example.sh",
-  "docker-compose.yml",
-  "nginx.example.conf",
-];
 const TEXT_EXT = new Set([
+  "",
   ".ts",
   ".tsx",
   ".mts",
+  ".cts",
+  ".js",
   ".mjs",
+  ".cjs",
+  ".jsx",
   ".md",
+  ".markdown",
+  ".txt",
+  ".rst",
   ".json",
   ".jsonc",
-  ".sh",
+  ".json5",
   ".yml",
   ".yaml",
-  ".example",
+  ".toml",
+  ".ini",
+  ".cfg",
   ".conf",
-  "",
-]);
-const SKIP_DIRS = new Set([
-  "node_modules",
-  "dist",
-  "dev-dist",
-  "coverage",
-  ".git",
-  ".vite",
+  ".example",
+  ".env",
+  ".sh",
+  ".bash",
+  ".zsh",
+  ".ps1",
+  ".html",
+  ".htm",
+  ".css",
+  ".scss",
+  ".svg",
+  ".sql",
+  ".py",
+  ".rb",
+  ".go",
+  ".rs",
+  ".java",
+  ".php",
 ]);
 const TEST_FILE = /\.test\.(?:ts|tsx|mts|mjs)$/;
-const ENV_READ =
-  /process\.env(?:\.([A-Za-z_][A-Za-z0-9_]*)|\[\s*(?:["'`]([A-Za-z_][A-Za-z0-9_]*)["'`]|([A-Za-z_][A-Za-z0-9_]*))\s*\])/g;
+/**
+ * A reach for the process's environment, whole: the mention and the key it
+ * names, where it names one. The mention is what the rule is about, so the key
+ * group is optional — `process.env` on its own is the defect this catches, not
+ * a prefix of it.
+ */
+const ENV_MENTION =
+  /process\.env\b(?:\.([A-Za-z_][A-Za-z0-9_]*)|\[\s*(?:["'`]([A-Za-z_][A-Za-z0-9_]*)["'`]|([A-Za-z_][A-Za-z0-9_]*))\s*\])?/g;
+/** The name a mention that names no key is reported under. */
+const WHOLE_ENV = "<the environment itself>";
 
 /** The line number of an offset, for a report a reader can act on. */
 function lineOf(text, index) {
@@ -149,17 +201,23 @@ export function retiredNamesIn(text) {
 }
 
 /**
- * Every environment read one file's text makes: `{ name, line }` each.
+ * Every reach for the process's environment one file's text makes: `{ name,
+ * line }` each.
  *
- * A read through a variable (`process.env[name]`) counts as one with the name
- * unknown: the point of the rule is that a module must not reach for the
- * process's environment at all, whatever key it computes.
+ * What counts is the mention, not the property read after it. A module that
+ * keeps the environment in a variable (`const env = process.env`) or
+ * destructures names out of it (`const { NAME } = process.env`) has reached for
+ * it exactly as much as one that names a key. `name` is therefore the key where
+ * the mention names one, `<computed>` for a key computed at run time, and
+ * `WHOLE_ENV` when the mention names none — the module took the environment
+ * itself, whatever it reads out of it afterwards, and a pattern that cannot see
+ * what that is says so rather than guessing.
  */
 export function envReadsIn(text) {
   const found = [];
-  for (const match of text.matchAll(ENV_READ)) {
+  for (const match of text.matchAll(ENV_MENTION)) {
     found.push({
-      name: match[1] ?? match[2] ?? "<computed>",
+      name: match[1] ?? match[2] ?? (match[3] ? "<computed>" : WHOLE_ENV),
       line: lineOf(text, match.index),
     });
   }
@@ -210,13 +268,20 @@ export function formatReport(result) {
     lines.push(`${path}:${line} names ${name}, which the installation no longer honours`);
   for (const { path, line, name } of result.env)
     lines.push(
-      `${path}:${line} reads ${name} from the environment; configuration lives in the installation document`,
+      name === WHOLE_ENV
+        ? `${path}:${line} takes the whole environment (process.env); configuration lives in the installation document`
+        : `${path}:${line} reads ${name} from the environment; configuration lives in the installation document`,
     );
   return lines;
 }
 
-/** Every file under a directory, relative to it. */
-function walk(dir) {
+/**
+ * Every file under a directory, as a path relative to it, stepping over
+ * `EXCLUDED_DIRS` and `EXCLUDED_PATHS`. A symlink is neither a directory nor a
+ * file to this walk: it follows nothing, and a link is not a claim of its own
+ * — whatever it points at is read where it lives.
+ */
+function walk(dir, rel = "") {
   const found = [];
   let entries;
   try {
@@ -225,40 +290,27 @@ function walk(dir) {
     return found;
   }
   for (const entry of entries) {
+    const child = rel ? `${rel}/${entry.name}` : entry.name;
+    if (EXCLUDED_DIRS.has(entry.name) || EXCLUDED_PATHS.has(child)) continue;
     if (entry.isDirectory()) {
-      if (SKIP_DIRS.has(entry.name)) continue;
-      for (const child of walk(join(dir, entry.name)))
-        found.push(join(entry.name, child));
+      for (const inside of walk(join(dir, entry.name), child)) found.push(inside);
     } else if (entry.isFile()) {
-      found.push(entry.name);
+      found.push(child);
     }
   }
   return found;
 }
 
-/** Read this repository: every file a name or a read could hide in. */
+/**
+ * Read this repository: every text file the exclusions above do not step over.
+ *
+ * There is no list of what to read, so a file added tomorrow is read without
+ * anybody remembering to add it. `root` is a parameter so the perimeter itself
+ * can be exercised against a staged tree instead of the real one.
+ */
 export function collectRepoInput(root = ROOT) {
   const files = [];
-  for (const base of ROOTS) {
-    for (const rel of walk(join(root, base)).sort()) {
-      if (!TEXT_EXT.has(extname(rel))) continue;
-      const path = `${base}/${rel}`;
-      if (RETIRED_ALLOWED.has(path)) continue;
-      if (
-        NOT_PROSE.has(base) ||
-        [...NOT_PROSE].some((skip) => path.startsWith(`${skip}/`))
-      )
-        continue;
-      let text;
-      try {
-        text = readFileSync(join(root, path), "utf8");
-      } catch {
-        continue;
-      }
-      files.push({ path, text });
-    }
-  }
-  for (const path of ROOT_FILES) {
+  for (const path of walk(root).sort()) {
     if (!TEXT_EXT.has(extname(path))) continue;
     if (RETIRED_ALLOWED.has(path)) continue;
     let text;
@@ -267,6 +319,9 @@ export function collectRepoInput(root = ROOT) {
     } catch {
       continue;
     }
+    // An extensionless file can still be a binary; a NUL byte says so, and a
+    // binary decoded as UTF-8 would measure the wrong thing.
+    if (text.includes("\0")) continue;
     files.push({ path, text });
   }
   return { files };
@@ -274,9 +329,9 @@ export function collectRepoInput(root = ROOT) {
 
 const USAGE =
   "The installation's configuration lives in Stalwart: no retired environment " +
-  "name may appear in the tree, and `server/src` may read the environment only " +
-  "for the handshake that reaches Stalwart. This check takes no arguments; " +
-  "running it is checking.";
+  "name may appear anywhere in the tree, and `server/src` may reach the process's " +
+  "environment only in the handshake that reaches Stalwart and the resolver beside " +
+  "it. This check takes no arguments; running it is checking.";
 
 /** Run the check over the repository, and say what is wrong. 0 or 1. */
 function main() {
@@ -288,8 +343,9 @@ function main() {
   const result = checkDeadConfiguration({ files });
   if (result.ok) {
     process.stdout.write(
-      `Dead configuration: none — ${result.counts.files} file(s) read, ` +
-        `${result.counts.retiredNames} retired name(s) absent.\n`,
+      `Dead configuration: none — ${result.counts.files} text file(s) read from ` +
+        `the whole repository, ${result.counts.retiredNames} retired name(s) absent, ` +
+        `no environment read outside the modules allowed one.\n`,
     );
     return 0;
   }

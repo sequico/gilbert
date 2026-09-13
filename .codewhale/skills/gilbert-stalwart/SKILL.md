@@ -28,7 +28,9 @@ account data.
   in memory for `npm run dev:mock` (demo@example.com / demo) and for tests. It
   is deliberately faithful on the behaviours that bit us (see quirks) and
   generic elsewhere — when a refusal or field matters, the mock reproduces it
-  and says so in a comment. Keep mock parity when you change JMAP behaviour.
+  and says so in a comment. Keep mock parity when you change JMAP behaviour,
+  and remember the mock proves nothing about a server nobody has asked: the two
+  questions below are the ones only a live instance can answer.
 
 ## The JMAP surface Gilbert uses
 
@@ -105,7 +107,10 @@ Where the integration lives:
   product admin = membership of the configured admin group (ADR 0001); the
   group also owns system documents (per-user policy). Creating accounts,
   groups, aliases, quotas is **Stalwart's own administration** (admin console /
-  Management API / CLI) — out of product scope by ADR 0001.
+  Management API / CLI) — out of product scope by ADR 0001. The read itself
+  pages (`position`/`limit`, `calculateTotal`) and reports whether it reached
+  the end of the directory; whether a real server pages the way the client
+  assumes is asked by `scripts/probe-directory-paging.mjs` (owed).
 - Stalwart 0.16 added **JMAP impersonation**: a principal granted the
   impersonation right can authenticate to JMAP as another user with a
   composite username `{target}%{master}` (target first), using the master
@@ -122,10 +127,100 @@ Where the integration lives:
   enforced keys from the user, not from whoever can write the account.
   Re-verify details against current docs/source before relying on them; the
   stalw.art doc pages are hard to scrape (heavy nav markup) — the GitHub
-  source and the support forum are the reliable ground truth.
+  source and the support forum are the reliable ground truth. What a *refused*
+  composite answers — 401/403, some other status, or a working session — is
+  asked by `scripts/probe-impersonation-refusal.mjs` (owed).
 - Data at rest is Stalwart's business (encryptionAtRest is refused by the
   product — see ROADMAP: it is a one-way door); the Gilbert side adds no
   per-account encryption.
+
+## The two live questions the mock cannot answer (owed 2026-09-13)
+
+Each has a script in `scripts/` that asks a real instance: run by hand, never by
+`prepush` (they need a live server and an administrator's password). Both read
+`STALWART_URL`, `GILBERT_AGENT_ADDRESS` and `GILBERT_AGENT_PASSWORD` from the
+environment, print what the server actually answered, and exit non-zero when an
+answer is not the one the code depends on. **Neither has been run against a live
+server as of 2026-09-13 — they are owed, and this section is the record of the
+debt.** Run one before trusting a new server version, then replace the owed note
+below with the answer, its version and its date.
+
+### `scripts/probe-directory-paging.mjs` — the directory read's paging
+
+Settles, for `fetchDirectoryPrincipals` in `server/src/upstream.ts` (the admin
+Users surface, and the `/admin/policy` fan-out that rests on `complete`): that
+`Principal/query` is accepted with `position`, `limit` and `calculateTotal` at
+the page size `directoryBatch` derives from the session's `maxObjectsInGet`;
+that the read reaches the end of the directory (a reported `total`, or an empty
+page one request later); that `position` is honoured rather than the first page
+served again; that a reported `total` is the population and not the page — walked
+a second time at `limit: 2` and compared id for id, plus the check that the page
+at the point the walk stops is empty; that `Principal/get` answers a page of ids
+with `id`/`type`/`name`/`email` and `individual` is the type a user account
+carries; that a `limit` far above the ceiling is clamped rather than refused; and
+— given a second credential — whether a credential outside the directory gate is
+refused the way the code reads a refusal.
+
+If a server answers differently, this is what the code does today, in the order
+of how much the answer costs:
+
+- **no `total`**: the walk ends on the empty page instead, one request later, and
+  `total` is `null`. `complete` still means the walk reached the end; the publish
+  records the population it could not count rather than one it invented.
+- **`position` ignored, or a page that repeats**: the walk stops and reports
+  `complete: false`, and `/admin/policy` then refuses to claim the installation
+  carries the policy (`carrying = directory.complete && unreached.length === 0`).
+  A partial publish that says so is the fallback, one request later than an empty
+  page would have been.
+- **`total` is the page size rather than the population**: there is no fallback in
+  the code — the read stops after the first page *and reports `complete: true`*,
+  which is the one answer that makes the publish's coverage claim false on an
+  installation larger than a page. That answer stops the work, not just the run:
+  the read has to reach the end without trusting `total`.
+- **a `limit` the server refuses instead of clamping**: the read is safe only
+  while the session advertises `maxObjectsInGet`, which is what the batch is
+  clamped to. A session that advertises nothing asks 1000 blind, so the fallback
+  there is a smaller `directoryBatch` — a code change.
+- **a closed directory gate**: the read returns `{ denied }`, the Users surface
+  says the server does not grant enumeration, and the client degrades to typing an
+  address. That answer is expected, not a failure.
+
+### `scripts/probe-impersonation-refusal.mjs` — what a refusal looks like
+
+Settles, for `impersonateAs` in `server/src/agentAdmin.ts` (and the acting-check
+in `/admin/users`): that the master's own credential opens a session at all (the
+control without which a refusal means nothing); that the composite
+`{target}%{master}`, built the way `impersonationAuthorization` builds it, is
+refused with **401 or 403** for an address the master may not act as; that a
+composite naming an account the master *may* act as opens a session as the target
+(the control that tells a refusal apart from a composite shape the server does
+not accept); and, given a group address, that a group mailbox is refused.
+
+`fetchUpstreamSession` turns 401 and 403 into `UpstreamError(401)`, which
+`impersonateAs` reports as "No such account, or it cannot be administered by
+you." (a 404 at the surface). Every other answer is read the other way:
+
+- **404, 500 or any other status**: `UpstreamError(…, 502)` — the admin surface
+  reports an upstream failure instead of a refusal, and an administrator reads a
+  broken installation where the honest answer is "no such account". The fallback
+  is a code change (widen the refusal set in `fetchUpstreamSession`), not a hope.
+- **200**: the composite authenticated as the target, `impersonateAs` returns a
+  working session, and nothing refuses at all — the surfaces would act as an
+  account the server should not have granted. There is no fallback: that answer is
+  why this probe exists, and it stops the work.
+- **a 200 that is not a session document**: `fetchUpstreamSession` throws where it
+  parses one — neither a refusal nor an `UpstreamError`, so it leaves
+  `impersonateAs` as an unexpected error and the route's own failure path answers
+  it. The probe records that as its own answer rather than as a refusal.
+- **the app-password case never reaches the server**: `impersonationAuthorization`
+  returns null and `impersonateAs` answers 403 locally, which is why an
+  app-password session cannot administer accounts whatever a server would have
+  said. This probe therefore does not settle Stalwart's own app-password rule
+  (read in `authentication.rs`, and enforced before the request leaves Gilbert).
+
+Neither probe settles group membership or a group account's Files visibility
+(see `gilbert-groups`), nor the directory's `type` vocabulary beyond
+`individual` and `group`.
 
 ## Checking Stalwart's own material
 
@@ -195,7 +290,10 @@ citizen, and its changes ride the same push rail as Email:
 2. When changing JMAP behaviour, keep `server/src/mock/index.ts` in step and
    say in a comment what the mock reproduces and what it does not.
 3. Confirm server-version-sensitive behaviour against a real 0.16.x server or
-   the dated comments; note the check (version + date) in the code.
+   the dated comments; note the check (version + date) in the code. Where only a
+   real server can answer, the question is written down as owed (see *The two
+   live questions the mock cannot answer*) and asked by a `scripts/probe-*.mjs`
+   script — by hand, since the gate has no server to ask.
 4. UI copy names data by its literal name: the folder is `gilbert`, the sieve
    script is `gilbert` — "Gilbert" (capitalised) is only the product's
    visible name. When in doubt, follow `gilbert-branding`.
