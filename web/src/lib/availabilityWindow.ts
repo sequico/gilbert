@@ -95,7 +95,14 @@ export function availabilityWindow(
   const { every, label } = spacing(days);
   const ticks: AvailabilityWindow["ticks"] = [];
   for (let hour = 0; ; hour += every) {
-    const time = new Date(from.getTime() + hour * 3600_000);
+    // Stepped on the wall clock (`setHours`), not by adding raw milliseconds:
+    // a span crossing a DST transition has a 23- or 25-hour day in it, and
+    // adding `hour * 3600_000` ms would land a tick meant to read "3 PM" on
+    // the instant that actually reads 2 PM or 4 PM once the clocks change.
+    // `startOfDay`/`addDays` above already use `setHours`/`setDate` for the
+    // same reason.
+    const time = new Date(from);
+    time.setHours(from.getHours() + hour);
     if (time.getTime() >= to.getTime()) break;
     ticks.push({
       at: (time.getTime() - from.getTime()) / span,

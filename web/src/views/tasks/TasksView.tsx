@@ -4,6 +4,7 @@ import type { Id, TaskItem } from "@/jmap/types";
 import { t } from "@/lib/i18n";
 import { useCalendar } from "@/store/calendar";
 import { orderIndexOf, type TaskList, taskListKey, useTasks } from "@/store/tasks";
+import { confirmDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 
 /**
@@ -140,7 +141,25 @@ function TaskRow({
         className="icon-btn sm task-delete"
         aria-label={t("Delete task")}
         title={t("Delete task")}
-        onClick={() => void act(() => useTasks.getState().destroy(list, task))}
+        onClick={() =>
+          void (async () => {
+            // A task has no Trash and no Undo, unlike a deleted message: the
+            // delete button sits right beside the checkbox and the title in a
+            // dense row, and a stray click here is permanent with no warning
+            // at all — every other destructive action in the app (a calendar
+            // event, a contact, a file) confirms first.
+            const ok = await confirmDialog({
+              title: t("Delete task?"),
+              message: t("“{title}” will be permanently deleted.", {
+                title: task.title || t("(untitled)"),
+              }),
+              confirmLabel: t("Delete"),
+              danger: true,
+            });
+            if (!ok) return;
+            await act(() => useTasks.getState().destroy(list, task));
+          })()
+        }
       >
         <Trash2 size={14} />
       </button>

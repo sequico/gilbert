@@ -605,7 +605,17 @@ export const useSettings = create<SettingsState>((set, get) => ({
   },
   seedFromPolicy() {
     const defaults = policyDefaults();
-    if (!Object.keys(defaults).length) return;
+    const enforced = policyEnforced();
+    // `update()` already merges `policyEnforced()` after the patch, so an
+    // empty `defaults` is harmless to pass through it — but returning here
+    // before ever calling `update()` skipped that merge entirely. An
+    // installation with `enforced` settings and no `defaults` (a completely
+    // ordinary configuration — "force imagePolicy: block" needs no default)
+    // used to leave every first-run account, and every account on a
+    // deployment with no Files capability, with an admin-mandated setting
+    // never actually applied for the session — a business logic review
+    // finding.
+    if (!Object.keys(defaults).length && !Object.keys(enforced).length) return;
     get().update(defaults);
   },
   /*

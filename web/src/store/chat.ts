@@ -624,5 +624,10 @@ useMail.subscribe((s, prev) => {
 
 /** Unread for a conversation, by the ADR kind rule (exported for selectors). */
 export function unreadOf(conv: ChatConversation): number {
-  return unreadCount(conv.nodes, conv.marker);
+  // `conv.nodes` is a page, not always the whole transcript (`CHAT_PAGE`
+  // below) — `fromStart` must say so, or a marker sitting outside the loaded
+  // page reads as "everything held is read" instead of "everything held is
+  // unread", and a member away longer than one page is told there is nothing
+  // to catch up on.
+  return unreadCount(conv.nodes, conv.marker, conv.reachedStart);
 }

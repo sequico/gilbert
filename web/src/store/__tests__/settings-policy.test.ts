@@ -122,6 +122,23 @@ describe("defaults, for an account that has none of its own", () => {
     useSettings.getState().seedFromPolicy();
     expect(useSettings.getState().settings).toBe(before);
   });
+
+  it("still applies an enforced setting with no defaults at all", () => {
+    // Business logic review finding: `seedFromPolicy` used to return before
+    // ever merging `policyEnforced()` when `defaults` was empty — a
+    // completely ordinary configuration ("force imagePolicy: ask" needs no
+    // default). Every first-run account, and every account on a deployment
+    // with no Files capability (which always takes this path, never
+    // `hydrate`), was left with the admin-mandated setting never actually
+    // applied for the session, even though the settings-page control
+    // correctly showed it as locked.
+    resetSettingsPolicyForTest({
+      defaults: {},
+      enforced: { imagePolicy: "ask" } as never,
+    });
+    useSettings.getState().seedFromPolicy();
+    expect(useSettings.getState().settings.imagePolicy).toBe("ask");
+  });
 });
 
 describe("enforced settings, which the reader may not change", () => {

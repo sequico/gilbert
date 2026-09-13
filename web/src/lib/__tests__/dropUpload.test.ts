@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { foldersNeeded, hasDirectory, planUpload } from "@/lib/dropUpload";
+import { folderPathKey, foldersNeeded, hasDirectory, planUpload } from "@/lib/dropUpload";
 
 /**
  * Dropping a folder in, reduced to the two things the DataTransfer entry API
@@ -95,6 +95,26 @@ describe("the folders a plan needs", () => {
 
   it("asks for nothing when everything lands at the drop", () => {
     expect(foldersNeeded([{ file: file("x"), path: [] }])).toEqual([]);
+  });
+
+  it("does not collide a top-level folder with a nested one of the same joined name", () => {
+    // Business logic review finding: the folder key used to be a plain
+    // space-join, so a top-level folder literally named "Documents 2024" and
+    // a nested "Documents/2024" produced the identical key — one was silently
+    // treated as the other, and files dropped for one were misfiled into it.
+    const flat = ["Documents 2024"];
+    const nested = ["Documents", "2024"];
+    expect(folderPathKey(flat)).not.toBe(folderPathKey(nested));
+
+    const needed = foldersNeeded([
+      { file: file("flat.txt"), path: flat },
+      { file: file("nested.txt"), path: nested },
+    ]);
+    // Both nestings are asked for, as the two distinct folders they are —
+    // not collapsed into one because their joined names used to coincide.
+    expect(needed).toContainEqual(flat);
+    expect(needed).toContainEqual(["Documents"]);
+    expect(needed).toContainEqual(nested);
   });
 });
 

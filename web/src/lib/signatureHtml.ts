@@ -4,6 +4,7 @@
  *  - marker signatures: when still too big, the full HTML lives in Files and the
  *    identity only stores `<!--gilbert:sig=<blobId>-->` + a plain-text fallback.
  */
+import { SIGNATURE_LIMIT } from "@gilbert/shared/signature";
 import { escapeHtml, htmlToText } from "./text";
 
 /**
@@ -13,8 +14,15 @@ import { escapeHtml, htmlToText } from "./text";
  * accent is one unit but two bytes, CJK three, an emoji two units and four. So
  * every check here weighs the encoded form, or a signature we judged to fit
  * would come back rejected.
+ *
+ * The number itself is `@gilbert/shared/signature`'s, not redeclared here: a
+ * signature the editor here judges to fit is one the server (`identityAdmin.ts`)
+ * accepts, which is only guaranteed while both read the same constant — this
+ * file used to carry its own independent `2047`, a duplication a business
+ * logic review named as a latent risk (nothing keeping the two in step but
+ * both happening to still say 2047).
  */
-export const SIGNATURE_LIMIT = 2047;
+export { SIGNATURE_LIMIT };
 
 const encoder = new TextEncoder();
 

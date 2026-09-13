@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CAP, client } from "@/jmap/client";
+import type { JmapSession } from "@/jmap/types";
 import { useSession } from "@/store/session";
 import {
   acceptRemote,
@@ -8,9 +10,14 @@ import {
   type Settings,
   syncedPart,
 } from "@/store/settings";
+import { toast } from "@/ui/toast";
+import * as appFolder from "../appFolder";
 import { APP_FOLDER, isAppFolder } from "../appFolder";
+import * as filenode from "../filenode";
 import {
   armSettingsSync,
+  flushSettingsPush,
+  queueSettingsPush,
   settingsAlreadyLoadedFor,
   stopSettingsSync,
 } from "../settingsSync";
@@ -186,5 +193,112 @@ describe("a change made but not yet written up", () => {
   it("treats a missing account as already loaded, so nothing is fetched", () => {
     expect(settingsAlreadyLoadedFor(null)).toBe(true);
     expect(settingsAlreadyLoadedFor(undefined)).toBe(true);
+  });
+});
+
+/**
+ * Business logic review finding: a write that failed here used to be
+ * swallowed outright by `flushSettingsPush`'s own `.catch(() => undefined)`,
+ * with nothing that ever put the change back on the queue. The account's
+ * `settings.json` was left holding the old value, and the next `hydrate()`
+ * (another device, the next sign-in) silently reverted a change the person
+ * believed had stuck, with no error anywhere.
+ */
+describe("a settings write that fails", () => {
+  const FAKE_SESSION = () =>
+    ({
+      capabilities: { [CAP.core]: {}, [CAP.filenode]: {} },
+      accounts: {
+        a1: {
+          name: "me@example.com",
+          isPersonal: true,
+          isReadOnly: false,
+          accountCapabilities: { [CAP.filenode]: {} },
+        },
+      },
+      primaryAccounts: { [CAP.filenode]: "a1" },
+      state: "s1",
+    }) as unknown as JmapSession;
+
+  beforeEach(() => {
+    stopSettingsSync();
+    useSession.setState({ status: "authenticated", session: FAKE_SESSION(), accountId: "a1" });
+    vi.spyOn(client, "hasCapability").mockReturnValue(true);
+    vi.spyOn(client, "upload").mockResolvedValue({
+      blobId: "b1",
+      type: "application/json",
+      size: 2,
+    } as never);
+    vi.spyOn(appFolder, "ensureFolder").mockResolvedValue("folder1");
+    vi.spyOn(appFolder, "findInFolder").mockResolvedValue(undefined);
+    vi.spyOn(appFolder, "nodeBlobId").mockResolvedValue("b1");
+    vi.spyOn(filenode, "fileCreate").mockReturnValue({
+      name: "settings.json",
+    } as never);
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    stopSettingsSync();
+    useSession.setState({ status: "loading", session: null, accountId: null });
+  });
+
+  it("re-queues the change, reports it, and retries until it lands", async () => {
+    let attempt = 0;
+    vi.spyOn(client, "call").mockImplementation((async () => {
+      attempt += 1;
+      if (attempt === 1) throw new Error("upstream unavailable");
+      return { created: { s: { id: "n1", blobId: "b1" } } };
+    }) as never);
+    const errorSpy = vi.spyOn(toast, "error").mockImplementation(() => 1);
+
+    armSettingsSync();
+    queueSettingsPush({ theme: "dark" });
+    await vi.advanceTimersByTimeAsync(3_000); // DEBOUNCE_MS: the first, failing attempt
+    expect(attempt).toBe(1);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(15_000); // RETRY_DEBOUNCE_MS: the retry
+    expect(attempt).toBe(2);
+
+    // No second toast for a retry that then succeeds, and no further retry is
+    // scheduled once the write has actually landed.
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(attempt).toBe(2);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("merges a newer change into the retried write rather than losing either", async () => {
+    let attempt = 0;
+    vi.spyOn(client, "call").mockImplementation((async () => {
+      attempt += 1;
+      if (attempt === 1) throw new Error("upstream unavailable");
+      return { created: { s: { id: "n1", blobId: "b1" } } };
+    }) as never);
+    vi.spyOn(toast, "error").mockImplementation(() => 1);
+    const uploaded: string[] = [];
+    vi.spyOn(client, "upload").mockImplementation((async (
+      _accountId: string,
+      blob: Blob,
+    ) => {
+      uploaded.push(await blob.text());
+      return { blobId: "b1", type: "application/json", size: blob.size };
+    }) as never);
+
+    armSettingsSync();
+    queueSettingsPush({ theme: "dark" });
+    await flushSettingsPush(); // fails immediately, bypassing the debounce
+    expect(attempt).toBe(1);
+
+    // A second, newer change arrives before the retry has fired.
+    queueSettingsPush({ theme: "dark", locale: "it-IT" });
+    await vi.advanceTimersByTimeAsync(3_000); // the newer change's own debounce
+    expect(attempt).toBe(2);
+    expect(uploaded).toHaveLength(2);
+    // The retry sent the newer value, not the stale one it first tried and
+    // failed to write — the newer change is not lost behind a failed one.
+    expect(JSON.parse(uploaded[1]!)).toEqual({ theme: "dark", locale: "it-IT" });
   });
 });
