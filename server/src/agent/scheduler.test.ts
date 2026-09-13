@@ -78,6 +78,14 @@ function fakeTimers(startMs: number) {
     },
     /** How many timers are armed right now. */
     armed: (): number => pending.size,
+    /** When the next armed timer fires, or null when none is armed. */
+    nextAt: (): number | null => {
+      let soonest: number | null = null;
+      for (const timer of pending.values()) {
+        if (soonest === null || timer.at < soonest) soonest = timer.at;
+      }
+      return soonest;
+    },
   };
 }
 
@@ -168,6 +176,46 @@ test("a capped timer re-arms for the rest instead of reporting a run that is not
     ["r1"],
     "it ran when its own instant arrived, not when the cap did",
   );
+});
+
+test("a due entry is armed for a wait, never in the tick it was armed", () => {
+  // The entry as a fire the account's lock deferred leaves it: still due, with
+  // the one timer armed for it spent. Arming it at zero delay here is the loop
+  // the armer refuses to make — the timer fires, the fire is reported, and the
+  // next arming lands in the same tick as this one.
+  const reported: string[] = [];
+  const clock = fakeTimers(at("2026-09-10T10:00:00.000Z"));
+  const due: AgentScheduleEntry = { ruleId: "r1", at: "2026-09-10T09:59:59.000Z" };
+  const dispose = armTimers([due], (entry) => reported.push(entry.ruleId), {
+    maxDelayMs: 60_000,
+    ...clock.opts,
+  });
+  assert.deepEqual(reported, [], "nothing is armed at zero delay for it");
+  assert.equal(clock.armed(), 1, "the entry is armed for a wait, not dropped");
+  clock.advanceTo(at("2026-09-10T10:00:00.249Z"));
+  assert.deepEqual(reported, [], "and it waits rather than being reported at once");
+  clock.advanceTo(at("2026-09-10T10:00:00.250Z"));
+  dispose();
+  assert.deepEqual(reported, ["r1"], "and the wait is the shortest there is");
+});
+
+test("a cap of zero is floored, so a re-check is a wait and not a spin", () => {
+  // The other zero: a cap of nothing would make every wait nothing, and the
+  // entry would be re-checked in the tick it was armed in, for ever.
+  const reported: string[] = [];
+  const clock = fakeTimers(at("2026-09-10T10:00:00.000Z"));
+  const due: AgentScheduleEntry = { ruleId: "r1", at: "2026-09-10T10:00:10.000Z" };
+  const dispose = armTimers([due], (entry) => reported.push(entry.ruleId), {
+    maxDelayMs: 0,
+    ...clock.opts,
+  });
+  assert.equal(
+    clock.nextAt(),
+    at("2026-09-10T10:00:00.250Z"),
+    "a zero cap is a wait for the entry, never the tick it was armed in",
+  );
+  dispose();
+  assert.deepEqual(reported, []);
 });
 
 test("the disposer stops every timer, including a pending re-check", () => {

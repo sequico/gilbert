@@ -14,7 +14,7 @@
 
 import { type AgentRule, type AgentScheduleEntry, nextRunAfter } from "./documents.js";
 
-/** How much of a schedule the executor keeps in memory at once, in entries. */
+/** The clock and the timers a schedule is armed with, and the cap it arms under. */
 export interface ArmTimersOpts {
   /**
    * The longest a single `setTimeout` may be, in milliseconds. A longer gap is
@@ -164,21 +164,25 @@ export function carryingForeign(
 }
 
 /**
+ * The shortest wait a timer is armed with.
+ *
+ * Nothing here measures time more finely than a person would notice, and zero is
+ * the one wait that cannot be: a timer armed for zero fires in the tick it was
+ * armed in, and an entry that is still due is then re-checked, found due, and
+ * armed again. This is what an entry whose instant has arrived waits before it
+ * is reported.
+ */
+const MIN_ARM_MS = 250;
+
+/**
  * Arm a timer per entry. Returns the disposer that clears them all.
  *
  * A capped timer fires before its entry is due; that is not a due entry, so it
  * re-arms for the rest instead of reporting one — the cap buys a re-check, it
- * never stands in for the instant.
+ * never stands in for the instant. An entry whose instant has already arrived is
+ * reported on the shortest wait there is rather than in the tick it was armed
+ * in, so a schedule armed against an instant that has passed cannot spin.
  */
-/**
- * The shortest delay a timer is armed with.
- *
- * Nothing here measures time more finely than a person would notice, and an
- * arm of zero is always a bug: the entry is re-checked, found not due, and
- * re-armed in the same tick.
- */
-const MIN_ARM_MS = 250;
-
 export function armTimers(
   entries: ReadonlyArray<AgentScheduleEntry>,
   onDue: OnDue,
@@ -194,11 +198,20 @@ export function armTimers(
     if (stopped) return;
     const due = Date.parse(entry.at);
     if (!Number.isFinite(due)) return;
-    // The cap is floored as well as applied: `maxDelayMs` of zero (or a
-    // negative one) would arm an instant timer for an entry that is not due,
-    // over and over, which is a spin loop that looks like a scheduler.
+    // The wait is a wait, never zero. An entry whose instant has already
+    // arrived — the state a fire the account's lock deferred leaves behind, and
+    // the state a clock behind the one the plan was made against produces — is
+    // re-checked after the shortest wait there is rather than armed for this
+    // tick: a zero delay fires, is reported, and is armed again before the
+    // account could act on any of it, which is a request loop wearing a
+    // scheduler's clothes.
+    const until = due - now();
+    // The cap is floored too, and for the same reason from the other end:
+    // `maxDelayMs` of zero (or a negative one) would make every wait zero, so a
+    // far-future entry would be re-checked in a spin loop instead of at the
+    // cap.
     const cap = Math.max(opts.maxDelayMs, MIN_ARM_MS);
-    const delay = Math.min(Math.max(due - now(), 0), cap);
+    const delay = until > 0 ? Math.min(until, cap) : MIN_ARM_MS;
     const timer = setTimeoutFn(() => {
       timers.delete(timer);
       if (stopped) return;

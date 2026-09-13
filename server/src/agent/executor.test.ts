@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage } from "node:http";
 import { after, before, test } from "node:test";
 import { PDFDocument } from "pdf-lib";
 import type { AgentJob, AgentRule } from "./documents.js";
+import type { ScheduleGuard } from "./executor.js";
 
 /**
  * The executor end to end against the mock (ADR 0003).
@@ -802,6 +803,106 @@ test("the schedule fires what is due and moves the entry on", async () => {
     entry && Date.parse(entry.at) > Date.now(),
     "the entry moved into the future",
   );
+});
+
+/**
+ * What a fire the account's lock defers does, and what runs it.
+ *
+ * A timer fires on its own clock, so it reaches the account through the same
+ * lock a poll or a push does: when the account is busy the work does not run and
+ * the lock says so. What must not follow is the arming. The entry is still due
+ * in the document and the timer armed for it is spent, and a timer armed for an
+ * instant that has already arrived fires in the tick it was armed, is deferred
+ * again, and turns the schedule into a request loop against the account's own
+ * documents. The reconcile that owns the account is what runs the entry, from
+ * its own catch-up, and that catch-up is what arms the timers again.
+ */
+test("a fire the lock defers arms no timer, and the catch-up runs it", async () => {
+  const scheduled = rule({
+    id: "deferred-fire",
+    name: "Deferred fire",
+    trigger: { on: "schedule", everyMinutes: 5 },
+    capabilities: ["noop"],
+    review: { mode: "never" },
+  });
+  answerFor("Deferred fire", {
+    summary: "Looked at the clock.",
+    confidence: 1,
+    actions: [{ do: "noop" }],
+  });
+  await store.writeRules([scheduled]);
+  await claimFor();
+
+  // The reads an arming makes, counted: a deferral that armed again would show
+  // up here, whatever the timers around it then did.
+  let rulesRead = 0;
+  const realReadRules = AgentStore.prototype.readRules;
+  AgentStore.prototype.readRules = async function (
+    this: InstanceType<typeof AgentStore>,
+  ) {
+    rulesRead += 1;
+    return realReadRules.call(this);
+  };
+
+  // The lock, as `withAccountLock` reports a busy account: the fire does not
+  // run, and the caller is told which of the two happened.
+  let attempts = 0;
+  const guard: ScheduleGuard = async () => {
+    attempts += 1;
+    return "deferred";
+  };
+  // The clock the armer reads stands an hour past the plan's own: a worker plans
+  // from the mail server's clock and arms its timers from this process's, so the
+  // instant a plan was made against can have arrived by the time one is armed.
+  const arming = { now: (): number => Date.now() + 60 * 60_000 };
+
+  const dispose = await executor.armSchedule(GROUP, {
+    maxDelayMs: 60_000,
+    guard,
+    timers: arming,
+  });
+  try {
+    // The instant arrives while the account is busy: the entry is due in the
+    // document, and nothing has moved it on — the fire that would have is the
+    // one the lock defers.
+    await store.writeSchedule([
+      { ruleId: scheduled.id, at: new Date(Date.now() - 60_000).toISOString() },
+    ]);
+    const before = rulesRead;
+    await sleep(400);
+    assert.equal(attempts, 1, "the entry is fired once, and the lock defers it");
+    assert.equal(rulesRead, before, "and the deferral arms nothing: nothing is read");
+    assert.equal(
+      (await jobsOf("deferred-fire")).length,
+      0,
+      "and no run happened: the entry is exactly where the deferral left it",
+    );
+
+    // The reconcile that owns the account is where the deferral leads, and its
+    // catch-up reads the due runs back out of the document.
+    const started = await executor.runDueSchedules(GROUP);
+    assert.equal(started, 1, "the catch-up runs the fire the lock deferred");
+    const jobs = await jobsOf("deferred-fire");
+    assert.equal(jobs.length, 1);
+    assert.equal(jobs[0]!.state, "done");
+    assert.equal(jobs[0]!.trigger.on, "schedule");
+    const entry = (await store.readSchedule())?.doc.find(
+      (candidate) => candidate.ruleId === scheduled.id,
+    );
+    assert.ok(
+      entry && Date.parse(entry.at) > Date.now(),
+      "and the entry it ran has moved on to its next occurrence",
+    );
+
+    // Back on the clock, and by that reconcile alone: the timer it armed fires,
+    // the account is still busy, and it is deferred again — one attempt per
+    // reconcile, not a loop.
+    await sleep(400);
+    assert.equal(attempts, 2, "the schedule is armed again, by the reconcile");
+  } finally {
+    dispose();
+    AgentStore.prototype.readRules = realReadRules;
+  }
 });
 
 test("pruning drops finished documents and keeps open ones", async () => {

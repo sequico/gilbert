@@ -122,6 +122,7 @@ import {
   providerFor,
 } from "./llm.js";
 import {
+  type ArmTimersOpts,
   advance,
   armTimers,
   carryingForeign,
@@ -134,6 +135,32 @@ import { type AgentDoc, AgentStore, UnreadableDocumentError } from "./store.js";
 
 /** The JMAP types the executor reconciles, plus the schedule. */
 export type ChangeType = "Email" | "FileNode";
+
+/**
+ * What a guarded unit of work did.
+ *
+ * `ran` is the work having happened; `deferred` is the account's lock being
+ * held by another unit of work, so nothing of this call happened and the unit
+ * in flight owns the account until it finishes. A caller that cannot tell the
+ * two apart takes a deferral for a fire that ran — which is how an entry that
+ * is still due gets armed again and again against a busy account.
+ */
+export type GuardOutcome = "ran" | "deferred";
+
+/** How one fire reaches the account it belongs to: `withAccountLock`, or a test. */
+export type ScheduleGuard = (work: () => Promise<void>) => Promise<GuardOutcome>;
+
+/**
+ * What a fire runs inside when its caller gives no guard: the work itself.
+ *
+ * A worker always gives one — the account's lock, so a fire and a reconcile
+ * cannot run this account at once — and running it directly is what a test that
+ * arms a schedule without a live worker around it wants.
+ */
+const runUnguarded: ScheduleGuard = async (work) => {
+  await work();
+  return "ran";
+};
 
 /**
  * How many times a job is attempted before it is dead-lettered. A failure that
@@ -207,6 +234,25 @@ export class Executor {
    * pass finds again rather than an event that happened once.
    */
   private readonly reportedUnreadable = new Set<string>();
+
+  /**
+   * How to plan and arm one account's schedule again, by account.
+   *
+   * A fire the account's lock defers arms nothing, so the reconcile that runs
+   * the entry is what returns its schedule to the clock — and this is where it
+   * finds the armer. The armer is this process's, registered by `armSchedule`
+   * and removed by the disposer it hands back.
+   */
+  private readonly scheduleArms = new Map<string, () => Promise<void>>();
+
+  /**
+   * The accounts whose fire a deferral left unrun and unarmed.
+   *
+   * The deferral is remembered rather than retried: the entry is still due in
+   * the document, and what runs it is the reconcile the deferral leads to
+   * (see `rearmAfterDeferredFire`).
+   */
+  private readonly deferredFires = new Set<string>();
 
   constructor(private readonly deps: ExecutorDeps) {
     this.agentStore = new AgentStore(deps.ctx, filesAccountId(deps.ctx));
@@ -2053,11 +2099,22 @@ export class Executor {
        * duplicate-execution risk `reconciling` exists to close in `agent.ts`.
        * Defaults to running the work directly, which is what a test that arms
        * a schedule without a live worker around it wants.
+       *
+       * Its answer is read, never discarded: a fire the lock deferred arms no
+       * successor, because the reconcile that owns the account runs the entry
+       * from its own catch-up.
        */
-      guard?: (work: () => Promise<void>) => Promise<void>;
+      guard?: ScheduleGuard;
+      /**
+       * The clock and the timers the entries are armed with, in the shape
+       * `armTimers` takes them in. Injected so a test drives the arming, the
+       * cap and a fire without waiting out a rule's own minute; the globals by
+       * default, which is what a worker runs on.
+       */
+      timers?: Omit<ArmTimersOpts, "maxDelayMs">;
     },
   ): Promise<() => void> {
-    const guard = opts.guard ?? ((work) => work());
+    const guard: ScheduleGuard = opts.guard ?? runUnguarded;
     const store = new AgentStore(this.deps.ctx, accountId);
     const rules = (await store.readRules())?.doc ?? [];
     const scheduleDoc = await store.readSchedule();
@@ -2087,19 +2144,59 @@ export class Executor {
         ),
         (entry) => {
           void guard(() => this.fireScheduled(accountId, entry))
-            .then(() => arm())
+            .then((outcome) => {
+              // A fire the lock deferred did not happen: the entry is still due
+              // in the document and the timer armed for it has fired. Arming
+              // again here would arm a timer for an instant that has already
+              // arrived — one that fires in the tick it was armed, defers
+              // again, and turns the schedule into a request loop against the
+              // account's own documents. The reconcile that owns the account
+              // runs the entry from its own catch-up, and that catch-up is what
+              // arms the timers again.
+              if (outcome === "deferred") {
+                this.deferredFires.add(accountId);
+                return;
+              }
+              return arm();
+            })
             .catch((err: unknown) =>
               this.deps.log(`scheduled run failed: ${errorMessage(err)}`),
             );
         },
-        { maxDelayMs: opts.maxDelayMs },
+        { maxDelayMs: opts.maxDelayMs, ...opts.timers },
       );
     };
     await arm();
+    // A fresh arming plans every entry from the document, so a fire deferred
+    // before it is already back on the clock: this account waits for nothing.
+    this.deferredFires.delete(accountId);
+    this.scheduleArms.set(accountId, arm);
     return () => {
       stopped = true;
+      this.scheduleArms.delete(accountId);
+      this.deferredFires.delete(accountId);
       dispose?.();
     };
+  }
+
+  /**
+   * Return an account's schedule to the clock after a fire its lock deferred.
+   *
+   * A deferral leaves the entry due in the document and the timer armed for it
+   * spent, and the armer arms no successor for it: a timer armed for an instant
+   * that has arrived fires in the tick it was armed, so a deferral that re-armed
+   * itself would spin against the account's documents for as long as the account
+   * stayed busy. What runs the entry instead is the reconcile that owns the
+   * account, and this is called from that reconcile's own catch-up — so the
+   * timers are planned again here, from the document the catch-up has just
+   * advanced.
+   *
+   * Nothing is armed when this process holds no armer for the account — there is
+   * no schedule to return to the clock.
+   */
+  private async rearmAfterDeferredFire(accountId: string): Promise<void> {
+    if (!this.deferredFires.delete(accountId)) return;
+    await this.scheduleArms.get(accountId)?.();
   }
 
   /**
@@ -2174,6 +2271,9 @@ export class Executor {
     const planned = planSchedule(rules, this.deps.now(), stored);
     if (!due.length) {
       if (!scheduleDoc) await this.writeSchedule(store, planned, undefined);
+      // The same repair on this exit: a deferred fire whose entry is no longer
+      // due still left the account holding no timer for it.
+      await this.rearmAfterDeferredFire(accountId);
       return 0;
     }
     const owned = await this.ownScheduleRules(store, rules);
@@ -2220,6 +2320,9 @@ export class Executor {
     // same account, and doing it first would invalidate the state the
     // conditional schedule write carries.
     await this.recordMissedRuns(store, rules, due);
+    // This pass is the catch-up the deferral leads to, so the schedule it has
+    // just moved on is this pass's to put back on the clock.
+    await this.rearmAfterDeferredFire(accountId);
     return started;
   }
 

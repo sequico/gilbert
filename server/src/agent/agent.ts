@@ -30,6 +30,7 @@ import {
   type ChangeType,
   DOCUMENT_RETENTION_MS,
   Executor,
+  type GuardOutcome,
 } from "./executor.js";
 import {
   type ClaimRefusal,
@@ -262,7 +263,9 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
           // this it is a fourth, unguarded way into `runJob` for this account.
           // Routing it through the same lock as `pass`/`drain` means a fire that
           // lands mid-reconcile is deferred to that reconcile's own schedule
-          // catch-up instead of running the same due entry a second time.
+          // catch-up instead of running the same due entry a second time — and
+          // the deferral is a state the armer reads: it arms no timer for a
+          // fire that did not run, so the catch-up is what runs the entry.
           guard: (work) => withAccountLock(accountId, work),
         }),
       );
@@ -274,7 +277,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
    *
    * `reconcileAccount` is reached from three independent triggers — the poll
    * timer (`pass`), a push wake (`drain`), and a rule's own schedule timer
-   * (`armSchedule`'s callback, wired through `guardedSchedule` below) — and
+   * (`armSchedule`'s callback, wired through `withAccountLock` below) — and
    * before this, only `drain` checked `reconciling` at all. A push wake
    * arriving mid-poll, or a scheduled rule firing mid-reconcile, could start a
    * second `reconcileAccount` (or a second `runJob`, by the same path) for the
@@ -287,14 +290,19 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
    * a plain reconcile follows once the busy one is done, which is enough: a
    * scheduled fire that is skipped this way is simply picked up by that
    * reconcile's own `runDueSchedules` catch-up instead of running twice.
+   *
+   * The answer says which of the two happened, because a caller can need the
+   * difference: the schedule armer's fire must not be read as one that ran, and
+   * that deferral is what keeps its entry from being armed again against a busy
+   * account.
    */
   const withAccountLock = async (
     accountId: string,
     work: () => Promise<void>,
-  ): Promise<void> => {
+  ): Promise<GuardOutcome> => {
     if (reconciling.has(accountId)) {
       dirty.add(accountId);
-      return;
+      return "deferred";
     }
     reconciling.add(accountId);
     try {
@@ -302,6 +310,7 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
     } finally {
       reconciling.delete(accountId);
     }
+    return "ran";
   };
 
   /** Reconcile the accounts the stream just woke, one at a time. */
@@ -407,8 +416,10 @@ export async function startWorker(deps: WorkerDeps): Promise<WorkerHandle> {
 
   // One account's fault is that account's: an unreadable claim document ends the
   // round for that account alone, instead of ending it for every account behind
-  // it in the list, and the pass says what it caught (resolution 18).
-  const guarded = async (accountId: string, work: () => Promise<void>) => {
+  // it in the list, and the pass says what it caught (resolution 18). What the
+  // work answers with is not read here — a caller with something to say about
+  // its own outcome says it itself — so any answer is taken.
+  const guarded = async (accountId: string, work: () => Promise<unknown>) => {
     try {
       await work();
     } catch (err) {
