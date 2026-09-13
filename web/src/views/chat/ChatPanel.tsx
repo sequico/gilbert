@@ -15,6 +15,7 @@ import {
   type ChatMention,
   type ChatMessage,
   MAX_TEXT,
+  mentionablesOf,
   mentionRegex,
   participantsOf,
   shortName,
@@ -70,15 +71,26 @@ function EmojiText({ text }: { text: string }) {
   );
 }
 
-/** Message text with `@address` mentions highlighted; emoticons still render. */
+/**
+ * Message text with `@address` mentions highlighted; emoticons still render.
+ *
+ * A mention of somebody the roster no longer lists is greyed rather than
+ * dropped: the words are what was written and stay readable, and the style
+ * says that the person it names is no longer here. With no roster — a group
+ * whose members nobody could read — every mention renders as it always has,
+ * because a grey here would be a claim about the group that nobody checked.
+ */
 function MentionedText({
   text,
   mentions,
   me,
+  members,
 }: {
   text: string;
   mentions?: ChatMention[];
   me: string;
+  /** The group's members, or null when no roster could be read. */
+  members: string[] | null;
 }) {
   const addrs = mentions?.map((m) => m.id) ?? [];
   if (!addrs.length) return <EmojiText text={text} />;
@@ -86,15 +98,19 @@ function MentionedText({
   const parts = text.split(re);
   return (
     <>
-      {parts.map((p, i) =>
-        i % 2 === 1 ? (
-          <span key={i} className={`chat-mention${p === me ? " me" : ""}`} title={p}>
+      {parts.map((p, i) => {
+        if (i % 2 !== 1) return <EmojiText key={i} text={p} />;
+        const gone = members !== null && !members.includes(p);
+        return (
+          <span
+            key={i}
+            className={`chat-mention${p === me ? " me" : ""}${gone ? " gone" : ""}`}
+            title={gone ? t("No longer in this group") : p}
+          >
             @{shortName(p)}
           </span>
-        ) : (
-          <EmojiText key={i} text={p} />
-        ),
-      )}
+        );
+      })}
     </>
   );
 }
@@ -114,6 +130,8 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
    */
   const memberViews = useAgents((s) => s.memberViews);
   const loadMemberView = useAgents((s) => s.loadMemberView);
+  const loadGroupMembers = useAgents((s) => s.loadGroupMembers);
+  const groupMembers = useAgents((s) => s.groupMembers);
   const groupName = open?.name ?? null;
   const agentView = groupName ? memberViews[agentViewKey(groupName)] : undefined;
   const [agentOpen, setAgentOpen] = useState(false);
@@ -122,22 +140,40 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
   // owes the agent's address as soon as the composer is on screen, whether or
   // not anyone has opened the panel (ADR 0003 resolution 11).
   useEffect(() => {
-    if (groupName) void loadMemberView(groupName);
-  }, [groupName, loadMemberView]);
+    if (!groupName) return;
+    void loadMemberView(groupName);
+    // The roster rides the same open, and for the same reason: the picker
+    // offers its members and the transcript greys a mention of somebody who is
+    // no longer one, so it is asked once per conversation rather than on every
+    // message or at the first `@`. The store answers a second ask with the
+    // copy it holds.
+    void loadGroupMembers(groupName);
+  }, [groupName, loadMemberView, loadGroupMembers]);
 
   const agentAddress = agentView?.granted ? agentView.agentAddress : null;
+  /** The group's members, or null while nobody has read them (and if nobody can). */
+  const members = groupName ? (groupMembers[agentViewKey(groupName)] ?? null) : null;
   /*
    * Who the `@` picker offers. The client knows only the participants it has
    * seen in the transcript, so a freshly granted agent that has never posted
    * cannot be mentioned at all; the group's own agent association is the
    * picker's second source, and the agent is offered exactly when it is
    * granted — membership is presence.
+   *
+   * The transcript is then cut to the group's members when a roster was read
+   * (`mentionablesOf`, ADR 0005): somebody who has left keeps their messages
+   * and stops being offered, and a member who has never written becomes
+   * offerable. With no roster in hand the transcript stands, which is what
+   * this picker offered before there was one.
    */
-  const mentionables = useMemo(() => {
-    const seen = open ? participantsOf(open.nodes, me) : [];
-    if (!agentAddress?.trim() || seen.includes(agentAddress)) return seen;
-    return [...seen, agentAddress];
-  }, [open, me, agentAddress]);
+  const mentionables = useMemo(
+    () =>
+      mentionablesOf(open ? participantsOf(open.nodes, me) : [], members, [
+        me,
+        agentAddress ?? "",
+      ]),
+    [open, me, agentAddress, members],
+  );
   const threadRef = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
   const chatInputRef = useRef<ChatInputHandle>(null);
@@ -494,6 +530,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                               text={reply.text}
                               mentions={reply.mentions}
                               me={me}
+                              members={members}
                             />
                           </span>
                         </button>
@@ -522,7 +559,12 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                         </button>
                       </div>
                       <div className="chat-text">
-                        <MentionedText text={m.text} mentions={m.mentions} me={me} />
+                        <MentionedText
+                          text={m.text}
+                          mentions={m.mentions}
+                          me={me}
+                          members={members}
+                        />
                       </div>
                     </div>
                   </div>

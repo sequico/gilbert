@@ -299,11 +299,26 @@ The agents admin area is three sections.
   an operator answers a paused run as a member, in the group's own chat,
   which is where the conversation, the draft and the arbiter live.
 
+The member door is the other half of this. `/api/agent/group/:name` answers
+what every member reads — the automations, the standing instruction, the
+notebook's facts and the recent audit — with the member's own session on the
+group's account, never an administrator's. One fact it answers is not a
+document of the group at all: its **roster**, read as the Master through
+Stalwart's registry (`x:Account/query` filtered by `memberGroupIds`, then
+`x:Account/get` on the ids that named). A member's own credential cannot open
+that door — `sysAccountGet` and `sysAccountQuery` are not in the built-in user
+role, and the Group role does not carry them either — and the Master is the
+one principal of an installation with a reason to ask. The read is cached per
+group for a minute, and a refusal is the `null` the asking surface falls back
+from rather than an error it reports; ADR 0005 is where the chat spends it. A
+status read says whether the Master may ask at all — `roster`: `ok`,
+`forbidden`, `unreadable`, `unknown` — because the answer is an operator's
+grant and the page that carries it is the one that operator reads.
+
 ## Consequences
 
 - One agent means one blast radius: a compromise of the Master's credential
-  exposes every group it is granted on at once, accepted at the same order
-  of risk threshold auto-approval already accepts.
+  exposes every group it is granted on at once, accepted at the same order  of risk threshold auto-approval already accepts.
 - The agent's own account password is the one secret the fleet holds;
   nothing mints, stores or rotates a second one.
 - A deploy or a crash pauses agent work for the downtime window only —
@@ -317,6 +332,13 @@ The agents admin area is three sections.
   answer shape, the allowlist, and the setting recorded in the trail — never
   the temperature. What is not deterministic is which granted action a run
   picks.
+- The roster is one more thing the Master's credential may do, and only when
+  the operator grants it: with `sysAccountGet` and `sysAccountQuery` on the
+  Master's own account — a per-account permission, narrower than any
+  administrator role, and exactly the pair a Tenant Administrator carries —
+  it reads who is in each group it holds. Without them nothing breaks and
+  nothing changes: the roster is `null`, and every surface that wanted one
+  keeps what it already had.
 
 ## References
 
@@ -330,7 +352,8 @@ The agents admin area is three sections.
 - `server/src/agent/scheduler.ts` — due times, catch-up
 - `server/src/agent/chat.ts` — the mention/reply pre-filter
 - `server/src/agentAdmin.ts` — the Master's own session, grants, group
-  views, rules, providers, instruction, audit export, `runRuleNow`
+  views, rules, providers, instruction, audit export, `runRuleNow`, and the
+  group roster read
 - `server/src/agent/views.ts` — the agent API's response shapes
 - `web/src/views/admin/AdminAgents.tsx` — Master
 - `web/src/views/admin/GroupAgents.tsx` — Group Agents

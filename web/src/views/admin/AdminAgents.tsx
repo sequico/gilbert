@@ -25,7 +25,7 @@ import { Link } from "wouter";
 import type { AgentStatus } from "@/lib/agents";
 import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
-import { fleetMeterLines, fleetReasonText } from "@/views/agent/agentText";
+import { fleetMeterLines, fleetReasonText, rosterText } from "@/views/agent/agentText";
 import { AgentProviders } from "./agent/AgentProviders";
 
 /**
@@ -143,6 +143,18 @@ function Identity({ status }: { status: AgentStatus | null }) {
             <div className="error-box" style={{ marginTop: 12 }}>
               {fleetReasonText(status.reason)}
             </div>
+          )}
+          {/*
+           * Whether a group's members can be read at all. It belongs here and
+           * not in the chat: the chat is opened by every member and a member
+           * cannot grant anything, while this line names the permission an
+           * operator gives the Master — and it is empty where the installation
+           * works as designed.
+           */}
+          {rosterText(status.roster) && (
+            <p className="hint" style={{ marginTop: 12 }}>
+              {rosterText(status.roster)}
+            </p>
           )}
         </div>
       )}

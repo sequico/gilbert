@@ -4,6 +4,7 @@ import {
   isChatMarkerDoc,
   isChatMessageDoc,
   markerNameFor,
+  mentionablesOf,
   mentionRegex,
   mentionsFromText,
   messageDoc,
@@ -144,6 +145,37 @@ describe("participantsOf — the mentionable set", () => {
 
   it("returns just the reader when nobody has posted", () => {
     expect(participantsOf([], "me@example.org")).toEqual(["me@example.org"]);
+  });
+});
+
+describe("mentionablesOf — the offerable set (ADR 0005)", () => {
+  const posted = ["gone@example.org", "here@example.org", "me@example.org"];
+
+  it("offers the transcript when no roster could be read", () => {
+    expect(mentionablesOf(posted, null, ["me@example.org"])).toEqual([
+      "gone@example.org",
+      "here@example.org",
+      "me@example.org",
+    ]);
+  });
+
+  it("offers the roster instead, which drops who has left", () => {
+    // Remove the swap and this fails: somebody the group no longer holds stays
+    // offerable, which is the report this set exists to answer.
+    expect(mentionablesOf(posted, ["here@example.org", "me@example.org"], [])).toEqual([
+      "here@example.org",
+      "me@example.org",
+    ]);
+  });
+
+  it("offers a member who has never posted, and keeps the reader and the agent", () => {
+    expect(
+      mentionablesOf(
+        posted,
+        ["me@example.org", "new@example.org"],
+        ["me@example.org", "gilbert@example.org"],
+      ),
+    ).toEqual(["gilbert@example.org", "me@example.org", "new@example.org"]);
   });
 });
 

@@ -147,6 +147,33 @@ export function participantsOf(
 }
 
 /**
+ * Who a `@` picker offers: the group's members when a roster could be read,
+ * and the transcript when none could.
+ *
+ * The transcript is everybody who has ever posted, and it keeps their
+ * messages — so on its own it offers somebody who no longer has a session on
+ * the group, and withholds a member who has never written. A roster in hand
+ * answers both: it is the group's own list (ADR 0005, read for the
+ * installation as the Master, ADR 0003), and it replaces the transcript as the
+ * source rather than filtering it. `null` is a roster nobody could read, and
+ * the answer is then the transcript as it stands rather than a refusal to
+ * offer anyone.
+ *
+ * `always` is offered whatever the answer is: the reader, who is reading this
+ * group's chat, and its agent, which acts there whether or not the server
+ * lists it as a member of the group.
+ */
+export function mentionablesOf(
+  participants: ReadonlyArray<string>,
+  members: ReadonlyArray<string> | null,
+  always: ReadonlyArray<string> = [],
+): string[] {
+  const out = new Set<string>(members ?? participants);
+  for (const address of always) if (address) out.add(address);
+  return [...out].filter(Boolean).sort();
+}
+
+/**
  * The mentions a text carries: `@` immediately followed by a participant
  * address. First-appearance order, each participant once. The address is the
  * chat's identity (the `from` of a message), so matching is exact.

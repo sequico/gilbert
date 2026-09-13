@@ -187,7 +187,12 @@ group Stalwart no longer lists the agent for stops being served within it
   construction — an operator still answers a paused run in the group's own
   chat, never on this surface. Master's own Groups list is a plain read of
   Stalwart's membership with a link into each group's Group Agents workspace,
-  not a second table of what the agent does there.
+  not a second table of what the agent does there. Master also says whether
+  the Master may read a group's roster at all — `sysAccountGet` and
+  `sysAccountQuery` on its own account, which the built-in user role does not
+  carry — because that is the one fact that decides whether the chat's `@`
+  offers a group's members or the people who have already written (ADR 0005),
+  and it is an operator's grant to give.
 - **Automations, not rules written in code.** The admin surface authors one
 document per automation, as a form — “When [event] / If [filters] / Then
 [actions]” — validated against the JMAP filter grammar (RFC 8621) and the
@@ -590,6 +595,16 @@ emoticons are text).
 with a quoted snippet of the original above the reply, WhatsApp-style. The
 composer shows the message being answered while the reply is being written;
 the reply stores the original's id.
+- **Mentions, and who the `@` picker offers**: typing `@` names a member, and
+the message records the addresses it named. The list offered is the **group's
+roster** — read for the installation as the Master, asked once per
+conversation on `/api/agent/group/:name/members` and held for a minute — so
+every member is offered, whether or not they have ever written, and somebody
+who has left is not. When no roster can be read the participants of the loaded
+transcript stand in, which is what the picker offered before there was one. A
+mention of somebody the roster no longer lists renders **greyed** in the
+transcript: the words are what was written, and the style says the person is
+no longer here.
 - **Read markers** — `gilbert/chat-state/read-<member>.json`, one per member,
 written by that member's own session — make **unread = messages newer than my
 marker**. A member who never opened the chat sees badge 0 and the full

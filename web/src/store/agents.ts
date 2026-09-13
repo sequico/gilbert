@@ -32,6 +32,7 @@ import {
   fetchAgentProviders,
   fetchAgentRuleSchema,
   fetchAgentStatus,
+  fetchGroupMembers,
   fetchMemberAgentView,
   fetchPendingApprovals,
   type MemberAgentView,
@@ -73,6 +74,14 @@ interface AgentsState {
    * impersonation, no group a person is not in.
    */
   memberViews: Record<string, MemberAgentView>;
+  /**
+   * One roster per group the surface has read, keyed the same way.
+   *
+   * `null` is a roster nobody could read, which is an answer and not a
+   * failure: the transcript is what the `@` picker and the rendered mentions
+   * fall back to. A group with no entry has not been asked about yet.
+   */
+  groupMembers: Record<string, string[] | null>;
   approvals: PendingApproval[];
   /**
    * What is in flight and what failed, **per operation**.
@@ -94,6 +103,12 @@ interface AgentsState {
   loadGroup: (name: string) => Promise<void>;
   /** The member door: the same documents, read with this session's own grant. */
   loadMemberView: (name: string) => Promise<void>;
+  /**
+   * Read a group's members once, and keep them: the picker and the rendered
+   * mentions share the one answer. `refresh` is for a reconnect, where the copy
+   * in hand is known to be old.
+   */
+  loadGroupMembers: (name: string, refresh?: boolean) => Promise<void>;
   /** Rejects when the server refused the save; the editor reports the reason. */
   saveRules: (name: string, rules: AgentRule[]) => Promise<void>;
   loadProviders: () => Promise<void>;
@@ -138,10 +153,11 @@ function markProblem(op: string, problem: string | null) {
   });
 }
 
-export const useAgents = create<AgentsState>((set) => ({
+export const useAgents = create<AgentsState>((set, get) => ({
   status: null,
   groupViews: {},
   memberViews: {},
+  groupMembers: {},
   approvals: [],
   busy: {},
   problems: {},
@@ -187,6 +203,23 @@ export const useAgents = create<AgentsState>((set) => ({
       set(markProblem(op, message(err)));
     } finally {
       set(markBusy(op, false));
+    }
+  },
+
+  loadGroupMembers: async (name, refresh = false) => {
+    const key = agentViewKey(name);
+    // Asked once and kept: this is a directory read made for the whole
+    // installation, and the picker and the rendered mentions read the same
+    // answer. `refresh` is the reconnect's, where a tab knows its copy is old.
+    // A refusal is remembered as the `null` it is rather than retried on every
+    // conversation open.
+    if (!refresh && key in get().groupMembers) return;
+    try {
+      const view = await fetchGroupMembers(name);
+      set((s) => ({ groupMembers: { ...s.groupMembers, [key]: view.members } }));
+    } catch {
+      // A roster nobody could read costs the refinement, never the chat.
+      set((s) => ({ groupMembers: { ...s.groupMembers, [key]: null } }));
     }
   },
 
@@ -272,6 +305,7 @@ export const useAgents = create<AgentsState>((set) => ({
       status: null,
       groupViews: {},
       memberViews: {},
+      groupMembers: {},
       approvals: [],
       busy: {},
       problems: {},
@@ -322,4 +356,8 @@ push.onReconnect(() => {
   const now = useAgents.getState();
   for (const name of Object.keys(now.groupViews)) void now.loadGroup(name);
   for (const name of Object.keys(now.memberViews)) void now.loadMemberView(name);
+  // A roster is a directory fact and nothing pushes it, so a reconnect is the
+  // one moment a tab can be sure its copy is old: the groups already asked
+  // about are asked again rather than left to age.
+  for (const name of Object.keys(now.groupMembers)) void now.loadGroupMembers(name, true);
 });

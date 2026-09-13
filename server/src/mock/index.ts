@@ -93,6 +93,7 @@ export const AGENT_ADDRESS = process.env.MOCK_AGENT_ADDRESS ?? "gilbert@example.
 export const AGENT_PASS = process.env.MOCK_AGENT_PASSWORD ?? "gilbert-password";
 /** The agent's own account: its configuration documents live here (ADR 0003). */
 const AGENT_ACCOUNT = "ag1";
+
 const SHARED_CAPS: Obj = {
   "urn:ietf:params:jmap:mail": {},
   "urn:ietf:params:jmap:submission": {},
@@ -163,6 +164,21 @@ const REFUSED_USER = process.env.MOCK_REFUSED_USER?.trim() ?? "";
  * answers 403 and nothing turns on the difference.
  */
 export const directoryGate = { open: process.env.MOCK_NO_DIRECTORY_QUERY !== "1" };
+
+/**
+ * The registry door, and what it costs a credential that may not open it.
+ *
+ * A real 0.16 server answers `x:Account/query` and `x:Account/get` only to a
+ * principal holding `sysAccountGet`/`sysAccountQuery` (live, 2026-09-13: the
+ * built-in User and Group roles carry neither, Tenant Administrator carries
+ * both), and refuses with a **method-level** `forbidden` inside an HTTP 200.
+ * `MOCK_NO_ACCOUNT_REGISTRY=1` reproduces the refusal so the fallback — the
+ * `@` picker's transcript — is exercisable, and a test may close it in process
+ * the way it closes `directoryGate`.
+ */
+export const accountRegistryGate = {
+  open: process.env.MOCK_NO_ACCOUNT_REGISTRY !== "1",
+};
 /** The user-role permissions `/api/account` reports (ADR 0001). */
 const USER_PERMISSIONS = ["jmapEmailGet", "sysAccountSettingsGet"];
 /**
@@ -2676,6 +2692,69 @@ function matchSubmissionFilter(sub: Obj, f: Obj | undefined): boolean {
   return true;
 }
 
+/**
+ * Stalwart's account registry, as `x:Account` answers it — the mock's slice of
+ * the one shape membership is readable in.
+ *
+ * A real 0.16 server exposes membership from the account side only: every
+ * account carries `memberGroupIds`, a group carries no member list at all, and
+ * `x:Group/get` is `unknownMethod` (live on 0.16.21, 2026-09-13). The demo
+ * account is in both group mailboxes the session lists, and the agent is in
+ * the first, which is what a grant looks like from the registry.
+ */
+const ACCOUNT_REGISTRY: Obj[] = [
+  {
+    id: ACCOUNT,
+    "@type": "User",
+    name: USER,
+    emailAddress: USER,
+    locale: MOCK_LOCALE,
+    timeZone: null,
+    memberGroupIds: { [GROUP_ACCOUNT]: true, [GROUP2_ACCOUNT]: true },
+  },
+  {
+    id: SHARED_ACCOUNT,
+    "@type": "User",
+    name: "shared@example.org",
+    emailAddress: "shared@example.org",
+    locale: null,
+    timeZone: null,
+    memberGroupIds: {},
+  },
+  {
+    id: GROUP_ACCOUNT,
+    "@type": "Group",
+    name: "team@example.org",
+    emailAddress: "team@example.org",
+    memberGroupIds: {},
+  },
+  {
+    id: GROUP2_ACCOUNT,
+    "@type": "Group",
+    name: "legal@example.org",
+    emailAddress: "legal@example.org",
+    memberGroupIds: {},
+  },
+  {
+    id: TARGET_ACCOUNT,
+    "@type": "User",
+    name: TARGET_USER,
+    emailAddress: TARGET_USER,
+    locale: null,
+    timeZone: null,
+    memberGroupIds: {},
+  },
+  {
+    id: AGENT_ACCOUNT,
+    "@type": "User",
+    name: AGENT_ADDRESS,
+    emailAddress: AGENT_ADDRESS,
+    locale: MOCK_LOCALE,
+    timeZone: null,
+    memberGroupIds: { [GROUP_ACCOUNT]: true },
+  },
+];
+
 const handlers: Record<string, Handler> = {
   // 0.16 exposes the account locale here, under a permission ordinary users
   // actually have (unlike x:Account below, which needs sysAccountGet).
@@ -2691,17 +2770,64 @@ const handlers: Record<string, Handler> = {
       notFound: ids.filter((id) => id !== "singleton"),
     };
   },
-  // Stalwart's directory extension - the client reads the account locale from here.
+  /*
+   * Stalwart's directory extension: the client reads the account locale from
+   * here, and membership in the one direction the registry has it.
+   *
+   * Owed — `scripts/probe-group-membership.mjs` asks all of it against a real
+   * 0.16 server and writes nothing (answered 2026-09-13; re-ask before relying
+   * on it): that `x:Group/get` and `x:Group/query` are `unknownMethod` and a
+   * group record carries no member list; that an account record carries
+   * `memberGroupIds`; that `x:Account/query` answers a `memberGroupIds` filter
+   * with the group's members' ids and refuses `groupId` and `memberOf` with
+   * `unsupportedFilter`; and that a credential without
+   * `sysAccountGet`/`sysAccountQuery` is refused with a **method-level**
+   * `forbidden` inside an HTTP 200.
+   */
   "x:Account/get": (a) => {
-    const ids = (a.ids as string[] | null) ?? [ACCOUNT];
-    const list = ids
-      .filter((id) => id === ACCOUNT)
-      .map((id) => ({ id, name: USER, locale: MOCK_LOCALE, timeZone: null }));
+    if (!accountRegistryGate.open)
+      throw new MethodError("forbidden", "You are not authorized to perform this action");
+    const ids = a.ids as string[] | null | undefined;
+    const wanted =
+      ids === null || ids === undefined ? ACCOUNT_REGISTRY.map((r) => String(r.id)) : ids;
+    const list = wanted
+      .map((id) => ACCOUNT_REGISTRY.find((r) => r.id === id))
+      .filter((r) => r !== undefined)
+      .map((r) => pick(r as Obj, a.properties as string[] | null));
     return {
-      accountId: ACCOUNT,
+      accountId: a.accountId ?? ACCOUNT,
       state: stateOf("x:Account"),
       list,
-      notFound: ids.filter((id) => id !== ACCOUNT),
+      notFound: wanted.filter((id) => !ACCOUNT_REGISTRY.some((r) => r.id === id)),
+    };
+  },
+  // The only membership filter the registry implements: a real server refuses
+  // `groupId` and `memberOf` with `unsupportedFilter` (live, 2026-09-13).
+  "x:Account/query": (a) => {
+    if (!accountRegistryGate.open)
+      throw new MethodError("forbidden", "You are not authorized to perform this action");
+    const filter = (a.filter as Obj | undefined) ?? {};
+    for (const key of Object.keys(filter))
+      if (key !== "memberGroupIds")
+        throw new MethodError(
+          "unsupportedFilter",
+          `Filter on property ${key} is not supported or invalid`,
+        );
+    const group = filter.memberGroupIds;
+    const ids = (
+      typeof group === "string"
+        ? ACCOUNT_REGISTRY.filter((r) =>
+            Object.keys((r.memberGroupIds as Obj | undefined) ?? {}).includes(group),
+          )
+        : ACCOUNT_REGISTRY
+    ).map((r) => String(r.id));
+    return {
+      accountId: a.accountId ?? ACCOUNT,
+      queryState: stateOf("x:Account"),
+      canCalculateChanges: false,
+      position: 0,
+      ids: typeof a.limit === "number" ? ids.slice(0, a.limit) : ids,
+      ...(a.calculateTotal ? { total: ids.length } : {}),
     };
   },
   "Mailbox/get": (a) =>

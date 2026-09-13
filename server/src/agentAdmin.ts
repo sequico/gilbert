@@ -97,10 +97,12 @@ import type {
   AgentWithdrawal,
   GroupAccessDenied,
   GroupInstructionView,
+  GroupMembersView,
   GroupNeed,
   GroupNotebookView,
   MemberAgentView,
   PendingApproval,
+  RosterReadability,
 } from "./agent/views.js";
 import {
   type AgentProviderView,
@@ -111,7 +113,13 @@ import {
 } from "./agent/views.js";
 import { type Ctx, filesAccountId, readAppJsonAt } from "./appFolder.js";
 import { agentAddress, config } from "./config.js";
-import { isStateMismatch, JMAP_MAIL, JmapClient } from "./jmap.js";
+import {
+  isStateMismatch,
+  JMAP_MAIL,
+  JmapClient,
+  JmapError,
+  STALWART_CAP,
+} from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
 import {
   AGENT_LABELS,
@@ -440,6 +448,7 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       meter: noMeter(),
       workers: [],
       withdrawals: [],
+      roster: "unknown",
       reason: { code: "agent_not_configured" },
     };
 
@@ -452,6 +461,7 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
       meter: noMeter(),
       workers: [],
       withdrawals: [],
+      roster: "unknown",
       reason: { code: agent.code, detail: agent.detail },
     };
 
@@ -485,6 +495,10 @@ export async function agentStatus(admin: LiveSession): Promise<AgentStatus> {
     meter,
     workers,
     withdrawals: await readWithdrawals(agent.ctx),
+    // Asked here rather than beside the roster's own read: this is the one
+    // place an operator looks when the picker is not offering the group's
+    // members, and the answer is about the installation, not about a group.
+    roster: await rosterReadability(agent.ctx).catch((): RosterReadability => "unknown"),
     ...(reason ? { reason } : {}),
   };
 }
@@ -1643,4 +1657,162 @@ export async function memberAgentView(
     jobs: open,
     audit,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* A group's members                                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How long a group's roster is held before Stalwart is asked again.
+ *
+ * Membership is given in Stalwart's own administration and nothing tells this
+ * process about it, so the alternative to a window is asking the directory at
+ * every mention. A minute keeps the read rare and the staleness small enough
+ * that a departure is gone from the next mention after it. This is a cache of
+ * a read, never a durable document: ADR 0018 refuses a write on a clock, not a
+ * read, and nothing here is written anywhere.
+ */
+const ROSTER_TTL_MS = 60_000;
+
+/** The most members one roster read asks for; a page, not the whole registry. */
+const ROSTER_LIMIT = 1000;
+
+interface RosterEntry {
+  at: number;
+  members: string[] | null;
+}
+
+/** One roster per (principal, group), so several groups do not evict each other. */
+const rosterCache = new Map<string, RosterEntry>();
+
+/**
+ * Whether this Master may read Stalwart's account registry at all.
+ *
+ * One query asking for a single id, deliberately **not** cached: the answer is
+ * an operator's grant, and a remembered "forbidden" would keep saying so after
+ * the permission had been given — which is exactly the moment somebody is
+ * looking at this line. Cheap enough to ask each time the administration is
+ * read, and the refusal arrives as a *method-level* error inside an HTTP 200,
+ * which is the shape every registry read here has to read.
+ */
+export async function rosterReadability(ctx: Ctx): Promise<RosterReadability> {
+  const client = new JmapClient(ctx);
+  const accountId = client.accountFor(STALWART_CAP);
+  if (!accountId) return "unknown";
+  try {
+    await client.call("x:Account/query", { accountId, limit: 1 });
+    return "ok";
+  } catch (err) {
+    return err instanceof JmapError && err.type === "forbidden"
+      ? "forbidden"
+      : "unreadable";
+  }
+}
+
+/**
+ * The addresses Stalwart lists as members of a group account, or null.
+ *
+ * Two registry calls, made as the Master — the one principal of an
+ * installation with a reason to ask (ADR 0003). The registry exposes
+ * membership in one direction only: an account carries `memberGroupIds` and a
+ * group carries no member list at all (`x:Group/get` is `unknownMethod`, and a
+ * group `Principal` carries nothing of the sort). So the roster is
+ * `x:Account/query` filtered by `memberGroupIds`, then `x:Account/get` on the
+ * ids that named. The filter is what keeps the answer proportional to the
+ * group rather than to the installation, and `properties` keeps each record to
+ * what a roster is.
+ *
+ * A refusal arrives as a *method-level* error inside an HTTP 200 — live on
+ * 0.16.21, 2026-09-13: `{"type":"forbidden"}` from a credential without
+ * `sysAccountGet`/`sysAccountQuery` — so the answers are read rather than
+ * awaited, and every way this read can fail answers `null`: a member's chat
+ * opens whatever the directory says.
+ */
+export async function groupMembers(
+  ctx: Ctx,
+  groupAccountId: string,
+): Promise<string[] | null> {
+  const key = `${ctx.username}\u0000${groupAccountId}`;
+  const held = rosterCache.get(key);
+  if (held && Date.now() - held.at < ROSTER_TTL_MS) return held.members;
+  const members = await readGroupMembers(ctx, groupAccountId);
+  rosterCache.set(key, { at: Date.now(), members });
+  return members;
+}
+
+/** The read behind `groupMembers`, which is what caches it. */
+async function readGroupMembers(
+  ctx: Ctx,
+  groupAccountId: string,
+): Promise<string[] | null> {
+  const client = new JmapClient(ctx);
+  const accountId = client.accountFor(STALWART_CAP);
+  if (!accountId) return null;
+  try {
+    const result = await client.chain([
+      [
+        "x:Account/query",
+        {
+          accountId,
+          filter: { memberGroupIds: groupAccountId },
+          limit: ROSTER_LIMIT,
+        },
+        "q",
+      ],
+      [
+        "x:Account/get",
+        {
+          accountId,
+          "#ids": { resultOf: "q", name: "x:Account/query", path: "/ids" },
+          properties: ["id", "@type", "emailAddress"],
+        },
+        "g",
+      ],
+    ]);
+    const records = result.list<{ "@type"?: unknown; emailAddress?: unknown }>("g");
+    const addresses = records
+      // The group's own record has no `memberGroupIds` and is not a member of
+      // itself; only a user account is a member anybody may mention.
+      .filter((record) => record["@type"] === "User")
+      .map((record) =>
+        typeof record.emailAddress === "string"
+          ? record.emailAddress.trim().toLowerCase()
+          : "",
+      )
+      .filter(Boolean);
+    return [...new Set(addresses)].sort();
+  } catch {
+    // A membership read nobody may make, or a directory that did not answer:
+    // the surface falls back to the transcript either way (ADR 0005).
+    return null;
+  }
+}
+
+/**
+ * A member's read of a group's members, behind the same grant as the rest of
+ * the member door: a group's roster is a fact about that group, and nobody
+ * outside it has a reason to ask.
+ *
+ * The roster itself is read **as the Master**, not as the member. A member
+ * cannot read it: `x:Account` needs `sysAccountGet`, which the built-in user
+ * role does not carry (live on 0.16.21, 2026-09-13). So the read is the
+ * installation's own — the deployment's credential, the same one the fleet
+ * signs in with — and a deployment whose Master has none has nothing to read
+ * with, which is the `null` the surface falls back from.
+ */
+export async function memberGroupMembers(
+  session: LiveSession,
+  name: string,
+): Promise<GroupMembersView | GroupAccessDenied> {
+  const access = await memberGroupAccess(session, name, {
+    need: "agent documents",
+  });
+  if (!access.ok) return access;
+  const group = name.trim().toLowerCase();
+  const address = agentAddress();
+  if (!address) return { group, members: null };
+  const agent = await openAgentSession(session, address);
+  if (!agent.ok) return { group, members: null };
+  return { group, members: await groupMembers(agent.ctx, access.accountId) };
 }
