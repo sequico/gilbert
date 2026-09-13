@@ -8,9 +8,11 @@ time. Read cold, the rule editor looked like it wanted both: one rule per
 business case, each with its own filter, and a checklist of twelve
 individually-named actions to weigh on every rule. Neither is what the
 schema asks for. This record names the minimum the schema already allows —
-one rule per trigger, and a handful of grouped choices instead of twelve —
-so "does this need to be this complicated" has a written answer instead of
-being re-litigated at every reading of the automations tab.
+one rule per trigger, a handful of grouped choices instead of twelve, and a
+context a run reads without either starving the model of what it needs or
+paying full price for what it does not — so "does this need to be this
+complicated" has a written answer instead of being re-litigated at every
+reading of the automations tab.
 
 ## Decision one — one automation per trigger, not per case
 
@@ -107,6 +109,71 @@ decision: the model proposes a draft, an administrator reads and confirms
 it, and nothing it produces is written before that confirmation, most of all
 whichever areas is not part of any group.
 
+## Decision three — a stable, cached head and a narrow, targeted tail
+
+A group's agent should feel like it remembers its mail and its files the way
+it already reads its chat, so a member never has to re-explain what is
+already written down somewhere in the account. The obvious way to get
+there — hand every run the group's received and sent mail alongside whatever
+the trigger is about — is also the one that breaks both of this record's own
+goals at once, and it is worth being precise about why, because the
+mechanism is not what it looks like from the admin surface.
+
+**Caching here is not something Gilbert asks for; it is the provider
+recognizing a prompt prefix it has already billed once.** `llm.ts` speaks to
+one OpenAI-compatible endpoint and reads back `prompt_cache_hit_tokens` and
+`prompt_cache_miss_tokens` — there is no cache directive Gilbert sends, only
+a prefix the provider either does or does not recognize as one it served
+before. ADR 0003 already built the prompt around that fact: system preamble,
+capability catalogue, notebook, standing instruction, in that fixed order,
+"because the stable head is what a provider's context cache can serve nearly
+free; the volatile tail is what a run actually pays for." A head that
+changes on every call is a head no provider ever recognizes twice, which
+makes "attach the mailbox" the one addition that turns the very thing this
+architecture built to be nearly free into the most expensive part of every
+single run — mail changes on every run, so it could only ever live in the
+tail, in full, uncached, every time.
+
+The decision is therefore **two speeds of memory, not one list that grows**:
+
+- **The stable head carries distilled facts, not raw correspondence.** The
+  group's notebook is already the place ADR 0003 gives this — "the facts
+  about this group that its automations should never have to repeat" — and
+  it stays cheap precisely because a person, or a low-frequency automation,
+  writes to it rarely. A `schedule` automation that reads the day's mail and
+  files and *rewrites* the notebook with what changed — an open item, a
+  reply still owed, a filing convention just used — belongs here: it touches
+  the head once a day, not once a run, and every chat or email run afterwards
+  reads the distillation at cache-hit prices instead of the correspondence at
+  full price.
+- **The volatile tail stays narrow and named, never broad and implicit.** A
+  run reads the item its trigger is about, the chat window
+  `conversationContext` already bounds, and — when a request names one — the
+  one file or message it names, fetched by a targeted search rather than
+  attached wholesale. This is the same shape `folderRequest`/`folderSlice`
+  already give a chat run that asks for a named folder, generalized to a
+  named email or document rather than invented fresh: the tail grows by one
+  matched item, not by every item that might be relevant.
+
+**Rejected — attaching received and sent mail as standing context.** Beyond
+the caching cost above, a run's context is also the one place untrusted
+content enters a call at all (ADR 0003, "Content is data, never
+instruction"); a mailbox attached wholesale multiplies how much of that
+content sits in front of the model on every single run, almost all of it
+irrelevant to what that run is about, for a benefit — "it might come up" —
+the targeted lookup above already covers for the cases that actually do.
+Breadth of memory is bought with the notebook's distillation, not with the
+size of what is attached raw.
+
+None of this is implemented by this record: the notebook-writing schedule
+automation and the named-lookup extension to the chat and email context
+paths are follow-ups, in the same sense the duplicate-trigger guard below
+is — a decision to build against, not a change to `contextFor` or `llm.ts`
+made here. What this record does settle is where new context is allowed to
+go, so an implementation does not have to re-derive it from the caching
+mechanics each time: distilled and infrequent in the head, or named and
+narrow in the tail — never raw and wholesale in either.
+
 ## What stays mandatory, and why it is not the same complexity
 
 - **The capability allowlist**, now chosen by area, stays mandatory:
@@ -158,18 +225,30 @@ area now merely groups.
   says "follow the group's standing instruction" and nothing else is a
   legal, if unhelpfully thin, instruction, since `ruleProblem` only asks that
   the field be non-empty.
+- The fleet meter's own `inputHitTokens`/`inputMissTokens` split (Master,
+  ADR 0003) is what confirms decision three is working, rather than
+  something to assume: a notebook that is edited too often to stay in the
+  cached head, or a context path that widened past a named lookup back into
+  something broad, shows up there as a miss rate that does not fall, not as
+  a claim to take on faith.
 
 ## References
 
 - ADR 0003 — the rule shape, `planFor` → `decideActions`, the allowlist, the
-  review gate, the reading helper's propose-then-confirm shape, the standing
-  instruction's place in the prompt order
+  review gate, the reading helper's propose-then-confirm shape, the notebook,
+  the fixed prompt order and why it is cache-friendly, the standing
+  instruction's place in it
 - `server/src/agent/documents.ts` — `AGENT_TRIGGERS`, `AGENT_ACTION_SPECS`,
   `ruleProblem`, `filterProblems`, `matchEmailFilter`, `consentRequired`,
   `irreversible`, `reviewOutcome`
 - `server/src/agent/executor.ts` — `fileRecords`, the unfiltered fan-out over
   every enabled rule on a `chat`, `filenode` or `schedule` trigger;
-  `decideActions`, the allowlist check a chosen area cannot widen
+  `decideActions`, the allowlist check a chosen area cannot widen;
+  `contextFor`, `folderRequest`/`folderSlice`, the pattern a named-item
+  lookup generalizes
+- `server/src/agent/llm.ts` — `decideActions`'s one call to an
+  OpenAI-compatible endpoint, the fixed system-prompt assembly order,
+  `usageOf`'s `prompt_cache_hit_tokens`/`prompt_cache_miss_tokens` read
 - `web/src/views/admin/agent/RuleForm.tsx` — the filter section gated on
   `rule.trigger.on === "email"`, the capability checklist grouped by area,
   Invio kept outside every group, the review mode selector

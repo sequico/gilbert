@@ -45,7 +45,13 @@ is, not what a user sees.
   marks `external` or `irreversible` — today only `mail.send` — is excluded
   from every area and stays its own separate checkbox, so ticking an area can
   never grant it as a side effect. `AgentRule.capabilities` is unchanged; the
-  area is metadata the editor groups by, not a new document field.
+  area is metadata the editor groups by, not a new document field. New
+  context belongs in one of two speeds — distilled into the group's notebook
+  by an infrequent process, staying in the prompt's cached head, or fetched
+  narrowly and by name into the volatile tail — never attached wholesale
+  (a full mailbox, an unbounded document set), which would defeat the
+  provider's own prompt caching and widen the untrusted-content surface at
+  once.
 - **0007 — Identity administration.** An administrator sets a person's or a
   group's identity through the same doors impersonation and the agent
   already open; a locked account has no path of its own to change it.
