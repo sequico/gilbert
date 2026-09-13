@@ -1,80 +1,54 @@
-# Architecture Decision Records — index
+# Architecture decision records — index
 
-One file per decision (`NNNN-kebab-case-title.md`), oldest first. A number is
-never reused: a record whose decision is folded into another retires its number,
-as 0011 did into 0006, 0012 into 0003 and 0013 into 0010, rather than leaving a
-gap to be filled by something unrelated. Each record states **what the decision is**; this
-index is only the map — number, status, one line. What Gilbert *does* is the
-inventory in `FEATURES.md` and the code itself, never a second copy here.
+One file per decision (`NNNN-kebab-case-title.md`). A number is never
+reused: a decision folded into another retires its number rather than
+leaving a gap for something unrelated to fill.
+
+Retired numbers, and where their content lives now (a code comment citing a
+retired number is looked up here, not in a deleted file): 0004 → 0001;
+0006 — dropped, the native companion app it proposed is superseded by the
+web client's own installable (PWA) mode; 0008 — dropped, the feature it
+described was never built; 0010 → 0003; 0011 — folded into 0006 before this
+revision, and dropped with it; 0012 → 0003; 0013 → 0003 (via 0010);
+0014 → 0003; 0015 → 0001. Section letters or numbers a retired record once
+had (`§4`, `resolution 11`, …) do not carry over — the surviving record's
+own structure is what a code comment should be read against.
+
+Each record describes the decision as it stands and how it is built —
+architecture, not a changelog. A record is edited in place when the thing it
+describes changes; nothing here narrates what used to be true. History of
+that kind lives in git, not in these files.
 
 Every record names the four blocks — **gilbertmailer**, **gilbertserver**,
-**gilbertagents** and **gilbertstalwart** — the way `README.md` defines them,
-so a decision and the product description use one vocabulary. The definitions,
-and the line to upstream, live there and are not repeated here.
-
-## How to read the statuses
-
-- `Status` is the **decision lifecycle**, never an implementation flag:
-  `Proposed` (written, the owner has not ratified it), `Accepted` (the owner
-  ratified the decision), `Superseded` (a later decision replaced it).
-- A decision can be implemented while still `Proposed`, and `Accepted` with
-  parts deferred: the code and `FEATURES.md` say where it stands, this line
-  does not.
-- Supersession is one-way and never rewritten: a superseded record's body
-  stays as the historical record of what was decided; only its `Status` line
-  moves.
-- A record states the decision and the facts it rests on — never the
-  conversation that produced it.
+**gilbertagents** and **gilbertstalwart** — the way `README.md` defines
+them, so a decision and the product description use one vocabulary. What
+Gilbert *does* is the inventory in `FEATURES.md` and the code itself; a
+record here explains why a piece of the architecture is shaped the way it
+is, not what a user sees.
 
 ## The decisions
 
-- **0001 — The administration surface.** Gilbert admin is Stalwart admin: the
-  signed-in session's permission list (marker `sysAccountCreate`, configurable
-  in the environment) decides, read fresh on every call, failing closed.
-  Impersonation is the write path into an account.
-- **0002 — Upstream contribution model.** Upstream is download-only: releases
-  are fetched at merge time, nothing flows back, and no mirror branch is kept.
-- **0003 — Agent fleet.** The Master's identity lives in the deployment's
-  environment; the Master is one, its agents are many; the automations,
-  approvals and audit are the Master's record. The server starts an agent beside
-  itself when the Master is named, `GILBERT_AGENT_INPROCESS=0` keeps the fleet in
-  a process of its own, and nothing supervises it.
-- **0004 — Administrative writes into a user's account.** Publishing the
-  installation settings policy, and forcing a password change, ride the
-  sign-in and impersonation paths that already exist.
-- **0005 — Group chat on the group's own Files.** Chat is a layer on the group
-  account's own JMAP Files, one JSON document per conversation.
-
-- **0006 — Mobile companion app.** Companion-only by design: a phone app
-  beside the web client, with durable state staying in Stalwart. The web client
-  installs on its own too, and its service worker is a boundary: the share
-  sheet's payload, the facts a tab hands it and a notification action taken as
-  the reader, with `CacheStorage` keys pinned on both sides by a test.
-- **0007 — Identities an administrator sets.** The administration gains
-  **Enforce Identities**, one section under the existing identity surface, so
-  the addresses a user may send as are set for them.
-- **0008 — System sieves, and the second door to Stalwart.** The administration
-  edits the server's system sieves — which needs a way into Stalwart that is
-  not the signed-in user's own session.
-- **0009 — The push subscription covers every live type, at the request's own
-  origin.** The subscription names every state type a Gilbert surface keeps
-  live, registered at the origin the app was served from.
-- **0010 — An automation is an instruction a model carries out.** One shape —
-  trigger, instruction, allowlist, review — with no tiers and no fixed plan; a
-  group notebook is what memory means, the prompt's order is a caching
-  constraint rather than a hope, *Run now* asks for one run on one message, and
-  what a run cost in tokens is metered per group and per agent. One model,
-  configured once, serves every automation.
-- **0014 — Agents admin UI: three surfaces, and audit made visible.** The
-  agents admin area is Master (the installation, configured once), Group
-  Agents (one group's automations, standing instruction, memory, audit and
-  fleet, behind a single picker) and Approvals (cross-group oversight,
-  read-only by construction — an operator answers in the group's chat, never
-  here). Supersedes the *Admin surfaces* bullet of ADR 0003 and fulfils the
-  audit-window resolution of ADR 0010.
-- **0015 — The installation policy lives in every account it touches.** The
-  settings policy and the identity lock move off local disk and the
-  environment into every individual account's own Stalwart storage, written by
-  impersonation at publish time — so the surface runs under `IMMUTABLE=1` like
-  the rest of the product, and `SETTINGS_POLICY_FILE` is retired.
-
+- **0001 — Administration.** Gilbert admin is Stalwart admin: a principal is
+  an administrator exactly when its permission list carries a configured
+  marker, read fresh on every privileged call. Every privileged write into
+  an account goes through impersonation; the installation policy, the
+  identity lock and the forced-password directive are all per-account
+  documents written that way.
+- **0002 — Upstream is download-only.** Releases are fetched at merge time,
+  nothing flows back, and no mirror branch is kept.
+- **0003 — The agent fleet.** One installation-wide agent identity, its own
+  process or embedded in the server, coordinated by lease documents with no
+  supervisor. An automation is a trigger, a prose instruction, a capability
+  allowlist and a review policy; every run asks a model and the allowlist
+  bounds what it may do. Covers the notebook, chaining, metering, the
+  document tools, and the three-part admin surface (Master, Group Agents,
+  Approvals).
+- **0005 — Group chat and the group label catalog.** Both are layers on the
+  group account's own JMAP Files, owned by the group from creation.
+- **0007 — Identity administration.** An administrator sets a person's or a
+  group's identity through the same doors impersonation and the agent
+  already open; a locked account has no path of its own to change it.
+- **0009 — The push subscription covers every live type, at the request's
+  own origin.** One subscription per account names every state type a
+  Gilbert surface keeps live, and its callback address is derived from the
+  request rather than configured.
