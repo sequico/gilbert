@@ -10,6 +10,14 @@ or the agent sending on a group's behalf — a message written in another
 client carries that client's own body and signature, and nothing of
 Gilbert's is added to it.
 
+**A person's own list is the account that sends for them** — the one the
+session names for `urn:ietf:params:jmap:submission` — and not the mailbox
+the client happens to have on screen. A mailbox on screen is where a message
+is written; an identity is a claim about who is sending, and that claim does
+not change because the reader opened a share or a group's mail. The person's
+own section and the administration therefore address that account and no
+other, and read one list of the same objects.
+
 The administration gains **Enforce Identities**, under the **Stalwart**
 group of the admin navigation, with two tabs: **User identities** and
 **Group identities**.
@@ -69,10 +77,20 @@ group mailbox itself (403) but not a member of it, and the product
 deliberately does not take that road. Where the agent is not granted on a
 group, the surface says so and names the missing grant.
 
-A group holds exactly one identity, by product rule rather than a server
-limit — Stalwart allows several per account, including a group's, but a
-group mailbox sends as itself and the surface keeps it that way. A person's
-surface is a list because a person sends as several.
+A group's account holds **one identity per member of that group**, all
+carrying the group's own address and each carrying that member's own display
+name and signature. Mail sent by one member and mail sent by another leave
+the same mailbox and read differently: the From line names the person and
+the signature is theirs. One identity for everyone could not do that — name
+and signature are fields of the identity, so sharing it means sharing them.
+A member is bound to their identity by the display name, which is that
+member's own identity name, read from the member's own account rather than
+typed a second time here.
+
+The member reads them and does not write them. Their own Identities &
+signatures section lists their own account's identities for editing and, in
+the same place, one read-only block per group they are a member of, saying
+that the administration sets them.
 
 ## Consequences
 
@@ -83,7 +101,11 @@ surface is a list because a person sends as several.
   session that is not an app password, and a group additionally needs the
   agent to hold a grant on it.
 - Locking removes signature editing along with identity editing, and the
-  surface that applies the lock says so.
+  surface that applies the lock says so — the group blocks go with the
+  section, which is that rule applied to the whole entry.
+- A message sent as a group names the member who sent it, in the From line
+  and in the signature, with no second address and no per-message override
+  for the server to honour.
 
 ## References
 

@@ -30,6 +30,36 @@ export function visibleIdentities<T extends Pick<Identity, "id">>(
   return shown.length ? shown : identities;
 }
 
+/**
+ * Which identities a group mailbox offers the reader (ADR 0007).
+ *
+ * A group's account holds one identity per member, all carrying the group's
+ * own address and each carrying that member's own name and signature. The
+ * member is bound to their identity by the display name -- it is that member's
+ * own identity name, read from their own account rather than typed a second
+ * time there -- so matching on the name is matching on the person.
+ *
+ * A member sends as themselves or not at all: enforcing identities means
+ * nothing while the picker under it still offers somebody else's. So this
+ * never returns more than what matched. When nothing does -- the reader's own
+ * list has not loaded, or they hold no identity of their own -- the account's
+ * default identity stands in if it is in the list, else the first, else
+ * nothing: one identity, never the whole membership.
+ */
+export function offeredInGroupAccount<T extends Pick<Identity, "id" | "name">>(
+  identities: T[],
+  mine: { name?: string | null } | undefined,
+  defaultId?: string | null,
+): T[] {
+  const wanted = mine?.name?.trim().toLowerCase();
+  if (wanted) {
+    const matched = identities.filter((i) => i.name?.trim().toLowerCase() === wanted);
+    if (matched.length) return matched;
+  }
+  const instead = identities.find((i) => i.id === defaultId) ?? identities[0];
+  return instead ? [instead] : [];
+}
+
 /** Whether hiding this one would be refused, so the UI can say so. */
 export function isAlwaysVisible(
   id: string,

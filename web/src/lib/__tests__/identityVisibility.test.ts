@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isAlwaysVisible, visibleIdentities } from "@/lib/identityVisibility";
+import {
+  isAlwaysVisible,
+  offeredInGroupAccount,
+  visibleIdentities,
+} from "@/lib/identityVisibility";
 
 /**
  * Issue #73: a unique address per service, on a server with an alias domain,
@@ -75,5 +79,74 @@ describe("what the settings row may offer", () => {
     expect(isAlwaysVisible("i1", ["i1"])).toBe(true);
     expect(isAlwaysVisible("i2", ["i1"])).toBe(false);
     expect(isAlwaysVisible("i2", [null, undefined])).toBe(false);
+  });
+});
+
+/**
+ * ADR 0007: a group's account holds one identity per member, all carrying the
+ * group's own address and each carrying that member's own name. The member is
+ * bound to their identity by that name. Enforcing identities means nothing
+ * while the picker under it still offers somebody else's, so the rule is the
+ * member's own name or nothing of theirs.
+ */
+const members = [
+  { id: "g1", name: "Ann Other" },
+  { id: "g2", name: "Robin Reader" },
+  { id: "g3", name: "Robin Reader Jr" },
+];
+
+describe("who a group mailbox offers", () => {
+  it("offers the identities carrying the reader's own name, and nothing else", () => {
+    expect(
+      offeredInGroupAccount(members, { name: "Robin Reader" }).map((i) => i.id),
+    ).toEqual(["g2"]);
+  });
+
+  it("matches on the name trimmed and without case", () => {
+    // The name as the group stored it is not necessarily the spacing or case
+    // the member's own account carries it in.
+    expect(
+      offeredInGroupAccount(members, { name: "  robin reader " }).map((i) => i.id),
+    ).toEqual(["g2"]);
+  });
+
+  it("does not match a name that merely starts the same way", () => {
+    expect(offeredInGroupAccount(members, { name: "Robin" }).map((i) => i.id)).toEqual([
+      "g1",
+    ]);
+  });
+
+  it("falls back to the account's default identity when no name matches", () => {
+    expect(
+      offeredInGroupAccount(members, { name: "Nobody" }, "g3").map((i) => i.id),
+    ).toEqual(["g3"]);
+  });
+
+  it("falls back to the first when the default identity is gone", () => {
+    expect(
+      offeredInGroupAccount(members, { name: "Nobody" }, "gone").map((i) => i.id),
+    ).toEqual(["g1"]);
+  });
+
+  it("offers one identity, never the membership, before the reader's own list is here", () => {
+    expect(offeredInGroupAccount(members, undefined).map((i) => i.id)).toEqual(["g1"]);
+    expect(offeredInGroupAccount(members, undefined, "g2").map((i) => i.id)).toEqual([
+      "g2",
+    ]);
+  });
+
+  it("ignores an empty name rather than matching the identities that have none", () => {
+    const unnamed = [
+      { id: "g1", name: "" },
+      { id: "g2", name: "Robin Reader" },
+    ];
+    expect(
+      offeredInGroupAccount(unnamed, { name: "   " }, "g1").map((i) => i.id),
+    ).toEqual(["g1"]);
+  });
+
+  it("offers nothing at all when the group's list is empty", () => {
+    expect(offeredInGroupAccount([], { name: "Robin Reader" })).toEqual([]);
+    expect(offeredInGroupAccount([], undefined, "gone")).toEqual([]);
   });
 });

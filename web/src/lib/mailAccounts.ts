@@ -63,6 +63,26 @@ export function mailAccountCandidates(
   return out;
 }
 
+/**
+ * The account that sends for the reader: where their own identities live.
+ *
+ * ADR 0007: a person's own list is the account that sends for them -- the one
+ * the session names for `urn:ietf:params:jmap:submission` -- and not the
+ * mailbox the client happens to have on screen. A mailbox on screen is where a
+ * message is written; an identity is a claim about who is sending, and that
+ * claim does not change because the reader opened a share or a group's mail.
+ *
+ * Submission first, mail second: the identity objects are stored against the
+ * account a message goes out from, and a session that names no submission
+ * account still sends as the reader's own mail account.
+ */
+export function ownIdentityAccountId(session: MailSessionLike | null): string | null {
+  return (
+    ownAccountForCapability(session, CAP.submission) ??
+    ownAccountForCapability(session, CAP.mail)
+  );
+}
+
 /** Whether an account id is the reader's own, by this session's lights. */
 export function isOwnMailAccount(
   session: MailSessionLike | null,

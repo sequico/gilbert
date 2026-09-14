@@ -80,13 +80,42 @@ export interface AdminUserIdentities {
   /** The identity that account sends from by default, or null when it has not
    * chosen one and the client falls back to its first. */
   defaultIdentityId: string | null;
+  /**
+   * The groups this person belongs to, and what their own account may send as
+   * in each (ADR 0007). Read as the person, so it is the same list their own
+   * Identities & signatures section shows beneath their own.
+   */
+  groups: AdminPersonGroup[];
 }
 
-/** A group's identity — a group holds one — and whether the agent is granted on it. */
+/** One group a person belongs to, and the identities their account sends as there. */
+export interface AdminPersonGroup {
+  /** The group's own address — what the server calls the account. */
+  name: string;
+  identities: Identity[];
+  /**
+   * False when the person's own session could not read that account. An answer,
+   * not a failure: the surface says which group it could not read rather than
+   * showing it as one with no identities.
+   */
+  readable: boolean;
+}
+
+/**
+ * A group's identities, its roster, and whether the agent is granted on it.
+ *
+ * A group holds **one identity per member** (ADR 0007) — the group's own
+ * address, each member's own display name and signature — so this is a list
+ * where it used to be one, and the administrator assigns them by member.
+ * `members` is that roster, read as the agent: `null` when it could not be read
+ * at all, which is an answer rather than a failure — the identities it holds
+ * are still listed, and the surface says the roster is unreadable.
+ */
 export interface AdminGroupIdentity {
   name: string;
   granted: boolean;
-  identity: Identity | null;
+  identities: Identity[];
+  members: string[] | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -175,14 +204,19 @@ export async function setUserDefaultIdentity(
 /* A group's identity                                                  */
 /* ------------------------------------------------------------------ */
 
-/** `GET /api/admin/identities/group` — the one identity a group holds. */
+/** `GET /api/admin/identities/group` — a group's identities and its roster. */
 export function fetchGroupIdentity(name: string): Promise<AdminGroupIdentity> {
   return apiFetch<AdminGroupIdentity>(
     `/api/admin/identities/group?name=${encodeURIComponent(name)}`,
   );
 }
 
-/** `POST` the same route — set it, as the Master. Answers the id written. */
+/**
+ * `POST` the same route — write one of the group's identities, as the agent.
+ * `id: null` creates one: a group's identities are one per member (ADR 0007),
+ * so the caller says which member this is by the `name` in the patch. Answers
+ * the id written.
+ */
 export async function saveGroupIdentity(
   name: string,
   id: string | null,

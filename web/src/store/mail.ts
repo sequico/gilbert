@@ -25,9 +25,15 @@ import {
 } from "@/lib/archiveDate";
 import { withBase } from "@/lib/basePath";
 import { plural, t } from "@/lib/i18n";
+import { offeredInGroupAccount } from "@/lib/identityVisibility";
 import { loadPlace, placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { isOptionalSort, withoutOptionalSorts } from "@/lib/listSort";
-import { type MailAccountInfo, mailAccountCandidates } from "@/lib/mailAccounts";
+import {
+  isGroupMailboxAccount,
+  type MailAccountInfo,
+  mailAccountCandidates,
+  ownIdentityAccountId,
+} from "@/lib/mailAccounts";
 import { mailboxDisplayName } from "@/lib/mailboxName";
 import { playNewMailSound, showNotification } from "@/lib/notify";
 import type { FolderRef } from "@/lib/sieveFolders";
@@ -156,6 +162,16 @@ export interface MailState {
   emailState: string | null;
   threads: Record<Id, Thread>;
   identities: Identity[];
+  /**
+   * Identity/get per account, cached by account id.
+   *
+   * `identities` below is one *view* of this: the account on screen. Settings
+   * needs a second view at the same time -- the reader's own list, which lives
+   * in the account that sends for them and is rarely the account they are
+   * browsing -- and both are read from this one cache, so the two surfaces
+   * cannot disagree about what an account's identities are (ADR 0007).
+   */
+  identitiesByAccount: Record<Id, Identity[]>;
   quotas: Quota[];
   vacation: VacationResponse | null;
   list: ListState | null;
@@ -225,8 +241,12 @@ export interface MailState {
   destroyMailbox(id: Id, removeEmails?: boolean): Promise<void>;
 
   loadIdentities(): Promise<Identity[]>;
+  /** Read one account's identities: the one fetch behind both views. */
+  loadIdentitiesFor(accountId: Id): Promise<Identity[]>;
   /** The user's preferred identity (falls back to the first one). */
   defaultIdentity(): Identity | undefined;
+  /** One account's preferred identity, whether or not it is the one on screen. */
+  defaultIdentityFor(accountId: Id | null): Identity | undefined;
   setDefaultIdentity(id: Id): void;
   saveIdentity(id: Id | null, patch: Partial<Identity>): Promise<void>;
   destroyIdentity(id: Id): Promise<void>;
@@ -310,6 +330,7 @@ export const useMail = create<MailState>((set, get) => ({
   emailState: null,
   threads: {},
   identities: [],
+  identitiesByAccount: {},
   quotas: [],
   vacation: null,
   list: null,
@@ -348,6 +369,7 @@ export const useMail = create<MailState>((set, get) => ({
       emailState: null,
       threads: {},
       identities: [],
+      identitiesByAccount: {},
       quotas: [],
       vacation: null,
       list: null,
@@ -427,6 +449,12 @@ export const useMail = create<MailState>((set, get) => ({
           mailAccounts: ownInfo ? [ownInfo, ...groups] : [],
           accountTrees: { ...s.accountTrees, ...trees },
         }));
+        /*
+         * The group mailboxes are known here, and with them that the reader
+         * may need a group's From list narrowed to their own identity. Asked
+         * for once, whether or not anyone opens Settings.
+         */
+        requestOwnIdentities();
         /*
          * The account the reader was last on, if it is still one of theirs.
          * Discovery is where the group mailboxes become known, so this is the
@@ -1328,21 +1356,31 @@ export const useMail = create<MailState>((set, get) => ({
     await followFolders(before);
   },
 
-  async loadIdentities() {
-    const accountId = get().accountId;
+  async loadIdentitiesFor(accountId) {
     if (!accountId) return [];
-    const res = await client.call<GetResponse<Identity>>("Identity/get", {
-      accountId,
-      ids: null,
-    });
-    // Stale, like loadMailboxes: the reader may have switched accounts while
-    // the request was out, and the old account's From list must not come back.
-    if (get().accountId !== accountId) return [];
-    set({ identities: sortIdentities(res.list, accountId) });
-    // Long signatures live in Files; swap the stored marker for the full HTML.
-    const { markerOf } = await import("@/lib/signatureHtml");
-    const pending = res.list.filter((i) => markerOf(i.htmlSignature));
-    if (pending.length) {
+    const running = identitiesLoading.get(accountId);
+    if (running) return running;
+    const run = (async () => {
+      const res = await client.call<GetResponse<Identity>>("Identity/get", {
+        accountId,
+        ids: null,
+      });
+      /*
+       * Cached under the account id, whatever is on screen. The account the
+       * reader's own identities live in is rarely the one they are browsing --
+       * somebody reading a group's mail is looking at the group's account --
+       * and Settings lists the two one under the other, so each answer is kept
+       * rather than thrown away with the account that asked for it.
+       */
+      let list = sortIdentities(res.list, accountId);
+      set((s) => ({
+        identitiesByAccount: { ...s.identitiesByAccount, [accountId]: list },
+      }));
+      identitiesChanged(accountId);
+      // Long signatures live in Files; swap the stored marker for the full HTML.
+      const { markerOf } = await import("@/lib/signatureHtml");
+      const pending = list.filter((i) => markerOf(i.htmlSignature));
+      if (!pending.length) return list;
       const { loadStoredSignature } = await import("@/lib/signatureImages");
       const full = await Promise.all(
         pending.map(async (i) => {
@@ -1354,15 +1392,32 @@ export const useMail = create<MailState>((set, get) => ({
           }
         }),
       );
-      if (get().accountId === accountId) {
-        set((s) => ({
-          identities: s.identities.map((i) => {
-            const f = full.find(([id]) => id === i.id)?.[1];
-            return f ? { ...i, htmlSignature: f } : i;
-          }),
-        }));
-      }
+      // The same account again: its signatures are as much part of its list as
+      // of the list of the account that happens to be on screen.
+      list = list.map((i) => {
+        const f = full.find(([id]) => id === i.id)?.[1];
+        return f ? { ...i, htmlSignature: f } : i;
+      });
+      set((s) => ({
+        identitiesByAccount: { ...s.identitiesByAccount, [accountId]: list },
+      }));
+      identitiesChanged(accountId);
+      return list;
+    })();
+    identitiesLoading.set(accountId, run);
+    try {
+      return await run;
+    } finally {
+      identitiesLoading.delete(accountId);
     }
+  },
+
+  async loadIdentities() {
+    const accountId = get().accountId;
+    if (!accountId) return [];
+    await get().loadIdentitiesFor(accountId);
+    // The account's *view*, which is what every caller of this has always had:
+    // in a group mailbox the picker offers the reader's own identity alone.
     return get().identities;
   },
 
@@ -1372,8 +1427,26 @@ export const useMail = create<MailState>((set, get) => ({
     return identities.find((i) => i.id === pref) ?? identities[0];
   },
 
+  defaultIdentityFor(accountId) {
+    if (!accountId) return undefined;
+    /*
+     * The account on screen is read from its view: in a group mailbox that
+     * view is the reader's own identity, while the group account's own
+     * preference may name a different member. Everything else comes from the
+     * cache, which is where the reader's own list lives.
+     */
+    const list =
+      accountId === get().accountId
+        ? get().identities
+        : (get().identitiesByAccount[accountId] ?? []);
+    const pref = settings().defaultIdentityByAccount[accountId];
+    return list.find((i) => i.id === pref) ?? list[0];
+  },
+
   setDefaultIdentity(id) {
-    const accountId = get().accountId;
+    // ADR 0007: the default a person sets is the one their own account sends
+    // with, not the preference of the mailbox they happened to be reading.
+    const accountId = ownIdentityAccountId(useSession.getState().session);
     if (!accountId) return;
     useSettings.getState().update({
       defaultIdentityByAccount: {
@@ -1381,11 +1454,21 @@ export const useMail = create<MailState>((set, get) => ({
         [accountId]: id,
       },
     });
-    set({ identities: sortIdentities(get().identities, accountId) });
+    const cached = get().identitiesByAccount[accountId] ?? [];
+    if (cached.length)
+      set((s) => ({
+        identitiesByAccount: {
+          ...s.identitiesByAccount,
+          [accountId]: sortIdentities(cached, accountId),
+        },
+      }));
+    const active = get().accountId;
+    if (active) applyIdentities(active);
   },
 
   async saveIdentity(id, patch) {
-    const accountId = get().accountId!;
+    const accountId = ownIdentityAccountId(useSession.getState().session);
+    if (!accountId) throw new Error(t("Not signed in"));
     const res = id
       ? await client.call<SetResponse<Identity>>("Identity/set", {
           accountId,
@@ -1397,18 +1480,19 @@ export const useMail = create<MailState>((set, get) => ({
         });
     const err = id ? res.notUpdated?.[id] : res.notCreated?.n;
     if (err) throw new Error(setErrorMessage(err));
-    await get().loadIdentities();
+    await get().loadIdentitiesFor(accountId);
   },
 
   async destroyIdentity(id) {
-    const accountId = get().accountId!;
+    const accountId = ownIdentityAccountId(useSession.getState().session);
+    if (!accountId) throw new Error(t("Not signed in"));
     const res = await client.call<SetResponse>("Identity/set", {
       accountId,
       destroy: [id],
     });
     const err = res.notDestroyed?.[id];
     if (err) throw new Error(setErrorMessage(err));
-    await get().loadIdentities();
+    await get().loadIdentitiesFor(accountId);
   },
 
   async loadVacation() {
@@ -1651,7 +1735,21 @@ export const useMail = create<MailState>((set, get) => ({
           .loadThread(open)
           .catch(() => undefined);
     }
-    if (types.has("Identity")) void get().loadIdentities();
+    if (types.has("Identity")) {
+      /*
+       * Both lists are "on screen" in the ADR 0018 sense while Settings is
+       * open: the account being browsed, and the reader's own, which is every
+       * group block under it. A change to either is a change to what is shown.
+       */
+      const own = ownIdentityAccountId(useSession.getState().session);
+      void get()
+        .loadIdentitiesFor(accountId)
+        .catch(() => undefined);
+      if (own && own !== accountId)
+        void get()
+          .loadIdentitiesFor(own)
+          .catch(() => undefined);
+    }
     if (types.has("VacationResponse")) void get().loadVacation();
     if (types.has("Quota")) void get().loadQuota();
   },
@@ -1672,6 +1770,92 @@ export const useMail = create<MailState>((set, get) => ({
     return res.created?.i?.id ?? null;
   },
 }));
+
+/**
+ * The identity reads already on their way, by account, so two callers share
+ * one request and the fire-and-forget at the foot of this file cannot ask
+ * twice for the same list.
+ */
+const identitiesLoading = new Map<Id, Promise<Identity[]>>();
+
+/**
+ * The active account's From list, as `identities`.
+ *
+ * `identities` is one *view* of `identitiesByAccount`, and this is what makes
+ * it one: the account on screen, narrowed where the account on screen is a
+ * group mailbox. ADR 0007 gives a group's account one identity per member,
+ * all with the group's address, and a member sends as themselves or not at
+ * all -- so in a group the view is the reader's own identity and nothing else.
+ * Everywhere else it is the account's list, whole.
+ *
+ * Rebuilt from the cache rather than patched, so a stale entry -- an identity
+ * destroyed in another client, a list that landed after the reader switched --
+ * cannot survive in the view.
+ */
+function applyIdentities(accountId: Id): void {
+  const state = useMail.getState();
+  if (state.accountId !== accountId) return;
+  const all = state.identitiesByAccount[accountId] ?? [];
+  if (!isGroupMailboxAccount(accountId, state.mailAccounts)) {
+    useMail.setState({ identities: all });
+    return;
+  }
+  /*
+   * The account's own default, read from its cache. The reader's own list may
+   * not have landed yet: the fallback then keeps one identity on screen -- the
+   * default one, or the first -- rather than every member's.
+   */
+  const pref = settings().defaultIdentityByAccount[accountId];
+  const fallback = all.find((i) => i.id === pref) ?? all[0];
+  useMail.setState({
+    identities: offeredInGroupAccount(all, myOwnIdentity(), fallback?.id),
+  });
+  requestOwnIdentities();
+}
+
+/**
+ * A cache entry moved: recompute what is on screen from it.
+ *
+ * Two entries can move the view -- the account being browsed, and the reader's
+ * own list, which is what tells a group mailbox which of its identities is
+ * theirs -- so a change to either recomputes the active view.
+ */
+function identitiesChanged(accountId: Id): void {
+  applyIdentities(accountId);
+  const active = useMail.getState().accountId;
+  if (!active || active === accountId) return;
+  if (accountId === ownIdentityAccountId(useSession.getState().session))
+    applyIdentities(active);
+}
+
+/** The reader's default identity in the account that sends for them. */
+function myOwnIdentity(): Identity | undefined {
+  const own = ownIdentityAccountId(useSession.getState().session);
+  if (!own) return undefined;
+  const list = useMail.getState().identitiesByAccount[own];
+  if (!list) return undefined;
+  const pref = settings().defaultIdentityByAccount[own];
+  return list.find((i) => i.id === pref) ?? list[0];
+}
+
+/**
+ * Read the reader's own identities while the account that holds them is not
+ * the one on screen.
+ *
+ * A group mailbox cannot narrow to the reader's own identity until that list
+ * is here, and the reader is usually looking at the group when it is wanted.
+ * Fire and forget, once per list: both the cache entry and the reads already
+ * on their way are checked first, so nothing here can ask in a loop.
+ */
+function requestOwnIdentities(): void {
+  const own = ownIdentityAccountId(useSession.getState().session);
+  if (!own) return;
+  const state = useMail.getState();
+  // The account on screen loads its own list; this is for the other one.
+  if (own === state.accountId) return;
+  if (state.identitiesByAccount[own] || identitiesLoading.has(own)) return;
+  void state.loadIdentitiesFor(own).catch(() => undefined);
+}
 
 function sortIdentities(list: Identity[], accountId: Id): Identity[] {
   const pref = settings().defaultIdentityByAccount[accountId];

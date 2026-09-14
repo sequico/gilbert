@@ -6,10 +6,10 @@
  *  - **a person's identity** is written by **impersonating** them from the
  *    administrator's own session — the door app-password rotation already uses.
  *    The account's identities are a list, and the surface edits all of it.
- *  - **a group's identity** is written **as the installation's agent**, because
- *    Stalwart refuses to impersonate a group mailbox at all. Where the agent is
- *    not a member of the group, nothing writes it and the refusal names the
- *    grant that is missing.
+ *  - **a group's identities** are written **as the installation's agent**,
+ *    because Stalwart refuses to impersonate a group mailbox at all. Where the
+ *    agent is not a member of the group, nothing writes them and the refusal
+ *    names the grant that is missing.
  *
  * An identity belongs to the account it lives in and is written by it, so the
  * server only ever reaches an account it already holds: the impersonated
@@ -30,7 +30,7 @@
  */
 
 import { isAddress } from "./adminPolicy.js";
-import { impersonateAs, openAgentSession } from "./agentAdmin.js";
+import { groupMembers, impersonateAs, openAgentSession } from "./agentAdmin.js";
 import {
   type Ctx,
   destroyAppNode,
@@ -521,6 +521,23 @@ export async function writeDefaultIdentity(
   await writeAppFile(ctx, accountId, SETTINGS_FILE, doc);
 }
 
+/**
+ * One group a person's own session holds, and what their account sends as
+ * there (ADR 0007).
+ */
+export interface PersonGroupIdentities {
+  /** The group's own address — what the server calls the account. */
+  name: string;
+  /** The identities this person's account sends as in that group. */
+  identities: AdminIdentity[];
+  /**
+   * False when the person's own session could not read that account. An answer,
+   * not a failure: the surface says which group it could not read rather than
+   * showing it as one with no identities.
+   */
+  readable: boolean;
+}
+
 export interface PersonIdentitiesView {
   address: string;
   /**
@@ -540,6 +557,40 @@ export interface PersonIdentitiesView {
   /** The identity that account sends from by default, or null when it has not
    * chosen one and the client falls back to its first. */
   defaultIdentityId: string | null;
+  /**
+   * The groups this person belongs to, and what their own account may send as
+   * in each (ADR 0007). Read as the person, so it is the same list their own
+   * Identities & signatures section shows beneath their own.
+   */
+  groups: PersonGroupIdentities[];
+}
+
+/**
+ * The groups a person's own session holds, each with the identities their
+ * account sends as there.
+ *
+ * Read as the person, so the answer is the one their own Identities &
+ * signatures section shows. Only what the session marks non-personal is a
+ * group — the personal account is the list `PersonIdentitiesView.identities`
+ * already carries. A read that fails is `readable: false` with no identities
+ * rather than an error for the whole surface: a share answers nothing to
+ * `Identity/get`, which is an answer and not a failure, and the flag is what
+ * lets the surface tell the two apart.
+ */
+async function personGroupIdentities(ctx: Ctx): Promise<PersonGroupIdentities[]> {
+  const groups: PersonGroupIdentities[] = [];
+  for (const [accountId, raw] of Object.entries(ctx.session.accounts ?? {})) {
+    const account = raw as { name?: unknown; isPersonal?: unknown };
+    if (account.isPersonal !== false) continue;
+    const name = typeof account.name === "string" ? account.name : "";
+    try {
+      const identities = await readIdentities(ctx, accountId);
+      groups.push({ name, identities, readable: true });
+    } catch {
+      groups.push({ name, identities: [], readable: false });
+    }
+  }
+  return groups;
 }
 
 /**
@@ -573,6 +624,9 @@ export async function personIdentities(
         impersonation: "denied",
         identities: [],
         defaultIdentityId: null,
+        // No session, so no account to read a group through: the surface shows
+        // the denied impersonation rather than a list it never asked for.
+        groups: [],
       };
     throw new IdentityAdminError(
       imp.status === 404 ? "account_not_found" : "account_unreachable",
@@ -594,6 +648,7 @@ export async function personIdentities(
     impersonation: "ok",
     identities: await readIdentities(imp.ctx, accountId),
     defaultIdentityId: await readDefaultIdentity(imp.ctx, accountId),
+    groups: await personGroupIdentities(imp.ctx),
   };
 }
 
@@ -704,19 +759,32 @@ async function agentSession(admin: LiveSession): Promise<Ctx> {
   return agent.ctx;
 }
 
-/** A group's identity, and whether the agent is granted on it at all. */
+/** A group's identities and its roster, and whether the agent is granted on it. */
 export interface GroupIdentityView {
   name: string;
   granted: boolean;
-  identity: AdminIdentity | null;
+  /**
+   * One identity per member (ADR 0007): the group's own address, each member's
+   * own display name and signature.
+   */
+  identities: AdminIdentity[];
+  /** The group's roster, or `null` when it could not be read at all. */
+  members: string[] | null;
 }
 
 /**
- * The group's identity, read as the agent.
+ * A group's identities and its roster, read as the agent.
  *
  * `granted: false` is a state, not a failure: the agent is not a member of that
  * group, so nothing here writes it, and the surface names the grant that is
- * missing rather than showing a permission error that would read as a bug.
+ * missing rather than showing a permission error that would read as a bug. A
+ * group the agent is not on holds nothing this session may read, so its list is
+ * empty and its roster is `null`.
+ *
+ * The roster is the one `groupMembers` reads for the group's own surfaces, on
+ * the same cache: a registry read nobody may make is `members: null`, which is
+ * an answer rather than a failure of this surface — the identities are listed
+ * beside it either way.
  */
 export async function groupIdentity(
   admin: LiveSession,
@@ -725,17 +793,24 @@ export async function groupIdentity(
   const group = identityAddress(name, "group");
   const ctx = await agentSession(admin);
   const accountId = groupAccountId(ctx, group);
-  if (!accountId) return { name: group, granted: false, identity: null };
-  const identities = await readIdentities(ctx, accountId);
-  return { name: group, granted: true, identity: identities[0] ?? null };
+  if (!accountId) return { name: group, granted: false, identities: [], members: null };
+  return {
+    name: group,
+    granted: true,
+    identities: await readIdentities(ctx, accountId),
+    members: await groupMembers(ctx, accountId),
+  };
 }
 
 /**
- * Write the group's identity, as the agent.
+ * Write one of a group's identities, as the agent.
  *
- * A group holds one identity (ADR 0007): when it already has one, this is an
- * update of that one rather than a second identity beside it — the product's
- * rule, applied here so no surface has to know it.
+ * A group holds **one identity per member** (ADR 0007) — the group's own
+ * address with each member's own display name and signature — so the caller
+ * says which member this is by the `name` in the patch, and `id: null` creates
+ * that member's identity instead of editing somebody else's. An `id` that is
+ * not one of this group's own identities is refused by name, because the
+ * surface may only write what the group actually holds.
  */
 export async function writeGroupIdentity(
   admin: LiveSession,
@@ -752,16 +827,19 @@ export async function writeGroupIdentity(
       `The installation's agent is not a member of ${group}, so nothing here can write its identity. Grant the agent on that group and save again.`,
       409,
     );
-  const existing = await readIdentities(ctx, accountId);
-  const target = id ?? existing[0]?.id ?? null;
-  // The one-identity rule, enforced where it is a fact about the account: an id
-  // the surface invented is not one of this group's, and the server says so.
-  if (target && !existing.some((identity) => identity.id === target))
-    throw new IdentityAdminError(
-      "identity_not_found",
-      `${group} holds no identity with that id.`,
-      404,
-    );
+  const target = id ?? null;
+  if (target) {
+    const existing = await readIdentities(ctx, accountId);
+    // The ids this account holds are the only ones it may be written through:
+    // an id the surface invented, or one of another group's, is named as
+    // unknown here rather than handed to the server as somebody else's.
+    if (!existing.some((identity) => identity.id === target))
+      throw new IdentityAdminError(
+        "identity_not_found",
+        `${group} holds no identity with that id.`,
+        404,
+      );
+  }
   return { id: await writeIdentity(ctx, accountId, target, patch) };
 }
 

@@ -2488,13 +2488,21 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * A group's identity, and the one write that reaches it (ADR 0007).
+   * A group's identities, its roster, and the write that reaches them
+   * (ADR 0007).
    *
    * Written as the installation's agent, always: Stalwart refuses to impersonate
    * a group mailbox, and the agent is the principal that exists for this. Where
    * the agent is not a member of the group, `granted: false` says so and names
    * the grant that is missing rather than a permission error that would read as
    * a bug.
+   *
+   * A group holds **one identity per member** — the group's own address, each
+   * member's own display name and signature — so the GET answers the whole list,
+   * and `members` is the roster those identities belong to: `null` when the
+   * registry could not be read, which is an answer rather than a failure. The
+   * POST writes one of them: `id: null` creates one, and the `name` in the
+   * patch says which member it is.
    */
   api.get("/admin/identities/group", requireSession, requireAdmin, async (c) => {
     try {

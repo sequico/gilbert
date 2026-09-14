@@ -4,22 +4,59 @@ import type { Identity } from "@/jmap/types";
 import { formatAddressList } from "@/lib/address";
 import { t } from "@/lib/i18n";
 import { isAlwaysVisible } from "@/lib/identityVisibility";
+import {
+  groupMailboxAccounts,
+  type MailAccountInfo,
+  ownIdentityAccountId,
+} from "@/lib/mailAccounts";
 import { storeSignatureHtml, uploadSignatureImage } from "@/lib/signatureImages";
 import { htmlToText } from "@/lib/text";
 import { useMail } from "@/store/mail";
+import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
 import { confirmDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 import { IdentityDialog } from "./IdentityDialog";
 
+/**
+ * What the reader's own list is while it is still on its way, as one object.
+ *
+ * A selector that builds `[]` on every call hands the store a new reference on
+ * every read, which is a re-render per store write for a list that has not
+ * changed. The cache entry is missing only until its first read lands.
+ */
+const EMPTY: Identity[] = [];
+
+/**
+ * The person's own identities, and the group mailboxes they are a member of.
+ *
+ * ADR 0007: a person's own list is the account that sends for them, not the
+ * mailbox the client happens to have on screen -- an identity is a claim about
+ * who is sending, and it does not move because the reader opened a group's
+ * mail or a share. The administration edits that same account, so the two
+ * surfaces read one list of the same objects.
+ *
+ * Under it, one read-only block per group mailbox: a group's account holds one
+ * identity per member, all carrying the group's address and each carrying that
+ * member's own name and signature, and the administration sets them. A member
+ * reads them here and does not write them. A locked account is offered none of
+ * this: the section is gone from the settings navigation entirely.
+ */
 export function IdentitiesSettings() {
-  const identities = useMail((s) => s.identities);
-  const load = useMail((s) => s.loadIdentities);
-  const accountId = useMail((s) => s.accountId);
+  const session = useSession((s) => s.session);
+  const ownAccountId = ownIdentityAccountId(session);
+  const mailAccounts = useMail((s) => s.mailAccounts);
+  const identities =
+    useMail((s) => (ownAccountId ? s.identitiesByAccount[ownAccountId] : undefined)) ??
+    EMPTY;
+  const loaded = useMail((s) =>
+    ownAccountId ? Boolean(s.identitiesByAccount[ownAccountId]) : true,
+  );
+  const loadFor = useMail((s) => s.loadIdentitiesFor);
   const setDefault = useMail((s) => s.setDefaultIdentity);
   const defaultId =
     useSettings((s) =>
-      accountId ? s.settings.defaultIdentityByAccount[accountId] : undefined,
+      ownAccountId ? s.settings.defaultIdentityByAccount[ownAccountId] : undefined,
     ) ?? identities[0]?.id;
   const [editing, setEditing] = useState<Partial<Identity> | null>(null);
   const hidden = useSettings((s) => s.settings.hiddenIdentities);
@@ -30,9 +67,12 @@ export function IdentitiesSettings() {
         ? hidden.filter((x) => x !== id)
         : [...hidden, id],
     });
+  // Re-read whenever the entry goes missing as well as when the account does:
+  // the cache is dropped on a mailbox switch, and a list this page is built on
+  // must not stay empty because the reader moved while it was open.
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (ownAccountId && !loaded) void loadFor(ownAccountId).catch(() => undefined);
+  }, [ownAccountId, loaded, loadFor]);
 
   return (
     <div>
@@ -42,6 +82,7 @@ export function IdentitiesSettings() {
           "Each identity is a sender address with its own name, Reply-To and signature. The default identity is preselected when you compose; set a Reply-To when replies should go somewhere other than the From address.",
         )}
       </p>
+      <h2>{t("Your identities")}</h2>
       {identities.map((i) => (
         <div key={i.id} className="card clickable" onClick={() => setEditing(i)}>
           <div className="card-head">
@@ -173,6 +214,9 @@ export function IdentitiesSettings() {
           {`${hidden.length} ${hidden.length === 1 ? "identity is" : "identities are"} hidden from the compose picker. Hiding every one of them would leave nothing to choose from, so in that case they are all offered again.`}
         </p>
       )}
+      {groupMailboxAccounts(mailAccounts).map((account) => (
+        <GroupIdentities key={account.accountId} account={account} />
+      ))}
       {editing && (
         <IdentityDialog
           identity={editing}
@@ -185,5 +229,67 @@ export function IdentitiesSettings() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * One group mailbox the reader is a member of, read-only.
+ *
+ * A group's identities are its members', one each, and the administration
+ * writes them (ADR 0007) -- so there is nothing here to edit, delete or make
+ * default, and no hiding either: the compose picker in that mailbox offers the
+ * reader their own identity alone, which is not a choice this page makes. What
+ * the member gets is the list: which name and signature of theirs goes out on
+ * a group message, and every other member's, so a message from the group reads
+ * as coming from a person.
+ */
+function GroupIdentities({ account }: { account: MailAccountInfo }) {
+  const identities = useMail((s) => s.identitiesByAccount[account.accountId]) ?? EMPTY;
+  const loadFor = useMail((s) => s.loadIdentitiesFor);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    setError(null);
+    // The store caches per account, so a second mount costs nothing; a failure
+    // is said quietly in place, because the group's block is not this page's
+    // reason for being and a toast would push the reader out of their own list.
+    loadFor(account.accountId).catch((err) => {
+      if (live) setError((err as Error).message);
+    });
+    return () => {
+      live = false;
+    };
+  }, [account.accountId, loadFor]);
+  return (
+    <section>
+      <h2>{account.name}</h2>
+      <p className="hint">
+        {t(
+          "This group's mailbox holds one identity per member, all with the group's address. The administration sets them, so they are read-only here.",
+        )}
+      </p>
+      {error && (
+        <p className="hint">
+          {t("Could not read this group's identities: {error}", { error })}
+        </p>
+      )}
+      {identities.map((i) => (
+        <div key={i.id} className="card">
+          <div className="card-head">
+            <h3>{i.name ? `${i.name} <${i.email}>` : i.email}</h3>
+          </div>
+          {(i.htmlSignature || i.textSignature) && (
+            <div className="hint" style={{ marginTop: 4 }}>
+              {htmlToText(i.htmlSignature || i.textSignature).slice(0, 120)}
+            </div>
+          )}
+          {i.replyTo?.length ? (
+            <div className="hint">
+              {t("Reply-To: {addresses}", { addresses: formatAddressList(i.replyTo) })}
+            </div>
+          ) : null}
+        </div>
+      ))}
+    </section>
   );
 }

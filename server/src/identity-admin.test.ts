@@ -403,7 +403,7 @@ test("a group's identity is read, and written as the installation's agent", asyn
   );
   assert.equal(read.status, 200, JSON.stringify(read.body));
   assert.equal(read.body?.granted, true, "the agent is granted on this group");
-  const before = read.body?.identity as IdentityRow;
+  const before = ((read.body?.identities as IdentityRow[] | undefined) ?? [])[0]!;
   assert.ok(before, "the group's own identity comes back");
 
   const saved = await post("/api/admin/identities/group", adminCookie, {
@@ -415,24 +415,26 @@ test("a group's identity is read, and written as the installation's agent", asyn
   assert.equal(
     saved.body?.id,
     before.id,
-    "a group holds one identity: this is an update",
+    "the write answers the identity it was told to change",
   );
 
   const after = await call(
     `/api/admin/identities/group?name=${encodeURIComponent(GROUP)}`,
     adminCookie,
   );
-  const rows = after.body?.identity as IdentityRow;
+  const rows = ((after.body?.identities as IdentityRow[] | undefined) ?? []).find(
+    (row) => row.id === before.id,
+  )!;
   assert.equal(rows.textSignature, "— Team");
   const listed = await call(
     `/api/admin/identities/group?name=${encodeURIComponent(GROUP)}`,
     adminCookie,
   );
-  const listedAgain = (listed.body ?? {}) as { identity?: IdentityRow };
-  assert.equal(
-    listedAgain.identity?.id,
-    before.id,
-    "no second identity was created beside it",
+  const listedAgain = (listed.body ?? {}) as { identities?: IdentityRow[] };
+  assert.deepEqual(
+    (listedAgain.identities ?? []).map((row) => row.id),
+    ((after.body?.identities as IdentityRow[] | undefined) ?? []).map((row) => row.id),
+    "a write by id changes that identity and creates none beside it",
   );
 });
 
@@ -447,7 +449,8 @@ test("a group the agent is not granted on is refused by name", async () => {
     false,
     "the surface is told, rather than shown an error",
   );
-  assert.equal(read.body?.identity, null);
+  assert.deepEqual(read.body?.identities, [], "the group answers no identity it holds");
+  assert.equal(read.body?.members, null, "and no roster either");
 
   const write = await post("/api/admin/identities/group", adminCookie, {
     name: OTHER_GROUP,

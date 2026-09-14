@@ -538,13 +538,31 @@ and in the client alike. A share is never administered or served as a group.
   Identities & signatures section read and write **one** stored value rather
   than two that can disagree; clearing the choice is a real state, and the
   account then sends with its first identity.
-- **Group identities** (ADR 0007), the second tab: a group mailbox
-  holds **one** identity —
-  a rule of the product, because a group sends as itself — written **as the
-  Master**, always: Stalwart refuses to impersonate a group
+- **Group identities** (ADR 0007), the second tab: a group mailbox holds
+  **one identity per member** — the group's own address, carrying each
+  member's own display name and signature, bound to that member by the name
+  — so mail sent as the group names whoever sent it without a second
+  address. The tab lists each member of the group's roster with the identity
+  that carries their name, reads a member's own display name on demand (one
+  impersonation when that row is opened, never the whole roster up front),
+  and lists the identities no member claims after them, so a stray one stays
+  visible and editable. The write is always **as the
+  Master**: Stalwart refuses to impersonate a group
   mailbox, and the Master is the principal the installation has for acting on
   its groups. Where the Master is not granted on the group, the surface names
-  the missing grant rather than showing a permission error.
+  the missing grant rather than showing a permission error; where the roster
+  cannot be read, the identities are listed on their own and the surface says
+  so.
+- **One list, two surfaces** (ADR 0007): the identities a person may send as
+  live in the account that **sends for them** — the one their session names
+  for submission — and Settings → Identities & signatures reads and writes
+  **that** account rather than the mailbox on screen: somebody reading a
+  group's mail still edits their own list, and the administration is looking
+  at the same objects, so a description cannot differ between the two and an
+  identity cannot be missing from one of them. Beneath their own identities
+  that section lists, read-only, one block per group mailbox they are a member
+  of, saying that the administration sets them; the administration's User
+  identities tab shows the same structure for the person it has chosen.
 - **What an identity reaches**: mail **composed in Gilbert** — the composer and
   the group's agent go through one signature function. Mail written in another
   client carries that client's own body and signature; there is no server-side
@@ -1057,7 +1075,9 @@ minimisable and maximisable; full-screen on mobile.
 - **Identities**: multiple From addresses, a per-account default that Gilbert
   keeps (JMAP has no such flag), and hiding identities from the picker without
   deleting them — an account with alias domains can have every local part twice
-  over while only a handful are ever used.
+  over while only a handful are ever used. In a **group mailbox** the picker
+  offers the reader's own identity alone (ADR 0007): the account holds one
+  identity per member, and a member sends as themselves or not at all.
 - **Signatures** in HTML per identity, inserted above or below the quote.
   Stalwart caps an identity signature at 2047 **bytes** of UTF-8, so Gilbert
   compacts the HTML, and where it still will not fit, stores the full signature
@@ -1578,7 +1598,7 @@ not reach another that already has Gilbert open until it signs in again.
 | **General** | Reading pane, mark-as-read delay, auto-advance, conversation view, snippets, avatars; compose format, quoting, signature placement, spell check; time zone, week start, language & region, date format, time format; `mailto:` handler; export / import / reset |
 | **Privacy & safety** | Remote images and the senders trusted with them, read receipts asked for and answered; the three warnings and the domains they measure against; undo-send window, attachment reminder, confirm-before-delete |
 | **Appearance** | Theme, accent colour, density, font size, sidebar, swipe actions, interface language |
-| **Identities & signatures** | Addresses, names, Reply-To, HTML signatures, the default, and which to hide from the picker |
+| **Identities & signatures** | Addresses, names, Reply-To, HTML signatures, the default, which to hide from the picker, and — read-only — the group identities the administration sets |
 | **Filters & rules** | The visual builder and raw Sieve editor |
 | **Out of office** | Vacation response |
 | **Folders** | Create, rename, colour, subscribe |
