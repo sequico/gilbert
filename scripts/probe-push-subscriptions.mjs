@@ -15,9 +15,12 @@
  * The questions, asked the way the code asks them:
  *
  *   1. how many subscriptions does the account hold, and of what ceiling?
- *   2. which of them are this installation's — recognised by their URL, which
- *      is the only mark a dead process leaves (its `deviceClientId` was
- *      random, and the code that keeps a stable one cannot match it either)?
+ *   2. which of them are Gilbert's — recognised by their `deviceClientId`,
+ *      which begins `gilbert-`: the mark a row does carry, because Stalwart
+ *      does not return a subscription's `url` at all (`url: null` even for a
+ *      row registered with one — live on 0.16.21, 2026-09-14), and the
+ *      identity an earlier process left is random, so name-matching cannot
+ *      find it either?
  *   3. (with `GILBERT_PROBE_ACCOUNT`) does an admin credential reach the
  *      account through impersonation, so somebody else's slots can be read?
  *   4. (with `--destroy-ours`) do they go, and (with `--create-check`) does a
@@ -25,9 +28,9 @@
  *      `overquota`.
  *
  * Nothing is destroyed unless `--destroy-ours` is given, and even then only
- * subscriptions whose URL is under the callback base you name — which includes
- * the subscription a *running* deployment is serving from, if its callback is
- * under that base. Restart the deployment afterwards, or it will sit on the
+ * subscriptions wearing a `gilbert-…` device id — which includes the
+ * subscription a *running* deployment is serving from, and a browser's own
+ * registration. Restart the deployment afterwards, or it will sit on the
  * per-tab relay until its next renewal.
  *
  * Usage, against a real instance:
@@ -36,13 +39,11 @@
  *   GILBERT_AGENT_ADDRESS=admin@example.com \
  *   GILBERT_AGENT_PASSWORD='…' \
  *   [GILBERT_PROBE_ACCOUNT=someone@example.com] \
- *   node scripts/probe-push-subscriptions.mjs \
- *     [--ours https://ops.example.eu/webmail] [--destroy-ours]
+ *   node scripts/probe-push-subscriptions.mjs [--destroy-ours] [--create-check]
  *
- * `--ours` is the origin plus base path this installation's push callback
- * lives under — `origin + basePath + "/api/push/"` is what a subscription of
- * ours looks like. Without it the probe still counts and lists, and `--destroy-ours`
- * does nothing rather than guessing.
+ * `--ours` is accepted and ignored: it named the callback base a
+ * subscription's URL lived under, and there is no URL to read. Without
+ * `--destroy-ours` the probe only counts and lists.
  */
 const CAP = "urn:ietf:params:jmap:core";
 
@@ -57,7 +58,9 @@ const STALWART_URL = (process.env.STALWART_URL ?? "").replace(/\/+$/, "");
 const ADDRESS = process.env.GILBERT_AGENT_ADDRESS ?? "";
 const PASSWORD = process.env.GILBERT_AGENT_PASSWORD ?? "";
 const ACCOUNT = process.env.GILBERT_PROBE_ACCOUNT ?? "";
-const OURS = (value("--ours") ?? "").replace(/\/+$/, "");
+/* Accepted so an old command line still runs; it marks nothing, because there
+   is no URL to read it against (see the header). */
+const OURS_ARG = value("--ours");
 const DESTROY = flag("--destroy-ours");
 const CREATE_CHECK = flag("--create-check");
 const SHOW_URLS = flag("--show-urls");
@@ -127,10 +130,12 @@ console.log(`session:  ${session.apiUrl}`);
 
 const list = (await call(session, authorization, "PushSubscription/get", { ids: null }))
   .list;
-console.log(`held:     ${list.length} of Stalwart's 15`);
-
-const ours = list.filter(
-  (s) => OURS && String(s.url ?? "").startsWith(`${OURS}/api/push/`),
+/* Recognised by device id: a server's subscription and a browser's own
+   registration both wear the project's `gilbert-` prefix, and nothing else on
+   the account does. The URL would be the precise mark and is not returned. */
+const ours = list.filter((s) => String(s.deviceClientId ?? "").startsWith("gilbert-"));
+console.log(
+  `held:     ${list.length} of Stalwart's 15, ${ours.length} wearing a \`gilbert-…\` device id`,
 );
 /** The callback URL's token is the only thing authenticating it: shown, not printed. */
 const redact = (url) =>
@@ -142,18 +147,19 @@ for (const s of list) {
   const mark = ours.includes(s) ? "ours" : "    ";
   console.log(
     `  ${mark}  ${s.id}  ${s.deviceClientId ?? "(no device id)"}\n` +
-      `        url: ${redact(s.url)}\n        expires: ${s.expires ?? "never"}`,
+      `        url: ${s.url == null ? "(not returned)" : redact(s.url)}\n        expires: ${s.expires ?? "never"}`,
   );
 }
-if (!OURS)
+if (OURS_ARG !== undefined)
   console.log(
-    "\n(no --ours given: nothing is marked as this installation's, and nothing can be destroyed)",
+    "\n(--ours is ignored: Stalwart does not return a subscription's URL, so rows are marked by their `gilbert-…` device id)",
   );
+else if (!ours.length) console.log("\n(no `gilbert-…` row on this account)");
 
 if (DESTROY) {
   if (!ours.length) {
     console.log(
-      `\n0 of ${list.length} under ${OURS || "(no --ours given)"}: nothing to destroy`,
+      `\n0 of ${list.length} wear a \`gilbert-…\` device id: nothing to destroy`,
     );
     process.exit(1);
   }
@@ -166,12 +172,10 @@ if (DESTROY) {
   console.log(`\ndestroyed ${gone.length} of ${ids.length} subscription(s)`);
   for (const [id, why] of Object.entries(refused))
     console.log(`  refused: ${id}: ${why.type ?? "no reason given"}`);
-  /* These are the slots a running deployment was serving from as well, if its
-     callback is under the base: it does not know they are gone and will keep
-     reporting itself verified until its own expiry. */
-  console.log(
-    "a running deployment under this callback now has no subscription: restart it",
-  );
+  /* These are the slots a running deployment was serving from as well: it does
+     not know they are gone and will keep reporting itself verified until its
+     own expiry. */
+  console.log("a running deployment now has no subscription: restart it");
   const after = (
     await call(session, authorization, "PushSubscription/get", { ids: null })
   ).list;
@@ -186,7 +190,7 @@ if (CREATE_CHECK) {
     create: {
       s: {
         deviceClientId: `gilbert-probe-${Date.now()}`,
-        url: `${OURS || STALWART_URL}${OURS ? "/api/push/" : ""}probe-not-a-real-callback`,
+        url: "https://gilbert-probe.invalid/api/push/not-a-real-callback",
         types: ["Email"],
       },
     },

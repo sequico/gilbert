@@ -52,6 +52,18 @@ const RETRY_BACKOFF_MS = 5 * 60_000;
  * "frees itself in a day" is worth an extra renewal a day while tabs are open.
  */
 const TTL_MS = 24 * 60 * 60_000;
+/**
+ * How often a subscription this process believes in is confirmed to still
+ * exist.
+ *
+ * A subscription can be destroyed by something that is not this process: an
+ * operator's cleanup, another deployment under the same callback, the account
+ * being trimmed by hand. Nothing tells us when that happens, and the failure
+ * is of the worst kind -- the entry stays "verified", so its tabs hold a
+ * stream that looks healthy and will never carry another change, which is the
+ * state `endStaleFanout` exists to end. Asking is one small request.
+ */
+const LIVENESS_MS = 2 * 60_000;
 
 interface AccountPush {
   key: string; // upstream base + username
@@ -75,6 +87,8 @@ interface AccountPush {
   deviceId: string;
   /** Why the last attempt failed, for /api/health. Cleared on success. */
   lastFailure: string | null;
+  /** When the subscription was last confirmed to exist (see LIVENESS_MS). */
+  checkedAt: number;
   authorization: string; // one live session's credential, for set/verify/renew
   subscriptionId: string | null;
   state: "pending" | "verified" | "failed";
@@ -153,7 +167,8 @@ function deviceIdFor(base: string, origin: string): string {
  * Deliberately not "anything under our callback URL" -- that is how a running
  * peer beside this process would be killed, and the peer would never learn:
  * its entry would stay "verified" until the subscription it no longer has
- * expires. See `reclaimByUrl`, which is the one place that breadth is wanted.
+ * expires. See `reclaimPastBuilds`, which is the one place that breadth is
+ * wanted.
  */
 function isMine(entry: AccountPush, sub: UpstreamSubscription): boolean {
   return (
@@ -162,30 +177,42 @@ function isMine(entry: AccountPush, sub: UpstreamSubscription): boolean {
 }
 
 /**
- * Ours by URL: subscriptions under this installation's own callback.
+ * What an earlier build left behind: a row wearing a `gilbert-…` device id
+ * that is not this installation's own.
  *
- * The mark of a deployment that was killed rather than shut down -- its
- * `deviceClientId` is a random id from a process that no longer exists -- and
- * used only when a create has been *refused* for want of a slot, where the
- * choice is between reaching into our own leftovers and leaving the account on
- * the relay. Matching the path rather than the whole origin, because a
- * deployment whose hostname moved still left those rows behind.
+ * The URL would have named it, and Stalwart does not return it -- a
+ * `PushSubscription/get` answers `url: null` even for a row registered with
+ * one (live on 0.16.21, 2026-09-14) -- so the device id is what is left, and
+ * it is enough: nothing but Gilbert sets one beginning `gilbert-`. A browser's
+ * own registration also wears that prefix, and is the one Gilbert row that
+ * must not go: the type list tells it apart, a browser asking for `Email`
+ * alone where a server asks for every live type. Used only when a create has
+ * been *refused* for want of a slot -- never on the path that renews or
+ * releases.
  */
-function isOursByUrl(sub: UpstreamSubscription): boolean {
-  try {
-    return new URL(String(sub.url ?? "")).pathname.includes(
-      `${config.basePath}/api/push/`,
-    );
-  } catch {
-    return false;
-  }
+function isPastBuildOfOurs(entry: AccountPush, sub: UpstreamSubscription): boolean {
+  const id = sub.deviceClientId ?? "";
+  if (!id.startsWith("gilbert-") || id === `gilbert-${entry.deviceId}`) return false;
+  const types = sub.types;
+  return !(Array.isArray(types) && types.length === 1 && types[0] === "Email");
 }
 
 interface UpstreamSubscription {
   id: string;
   deviceClientId?: string;
-  url?: string;
+  /**
+   * Stalwart does not hand this back: a `PushSubscription/get` answers
+   * `url: null` even for a row registered with one (live on 0.16.21,
+   * 2026-09-14), which is why nothing here matches on it.
+   */
+  url?: string | null;
   expires?: string | null;
+  /**
+   * What the subscription was registered for: a browser's own registration
+   * asks for `Email` alone where a server's asks for every live type, and
+   * that is the mark `isPastBuildOfOurs` reads to tell them apart.
+   */
+  types?: string[] | null;
 }
 
 /**
@@ -233,19 +260,19 @@ async function releaseMine(entry: AccountPush): Promise<number> {
 }
 
 /**
- * Take back the slots this installation's dead deployments are holding.
+ * Take back the slots this installation's earlier builds are holding.
  *
  * Only for the case that asks for it: a create refused for want of a slot,
- * where our own leftovers under our own callback are the cheapest thing to
- * give up and the only thing we can recognise -- a random `deviceClientId` from
- * a process that no longer exists matches nothing. Narrowing it to the callers
- * that need it is what keeps a normal renewal, and a shutdown, from reaching
- * across and killing a subscription another process is still serving from.
+ * where our own leftovers are the cheapest thing to give up and the only thing
+ * we can recognise at all. What an earlier build left is a row under a random
+ * `gilbert-…` device id, and `isPastBuildOfOurs` is the whole of the
+ * recognition -- the rows that filled one account to `overquota` and had to be
+ * cleared by hand before a create could go through again (KNOWN-ISSUES).
  */
-async function reclaimByUrl(entry: AccountPush): Promise<number> {
+async function reclaimPastBuilds(entry: AccountPush): Promise<number> {
   let ours: UpstreamSubscription[] = [];
   try {
-    ours = (await listSubscriptions(entry)).filter(isOursByUrl);
+    ours = (await listSubscriptions(entry)).filter((s) => isPastBuildOfOurs(entry, s));
   } catch (err) {
     console.warn(
       `[gilbert] push: could not list subscriptions for ${entry.username}: ${(err as Error).message}`,
@@ -274,8 +301,8 @@ async function subscribe(entry: AccountPush) {
   const types = [...PUSH_STATE_TYPES];
   /* Released before it is recreated: the subscription is the installation's,
      one per account, and this is what keeps that true across restarts. By name
-     only -- `reclaimByUrl` is the one caller that reaches wider, and only when
-     this create comes back refused. */
+     only -- `reclaimPastBuilds` is the one caller that reaches wider, and only
+     when this create comes back refused. */
   const released = await releaseMine(entry);
   if (released)
     console.log(
@@ -320,12 +347,12 @@ async function subscribe(entry: AccountPush) {
       : "no reason given";
     if (/expires/i.test(detail) && attempt === 0) continue;
     if (!/overquota/i.test(detail) || attempt > 0) break;
-    /* The slots are gone and this installation's own dead deployments are the
-       cheapest thing to give up: they are the only ones we can recognise. */
-    const freed = await reclaimByUrl(entry);
+    /* The slots are gone and the rows earlier builds left are the cheapest
+       thing to give up: they are the only ones we can recognise at all. */
+    const freed = await reclaimPastBuilds(entry);
     if (freed)
       console.log(
-        `[gilbert] push: reclaimed ${freed} stale subscription(s) of this installation for ${entry.username}`,
+        `[gilbert] push: reclaimed ${freed} subscription(s) left by an earlier build for ${entry.username}`,
       );
     else break;
   }
@@ -409,6 +436,7 @@ export function prepare(
       subscriptionId: null,
       state: "pending",
       lastFailure: null,
+      checkedAt: 0,
       since: Date.now(),
       expires: 0,
       tabs: new Set(),
@@ -598,6 +626,33 @@ export function runSweep(): void {
       subscribe(entry).catch((err) => {
         fail(entry, `renewal failed: ${(err as Error).message}`);
       });
+    } else if (
+      entry.state === "verified" &&
+      entry.subscriptionId &&
+      now - entry.checkedAt > LIVENESS_MS
+    ) {
+      /* Still there? A subscription destroyed under us leaves the entry
+         believing it is verified, and its tabs reading a stream that carries
+         nothing from then on. A failed check is not a disappearance: the next
+         sweep asks again. */
+      entry.checkedAt = now;
+      const id = entry.subscriptionId;
+      jmap(entry, [["PushSubscription/get", { ids: [id] }, "0"]])
+        .then((r) => {
+          const [name, payload] = r.methodResponses[0] ?? [];
+          const gone =
+            name === "error" ||
+            ((payload as { list?: unknown[] } | undefined)?.list ?? []).length === 0;
+          if (!gone || (byKey.get(entry.key) === entry && entry.state !== "verified"))
+            return;
+          console.warn(
+            `[gilbert] push: the subscription for ${entry.username} is gone from the account; its tabs go back on the relay`,
+          );
+          fail(entry, "the subscription is no longer in the account");
+        })
+        .catch(() => {
+          entry.checkedAt = 0;
+        });
     }
     // A fan-out tab past its subscription's life hears nothing once the
     // subscription dies unrenewed: end the stream so it reconnects on a relay.

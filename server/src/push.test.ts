@@ -254,27 +254,41 @@ test("a subscription is released before it is created, so a restart keeps one", 
   }
 });
 
-test("a refused create takes back the slots this installation's dead deployments hold", async () => {
-  /* Fifteen orphans of earlier deployments: random device ids nobody can match
-     and URLs under this installation's own callback. The account is full, so
-     the create is refused -- and reaching into our own leftovers is the only
-     thing left to try. */
-  const orphans = Array.from({ length: 15 }, (_, i) => ({
+test("a refused create takes back what earlier builds left, and a browser's own row survives", async () => {
+  /* Fifteen rows: fourteen leftovers of earlier builds -- random device ids,
+     and no URL to recognise them by, because Stalwart does not return one --
+     and one browser's own registration, which wears the same prefix and must
+     not be mistaken for a leftover. The account is full, so the create is
+     refused, and reaching into our own leftovers is the only thing left to
+     try. */
+  const leftovers = Array.from({ length: 14 }, (_, i) => ({
     id: `orphan${i}`,
     deviceClientId: `gilbert-${i}deadbeef`,
-    url: `${ORIGIN}${configBasePath()}/api/push/oldtoken${i}`,
+    url: null,
+    types: ["Email", "Calendar"],
     expires: new Date(Date.now() + 7 * 86_400_000).toISOString(),
   }));
-  const fake = fakePushServer({ cap: 15 }, orphans);
+  const browser = {
+    id: "browser",
+    deviceClientId: "gilbert-9f6c2b1a-0000-4000-8000-000000000000",
+    url: "https://push.example.net/abc123",
+    types: ["Email"],
+  };
+  const fake = fakePushServer({ cap: 15 }, [...leftovers, browser]);
   try {
     const push = await isolatedPush("reclaim");
     push.attach("someone@example.com", "a", "Basic x", fakeOut() as never, ORIGIN);
     await new Promise((r) => setTimeout(r, 30));
-    assert.equal(fake.subs.length, 1, "the fresh subscription, and only it");
+    assert.equal(fake.subs.length, 2, "the fresh subscription beside the browser's");
+    assert.ok(
+      fake.subs.some((s) => s.id === "browser"),
+      "the browser's own registration was not reclaimed",
+    );
+    const fresh = fake.subs.find((s) => s.id.startsWith("ps"));
     assert.match(
-      String(fake.subs[0]!.url),
+      String(fresh?.url),
       new RegExp(`^${ORIGIN}${configBasePath()}/api/push/`),
-      "and it is ours",
+      "and the fresh one is ours",
     );
   } finally {
     fake.restore();
@@ -282,11 +296,13 @@ test("a refused create takes back the slots this installation's dead deployments
 });
 
 test("a create that succeeds leaves another process's subscription alone", async () => {
-  /* A subscription under our own callback that this installation does not hold
-     by name: another process of a deployment running beside this one, or the
-     row of one that is still serving. A release that reached across would kill
-     it, and the victim would never learn -- its entry would stay "verified"
-     until its own expiry. So it is left where it is. */
+  /* A subscription this installation does not hold by name: another
+     installation's row under a callback base both live under, carrying a
+     device id this process cannot claim. A release that reached across would
+     kill it, and the victim would never learn -- its entry would stay
+     "verified" until its own expiry. A create that goes through has no reason
+     to reach for it: `reclaimPastBuilds` looks wider only when one is refused.
+     So it is left where it is. */
   const fake = fakePushServer({ cap: 15 }, [
     {
       id: "peer",
@@ -335,6 +351,52 @@ test("shutting down gives the subscriptions back", async () => {
     assert.equal(fake.subs.length, 0, "what a deploy must not leave on the account");
   } finally {
     fake.restore();
+  }
+});
+
+test("a subscription destroyed under us is noticed, and its tabs go back on the relay", async (t) => {
+  /* The account's row can go without this process being told: an operator's
+     cleanup, another deployment under the same callback, a revocation. The
+     entry would go on believing itself verified, and its tabs would hold a
+     stream that looks healthy and carries nothing -- the failure the whole
+     fan-out is meant not to have. */
+  t.mock.timers.enable({ apis: ["Date"] });
+  const fake = fakePushServer();
+  try {
+    const push = await isolatedPush("liveness");
+    const tab = fakeOut();
+    push.prepare("gone@example.com", "a", "Basic g", ORIGIN);
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(
+      await push.receive(
+        (fake.subs[0].url as string).slice(
+          (fake.subs[0].url as string).lastIndexOf("/") + 1,
+        ),
+        { "@type": "PushVerification", verificationCode: "v" },
+      ),
+      200,
+    );
+    assert.ok(
+      push.attach("gone@example.com", "a", "Basic g", tab as never, ORIGIN),
+      "fan-out tab attached",
+    );
+    // Somebody else destroys it.
+    fake.subs.length = 0;
+    t.mock.timers.setTime(Date.now() + 5 * 60_000);
+    push.runSweep();
+    await new Promise((r) => setTimeout(r, 30)); // the check lands
+    assert.equal(
+      push.pushStatus().accounts.failed,
+      1,
+      "the entry stops believing it is live",
+    );
+    // The teardown reads that state on the sweep after the one that found it.
+    push.runSweep();
+    await new Promise((r) => setTimeout(r, 10));
+    assert.equal(tab.ended, true, "and the tab is sent back to the relay");
+  } finally {
+    fake.restore();
+    t.mock.timers.reset();
   }
 });
 

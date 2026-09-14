@@ -309,8 +309,12 @@ export async function destroySubscription(id: Id): Promise<void> {
  * Two marks, because one of them can be lost: this browser's `deviceClientId`,
  * and the push endpoint itself (`endpoint`), which is this browser's own
  * subscription and nobody else's. Clearing site data hands the browser a new
- * device id while the old rows keep their slots, and only the endpoint still
- * recognises them.
+ * device id while the old rows keep their slots, and the endpoint is what
+ * would still recognise them -- on a server that hands a subscription's `url`
+ * back, which the deployed Stalwart does not (live on 0.16.21, 2026-09-14:
+ * `url: null` even for a row registered with one). A browser that cleared its
+ * site data therefore leaves a row behind that only an operator's cleanup can
+ * free: `scripts/probe-push-subscriptions.mjs`.
  */
 export async function releaseThisDevice(endpoint?: string | null): Promise<number> {
   const mine = deviceClientId();
