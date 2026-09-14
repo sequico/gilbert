@@ -9,7 +9,9 @@ import type {
 } from "@/jmap/types";
 import { buildName, contactDisplayName, nameParts, newKey } from "@/lib/contacts";
 import { t } from "@/lib/i18n";
+import { isGroupMailboxAccount } from "@/lib/mailAccounts";
 import { sharedKey, useContacts } from "@/store/contacts";
+import { useMail } from "@/store/mail";
 import { useSettings } from "@/store/settings";
 import { DateField } from "@/ui/datefield";
 import { Dialog } from "@/ui/dialog";
@@ -138,6 +140,9 @@ export function ContactEditor({
   const [memberQuery, setMemberQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const own = contacts.accountId ?? "";
+  /* The mail store's probe is the one classifier for what is a group, read as
+     state so a book appears when it lands. */
+  const mailAccounts = useMail((s) => s.mailAccounts);
   const books = [
     ...Object.values(contacts.books).map((b) => ({
       accountId: own,
@@ -145,13 +150,23 @@ export function ContactEditor({
       name: b.name,
       note: "",
     })),
-    /* Subscribed shared books the reader may write to -- a group's directory,
-       for example -- so a card can be added or moved there too. */
+    /* Books the reader may write to and may reach without adding them: a book
+       somebody shared, and a group's own directory. A group's book needs no
+       subscribing -- membership of the group is the subscription, the rule the
+       sidebar, `loadShared` and the composer's suggestions all follow.
+
+       Leaving the group out of this list did not keep a card out of the group:
+       the target comes from the book being browsed, so a card was filed into a
+       book the picker did not show -- and showed the reader's own book instead,
+       because a `<select>` whose value matches no option falls back to the
+       first one. A control that cannot name where the contact is going is worse
+       than one that refuses. */
     ...contacts.sharedBooks
       .filter(
         (b) =>
           b.book.myRights.mayWrite &&
-          (b.book.isSubscribed ||
+          (isGroupMailboxAccount(b.accountId, mailAccounts) ||
+            b.book.isSubscribed ||
             useSettings
               .getState()
               .settings.addedShares.includes(sharedKey(b.accountId, b.book.id))),
