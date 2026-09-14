@@ -67,8 +67,8 @@ async function collectStoredVerification(): Promise<void> {
 }
 
 /**
- * Subscribe this browser. Safe to call again — the deviceClientId makes a
- * repeat replace rather than accumulate.
+ * Subscribe this browser. Safe to call again — what it replaces is released
+ * first, by our own hand (see `registerThisBrowser`).
  *
  * Returns why it could not, rather than throwing, because every reason is
  * something to tell the user plainly: an old server, a browser without push, a
@@ -141,8 +141,25 @@ async function registerThisBrowser(key: string): Promise<void> {
     }));
   const accountId = useSession.getState().ownAccountFor(CAP.mail);
   const inboxId = useMail.getState().roleId("inbox");
-  await releaseThisDevice();
-  await createSubscription(subscriptionPayload(sub, accountId, inboxId));
+  const payload = subscriptionPayload(sub, accountId, inboxId);
+  await releaseThisDevice(sub.endpoint);
+  /*
+   * One retry, because the release has already happened: the row that was
+   * serving is gone, so a create that fails on a transient error (offline, a
+   * 502 from the push service) would leave the account with no subscription at
+   * all until the next start -- and, before this, the old row was still there
+   * to serve. A retry costs one request where the alternative costs the
+   * feature.
+   */
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await createSubscription(payload);
+      return;
+    } catch (err) {
+      if (attempt >= 1) throw err;
+      console.warn("[gilbert] push: registration failed, trying once more:", err);
+    }
+  }
 }
 
 /**
@@ -168,8 +185,12 @@ export async function renewWebPush(): Promise<void> {
     if (!needsRenewal(await listSubscriptions(), deviceClientId())) return;
     await registerThisBrowser(key);
     listenForVerification();
-  } catch {
-    /* offline, or the server said no: the next start tries again */
+  } catch (err) {
+    /* Offline, or the server said no. The next start tries again -- but the
+       row this was renewing has been released by now, so the failure has to be
+       visible rather than swallowed: until it succeeds the account has no
+       subscription. */
+    console.warn("[gilbert] push: renewal did not complete:", err);
   }
 }
 

@@ -96,13 +96,24 @@ export function encodeKey(buffer: ArrayBuffer | null): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-/** A stable id for this browser, so a re-subscribe replaces rather than piles up. */
+/**
+ * The id this browser is known by at the server, and stable for its session.
+ *
+ * Stable matters twice over: the registration sends it, and the release before
+ * a new registration matches on it (`releaseThisDevice`). An id that changed
+ * per call would make that release a silent no-op and let the account's
+ * fifteen slots fill with rows nothing can match.
+ *
+ * A trusted device stores one in `localStorage` so it survives restarts. An
+ * untrusted device gets a per-session id instead of a stored one -- the same
+ * trade private mode makes -- and a storage that throws (private mode) falls
+ * back to one made here, held for the life of the tab rather than refreshed on
+ * every call.
+ */
+let fallbackDeviceId: string | null = null;
 export function deviceClientId(): string {
   const KEY = "gilbert:pushDeviceId";
-  // An untrusted device gets a per-session id instead of a stored one. It is
-  // the same trade private mode already makes below: re-subscribing will not
-  // reuse it, which costs nothing when push is refused there anyway.
-  if (!isDeviceTrusted()) return `gilbert-${crypto.randomUUID()}`;
+  if (!isDeviceTrusted()) return (fallbackDeviceId ??= `gilbert-${crypto.randomUUID()}`);
   try {
     const existing = localStorage.getItem(KEY);
     if (existing) return existing;
@@ -110,8 +121,7 @@ export function deviceClientId(): string {
     localStorage.setItem(KEY, made);
     return made;
   } catch {
-    // Private mode: a per-session id still works, it just will not be reused.
-    return `gilbert-${Math.random().toString(36).slice(2)}`;
+    return (fallbackDeviceId ??= `gilbert-${crypto.randomUUID()}`);
   }
 }
 
@@ -292,22 +302,42 @@ export async function destroySubscription(id: Id): Promise<void> {
  * than adding to the pile. Relying on the server to replace by
  * `deviceClientId` is an assumption about Stalwart that nothing here validates
  * — the mock replaces, and the deployed server accumulated the subscriptions
- * of processes that died mid-flight (KNOWN-ISSUES) — and this side of the
- * ceiling costs one round trip to be sure of.
+ * of processes that died mid-flight (KNOWN-ISSUES) — so the release is done by
+ * hand. It costs one listing plus one destroy per row found, which is nothing
+ * next to a slot that cannot be had back.
+ *
+ * Two marks, because one of them can be lost: this browser's `deviceClientId`,
+ * and the push endpoint itself (`endpoint`), which is this browser's own
+ * subscription and nobody else's. Clearing site data hands the browser a new
+ * device id while the old rows keep their slots, and only the endpoint still
+ * recognises them.
  */
-export async function releaseThisDevice(): Promise<number> {
+export async function releaseThisDevice(endpoint?: string | null): Promise<number> {
   const mine = deviceClientId();
   let released = 0;
   try {
     for (const s of await listSubscriptions())
-      if (s.deviceClientId === mine) {
+      if (s.deviceClientId === mine || (endpoint && s.url === endpoint)) {
         await destroySubscription(s.id);
         released++;
       }
-  } catch {
-    /* the server said no; the registration that follows will say so itself */
+  } catch (err) {
+    /* The registration that follows will say so itself if it cannot be made;
+       but a release that failed has to be visible, because what it leaves
+       behind holds one of the account's fifteen slots. */
+    console.warn("[gilbert] push: could not release this browser's subscriptions:", err);
   }
   return released;
+}
+
+/** This browser's push endpoint, or null when the browser has none. */
+export async function thisEndpoint(): Promise<string | null> {
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    return (await reg?.pushManager.getSubscription())?.endpoint ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** Remove every subscription this browser registered. Used when signing out. */
@@ -319,10 +349,8 @@ export async function unsubscribeThisDevice(): Promise<void> {
   } catch {
     /* the browser end is gone or was never there; still clear the server end */
   }
-  try {
-    await releaseThisDevice();
-  } catch {
-    /* signing out must not fail over this */
-  }
+  // The release reports its own failures (see `releaseThisDevice`): signing out
+  // is not the place to fail over them.
+  await releaseThisDevice(await thisEndpoint());
   setPushEnabledHere(false);
 }

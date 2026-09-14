@@ -15,14 +15,20 @@
  * The questions, asked the way the code asks them:
  *
  *   1. how many subscriptions does the account hold, and of what ceiling?
- *   2. which of them are this installation's — recognised by `deviceClientId`
- *      or, for the ones whose process is long dead, by their URL?
+ *   2. which of them are this installation's — recognised by their URL, which
+ *      is the only mark a dead process leaves (its `deviceClientId` was
+ *      random, and the code that keeps a stable one cannot match it either)?
  *   3. (with `GILBERT_PROBE_ACCOUNT`) does an admin credential reach the
  *      account through impersonation, so somebody else's slots can be read?
- *   4. (with `--destroy-ours`) do they go, and does a create afterwards work?
+ *   4. (with `--destroy-ours`) do they go, and (with `--create-check`) does a
+ *      create work afterwards? That create is the only proof the account left
+ *      `overquota`.
  *
  * Nothing is destroyed unless `--destroy-ours` is given, and even then only
- * subscriptions whose URL is under the callback base you name.
+ * subscriptions whose URL is under the callback base you name — which includes
+ * the subscription a *running* deployment is serving from, if its callback is
+ * under that base. Restart the deployment afterwards, or it will sit on the
+ * per-tab relay until its next renewal.
  *
  * Usage, against a real instance:
  *
@@ -53,6 +59,8 @@ const PASSWORD = process.env.GILBERT_AGENT_PASSWORD ?? "";
 const ACCOUNT = process.env.GILBERT_PROBE_ACCOUNT ?? "";
 const OURS = (value("--ours") ?? "").replace(/\/+$/, "");
 const DESTROY = flag("--destroy-ours");
+const CREATE_CHECK = flag("--create-check");
+const SHOW_URLS = flag("--show-urls");
 
 if (!STALWART_URL || !ADDRESS || !PASSWORD) {
   console.error(
@@ -86,11 +94,30 @@ async function call(session, authorization, method, args, using = [CAP]) {
 }
 
 const authorization = authorizationFor(ACCOUNT);
-const session = await (
-  await fetch(`${STALWART_URL}/.well-known/jmap`, {
-    headers: { authorization, accept: "application/json" },
-  })
-).json();
+
+/** An HTTP answer, or the status and the body that explain why there is none. */
+async function json(url, headers) {
+  const res = await fetch(url, {
+    headers,
+    signal: AbortSignal.timeout(30_000),
+  });
+  const body = await res.text();
+  if (!res.ok)
+    throw new Error(`${url}: HTTP ${res.status}${body ? `: ${body.slice(0, 200)}` : ""}`);
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new Error(`${url}: answer was not JSON: ${body.slice(0, 200)}`);
+  }
+}
+
+const session = await json(`${STALWART_URL}/.well-known/jmap`, {
+  authorization,
+  accept: "application/json",
+}).catch((err) => {
+  console.error(`the probe could not finish: ${err.message}`);
+  process.exit(1);
+});
 
 const accountId =
   session.primaryAccounts?.["urn:ietf:params:jmap:mail"] ??
@@ -105,11 +132,17 @@ console.log(`held:     ${list.length} of Stalwart's 15`);
 const ours = list.filter(
   (s) => OURS && String(s.url ?? "").startsWith(`${OURS}/api/push/`),
 );
+/** The callback URL's token is the only thing authenticating it: shown, not printed. */
+const redact = (url) =>
+  SHOW_URLS
+    ? String(url ?? "")
+    : String(url ?? "").replace(/\/api\/push\/[^/?#]+/, "/api/push/<token>");
+
 for (const s of list) {
   const mark = ours.includes(s) ? "ours" : "    ";
   console.log(
     `  ${mark}  ${s.id}  ${s.deviceClientId ?? "(no device id)"}\n` +
-      `        url: ${s.url}\n        expires: ${s.expires ?? "never"}`,
+      `        url: ${redact(s.url)}\n        expires: ${s.expires ?? "never"}`,
   );
 }
 if (!OURS)
@@ -117,14 +150,54 @@ if (!OURS)
     "\n(no --ours given: nothing is marked as this installation's, and nothing can be destroyed)",
   );
 
-if (DESTROY && ours.length) {
+if (DESTROY) {
+  if (!ours.length) {
+    console.log(
+      `\n0 of ${list.length} under ${OURS || "(no --ours given)"}: nothing to destroy`,
+    );
+    process.exit(1);
+  }
   const ids = ours.map((s) => s.id);
-  await call(session, authorization, "PushSubscription/set", { destroy: ids });
-  console.log(`\ndestroyed ${ids.length} subscription(s) of this installation`);
+  const answer = await call(session, authorization, "PushSubscription/set", {
+    destroy: ids,
+  });
+  const gone = answer.destroyed ?? [];
+  const refused = answer.notDestroyed ?? {};
+  console.log(`\ndestroyed ${gone.length} of ${ids.length} subscription(s)`);
+  for (const [id, why] of Object.entries(refused))
+    console.log(`  refused: ${id}: ${why.type ?? "no reason given"}`);
+  /* These are the slots a running deployment was serving from as well, if its
+     callback is under the base: it does not know they are gone and will keep
+     reporting itself verified until its own expiry. */
+  console.log(
+    "a running deployment under this callback now has no subscription: restart it",
+  );
   const after = (
     await call(session, authorization, "PushSubscription/get", { ids: null })
   ).list;
   console.log(`held now: ${after.length} of 15`);
-} else if (DESTROY) {
-  console.log("\nnothing to destroy");
+  if (!gone.length) process.exit(1);
+}
+
+if (CREATE_CHECK) {
+  /* The only evidence that the account left `overquota`: a create, and then the
+     row it made taken back out of the way. */
+  const made = await call(session, authorization, "PushSubscription/set", {
+    create: {
+      s: {
+        deviceClientId: `gilbert-probe-${Date.now()}`,
+        url: `${OURS || STALWART_URL}${OURS ? "/api/push/" : ""}probe-not-a-real-callback`,
+        types: ["Email"],
+      },
+    },
+  });
+  const id = made.created?.s?.id;
+  const why = made.notCreated?.s ?? {};
+  if (id) {
+    console.log(`\ncreate check: accepted (id ${id}) — taking it back`);
+    await call(session, authorization, "PushSubscription/set", { destroy: [id] });
+  } else {
+    console.log(`\ncreate check: refused — ${why.type}: ${why.description ?? ""}`);
+    process.exit(1);
+  }
 }

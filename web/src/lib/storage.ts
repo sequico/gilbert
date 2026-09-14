@@ -20,8 +20,10 @@ const PREFIX = "gilbert:";
  * - `lastUser` is a deliberate convenience: it prefills the sign-in field, and
  *   it is only ever written by a trusted device in the first place.
  * - `deviceTrusted` is how the next boot knows to read at all.
- * - `pushDeviceId` is a random id for this browser, so re-subscribing replaces
- *   rather than accumulates. The subscription itself is removed on sign-out.
+ * - `pushDeviceId` is a random id for this browser, and the id its push
+ *   subscriptions are registered and released under: a re-registration
+ *   releases what it replaces rather than accumulating. The subscription
+ *   itself is removed on sign-out.
  * - `pushEnabled` records that background notifications were switched on here,
  *   and is what the renewal on app start keys off. It is kept because this
  *   function runs on two different endings and only one of them is a sign-out:

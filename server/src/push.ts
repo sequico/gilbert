@@ -127,25 +127,58 @@ async function jmap(entry: AccountPush, calls: unknown[]) {
 }
 
 /**
- * The installation's identity, from what it is configured with.
+ * The installation's identity: its Stalwart, its base path, and the origin it
+ * is reached on.
  *
- * Two deployments against the same Stalwart are two devices and each keeps its
- * own subscription; one deployment keeps one, whatever number of processes or
- * tabs it has run through.
+ * Stable across restarts -- which is what lets a restart release its
+ * predecessor's subscription instead of adding to the account's fifteen slots
+ * -- and distinct from another deployment's, staging beside production
+ * included. Two *processes* of one deployment share it: that is one device by
+ * this reckoning, which is what makes a restart replace rather than pile up,
+ * and it also means two replicas running at the same time are indistinguishable
+ * here. This deployment runs one (`docker-compose.yml`), and a deployment that
+ * wants several needs an identity per process as well as per installation.
  */
-function deviceIdFor(base: string): string {
+function deviceIdFor(base: string, origin: string): string {
   return createHash("sha256")
-    .update(`${base}|${config.basePath}`)
+    .update(`${base}|${config.basePath}|${origin}`)
     .digest("base64url")
     .slice(0, 16);
 }
 
-/** This installation's callback: every subscription under it is ours. */
-function isOurs(entry: AccountPush, sub: { deviceClientId?: string; url?: string }) {
+/**
+ * The rows this installation owns by name: the one it is holding, and any
+ * carrying its own device identity (a predecessor's, after a restart).
+ *
+ * Deliberately not "anything under our callback URL" -- that is how a running
+ * peer beside this process would be killed, and the peer would never learn:
+ * its entry would stay "verified" until the subscription it no longer has
+ * expires. See `reclaimByUrl`, which is the one place that breadth is wanted.
+ */
+function isMine(entry: AccountPush, sub: UpstreamSubscription): boolean {
   return (
-    sub.deviceClientId === `gilbert-${entry.deviceId}` ||
-    Boolean(sub.url?.startsWith(`${entry.origin}${config.basePath}/api/push/`))
+    sub.id === entry.subscriptionId || sub.deviceClientId === `gilbert-${entry.deviceId}`
   );
+}
+
+/**
+ * Ours by URL: subscriptions under this installation's own callback.
+ *
+ * The mark of a deployment that was killed rather than shut down -- its
+ * `deviceClientId` is a random id from a process that no longer exists -- and
+ * used only when a create has been *refused* for want of a slot, where the
+ * choice is between reaching into our own leftovers and leaving the account on
+ * the relay. Matching the path rather than the whole origin, because a
+ * deployment whose hostname moved still left those rows behind.
+ */
+function isOursByUrl(sub: UpstreamSubscription): boolean {
+  try {
+    return new URL(String(sub.url ?? "")).pathname.includes(
+      `${config.basePath}/api/push/`,
+    );
+  } catch {
+    return false;
+  }
 }
 
 interface UpstreamSubscription {
@@ -156,30 +189,63 @@ interface UpstreamSubscription {
 }
 
 /**
- * Release every subscription this installation holds for the account.
+ * The account's subscriptions, as Stalwart hands them over.
  *
- * Called before a create, so what the account ends up with is the subscription
- * about to be registered and nothing else: a restart replaces its
- * predecessor's rather than adding to it, a renewal replaces the one it is
- * renewing, and a retry after a verification that never came drops the
- * subscription that was waiting for it -- an unverified one holds a slot and
- * serves nobody.
- *
- * It is also what cleans up after deployments that were killed rather than
- * shut down. Those are recognised by their URL alone -- a random
- * `deviceClientId` from a process that no longer exists is not an identity
- * anyone can match -- and the URL under this deployment's own callback is
- * exactly what they are.
- *
- * Best effort throughout: a release that fails must not stop the subscription
- * being established, which is the thing the account actually wants.
+ * A method-level `error` is a failure, not an empty list: reading it as
+ * "nothing of ours" is how a release turns into a silent no-op while the
+ * account stays full.
  */
-async function releaseOurs(entry: AccountPush): Promise<number> {
+async function listSubscriptions(entry: AccountPush): Promise<UpstreamSubscription[]> {
+  const r = await jmap(entry, [["PushSubscription/get", { ids: null }, "0"]]);
+  const [name, payload] = r.methodResponses[0] ?? [];
+  if (name === "error")
+    throw new Error(
+      `PushSubscription/get: ${(payload as { description?: string; type?: string }).description ?? (payload as { type?: string }).type ?? "error"}`,
+    );
+  const list = (payload as { list?: UpstreamSubscription[] } | undefined)?.list;
+  if (!list) throw new Error("PushSubscription/get: no list in the response");
+  return list;
+}
+
+/** Destroy those of `subs` this installation owns by name. */
+async function releaseMine(entry: AccountPush): Promise<number> {
+  let mine: UpstreamSubscription[] = [];
+  try {
+    mine = (await listSubscriptions(entry)).filter((s) => isMine(entry, s));
+  } catch (err) {
+    console.warn(
+      `[gilbert] push: could not list subscriptions for ${entry.username}: ${(err as Error).message}`,
+    );
+    return 0;
+  }
+  if (!mine.length) return 0;
+  try {
+    await jmap(entry, [
+      ["PushSubscription/set", { destroy: mine.map((s) => s.id) }, "0"],
+    ]);
+    return mine.length;
+  } catch (err) {
+    console.warn(
+      `[gilbert] push: could not release ${mine.length} subscription(s) for ${entry.username}: ${(err as Error).message}`,
+    );
+    return 0;
+  }
+}
+
+/**
+ * Take back the slots this installation's dead deployments are holding.
+ *
+ * Only for the case that asks for it: a create refused for want of a slot,
+ * where our own leftovers under our own callback are the cheapest thing to
+ * give up and the only thing we can recognise -- a random `deviceClientId` from
+ * a process that no longer exists matches nothing. Narrowing it to the callers
+ * that need it is what keeps a normal renewal, and a shutdown, from reaching
+ * across and killing a subscription another process is still serving from.
+ */
+async function reclaimByUrl(entry: AccountPush): Promise<number> {
   let ours: UpstreamSubscription[] = [];
   try {
-    const r = await jmap(entry, [["PushSubscription/get", { ids: null }, "0"]]);
-    const list = (r.methodResponses[0]?.[1] as { list?: UpstreamSubscription[] })?.list;
-    ours = (list ?? []).filter((s) => isOurs(entry, s));
+    ours = (await listSubscriptions(entry)).filter(isOursByUrl);
   } catch (err) {
     console.warn(
       `[gilbert] push: could not list subscriptions for ${entry.username}: ${(err as Error).message}`,
@@ -194,7 +260,7 @@ async function releaseOurs(entry: AccountPush): Promise<number> {
     return ours.length;
   } catch (err) {
     console.warn(
-      `[gilbert] push: could not release ${ours.length} subscription(s) for ${entry.username}: ${(err as Error).message}`,
+      `[gilbert] push: could not reclaim ${ours.length} subscription(s) for ${entry.username}: ${(err as Error).message}`,
     );
     return 0;
   }
@@ -207,48 +273,63 @@ async function subscribe(entry: AccountPush) {
   // on does not decide which parts of the app update. See PUSH_STATE_TYPES.
   const types = [...PUSH_STATE_TYPES];
   /* Released before it is recreated: the subscription is the installation's,
-     one per account, and this is what keeps that true across restarts. */
-  const released = await releaseOurs(entry);
+     one per account, and this is what keeps that true across restarts. By name
+     only -- `reclaimByUrl` is the one caller that reaches wider, and only when
+     this create comes back refused. */
+  const released = await releaseMine(entry);
   if (released)
     console.log(
       `[gilbert] push: released ${released} subscription(s) of this installation for ${entry.username}`,
     );
-  const r = await jmap(entry, [
-    [
-      "PushSubscription/set",
-      {
-        create: {
-          s: {
-            deviceClientId: `gilbert-${entry.deviceId}`,
-            url,
-            types,
-            // Asked for rather than left to the server's default: the TTL is
-            // what bounds how long an orphan holds a slot (see TTL_MS).
-            expires: new Date(Date.now() + TTL_MS).toISOString(),
-          },
-        },
-      },
-      "0",
-    ],
-  ]);
-  const first = r.methodResponses[0];
-  const payload = first?.[1] as
-    | {
-        created?: Record<string, { id: string; expires?: string }>;
-        notCreated?: Record<string, { type?: string; description?: string }>;
-      }
-    | undefined;
-  const created = payload?.created?.s;
-  if (!created) {
+  /* `expires` is asked for rather than left to the server's default: the TTL is
+     what bounds how long an orphan holds a slot (see TTL_MS). It is also the
+     one property here taken on trust -- nothing in this tree has watched
+     Stalwart 0.16 accept it -- so a server that refuses it gets the create
+     again without it rather than no subscription at all. */
+  const ask = (withExpiry: boolean) => ({
+    deviceClientId: `gilbert-${entry.deviceId}`,
+    url,
+    types,
+    ...(withExpiry ? { expires: new Date(Date.now() + TTL_MS).toISOString() } : {}),
+  });
+  const send = (withExpiry: boolean) =>
+    jmap(entry, [["PushSubscription/set", { create: { s: ask(withExpiry) } }, "0"]]);
+
+  let created: { id: string; expires?: string } | undefined;
+  let detail = "no reason given";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const r = await send(attempt === 0 || !/expires/i.test(detail));
+    const [name, payload] = r.methodResponses[0] ?? [];
+    const body = payload as
+      | {
+          created?: Record<string, { id: string; expires?: string }>;
+          notCreated?: Record<string, { type?: string; description?: string }>;
+        }
+      | undefined;
+    created = name === "error" ? undefined : body?.created?.s;
+    if (created) break;
     /* Stalwart says why -- `overquota` when the account's fifteen slots are
        gone, `invalidProperties` when it disliked something -- and a client
        that throws "not created" throws away the only diagnosis there is. */
-    const why = payload?.notCreated?.s;
-    const detail = why
+    const why =
+      name === "error"
+        ? (payload as { type?: string; description?: string })
+        : body?.notCreated?.s;
+    detail = why
       ? `${why.type ?? "refused"}${why.description ? `: ${why.description}` : ""}`
       : "no reason given";
-    throw new Error(`subscription not created (${detail})`);
+    if (/expires/i.test(detail) && attempt === 0) continue;
+    if (!/overquota/i.test(detail) || attempt > 0) break;
+    /* The slots are gone and this installation's own dead deployments are the
+       cheapest thing to give up: they are the only ones we can recognise. */
+    const freed = await reclaimByUrl(entry);
+    if (freed)
+      console.log(
+        `[gilbert] push: reclaimed ${freed} stale subscription(s) of this installation for ${entry.username}`,
+      );
+    else break;
   }
+  if (!created) throw new Error(`subscription not created (${detail})`);
   entry.subscriptionId = created.id;
   entry.expires = created.expires ? Date.parse(created.expires) : Date.now() + TTL_MS;
   entry.lastFailure = null;
@@ -323,7 +404,7 @@ export function prepare(
       base,
       origin,
       token: randomBytes(32).toString("base64url"),
-      deviceId: deviceIdFor(base),
+      deviceId: deviceIdFor(base, origin),
       authorization,
       subscriptionId: null,
       state: "pending",
@@ -402,6 +483,15 @@ function fail(entry: AccountPush, why: string): void {
   entry.state = "failed";
   entry.since = Date.now();
   entry.lastFailure = why;
+  /*
+   * A subscription that has just been released and not replaced is one whose
+   * tabs are being told nothing. Marking the entry expired is what makes the
+   * sweeper end those streams (see `endStaleFanout`), so the browser
+   * reconnects on the per-tab relay instead of holding a healthy-looking
+   * stream that will never carry another change.
+   */
+  entry.expires = Date.now();
+  entry.subscriptionId = null;
   // The entry may already have been cleaned up while the attempt was in
   // flight; nothing wants the account any more, so the failure is moot.
   if (byKey.get(entry.key) === entry)
@@ -481,6 +571,7 @@ export async function receive(token: string, body: unknown): Promise<number> {
  * a pass on demand without waiting out SWEEP_MS.
  */
 export function runSweep(): void {
+  if (shuttingDown) return;
   const now = Date.now();
   for (const entry of [...byKey.values()]) {
     for (const out of entry.tabs) {
@@ -532,9 +623,12 @@ export function runSweep(): void {
   }
 }
 
+/** Set on the way down: the sweeper must not re-subscribe what we just gave back. */
+let shuttingDown = false;
+
 /** One shared timer for every tab: keep-alives, renewals, retries, cleanup. */
 function startSweeper() {
-  if (sweeper) return;
+  if (sweeper || shuttingDown) return;
   sweeper = setInterval(() => runSweep(), SWEEP_MS);
   sweeper.unref();
 }
@@ -571,12 +665,22 @@ export function pushStatus() {
  * Give up the subscriptions while the credentials that can still destroy them
  * are in hand. Called on the way down, which is what a deploy is: without
  * this, every deploy leaves one subscription per account behind, and enough
- * deploys fill the account's fifteen slots (see releaseOurs).
+ * deploys fill the account's fifteen slots (see `releaseMine`).
+ *
+ * By name only, and the sweeper is stopped first: a release that reached wider
+ * could take a subscription another process is serving from, and a sweeper
+ * still armed could put a fresh one back after this release -- leaving the
+ * deploy's own orphan, which is the thing this exists to prevent.
  */
 export async function releaseOnShutdown(): Promise<void> {
+  shuttingDown = true;
+  if (sweeper) {
+    clearInterval(sweeper);
+    sweeper = null;
+  }
   await Promise.all(
     [...byKey.values()].map(async (entry) => {
-      const released = await releaseOurs(entry);
+      const released = await releaseMine(entry);
       if (released)
         console.log(
           `[gilbert] push: released ${released} subscription(s) for ${entry.username} on shutdown`,

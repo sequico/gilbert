@@ -254,11 +254,12 @@ test("a subscription is released before it is created, so a restart keeps one", 
   }
 });
 
-test("deploys that were killed are reclaimed by their URL, which frees the slots", async () => {
-  /* Twelve orphans of earlier deployments: random device ids nobody can match,
-     and URLs under this installation's own callback. The account's cap is
-     nearly gone, and the create is what has to reach in and take them. */
-  const orphans = Array.from({ length: 12 }, (_, i) => ({
+test("a refused create takes back the slots this installation's dead deployments hold", async () => {
+  /* Fifteen orphans of earlier deployments: random device ids nobody can match
+     and URLs under this installation's own callback. The account is full, so
+     the create is refused -- and reaching into our own leftovers is the only
+     thing left to try. */
+  const orphans = Array.from({ length: 15 }, (_, i) => ({
     id: `orphan${i}`,
     deviceClientId: `gilbert-${i}deadbeef`,
     url: `${ORIGIN}${configBasePath()}/api/push/oldtoken${i}`,
@@ -269,13 +270,40 @@ test("deploys that were killed are reclaimed by their URL, which frees the slots
     const push = await isolatedPush("reclaim");
     push.attach("someone@example.com", "a", "Basic x", fakeOut() as never, ORIGIN);
     await new Promise((r) => setTimeout(r, 30));
-    const ours = fake.subs.filter(
-      (s) =>
-        String(s.url).startsWith(`${ORIGIN}${configBasePath()}/api/push/`) &&
-        s.id.startsWith("ps"),
+    assert.equal(fake.subs.length, 1, "the fresh subscription, and only it");
+    assert.match(
+      String(fake.subs[0]!.url),
+      new RegExp(`^${ORIGIN}${configBasePath()}/api/push/`),
+      "and it is ours",
     );
-    assert.equal(ours.length, 1, "one subscription of ours, the fresh one");
-    assert.equal(fake.subs.length, 1, "and nothing else left behind");
+  } finally {
+    fake.restore();
+  }
+});
+
+test("a create that succeeds leaves another process's subscription alone", async () => {
+  /* A subscription under our own callback that this installation does not hold
+     by name: another process of a deployment running beside this one, or the
+     row of one that is still serving. A release that reached across would kill
+     it, and the victim would never learn -- its entry would stay "verified"
+     until its own expiry. So it is left where it is. */
+  const fake = fakePushServer({ cap: 15 }, [
+    {
+      id: "peer",
+      deviceClientId: "gilbert-not-this-installation",
+      url: `${ORIGIN}${configBasePath()}/api/push/somebody-elses-token`,
+      expires: new Date(Date.now() + 23 * 3_600_000).toISOString(),
+    },
+  ]);
+  try {
+    const push = await isolatedPush("peer");
+    push.attach("someone@example.com", "a", "Basic x", fakeOut() as never, ORIGIN);
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(fake.subs.length, 2, "the peer is still there, beside the fresh one");
+    assert.ok(
+      fake.subs.some((s) => s.id === "peer"),
+      "and the fresh create did not touch it",
+    );
   } finally {
     fake.restore();
   }
