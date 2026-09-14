@@ -266,6 +266,13 @@ export function Composer({ draft }: { draft: Draft }) {
   };
 
   const onDrop = (e: React.DragEvent) => {
+    /*
+     * A drop that lands on the editor stops there and is attached by the editor
+     * (which keeps an image for the body); what reaches this one landed on the
+     * composer around it -- the header, the attachment list, the footer -- and
+     * is attached here. Two handlers on one drop is what attached a file from
+     * the desktop twice.
+     */
     e.preventDefault();
     setDropping(false);
     const files = Array.from(e.dataTransfer.files);
@@ -561,6 +568,7 @@ export function Composer({ draft }: { draft: Draft }) {
             placeholder={translate("Write your message…")}
             spellcheck={settings.spellcheck}
             onFiles={(files) => addFiles(key, files)}
+            onDropHandled={() => setDropping(false)}
             showToolbar={showToolbar}
             autoFocus={initialFocus === "body"}
           />

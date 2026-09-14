@@ -36,7 +36,7 @@ import {
   saveGroupIdentity,
   storeAdminSignatureHtml,
 } from "@/lib/identities";
-import { displayNameKey } from "@/lib/identityVisibility";
+import { displayNameKey, ownIdentity } from "@/lib/identityVisibility";
 import { htmlToText } from "@/lib/text";
 import { MenuSelect } from "@/ui/popover";
 import { IdentityDialog } from "@/views/settings/IdentityDialog";
@@ -66,18 +66,12 @@ function blankIdentity(name: string, email: string): Partial<Identity> {
 
 /**
  * The member's own display name: the name on the identity of their **own**
- * account — the one whose address is theirs — falling back to the identity that
- * account sends from by default, then to the first it holds. Empty when their
- * own account holds no identity to read a name from.
+ * account that is theirs — the one rule for that, shared with the picker that
+ * has to match it (`ownIdentity`, ADR 0007). Empty when their own account holds
+ * no identity to read a name from.
  */
 function ownDisplayName(view: AdminUserIdentities, address: string): string {
-  const mine = view.identities.find(
-    (identity) => identity.email.toLowerCase() === address.toLowerCase(),
-  );
-  const chosen =
-    mine ??
-    view.identities.find((identity) => identity.id === view.defaultIdentityId) ??
-    view.identities[0];
+  const chosen = ownIdentity(view.identities, address, view.defaultIdentityId);
   return chosen?.name?.trim() ?? "";
 }
 

@@ -49,6 +49,12 @@ interface Props {
   placeholder?: string;
   spellcheck?: boolean;
   onFiles?: (files: File[]) => void;
+  /**
+   * A drop the editor took itself, so a surface that shows a drop target around
+   * it can put that away. The drop stops at the editor and never reaches the
+   * caller's own handler when it has files, so this is the only way it hears.
+   */
+  onDropHandled?: () => void;
   toolbarExtra?: ReactNode;
   showToolbar: boolean;
   autoFocus?: boolean;
@@ -118,6 +124,7 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
     placeholder,
     spellcheck = true,
     onFiles,
+    onDropHandled,
     toolbarExtra,
     showToolbar,
     autoFocus,
@@ -276,7 +283,20 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
   const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
     const files = Array.from(e.dataTransfer.files);
     if (!files.length) return;
+    /*
+     * The editor is the innermost drop target, so it owns the drop: what the
+     * caret is over is what decides. Both things it can do stay here -- an
+     * image goes into the body, anything else is attached through `onFiles` --
+     * and the event stops, because the composer around it attaches every file
+     * it is handed: dropping a PDF here attached it twice, once from each.
+     *
+     * `onDropHandled` is how the composer hears that the drop is over. It is
+     * the element drawing the drop highlight, and a drop that never reaches
+     * its own handler would leave that highlight on for good.
+     */
     e.preventDefault();
+    e.stopPropagation();
+    onDropHandled?.();
     const images = files.filter((f) => f.type.startsWith("image/"));
     const others = files.filter((f) => !f.type.startsWith("image/"));
     images.forEach(insertImageFile);

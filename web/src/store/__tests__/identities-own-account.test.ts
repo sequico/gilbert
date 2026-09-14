@@ -4,6 +4,7 @@ import type { Identity, JmapSession } from "@/jmap/types";
 import { ownIdentityAccountId } from "@/lib/mailAccounts";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
+import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
 
 /**
  * The bug this covers, and the rule that closes it.
@@ -50,6 +51,7 @@ let ownList: Identity[] = [];
 let groupList: Identity[] = [];
 
 const SESSION = {
+  username: "me@example.org",
   accounts: {
     [OWN]: {
       name: "me@example.org",
@@ -123,6 +125,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  useSettings.setState({ settings: { ...DEFAULT_SETTINGS } });
   useSession.setState({ status: "loading", session: null, accountId: null });
   useMail.setState({
     accountId: null,
@@ -212,6 +215,41 @@ describe("the two views of one cache", () => {
     expect(
       (useMail.getState().identitiesByAccount[GROUP] ?? []).map((i) => i.id),
     ).toEqual(["g1", "g2"]);
+  });
+
+  it("offers the identity bound to the identity that is the reader's own", async () => {
+    /*
+     * The reported symptom: a member is told the administration has not set an
+     * identity for them in a group that holds one for them.
+     *
+     * Two surfaces answer which of a person's own identities is **theirs** --
+     * the administration, reading the name it writes into the group, and this
+     * picker, matching the group's identity against that name. They answered it
+     * differently: the administration read the identity carrying the person's
+     * own address, the picker matched whichever identity their account sends
+     * from by default. With those two apart, a group identity the
+     * administration had just written for the reader matched nothing here and
+     * the composer said none had been set. One rule for it lives in
+     * `ownIdentity`.
+     */
+    groupList = [identity("g1", "Me", "team@example.org")];
+    // The reader sends from their work address by default, while the identity
+    // claiming to be them -- their own address -- is the first one.
+    useSettings.setState({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        defaultIdentityByAccount: { [OWN]: "o2" },
+      },
+    });
+    await useMail.getState().loadIdentitiesFor(OWN);
+    await useMail.getState().loadIdentitiesFor(GROUP);
+
+    // The administration reads this member's name from `o1` -- the identity
+    // carrying their own address -- so the one identity this group holds for
+    // them is the one carrying "Me", and it is what the composer offers. It was
+    // empty before: the picker had matched `o2`'s name against it and found
+    // nothing, which is the message that told the reader no identity was set.
+    expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g1"]);
   });
 });
 

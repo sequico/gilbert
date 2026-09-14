@@ -15,7 +15,9 @@
  *   - hide the default identity, which is what a new draft starts on
  *   - hide everything; if every identity is hidden it shows them all instead
  */
+
 import type { Identity } from "@/jmap/types";
+import { sameAddress } from "@/lib/address";
 
 export function visibleIdentities<T extends Pick<Identity, "id">>(
   identities: T[],
@@ -49,14 +51,53 @@ export function visibleIdentities<T extends Pick<Identity, "id">>(
  * not necessarily the reader's, and it is never offered in their place.
  */
 /**
+ * Which of an account's own identities is **theirs**, in one place.
+ *
+ * A group's account holds one identity per member, and a member is bound to
+theirs by the display name (ADR 0007) — so *which* of a person's own
+identities carries that name is the load-bearing question. The administration
+reads the name from one side of it and the composer in a group mailbox matches
+on the other; two answers to it is a member whose group identity exists being
+told none does.
+ *
+ * The rule, in order:
+ *
+ *   1. the identity carrying **their own address** — an identity is a claim
+ *      about who is sending, and the one claiming the person's own address
+ *      claims to be them
+ *   2. the identity their account **sends from by default**
+ *   3. the first by address — a defined one, rather than whichever order the
+ *      list a surface happens to hold arrived in
+ *
+ * `undefined` means the account holds no identity at all, which is an answer:
+ * somebody with none has no name to be bound by.
+ */
+export function ownIdentity<T extends Pick<Identity, "id" | "name" | "email">>(
+  identities: T[],
+  address: string | null | undefined,
+  defaultId: string | null | undefined,
+): T | undefined {
+  if (!identities.length) return undefined;
+  const claiming = address
+    ? identities.find((identity) => sameAddress(identity.email, address))
+    : undefined;
+  if (claiming) return claiming;
+  const chosen = defaultId
+    ? identities.find((identity) => identity.id === defaultId)
+    : undefined;
+  return chosen ?? [...identities].sort((a, b) => a.email.localeCompare(b.email))[0];
+}
+
+/**
  * The key two display names are compared by, in one place.
  *
  * A group's account holds one identity per member, and the identity that
- * belongs to a member is the one carrying their name (ADR 0007). That name is
- * typed in one account and read on another surface, so the comparison is
- * trimmed and case-folded rather than a spelling test — and there is one of it,
- * because a picker and an administration that folded differently would
- * disagree about which identity belongs to whom.
+ * belongs to a member is the one carrying their name (ADR 0007) — the name of
+ * the identity that is theirs (`ownIdentity`). That name is typed in one account
+ * and read on another surface, so the comparison is trimmed and case-folded
+ * rather than a spelling test — and there is one of it, because a picker and an
+ * administration that folded differently would disagree about which identity
+ * belongs to whom.
  */
 export function displayNameKey(name?: string | null): string {
   return (name ?? "").trim().toLowerCase();

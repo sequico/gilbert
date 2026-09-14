@@ -15,6 +15,27 @@
 
 import { apiFetch } from "@/jmap/client";
 import type { Identity } from "@/jmap/types";
+import { useMail } from "@/store/mail";
+
+/**
+ * Read this session's identity lists again, after one of the writes below.
+ *
+ * The write is the server's and is made as somebody else — an impersonation of
+ * the account, or the agent for a group (ADR 0007) — so nothing in this
+ * session's own store learns about it. The lists the session is holding are the
+ * ones it goes on showing, which is how the administration and the person's own
+ * Settings come to disagree: one deleted identity stays on the person's page for
+ * the rest of the session.
+ *
+ * It lives here, under the routes, rather than in each surface that calls them:
+ * a write is what invalidates the lists, so a fourth caller cannot forget to say
+ * so. Best effort on purpose — the write has already succeeded, and a failed
+ * read is not a failed change — and the surfaces that show a list read it again
+ * when they open.
+ */
+async function afterIdentityWrite(): Promise<void> {
+  await useMail.getState().refreshIdentities();
+}
 
 /** Whether this session can act as another principal at all. */
 export type Impersonation = "ok" | "denied" | "unknown";
@@ -153,6 +174,7 @@ export async function saveUserIdentity(
     method: "POST",
     body: JSON.stringify({ address, id, patch }),
   });
+  await afterIdentityWrite();
   return res.id;
 }
 
@@ -162,6 +184,7 @@ export async function deleteUserIdentity(address: string, id: string): Promise<v
     method: "POST",
     body: JSON.stringify({ address, id }),
   });
+  await afterIdentityWrite();
 }
 
 /**
@@ -226,6 +249,7 @@ export async function saveGroupIdentity(
     method: "POST",
     body: JSON.stringify({ name, id, patch }),
   });
+  await afterIdentityWrite();
   return res.id;
 }
 

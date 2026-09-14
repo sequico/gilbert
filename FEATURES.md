@@ -542,7 +542,12 @@ and in the client alike. A share is never administered or served as a group.
   **one identity per member** — the group's own address, carrying each
   member's own display name and signature, bound to that member by the name
   — so mail sent as the group names whoever sent it without a second
-  address. The tab lists each member of the group's roster with the identity
+  address. Which of a person's own identities is theirs is **one rule**, shared
+  by the administration that reads the name it writes and the composer that
+  matches it — the identity carrying their own address, else the one their
+  account sends from by default, else the first by address — so a member with
+  a group identity of their own is never told none was set. The tab lists each
+  member of the group's roster with the identity
   that carries their name, reads a member's own display name on demand (one
   impersonation when that row is opened, never the whole roster up front),
   and lists the identities no member claims after them, so a stray one stays
@@ -559,7 +564,12 @@ and in the client alike. A share is never administered or served as a group.
   **that** account rather than the mailbox on screen: somebody reading a
   group's mail still edits their own list, and the administration is looking
   at the same objects, so a description cannot differ between the two and an
-  identity cannot be missing from one of them. Beneath their own identities
+  identity cannot be missing from one of them. That section reads the list
+  when it opens rather than trusting the copy the session read at sign-in,
+  and a write from the administration refreshes that copy once the server has
+  accepted it: an identity removed there — or in Stalwart's own
+  administration — stops being shown here and stops being offered by the
+  composer, with no reload and no second sign-in. Beneath their own identities
   that section lists, read-only, one block per group mailbox they are a member
   of, saying that the administration sets them; the administration's User
   identities tab shows the same structure for the person it has chosen.

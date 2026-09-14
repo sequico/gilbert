@@ -45,6 +45,19 @@ not offer the edit. Applying or releasing a lock takes effect at the next
 policy read — the writing session re-reads its own at once, and an already
 open session on its next read — so it needs no sign-in either way.
 
+**The list is the server's, and it is read again after a write.** The
+administration's write is made as the account rather than by the account's
+own session, so the session that asked for it is the one thing that never
+hears about the change: an identity it removed would live on in the copy the
+client read at sign-in — shown under Identities & signatures with a Delete
+button, and offered by the composer as a sender. Two rules keep the two
+surfaces one list. A write that succeeds refreshes the identity lists the
+session holds, and a read asked for before that write is spent rather than
+joined, because its answer describes the account as it was. And the person's
+own section reads its list when it opens rather than trusting the copy in
+the store, which is what reaches an identity removed in Stalwart's own
+administration — a change no route of this product ever sees.
+
 The **default sending identity** is not a Stalwart property — the server has
 no such field — so it is one key, `defaultIdentityByAccount`, of the
 client's own `settings.json` in the account's app folder, the same key the
@@ -83,9 +96,20 @@ name and signature. Mail sent by one member and mail sent by another leave
 the same mailbox and read differently: the From line names the person and
 the signature is theirs. One identity for everyone could not do that — name
 and signature are fields of the identity, so sharing it means sharing them.
-A member is bound to their identity by the display name, which is that
-member's own identity name, read from the member's own account rather than
+A member is bound to their identity by the display name, which is the name of
+the identity that is **theirs**, read from their own account rather than
 typed a second time here.
+
+**Which of a person's own identities is theirs** is one rule, because two
+surfaces ask it and a disagreement between them is a member being told no
+identity was set for them in a group that holds one: the administration
+reads the name it writes into the group, and the composer writing in a group
+mailbox matches the group's identity against that name. In order: the
+identity carrying the person's **own address** — an identity is a claim about
+who is sending, and the one claiming their own address claims to be them —
+then the identity their account **sends from by default**, then the first by
+address, so that the answer does not depend on the order a list a surface
+holds arrived in. It lives once, in `ownIdentity`.
 
 The member reads them and does not write them. Their own Identities &
 signatures section lists their own account's identities for editing and, in
@@ -117,6 +141,12 @@ identity would make of the rule.
   the admin identity routes
 - `server/src/shared/signature.ts` — the one signature-application path
 - `web/src/views/settings/IdentitiesSettings.tsx` — the person's own form,
-  reused by the admin surface
+  reused by the admin surface, and the list it reads when it opens
+- `web/src/lib/identityVisibility.ts` — `ownIdentity`, the one rule for which
+  of a person's identities is theirs, and the group picker built on it
+- `web/src/store/mail.ts` — the per-account identity lists, the write that
+  spends a read already on its way, and `refreshIdentities`
+- `web/src/lib/identities.ts` — the admin routes, each refreshing those lists
+  once the server has accepted the write
 - ADR 0001 — impersonation, the identity lock's storage
 - ADR 0003 — the agent's grants and its own session

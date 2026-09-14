@@ -34,7 +34,9 @@ const EMPTY: Identity[] = [];
  * mailbox the client happens to have on screen -- an identity is a claim about
  * who is sending, and it does not move because the reader opened a group's
  * mail or a share. The administration edits that same account, so the two
- * surfaces read one list of the same objects.
+ * surfaces read one list of the same objects -- and the list is the server's,
+ * so it is read when this section opens rather than taken from the session's
+ * copy of it.
  *
  * Under it, one read-only block per group mailbox: a group's account holds one
  * identity per member, all carrying the group's address and each carrying that
@@ -49,9 +51,6 @@ export function IdentitiesSettings() {
   const identities =
     useMail((s) => (ownAccountId ? s.identitiesByAccount[ownAccountId] : undefined)) ??
     EMPTY;
-  const loaded = useMail((s) =>
-    ownAccountId ? Boolean(s.identitiesByAccount[ownAccountId]) : true,
-  );
   const loadFor = useMail((s) => s.loadIdentitiesFor);
   const setDefault = useMail((s) => s.setDefaultIdentity);
   const defaultId =
@@ -67,12 +66,16 @@ export function IdentitiesSettings() {
         ? hidden.filter((x) => x !== id)
         : [...hidden, id],
     });
-  // Re-read whenever the entry goes missing as well as when the account does:
-  // the cache is dropped on a mailbox switch, and a list this page is built on
-  // must not stay empty because the reader moved while it was open.
+  /*
+   * Read it whenever the section opens, the way each group block below does,
+   * and whenever the account behind it changes. What the session holds is a
+   * head start rather than the answer: an identity the administration removed
+   * (ADR 0007) leaves neither the account nor the entry anywhere, so a list
+   * read at sign-in would go on showing it for the rest of the session.
+   */
   useEffect(() => {
-    if (ownAccountId && !loaded) void loadFor(ownAccountId).catch(() => undefined);
-  }, [ownAccountId, loaded, loadFor]);
+    if (ownAccountId) void loadFor(ownAccountId).catch(() => undefined);
+  }, [ownAccountId, loadFor]);
 
   return (
     <div>

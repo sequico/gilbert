@@ -25,7 +25,7 @@ import {
 } from "@/lib/archiveDate";
 import { withBase } from "@/lib/basePath";
 import { plural, t } from "@/lib/i18n";
-import { offeredInGroupAccount } from "@/lib/identityVisibility";
+import { offeredInGroupAccount, ownIdentity } from "@/lib/identityVisibility";
 import { loadPlace, placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { isOptionalSort, withoutOptionalSorts } from "@/lib/listSort";
 import {
@@ -250,6 +250,17 @@ export interface MailState {
   setDefaultIdentity(id: Id): void;
   saveIdentity(id: Id | null, patch: Partial<Identity>): Promise<void>;
   destroyIdentity(id: Id): Promise<void>;
+  /**
+   * Re-read every identity list this session holds.
+   *
+   * The administration writes identities through its own routes, not through
+   * this store's client -- the server does it by impersonating the account
+   * (ADR 0007) -- so the session that asked for the write is the one thing that
+   * never hears about it. A list read before it is what Settings would go on
+   * showing and what a reply would go on offering as a sender, so the writes
+   * themselves ask for this once the server has accepted the change.
+   */
+  refreshIdentities(): Promise<void>;
   loadVacation(): Promise<void>;
   saveVacation(patch: Partial<VacationResponse>): Promise<void>;
   loadQuota(): Promise<void>;
@@ -1370,6 +1381,14 @@ export const useMail = create<MailState>((set, get) => ({
     if (!accountId) return [];
     const running = identitiesLoading.get(accountId);
     if (running) return running;
+    /*
+     * The number this read is started under. A write that lands while it is on
+     * its way spends it (`overtakeIdentities`), and what it got is then kept
+     * between the reader and this promise rather than written under the
+     * account -- the list it holds is the one from before the write.
+     */
+    const read = identitiesReads.get(accountId) ?? 0;
+    const spent = () => (identitiesReads.get(accountId) ?? 0) !== read;
     const run = (async () => {
       const res = await client.call<GetResponse<Identity>>("Identity/get", {
         accountId,
@@ -1383,6 +1402,7 @@ export const useMail = create<MailState>((set, get) => ({
        * rather than thrown away with the account that asked for it.
        */
       let list = sortIdentities(res.list, accountId);
+      if (spent()) return list;
       set((s) => ({
         identitiesByAccount: { ...s.identitiesByAccount, [accountId]: list },
       }));
@@ -1408,6 +1428,7 @@ export const useMail = create<MailState>((set, get) => ({
         const f = full.find(([id]) => id === i.id)?.[1];
         return f ? { ...i, htmlSignature: f } : i;
       });
+      if (spent()) return list;
       set((s) => ({
         identitiesByAccount: { ...s.identitiesByAccount, [accountId]: list },
       }));
@@ -1418,7 +1439,9 @@ export const useMail = create<MailState>((set, get) => ({
     try {
       return await run;
     } finally {
-      identitiesLoading.delete(accountId);
+      // Only this read's own entry: a read started after it took the place,
+      // and dropping that one would have a third caller fetch in parallel.
+      if (identitiesLoading.get(accountId) === run) identitiesLoading.delete(accountId);
     }
   },
 
@@ -1501,8 +1524,8 @@ export const useMail = create<MailState>((set, get) => ({
     const err = id ? res.notUpdated?.[id] : res.notCreated?.n;
     if (err) throw new Error(setErrorMessage(err));
     // A read already on its way was asked before this write and answers with
-    // the list from before it, so its promise is dropped rather than joined.
-    identitiesLoading.delete(accountId);
+    // the list from before it, so it is spent rather than joined.
+    overtakeIdentities(accountId);
     await get().loadIdentitiesFor(accountId);
   },
 
@@ -1516,8 +1539,36 @@ export const useMail = create<MailState>((set, get) => ({
     const err = res.notDestroyed?.[id];
     if (err) throw new Error(setErrorMessage(err));
     // Same as saveIdentity: the list has to be read after the write.
-    identitiesLoading.delete(accountId);
+    overtakeIdentities(accountId);
     await get().loadIdentitiesFor(accountId);
+  },
+
+  async refreshIdentities() {
+    /*
+     * Every list this session is holding, plus the two that are always worth
+     * having: the reader's own, which Settings lists and a group mailbox
+     * narrows against, and the account on screen.
+     */
+    const state = get();
+    const own = ownIdentityAccountId(useSession.getState().session);
+    const wanted = new Set<Id>(Object.keys(state.identitiesByAccount));
+    if (own) wanted.add(own);
+    if (state.accountId) wanted.add(state.accountId);
+    /*
+     * A read asked for before the write answers with the list from before it,
+     * so it is spent rather than joined -- the rule `saveIdentity` follows for
+     * its own write. One that fails leaves the list it was replacing in place:
+     * the write reached the server either way, and the person's own section
+     * reads its list again whenever it opens.
+     */
+    for (const id of wanted) overtakeIdentities(id);
+    await Promise.all(
+      [...wanted].map((id) =>
+        get()
+          .loadIdentitiesFor(id)
+          .catch(() => undefined),
+      ),
+    );
   },
 
   async loadVacation() {
@@ -1804,6 +1855,25 @@ export const useMail = create<MailState>((set, get) => ({
 const identitiesLoading = new Map<Id, Promise<Identity[]>>();
 
 /**
+ * How many reads each account has been through, so a read can be spent.
+ *
+ * `identitiesLoading` is the half that joins two callers to one request; this
+ * is the half that tells a request its answer is no longer wanted. Dropping
+ * the entry starts a fresh read and does nothing about the one already on its
+ * way: its `Identity/get` was asked before the write and answers with the list
+ * from before it, which it would then put back under the account when it
+ * landed. A read takes the number it was started under, and a read whose
+ * number has moved keeps what it got to itself.
+ */
+const identitiesReads = new Map<Id, number>();
+
+/** Spend the read on screen -- if any -- and open the way for the next one. */
+function overtakeIdentities(accountId: Id): void {
+  identitiesReads.set(accountId, (identitiesReads.get(accountId) ?? 0) + 1);
+  identitiesLoading.delete(accountId);
+}
+
+/**
  * The active account's From list, as `identities`.
  *
  * `identities` is one *view* of `identitiesByAccount`, and this is what makes
@@ -1860,11 +1930,22 @@ function myOwnIdentity(): Identity | undefined {
   const own = ownIdentityAccountId(useSession.getState().session);
   if (!own) return undefined;
   /*
-   * Through the one reader of the preference, and `undefined` while that
-   * account's list has not landed -- which is what tells a group's view that
-   * no name can be matched against yet.
+   * Through the one rule for which of the reader's own identities is theirs --
+   * the same call the administration makes when it reads the name it writes
+   * into a group (ADR 0007). Two rules here is the whole bug: the
+   * administration bound the identity of the one carrying the reader's own
+   * address, the picker matched the one their account sends from by default,
+   * and a member with a group identity of their own was told none had been set.
+   *
+   * `undefined` while that account's list has not landed, which is what tells a
+   * group's view that no name can be matched against yet.
    */
-  return useMail.getState().defaultIdentityFor(own);
+  const list = useMail.getState().identitiesByAccount[own] ?? [];
+  return ownIdentity(
+    list,
+    useSession.getState().session?.username,
+    settings().defaultIdentityByAccount[own],
+  );
 }
 
 /**
