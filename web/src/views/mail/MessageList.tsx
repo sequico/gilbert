@@ -873,9 +873,7 @@ export function MessageList({
         width={250}
       >
         <MenuItem
-          icon={
-            settings.replyAllDefault ? <ReplyAll size={16} /> : <Reply size={16} />
-          }
+          icon={settings.replyAllDefault ? <ReplyAll size={16} /> : <Reply size={16} />}
           label={t(settings.replyAllDefault ? "Reply all" : "Reply")}
           onClick={() => {
             const e = ctxRow ? emails[ctxRow] : undefined;

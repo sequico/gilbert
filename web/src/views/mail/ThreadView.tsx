@@ -501,7 +501,11 @@ export function ThreadView({
                 taking either away.
               */}
               <button onClick={() => void reply(last, defaultReply)}>
-                {defaultReply === "replyAll" ? <ReplyAll size={16} /> : <Reply size={16} />}{" "}
+                {defaultReply === "replyAll" ? (
+                  <ReplyAll size={16} />
+                ) : (
+                  <Reply size={16} />
+                )}{" "}
                 {t(defaultReply === "replyAll" ? "Reply all" : "Reply")}
               </button>
               <button onClick={() => void reply(last, otherReply)}>
