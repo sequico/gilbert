@@ -59,6 +59,14 @@ interface FilesState {
   mkdir(parentId: Id | null, name: string): Promise<Id>;
   upload(parentId: Id | null, files: File[]): Promise<void>;
   /**
+   * Take a failed upload out of the tray.
+   *
+   * A row that went up removes itself; one that did not stays, because its
+   * message *is* the error and the reader has to be able to read it. So it is
+   * the reader who takes it away, and only such a row offers to.
+   */
+  dismissUpload(id: string): void;
+  /**
    * Save files into an account that is not the one being browsed.
    *
    * A message's attachments belong to the mailbox's account, and saving them
@@ -376,6 +384,17 @@ export const useFiles = create<FilesState>((set, get) => ({
       }
     }
     await get().loadChildren(parentId);
+  },
+
+  /*
+   * The way out of a row that failed.
+   *
+   * Nothing else takes one away: the tray is the only place a failed upload is
+   * reported, and a row left in it would sit there for the rest of the session,
+   * in every folder, with nothing to press.
+   */
+  dismissUpload(id) {
+    set((s) => ({ uploads: s.uploads.filter((u) => u.id !== id) }));
   },
 
   async uploadTo(accountId, files) {

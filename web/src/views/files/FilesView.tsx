@@ -385,7 +385,23 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             <div key={u.id} className="row">
               <span className="truncate grow">{u.name}</span>
               {u.error ? (
-                <span style={{ color: "var(--danger)" }}>{u.error}</span>
+                <>
+                  <span style={{ color: "var(--danger)" }}>{u.error}</span>
+                  {/*
+                   * The reason is worth keeping until it has been read, and
+                   * worth being able to put away afterwards: nothing else in
+                   * the tray offers a way out of a row that failed, so this
+                   * is the only one there is.
+                   */}
+                  <button
+                    className="icon-btn sm"
+                    aria-label={t("Dismiss")}
+                    title={t("Dismiss")}
+                    onClick={() => files.dismissUpload(u.id)}
+                  >
+                    <X size={16} />
+                  </button>
+                </>
               ) : (
                 <span>{u.progress}%</span>
               )}
