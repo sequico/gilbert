@@ -211,16 +211,18 @@ describe("the two views of one cache", () => {
     expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g1"]);
   });
 
-  it("keeps what is on screen until the assignment has been read", async () => {
+  it("shows the group's own identity, never nothing, until the assignment is read", async () => {
     /*
      * The read is a round trip, so there is a window where the group's list is
-     * here and its assignment is not. Guessing in that window is how the whole
-     * bug looked from the outside — a sender offered or refused before anything
-     * was known — so the view holds what it had.
+     * here and its assignment is not. An empty From in that window is not a
+     * neutral state: the composer reports it as a group that holds no identity,
+     * which is false. The group's own identity is step 2 of the cascade — what
+     * the answer will be for a member nothing is assigned to — and it is what
+     * stands in, computed by the same function from the same list.
      */
     await useMail.getState().loadIdentitiesFor(GROUP);
     expect(useMail.getState().assignmentByAccount[GROUP]).toBeUndefined();
-    expect(useMail.getState().identities).toEqual([]);
+    expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g1"]);
   });
 
   it("offers nothing when the group holds no identity at all", async () => {
@@ -246,6 +248,26 @@ describe("the two views of one cache", () => {
     await useMail.getState().refreshIdentities();
 
     expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g1"]);
+  });
+
+  it("reads the assignment again when a surface asks it to", async () => {
+    /*
+     * The assignment is written from **another** session — the administrator's —
+     * so nothing pushes it here. A surface that showed it would go on saying
+     * "nothing assigned" for the rest of the session if a cached entry were the
+     * end of it, which is the same rule the person's own identity section
+     * follows when it reads its list as it opens.
+     */
+    assignment = { assignedId: null, groupSenderId: "g1" };
+    await useMail.getState().loadIdentitiesFor(GROUP);
+    await useMail.getState().loadAssignmentFor(GROUP);
+    // Assigned nothing, so the group's own stands in — and it is now cached.
+    expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g1"]);
+
+    assignment = { assignedId: "g2", groupSenderId: "g1" };
+    await useMail.getState().loadAssignmentFor(GROUP, { force: true });
+
+    expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g2"]);
   });
 
   it("is unmoved by a rename of the reader's own identity", async () => {

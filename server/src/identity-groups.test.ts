@@ -676,3 +676,24 @@ test("an account that answers nothing of its own is no group of theirs", async (
   );
   assert.deepEqual(unread?.identities, [], "so it carries none of its own");
 });
+
+test("the first assignment a group ever gets is written", async () => {
+  /*
+   * The app folder does not exist until something writes it, and creating it
+   * moves the account FileNode state -- so a write that read the state before
+   * the folder existed is refused as a lost race. Nothing writes an assignment
+   * in the design group's fixture, so this is that first write.
+   */
+  const before = (await group(DESIGN)).body as unknown as GroupView;
+  assert.deepEqual(before.assignments, {}, "nothing is assigned here yet");
+
+  const written = await post("/api/admin/identities/group", {
+    name: DESIGN,
+    member: AGENT,
+    id: null,
+    patch: { name: "Gilbert", email: DESIGN },
+  });
+  assert.equal(written.status, 200, JSON.stringify(written.body));
+  const after = (await group(DESIGN)).body as unknown as GroupView;
+  assert.equal(after.assignments[AGENT], written.body?.id, "and it is recorded");
+});

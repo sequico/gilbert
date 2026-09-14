@@ -264,7 +264,10 @@ function GroupIdentities({ account }: { account: MailAccountInfo }) {
     loadFor(account.accountId).catch((err) => {
       if (live) setError((err as Error).message);
     });
-    loadAssignment(account.accountId).catch(() => undefined);
+    // Read again as the section opens, not only when the store has nothing:
+    // the administration assigns from another session, and this page is where a
+    // member finds out which identity is theirs.
+    loadAssignment(account.accountId, { force: true }).catch(() => undefined);
     return () => {
       live = false;
     };

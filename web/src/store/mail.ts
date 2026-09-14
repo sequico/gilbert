@@ -1,4 +1,7 @@
-import { groupSenderIdentity } from "@gilbert/shared/identityAssignment";
+import {
+  accountOwnIdentity,
+  groupSenderIdentity,
+} from "@gilbert/shared/identityAssignment";
 import { create } from "zustand";
 import { chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
 import type {
@@ -264,8 +267,14 @@ export interface MailState {
    * Answered as the member, because it is their own assignment: the group's own
    * document, read through the group's access rule. Only a group mailbox has
    * one, and only the account on screen needs it.
+   *
+   * `force` is for the surfaces that show the assignment rather than act on it:
+   * the administration writes it from another session, so a page that reads only
+   * a missing entry would go on showing "nothing assigned" for the rest of the
+   * session — the same rule the person's own identity section follows when it
+   * reads its list again as it opens.
    */
-  loadAssignmentFor(accountId: Id): Promise<void>;
+  loadAssignmentFor(accountId: Id, opts?: { force?: boolean }): Promise<void>;
   /** The user's preferred identity (falls back to the first one). */
   defaultIdentity(): Identity | undefined;
   /** One account's preferred identity, whether or not it is the one on screen. */
@@ -513,7 +522,7 @@ export const useMail = create<MailState>((set, get) => ({
          * opened, and for the account on screen at that moment.
          */
         const active = get().accountId;
-        if (active && active !== ownInfo?.accountId)
+        if (active)
           void get()
             .loadAssignmentFor(active)
             .catch(() => undefined);
@@ -1515,10 +1524,10 @@ export const useMail = create<MailState>((set, get) => ({
    * assigned" outside the window where the group's own identity is what both
    * would offer anyway.
    */
-  async loadAssignmentFor(accountId) {
+  async loadAssignmentFor(accountId, opts) {
     const state = get();
     if (!isGroupMailboxAccount(accountId, state.mailAccounts)) return;
-    if (state.assignmentByAccount[accountId] !== undefined) return;
+    if (!opts?.force && state.assignmentByAccount[accountId] !== undefined) return;
     const address = state.mailAccounts.find((a) => a.accountId === accountId)?.name;
     if (!address) return;
     const { fetchMemberAssignment } = await import("@/lib/identities");
@@ -2000,13 +2009,23 @@ function applyIdentities(accountId: Id): void {
   /*
    * The cascade lives once, in `@gilbert/shared/identityAssignment`, and is
    * imported rather than restated: the identity assigned to the reader, else
-   * the group's own. The assignment and the fallback are the server's answers
-   * (they were read as the member), and `undefined` here is a read that has not
-   * landed yet — which keeps what is on screen rather than guessing.
+   * the group's own.
+   *
+   * While the assignment has not been read the group's own identity stands in —
+   * computed here by the **same function** the server answered with, from the
+   * same list and the group's own address. That is step 2 of the cascade, so it
+   * is what the answer will be for a member nothing is assigned to anyway; the
+   * alternative is an empty From, which the composer reports as a group that
+   * holds no identity — a claim that is false for as long as the read takes.
    */
   const held = state.assignmentByAccount[accountId];
-  if (held === undefined) return;
-  const sender = groupSenderIdentity(all, held.assignedId, held.groupSenderId);
+  if (held !== undefined) {
+    const sender = groupSenderIdentity(all, held.assignedId, held.groupSenderId);
+    useMail.setState({ identities: sender ? [sender] : [] });
+    return;
+  }
+  const own = state.mailAccounts.find((a) => a.accountId === accountId)?.name ?? "";
+  const sender = all.length ? accountOwnIdentity(all, own) : undefined;
   useMail.setState({ identities: sender ? [sender] : [] });
 }
 
