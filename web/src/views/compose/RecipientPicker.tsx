@@ -2,7 +2,7 @@ import { Book, BookOpen, Search, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ContactCard, EmailAddress } from "@/jmap/types";
 import { contactDisplayName, contactEmails } from "@/lib/contacts";
-import { t } from "@/lib/i18n";
+import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
@@ -18,6 +18,11 @@ interface Row {
   name: string | null;
   email: string;
   book: string;
+  /**
+   * A group, picked as one row and expanded when it is chosen (ADR 0004):
+   * its members are the cards of the account it lives in.
+   */
+  group?: { accountId: string; cardId: string; members: number };
 }
 
 /**
@@ -89,16 +94,33 @@ export function RecipientPicker({
 
   const rows = useMemo(() => {
     const out: Row[] = [];
-    const push = (card: ContactCard, book: string, keyPrefix: string) => {
+    const push = (card: ContactCard, book: string, accountId: string) => {
       for (const a of contactEmails(card)) {
         if (!a.email) continue;
         out.push({
-          key: `${keyPrefix}:${card.id}:${a.email}`,
+          key: `${accountId}:${card.id}:${a.email}`,
           name: a.name ?? contactDisplayName(card),
           email: a.email,
           book,
         });
       }
+      /*
+       * A group has no address, so it would never appear among the rows
+       * above: it is offered as itself, and says how many people choosing it
+       * will add (ADR 0004).
+       */
+      if (card.kind === "group")
+        out.push({
+          key: `${accountId}:${card.id}:group`,
+          name: contactDisplayName(card),
+          email: "",
+          book,
+          group: {
+            accountId,
+            cardId: card.id,
+            members: Object.keys(card.members ?? {}).length,
+          },
+        });
     };
     if (bookKey === "all" || !bookKey.includes(":")) {
       for (const c of Object.values(contacts.cards)) {
@@ -107,7 +129,7 @@ export function RecipientPicker({
           c,
           contacts.books[Object.keys(c.addressBookIds ?? {})[0] ?? ""]?.name ??
             "Contacts",
-          "own",
+          contacts.accountId ?? "",
         );
       }
     }
@@ -124,7 +146,11 @@ export function RecipientPicker({
     }
     const needle = q.trim().toLowerCase();
     const filtered = needle
-      ? out.filter((r) => `${r.name ?? ""} ${r.email}`.toLowerCase().includes(needle))
+      ? out.filter((r) =>
+          `${r.name ?? ""} ${r.email} ${r.group ? "group" : ""}`
+            .toLowerCase()
+            .includes(needle),
+        )
       : out;
     return filtered.sort((a, b) => (a.name ?? a.email).localeCompare(b.name ?? b.email));
   }, [contacts.cards, contacts.sharedCards, contacts.books, subscribed, bookKey, q]);
@@ -139,10 +165,31 @@ export function RecipientPicker({
     });
 
   const send = (field: Field) => {
-    onPick(
-      field,
-      chosen.map((r) => ({ name: r.name, email: r.email })),
-    );
+    /*
+     * A group is expanded here, by the one resolution every surface uses
+     * (ADR 0004): one address per member, the ones with no address left out.
+     * Somebody ticked twice -- by name and again inside a group -- is written
+     * once.
+     */
+    const out: EmailAddress[] = [];
+    const seen = new Set<string>();
+    const take = (a: EmailAddress) => {
+      const key = a.email.toLowerCase();
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      out.push(a);
+    };
+    for (const r of chosen) {
+      if (!r.group) {
+        take({ name: r.name, email: r.email });
+        continue;
+      }
+      const { accountId, cardId } = r.group;
+      const card = contacts.cardsIn(accountId).find((c) => c.id === cardId);
+      for (const a of card ? contacts.expandGroup(card, accountId).addresses : [])
+        take(a);
+    }
+    onPick(field, out);
     onClose();
   };
 
@@ -256,14 +303,26 @@ export function RecipientPicker({
                 checked={Boolean(picked[r.key])}
                 onChange={() => toggle(r)}
               />
-              {r.book.includes("·") ? (
+              {r.group ? (
+                <Users size={16} className="faint" />
+              ) : r.book.includes("·") ? (
                 <BookOpen size={16} className="faint" />
               ) : (
                 <Book size={16} className="faint" />
               )}
               <span className="grow truncate">
                 <span>{r.name ?? r.email}</span>
-                {r.name && <span className="hint"> · {r.email}</span>}
+                {r.group ? (
+                  <span className="hint">
+                    {" · "}
+                    {plural(r.group.members, {
+                      one: "group · {n} member",
+                      other: "group · {n} members",
+                    })}
+                  </span>
+                ) : (
+                  r.name && <span className="hint"> · {r.email}</span>
+                )}
               </span>
               <span className="hint nowrap">{r.book}</span>
             </label>

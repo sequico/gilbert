@@ -77,6 +77,9 @@ chosen.** It never reaches the wire, a draft or the reply path as a thing.
 - A group with many members becomes many chips. The count warning is the guard
   rather than a cap, because the client cannot know which of a group's members
   the writer would have left out.
-- **The building follows this record.** The resolver, the two call sites and
-  the group suggestions in the composer are decided here; until they land, the
-  one place a group expands is the contact card's own action.
+- **The building follows this record.** The resolver — one definition in
+  `lib/contacts.ts`, `groupRecipients` — is what the composer's autocomplete,
+  the recipient picker and the contact card's own action all call, through
+  `store/contacts.ts` `expandGroup`. What a surface draws (a row marked *group
+  · N members*, a chip per member) is the surface's business; this record fixes
+  what a group is once it is addressed.

@@ -11,7 +11,12 @@ import type {
   SetError,
   SetResponse,
 } from "@/jmap/types";
-import { contactDisplayName, contactEmails, sortKey } from "@/lib/contacts";
+import {
+  contactDisplayName,
+  contactEmails,
+  groupRecipients,
+  sortKey,
+} from "@/lib/contacts";
 import { parseLdif, uidFromDn } from "@/lib/ldif";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { cardFromLdif } from "@/lib/mozillaAb";
@@ -174,6 +179,15 @@ export interface Suggestion {
   source: "contact" | "gal" | "recent";
   contactId?: Id;
   photo?: string | null;
+  /**
+   * A group of contacts, offered as one choice that expands (ADR 0004).
+   *
+   * `accountId` is where its members live -- a uid means nothing outside the
+   * account that holds it -- and `members` is what the row says, so the reader
+   * knows how many people they are about to add. Such a suggestion has no
+   * address of its own: a group is not a recipient.
+   */
+  group?: { accountId: Id; members: number };
 }
 
 /*
@@ -274,6 +288,19 @@ interface ContactsState {
   /** The account holding an address book, null when it is not the reader's own. */
   accountOfBook(bookId: Id): Id | null;
   getCard(id: Id, accountId?: Id | null): Promise<ContactCard | null>;
+  /**
+   * The addresses behind a group, whichever surface asked (ADR 0004).
+   *
+   * `accountId` names the account the group lives in, which is also where its
+   * members are; null or the reader's own means their own books. One
+   * resolution for the suggestion list, the recipient picker and the contact
+   * card's own action -- three answers to "who is in this group" is how one of
+   * them comes to disagree with the others.
+   */
+  expandGroup(
+    group: ContactCard,
+    accountId: Id | null,
+  ): { addresses: EmailAddress[]; skipped: number };
   search(text: string): ContactCard[];
   /**
    * The cards of one account, as the reader may read them.
@@ -720,6 +747,10 @@ export const useContacts = create<ContactsState>((set, get) => ({
 
   search(text) {
     return get().filterCards(Object.values(get().cards), text);
+  },
+
+  expandGroup(group, accountId) {
+    return groupRecipients(group, get().cardsIn(accountId));
   },
 
   cardsIn(accountId) {
@@ -1203,7 +1234,12 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const out: Suggestion[] = [];
     const seen = new Set<string>();
     const add = (s: Suggestion) => {
-      const k = s.email.toLowerCase();
+      // A group has no address; its own key is its account and card. Without
+      // this every group would answer to the empty string and only the first
+      // would ever be offered.
+      const k = s.group
+        ? `group:${s.group.accountId}:${s.contactId ?? ""}`
+        : s.email.toLowerCase();
       if (!k || seen.has(k)) return;
       seen.add(k);
       out.push(s);
@@ -1220,9 +1256,20 @@ export const useContacts = create<ContactsState>((set, get) => ({
     // A shared address book is only useful if it answers when you are writing
     // to someone in it, so its cards are offered alongside the reader's own.
     // They rank a shade lower, so a name in both wins from your own book.
-    const own = Object.values(st.cards).map((c) => ({ c, penalty: 0 }));
-    const shared = Object.values(st.sharedCards).map((c) => ({ c, penalty: 0.5 }));
-    for (const { c, penalty } of [...own, ...shared]) {
+    /* Own cards carry the reader's own account; a shared card carries the
+       account it came from, which is what its key is made of -- a group's
+       members are in that account, and a uid means nothing outside it. */
+    const own = Object.values(st.cards).map((c) => ({
+      c,
+      penalty: 0,
+      accountId: st.accountId,
+    }));
+    const shared = Object.entries(st.sharedCards).map(([key, c]) => ({
+      c,
+      penalty: 0.5,
+      accountId: key.slice(0, key.length - c.id.length - 1),
+    }));
+    for (const { c, penalty, accountId } of [...own, ...shared]) {
       for (const a of contactEmails(c)) {
         const sc = score(a.name, a.email);
         if (sc < 99)
@@ -1231,6 +1278,28 @@ export const useContacts = create<ContactsState>((set, get) => ({
             email: a.email,
             source: "contact",
             contactId: c.id,
+            score: sc + penalty,
+          });
+      }
+      /*
+       * A group is offered as one choice, and it expands when it is taken
+       * (ADR 0004). It has no address of its own, so nothing here adds one;
+       * what the row needs is a name, the account its members are in, and how
+       * many there are.
+       */
+      if (c.kind === "group") {
+        const name = contactDisplayName(c);
+        const sc = score(name, "");
+        if (sc < 99)
+          candidates.push({
+            name,
+            email: "",
+            source: "contact",
+            contactId: c.id,
+            group: {
+              accountId: accountId ?? st.accountId ?? "",
+              members: Object.keys(c.members ?? {}).length,
+            },
             score: sc + penalty,
           });
       }

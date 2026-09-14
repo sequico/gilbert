@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Users, X } from "lucide-react";
 import {
   type ClipboardEvent,
   type KeyboardEvent,
@@ -8,8 +8,10 @@ import {
 } from "react";
 import type { EmailAddress } from "@/jmap/types";
 import { displayName, isValidEmail, parseAddressList } from "@/lib/address";
+import { plural } from "@/lib/i18n";
 import { type Suggestion, useContacts } from "@/store/contacts";
 import { Avatar } from "@/ui/misc";
+import { toast } from "@/ui/toast";
 
 interface Props {
   value: EmailAddress[];
@@ -65,6 +67,38 @@ export function RecipientInput({ value, onChange, placeholder, autoFocus, id }: 
   };
 
   const pick = (s: Suggestion) => {
+    if (s.group) {
+      /*
+       * A group is chosen as a whole and becomes the people in it (ADR 0004):
+       * the members are the cards of the account the group lives in, one
+       * address each, and anyone already addressed is not written twice. What
+       * could not be resolved is counted and said -- a group that silently
+       * drops three people is worse than one that refuses.
+       */
+      const contacts = useContacts.getState();
+      const card = contacts.cardsIn(s.group.accountId).find((c) => c.id === s.contactId);
+      const { addresses, skipped } = card
+        ? contacts.expandGroup(card, s.group.accountId)
+        : { addresses: [], skipped: 0 };
+      const known = new Set(value.map((v) => v.email.toLowerCase()));
+      const added = addresses.filter((a) => !known.has(a.email.toLowerCase()));
+      if (added.length) onChange([...value, ...added]);
+      if (skipped)
+        toast.show(
+          plural(
+            skipped,
+            {
+              one: "{n} member of {group} has no address and was not added.",
+              other: "{n} members of {group} have no address and were not added.",
+            },
+            { group: s.name ?? "" },
+          ),
+        );
+      setText("");
+      setOpen(false);
+      inputRef.current?.focus();
+      return;
+    }
     onChange([...value, { name: s.name, email: s.email }]);
     setText("");
     setOpen(false);
@@ -168,7 +202,7 @@ export function RecipientInput({ value, onChange, placeholder, autoFocus, id }: 
         <div className="suggest-list" role="listbox">
           {sugg.map((s, i) => (
             <div
-              key={s.email}
+              key={s.contactId ?? s.email}
               className={`suggest-item ${i === active ? "active" : ""}`}
               role="option"
               aria-selected={i === active}
@@ -178,10 +212,23 @@ export function RecipientInput({ value, onChange, placeholder, autoFocus, id }: 
               }}
               onMouseEnter={() => setActive(i)}
             >
-              <Avatar who={s} size="sm" />
+              {s.group ? (
+                <Users size={16} className="faint" />
+              ) : (
+                <Avatar who={s} size="sm" />
+              )}
               <div className="col" style={{ minWidth: 0 }}>
                 <span className="s-name truncate">{s.name ?? s.email}</span>
-                {s.name && <span className="s-email truncate">{s.email}</span>}
+                <span className="s-email truncate">
+                  {s.group
+                    ? plural(s.group.members, {
+                        one: "group · {n} member",
+                        other: "group · {n} members",
+                      })
+                    : s.name
+                      ? s.email
+                      : ""}
+                </span>
               </div>
               <span className="s-src">
                 {s.source === "gal" ? "Directory" : s.source === "recent" ? "Recent" : ""}

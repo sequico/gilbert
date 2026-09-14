@@ -1038,11 +1038,15 @@ minimisable and maximisable; full-screen on mobile.
 - **Recipient chips** with autocomplete from contacts, shared address books you
   have added, the server directory and recent recipients; your own cards win a
   tie against a colleague's copy of the same person. Free-form addresses parse
-  leniently (`Ann <ann@x>, bob@y; "C, D" <c@z>`).
+  leniently (`Ann <ann@x>, bob@y; "C, D" <c@z>`). A **group** is offered with
+  them, marked as a group with the number of people in it, and taking it adds
+  those people — one address per member, the preferred one — with a note when
+  a member had no address to add (ADR 0004).
 - **Recipient picker** — the contacts button beside Cc/Bcc, or the To label —
   opens the address books to search across every book or one, tick as many
   people as needed and send them to To, Cc or Bcc. Every address gets its own
-  row, so somebody with a work address and a personal one is a choice.
+  row, so somebody with a work address and a personal one is a choice — and a
+  group gets a row of its own, marked with its size, which sends its members.
 - **Cc, Bcc and Reply-To** revealed as needed.
 - **Priority**.
 - **Identities**: multiple From addresses, a per-account default that Gilbert
@@ -1359,6 +1363,12 @@ JMAP Contacts and JSContact.
 - **Groups** as a card kind, with members picked from the book the card is
   filed in — the group's own cards when the group's directory is the target,
   since a member is named by a `uid` that means nothing outside its account.
+  A group is a set of people rather than a person, so its entry has no email,
+  phone, post, dates or links: those fields are not offered for it and not
+  written, wherever it is filed. Every row in the list says which kind it is —
+  *· person*, *· organization* or *· group* — so the three are told apart
+  without opening each card. **Email group** on a group's own page addresses
+  its members through the one resolution the composer uses (ADR 0004).
 - **Select and delete in bulk** — tick rows in the list, shift-click for a run,
   and delete the lot; or **Empty address book** from the book's own menu, which
   is the operation a migration asks for when an import needs doing again. A card

@@ -485,11 +485,21 @@ export function ContactsView({ id }: { id?: string }) {
                         )}
                       </span>
                       <div className="grow" style={{ minWidth: 0 }}>
+                        {/*
+                          What kind of entry this is, told at a glance: a
+                          group is a set of people, an organisation is a
+                          company, and everything else is a person. Written
+                          small, because it is a label rather than a title.
+                        */}
                         <div className="c-name">
                           <span>{contactDisplayName(c)}</span>
                           {c.kind === "group" ? (
                             <span className="hint"> {translate("· group")}</span>
-                          ) : null}
+                          ) : c.kind === "org" ? (
+                            <span className="hint"> {translate("· organization")}</span>
+                          ) : (
+                            <span className="hint"> {translate("· person")}</span>
+                          )}
                         </div>
                         <div className="c-email">
                           {email ??
@@ -582,10 +592,16 @@ function ContactDetail({
   const books = Object.keys(c.addressBookIds ?? {})
     .map((id) => contacts.books[id]?.name)
     .filter(Boolean);
+  /*
+   * A group's members live where the group does: a uid means nothing outside
+   * the account holding the card, so the cards to look through are that
+   * account's -- the reader's own books, or the group's (ADR 0004).
+   */
+  const groupAccount = contacts.accountOfCard(c.id) ?? contacts.accountId;
   const members =
     c.kind === "group"
       ? Object.keys(c.members ?? {})
-          .map((uid) => Object.values(contacts.cards).find((x) => x.uid === uid))
+          .map((uid) => contacts.cardsIn(groupAccount).find((x) => x.uid === uid))
           .filter((x): x is ContactCard => Boolean(x))
       : [];
   const ctxLabel = (ctx?: Record<string, boolean>, label?: string) =>
@@ -687,130 +703,136 @@ function ContactDetail({
           {books.length > 0 && <div className="hint">{books.join(", ")}</div>}
         </div>
       </div>
-      {Object.values(c.emails ?? {}).length > 0 && (
-        <div className="contact-section">
-          <h3>{translate("Email")}</h3>
-          {Object.values(c.emails ?? {}).map((e, i) => (
-            <div key={i} className="contact-kv">
-              <span className="k">{ctxLabel(e.contexts, e.label) || "email"}</span>
-              <span className="v row gap-8">
-                <a
-                  href={`mailto:${e.address}`}
-                  onClick={(ev) => {
-                    ev.preventDefault();
-                    onEmail(e.address);
-                  }}
-                >
-                  {e.address}
-                </a>
-                <button
-                  className="icon-btn xs"
-                  title={translate("Compose")}
-                  onClick={() => onEmail(e.address)}
-                >
-                  <Mail size={14} />
-                </button>
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-      {Object.values(c.phones ?? {}).length > 0 && (
-        <div className="contact-section">
-          <h3>{translate("Phone")}</h3>
-          {Object.values(c.phones ?? {}).map((p, i) => (
-            <div key={i} className="contact-kv">
-              <span className="k">
-                {ctxLabel({ ...p.contexts, ...p.features }, p.label) || "phone"}
-              </span>
-              <span className="v row gap-8">
-                <Phone size={14} className="muted" />
-                <a href={`tel:${p.number}`}>{p.number}</a>
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-      {Object.values(c.addresses ?? {}).length > 0 && (
-        <div className="contact-section">
-          <h3>{translate("Address")}</h3>
-          {Object.values(c.addresses ?? {}).map((a, i) => (
-            <div key={i} className="contact-kv">
-              <span className="k">{ctxLabel(a.contexts) || "address"}</span>
-              <span className="v row gap-8" style={{ alignItems: "flex-start" }}>
-                <MapPin size={14} className="muted" style={{ marginTop: 3 }} />
-                <span>
-                  {formatAddressLines(a).map((l, j) => (
-                    <div key={j}>{l}</div>
-                  ))}
-                </span>
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-      {(org || Object.values(c.titles ?? {}).length > 1) && (
-        <div className="contact-section">
-          <h3>{translate("Work")}</h3>
-          {org?.name && (
-            <div className="contact-kv">
-              <span className="k">{translate("Company")}</span>
-              <span className="v row gap-8">
-                <Building2 size={14} className="muted" />
-                {`${org.name}${org.units?.length ? ` · ${org.units.map((u) => u.name).join(", ")}` : ""}`}
-              </span>
+      {/* A group is a set of people, not a person: none of the fields
+          that describe one are shown for it, wherever it is filed. */}
+      {c.kind !== "group" && (
+        <>
+          {Object.values(c.emails ?? {}).length > 0 && (
+            <div className="contact-section">
+              <h3>{translate("Email")}</h3>
+              {Object.values(c.emails ?? {}).map((e, i) => (
+                <div key={i} className="contact-kv">
+                  <span className="k">{ctxLabel(e.contexts, e.label) || "email"}</span>
+                  <span className="v row gap-8">
+                    <a
+                      href={`mailto:${e.address}`}
+                      onClick={(ev) => {
+                        ev.preventDefault();
+                        onEmail(e.address);
+                      }}
+                    >
+                      {e.address}
+                    </a>
+                    <button
+                      className="icon-btn xs"
+                      title={translate("Compose")}
+                      onClick={() => onEmail(e.address)}
+                    >
+                      <Mail size={14} />
+                    </button>
+                  </span>
+                </div>
+              ))}
             </div>
           )}
-          {Object.values(c.titles ?? {}).map((t, i) => (
-            <div key={i} className="contact-kv">
-              <span className="k">{t.kind === "role" ? "Role" : "Title"}</span>
-              <span className="v">{t.name}</span>
+          {Object.values(c.phones ?? {}).length > 0 && (
+            <div className="contact-section">
+              <h3>{translate("Phone")}</h3>
+              {Object.values(c.phones ?? {}).map((p, i) => (
+                <div key={i} className="contact-kv">
+                  <span className="k">
+                    {ctxLabel({ ...p.contexts, ...p.features }, p.label) || "phone"}
+                  </span>
+                  <span className="v row gap-8">
+                    <Phone size={14} className="muted" />
+                    <a href={`tel:${p.number}`}>{p.number}</a>
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-      {Object.values(c.anniversaries ?? {}).length > 0 && (
-        <div className="contact-section">
-          <h3>{translate("Dates")}</h3>
-          {Object.values(c.anniversaries ?? {}).map((a, i) => (
-            <div key={i} className="contact-kv">
-              <span className="k">
-                {a.kind === "birth"
-                  ? "Birthday"
-                  : a.kind === "wedding"
-                    ? "Anniversary"
-                    : a.kind}
-              </span>
-              <span className="v row gap-8">
-                <Cake size={14} className="muted" />
-                {fmtPartial(a.date)}
-              </span>
+          )}
+          {Object.values(c.addresses ?? {}).length > 0 && (
+            <div className="contact-section">
+              <h3>{translate("Address")}</h3>
+              {Object.values(c.addresses ?? {}).map((a, i) => (
+                <div key={i} className="contact-kv">
+                  <span className="k">{ctxLabel(a.contexts) || "address"}</span>
+                  <span className="v row gap-8" style={{ alignItems: "flex-start" }}>
+                    <MapPin size={14} className="muted" style={{ marginTop: 3 }} />
+                    <span>
+                      {formatAddressLines(a).map((l, j) => (
+                        <div key={j}>{l}</div>
+                      ))}
+                    </span>
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-      {(Object.values(c.links ?? {}).length > 0 ||
-        Object.values(c.onlineServices ?? {}).length > 0) && (
-        <div className="contact-section">
-          <h3>{translate("Online")}</h3>
-          {Object.values(c.links ?? {}).map((l, i) => (
-            <div key={`l${i}`} className="contact-kv">
-              <span className="k">{l.label ?? "Website"}</span>
-              <span className="v row gap-8">
-                <Globe size={14} className="muted" />
-                <a href={l.uri} target="_blank" rel="noreferrer">
-                  {l.uri}
-                </a>
-              </span>
+          )}
+          {(org || Object.values(c.titles ?? {}).length > 1) && (
+            <div className="contact-section">
+              <h3>{translate("Work")}</h3>
+              {org?.name && (
+                <div className="contact-kv">
+                  <span className="k">{translate("Company")}</span>
+                  <span className="v row gap-8">
+                    <Building2 size={14} className="muted" />
+                    {`${org.name}${org.units?.length ? ` · ${org.units.map((u) => u.name).join(", ")}` : ""}`}
+                  </span>
+                </div>
+              )}
+              {Object.values(c.titles ?? {}).map((t, i) => (
+                <div key={i} className="contact-kv">
+                  <span className="k">{t.kind === "role" ? "Role" : "Title"}</span>
+                  <span className="v">{t.name}</span>
+                </div>
+              ))}
             </div>
-          ))}
-          {Object.values(c.onlineServices ?? {}).map((s, i) => (
-            <div key={`s${i}`} className="contact-kv">
-              <span className="k">{s.service ?? s.label ?? "IM"}</span>
-              <span className="v">{s.user ?? s.uri}</span>
+          )}
+          {Object.values(c.anniversaries ?? {}).length > 0 && (
+            <div className="contact-section">
+              <h3>{translate("Dates")}</h3>
+              {Object.values(c.anniversaries ?? {}).map((a, i) => (
+                <div key={i} className="contact-kv">
+                  <span className="k">
+                    {a.kind === "birth"
+                      ? "Birthday"
+                      : a.kind === "wedding"
+                        ? "Anniversary"
+                        : a.kind}
+                  </span>
+                  <span className="v row gap-8">
+                    <Cake size={14} className="muted" />
+                    {fmtPartial(a.date)}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+          {(Object.values(c.links ?? {}).length > 0 ||
+            Object.values(c.onlineServices ?? {}).length > 0) && (
+            <div className="contact-section">
+              <h3>{translate("Online")}</h3>
+              {Object.values(c.links ?? {}).map((l, i) => (
+                <div key={`l${i}`} className="contact-kv">
+                  <span className="k">{l.label ?? "Website"}</span>
+                  <span className="v row gap-8">
+                    <Globe size={14} className="muted" />
+                    <a href={l.uri} target="_blank" rel="noreferrer">
+                      {l.uri}
+                    </a>
+                  </span>
+                </div>
+              ))}
+              {Object.values(c.onlineServices ?? {}).map((s, i) => (
+                <div key={`s${i}`} className="contact-kv">
+                  <span className="k">{s.service ?? s.label ?? "IM"}</span>
+                  <span className="v">{s.user ?? s.uri}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
       {Object.values(c.notes ?? {}).length > 0 && (
         <div className="contact-section">
@@ -860,9 +882,11 @@ function ContactDetail({
             <button
               className="btn btn-sm mt-8"
               onClick={() =>
+                // The same resolution the composer uses, so the addresses that
+                // land in a draft are the ones a group stands for (ADR 0004).
                 useCompose
                   .getState()
-                  .open({ to: members.flatMap((m) => contactEmails(m).slice(0, 1)) })
+                  .open({ to: contacts.expandGroup(c, groupAccount).addresses })
               }
             >
               <Mail size={14} /> {translate("Email group")}

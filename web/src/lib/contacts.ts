@@ -118,6 +118,46 @@ export function contactEmails(c: ContactCard): EmailAddress[] {
   }));
 }
 
+/**
+ * The addresses a group stands for (ADR 0004).
+ *
+ * A group is a name for a set of people who are already cards: `members`
+ * names them by `uid`, and a uid means nothing outside the account that holds
+ * it — so `cards` is that account's cards, which the caller has (`cardsIn`).
+ *
+ * One address per member, the preferred one: a card carrying two addresses is
+ * one person, and a group must not send them two copies. A member that is not
+ * there, carries no address, or is itself a group is skipped and counted,
+ * because the reader is owed the number of people left out of what they asked
+ * for. Nesting is ignored rather than followed: the editor cannot make a group
+ * a member of a group, and a server that returned one would otherwise be a
+ * licence to recurse.
+ */
+export function groupRecipients(
+  group: ContactCard,
+  cards: readonly ContactCard[],
+): { addresses: EmailAddress[]; skipped: number } {
+  const byUid = new Map<string, ContactCard>();
+  for (const c of cards) if (c.uid) byUid.set(c.uid, c);
+  const addresses: EmailAddress[] = [];
+  const seen = new Set<string>();
+  let skipped = 0;
+  for (const uid of Object.keys(group.members ?? {})) {
+    const member = byUid.get(uid);
+    const address = member && member.kind !== "group" ? primaryEmail(member) : null;
+    if (!member || member.kind === "group" || !address) {
+      skipped += 1;
+      continue;
+    }
+    const key = address.toLowerCase();
+    // Two cards for one person: the same recipient, once.
+    if (seen.has(key)) continue;
+    seen.add(key);
+    addresses.push({ name: contactDisplayName(member), email: address });
+  }
+  return { addresses, skipped };
+}
+
 export function contactPhoto(c: ContactCard, accountId: string): string | null {
   const m = Object.values(c.media ?? {}).find((x) => x.kind === "photo");
   if (!m) return null;

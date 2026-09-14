@@ -134,6 +134,13 @@ export function ContactEditor({
       (!firstId && accountId === own ? (Object.values(contacts.books)[0]?.id ?? "") : "");
     return { accountId: accountId || own, bookId };
   });
+  /*
+   * A group is a set of people, not a person: its entry in a book has a name
+   * and members, and the fields that describe a human being -- email, phone,
+   * post and birthday, a website -- are not for it. They are neither offered
+   * here nor written, wherever the entry is filed.
+   */
+  const personal = kind !== "group";
   const [photo, setPhoto] = useState<{ dataUrl: string; type: string } | null>(null);
   const [removePhoto, setRemovePhoto] = useState(false);
   const [memberUids, setMemberUids] = useState<string[]>(Object.keys(card.members ?? {}));
@@ -226,93 +233,95 @@ export function ContactEditor({
       obj.titles = jobTitle
         ? { [newKey("t")]: { "@type": "Title", name: jobTitle, kind: "title" } }
         : null;
-      const em: Record<string, JSContactEmail> = {};
-      emails
-        .filter((e) => e.address.trim())
-        .forEach((e, i) => {
-          em[e.key] = {
-            "@type": "EmailAddress",
-            address: e.address.trim(),
-            contexts: e.ctx !== "other" ? { [e.ctx]: true } : undefined,
-            pref: i === 0 ? 1 : undefined,
-          };
-        });
-      obj.emails = Object.keys(em).length ? em : null;
-      const ph: Record<string, JSContactPhone> = {};
-      phones
-        .filter((p) => p.number.trim())
-        .forEach((p) => {
-          ph[p.key] = {
-            "@type": "Phone",
-            number: p.number.trim(),
-            ...(["mobile", "fax"].includes(p.ctx)
-              ? { features: { [p.ctx === "mobile" ? "mobile" : "fax"]: true } }
-              : p.ctx !== "other"
-                ? { contexts: { [p.ctx]: true } }
-                : {}),
-          };
-        });
-      obj.phones = Object.keys(ph).length ? ph : null;
-      const ad: Record<string, JSContactAddress> = {};
-      addrs
-        .filter((a) => a.street || a.city || a.country || a.postcode)
-        .forEach((a) => {
-          const components: JSContactAddress["components"] = [];
-          if (a.street)
-            components.push({
-              "@type": "AddressComponent",
-              kind: "name",
-              value: a.street,
-            });
-          if (a.city)
-            components.push({
-              "@type": "AddressComponent",
-              kind: "locality",
-              value: a.city,
-            });
-          if (a.region)
-            components.push({
-              "@type": "AddressComponent",
-              kind: "region",
-              value: a.region,
-            });
-          if (a.postcode)
-            components.push({
-              "@type": "AddressComponent",
-              kind: "postcode",
-              value: a.postcode,
-            });
-          if (a.country)
-            components.push({
-              "@type": "AddressComponent",
-              kind: "country",
-              value: a.country,
-            });
-          ad[a.key] = {
-            "@type": "Address",
-            components,
-            contexts: a.ctx !== "other" ? { [a.ctx]: true } : undefined,
-          };
-        });
-      obj.addresses = Object.keys(ad).length ? ad : null;
-      if (birthday) {
-        const [y, m, d] = birthday.split("-").map(Number) as [number, number, number];
-        obj.anniversaries = {
-          [newKey("a")]: {
-            "@type": "Anniversary",
-            kind: "birth",
-            date: { "@type": "PartialDate", year: y, month: m, day: d },
-          },
-        };
-      } else obj.anniversaries = null;
-      obj.links = website
-        ? {
-            [newKey("l")]: {
-              "@type": "Link",
-              uri: /^https?:/i.test(website) ? website : `https://${website}`,
+      if (personal) {
+        const em: Record<string, JSContactEmail> = {};
+        emails
+          .filter((e) => e.address.trim())
+          .forEach((e, i) => {
+            em[e.key] = {
+              "@type": "EmailAddress",
+              address: e.address.trim(),
+              contexts: e.ctx !== "other" ? { [e.ctx]: true } : undefined,
+              pref: i === 0 ? 1 : undefined,
+            };
+          });
+        obj.emails = Object.keys(em).length ? em : null;
+        const ph: Record<string, JSContactPhone> = {};
+        phones
+          .filter((p) => p.number.trim())
+          .forEach((p) => {
+            ph[p.key] = {
+              "@type": "Phone",
+              number: p.number.trim(),
+              ...(["mobile", "fax"].includes(p.ctx)
+                ? { features: { [p.ctx === "mobile" ? "mobile" : "fax"]: true } }
+                : p.ctx !== "other"
+                  ? { contexts: { [p.ctx]: true } }
+                  : {}),
+            };
+          });
+        obj.phones = Object.keys(ph).length ? ph : null;
+        const ad: Record<string, JSContactAddress> = {};
+        addrs
+          .filter((a) => a.street || a.city || a.country || a.postcode)
+          .forEach((a) => {
+            const components: JSContactAddress["components"] = [];
+            if (a.street)
+              components.push({
+                "@type": "AddressComponent",
+                kind: "name",
+                value: a.street,
+              });
+            if (a.city)
+              components.push({
+                "@type": "AddressComponent",
+                kind: "locality",
+                value: a.city,
+              });
+            if (a.region)
+              components.push({
+                "@type": "AddressComponent",
+                kind: "region",
+                value: a.region,
+              });
+            if (a.postcode)
+              components.push({
+                "@type": "AddressComponent",
+                kind: "postcode",
+                value: a.postcode,
+              });
+            if (a.country)
+              components.push({
+                "@type": "AddressComponent",
+                kind: "country",
+                value: a.country,
+              });
+            ad[a.key] = {
+              "@type": "Address",
+              components,
+              contexts: a.ctx !== "other" ? { [a.ctx]: true } : undefined,
+            };
+          });
+        obj.addresses = Object.keys(ad).length ? ad : null;
+        if (birthday) {
+          const [y, m, d] = birthday.split("-").map(Number) as [number, number, number];
+          obj.anniversaries = {
+            [newKey("a")]: {
+              "@type": "Anniversary",
+              kind: "birth",
+              date: { "@type": "PartialDate", year: y, month: m, day: d },
             },
-          }
-        : null;
+          };
+        } else obj.anniversaries = null;
+        obj.links = website
+          ? {
+              [newKey("l")]: {
+                "@type": "Link",
+                uri: /^https?:/i.test(website) ? website : `https://${website}`,
+              },
+            }
+          : null;
+      }
       obj.notes = note.trim()
         ? { [newKey("x")]: { "@type": "Note", note: note.trim() } }
         : null;
@@ -658,262 +667,269 @@ export function ContactEditor({
           </div>
         )}
 
-        <div className="field">
-          <label>{t("Email")}</label>
-          <div className="multi">
-            {emails.map((e, i) => (
-              <div key={e.key} className="multi-row">
-                <input
-                  className="input"
-                  type="email"
-                  value={e.address}
-                  placeholder={t("name@example.com")}
-                  onChange={(ev) =>
-                    setEmails(
-                      emails.map((x, j) =>
-                        j === i ? { ...x, address: ev.target.value } : x,
-                      ),
-                    )
-                  }
-                />
-                <select
-                  className="select"
-                  value={e.ctx}
-                  onChange={(ev) =>
-                    setEmails(
-                      emails.map((x, j) =>
-                        j === i ? { ...x, ctx: ev.target.value } : x,
-                      ),
-                    )
-                  }
-                >
-                  {EMAIL_CTX.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+        {personal && (
+          <>
+            <div className="field">
+              <label>{t("Email")}</label>
+              <div className="multi">
+                {emails.map((e, i) => (
+                  <div key={e.key} className="multi-row">
+                    <input
+                      className="input"
+                      type="email"
+                      value={e.address}
+                      placeholder={t("name@example.com")}
+                      onChange={(ev) =>
+                        setEmails(
+                          emails.map((x, j) =>
+                            j === i ? { ...x, address: ev.target.value } : x,
+                          ),
+                        )
+                      }
+                    />
+                    <select
+                      className="select"
+                      value={e.ctx}
+                      onChange={(ev) =>
+                        setEmails(
+                          emails.map((x, j) =>
+                            j === i ? { ...x, ctx: ev.target.value } : x,
+                          ),
+                        )
+                      }
+                    >
+                      {EMAIL_CTX.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="icon-btn sm danger"
+                      onClick={() => setEmails(emails.filter((_, j) => j !== i))}
+                      aria-label={t("Remove")}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
                 <button
-                  className="icon-btn sm danger"
-                  onClick={() => setEmails(emails.filter((_, j) => j !== i))}
-                  aria-label={t("Remove")}
+                  className="btn btn-ghost btn-sm"
+                  style={{ alignSelf: "flex-start" }}
+                  onClick={() =>
+                    setEmails([
+                      ...emails,
+                      {
+                        key: newKey("e"),
+                        address: "",
+                        ctx: emails.length ? "work" : "private",
+                      },
+                    ])
+                  }
                 >
-                  <Trash2 size={16} />
+                  <Plus size={14} /> {t("Add email")}
                 </button>
               </div>
-            ))}
-            <button
-              className="btn btn-ghost btn-sm"
-              style={{ alignSelf: "flex-start" }}
-              onClick={() =>
-                setEmails([
-                  ...emails,
-                  {
-                    key: newKey("e"),
-                    address: "",
-                    ctx: emails.length ? "work" : "private",
-                  },
-                ])
-              }
-            >
-              <Plus size={14} /> {t("Add email")}
-            </button>
-          </div>
-        </div>
-        <div className="field">
-          <label>{t("Phone")}</label>
-          <div className="multi">
-            {phones.map((p, i) => (
-              <div key={p.key} className="multi-row">
-                <input
-                  className="input"
-                  type="tel"
-                  value={p.number}
-                  placeholder="+1 555 0100"
-                  onChange={(ev) =>
-                    setPhones(
-                      phones.map((x, j) =>
-                        j === i ? { ...x, number: ev.target.value } : x,
-                      ),
-                    )
-                  }
-                />
-                <select
-                  className="select"
-                  value={p.ctx}
-                  onChange={(ev) =>
-                    setPhones(
-                      phones.map((x, j) =>
-                        j === i ? { ...x, ctx: ev.target.value } : x,
-                      ),
-                    )
-                  }
-                >
-                  {PHONE_CTX.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+            </div>
+            <div className="field">
+              <label>{t("Phone")}</label>
+              <div className="multi">
+                {phones.map((p, i) => (
+                  <div key={p.key} className="multi-row">
+                    <input
+                      className="input"
+                      type="tel"
+                      value={p.number}
+                      placeholder="+1 555 0100"
+                      onChange={(ev) =>
+                        setPhones(
+                          phones.map((x, j) =>
+                            j === i ? { ...x, number: ev.target.value } : x,
+                          ),
+                        )
+                      }
+                    />
+                    <select
+                      className="select"
+                      value={p.ctx}
+                      onChange={(ev) =>
+                        setPhones(
+                          phones.map((x, j) =>
+                            j === i ? { ...x, ctx: ev.target.value } : x,
+                          ),
+                        )
+                      }
+                    >
+                      {PHONE_CTX.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="icon-btn sm danger"
+                      onClick={() => setPhones(phones.filter((_, j) => j !== i))}
+                      aria-label={t("Remove")}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
                 <button
-                  className="icon-btn sm danger"
-                  onClick={() => setPhones(phones.filter((_, j) => j !== i))}
-                  aria-label={t("Remove")}
+                  className="btn btn-ghost btn-sm"
+                  style={{ alignSelf: "flex-start" }}
+                  onClick={() =>
+                    setPhones([
+                      ...phones,
+                      { key: newKey("p"), number: "", ctx: "mobile" },
+                    ])
+                  }
                 >
-                  <Trash2 size={16} />
+                  <Plus size={14} /> {t("Add phone")}
                 </button>
               </div>
-            ))}
-            <button
-              className="btn btn-ghost btn-sm"
-              style={{ alignSelf: "flex-start" }}
-              onClick={() =>
-                setPhones([...phones, { key: newKey("p"), number: "", ctx: "mobile" }])
-              }
-            >
-              <Plus size={14} /> {t("Add phone")}
-            </button>
-          </div>
-        </div>
-        <div className="field">
-          <label>{t("Address")}</label>
-          <div className="multi">
-            {addrs.map((a, i) => (
-              <div key={a.key} className="card" style={{ marginBottom: 0 }}>
-                <div className="row mb-8">
-                  <select
-                    className="select"
-                    style={{ width: 140 }}
-                    value={a.ctx}
-                    onChange={(ev) =>
-                      setAddrs(
-                        addrs.map((x, j) =>
-                          j === i ? { ...x, ctx: ev.target.value } : x,
-                        ),
-                      )
-                    }
-                  >
-                    {ADDR_CTX.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="spacer" />
-                  <button
-                    className="icon-btn sm danger"
-                    onClick={() => setAddrs(addrs.filter((_, j) => j !== i))}
-                    aria-label={t("Remove")}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-                <div className="addr-grid">
-                  <input
-                    className="input"
-                    style={{ gridColumn: "1 / -1" }}
-                    placeholder={t("Street")}
-                    value={a.street}
-                    onChange={(ev) =>
-                      setAddrs(
-                        addrs.map((x, j) =>
-                          j === i ? { ...x, street: ev.target.value } : x,
-                        ),
-                      )
-                    }
-                  />
-                  <input
-                    className="input"
-                    placeholder={t("City")}
-                    value={a.city}
-                    onChange={(ev) =>
-                      setAddrs(
-                        addrs.map((x, j) =>
-                          j === i ? { ...x, city: ev.target.value } : x,
-                        ),
-                      )
-                    }
-                  />
-                  <input
-                    className="input"
-                    placeholder={t("State / Region")}
-                    value={a.region}
-                    onChange={(ev) =>
-                      setAddrs(
-                        addrs.map((x, j) =>
-                          j === i ? { ...x, region: ev.target.value } : x,
-                        ),
-                      )
-                    }
-                  />
-                  <input
-                    className="input"
-                    placeholder={t("Postal code")}
-                    value={a.postcode}
-                    onChange={(ev) =>
-                      setAddrs(
-                        addrs.map((x, j) =>
-                          j === i ? { ...x, postcode: ev.target.value } : x,
-                        ),
-                      )
-                    }
-                  />
-                  <input
-                    className="input"
-                    placeholder={t("Country")}
-                    value={a.country}
-                    onChange={(ev) =>
-                      setAddrs(
-                        addrs.map((x, j) =>
-                          j === i ? { ...x, country: ev.target.value } : x,
-                        ),
-                      )
-                    }
-                  />
-                </div>
+            </div>
+            <div className="field">
+              <label>{t("Address")}</label>
+              <div className="multi">
+                {addrs.map((a, i) => (
+                  <div key={a.key} className="card" style={{ marginBottom: 0 }}>
+                    <div className="row mb-8">
+                      <select
+                        className="select"
+                        style={{ width: 140 }}
+                        value={a.ctx}
+                        onChange={(ev) =>
+                          setAddrs(
+                            addrs.map((x, j) =>
+                              j === i ? { ...x, ctx: ev.target.value } : x,
+                            ),
+                          )
+                        }
+                      >
+                        {ADDR_CTX.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="spacer" />
+                      <button
+                        className="icon-btn sm danger"
+                        onClick={() => setAddrs(addrs.filter((_, j) => j !== i))}
+                        aria-label={t("Remove")}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                    <div className="addr-grid">
+                      <input
+                        className="input"
+                        style={{ gridColumn: "1 / -1" }}
+                        placeholder={t("Street")}
+                        value={a.street}
+                        onChange={(ev) =>
+                          setAddrs(
+                            addrs.map((x, j) =>
+                              j === i ? { ...x, street: ev.target.value } : x,
+                            ),
+                          )
+                        }
+                      />
+                      <input
+                        className="input"
+                        placeholder={t("City")}
+                        value={a.city}
+                        onChange={(ev) =>
+                          setAddrs(
+                            addrs.map((x, j) =>
+                              j === i ? { ...x, city: ev.target.value } : x,
+                            ),
+                          )
+                        }
+                      />
+                      <input
+                        className="input"
+                        placeholder={t("State / Region")}
+                        value={a.region}
+                        onChange={(ev) =>
+                          setAddrs(
+                            addrs.map((x, j) =>
+                              j === i ? { ...x, region: ev.target.value } : x,
+                            ),
+                          )
+                        }
+                      />
+                      <input
+                        className="input"
+                        placeholder={t("Postal code")}
+                        value={a.postcode}
+                        onChange={(ev) =>
+                          setAddrs(
+                            addrs.map((x, j) =>
+                              j === i ? { ...x, postcode: ev.target.value } : x,
+                            ),
+                          )
+                        }
+                      />
+                      <input
+                        className="input"
+                        placeholder={t("Country")}
+                        value={a.country}
+                        onChange={(ev) =>
+                          setAddrs(
+                            addrs.map((x, j) =>
+                              j === i ? { ...x, country: ev.target.value } : x,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+                ))}
+                <button
+                  className="btn btn-ghost btn-sm"
+                  style={{ alignSelf: "flex-start" }}
+                  onClick={() =>
+                    setAddrs([
+                      ...addrs,
+                      {
+                        key: newKey("a"),
+                        ctx: "private",
+                        street: "",
+                        city: "",
+                        region: "",
+                        postcode: "",
+                        country: "",
+                      },
+                    ])
+                  }
+                >
+                  <Plus size={14} /> {t("Add address")}
+                </button>
               </div>
-            ))}
-            <button
-              className="btn btn-ghost btn-sm"
-              style={{ alignSelf: "flex-start" }}
-              onClick={() =>
-                setAddrs([
-                  ...addrs,
-                  {
-                    key: newKey("a"),
-                    ctx: "private",
-                    street: "",
-                    city: "",
-                    region: "",
-                    postcode: "",
-                    country: "",
-                  },
-                ])
-              }
-            >
-              <Plus size={14} /> {t("Add address")}
-            </button>
-          </div>
-        </div>
-        <div className="field-row">
-          <div className="field">
-            <label>{t("Birthday")}</label>
-            <DateField
-              aria-label={t("Birthday")}
-              value={birthday}
-              onChange={setBirthday}
-            />
-          </div>
-          <div className="field">
-            <label>{t("Website")}</label>
-            <input
-              className="input"
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-              placeholder={t("https://")}
-            />
-          </div>
-        </div>
+            </div>
+            <div className="field-row">
+              <div className="field">
+                <label>{t("Birthday")}</label>
+                <DateField
+                  aria-label={t("Birthday")}
+                  value={birthday}
+                  onChange={setBirthday}
+                />
+              </div>
+              <div className="field">
+                <label>{t("Website")}</label>
+                <input
+                  className="input"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder={t("https://")}
+                />
+              </div>
+            </div>
+          </>
+        )}
         <div className="field">
           <label>{t("Notes")}</label>
           <textarea
