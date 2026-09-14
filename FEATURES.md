@@ -658,6 +658,11 @@ list and the reading pane is dragged to resize, and the size is remembered per
 device — a width chosen on a 27" monitor is wrong on a laptop, so it is one of
 the few settings that does not follow the account.
 
+- **It reopens where you were.** The mail account on screen, the address book,
+  the task list and the folder open in Files are remembered per reader and
+  restored next time — on this device only, because they are where you were
+  sitting rather than a preference, and each one is checked against what still
+  exists before a view moves.
 - **Reading pane** right of the list, below it, or off (messages open full width).
 - **Density** comfortable, cozy or compact, which changes row height as well as padding.
 - **Font size** small, medium or large.

@@ -25,6 +25,7 @@ import {
 } from "@/lib/archiveDate";
 import { withBase } from "@/lib/basePath";
 import { plural, t } from "@/lib/i18n";
+import { loadPlace, placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { isOptionalSort, withoutOptionalSorts } from "@/lib/listSort";
 import { type MailAccountInfo, mailAccountCandidates } from "@/lib/mailAccounts";
 import { mailboxDisplayName } from "@/lib/mailboxName";
@@ -426,6 +427,14 @@ export const useMail = create<MailState>((set, get) => ({
           mailAccounts: ownInfo ? [ownInfo, ...groups] : [],
           accountTrees: { ...s.accountTrees, ...trees },
         }));
+        /*
+         * The account the reader was last on, if it is still one of theirs.
+         * Discovery is where the group mailboxes become known, so this is the
+         * first moment a remembered group account could be honoured at all --
+         * the account switcher has nothing to offer before it.
+         */
+        const again = rememberedMailAccount(get().mailAccounts);
+        if (again && again !== get().accountId) void get().openAccount(again);
       } finally {
         discoverInFlight = null;
       }
@@ -450,6 +459,13 @@ export const useMail = create<MailState>((set, get) => ({
 
   async openAccount(accountId) {
     if (!accountId) return;
+    /*
+     * Where the reader is, for the next session on this device. Recorded here
+     * rather than in `setAccount`, because the boot sequence and the sign-in
+     * path call that too: a place is somewhere somebody went, and the account a
+     * session opens on by itself is not one they chose.
+     */
+    rememberPlace(placeOwnerFrom(useSession.getState()), { mailAccountId: accountId });
     if (accountId === get().accountId) {
       if (!get().mailboxesLoaded) await get().loadMailboxes();
       return;
@@ -1967,6 +1983,23 @@ useSession.subscribe((s, prev) => {
   mail.setAccount(own?.accountId ?? null);
   void mail.discoverMailAccounts();
 });
+
+/**
+ * The mail account to open at boot: the one this device was last on, when it
+ * is still one of the reader's.
+ *
+ * Asked after discovery rather than at sign-in, because a remembered group
+ * mailbox has nothing to be compared against until the probe has named the
+ * accounts that exist.
+ */
+export function rememberedMailAccount(
+  accounts: readonly MailAccountInfo[],
+): string | null {
+  const remembered = loadPlace(placeOwnerFrom(useSession.getState())).mailAccountId;
+  return remembered && accounts.some((a) => a.accountId === remembered)
+    ? remembered
+    : null;
+}
 
 export function mailboxIcon(role: MailboxRole): string {
   switch (role) {

@@ -5,6 +5,7 @@ import { isAppFolder } from "@/lib/appFolder";
 import { folderPathKey, foldersNeeded, type PlannedUpload } from "@/lib/dropUpload";
 import { directoryCreate, fileCreate, fileNodeProps } from "@/lib/filenode";
 import { t as translate } from "@/lib/i18n";
+import { placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { useSession } from "./session";
 
 interface SharedAccount {
@@ -572,6 +573,15 @@ export const useFiles = create<FilesState>((set, get) => ({
 
   setListingShown(shown) {
     set({ listingShown: shown });
+    /* Remembered for the next session on this device: where Files was left.
+       Only a folder counts -- the top level is the absence of a place, and the
+       view says `{ parentId: null }` on the way in, which must not overwrite
+       the folder somebody was actually in. `null` is the view saying it is on
+       its way out; nothing to remember either. */
+    if (shown?.parentId)
+      rememberPlace(placeOwnerFrom(useSession.getState()), {
+        files: { accountId: get().accountId, parentId: shown.parentId },
+      });
   },
 
   applyChanges(types) {

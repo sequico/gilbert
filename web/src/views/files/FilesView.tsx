@@ -24,8 +24,10 @@ import { entriesFromDrop, hasDirectory, planUpload } from "@/lib/dropUpload";
 import { canDropFileNodes, isShared, NODE_MIME, readDraggedIds } from "@/lib/filenode";
 import { formatListDate, formatSize } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
+import { loadPlace, placeOwnerFrom } from "@/lib/lastPlace";
 import { previewKind } from "@/lib/preview";
 import { useFiles } from "@/store/files";
+import { useSession } from "@/store/session";
 import { confirmDialog, Dialog, promptDialog } from "@/ui/dialog";
 import { FilePreviewDialog, type PreviewFile } from "@/ui/filepreview";
 import { Empty, Spinner } from "@/ui/misc";
@@ -91,6 +93,32 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     // without it the listing would keep showing the previous account's folder.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files.available, files.accountId, parentId]);
+
+  /*
+   * Opening Files lands where this device left off -- the folder that was open
+   * last time, when it belongs to the account being browsed and still exists.
+   * Once per mount, and only from the top level: a link to a folder somebody
+   * followed is a place they chose now, not one to overwrite. The tree has to
+   * have answered first, because that is what says which folders exist.
+   */
+  const landed = useRef(false);
+  useEffect(() => {
+    if (landed.current) return;
+    if (parentId !== null || !files.available) return;
+    if (!files.treeLoaded) return;
+    landed.current = true;
+    const place = loadPlace(placeOwnerFrom(useSession.getState())).files;
+    if (!place?.parentId || place.accountId !== files.accountId) return;
+    if (!files.dirIds.includes(place.parentId)) return;
+    navigate(`/files/${place.parentId}`);
+  }, [
+    parentId,
+    files.available,
+    files.treeLoaded,
+    files.dirIds,
+    files.accountId,
+    navigate,
+  ]);
 
   // The sidebar's primary button asks for an upload here, the way it asks the
   // calendar for a new event.

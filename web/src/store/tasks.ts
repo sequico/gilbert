@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { chunk, client, setErrorMessage } from "@/jmap/client";
 import type { GetResponse, Id, QueryResponse, SetResponse, TaskItem } from "@/jmap/types";
+import { loadPlace, placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { isTaskCalendar, TASKLIST_MARKER } from "@/lib/taskList";
 import { useCalendar } from "./calendar";
 import { useSession } from "./session";
@@ -59,6 +60,11 @@ export interface TaskState {
    * and a group's can share an id and a bare one would pick the wrong list.
    */
   selectedListId: string | null;
+  /**
+   * Whether the list on screen is one the reader picked, rather than one a
+   * load dealt out. See `chosenListId`.
+   */
+  chosenByReader: boolean;
   select(key: string): void;
   load(): Promise<void>;
   create(
@@ -125,15 +131,42 @@ export function taskListKey(accountId: Id, calendarId: Id): string {
   return `${accountId}/${calendarId}`;
 }
 
+/**
+ * Which list to open: the one the reader picked, or the one this device was
+ * last on, or -- for a session that has neither -- the first, as before.
+ *
+ * The middle case is the one that matters at boot. A load that ran before the
+ * calendars of a group had arrived deals out the reader's own first list, and
+ * that is not a choice anybody made; the record is what they actually left
+ * behind, so it wins until the reader picks something themselves. The record
+ * is still only a seed: a list deleted from another device is checked against
+ * what is really here.
+ */
+function chosenListId(
+  chosenByReader: boolean,
+  current: string | null,
+  lists: TaskList[],
+): string | null {
+  const wanted =
+    (chosenByReader ? current : null) ??
+    loadPlace(placeOwnerFrom(useSession.getState())).taskList ??
+    current;
+  if (wanted && lists.some((l) => taskListKey(l.accountId, l.calendarId) === wanted))
+    return wanted;
+  return lists[0] ? taskListKey(lists[0].accountId, lists[0].calendarId) : null;
+}
+
 export const useTasks = create<TaskState>((set, get) => ({
   accountId: null,
   lists: [],
   tasks: {},
   loaded: false,
   selectedListId: null,
+  chosenByReader: false,
 
   select(id) {
-    set({ selectedListId: id });
+    set({ selectedListId: id, chosenByReader: true });
+    rememberPlace(placeOwnerFrom(useSession.getState()), { taskList: id });
   },
 
   async load() {
@@ -201,13 +234,7 @@ export const useTasks = create<TaskState>((set, get) => ({
       lists,
       tasks,
       loaded: true,
-      selectedListId:
-        s.selectedListId &&
-        lists.some((l) => taskListKey(l.accountId, l.calendarId) === s.selectedListId)
-          ? s.selectedListId
-          : lists[0]
-            ? taskListKey(lists[0].accountId, lists[0].calendarId)
-            : null,
+      selectedListId: chosenListId(s.chosenByReader, s.selectedListId, lists),
     }));
   },
 
@@ -396,6 +423,7 @@ useSession.subscribe((s, prev) => {
     tasks: {},
     loaded: false,
     selectedListId: null,
+    chosenByReader: false,
   });
   // The calendar store is cleared with the sign-out; the next signature event
   // must set the baseline afresh rather than diff against a dead one.

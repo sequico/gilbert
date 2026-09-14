@@ -17,6 +17,7 @@ import {
   groupRecipients,
   sortKey,
 } from "@/lib/contacts";
+import { loadPlace, placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { parseLdif, uidFromDn } from "@/lib/ldif";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { cardFromLdif } from "@/lib/mozillaAb";
@@ -429,6 +430,26 @@ async function groupMailboxIds(): Promise<Set<string>> {
   });
 }
 
+/**
+ * Put the reader back on the book they had open, if it is still there.
+ *
+ * A book chosen on this device last time is not a decision to make again. The
+ * record is only a seed: the check against what actually loaded is what keeps
+ * a deleted or unshared book from stranding the view on nothing.
+ */
+export function restoreBookPlace() {
+  const st = useContacts.getState();
+  if (st.selection.bookId !== "all") return;
+  const place = loadPlace(placeOwnerFrom(useSession.getState())).book;
+  if (!place?.bookId || place.bookId === "all") return;
+  const there = place.accountId
+    ? st.sharedBooks.some(
+        (b) => b.accountId === place.accountId && b.book.id === place.bookId,
+      )
+    : Boolean(st.books[place.bookId]);
+  if (there) st.select({ accountId: place.accountId, bookId: place.bookId });
+}
+
 /* One shared-contacts load at a time; several callers may ask at once. */
 let sharedLoadRun: Promise<void> | null = null;
 
@@ -491,6 +512,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
       );
       if (!accounts.length) {
         set({ sharedBooks: [], sharedCards: {}, sharedLoaded: true });
+        restoreBookPlace();
         return;
       }
       const groupIds = await groupMailboxIds();
@@ -565,6 +587,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
         } catch {}
       }
       set({ sharedBooks: books, sharedCards: cards, sharedLoaded: true });
+      restoreBookPlace();
     })();
     sharedLoadRun = run;
     void run.finally(() => {
@@ -624,6 +647,9 @@ export const useContacts = create<ContactsState>((set, get) => ({
 
   select(selection) {
     set({ selection });
+    rememberPlace(placeOwnerFrom(useSession.getState()), {
+      book: { accountId: selection.accountId, bookId: selection.bookId },
+    });
   },
 
   accountOfCard(id) {

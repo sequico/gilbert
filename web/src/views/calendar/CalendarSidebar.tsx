@@ -5,6 +5,7 @@ import {
   Download,
   Eye,
   EyeOff,
+  ListTodo,
   MoreVertical,
   Pencil,
   Plus,
@@ -31,7 +32,7 @@ import { formatWeekday } from "@/lib/datetime";
 import { formatMonthYear } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
-import { isTaskCalendar } from "@/lib/taskList";
+import { isTaskCalendar, TASKLIST_MARKER } from "@/lib/taskList";
 import { subscriptionCalendarId, useCalendar } from "@/store/calendar";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
@@ -481,6 +482,28 @@ export function CalendarSidebar() {
                     setEditAccountId(menuAccountId);
                   }}
                 />
+                {/*
+                 * A calendar that is not a task list yet, and the way to say
+                 * it is one. The Tasks module recognises a list by this single
+                 * marker and nothing else, so a list made before the marker
+                 * existed -- or made for a group as an ordinary calendar -- is
+                 * invisible there; this write is also the repair.
+                 */}
+                {!isTaskCalendar(menuCal) && (
+                  <MenuItem
+                    icon={<ListTodo size={16} />}
+                    label={t("Use as task list")}
+                    disabled={shared && !menuCal.myRights.mayWriteAll}
+                    onClick={() => {
+                      const patch = { description: TASKLIST_MARKER };
+                      void (
+                        shared
+                          ? cal.updateSharedCalendar(menuAccountId!, menuCal.id, patch)
+                          : cal.updateCalendar(menuCal.id, patch)
+                      ).catch((err) => toast.error((err as Error).message));
+                    }}
+                  />
+                )}
                 <MenuItem
                   icon={<Upload size={16} />}
                   label={t("Import iCAL file…")}

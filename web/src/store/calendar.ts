@@ -664,7 +664,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       ([id, a]) => a.isPersonal === false && id !== own,
     );
     const found: SharedCalendar[] = [];
-    let failed = false;
+    const unread = new Set<string>();
     for (const [accountId, account] of accounts) {
       try {
         const res = await client.call<GetResponse<Calendar>>("Calendar/get", {
@@ -674,13 +674,25 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         });
         for (const calendar of res.list)
           found.push({ accountId, accountName: account.name, calendar });
-      } catch {
-        failed = true;
+      } catch (err) {
+        unread.add(accountId);
+        /* Named, because an account whose calendars cannot be read is
+           otherwise indistinguishable from one that has none -- and a group's
+           task list lives in exactly such an account. */
+        console.warn(
+          `[gilbert] calendars: could not read the shared account ${account.name} (${accountId}): ${(err as Error).message}`,
+        );
       }
     }
-    if (!found.length && accounts.length > 0 && failed) return; // transient
+    if (!found.length && accounts.length > 0 && unread.size) return; // transient
     set((s) => ({
-      sharedCalendars: found,
+      /* An account that could not be read keeps the calendars it already had:
+         dropping them would empty a colleague's grid for the rest of the
+         session over one failed request, and nothing would say why. */
+      sharedCalendars: [
+        ...found,
+        ...s.sharedCalendars.filter((x) => unread.has(x.accountId)),
+      ],
       /* Every shared account is gone and the server said so -- a revoke, or
          the reader left the team. Its events must not linger in the store
          (the tasks signature keys off the calendars, but the grid reads the
