@@ -7,30 +7,30 @@ import { GroupIdentities } from "../GroupIdentities";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * Which of a group's identities the administration shows as a member's own.
+ * Who the administration says sends as what in a group (ADR 0007).
  *
- * The group's account holds one identity per member (ADR 0007), each carrying
- * the group's own address and that member's own display name. The name is read
- * from the member's own account — one impersonation, when their row is opened —
- * and the identity carrying it is theirs; everything else stays in Unassigned.
+ * A group's account holds one identity per member, all carrying the group's own
+ * address, and the fact that binds a member to one is an **assignment this
+ * surface writes**: a member address mapped to an id of that group, in the
+ * group's own app folder, written in the same action as the identity. It is not
+ * a display name compared on both sides — a name is what a recipient reads, and
+ * a binding kept in one fails on a rename, on a spelling and on a name nobody
+ * ever set.
  *
- * Two rules decide a binding, and each test fails when its own is taken away:
+ * Three rules follow, and each test fails when its own is taken away:
  *
- *   - the two names are folded together (`displayNameKey`, the same folding the
- *     composer's picker uses), so a member whose own account spells their name
- *     differently from the identity written here is still bound to it
- *   - the identity has to carry the **group's own address**: one written with
- *     some other address is not what this member sends from in this group, and
- *     binding it would put an address into "Sends as" that the group cannot send
- *     from at all
+ *   - assigned is a **fact the row reads**: an assignment says `Sends as …`, and
+ *     a member with none says so and is offered one;
+ *   - the identity's **address is not the key**: a member's identity is one of
+ *     this group's own, whatever it is called;
+ *   - the **group's own** identity is a state and not a leftover: it is what a
+ *     member with no assignment sends as, and the surface says so.
  *
- * A third rule is about ordering rather than matching: two groups asked for in
- * one order can answer in the other, and the panel reads the name of the group
- * and the group's identities as one thing — a write made from it takes both.
+ * A fourth is about ordering: two groups asked for in one order can answer in
+ * the other, and the panel reads the group's name and its answers as one thing.
  */
 
 const GROUP = "team@example.org";
-const OTHER = "alias@example.net";
 const ALICE = "alice@example.org";
 const BOB = "bob@example.org";
 const NOBODY = "nobody@example.org";
@@ -69,26 +69,21 @@ function person(address: string, name: string | null) {
     locked: false,
     lockUnknownReason: null,
     impersonation: "ok",
-    identities: [
-      {
-        id: "o1",
-        name,
-        email: address,
-        replyTo: null,
-        bcc: null,
-        textSignature: "",
-        htmlSignature: "",
-        mayDelete: true,
-      } as unknown as Identity,
-    ],
+    identities: [identity("o1", name ?? "", address)],
     defaultIdentityId: null,
     groups: [],
   };
 }
 
 /** A group's answer, in the shape the route gives it. */
-function group(name: string, identities: Identity[], members: string[] | null) {
-  return { name, granted: true, identities, members };
+function group(
+  name: string,
+  identities: Identity[],
+  members: string[] | null,
+  assignments: Record<string, string> = {},
+  groupSenderId: string | null = null,
+) {
+  return { name, granted: true, identities, members, assignments, groupSenderId };
 }
 
 describe("the group identities tab", () => {
@@ -182,19 +177,19 @@ describe("the group identities tab", () => {
     });
   }
 
-  it("binds a name the two accounts spell differently, and only on the group's address", async () => {
+  it("reads an assignment rather than a name, and offers one where there is none", async () => {
     await render();
     await openGroup(GROUP);
     held.get(GROUP)?.(
       group(
         GROUP,
-        [
-          identity("i1", "Alice Smith", GROUP),
-          // Carries a name a member's own account has, on an address that is
-          // not this group's: nothing here sends from it.
-          identity("i2", "Bob", OTHER),
-        ],
+        [identity("i1", "Team", GROUP), identity("i2", "Alice Smith", GROUP)],
         [ALICE, BOB],
+        // Alice is assigned, Bob is not — and there is an identity carrying
+        // Bob's own name, which is exactly what a binding by name would have
+        // seized on.
+        { [ALICE]: "i2" },
+        "i1",
       ),
     );
     await act(async () => {
@@ -204,40 +199,78 @@ describe("the group identities tab", () => {
     await openRow(ALICE);
     await openRow(BOB);
 
-    // "Alice Smith" against "alice smith": bound, so the row says what she
-    // sends as rather than offering a second identity of that name.
+    // Assigned: the row says what she sends as, and offers no assignment.
     expect(row(ALICE).textContent).toContain(`Sends as Alice Smith <${GROUP}>`);
-    expect(row(ALICE).textContent).not.toContain("Set identity");
-    // Bob's own account says "Bob", and the identity carrying that name is not
-    // on this group's address, so it is nobody's: his row offers to set one and
-    // the identity stays listed under Unassigned, where an address that is not
-    // the group's can be seen and fixed.
+    expect(row(ALICE).textContent).not.toContain("Assign identity");
+    // Not assigned: the row says so — even though an identity of this group
+    // carries "Bob" — and offers one.
+    expect(row(BOB).textContent).toContain("No identity is assigned to this member");
+    expect(row(BOB).textContent).toContain("Assign identity");
     expect(row(BOB).textContent).not.toContain("Sends as");
-    expect(row(BOB).textContent).toContain("Set identity");
-    expect(host.textContent).toContain(`Bob <${OTHER}>`);
   });
 
-  it("offers no identity to set for a member whose own account has no display name", async () => {
+  it("offers no identity to create for a member whose own account has no display name", async () => {
     /*
-     * The display name is the binding, so an identity written with none binds
-     * to nobody: the composer's picker matches the group's identity against the
-     * reader's own name, and an empty name matches no member — the row would
-     * have created something and the member would still be told no identity was
-     * set for them in a group that now holds one. So the row says where the
-     * name has to come from instead.
+     * The display name is what a recipient reads, so the form prefills with it —
+     * but it is not the binding, and a member whose own account sets none can
+     * still be assigned an identity here. The row offers it and the form opens
+     * with an empty name rather than refusing.
      */
     await render();
     await openGroup(GROUP);
-    held.get(GROUP)?.(group(GROUP, [identity("i1", "Alice Smith", GROUP)], [NOBODY]));
+    held.get(GROUP)?.(group(GROUP, [identity("i1", "Team", GROUP)], [NOBODY], {}, "i1"));
     await act(async () => {
       await flush();
     });
 
     await openRow(NOBODY);
 
-    expect(row(NOBODY).textContent).toContain("sets no display name");
-    expect(row(NOBODY).textContent).toContain("User identities");
-    expect(row(NOBODY).textContent).not.toContain("Set identity");
+    expect(row(NOBODY).textContent).toContain("No identity is assigned to this member");
+    expect(row(NOBODY).textContent).toContain("Assign identity");
+  });
+
+  it("marks the group's own identity as what an unassigned member sends as", async () => {
+    /*
+     * The middle step of the composer's cascade (ADR 0007), said where an
+     * administrator can see it: an identity nobody is assigned is the group's own
+     * voice, so a member with no identity of their own still writes as the group.
+     */
+    await render();
+    await openGroup(GROUP);
+    held.get(GROUP)?.(
+      group(
+        GROUP,
+        [identity("i1", "Team", GROUP), identity("i2", "Alice Smith", GROUP)],
+        [ALICE, BOB],
+        { [ALICE]: "i2" },
+        "i1",
+      ),
+    );
+    await act(async () => {
+      await flush();
+    });
+
+    const text = host.textContent ?? "";
+    expect(text).toContain("Not assigned to a member");
+    expect(text).toContain("what a member with no identity of their own sends as");
+    // The group's own is listed there, and the assigned identity is not.
+    expect(text).toContain(`Team <${GROUP}>`);
+  });
+
+  it("says what an assigned group identity means", async () => {
+    await render();
+    await openGroup(GROUP);
+    held.get(GROUP)?.(
+      group(GROUP, [identity("i1", "Team", GROUP)], [ALICE], { [ALICE]: "i1" }, "i1"),
+    );
+    await act(async () => {
+      await flush();
+    });
+
+    // Alice is assigned the group's own identity: her mail is the group's, and
+    // the row says so rather than pretending it is a personal sender.
+    expect(row(ALICE).textContent).toContain(`Sends as Team <${GROUP}>`);
+    expect(row(ALICE).textContent).toContain("the group's own identity");
   });
 
   it("keeps an answer for a group the administrator has left", async () => {
@@ -246,7 +279,7 @@ describe("the group identities tab", () => {
     await openGroup(BOB);
 
     // The group asked for first answers last -- a slower read, not a later one.
-    held.get(BOB)?.(group(BOB, [identity("b1", "Bob", BOB)], [BOB]));
+    held.get(BOB)?.(group(BOB, [identity("b1", "Bob", BOB)], [BOB], {}, "b1"));
     await act(async () => {
       await flush();
     });

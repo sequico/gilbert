@@ -14,8 +14,11 @@
  *     with no matching option and reset the From line under the writer
  *   - hide the default identity, which is what a new draft starts on
  *   - hide everything; if every identity is hidden it shows them all instead
- */
-import type { Identity } from "@/jmap/types";
+ *
+ * Which identity a **group** mailbox offers is not decided here: that is the
+ * assignment the administration recorded, with the group's own identity behind
+ * it (ADR 0007), and it lives in `@gilbert/shared/identityAssignment`.
+ */ import type { Identity } from "@/jmap/types";
 import { sameAddress } from "@/lib/address";
 
 export function visibleIdentities<T extends Pick<Identity, "id">>(
@@ -35,11 +38,10 @@ export function visibleIdentities<T extends Pick<Identity, "id">>(
  * Which of an account's own identities is **theirs**, in one place.
  *
  * A group's account holds one identity per member, and a member is bound to
- * theirs by the display name (ADR 0007) — so *which* of a person's own
- * identities carries that name is the load-bearing question. The administration
- * reads the name from one side of it and the composer in a group mailbox
- * matches on the other; two answers to it is a member whose group identity
- * exists being told none does.
+ * theirs by an assignment the administration records (ADR 0007) — so *which* of
+ * a person's own identities is theirs is read here for one thing only: the
+ * display name to write on the identity the administration creates for them,
+ * read from their own account rather than typed a second time.
  *
  * The rule, in order:
  *
@@ -52,6 +54,10 @@ export function visibleIdentities<T extends Pick<Identity, "id">>(
  *
  * `undefined` means the account holds no identity at all, which is an answer:
  * somebody with none has no name to be bound by.
+ *
+ * It is read for one purpose, and it is not a binding: the display name an
+ * administrator writes on the identity they create for a member in a group.
+ * What a member sends as there is the assignment, and it is written down.
  */
 export function ownIdentity<T extends Pick<Identity, "id" | "name" | "email">>(
   identities: T[],
@@ -67,53 +73,6 @@ export function ownIdentity<T extends Pick<Identity, "id" | "name" | "email">>(
     ? identities.find((identity) => identity.id === defaultId)
     : undefined;
   return chosen ?? [...identities].sort((a, b) => a.email.localeCompare(b.email))[0];
-}
-
-/**
- * The key two display names are compared by, in one place.
- *
- * A group's account holds one identity per member, and the identity that
- * belongs to a member is the one carrying their name (ADR 0007) — the name of
- * the identity that is theirs (`ownIdentity`). That name is typed in one account
- * and read on another surface, so the comparison is trimmed and case-folded
- * rather than a spelling test — and there is one of it, because a picker and an
- * administration that folded differently would disagree about which identity
- * belongs to whom.
- */
-export function displayNameKey(name?: string | null): string {
-  return (name ?? "").trim().toLowerCase();
-}
-
-/**
- * Which identities a group mailbox offers the reader (ADR 0007).
- *
- * A group's account holds one identity per member, all carrying the group's
- * own address and each carrying that member's own name and signature. The
- * member is bound to their identity by the display name -- it is that member's
- * own identity name, read from their own account rather than typed a second
- * time there -- so matching on the name is matching on the person.
- *
- * A member sends as themselves or not at all: enforcing identities means
- * nothing while the picker under it still offers somebody else's, so this
- * never returns more than what matched. While the reader's own list is
- * unknown no name can match, and the account's default identity stands in if
- * it is in the list, else the first, else nothing: one identity, never the
- * whole membership. Once that list is here and holds no matching name, the
- * answer is nothing at all -- the account's default is somebody's identity,
- * not necessarily the reader's, and it is never offered in their place.
- */
-export function offeredInGroupAccount<T extends Pick<Identity, "id" | "name">>(
-  identities: T[],
-  mine: { name?: string | null } | undefined,
-  defaultId?: string | null,
-): T[] {
-  if (mine === undefined) {
-    const instead = identities.find((i) => i.id === defaultId) ?? identities[0];
-    return instead ? [instead] : [];
-  }
-  const wanted = displayNameKey(mine.name);
-  if (!wanted) return [];
-  return identities.filter((i) => displayNameKey(i.name) === wanted);
 }
 
 /** Whether hiding this one would be refused, so the UI can say so. */

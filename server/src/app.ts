@@ -88,6 +88,7 @@ import {
   IdentityAdminError,
   identityAddress,
   identityLockedForSession,
+  memberGroupAssignment,
   personIdentities,
   removePersonIdentity,
   setPersonDefaultIdentity,
@@ -2488,8 +2489,8 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   /**
-   * A group's identities, its roster, and the write that reaches them
-   * (ADR 0007).
+   * A group's identities, its roster, and the assignment that binds a member to
+   * one of them (ADR 0007).
    *
    * Written as the installation's agent, always: Stalwart refuses to impersonate
    * a group mailbox, and the agent is the principal that exists for this. Where
@@ -2498,11 +2499,14 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * a bug.
    *
    * A group holds **one identity per member** — the group's own address, each
-   * member's own display name and signature — so the GET answers the whole list,
-   * and `members` is the roster those identities belong to: `null` when the
-   * registry could not be read, which is an answer rather than a failure. The
-   * POST writes one of them: `id: null` creates one, and the `name` in the
-   * patch says which member it is.
+   * member's own display name and signature — and `assignments` says which
+   * member sends as which of them: the binding is a record, not a display name
+   * compared on both sides. A member absent from it sends as the group's own
+   * identity, `groupSenderId`. `members` is the roster those identities belong
+   * to: `null` when the registry could not be read, which is an answer rather
+   * than a failure. The POST writes one identity **and assigns it** — `member`
+   * names the address, `id` the identity to write, `null` meaning "the one this
+   * member already holds, else a new one".
    */
   api.get("/admin/identities/group", requireSession, requireAdmin, async (c) => {
     try {
@@ -2513,15 +2517,48 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   api.post("/admin/identities/group", requireSession, requireAdmin, async (c) => {
-    const body = await readJson<{ name?: unknown; id?: unknown; patch?: unknown }>(c);
+    const body = await readJson<{
+      name?: unknown;
+      member?: unknown;
+      id?: unknown;
+      patch?: unknown;
+    }>(c);
     try {
       const written = await writeGroupIdentity(
         c.get("session"),
         typeof body?.name === "string" ? body.name : "",
+        typeof body?.member === "string" ? body.member : "",
         typeof body?.id === "string" && body.id ? body.id : null,
         body?.patch,
       );
       return c.json({ ok: true, id: written.id });
+    } catch (err) {
+      return identityFailure(c, err);
+    }
+  });
+
+  /**
+   * The identity the signed-in member sends as in one group (ADR 0007).
+   *
+   * The composer's own question, answered as the member rather than as an
+   * administrator: `assignedId` is the identity the administration assigned
+   * them, and `groupSenderId` is the group's own — what they send as when
+   * nothing is assigned to them. Both are ids of the group's account, which the
+   * caller resolves against the identities it already holds, so the cascade
+   * that picks one lives in one place (`@gilbert/shared/identityAssignment`).
+   *
+   * Read through the agent, because it is the group's own document: a member
+   * reaches the group's Files through the group surfaces and never by reading
+   * another account directly.
+   */
+  api.get("/identities/assignment", requireSession, async (c) => {
+    try {
+      const view = await memberGroupAssignment(
+        c.get("session"),
+        c.req.query("group") ?? "",
+      );
+      if ("ok" in view) return c.json({ error: view.error, need: view.need }, 403);
+      return c.json(view);
     } catch (err) {
       return identityFailure(c, err);
     }

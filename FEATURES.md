@@ -522,7 +522,10 @@ and in the client alike. A share is never administered or served as a group.
   still offers. A **lock** can be applied instead, recorded in that account's
   own Stalwart storage (`identity-lock.json`, its own app folder — ADR 0001,
   not a shared installation-wide list): the person's Identities & signatures
-  section is not offered at all. **Enforce** and
+  section is not offered at all. The lock is about **personal mailboxes only** —
+  it governs the identities of the account that sends for the person, and
+  nothing in a group, where the administration assigns an identity and the
+  member reads it whether the lock is set or not. **Enforce** and
   **Release** write and give it back from the page, with no sign-in in
   between — the button reads **Enforced** while it holds, the session at hand
   re-reads its own record at once, and a session already open does so the next
@@ -540,28 +543,28 @@ and in the client alike. A share is never administered or served as a group.
   account then sends with its first identity.
 - **Group identities** (ADR 0007), the second tab: a group mailbox holds
   **one identity per member** — the group's own address, carrying each
-  member's own display name and signature, bound to that member by the name
-  — so mail sent as the group names whoever sent it without a second
-  address. Which of a person's own identities is theirs is **one rule**, shared
-  by the administration that reads the name it writes and the composer that
-  matches it — the identity carrying their own address, else the one their
-  account sends from by default, else the first by address — so a member with
-  a group identity of their own is never told none was set. The tab lists each
-  member of the group's roster with the identity that carries their name **on
-  the group's own address** — the two names compared without case, and an
-  identity written on some other address is no member's and is listed beneath
-  them instead — reads a member's own display name on demand (one
-  impersonation when that row is opened, never the whole roster up front),
-  and lists the identities no member claims after them, so a stray one stays
-  visible and editable. A name two members' own accounts both carry belongs to
-  the one the roster lists first, and the second is told that rather than
-  offered a duplicate. The write is always **as the
+  member's own display name and signature — so mail sent as the group names
+  whoever sent it without a second address. The administration **assigns** a
+  member their identity: the fact lives in the group's own app folder, next to
+  the identity it names and written in the same action, and it is an
+  assignment rather than a display name compared on both sides — a name is
+  what a recipient reads, and a binding kept in one breaks on a rename, on a
+  spelling and on a name nobody ever set. The tab therefore answers rather
+  than guesses: a member's row says what they send as, or says that nothing is
+  assigned to them yet and offers to assign one. It reads a member's own
+  display name on demand (one impersonation when that row is opened, never the
+  whole roster up front) and uses it to prefill the form, so a colleague's
+  name is never typed twice. The identities no member is assigned are listed
+  beneath the roster, the **group's own among them**: that one is what a member
+  with no assignment sends as — the same identity the group's agent sends as —
+  so a group nobody has been assigned in still writes as the group rather than
+  under somebody's name. The write is always **as the
   Master**: Stalwart refuses to impersonate a group
   mailbox, and the Master is the principal the installation has for acting on
   its groups. Where the Master is not granted on the group, the surface names
   the missing grant rather than showing a permission error; where the roster
   cannot be read, the identities are listed on their own and the surface says
-  so.
+  that no assignment can be made until it reads again.
 - **One list, two surfaces** (ADR 0007): the identities a person may send as
   live in the account that **sends for them** — the one their session names
   for submission — and Settings → Identities & signatures reads and writes
@@ -580,7 +583,9 @@ and in the client alike. A share is never administered or served as a group.
   screen, which in a group holds the group's address, or none of yours at all.
   Beneath their own identities
   that section lists, read-only, one block per group mailbox they are a member
-  of, saying that the administration sets them; the administration's User
+  of, saying that the administration sets them and marking **which of them is
+  theirs** — the identity assigned to them, or, with none assigned, the words
+  that their mail goes out as the group itself; the administration's User
   identities tab shows the same structure for the person it has chosen.
 - **What an identity reaches**: mail **composed in Gilbert** — the composer and
   the group's agent go through one signature function. Mail written in another
@@ -1095,10 +1100,12 @@ minimisable and maximisable; full-screen on mobile.
   keeps (JMAP has no such flag), and hiding identities from the picker without
   deleting them — an account with alias domains can have every local part twice
   over while only a handful are ever used. In a **group mailbox** the picker
-  offers the reader's own identity alone (ADR 0007): the account holds one
-  identity per member, and a member sends as themselves or not at all — never
-  under another member's name, and not at all until the administration has
-  created theirs, which the composer says in as many words.
+  offers the identity the administration **assigned** to the reader, and the
+  group's own behind it (ADR 0007): one identity per member, so a member sends
+  as themselves — never under another member's name — and a member nothing has
+  been assigned yet sends as the group itself rather than being left with no
+  sender. The composer says so in as many words only when the group holds no
+  identity at all, which is the one state where there is nothing to send as.
 - **Signatures** in HTML per identity, inserted above or below the quote.
   Stalwart caps an identity signature at 2047 **bytes** of UTF-8, so Gilbert
   compacts the HTML, and where it still will not fit, stores the full signature

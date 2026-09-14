@@ -238,61 +238,92 @@ export function IdentitiesSettings() {
 /**
  * One group mailbox the reader is a member of, read-only.
  *
- * A group's identities are its members', one each, and the administration
- * writes them (ADR 0007) -- so there is nothing here to edit, delete or make
- * default, and no hiding either: the compose picker in that mailbox offers the
- * reader their own identity alone, which is not a choice this page makes. What
- * the member gets is the list: which name and signature of theirs goes out on
- * a group message, and every other member's, so a message from the group reads
- * as coming from a person.
+ * A group's identities belong to its members, one each, and the administration
+ * writes them and **assigns** each to a member (ADR 0007) -- so there is nothing
+ * here to edit, delete or make default, and no hiding either: the compose picker
+ * in that mailbox offers the identity assigned to the reader, which is not a
+ * choice this page makes. What the member gets is the list, and which of them is
+ * theirs is said in as many words, so a member can see that they send as
+ * themselves rather than as the group.
  */
 function GroupIdentities({ account }: { account: MailAccountInfo }) {
   const identities = useMail((s) => s.identitiesByAccount[account.accountId]) ?? EMPTY;
+  const assignment = useMail((s) => s.assignmentByAccount[account.accountId]);
   const loadFor = useMail((s) => s.loadIdentitiesFor);
+  const loadAssignment = useMail((s) => s.loadAssignmentFor);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
     setError(null);
-    // The store caches per account, so a second mount costs nothing; a failure
-    // is said quietly in place, because the group's block is not this page's
-    // reason for being and a toast would push the reader out of their own list.
+    /*
+     * The store caches both per account, so a second mount costs nothing; a
+     * failure is said quietly in place, because the group's block is not this
+     * page's reason for being and a toast would push the reader out of their own
+     * list.
+     */
     loadFor(account.accountId).catch((err) => {
       if (live) setError((err as Error).message);
     });
+    loadAssignment(account.accountId).catch(() => undefined);
     return () => {
       live = false;
     };
-  }, [account.accountId, loadFor]);
+  }, [account.accountId, loadFor, loadAssignment]);
   return (
     <section>
       <h2>{account.name}</h2>
       <p className="hint">
         {t(
-          "This group's mailbox holds one identity per member, all with the group's address. The administration sets them, so they are read-only here.",
+          "This group's mailbox holds one identity per member, all with the group's address. The administration assigns them, so they are read-only here.",
         )}
       </p>
+      {/*
+       * Which of them is the reader's is the one thing this page can answer
+       * (ADR 0007), and it is worth saying: it is the identity their mail leaves
+       * the group as, and with none assigned they send as the group itself.
+       */}
+      {assignment &&
+        (assignment.assignedId ? (
+          <p className="hint">
+            {t("You send as the one assigned to you, marked below.")}
+          </p>
+        ) : (
+          <p className="hint">
+            {t(
+              "No identity of this group is assigned to you yet, so mail you send from this mailbox goes out as the group itself.",
+            )}
+          </p>
+        ))}
       {error && (
         <p className="hint">
           {t("Could not read this group's identities: {error}", { error })}
         </p>
       )}
-      {identities.map((i) => (
-        <div key={i.id} className="card">
-          <div className="card-head">
-            <h3>{i.name ? `${i.name} <${i.email}>` : i.email}</h3>
+      {identities.map((i) => {
+        const mine = assignment?.assignedId === i.id;
+        return (
+          <div key={i.id} className="card">
+            <div className="card-head">
+              <h3>{i.name ? `${i.name} <${i.email}>` : i.email}</h3>
+              {mine && (
+                <span className="tag" style={{ background: "var(--accent)" }}>
+                  {t("Yours")}
+                </span>
+              )}
+            </div>
+            {(i.htmlSignature || i.textSignature) && (
+              <div className="hint" style={{ marginTop: 4 }}>
+                {htmlToText(i.htmlSignature || i.textSignature).slice(0, 120)}
+              </div>
+            )}
+            {i.replyTo?.length ? (
+              <div className="hint">
+                {t("Reply-To: {addresses}", { addresses: formatAddressList(i.replyTo) })}
+              </div>
+            ) : null}
           </div>
-          {(i.htmlSignature || i.textSignature) && (
-            <div className="hint" style={{ marginTop: 4 }}>
-              {htmlToText(i.htmlSignature || i.textSignature).slice(0, 120)}
-            </div>
-          )}
-          {i.replyTo?.length ? (
-            <div className="hint">
-              {t("Reply-To: {addresses}", { addresses: formatAddressList(i.replyTo) })}
-            </div>
-          ) : null}
-        </div>
-      ))}
+        );
+      })}
     </section>
   );
 }

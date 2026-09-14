@@ -7,7 +7,8 @@ import { useSession } from "@/store/session";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
 
 /**
- * The bug this covers, and the rule that closes it.
+ * The two views of one identity cache, and what binds a member to a group's
+ * identity.
  *
  * Settings → Identities & signatures read `useMail.identities`, which the store
  * filled from `get().accountId` — the mailbox the reader was *browsing*. The
@@ -17,9 +18,10 @@ import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
  * heading of their own — and a group mailbox's list is one identity per member.
  *
  * ADR 0007: a person's own list is the account that sends for them, and a
- * person's Settings addresses that account and no other. Under it, one
- * read-only block per group, and the From picker in a group offers the reader
- * their own identity alone.
+ * person's Settings addresses that account and no other. The From picker in a
+ * group mailbox offers the identity the administration **assigned** to the
+ * reader, and the group's own behind it — an assignment recorded in the group's
+ * own app folder, not a display name compared on both sides.
  */
 
 const OWN = "own";
@@ -45,6 +47,16 @@ const GROUP_LIST = [
   identity("g1", "Someone else", "team@example.org"),
   identity("g2", "Me", "team@example.org"),
 ];
+
+/**
+ * What the group's own assignment document says, as the server answers it: the
+ * identity assigned to the person signed in, and the group's own — what they
+ * send as when nothing is assigned.
+ */
+let assignment: { assignedId: string | null; groupSenderId: string | null } = {
+  assignedId: "g2",
+  groupSenderId: "g1",
+};
 
 /** What the server answers with, per account, when a test renames something. */
 let ownList: Identity[] = [];
@@ -74,12 +86,6 @@ const flush = async () => {
 
 let calls: Array<{ method: string; accountId: unknown }>;
 
-/**
- * A gate the mock can hold the reader's own list behind, so one test can watch
- * the view while that list is still in flight. `null` means no gate.
- */
-let holdOwn: Array<() => void> | null = null;
-
 beforeEach(async () => {
   vi.restoreAllMocks();
   calls = [];
@@ -87,8 +93,6 @@ beforeEach(async () => {
   groupList = GROUP_LIST;
   vi.spyOn(client, "call").mockImplementation(async (method, args) => {
     calls.push({ method, accountId: args.accountId });
-    if (holdOwn && method === "Identity/get" && String(args.accountId) === OWN)
-      await new Promise<void>((res) => holdOwn?.push(res));
     if (method !== "Identity/get") return {} as never;
     return {
       accountId: args.accountId,
@@ -97,6 +101,28 @@ beforeEach(async () => {
       notFound: [],
     } as never;
   });
+  /*
+   * The member-facing read behind the composer's cascade: answered in the shape
+   * `GET /api/identities/assignment` gives it, without a server.
+   */
+  vi.stubGlobal("fetch", async (input: unknown) => {
+    const url = String(input);
+    if (url.includes("/api/identities/assignment")) {
+      return {
+        ok: true,
+        status: 200,
+        statusText: "",
+        json: async () => ({
+          group: "team@example.org",
+          assignedId: assignment.assignedId,
+          groupSenderId: assignment.groupSenderId,
+        }),
+      } as Response;
+    }
+    return { ok: true, status: 200, statusText: "", json: async () => ({}) } as Response;
+  });
+  assignment = { assignedId: "g2", groupSenderId: "g1" };
+  await flush();
   useSession.setState({ status: "authenticated", session: SESSION, accountId: GROUP });
   /*
    * The store's own sign-in subscription runs on that state transition: it
@@ -120,11 +146,13 @@ beforeEach(async () => {
     ],
     identities: [],
     identitiesByAccount: {},
+    assignmentByAccount: {},
   });
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   useSettings.setState({ settings: { ...DEFAULT_SETTINGS } });
   useSession.setState({ status: "loading", session: null, accountId: null });
   useMail.setState({
@@ -133,6 +161,7 @@ afterEach(() => {
     mailAccounts: [],
     identities: [],
     identitiesByAccount: {},
+    assignmentByAccount: {},
   });
 });
 
@@ -153,11 +182,12 @@ describe("the two views of one cache", () => {
     expect(useMail.getState().defaultIdentityFor(ownId)?.id).toBe("o1");
   });
 
-  it("offers a group mailbox only the reader's own identity", async () => {
+  it("offers a group mailbox the identity assigned to the reader", async () => {
     await useMail.getState().loadIdentitiesFor(OWN);
     await useMail.getState().loadIdentitiesFor(GROUP);
+    await useMail.getState().loadAssignmentFor(GROUP);
 
-    // g2 carries the reader's name; g1 is another member's.
+    // The assignment says g2; g1 is the group's own, and another member's.
     expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g2"]);
     // The cache still holds the group's whole list: Settings lists it
     // read-only, and the picker narrowing is not a fetch filter.
@@ -166,104 +196,88 @@ describe("the two views of one cache", () => {
     ).toEqual(["g1", "g2"]);
   });
 
-  it("offers one identity, never the whole membership, while the reader's own list is in flight", async () => {
-    // Held, so the state this rule is about can be observed: nobody's name is
-    // here to match, and the account's own default stands in -- one identity.
-    holdOwn = [];
-    useMail.setState({ identitiesByAccount: {} });
-    try {
-      await useMail.getState().loadIdentitiesFor(GROUP);
-      expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g1"]);
-    } finally {
-      const waiting = holdOwn;
-      holdOwn = null;
-      for (const release of waiting) release();
-    }
+  it("offers the group's own identity to a member nothing is assigned to", async () => {
+    /*
+     * The middle step of the cascade (ADR 0007), and the reason a member is
+     * never stuck: an identity nobody is assigned is the group's own voice — the
+     * one the agent sends as — so somebody the administration has not got to yet
+     * writes as the group rather than being refused a sender. Never another
+     * member's: g2 belongs to somebody, and g1 is what is offered.
+     */
+    assignment = { assignedId: null, groupSenderId: "g1" };
+    await useMail.getState().loadIdentitiesFor(GROUP);
+    await useMail.getState().loadAssignmentFor(GROUP);
 
-    // Once the reader's own list lands, the view is theirs.
-    await flush();
-    expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g2"]);
+    expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g1"]);
   });
 
-  it("recomputes the view when the reader's own list changes", async () => {
-    await useMail.getState().loadIdentitiesFor(OWN);
+  it("keeps what is on screen until the assignment has been read", async () => {
+    /*
+     * The read is a round trip, so there is a window where the group's list is
+     * here and its assignment is not. Guessing in that window is how the whole
+     * bug looked from the outside — a sender offered or refused before anything
+     * was known — so the view holds what it had.
+     */
     await useMail.getState().loadIdentitiesFor(GROUP);
+    expect(useMail.getState().assignmentByAccount[GROUP]).toBeUndefined();
+    expect(useMail.getState().identities).toEqual([]);
+  });
+
+  it("offers nothing when the group holds no identity at all", async () => {
+    assignment = { assignedId: null, groupSenderId: null };
+    groupList = [];
+    await useMail.getState().loadIdentitiesFor(GROUP);
+    await useMail.getState().loadAssignmentFor(GROUP);
+
+    // The one state with nothing to send as, and the only one the composer
+    // reports.
+    expect(useMail.getState().identities).toEqual([]);
+  });
+
+  it("moves with the assignment when the administration changes it", async () => {
+    await useMail.getState().loadIdentitiesFor(GROUP);
+    await useMail.getState().loadAssignmentFor(GROUP);
     expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g2"]);
 
-    // The name binding is the display name, so a rename in the reader's own
-    // account is a different identity of the group's.
+    // The administration gives the reader the group's own identity, and the
+    // writer refreshes this session's answer (ADR 0007): the next read is the
+    // new one.
+    assignment = { assignedId: "g1", groupSenderId: "g1" };
+    await useMail.getState().refreshIdentities();
+
+    expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g1"]);
+  });
+
+  it("is unmoved by a rename of the reader's own identity", async () => {
+    /*
+     * The reason the binding is a record: a display name is what a recipient
+     * reads, and a binding kept in one breaks on a rename. The assignment is an
+     * address, so renaming the reader's own identity leaves it exactly where it
+     * was — which is the whole of what this change is for.
+     */
+    await useMail.getState().loadIdentitiesFor(OWN);
+    await useMail.getState().loadIdentitiesFor(GROUP);
+    await useMail.getState().loadAssignmentFor(GROUP);
+    expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g2"]);
+
     ownList = [identity("o1", "Someone else", "me@example.org")];
     await useMail.getState().loadIdentitiesFor(OWN);
 
-    expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g1"]);
-  });
-
-  it("empties the group's view when no name in it is the reader's", async () => {
-    await useMail.getState().loadIdentitiesFor(OWN);
-    await useMail.getState().loadIdentitiesFor(GROUP);
     expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g2"]);
-
-    // The reader's own list is here and carries no name any member of the
-    // group has, so there is nothing of theirs to send as -- and somebody
-    // else's identity is never offered in their place.
-    ownList = [identity("o1", "Nobody", "me@example.org")];
-    await useMail.getState().loadIdentitiesFor(OWN);
-
-    expect(useMail.getState().identities).toEqual([]);
-    // The cache still holds the group's whole list: Settings lists it
-    // read-only, and the picker narrowing is not a fetch filter.
-    expect(
-      (useMail.getState().identitiesByAccount[GROUP] ?? []).map((i) => i.id),
-    ).toEqual(["g1", "g2"]);
-  });
-
-  it("offers the identity bound to the identity that is the reader's own", async () => {
-    /*
-     * The reported symptom: a member is told the administration has not set an
-     * identity for them in a group that holds one for them.
-     *
-     * Two surfaces answer which of a person's own identities is **theirs** --
-     * the administration, reading the name it writes into the group, and this
-     * picker, matching the group's identity against that name. They answered it
-     * differently: the administration read the identity carrying the person's
-     * own address, the picker matched whichever identity their account sends
-     * from by default. With those two apart, a group identity the
-     * administration had just written for the reader matched nothing here and
-     * the composer said none had been set. One rule for it lives in
-     * `ownIdentity`.
-     */
-    groupList = [identity("g1", "Me", "team@example.org")];
-    // The reader sends from their work address by default, while the identity
-    // claiming to be them -- their own address -- is the first one.
-    useSettings.setState({
-      settings: {
-        ...DEFAULT_SETTINGS,
-        defaultIdentityByAccount: { [OWN]: "o2" },
-      },
-    });
-    await useMail.getState().loadIdentitiesFor(OWN);
-    await useMail.getState().loadIdentitiesFor(GROUP);
-
-    // The administration reads this member's name from `o1` -- the identity
-    // carrying their own address -- so the one identity this group holds for
-    // them is the one carrying "Me", and it is what the composer offers. It was
-    // empty before: the picker had matched `o2`'s name against it and found
-    // nothing, which is the message that told the reader no identity was set.
-    expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g1"]);
   });
 
   it("answers which addresses are the reader's own from their own account, not the mailbox on screen", async () => {
     /*
      * `identities` is the account on screen, and in a group mailbox it is one
-     * identity -- the reader's, or none at all until the administration sets
-     * one -- so a surface asking "which addresses are mine?" is answered
-     * wrongly by it: the group's address, or nothing. `ownIdentities` is that
-     * question's answer, and PrivacySettings (which domains to trust for
-     * images), the recipient summary's "me" and the guest list of a message
-     * made into an event all read it.
+     * identity -- the sender there -- so a surface asking "which addresses are
+     * mine?" is answered wrongly by it: the group's address, or nothing.
+     * `ownIdentities` is that question's answer, and PrivacySettings (which
+     * domains to trust for images), the recipient summary's "me" and the guest
+     * list of a message made into an event all read it.
      */
     await useMail.getState().loadIdentitiesFor(OWN);
     await useMail.getState().loadIdentitiesFor(GROUP);
+    await useMail.getState().loadAssignmentFor(GROUP);
 
     expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g2"]);
     expect(

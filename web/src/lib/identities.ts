@@ -137,6 +137,14 @@ export interface AdminGroupIdentity {
   granted: boolean;
   identities: Identity[];
   members: string[] | null;
+  /**
+   * Which identity each member is **assigned**, by member address (ADR 0007).
+   * The fact that binds a member to theirs; a member absent from it has been
+   * assigned nothing and sends as `groupSenderId`.
+   */
+  assignments: Record<string, string>;
+  /** The group's own identity: what an unassigned member sends as. */
+  groupSenderId: string | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -227,7 +235,7 @@ export async function setUserDefaultIdentity(
 /* A group's identity                                                  */
 /* ------------------------------------------------------------------ */
 
-/** `GET /api/admin/identities/group` — a group's identities and its roster. */
+/** `GET /api/admin/identities/group` — a group's identities, roster and assignments. */
 export function fetchGroupIdentity(name: string): Promise<AdminGroupIdentity> {
   return apiFetch<AdminGroupIdentity>(
     `/api/admin/identities/group?name=${encodeURIComponent(name)}`,
@@ -235,22 +243,54 @@ export function fetchGroupIdentity(name: string): Promise<AdminGroupIdentity> {
 }
 
 /**
- * `POST` the same route — write one of the group's identities, as the agent.
- * `id: null` creates one: a group's identities are one per member (ADR 0007),
- * so the caller says which member this is by the `name` in the patch. Answers
- * the id written.
+ * `POST` the same route — write one of the group's identities **and assign it
+ * to a member**, as the agent.
+ *
+ * `member` is the member's address, which is what binds the identity to them
+ * (ADR 0007): the display name is what a recipient reads, not a key. `id` names
+ * the identity to write, `null` meaning "the one this member already holds, else
+ * a new one", so a save that lands twice changes one identity rather than
+ * making a second. Answers the id written.
  */
 export async function saveGroupIdentity(
   name: string,
+  member: string,
   id: string | null,
   patch: AdminIdentityPatch,
 ): Promise<string> {
   const res = await apiFetch<{ ok: true; id: string }>("/api/admin/identities/group", {
     method: "POST",
-    body: JSON.stringify({ name, id, patch }),
+    body: JSON.stringify({ name, member, id, patch }),
   });
   await afterIdentityWrite();
   return res.id;
+}
+
+/* ------------------------------------------------------------------ */
+/* What a member sends as in a group                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The identity the signed-in member sends as in one group, and the group's own.
+ *
+ * Two ids rather than a whole list: the composer already holds the group's
+ * identities and resolves them, so the answer is the assignment and the
+ * fallback — and the cascade that picks between them lives once, in
+ * `@gilbert/shared/identityAssignment`, rather than being restated here.
+ */
+export interface MemberAssignment {
+  group: string;
+  /** The identity assigned to this member, or null when none is. */
+  assignedId: string | null;
+  /** The group's own identity: what an unassigned member sends as. */
+  groupSenderId: string | null;
+}
+
+/** `GET /api/identities/assignment?group=` — as the member, for their own composer. */
+export function fetchMemberAssignment(group: string): Promise<MemberAssignment> {
+  return apiFetch<MemberAssignment>(
+    `/api/identities/assignment?group=${encodeURIComponent(group)}`,
+  );
 }
 
 /* ------------------------------------------------------------------ */

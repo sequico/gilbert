@@ -1,24 +1,36 @@
 /**
- * Group identities (ADR 0007, §3), the second tab of **Enforce Identities**:
- * what a group mailbox sends as.
+ * Group identities (ADR 0007), the second tab of **Enforce Identities**: what a
+ * group mailbox sends as, and who sends as which.
  *
- * Written **as the Master**, always, because Stalwart refuses to
- * impersonate a group mailbox at all — and the Master is the principal the
- * installation already has for acting on its groups. Where the agent is not
- * granted on a group, this surface says so and names the grant that is missing,
- * rather than a permission error that would read as a bug.
+ * Written **as the Master**, always, because Stalwart refuses to impersonate a
+ * group mailbox at all — and the Master is the principal the installation
+ * already has for acting on its groups. Where the agent is not granted on a
+ * group, this surface says so and names the grant that is missing, rather than a
+ * permission error that would read as a bug.
  *
  * A group's account holds **one identity per member** (ADR 0007): all carrying
  * the group's own address, each carrying that member's own display name and
  * signature. So this surface is one row per member of the group's roster, and
- * the identities no roster member claims are listed beneath them as unassigned,
- * editable in place — a stray or renamed one stays visible and fixable.
+ * **the binding is an assignment it writes** — not a display name compared on
+ * both sides. That is what makes the rows answerable: assigned, and the row says
+ * what the member sends as; not assigned, and the row says so and offers to
+ * assign one. A name is a thing a recipient reads, and a binding kept in one
+ * fails on any rename and any spelling.
+ *
+ * The identities no member is assigned are listed beneath the roster. The
+ * group's own is among them, and it is not a leftover: it is what a member with
+ * no assignment sends as, which is also what the agent sends as, so a group
+ * nobody has been assigned in still writes as the group rather than under
+ * somebody's name.
  *
  * A member's display name is the part the group's own account does not hold: it
  * is the name on the identity of **that member's own account**, read when a row
  * is opened — one impersonation per opened row, never the whole roster up front
- * — and is then the `name` of the identity written here, whose `email` is the
- * group's own address.
+ * — and it is what prefills the form, so nobody types a colleague's name twice.
+ *
+ * A group holds **one identity per member** of the roster it can read, so when
+ * the registry answers nothing this surface lists the identities on their own
+ * and says that an assignment cannot be made until it reads again.
  */
 
 import { Pencil, Plus, RotateCw } from "lucide-react";
@@ -36,7 +48,7 @@ import {
   saveGroupIdentity,
   storeAdminSignatureHtml,
 } from "@/lib/identities";
-import { displayNameKey, ownIdentity } from "@/lib/identityVisibility";
+import { ownIdentity } from "@/lib/identityVisibility";
 import { htmlToText } from "@/lib/text";
 import { MenuSelect } from "@/ui/popover";
 import { IdentityDialog } from "@/views/settings/IdentityDialog";
@@ -82,55 +94,39 @@ function identityLabel(identity: Identity): string {
 }
 
 /**
- * Which of the group's identities each member's own display name claims, and
- * what is left over.
+ * Which identity each member of the roster is assigned, and what is left.
  *
- * Only the members whose own account has been read have a name to match, so an
- * identity bound to a row that has not been opened stays in the unassigned list
- * until that row is read — and an identity no member's name ever matches, a
- * stray or a renamed one, stays there for good. A candidate is an identity
- * carrying the group's own address (ADR 0007), and the name is compared the way
- * the client's own picker compares it — trimmed and without case
- * (`offeredInGroupAccount`) — or a member whose account spells their name
- * differently would be shown as having none and offered a duplicate. One
- * identity is claimed once, in roster order, so two members who share a display
- * name do not both point at the same identity: the second is shown as having
- * none. `nameOwners` says which member of the roster read each name first, which
- * is what tells that second member apart from one whose name no identity carries
- * at all.
+ * The binding is a **record** (ADR 0007), not a display name compared on both
+ * sides: `assignments` maps a member's address to the id of an identity of this
+ * group, which the administration wrote in the same action that wrote the
+ * identity. So a row's answer is read rather than inferred — a rename in the
+ * member's own account, a name spelled differently, a member whose account sets
+ * no name at all: none of them changes who sends as what.
+ *
+ * `rest` is every identity no member is assigned, in the order the group holds
+ * them. The group's own is among them (`groupSenderId`) and is what a member
+ * with no assignment sends as, which is why the list is a state to read rather
+ * than a pile of leftovers.
  */
-function bindings(
+function assignmentsOf(
   identities: Identity[],
   members: string[],
-  names: Record<string, string | null | undefined>,
-  group: string,
-): {
-  byMember: Map<string, Identity>;
-  unassigned: Identity[];
-  nameOwners: Map<string, string>;
-} {
-  const claimed = new Set<string>();
+  assignments: Record<string, string>,
+): { byMember: Map<string, Identity>; rest: Identity[] } {
   const byMember = new Map<string, Identity>();
-  const nameOwners = new Map<string, string>();
+  const taken = new Set<string>();
   for (const member of members) {
-    const name = displayNameKey(names[member.toLowerCase()]);
-    if (!name) continue;
-    if (!nameOwners.has(name)) nameOwners.set(name, member);
-    const hit = identities.find(
-      (identity) =>
-        !claimed.has(identity.id) &&
-        identity.email.toLowerCase() === group.toLowerCase() &&
-        displayNameKey(identity.name) === name,
-    );
-    if (!hit) continue;
-    claimed.add(hit.id);
-    byMember.set(member.toLowerCase(), hit);
+    const id = assignments[member.toLowerCase()];
+    if (!id) continue;
+    const identity = identities.find((i) => i.id === id);
+    // An assignment naming an identity this account no longer holds is read as
+    // none: the list in hand is the proof, and a row cannot show a sender that
+    // does not exist.
+    if (!identity) continue;
+    byMember.set(member.toLowerCase(), identity);
+    taken.add(identity.id);
   }
-  return {
-    byMember,
-    nameOwners,
-    unassigned: identities.filter((identity) => !claimed.has(identity.id)),
-  };
+  return { byMember, rest: identities.filter((i) => !taken.has(i.id)) };
 }
 
 /** One identity as the fleet shows one: who it sends as, its Reply-To, its signature. */
@@ -164,25 +160,23 @@ function IdentityCard({ identity, onEdit }: { identity: Identity; onEdit: () => 
 }
 
 /**
- * One member of the roster, and the identity of this group that carries their
- * name.
+ * One member of the roster, and the identity of this group assigned to them.
  *
- * The member's own display name is not in what the group's account says, so it
- * is read from their own account when the row is opened — one impersonation for
- * this row — and it is what preselects the form's display name. Until the row is
- * opened, nothing is asked of that account.
- *
- * A name an earlier member of the roster already carries is said as such, and no
- * create is offered: the group holds one identity per member, so a second of the
- * same name would be a duplicate.
+ * Whether they have one is a **fact the administration recorded** (ADR 0007),
+ * so the row answers from it rather than from a name compared on both sides:
+ * assigned, and it says what they send as; not assigned, and it offers to
+ * assign one. Nothing is read from the member's own account until that is
+ * wanted, and then only for one thing — the display name to prefill the form
+ * with, which is the name a recipient reads and not a key.
  */
 function MemberRow({
   address,
   group,
   name,
-  bound,
-  alsoCarriedBy,
+  assigned,
+  senderIsGroup,
   onName,
+  onAssign,
   onEdit,
 }: {
   address: string;
@@ -190,12 +184,13 @@ function MemberRow({
   group: string;
   /** The member's own display name; undefined until their account has been read. */
   name: string | null | undefined;
-  /** The group's identity their name claims, when one does. */
-  bound: Identity | undefined;
-  /** The earlier roster member who carries the same display name, when one does. */
-  alsoCarriedBy: string | undefined;
+  /** The identity this member is assigned, when one is. */
+  assigned: Identity | undefined;
+  /** Whether `assigned` is the group's own identity, which anybody may be given. */
+  senderIsGroup: boolean;
   onName: (address: string, name: string | null) => void;
-  onEdit: (draft: Partial<Identity>) => void;
+  onAssign: (member: string, draft: Partial<Identity>) => void;
+  onEdit: (member: string, identity: Identity) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [reading, setReading] = useState(false);
@@ -212,7 +207,7 @@ function MemberRow({
       if (view.impersonation !== "ok") {
         setError(
           t(
-            "This member's own account cannot be read — Stalwart refused the impersonation — so which identity carries their name is unknown.",
+            "This member's own account cannot be read — Stalwart refused the impersonation — so the name to write on their identity is unknown. An identity can still be written for them by typing a name.",
           ),
         );
         return;
@@ -226,20 +221,19 @@ function MemberRow({
   }
 
   const read = name !== undefined;
-  /** Whether this row has an answer to show: open, read, and not mid-read. */
+  /** Whether the name to prefill a form with has been read and is usable. */
   const answered = open && read && !reading && !error;
-  /** The identity this member's name claims, when the row has read their account. */
-  const held = answered ? bound : undefined;
+  const prefill = answered && name ? name : null;
   return (
     <div className="card clickable" onClick={() => void openRow()}>
       <div className="card-head">
         <h3>{address}</h3>
-        {bound !== undefined && (
+        {assigned && (
           <button
             className="btn btn-sm btn-ghost"
             onClick={(e) => {
               e.stopPropagation();
-              onEdit(bound);
+              onEdit(address, assigned);
             }}
           >
             <Pencil size={14} /> {t("Edit")}
@@ -248,7 +242,7 @@ function MemberRow({
       </div>
       {!open && (
         <div className="hint">
-          {t("Open to read their own display name and what it binds.")}
+          {t("Open to read their own display name and what they send as.")}
         </div>
       )}
       {open && reading && (
@@ -259,42 +253,34 @@ function MemberRow({
           {error}
         </div>
       )}
-      {held !== undefined && (
+      {assigned && (
         <div className="hint" style={{ color: ACTIVE }}>
-          {t("Sends as {identity}", { identity: identityLabel(held) })}
+          {t("Sends as {identity}", { identity: identityLabel(assigned) })}
         </div>
       )}
-      {answered && held === undefined && (
+      {assigned && senderIsGroup && (
+        <div className="hint">
+          {t(
+            "That is the group's own identity, which is also what the agent sends as — so mail from this member is indistinguishable from the group's.",
+          )}
+        </div>
+      )}
+      {!assigned && (
         <>
           <div className="hint">
-            {name
-              ? alsoCarriedBy
-                ? t(
-                    "Another member of this roster, {address}, already carries the name {name} — this group holds one identity per member, so this row sets no second one of that name.",
-                    { address: alsoCarriedBy, name },
-                  )
-                : t("No identity of this group carries the name {name} yet.", { name })
-              : t(
-                  "Their own account sets no display name, and the display name is what binds a group identity to a member — so an identity written here would be nobody's. Set one on that person's account under User identities first.",
-                )}
+            {t(
+              "No identity is assigned to this member yet, so they send as the group itself.",
+            )}
           </div>
-          {/*
-           * Only when there is a name to bind by. An identity written with no
-           * name binds to nobody: the composer's picker matches a group identity
-           * against the reader's own display name, and an empty one matches no
-           * member -- so the member would be told no identity was set for them
-           * in a group that holds one, which is the report this row must not
-           * make possible.
-           */}
-          {name && !alsoCarriedBy && (
+          {open && !error && (
             <button
               className="btn btn-sm"
               onClick={(e) => {
                 e.stopPropagation();
-                onEdit(blankIdentity(name, group));
+                onAssign(address, blankIdentity(prefill ?? "", group));
               }}
             >
-              <Plus size={16} /> {t("Set identity")}
+              <Plus size={16} /> {t("Assign identity")}
             </button>
           )}
         </>
@@ -311,7 +297,11 @@ export function GroupIdentities() {
   const [name, setName] = useState("");
   const [view, setView] = useState<AdminGroupIdentity | null>(null);
   const [loading, setLoading] = useState(false);
-  const [editing, setEditing] = useState<Partial<Identity> | null>(null);
+  const [editing, setEditing] = useState<{
+    /** The member address the write assigns to; "" for the group's own. */
+    member: string;
+    draft: Partial<Identity>;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** What a member's own account said their display name is; absent until read. */
   const [memberNames, setMemberNames] = useState<Record<string, string | null>>({});
@@ -399,39 +389,51 @@ export function GroupIdentities() {
   }
 
   async function save(patch: Partial<Identity>) {
-    await saveGroupIdentity(name, editing?.id ?? null, patch as AdminIdentityPatch);
+    if (!editing) return;
+    await saveGroupIdentity(
+      name,
+      editing.member,
+      editing.draft.id ?? null,
+      patch as AdminIdentityPatch,
+    );
     await load(name);
   }
 
   const granted = view?.granted === true;
   const identities = view?.identities ?? [];
   const members = view?.members ?? null;
-  const { byMember, unassigned, nameOwners } = bindings(
-    identities,
-    members ?? [],
-    memberNames,
-    name,
-  );
+  const assignments = view?.assignments ?? {};
+  const groupSenderId = view?.groupSenderId ?? null;
+  const { byMember, rest } = assignmentsOf(identities, members ?? [], assignments);
 
-  /**
-   * The earlier roster member whose own account read the same display name, when
-   * one did: the group's identity for that name is theirs, so this row writes no
-   * second one of it.
-   */
-  function nameOwner(member: string): string | undefined {
-    const key = displayNameKey(memberNames[member.toLowerCase()]);
-    const owner = key ? nameOwners.get(key) : undefined;
-    return owner && owner.toLowerCase() !== member.toLowerCase() ? owner : undefined;
+  /** Open the form for one member's identity: theirs, or a new one for them. */
+  function assign(member: string, draft: Partial<Identity>) {
+    setEditing({ member, draft });
+  }
+
+  /** Open the form on an identity this member already sends as. */
+  function edit(member: string, identity: Identity) {
+    setEditing({ member, draft: identity });
   }
 
   /**
    * The state of a group whose account holds nothing yet, and how to start its
    * first identity.
+   *
+   * A group with no identity has nothing to send as at all — the composer in
+   * its mailbox offers no sender and says so — and the identity made here is the
+   * group's own until somebody is assigned it, so the row that owns it is the
+   * group's own rather than a member's.
    */
   const noIdentityYet = (
     <>
-      <p className="hint">{t("This group holds no identity yet.")}</p>
-      <button className="btn" onClick={() => setEditing(blankIdentity("", name))}>
+      <p className="hint">
+        {t("This group holds no identity yet, so nothing can be sent from its mailbox.")}
+      </p>
+      <button
+        className="btn"
+        onClick={() => setEditing({ member: "", draft: blankIdentity("", name) })}
+      >
         <Plus size={16} /> {t("Add identity")}
       </button>
     </>
@@ -531,14 +533,14 @@ export function GroupIdentities() {
               <h2>{t("Identities")}</h2>
               <div className="warn-box" style={{ marginBottom: 12 }}>
                 {t(
-                  "This group's roster could not be read, so its identities are listed on their own rather than by member. Set a member's identity from their own account until the roster reads again.",
+                  "This group's roster could not be read, so which member each identity belongs to cannot be shown. The identities are listed on their own, and an assignment cannot be made until the registry reads again — the whole ordering of who sends as what depends on it.",
                 )}
               </div>
               {identities.map((identity) => (
                 <IdentityCard
                   key={identity.id}
                   identity={identity}
-                  onEdit={() => setEditing(identity)}
+                  onEdit={() => edit("", identity)}
                 />
               ))}
               {identities.length === 0 && noIdentityYet}
@@ -547,50 +549,54 @@ export function GroupIdentities() {
 
           {granted && members !== null && (
             <>
-              <h2>{t("Identities")}</h2>
+              <h2>{t("Who sends as what")}</h2>
               <p className="hint">
                 {t(
-                  "One identity per member: the group's own address, carrying each member's own display name and signature. Open a member to read the name that binds theirs — one read of that account, and only when you open it.",
+                  "Each member is assigned one of this group's identities: the group's own address, carrying that member's own display name and signature. Open a member to read the name to write on theirs — one read of that account, and only when you open it.",
                 )}
               </p>
-              {members.map((member) => (
-                <MemberRow
-                  key={member}
-                  address={member}
-                  group={view.name}
-                  name={memberNames[member.toLowerCase()]}
-                  bound={byMember.get(member.toLowerCase())}
-                  alsoCarriedBy={nameOwner(member)}
-                  onName={rememberName}
-                  onEdit={(draft) => setEditing(draft)}
-                />
-              ))}
+              {members.map((member) => {
+                const held = byMember.get(member.toLowerCase());
+                return (
+                  <MemberRow
+                    key={member}
+                    address={member}
+                    group={view.name}
+                    name={memberNames[member.toLowerCase()]}
+                    assigned={held}
+                    senderIsGroup={held !== undefined && held.id === groupSenderId}
+                    onName={rememberName}
+                    onAssign={assign}
+                    onEdit={edit}
+                  />
+                );
+              })}
               {members.length === 0 && (
                 <p className="hint">
                   {t(
-                    "This group's roster is empty: there is no member to set an identity for.",
+                    "This group's roster is empty: there is no member to assign an identity to.",
                   )}
                 </p>
               )}
 
-              <h2>{t("Unassigned")}</h2>
+              <h2>{t("Not assigned to a member")}</h2>
               <p className="hint">
                 {t(
-                  "Identities of this group that no member's own display name claims — a stray one, or one whose member's name has changed. They stay here, editable.",
+                  "Identities no member is assigned. The group's own is among them, and it is what a member with no identity of their own sends as — the same identity the agent sends as, so a group with nobody assigned still writes as the group rather than under somebody's name.",
                 )}
               </p>
               {identities.length === 0 ? (
                 noIdentityYet
-              ) : unassigned.length === 0 ? (
+              ) : rest.length === 0 ? (
                 <p className="hint">
-                  {t("Every identity of this group carries a member's own display name.")}
+                  {t("Every identity of this group is assigned to a member.")}
                 </p>
               ) : (
-                unassigned.map((identity) => (
+                rest.map((identity) => (
                   <IdentityCard
                     key={identity.id}
                     identity={identity}
-                    onEdit={() => setEditing(identity)}
+                    onEdit={() => edit("", identity)}
                   />
                 ))
               )}
@@ -601,7 +607,7 @@ export function GroupIdentities() {
 
       {editing && (
         <IdentityDialog
-          identity={editing}
+          identity={editing.draft}
           onClose={() => setEditing(null)}
           save={save}
           // The over-sized copy lands in the group's own Files, which the agent

@@ -32,7 +32,7 @@ import type { UpstreamSession } from "./upstream.js";
  * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18860;
+const PORT = 18863;
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

@@ -22,6 +22,7 @@ import {
 } from "../appFolder.js";
 import { JMAP_MAIL, JMAP_SUBMISSION, JmapClient } from "../jmap.js";
 import { mentionsFromText } from "../shared/chat.js";
+import { accountOwnIdentity } from "../shared/identityAssignment.js";
 import {
   GROUP_LABELS_FILE,
   isAgentLabel,
@@ -481,20 +482,32 @@ async function defaultIdentity(
   const list = res.list ?? [];
   if (!list.length)
     throw new Error("the account this run works in has no sending identity");
-  const own = String(
-    (ctx.session.accounts?.[accountId] as { name?: unknown } | undefined)?.name ?? "",
-  ).toLowerCase();
-  const chosen =
-    (own ? list.find((i) => String(i.email).toLowerCase() === own) : undefined) ??
-    list[0]!;
-  if (typeof chosen.email !== "string" || !chosen.email)
-    throw new Error("the account's identity carries no address");
+  /*
+   * Through the rule the composer in a group mailbox uses for the same
+   * question (ADR 0007): a member with no identity assigned to them and the
+   * agent send a group's mail identically, because there is one definition of
+   * which identity is the account's own (`accountOwnIdentity`), not two that
+   * happen to agree.
+   */
+  const chosen = accountOwnIdentity(
+    list.map((i) => ({
+      id: typeof i.id === "string" ? i.id : "",
+      email: typeof i.email === "string" ? i.email : "",
+      name: typeof i.name === "string" ? i.name : "",
+      textSignature: typeof i.textSignature === "string" ? i.textSignature : "",
+    })),
+    String(
+      (ctx.session.accounts?.[accountId] as { name?: unknown } | undefined)?.name ?? "",
+    ),
+  );
+  if (!chosen) throw new Error("the account this run works in has no sending identity");
+  if (!chosen.email) throw new Error("the account's identity carries no address");
   const identity: Identity = {
-    name: typeof chosen.name === "string" ? chosen.name : "",
+    name: chosen.name,
     email: chosen.email,
-    signature: typeof chosen.textSignature === "string" ? chosen.textSignature : "",
+    signature: chosen.textSignature,
   };
-  if (typeof chosen.id === "string") identity.id = chosen.id;
+  if (chosen.id) identity.id = chosen.id;
   return identity;
 }
 

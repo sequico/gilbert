@@ -30,8 +30,15 @@
  */
 
 import { isAddress } from "./adminPolicy.js";
-import { groupMembers, impersonateAs, openAgentSession } from "./agentAdmin.js";
+import type { GroupAccessDenied } from "./agent/views.js";
 import {
+  groupMembers,
+  impersonateAs,
+  memberGroupAccess,
+  openAgentSession,
+} from "./agentAdmin.js";
+import {
+  appFolderState,
   type Ctx,
   destroyAppNode,
   findAppFileAt,
@@ -42,6 +49,13 @@ import {
 import { agentAddress } from "./config.js";
 import { JMAP_SUBMISSION, JmapClient } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
+import {
+  accountOwnIdentity,
+  assignmentFor,
+  GROUP_ASSIGNMENTS_FILE,
+  isMemberKey,
+  toAssignmentDoc,
+} from "./shared/identityAssignment.js";
 import { SIGNATURE_LIMIT, utf8Length } from "./shared/signature.js";
 import { UpstreamError } from "./upstream.js";
 
@@ -199,6 +213,134 @@ export async function setUserIdentityLock(
       409,
     );
   await setIdentityLock(imp.ctx, accountId, locked, admin.username);
+}
+
+/* ------------------------------------------------------------------ */
+/* The member-to-identity assignment (ADR 0007)                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Which identity each member of a group sends as, as that group's account
+ * records it.
+ *
+ * Read as the session that already holds the account, and read as **none**
+ * when the document is absent or is not this shape: a group nobody has
+ * assigned anything in is a group with no assignments, which is a state and
+ * not an error.
+ */
+export async function readAssignments(
+  ctx: Ctx,
+  accountId: string,
+): Promise<Record<string, string>> {
+  const doc = toAssignmentDoc(
+    await readAppJsonAt(ctx, accountId, GROUP_ASSIGNMENTS_FILE),
+  );
+  return doc?.members ?? {};
+}
+
+/**
+ * Record one member's assignment, or clear it with `null`.
+ *
+ * Written by the session that already holds the group, in the same action that
+ * writes the identity it names, so the two cannot disagree. The write is
+ * conditional on the account's FileNode state — the compare-and-set this repo
+ * uses wherever two administrators may act at once — and a lost race is
+ * retried once against the list it just re-read, because the write is the same
+ * one either way: a later assignment of the same member replaces an earlier
+ * one rather than joining it.
+ */
+export async function writeAssignment(
+  ctx: Ctx,
+  accountId: string,
+  member: string,
+  identityId: string | null,
+  by: string,
+): Promise<void> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const state = await appFolderState(ctx, accountId);
+    const members = await readAssignments(ctx, accountId);
+    const next = { ...members };
+    if (identityId) next[member.trim().toLowerCase()] = identityId;
+    else delete next[member.trim().toLowerCase()];
+    try {
+      await writeAppFile(
+        ctx,
+        accountId,
+        GROUP_ASSIGNMENTS_FILE,
+        {
+          v: 1,
+          members: next,
+          updatedAt: new Date().toISOString(),
+          updatedBy: by,
+        },
+        state ? { ifInState: state } : {},
+      );
+      return;
+    } catch (err) {
+      if (attempt > 0 || !isStateMismatch(err)) throw err;
+    }
+  }
+}
+
+/**
+ * One member's own assignment in a group, as the member's own session reads it.
+ *
+ * Read through the agent, because the document lives in the group's account and
+ * a member reaches that account's Files through the group surfaces — never by
+ * reading another account directly. Answers the two ids a composer needs and
+ * nothing else: the one assigned to the person asking, and the group's own,
+ * which is what they send as when nothing is assigned to them (ADR 0007).
+ */
+export interface MemberAssignmentView {
+  group: string;
+  /** The identity this member sends as, or null when nothing is assigned. */
+  assignedId: string | null;
+  /** The group's own identity: what an unassigned member sends as. */
+  groupSenderId: string | null;
+}
+
+/**
+ * The assignment as the member's own session reads it — the door every group
+ * surface of a member goes through (`memberGroupAccess`), so somebody who is
+ * not in the group is refused the same way everywhere rather than here alone.
+ */
+export async function memberGroupAssignment(
+  session: LiveSession,
+  name: string,
+): Promise<MemberAssignmentView | GroupAccessDenied> {
+  const access = await memberGroupAccess(session, name, { need: "agent documents" });
+  if (!access.ok) return access;
+  const group = identityAddress(name, "group");
+  const identities = await readIdentities(access.ctx, access.accountId);
+  const assignments = await readAssignments(access.ctx, access.accountId);
+  const me = ownAddress(access.ctx);
+  return {
+    group,
+    assignedId: assignmentFor(assignments, me),
+    groupSenderId: accountOwnIdentity(identities, group)?.id ?? null,
+  };
+}
+
+/**
+ * The address of the principal whose session this is.
+ *
+ * The **account's own name**, not the login string: Stalwart accepts a bare
+ * username and a composite `target%master` impersonation form, and neither is
+ * an address. The account the session names for submission is the one whose
+ * name is the person's own address (the same rule `ownIdentityAccount`
+ * applies).
+ */
+function ownAddress(ctx: Ctx): string {
+  const accountId = ownIdentityAccount(ctx);
+  const name = (ctx.session.accounts?.[accountId] as { name?: unknown } | undefined)
+    ?.name;
+  return typeof name === "string" ? name.trim().toLowerCase() : "";
+}
+
+/** A lost compare-and-set, said the one way the retry above recognises it. */
+function isStateMismatch(err: unknown): boolean {
+  const text = err instanceof Error ? err.message : String(err);
+  return /stateMismatch|state mismatch/i.test(text);
 }
 
 /* ------------------------------------------------------------------ */
@@ -370,28 +512,6 @@ function checkedPatch(raw: unknown, creating: boolean): IdentityPatch {
       "A new identity needs the address it sends from.",
     );
   return patch;
-}
-
-/**
- * The member an id-less write names, trimmed and case-insensitive for
- * comparison, or null when the patch carries no usable `name` at all.
- *
- * Deliberately not a validation: a malformed patch is refused by the create
- * path's own check, so nothing here throws before that check has its say.
- */
-function patchName(raw: unknown): string | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const name = (raw as Record<string, unknown>).name;
-  return typeof name === "string" ? name.trim().toLowerCase() : null;
-}
-
-/**
- * Whether this identity is the one an id-less write names as that member: the
- * same `name` on the group's own address.
- */
-function isMember(identity: AdminIdentity, member: string, group: string): boolean {
-  const named = identity.name.trim().toLowerCase();
-  return named === member && sameAddress(identity.email, group);
 }
 
 /**
@@ -793,7 +913,7 @@ async function agentSession(admin: LiveSession): Promise<Ctx> {
   return agent.ctx;
 }
 
-/** A group's identities and its roster, and whether the agent is granted on it. */
+/** A group's identities, its roster, and who sends as which of them. */
 export interface GroupIdentityView {
   name: string;
   granted: boolean;
@@ -804,6 +924,15 @@ export interface GroupIdentityView {
   identities: AdminIdentity[];
   /** The group's roster, or `null` when it could not be read at all. */
   members: string[] | null;
+  /**
+   * Which identity each member is assigned, by member address — the fact that
+   * binds them, rather than a display name compared on both sides. A member
+   * absent from it has been assigned nothing, which is a state: they send as
+   * the group's own identity (`groupSenderId`) until one is assigned.
+   */
+  assignments: Record<string, string>;
+  /** The group's own identity: what an unassigned member sends as. */
+  groupSenderId: string | null;
 }
 
 /**
@@ -827,36 +956,69 @@ export async function groupIdentity(
   const group = identityAddress(name, "group");
   const ctx = await agentSession(admin);
   const accountId = groupAccountId(ctx, group);
-  if (!accountId) return { name: group, granted: false, identities: [], members: null };
+  if (!accountId)
+    return {
+      name: group,
+      granted: false,
+      identities: [],
+      members: null,
+      assignments: {},
+      groupSenderId: null,
+    };
+  const identities = await readIdentities(ctx, accountId);
+  const assignments = await readAssignments(ctx, accountId);
   return {
     name: group,
     granted: true,
-    identities: await readIdentities(ctx, accountId),
+    identities,
     members: await groupMembers(ctx, accountId),
+    assignments,
+    groupSenderId: accountOwnIdentity(identities, group)?.id ?? null,
   };
 }
 
 /**
- * Write one of a group's identities, as the agent.
+ * Write one of a group's identities **and assign it to a member**, as the agent.
  *
- * A group holds **one identity per member** (ADR 0007) — the group's own
- * address with each member's own display name and signature — so the caller
- * says which member this is by the `name` in the patch. An `id: null` write
- * **adopts** the identity the group already carries for that member — the same
- * `name`, trimmed and case-insensitive, on the group's own address — so a
- * repeated save (a double Save, a retried request, a stale tab) lands on the
- * identity that is there rather than leaving a second one for a member that no
- * surface can remove; a `name` the group carries nothing for creates. An `id`
- * that is not one of this group's own identities is refused by name, because
- * the surface may only write what the group actually holds.
+ * The member is an address — the one their account is known by in the group's
+ * roster — and never a display name: the name is what a recipient reads in the
+ * From line, and a binding kept in a name fails on any rename, any spelling and
+ * any name nobody set (ADR 0007). The write records the assignment in
+ * `identity-assignments.json`, in the same action, so the identity and the fact
+ * that it is somebody's cannot disagree.
+ *
+ * `id` names the identity to write:
+ *
+ *  - an id this account holds: written, then assigned to the member — which is
+ *    how the administration gives a member the group's own identity, or one
+ *    that was somebody else's until now;
+ *  - `null`: the identity already assigned to this member is written, so a save
+ *    that lands twice changes one identity rather than making a second; when
+ *    the member holds none, one is created and assigned.
+ *
+ * An id the group does not hold is refused by name rather than handed to the
+ * server as somebody else's.
  */
 export async function writeGroupIdentity(
   admin: LiveSession,
   name: string,
+  member: string,
   id: string | null,
   patch: unknown,
 ): Promise<{ id: string }> {
   const group = identityAddress(name, "group");
+  /*
+   * No member at all is a write an administrator really makes: the group's own
+   * identity, or one nobody has been assigned yet. It is the group's own iff its
+   * address is the group's — which is what the identity says, not the caller —
+   * so nothing is assigned and the identity stands on its own.
+   */
+  const who = member.trim().toLowerCase();
+  if (who && !isMemberKey(who))
+    throw new IdentityAdminError(
+      "invalid_member",
+      `That is not a member address: ${member.trim()}.`,
+    );
   const ctx = await agentSession(admin);
   const accountId = groupAccountId(ctx, group);
   if (!accountId)
@@ -865,27 +1027,34 @@ export async function writeGroupIdentity(
       `The installation's agent is not a member of ${group}, so nothing here can write its identity. Grant the agent on that group and save again.`,
       409,
     );
-  const target = id ?? null;
-  if (target) {
-    const existing = await readIdentities(ctx, accountId);
-    // The ids this account holds are the only ones it may be written through:
-    // an id the surface invented, or one of another group's, is named as
-    // unknown here rather than handed to the server as somebody else's.
-    if (!existing.some((identity) => identity.id === target))
-      throw new IdentityAdminError(
-        "identity_not_found",
-        `${group} holds no identity with that id.`,
-        404,
-      );
-    return { id: await writeIdentity(ctx, accountId, target, patch) };
+  const existing = await readIdentities(ctx, accountId);
+  const assignments = await readAssignments(ctx, accountId);
+  const assigned = assignmentFor(assignments, who);
+  const held = (candidate: string | null) =>
+    candidate && existing.some((identity) => identity.id === candidate)
+      ? candidate
+      : null;
+
+  const target = id ?? held(assigned);
+  if (id && !held(id))
+    throw new IdentityAdminError(
+      "identity_not_found",
+      `${group} holds no identity with that id.`,
+      404,
+    );
+  const written = await writeIdentity(ctx, accountId, target, patch);
+  if (who) await writeAssignment(ctx, accountId, who, written, admin.username);
+  /*
+   * An entry whose identity this account no longer holds is not an assignment:
+   * a surface can only read it as none, so it is dropped here, where the list
+   * that proves it is already in hand.
+   */
+  for (const [address, identityId] of Object.entries(assignments)) {
+    if (address === who) continue;
+    if (existing.some((identity) => identity.id === identityId)) continue;
+    await writeAssignment(ctx, accountId, address, null, admin.username);
   }
-  const member = patchName(patch);
-  if (member !== null) {
-    const existing = await readIdentities(ctx, accountId);
-    const adopted = existing.find((identity) => isMember(identity, member, group));
-    if (adopted) return { id: await writeIdentity(ctx, accountId, adopted.id, patch) };
-  }
-  return { id: await writeIdentity(ctx, accountId, target, patch) };
+  return { id: written };
 }
 
 /**

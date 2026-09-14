@@ -1,3 +1,4 @@
+import { groupSenderIdentity } from "@gilbert/shared/identityAssignment";
 import { create } from "zustand";
 import { chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
 import type {
@@ -25,7 +26,6 @@ import {
 } from "@/lib/archiveDate";
 import { withBase } from "@/lib/basePath";
 import { plural, t } from "@/lib/i18n";
-import { offeredInGroupAccount, ownIdentity } from "@/lib/identityVisibility";
 import { loadPlace, placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { isOptionalSort, withoutOptionalSorts } from "@/lib/listSort";
 import {
@@ -172,6 +172,21 @@ export interface MailState {
    * cannot disagree about what an account's identities are (ADR 0007).
    */
   identitiesByAccount: Record<Id, Identity[]>;
+  /**
+   * What a group mailbox has **assigned to the reader**, by account id
+   * (ADR 0007): the identity that is theirs there, and the group's own, which
+   * is what they send as when nothing is assigned.
+   *
+   * A missing entry is "not read yet", which is not the same as
+   * `assignedId: null` — "read, and nothing is assigned". The distinction is
+   * what keeps a group's view from offering the group's own identity for the
+   * instant before the assignment lands: until the read answers, the view
+   * holds what it had.
+   */
+  assignmentByAccount: Record<
+    Id,
+    { assignedId: string | null; groupSenderId: string | null }
+  >;
   quotas: Quota[];
   vacation: VacationResponse | null;
   list: ListState | null;
@@ -243,6 +258,14 @@ export interface MailState {
   loadIdentities(): Promise<Identity[]>;
   /** Read one account's identities: the one fetch behind both views. */
   loadIdentitiesFor(accountId: Id): Promise<Identity[]>;
+  /**
+   * Read which identity a group mailbox has assigned to the reader (ADR 0007).
+   *
+   * Answered as the member, because it is their own assignment: the group's own
+   * document, read through the group's access rule. Only a group mailbox has
+   * one, and only the account on screen needs it.
+   */
+  loadAssignmentFor(accountId: Id): Promise<void>;
   /** The user's preferred identity (falls back to the first one). */
   defaultIdentity(): Identity | undefined;
   /** One account's preferred identity, whether or not it is the one on screen. */
@@ -353,6 +376,7 @@ export const useMail = create<MailState>((set, get) => ({
   threads: {},
   identities: [],
   identitiesByAccount: {},
+  assignmentByAccount: {},
   quotas: [],
   vacation: null,
   list: null,
@@ -392,6 +416,7 @@ export const useMail = create<MailState>((set, get) => ({
       threads: {},
       identities: [],
       identitiesByAccount: {},
+      assignmentByAccount: {},
       quotas: [],
       vacation: null,
       list: null,
@@ -483,10 +508,15 @@ export const useMail = create<MailState>((set, get) => ({
         }));
         /*
          * The group mailboxes are known here, and with them that the reader
-         * may need a group's From list narrowed to their own identity. Asked
-         * for once, whether or not anyone opens Settings.
+         * may need a group's From list narrowed to the identity assigned to
+         * them there. Read now so the composer has it before a draft is
+         * opened, and for the account on screen at that moment.
          */
-        requestOwnIdentities();
+        const active = get().accountId;
+        if (active && active !== ownInfo?.accountId)
+          void get()
+            .loadAssignmentFor(active)
+            .catch(() => undefined);
         /*
          * The account the reader was last on, if it is still one of theirs.
          * Discovery is where the group mailboxes become known, so this is the
@@ -1460,9 +1490,49 @@ export const useMail = create<MailState>((set, get) => ({
     const accountId = get().accountId;
     if (!accountId) return [];
     await get().loadIdentitiesFor(accountId);
+    /*
+     * A group mailbox has one more thing to know before its view is right: the
+     * identity the administration assigned the reader (ADR 0007). Read beside
+     * the list rather than after it, and a failure is not fatal -- the view
+     * falls back to the group's own identity, which is what an unassigned
+     * member sends as anyway.
+     */
+    if (isGroupMailboxAccount(accountId, get().mailAccounts))
+      await get()
+        .loadAssignmentFor(accountId)
+        .catch(() => undefined);
     // The account's *view*, which is what every caller of this has always had:
-    // in a group mailbox the picker offers the reader's own identity alone.
+    // in a group mailbox the sender is the assigned identity, else the group's.
     return get().identities;
+  },
+
+  /**
+   * Which identity this group mailbox has assigned to the reader (ADR 0007).
+   *
+   * `null` is an answer -- nothing is assigned, so the view sends as the
+   * group's own identity -- and a failed read leaves the entry absent, which is
+   * "not known", so an unreadable document is never shown as "nothing
+   * assigned" outside the window where the group's own identity is what both
+   * would offer anyway.
+   */
+  async loadAssignmentFor(accountId) {
+    const state = get();
+    if (!isGroupMailboxAccount(accountId, state.mailAccounts)) return;
+    if (state.assignmentByAccount[accountId] !== undefined) return;
+    const address = state.mailAccounts.find((a) => a.accountId === accountId)?.name;
+    if (!address) return;
+    const { fetchMemberAssignment } = await import("@/lib/identities");
+    const view = await fetchMemberAssignment(address);
+    set((s) => ({
+      assignmentByAccount: {
+        ...s.assignmentByAccount,
+        [accountId]: {
+          assignedId: view.assignedId,
+          groupSenderId: view.groupSenderId,
+        },
+      },
+    }));
+    identitiesChanged(accountId);
   },
 
   defaultIdentity() {
@@ -1572,12 +1642,13 @@ export const useMail = create<MailState>((set, get) => ({
     if (own) wanted.add(own);
     if (state.accountId) wanted.add(state.accountId);
     /*
-     * A read asked for before the write answers with the list from before it,
-     * so it is spent rather than joined -- the rule `saveIdentity` follows for
-     * its own write. One that fails leaves the list it was replacing in place:
-     * the write reached the server either way, and the person's own section
-     * reads its list again whenever it opens.
+     * The assignments too, and dropped rather than kept: the administration
+     * writes them through its own routes (ADR 0007), so the session that asked
+     * for the write is the one thing that never hears of it — and a stale
+     * assignment is a draft that goes out as the group instead of as the person
+     * the administrator just assigned.
      */
+    set({ assignmentByAccount: {} });
     for (const id of wanted) overtakeIdentities(id);
     await Promise.all(
       [...wanted].map((id) =>
@@ -1586,6 +1657,10 @@ export const useMail = create<MailState>((set, get) => ({
           .catch(() => undefined),
       ),
     );
+    if (state.accountId)
+      await get()
+        .loadAssignmentFor(state.accountId)
+        .catch(() => undefined);
   },
 
   async loadVacation() {
@@ -1905,9 +1980,10 @@ function overtakeIdentities(accountId: Id): void {
  * `identities` is one *view* of `identitiesByAccount`, and this is what makes
  * it one: the account on screen, narrowed where the account on screen is a
  * group mailbox. ADR 0007 gives a group's account one identity per member,
- * all with the group's address, and a member sends as themselves or not at
- * all -- so in a group the view is the reader's own identity and nothing else.
- * Everywhere else it is the account's list, whole.
+ * and a member sends as the identity the administration **assigned** them —
+ * else as the group's own, which is what the agent sends as too, so nobody is
+ * left without a sender and no member ever sends under another's name.
+ * Everywhere but a group the view is the account's list, whole.
  *
  * Rebuilt from the cache rather than patched, so a stale entry -- an identity
  * destroyed in another client, a list that landed after the reader switched --
@@ -1922,18 +1998,16 @@ function applyIdentities(accountId: Id): void {
     return;
   }
   /*
-   * The account's own default, read from its cache. The reader's own list may
-   * not have landed yet: the fallback then keeps one identity on screen -- the
-   * default one, or the first -- rather than every member's. Once it has landed
-   * and no name in the group matches, `offeredInGroupAccount` answers with
-   * nothing: a member's identity is not the reader's to send as.
+   * The cascade lives once, in `@gilbert/shared/identityAssignment`, and is
+   * imported rather than restated: the identity assigned to the reader, else
+   * the group's own. The assignment and the fallback are the server's answers
+   * (they were read as the member), and `undefined` here is a read that has not
+   * landed yet — which keeps what is on screen rather than guessing.
    */
-  const pref = settings().defaultIdentityByAccount[accountId];
-  const fallback = all.find((i) => i.id === pref) ?? all[0];
-  useMail.setState({
-    identities: offeredInGroupAccount(all, myOwnIdentity(), fallback?.id),
-  });
-  requestOwnIdentities();
+  const held = state.assignmentByAccount[accountId];
+  if (held === undefined) return;
+  const sender = groupSenderIdentity(all, held.assignedId, held.groupSenderId);
+  useMail.setState({ identities: sender ? [sender] : [] });
 }
 
 /**
@@ -1949,48 +2023,6 @@ function identitiesChanged(accountId: Id): void {
   if (!active || active === accountId) return;
   if (accountId === ownIdentityAccountId(useSession.getState().session))
     applyIdentities(active);
-}
-
-/** The reader's default identity in the account that sends for them. */
-function myOwnIdentity(): Identity | undefined {
-  const own = ownIdentityAccountId(useSession.getState().session);
-  if (!own) return undefined;
-  /*
-   * Through the one rule for which of the reader's own identities is theirs --
-   * the same call the administration makes when it reads the name it writes
-   * into a group (ADR 0007). Two rules here is the whole bug: the
-   * administration bound the identity of the one carrying the reader's own
-   * address, the picker matched the one their account sends from by default,
-   * and a member with a group identity of their own was told none had been set.
-   *
-   * `undefined` while that account's list has not landed, which is what tells a
-   * group's view that no name can be matched against yet.
-   */
-  const list = useMail.getState().identitiesByAccount[own] ?? [];
-  return ownIdentity(
-    list,
-    useSession.getState().session?.username,
-    settings().defaultIdentityByAccount[own],
-  );
-}
-
-/**
- * Read the reader's own identities while the account that holds them is not
- * the one on screen.
- *
- * A group mailbox cannot narrow to the reader's own identity until that list
- * is here, and the reader is usually looking at the group when it is wanted.
- * Fire and forget, once per list: both the cache entry and the reads already
- * on their way are checked first, so nothing here can ask in a loop.
- */
-function requestOwnIdentities(): void {
-  const own = ownIdentityAccountId(useSession.getState().session);
-  if (!own) return;
-  const state = useMail.getState();
-  // The account on screen loads its own list; this is for the other one.
-  if (own === state.accountId) return;
-  if (state.identitiesByAccount[own] || identitiesLoading.has(own)) return;
-  void state.loadIdentitiesFor(own).catch(() => undefined);
 }
 
 function sortIdentities(list: Identity[], accountId: Id): Identity[] {

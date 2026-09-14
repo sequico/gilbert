@@ -1999,6 +1999,43 @@ const groupFileNodes: Obj[] = [
     myRights: fr(),
     shareWith: {},
   },
+  /*
+   * The group's own app folder, with one assignment in it (ADR 0007): the demo
+   * user sends as `gi2`, the identity carrying their own display name, so the
+   * demo's group mailbox offers their own sender rather than the group's. The
+   * document is data like any other, and it is what the administration writes —
+   * a member absent from it sends as the group's own identity, which is the
+   * state every other member of this fixture is in.
+   */
+  {
+    id: "gf3",
+    parentId: null,
+    nodeType: "directory",
+    blobId: null,
+    size: null,
+    name: "gilbert",
+    type: null,
+    created: new Date(now()).toISOString(),
+    modified: new Date(now()).toISOString(),
+    myRights: fr(),
+    shareWith: {},
+  },
+  {
+    id: "gf4",
+    parentId: "gf3",
+    nodeType: "file",
+    blobId: putBlob(
+      JSON.stringify({ v: 1, members: { [USER]: "gi2" } }),
+      "application/json",
+    ),
+    size: null,
+    name: "identity-assignments.json",
+    type: "application/json",
+    created: new Date(now()).toISOString(),
+    modified: new Date(now()).toISOString(),
+    myRights: fr(),
+    shareWith: {},
+  },
 ];
 const nodesFor = (accountId: unknown): Obj[] =>
   accountId === SHARED_ACCOUNT

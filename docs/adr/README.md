@@ -65,7 +65,15 @@ is, not what a user sees.
   of context are decided here and not built.
 - **0007 — Identity administration.** An administrator sets a person's or a
   group's identity through the same doors impersonation and the agent
-  already open; a locked account has no path of its own to change it.
+  already open; a locked account has no path of its own to change it, and the
+  lock is about personal mailboxes only. Which identity a member sends as in
+  a group is **an assignment the administration records** in the group's own
+  app folder — next to the identity it writes, in the same action — and not a
+  comparison of display names: the name is what a recipient reads, and a name
+  that is also a key fails on any spelling, any rename and any name nobody
+  set. A member with no assignment sends as **the group's own identity**, the
+  one the agent sends as, and only a group holding no identity at all leaves
+  the composer with nothing to offer.
 - **0008 — System Sieve scripts.** An admin editor for Stalwart's own
   trusted, server-wide Sieve scripts — a JMAP registry object
   (`x:SieveSystemScript`), not an account's own script — written directly as

@@ -8,7 +8,7 @@ import { after, before, test } from "node:test";
  * processes (see `admin-nonadmin.test.ts`).
  */
 
-const PORT = 18861;
+const PORT = 18862;
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";

@@ -414,14 +414,15 @@ export function Composer({ draft }: { draft: Draft }) {
             </div>
           )}
           {/*
-            A group mailbox offers what carries the reader's own name, and
-            nothing while it carries none -- so there is nothing to send from,
-            and saying so is the honest version of an empty From line.
+            A group mailbox offers the identity the administration assigned to
+            the reader, and the group's own behind it (ADR 0007) -- so this is
+            empty only when the group holds no identity at all, which is the one
+            state with nothing to send from.
           */}
           {groupMailbox && !identities.length && (
             <p className="hint">
               {translate(
-                "The administration has not set an identity for you in this group yet.",
+                "This group holds no identity yet, so there is nothing to send as. An administrator sets one in the group's identities.",
               )}
             </p>
           )}

@@ -1,5 +1,9 @@
 # ADR 0007 — Identity administration
 
+Status: Accepted. The assignment of a group identity to a member is decided
+here and not yet built: this record is the standing decision, and the code
+that carries it follows.
+
 An identity belongs to the account and is written by it: display name,
 address, `replyTo` and a signature (text and HTML, the latter capped by
 Stalwart at 2 KB of UTF-8, with a longer one kept in the account's own Files
@@ -38,12 +42,16 @@ rather than a rule of the surface's own invention about the last identity.
 `identity-lock.json`) hides their own Identities & signatures section
 entirely — no add, change or remove, and no signature of their own — so
 what the administrator set is what the product sends until the lock is
-released. The lock is a rule about this product's surface, not a Stalwart
-permission: a principal using another JMAP client directly can still write
-its own identity, and the lock's guarantee is only that this product does
-not offer the edit. Applying or releasing a lock takes effect at the next
-policy read — the writing session re-reads its own at once, and an already
-open session on its next read — so it needs no sign-in either way.
+released. The lock is about **personal mailboxes only**: it governs the
+person's own identities in the account that sends for them, and it governs
+nothing in a group, where the administration assigns an identity and the
+member is offered it read-only whether the lock is set or not. The lock is a
+rule about this product's surface, not a Stalwart permission: a principal
+using another JMAP client directly can still write its own identity, and the
+lock's guarantee is only that this product does not offer the edit. Applying
+or releasing a lock takes effect at the next policy read — the writing
+session re-reads its own at once, and an already open session on its next
+read — so it needs no sign-in either way.
 
 **The list is the server's, and it is read again after a write.** The
 administration's write is made as the account rather than by the account's
@@ -96,29 +104,61 @@ name and signature. Mail sent by one member and mail sent by another leave
 the same mailbox and read differently: the From line names the person and
 the signature is theirs. One identity for everyone could not do that — name
 and signature are fields of the identity, so sharing it means sharing them.
-A member is bound to their identity by the display name, which is the name of
-the identity that is **theirs**, read from their own account rather than
-typed a second time here.
 
-**Which of a person's own identities is theirs** is one rule, because two
-surfaces ask it and a disagreement between them is a member being told no
-identity was set for them in a group that holds one: the administration
-reads the name it writes into the group, and the composer writing in a group
-mailbox matches the group's identity against that name. In order: the
-identity carrying the person's **own address** — an identity is a claim about
-who is sending, and the one claiming their own address claims to be them —
-then the identity their account **sends from by default**, then the first by
-address, so that the answer does not depend on the order a list a surface
-holds arrived in. It lives once, in `ownIdentity`.
+**The administration assigns a member their identity, and the assignment is
+what binds them.** The binding is a record, not a comparison of names: an
+identity's display name is what a recipient reads in the From line, so a name
+that is also a key fails the moment either side is written differently — a
+rename in the person's own account, a spelling that differs by case, a name
+nobody ever set — and the member is then told no identity was set for them in
+a group that holds one. Which identity a member sends as in a group is
+therefore a fact the administration records, in a document of the **group's
+own account** — `identity-assignments.json` in its app folder, whose keys are
+member addresses and whose values are ids of that account's identities. The
+administration writes it as the agent, in the same action that writes the
+identity, so the two cannot disagree; a member with no entry has been
+assigned nothing, which is a state and not a failure.
 
-The member reads them and does not write them. Their own Identities &
-signatures section lists their own account's identities for editing and, in
-the same place, one read-only block per group they are a member of, saying
-that the administration sets them. The composer, writing in a group's
-mailbox, offers a member their own identity and nothing else: never another
-member's name to send under, and none at all while the administration has
-not yet created theirs — which is what a surface that offers everybody's
-identity would make of the rule.
+**A member sends as themselves, or as the group itself — never as another
+member.** Which identity the composer offers in a group's mailbox is one
+cascade, in order:
+
+1. the identity the administration **assigned** that member, when there is
+   one;
+2. else the group's **own** identity — the one the agent sends as, chosen by
+   the same rule on the same list, so a member with no assignment and the
+   agent send the group's mail identically;
+3. else nothing: a group whose account holds no identity at all is the one
+   state with nothing to send as, and the composer says so.
+
+The middle step is what keeps a member from being stuck. An identity nobody
+is assigned is not an orphan waiting to be cleaned up but the group's own
+voice, and the surface that lists them describes them that way. The bottom
+step is rare and honest: it is a group holding no identity yet, not a member
+the administration has forgotten — which is a distinction the composer can
+only make because the assignment is a record rather than a name.
+
+**Which of a person's own identities is theirs** is one rule, and it is about
+the person rather than about any group: the identity carrying their **own
+address** — an identity is a claim about who is sending, and the one claiming
+their own address claims to be them — else the identity their account **sends
+from by default**, else the first by address, so the answer does not depend on
+the order a list a surface holds arrived in. It lives once, in `ownIdentity`,
+and the administration reads it for the one thing it is for: the display name
+to write on the identity it creates for a member in a group, read from that
+member's own account rather than typed a second time here. It decides no
+binding.
+
+The member reads them and does not write them, and the assignment is the
+administration's alone: no surface of this product offers a person a way to
+say which group identity is theirs, and no surface offers one member another
+member's. Their own Identities & signatures section lists their own account's
+identities for editing and, in the same place, one read-only block per group
+they are a member of, saying that the administration sets them. The composer,
+writing in a group's mailbox, offers that cascade's answer and nothing else —
+the identity assigned to them, else the group's own — never a guess from a
+name, and never another member's, which is what a surface that offered the
+whole membership would make of the rule.
 
 ## Consequences
 
@@ -128,12 +168,15 @@ identity would make of the rule.
 - An administrator is not universally able to do this: impersonation needs a
   session that is not an app password, and a group additionally needs the
   agent to hold a grant on it.
-- Locking removes signature editing along with identity editing, and the
-  surface that applies the lock says so — the group blocks go with the
-  section, which is that rule applied to the whole entry.
-- A message sent as a group names the member who sent it, in the From line
-  and in the signature, with no second address and no per-message override
-  for the server to honour.
+- Locking removes signature editing along with identity editing in the
+  person's own list, and the surface that applies the lock says so. It is
+  scoped to personal mailboxes: a group's identities are assigned by the
+  administration and read by the member, so the lock has nothing to remove
+  there.
+- A message sent as a group names the member who sent it when one is assigned
+  to them, and the group itself when none is, in the From line and in the
+  signature, with no second address and no per-message override for the
+  server to honour. Never another member.
 
 ## References
 
@@ -143,10 +186,15 @@ identity would make of the rule.
 - `web/src/views/settings/IdentitiesSettings.tsx` — the person's own form,
   reused by the admin surface, and the list it reads when it opens
 - `web/src/lib/identityVisibility.ts` — `ownIdentity`, the one rule for which
-  of a person's identities is theirs, and the group picker built on it
-- `web/src/store/mail.ts` — the per-account identity lists, the write that
-  spends a read already on its way, and `refreshIdentities`
+  of a person's identities is theirs, and the display name it reads for the
+  identity the administration writes
+- `web/src/store/mail.ts` — the per-account identity lists, the assignment a
+  group mailbox narrows to, the write that spends a read already on its way,
+  and `refreshIdentities`
 - `web/src/lib/identities.ts` — the admin routes, each refreshing those lists
   once the server has accepted the write
+- `identity-assignments.json` in a group account's own app folder — the
+  member-to-identity assignment, written as the agent and read by the
+  composer
 - ADR 0001 — impersonation, the identity lock's storage
 - ADR 0003 — the agent's grants and its own session

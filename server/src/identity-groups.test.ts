@@ -105,12 +105,14 @@ interface Row {
   textSignature: string;
 }
 
-/** A group's answers: every identity it holds, and the roster beside them. */
+/** A group's answers: every identity it holds, the roster, and who is assigned which. */
 interface GroupView {
   name: string;
   granted: boolean;
   identities: Row[];
   members: string[] | null;
+  assignments: Record<string, string>;
+  groupSenderId: string | null;
 }
 
 /** One group of a person's own identity list. */
@@ -132,49 +134,54 @@ after(() => {
   (mock as { server?: { close(): void } }).server?.close();
 });
 
-test("the demo's group carries an identity for the demo user, which is what the composer offers", async () => {
+test("the demo's group holds an identity for the demo user, and assigns it to them", async () => {
   /*
-   * A member is offered the group's identity carrying their own display name
-   * and nothing else (ADR 0007), so a group whose identities carry no member's
-   * name offers a member nothing at all: the composer says the administration
-   * has not set one for them, and the mailbox cannot be written from.
+   * The demo environment, and the state it puts a reader in: a group whose
+   * demo member has an identity of their own there, assigned to them. That is
+   * what makes the composer in that mailbox offer a personal sender — the
+   * assignment, and not a display name that happens to match (ADR 0007).
    *
-   * That is the state the demo environment was in — one identity named after
-   * the group, carrying nobody — so this reads the two lists the two surfaces
-   * read and pins that they meet: the demo user's own display name, and the
-   * group's identity for them. It is the drift that makes the demo say no
-   * identity was set for somebody one was set for.
+   * A group with no assignment is a working state too: the member sends as the
+   * group's own identity, which is what the agent sends as. What this pins is
+   * that the demo is not *that* state, so the common case is the one the demo
+   * shows.
    */
-  const me = (await person(DEMO)).body as unknown as { identities?: Row[] };
-  const mine = (me.identities ?? []).find((row) => row.email === DEMO);
-  assert.ok(mine, "the demo user's own account holds an identity carrying their address");
+  const mine = (await person(DEMO)).body as unknown as { identities?: Row[] };
+  const own = (mine.identities ?? []).find((row) => row.email === DEMO);
+  assert.ok(own, "the demo user's own account holds an identity carrying their address");
 
   const held = (await group(TEAM)).body as unknown as GroupView;
-  const bound = held.identities.find(
-    (row) =>
-      row.email === TEAM &&
-      row.name.trim().toLowerCase() === mine.name.trim().toLowerCase(),
-  );
+  const bound = held.identities.find((row) => row.id === held.assignments[DEMO]);
   assert.ok(
     bound,
-    `the group must hold an identity carrying the demo user's own name (${JSON.stringify(
-      mine.name,
-    )}) on ${TEAM}; it holds ${JSON.stringify(held.identities.map((row) => row.name))}`,
+    `the demo user must be assigned one of the group's identities; it holds ${JSON.stringify(
+      held.identities.map((row) => row.name),
+    )} and assigns ${JSON.stringify(held.assignments)}`,
+  );
+  assert.equal(bound.email, TEAM, "and that identity sends from the group's address");
+  assert.equal(
+    bound.name,
+    own.name,
+    "carrying the demo user's own display name, which is what the administration writes",
+  );
+  assert.equal(
+    held.assignments[DEMO] === held.groupSenderId,
+    false,
+    "and it is not the group's own identity, so the demo shows the per-member case",
   );
 });
 
-test("a group answers every identity it holds, and the roster they belong to", async () => {
+test("a group answers its identities, its roster and who is assigned which", async () => {
   const first = await group(TEAM);
   assert.equal(first.status, 200, JSON.stringify(first.body));
   const view = first.body as unknown as GroupView;
   assert.equal(view.name, TEAM);
   assert.equal(view.granted, true, "the agent is granted on this group");
-  assert.equal(
-    view.identities.length,
-    2,
-    "the group's own identity, and the one its demo member holds",
+  assert.deepEqual(
+    view.identities.map((row) => row.email),
+    [TEAM, TEAM],
+    "every identity of a group carries the group's own address",
   );
-  assert.equal(view.identities[0]!.email, TEAM);
   assert.deepEqual(
     view.members,
     [DEMO, AGENT].sort(),
@@ -182,12 +189,78 @@ test("a group answers every identity it holds, and the roster they belong to", a
   );
 
   /*
-   * The write that gives a member their own name in the group: the `name` in
-   * the patch is the person, and `id: null` says they hold no identity here
-   * yet. The account answers the identity it created, not the one beside it.
+   * The binding, as the administration's own record: a member address to an id
+   * of this group. It is read, not inferred from a display name — which is what
+   * the composer in a group mailbox follows, so a rename in somebody's own
+   * account cannot move who sends as what.
+   */
+  const assigned = view.identities.find((row) => row.name === "Demo User");
+  assert.ok(assigned, "the fixture gives the demo user an identity of their own");
+  assert.equal(view.assignments[DEMO], assigned.id, "and the demo user is assigned it");
+  assert.equal(
+    assigned.id,
+    view.groupSenderId === assigned.id ? view.groupSenderId : assigned.id,
+  );
+
+  /*
+   * The group's own identity: the one an unassigned member sends as, and the one
+   * the agent sends as. It is an answer rather than a leftover, and it heads the
+   * list of identities no member is assigned.
+   */
+  assert.ok(view.groupSenderId, "the group has an identity of its own");
+  const own = view.identities.find((row) => row.id === view.groupSenderId)!;
+  assert.equal(own.name, "Team", "which is the group's own voice");
+});
+
+test("the composer's question is answered as the member, with the group's own behind it", async () => {
+  /*
+   * `GET /identities/assignment` is what the composer asks (ADR 0007): the
+   * identity assigned to **the person signed in**, and the group's own, which is
+   * what they send as when nothing is assigned to them. Both are ids of the
+   * group's account, which the client resolves against the list it holds — so
+   * the cascade that picks between them lives in one place.
+   */
+  const view = (await group(TEAM)).body as unknown as GroupView;
+  const mine = await call(`/api/identities/assignment?group=${encodeURIComponent(TEAM)}`);
+  assert.equal(mine.status, 200, JSON.stringify(mine.body));
+  const answer = mine.body as unknown as {
+    group: string;
+    assignedId: string | null;
+    groupSenderId: string | null;
+  };
+  assert.equal(answer.group, TEAM);
+  assert.equal(
+    answer.assignedId,
+    view.assignments[DEMO],
+    "the member's own assignment, read as the member",
+  );
+  assert.equal(
+    answer.groupSenderId,
+    view.groupSenderId,
+    "and the group's own identity beside it",
+  );
+
+  // A group the reader is not in is refused by the same rule every member
+  // surface uses, rather than answering an empty assignment.
+  const refused = await call(
+    `/api/identities/assignment?group=${encodeURIComponent(LEGAL)}`,
+  );
+  assert.equal(refused.status, 403, JSON.stringify(refused.body));
+});
+
+test("an id-less write assigns a member an identity and does not make a second", async () => {
+  const held = (await group(TEAM)).body as unknown as GroupView;
+  const existing = held.identities.find((row) => row.name === "Gilbert");
+  assert.equal(existing, undefined, "the fixture assigns nobody but the demo user");
+
+  /*
+   * The write that gives a member their own name in the group: `member` is the
+   * person, `id: null` says they hold none here yet, and the account answers the
+   * identity it created.
    */
   const created = await post("/api/admin/identities/group", {
     name: TEAM,
+    member: AGENT,
     id: null,
     patch: { name: "Gilbert", email: TEAM, textSignature: "— the agent" },
   });
@@ -195,19 +268,96 @@ test("a group answers every identity it holds, and the roster they belong to", a
   const id = created.body?.id as string;
   assert.ok(id, "a created identity answers its id");
   assert.equal(
-    view.identities.some((row) => row.id === id),
+    held.identities.some((row) => row.id === id),
     false,
     "a create answers a new identity",
   );
 
-  const after = await group(TEAM);
-  const both = after.body as unknown as GroupView;
+  const after = (await group(TEAM)).body as unknown as GroupView;
   assert.deepEqual(
-    both.identities.map((row) => row.name).sort(),
+    after.identities.map((row) => row.name).sort(),
     ["Demo User", "Gilbert", "Team"],
     "the group answers every identity it holds",
   );
-  assert.deepEqual(both.members, view.members, "with the roster beside them");
+  assert.equal(after.assignments[AGENT], id, "and the agent is assigned the new one");
+  assert.equal(
+    after.assignments[DEMO],
+    held.assignments[DEMO],
+    "while the demo user's assignment is untouched",
+  );
+
+  /*
+   * The same write again — a double Save, a retried request, a stale tab. The
+   * member already holds one, so it is written rather than replaced by a second:
+   * the group holds one identity per member, and this route has no way to remove
+   * one, so a duplicate would be unreachable by repair.
+   */
+  const replayed = await post("/api/admin/identities/group", {
+    name: TEAM,
+    member: AGENT,
+    id: null,
+    patch: { name: "Gilbert", email: TEAM, textSignature: "— the agent, again" },
+  });
+  assert.equal(replayed.status, 200, JSON.stringify(replayed.body));
+  assert.equal(
+    replayed.body?.id,
+    id,
+    "the replay answers the identity the member already holds",
+  );
+  const grown = (await group(TEAM)).body as unknown as GroupView;
+  assert.equal(
+    grown.identities.length,
+    after.identities.length,
+    "the group's identity count does not grow",
+  );
+  const adopted = grown.identities.find((row) => row.id === id)!;
+  assert.equal(adopted.textSignature, "— the agent, again", "and the write landed there");
+});
+
+test("an assignment can be moved, and a member can be given the group's own identity", async () => {
+  const held = (await group(TEAM)).body as unknown as GroupView;
+  const demoIdentity = held.identities.find((row) => row.name === "Demo User")!;
+  const groupOwn = held.identities.find((row) => row.id === held.groupSenderId)!;
+
+  /*
+   * Assigned by id: the administration may give a member any identity the group
+   * holds, the group's own included — which is how somebody is deliberately made
+   * indistinguishable from the group rather than left there by accident.
+   */
+  const moved = await post("/api/admin/identities/group", {
+    name: TEAM,
+    member: DEMO,
+    id: groupOwn.id,
+    patch: { textSignature: "— the group's own" },
+  });
+  assert.equal(moved.status, 200, JSON.stringify(moved.body));
+  const after = (await group(TEAM)).body as unknown as GroupView;
+  assert.equal(
+    after.assignments[DEMO],
+    groupOwn.id,
+    "the member now sends as the group's own identity",
+  );
+  assert.equal(
+    after.identities.find((row) => row.id === demoIdentity.id)?.textSignature,
+    demoIdentity.textSignature,
+    "and the identity they had is left exactly as it was",
+  );
+
+  // Put it back: the fixture's state is what the tests below read.
+  await post("/api/admin/identities/group", {
+    name: TEAM,
+    member: DEMO,
+    id: demoIdentity.id,
+    patch: {},
+  });
+  // And the group's own identity keeps its stored signature (the fixture owns
+  // it), since the write above went through its id.
+  await post("/api/admin/identities/group", {
+    name: TEAM,
+    member: AGENT,
+    id: groupOwn.id,
+    patch: { name: "Team", textSignature: "" },
+  });
 });
 
 test("an id belonging to another group is refused by name", async () => {
@@ -224,6 +374,7 @@ test("an id belonging to another group is refused by name", async () => {
 
   const refused = await post("/api/admin/identities/group", {
     name: DESIGN,
+    member: AGENT,
     id: foreign,
     patch: { textSignature: "written from the wrong group" },
   });
@@ -235,6 +386,72 @@ test("an id belonging to another group is refused by name", async () => {
     after.identities.map((row) => row.id),
     design.identities.map((row) => row.id),
     "nothing was written through the refused id",
+  );
+  assert.equal(
+    after.assignments[AGENT],
+    undefined,
+    "and no assignment was recorded for it either",
+  );
+});
+
+test("a member that is not an address is refused before anything is written", async () => {
+  const before = (await group(TEAM)).body as unknown as GroupView;
+  const refused = await post("/api/admin/identities/group", {
+    name: TEAM,
+    member: "not-an-address",
+    id: null,
+    patch: { email: TEAM },
+  });
+  assert.equal(refused.status, 400, JSON.stringify(refused.body));
+  assert.equal(refused.body?.error, "invalid_member");
+  const after = (await group(TEAM)).body as unknown as GroupView;
+  assert.deepEqual(
+    after.identities.map((row) => row.id),
+    before.identities.map((row) => row.id),
+    "the group holds exactly what it held",
+  );
+});
+
+test("an identity can be written for nobody, and then assigned to somebody", async () => {
+  /*
+   * No member at all is a write an administrator really makes: the group's own
+   * identity, or one nobody is assigned yet — which is a state and not a
+   * mistake, because an identity nobody holds is what an unassigned member
+   * sends as.
+   */
+  const created = await post("/api/admin/identities/group", {
+    name: TEAM,
+    member: "",
+    id: null,
+    patch: { name: "Nobodys", email: TEAM },
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const id = created.body?.id as string;
+  const after = (await group(TEAM)).body as unknown as GroupView;
+  assert.equal(
+    Object.values(after.assignments).includes(id),
+    false,
+    "nothing was assigned to it",
+  );
+  assert.ok(
+    after.identities.some((row) => row.id === id),
+    "and the group holds it",
+  );
+
+  // Assigned by id afterwards: the same identity, now somebody's.
+  const assigned = await post("/api/admin/identities/group", {
+    name: TEAM,
+    member: AGENT,
+    id,
+    patch: {},
+  });
+  assert.equal(assigned.status, 200, JSON.stringify(assigned.body));
+  const grown = (await group(TEAM)).body as unknown as GroupView;
+  assert.equal(grown.assignments[AGENT], id, "the identity is somebody's now");
+  assert.equal(
+    grown.identities.length,
+    after.identities.length,
+    "and no second identity was made for it",
   );
 });
 
@@ -248,6 +465,7 @@ test("an agent that holds nothing on a group is answered, not refused", async ()
 
   const write = await post("/api/admin/identities/group", {
     name: LEGAL,
+    member: DEMO,
     id: null,
     patch: { email: LEGAL },
   });
@@ -338,59 +556,6 @@ test("a person's groups answer what their account sends as, and which read refus
     "a refused read is a group the person could not read, not one with no identities",
   );
   assert.deepEqual(unread?.identities, [], "so it carries none of its own");
-});
-
-/**
- * The id-less write, replayed.
- *
- * The administration offers no route to delete a group's identity, so a second
- * identity for one member would be unreachable by repair from the product. A
- * repeated save is the same write, so it adopts the identity the group already
- * carries for that member; only a `name` the group carries nothing for creates.
- */
-test("a repeated id-less write adopts the member's identity instead of duplicating it", async () => {
-  const held = (await group(TEAM)).body as unknown as GroupView;
-  const existing = held.identities.find((row) => row.name === "Demo User");
-  assert.ok(existing, "the member's identity is the one the earlier write made");
-
-  /* The same save again: the same member, spelled as a browser would send it. */
-  const replayed = await post("/api/admin/identities/group", {
-    name: TEAM,
-    id: null,
-    patch: { name: "demo user", email: TEAM, textSignature: "— Demo, again" },
-  });
-  assert.equal(replayed.status, 200, JSON.stringify(replayed.body));
-  assert.equal(
-    replayed.body?.id,
-    existing.id,
-    "the replay answers the identity the group already carries for that member",
-  );
-
-  const after = (await group(TEAM)).body as unknown as GroupView;
-  assert.equal(
-    after.identities.length,
-    held.identities.length,
-    "the group's identity count does not grow",
-  );
-  const adopted = after.identities.find((row) => row.id === existing.id);
-  assert.equal(adopted?.name, "demo user", "and the write landed on that one");
-  assert.equal(adopted?.textSignature, "— Demo, again");
-
-  const created = await post("/api/admin/identities/group", {
-    name: TEAM,
-    id: null,
-    patch: { name: "Nobody Yet", email: TEAM, textSignature: "new member" },
-  });
-  assert.equal(created.status, 200, JSON.stringify(created.body));
-  const fresh = created.body?.id as string;
-  assert.ok(fresh, "a name no identity carries still creates");
-  assert.notEqual(fresh, existing.id, "and it is an identity of its own");
-  const grown = (await group(TEAM)).body as unknown as GroupView;
-  assert.equal(
-    grown.identities.length,
-    held.identities.length + 1,
-    "so the group holds one more than before the replay",
-  );
 });
 
 /**
