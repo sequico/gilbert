@@ -1396,6 +1396,14 @@ JMAP Contacts and JSContact.
   the subscription, the same rule Files follows for a group's folders. Shared
   cards load by page up to **5 000** per account — beyond a working group's
   needs while still bounded.
+- **A group's contacts are the group's to work with.** Edit and Delete are
+  offered on a card in a group mailbox's address book to the members of that
+  group, because the book grants the write — the client asks the book holding
+  the card, not whose account the card is in, which is what took the controls
+  away from the people a group's directory exists for. The book itself is
+  named by whoever may write it too (Rename on the group's own directory), and
+  the write goes to the account that holds it. A colleague's read-only share is
+  still read-only, and says so.
 
 ---
 

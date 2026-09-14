@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
-import type { JmapSession } from "@/jmap/types";
+import type { AddressBook, JmapSession } from "@/jmap/types";
 import { useContacts } from "@/store/contacts";
 
 /**
@@ -112,5 +112,61 @@ describe("creating an address book", () => {
     expect(sets).toHaveLength(1);
     expect(sets[0]?.args.accountId).toBe("a1");
     expect(sets[0]?.args.create).toEqual({ b: { name: "Private" } });
+  });
+});
+
+/**
+ * Renaming one, which is the same question asked of a write.
+ *
+ * A book is written in the account that holds it, the way a card is: a group's
+ * directory lives in the group's account, and the store's `accountId` is the
+ * reader's own. Writing the group's book through that renamed a book of the
+ * reader's, or nothing at all, while the sidebar showed the group's name
+ * changed -- which is why this is pinned per account rather than per call
+ * shape.
+ */
+describe("renaming an address book", () => {
+  const rights = (mayWrite: boolean) => ({
+    mayRead: true,
+    mayWrite,
+    mayShare: false,
+    mayDelete: false,
+  });
+  const groupBook = {
+    id: "gb1",
+    name: "Team directory",
+    description: null,
+    sortOrder: 0,
+    isDefault: true,
+    isSubscribed: false,
+    shareWith: {},
+    myRights: rights(true),
+  } as unknown as AddressBook;
+
+  it("writes a group's book in the group's own account", async () => {
+    const calls = stubServer();
+    useContacts.setState({
+      accountId: "a1",
+      books: {},
+      sharedBooks: [{ accountId: "a2", accountName: "Team", book: groupBook }],
+    });
+    await useContacts.getState().updateBook("gb1", { name: "Freight directory" });
+    const sets = calls.filter((c) => c.name === "AddressBook/set");
+    expect(sets).toHaveLength(1);
+    expect(sets[0]?.args.accountId).toBe("a2");
+    expect(sets[0]?.args.update).toEqual({ gb1: { name: "Freight directory" } });
+  });
+
+  it("writes the reader's own book in their own account", async () => {
+    const calls = stubServer();
+    useContacts.setState({
+      accountId: "a1",
+      books: { b1: { ...groupBook, id: "b1", name: "Mine" } as unknown as AddressBook },
+      sharedBooks: [],
+    });
+    await useContacts.getState().updateBook("b1", { name: "Personal" });
+    const sets = calls.filter((c) => c.name === "AddressBook/set");
+    expect(sets).toHaveLength(1);
+    expect(sets[0]?.args.accountId).toBe("a1");
   });
 });

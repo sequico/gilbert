@@ -77,7 +77,9 @@ export function ContactsSidebar() {
   /*
    * What the open menu belongs to. One state rather than three, because the
    * rows differ in what they can offer: everything can be exported, only your
-   * own can be imported into, renamed, shared or deleted.
+   * own can be imported into or deleted, and a book can be renamed when it
+   * grants the write -- which a group's own directory does for a member, and a
+   * colleague's writable share does for whoever they gave it to.
    */
   type MenuTarget =
     | { kind: "all" }
@@ -173,6 +175,32 @@ export function ContactsSidebar() {
         <MoreVertical size={14} />
       </button>
     </div>
+  );
+  /*
+   * Renaming a book, wherever it lives.
+   *
+   * Offered to whoever the book grants a write to: the reader's own always, a
+   * group's own directory for its members, a colleague's share for whoever
+   * they opened it to. The book that is written is the one named here, in the
+   * account that holds it -- `updateBook` resolves that from the book itself.
+   */
+  const renameItem = (book: AddressBook) => (
+    <MenuItem
+      icon={<Pencil size={16} />}
+      label={t("Rename")}
+      onClick={async () => {
+        const name = await promptDialog({
+          title: t("Rename address book"),
+          defaultValue: book.name,
+        });
+        if (!name?.trim() || name === book.name) return;
+        try {
+          await contacts.updateBook(book.id, { name: name.trim() });
+        } catch (err) {
+          toast.error((err as Error).message);
+        }
+      }}
+    />
   );
   const availableRow = (accountId: string, accountName: string, book: AddressBook) => (
     <div className="nav-item" title={`${book.name} — from ${accountName}`}>
@@ -386,6 +414,15 @@ export function ContactsSidebar() {
             )}
             {target.kind === "shared" && (
               <>
+                {/* A group's own directory is renamed by its members here, and
+                    a colleague's writable share by whoever they opened it to:
+                    both are books the reader may write. */}
+                {target.book.myRights?.mayWrite && (
+                  <>
+                    <MenuSep />
+                    {renameItem(target.book)}
+                  </>
+                )}
                 <MenuSep />
                 <MenuItem
                   icon={<X size={16} />}
@@ -405,22 +442,7 @@ export function ContactsSidebar() {
         {menuBook && (
           <>
             <MenuSep />
-            <MenuItem
-              icon={<Pencil size={16} />}
-              label={t("Rename")}
-              onClick={async () => {
-                const name = await promptDialog({
-                  title: t("Rename address book"),
-                  defaultValue: menuBook.name,
-                });
-                if (!name?.trim() || name === menuBook.name) return;
-                try {
-                  await contacts.updateBook(menuBook.id, { name: name.trim() });
-                } catch (err) {
-                  toast.error((err as Error).message);
-                }
-              }}
-            />
+            {renameItem(menuBook)}
             <MenuItem
               icon={<Share2 size={16} />}
               label={t("Share…")}

@@ -55,12 +55,12 @@ export function ContactsView({ id }: { id?: string }) {
    * reach back to. Kept here rather than in the store: this is the only list
    * of contacts there is, and nothing outside this view acts on a selection.
    *
-   * Only ever your own cards. Deleting somebody else's contact is a write to
-   * their account, which is not a thing this client can do -- see `readOnly`.
+   * Only the cards the reader may write where they live: another account's
+   * card is deletable when the book holding it grants the write -- which a
+   * group's own book does for a member (see `cardWritable`).
    */
   const [picked, setPicked] = useState<Record<string, true>>({});
   const lastPicked = useRef<string | null>(null);
-  const readOnly = Boolean(sel.accountId);
 
   useEffect(() => {
     if (contacts.available && !contacts.loaded && !contacts.loading)
@@ -121,10 +121,11 @@ export function ContactsView({ id }: { id?: string }) {
 
   // `selected` is resolved by id alone, not by the sidebar's current book
   // selection -- a deep link or a search result can land on a shared card
-  // while `sel.accountId` (and so `readOnly` above) still reads as the
-  // reader's own book. Whether *this* card is theirs to write is its own
-  // question: it is another account's when it is found among that account's
-  // cards, never when it was only found by falling through to `sharedCards`.
+  // while `sel.accountId` still reads as the reader's own book. Whether *this*
+  // card is theirs to write is its own question, and the store answers it from
+  // the book that holds it: another account's when it is found among that
+  // account's cards, never when it was only found by falling through to
+  // `sharedCards`.
   const ownCard = id ? contacts.cards[id] : undefined;
   const selected =
     ownCard ??
@@ -132,21 +133,14 @@ export function ContactsView({ id }: { id?: string }) {
       ? Object.entries(contacts.sharedCards).find(([key]) => key.endsWith(`:${id}`))?.[1]
       : undefined);
   /*
-   * Whether the controls that write this card are withheld, which takes the
-   * store *knowing* the card is another account's -- not merely failing to find
-   * it among the reader's own.
-   *
-   * `cards` is empty until `loadAll` answers and is cleared the moment the
-   * account changes, so reading an absence there as "not yours" takes Edit and
-   * Delete away from the reader's own contact for as long as the load takes --
-   * and for good on an account whose cards never load -- with nothing on screen
-   * to say why. `loaded` is what separates the two: once the reader's own list
-   * is in, an id missing from it and present in `sharedCards` is another
-   * account's card, and that is a fact this surface can state and explain. Until
-   * then the right is unknown, so the controls stay and the write that follows
-   * is the server's to refuse, in its own words.
+   * Whether the controls that write this card are withheld -- which is a
+   * question about the book holding it, not about whose account it is in. A
+   * group's own address book is another account's and its members write it, so
+   * an ownership test would take Edit and Delete away from the people the
+   * group's contacts exist for. `cardWritable` asks the book, and withholds
+   * while the answer is unknown rather than guessing either way.
    */
-  const selectedReadOnly = Boolean(selected) && !ownCard && contacts.loaded;
+  const selectedReadOnly = selected ? !contacts.cardWritable(selected) : false;
   const books = Object.values(contacts.books).sort(
     (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
   );
@@ -461,7 +455,7 @@ export function ContactsView({ id }: { id?: string }) {
                       className={`contact-row ${id === c.id ? "active" : ""} ${picked[c.id] ? "picked" : ""}`}
                       onClick={() => navigate(`/contacts/${c.id}`)}
                     >
-                      {!readOnly && (
+                      {contacts.cardWritable(c) && (
                         <input
                           type="checkbox"
                           className="contact-check"

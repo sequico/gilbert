@@ -256,6 +256,21 @@ interface ContactsState {
   setBookSubscribed(accountId: Id, bookId: Id, subscribed: boolean): Promise<void>;
   /** The account a card belongs to, null for the reader's own. */
   accountOfCard(id: Id): Id | null;
+  /**
+   * Whether the reader may write this card where it lives.
+   *
+   * Not "is it in the reader's own account": a group's address book is in the
+   * group's account and a member writes it, exactly as the group's calendars
+   * and files are written by them. The book that holds the card decides — the
+   * reader's own is always writable, a colleague's share when it grants a
+   * write, a group's own book when the membership does.
+   *
+   * A card whose books have not answered yet is *offered*: nothing loaded says
+   * the reader may not write it, and the write that follows is the server's to
+   * refuse in its own words. Withholding on a guess is the worse failure — it
+   * takes the controls off a card that is usually the reader's own.
+   */
+  cardWritable(card: ContactCard): boolean;
   /** The account holding an address book, null when it is not the reader's own. */
   accountOfBook(bookId: Id): Id | null;
   getCard(id: Id, accountId?: Id | null): Promise<ContactCard | null>;
@@ -570,6 +585,23 @@ export const useContacts = create<ContactsState>((set, get) => ({
     if (get().cards[id]) return null;
     const hit = Object.entries(get().sharedCards).find(([key]) => key.endsWith(`:${id}`));
     return hit ? hit[0].slice(0, hit[0].length - id.length - 1) : null;
+  },
+
+  cardWritable(card) {
+    const st = get();
+    if (st.cards[card.id]) return true;
+    const accountId = st.accountOfCard(card.id);
+    /* Nothing says this is another account's card, or the books that would
+       answer have not answered: offer it, and let the server refuse in its own
+       words if it will. */
+    if (!accountId || !st.sharedLoaded) return true;
+    const books = Object.keys(card.addressBookIds ?? {});
+    return st.sharedBooks.some(
+      (b) =>
+        b.accountId === accountId &&
+        books.includes(b.book.id) &&
+        b.book.myRights.mayWrite,
+    );
   },
 
   accountOfBook(bookId) {
@@ -903,18 +935,29 @@ export const useContacts = create<ContactsState>((set, get) => ({
   },
 
   async updateBook(id, patch) {
-    const accountId = get().accountId!;
+    const own = get().accountId;
+    /*
+     * The book says which account is written, the same way a card does. A
+     * group's directory lives in the group's account, and `accountId` here is
+     * the reader's own -- renaming through it wrote to *their* account, or to
+     * nothing, while the sidebar said the group's book had been renamed.
+     */
+    const accountId = accountOfBook(id, get().books, own, get().sharedBooks);
+    if (!accountId) throw new Error("That address book is not available");
     const res = await client.call<SetResponse>("AddressBook/set", {
       accountId,
       update: { [id]: patch },
     });
     const err = res.notUpdated?.[id];
     if (err) throw new Error(setErrorMessage(err));
-    await get().loadBooks();
+    if (accountId === own) await get().loadBooks();
+    else await get().loadShared();
   },
 
   async destroyBook(id) {
-    const accountId = get().accountId!;
+    const own = get().accountId;
+    const accountId = accountOfBook(id, get().books, own, get().sharedBooks);
+    if (!accountId) throw new Error("That address book is not available");
     const res = await client.call<SetResponse>("AddressBook/set", {
       accountId,
       destroy: [id],
@@ -922,8 +965,12 @@ export const useContacts = create<ContactsState>((set, get) => ({
     });
     const err = res.notDestroyed?.[id];
     if (err) throw new Error(setErrorMessage(err));
-    await get().loadBooks();
-    await get().loadAll();
+    if (accountId === own) {
+      await get().loadBooks();
+      await get().loadAll();
+    } else {
+      await get().loadShared();
+    }
   },
 
   async importVCard(text, addressBookId) {

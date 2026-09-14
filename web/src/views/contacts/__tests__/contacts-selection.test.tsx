@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ContactCard, Id } from "@/jmap/types";
+import type { AddressBook, ContactCard, Id } from "@/jmap/types";
 import { useContacts } from "@/store/contacts";
 import { ContactsView } from "../ContactsView";
 
@@ -168,18 +168,29 @@ describe("selecting contacts in the list", () => {
 /**
  * Edit and Delete on the contact that is open.
  *
- * Withheld only when the store *knows* the card is another account's. Its own
- * list is empty until `loadAll` answers, so an id missing from `contacts.cards`
- * says nothing about the right to write it -- and reading that absence as a
- * refusal took both controls off the reader's own contact, with nothing on
- * screen to say why. Where the right is unknown they stay, and the write that
- * follows is the server's to refuse in its own words.
+ * Withheld when the book that holds the card says the reader may not write it
+ * — a colleague's read-only share. Not when the answer is unknown: the books
+ * may not have loaded, and taking both controls off a card that is the
+ * reader's own is the failure this guards, with nothing on screen to say why.
+ * Where the right is unknown they stay, and the write that follows is the
+ * server's to refuse in its own words.
  */
 describe("editing the contact on screen", () => {
   let host: HTMLDivElement;
   let root: Root;
 
   const SHARED = card("s1", "Sam Shared");
+  const book = (mayWrite: boolean) =>
+    ({
+      id: "b1",
+      name: "A book",
+      description: null,
+      sortOrder: 0,
+      isDefault: false,
+      isSubscribed: true,
+      shareWith: {},
+      myRights: { mayRead: true, mayWrite, mayShare: false, mayDelete: false },
+    }) as unknown as AddressBook;
   const editButton = () =>
     [...host.querySelectorAll<HTMLButtonElement>(".contact-detail button")].find(
       (b) => b.textContent?.trim() === "Edit",
@@ -225,9 +236,9 @@ describe("editing the contact on screen", () => {
     vi.unstubAllGlobals();
   });
 
-  it("keeps them while the reader's own list could still hold the card", async () => {
-    // Another account's book is loaded and the reader's own is not: `cards` is
-    // empty because nothing has answered yet, not because the card is not there.
+  it("keeps them while the books that would answer have not loaded", async () => {
+    // The card sits in another account's cache and no book has said what may
+    // be written there: unknown, so the controls stay and the server answers.
     await open({
       loaded: false,
       loading: true,
@@ -239,12 +250,14 @@ describe("editing the contact on screen", () => {
     expect(reason()).toBe("");
   });
 
-  it("withholds them, and says why, for a card another account holds", async () => {
+  it("withholds them, and says why, for a card in a read-only book", async () => {
     await open({
       loaded: true,
       loading: false,
       cards: {},
       sharedCards: { "a2:s1": SHARED },
+      sharedBooks: [{ accountId: "a2", accountName: "A colleague", book: book(false) }],
+      sharedLoaded: true,
     });
     expect(editButton()).toBeUndefined();
     expect(deleteButton()).toBeNull();
