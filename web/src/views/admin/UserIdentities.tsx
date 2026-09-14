@@ -16,8 +16,8 @@
  * Beneath the person's own list is what their account sends as in each group
  * they are a member of (ADR 0007) — the same list their own Identities &
  * signatures section shows, and read-only, because the administration sets it.
- * It is read as the person, so a group their own account could not read is left
- * out rather than shown as one with nothing in it.
+ * It is read as the person, so a group their own account could not read is named
+ * as one that could not be read, never shown as one with nothing in it.
  */
 
 import { Pencil, Plus, RotateCw, Star, Trash2 } from "lucide-react";
@@ -217,10 +217,10 @@ export function UserIdentities() {
   const reachable = view !== null && view.impersonation === "ok";
   /**
    * The groups this person is in, whose identities their own account reads.
-   * A group this account could not read is not a group it is in as far as this
-   * surface is concerned: it renders nothing, and no error, for that entry.
+   * Every entry renders: a group this account could not read is shown as one
+   * whose identities are unknown, never as one it is not in.
    */
-  const groupBlocks = (view?.groups ?? []).filter((group) => group.readable);
+  const groupBlocks = view?.groups ?? [];
 
   return (
     <div>
@@ -431,41 +431,51 @@ export function UserIdentities() {
           {groupBlocks.map((group) => (
             <div key={group.name}>
               <h2>{group.name}</h2>
-              <p className="hint">
-                {t(
-                  "Set by the administration: this account reads them here and does not write them.",
-                )}
-              </p>
-              {group.identities.length === 0 ? (
-                <p className="hint">
-                  {t("The group holds no identity for this account yet.")}
+              {!group.readable ? (
+                <p className="hint" style={{ color: "var(--warn)" }}>
+                  {t(
+                    "This account could not be read for this group, so what it sends as there is unknown.",
+                  )}
                 </p>
               ) : (
-                group.identities.map((identity) => (
-                  <div key={identity.id} className="card">
-                    <div className="card-head">
-                      <h3>
-                        {identity.name
-                          ? `${identity.name} <${identity.email}>`
-                          : identity.email}
-                      </h3>
-                    </div>
-                    {identity.replyTo?.length ? (
-                      <div className="hint">
-                        {t("Reply-To: {addresses}", {
-                          addresses: formatAddressList(identity.replyTo),
-                        })}
-                      </div>
-                    ) : null}
-                    {(identity.htmlSignature || identity.textSignature) && (
-                      <div className="hint" style={{ marginTop: 4 }}>
-                        {htmlToText(
-                          identity.htmlSignature || identity.textSignature,
-                        ).slice(0, 120)}
-                      </div>
+                <>
+                  <p className="hint">
+                    {t(
+                      "Set by the administration: this account reads them here and does not write them.",
                     )}
-                  </div>
-                ))
+                  </p>
+                  {group.identities.length === 0 ? (
+                    <p className="hint">
+                      {t("The group holds no identity for this account yet.")}
+                    </p>
+                  ) : (
+                    group.identities.map((identity) => (
+                      <div key={identity.id} className="card">
+                        <div className="card-head">
+                          <h3>
+                            {identity.name
+                              ? `${identity.name} <${identity.email}>`
+                              : identity.email}
+                          </h3>
+                        </div>
+                        {identity.replyTo?.length ? (
+                          <div className="hint">
+                            {t("Reply-To: {addresses}", {
+                              addresses: formatAddressList(identity.replyTo),
+                            })}
+                          </div>
+                        ) : null}
+                        {(identity.htmlSignature || identity.textSignature) && (
+                          <div className="hint" style={{ marginTop: 4 }}>
+                            {htmlToText(
+                              identity.htmlSignature || identity.textSignature,
+                            ).slice(0, 120)}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </>
               )}
             </div>
           ))}

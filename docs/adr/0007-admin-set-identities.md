@@ -90,7 +90,11 @@ typed a second time here.
 The member reads them and does not write them. Their own Identities &
 signatures section lists their own account's identities for editing and, in
 the same place, one read-only block per group they are a member of, saying
-that the administration sets them.
+that the administration sets them. The composer, writing in a group's
+mailbox, offers a member their own identity and nothing else: never another
+member's name to send under, and none at all while the administration has
+not yet created theirs — which is what a surface that offers everybody's
+identity would make of the rule.
 
 ## Consequences
 

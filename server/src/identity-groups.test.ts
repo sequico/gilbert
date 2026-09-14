@@ -11,18 +11,22 @@ import { after, before, test } from "node:test";
  * identities belong to — so the surface can say which member an identity is
  * for, and which members have none yet.
  *
- * The writes this file pins are `id: null`, which **creates** an identity, and
- * an `id` that is not one of the group's own, which is refused by name instead
- * of being written through. The member an identity belongs to is the caller's
- * to say: it is the `name` in the patch, and nothing about the account decides
- * it.
+ * The writes this file pins are `id: null` — which **adopts** the identity the
+ * group already carries for that member, and **creates** one for a `name` the
+ * group carries nothing for — and an `id` that is not one of the group's own,
+ * which is refused by name instead of being written through. The member an
+ * identity belongs to is the caller's to say: it is the `name` in the patch,
+ * and nothing about the account decides it.
  *
  * The person's side is pinned here too. A person's own identity list is the
  * account that sends for them, and the groups beneath it are the non-personal
- * accounts their session holds, each read with their own credential. A read the
- * server refuses answers `readable: false` with no identities, which is an
- * answer rather than a failure: the surface says which group it could not read
- * instead of showing it as a group that holds none.
+ * accounts their session holds that answered as a group — an account carrying
+ * at least one identity addressed as the account itself — each read with their
+ * own credential. An account that answered nothing of its own is somebody's
+ * shared folder and is left out. A read the server refuses answers
+ * `readable: false` with no identities, which is an answer rather than a
+ * failure: the surface says which group it could not read instead of showing it
+ * as a group that holds none.
  *
  * Mock port: must not collide with any other test file — the runner executes
  * files as parallel child processes, each binding its own mock.
@@ -297,6 +301,178 @@ test("a person's groups answer what their account sends as, and which read refus
     unread?.readable,
     false,
     "a refused read is a group the person could not read, not one with no identities",
+  );
+  assert.deepEqual(unread?.identities, [], "so it carries none of its own");
+});
+
+/**
+ * The id-less write, replayed.
+ *
+ * The administration offers no route to delete a group's identity, so a second
+ * identity for one member would be unreachable by repair from the product. A
+ * repeated save is the same write, so it adopts the identity the group already
+ * carries for that member; only a `name` the group carries nothing for creates.
+ */
+test("a repeated id-less write adopts the member's identity instead of duplicating it", async () => {
+  const held = (await group(TEAM)).body as unknown as GroupView;
+  const existing = held.identities.find((row) => row.name === "Demo User");
+  assert.ok(existing, "the member's identity is the one the earlier write made");
+
+  /* The same save again: the same member, spelled as a browser would send it. */
+  const replayed = await post("/api/admin/identities/group", {
+    name: TEAM,
+    id: null,
+    patch: { name: "demo user", email: TEAM, textSignature: "— Demo, again" },
+  });
+  assert.equal(replayed.status, 200, JSON.stringify(replayed.body));
+  assert.equal(
+    replayed.body?.id,
+    existing.id,
+    "the replay answers the identity the group already carries for that member",
+  );
+
+  const after = (await group(TEAM)).body as unknown as GroupView;
+  assert.equal(
+    after.identities.length,
+    held.identities.length,
+    "the group's identity count does not grow",
+  );
+  const adopted = after.identities.find((row) => row.id === existing.id);
+  assert.equal(adopted?.name, "demo user", "and the write landed on that one");
+  assert.equal(adopted?.textSignature, "— Demo, again");
+
+  const created = await post("/api/admin/identities/group", {
+    name: TEAM,
+    id: null,
+    patch: { name: "Nobody Yet", email: TEAM, textSignature: "new member" },
+  });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const fresh = created.body?.id as string;
+  assert.ok(fresh, "a name no identity carries still creates");
+  assert.notEqual(fresh, existing.id, "and it is an identity of its own");
+  const grown = (await group(TEAM)).body as unknown as GroupView;
+  assert.equal(
+    grown.identities.length,
+    held.identities.length + 1,
+    "so the group holds one more than before the replay",
+  );
+});
+
+/**
+ * A share is not one of the person's groups.
+ *
+ * The client's one classifier reads it the same way (`web/src/lib/mailAccounts.ts`):
+ * a group's account answers with an identity it sends as, addressed as the
+ * account itself, and an account that answers nothing of its own is somebody's
+ * shared folder. The administration lists what the person's own section lists,
+ * so it answers a group only when the account answered as one — and a read it
+ * refuses is still listed, as an account it could not read.
+ */
+test("an account that answers nothing of its own is no group of theirs", async () => {
+  const upstream = await fetchUpstreamSession(
+    `Basic ${Buffer.from(`${AGENT}:${AGENT_PASS}`).toString("base64")}`,
+    BASE,
+  );
+  const designAccount = Object.entries(upstream.accounts ?? {}).find(
+    ([, account]) => (account as { name?: string }).name === DESIGN,
+  )?.[0];
+  assert.ok(designAccount, "the mock's session holds the second group's account");
+
+  /* Answer that one account's own `Identity/get` this way, and restore fetch. */
+  const withRead = (responses: (accountId: string) => unknown[]) => {
+    const asked: string[] = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = typeof init?.body === "string" ? init.body : "";
+      if (body.includes("Identity/get") && body.includes(`"${designAccount}"`)) {
+        asked.push(body);
+        return new Response(
+          JSON.stringify({
+            methodResponses: responses(designAccount),
+            sessionState: "1",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return realFetch(input, init);
+    }) as typeof fetch;
+    return {
+      asked,
+      async run() {
+        try {
+          return (await person(AGENT)).body as unknown as { groups: PersonGroupRow[] };
+        } finally {
+          globalThis.fetch = realFetch;
+        }
+      },
+    };
+  };
+
+  /* The empty list a share answers with: not a group of the person's at all. */
+  const share = withRead((accountId) => [
+    ["Identity/get", { accountId, state: "1", list: [] }, "r"],
+  ]);
+  const nothingOfItsOwn = await share.run();
+  assert.equal(share.asked.length, 1, "the account is asked for its own list, once");
+  assert.deepEqual(
+    nothingOfItsOwn.groups.map((row) => row.name),
+    [TEAM],
+    "the account holding nothing of its own is not one of the person's groups",
+  );
+
+  /* An identity carrying somebody else's address is not the account answering. */
+  const borrowed = withRead((accountId) => [
+    [
+      "Identity/get",
+      {
+        accountId,
+        state: "1",
+        list: [
+          {
+            id: "x1",
+            name: "Somebody Else",
+            email: "else@example.org",
+            replyTo: null,
+            bcc: null,
+            textSignature: "",
+            htmlSignature: "",
+          },
+        ],
+      },
+      "r",
+    ],
+  ]);
+  const notItsOwn = await borrowed.run();
+  assert.deepEqual(
+    notItsOwn.groups.map((row) => row.name),
+    [TEAM],
+    "an identity carrying another address is not that account's own",
+  );
+
+  /* A refused read: an account that may be a group, and could not be read. */
+  const refused = withRead(() => [
+    [
+      "error",
+      {
+        type: "forbidden",
+        description: "You are not allowed to read the identities of this account.",
+      },
+      "r",
+    ],
+  ]);
+  const unreadable = await refused.run();
+  const byName = new Map(unreadable.groups.map((row) => [row.name, row]));
+  const answered = byName.get(TEAM);
+  assert.equal(answered?.readable, true, "the account that answered is still listed");
+  assert.ok(
+    answered?.identities.some((row) => row.email === TEAM),
+    "and it answered with an identity addressed as itself",
+  );
+  const unread = byName.get(DESIGN);
+  assert.equal(
+    unread?.readable,
+    false,
+    "an account this read could not open is said to be unreadable, not dropped",
   );
   assert.deepEqual(unread?.identities, [], "so it carries none of its own");
 });

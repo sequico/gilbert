@@ -36,6 +36,7 @@ import {
   saveGroupIdentity,
   storeAdminSignatureHtml,
 } from "@/lib/identities";
+import { displayNameKey } from "@/lib/identityVisibility";
 import { htmlToText } from "@/lib/text";
 import { MenuSelect } from "@/ui/popover";
 import { IdentityDialog } from "@/views/settings/IdentityDialog";
@@ -93,22 +94,39 @@ function identityLabel(identity: Identity): string {
  * Only the members whose own account has been read have a name to match, so an
  * identity bound to a row that has not been opened stays in the unassigned list
  * until that row is read — and an identity no member's name ever matches, a
- * stray or a renamed one, stays there for good. One identity is claimed once, in
- * roster order, so two members who share a display name do not both point at the
- * same identity: the second is shown as having none, which is what it has.
+ * stray or a renamed one, stays there for good. A candidate is an identity
+ * carrying the group's own address (ADR 0007), and the name is compared the way
+ * the client's own picker compares it — trimmed and without case
+ * (`offeredInGroupAccount`) — or a member whose account spells their name
+ * differently would be shown as having none and offered a duplicate. One
+ * identity is claimed once, in roster order, so two members who share a display
+ * name do not both point at the same identity: the second is shown as having
+ * none. `nameOwners` says which member of the roster read each name first, which
+ * is what tells that second member apart from one whose name no identity carries
+ * at all.
  */
 function bindings(
   identities: Identity[],
   members: string[],
   names: Record<string, string | null | undefined>,
-): { byMember: Map<string, Identity>; unassigned: Identity[] } {
+  group: string,
+): {
+  byMember: Map<string, Identity>;
+  unassigned: Identity[];
+  nameOwners: Map<string, string>;
+} {
   const claimed = new Set<string>();
   const byMember = new Map<string, Identity>();
+  const nameOwners = new Map<string, string>();
   for (const member of members) {
-    const name = names[member.toLowerCase()] || "";
+    const name = displayNameKey(names[member.toLowerCase()]);
     if (!name) continue;
+    if (!nameOwners.has(name)) nameOwners.set(name, member);
     const hit = identities.find(
-      (identity) => !claimed.has(identity.id) && (identity.name || "").trim() === name,
+      (identity) =>
+        !claimed.has(identity.id) &&
+        identity.email.toLowerCase() === group.toLowerCase() &&
+        displayNameKey(identity.name) === name,
     );
     if (!hit) continue;
     claimed.add(hit.id);
@@ -116,6 +134,7 @@ function bindings(
   }
   return {
     byMember,
+    nameOwners,
     unassigned: identities.filter((identity) => !claimed.has(identity.id)),
   };
 }
@@ -150,6 +169,8 @@ function IdentityCard({ identity, onEdit }: { identity: Identity; onEdit: () => 
   );
 }
 
+/** A display name the way two of them are compared: `displayNameKey`'s rule,
+ * the same one the composer's picker narrows a group's identities by. */
 /**
  * One member of the roster, and the identity of this group that carries their
  * name.
@@ -158,12 +179,17 @@ function IdentityCard({ identity, onEdit }: { identity: Identity; onEdit: () => 
  * is read from their own account when the row is opened — one impersonation for
  * this row — and it is what preselects the form's display name. Until the row is
  * opened, nothing is asked of that account.
+ *
+ * A name an earlier member of the roster already carries is said as such, and no
+ * create is offered: the group holds one identity per member, so a second of the
+ * same name would be a duplicate.
  */
 function MemberRow({
   address,
   group,
   name,
   bound,
+  alsoCarriedBy,
   onName,
   onEdit,
 }: {
@@ -174,6 +200,8 @@ function MemberRow({
   name: string | null | undefined;
   /** The group's identity their name claims, when one does. */
   bound: Identity | undefined;
+  /** The earlier roster member who carries the same display name, when one does. */
+  alsoCarriedBy: string | undefined;
   onName: (address: string, name: string | null) => void;
   onEdit: (draft: Partial<Identity>) => void;
 }) {
@@ -248,20 +276,27 @@ function MemberRow({
         <>
           <div className="hint">
             {name
-              ? t("No identity of this group carries the name {name} yet.", { name })
+              ? alsoCarriedBy
+                ? t(
+                    "Another member of this roster, {address}, already carries the name {name} — this group holds one identity per member, so this row sets no second one of that name.",
+                    { address: alsoCarriedBy, name },
+                  )
+                : t("No identity of this group carries the name {name} yet.", { name })
               : t(
                   "Their own account holds no display name, so nothing binds an identity to them here.",
                 )}
           </div>
-          <button
-            className="btn btn-sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(blankIdentity(name ?? "", group));
-            }}
-          >
-            <Plus size={16} /> {t("Set identity")}
-          </button>
+          {!alsoCarriedBy && (
+            <button
+              className="btn btn-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(blankIdentity(name ?? "", group));
+              }}
+            >
+              <Plus size={16} /> {t("Set identity")}
+            </button>
+          )}
         </>
       )}
     </div>
@@ -350,7 +385,36 @@ export function GroupIdentities() {
   const granted = view?.granted === true;
   const identities = view?.identities ?? [];
   const members = view?.members ?? null;
-  const { byMember, unassigned } = bindings(identities, members ?? [], memberNames);
+  const { byMember, unassigned, nameOwners } = bindings(
+    identities,
+    members ?? [],
+    memberNames,
+    name,
+  );
+
+  /**
+   * The earlier roster member whose own account read the same display name, when
+   * one did: the group's identity for that name is theirs, so this row writes no
+   * second one of it.
+   */
+  function nameOwner(member: string): string | undefined {
+    const key = displayNameKey(memberNames[member.toLowerCase()]);
+    const owner = key ? nameOwners.get(key) : undefined;
+    return owner && owner.toLowerCase() !== member.toLowerCase() ? owner : undefined;
+  }
+
+  /**
+   * The state of a group whose account holds nothing yet, and how to start its
+   * first identity.
+   */
+  const noIdentityYet = (
+    <>
+      <p className="hint">{t("This group holds no identity yet.")}</p>
+      <button className="btn" onClick={() => setEditing(blankIdentity("", name))}>
+        <Plus size={16} /> {t("Add identity")}
+      </button>
+    </>
+  );
 
   return (
     <div>
@@ -441,83 +505,74 @@ export function GroupIdentities() {
           )}
           {loading && <p className="hint">{t("Loading…")}</p>}
 
-          {granted && identities.length > 0 && (
+          {granted && members === null && (
             <>
               <h2>{t("Identities")}</h2>
-              {members === null ? (
-                <>
-                  <div className="warn-box" style={{ marginBottom: 12 }}>
-                    {t(
-                      "This group's roster could not be read, so its identities are listed on their own rather than by member. Set a member's identity from their own account until the roster reads again.",
-                    )}
-                  </div>
-                  {identities.map((identity) => (
-                    <IdentityCard
-                      key={identity.id}
-                      identity={identity}
-                      onEdit={() => setEditing(identity)}
-                    />
-                  ))}
-                </>
-              ) : (
-                <>
-                  <p className="hint">
-                    {t(
-                      "One identity per member: the group's own address, carrying each member's own display name and signature. Open a member to read the name that binds theirs — one read of that account, and only when you open it.",
-                    )}
-                  </p>
-                  {members.map((member) => (
-                    <MemberRow
-                      key={member}
-                      address={member}
-                      group={view.name}
-                      name={memberNames[member.toLowerCase()]}
-                      bound={byMember.get(member.toLowerCase())}
-                      onName={rememberName}
-                      onEdit={(draft) => setEditing(draft)}
-                    />
-                  ))}
-                  {members.length === 0 && (
-                    <p className="hint">
-                      {t(
-                        "This group's roster is empty: there is no member to set an identity for.",
-                      )}
-                    </p>
-                  )}
-
-                  <h2>{t("Unassigned")}</h2>
-                  <p className="hint">
-                    {t(
-                      "Identities of this group that no member's own display name claims — a stray one, or one whose member's name has changed. They stay here, editable.",
-                    )}
-                  </p>
-                  {unassigned.length === 0 ? (
-                    <p className="hint">
-                      {t(
-                        "Every identity of this group carries a member's own display name.",
-                      )}
-                    </p>
-                  ) : (
-                    unassigned.map((identity) => (
-                      <IdentityCard
-                        key={identity.id}
-                        identity={identity}
-                        onEdit={() => setEditing(identity)}
-                      />
-                    ))
-                  )}
-                </>
-              )}
+              <div className="warn-box" style={{ marginBottom: 12 }}>
+                {t(
+                  "This group's roster could not be read, so its identities are listed on their own rather than by member. Set a member's identity from their own account until the roster reads again.",
+                )}
+              </div>
+              {identities.map((identity) => (
+                <IdentityCard
+                  key={identity.id}
+                  identity={identity}
+                  onEdit={() => setEditing(identity)}
+                />
+              ))}
+              {identities.length === 0 && noIdentityYet}
             </>
           )}
 
-          {granted && !loading && identities.length === 0 && (
+          {granted && members !== null && (
             <>
-              <h2>{t("Identity")}</h2>
-              <p className="hint">{t("This group holds no identity yet.")}</p>
-              <button className="btn" onClick={() => setEditing(blankIdentity("", name))}>
-                <Plus size={16} /> {t("Add identity")}
-              </button>
+              <h2>{t("Identities")}</h2>
+              <p className="hint">
+                {t(
+                  "One identity per member: the group's own address, carrying each member's own display name and signature. Open a member to read the name that binds theirs — one read of that account, and only when you open it.",
+                )}
+              </p>
+              {members.map((member) => (
+                <MemberRow
+                  key={member}
+                  address={member}
+                  group={view.name}
+                  name={memberNames[member.toLowerCase()]}
+                  bound={byMember.get(member.toLowerCase())}
+                  alsoCarriedBy={nameOwner(member)}
+                  onName={rememberName}
+                  onEdit={(draft) => setEditing(draft)}
+                />
+              ))}
+              {members.length === 0 && (
+                <p className="hint">
+                  {t(
+                    "This group's roster is empty: there is no member to set an identity for.",
+                  )}
+                </p>
+              )}
+
+              <h2>{t("Unassigned")}</h2>
+              <p className="hint">
+                {t(
+                  "Identities of this group that no member's own display name claims — a stray one, or one whose member's name has changed. They stay here, editable.",
+                )}
+              </p>
+              {identities.length === 0 ? (
+                noIdentityYet
+              ) : unassigned.length === 0 ? (
+                <p className="hint">
+                  {t("Every identity of this group carries a member's own display name.")}
+                </p>
+              ) : (
+                unassigned.map((identity) => (
+                  <IdentityCard
+                    key={identity.id}
+                    identity={identity}
+                    onEdit={() => setEditing(identity)}
+                  />
+                ))
+              )}
             </>
           )}
         </>

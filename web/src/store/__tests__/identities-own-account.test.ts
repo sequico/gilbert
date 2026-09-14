@@ -194,6 +194,25 @@ describe("the two views of one cache", () => {
 
     expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g1"]);
   });
+
+  it("empties the group's view when no name in it is the reader's", async () => {
+    await useMail.getState().loadIdentitiesFor(OWN);
+    await useMail.getState().loadIdentitiesFor(GROUP);
+    expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g2"]);
+
+    // The reader's own list is here and carries no name any member of the
+    // group has, so there is nothing of theirs to send as -- and somebody
+    // else's identity is never offered in their place.
+    ownList = [identity("o1", "Nobody", "me@example.org")];
+    await useMail.getState().loadIdentitiesFor(OWN);
+
+    expect(useMail.getState().identities).toEqual([]);
+    // The cache still holds the group's whole list: Settings lists it
+    // read-only, and the picker narrowing is not a fetch filter.
+    expect(
+      (useMail.getState().identitiesByAccount[GROUP] ?? []).map((i) => i.id),
+    ).toEqual(["g1", "g2"]);
+  });
 });
 
 describe("where a write goes", () => {

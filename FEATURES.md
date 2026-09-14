@@ -1077,7 +1077,9 @@ minimisable and maximisable; full-screen on mobile.
   deleting them — an account with alias domains can have every local part twice
   over while only a handful are ever used. In a **group mailbox** the picker
   offers the reader's own identity alone (ADR 0007): the account holds one
-  identity per member, and a member sends as themselves or not at all.
+  identity per member, and a member sends as themselves or not at all — never
+  under another member's name, and not at all until the administration has
+  created theirs, which the composer says in as many words.
 - **Signatures** in HTML per identity, inserted above or below the quote.
   Stalwart caps an identity signature at 2047 **bytes** of UTF-8, so Gilbert
   compacts the HTML, and where it still will not fit, stores the full signature

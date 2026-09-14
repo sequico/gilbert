@@ -217,6 +217,14 @@ export function identityAddress(value: string, what = "account"): string {
 }
 
 /**
+ * The one way this file compares two addresses: trimmed and case-insensitive,
+ * the normalisation `identityAddress` applies to every address it validates.
+ */
+function sameAddress(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+/**
  * The account a principal's **own** identities live in.
  *
  * The personal account the session names for JMAP submission — the same rule
@@ -238,12 +246,11 @@ function ownIdentityAccount(ctx: Ctx): string {
  * share is never read as a group.
  */
 function groupAccountId(ctx: Ctx, group: string): string {
-  const want = group.trim().toLowerCase();
   for (const [id, account] of Object.entries(ctx.session.accounts ?? {})) {
     const a = account as { name?: unknown; isPersonal?: unknown };
     if (a.isPersonal !== false) continue;
     if (typeof a.name !== "string") continue;
-    if (a.name.trim().toLowerCase() !== want) continue;
+    if (!sameAddress(a.name, group)) continue;
     return id;
   }
   return "";
@@ -363,6 +370,28 @@ function checkedPatch(raw: unknown, creating: boolean): IdentityPatch {
       "A new identity needs the address it sends from.",
     );
   return patch;
+}
+
+/**
+ * The member an id-less write names, trimmed and case-insensitive for
+ * comparison, or null when the patch carries no usable `name` at all.
+ *
+ * Deliberately not a validation: a malformed patch is refused by the create
+ * path's own check, so nothing here throws before that check has its say.
+ */
+function patchName(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const name = (raw as Record<string, unknown>).name;
+  return typeof name === "string" ? name.trim().toLowerCase() : null;
+}
+
+/**
+ * Whether this identity is the one an id-less write names as that member: the
+ * same `name` on the group's own address.
+ */
+function isMember(identity: AdminIdentity, member: string, group: string): boolean {
+  const named = identity.name.trim().toLowerCase();
+  return named === member && sameAddress(identity.email, group);
 }
 
 /**
@@ -570,12 +599,14 @@ export interface PersonIdentitiesView {
  * account sends as there.
  *
  * Read as the person, so the answer is the one their own Identities &
- * signatures section shows. Only what the session marks non-personal is a
- * group — the personal account is the list `PersonIdentitiesView.identities`
- * already carries. A read that fails is `readable: false` with no identities
- * rather than an error for the whole surface: a share answers nothing to
- * `Identity/get`, which is an answer and not a failure, and the flag is what
- * lets the surface tell the two apart.
+ * signatures section shows. The personal account is not one of them — the list
+ * `PersonIdentitiesView.identities` already carries it — and neither is an
+ * account holding nothing of its own: a group's account carries at least the
+ * identity it sends as, addressed as the account itself, so an account whose
+ * read answers nothing of its own is a share rather than a group and is left
+ * out. A read that fails is `readable: false` with no identities rather than an
+ * error for the whole surface: the account it could not read may well be a
+ * group, and the flag is what lets the surface say so.
  */
 async function personGroupIdentities(ctx: Ctx): Promise<PersonGroupIdentities[]> {
   const groups: PersonGroupIdentities[] = [];
@@ -585,6 +616,9 @@ async function personGroupIdentities(ctx: Ctx): Promise<PersonGroupIdentities[]>
     const name = typeof account.name === "string" ? account.name : "";
     try {
       const identities = await readIdentities(ctx, accountId);
+      // What the account answers about itself: a group sends as its own
+      // address, so an identity carrying that address is the account's own.
+      if (!identities.some((identity) => sameAddress(identity.email, name))) continue;
       groups.push({ name, identities, readable: true });
     } catch {
       groups.push({ name, identities: [], readable: false });
@@ -807,10 +841,14 @@ export async function groupIdentity(
  *
  * A group holds **one identity per member** (ADR 0007) — the group's own
  * address with each member's own display name and signature — so the caller
- * says which member this is by the `name` in the patch, and `id: null` creates
- * that member's identity instead of editing somebody else's. An `id` that is
- * not one of this group's own identities is refused by name, because the
- * surface may only write what the group actually holds.
+ * says which member this is by the `name` in the patch. An `id: null` write
+ * **adopts** the identity the group already carries for that member — the same
+ * `name`, trimmed and case-insensitive, on the group's own address — so a
+ * repeated save (a double Save, a retried request, a stale tab) lands on the
+ * identity that is there rather than leaving a second one for a member that no
+ * surface can remove; a `name` the group carries nothing for creates. An `id`
+ * that is not one of this group's own identities is refused by name, because
+ * the surface may only write what the group actually holds.
  */
 export async function writeGroupIdentity(
   admin: LiveSession,
@@ -839,6 +877,13 @@ export async function writeGroupIdentity(
         `${group} holds no identity with that id.`,
         404,
       );
+    return { id: await writeIdentity(ctx, accountId, target, patch) };
+  }
+  const member = patchName(patch);
+  if (member !== null) {
+    const existing = await readIdentities(ctx, accountId);
+    const adopted = existing.find((identity) => isMember(identity, member, group));
+    if (adopted) return { id: await writeIdentity(ctx, accountId, adopted.id, patch) };
   }
   return { id: await writeIdentity(ctx, accountId, target, patch) };
 }

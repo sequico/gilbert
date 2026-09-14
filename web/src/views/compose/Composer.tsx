@@ -23,6 +23,7 @@ import { formatRelative, formatSize } from "@/lib/format";
 import { t as translate } from "@/lib/i18n";
 import { visibleIdentities } from "@/lib/identityVisibility";
 import { keyboard } from "@/lib/keyboard";
+import { isGroupMailboxAccount } from "@/lib/mailAccounts";
 import { formatScheduleTime } from "@/lib/schedule";
 import { htmlToText, textToHtml } from "@/lib/text";
 import {
@@ -62,10 +63,16 @@ export function Composer({ draft }: { draft: Draft }) {
   const focus = useCompose((s) => s.focus);
   const allIdentities = useMail((s) => s.identities);
   const mailAccountId = useMail((s) => s.accountId);
+  const mailAccounts = useMail((s) => s.mailAccounts);
+  const groupMailbox = isGroupMailboxAccount(mailAccountId, mailAccounts);
   const hiddenIdentities = useSettings((s) => s.settings.hiddenIdentities);
-  const defaultIdentityId = useSettings((s) =>
-    mailAccountId ? s.settings.defaultIdentityByAccount[mailAccountId] : undefined,
-  );
+  /*
+   * The store's own default, not the raw key of the account being written in:
+   * the preference is written under the account that sends for the reader, and
+   * the store reads that key behind this one, so "Make default" takes effect
+   * whether or not the two are the same account.
+   */
+  const defaultIdentityId = useMail((s) => s.defaultIdentity()?.id);
   const settings = useSettings((s) => s.settings);
   const updateSettings = useSettings((s) => s.update);
   const isMobile = useIsMobile();
@@ -398,6 +405,18 @@ export function Composer({ draft }: { draft: Draft }) {
                 ))}
               </select>
             </div>
+          )}
+          {/*
+            A group mailbox offers what carries the reader's own name, and
+            nothing while it carries none -- so there is nothing to send from,
+            and saying so is the honest version of an empty From line.
+          */}
+          {groupMailbox && !identities.length && (
+            <p className="hint">
+              {translate(
+                "The administration has not set an identity for you in this group yet.",
+              )}
+            </p>
           )}
           <div className="composer-field">
             <label htmlFor={`${key}-to`}>

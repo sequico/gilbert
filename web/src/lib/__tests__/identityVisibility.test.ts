@@ -111,21 +111,32 @@ describe("who a group mailbox offers", () => {
   });
 
   it("does not match a name that merely starts the same way", () => {
-    expect(offeredInGroupAccount(members, { name: "Robin" }).map((i) => i.id)).toEqual([
-      "g1",
-    ]);
+    const offered = offeredInGroupAccount(members, { name: "Robin" }).map((i) => i.id);
+    expect(offered).toEqual([]);
   });
 
-  it("falls back to the account's default identity when no name matches", () => {
-    expect(
-      offeredInGroupAccount(members, { name: "Nobody" }, "g3").map((i) => i.id),
-    ).toEqual(["g3"]);
+  it("offers nothing rather than another member's identity when no name matches", () => {
+    // The account's own default may name somebody else -- `defaultId` is a
+    // fallback for an unknown list, never a stand-in for a name that matched
+    // nothing.
+    expect(offeredInGroupAccount(members, { name: "Nobody" }, "g3")).toEqual([]);
+    expect(offeredInGroupAccount(members, { name: "Nobody" }, "g1")).toEqual([]);
   });
 
-  it("falls back to the first when the default identity is gone", () => {
-    expect(
-      offeredInGroupAccount(members, { name: "Nobody" }, "gone").map((i) => i.id),
-    ).toEqual(["g1"]);
+  it("offers nothing when the reader's own identity carries no name", () => {
+    expect(offeredInGroupAccount(members, { name: "" })).toEqual([]);
+    expect(offeredInGroupAccount(members, { name: null })).toEqual([]);
+    expect(offeredInGroupAccount(members, { name: "   " }, "g2")).toEqual([]);
+  });
+
+  it("falls back to the account's default identity while the reader's own list is unknown", () => {
+    const offered = offeredInGroupAccount(members, undefined, "g3").map((i) => i.id);
+    expect(offered).toEqual(["g3"]);
+  });
+
+  it("falls back to the first while the reader's own list is unknown and the default is gone", () => {
+    const offered = offeredInGroupAccount(members, undefined, "gone").map((i) => i.id);
+    expect(offered).toEqual(["g1"]);
   });
 
   it("offers one identity, never the membership, before the reader's own list is here", () => {
@@ -140,9 +151,8 @@ describe("who a group mailbox offers", () => {
       { id: "g1", name: "" },
       { id: "g2", name: "Robin Reader" },
     ];
-    expect(
-      offeredInGroupAccount(unnamed, { name: "   " }, "g1").map((i) => i.id),
-    ).toEqual(["g1"]);
+    // Neither a match on the blank names nor a fallback to somebody else's.
+    expect(offeredInGroupAccount(unnamed, { name: "   " }, "g1")).toEqual([]);
   });
 
   it("offers nothing at all when the group's list is empty", () => {

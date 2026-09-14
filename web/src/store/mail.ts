@@ -434,7 +434,17 @@ export const useMail = create<MailState>((set, get) => ({
             trees[c.accountId] = tree;
             groups.push(c);
           } catch {
-            /* an account whose mail cannot be read is not a mailbox account */
+            /*
+             * A probe that failed is not an answer. `Mailbox/get` is what
+             * proves an account carries a mailbox, but a request that never
+             * answered proves nothing -- and dropping the account on it would
+             * take the group off the screen, which is how its whole membership
+             * ends up in the From list. The entry already known for that
+             * account is kept instead; an answer with no folder tree still
+             * drops it, just above.
+             */
+            const known = current.find((a) => a.accountId === c.accountId);
+            if (known) groups.push(known);
           }
         }
         /*
@@ -1423,8 +1433,18 @@ export const useMail = create<MailState>((set, get) => ({
 
   defaultIdentity() {
     const { identities, accountId } = get();
-    const pref = accountId ? settings().defaultIdentityByAccount[accountId] : undefined;
-    return identities.find((i) => i.id === pref) ?? identities[0];
+    /*
+     * Through the one reader of the preference: the account a draft is written
+     * in first, the reader's own behind it. `setDefaultIdentity` writes under
+     * the account that sends for the reader, which is not always the account on
+     * screen -- and a group mailbox has narrowed to the reader's own identity
+     * by then, so the fallback there is the identity already being offered.
+     */
+    return (
+      get().defaultIdentityFor(accountId) ??
+      get().defaultIdentityFor(ownIdentityAccountId(useSession.getState().session)) ??
+      identities[0]
+    );
   },
 
   defaultIdentityFor(accountId) {
@@ -1480,6 +1500,9 @@ export const useMail = create<MailState>((set, get) => ({
         });
     const err = id ? res.notUpdated?.[id] : res.notCreated?.n;
     if (err) throw new Error(setErrorMessage(err));
+    // A read already on its way was asked before this write and answers with
+    // the list from before it, so its promise is dropped rather than joined.
+    identitiesLoading.delete(accountId);
     await get().loadIdentitiesFor(accountId);
   },
 
@@ -1492,6 +1515,8 @@ export const useMail = create<MailState>((set, get) => ({
     });
     const err = res.notDestroyed?.[id];
     if (err) throw new Error(setErrorMessage(err));
+    // Same as saveIdentity: the list has to be read after the write.
+    identitiesLoading.delete(accountId);
     await get().loadIdentitiesFor(accountId);
   },
 
@@ -1803,7 +1828,9 @@ function applyIdentities(accountId: Id): void {
   /*
    * The account's own default, read from its cache. The reader's own list may
    * not have landed yet: the fallback then keeps one identity on screen -- the
-   * default one, or the first -- rather than every member's.
+   * default one, or the first -- rather than every member's. Once it has landed
+   * and no name in the group matches, `offeredInGroupAccount` answers with
+   * nothing: a member's identity is not the reader's to send as.
    */
   const pref = settings().defaultIdentityByAccount[accountId];
   const fallback = all.find((i) => i.id === pref) ?? all[0];
@@ -1832,10 +1859,12 @@ function identitiesChanged(accountId: Id): void {
 function myOwnIdentity(): Identity | undefined {
   const own = ownIdentityAccountId(useSession.getState().session);
   if (!own) return undefined;
-  const list = useMail.getState().identitiesByAccount[own];
-  if (!list) return undefined;
-  const pref = settings().defaultIdentityByAccount[own];
-  return list.find((i) => i.id === pref) ?? list[0];
+  /*
+   * Through the one reader of the preference, and `undefined` while that
+   * account's list has not landed -- which is what tells a group's view that
+   * no name can be matched against yet.
+   */
+  return useMail.getState().defaultIdentityFor(own);
 }
 
 /**

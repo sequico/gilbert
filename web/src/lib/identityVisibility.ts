@@ -40,24 +40,40 @@ export function visibleIdentities<T extends Pick<Identity, "id">>(
  * time there -- so matching on the name is matching on the person.
  *
  * A member sends as themselves or not at all: enforcing identities means
- * nothing while the picker under it still offers somebody else's. So this
- * never returns more than what matched. When nothing does -- the reader's own
- * list has not loaded, or they hold no identity of their own -- the account's
- * default identity stands in if it is in the list, else the first, else
- * nothing: one identity, never the whole membership.
+ * nothing while the picker under it still offers somebody else's, so this
+ * never returns more than what matched. While the reader's own list is
+ * unknown no name can match, and the account's default identity stands in if
+ * it is in the list, else the first, else nothing: one identity, never the
+ * whole membership. Once that list is here and holds no matching name, the
+ * answer is nothing at all -- the account's default is somebody's identity,
+ * not necessarily the reader's, and it is never offered in their place.
  */
+/**
+ * The key two display names are compared by, in one place.
+ *
+ * A group's account holds one identity per member, and the identity that
+ * belongs to a member is the one carrying their name (ADR 0007). That name is
+ * typed in one account and read on another surface, so the comparison is
+ * trimmed and case-folded rather than a spelling test — and there is one of it,
+ * because a picker and an administration that folded differently would
+ * disagree about which identity belongs to whom.
+ */
+export function displayNameKey(name?: string | null): string {
+  return (name ?? "").trim().toLowerCase();
+}
+
 export function offeredInGroupAccount<T extends Pick<Identity, "id" | "name">>(
   identities: T[],
   mine: { name?: string | null } | undefined,
   defaultId?: string | null,
 ): T[] {
-  const wanted = mine?.name?.trim().toLowerCase();
-  if (wanted) {
-    const matched = identities.filter((i) => i.name?.trim().toLowerCase() === wanted);
-    if (matched.length) return matched;
+  if (mine === undefined) {
+    const instead = identities.find((i) => i.id === defaultId) ?? identities[0];
+    return instead ? [instead] : [];
   }
-  const instead = identities.find((i) => i.id === defaultId) ?? identities[0];
-  return instead ? [instead] : [];
+  const wanted = displayNameKey(mine.name);
+  if (!wanted) return [];
+  return identities.filter((i) => displayNameKey(i.name) === wanted);
 }
 
 /** Whether hiding this one would be refused, so the UI can say so. */
