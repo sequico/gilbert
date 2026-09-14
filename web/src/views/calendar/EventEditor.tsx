@@ -707,7 +707,7 @@ function EventForm({
         {ev && isRecurring(ev) && (
           <div className="info-box mb-16">
             {oneDate
-              ? `Editing ${formatNumericDate(start)} only — the rest of the series is unchanged. Repeat, calendar and privacy belong to the series and are not shown.`
+              ? `Editing ${formatNumericDate(start)} only — the rest of the series is unchanged. Repeat, privacy and the attendees of the series are not shown, and the calendar stays with the series.`
               : "This is a recurring event — changes apply to the whole series."}
           </div>
         )}
@@ -720,6 +720,49 @@ function EventForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
+        </div>
+        {/*
+          Which calendar this event goes into, immediately under the title.
+          It is the first decision a new event asks -- and the one that says
+          whose event it is, the reader's or a group's -- so it belongs where
+          the eye lands, not below the repeat rules, where the four fields
+          above it pushed it off the bottom of the dialog on a laptop.
+        */}
+        <div className="field-row">
+          <div className="field">
+            <label>{translate("Calendar")}</label>
+            <select
+              className="select"
+              value={calendarKey}
+              disabled={oneDate}
+              title={
+                oneDate
+                  ? translate(
+                      "An occurrence cannot be moved to another calendar on its own",
+                    )
+                  : undefined
+              }
+              onChange={(e) => setCalendarKey(e.target.value)}
+            >
+              {calendars.map((c) => (
+                <option
+                  key={calOptionKey(c.accountId, c.id)}
+                  value={calOptionKey(c.accountId, c.id)}
+                >
+                  {c.accountName ? `${c.name} · ${c.accountName}` : c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>{translate("Location")}</label>
+            <input
+              className="input"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder={translate("Add location")}
+            />
+          </div>
         </div>
         <div className="time-row mb-8">
           {allDay ? (
@@ -955,42 +998,6 @@ function EventForm({
             <div className="hint mt-8">{describeRule(customRule)}</div>
           </div>
         )}
-        <div className="field-row">
-          <div className="field">
-            <label>{translate("Calendar")}</label>
-            <select
-              className="select"
-              value={calendarKey}
-              disabled={oneDate}
-              title={
-                oneDate
-                  ? translate(
-                      "An occurrence cannot be moved to another calendar on its own",
-                    )
-                  : undefined
-              }
-              onChange={(e) => setCalendarKey(e.target.value)}
-            >
-              {calendars.map((c) => (
-                <option
-                  key={calOptionKey(c.accountId, c.id)}
-                  value={calOptionKey(c.accountId, c.id)}
-                >
-                  {c.accountName ? `${c.name} · ${c.accountName}` : c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label>{translate("Location")}</label>
-            <input
-              className="input"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder={translate("Add location")}
-            />
-          </div>
-        </div>
         <div className="field">
           <label>{translate("Meeting link")}</label>
           <input
