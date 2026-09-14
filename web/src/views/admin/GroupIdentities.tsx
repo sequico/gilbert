@@ -275,15 +275,23 @@ function MemberRow({
                   )
                 : t("No identity of this group carries the name {name} yet.", { name })
               : t(
-                  "Their own account holds no display name, so nothing binds an identity to them here.",
+                  "Their own account sets no display name, and the display name is what binds a group identity to a member — so an identity written here would be nobody's. Set one on that person's account under User identities first.",
                 )}
           </div>
-          {!alsoCarriedBy && (
+          {/*
+           * Only when there is a name to bind by. An identity written with no
+           * name binds to nobody: the composer's picker matches a group identity
+           * against the reader's own display name, and an empty one matches no
+           * member -- so the member would be told no identity was set for them
+           * in a group that holds one, which is the report this row must not
+           * make possible.
+           */}
+          {name && !alsoCarriedBy && (
             <button
               className="btn btn-sm"
               onClick={(e) => {
                 e.stopPropagation();
-                onEdit(blankIdentity(name ?? "", group));
+                onEdit(blankIdentity(name, group));
               }}
             >
               <Plus size={16} /> {t("Set identity")}

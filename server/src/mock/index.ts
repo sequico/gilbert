@@ -1182,7 +1182,18 @@ const groupIdentities: Obj[] = [
     htmlSignature: "",
     mayDelete: false,
   },
-];/* The impersonation target's own identities (ADR 0007). An administrator edits
+  {
+    id: "gi2",
+    name: "Demo User",
+    email: "team@example.org",
+    replyTo: null,
+    bcc: null,
+    textSignature: "-- \nDemo User\nGilbert",
+    htmlSignature: "<div>-- <br><b>Demo User</b><br>Gilbert</div>",
+    mayDelete: true,
+  },
+];
+/* The impersonation target's own identities (ADR 0007). An administrator edits
    a person's list from their own session, so the list has to be one the next
    `Identity/get` sees: a fresh literal per call would answer 200 and change
    nothing, which is the failure the per-account lists above exist to avoid. */

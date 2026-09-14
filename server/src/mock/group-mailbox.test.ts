@@ -156,7 +156,7 @@ test("a folder-share account answers Mailbox/get with no mail", async () => {
   assert.deepEqual(m[1].list, []);
 });
 
-test("Identity/get on the group returns the team identity", async () => {
+test("Identity/get on the group returns the identities it holds, all on its own address", async () => {
   const res = await post("/api/jmap", {
     using: [
       "urn:ietf:params:jmap:core",
@@ -168,10 +168,25 @@ test("Identity/get on the group returns the team identity", async () => {
   assert.equal(res.status, 200);
   const i = responseOf(res.body, "i");
   assert.ok(i, "Identity/get should answer");
-  const list = i[1].list as Array<{ id: string; email: string }>;
+  const list = i[1].list as Array<{ id: string; name: string; email: string }>;
+  /*
+   * A group holds one identity per member (ADR 0007) — the group's own address,
+   * each carrying that member's own display name — so every address here is the
+   * group's and no two names are the same. `Team` is the group's own, which is
+   * what agent-sent mail is signed as; `Demo User` is the demo member's, which
+   * is what the composer in this mailbox offers them.
+   */
   assert.deepEqual(
     list.map((x) => ({ id: x.id, email: x.email })),
-    [{ id: "gi1", email: "team@example.org" }],
+    [
+      { id: "gi1", email: "team@example.org" },
+      { id: "gi2", email: "team@example.org" },
+    ],
+  );
+  assert.deepEqual(
+    list.map((x) => x.name),
+    ["Team", "Demo User"],
+    "one identity per member, each carrying that member's own name",
   );
 });
 

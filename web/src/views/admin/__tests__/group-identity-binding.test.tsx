@@ -33,6 +33,7 @@ const GROUP = "team@example.org";
 const OTHER = "alias@example.net";
 const ALICE = "alice@example.org";
 const BOB = "bob@example.org";
+const NOBODY = "nobody@example.org";
 
 const identity = (id: string, name: string, email: string): Identity =>
   ({
@@ -62,13 +63,24 @@ function json(body: unknown, status = 200): Response {
 }
 
 /** A person's own account, as the group tab reads it when their row is opened. */
-function person(address: string, name: string) {
+function person(address: string, name: string | null) {
   return {
     address,
     locked: false,
     lockUnknownReason: null,
     impersonation: "ok",
-    identities: [identity("o1", name, address)],
+    identities: [
+      {
+        id: "o1",
+        name,
+        email: address,
+        replyTo: null,
+        bcc: null,
+        textSignature: "",
+        htmlSignature: "",
+        mayDelete: true,
+      } as unknown as Identity,
+    ],
     defaultIdentityId: null,
     groups: [],
   };
@@ -101,8 +113,16 @@ describe("the group identities tab", () => {
       if (url.startsWith("/api/admin/identities/user")) {
         const address =
           new URL(url, "http://localhost").searchParams.get("address") ?? "";
-        // The member's own account says their name in lowercase.
-        return json(person(address, address.startsWith("alice") ? "alice smith" : "Bob"));
+        /*
+         * The member's own account says their name in lowercase — and for
+         * `nobody@` it sets none at all, which is a state of its own.
+         */
+        const name = address.startsWith("nobody")
+          ? null
+          : address.startsWith("alice")
+            ? "alice smith"
+            : "Bob";
+        return json(person(address, name));
       }
       const name = new URL(url, "http://localhost").searchParams.get("name") ?? "";
       return json(await new Promise((resolve) => held.set(name, resolve)));
@@ -195,6 +215,29 @@ describe("the group identities tab", () => {
     expect(row(BOB).textContent).not.toContain("Sends as");
     expect(row(BOB).textContent).toContain("Set identity");
     expect(host.textContent).toContain(`Bob <${OTHER}>`);
+  });
+
+  it("offers no identity to set for a member whose own account has no display name", async () => {
+    /*
+     * The display name is the binding, so an identity written with none binds
+     * to nobody: the composer's picker matches the group's identity against the
+     * reader's own name, and an empty name matches no member — the row would
+     * have created something and the member would still be told no identity was
+     * set for them in a group that now holds one. So the row says where the
+     * name has to come from instead.
+     */
+    await render();
+    await openGroup(GROUP);
+    held.get(GROUP)?.(group(GROUP, [identity("i1", "Alice Smith", GROUP)], [NOBODY]));
+    await act(async () => {
+      await flush();
+    });
+
+    await openRow(NOBODY);
+
+    expect(row(NOBODY).textContent).toContain("sets no display name");
+    expect(row(NOBODY).textContent).toContain("User identities");
+    expect(row(NOBODY).textContent).not.toContain("Set identity");
   });
 
   it("keeps an answer for a group the administrator has left", async () => {
