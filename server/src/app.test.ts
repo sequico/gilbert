@@ -136,6 +136,28 @@ test("only a PDF blob may be framed, and only by us", async () => {
   assert.equal(securityHeadersFor("text/html", true), "DENY");
 });
 
+test("a blob whose stored type says nothing keeps the client's own", async () => {
+  /*
+   * A PDF whose stored type is generic -- an uploader that had no guess, a
+   * store that kept none -- was served as `application/octet-stream`, which is
+   * not on the inline allowlist: the preview iframe got an attachment and the
+   * browser downloaded the file instead of showing it. The declared type is
+   * the only evidence left, and it is the type the app is already showing the
+   * file as. What must not change is that a type which does say something
+   * still wins, and that the guards hold on either path.
+   */
+  const { blobContentType } = await import("./app.js");
+  assert.equal(blobContentType(null, "application/pdf"), "application/pdf");
+  assert.equal(blobContentType("", "application/pdf"), "application/pdf");
+  assert.equal(
+    blobContentType("application/octet-stream", "application/pdf"),
+    "application/pdf",
+  );
+  assert.equal(blobContentType("image/png", "application/pdf"), "image/png");
+  assert.equal(blobContentType("text/html", "text/html"), "application/octet-stream");
+  assert.equal(blobContentType(null, "text/html"), "application/octet-stream");
+});
+
 /*
  * #239: retrying through an outage must not lock somebody out of the recovery.
  *

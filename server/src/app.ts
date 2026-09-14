@@ -2862,7 +2862,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       });
       if (!res.ok) return c.json({ error: "not_found" }, res.status === 404 ? 404 : 502);
       const headers = new Headers();
-      const type = sanitizeContentType(res.headers.get("content-type") ?? accept);
+      const type = blobContentType(res.headers.get("content-type"), accept);
       headers.set("Content-Type", type);
       const cl = forwardedContentLength(res.headers);
       if (cl) headers.set("Content-Length", cl);
@@ -3220,6 +3220,39 @@ function sanitizeContentType(ct: string): string {
   }
   if (lower.startsWith("text/")) return `${lower}; charset=utf-8`;
   return lower || "application/octet-stream";
+}
+
+/**
+ * Whether a content type says nothing about the file.
+ *
+ * The set the client's `previewKind` treats as no evidence, for the same
+ * reason: an uploader with no guess, or a store that kept none, leaves one of
+ * these behind, and `application/octet-stream` is not a claim that a file is a
+ * binary blob rather than, say, a PDF.
+ */
+function isGenericType(ct: string): boolean {
+  return (
+    ct === "" ||
+    ct === "application/octet-stream" ||
+    ct === "binary/octet-stream" ||
+    ct === "application/unknown" ||
+    ct === "unknown/unknown"
+  );
+}
+
+/**
+ * What a blob is served as.
+ *
+ * Upstream's type decides, with one exception: where it says nothing about the
+ * file, the type the client declared is the only evidence left, and it is the
+ * type the app is already showing the file as. Either way the answer goes
+ * through `sanitizeContentType`, so nothing that must not render gets a type
+ * that renders, and `isInlineSafe` still decides whether anything is served
+ * inline at all. Exported so the choice is testable without an upstream.
+ */
+export function blobContentType(upstreamType: string | null, declared: string): string {
+  const up = (upstreamType ?? "").split(";")[0]!.trim().toLowerCase();
+  return sanitizeContentType(isGenericType(up) ? declared : up);
 }
 
 /**
