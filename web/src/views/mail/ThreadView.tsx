@@ -31,7 +31,7 @@ import { threadScrollTarget } from "@/lib/threadScroll";
 import { useEdgeBack } from "@/lib/touch";
 import { useCompose } from "@/store/compose";
 import { useMail } from "@/store/mail";
-import { useSettings } from "@/store/settings";
+import { defaultReplyMode, useSettings } from "@/store/settings";
 import { Spinner, useIsNarrow, useIsTouch } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { LabelPicker } from "./LabelPicker";
@@ -317,6 +317,10 @@ export function ThreadView({
   }, [messages, mailboxes, mailboxId]);
 
   const last = messages[messages.length - 1];
+  /* What the reply strip's first button does, and the other one beside it. */
+  const defaultReply = defaultReplyMode(settings);
+  const otherReply: "reply" | "replyAll" =
+    defaultReply === "replyAll" ? "reply" : "replyAll";
   const accountId = useMail((s) => s.accountId);
 
   return (
@@ -491,11 +495,18 @@ export function ThreadView({
         {last && (
           <div className="reply-box">
             <div className="reply-prompt">
-              <button onClick={() => void reply(last, "reply")}>
-                <Reply size={16} /> {t("Reply")}
+              {/*
+                The default reply action first and the other one beside it, so
+                `replyAllDefault` moves which action a click lands on without
+                taking either away.
+              */}
+              <button onClick={() => void reply(last, defaultReply)}>
+                {defaultReply === "replyAll" ? <ReplyAll size={16} /> : <Reply size={16} />}{" "}
+                {t(defaultReply === "replyAll" ? "Reply all" : "Reply")}
               </button>
-              <button onClick={() => void reply(last, "replyAll")}>
-                <ReplyAll size={16} /> {t("Reply all")}
+              <button onClick={() => void reply(last, otherReply)}>
+                {otherReply === "replyAll" ? <ReplyAll size={16} /> : <Reply size={16} />}{" "}
+                {t(otherReply === "replyAll" ? "Reply all" : "Reply")}
               </button>
               <button onClick={() => void reply(last, "forward")}>
                 <Forward size={16} /> {t("Forward")}

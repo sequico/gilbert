@@ -23,6 +23,7 @@ import {
   Paperclip,
   RefreshCw,
   Reply,
+  ReplyAll,
   Search,
   ShieldCheck,
   Star,
@@ -68,7 +69,7 @@ import { haptic, PULL_TRIGGER, usePullToRefresh, useTouchRow } from "@/lib/touch
 import { useCalendar } from "@/store/calendar";
 import { useCompose } from "@/store/compose";
 import { type ListState, useMail } from "@/store/mail";
-import { dateTimeKey, useSettings } from "@/store/settings";
+import { dateTimeKey, defaultReplyMode, useSettings } from "@/store/settings";
 import { Avatar, Empty, useIsMobile, useIsTouch } from "@/ui/misc";
 import { MenuItem, MenuSep, MenuTitle, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
@@ -872,11 +873,13 @@ export function MessageList({
         width={250}
       >
         <MenuItem
-          icon={<Reply size={16} />}
-          label={t("Reply")}
+          icon={
+            settings.replyAllDefault ? <ReplyAll size={16} /> : <Reply size={16} />
+          }
+          label={t(settings.replyAllDefault ? "Reply all" : "Reply")}
           onClick={() => {
             const e = ctxRow ? emails[ctxRow] : undefined;
-            if (e) void useCompose.getState().reply(e, "reply");
+            if (e) void useCompose.getState().reply(e, defaultReplyMode(settings));
           }}
         />
         <MenuItem

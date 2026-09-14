@@ -11,7 +11,7 @@ import { buildFilter, describeFilter, parseQuery } from "@/lib/search";
 import { useCompose } from "@/store/compose";
 import { DEFAULT_SORT, type ListQuery, useMail } from "@/store/mail";
 import { scheduledMailboxIdFrom, useScheduled } from "@/store/scheduled";
-import { useSettings } from "@/store/settings";
+import { defaultReplyMode, useSettings } from "@/store/settings";
 import { confirmDialog } from "@/ui/dialog";
 import { useIsNarrow } from "@/ui/misc";
 import { Splitter } from "@/ui/Splitter";
@@ -541,10 +541,12 @@ export function MailView({
       },
       {
         keys: "r",
-        description: "Reply",
+        description: settings.replyAllDefault ? "Reply all" : "Reply",
         group: "Conversation",
         handler: () =>
-          window.dispatchEvent(new CustomEvent("ihm:reply", { detail: "reply" })),
+          window.dispatchEvent(
+            new CustomEvent("ihm:reply", { detail: defaultReplyMode(settings) }),
+          ),
       },
       {
         keys: "a",
@@ -586,6 +588,7 @@ export function MailView({
     currentRowIndex,
     threadId,
     settings.readingPane,
+    settings.replyAllDefault,
     rowThreadId,
     openThread,
     actions,

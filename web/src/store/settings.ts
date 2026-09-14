@@ -159,6 +159,14 @@ export interface Settings {
   themeStyledMessages: boolean;
   undoSendSeconds: number;
   composeFormat: ComposeFormat;
+  /**
+   * Whether the app's *default* reply action is a reply to all.
+   *
+   * Every reply surface that shows the plain "Reply" affordance asks this:
+   * the reply strip, the per-message shortcut, the list's context menu and the
+   * `r` key. The explicit "Reply all" and "Reply" controls still say what they
+   * do, so the setting moves the default rather than taking the choice away.
+   */
   replyAllDefault: boolean;
   signatureAboveQuote: boolean;
   includeQuote: boolean;
@@ -341,7 +349,7 @@ export const DEFAULT_SETTINGS: Settings = {
   themeStyledMessages: false,
   undoSendSeconds: 8,
   composeFormat: "html",
-  replyAllDefault: false,
+  replyAllDefault: true,
   signatureAboveQuote: true,
   includeQuote: true,
   requestReadReceipt: false,
@@ -921,6 +929,18 @@ export function useEffectiveTheme(): "light" | "dark" {
 }
 
 export const settings = () => useSettings.getState().settings;
+
+/**
+ * The mode a plain "Reply" affordance opens with.
+ *
+ * One definition, because the answer has to be the same wherever the app
+ * offers its default reply action -- a reply strip that answered the list and
+ * an `r` key that answered the sender would be the setting half-applied. An
+ * explicit "Reply all" or "Reply" does not come through here: those say what
+ * they do whatever `replyAllDefault` is.
+ */
+export const defaultReplyMode = (s: Settings): "reply" | "replyAll" =>
+  s.replyAllDefault ? "replyAll" : "reply";
 
 /**
  * Primitive that changes whenever a date/time preference does, so memoised

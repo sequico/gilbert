@@ -1884,7 +1884,7 @@ per view, so the same letter can mean different things in mail and the calendar.
 | Global | `?` help · `/` search · `c` compose · `g i/s/t/d/a` inbox, starred, sent, drafts, all mail · `g l/c/f/k` calendar, contacts, files, settings |
 | List | `j`/`k` next/previous · `o` open · `u` back · `Esc` back or clear selection · `x` select · `Ctrl+A` select all |
 | Acting | `e` archive · `#` delete · `!` spam · `s` star · `Shift+I`/`Shift+U` read/unread · `v` move · `l` label |
-| Conversation | `r` reply · `a` reply all · `f` forward · `n`/`p` next/previous message · `]` archive and open next |
+| Conversation | `r` the default reply (reply all unless Settings says otherwise) · `a` reply all · `f` forward · `n`/`p` next/previous message · `]` archive and open next |
 | Composer | `Ctrl+Enter` send · `Ctrl+S` save draft · `Esc` close, saving |
 | Calendar | `t` today · `n`/`p` next/previous · `d`/`w`/`m`/`a` day, week, month, agenda · `c` new event |
 

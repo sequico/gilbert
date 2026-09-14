@@ -68,7 +68,7 @@ import { useMail } from "@/store/mail";
 import { sendReadReceipt } from "@/store/mdn";
 import { useScheduled } from "@/store/scheduled";
 import { useSession } from "@/store/session";
-import { useSettings } from "@/store/settings";
+import { defaultReplyMode, useSettings } from "@/store/settings";
 import { choiceDialog, confirmDialog, Dialog } from "@/ui/dialog";
 import { FilePreviewDialog } from "@/ui/filepreview";
 import { Avatar } from "@/ui/misc";
@@ -562,15 +562,25 @@ export const MessageView = memo(function MessageView({
           </button>
           {expanded && (
             <>
+              {/*
+                The default reply action, which `replyAllDefault` decides. The
+                tooltip names what the click does rather than always saying
+                "Reply": a control that answers the list while it says it
+                answers the sender is the setting lying about itself.
+              */}
               <button
                 className="icon-btn sm hide-mobile"
-                title={translate("Reply (r)")}
+                title={
+                  settings.replyAllDefault
+                    ? translate("Reply all (r)")
+                    : translate("Reply (r)")
+                }
                 onClick={(ev) => {
                   ev.stopPropagation();
-                  void reply(e, "reply");
+                  void reply(e, defaultReplyMode(settings));
                 }}
               >
-                <Reply size={17} />
+                {settings.replyAllDefault ? <ReplyAll size={17} /> : <Reply size={17} />}
               </button>
               <button
                 className="icon-btn sm"
