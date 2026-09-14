@@ -169,4 +169,27 @@ describe("renaming an address book", () => {
     expect(sets).toHaveLength(1);
     expect(sets[0]?.args.accountId).toBe("a1");
   });
+
+  it("writes the group's book, not the reader's, when both carry the same id", async () => {
+    /*
+     * A book id is unique inside its account and nowhere else, and a default
+     * book is seeded per account -- so the same id in both is the ordinary
+     * case, not a curiosity. Resolving the bare id prefers the reader's own,
+     * which renamed the wrong book; the caller that holds a row passes the
+     * account it came from.
+     */
+    const calls = stubServer();
+    useContacts.setState({
+      accountId: "a1",
+      books: { b1: { ...groupBook, id: "b1", name: "Mine" } as unknown as AddressBook },
+      sharedBooks: [
+        { accountId: "a2", accountName: "Team", book: { ...groupBook, id: "b1" } },
+      ],
+    });
+    await useContacts.getState().updateBook("b1", { name: "Freight" }, "a2");
+    const sets = calls.filter((c) => c.name === "AddressBook/set");
+    expect(sets).toHaveLength(1);
+    expect(sets[0]?.args.accountId).toBe("a2");
+    expect(sets[0]?.args.update).toEqual({ b1: { name: "Freight" } });
+  });
 });

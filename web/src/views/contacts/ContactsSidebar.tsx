@@ -181,10 +181,11 @@ export function ContactsSidebar() {
    *
    * Offered to whoever the book grants a write to: the reader's own always, a
    * group's own directory for its members, a colleague's share for whoever
-   * they opened it to. The book that is written is the one named here, in the
-   * account that holds it -- `updateBook` resolves that from the book itself.
+   * they opened it to. The account goes with it -- a row knows which one it
+   * is, and a book id alone cannot say, because a default book is seeded per
+   * account and the reader's own may carry the group's id.
    */
-  const renameItem = (book: AddressBook) => (
+  const renameItem = (book: AddressBook, accountId?: string | null) => (
     <MenuItem
       icon={<Pencil size={16} />}
       label={t("Rename")}
@@ -195,7 +196,7 @@ export function ContactsSidebar() {
         });
         if (!name?.trim() || name === book.name) return;
         try {
-          await contacts.updateBook(book.id, { name: name.trim() });
+          await contacts.updateBook(book.id, { name: name.trim() }, accountId);
         } catch (err) {
           toast.error((err as Error).message);
         }
@@ -420,7 +421,7 @@ export function ContactsSidebar() {
                 {target.book.myRights?.mayWrite && (
                   <>
                     <MenuSep />
-                    {renameItem(target.book)}
+                    {renameItem(target.book, target.accountId)}
                   </>
                 )}
                 <MenuSep />

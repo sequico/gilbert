@@ -6,6 +6,11 @@ import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { ContactsSidebar } from "../ContactsSidebar";
 
+vi.mock("@/ui/dialog", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/ui/dialog")>()),
+  promptDialog: vi.fn(async () => "Freight directory"),
+}));
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
@@ -116,5 +121,21 @@ describe("the address book menu", () => {
     // The menu is still there, and still says what it can: exporting it, and
     // taking it out of the reader's own view.
     expect(menuLabels()).toContain("Export address book");
+  });
+
+  it("sends the rename to the account the row came from", async () => {
+    // The bug: the group's book and the reader's own can share an id, and the
+    // store's bare-id resolution prefers the reader's own -- so renaming the
+    // group's directory renamed theirs. The row knows which account it is.
+    const rename = vi.spyOn(useContacts.getState(), "updateBook");
+    await openMenuOf("Team directory");
+    const item = [...document.querySelectorAll(".menu-item")].find(
+      (el) => el.textContent?.trim() === "Rename",
+    );
+    expect(item).toBeTruthy();
+    await act(async () => {
+      item!.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    });
+    expect(rename).toHaveBeenCalledWith("gab1", { name: "Freight directory" }, "grp");
   });
 });

@@ -310,8 +310,17 @@ interface ContactsState {
   ): Promise<{ destroyed: number; unfiled: number; refused?: SetError }>;
   /** Create an address book; pass `accountId` to create it in a group account, owned by the group. */
   createBook(name: string, accountId?: Id): Promise<Id>;
-  updateBook(id: Id, patch: Partial<AddressBook>): Promise<void>;
-  destroyBook(id: Id): Promise<void>;
+  /**
+   * Rename an address book, or patch it some other way.
+   *
+   * `accountId` is the account that holds it, and a caller that knows it must
+   * pass it: a book id is unique only within its account -- a default book is
+   * seeded per account, so the reader's own and a group's can carry the same
+   * one -- and resolving the bare id prefers the reader's own. Renaming the
+   * group's directory renamed theirs.
+   */
+  updateBook(id: Id, patch: Partial<AddressBook>, accountId?: Id | null): Promise<void>;
+  destroyBook(id: Id, accountId?: Id | null): Promise<void>;
   /** Import vCards, updating any whose UID this book already holds rather than duplicating it. */
   importVCard(
     text: string,
@@ -934,38 +943,38 @@ export const useContacts = create<ContactsState>((set, get) => ({
     return res.created!.b!.id;
   },
 
-  async updateBook(id, patch) {
+  async updateBook(id, patch, accountId) {
     const own = get().accountId;
     /*
-     * The book says which account is written, the same way a card does. A
-     * group's directory lives in the group's account, and `accountId` here is
-     * the reader's own -- renaming through it wrote to *their* account, or to
-     * nothing, while the sidebar said the group's book had been renamed.
+     * The account the book lives in, which the caller knows when it came from
+     * a row that names it -- the sidebar does. Falling back to the book's own
+     * account here is right only while the ids do not collide, and they do: a
+     * book id is unique inside its account and nowhere else.
      */
-    const accountId = accountOfBook(id, get().books, own, get().sharedBooks);
-    if (!accountId) throw new Error("That address book is not available");
+    const target = accountId ?? accountOfBook(id, get().books, own, get().sharedBooks);
+    if (!target) throw new Error("That address book is not available");
     const res = await client.call<SetResponse>("AddressBook/set", {
-      accountId,
+      accountId: target,
       update: { [id]: patch },
     });
     const err = res.notUpdated?.[id];
     if (err) throw new Error(setErrorMessage(err));
-    if (accountId === own) await get().loadBooks();
+    if (target === own) await get().loadBooks();
     else await get().loadShared();
   },
 
-  async destroyBook(id) {
+  async destroyBook(id, accountId) {
     const own = get().accountId;
-    const accountId = accountOfBook(id, get().books, own, get().sharedBooks);
-    if (!accountId) throw new Error("That address book is not available");
+    const target = accountId ?? accountOfBook(id, get().books, own, get().sharedBooks);
+    if (!target) throw new Error("That address book is not available");
     const res = await client.call<SetResponse>("AddressBook/set", {
-      accountId,
+      accountId: target,
       destroy: [id],
       onDestroyRemoveContents: true,
     });
     const err = res.notDestroyed?.[id];
     if (err) throw new Error(setErrorMessage(err));
-    if (accountId === own) {
+    if (target === own) {
       await get().loadBooks();
       await get().loadAll();
     } else {
