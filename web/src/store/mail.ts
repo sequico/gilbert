@@ -247,6 +247,17 @@ export interface MailState {
   defaultIdentity(): Identity | undefined;
   /** One account's preferred identity, whether or not it is the one on screen. */
   defaultIdentityFor(accountId: Id | null): Identity | undefined;
+  /**
+   * The identities of the account that **sends for the reader**, from the cache.
+   *
+   * `identities` is the account on screen, and in a group mailbox it is one
+   * identity -- the reader's, or none at all until the administration has set
+   * one. Anything asking "which addresses are mine?" wants this instead: the
+   * account the session names for submission, whole. Empty until its list has
+   * landed, which is a real answer -- an account with no identity has no address
+   * to call its own.
+   */
+  ownIdentities(): Identity[];
   setDefaultIdentity(id: Id): void;
   saveIdentity(id: Id | null, patch: Partial<Identity>): Promise<void>;
   destroyIdentity(id: Id): Promise<void>;
@@ -1486,6 +1497,12 @@ export const useMail = create<MailState>((set, get) => ({
     return list.find((i) => i.id === pref) ?? list[0];
   },
 
+  ownIdentities() {
+    const own = ownIdentityAccountId(useSession.getState().session);
+    if (!own) return EMPTY_IDENTITIES;
+    return get().identitiesByAccount[own] ?? EMPTY_IDENTITIES;
+  },
+
   setDefaultIdentity(id) {
     // ADR 0007: the default a person sets is the one their own account sends
     // with, not the preference of the mailbox they happened to be reading.
@@ -1853,6 +1870,15 @@ export const useMail = create<MailState>((set, get) => ({
  * twice for the same list.
  */
 const identitiesLoading = new Map<Id, Promise<Identity[]>>();
+
+/**
+ * What an account's list is before it has been read.
+ *
+ * One constant rather than a fresh `[]` per call, because `ownIdentities` is
+ * read through a store selector: a new array every render would tell every
+ * subscriber the answer had changed.
+ */
+const EMPTY_IDENTITIES: Identity[] = [];
 
 /**
  * How many reads each account has been through, so a read can be spent.

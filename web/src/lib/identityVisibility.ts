@@ -15,7 +15,6 @@
  *   - hide the default identity, which is what a new draft starts on
  *   - hide everything; if every identity is hidden it shows them all instead
  */
-
 import type { Identity } from "@/jmap/types";
 import { sameAddress } from "@/lib/address";
 
@@ -33,32 +32,14 @@ export function visibleIdentities<T extends Pick<Identity, "id">>(
 }
 
 /**
- * Which identities a group mailbox offers the reader (ADR 0007).
- *
- * A group's account holds one identity per member, all carrying the group's
- * own address and each carrying that member's own name and signature. The
- * member is bound to their identity by the display name -- it is that member's
- * own identity name, read from their own account rather than typed a second
- * time there -- so matching on the name is matching on the person.
- *
- * A member sends as themselves or not at all: enforcing identities means
- * nothing while the picker under it still offers somebody else's, so this
- * never returns more than what matched. While the reader's own list is
- * unknown no name can match, and the account's default identity stands in if
- * it is in the list, else the first, else nothing: one identity, never the
- * whole membership. Once that list is here and holds no matching name, the
- * answer is nothing at all -- the account's default is somebody's identity,
- * not necessarily the reader's, and it is never offered in their place.
- */
-/**
  * Which of an account's own identities is **theirs**, in one place.
  *
  * A group's account holds one identity per member, and a member is bound to
-theirs by the display name (ADR 0007) — so *which* of a person's own
-identities carries that name is the load-bearing question. The administration
-reads the name from one side of it and the composer in a group mailbox matches
-on the other; two answers to it is a member whose group identity exists being
-told none does.
+ * theirs by the display name (ADR 0007) — so *which* of a person's own
+ * identities carries that name is the load-bearing question. The administration
+ * reads the name from one side of it and the composer in a group mailbox
+ * matches on the other; two answers to it is a member whose group identity
+ * exists being told none does.
  *
  * The rule, in order:
  *
@@ -103,6 +84,24 @@ export function displayNameKey(name?: string | null): string {
   return (name ?? "").trim().toLowerCase();
 }
 
+/**
+ * Which identities a group mailbox offers the reader (ADR 0007).
+ *
+ * A group's account holds one identity per member, all carrying the group's
+ * own address and each carrying that member's own name and signature. The
+ * member is bound to their identity by the display name -- it is that member's
+ * own identity name, read from their own account rather than typed a second
+ * time there -- so matching on the name is matching on the person.
+ *
+ * A member sends as themselves or not at all: enforcing identities means
+ * nothing while the picker under it still offers somebody else's, so this
+ * never returns more than what matched. While the reader's own list is
+ * unknown no name can match, and the account's default identity stands in if
+ * it is in the list, else the first, else nothing: one identity, never the
+ * whole membership. Once that list is here and holds no matching name, the
+ * answer is nothing at all -- the account's default is somebody's identity,
+ * not necessarily the reader's, and it is never offered in their place.
+ */
 export function offeredInGroupAccount<T extends Pick<Identity, "id" | "name">>(
   identities: T[],
   mine: { name?: string | null } | undefined,

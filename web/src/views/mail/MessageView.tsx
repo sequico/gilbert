@@ -1087,7 +1087,10 @@ export const MessageView = memo(function MessageView({
 function summarizeRecipients(e: Email): string {
   const all = [...(e.to ?? []), ...(e.cc ?? [])];
   if (!all.length) return "(undisclosed recipients)";
-  const me = useMail.getState().identities.map((i) => i.email.toLowerCase());
+  const me = useMail
+    .getState()
+    .ownIdentities()
+    .map((i) => i.email.toLowerCase());
   const names = all.map((a) =>
     me.includes(a.email.toLowerCase()) ? "me" : displayName(a).split(" ")[0] || a.email,
   );

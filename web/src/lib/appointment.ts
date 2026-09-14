@@ -1,8 +1,10 @@
 import type { Email, EmailAddress } from "@/jmap/types";
 import { type EventDraft, useCalendar } from "@/store/calendar";
 import { useMail } from "@/store/mail";
+import { useSession } from "@/store/session";
 import { uniqueAddresses } from "./address";
 import { toLocalDateOnly } from "./dates";
+import { ownIdentityAccountId } from "./mailAccounts";
 import { htmlToText } from "./text";
 
 /**
@@ -102,11 +104,15 @@ export async function startAppointment(
 ): Promise<void> {
   const mail = useMail.getState();
   const full = (await mail.getEmails([email.id], true))[0] ?? email;
-  // Which addresses are the reader's own decides who is a guest, so they are
-  // worth a round trip when the session has not loaded them yet.
-  const identities = mail.identities.length
-    ? mail.identities
-    : await mail.loadIdentities();
+  /*
+   * Which addresses are the reader's own decides who is a guest, so the list is
+   * read rather than assumed -- from the account that sends for them, which is
+   * not the mailbox on screen: a group mailbox holds one identity per member
+   * carrying the group's address, and one set for nobody at all, and the reader
+   * would then be invited to their own meeting.
+   */
+  const own = ownIdentityAccountId(useSession.getState().session);
+  const identities = own ? await mail.loadIdentitiesFor(own) : [];
   const draft = appointmentDraft(
     full,
     new Date(),

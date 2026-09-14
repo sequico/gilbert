@@ -26,7 +26,13 @@ export function PrivacySettings() {
   const s = useSettings((st) => st.settings);
   const update = useSettings((st) => st.update);
   const trusted = s.trustedImageSenders;
-  const identities = useMail((st) => st.identities);
+  /*
+   * The reader's own addresses, and they are the ones in the account that
+   * sends for them -- not the mailbox on screen. In a group mailbox the list on
+   * screen is one identity carrying the group's address, or none at all until
+   * the administration sets one, and neither is a domain to trust for images.
+   */
+  const identities = useMail((st) => st.ownIdentities());
   const ownDomains = [
     ...new Set(identities.map((i) => domainOf(i.email)).filter(Boolean)),
   ];

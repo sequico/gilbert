@@ -86,8 +86,7 @@ describe("a file dropped on the message body", () => {
       root.render(
         <div
           onDrop={(e) => {
-            const dt = (e as unknown as { dataTransfer: { files: File[] } })
-              .dataTransfer;
+            const dt = (e as unknown as { dataTransfer: { files: File[] } }).dataTransfer;
             outer.push(Array.from(dt.files));
           }}
         >

@@ -251,6 +251,33 @@ describe("the two views of one cache", () => {
     // nothing, which is the message that told the reader no identity was set.
     expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g1"]);
   });
+
+  it("answers which addresses are the reader's own from their own account, not the mailbox on screen", async () => {
+    /*
+     * `identities` is the account on screen, and in a group mailbox it is one
+     * identity -- the reader's, or none at all until the administration sets
+     * one -- so a surface asking "which addresses are mine?" is answered
+     * wrongly by it: the group's address, or nothing. `ownIdentities` is that
+     * question's answer, and PrivacySettings (which domains to trust for
+     * images), the recipient summary's "me" and the guest list of a message
+     * made into an event all read it.
+     */
+    await useMail.getState().loadIdentitiesFor(OWN);
+    await useMail.getState().loadIdentitiesFor(GROUP);
+
+    expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g2"]);
+    expect(
+      useMail
+        .getState()
+        .ownIdentities()
+        .map((i) => i.id),
+    ).toEqual(["o1", "o2"]);
+
+    // Empty rather than stale while that account's list is unknown: an account
+    // with no identity read has no address to call its own.
+    useMail.setState({ identitiesByAccount: {} });
+    expect(useMail.getState().ownIdentities()).toEqual([]);
+  });
 });
 
 describe("where a write goes", () => {

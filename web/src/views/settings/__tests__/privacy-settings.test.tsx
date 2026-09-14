@@ -1,6 +1,10 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { CAP } from "@/jmap/client";
+import type { Identity, JmapSession } from "@/jmap/types";
+import { useMail } from "@/store/mail";
+import { useSession } from "@/store/session";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
 import { GeneralSettings } from "../GeneralSettings";
 import { PrivacySettings } from "../PrivacySettings";
@@ -32,6 +36,14 @@ describe("Privacy & safety", () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     host.remove();
+    useSession.setState({ status: "loading", session: null, accountId: null });
+    useMail.setState({
+      accountId: null,
+      ownAccountId: null,
+      mailAccounts: [],
+      identities: [],
+      identitiesByAccount: {},
+    });
   });
 
   it("offers every control that left General", async () => {
@@ -180,5 +192,60 @@ describe("Privacy & safety", () => {
       });
       expect(useSettings.getState().settings.trustedLinkDomains).toContain(stored);
     }
+  });
+
+  it("offers the reader's own domains, which are not the mailbox's on screen", async () => {
+    /*
+     * The domains this section treats as the reader's own are the account that
+     * sends for them, whatever mailbox is open. In a group mailbox the list on
+     * screen is one identity carrying the group's address -- or none at all
+     * until the administration sets one -- and either reading would put the
+     * wrong domain, or no domain, behind "your own identity domains are always
+     * inside".
+     */
+    const own = (id: string, email: string): Identity =>
+      ({
+        id,
+        name: "Me",
+        email,
+        replyTo: null,
+        bcc: null,
+        textSignature: "",
+        htmlSignature: "",
+        mayDelete: true,
+      }) as Identity;
+    const session = {
+      accounts: {
+        own: {
+          name: "me@mine.example",
+          isPersonal: true,
+          accountCapabilities: { [CAP.mail]: {}, [CAP.submission]: {} },
+        },
+        gg: {
+          name: "team@group.example",
+          isPersonal: false,
+          accountCapabilities: { [CAP.mail]: {}, [CAP.submission]: {} },
+        },
+      },
+      primaryAccounts: { [CAP.mail]: "own", [CAP.submission]: "own" },
+    } as unknown as JmapSession;
+    useSession.setState({ status: "authenticated", session, accountId: "gg" });
+    useMail.setState({
+      // Reading the group: its view is the one identity the reader may send as
+      // there, and their own list lives in the account that sends for them.
+      accountId: "gg",
+      ownAccountId: "own",
+      identities: [own("g1", "team@group.example")],
+      identitiesByAccount: { own: [own("o1", "me@mine.example")] },
+    });
+    useSettings.setState({
+      settings: { ...DEFAULT_SETTINGS, externalSenderBanner: true },
+    });
+
+    await render(<PrivacySettings />);
+    const text = host.textContent ?? "";
+    expect(text).toContain("Your own:");
+    expect(text).toContain("mine.example");
+    expect(text).not.toContain("group.example");
   });
 });

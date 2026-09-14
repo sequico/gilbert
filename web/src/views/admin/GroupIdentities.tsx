@@ -22,7 +22,7 @@
  */
 
 import { Pencil, Plus, RotateCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Identity } from "@/jmap/types";
 import { formatAddressList } from "@/lib/address";
 import { t } from "@/lib/i18n";
@@ -163,8 +163,6 @@ function IdentityCard({ identity, onEdit }: { identity: Identity; onEdit: () => 
   );
 }
 
-/** A display name the way two of them are compared: `displayNameKey`'s rule,
- * the same one the composer's picker narrows a group's identities by. */
 /**
  * One member of the roster, and the identity of this group that carries their
  * name.
@@ -326,26 +324,47 @@ export function GroupIdentities() {
     void loadDirectory();
   }, []);
 
+  /**
+   * Which group read is the one that counts.
+   *
+   * Two groups can be asked for in that order and answer in the other, and the
+   * slower one would then leave its identities under the newer group's name --
+   * the panel reads `name` and `view` as one thing, and so does a write made
+   * from it. A read takes a number, and one whose number has moved keeps its
+   * answer to itself.
+   */
+  const readSeq = useRef(0);
+
   /** Read a group's identities and its roster, and whether the agent is granted. */
   async function readGroup(who: string) {
+    const seq = ++readSeq.current;
     setLoading(true);
     try {
-      setView(await fetchGroupIdentity(who));
+      const next = await fetchGroupIdentity(who);
+      if (seq !== readSeq.current) return false;
+      setView(next);
       return true;
     } catch (err) {
+      if (seq !== readSeq.current) return false;
       setView(null);
       setError((err as Error).message);
       return false;
     } finally {
-      setLoading(false);
+      // The newer read owns the spinner: clearing it here would end one still
+      // in flight.
+      if (seq === readSeq.current) setLoading(false);
     }
   }
 
   async function load(target: string) {
     const who = target.trim().toLowerCase();
     // Another group is another roster: what its members' own accounts said says
-    // nothing about this one's.
-    if (who !== name) setMemberNames({});
+    // nothing about this one's, and neither do its identities -- they are not
+    // shown under the new group's name while its own answer is on its way.
+    if (who !== name) {
+      setMemberNames({});
+      setView(null);
+    }
     setName(who);
     setEditing(null);
     setError(null);

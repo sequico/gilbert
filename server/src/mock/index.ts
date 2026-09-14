@@ -1155,6 +1155,22 @@ addEmail({
   html: true,
   into: groupEmails,
 });
+/*
+ * A group's identities (ADR 0007): one per member of that group's roster, all
+ * carrying the group's own address and each carrying that member's own display
+ * name and signature — plus the group's own, which the demo starts with and
+ * which the agent's mail is signed as.
+ *
+ * The demo user's is `Demo User`, the name their own identity carries, because
+ * that is the binding: a member is offered the group identity carrying their
+ * own display name and nothing else, so a group whose identities carry no
+ * member's name offers a member nothing at all and cannot be written from.
+ * `Team` is nobody's, and shows in the administration as an identity no member
+ * of the roster claims.
+ *
+ * The agent's own is not here: its row in the administration offers to set one,
+ * which is the flow that surface is for.
+ */
 const groupIdentities: Obj[] = [
   {
     id: "gi1",
@@ -1166,8 +1182,7 @@ const groupIdentities: Obj[] = [
     htmlSignature: "",
     mayDelete: false,
   },
-];
-/* The impersonation target's own identities (ADR 0007). An administrator edits
+];/* The impersonation target's own identities (ADR 0007). An administrator edits
    a person's list from their own session, so the list has to be one the next
    `Identity/get` sees: a fresh literal per call would answer 200 and change
    nothing, which is the failure the per-account lists above exist to avoid. */
@@ -2240,16 +2255,15 @@ export const uploads = { count: 0 };
  * (ADR 0003, §6) -- so a mock that ignored `ifInState` would leave every
  * lease and every job update untested.
  *
- * Asked of a real Stalwart 0.16 instance on 2026-09-11, on credentials the
-owner supplies, by
- * `scripts/probe-conditional-writes.mjs`), and this simulation matches every
- * answer: `FileNode/set` honours `ifInState`; a mismatch arrives as
- * `stateMismatch`, never as `invalidArguments`; the FileNode state token
- * advances on every write that matters, so a token read before one is refused
- * after it; and a blob **upload** — which writes no node — does not advance it.
- * That last answer is what makes the order `writeAppFileAt` uses (read the
- * state, upload, set conditionally) safe, and the probe asks that composed order
- * as its own question.
+ * Asked of a real Stalwart 0.16 instance on 2026-09-11 (on credentials the
+ * owner supplies, by `scripts/probe-conditional-writes.mjs`), and this
+ * simulation matches every answer: `FileNode/set` honours `ifInState`; a
+ * mismatch arrives as `stateMismatch`, never as `invalidArguments`; the FileNode
+ * state token advances on every write that matters, so a token read before one
+ * is refused after it; and a blob **upload** — which writes no node — does not
+ * advance it. That last answer is what makes the order `writeAppFileAt` uses
+ * (read the state, upload, set conditionally) safe, and the probe asks that
+ * composed order as its own question.
  */
 function checkIfInState(a: Obj, type: string): void {
   const asked = a.ifInState;

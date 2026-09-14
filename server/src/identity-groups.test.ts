@@ -132,13 +132,48 @@ after(() => {
   (mock as { server?: { close(): void } }).server?.close();
 });
 
+test("the demo's group carries an identity for the demo user, which is what the composer offers", async () => {
+  /*
+   * A member is offered the group's identity carrying their own display name
+   * and nothing else (ADR 0007), so a group whose identities carry no member's
+   * name offers a member nothing at all: the composer says the administration
+   * has not set one for them, and the mailbox cannot be written from.
+   *
+   * That is the state the demo environment was in — one identity named after
+   * the group, carrying nobody — so this reads the two lists the two surfaces
+   * read and pins that they meet: the demo user's own display name, and the
+   * group's identity for them. It is the drift that makes the demo say no
+   * identity was set for somebody one was set for.
+   */
+  const me = (await person(DEMO)).body as unknown as { identities?: Row[] };
+  const mine = (me.identities ?? []).find((row) => row.email === DEMO);
+  assert.ok(mine, "the demo user's own account holds an identity carrying their address");
+
+  const held = (await group(TEAM)).body as unknown as GroupView;
+  const bound = held.identities.find(
+    (row) =>
+      row.email === TEAM &&
+      row.name.trim().toLowerCase() === mine.name.trim().toLowerCase(),
+  );
+  assert.ok(
+    bound,
+    `the group must hold an identity carrying the demo user's own name (${JSON.stringify(
+      mine.name,
+    )}) on ${TEAM}; it holds ${JSON.stringify(held.identities.map((row) => row.name))}`,
+  );
+});
+
 test("a group answers every identity it holds, and the roster they belong to", async () => {
   const first = await group(TEAM);
   assert.equal(first.status, 200, JSON.stringify(first.body));
   const view = first.body as unknown as GroupView;
   assert.equal(view.name, TEAM);
   assert.equal(view.granted, true, "the agent is granted on this group");
-  assert.equal(view.identities.length, 1, "the group's own address is what it holds");
+  assert.equal(
+    view.identities.length,
+    2,
+    "the group's own identity, and the one its demo member holds",
+  );
   assert.equal(view.identities[0]!.email, TEAM);
   assert.deepEqual(
     view.members,
@@ -154,23 +189,23 @@ test("a group answers every identity it holds, and the roster they belong to", a
   const created = await post("/api/admin/identities/group", {
     name: TEAM,
     id: null,
-    patch: { name: "Demo User", email: TEAM, textSignature: "— Demo" },
+    patch: { name: "Gilbert", email: TEAM, textSignature: "— the agent" },
   });
   assert.equal(created.status, 200, JSON.stringify(created.body));
   const id = created.body?.id as string;
   assert.ok(id, "a created identity answers its id");
-  assert.notEqual(
-    id,
-    view.identities[0]!.id,
-    "a create answers a new identity, so the group holds two",
+  assert.equal(
+    view.identities.some((row) => row.id === id),
+    false,
+    "a create answers a new identity",
   );
 
   const after = await group(TEAM);
   const both = after.body as unknown as GroupView;
   assert.deepEqual(
     both.identities.map((row) => row.name).sort(),
-    ["Demo User", "Team"],
-    "the group answers both identities it holds",
+    ["Demo User", "Gilbert", "Team"],
+    "the group answers every identity it holds",
   );
   assert.deepEqual(both.members, view.members, "with the roster beside them");
 });
