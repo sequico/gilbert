@@ -58,6 +58,17 @@ interface FilesState {
   loadChildren(parentId: Id | null): Promise<void>;
   mkdir(parentId: Id | null, name: string): Promise<Id>;
   upload(parentId: Id | null, files: File[]): Promise<void>;
+  /**
+   * Save files into an account that is not the one being browsed.
+   *
+   * A message's attachments belong to the mailbox's account, and saving them
+   * to Files can mean the reader's own files or a group's -- neither of which
+   * is where Files happens to be looking. The nodes are created where the
+   * blobs go and `accountId` is left alone, so the view does not move under
+   * the reader. Returns how many landed and the names of the ones that did
+   * not, because the caller has to say so.
+   */
+  uploadTo(accountId: Id, files: File[]): Promise<{ saved: number; failed: string[] }>;
   rename(id: Id, name: string): Promise<void>;
   /**
    * Write text back over a file. `seenBlobId` is what the editor started from:
@@ -126,6 +137,34 @@ export function emptyForAccount(accountId: Id | null) {
     draggingIds: [],
     error: null,
   };
+}
+
+/**
+ * Upload one file into an account and create the node that points at it.
+ *
+ * The account is a parameter because a node has to be created in the account
+ * that holds the blob, and that is not always the one being browsed: saving a
+ * message's attachments to Files can mean the reader's own files or a group's.
+ */
+async function putFile(
+  accountId: Id,
+  parentId: Id | null,
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<Id> {
+  const type = file.type || "application/octet-stream";
+  const up = await client.upload(accountId, file, {
+    type,
+    onProgress:
+      onProgress && ((loaded, total) => onProgress(Math.round((loaded / total) * 100))),
+  });
+  const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
+    accountId,
+    create: { f: fileCreate(parentId, file.name, up.blobId, type) },
+  });
+  const err = res.notCreated?.f;
+  if (err) throw new Error(setErrorMessage(err));
+  return res.created!.f!.id;
 }
 
 export const useFiles = create<FilesState>((set, get) => ({
@@ -320,28 +359,13 @@ export const useFiles = create<FilesState>((set, get) => ({
         uploads: [...s.uploads, { id, name: f.name, progress: 0, error: null }],
       }));
       try {
-        const up = await client.upload(accountId, f, {
-          type: f.type || "application/octet-stream",
-          onProgress: (l, t) =>
-            set((s) => ({
-              uploads: s.uploads.map((u) =>
-                u.id === id ? { ...u, progress: Math.round((l / t) * 100) } : u,
-              ),
-            })),
-        });
-        const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
-          accountId,
-          create: {
-            f: fileCreate(
-              parentId,
-              f.name,
-              up.blobId,
-              f.type || "application/octet-stream",
+        await putFile(accountId, parentId, f, (percent) =>
+          set((s) => ({
+            uploads: s.uploads.map((u) =>
+              u.id === id ? { ...u, progress: percent } : u,
             ),
-          },
-        });
-        const err = res.notCreated?.f;
-        if (err) throw new Error(setErrorMessage(err));
+          })),
+        );
         set((s) => ({ uploads: s.uploads.filter((u) => u.id !== id) }));
       } catch (err) {
         set((s) => ({
@@ -352,6 +376,20 @@ export const useFiles = create<FilesState>((set, get) => ({
       }
     }
     await get().loadChildren(parentId);
+  },
+
+  async uploadTo(accountId, files) {
+    const failed: string[] = [];
+    let saved = 0;
+    for (const f of files) {
+      try {
+        await putFile(accountId, null, f);
+        saved += 1;
+      } catch {
+        failed.push(f.name);
+      }
+    }
+    return { saved, failed };
   },
 
   /* Re-read named nodes in place. Sharing changes one property of one node and

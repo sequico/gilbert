@@ -15,6 +15,7 @@ import {
   File as FileIcon,
   FileSpreadsheet,
   FileText,
+  FileUp,
   Film,
   Filter,
   Forward,
@@ -64,6 +65,7 @@ import { internalDomains, isExternalSender, linkVerdict } from "@/lib/warnings";
 import { useCalendar } from "@/store/calendar";
 import { draftFromMailto, useCompose } from "@/store/compose";
 import { useContacts } from "@/store/contacts";
+import { useFiles } from "@/store/files";
 import { useMail } from "@/store/mail";
 import { sendReadReceipt } from "@/store/mdn";
 import { useScheduled } from "@/store/scheduled";
@@ -78,6 +80,7 @@ import { AddressList, useAddressMenu } from "./AddressMenu";
 import { FilterFromMessageDialog } from "./FilterFromMessage";
 import { InviteCard } from "./InviteCard";
 import type { ListActions } from "./MessageList";
+import { SaveToFilesDialog } from "./SaveToFilesDialog";
 import { SignatureBanner } from "./SignatureBanner";
 import { VCardCard } from "./VCardCard";
 
@@ -1531,6 +1534,10 @@ function AttachmentList({
   email: Email;
 }) {
   const [preview, setPreview] = useState<EmailBodyPart | null>(null);
+  const [saveToFiles, setSaveToFiles] = useState(false);
+  /* Files can be off: the account may hold no FileNode capability at all, and
+     a control that opens a dialog with nowhere to save is worse than none. */
+  const filesAvailable = useFiles((s) => s.available);
 
   /*
    * The same share the preview dialog offers, on the row itself.
@@ -1682,6 +1689,19 @@ function AttachmentList({
             <Download size={14} /> {translate("Download all")}
           </button>
         )}
+        {/* Saving to Files is the other half of "Download all": the same set of
+            attachments, kept in the account rather than on the desktop -- and
+            which account is the reader's to choose, because a group's files are
+            the group's. */}
+        {attachments.length > 1 && filesAvailable && (
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ alignSelf: "center" }}
+            onClick={() => setSaveToFiles(true)}
+          >
+            <FileUp size={14} /> {translate("Download all to Files")}
+          </button>
+        )}
       </div>
       <FilePreviewDialog
         file={
@@ -1713,6 +1733,13 @@ function AttachmentList({
           </p>
         }
       />
+      {saveToFiles && (
+        <SaveToFilesDialog
+          accountId={accountId}
+          attachments={attachments}
+          onClose={() => setSaveToFiles(false)}
+        />
+      )}
     </>
   );
 }

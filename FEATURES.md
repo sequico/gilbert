@@ -919,7 +919,12 @@ same query string — so what it builds can be read, edited and learned from.
   directly and the sender learns all three; the docs say so plainly.
 - **Inline images** (`cid:`) are resolved against the message's own parts.
 - **Attachments** listed with type and size: download, open in a new tab, and an
-  inline preview for images and PDFs.
+  inline preview for images and PDFs. **Download all** takes the lot, and
+  **Download all to Files** keeps them in the account instead — asking first
+  whose: the reader's own files, or a group's, where every member of the group
+  finds them (a node created in the group's account is the group's from
+  creation). The blobs are copied into the chosen account, because a file node
+  can only point at a blob its own account holds.
 - **Show original**, **Show headers**, **Download (.eml)** and **Print**.
 - **`winmail.dat` opens.** Outlook sending in Rich Text packs every attachment
   into one TNEF blob that most clients cannot read, so the files inside are
@@ -1410,6 +1415,9 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   afterwards.)
 - **Sharing** per file or folder, with rights per person.
 - **Attach from Files** in the composer, with no re-upload.
+- **Saved into from mail**: a message's attachments can be kept here instead of
+  downloaded, into your own files or a group's — the group's account is the
+  destination that makes them the group's.
 - One folder is hidden on purpose: **`gilbert`**, contents and all. It holds
   the settings file and signature images, and the Files view drops it from the
   listing so it never reads as a place to file your own.
