@@ -1356,7 +1356,9 @@ JMAP Contacts and JSContact.
 - **Contact records**: photo, prefix, first, middle, last, suffix, nickname,
   company, job title, any number of emails, phones and addresses with types,
   birthday, website and notes.
-- **Groups** as a card kind, with members picked from the book.
+- **Groups** as a card kind, with members picked from the book the card is
+  filed in — the group's own cards when the group's directory is the target,
+  since a member is named by a `uid` that means nothing outside its account.
 - **Select and delete in bulk** — tick rows in the list, shift-click for a run,
   and delete the lot; or **Empty address book** from the book's own menu, which
   is the operation a migration asks for when an import needs doing again. A card

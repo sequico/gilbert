@@ -184,13 +184,24 @@ export function ContactEditor({
       ? Object.values(card.media ?? {}).find((m) => m.kind === "photo")
       : undefined;
 
+  /*
+   * Who can be a member of this card, which is a question about the account
+   * the card is being filed into.
+   *
+   * A group's members are its own cards: the uid a member is stored as means
+   * nothing in another account, and a group card filed in the group's book
+   * refers to the group's book. Searching the reader's own cards there found
+   * nobody -- the group's directory was not in the list to pick from -- while
+   * searching them for a card of the reader's own is exactly right. So the
+   * search follows the book chosen above, and follows it when that changes.
+   */
   const memberCandidates = useMemo(() => {
     if (!memberQuery.trim()) return [];
     return contacts
-      .search(memberQuery)
+      .filterCards(contacts.cardsIn(bookAccount), memberQuery)
       .filter((c) => c.kind !== "group" && !memberUids.includes(c.uid))
       .slice(0, 6);
-  }, [memberQuery, contacts, memberUids]);
+  }, [memberQuery, contacts, memberUids, bookAccount]);
 
   const save = async () => {
     if (!bookId) {
@@ -602,7 +613,7 @@ export function ContactEditor({
             <label>{t("Members")}</label>
             <div className="row wrap gap-4 mb-8">
               {memberUids.map((uid) => {
-                const m = Object.values(contacts.cards).find((x) => x.uid === uid);
+                const m = contacts.cardsIn(bookAccount).find((x) => x.uid === uid);
                 return (
                   <span key={uid} className="chip">
                     {m ? contactDisplayName(m) : uid}

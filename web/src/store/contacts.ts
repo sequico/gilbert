@@ -275,6 +275,15 @@ interface ContactsState {
   accountOfBook(bookId: Id): Id | null;
   getCard(id: Id, accountId?: Id | null): Promise<ContactCard | null>;
   search(text: string): ContactCard[];
+  /**
+   * The cards of one account, as the reader may read them.
+   *
+   * The reader's own when `accountId` is null or theirs, otherwise that
+   * account's cards -- which is what a card living there refers to. A group's
+   * members are the group's own cards, not copies in the reader's book, and a
+   * `uid` means nothing outside the account that holds it.
+   */
+  cardsIn(accountId: Id | null): ContactCard[];
   /** The search filter itself, so a shared book can be filtered the same way. */
   filterCards(cards: ContactCard[], text: string): ContactCard[];
   createCard(
@@ -711,6 +720,15 @@ export const useContacts = create<ContactsState>((set, get) => ({
 
   search(text) {
     return get().filterCards(Object.values(get().cards), text);
+  },
+
+  cardsIn(accountId) {
+    const own = get().accountId;
+    if (!accountId || accountId === own) return Object.values(get().cards);
+    const prefix = `${accountId}:`;
+    return Object.entries(get().sharedCards)
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([, card]) => card);
   },
 
   /*
