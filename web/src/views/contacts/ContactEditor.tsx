@@ -7,7 +7,13 @@ import type {
   JSContactEmail,
   JSContactPhone,
 } from "@/jmap/types";
-import { buildName, contactDisplayName, nameParts, newKey } from "@/lib/contacts";
+import {
+  buildName,
+  cardsByUid,
+  contactDisplayName,
+  nameParts,
+  newKey,
+} from "@/lib/contacts";
 import { t } from "@/lib/i18n";
 import { isGroupMailboxAccount } from "@/lib/mailAccounts";
 import { sharedKey, useContacts } from "@/store/contacts";
@@ -208,7 +214,27 @@ export function ContactEditor({
       .filterCards(contacts.cardsIn(bookAccount), memberQuery)
       .filter((c) => c.kind !== "group" && !memberUids.includes(c.uid))
       .slice(0, 6);
-  }, [memberQuery, contacts, memberUids, bookAccount]);
+    // Read off the card lists themselves rather than the whole store object: a
+    // write to anything else must not re-run a search over the book.
+  }, [
+    memberQuery,
+    contacts.cards,
+    contacts.sharedCards,
+    contacts.accountId,
+    memberUids,
+    bookAccount,
+  ]);
+
+  /*
+   * The member chips look a uid up in the book's cards. One table, built once:
+   * a uid means nothing outside the account holding the card, so the card has
+   * to be found in that account's list -- and reading that list per chip is
+   * what made a group with many members cost members × cards to draw.
+   */
+  const bookCardsByUid = useMemo(
+    () => (kind === "group" ? cardsByUid(contacts.cardsIn(bookAccount)) : null),
+    [kind, contacts.cards, contacts.sharedCards, contacts.accountId, bookAccount],
+  );
 
   const save = async () => {
     if (!bookId) {
@@ -622,7 +648,7 @@ export function ContactEditor({
             <label>{t("Members")}</label>
             <div className="row wrap gap-4 mb-8">
               {memberUids.map((uid) => {
-                const m = contacts.cardsIn(bookAccount).find((x) => x.uid === uid);
+                const m = bookCardsByUid?.get(uid);
                 return (
                   <span key={uid} className="chip">
                     {m ? contactDisplayName(m) : uid}

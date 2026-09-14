@@ -27,6 +27,7 @@ import {
   contactEmails,
   contactPhoto,
   formatAddressLines,
+  memberCards,
   sortKey,
   toVCard,
 } from "@/lib/contacts";
@@ -599,11 +600,7 @@ function ContactDetail({
    */
   const groupAccount = contacts.accountOfCard(c.id) ?? contacts.accountId;
   const members =
-    c.kind === "group"
-      ? Object.keys(c.members ?? {})
-          .map((uid) => contacts.cardsIn(groupAccount).find((x) => x.uid === uid))
-          .filter((x): x is ContactCard => Boolean(x))
-      : [];
+    c.kind === "group" ? memberCards(contacts.cardsIn(groupAccount), c.members) : [];
   const ctxLabel = (ctx?: Record<string, boolean>, label?: string) =>
     label || Object.keys(ctx ?? {}).join(", ") || "";
 

@@ -137,8 +137,7 @@ export function groupRecipients(
   group: ContactCard,
   cards: readonly ContactCard[],
 ): { addresses: EmailAddress[]; skipped: number } {
-  const byUid = new Map<string, ContactCard>();
-  for (const c of cards) if (c.uid) byUid.set(c.uid, c);
+  const byUid = cardsByUid(cards);
   const addresses: EmailAddress[] = [];
   const seen = new Set<string>();
   let skipped = 0;
@@ -156,6 +155,34 @@ export function groupRecipients(
     addresses.push({ name: contactDisplayName(member), email: address });
   }
   return { addresses, skipped };
+}
+
+/** A card list keyed by uid, built in one pass. */
+export function cardsByUid(cards: readonly ContactCard[]): Map<string, ContactCard> {
+  const byUid = new Map<string, ContactCard>();
+  for (const c of cards) if (c.uid) byUid.set(c.uid, c);
+  return byUid;
+}
+
+/**
+ * The cards a group's member uids name, from the account's list read once.
+ *
+ * A member is stored as a uid, and a uid means nothing outside the account
+ * holding the card, so the lookup has to happen in that account's list. What it
+ * must not do is read that list again for every member: a group with many
+ * members then costs members × cards to draw.
+ */
+export function memberCards(
+  cards: readonly ContactCard[],
+  members: Record<string, unknown> | null | undefined,
+): ContactCard[] {
+  const byUid = cardsByUid(cards);
+  const out: ContactCard[] = [];
+  for (const uid of Object.keys(members ?? {})) {
+    const c = byUid.get(uid);
+    if (c) out.push(c);
+  }
+  return out;
 }
 
 export function contactPhoto(c: ContactCard, accountId: string): string | null {

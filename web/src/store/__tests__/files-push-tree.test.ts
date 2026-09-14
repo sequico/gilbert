@@ -86,6 +86,7 @@ describe("a FileNode push reloads the sidebar tree as well as the listings", () 
       available: true,
       nodes: { d1: NODE("d1") },
       children: { root: ["d1"] },
+      listingShown: null,
       loading: false,
       error: null,
       uploads: [],
@@ -112,6 +113,7 @@ describe("a FileNode push reloads the sidebar tree as well as the listings", () 
       available: true,
       nodes: {},
       children: {},
+      listingShown: null,
       loading: false,
       error: null,
       uploads: [],
@@ -128,5 +130,33 @@ describe("a FileNode push reloads the sidebar tree as well as the listings", () 
         (q) => (q.filter as { nodeType?: string } | undefined)?.nodeType === "directory",
       ),
     ).toBe(false);
+  });
+
+  it("re-reads the listing on screen, and only that one", async () => {
+    /* A change arriving from elsewhere refreshes what is being looked at. Every
+       folder the reader has ever opened is a different thing: that set grows
+       with the session, and re-reading it cost a query and a get per folder per
+       change. */
+    const queries = stubServer();
+    useFiles.setState({
+      accountId: "a1",
+      ownAccountId: "a1",
+      available: true,
+      nodes: { d1: NODE("d1"), d2: NODE("d2"), d3: NODE("d3") },
+      children: { root: ["d1"], d2: ["d3"] },
+      listingShown: { parentId: "d2" },
+      loading: false,
+      error: null,
+      uploads: [],
+      dirIds: ["d1", "d2"],
+      treeLoaded: false,
+      draggingIds: [],
+    });
+    useFiles.getState().applyChanges(new Set(["FileNode"]));
+    await vi.waitFor(() => expect(queries.length).toBeGreaterThan(0));
+    const asked = queries.map(
+      (q) => (q.filter as { parentId?: string }).parentId ?? "(top)",
+    );
+    expect(asked).toEqual(["d2"]);
   });
 });

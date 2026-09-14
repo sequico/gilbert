@@ -32,6 +32,16 @@ interface FilesState {
   initialized: boolean;
   nodes: Record<Id, FileNode>;
   children: Record<string, Id[]>; // parentId ("root" for null) → ids
+  /**
+   * The listing on screen, if any: the folder whose children the Files view is
+   * drawing, `parentId: null` for the top level and `null` for no listing at
+   * all.
+   *
+   * Registered by the view, because nobody else knows, and read by
+   * `applyChanges` so a change arriving from elsewhere re-reads what is being
+   * looked at instead of every folder the reader has ever opened.
+   */
+  listingShown: { parentId: Id | null } | null;
   loading: boolean;
   error: string | null;
   uploads: Array<{ id: string; name: string; progress: number; error: string | null }>;
@@ -66,6 +76,8 @@ interface FilesState {
    * the reader who takes it away, and only such a row offers to.
    */
   dismissUpload(id: string): void;
+  /** Say which listing is on screen, so a push refreshes it and not the rest. */
+  setListingShown(shown: { parentId: Id | null } | null): void;
   /**
    * Save files into an account that is not the one being browsed.
    *
@@ -183,6 +195,7 @@ export const useFiles = create<FilesState>((set, get) => ({
   initialized: false,
   nodes: {},
   children: {},
+  listingShown: null,
   loading: false,
   error: null,
   uploads: [],
@@ -557,20 +570,29 @@ export const useFiles = create<FilesState>((set, get) => ({
     return out;
   },
 
+  setListingShown(shown) {
+    set({ listingShown: shown });
+  },
+
   applyChanges(types) {
     if (types.has("FileNode")) {
-      /* Open listings reload below; the sidebar tree must too, or a folder
-         created/renamed/deleted on another device stays wrong there until a
-         remount. Only when a tree is on screen: otherwise the first loadTree
-         (driven by the tree view) covers it. */
+      /* The sidebar tree must be re-read, or a folder created, renamed or
+         deleted on another device stays wrong there until a remount. Only when
+         a tree is on screen: otherwise the first loadTree (driven by the tree
+         view) covers it. */
       if (get().treeLoaded) void get().loadTree();
-      for (const key of Object.keys(get().children))
-        void get().loadChildren(key === "root" ? null : key);
+      /* And the listing being looked at, and only it. Opening a folder reads it
+         again anyway -- the view asks on every navigation -- so re-reading
+         every folder the reader has ever opened is work that grows with the
+         session and keeps no promise: each change paid for all of them, a
+         query and a get apiece. */
+      const shown = get().listingShown;
+      if (shown) void get().loadChildren(shown.parentId);
     }
   },
 }));
 
 useSession.subscribe((s) => {
   if (s.status !== "authenticated")
-    useFiles.setState({ accountId: null, nodes: {}, children: {} });
+    useFiles.setState({ accountId: null, nodes: {}, children: {}, listingShown: null });
 });

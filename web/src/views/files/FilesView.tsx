@@ -79,7 +79,13 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   }, []);
 
   useEffect(() => {
-    if (files.available) void files.loadChildren(parentId);
+    if (!files.available) return;
+    /* Tell the store which listing is on screen, so a change arriving from
+       elsewhere re-reads this one. Cleared on the way out: nothing is on
+       screen once the view is gone. */
+    files.setListingShown({ parentId });
+    void files.loadChildren(parentId);
+    return () => files.setListingShown(null);
     // `accountId` is in here because opening a share changes which account the
     // same route means: at /files the parent is null before and after, so
     // without it the listing would keep showing the previous account's folder.

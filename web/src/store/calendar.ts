@@ -428,7 +428,7 @@ interface CalendarState {
   /** The whole calendar as one .ics document, and how many events went into it. */
   exportIcs(calendarId: Id): Promise<{ text: string; count: number }>;
   applyChanges(types: Set<string>, accountId?: Id): void;
-  refreshWindows(): void;
+  refreshWindows(shared?: boolean): void;
   setDraft(draft: EventDraft | null): void;
 }
 
@@ -585,8 +585,9 @@ async function eventIdsByUid(accountId: Id, calendarId: Id): Promise<Map<string,
 }
 
 /* Coalesces `refreshWindows` (see there): one silent refresh per burst of
-   writes/pushes instead of one per event. */
-let calendarRefreshQueued = false;
+   writes/pushes instead of one per event, and per kind of window -- the
+   reader's own, and the shared ones drawn beside them. */
+const calendarWindowsQueued = { own: false, shared: false };
 
 /* Shift an event's cached times by `deltaMs` for the optimistic copy of a
    move: the zoned `start`, and — when present — the utc pair that toInstance
@@ -1640,35 +1641,35 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     if (accountId && accountId !== own) {
       if (!get().sharedCalendars.some((c) => c.accountId === accountId)) return;
       if (types.has("Calendar")) void get().loadSharedCalendars();
-      if (types.has("CalendarEvent")) {
-        for (const key of Object.keys(get().ranges)) {
-          const [s, e] = key.split("|").map(Number) as [number, number];
-          if (Number.isFinite(s) && Number.isFinite(e))
-            void get().loadSharedRange(new Date(s), new Date(e));
-        }
-      }
+      /* Through the same coalescing the reader's own windows go through: the
+         events of a shared account arrive one per change too. */
+      if (types.has("CalendarEvent")) get().refreshWindows(true);
       return;
     }
     if (types.has("Calendar")) void get().loadCalendars();
     if (types.has("CalendarEvent")) get().refreshWindows();
   },
 
-  refreshWindows() {
+  refreshWindows(shared = false) {
     // Re-fetch every window that is loaded, silently: nothing is dropped
     // first, so what is on screen stays until the fresh answer lands
     // (stale-while-revalidate). A write or a push must never flash an empty
     // grid over content that is already there.
     //
-    // Coalesced: a burst of pushes -- or the reader's own write followed by
-    // its push echo -- refreshes the windows once, not once per event.
-    if (calendarRefreshQueued) return;
-    calendarRefreshQueued = true;
+    // Coalesced per kind: a burst of pushes -- or the reader's own write
+    // followed by its push echo -- refreshes the windows once, not once per
+    // event. A shared account's windows are their own kind, because a change
+    // to a colleague's calendar is not a change to the reader's.
+    const kind = shared ? "shared" : "own";
+    if (calendarWindowsQueued[kind]) return;
+    calendarWindowsQueued[kind] = true;
     queueMicrotask(() => {
-      calendarRefreshQueued = false;
+      calendarWindowsQueued[kind] = false;
       for (const key of Object.keys(get().ranges)) {
         const [s, e] = key.split("|").map(Number) as [number, number];
-        if (Number.isFinite(s) && Number.isFinite(e))
-          void get().loadRange(new Date(s), new Date(e), true);
+        if (!Number.isFinite(s) || !Number.isFinite(e)) continue;
+        if (shared) void get().loadSharedRange(new Date(s), new Date(e));
+        else void get().loadRange(new Date(s), new Date(e), true);
       }
     });
   },
