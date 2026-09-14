@@ -35,6 +35,15 @@ is, not what a user sees.
   bounds what it may do. Covers the notebook, chaining, metering, the
   document tools, and the three-part admin surface (Master, Group Agents,
   Approvals).
+- **0004 — A contact group is not a recipient.** A group card
+  (`kind: "group"`, its `members` named by `uid`, no address of its own) is a
+  client-side convenience over addresses: the composer's To/Cc/Bcc
+  autocomplete, the recipient picker and the contact card's "Email group"
+  action resolve it through one resolver, when it is chosen, into chips for the
+  individual addresses — one per member, the preferred one — so the wire, the
+  drafts and the replies never know a group exists. Resolved against every book
+  the reader may read, a group mailbox's books among them; a member that cannot
+  be resolved is skipped and counted; no nesting, and no threshold of its own.
 - **0005 — Group chat and the group label catalog.** Both are layers on the
   group account's own JMAP Files, owned by the group from creation.
 - **0006 — The minimal automation.** A group authors one enabled automation
