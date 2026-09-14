@@ -33,6 +33,7 @@ import {
 import { formatDuration, shiftStoredStart } from "@/lib/eventDrag";
 import { t } from "@/lib/i18n";
 import { type IcsEvent, looksLikeCalendar, parseIcs, toIcs } from "@/lib/ics";
+import { isTaskCalendar } from "@/lib/taskList";
 import { useContacts } from "./contacts";
 import { useSession } from "./session";
 import { settings, useSettings } from "./settings";
@@ -437,6 +438,15 @@ interface CalendarState {
  * recurring instances (synthetic ids can't be patched directly).
  */
 const EVENT_PROPS = [
+  /*
+   * `@type` is asked for because the grid decides whether a CalendarEvent is
+   * an event or a `Task` by exactly this property, and a `properties` list
+   * that leaves it out gets objects without it -- against a server that
+   * honours the list, the check below could never fire. Stalwart honours it
+   * (`properties` is why the JMAP-only fields above are named at all), so the
+   * tasks module has always asked for it; the calendar did not.
+   */
+  "@type",
   "id",
   "baseEventId",
   "calendarIds",
@@ -971,6 +981,12 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       if (!e || e["@type"] === "Task") continue;
       const calId = Object.keys(e.calendarIds ?? {})[0];
       if (calId && hidden[calId]) continue;
+      /*
+       * And when the property is not enough: a task list is a calendar the
+       * Tasks module owns and the sidebar draws no row for, so nothing inside
+       * one is an event to draw either -- whatever a server does with `@type`.
+       */
+      if (isTaskCalendar(calId ? calendars[calId] : undefined)) continue;
       const inst = toInstance(e, calendars, ownAccount);
       if (!inst) continue;
       if (inst.end > start && inst.start < end) out.push(inst);
@@ -1002,6 +1018,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         theirs[c.calendar.id] = c.calendar;
       }
       if (calId && !theirs[calId]) continue;
+      if (isTaskCalendar(calId ? theirs[calId] : undefined)) continue;
       const inst = toInstance(e, theirs, accountId);
       if (!inst) continue;
       // Ids are unique only within an account, so a key that is the bare id

@@ -31,11 +31,11 @@ import { formatWeekday } from "@/lib/datetime";
 import { formatMonthYear } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
+import { isTaskCalendar } from "@/lib/taskList";
 import { subscriptionCalendarId, useCalendar } from "@/store/calendar";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { dateTimeKey, useSettings } from "@/store/settings";
-import { TASKLIST_MARKER } from "@/store/tasks";
 import { confirmDialog } from "@/ui/dialog";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
@@ -55,7 +55,6 @@ export function CalendarSidebar() {
     [dateStr],
   );
   const [anchor, setAnchor] = useState(() => startOfDay(selected));
-  const isTasklist = (c: Calendar) => c.description === TASKLIST_MARKER;
   const grid = useMemo(() => monthGrid(anchor, weekStart), [anchor, weekStart]);
   const menu = useMenu();
   /*
@@ -147,10 +146,10 @@ export function CalendarSidebar() {
   const groups = useMemo(() => groupMailboxAccounts(mailAccounts), [mailAccounts]);
   const groupIds = new Set(groups.map((g) => g.accountId));
   const sharedOnlySubscribed = cal.sharedCalendars.filter(
-    (c) => !groupIds.has(c.accountId) && isAdded(c) && !isTasklist(c.calendar),
+    (c) => !groupIds.has(c.accountId) && isAdded(c) && !isTaskCalendar(c.calendar),
   );
   const sharedOnlyAvailable = cal.sharedCalendars.filter(
-    (c) => !groupIds.has(c.accountId) && !isAdded(c) && !isTasklist(c.calendar),
+    (c) => !groupIds.has(c.accountId) && !isAdded(c) && !isTaskCalendar(c.calendar),
   );
 
   const [menuCal, setMenuCal] = useState<Calendar | null>(null);
@@ -258,7 +257,7 @@ export function CalendarSidebar() {
   /* Task lists are calendars underneath, but they live in the Tasks module
      only: never listed among calendars, never offered in the event editor. */
   const calendars = Object.values(cal.calendars)
-    .filter((c) => !isTasklist(c))
+    .filter((c) => !isTaskCalendar(c))
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 
   return (
@@ -420,7 +419,7 @@ export function CalendarSidebar() {
             </button>
           </div>
           {cal.sharedCalendars
-            .filter((c) => c.accountId === g.accountId && !isTasklist(c.calendar))
+            .filter((c) => c.accountId === g.accountId && !isTaskCalendar(c.calendar))
             .map((c) => (
               <Fragment key={`${c.accountId}:${c.calendar.id}`}>
                 {isAdded(c)

@@ -43,6 +43,7 @@ import {
   WEEKDAY_KEYS,
   weekdayOptions,
 } from "@/lib/recurrence";
+import { isTaskCalendar } from "@/lib/taskList";
 import {
   accountOfCalendarId,
   type EventScope,
@@ -57,7 +58,6 @@ import {
 import { useContacts } from "@/store/contacts";
 import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
-import { TASKLIST_MARKER } from "@/store/tasks";
 import { DateField, DateTimeField } from "@/ui/datefield";
 import { Dialog } from "@/ui/dialog";
 import { ColorSwatches, Switch } from "@/ui/misc";
@@ -283,9 +283,7 @@ function EventForm({
   const calendars = [
     ...Object.values(cal.calendars)
       .filter(
-        (c) =>
-          (c.myRights.mayWriteAll || c.myRights.mayWriteOwn) &&
-          c.description !== TASKLIST_MARKER,
+        (c) => (c.myRights.mayWriteAll || c.myRights.mayWriteOwn) && !isTaskCalendar(c),
       )
       .map((c) => ({
         accountId: ownAccountId,
@@ -296,7 +294,7 @@ function EventForm({
     ...cal.sharedCalendars
       .filter(
         (x) =>
-          x.calendar.description !== TASKLIST_MARKER &&
+          !isTaskCalendar(x.calendar) &&
           (x.calendar.myRights.mayWriteAll || x.calendar.myRights.mayWriteOwn),
       )
       .map((x) => ({

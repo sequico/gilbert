@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { chunk, client, setErrorMessage } from "@/jmap/client";
 import type { GetResponse, Id, QueryResponse, SetResponse, TaskItem } from "@/jmap/types";
+import { isTaskCalendar, TASKLIST_MARKER } from "@/lib/taskList";
 import { useCalendar } from "./calendar";
 import { useSession } from "./session";
 
@@ -19,8 +20,6 @@ import { useSession } from "./session";
  * member of the group, so the subscription gate the calendar grid applies to
  * shared calendars does not apply here.
  */
-
-export const TASKLIST_MARKER = "tasklist";
 
 /** Keyword prefix that carries a task's position inside its list. */
 const ORDER_KEY = "order-";
@@ -126,10 +125,6 @@ export function taskListKey(accountId: Id, calendarId: Id): string {
   return `${accountId}/${calendarId}`;
 }
 
-function isTasklist(c: { description?: string | null }): boolean {
-  return c.description === TASKLIST_MARKER;
-}
-
 export const useTasks = create<TaskState>((set, get) => ({
   accountId: null,
   lists: [],
@@ -146,7 +141,7 @@ export const useTasks = create<TaskState>((set, get) => ({
     const own = cal.accountId;
     const lists: TaskList[] = [
       ...Object.values(cal.calendars)
-        .filter(isTasklist)
+        .filter(isTaskCalendar)
         .map((c) => ({
           accountId: own ?? "",
           calendarId: c.id,
@@ -154,7 +149,7 @@ export const useTasks = create<TaskState>((set, get) => ({
           color: c.color,
         })),
       ...cal.sharedCalendars
-        .filter((x) => isTasklist(x.calendar))
+        .filter((x) => isTaskCalendar(x.calendar))
         .map((x) => ({
           accountId: x.accountId,
           accountName: x.accountName,
@@ -420,11 +415,11 @@ function tasklistSignature(): string {
   const cal = useCalendar.getState();
   const ownAccount = cal.accountId ?? "";
   const own = Object.values(cal.calendars)
-    .filter(isTasklist)
+    .filter(isTaskCalendar)
     .map((c) => `${ownAccount}:${c.id}`)
     .sort();
   const shared = cal.sharedCalendars
-    .filter((x) => isTasklist(x.calendar))
+    .filter((x) => isTaskCalendar(x.calendar))
     .map((x) => `${x.accountId}:${x.calendar.id}`)
     .sort();
   return [...own, ...shared].join("|");
