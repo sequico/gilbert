@@ -61,10 +61,13 @@ export interface TaskState {
    */
   selectedListId: string | null;
   /**
-   * Whether the list on screen is one the reader picked, rather than one a
-   * load dealt out. See `chosenListId`.
+   * The list the reader asked to be on -- what they picked, or what this device
+   * was last on. Kept apart from `selectedListId`, which is only what could be
+   * shown: a list that is momentarily out of reach is dealt a fallback, and the
+   * intent has to survive that to come back when the list does. See
+   * `offeredListId`.
    */
-  chosenByReader: boolean;
+  pickedListId: string | null;
   select(key: string): void;
   load(): Promise<void>;
   create(
@@ -131,29 +134,22 @@ export function taskListKey(accountId: Id, calendarId: Id): string {
   return `${accountId}/${calendarId}`;
 }
 
+/** The reader the current intent belongs to; see `load`. */
+let lastPlaceOwner: string | null = null;
+
 /**
- * Which list to open: the one the reader picked, or the one this device was
- * last on, or -- for a session that has neither -- the first, as before.
+ * The list to show: the reader's intent when it is really there, and the first
+ * list otherwise.
  *
- * The middle case is the one that matters at boot. A load that ran before the
- * calendars of a group had arrived deals out the reader's own first list, and
- * that is not a choice anybody made; the record is what they actually left
- * behind, so it wins until the reader picks something themselves. The record
- * is still only a seed: a list deleted from another device is checked against
- * what is really here.
+ * The intent is deliberately not overwritten by that fallback. A group's
+ * calendars can be out of reach for a moment -- a load that ran before they
+ * arrived, a read that failed and is retried -- and a list that came back must
+ * find the reader still on it rather than parked on whatever was left over.
  */
-function chosenListId(
-  chosenByReader: boolean,
-  current: string | null,
-  lists: TaskList[],
-): string | null {
-  const wanted =
-    (chosenByReader ? current : null) ??
-    loadPlace(placeOwnerFrom(useSession.getState())).taskList ??
-    current;
-  if (wanted && lists.some((l) => taskListKey(l.accountId, l.calendarId) === wanted))
-    return wanted;
-  return lists[0] ? taskListKey(lists[0].accountId, lists[0].calendarId) : null;
+function offeredListId(picked: string | null, lists: TaskList[]): string | null {
+  const held = lists.map((l) => taskListKey(l.accountId, l.calendarId));
+  if (picked && held.includes(picked)) return picked;
+  return held[0] ?? null;
 }
 
 export const useTasks = create<TaskState>((set, get) => ({
@@ -162,10 +158,10 @@ export const useTasks = create<TaskState>((set, get) => ({
   tasks: {},
   loaded: false,
   selectedListId: null,
-  chosenByReader: false,
+  pickedListId: null,
 
   select(id) {
-    set({ selectedListId: id, chosenByReader: true });
+    set({ selectedListId: id, pickedListId: id });
     rememberPlace(placeOwnerFrom(useSession.getState()), { taskList: id });
   },
 
@@ -229,13 +225,25 @@ export const useTasks = create<TaskState>((set, get) => ({
            group holds even when its tasks are out of reach. */
       }
     }
-    set((s) => ({
+    /*
+     * The reader's intent: what they picked, or what this device was last on.
+     * A different reader is a different record, so an owner change starts it
+     * over -- a list one person picked says nothing about the next one's.
+     */
+    const owner = placeOwnerFrom(useSession.getState());
+    if (owner !== lastPlaceOwner) {
+      lastPlaceOwner = owner;
+      if (get().pickedListId) set({ pickedListId: null });
+    }
+    const picked = get().pickedListId ?? loadPlace(owner).taskList ?? null;
+    set({
       accountId: own,
       lists,
       tasks,
       loaded: true,
-      selectedListId: chosenListId(s.chosenByReader, s.selectedListId, lists),
-    }));
+      pickedListId: picked,
+      selectedListId: offeredListId(picked, lists),
+    });
   },
 
   async create(list, title, opts = {}) {
@@ -423,7 +431,7 @@ useSession.subscribe((s, prev) => {
     tasks: {},
     loaded: false,
     selectedListId: null,
-    chosenByReader: false,
+    pickedListId: null,
   });
   // The calendar store is cleared with the sign-out; the next signature event
   // must set the baseline afresh rather than diff against a dead one.

@@ -37,6 +37,19 @@ const PREFIX = "gilbert:";
  */
 const KEEP_ON_SIGN_OUT = ["lastUser", "deviceTrusted", "pushDeviceId", "pushEnabled"];
 
+/**
+ * Keys kept by their suffix instead, because they are namespaced per reader
+ * (`accountKey`).
+ *
+ * `lastPlace` has to survive a sign-out, and the sign-out that matters is the
+ * ordinary one: a deploy expires every session, which is exactly when "where I
+ * was" is worth something. Keeping it is safe -- the key names the reader it
+ * belongs to, and every read goes through the trust gate, so the next person on
+ * the machine reads their own empty record and an untrusted device reads
+ * nothing. `clearAllData`, for a device we do not trust, still clears it.
+ */
+const KEEP_ON_SIGN_OUT_SUFFIX = [":lastPlace"];
+
 const TRUST_KEY = `${PREFIX}deviceTrusted`;
 
 /**
@@ -89,6 +102,7 @@ function ownKeys(): string[] {
 export function clearSignedInData(): void {
   for (const key of ownKeys()) {
     if (KEEP_ON_SIGN_OUT.includes(key)) continue;
+    if (KEEP_ON_SIGN_OUT_SUFFIX.some((suffix) => key.endsWith(suffix))) continue;
     removeKey(key);
   }
 }

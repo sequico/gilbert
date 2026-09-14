@@ -495,12 +495,33 @@ export function CalendarSidebar() {
                     label={t("Use as task list")}
                     disabled={shared && !menuCal.myRights.mayWriteAll}
                     onClick={() => {
-                      const patch = { description: TASKLIST_MARKER };
-                      void (
-                        shared
-                          ? cal.updateSharedCalendar(menuAccountId!, menuCal.id, patch)
-                          : cal.updateCalendar(menuCal.id, patch)
-                      ).catch((err) => toast.error((err as Error).message));
+                      /* The description is somebody's text -- a group's calendar
+                         may carry a sentence about itself -- and the marker
+                         replaces it outright. Ask when there is something to
+                         lose. */
+                      const described = Boolean(menuCal.description?.trim());
+                      void (async () => {
+                        if (
+                          described &&
+                          !(await confirmDialog({
+                            title: t("Use as task list?"),
+                            message: t(
+                              "Its description, \u201c{text}\u201d, will be replaced by the task-list marker.",
+                              { text: menuCal.description ?? "" },
+                            ),
+                            confirmLabel: t("Use as task list"),
+                          }))
+                        )
+                          return;
+                        const patch = { description: TASKLIST_MARKER };
+                        try {
+                          await (shared
+                            ? cal.updateSharedCalendar(menuAccountId!, menuCal.id, patch)
+                            : cal.updateCalendar(menuCal.id, patch));
+                        } catch (err) {
+                          toast.error((err as Error).message);
+                        }
+                      })();
                     }}
                   />
                 )}

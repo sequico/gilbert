@@ -691,6 +691,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
       const books: Record<Id, AddressBook> = {};
       for (const b of res.list) books[b.id] = b;
       set({ books, error: null });
+      restoreBookPlace();
     } catch (err) {
       set({ error: (err as Error).message });
     }

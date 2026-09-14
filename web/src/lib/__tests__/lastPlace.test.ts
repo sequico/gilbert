@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { loadPlace, rememberPlace } from "@/lib/lastPlace";
-import { setDeviceTrusted } from "@/lib/storage";
+import { clearAllData, clearSignedInData, setDeviceTrusted } from "@/lib/storage";
 
 /**
  * Where the reader was, for the next session on this device.
@@ -37,5 +37,16 @@ describe("the record of where the reader was", () => {
   it("remembers nothing when there is no reader to remember it for", () => {
     rememberPlace(null, { mailAccountId: "acc-2" });
     expect(loadPlace(null)).toEqual({});
+  });
+
+  it("survives signing out, because a deploy signs everybody out", () => {
+    rememberPlace("reader", { mailAccountId: "acc-2" });
+
+    clearSignedInData();
+    expect(loadPlace("reader").mailAccountId).toBe("acc-2");
+
+    /* A device we do not trust keeps nothing at all, this record included. */
+    clearAllData();
+    expect(loadPlace("reader")).toEqual({});
   });
 });

@@ -1651,7 +1651,15 @@ export const useCalendar = create<CalendarState>((set, get) => ({
      */
     const own = get().accountId;
     if (accountId && accountId !== own) {
-      if (!get().sharedCalendars.some((c) => c.accountId === accountId)) return;
+      /* An account with nothing listed here has either never been read or lost
+         its read. Either way the answer is to read it now: ignoring what
+         arrives from it is what kept a group's calendars -- and its task list
+         with them -- out of the app for a whole session, since nothing else
+         asks again. */
+      if (!get().sharedCalendars.some((c) => c.accountId === accountId)) {
+        void get().loadSharedCalendars();
+        return;
+      }
       if (types.has("Calendar")) void get().loadSharedCalendars();
       /* Through the same coalescing the reader's own windows go through: the
          events of a shared account arrive one per change too. */

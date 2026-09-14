@@ -97,16 +97,17 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   /*
    * Opening Files lands where this device left off -- the folder that was open
    * last time, when it belongs to the account being browsed and still exists.
-   * Once per mount, and only from the top level: a link to a folder somebody
-   * followed is a place they chose now, not one to overwrite. The tree has to
-   * have answered first, because that is what says which folders exist.
+   * The attempt belongs to an account rather than to the mount: opening a share
+   * later in the session is when *its* place can be honoured, and the record is
+   * the folder of the account it names. Only from the top level, because a link
+   * to a folder somebody followed is a place they chose now. The tree has to
+   * have answered first, since that is what says which folders exist.
    */
-  const landed = useRef(false);
+  const restoredFor = useRef<Id | null | undefined>(undefined);
   useEffect(() => {
-    if (landed.current) return;
-    if (parentId !== null || !files.available) return;
-    if (!files.treeLoaded) return;
-    landed.current = true;
+    if (parentId !== null || !files.available || !files.treeLoaded) return;
+    if (restoredFor.current === files.accountId) return;
+    restoredFor.current = files.accountId;
     const place = loadPlace(placeOwnerFrom(useSession.getState())).files;
     if (!place?.parentId || place.accountId !== files.accountId) return;
     if (!files.dirIds.includes(place.parentId)) return;

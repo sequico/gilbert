@@ -30,13 +30,25 @@ export interface LastPlace {
 }
 
 /**
- * Whose record this is: the reader's own account, whatever capability is
- * being asked about. One id, so the four surfaces share one record.
+ * Whose record this is: the reader's own account, whatever capability is being
+ * asked about. One id, so the four surfaces share one record.
+ *
+ * Never "the mail account" alone: Files, Tasks and Contacts have nothing to do
+ * with mail, and a session whose own account does not advertise it would
+ * otherwise leave all four surfaces silently inert. The order is the order a
+ * session is most likely to answer in, not a ranking.
  */
 export function placeOwnerFrom(
   session: { ownAccountFor(cap: string): string | null } | null | undefined,
 ): string | null {
-  return session?.ownAccountFor(CAP.mail) ?? null;
+  if (!session) return null;
+  return (
+    session.ownAccountFor(CAP.mail) ??
+    session.ownAccountFor(CAP.filenode) ??
+    session.ownAccountFor(CAP.calendars) ??
+    session.ownAccountFor(CAP.contacts) ??
+    null
+  );
 }
 
 export function loadPlace(owner: string | null | undefined): LastPlace {

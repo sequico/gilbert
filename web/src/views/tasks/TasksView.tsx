@@ -176,6 +176,16 @@ export function TasksView() {
   const [dragId, setDragId] = useState<Id | null>(null);
   const [overId, setOverId] = useState<Id | null>(null);
 
+  /*
+   * The lists a reader has can change while the app is open -- a colleague
+   * makes one, or a read that failed at boot only succeeds later -- so opening
+   * this surface asks the calendars again rather than trusting one answer from
+   * boot for the rest of the session.
+   */
+  useEffect(() => {
+    void useCalendar.getState().loadSharedCalendars();
+  }, []);
+
   const list = useMemo<TaskList | null>(
     () =>
       lists.find((l) => taskListKey(l.accountId, l.calendarId) === selectedId) ??

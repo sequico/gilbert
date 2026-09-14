@@ -67,7 +67,7 @@ beforeEach(() => {
     lists: [],
     tasks: {},
     selectedListId: null,
-    chosenByReader: false,
+    pickedListId: null,
     loaded: false,
   });
 });
@@ -113,5 +113,20 @@ describe("the task lists a reader has", () => {
     expect(useTasks.getState().selectedListId).toBe("acc-own/own1");
     /* Picking one is itself a place: the next session opens here. */
     expect(loadPlace("acc-own").taskList).toBe("acc-own/own1");
+  });
+
+  it("brings the picked list back when the calendars it lives in return", async () => {
+    const group = useCalendar.getState().sharedCalendars;
+    useTasks.getState().select("acc-group/g1");
+
+    /* The group's calendars are momentarily out of reach: the view falls back
+       to the reader's own list, and the intent has to survive that. */
+    useCalendar.setState({ sharedCalendars: [] });
+    await useTasks.getState().load();
+    expect(useTasks.getState().selectedListId).toBe("acc-own/own1");
+
+    useCalendar.setState({ sharedCalendars: group });
+    await useTasks.getState().load();
+    expect(useTasks.getState().selectedListId).toBe("acc-group/g1");
   });
 });
