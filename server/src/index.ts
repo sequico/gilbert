@@ -3,6 +3,7 @@ import { startAgentFleet } from "./agent/agent.js";
 import { createApp, sessionDocumentIo, sessions, useDurableSessions } from "./app.js";
 import { bootInstallation } from "./bootstrap.js";
 import { assertServable, config, useConfiguration } from "./config.js";
+import { releaseOnShutdown } from "./push.js";
 
 async function main() {
   /*
@@ -80,6 +81,10 @@ async function main() {
     console.log(`[gilbert] ${signal} received, shutting down`);
     server.close();
     await fleet?.stop();
+    /* Before the sessions go: releasing a subscription needs a live credential,
+       and what is left behind otherwise holds one of the account's fifteen
+       slots for as long as it lives. A deploy is a shutdown. */
+    await releaseOnShutdown();
     await sessions.close();
     process.exit(0);
   };

@@ -11,6 +11,11 @@ const push = await import("./push.js");
 /** The https origin the server derives from a request behind a trusted proxy. */
 const ORIGIN = "https://gilbert.example";
 
+/** The base path this test run is configured with, for URL-shaped assertions. */
+function configBasePath(): string {
+  return process.env.GILBERT_BASE_PATH ?? "";
+}
+
 // Nothing in this file may reach the network. Background subscribe() calls
 // outlive the test that started them, so the stub stays in place for the
 // whole file rather than per test; the per-test stubs below layer on top.
@@ -119,6 +124,191 @@ function captureToken(): { restore(): void; token: () => string | null } {
   }) as typeof fetch;
   return { restore: () => (globalThis.fetch = real), token: () => token };
 }
+
+/**
+ * A Stalwart that keeps its subscriptions, with the account's cap on them.
+ *
+ * The subscription is the installation's, one per account: a create releases
+ * what this installation already holds first, which is what a restart, a
+ * renewal and a retry after an unverified attempt all depend on -- and what
+ * stops the account's fifteen slots filling up with the remains of deploys.
+ * This fake counts them, so "one subscription, whatever has happened" is
+ * something a test can assert rather than assume.
+ */
+function fakePushServer(
+  opts: { cap?: number; waitFor?: number } = {},
+  start: Obj[] = [],
+) {
+  const real = globalThis.fetch;
+  const subs: Obj[] = [...start];
+  const calls: Array<{ method: string; args: Obj }> = [];
+  const cap = opts.cap ?? 15;
+  let seq = 0;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const body = init?.body ? (JSON.parse(String(init.body)) as Obj) : null;
+    if (body?.methodCalls) {
+      const responses: unknown[] = [];
+      for (const [method, args, id] of body.methodCalls as [string, Obj, string][]) {
+        calls.push({ method, args });
+        if (method === "PushSubscription/get") {
+          responses.push([
+            method,
+            {
+              accountId: "a",
+              state: "s",
+              list: subs.map((x) => ({ ...x })),
+              notFound: [],
+            },
+            id,
+          ]);
+        } else if (method === "PushSubscription/set") {
+          const destroyed = (args.destroy as string[]) ?? [];
+          for (const d of destroyed) {
+            const i = subs.findIndex((x) => x.id === d);
+            if (i >= 0) subs.splice(i, 1);
+          }
+          const created: Obj = {};
+          const notCreated: Obj = {};
+          for (const [cid, obj] of Object.entries((args.create as Obj) ?? {})) {
+            const o = obj as Obj;
+            if (opts.waitFor && subs.length >= opts.waitFor) {
+              notCreated[cid] = {
+                type: "overquota",
+                description:
+                  "There are too many subscriptions, please delete some before adding a new one.",
+              };
+              continue;
+            }
+            if (subs.length >= cap) {
+              notCreated[cid] = {
+                type: "overquota",
+                description: "Too many subscriptions.",
+              };
+              continue;
+            }
+            const sid = `ps${++seq}`;
+            subs.push({ id: sid, ...o, verified: false });
+            created[cid] = { id: sid, expires: o.expires ?? null };
+          }
+          responses.push([
+            method,
+            { accountId: "a", created, notCreated, updated: {}, destroyed },
+            id,
+          ]);
+        } else {
+          responses.push([method, { accountId: "a", list: [], notFound: [] }, id]);
+        }
+      }
+      return new Response(JSON.stringify({ methodResponses: responses }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (url.endsWith("/.well-known/jmap") || url.includes("/jmap/session")) {
+      return new Response(
+        JSON.stringify({
+          apiUrl: "http://127.0.0.1:1/jmap/",
+          primaryAccounts: { "urn:ietf:params:jmap:mail": "a" },
+          accounts: { a: {} },
+          capabilities: {},
+          eventSourceUrl: "",
+          downloadUrl: "",
+          uploadUrl: "",
+          state: "s",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    return new Response("{}", { status: 599 });
+  }) as typeof fetch;
+  return {
+    subs,
+    calls,
+    restore: () => {
+      globalThis.fetch = real;
+    },
+  };
+}
+
+type Obj = Record<string, unknown>;
+
+test("a subscription is released before it is created, so a restart keeps one", async () => {
+  const fake = fakePushServer();
+  try {
+    const a = await isolatedPush("restart-1");
+    a.attach("someone@example.com", "a", "Basic x", fakeOut() as never, ORIGIN);
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(fake.subs.length, 1, "the first process's subscription");
+
+    // A second process of the same installation: same identity, so the one
+    // already there is released rather than added to.
+    const b = await isolatedPush("restart-2");
+    b.attach("someone@example.com", "a", "Basic x", fakeOut() as never, ORIGIN);
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(fake.subs.length, 1, "still one subscription for the installation");
+    const destroyed = fake.calls.filter((c) => c.args.destroy);
+    assert.equal(destroyed.length, 1, "the predecessor's was destroyed, not orphaned");
+  } finally {
+    fake.restore();
+  }
+});
+
+test("deploys that were killed are reclaimed by their URL, which frees the slots", async () => {
+  /* Twelve orphans of earlier deployments: random device ids nobody can match,
+     and URLs under this installation's own callback. The account's cap is
+     nearly gone, and the create is what has to reach in and take them. */
+  const orphans = Array.from({ length: 12 }, (_, i) => ({
+    id: `orphan${i}`,
+    deviceClientId: `gilbert-${i}deadbeef`,
+    url: `${ORIGIN}${configBasePath()}/api/push/oldtoken${i}`,
+    expires: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+  }));
+  const fake = fakePushServer({ cap: 15 }, orphans);
+  try {
+    const push = await isolatedPush("reclaim");
+    push.attach("someone@example.com", "a", "Basic x", fakeOut() as never, ORIGIN);
+    await new Promise((r) => setTimeout(r, 30));
+    const ours = fake.subs.filter(
+      (s) =>
+        String(s.url).startsWith(`${ORIGIN}${configBasePath()}/api/push/`) &&
+        s.id.startsWith("ps"),
+    );
+    assert.equal(ours.length, 1, "one subscription of ours, the fresh one");
+    assert.equal(fake.subs.length, 1, "and nothing else left behind");
+  } finally {
+    fake.restore();
+  }
+});
+
+test("a refusal says why, instead of 'not created'", async () => {
+  const fake = fakePushServer({ cap: 0 });
+  try {
+    const push = await isolatedPush("refused");
+    push.attach("someone@example.com", "a", "Basic x", fakeOut() as never, ORIGIN);
+    await new Promise((r) => setTimeout(r, 30));
+    const st = push.pushStatus();
+    const said = (st as { failures?: string[] }).failures?.join(" ") ?? "";
+    assert.match(said, /overquota/, "the server's own reason reaches the status");
+    assert.match(said, /too many subscriptions/i, "and its description with it");
+  } finally {
+    fake.restore();
+  }
+});
+
+test("shutting down gives the subscriptions back", async () => {
+  const fake = fakePushServer();
+  try {
+    const push = await isolatedPush("shutdown");
+    push.attach("someone@example.com", "a", "Basic x", fakeOut() as never, ORIGIN);
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(fake.subs.length, 1);
+    await push.releaseOnShutdown();
+    assert.equal(fake.subs.length, 0, "what a deploy must not leave on the account");
+  } finally {
+    fake.restore();
+  }
+});
 
 test("an unknown token is a 404", async () => {
   assert.equal(await push.receive("nope", { "@type": "StateChange" }), 404);

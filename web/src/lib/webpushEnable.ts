@@ -16,6 +16,7 @@ import {
   listSubscriptions,
   needsRenewal,
   pushEnabledHere,
+  releaseThisDevice,
   setPushEnabledHere,
   subscriptionPayload,
   unsubscribeThisDevice,
@@ -118,8 +119,11 @@ export async function enableWebPush(): Promise<
  * Get this browser subscribed at the push service and registered at Stalwart.
  *
  * Shared by turning push on and by renewing it, because they are the same
- * call: `deviceClientId` makes a repeat registration replace rather than
- * accumulate, so there is no separate "update" path to get wrong.
+ * call. What it replaces is released first, by our own hand rather than by
+ * trusting the server to recognise a repeated `deviceClientId`: the account's
+ * fifteen subscriptions are shared with the server's own per-account one, and
+ * nothing here has verified that Stalwart replaces rather than accumulates
+ * (see `releaseThisDevice`).
  *
  * The local subscription is created when it is missing rather than only reused.
  * A browser may drop or rotate one on its own -- a `pushsubscriptionchange`
@@ -137,6 +141,7 @@ async function registerThisBrowser(key: string): Promise<void> {
     }));
   const accountId = useSession.getState().ownAccountFor(CAP.mail);
   const inboxId = useMail.getState().roleId("inbox");
+  await releaseThisDevice();
   await createSubscription(subscriptionPayload(sub, accountId, inboxId));
 }
 

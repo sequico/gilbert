@@ -284,9 +284,34 @@ export async function destroySubscription(id: Id): Promise<void> {
   );
 }
 
+/**
+ * Destroy every subscription this browser registered at the server.
+ *
+ * The account's ceiling is fifteen subscriptions and the server keeps one of
+ * its own per account, so a re-registration releases what it replaces rather
+ * than adding to the pile. Relying on the server to replace by
+ * `deviceClientId` is an assumption about Stalwart that nothing here validates
+ * — the mock replaces, and the deployed server accumulated the subscriptions
+ * of processes that died mid-flight (KNOWN-ISSUES) — and this side of the
+ * ceiling costs one round trip to be sure of.
+ */
+export async function releaseThisDevice(): Promise<number> {
+  const mine = deviceClientId();
+  let released = 0;
+  try {
+    for (const s of await listSubscriptions())
+      if (s.deviceClientId === mine) {
+        await destroySubscription(s.id);
+        released++;
+      }
+  } catch {
+    /* the server said no; the registration that follows will say so itself */
+  }
+  return released;
+}
+
 /** Remove every subscription this browser registered. Used when signing out. */
 export async function unsubscribeThisDevice(): Promise<void> {
-  const mine = deviceClientId();
   try {
     const reg = await navigator.serviceWorker?.getRegistration();
     const sub = await reg?.pushManager.getSubscription();
@@ -295,8 +320,7 @@ export async function unsubscribeThisDevice(): Promise<void> {
     /* the browser end is gone or was never there; still clear the server end */
   }
   try {
-    const subs = await listSubscriptions();
-    for (const s of subs) if (s.deviceClientId === mine) await destroySubscription(s.id);
+    await releaseThisDevice();
   } catch {
     /* signing out must not fail over this */
   }

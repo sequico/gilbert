@@ -23,7 +23,7 @@
  * transition loses no events, because a tab opened before verification keeps
  * its own relay for its whole life.
  */
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import type { ServerResponse } from "node:http";
 import { config } from "./config.js";
 import { PUSH_STATE_TYPES } from "./shared/push.js";
@@ -42,6 +42,16 @@ const SWEEP_MS = 30_000;
  * stream whose upstream subscription was expiring unrenewed.
  */
 const RETRY_BACKOFF_MS = 5 * 60_000;
+/**
+ * How long we ask Stalwart to keep a subscription.
+ *
+ * A lapsed subscription is not a lost notification -- the account is served by
+ * the per-tab relay instead -- so the ceiling is only a bound on how long a
+ * subscription nobody owns any more can hold one of the account's slots. That
+ * is what a deploy that is killed rather than shut down leaves behind, and
+ * "frees itself in a day" is worth an extra renewal a day while tabs are open.
+ */
+const TTL_MS = 24 * 60 * 60_000;
 
 interface AccountPush {
   key: string; // upstream base + username
@@ -52,13 +62,19 @@ interface AccountPush {
   origin: string;
   token: string; // what Stalwart puts in the URL
   /**
-   * What Stalwart is told this subscription's device is: stable for the entry,
-   * so a renewal replaces the subscription rather than piling another one up.
-   * Its own value, not a slice of the token -- the token is the only thing
-   * authenticating the callback URL, and what Stalwart records about the
+   * What Stalwart is told this subscription's device is: this *installation*,
+   * not this process.
+   *
+   * Derived from what the deployment is configured with, so it is the same
+   * value after a restart as before it -- which is what lets a restart release
+   * its predecessor's subscription instead of adding to the account's fifteen
+   * slots. Its own value, not a slice of the token: the token is the only
+   * thing authenticating the callback URL, and what Stalwart records about the
    * subscription is not the place for a piece of it.
    */
   deviceId: string;
+  /** Why the last attempt failed, for /api/health. Cleared on success. */
+  lastFailure: string | null;
   authorization: string; // one live session's credential, for set/verify/renew
   subscriptionId: string | null;
   state: "pending" | "verified" | "failed";
@@ -110,12 +126,93 @@ async function jmap(entry: AccountPush, calls: unknown[]) {
   };
 }
 
+/**
+ * The installation's identity, from what it is configured with.
+ *
+ * Two deployments against the same Stalwart are two devices and each keeps its
+ * own subscription; one deployment keeps one, whatever number of processes or
+ * tabs it has run through.
+ */
+function deviceIdFor(base: string): string {
+  return createHash("sha256")
+    .update(`${base}|${config.basePath}`)
+    .digest("base64url")
+    .slice(0, 16);
+}
+
+/** This installation's callback: every subscription under it is ours. */
+function isOurs(entry: AccountPush, sub: { deviceClientId?: string; url?: string }) {
+  return (
+    sub.deviceClientId === `gilbert-${entry.deviceId}` ||
+    Boolean(sub.url?.startsWith(`${entry.origin}${config.basePath}/api/push/`))
+  );
+}
+
+interface UpstreamSubscription {
+  id: string;
+  deviceClientId?: string;
+  url?: string;
+  expires?: string | null;
+}
+
+/**
+ * Release every subscription this installation holds for the account.
+ *
+ * Called before a create, so what the account ends up with is the subscription
+ * about to be registered and nothing else: a restart replaces its
+ * predecessor's rather than adding to it, a renewal replaces the one it is
+ * renewing, and a retry after a verification that never came drops the
+ * subscription that was waiting for it -- an unverified one holds a slot and
+ * serves nobody.
+ *
+ * It is also what cleans up after deployments that were killed rather than
+ * shut down. Those are recognised by their URL alone -- a random
+ * `deviceClientId` from a process that no longer exists is not an identity
+ * anyone can match -- and the URL under this deployment's own callback is
+ * exactly what they are.
+ *
+ * Best effort throughout: a release that fails must not stop the subscription
+ * being established, which is the thing the account actually wants.
+ */
+async function releaseOurs(entry: AccountPush): Promise<number> {
+  let ours: UpstreamSubscription[] = [];
+  try {
+    const r = await jmap(entry, [["PushSubscription/get", { ids: null }, "0"]]);
+    const list = (r.methodResponses[0]?.[1] as { list?: UpstreamSubscription[] })?.list;
+    ours = (list ?? []).filter((s) => isOurs(entry, s));
+  } catch (err) {
+    console.warn(
+      `[gilbert] push: could not list subscriptions for ${entry.username}: ${(err as Error).message}`,
+    );
+    return 0;
+  }
+  if (!ours.length) return 0;
+  try {
+    await jmap(entry, [
+      ["PushSubscription/set", { destroy: ours.map((s) => s.id) }, "0"],
+    ]);
+    return ours.length;
+  } catch (err) {
+    console.warn(
+      `[gilbert] push: could not release ${ours.length} subscription(s) for ${entry.username}: ${(err as Error).message}`,
+    );
+    return 0;
+  }
+}
+
 async function subscribe(entry: AccountPush) {
   const url = `${entry.origin}${config.basePath}/api/push/${entry.token}`;
   // Every type a surface keeps live, for every account. The list is the one
   // the relay's `types=*` already covers, so which transport a deployment is
   // on does not decide which parts of the app update. See PUSH_STATE_TYPES.
   const types = [...PUSH_STATE_TYPES];
+  /* Released before it is recreated: the subscription is the installation's,
+     one per account, and this is what keeps that true across restarts. */
+  const released = await releaseOurs(entry);
+  if (released)
+    console.log(
+      `[gilbert] push: released ${released} subscription(s) of this installation for ${entry.username}`,
+    );
   const r = await jmap(entry, [
     [
       "PushSubscription/set",
@@ -125,6 +222,9 @@ async function subscribe(entry: AccountPush) {
             deviceClientId: `gilbert-${entry.deviceId}`,
             url,
             types,
+            // Asked for rather than left to the server's default: the TTL is
+            // what bounds how long an orphan holds a slot (see TTL_MS).
+            expires: new Date(Date.now() + TTL_MS).toISOString(),
           },
         },
       },
@@ -132,16 +232,26 @@ async function subscribe(entry: AccountPush) {
     ],
   ]);
   const first = r.methodResponses[0];
-  const created = (
-    first?.[1] as
-      | { created?: Record<string, { id: string; expires?: string }> }
-      | undefined
-  )?.created?.s;
-  if (!created) throw new Error("subscription not created");
+  const payload = first?.[1] as
+    | {
+        created?: Record<string, { id: string; expires?: string }>;
+        notCreated?: Record<string, { type?: string; description?: string }>;
+      }
+    | undefined;
+  const created = payload?.created?.s;
+  if (!created) {
+    /* Stalwart says why -- `overquota` when the account's fifteen slots are
+       gone, `invalidProperties` when it disliked something -- and a client
+       that throws "not created" throws away the only diagnosis there is. */
+    const why = payload?.notCreated?.s;
+    const detail = why
+      ? `${why.type ?? "refused"}${why.description ? `: ${why.description}` : ""}`
+      : "no reason given";
+    throw new Error(`subscription not created (${detail})`);
+  }
   entry.subscriptionId = created.id;
-  entry.expires = created.expires
-    ? Date.parse(created.expires)
-    : Date.now() + 7 * 86_400_000;
+  entry.expires = created.expires ? Date.parse(created.expires) : Date.now() + TTL_MS;
+  entry.lastFailure = null;
 }
 
 async function verify(entry: AccountPush, code: string) {
@@ -213,10 +323,11 @@ export function prepare(
       base,
       origin,
       token: randomBytes(32).toString("base64url"),
-      deviceId: randomBytes(12).toString("base64url"),
+      deviceId: deviceIdFor(base),
       authorization,
       subscriptionId: null,
       state: "pending",
+      lastFailure: null,
       since: Date.now(),
       expires: 0,
       tabs: new Set(),
@@ -290,6 +401,7 @@ export function attachRelay(
 function fail(entry: AccountPush, why: string): void {
   entry.state = "failed";
   entry.since = Date.now();
+  entry.lastFailure = why;
   // The entry may already have been cleaned up while the attempt was in
   // flight; nothing wants the account any more, so the failure is moot.
   if (byKey.get(entry.key) === entry)
@@ -434,16 +546,41 @@ export function pushStatus() {
     failed = 0,
     tabs = 0,
     relays = 0;
+  const failures: string[] = [];
   for (const e of byKey.values()) {
     tabs += e.tabs.size;
     relays += e.relays.size;
     if (e.state === "verified") verified++;
     else if (e.state === "pending") pending++;
     else failed++;
+    if (e.state === "failed" && e.lastFailure)
+      failures.push(`${e.username}: ${e.lastFailure}`);
   }
   return {
     mode: pushEnabled() ? "subscribe" : "relay",
     accounts: { verified, pending, failed },
     tabs: { fanout: tabs, relay: relays },
+    /* Why the accounts that are not on the fast path are not: the question an
+       operator asks when notifications are "slow", and the one Stalwart has
+       been answering all along without anybody reading it. */
+    failures,
   };
+}
+
+/**
+ * Give up the subscriptions while the credentials that can still destroy them
+ * are in hand. Called on the way down, which is what a deploy is: without
+ * this, every deploy leaves one subscription per account behind, and enough
+ * deploys fill the account's fifteen slots (see releaseOurs).
+ */
+export async function releaseOnShutdown(): Promise<void> {
+  await Promise.all(
+    [...byKey.values()].map(async (entry) => {
+      const released = await releaseOurs(entry);
+      if (released)
+        console.log(
+          `[gilbert] push: released ${released} subscription(s) for ${entry.username} on shutdown`,
+        );
+    }),
+  );
 }
