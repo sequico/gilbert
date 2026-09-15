@@ -2096,15 +2096,24 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
    * labels and leaves the navigation unreachable for as long as a draft is
    * waiting — the opposite of what minimizing a draft is for. And as fixed
    * bars there is no layout between them at all, so two minimized drafts sit
-   * on the same pixels and only one of them can be found. `column-reverse`
-   * stacks them upward off the tabbar, oldest nearest the bottom, which is
-   * where the eye and the thumb already are.
+   * on the same pixels and only one of them can be found.
+   *
+   * `column` rather than `column-reverse`, which is the DOM order: `.drafts`
+   * is append-only, so the last child is the draft parked most recently and it
+   * lands nearest the tabbar, where the thumb already is. The stack grows
+   * upward off it.
    */
-  .composer-dock { right: 0; bottom: var(--mobile-chrome); flex-direction: column-reverse; align-items: stretch; }
+  .composer-dock { right: 0; bottom: var(--mobile-chrome); flex-direction: column; align-items: stretch; }
   /* The backdrop is what the dialog is measured against: its own padding is
      the gap, plus the insets so a notched phone keeps the dialog's edges off
-     the notch, and the dialog takes exactly what that leaves. */
-  .dialog-backdrop { padding: calc(12px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+     the notch, and the dialog takes exactly what that leaves. `100dvh` on the
+     backdrop too: `inset: 0` resolves against the layout viewport, which on a
+     phone browser is the tall one that ignores the address bar, so without it
+     the box the dialog is centred in hangs below the screen -- and a dialog at
+     its full height then has its foot, where the buttons are, off the bottom.
+     Anchor and height both given means `bottom` is ignored, which is what is
+     wanted here: top of the visible area, one visible area tall. */
+  .dialog-backdrop { padding: calc(12px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); height: 100dvh; }
   .dialog { max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
   .fab { display: flex; position: fixed; right: calc(var(--fab-gap) + env(safe-area-inset-right)); bottom: calc(var(--mobile-chrome) + var(--fab-gap)); width: var(--fab-size); height: var(--fab-size); border-radius: 18px; background: var(--accent); color: var(--accent-fg); align-items: center; justify-content: center; box-shadow: var(--shadow-2); z-index: 700; }
   /* Above the tabbar, and above the fab that floats over it. A toast at the
@@ -2577,13 +2586,20 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
   background: color-mix(in srgb, var(--accent, #0f766e) 10%, transparent);
 }
 
-/* Mobile: the panel becomes a full-screen sheet, not a sixth tab. */
+/* Mobile: the panel becomes a full-screen sheet, not a sixth tab. `100dvh` for
+   the reason the composer takes it: this renders on a phone only, `inset: 0`
+   sizes against the layout viewport, and the sheet's own bottom edge is where
+   its composer sits -- so on a phone browser the send box and the input would
+   be behind the address bar until the page was scrolled, which a fixed element
+   cannot be. The bottom inset is the same argument with the home indicator. */
 .chat-sheet {
   position: fixed; inset: 0; z-index: 750; /* below the composer dock (955) */
+  height: 100dvh;
   background: var(--bg); display: flex; flex-direction: column;
   animation: chat-up .18s var(--ease);
 }
 .chat-sheet .chat-panel { height: 100%; }
+.chat-sheet .chat-composer { padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
 .chat-sheet .chat-close { display: inline-flex; }
 @keyframes chat-up {
   from { transform: translateY(24px); opacity: .6; }

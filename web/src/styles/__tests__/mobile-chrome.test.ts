@@ -116,6 +116,25 @@ describe("phone chrome", () => {
     expect(declarations(phone, ".composer.minimized")).toContain("position: static");
   });
 
+  it("makes every full-screen surface measure the area it is actually shown in", () => {
+    /*
+     * `inset: 0` on a fixed element sizes against the layout viewport, which on
+     * a phone browser is the tall one that ignores the address bar. For a
+     * surface whose bottom edge carries a control -- the composer's Send, the
+     * chat sheet's input, the dialog's foot -- that control ends up behind the
+     * toolbar until the page is scrolled, which a fixed element cannot be.
+     *
+     * These three are the ones that are full height and have something at the
+     * bottom; a bottom-anchored bar is not this bug and is not listed.
+     */
+    /* `.composer` is the mobile block's; `.chat-sheet` renders on a phone only,
+       so it carries the rule where it is declared rather than under a media
+       query that could not change the answer. */
+    expect(declarations(phone, ".composer")).toContain("height: 100dvh");
+    expect(declarations(css, ".chat-sheet")).toContain("height: 100dvh");
+    expect(declarations(phone, ".dialog-backdrop")).toContain("height: 100dvh");
+  });
+
   it("keeps a toast above the fab it would otherwise land on", () => {
     const bottom = /bottom:\s*([^;]+)/.exec(declarations(phone, ".toast-host"))?.[1];
     expect(bottom, "no bottom on .toast-host").toBeDefined();
