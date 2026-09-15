@@ -9,8 +9,8 @@ import { after, test } from "node:test";
  * it. What these tests exercise is every ownership decision — take what is
  * free, leave what a peer that started after us holds, hold our own without
  * writing anything, take over a claim taken before this process started while
- * keeping the catch-up states it recorded — and, since a refusal is no longer
- * indistinguishable from a loss, why a claim came back empty.
+ * keeping the catch-up states it recorded — and why a claim came back empty,
+ * which a refusal that cannot be told apart from a loss could not answer.
  *
  * Two of them are read against the mock's upload counter, because the claim is
  * a fence and not a lease: holding one is worth zero uploads, and a real

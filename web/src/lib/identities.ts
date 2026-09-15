@@ -127,7 +127,8 @@ export interface AdminPersonGroup {
  *
  * A group holds **one identity per member** (ADR 0007) — the group's own
  * address, each member's own display name and signature — so this is a list
- * where it used to be one, and the administrator assigns them by member.
+ * where the surface used to hold one, and the administrator assigns them by
+ * member.
  * `members` is that roster, read as the agent: `null` when it could not be read
  * at all, which is an answer rather than a failure — the identities it holds
  * are still listed, and the surface says the roster is unreadable.

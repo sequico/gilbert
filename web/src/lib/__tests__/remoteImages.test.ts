@@ -3,10 +3,10 @@ import { remoteImagesAllowed } from "@/lib/remoteImages";
 
 /**
  * The one remote-image decision, shared by the message reader and the
- * composer's quote path. A reply used to fetch the quoted mail's tracking
- * pixels regardless of what the reader had decided for that very message; the
- * decision is a property of (settings, sender), and both seats derive it
- * from this function so they cannot drift apart again.
+ * composer's quote path. The decision is a property of (settings, sender): a
+ * reply that fetched the quoted mail's tracking pixels regardless of what the
+ * reader had decided for that very message is the defect this prevents, and
+ * both seats derive the answer from this function so they cannot drift apart.
  */
 describe("remoteImagesAllowed", () => {
   const base = {

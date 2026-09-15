@@ -4,13 +4,13 @@ import { useContacts } from "@/store/contacts";
 import { useSession } from "@/store/session";
 
 /*
- * Sign-out used to clear only the reader's own half of the contacts store.
- * `sharedBooks`, `sharedCards`, `sharedLoaded` and `selection` survived into
- * the next sign-in, so the previous reader's selection could route the
- * Contacts list and `suggest()` could offer their shared contacts during the
- * next reader's load window — a transient cross-user exposure on shared
- * machines. Calendar, tasks and files clear their shared state on sign-out;
- * contacts must too.
+ * Sign-out clears the whole contacts store, the reader's own half and the
+ * shared one. Leaving `sharedBooks`, `sharedCards`, `sharedLoaded` or
+ * `selection` to survive into the next sign-in lets the previous reader's
+ * selection route the Contacts list and lets `suggest()` offer their shared
+ * contacts during the next reader's load window — a transient cross-user
+ * exposure on shared machines. Calendar, tasks and files clear their shared
+ * state on sign-out; contacts must too.
  */
 
 const asBook = (id: string) => ({ id, name: id }) as unknown as AddressBook;

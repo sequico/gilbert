@@ -147,7 +147,7 @@ describe("task lists in a group account", () => {
     // A list created in the group account is the group's -- reached by every
     // member through their session on it. Naming the owning principal and
     // granting it write rights is the per-object ACL the group law forbids,
-    // and a directory that answers the query is exactly when it used to happen.
+    // and a directory that answers the query is exactly how it would happen.
     expect(calls.some((c) => c.name === "Principal/query")).toBe(false);
     expect(calls.some((c) => c.name === "Principal/get")).toBe(false);
     const sets = calls.filter((c) => c.name === "Calendar/set");

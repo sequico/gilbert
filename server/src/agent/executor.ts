@@ -777,11 +777,10 @@ export class Executor {
    * trail remembers one, so a change the worker reads again would otherwise
    * refuse again, with a second entry and the same sentence in the group's chat.
    *
-   * The trail is checked in both this month's document and last month's: the
-   * dedup used to read only the current month, so the same change re-observed
-   * just after a month boundary found no record of a refusal that in fact
-   * already happened, a few days earlier, in the previous month's document —
-   * and refused (and announced) the same chain a second time.
+   * The trail is checked in both this month's document and last month's: a
+   * dedup reading only the current month finds no record of a refusal that
+   * happened a few days earlier, in the previous month's document, and refuses
+   * (and announces) the same chain a second time.
    */
   private async refuseChain(
     store: AgentStore,
@@ -1841,10 +1840,8 @@ export class Executor {
    * A draft that vanished entirely, or that a person moved to Trash — the
    * ordinary way to discard a draft one disagrees with, in any mail client —
    * is not an approval at all: nothing was ever submitted, so nothing is
-   * settled as sent. Treating a trashed draft as "sent" was a real gap this
-   * rule had: a member rejecting a proposal by deleting its draft used to have
-   * the rest of the plan run anyway and the audit trail record a send that
-   * never happened.
+   * settled as sent. Treating a trashed draft as "sent" would run the rest of
+   * the plan anyway and have the audit trail record a send that never happened.
    */
   async sweepDrafts(
     accountId: string,

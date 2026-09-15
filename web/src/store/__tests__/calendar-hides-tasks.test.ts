@@ -9,11 +9,10 @@ import { useCalendar } from "@/store/calendar";
  * calendar, so a task it drew would appear with nothing to explain where it
  * came from, looking like an ordinary event of the reader's own.
  *
- * It was recognised by `@type`, which the calendar never asked for: the read
- * went out with `EVENT_PROPS`, that list had no `@type`, and a server that
- * honours `properties` returns objects without it — so the check could never
- * fire, and a task carrying a `start` (JSCalendar turns a task's `due` into
- * one) was drawn as an event.
+ * `@type` is what tells them apart, and it has to be asked for: `EVENT_PROPS`
+ * without it gets objects without it from a server that honours `properties`,
+ * and the check then never fires — a task carrying a `start` (JSCalendar turns
+ * a task's `due` into one) drawn as an event.
  *
  * The stub filters like a conforming server: what was not asked for is not
  * returned. That is the whole point of the pair of tests below — the first

@@ -1227,8 +1227,6 @@ export const catalog: Catalog = {
     "A link whose text names one domain and whose destination is another is always flagged, even where the destination is trusted — being trusted is not the same as being the place the text claimed.":
       "表示されているドメインと実際のリンク先が異なる場合は、リンク先が信頼済みであっても必ず警告します。信頼済みであることと、テキストが示した場所であることは別だからです。",
     Actions: "操作",
-    "Added from a message, and removable here — previously the only way to undo one was to find another message from the same sender.":
-      "メールから追加されたもので、ここから削除できます。以前は同じ差出人の別のメールを探すしか取り消す方法がありませんでした。",
     "Added here, or from the dialog when a link is opened. A domain also covers its subdomains.":
       "ここで追加するか、リンクを開くときのダイアログから追加します。ドメインはそのサブドメインも含みます。",
     "Agenda view": "予定リスト表示",

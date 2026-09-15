@@ -98,10 +98,10 @@ describe("the folders a plan needs", () => {
   });
 
   it("does not collide a top-level folder with a nested one of the same joined name", () => {
-    // Business logic review finding: the folder key used to be a plain
-    // space-join, so a top-level folder literally named "Documents 2024" and
-    // a nested "Documents/2024" produced the identical key — one was silently
-    // treated as the other, and files dropped for one were misfiled into it.
+    // The folder key is a "/"-join, not a plain space-join: a space-join makes
+    // a top-level folder literally named "Documents 2024" and a nested
+    // "Documents/2024" the identical key, so one is silently treated as the
+    // other and files dropped for one are misfiled into it.
     const flat = ["Documents 2024"];
     const nested = ["Documents", "2024"];
     expect(folderPathKey(flat)).not.toBe(folderPathKey(nested));
@@ -110,8 +110,8 @@ describe("the folders a plan needs", () => {
       { file: file("flat.txt"), path: flat },
       { file: file("nested.txt"), path: nested },
     ]);
-    // Both nestings are asked for, as the two distinct folders they are —
-    // not collapsed into one because their joined names used to coincide.
+    // Both nestings are asked for, as the two distinct folders they are — a
+    // space-joined key would collapse them into one.
     expect(needed).toContainEqual(flat);
     expect(needed).toContainEqual(["Documents"]);
     expect(needed).toContainEqual(nested);

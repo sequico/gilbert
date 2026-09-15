@@ -4,14 +4,14 @@ import type { AddressBook, ContactCard, Id, JmapSession } from "@/jmap/types";
 import { sharedKey, useContacts } from "@/store/contacts";
 
 /*
- * Moving a card between accounts used to re-file the *cached* card: the copy
- * was built from what the store last fetched, so edits sitting in the editor —
- * a renamed contact, a photo just uploaded — never reached the server while
- * the toast said "Contact moved". The calendar move had the same shape and the
- * calendar store fixes it by carrying the reader's changes into the copy; here
- * the editor hands the form object to `moveCardTo`, and these tests pin that
- * the copy is the card as edited, that the original is destroyed only after
- * the copy exists, and that a refused destroy keeps the source on screen.
+ * Moving a card between accounts must carry the reader's edits: a copy built
+ * from what the store last fetched leaves edits sitting in the editor — a
+ * renamed contact, a photo just uploaded — out of what reaches the server,
+ * while the toast says "Contact moved". The calendar move has the same shape
+ * and the calendar store fixes it by carrying the reader's changes into the
+ * copy; here the editor hands the form object to `moveCardTo`, and these tests
+ * pin that the copy is the card as edited, that the original is destroyed only
+ * after the copy exists, and that a refused destroy keeps the source on screen.
  */
 
 const BOOK = (id: string) =>

@@ -47,12 +47,12 @@ export function useConfiguration(next: Config): void {
  * Refuse a configuration a served process cannot run on: a secret nothing will
  * find again.
  *
- * This is the refusal the resolver used to make at an import, before the boot
- * could read the installation's own document — where a deployment states the
- * secret now. It is made on data instead of on a string being empty, because an
- * ephemeral secret is exactly as long as a stated one: what matters is where it
- * came from (`appSecretSource`), and only production cares, since a development
- * server or a tool signs in again anyway.
+ * The refusal is made on data rather than at an import seeing an empty string:
+ * the installation's own document is where a deployment states the secret, and
+ * that document is read by the boot. An ephemeral secret is exactly as long as
+ * a stated one, so what decides the question is where it came from
+ * (`appSecretSource`) -- and only production cares, since a development server
+ * or a tool signs in again anyway.
  *
  * Called by `index.ts` after the boot has run, so the answer is the one a
  * deployment deserves: a boot failure, logged with everything else that stopped

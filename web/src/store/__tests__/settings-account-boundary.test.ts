@@ -15,12 +15,13 @@ import {
  * Which account's settings are in hand, and what happens at the boundary
  * between two of them.
  *
- * Signing out and back in in the same tab used to leave the first reader's
+ * Signing out and back in in the same tab must not leave the first reader's
  * settings in the store: their pinned signers, trusted image senders, internal
- * domains and interface language painted the second reader's first frame, and
- * an `update` in that window queued the whole stale snapshot for the new
- * account's settings file. The stored copy was cleared on the way out and sync
- * was stopped; the copy React was holding was not touched by either.
+ * domains and interface language paint the second reader's first frame, and an
+ * `update` in that window queues the whole stale snapshot for the new account's
+ * settings file. Clearing the stored copy on the way out and stopping sync
+ * touches neither of those: the copy React holds is the third thing, and the
+ * one this file pins.
  *
  * Around it, three smaller claims: a reset writes the derived legacy theme it
  * promises, an import is read through the same pre-palette migration the
@@ -124,7 +125,8 @@ describe("a sign-out and the sign-in that follows it", () => {
       expect(settingsInHandFor("a1")).toBe(true);
 
       /* What `logout` does, in its own order: the stored copy goes, then the
-         session flips. The flip used to leave the reader's copy in React. */
+         session flips. The flip is what has to clear the reader's copy in
+         React. */
       clearSignedInData();
       signOut();
 

@@ -230,8 +230,9 @@ test("the door opens onto the Master's own account, by impersonation", async () 
    * The claim of a surface called "Installation": what it reads and writes is
    * the document the next boot runs on — the one in the account this
    * deployment signs in as — and not the administrator's own copy. The
-   * administrator here is not the Master, which is the case that used to be
-   * disclosed in prose and published into the wrong account.
+   * administrator here is not the Master, which is the case a surface
+   * addressing the administrator's own account would publish into the wrong
+   * place: the document belongs to the account this deployment signs in as.
    */
   nameMaster(MASTER);
   const admin = await adminCtx();

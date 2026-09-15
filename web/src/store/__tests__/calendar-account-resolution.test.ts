@@ -63,8 +63,8 @@ describe("bare calendar id resolution", () => {
     seed({ t1: CAL("t1") }, [
       { accountId: "a2", accountName: "Team", calendar: CAL("t1") },
     ]);
-    // Previously resolved to the own account, silently aiming group edits at
-    // the reader's own same-id calendar.
+    // A bare id held by two accounts resolves to neither: picking the reader's
+    // own would silently aim a group edit at their same-id calendar.
     expect(accountOfCalendarId("t1")).toBeNull();
   });
 

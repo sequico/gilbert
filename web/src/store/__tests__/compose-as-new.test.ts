@@ -96,11 +96,11 @@ function withRemoteImage(base: Email): Email {
 }
 
 /*
- * Quoting a message used to fetch its remote images the moment the draft
- * opened: all three "make a draft from an existing message" flows sanitised
- * with `allowRemote: true`, no consent asked and no proxy in between, so a
- * reply to a tracking-pixel mail loaded the pixels. The quote now asks the
- * same question the reader does (settings + sender), and a blocked image is
+ * Quoting a message must not fetch its remote images when the draft opens: all
+ * three "make a draft from an existing message" flows sanitise with
+ * `allowRemote: true` unless they ask, and a reply to a tracking-pixel mail
+ * then loads the pixels with no consent and no proxy in between. The quote asks
+ * the same question the reader does (settings + sender), and a blocked image is
  * left as the reader's placeholder so nothing is fetched.
  */
 describe("quoting a message with remote images", () => {

@@ -10,11 +10,9 @@ import { Switch } from "@/ui/misc";
 /**
  * Everything about what reaches a sender, and what asks before it happens.
  *
- * These settings were spread through General, which had grown into five
- * unrelated headings -- remote images filed under "Reading", the read-receipt
- * policy under "Composing", the undo-send window beside the default message
- * format. They are the same kind of decision and they belong together, and
- * gathering them leaves General smaller as well.
+ * These settings are one kind of decision: what reaches a sender, and what asks
+ * before it happens — a remote image, a read receipt, the undo-send window.
+ * They belong together, and gathering them leaves General smaller as well.
  *
  * The boundary against **Security & sessions** is worth keeping sharp, since
  * two similar words next to each other in a nav is how a menu becomes
@@ -86,11 +84,7 @@ export function PrivacySettings() {
               </span>
             ))}
           </div>
-          <p className="hint">
-            {t(
-              "Added from a message, and removable here — previously the only way to undo one was to find another message from the same sender.",
-            )}
-          </p>
+          <p className="hint">{t("Added from a message, and removable here.")}</p>
         </div>
       )}
 

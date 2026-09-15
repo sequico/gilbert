@@ -1789,13 +1789,12 @@ test("a change somebody else made to a record a run wrote is hop one", async () 
 
 test("an unrelated shallow write does not reset a chain's own depth", async () => {
   /*
-   * Business logic review finding: a record's producer used to be whichever
-   * write landed latest, so an unrelated, shallow rule touching the same
-   * record after a genuinely deep chain's own write could make the next hop
-   * look shallower than it really is — letting a chain evade `maxChainHops`
-   * by being interleaved with an unrelated, frequently-firing rule. The
-   * deepest write inside the window must win instead, however the writes are
-   * ordered in time.
+   * A record's producer must be the deepest write inside the window, however
+   * the writes are ordered in time: a producer that followed whichever write
+   * landed latest would let an unrelated, shallow rule touching the same record
+   * after a genuinely deep chain's own write make the next hop look shallower
+   * than it really is — letting a chain evade `maxChainHops` by being
+   * interleaved with an unrelated, frequently-firing rule.
    */
   await store.writeRules([]);
   await executor.reconcile(GROUP, "FileNode", { ...(await claimFor()), states: {} });

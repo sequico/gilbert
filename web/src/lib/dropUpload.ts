@@ -136,11 +136,11 @@ export async function planUpload(
  * Joined with "/" rather than a plain space: a name a dropped folder can
  * actually carry (any OS's file picker forbids "/" in one path segment,
  * since it is the separator every filesystem uses) cannot collide across two
- * different nestings the way a space-joined key could -- a top-level folder
- * literally named "Documents 2024" and a nested "Documents/2024" used to
- * produce the identical key in `files.ts`'s own uploadPlan, silently merging
- * two distinct folders and misfiling whichever files were dropped for one
- * into the other.
+ * different nestings the way a space-joined key can -- a top-level folder
+ * literally named "Documents 2024" and a nested "Documents/2024" would
+ * otherwise produce the identical key in `files.ts`'s own uploadPlan, silently
+ * merging two distinct folders and misfiling whichever files were dropped for
+ * one into the other.
  */
 export function folderPathKey(path: ReadonlyArray<string>): string {
   return path.join("/");

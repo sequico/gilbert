@@ -650,10 +650,9 @@ export const MessageView = memo(function MessageView({
             const junkId = mail.roleId("junk");
             /* The list toolbar confirms a permanent delete (the message is in
                Deleted Items or Junk, where Trash destroys outright) and honours
-               the confirmDelete setting; this per-message menu used to skip
-               both, so one click from inside Deleted Items destroyed the
-               message forever with no question asked. Ask the same question
-               here, with the same words the toolbar uses. */
+               the confirmDelete setting; this per-message menu asks the same
+               question here, in the same words, so one click from inside
+               Deleted Items cannot destroy a message forever without one. */
             const permanent =
               Boolean(trashId && e.mailboxIds[trashId]) ||
               Boolean(junkId && e.mailboxIds[junkId]);

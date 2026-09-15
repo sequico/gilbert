@@ -7,10 +7,10 @@ import { useContacts } from "@/store/contacts";
  * Emptying an address book, and deleting a selection of contacts.
  *
  * Asked for on #174 as the other half of a migration: import, notice something
- * is wrong, empty the book, correct the export, import again. Until now the
- * only way to delete a contact was one card at a time from its own pane, and
- * the only way to empty a book was to delete the book and build it again --
- * losing its name, its sharing and its default status (#277).
+ * is wrong, empty the book, correct the export, import again. Without empty and
+ * multi-select, the only way to delete a contact is one card at a time from its
+ * own pane, and the only way to empty a book is to delete the book and build it
+ * again -- losing its name, its sharing and its default status (#277).
  *
  * The part worth testing hardest is the one that is not a deletion. A card
  * filed in two books belongs to both, and `ContactCard/set destroy` takes it

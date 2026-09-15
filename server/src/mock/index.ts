@@ -2350,9 +2350,9 @@ const setResp = (type: string, extra: Obj = {}): Obj => {
  * every share, and the one place that did not -- the real server -- showed
  * nothing shared at all.
  *
- * Calendars and address books used to behave the same way and no longer do.
- * 0.16.21 fixed `Calendar/get` and `AddressBook/get` to return every property
- * when `properties` is omitted or null, `shareWith` included. **Confirmed live
+ * Calendars and address books are not the same: 0.16.21 returns every property
+ * from `Calendar/get` and `AddressBook/get` when `properties` is omitted or
+ * null, `shareWith` included. **Confirmed live
  * on 0.16.21 (2026-09-06):** both come back with the full set, while
  * `Mailbox/get` on the same server still omits it — so this stays, and it
  * stays applied to mailboxes alone.
@@ -2926,10 +2926,9 @@ const handlers: Record<string, Handler> = {
   "Email/query": (a) => {
     let list = emailsFor(a.accountId).filter((e) => matchFilter(e, a.filter as Obj));
     /*
-     * Honour the sort rather than always answering newest-first. This used to
-     * ignore it entirely, which reproduced a server that silently returns a
-     * different order from the one asked for -- the one shape of wrongness a
-     * client cannot detect.
+     * Honour the sort rather than always answering newest-first: ignoring it
+     * reproduces the one shape of wrongness a client cannot detect -- a server
+     * that silently returns a different order from the one asked for.
      */
     const sort = (a.sort as Obj[] | undefined) ?? [
       { property: "receivedAt", isAscending: false },
@@ -2972,12 +2971,11 @@ const handlers: Record<string, Handler> = {
   /*
    * Real changes, not an empty answer.
    *
-   * This used to return three empty arrays whatever had happened, so the
-   * client's whole reconciliation path -- `Email/changes`, then deciding what
-   * to do with what came back -- never ran against the mock. A bug living in
-   * that path could not be reproduced here at all, which is how one reached
-   * production and survived being "fixed" once (#100). The log below is what
-   * the real server can answer from.
+   * Three empty arrays whatever had happened would leave the client's whole
+   * reconciliation path -- `Email/changes`, then deciding what to do with what
+   * came back -- never exercised here, and a bug living in that path is then
+   * unreproducible against the mock. The log below is what the real server can
+   * answer from.
    */
   "Email/changes": (a) => {
     const since = Number(a.sinceState ?? 0);
@@ -3338,13 +3336,13 @@ const handlers: Record<string, Handler> = {
       if (clash >= 0) pushSubscriptions.splice(clash, 1);
       const id = `ps${randomUUID().slice(0, 6)}`;
       /*
-       * A subscription expires, and this used to hand back `expires: null`.
-       * That is the one shape that makes the client's real problem invisible in
-       * development: JMAP puts a ceiling of seven days on a push subscription
-       * and expects the client to re-register before it lapses, so a client
-       * that never renews works perfectly against a mock that never expires
-       * anything and goes silent a week after being deployed. Seven days here,
-       * so "does this client renew?" is a question the mock can answer.
+       * A subscription expires. Answering `expires: null` is the one shape that
+       * makes the client's real problem invisible in development: JMAP puts a
+       * ceiling of seven days on a push subscription and expects the client to
+       * re-register before it lapses, so a client that never renews works
+       * perfectly against a mock that never expires anything and goes silent a
+       * week after being deployed. Seven days here, so "does this client
+       * renew?" is a question the mock can answer.
        */
       const expires = new Date(now() + PUSH_TTL_MS).toISOString();
       pushSubscriptions.push({
@@ -3921,10 +3919,9 @@ const handlers: Record<string, Handler> = {
     };
   },
   "Principal/get": genericGet(principals, "Principal"),
-  // One busy block a day across whatever range was asked for. It used to answer
-  // with a single block on the first day whatever the range, which was all an
-  // availability bar a day wide could show -- and left a bar covering several
-  // days looking as though everyone were free for all but the first of them.
+  // One busy block a day across whatever range was asked for: a single block
+  // on the first day leaves a bar covering several days looking as though
+  // everyone were free for all but the first of them.
   "Principal/getAvailability": (a) => {
     const from = new Date(String(a.utcStart));
     const to = new Date(String(a.utcEnd));

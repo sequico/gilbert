@@ -1552,8 +1552,7 @@ a.menu-item:hover { color: var(--fg); }
 .unsubscribe-row { margin: 0 16px 8px; font-size: .88em; color: var(--fg-muted); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .reply-box { margin: 8px 16px 24px; }
 /* Wraps, because it does not fit. Three labelled buttons and an overflow need
-   about 390px of it, which a 430px phone has and a 360px one does not -- and it
-   was already over the line on the smaller ones before the overflow was added. */
+   about 390px of it, which a 430px phone has and a 360px one does not. */
 .reply-box .reply-prompt { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); color: var(--fg-muted); }
 .reply-box .reply-prompt button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--fg); font-weight: 500; }
 .reply-box .reply-prompt button:hover { background: var(--bg-hover); }

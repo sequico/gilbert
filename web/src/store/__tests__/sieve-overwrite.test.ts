@@ -94,8 +94,8 @@ describe("a script that was read", () => {
 
 describe("reloading", () => {
   it("does not discard content it already holds when a refetch yields nothing", () => {
-    // saveScript caches what it just wrote, then reloads. A reload whose fetch
-    // failed used to replace the whole map and wipe that.
+    // saveScript caches what it just wrote, then reloads. A reload that
+    // replaced the whole map on a failed fetch would wipe that.
     useSieve.setState({ contents: { s1: rulesToSieve(threeRules) } });
     const kept = useSieve.getState().contents.s1;
     useSieve.setState((st) => ({ contents: { ...st.contents } })); // merge, not replace

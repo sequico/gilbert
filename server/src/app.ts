@@ -149,11 +149,10 @@ type Env = { Variables: { session: LiveSession } };
  *
  * Bound by `createApp` -- the one function that builds something to serve --
  * and by `useDurableSessions`, which is what a boot calls before it builds one.
- * There is deliberately no store here at module scope: this used to be a
- * memory-only `SessionStore` built from whatever `config.sessionTtl` said
- * before any boot had replaced the configuration, and `createApp` served it
- * unless something happened to replace it first -- a deployment whose sessions
- * ended at the next restart, with nothing saying so.
+ * There is deliberately no store here at module scope: a memory-only
+ * `SessionStore` bound at import takes its lifetime from whichever
+ * configuration was read first, and an app that serves it ends sessions at the
+ * next restart with nothing saying so.
  *
  * What guarantees the replacement now is `createApp` itself, in two halves. A
  * process that names a Master (`GILBERT_AGENT_ADDRESS`: the account

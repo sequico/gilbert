@@ -278,12 +278,12 @@ export function normalizeLocale(raw: unknown): string | null {
 /**
  * Best-effort lookup of what the server can tell us about this account.
  *
- * The locale used to come from `x:Account/get`, which needs the `sysAccountGet`
- * permission — a tenant/admin one that ordinary users are not granted, so the
- * setting silently fell back to the browser locale for exactly the people most
- * likely to want it. Stalwart 0.16 exposes the same field on `x:AccountSettings`,
- * whose `sysAccountSettingsGet` permission *is* part of the built-in user role.
- * Ask for both in one request and take whichever the server allows, which also
+ * `x:Account/get` needs the `sysAccountGet` permission — a tenant/admin one
+ * ordinary users are not granted — so a locale read from there alone silently
+ * falls back to the browser locale for exactly the people most likely to want
+ * it. Stalwart 0.16 exposes the same field on `x:AccountSettings`, whose
+ * `sysAccountSettingsGet` permission *is* part of the built-in user role. Ask
+ * for both in one request and take whichever the server allows, which also
  * tells us which generation we are talking to.
  */
 async function fetchAccountInfo(

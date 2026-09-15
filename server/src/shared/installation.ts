@@ -365,7 +365,7 @@ export function parseInstallationDocumentDetailed(
     }
     return v;
   };
-  /** A bound the code used to floor at 1 (`Math.max(1, …)`): a document that says 0 says nothing useful. */
+  /** A bound floored at 1: a document that says 0 says nothing useful. */
   const readBound = (where: string, v: unknown, fallback: number): number => {
     const n = readInt(where, v, fallback);
     if (n < 1) {

@@ -315,9 +315,9 @@ describe("importing an .ics file", () => {
  *
  * `CalendarEvent/set` is refused whole over `maxObjectsInSet` -- the server
  * does not take the first 500 and drop the rest, it creates nothing and answers
- * `requestTooLarge` -- so a file large enough to cross the ceiling used to
- * import no events at all. The server here refuses the same way, which is what
- * makes these more than an assertion about call counts.
+ * `requestTooLarge` -- so a file large enough to cross the ceiling must be
+ * chunked, or it imports no events at all. The server here refuses the same
+ * way, which is what makes these more than an assertion about call counts.
  */
 describe("importing a file bigger than the server will take at once", () => {
   const MAX = 500;

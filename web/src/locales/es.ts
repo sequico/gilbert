@@ -1232,8 +1232,6 @@ export const catalog: Catalog = {
     "A link whose text names one domain and whose destination is another is always flagged, even where the destination is trusted — being trusted is not the same as being the place the text claimed.":
       "Un enlace cuyo texto nombra un dominio y cuyo destino es otro se señala siempre, incluso si el destino es de confianza: ser de confianza no es lo mismo que ser el lugar que anunciaba el texto.",
     Actions: "Acciones",
-    "Added from a message, and removable here — previously the only way to undo one was to find another message from the same sender.":
-      "Añadido desde un mensaje y eliminable aquí: antes la única forma de deshacerlo era buscar otro mensaje del mismo remitente.",
     "Added here, or from the dialog when a link is opened. A domain also covers its subdomains.":
       "Añadido aquí o desde el diálogo al abrir un enlace. Un dominio incluye también sus subdominios.",
     "Agenda view": "Vista de agenda",

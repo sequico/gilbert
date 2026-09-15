@@ -8,13 +8,13 @@ import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
 /**
  * Draft saves, serialised per draft.
  *
- * Saving a draft is Email/set create + destroy of the draft it replaces, and
- * the autosave timer, a manual Save, closing and sending used to be able to
- * overlap a save still in flight. Each then destroyed only the id it had
- * captured, so the save that finished last left its create behind: a send
- * could orphan a $draft of the message just sent, two overlapping saves left
- * two drafts, and a save finishing over newer typing cleared `dirty`, so a
- * close that followed skipped its own save and dropped the newest content.
+ * Saving a draft is Email/set create + destroy of the draft it replaces, so
+ * the autosave timer, a manual Save, closing and sending must not overlap a
+ * save still in flight. Each would destroy only the id it had captured, and the
+ * save that finishes last leaves its create behind: a send orphans a $draft of
+ * the message just sent, two overlapping saves leave two drafts, and a save
+ * finishing over newer typing clears `dirty`, so a close that follows skips its
+ * own save and drops the newest content.
  *
  * These pin the queue: one save at a time per draft, send and discard waiting
  * for the queue and destroying the draft the last save actually created, and

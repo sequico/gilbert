@@ -147,8 +147,8 @@ describe("markKeptSurfaces", () => {
   it("neutralises a light panel nested inside a dark painted card", () => {
     // The shape reported in #310: a dark Klaviyo campaign whose 600px cards
     // are dark enough to be marked, with light content tables inside them.
-    // Those tables used to inherit the card's exemption and render as beige
-    // sheets in an otherwise themed message.
+    // A nested table that inherited the card's exemption would render as a
+    // beige sheet in an otherwise themed message.
     const d = frag(
       '<div style="background-color:#e7e5e2">' +
         '<div style="background-color:#2b2b2b">' +
@@ -458,7 +458,8 @@ describe("the <body> style the sanitizer returns is hardened like any other CSS"
     expect(proxied.bodyStyle).toContain("position:static");
     expect(proxied.bodyStyle).toContain("/api/image?url=https%3A%2F%2Ft.example%2Fp.gif");
     // A body style with no url() at all must still have its position
-    // declaration neutralised (it used to bypass hardening entirely).
+    // declaration neutralised: hardening that only ran over url() bodies would
+    // let a plain `position:fixed` through entirely.
     const plainFixed = sanitizeEmailHtml(
       `<body style="position:fixed;top:0"><p>x</p></body>`,
     );

@@ -14,7 +14,7 @@ import { after, test } from "node:test";
  *
  * The counter is the mock's own blob-upload count, which is the one place a
  * blob is bought, and a pass is driven directly here rather than waited for on a
- * timer: the clock is what used to cause the write, and this test is the same
+ * timer: a clock is what causes a periodic write, and this test is the same
  * loop without the waiting. Put the periodic write back — a renewed claim, a
  * fresh heartbeat on every pass — and the first test fails on the first pass of
  * the loop.
@@ -68,8 +68,8 @@ test("an idle worker buys no blob, however many passes it runs", async () => {
   const record = (await agentStore.listWorkers()).find((w) => w.id === "w-idle");
   assert.ok(claim && record, "the claim and the record the pass wrote are readable");
 
-  // Twenty-five more passes, which is what a heartbeat interval used to be
-  // spent on (the timer called the same claim-and-heartbeat work every 30s).
+  // Twenty-five more passes: a heartbeat interval spends at least this many
+  // (a timer calling the same claim-and-heartbeat work every 30s).
   for (let pass = 0; pass < 25; pass++) await worker.pass();
 
   assert.equal(

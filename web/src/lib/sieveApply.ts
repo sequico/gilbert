@@ -233,9 +233,9 @@ export async function applyRuleToMailbox(
             (m) => m.name.toLowerCase() === a.mailbox.toLowerCase(),
           );
           // A rule with no id or full path to resolve against (one imported
-          // from a hand-written script, say) used to fall back to whichever
-          // same-named folder happened to be first in iteration order when
-          // two existed in different parents — a silent, arbitrary misfile
+          // from a hand-written script, say) must not fall back to whichever
+          // same-named folder happens to be first in iteration order when
+          // two exist in different parents — a silent, arbitrary misfile
           // rather than the "folder not found" this same fallback already
           // reports for a name that matches nothing at all. Ambiguous is
           // treated the same honest way: reported, not guessed at.

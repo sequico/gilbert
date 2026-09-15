@@ -3,12 +3,13 @@ import { test } from "node:test";
 import { getAccountInfo, hasStalwartRegistry, interpretAccountInfo } from "./upstream.js";
 
 /**
- * The account locale used to be read only from `x:Account/get`, which needs
- * the `sysAccountGet` permission — one the built-in `user` role is not given.
- * Ordinary users therefore silently fell back to the browser locale. Stalwart
- * 0.16 exposes the same field on `x:AccountSettings`, which users *can* read,
- * so both are asked for and whichever answers wins. Both are 0.16 methods:
- * this is a permissions fallback, not a version one.
+ * The account locale is asked of two methods, because one of them is not
+ * readable by an ordinary user: `x:Account/get` needs the `sysAccountGet`
+ * permission, which the built-in `user` role is not given, and a locale read
+ * from there alone silently falls back to the browser locale. Stalwart 0.16
+ * exposes the same field on `x:AccountSettings`, which users *can* read, so
+ * both are asked for and whichever answers wins. Both are 0.16 methods: this is
+ * a permissions fallback, not a version one.
  */
 
 type Responses = [string, Record<string, unknown>, string][];

@@ -7,9 +7,10 @@ import { useContacts } from "@/store/contacts";
  * Re-importing an address book you already have.
  *
  * A vCard UID is an identity its author meant, so a card whose UID a book
- * already holds is that card and importing it again used to leave a second
- * copy. Reported on #174 by the reporter's colleague, decided on #173 for
- * events, tracked as #223. The LDIF half matches on the entry's `dn` instead,
+ * already holds is that card, and importing it again must update it rather than
+ * leave a second copy. Reported on #174 by the reporter's colleague, decided on
+ * #173 for events, tracked as #223. The LDIF half matches on the entry's `dn`
+ * instead,
  * since Mozilla's schema has no UID; it is tested in `ldif-dedupe.test.ts`.
  */
 
@@ -183,9 +184,9 @@ afterEach(() => {
 describe("re-importing vCards the book already has", () => {
   it("updates a card whose uid is already in this book, and creates the rest", async () => {
     /*
-     * It used to skip. The reporter asked for the opposite on #174 and he is
-     * right: the reason to import a file twice is usually that the first one
-     * was wrong, and skipping means a corrected export corrects nothing.
+     * Updating is what the reporter asked for on #174, and he is right: the
+     * reason to import a file twice is usually that the first one was wrong,
+     * and skipping means a corrected export corrects nothing.
      */
     const sets = server({
       parsed: [card("ada@x", "Ada"), card("alan@x", "Alan")],

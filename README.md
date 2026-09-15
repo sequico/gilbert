@@ -601,7 +601,7 @@ rewritten rather than deleted, so the reversal stays on the record.
 the pull request that commit arrived through. A commit that did not arrive
 through one carries its short SHA instead: `2026.8.30+g1fa6578`. It all comes
 from git at build time; nothing writes a version into the tree, and
-`package.json` sits at `0.0.0` because it is no longer the source of anything.
+`package.json` sits at `0.0.0` because nothing reads a version from it.
 
 The date is the commit's own rather than today's, so rebuilding an old commit
 gives the version it had the first time.

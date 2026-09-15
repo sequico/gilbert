@@ -6,11 +6,11 @@ import { describe, expect, it } from "vitest";
 /**
  * The drawer is a phone's only way to a folder, an event, a contact or a new
  * message -- and each of those answers with a dialog or a full-screen composer
- * that the drawer used to cover, because both were stacked below it. Nothing
+ * that must sit above it, not below. Nothing
  * in a component test sees that: jsdom has no paint order, and the store is
  * perfectly happy while the dialog sits behind the thing that raised it.
  *
- * So the guard is on the stylesheet, which is where the bug was.
+ * So the guard is on the stylesheet, which is where the stacking lives.
  *
  * Read off disk, not imported: `?raw` comes back empty for a stylesheet under
  * vitest, which would pass every assertion below on an empty string.

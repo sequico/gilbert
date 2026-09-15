@@ -207,18 +207,16 @@ describe("splitOccurrencePatch", () => {
 
 describe("synthetic ids survive a write", () => {
   /*
-   * This used to assert the opposite, and the reversal is the point.
+   * A held id must still name its own date after a write. An id that encoded a
+   * position in the series would be renumbered by a write to one override, and
+   * a client caching one would silently act on a different date.
    *
-   * Up to 0.16.20 a synthetic id encoded a position, so writing one override
-   * renumbered the series and a held id silently began naming a different
-   * date — confirmed live on 2026-08-31, and reproduced here on purpose so a
-   * client could not be written against a comfort the server did not offer.
-   *
-   * 0.16.21 identifies an occurrence by its recurrence id instead.
+   * 0.16.21 identifies an occurrence by its recurrence id, and the mock
+   * reproduces that.
    * **Confirmed live on 0.16.21 (2026-09-06):** a five-week series was
    * expanded, its third occurrence retitled through the synthetic id, and all
    * five original ids re-read. Every one resolved, and every one still named
-   * its own date. So the hazard is gone, and the mock stops teaching it.
+   * its own date.
    */
   it("keeps a cached id on the same date after an override is written", () => {
     const before = series();
@@ -270,10 +268,10 @@ describe("an override that moves an occurrence", () => {
    * series moved to 14:00 comes back with `start` at 14:00 and `recurrenceId`
    * still at 09:00 — the slot the rule made, which the move does not touch.
    *
-   * The mock used to clobber the override's `start` with the slot time, so a
-   * moved occurrence did not move. That made per-occurrence *time* editing —
-   * one of the main things the feature is for — look broken against the mock
-   * and fine against the server.
+   * Clobbering the override's `start` with the slot time leaves a moved
+   * occurrence where it was, which makes per-occurrence *time* editing — one of
+   * the main things the feature is for — look broken against the mock and fine
+   * against the server.
    */
   const moved = () => ({
     ...series(),

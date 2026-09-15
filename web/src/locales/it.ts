@@ -1953,8 +1953,6 @@ export const catalog: Catalog = {
       "Un collegamento il cui testo nomina un dominio e la cui destinazione è un altro viene sempre segnalato, anche quando la destinazione è affidabile: essere affidabile non equivale a essere il luogo indicato dal testo.",
 
     Actions: "Azioni",
-    "Added from a message, and removable here — previously the only way to undo one was to find another message from the same sender.":
-      "Aggiunto da un messaggio e rimovibile qui: prima l'unico modo per annullarlo era cercare un altro messaggio dello stesso mittente.",
 
     "Added here, or from the dialog when a link is opened. A domain also covers its subdomains.":
       "Aggiunto qui oppure dalla finestra quando si apre un collegamento. Un dominio include anche i suoi sottodomini.",

@@ -3,15 +3,15 @@ import { describe, expect, it } from "vitest";
 /**
  * Issue #71, both halves of it, reduced to the arithmetic they turn on.
  *
- * After deleting a row from the keyboard, `focusId` used to keep pointing at
- * the row that had gone. Two things fell out of that:
+ * Deleting a row from the keyboard must move `focusId` off it. A focus left on
+ * the row that has gone costs two things:
  *
- *   - `targetIds()` falls back to the focused id, so the next `#` re-targeted
- *     the deleted message. The optimistic update had already moved it into
- *     Deleted Items, so it looked like a permanent delete and raised a
- *     confirmation the user had switched off.
- *   - `moveFocus` read `ids.indexOf(focusId)` as -1 and treated that as
- *     "before the first row", so `k` clamped to the top of the list.
+ *   - `targetIds()` falls back to the focused id, so the next `#` re-targets
+ *     the deleted message. The optimistic update has already moved it into
+ *     Deleted Items, so it looks like a permanent delete and raises a
+ *     confirmation the user has switched off.
+ *   - `moveFocus` reads `ids.indexOf(focusId)` as -1 and treats that as
+ *     "before the first row", so `k` clamps to the top of the list.
  *
  * Clicking was unaffected: it sets focus to a row that exists. That is why it
  * only ever happened from the keyboard.
@@ -68,7 +68,7 @@ describe("focus after deleting a row", () => {
 describe("moving focus when the focused row has gone", () => {
   const ids = ["b", "c", "d"];
 
-  it("no longer sends k to the top of the list", () => {
+  it("sends k to the next row, not to the top of the list", () => {
     // The regression: focus is on the deleted "a", the list says we were at 1.
     expect(nextIndex(ids, "a", 1, -1)).toBe(0);
     // …and with focus repaired to a real row, k moves by one as it should.

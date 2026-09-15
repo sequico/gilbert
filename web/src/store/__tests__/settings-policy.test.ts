@@ -129,14 +129,13 @@ describe("defaults, for an account that has none of its own", () => {
   });
 
   it("still applies an enforced setting with no defaults at all", () => {
-    // Business logic review finding: `seedFromPolicy` used to return before
-    // ever merging `policyEnforced()` when `defaults` was empty — a
-    // completely ordinary configuration ("force imagePolicy: ask" needs no
-    // default). Every first-run account, and every account on a deployment
-    // with no Files capability (which always takes this path, never
-    // `hydrate`), was left with the admin-mandated setting never actually
-    // applied for the session, even though the settings-page control
-    // correctly showed it as locked.
+    // Returning before ever merging `policyEnforced()` when `defaults` is empty
+    // skips the merge for a completely ordinary configuration ("force
+    // imagePolicy: ask" needs no default). Every first-run account, and every
+    // account on a deployment with no Files capability (which always takes this
+    // path, never `hydrate`), is then left with the admin-mandated setting never
+    // actually applied for the session, even though the settings-page control
+    // correctly shows it as locked.
     resetSettingsPolicyForTest({
       defaults: {},
       enforced: { imagePolicy: "ask" } as never,
@@ -365,8 +364,8 @@ describe("an installation that sets nothing", () => {
  * fetch is in flight while the first frames of an authed session are on
  * screen. A change made in that window passes `update` with nothing to
  * enforce, and sits in the push queue as-is: the first flush -- which only
- * happens after the load has settled -- used to write the pre-policy value
- * to the account's settings file.
+ * happens after the load has settled -- would write the pre-policy value to the
+ * account's settings file.
  */
 describe("refreshSettingsPolicy", () => {
   it("re-fetches instead of serving the page-lifetime cache", async () => {

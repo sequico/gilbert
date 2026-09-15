@@ -5,10 +5,10 @@ import { useMail } from "@/store/mail";
 import { useToasts } from "@/ui/toast";
 
 /**
- * Emptying a full folder used to back-reference one Email/query straight into
- * one Email/set, so every id in the folder arrived in a single call. Stalwart
+ * Emptying a full folder back-references one Email/query straight into one
+ * Email/set, so every id in the folder arrives in a single call. Stalwart
  * refuses the whole call over `maxObjectsInSet` with `requestTooLarge` — a
- * Deleted Items with 5192 messages in it could not be emptied at all.
+ * Deleted Items with 5192 messages in it cannot be emptied that way at all.
  */
 
 const TRASH = "mbTrash";

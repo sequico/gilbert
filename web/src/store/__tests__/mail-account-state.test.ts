@@ -7,11 +7,11 @@ import { useSession } from "@/store/session";
 /**
  * Two things the mail store must not carry across an account boundary.
  *
- * A switch to another mailbox used to clear the folders, messages, threads
- * and the selection, and stop there: the open conversation, the label counts,
- * the in-flight thread loads and the ids of the last conversation that loaded
- * are ids of the account that was on screen, read against the folders of the
- * new one.
+ * A switch to another mailbox clears the folders, messages, threads and the
+ * selection, and must clear the rest with them: the open conversation, the
+ * label counts, the in-flight thread loads and the ids of the last conversation
+ * that loaded are ids of the account that was on screen, read against the
+ * folders of the new one.
  *
  * And the probe that decides which accounts are group mailboxes is single
  * flight. A second caller must join the run already on its way rather than

@@ -1342,10 +1342,9 @@ wide that is.
 
 **Whoever cannot be read is drawn hatched, never blank.** Free/busy is answered
 per principal, and only accounts on this server are principals — so for a guest
-at another domain there is nothing to read. Leaving them out, which is what
-Gilbert used to do, is the one presentation that lies: a row with nothing in it
-reads as a diary with nothing in it. A line under the grid says how many and
-why.
+at another domain there is nothing to read. Leaving them out is the one
+presentation that lies: a row with nothing in it reads as a diary with nothing
+in it. A line under the grid says how many and why.
 
 That limit is the protocol's rather than a gap waiting to be closed. A
 `Principal` exposes no route to its calendars at all, so free/busy is not the
@@ -1541,9 +1540,10 @@ Also:
   quietly at delivery.
 - **Preview generated Sieve** for the visual rules.
 - **Nothing is discarded without asking.** Both editors keep their edits until
-  you save, so every way out of the page used to throw them away silently — a
-  settings link, the app rail, even the Rules/Scripts switch — and with a
-  screenful of rules the save bar had already scrolled past the bottom of the
+  you save, and every way off the page asks first, offering to save rather than
+  making "leave without saving" the easy answer — a settings link, the app rail
+  and the Rules/Scripts switch alike. The save bar is pinned to the foot of the
+  pane, because a screenful of rules otherwise puts it past the bottom of the
   window. Leaving now asks, offering to save rather than making "leave without
   saving" the easy answer, and the bar is pinned to the foot of the pane so
   "Unsaved changes" is on screen whether or not the rules fit in it.
@@ -1571,9 +1571,10 @@ individual rights by hand.
 
 - **Shared things appear where they belong**, not behind an account switcher.
   Somebody's folder is in Files, their calendar in the calendar, their address
-  book in Contacts, each under *Shared with me*. There is no account switching;
-  the switcher that used to exist moved the whole app into someone else's
-  account, which was the wrong door.
+  book in Contacts, each under *Shared with me*. There is no account switching,
+  and the door it would be is the wrong one: a switcher moves the whole app —
+  every surface, every pane — into somebody else's account, where what was
+  shared with you belongs beside your own.
 - **Adding is a deliberate step**, for the reason given under Calendar: the
   server reports every collection you can reach. Except for **a group you
   belong to** — its calendars, address books, task lists and files are the
@@ -1652,10 +1653,9 @@ between them is worth stating because two similar words in one nav is how a
 menu becomes something people hunt through. Security & sessions is credentials
 and access: password, two-factor state, app passwords, live sessions. Privacy &
 safety is how the app behaves towards the reader and towards senders: what
-loads, what leaks, and what asks before it happens. These had been spread
-through General, which had grown five unrelated headings — remote images filed
-under "Reading", the read-receipt policy under "Composing", the undo-send window
-beside the default message format.
+loads, what leaks, and what asks before it happens. That is a different
+question from who may get in: a remote image, a read receipt and an undo-send
+window all decide what reaches a sender, and none of them is a credential.
 
 Three warnings live there, and **all three start switched off**. That is not
 timidity: a client that begins by interrupting is one people learn to click
@@ -1687,8 +1687,7 @@ every message in the mailbox is from outside.
   wherever it likes just as readily as marked-up one.
 
 The senders trusted with remote images are listed there and can be withdrawn
-one at a time. Previously a sender was added from a message and could only be
-removed by finding another message from the same sender.
+one at a time, an addition made from a message included.
 
 Settings **export** to a JSON file and **import** back, and reset to defaults.
 

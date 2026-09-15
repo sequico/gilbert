@@ -164,12 +164,10 @@ test("IMMUTABLE accepts a root it cannot write to", () => {
  * Where the app secret came from, and the one deployment that cannot run on it
  * (`assertServable`).
  *
- * The refusal used to be made at the import of `configuration.ts`, on the
- * string being empty — before the boot could read the installation's own
- * document, which is where a deployment states the secret now, so it refused
- * exactly the deployments this path exists for. It is made on data instead: an
+ * The refusal is made on data, not on an import seeing an empty string: an
  * ephemeral secret is exactly as long as a stated one, and what decides the
- * question is `appSecretSource`.
+ * question is `appSecretSource`. Running it after the boot has read the
+ * installation's own document is what makes it refuse the right deployments.
  */
 test("production cannot serve on an ephemeral secret, and can on one the installation's document supplies", () => {
   const production: InstallationEnvironment = {
@@ -271,14 +269,14 @@ test("a document that still carries the retired provider switch loads, and does 
 });
 
 /**
- * Two settings that stopped being the environment's: how much traffic one
- * session may make, and what the session cookie is called.
+ * Two settings that are the installation's rather than the environment's: how
+ * much traffic one session may make, and what the session cookie is called.
  *
  * Both are decisions of the installation — a name its own users' browsers
- * carry, and a budget on its own proxy — so both live in the document now, with
- * the names, defaults and notes they had as variables. The environment's read
- * stays what it always was for every other document field: the value a process
- * with no boot runs on.
+ * carry, and a budget on its own proxy — so both are fields of its document,
+ * under the names, defaults and notes the environment variables had. The
+ * environment's read stays what it is for every other document field: the value
+ * a process with no boot runs on.
  */
 test("the data-path rate limit and the cookie name come from the document, and from the environment without a boot", () => {
   const env: InstallationEnvironment = {

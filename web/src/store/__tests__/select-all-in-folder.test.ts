@@ -232,8 +232,8 @@ describe("a message that sits in several folders at once", () => {
   /*
    * A copy rule or a filter set to keep a copy can leave one message in two
    * folders, and moving it out of one must not throw the other membership
-   * away. The whole mailboxIds map used to be replaced with the destination;
-   * now only the folder being moved out of is patched away.
+   * away: replacing the whole mailboxIds map with the destination does that, so
+   * only the folder being moved out of is patched away.
    */
   const seed = () =>
     useMail.setState({

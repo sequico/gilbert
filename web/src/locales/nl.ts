@@ -1219,8 +1219,6 @@ export const catalog: Catalog = {
     "A link whose text names one domain and whose destination is another is always flagged, even where the destination is trusted — being trusted is not the same as being the place the text claimed.":
       "Een link waarvan de tekst het ene domein noemt en de bestemming een ander is, wordt altijd gemarkeerd, ook als de bestemming vertrouwd is: vertrouwd zijn is niet hetzelfde als de plek zijn die de tekst noemde.",
     Actions: "Acties",
-    "Added from a message, and removable here — previously the only way to undo one was to find another message from the same sender.":
-      "Toegevoegd vanuit een bericht en hier te verwijderen: voorheen kon dit alleen ongedaan worden gemaakt door een ander bericht van dezelfde afzender op te zoeken.",
     "Added here, or from the dialog when a link is opened. A domain also covers its subdomains.":
       "Hier toegevoegd, of vanuit het venster bij het openen van een link. Een domein omvat ook de subdomeinen.",
     "Agenda view": "Agendaweergave",

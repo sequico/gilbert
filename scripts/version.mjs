@@ -4,13 +4,12 @@
  *   2026.8.30  the date of the commit this was built from
  *   +pr129     the pull request it arrived through
  *
- * The date leads because Gilbert's version used to be `2.16.<pr>`, where `16`
- * was the Stalwart generation it targeted -- and Stalwart 1.0 will leave that
- * with nowhere to go. `2.1` would sort *below* the `2.16` already deployed, so
- * every image and About screen would read as a downgrade. Tying our
- * numbering to somebody else's was the mistake; which Stalwart a build needs is
- * said properly in the README badge and KNOWN-ISSUES, where it can be precise
- * ("0.16 or newer; tested against 0.16.20") rather than one digit.
+ * The date leads because a version number may not borrow somebody else's
+generation. `2.16.<pr>` put Stalwart's `16` in ours, which leaves Stalwart 1.0
+with nowhere to go: `2.1` sorts *below* the `2.16` already deployed, so every
+image and About screen would read as a downgrade. Which Stalwart a build needs
+is said properly in the README badge and KNOWN-ISSUES, where it can be precise
+("0.16 or newer; tested against 0.16.20") rather than one digit.
  *
  * The pull request moved into build metadata, after the `+`, because it is
  * provenance rather than a position in a sequence: at a hundred merges a week
@@ -30,7 +29,7 @@
  *
  * Nothing writes a version back into the tree: a committed one would always be
  * describing a merge that had not happened yet, and every branch would collide
- * on the same line. `package.json` no longer carries it either -- npm wants the
+ * on the same line. `package.json` does not carry it either -- npm wants the
  * field, so it stays at `0.0.0`, which is what an unversioned build reports and
  * is meant to look wrong.
  *

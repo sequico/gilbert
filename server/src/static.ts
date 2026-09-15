@@ -9,14 +9,11 @@ import { stripBasePath } from "../../scripts/basePath.mjs";
  * Files that must not be served from anybody's cache, the way index.html is
  * not.
  *
- * They went out with `max-age=3600` because they are neither hashed assets nor
- * HTML, and an hour looks harmless. It is not, for two of them, and a CDN in
- * front makes it worse: on a deploy the origin had the new build while
- * Cloudflare went on handing out the previous `sw.js` for hours, with
- * `cf-cache-status: HIT` and an edge TTL of its own that was longer than what
- * we asked for. Caught on the 2026-09-08 deploy, where the new worker was live
- * at the origin and the old one was still being installed by every browser
- * that asked.
+ * Sending them with `max-age=3600` looks harmless -- they are neither hashed
+ * assets nor HTML -- and it is not, for two of them, with a CDN in front making
+ * it worse: on a deploy the origin serves the new build while the edge goes on
+ * handing out the previous `sw.js`, `cf-cache-status: HIT`, on an edge TTL of
+ * its own that is longer than what was asked for.
  *
  * What that costs is specific rather than general. The service worker is the
  * app's whole update mechanism: a stale one keeps serving the shell it knows

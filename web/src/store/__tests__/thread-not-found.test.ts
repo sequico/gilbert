@@ -7,10 +7,10 @@ import { useMail } from "@/store/mail";
  * loadThread against a Thread/get that says the thread is not there.
  *
  * The failure mode under test is the deep link to a thread that was destroyed
- * on another device: Thread/get answers list: [] (notFound), and the loading
- * flag used to stay up for ever, which left ThreadView's spinner spinning
- * with no error to show. The not-found answer has to clear the flag and come
- * back as a rejection the view's catch can render.
+ * on another device: Thread/get answers list: [] (notFound), and a loading flag
+ * left up for ever leaves ThreadView's spinner spinning with no error to show.
+ * The not-found answer has to clear the flag and come back as a rejection the
+ * view's catch can render.
  */
 
 const THREAD = "t1";

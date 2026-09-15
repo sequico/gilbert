@@ -17,10 +17,9 @@ import { escapeHtml, htmlToText } from "./text";
  *
  * The number itself is `@gilbert/shared/signature`'s, not redeclared here: a
  * signature the editor here judges to fit is one the server (`identityAdmin.ts`)
- * accepts, which is only guaranteed while both read the same constant — this
- * file used to carry its own independent `2047`, a duplication a business
- * logic review named as a latent risk (nothing keeping the two in step but
- * both happening to still say 2047).
+ * accepts, which is only guaranteed while both read the same constant. A second
+ * copy of `2047` in this file would hold only by coincidence, and a change to
+ * one side would silently stop the other from agreeing.
  */
 export { SIGNATURE_LIMIT };
 

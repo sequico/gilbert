@@ -188,10 +188,10 @@ test("reseal keeps the session and moves the credential behind it", async () => 
 /**
  * A write that failed is not a session that was lost.
  *
- * `flush` used to clear its own "something changed" flag *before* awaiting the
- * document write, and the catch only warned: a session created, resealed or
- * destroyed while the account was briefly unwritable was never written again,
- * and the next restart ended it without anything having said so. The flag now
+ * Clearing `flush`'s own "something changed" flag *before* awaiting the document
+ * write, with a catch that only warns, loses a session created, resealed or
+ * destroyed while the account was briefly unwritable: it is never written
+ * again, and the next restart ends it with nothing having said so. The flag
  * goes only when a write came back, and this is the test that fails when that
  * stops being true.
  */
@@ -280,14 +280,14 @@ test("a session created during a write is stored by that flush, not lost by it",
 /**
  * An app that serves sessions out of memory has to be asked for.
  *
- * `app.ts` used to bind a memory-only store at module scope — reading
- * `config.sessionTtl` before any boot had replaced the configuration — and a
- * process that never replaced it served sessions that ended at the next
- * restart, with nothing saying so. The store is bound by `createApp` now, and a
- * process that names a Master (the account whose own app folder holds the
- * installation's documents, sessions included) refuses to have an app built for
- * it without the durable store: serving is what makes the default dangerous, and
- * it is the one thing that cannot happen here.
+ * A memory-only store bound at module scope — reading `config.sessionTtl`
+ * before any boot has replaced the configuration — is served to a process that
+ * never replaces it, so sessions end at the next restart with nothing saying
+ * so. The store is bound by `createApp`, and a process that names a Master (the
+ * account whose own app folder holds the installation's documents, sessions
+ * included) refuses to have an app built for it without the durable store:
+ * serving is what makes the default dangerous, and it is the one thing that
+ * cannot happen here.
  */
 test("an app is not built for a process that names a Master without the durable store", async () => {
   const { createApp, sessions, useDurableSessions } = await import("./app.js");

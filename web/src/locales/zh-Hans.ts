@@ -1189,8 +1189,6 @@ export const catalog: Catalog = {
     "A link whose text names one domain and whose destination is another is always flagged, even where the destination is trusted — being trusted is not the same as being the place the text claimed.":
       "如果链接文字写的是一个域名而实际目标是另一个，总会被标记出来，即使目标域名是受信任的：受信任与「就是文字所声称的那个地方」并不是一回事。",
     Actions: "操作",
-    "Added from a message, and removable here — previously the only way to undo one was to find another message from the same sender.":
-      "从邮件中添加，可在此移除：以前要撤销只能再找一封同一发件人的邮件。",
     "Added here, or from the dialog when a link is opened. A domain also covers its subdomains.":
       "在此添加，或在打开链接时的对话框中添加。域名同时涵盖其子域名。",
     "Agenda view": "日程视图",

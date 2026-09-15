@@ -1,9 +1,9 @@
 /**
  * Enough recurrence expansion for the mock to behave like Stalwart 0.16.21.
  *
- * The mock used to hand a recurring event back once, as its stored self. Three
- * things that only a live server showed were therefore impossible to develop
- * against, and all three had already cost a debugging session:
+ * A recurring event handed back once, as its stored self, hides three things
+ * that only a live server shows -- each of them a debugging session against a
+ * live instance:
  *
  * - an expanded query gives *everything* a synthetic id over a `baseEventId`,
  *   a one-off included, so `baseEventId` is no evidence of a series;
@@ -30,11 +30,10 @@ const DAYS = ["su", "mo", "tu", "we", "th", "fr", "sa"];
  * Stalwart's are opaque; the mock's are parseable because it has to resolve
  * them, and nothing in Gilbert may read either.
  *
- * **They are stable, and that is a change.** Up to 0.16.20 a synthetic id
- * encoded a *position* in the expanded series, so writing one override
- * renumbered the rest and a held id silently began addressing a different
- * date — a hazard this file used to reproduce on purpose. 0.16.21 fixed it:
- * an occurrence is now identified by its recurrence id.
+ * **They are stable.** An id that encoded a *position* in the expanded series
+ * would be renumbered by a write to one override, and a held id would silently
+ * begin addressing a different date. 0.16.21 identifies an occurrence by its
+ * recurrence id, which is what this file reproduces.
  *
  * **Confirmed live on 0.16.21 (2026-09-06):** a five-week weekly series was
  * expanded, the third occurrence retitled through its synthetic id, and all

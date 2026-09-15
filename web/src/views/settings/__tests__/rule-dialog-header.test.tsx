@@ -7,9 +7,10 @@ import { RuleDialog } from "../RuleDialog";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * Choosing "Other header…" used to put the header-name box in the column the
- * comparator lived in, so the comparator vanished: whatever it happened to be
- * (contains) was what you were stuck with. Both belong in the row.
+ * Choosing "Other header…" must leave the comparator where it is: putting the
+ * header-name box in the comparator's column makes the comparator vanish, and
+ * whatever it happens to be (contains) is what you are stuck with. Both belong
+ * in the row.
  */
 describe("RuleDialog custom headers", () => {
   let host: HTMLDivElement;

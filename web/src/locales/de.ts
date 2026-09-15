@@ -1325,8 +1325,6 @@ export const catalog: Catalog = {
       "Ein unter einer URL veröffentlichter Kalender — ein Fahrplan, ein Dienstplan, eine Feiertagsliste. Er ist schreibgeschützt, wird beim Öffnen des Kalenders aktualisiert und nie gespeichert: Die Termine werden abgerufen und nur so lange behalten, wie dieser Tab geöffnet ist.",
     "A link whose text names one domain and whose destination is another is always flagged, even where the destination is trusted — being trusted is not the same as being the place the text claimed.":
       "Ein Link, dessen Text eine Domain nennt und dessen Ziel eine andere ist, wird immer markiert, auch wenn das Ziel vertrauenswürdig ist — vertrauenswürdig zu sein ist nicht dasselbe, wie der Ort zu sein, den der Text genannt hat.",
-    "Added from a message, and removable here — previously the only way to undo one was to find another message from the same sender.":
-      "Aus einer Nachricht hinzugefügt und hier entfernbar — bisher ließ sich das nur rückgängig machen, indem Sie eine weitere Nachricht desselben Absenders suchten.",
     "Added here, or from the dialog when a link is opened. A domain also covers its subdomains.":
       "Hier hinzugefügt oder über den Dialog beim Öffnen eines Links. Eine Domain schließt ihre Subdomains mit ein.",
     "All three start switched off. A client that begins by interrupting is one people learn to click through, and a warning clicked through without reading costs the same attention and buys nothing.":

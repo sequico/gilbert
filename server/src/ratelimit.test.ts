@@ -6,8 +6,8 @@ import { RateLimiter } from "./ratelimit.js";
  * The limiter's job is to slow down password guessing. #239 is about the
  * attempts it takes for outcomes that were never a guess: Gilbert runs apart
  * from Stalwart, so an upstream that refuses a connection is ordinary, and
- * retrying through one used to spend the window and lock somebody out until
- * after the cause had gone.
+ * counting a retry through one spends the window and locks somebody out until
+ * after the cause has gone.
  */
 
 test("check allows up to the limit and then refuses", () => {

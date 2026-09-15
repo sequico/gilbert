@@ -1220,8 +1220,6 @@ export const catalog: Catalog = {
     "A link whose text names one domain and whose destination is another is always flagged, even where the destination is trusted — being trusted is not the same as being the place the text claimed.":
       "Ссылка, в тексте которой указан один домен, а ведёт она на другой, отмечается всегда, даже если домен назначения доверенный: быть доверенным и быть тем местом, которое обещал текст, — разные вещи.",
     Actions: "Действия",
-    "Added from a message, and removable here — previously the only way to undo one was to find another message from the same sender.":
-      "Добавлено из письма и удаляется здесь: раньше отменить это можно было, только найдя другое письмо того же отправителя.",
     "Added here, or from the dialog when a link is opened. A domain also covers its subdomains.":
       "Добавляется здесь или в диалоге при открытии ссылки. Домен включает и свои поддомены.",
     "Agenda view": "Список дел",

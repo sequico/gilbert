@@ -202,13 +202,13 @@ export function pendingSettingsKeys(): ReadonlySet<string> {
 /**
  * Write anything queued now, rather than waiting out the debounce.
  *
- * A write that fails here used to be swallowed outright: the change stayed
- * applied in memory for the rest of the session, with nothing that ever put
- * it back on the write queue — so the account's `settings.json` quietly kept
- * the old value, and the next `hydrate()` (another device, the next sign-in)
- * silently reverted a change the person believed had stuck. A failure now
- * re-queues the change, merged under anything newer that arrived while it was
- * in flight, retries shortly, and tells the person once per failing streak.
+ * A failure here must not be swallowed: the change stays applied in memory for
+ * the rest of the session, nothing puts it back on the write queue, so the
+ * account's `settings.json` quietly keeps the old value and the next
+ * `hydrate()` (another device, the next sign-in) reverts a change the person
+ * believed had stuck. A failure re-queues the change, merged under anything
+ * newer that arrived while it was in flight, retries shortly, and tells the
+ * person once per failing streak.
  */
 export async function flushSettingsPush(): Promise<void> {
   if (timer !== null) {

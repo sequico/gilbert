@@ -7,14 +7,14 @@ import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
 /**
  * What a Send in the undo window is aimed at.
  *
- * Send hides the composer and submits the message `undoSendSeconds` later.
- * The account and identity used to be read at the end of that window: signing
- * out or switching to a group mailbox inside it submitted the message from
- * whichever account was on screen by then -- or with no account at all, since
- * the store's account id is null when nobody is signed in. The identity had
- * the same problem in reverse: a draft with no identity of its own took
- * `identities[0]` at send time, which after a reload of the list is another
- * persona than the one the composer was showing.
+ * Send hides the composer and submits the message `undoSendSeconds` later, and
+ * what it submits must be the account and identity it was aimed at, not
+ * whichever is on screen at the end of the window: signing out or switching to
+ * a group mailbox inside it submits the message from the wrong account -- or
+ * with no account at all, since the store's account id is null when nobody is
+ * signed in. The identity is the same question in reverse: taking
+ * `identities[0]` at send time picks another persona than the one the composer
+ * is showing, once the list has been reloaded.
  */
 
 const jane = { id: "i1", name: "John", email: "john@example.org", replyTo: null };

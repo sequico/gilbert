@@ -45,10 +45,10 @@ const FAKE_SESSION = () =>
   }) as unknown as JmapSession;
 
 /**
- * Settings used to live only in localStorage, so nothing followed the user
- * between devices — issue #54, whose sharpest case is the default identity:
- * with none set, the address that sorts first wins, so mail goes out from an
- * address the recipient may not recognise.
+ * Settings follow the account, not the device — issue #54, whose sharpest case
+ * is the default identity: with none set, the address that sorts first wins, so
+ * mail goes out from an address the recipient may not recognise. localStorage
+ * is a cache of the account's own settings file.
  *
  * The split is written as a list of exceptions, which means the interesting
  * test is not "does this key sync" but "does a key added later sync without
@@ -164,14 +164,14 @@ describe("the client's own folder", () => {
 });
 
 /**
- * Picking a language used to come undone.
+ * Picking a language must not come undone.
  *
  * The subtree that reads the account's settings file is keyed on the language
  * version, so choosing a language throws it away and builds it again. The
- * remount re-read the file — which still held the old language, because the
- * write is debounced by three seconds — and applied it, putting the old
+ * remount re-reads the file — which still holds the old language, because the
+ * write is debounced by three seconds — and applies it, putting the old
  * language back. Reported as "sometimes it takes several clicks": the click
- * that appeared to work was the one made after the previous write had landed.
+ * that appears to work is the one made after the previous write has landed.
  */
 describe("a change made but not yet written up", () => {
   it("is not read back over by the file it has not reached yet", () => {
@@ -219,11 +219,10 @@ describe("a change made but not yet written up", () => {
 });
 
 /**
- * Business logic review finding: a write that failed here used to be
- * swallowed outright by `flushSettingsPush`'s own `.catch(() => undefined)`,
- * with nothing that ever put the change back on the queue. The account's
- * `settings.json` was left holding the old value, and the next `hydrate()`
- * (another device, the next sign-in) silently reverted a change the person
+ * A write that fails here must not be swallowed by `flushSettingsPush`'s own
+ * `.catch(() => undefined)`: with nothing that puts the change back on the
+ * queue, the account's `settings.json` keeps the old value, and the next
+ * `hydrate()` (another device, the next sign-in) reverts a change the person
  * believed had stuck, with no error anywhere.
  */
 describe("a settings write that fails", () => {

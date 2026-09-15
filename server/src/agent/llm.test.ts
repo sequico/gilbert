@@ -514,12 +514,11 @@ test("how many pages one run may hand over is bounded, and the prompt says the n
   const pages = await documentContent(await scannedPdf(), "pdf", 0);
   assert.deepEqual(pages.images, [], "a bound of zero hands over no page at all");
   // A bound of zero means zero pages read at all, not "page one's text layer
-  // is checked anyway" (a business logic review finding: the text side of
-  // this same bound used to be floored to at least one page regardless of
-  // what was asked for). With nothing read, `pixelPages` classifies nothing
-  // either, so `omitted` -- which counts pixel pages past the image bound --
-  // is honestly zero; `unreadPages` is the field that says the whole
-  // document was left unread.
+  // is checked anyway" — flooring the text side of this same bound to at least
+  // one page would read a document whose bound says not to. With nothing read,
+  // `pixelPages` classifies nothing either, so `omitted` -- which counts pixel
+  // pages past the image bound -- is honestly zero; `unreadPages` is the field
+  // that says the whole document was left unread.
   assert.equal(
     pages.omitted,
     0,

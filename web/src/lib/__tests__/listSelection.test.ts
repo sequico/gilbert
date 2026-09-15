@@ -40,8 +40,8 @@ describe("a plain click", () => {
 
 describe("ctrl-clicking", () => {
   it("takes the message that was already current with it", () => {
-    // Issue #186: this used to select only the row clicked, leaving the open
-    // message highlighted but unticked, so actions applied to one of two.
+    // Issue #186: selecting only the row clicked leaves the open message
+    // highlighted but unticked, so an action applies to one of two.
     expect(click({ anchor: "a", modifiers: { shift: false, ctrl: true } })).toEqual({
       kind: "select",
       ids: ["a", "c"],
