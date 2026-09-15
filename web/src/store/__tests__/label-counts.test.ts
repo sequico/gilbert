@@ -260,6 +260,67 @@ describe("a group mailbox's own labels", () => {
 });
 
 describe("a write moves the number without asking", () => {
+  it("moves it once for a conversation, not once per message", async () => {
+    /*
+     * The number is asked per conversation (`collapseThreads`), so a write that
+     * names every message of one moves it by one. Moving it once per message
+     * raised it by the size of the conversation and left the next read to take
+     * it back down: the number on screen was never the one the server held.
+     */
+    stub(() => 0);
+    const inThread = (id: string) => ({ ...email(id, {}), threadId: "t1" });
+    useMail.setState({
+      emails: { e1: inThread("e1"), e2: inThread("e2"), e3: inThread("e3") },
+      threads: { t1: { id: "t1", emailIds: ["e1", "e2", "e3"] } } as never,
+      labelCounts: { [STARRED_KEYWORD]: { total: 5, unread: 2 } },
+    });
+    await useMail.getState().star(["e1", "e2", "e3"], true);
+    expect(useMail.getState().labelCounts[STARRED_KEYWORD]).toEqual({
+      total: 6,
+      // One conversation, carrying the star and not read: one of each.
+      unread: 3,
+    });
+  });
+
+  it("counts messages, not conversations, when conversation view is off", async () => {
+    // The unit is the one the list shows, and the number is asked with the same
+    // setting -- so with rows as messages, three messages are three.
+    useSettings.setState((s) => ({
+      settings: { ...s.settings, conversationMode: false },
+    }));
+    stub(() => 0);
+    const inThread = (id: string) => ({ ...email(id, {}), threadId: "t1" });
+    useMail.setState({
+      emails: { e1: inThread("e1"), e2: inThread("e2"), e3: inThread("e3") },
+      threads: { t1: { id: "t1", emailIds: ["e1", "e2", "e3"] } } as never,
+      labelCounts: { [STARRED_KEYWORD]: { total: 5, unread: 2 } },
+    });
+    await useMail.getState().star(["e1", "e2", "e3"], true);
+    expect(useMail.getState().labelCounts[STARRED_KEYWORD]).toEqual({
+      total: 8,
+      unread: 5,
+    });
+  });
+
+  it("moves nothing when the conversation is still under the label", async () => {
+    // Unstarring one message of a conversation another message keeps starred:
+    // the row is still counted, so neither half of the number moves.
+    stub(() => 0);
+    useMail.setState({
+      emails: {
+        e1: { ...email("e1", { [STARRED_KEYWORD]: true }), threadId: "t1" },
+        e2: { ...email("e2", { [STARRED_KEYWORD]: true }), threadId: "t1" },
+      },
+      threads: { t1: { id: "t1", emailIds: ["e1", "e2"] } } as never,
+      labelCounts: { [STARRED_KEYWORD]: { total: 5, unread: 2 } },
+    });
+    await useMail.getState().star(["e1"], false);
+    expect(useMail.getState().labelCounts[STARRED_KEYWORD]).toEqual({
+      total: 5,
+      unread: 2,
+    });
+  });
+
   it("drops the starred count when a star is removed", async () => {
     stub(() => 0);
     useMail.setState({

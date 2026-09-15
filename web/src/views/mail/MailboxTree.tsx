@@ -77,7 +77,9 @@ const FOLDER_MIME = "application/x-gilbert-folder";
  * The same row for both, because they are the same thing to a reader — a
  * question about messages, with how many it answers with, opening the list of
  * them. A label brings a colour to tint and a depth to indent by; Starred
- * brings neither, and nothing else about the two differs.
+ * brings no colour of a label's to tint, and draws the star it is named after
+ * as the list draws a star — filled, in the star's own token (`--star`), the
+ * one a starred row's star is drawn with. Nothing else about the two differs.
  *
  * The count is the whole of the mail under the keyword, read or not. The
  * unread half stays in the tree for the visibility rule to act on, and is
@@ -90,6 +92,7 @@ function KeywordRow({
   total,
   color,
   icon,
+  iconColor,
   depth,
 }: {
   href: string;
@@ -97,6 +100,8 @@ function KeywordRow({
   total: number;
   color?: string;
   icon?: ReactNode;
+  /** The colour to draw an icon in, where a label's swatch would go. */
+  iconColor?: string;
   depth: number;
 }) {
   return (
@@ -114,7 +119,12 @@ function KeywordRow({
           style={{ "--label-color": color } as React.CSSProperties}
         />
       ) : (
-        <span className="nav-label-icon">{icon}</span>
+        <span
+          className="nav-label-icon"
+          style={iconColor ? { color: iconColor } : undefined}
+        >
+          {icon}
+        </span>
       )}
       <span className="nav-label">{name}</span>
       {total > 0 && <span className="nav-count">{total}</span>}
@@ -527,9 +537,10 @@ export function MailboxTree() {
          * writes -- but it is the same kind of row: a question about messages,
          * with a count of how many it answers with, opening the list of them.
          * So it is drawn by the same component and its count comes from the
-         * same read; nothing about it is special except that it has no colour
-         * to tint and no name of its own to rename, and that it is drawn for
-         * an account with no labels at all -- stars are not a label.
+         * same read; nothing about it is special except that the star it
+         * carries is the star's own and no label's -- filled, in `--star`, as
+         * the row's star is -- and that it is drawn for an account with no
+         * labels at all: stars are not a label.
          *
          * The Manage link goes only where the client manages labels. A group's
          * catalog is not that: it lives in the group's own app folder and the
@@ -555,7 +566,8 @@ export function MailboxTree() {
               href="/search?q=is:starred"
               name={t("Starred")}
               total={starredCount.total}
-              icon={<Star size={14} />}
+              icon={<Star size={14} fill="currentColor" />}
+              iconColor="var(--star)"
               depth={0}
             />
             {shownLabels.map((n) => (

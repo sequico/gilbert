@@ -28,6 +28,7 @@ import { withBase } from "@/lib/basePath";
 import { plural, t } from "@/lib/i18n";
 import {
   countedKeywords,
+  countsConversations,
   type KeywordCounts,
   keywordCountDelta,
   SEEN_KEYWORD,
@@ -882,27 +883,30 @@ export const useMail = create<MailState>((set, get) => ({
     // optimistic
     set((s) => {
       const next = { ...s.emails };
-      /*
-       * The sidebar's numbers are server totals, and this write moves them
-       * here rather than on the next read: unstarring a message and watching
-       * the Starred count stay put reads as a broken app. The arithmetic is
-       * `keywordCountDelta`'s, once, so the row and the count cannot disagree
-       * about what the write did.
-       */
-      let labelCounts = s.labelCounts;
       for (const id of ids) {
         const e = next[id];
         if (!e) continue;
-        labelCounts = keywordCountDelta({
-          counts: labelCounts,
-          keywords: e.keywords,
-          keyword,
-          on: value,
-        });
         const kw = { ...e.keywords };
         if (value) kw[keyword] = true;
         else delete kw[keyword];
         next[id] = { ...e, keywords: kw };
+      }
+      /*
+       * The sidebar's numbers are server totals, and this write moves them
+       * here rather than on the next read: unstarring a message and watching
+       * the Starred count stay put reads as a broken app. The arithmetic is
+       * `keywordCountDelta`'s, once, and it is handed **one row at a time** —
+       * the whole conversation when the sidebar counts conversations — as it
+       * was and as it is, so the number moves once for a conversation however
+       * many of its messages this write names.
+       */
+      let labelCounts = s.labelCounts;
+      for (const row of countRows(ids, s.emails, s.threads)) {
+        labelCounts = keywordCountDelta({
+          counts: labelCounts,
+          before: pick(s.emails, row),
+          after: pick(next, row),
+        });
       }
       return { emails: next, labelCounts };
     });
@@ -1777,7 +1781,7 @@ export const useMail = create<MailState>((set, get) => ({
      * list it opened showed one row -- a number that contradicts the list it
      * describes is worse than no number.
      */
-    const collapseThreads = settings().conversationMode;
+    const collapseThreads = countsConversations();
     const calls: Invocation[] = keywords.flatMap((keyword, i) => [
       [
         "Email/query",
@@ -2156,6 +2160,57 @@ function isUnsupportedSort(err: unknown): boolean {
   const type = (err as { type?: string } | null)?.type;
   const message = String((err as Error | null)?.message ?? "");
   return type === "unsupportedSort" || /unsupportedSort/i.test(message);
+}
+
+/** The messages of these ids that the map holds. */
+function pick(emails: Record<Id, Email>, ids: Id[]): Email[] {
+  return ids.map((id) => emails[id]).filter((e): e is Email => Boolean(e));
+}
+
+/**
+ * The rows a keyword write is counted over: what the sidebar counts, for the
+ * messages the write names.
+ *
+ * The unit is the row's and not the message's (`countsConversations`, which the
+ * count itself is read with), so with conversation view on a conversation is
+ * one number however many of its messages are being written, and with it off
+ * every message counts for itself. Grouping is what makes the optimistic move
+ * exact: moving the number once per message raised it by the size of the
+ * conversation and left the next read to take it back down.
+ *
+ * A conversation is taken whole — every message of its thread the client holds
+ * — because that is what the count asks about. The server's total is over the
+ * account and not over the folder on screen, so a reply filed elsewhere belongs
+ * to the same number, and a message of the row still carrying the keyword is
+ * what keeps the number where it is when one message loses it. The thread comes
+ * with the list (the collapsed query fetches its messages) and with
+ * `loadThread`; the messages the write names are kept in the row even so, for a
+ * thread the client has not read or has read before the newest reply landed.
+ */
+function countRows(
+  ids: Id[],
+  emails: Record<Id, Email>,
+  threads: Record<Id, Thread>,
+): Id[][] {
+  const perConversation = countsConversations();
+  const rows = new Map<string, Id[]>();
+  for (const id of ids) {
+    const e = emails[id];
+    if (!e) continue;
+    // With conversations counted, the thread is the row; without it, each
+    // message is its own row.
+    const key = perConversation ? e.threadId : id;
+    const row = rows.get(key);
+    if (row) row.push(id);
+    else rows.set(key, [id]);
+  }
+  return [...rows].map(([key, row]) => {
+    const thread = perConversation ? threads[key] : undefined;
+    if (!thread) return row;
+    const members = thread.emailIds.filter((id) => emails[id]);
+    for (const id of row) if (!members.includes(id)) members.push(id);
+    return members;
+  });
 }
 
 async function runQueryOnce(

@@ -1,6 +1,6 @@
 /**
- * How many messages carry a keyword — one shape and one place for the
- * arithmetic that keeps it true.
+ * How much mail carries a keyword — one shape and one place for the arithmetic
+ * that keeps it true.
  *
  * The numbers come from the server: one `Email/query` per keyword with
  * `calculateTotal`, which is what `loadLabelCounts` asks. Two numbers come out
@@ -14,8 +14,15 @@
  * The `G-` state the agent writes (ADR 0003 resolution 9) is deliberately not
  * among the counted keywords: it is per-message processing state, never a row
  * in the sidebar.
+ *
+ * **A count is taken over the row, not the message.** A conversation counted
+ * once while its messages each counted once is not a detail: the number would
+ * contradict the list it opens. Which of the two it is, is decided once
+ * (`countsConversations`) and read by both sides — the read that answers the
+ * number and the write that moves it — so they cannot be counted differently.
  */
-import type { Label } from "@/store/settings";
+import { anyCarries, type CarriesKeywords } from "@/lib/rowScope";
+import { type Label, settings } from "@/store/settings";
 
 /** The keyword a starred message carries. One definition, both tiers' readers. */
 export const STARRED_KEYWORD = "$flagged";
@@ -59,59 +66,115 @@ export function countedKeywords(labels: Label[]): string[] {
 }
 
 /**
- * The counts after one message gained or lost one keyword.
+ * Whether the sidebar counts conversations rather than messages.
+ *
+ * One setting decides the unit of every number in the sidebar — the same one
+ * the list itself collapses by — and both readers of a count go through here:
+ * `loadLabelCounts` asks the server with it, and a write moves the number with
+ * it. Answered in one place because it has to be answered the same way in both:
+ * a write counted per message against a total counted per conversation raised
+ * the number by the size of the conversation and left the next read to take it
+ * back down.
+ */
+export function countsConversations(): boolean {
+  return settings().conversationMode;
+}
+
+/** Every keyword these messages carry, in any of them. */
+function carriedKeywords(messages: ReadonlyArray<CarriesKeywords>): Set<string> {
+  const keys = new Set<string>();
+  for (const m of messages) for (const k of Object.keys(m.keywords ?? {})) keys.add(k);
+  return keys;
+}
+
+/** How much a boolean that was one thing and is now another moves a count. */
+const step = (was: boolean, is: boolean): number => (is ? 1 : 0) - (was ? 1 : 0);
+
+/**
+ * Whether the row carries the keyword *and* is counted as unread for it.
+ *
+ * The unread half is asked as `hasKeyword K AND notKeyword $seen`, collapsed
+ * with the total, so a row counts when **one** message carries the keyword and
+ * is not marked read — not when one message carries it and another is unread.
+ * Marking a conversation read is where the two readings part company, which is
+ * why this is not `anyCarries(messages, K) && anyLacks(messages, SEEN_KEYWORD)`.
+ */
+function carriesUnread(
+  messages: ReadonlyArray<CarriesKeywords>,
+  keyword: string,
+): boolean {
+  return anyCarries(
+    messages.filter((m) => !m.keywords?.[SEEN_KEYWORD]),
+    keyword,
+  );
+}
+
+/**
+ * The counts after one row changed.
  *
  * A count is a server total, and a write the reader just made has to move it at
  * once: unstarring a message and watching the Starred number stay where it was
  * is the kind of lag that makes a reader distrust every number on the screen.
- * The move is exact rather than a guess, because everything it needs is known
- * — which keywords the message carried before the write, and whether it was
- * read.
+ * The move is exact rather than a guess, because everything it needs is known —
+ * the row's messages as they were and as they are.
  *
- * Two cases, and they are different shapes:
+ * **The row is the unit, because the row is what a number counts**
+ * (`countsConversations`): one message when the sidebar counts messages, a
+ * conversation's messages when it counts conversations. `before` and `after`
+ * are that row whole, which is what keeps this exact however much of it a write
+ * reached: naming one message inside an open conversation moves the number no
+ * more than unstarring the conversation does while another of its messages
+ * still carries the keyword. Moving the number once per *message named* is what
+ * raised it by the size of the conversation and left the next read to take it
+ * back down.
  *
- *  - **a label or the starred keyword**: that keyword's total moves by one,
- *    and its unread half moves with it only if the message was unread;
- *  - **`$seen`**: no total moves anywhere — reading a message files it nowhere
- *    else — and the unread half of every keyword the message carries moves in
- *    the direction of the change.
+ * Both halves of every counted keyword move by what the row's contribution to
+ * them changed:
  *
- * A keyword nobody is counting is left alone. A number that was never read has
+ *  - **the total**: the row counts for a keyword when any of its messages
+ *    carries it, so the total moves by one when that changes;
+ *  - **the unread half**: the row counts when **one** message carries the
+ *    keyword *and* is not marked read — the question the server is asked — so
+ *    reading a conversation moves the unread halves and no total, and starring
+ *    one can move the unread half where the total does not.
+ *
+ * A row that changed nothing moves nothing, and every keyword is decided apart
+ * from the others: the keyword being written is not a case here, which is what
+ * lets one function answer for a label, for a star and for a read.
+ *
+ * A keyword nobody is counting is left alone — a number that was never read has
  * none to move, and inventing one from a single message would be a worse answer
- * than its absence.
+ * than its absence — and so is a keyword nobody in the row carries.
  */
 export function keywordCountDelta(args: {
   counts: Record<string, KeywordCounts>;
-  /** The message's keywords *before* the write. */
-  keywords: Record<string, boolean>;
-  /** The keyword being written. */
-  keyword: string;
-  /** Whether it is being added or removed. */
-  on: boolean;
+  /** The row's messages as they were *before* the write. */
+  before: ReadonlyArray<CarriesKeywords>;
+  /** The same row as it is *after* it. */
+  after: ReadonlyArray<CarriesKeywords>;
 }): Record<string, KeywordCounts> {
-  const { counts, keywords, keyword, on } = args;
-  // A write that changes nothing moves nothing: re-starring a starred message
-  // is not two messages.
-  if (Boolean(keywords[keyword]) === on) return counts;
-
-  const next = { ...counts };
-
-  if (keyword === SEEN_KEYWORD) {
-    const step = on ? -1 : 1;
-    for (const carried of Object.keys(keywords)) {
-      const c = next[carried];
-      if (c) next[carried] = { ...c, unread: Math.max(0, c.unread + step) };
-    }
-    return next;
+  const { counts, before, after } = args;
+  let next: Record<string, KeywordCounts> | null = null;
+  /*
+   * Only the keywords the row carries, either side of the write: a keyword
+   * nobody in it carries cannot have moved. Asking the counted set instead
+   * would walk every label in the account for every row of a whole folder.
+   */
+  const candidates = carriedKeywords([...before, ...after]);
+  for (const keyword of candidates) {
+    const c = counts[keyword];
+    if (!c) continue;
+    const totalStep = step(anyCarries(before, keyword), anyCarries(after, keyword));
+    const unreadStep = step(
+      carriesUnread(before, keyword),
+      carriesUnread(after, keyword),
+    );
+    if (!totalStep && !unreadStep) continue;
+    next ??= { ...counts };
+    next[keyword] = {
+      total: Math.max(0, c.total + totalStep),
+      unread: Math.max(0, c.unread + unreadStep),
+    };
   }
-
-  const c = next[keyword];
-  if (!c) return counts;
-  const wasUnread = !keywords[SEEN_KEYWORD];
-  const unreadStep = wasUnread ? (on ? 1 : -1) : 0;
-  next[keyword] = {
-    total: Math.max(0, c.total + (on ? 1 : -1)),
-    unread: Math.max(0, c.unread + unreadStep),
-  };
-  return next;
+  return next ?? counts;
 }
