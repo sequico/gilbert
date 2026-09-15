@@ -704,7 +704,8 @@ export const catalog: Catalog = {
     "Sign out all other sessions": "Alle anderen Sitzungen abmelden",
     "Signed in as": "Angemeldet als",
     "This is my own device": "Das ist mein eigenes Gerät",
-    "Only on a device you've marked as your own. Sign in again with \u201cThis is my own device\u201d ticked.": "Nur auf einem Gerät, das Sie als Ihr eigenes markiert haben. Melden Sie sich erneut an und setzen Sie das Häkchen bei „Das ist mein eigenes Gerät“.",
+    "Only on a device you've marked as your own. Sign in again with \u201cThis is my own device\u201d ticked.":
+      "Nur auf einem Gerät, das Sie als Ihr eigenes markiert haben. Melden Sie sich erneut an und setzen Sie das Häkchen bei „Das ist mein eigenes Gerät“.",
     "this device": "dieses Gerät",
     Device: "Gerät",
     IP: "IP",

@@ -196,12 +196,18 @@ describe("eventGetView", () => {
   });
 
   it("leaves the rule on the series itself alone", () => {
-    assert.deepEqual(eventGetView(series(), false, ["recurrenceRule"]).recurrenceRule, WEEKDAYS);
+    assert.deepEqual(
+      eventGetView(series(), false, ["recurrenceRule"]).recurrenceRule,
+      WEEKDAYS,
+    );
   });
 
   it("reads useDefaultAlerts as false until it is set", () => {
     // 0.16.21 read `true` until it was set.
-    assert.equal(eventGetView(series(), false, ["useDefaultAlerts"]).useDefaultAlerts, false);
+    assert.equal(
+      eventGetView(series(), false, ["useDefaultAlerts"]).useDefaultAlerts,
+      false,
+    );
     assert.equal(
       eventGetView({ ...series(), useDefaultAlerts: true }, false, ["useDefaultAlerts"])
         .useDefaultAlerts,

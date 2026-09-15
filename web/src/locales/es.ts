@@ -672,7 +672,8 @@ export const catalog: Catalog = {
     "Sign out all other sessions": "Cerrar todas las demás sesiones",
     "Signed in as": "Sesión iniciada como",
     "This is my own device": "Este es mi propio dispositivo",
-    "Only on a device you've marked as your own. Sign in again with \u201cThis is my own device\u201d ticked.": "Solo en un dispositivo que haya marcado como suyo. Vuelva a iniciar sesión con «Este es mi propio dispositivo» marcado.",
+    "Only on a device you've marked as your own. Sign in again with \u201cThis is my own device\u201d ticked.":
+      "Solo en un dispositivo que haya marcado como suyo. Vuelva a iniciar sesión con «Este es mi propio dispositivo» marcado.",
     "this device": "este dispositivo",
     Device: "Dispositivo",
     IP: "IP",
