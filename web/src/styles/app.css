@@ -1268,13 +1268,21 @@ a.menu-item:hover { color: var(--fg); }
 /* `min-width: 0`, or the flex default of `auto` holds the search field at its
    own min-content and the account buttons beside it are pushed off a phone. */
 .searchbar { flex: 1 1 auto; min-width: 0; max-width: 720px; margin: 0 auto; position: relative; }
+/*
+ * The signed-in address, beside the brand.
+ *
+ * Styled here rather than inline so the responsive block can reach it: an
+ * inline style is not something a media query can turn off, and the width it
+ * takes on a phone comes out of the search field, which is the one thing that
+ * bar is for there.
+ */
+.topbar-email { font-size: 12px; opacity: .65; margin-left: 10px; max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-self: center; }
 .searchbar .search-input { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 8px 0 14px; border-radius: 999px; background: var(--bg-sunken); border: 1px solid transparent; transition: background .12s, box-shadow .12s, border-color .12s; }
 .searchbar .search-input:focus-within { background: var(--bg-elev); box-shadow: var(--shadow-1); border-color: var(--border); }
 .searchbar input { flex: 1; border: 0; background: transparent; outline: none; min-width: 0; height: 100%; }
 .searchbar input::placeholder { color: var(--fg-faint); }
 .search-panel { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-2); padding: 16px; z-index: 60; animation: pop .12s var(--ease); }
 .search-panel .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
-.search-suggest { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-2); padding: 6px; z-index: 60; }
 .topbar-actions { display: flex; align-items: center; gap: 4px; }
 /* Live-updates indicator. Three states, and a raised bead rather than a flat
    speck: at 8px flat it was invisible against either theme. The gloss is a
@@ -1703,7 +1711,6 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
    Contacts
    ========================================================================== */
 .contacts-layout { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; height: 100%; min-height: 0; flex: 1; }
-.contacts-books { border-right: 1px solid var(--border); padding: 12px 8px; overflow-y: auto; overflow-x: hidden; }
 .contacts-list { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
 .contacts-list .list-search { padding: 10px 12px; border-bottom: 1px solid var(--border); }
 .contacts-scroll { flex: 1; overflow-y: auto; }
@@ -1738,7 +1745,6 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
    Calendar
    ========================================================================== */
 .cal-layout { display: grid; grid-template-columns: 240px 1fr; height: 100%; min-height: 0; }
-.cal-side { border-right: 1px solid var(--border); padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
 .cal-main { display: flex; flex-direction: column; min-height: 0; min-width: 0; flex: 1; height: 100%; }
 .cal-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); flex: 0 0 auto; }
 .cal-toolbar h2 { margin: 0 8px; font-size: 1.2em; font-weight: 650; min-width: 0; white-space: nowrap; }
@@ -1983,21 +1989,47 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
   .settings-layout.root .settings-content { display: none; }
   .settings-content { --pad-b: 80px; padding: 16px 16px var(--pad-b); }
   .contacts-layout { grid-template-columns: 1fr; }
-  .contacts-books { display: none; }
   .contacts-layout.detail .contacts-list { display: none; }
   .contacts-layout:not(.detail) .contact-detail { display: none; }
   .cal-layout { grid-template-columns: 1fr; }
-  .cal-side { display: none; }
 }
 @media (max-width: 768px) {
-  :root { --topbar-h: 52px; }
+  /*
+   * The phone's two fixed pieces of chrome, named once.
+   *
+   * `--mobile-chrome` is the tabbar's height including the home indicator,
+   * and everything anchored to the bottom of a phone is placed off it: the
+   * tabbar itself, the room `.main` reserves for it, and the band
+   * `--fab-clearance` measures above it -- the fab's own gap and size plus the
+   * room to breathe. The toast clears that band and a scrolling list ends
+   * above it, so one pair of numbers decides all of it.
+   *
+   * `--topbar-h` grows by the top inset for the same reason the bottom side
+   * carries one everywhere. index.html asks for `viewport-fit=cover`, so the
+   * app paints from the first pixel of the screen, and in an installed PWA on
+   * a notched phone that pixel is the status bar: without the inset the
+   * hamburger and the drawer's close sit under the island. All four sides are
+   * reserved, so the two land on the same spot either way.
+   */
+  :root {
+    --topbar-h: calc(52px + env(safe-area-inset-top));
+    --mobile-tabbar-h: 60px;
+    --mobile-chrome: calc(var(--mobile-tabbar-h) + env(safe-area-inset-bottom));
+    --fab-size: 56px;
+    --fab-gap: 18px;
+    --fab-clearance: calc(var(--fab-gap) + var(--fab-size) + 8px);
+  }
   .app-body, .app-body.collapsed { grid-template-columns: minmax(0, 1fr); }
   .sidebar { position: fixed; top: 0; bottom: 0; left: 0; width: min(300px, 85vw); background: var(--bg-elev); z-index: 950; transform: translateX(-105%); transition: transform .22s var(--ease); box-shadow: var(--shadow-3); padding-top: 12px; }
   .sidebar.open { transform: none; }
-  .collapsed .sidebar .nav-item, .collapsed .sidebar .compose-btn { all: revert; }
-  .collapsed .module-bar { flex-direction: row; }
-  .collapsed .module-link { width: auto; height: auto; padding: 6px 2px; border-radius: var(--radius-sm); }
-  .collapsed .module-link .module-label { display: block; }
+  /*
+   * The tabbar is the phone's module switcher; the drawer is the tree.
+   *
+   * The module bar inside the drawer is the same five links a second time,
+   * pinned to the bottom of a panel whose own bottom is the tabbar's row — one
+   * navigation directly above an identical one.
+   */
+  .module-bar { display: none; }
   .drawer-backdrop { display: block; position: fixed; inset: 0; z-index: 940; background: rgba(2,6,23,.45); opacity: 0; pointer-events: none; transition: opacity .2s; }
   .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
   .main { border-radius: 0; border: 0; }
@@ -2007,12 +2039,42 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
     stylesheet's job to keep anything readable out from under them. The insets
     are zero everywhere else, so these need no media query of their own.
   */
-  .topbar { padding: 0 max(6px, env(safe-area-inset-right)) 0 max(6px, env(safe-area-inset-left)); gap: 4px; }
+  .topbar { padding: env(safe-area-inset-top) max(6px, env(safe-area-inset-right)) 0 max(6px, env(safe-area-inset-left)); gap: 4px; }
   .topbar .brand .brand-name { display: none; }
+  /*
+   * What the bar carries on a phone.
+   *
+   * The address and the gear both go, and the search field is why. Everything
+   * else in this row is a fixed 36px that its own margin cannot give up: the
+   * menu and the brand on one side, and chat, the theme, admin (for an admin)
+   * and the account menu on the other -- 298px of a 360px screen before the
+   * search is measured, leaving it about 43px wide, an icon and a sliver. On a
+   * 320px screen, four. The address is in the account menu already, and so is
+   * Settings, so both are one tap away and the field gets the room.
+   */
+  .topbar-email { display: none; }
   .searchbar .search-input { height: 40px; }
   .topbar-actions .hide-mobile { display: none; }
+  /*
+   * The advanced panel and its suggestions hang off the search field, so they
+   * are as wide as it is -- which on a phone is not a form's worth of room.
+   * Fixed under the bar instead, where the two-column grid below has somewhere
+   * to put its columns, and capped so a small screen in landscape can scroll
+   * it rather than lose the Search button off the bottom.
+   */
+  .search-panel { position: fixed; left: 12px; right: 12px; top: calc(var(--topbar-h) + 2px); max-height: calc(100dvh - var(--topbar-h) - 12px); overflow-y: auto; }
   .msg-row { padding-right: 8px; }
-  .mail-list { padding-bottom: 72px; }
+  /* The list ends above the fab rather than under it, so the last row is
+     readable and tappable while the button that floats over it is there. */
+  .mail-list { padding-bottom: var(--fab-clearance); }
+  /*
+   * The recipient suggestions are at least 300px wide everywhere else so they
+   * do not become a sliver. In the composer's recipient field that minimum is
+   * wider than the field itself on a phone -- 286px on a 360px screen, less on
+   * a narrower one -- and `.composer` clips the overflow, so the right end of
+   * every address is cut off. The field is the width here.
+   */
+  .suggest-list { min-width: 0; }
     /*
     `dvh`, not `vh`. On a phone browser `100vh` is the tall layout viewport that
     ignores the address bar, so a full-screen composer put its Send button
@@ -2020,22 +2082,47 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
     cannot be. In an installed PWA there is no bar and the two agree.
   */
   .composer { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; position: fixed; inset: 0; }
-  .composer.minimized { height: calc(44px + env(safe-area-inset-bottom)); width: 100vw; top: auto; bottom: 0; }
-  .composer-dock { right: 0; }
-  .dialog { max-height: calc(100dvh - 16px); }
-  .fab { display: flex; position: fixed; right: calc(18px + env(safe-area-inset-right)); bottom: calc(78px + env(safe-area-inset-bottom)); width: 56px; height: 56px; border-radius: 18px; background: var(--accent); color: var(--accent-fg); align-items: center; justify-content: center; box-shadow: var(--shadow-2); z-index: 700; }
+  /* Full screen means full screen: the head and the foot are at the two edges
+     of the display, so each takes the inset on its own side. Send is the last
+     thing above the home indicator, which is the one place a mis-tap costs the
+     draft. */
+  .composer-head { height: calc(44px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); padding-right: max(6px, env(safe-area-inset-right)); }
+  .composer-foot { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .composer.minimized { position: static; height: 44px; width: 100vw; max-width: 100vw; }
+  /*
+   * The dock clears the tabbar, and lays its minimized bars out in a column.
+   *
+   * A minimized bar is 44px of the tabbar's 60, so on the tabbar it covers the
+   * labels and leaves the navigation unreachable for as long as a draft is
+   * waiting — the opposite of what minimizing a draft is for. And as fixed
+   * bars there is no layout between them at all, so two minimized drafts sit
+   * on the same pixels and only one of them can be found. `column-reverse`
+   * stacks them upward off the tabbar, oldest nearest the bottom, which is
+   * where the eye and the thumb already are.
+   */
+  .composer-dock { right: 0; bottom: var(--mobile-chrome); flex-direction: column-reverse; align-items: stretch; }
+  /* The backdrop is what the dialog is measured against: its own padding is
+     the gap, plus the insets so a notched phone keeps the dialog's edges off
+     the notch, and the dialog takes exactly what that leaves. */
+  .dialog-backdrop { padding: calc(12px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+  .dialog { max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  .fab { display: flex; position: fixed; right: calc(var(--fab-gap) + env(safe-area-inset-right)); bottom: calc(var(--mobile-chrome) + var(--fab-gap)); width: var(--fab-size); height: var(--fab-size); border-radius: 18px; background: var(--accent); color: var(--accent-fg); align-items: center; justify-content: center; box-shadow: var(--shadow-2); z-index: 700; }
+  /* Above the tabbar, and above the fab that floats over it. A toast at the
+     bottom of a phone covered the navigation, which is the one thing on the
+     screen that must stay reachable while it is up. */
+  .toast-host { bottom: calc(var(--mobile-chrome) + var(--fab-clearance)); }
   /* The bar grows by the home indicator rather than hiding behind it, and
      `.main` below reserves exactly that much. */
-  .mobile-tabbar { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; height: calc(60px + env(safe-area-inset-bottom)); background: var(--bg-elev); border-top: 1px solid var(--border); z-index: 700; padding-bottom: env(safe-area-inset-bottom); }
+  .mobile-tabbar { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; height: var(--mobile-chrome); background: var(--bg-elev); border-top: 1px solid var(--border); z-index: 700; padding-bottom: env(safe-area-inset-bottom); }
   .mobile-tabbar a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--fg-muted); text-decoration: none; font-size: 11px; }
   .mobile-tabbar a.active { color: var(--accent); }
-  .main { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+  .main { padding-bottom: var(--mobile-chrome); }
   .sidebar { padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-inset-left); }
   /* Lines the close up with the hamburger underneath it: same height as the
      top bar, same 12px in from the edge, so the second press lands where the
      first one did. The negative margin cancels the drawer's own padding-top,
      which would otherwise push it a row lower than the thing it replaces. */
-  .drawer-head { display: flex; align-items: center; height: var(--topbar-h); margin-top: -12px; padding-left: max(6px, env(safe-area-inset-left)); }
+  .drawer-head { display: flex; align-items: center; height: var(--topbar-h); margin-top: -12px; padding-top: env(safe-area-inset-top); padding-left: max(6px, env(safe-area-inset-left)); }
   .thread-subject { padding: 14px 16px 8px; }
   .message { margin: 0 8px 8px; }
   .message-head { padding: 10px 12px; }
@@ -2492,7 +2579,7 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 
 /* Mobile: the panel becomes a full-screen sheet, not a sixth tab. */
 .chat-sheet {
-  position: fixed; inset: 0; z-index: 750; /* below the composer dock (800) */
+  position: fixed; inset: 0; z-index: 750; /* below the composer dock (955) */
   background: var(--bg); display: flex; flex-direction: column;
   animation: chat-up .18s var(--ease);
 }

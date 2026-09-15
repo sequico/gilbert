@@ -6,6 +6,7 @@ import {
   HelpCircle,
   ListChecks,
   LogOut,
+  type LucideIcon,
   Mail,
   Menu as MenuIcon,
   Moon,
@@ -50,6 +51,109 @@ const PUSH_LABEL = {
   disconnected: "Live updates off — checking periodically instead",
 } as const;
 
+/**
+ * A section of the app, and what starting something in it means.
+ *
+ * `event` is how a section that has its own view asks that view to open its
+ * editor: the view owns the dialog, the shell only knows the button. Mail is
+ * the exception and has no event -- its composer is this app's own store, so
+ * the button calls it directly.
+ */
+interface Module {
+  id: string;
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  action: { label: string; icon: LucideIcon; event?: string };
+}
+
+/**
+ * The five sections, written down once.
+ *
+ * Four things on this screen are a list of them: the drawer's compose button,
+ * the module bar at the foot of the drawer, the phone's tab bar and the phone's
+ * floating button. Every one of those renders this table, which is what keeps
+ * them agreeing about which section is current, what its primary action is and
+ * what that action is called.
+ *
+ * A section that has an editor of its own is reached through `event` rather
+ * than by this file: the shell dispatches, the view that owns the dialog
+ * listens (see CalendarView, ContactsView, FilesView, TasksView). `.action`
+ * carrying no event is how mail says its composer is the app's own store and
+ * is called directly.
+ *
+ * `search` is not one of these: it is mail, filtered, and `currentModule`
+ * answers with mail for it so the renderers agree about which module is
+ * current while a search is open.
+ */
+const MODULES: Module[] = [
+  {
+    id: "mail",
+    href: "/mail",
+    label: "Mail",
+    icon: Mail,
+    action: { label: "Compose", icon: PenSquare },
+  },
+  {
+    id: "calendar",
+    href: "/calendar",
+    label: "Calendar",
+    icon: Calendar,
+    action: { label: "New event", icon: Plus, event: "ihm:new-event" },
+  },
+  {
+    id: "contacts",
+    href: "/contacts",
+    label: "Contacts",
+    icon: Users,
+    action: { label: "New contact", icon: Plus, event: "ihm:new-contact" },
+  },
+  {
+    id: "files",
+    href: "/files",
+    label: "Files",
+    icon: FolderOpen,
+    action: { label: "Upload", icon: Upload, event: "ihm:files-upload" },
+  },
+  {
+    id: "tasks",
+    href: "/tasks",
+    label: "Tasks",
+    icon: ListChecks,
+    action: { label: "New task", icon: Plus, event: "ihm:new-task" },
+  },
+];
+
+/**
+ * The module a location's section belongs to, or `undefined` where there is
+ * none — the settings and admin screens are not one of the five.
+ *
+ * Search is deliberately not a section of its own: it is mail, filtered, so the
+ * four renderers agree about which module is current while it is open.
+ */
+function currentModule(section: string): Module | undefined {
+  if (section === "search") return MODULES[0];
+  return MODULES.find((m) => m.id === section);
+}
+
+/**
+ * Whether a message is open in the reading pane, from the url alone.
+ *
+ * The reading pane is full screen on a phone, so the floating button that
+ * writes a new message covers the message it is floating over -- which is not
+ * what a thumb is reaching for while reading. Mail and search are the two
+ * routes that carry a thread, and they carry it in different segments: mail is
+ * `/mail/:mailboxId?/:threadId?` and search is `/search/:threadId?` (see
+ * App.tsx). Calendar, contacts and files carry a place, not a message, so
+ * nothing is hidden there however deep the url goes.
+ */
+function readingMessage(section: string, location: string): boolean {
+  const parts = location.split("/");
+  if (section === "search") return Boolean(parts[2]);
+  if (section === "mail") return Boolean(parts[3]);
+  return false;
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [location, navigate] = useLocation();
   const isMobile = useIsMobile();
@@ -77,6 +181,17 @@ export function AppShell({ children }: { children: ReactNode }) {
    */
   const [goFolder, setGoFolder] = useState(false);
   const section = location.split("/")[1] || "mail";
+  const mod = currentModule(section);
+  /*
+   * The action the drawer's compose button offers, and the fab's.
+   *
+   * The drawer button is on every screen, settings included, so where no module
+   * owns the section it falls back to mail's action: a button at the top of an
+   * empty pane that starts a message is the one that is always meaningful. The
+   * fab is not drawn there at all (see below), being the section's own action.
+   */
+  const action = mod?.action ?? MODULES[0]!.action;
+  const SectionAction = action.icon;
   /*
    * Where the shield takes the reader back to: the section that was open
    * before the last jump into /admin. Remembered on the click that leaves
@@ -173,20 +288,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </span>
         </Link>
         {primaryEmail && (
-          <span
-            className="topbar-email"
-            style={{
-              fontSize: 12,
-              opacity: 0.65,
-              marginLeft: 10,
-              maxWidth: "14rem",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              alignSelf: "center",
-            }}
-            title={primaryEmail}
-          >
+          <span className="topbar-email" title={primaryEmail}>
             {primaryEmail}
           </span>
         )}
@@ -231,9 +333,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Shield size={21} />
             </button>
           )}
+          {/* `hide-mobile`: the account menu beside it already carries
+              Settings, and a phone's bar has no room for both. */}
           <Link
             href="/settings"
-            className={`icon-btn ${section === "settings" ? "active" : ""}`}
+            className={`icon-btn hide-mobile ${section === "settings" ? "active" : ""}`}
             aria-label={t("Settings")}
             title={t("Settings")}
           >
@@ -339,37 +443,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button
             className="compose-btn"
             onClick={() => {
-              if (section === "calendar")
-                window.dispatchEvent(new CustomEvent("ihm:new-event"));
-              else if (section === "contacts")
-                window.dispatchEvent(new CustomEvent("ihm:new-contact"));
-              else if (section === "files")
-                window.dispatchEvent(new CustomEvent("ihm:files-upload"));
-              else if (section === "tasks")
-                window.dispatchEvent(new CustomEvent("ihm:new-task"));
+              const { event } = action;
+              if (event) window.dispatchEvent(new CustomEvent(event));
               else openCompose();
             }}
           >
-            {section === "files" ? (
-              <Upload size={22} />
-            ) : section === "calendar" ||
-              section === "contacts" ||
-              section === "tasks" ? (
-              <Plus size={22} />
-            ) : (
-              <PenSquare size={22} />
-            )}
-            <span>
-              {section === "calendar"
-                ? t("New event")
-                : section === "contacts"
-                  ? t("New contact")
-                  : section === "files"
-                    ? t("Upload")
-                    : section === "tasks"
-                      ? t("New task")
-                      : t("Compose")}
-            </span>
+            <SectionAction size={22} />
+            <span>{t(action.label)}</span>
           </button>
           <div className="sidebar-scroll">
             {(section === "mail" || section === "search") && <MailboxTree />}
@@ -385,36 +465,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           {(section === "mail" || section === "search") && <QuotaBar />}
           <nav className="module-bar" aria-label={t("Go to")}>
-            <ModuleLink
-              href="/mail"
-              icon={<Mail size={20} />}
-              label={t("Mail")}
-              active={section === "mail" || section === "search"}
-            />
-            <ModuleLink
-              href="/calendar"
-              icon={<Calendar size={20} />}
-              label={t("Calendar")}
-              active={section === "calendar"}
-            />
-            <ModuleLink
-              href="/contacts"
-              icon={<Users size={20} />}
-              label={t("Contacts")}
-              active={section === "contacts"}
-            />
-            <ModuleLink
-              href="/files"
-              icon={<FolderOpen size={20} />}
-              label={t("Files")}
-              active={section === "files"}
-            />
-            <ModuleLink
-              href="/tasks"
-              icon={<ListChecks size={20} />}
-              label={t("Tasks")}
-              active={section === "tasks"}
-            />
+            {MODULES.map((m) => (
+              <ModuleLink
+                key={m.id}
+                href={m.href}
+                icon={<m.icon size={20} />}
+                label={t(m.label)}
+                active={mod?.id === m.id}
+              />
+            ))}
           </nav>
         </aside>
         {/*
@@ -430,71 +489,35 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {isMobile && (
         <>
-          {(section === "mail" || section === "search") && !location.split("/")[3] && (
+          {/*
+            The section's primary action, floating over the list. Hidden while
+            a message is open in the reading pane -- see `readingMessage`.
+          */}
+          {mod && !readingMessage(section, location) && (
             <button
               className="fab"
-              aria-label={t("Compose")}
-              onClick={() => openCompose()}
+              aria-label={t(action.label)}
+              onClick={() => {
+                const { event } = action;
+                if (event) window.dispatchEvent(new CustomEvent(event));
+                else openCompose();
+              }}
             >
-              <PenSquare size={24} />
-            </button>
-          )}
-          {section === "contacts" && (
-            <button
-              className="fab"
-              aria-label={t("New contact")}
-              onClick={() => window.dispatchEvent(new CustomEvent("ihm:new-contact"))}
-            >
-              <Plus size={24} />
-            </button>
-          )}
-          {section === "files" && (
-            <button
-              className="fab"
-              aria-label={t("Upload")}
-              onClick={() => window.dispatchEvent(new CustomEvent("ihm:files-upload"))}
-            >
-              <Upload size={24} />
-            </button>
-          )}
-          {section === "tasks" && (
-            <button
-              className="fab"
-              aria-label={t("New task")}
-              onClick={() => window.dispatchEvent(new CustomEvent("ihm:new-task"))}
-            >
-              <Plus size={24} />
+              <SectionAction size={24} />
             </button>
           )}
           <nav className="mobile-tabbar" aria-label={t("Sections")}>
-            <Link
-              href="/mail"
-              className={section === "mail" || section === "search" ? "active" : ""}
-            >
-              <Mail size={22} />
-
-              {t("Mail")}
-            </Link>
-            <Link href="/calendar" className={section === "calendar" ? "active" : ""}>
-              <Calendar size={22} />
-
-              {t("Calendar")}
-            </Link>
-            <Link href="/contacts" className={section === "contacts" ? "active" : ""}>
-              <Users size={22} />
-
-              {t("Contacts")}
-            </Link>
-            <Link href="/files" className={section === "files" ? "active" : ""}>
-              <FolderOpen size={22} />
-
-              {t("Files")}
-            </Link>
-            <Link href="/tasks" className={section === "tasks" ? "active" : ""}>
-              <ListChecks size={22} />
-
-              {t("Tasks")}
-            </Link>
+            {MODULES.map((m) => (
+              <Link
+                key={m.id}
+                href={m.href}
+                className={mod?.id === m.id ? "active" : ""}
+                aria-current={mod?.id === m.id ? "page" : undefined}
+              >
+                <m.icon size={22} />
+                {t(m.label)}
+              </Link>
+            ))}
           </nav>
         </>
       )}

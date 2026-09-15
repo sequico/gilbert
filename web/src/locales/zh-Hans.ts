@@ -918,6 +918,7 @@ export const catalog: Catalog = {
     "Live updates connected": "实时更新已连接",
     "Live updates reconnecting…": "实时更新正在重新连接…",
     "Live updates off — checking periodically instead": "实时更新已关闭——改为定期检查",
+    "New task": "新建任务",
     "Mark as read / unread": "标为已读 / 未读",
     "Star / unstar": "标星 / 取消标星",
     "Report spam / not spam": "举报垃圾邮件 / 取消举报",

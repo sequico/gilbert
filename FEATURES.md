@@ -721,7 +721,11 @@ the few settings that does not follow the account.
   dialogs and compose button all keep clear of the notch and the home
   indicator; `index.html` asks for `viewport-fit=cover`, so the app paints
   under both and the stylesheet is what keeps anything readable out from
-  beneath them.
+  beneath them — the top of the bar included, which is where the status bar
+  sits in an installed app. The tab bar is the phone's module switcher, so the
+  drawer holds the tree for the section you are in and no second copy of it;
+  the top bar drops the signed-in address, which the account menu already
+  carries, to give the search field the width it needs.
 
 ### On a touchscreen
 

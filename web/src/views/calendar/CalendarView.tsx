@@ -465,15 +465,6 @@ export function CalendarView({
           }}
         />
       )}
-      {isMobile && (
-        <button
-          className="fab"
-          aria-label={translate("New event")}
-          onClick={() => openNew()}
-        >
-          <Plus size={24} />
-        </button>
-      )}
       {popover && (
         <EventPopover
           inst={popover.inst}

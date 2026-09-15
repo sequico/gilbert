@@ -829,6 +829,7 @@ export const catalog: Catalog = {
     "Live updates reconnecting…": "Перепідключення оновлень у реальному часі…",
     "Live updates off — checking periodically instead":
       "Оновлення в реальному часі вимкнено — виконується періодична перевірка",
+    "New task": "Нове завдання",
     "Mark as read / unread": "Позначити як прочитане / непрочитане",
     "Star / unstar": "Позначити / зняти позначку",
     "Report spam / not spam": "Позначити як спам / не спам",
