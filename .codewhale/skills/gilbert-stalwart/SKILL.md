@@ -24,6 +24,16 @@ account data.
   dated comment below is the version *that check* ran against. Assume 0.16
   semantics, and when the server moves, re-read the dated comments before
   trusting them.
+- **0.16.22 is the release the tree follows** (13 September 2026): the README's
+  badge names it, `server/src/mock/recurrence.ts`'s `eventGetView` reproduces
+  its four client-visible `CalendarEvent/get` and `ContactCard/get` changes, and
+  the dated comments elsewhere still name whatever release *they* ran against.
+  Those four: `baseEventId` is the master's id on a synthetic id and `null`
+  otherwise (it used to report the event's own id); `recurrenceRule` and
+  `recurrenceOverrides` named on a synthetic id answer `null` rather than being
+  absent; `useDefaultAlerts` is the reader's own and reads `false` until set;
+  and an empty `properties` list returns `id` alone, where it used to mean
+  "everything".
 - **The mock server** (`server/src/mock/index.ts`) emulates a 0.16 server
   in memory for `npm run dev:mock` (demo@example.com / demo) and for tests. It
   is deliberately faithful on the behaviours that bit us (see quirks) and
