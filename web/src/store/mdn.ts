@@ -2,9 +2,7 @@ import { client, setErrorMessage } from "@/jmap/client";
 import type { Email, EmailAddress, Id, SetResponse } from "@/jmap/types";
 import { sameAddress } from "@/lib/address";
 import { uid } from "@/lib/format";
-import { t as translate } from "@/lib/i18n";
 import { buildMdn, MDN_SENT_KEYWORD, mdnDecision } from "@/lib/mdn";
-import { toast } from "@/ui/toast";
 import { useMail } from "./mail";
 
 /**
@@ -59,78 +57,137 @@ export async function sendReadReceipt(email: Email): Promise<void> {
   const mdnId = await mail.importEml(uploaded.blobId, sentId, { $seen: true });
   if (!mdnId) throw new Error("The server would not accept the receipt");
 
-  const res = await client.chain(
-    [
+  /*
+   * **The record goes down before the receipt leaves.** `$mdnsent` is what
+   * stops a later look -- or another client entirely -- from offering the same
+   * receipt again, so writing it is the decision, and the submission is the
+   * effect. The other order is what sends a receipt more than once: a flaky
+   * connection fails the mark after the submission has already gone, the
+   * message stays offerable, and every further look offers it again -- one
+   * confirmation to the sender per attempt.
+   *
+   * The mark is idempotent and harmless on its own: a keyword set twice is the
+   * same keyword. So the failure this order introduces -- marked, and the
+   * receipt did not go -- is the one that can be repaired, and it is repaired
+   * below rather than left as a claim.
+   */
+  if (sendingReceipts.has(email.id))
+    throw new Error("A read receipt for this message is already on its way");
+  sendingReceipts.add(email.id);
+  try {
+    await markDecision(accountId, email.id);
+  } catch (err) {
+    sendingReceipts.delete(email.id);
+    // Nothing left the process, and the message is still offerable: the reader
+    // can try again, and no receipt exists twice.
+    throw err;
+  }
+
+  let res: Map<string, Record<string, unknown>[]>;
+  try {
+    res = await client.chain(
       [
-        "EmailSubmission/set",
-        {
-          accountId,
-          create: {
-            s: {
-              identityId: identity.id,
-              emailId: mdnId,
-              envelope: {
-                mailFrom: { email: identity.email },
-                rcptTo: [{ email: decision.to.email }],
+        [
+          "EmailSubmission/set",
+          {
+            accountId,
+            create: {
+              s: {
+                identityId: identity.id,
+                emailId: mdnId,
+                envelope: {
+                  mailFrom: { email: identity.email },
+                  rcptTo: [{ email: decision.to.email }],
+                },
               },
             },
           },
-        },
-        "s",
+          "s",
+        ],
       ],
-      // RFC 3503's keyword, set on the original rather than remembered locally,
-      // so a second look -- or another client entirely -- knows not to ask again.
-      [
-        "Email/set",
-        { accountId, update: { [email.id]: { [`keywords/${MDN_SENT_KEYWORD}`]: true } } },
-        "k",
-      ],
-    ],
-    { allowErrors: true },
-  );
+      { allowErrors: true },
+    );
+  } finally {
+    sendingReceipts.delete(email.id);
+  }
 
   const sub = res.get("s")?.[0] as unknown as
     | (SetResponse & { __error?: { type: string; description?: string } })
     | undefined;
-  // The submission is the receipt: no response at all means it did not go.
-  if (!sub) throw new Error("The server would not accept the receipt");
-  if (sub.__error) throw new Error(setErrorMessage(sub.__error));
+  /*
+   * The submission is the receipt: no response at all means it did not go.
+   *
+   * Every failure from here clears the mark again, because the mark is the
+   * record that a receipt exists -- and none does. Undoing it is best-effort
+   * by nature (the server may be the reason we are here), so a clearing that
+   * also fails is reported rather than swallowed: the message is then marked
+   * with no receipt behind it, which is the safe direction to err in and the
+   * reader is told which one they are in.
+   */
+  const didNotGo = async (detail: string): Promise<never> => {
+    let cleared = true;
+    try {
+      await clearDecision(accountId, email.id);
+    } catch {
+      cleared = false;
+    }
+    throw new Error(
+      cleared
+        ? detail
+        : `${detail} — and this message is still marked as answered, so it will not offer the receipt again`,
+    );
+  };
+  if (!sub) return didNotGo("The server would not accept the receipt");
+  if (sub.__error) return didNotGo(setErrorMessage(sub.__error));
   if (sub.notCreated?.s) {
     // Do not leave an unsent receipt sitting in Sent looking like it went.
     void client.call("Email/set", { accountId, destroy: [mdnId] });
-    throw new Error(setErrorMessage(sub.notCreated.s));
-  }
-
-  /*
-   * The submission succeeding is only half the record: the `$mdnsent` keyword
-   * on the original is what stops a later look (or another client) from
-   * offering the receipt again. Inspecting only the submission response lets a
-   * failed mark send the receipt and leave it offerable -- and a reload then
-   * produces a duplicate. Try the mark again; if that also
-   * fails, say so rather than pretending the message is recorded.
-   */
-  const mark = res.get("k")?.[0] as unknown as SetResponse & {
-    __error?: { type: string; description?: string };
-  };
-  if (mark?.__error || mark?.notUpdated?.[email.id]) {
-    try {
-      const retry = await client.call<SetResponse>("Email/set", {
-        accountId,
-        update: { [email.id]: { [`keywords/${MDN_SENT_KEYWORD}`]: true } },
-      });
-      const err = retry.notUpdated?.[email.id];
-      if (err) throw new Error(setErrorMessage(err));
-    } catch {
-      toast.show(
-        translate(
-          "The receipt was sent, but recording that on the original message failed — you may be asked about it again.",
-        ),
-      );
-    }
+    return didNotGo(setErrorMessage(sub.notCreated.s));
   }
 
   markSent(email.id);
   void mail.loadMailboxes();
+}
+
+/**
+ * A receipt is being sent for this message right now.
+ *
+ * The banner's own button is disabled while it works, but that state is the
+ * view's and a re-mount loses it: navigating away and back, or opening the
+ * message in a second tab, would otherwise start a second submission for a
+ * message the first one has not finished with. One guard per message, here,
+ * where the effect is.
+ */
+const sendingReceipts = new Set<Id>();
+
+/** Write the keyword that records the decision, before the receipt leaves. */
+async function markDecision(accountId: Id, emailId: Id): Promise<void> {
+  const res = await client.call<SetResponse>("Email/set", {
+    accountId,
+    update: { [emailId]: { [`keywords/${MDN_SENT_KEYWORD}`]: true } },
+  });
+  const err = res.notUpdated?.[emailId];
+  if (err) throw new Error(setErrorMessage(err));
+  // Locally too, so a second look inside this session does not offer it while
+  // the server read catches up.
+  markSent(emailId);
+}
+
+/** Take the decision back: no receipt exists, so the message says none does. */
+async function clearDecision(accountId: Id, emailId: Id): Promise<void> {
+  const res = await client.call<SetResponse>("Email/set", {
+    accountId,
+    update: { [emailId]: { [`keywords/${MDN_SENT_KEYWORD}`]: null } },
+  });
+  const err = res.notUpdated?.[emailId];
+  if (err) throw new Error(setErrorMessage(err));
+  useMail.setState((s) => {
+    const cur = s.emails[emailId];
+    if (!cur) return {};
+    const keywords = { ...cur.keywords };
+    delete keywords[MDN_SENT_KEYWORD];
+    return { emails: { ...s.emails, [emailId]: { ...cur, keywords } } };
+  });
 }
 
 /** Reflect the keyword locally so the banner goes at once. */
