@@ -27,18 +27,23 @@ against the drawing of a sidebar.
 
 A third condition is the operator's own rule rather than either of these:
 administration is a session's most consequential capability, and a session is
-not always on a machine its owner controls. The sign-in form already asks the
-one question that says where it is being used — "This is my own device" — and
-the answer is already carried on the session.
+not always on a machine its owner controls. An installation may therefore want
+the session to have been signed in on a device marked as its owner's — the one
+question the sign-in form already asks that says where it is being used. It is a
+*restriction*, not a protection the product needs, and it is off unless the
+installation states it: the sign-in form's box is about how long a session
+lasts ("stay signed in"), and a shorter session is not a less trusted one. An
+installation that turns it on gets the rule; one that says nothing keeps what
+every installation did before this decision existed.
 
 ## Decision
 
 **The decision is made where the request is, and the menu only announces it.**
 `server/src/adminGate.ts` (**gilbertserver**) holds both halves:
 
-- `administrationAllowed(enabled, remember)` — the installation offers
-  administration, and the session was signed in on a device marked as the
-  person's own. Both, not either.
+- `administrationAllowed(enabled, needsOwnDevice, remember)` — the
+  installation offers administration, and, *where the installation asked for
+the rule*, the session was signed in on a device marked as the person's own.
 - `gateAdministration(raw)` — the body of a request to `/api/jmap`, refused when
   it names a registry method the session may not reach.
 
@@ -79,21 +84,47 @@ reads fresh on every privileged call (ADR 0001). The proxy gate and the admin
 routes are one decision with two entrances; an installation that turned
 administration off leaves neither open, in the same change.
 
+**An account is not acted on by one it outranks.** The admin marker answers "is
+this account an administrator", which is a question about one permission —
+`sysAccountCreate` by default. It does not answer the question a privileged
+write has to ask: whether the account about to be acted on may hold *more* than
+the account acting. Stalwart checks that a caller holds every permission they
+grant when roles change and when an account is created, but not for every write,
+so an account allowed to act on others could reach into one carrying a richer
+custom role — a tenant administrator's, say — and force a change on it.
+`outranks(viewer, target)` (`server/src/upstream.ts`) makes that comparison
+against the two permission lists the server resolved for the two accounts, and
+`/api/admin/force-password-change` refuses with `target_outranks` where it
+holds. The caller's own list is read by the same introspection `requireAdmin`
+already makes and handed to the route rather than fetched a second time.
+
+This is a client-side comparison in the sense that matters: Stalwart remains the
+authority for every call that is actually made. Its purpose is that this product
+does not build a path to acting on an account more privileged than the one
+acting, and the second reason is that Stalwart does not re-check the
+comparison for every write. A target whose list cannot be read is a failed
+introspection and is refused as an upstream failure, which is the same answer
+the route gives when the acting administrator's own list cannot be read.
+
 **The switch is the installation's, in the installation's document.** The
 `ADMINISTRATION` environment variable is the reading a process with no boot
 uses, and `server.administration` in `installation.json` is the same value in a
 booted deployment — one field, two readings (ADR 0012). The default is on: an
 installation that has said nothing offers administration the way it always has.
+The own-device rule follows the same shape (`ADMINISTRATION_NEEDS_OWN_DEVICE`,
+`server.administrationNeedsOwnDevice`) and defaults to off, which is what makes
+it a deployment's stated choice rather than a change to everyone's sign-in.
 
 **The client is told which case it is in, and says so.** The session extension
 carries `administration` (whether this session may administer at all) and
-`administrationNeedsOwnDevice` (an administrator on a device not marked as
-their own), the latter derived from the same admin test the menu makes rather
-than from the permissions themselves. The admin entry point follows
-`administration`; where the second flag holds, the menu shows the entry
-disabled, with the reason in words — losing an entry without a word is how an
-administrator concludes the product is broken. Neither flag is a grant: the
-server is the door and the client is cosmetic, exactly as in ADR 0001.
+`administrationNeedsOwnDevice` (an administrator whom the own-device rule
+stopped, which is false wherever the installation did not ask for it), the
+latter derived from the same admin test the menu makes rather than from the
+permissions themselves. The admin entry point follows `administration`; where
+the second flag holds, the menu shows the entry disabled, with the reason in
+words — losing an entry without a word is how an administrator concludes the
+product is broken. Neither flag is a grant: the server is the door and the
+client is cosmetic, exactly as in ADR 0001.
 
 ## Consequences
 
@@ -102,9 +133,10 @@ server is the door and the client is cosmetic, exactly as in ADR 0001.
   than only against the interface. Stalwart's own administration interface is
   unaffected either way: the switch is a statement about what *this product*
   offers, not about the server.
-- An administrator on a borrowed machine is a reader with a session and no
+- An administrator on a forbidden machine is a reader with a session and no
   administrative reach. They are told why, and signing in on their own device
-  restores it; a session already open is not promoted.
+  restores it; a session already open is not promoted. An installation that did
+  not ask for the rule notices nothing: the default is unchanged behaviour.
 - The gate is a boundary on the registry, not a capability system: it says
   nothing about what Stalwart will agree to, and every call still passes
   Stalwart's own permission checks. A request the gate lets through is a request
@@ -117,13 +149,19 @@ server is the door and the client is cosmetic, exactly as in ADR 0001.
 
 ## References
 
+- The administration has a floor as well as a ceiling: a marker decides whether
+  an account may act at all, and the comparison decides which accounts it may
+  act on. An installation whose administration is a single role sees no change —
+  the marker and the comparison agree on every account there.
+- `server/src/upstream.ts` — `isStalwartAdmin`, `outranks`
+- `server/src/app.ts` — the `/api/jmap` gate, `administrationRefusal`,
+  `requireAdmin`, `MAX_GATED_REQUEST`, `sessionExtras`, the force-password route
 - `server/src/adminGate.ts` — `administrationAllowed`, `gateAdministration`,
   `mayNameRegistryMethod`, `SELF_SERVICE`
-- `server/src/app.ts` — the `/api/jmap` gate, `administrationRefusal`,
-  `requireAdmin`, `MAX_GATED_REQUEST`, `sessionExtras`
-- `server/src/configuration.ts` — `ADMINISTRATION`, the reading with no boot
-- `server/src/shared/installation.ts` — `server.administration`, the document's
-  field
+- `server/src/configuration.ts` — `ADMINISTRATION` and
+  `ADMINISTRATION_NEEDS_OWN_DEVICE`, the readings with no boot
+- `server/src/shared/installation.ts` — `server.administration` and
+  `server.administrationNeedsOwnDevice`, the document's fields
 - `web/src/views/AppShell.tsx` — the admin entry point and the disabled
   explanation
 - ADR 0001 — the admin grant, `requireAdmin`, and the client's cosmetic flag

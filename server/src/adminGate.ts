@@ -33,18 +33,34 @@ export type GateResult =
   | { ok: false; method: string | null };
 
 /**
- * Whether a session may administer at all: the installation allows it, and the
- * person signing in said the device is their own.
+ * Whether a session may administer at all.
  *
- * The second half is the operator's rule, not Stalwart's. A borrowed laptop or
- * a library machine is exactly where a session should not be able to reset a
- * password or remove a domain, and "This is my own device" is the one thing the
- * sign-in form already asks that says where it is being used. An untrusted
- * session is also signed out when idle and wipes its local data, so nothing
- * about it suits an administrator's work.
+ * Two statements, both the installation's, and the second is off by default
+ * because it is a restriction rather than a protection this product needs:
+ *
+ * - `enabled` — the installation offers administration at all. Off means off:
+ *   the menu is not drawn and the proxy refuses every `x:` object beyond the
+ *   account's own, so an administrator cannot reach the registry from the
+ *   browser console of a deployment that said no.
+ * - `needsOwnDevice` — an installation that additionally requires the session
+ *   to have been signed in on a device marked as the person's own. Off, a
+ *   session may administer wherever it was opened, which is what every
+ *   installation did before this rule existed; on, a borrowed laptop cannot
+ *   reset a password however the operator's directory is set up.
+ *
+ * The two are separate because they answer different questions and are turned
+ * on by different people: the first is a statement about what this installation
+ * offers, the second about which machines may use what it offers. Keying the
+ * second on the sign-in form's "stay signed in" box is only defensible where an
+ * operator has asked for it — a shorter session is not a less trusted one.
  */
-export function administrationAllowed(enabled: boolean, remember: boolean): boolean {
-  return enabled && remember;
+export function administrationAllowed(
+  enabled: boolean,
+  needsOwnDevice: boolean,
+  remember: boolean,
+): boolean {
+  if (!enabled) return false;
+  return needsOwnDevice ? remember : true;
 }
 
 /**

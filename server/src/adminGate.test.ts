@@ -91,13 +91,22 @@ test("a method name hidden behind a unicode escape is still found", () => {
 });
 
 /**
- * The operator's rule: administration only from a session signed in with
- * "This is my own device" ticked, and never when the installation turned it off.
+ * The operator's rules, which are the installation's and are separate: whether
+ * administration is offered at all, and — only where an installation asks for
+ * it — whether it requires a device marked as the person's own. The second is
+ * off by default, so a session administers wherever it was opened unless the
+ * deployment stated otherwise.
  */
-test("administration needs both the installation and a device marked as the person's own", () => {
-  assert.equal(administrationAllowed(true, true), true);
-  assert.equal(administrationAllowed(true, false), false);
-  assert.equal(administrationAllowed(false, true), false);
+test("administration is offered unless the installation turned it off", () => {
+  assert.equal(administrationAllowed(true, false, false), true);
+  assert.equal(administrationAllowed(true, false, true), true);
+  assert.equal(administrationAllowed(false, false, true), false);
+  assert.equal(administrationAllowed(false, false, false), false);
+});
+
+test("the own-device rule, where an installation asked for it, needs the device", () => {
+  assert.equal(administrationAllowed(true, true, true), true);
+  assert.equal(administrationAllowed(true, true, false), false);
 });
 
 test("what is forwarded is what was checked", () => {

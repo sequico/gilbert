@@ -138,12 +138,13 @@ import {
   hasStalwartRegistry,
   isStalwartAdmin,
   localizeSession,
+  outranks,
   UpstreamError,
   type UpstreamSession,
   upstreamFor,
 } from "./upstream.js";
 
-type Env = { Variables: { session: LiveSession } };
+type Env = { Variables: { session: LiveSession; adminPermissions: readonly string[] } };
 
 /**
  * Where sessions live between requests.
@@ -1459,6 +1460,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * only hid the menu would leave every one of these routes open to a browser
    * console.
    */
+  const adminAllows = (session: LiveSession) =>
+    administrationAllowed(
+      config.administration,
+      config.administrationNeedsOwnDevice,
+      session.remember,
+    );
   const requireAdmin: MiddlewareHandler<Env> = async (c, next) => {
     try {
       // Registered behind requireSession everywhere; the deref sits inside
@@ -1478,9 +1485,13 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           403,
         );
       }
-      if (!administrationAllowed(config.administration, session.remember)) {
+      if (!adminAllows(session)) {
         return administrationRefusal(c, config.administration);
       }
+      // Handed on rather than fetched again: a route that acts on another
+      // account has to compare the two permission lists (see `outranks`), and
+      // this is the caller's own, read fresh a moment ago.
+      c.set("adminPermissions", intro.permissions);
     } catch (err) {
       return upstreamFailure(c, err);
     }
@@ -1561,6 +1572,23 @@ export function createApp(basePath = config.basePath): Hono<Env> {
             error: "target_is_admin",
             message:
               "That account is also a Gilbert administrator; administrators cannot force one another's password.",
+          },
+          403,
+        );
+      }
+      /*
+       * The marker is one permission; it does not say whether the target holds
+       * more than the acting administrator does. Stalwart does not re-check
+       * that for every write (see `outranks`), so an account allowed to act on
+       * others could reach into one carrying a richer custom role and force a
+       * change on it. Refused here, on the two lists the server just resolved.
+       */
+      if (outranks(c.get("adminPermissions"), targetIntro.permissions)) {
+        return c.json(
+          {
+            error: "target_outranks",
+            message:
+              "That account holds permissions this one does not; administrators cannot force a change on an account that outranks them.",
           },
           403,
         );
@@ -2832,7 +2860,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
      * this.
      */
     let body: ReadableStream<Uint8Array> | string | null = c.req.raw.body;
-    if (!administrationAllowed(config.administration, session.remember)) {
+    if (!adminAllows(session)) {
       let raw: string;
       try {
         // Counted as it arrives: a chunked body carries no length to refuse up front.
@@ -3076,18 +3104,24 @@ const MAX_GATED_REQUEST = 16 * 1024 * 1024;
  */
 function administrationRefusal(c: Context<Env>, enabled: boolean, method?: string) {
   const suffix = method ? ` (${method})` : "";
-  return enabled
+  /*
+   * Two causes, told apart because they are fixed differently — one by the
+   * operator's configuration, the other by signing in again on your own device.
+   * `enabled` false is the installation's own switch; reaching here with it true
+   * means the only rule left is the device one, so that is what is reported.
+   */
+  return !enabled
     ? c.json(
         {
-          error: "administration_needs_own_device",
-          message: `Administration is only available when signed in on a device marked as your own${suffix}.`,
+          error: "administration_disabled",
+          message: `Administration is turned off on this installation${suffix}.`,
         },
         403,
       )
     : c.json(
         {
-          error: "administration_disabled",
-          message: `Administration is turned off on this installation${suffix}.`,
+          error: "administration_needs_own_device",
+          message: `Administration is only available when signed in on a device marked as your own${suffix}.`,
         },
         403,
       );
@@ -3147,20 +3181,28 @@ function sessionExtras(
       /** Stalwart-admin state resolved at sign-in (ADR 0001): enables the admin surface. */
       isAdmin,
       /**
-       * ADR 0014: whether this session may administer at all -- the
-       * installation offers administration, and this device was marked as the
-       * person's own at sign-in. The menu follows it, and the JMAP proxy is the
-       * door that enforces it: a false here also means every `x:` method beyond
-       * the account's own is refused.
+       * ADR 0014: whether this session may administer at all. The menu follows
+       * it, and the JMAP proxy is the door that enforces it: a false here also
+       * means every `x:` method beyond the account's own is refused. False when
+       * the installation offers no administration, and when it asked for the
+       * own-device rule and this session was not signed in on one.
        */
-      administration: administrationAllowed(config.administration, session.remember),
+      administration: administrationAllowed(
+        config.administration,
+        config.administrationNeedsOwnDevice,
+        session.remember,
+      ),
       /**
-       * An administrator signed in on a device not marked as their own, so the
-       * menu can say why Administration is unavailable rather than lose it
-       * without a word. Says only that the account administers, never what it
-       * may do.
+       * An administrator whom the own-device rule stopped, so the menu can say
+       * why rather than lose the entry without a word. Says only that the
+       * account administers, never what it may do. Always false where the
+       * installation did not ask for the rule.
        */
-      administrationNeedsOwnDevice: config.administration && !session.remember && isAdmin,
+      administrationNeedsOwnDevice:
+        config.administration &&
+        config.administrationNeedsOwnDevice &&
+        !session.remember &&
+        isAdmin,
       /**
        * ADR 0001: the account must change its password before any data route
        * will serve it. The wall is the middleware, not this flag — the flag

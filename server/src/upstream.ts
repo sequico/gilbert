@@ -152,6 +152,28 @@ export function isStalwartAdmin(
 }
 
 /**
+ * Whether a target's permission list holds something the viewer's does not.
+ *
+ * The admin marker (ADR 0001) answers "is this account an administrator",
+ * which is a question about one permission. It does not answer the question a
+ * privileged write actually has to ask: whether the account about to be acted
+ * on may hold *more* than the account acting. Stalwart checks that a caller
+ * holds every permission they grant — when roles change and when an account is
+ * created — but not for every write, so the client-side surfaces that reach
+ * into another account's own documents have to make that comparison themselves.
+ *
+ * A target holding anything the viewer does not counts as outranking. The
+ * comparison is between two lists the server resolved for the two accounts, so
+ * there is no third case: a list that cannot be read is a failed introspection,
+ * which the caller refuses as an upstream failure rather than reading as an
+ * empty grant.
+ */
+export function outranks(viewer: readonly string[], target: readonly string[]): boolean {
+  const held = new Set(viewer);
+  return target.some((p) => !held.has(p));
+}
+
+/**
  * Whether the session holds a group mailbox to chat in (ADR 0005): a
  * non-personal account with an address. Any non-personal account counts for
  * the chat push rail — there is no product-admin group to exclude since ADR

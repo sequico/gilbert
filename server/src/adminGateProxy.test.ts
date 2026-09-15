@@ -15,13 +15,18 @@ import { after, before, test } from "node:test";
  * rather than a door in front of the operator's decision.
  */
 
-const PORT = 18821;
+const PORT = 18865;
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";
 process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.APP_SECRET = "test-secret-for-admin-gate";
 process.env.LOGIN_RATE_LIMIT = "10000";
+/*
+ * The own-device rule is off by default (ADR 0014): this file is about the
+ * installation that asked for it, so it says so the way a deployment would.
+ */
+process.env.ADMINISTRATION_NEEDS_OWN_DEVICE = "1";
 
 const DEMO = "demo@example.com";
 const DEMO_PASS = "demo-password";
