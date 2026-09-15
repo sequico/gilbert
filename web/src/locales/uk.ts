@@ -1189,6 +1189,8 @@ export const catalog: Catalog = {
     Maximize: "Розгорнути",
     "Full screen": "На весь екран",
     "Resize panes": "Змінити розмір панелей",
+    "Resize sidebar": "Змінити розмір бічної панелі",
+    "Resize contact list": "Змінити розмір списку контактів",
     "QR code": "QR-код",
     "Draft discarded": "Чернетку видалено",
     "Draft saved": "Чернетку збережено",

@@ -17,7 +17,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { setErrorMessage } from "@/jmap/client";
 import type { ContactCard } from "@/jmap/types";
@@ -35,15 +35,37 @@ import { formatDate, formatDateLong } from "@/lib/datetime";
 import { plural, t as translate } from "@/lib/i18n";
 import { useCompose } from "@/store/compose";
 import { useContacts } from "@/store/contacts";
+import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
 import { confirmDialog } from "@/ui/dialog";
 import { Avatar, Empty, Spinner, useIsNarrow } from "@/ui/misc";
+import { Splitter } from "@/ui/Splitter";
 import { toast } from "@/ui/toast";
 import { ContactEditor } from "./ContactEditor";
+
+/*
+ * The contact list's floor, and the room the contact itself keeps whatever the
+ * list is dragged to. The default is not repeated here: it is the setting's
+ * own (`DEFAULT_SETTINGS.contactsListWidth`), so the reset and a reader who
+ * never dragged cannot disagree.
+ */
+const CONTACTS_LIST_MIN = 240;
+const CONTACT_MIN = 360;
 
 export function ContactsView({ id }: { id?: string }) {
   const [, navigate] = useLocation();
   const contacts = useContacts();
   const narrow = useIsNarrow();
+  const listWidth = useSettings((s) => s.settings.contactsListWidth);
+  const updateSettings = useSettings((s) => s.update);
+  const layoutRef = useRef<HTMLDivElement>(null);
+  /*
+   * The width mid-drag, and a ref mirroring it for the end of a key press,
+   * which follows the resize in the same tick -- the same pair as the mail
+   * list's splitter, for the same reason: a render cannot hand the state back
+   * in time.
+   */
+  const [liveWidth, setLiveWidth] = useState<number | null>(null);
+  const liveWidthRef = useRef<number | null>(null);
   const [q, setQ] = useState("");
   /* The book being shown lives in the store, because the list that chooses it
      is the app's own sidebar rather than anything this view owns. */
@@ -341,6 +363,30 @@ export function ContactsView({ id }: { id?: string }) {
     }
   };
 
+  const shownListWidth = liveWidth ?? listWidth;
+  /*
+   * The floor keeps a name and an address legible; the ceiling leaves the
+   * contact its own 360px on whatever the layout is actually wide, so the
+   * list can never take the page. Clamped against the measured width rather
+   * than the window, because the sidebar beside this pane is resizable too.
+   */
+  const onSplit = (delta: number) => {
+    const total = layoutRef.current?.clientWidth ?? 1200;
+    const max = Math.max(CONTACTS_LIST_MIN, total - CONTACT_MIN);
+    const next = Math.min(
+      max,
+      Math.max(CONTACTS_LIST_MIN, (liveWidthRef.current ?? shownListWidth) + delta),
+    );
+    liveWidthRef.current = next;
+    setLiveWidth(next);
+  };
+  const onSplitEnd = () => {
+    const width = liveWidthRef.current;
+    liveWidthRef.current = null;
+    setLiveWidth(null);
+    if (width != null) updateSettings({ contactsListWidth: width });
+  };
+
   const accountOfEditingId = (cid: string, cs: typeof contacts): string | null => {
     if (cs.cards[cid]) return cs.accountId;
     for (const key of Object.keys(cs.sharedCards))
@@ -349,7 +395,11 @@ export function ContactsView({ id }: { id?: string }) {
   };
 
   return (
-    <div className={`contacts-layout ${selected || editing ? "detail" : ""}`}>
+    <div
+      ref={layoutRef}
+      className={`contacts-layout ${selected || editing ? "detail" : ""}`}
+      style={{ "--list-size": `${shownListWidth}px` } as CSSProperties}
+    >
       <section className="contacts-list">
         {pickedIds.length ? (
           /* The search box gives way rather than sitting alongside: what the
@@ -517,6 +567,17 @@ export function ContactsView({ id }: { id?: string }) {
           )}
         </div>
       </section>
+      {!narrow && (
+        <Splitter
+          direction="vertical"
+          onResize={onSplit}
+          onEnd={onSplitEnd}
+          onReset={() =>
+            updateSettings({ contactsListWidth: DEFAULT_SETTINGS.contactsListWidth })
+          }
+          ariaLabel={translate("Resize contact list")}
+        />
+      )}
 
       <section className="contact-detail">
         {selected ? (

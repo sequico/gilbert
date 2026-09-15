@@ -19,7 +19,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { withBase } from "@/lib/basePath";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
@@ -33,6 +33,7 @@ import { useSession } from "@/store/session";
 import { useEffectiveTheme, useSettings } from "@/store/settings";
 import { Avatar, useIsMobile } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
+import { Splitter } from "@/ui/Splitter";
 import { TranslateBoundary } from "@/ui/TranslateBoundary";
 import { CalendarSidebar } from "./calendar/CalendarSidebar";
 import { ChatLauncher } from "./chat/ChatLauncher";
@@ -42,6 +43,16 @@ import { MailboxPicker } from "./mail/MailboxPicker";
 import { MailboxTree } from "./mail/MailboxTree";
 import { SearchBar } from "./SearchBar";
 import { ShortcutsDialog, useGlobalShortcuts } from "./Shortcuts";
+
+/*
+ * How far the sidebar edge can be dragged. Below about 240px the module bar
+ * and the folder names start to run short in English; the floor sits a little
+ * above that. Long folder names are allowed to ellipsize -- narrowing the pane
+ * is asking for that. The ceiling keeps a list and a reading pane beside it on
+ * an ordinary laptop screen.
+ */
+const SIDEBAR_MIN = 240;
+const SIDEBAR_MAX = 480;
 
 const PUSH_LABEL = {
   connected: "Live updates connected",
@@ -149,7 +160,19 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [location, navigate] = useLocation();
   const isMobile = useIsMobile();
   const collapsed = useSettings((s) => s.settings.sidebarCollapsed);
+  const sidebarWidth = useSettings((s) => s.settings.sidebarWidth);
   const update = useSettings((s) => s.update);
+  /*
+   * The width while a drag is in progress, kept here and written to settings
+   * once on release -- the same arrangement as the message-list splitter, so a
+   * drag is a re-render per frame and not a localStorage write per frame.
+   */
+  const [liveSidebarWidth, setLiveSidebarWidth] = useState<number | null>(null);
+  // The same value, readable in the same tick it was set: a key press resizes
+  // and ends in one go, before any render could hand the state back.
+  const liveSidebarRef = useRef<number | null>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const shownSidebarWidth = liveSidebarWidth ?? sidebarWidth;
   const [drawer, setDrawer] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const openCompose = useCompose((s) => s.open);
@@ -415,12 +438,19 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <div className={`app-body ${collapsed && !isMobile ? "collapsed" : ""}`}>
+      <div
+        className={`app-body ${collapsed && !isMobile ? "collapsed" : ""} ${liveSidebarWidth != null ? "resizing" : ""}`}
+        style={
+          shownSidebarWidth != null && !isMobile
+            ? ({ "--sidebar-w": `${shownSidebarWidth}px` } as CSSProperties)
+            : undefined
+        }
+      >
         <div
           className={`drawer-backdrop ${drawer ? "open" : ""}`}
           onClick={() => setDrawer(false)}
         />
-        <aside className={`sidebar ${drawer ? "open" : ""}`}>
+        <aside ref={sidebarRef} className={`sidebar ${drawer ? "open" : ""}`}>
           {/*
             The way back out.
 
@@ -485,6 +515,53 @@ export function AppShell({ children }: { children: ReactNode }) {
             ))}
           </nav>
         </aside>
+        {/* Not on a phone, where the sidebar is a drawer over the page, and not
+            while collapsed to icons, where there is no width to choose. */}
+        {!isMobile && !collapsed && (
+          <Splitter
+            direction="vertical"
+            className="sidebar-splitter"
+            ariaLabel={t("Resize sidebar")}
+            onResize={(delta) => {
+              // From the setting once there is one. Before that it is null and
+              // says nothing about a width set in the reader's own CSS, so the
+              // first drag starts from what is on screen. Not always from the
+              // screen: the width eases, and a second key press lands
+              // mid-transition, where the measured width is still the old one.
+              const start =
+                liveSidebarRef.current ??
+                useSettings.getState().settings.sidebarWidth ??
+                sidebarRef.current?.getBoundingClientRect().width ??
+                SIDEBAR_MIN;
+              const max = Math.max(
+                SIDEBAR_MIN,
+                Math.min(SIDEBAR_MAX, window.innerWidth - 600),
+              );
+              const next = Math.round(
+                Math.min(max, Math.max(SIDEBAR_MIN, start + delta)),
+              );
+              liveSidebarRef.current = next;
+              setLiveSidebarWidth(next);
+            }}
+            onEnd={() => {
+              // Written once, on release: a drag is a re-render per frame and
+              // not a settings write per frame. The keyboard path relies on
+              // this too, which is why a key press ends the drag it started.
+              const width = liveSidebarRef.current;
+              if (width != null) update({ sidebarWidth: width });
+              liveSidebarRef.current = null;
+              setLiveSidebarWidth(null);
+            }}
+            onReset={() => {
+              // Null is "whatever the stylesheet says", which is what a reader
+              // who never dragged has -- and what one who has their own CSS
+              // for it wants back.
+              liveSidebarRef.current = null;
+              setLiveSidebarWidth(null);
+              update({ sidebarWidth: null });
+            }}
+          />
+        )}
         {/*
           Scoped to the content, not the shell. If Chrome's translator breaks a
           message list, the top bar, the folder tree and any open composer are

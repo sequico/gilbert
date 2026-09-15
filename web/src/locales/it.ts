@@ -1912,6 +1912,8 @@ export const catalog: Catalog = {
     "Full screen": "Schermo intero",
 
     "Resize panes": "Ridimensiona i riquadri",
+    "Resize sidebar": "Ridimensiona la barra laterale",
+    "Resize contact list": "Ridimensiona l'elenco dei contatti",
 
     "QR code": "Codice QR",
 

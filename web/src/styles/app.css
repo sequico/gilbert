@@ -1307,8 +1307,17 @@ a.menu-item:hover { color: var(--fg); }
 @keyframes push-pulse { 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { .push-dot.connecting { animation: none; } }
 
-.app-body { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 0; transition: grid-template-columns .2s var(--ease); }
+.app-body { position: relative; display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); min-height: 0; transition: grid-template-columns .2s var(--ease); }
 .app-body.collapsed { grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr); }
+/* A drag follows the pointer; the ease is for the collapse toggle, and applied
+   to every frame of a drag it leaves the edge trailing behind the hand. */
+.app-body.resizing, .app-body.resizing > .sidebar-splitter { transition: none; }
+/* The sidebar edge. Laid over the seam rather than given a grid column: the
+   sidebar and the content meet at the content's own border, and a 6px bar of
+   border color between them would draw a line the design never had. Out of the
+   flow, it shows only on hover and focus, like the list splitter. */
+.app-body > .sidebar-splitter { position: absolute; top: 0; bottom: 0; left: calc(var(--sidebar-w) - 3px); background: transparent; transition: left .2s var(--ease); }
+.app-body > .sidebar-splitter:hover, .app-body > .sidebar-splitter:focus-visible { background: var(--accent); }
 .sidebar { display: flex; flex-direction: column; min-height: 0; padding: 4px 8px 8px 8px; gap: 2px; overflow: hidden; }
 .sidebar-scroll { overflow-y: auto; overflow-x: hidden; flex: 1; min-height: 0; padding-bottom: 8px; }
 .compose-btn { display: flex; align-items: center; gap: 12px; height: 52px; padding: 0 22px 0 18px; margin: 6px 4px 12px; border-radius: 16px; background: var(--bg-elev); box-shadow: var(--shadow-1); font-weight: 600; font-size: 1em; color: var(--fg); transition: box-shadow .15s, transform .05s, background .12s; white-space: nowrap; }
@@ -1724,7 +1733,7 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 /* ==========================================================================
    Contacts
    ========================================================================== */
-.contacts-layout { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; height: 100%; min-height: 0; flex: 1; }
+.contacts-layout { display: grid; grid-template-columns: var(--list-size, 320px) auto minmax(0, 1fr); height: 100%; min-height: 0; flex: 1; }
 .contacts-list { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
 .contacts-list .list-search { padding: 10px 12px; border-bottom: 1px solid var(--border); }
 .contacts-scroll { flex: 1; overflow-y: auto; }
@@ -1984,7 +1993,6 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 @media (max-width: 1100px) {
   :root { --list-w: 44%; }
   .msg-row .msg-from { width: 140px; }
-  .contacts-layout { grid-template-columns: minmax(240px, 300px) 1fr; }
 }
 @media (max-width: 900px) {
   .mail-layout:not(.pane-off):not(.pane-bottom) { grid-template-columns: 1fr !important; }
@@ -2003,6 +2011,7 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
   .settings-layout.root .settings-content { display: none; }
   .settings-content { --pad-b: 80px; padding: 16px 16px var(--pad-b); }
   .contacts-layout { grid-template-columns: 1fr; }
+  .contacts-layout .splitter { display: none; }
   .contacts-layout.detail .contacts-list { display: none; }
   .contacts-layout:not(.detail) .contact-detail { display: none; }
   .cal-layout { grid-template-columns: 1fr; }

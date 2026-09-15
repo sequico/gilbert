@@ -1204,6 +1204,8 @@ export const catalog: Catalog = {
     Maximize: "Maximizar",
     "Full screen": "Tela cheia",
     "Resize panes": "Redimensionar os painéis",
+    "Resize sidebar": "Redimensionar a barra lateral",
+    "Resize contact list": "Redimensionar a lista de contatos",
     "QR code": "Código QR",
     "Draft discarded": "Rascunho descartado",
     "Draft saved": "Rascunho salvo",

@@ -1193,6 +1193,8 @@ export const catalog: Catalog = {
     Maximize: "Maximaliseren",
     "Full screen": "Volledig scherm",
     "Resize panes": "Vensterdelen verslepen",
+    "Resize sidebar": "Grootte van de zijbalk wijzigen",
+    "Resize contact list": "Grootte van de contactenlijst wijzigen",
     "QR code": "QR-code",
     "Draft discarded": "Concept weggegooid",
     "Draft saved": "Concept opgeslagen",

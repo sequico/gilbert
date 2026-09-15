@@ -7,15 +7,24 @@ interface Props {
   onEnd?: () => void;
   onReset?: () => void;
   ariaLabel?: string;
+  /** Extra classes, for a splitter whose chrome belongs to one surface. */
+  className?: string;
 }
 
 /** Drag handle between two panes. Calls onResize with the pointer delta since the last event. */
-export function Splitter({ direction, onResize, onEnd, onReset, ariaLabel }: Props) {
+export function Splitter({
+  direction,
+  onResize,
+  onEnd,
+  onReset,
+  ariaLabel,
+  className,
+}: Props) {
   const last = useRef(0);
   const active = useRef(false);
   return (
     <div
-      className={`splitter ${direction}`}
+      className={`splitter ${direction}${className ? ` ${className}` : ""}`}
       role="separator"
       aria-orientation={direction === "vertical" ? "vertical" : "horizontal"}
       aria-label={ariaLabel ?? t("Resize panes")}
