@@ -57,10 +57,12 @@ import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { canEmpty, confirmAndEmpty, emptyLabel } from "@/lib/emptyFolder";
 import { formatListDate } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
+import { SEEN_KEYWORD, STARRED_KEYWORD } from "@/lib/keywordCounts";
 import { rowClick } from "@/lib/listSelection";
 import { mailboxDisplayName } from "@/lib/mailboxName";
 import { messageFolders } from "@/lib/messageLocation";
 import { rowIsOpen } from "@/lib/openMessage";
+import { anyCarries, anyLacks, rowScope } from "@/lib/rowScope";
 import {
   describeSwipe,
   type SwipeAction,
@@ -1084,12 +1086,10 @@ const Row = memo(function Row({
   const mailboxes = useMail((s) => s.mailboxes);
   // Subscribed purely so the row re-renders when the date format changes.
   useSettings((s) => dateTimeKey(s.settings));
-  const inScope = threadEmails
-    ? threadEmails.filter((x) => (mailboxId ? x.mailboxIds[mailboxId] : true))
-    : [e];
+  const inScope = threadEmails ? rowScope(threadEmails, mailboxId) : [e];
   const scope = inScope.length ? inScope : [e];
-  const unread = scope.some((x) => !x.keywords.$seen);
-  const starred = scope.some((x) => x.keywords.$flagged);
+  const unread = anyLacks(scope, SEEN_KEYWORD);
+  const starred = anyCarries(scope, STARRED_KEYWORD);
   const hasAtt = scope.some((x) => x.hasAttachment);
   const answered = e.keywords.$answered;
   const forwarded = e.keywords.$forwarded;

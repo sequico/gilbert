@@ -26,7 +26,9 @@ import { client } from "@/jmap/client";
 import type { Email, Id } from "@/jmap/types";
 import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { plural, t } from "@/lib/i18n";
+import { SEEN_KEYWORD, STARRED_KEYWORD } from "@/lib/keywordCounts";
 import { visibleMessages } from "@/lib/openMessage";
+import { anyCarries, anyLacks } from "@/lib/rowScope";
 import { threadScrollTarget } from "@/lib/threadScroll";
 import { useEdgeBack } from "@/lib/touch";
 import { useCompose } from "@/store/compose";
@@ -299,8 +301,8 @@ export function ThreadView({
   const subject =
     messages[0]?.subject || emails[thread?.emailIds[0] ?? ""]?.subject || "(no subject)";
   const rowIds = thread ? thread.emailIds.filter((id) => emails[id]) : [];
-  const anyUnread = messages.some((e) => !e.keywords.$seen);
-  const anyStarred = messages.some((e) => e.keywords.$flagged);
+  const anyUnread = anyLacks(messages, SEEN_KEYWORD);
+  const anyStarred = anyCarries(messages, STARRED_KEYWORD);
   const inJunk = Boolean(mailboxId && mailboxes[mailboxId]?.role === "junk");
   /* `G-` labels describe one message, not the conversation (ADR 0003
      resolution 9), so the thread row shows the group's own labels and the
@@ -489,7 +491,6 @@ export function ThreadView({
             wasUnread={wasUnread.has(e.id)}
             onToggle={() => setExpanded((x) => ({ ...x, [e.id]: !isExpanded(e) }))}
             isLast={i === messages.length - 1}
-            actions={actions}
           />
         ))}
         {last && (

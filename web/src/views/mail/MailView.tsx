@@ -4,9 +4,11 @@ import type { Comparator, Id } from "@/jmap/types";
 import { withBase } from "@/lib/basePath";
 import { plural, tNode, t as translate } from "@/lib/i18n";
 import { keyboard } from "@/lib/keyboard";
+import { STARRED_KEYWORD } from "@/lib/keywordCounts";
 import { appliesTo, comparatorsFor } from "@/lib/listSort";
 import { mailboxDisplayName } from "@/lib/mailboxName";
 import { isUnknownMailbox } from "@/lib/mailboxRoute";
+import { anyCarries, type CarriesKeywords, rowScope } from "@/lib/rowScope";
 import { buildFilter, describeFilter, parseQuery } from "@/lib/search";
 import { useCompose } from "@/store/compose";
 import { DEFAULT_SORT, type ListQuery, useMail } from "@/store/mail";
@@ -227,13 +229,17 @@ export function MailView({
         const e = emails[r];
         if (!e) continue;
         if (list?.collapseThreads) {
+          // The same rule the rows themselves use, so an action can only reach
+          // what the list showed: `rowScope` narrows a thread to this folder.
           const t = threads[e.threadId];
-          const inScope = t
-            ? t.emailIds.filter((id) =>
-                list.mailboxId ? emails[id]?.mailboxIds[list.mailboxId] : true,
+          const scope = t
+            ? rowScope(
+                t.emailIds.map((id) => emails[id]).filter(Boolean) as CarriesKeywords[],
+                list.mailboxId,
               )
-            : [r];
-          for (const id of inScope.length ? inScope : [r]) out.add(id);
+            : [];
+          for (const m of scope) out.add((m as { id: Id }).id);
+          if (!scope.length) out.add(r);
         } else out.add(r);
       }
       return [...out];
@@ -496,7 +502,18 @@ export function MailView({
         handler: () => {
           void (async () => {
             const t = await targetIds();
-            const on = !t.every((id) => emails[id]?.keywords.$flagged);
+            /*
+             * The direction the *row* would take, so the key and the button
+             * cannot disagree: a row shows a star when any of its messages
+             * carries one, and pressing this on such a row clears them. Asking
+             * `every` here instead was the other half of the same defect -- one
+             * message starred in a conversation meant the row said "starred"
+             * and the key said "star them all".
+             */
+            const on = !anyCarries(
+              t.map((id) => emails[id]).filter(Boolean) as CarriesKeywords[],
+              STARRED_KEYWORD,
+            );
             void actions.star(on);
           })();
         },

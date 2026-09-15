@@ -1769,13 +1769,22 @@ export const useMail = create<MailState>((set, get) => ({
      * derived from the other and the sidebar needs both: the row shows the
      * total, and a label set to "while unread" is drawn or dropped by the
      * unread half.
+     *
+     * **`collapseThreads` is the setting the list itself uses**, so the number
+     * counts the unit the reader is about to see: conversations when
+     * conversation view is on, messages when it is off. Without it a
+     * conversation of three messages carrying a label counted three while the
+     * list it opened showed one row -- a number that contradicts the list it
+     * describes is worse than no number.
      */
+    const collapseThreads = settings().conversationMode;
     const calls: Invocation[] = keywords.flatMap((keyword, i) => [
       [
         "Email/query",
         {
           accountId,
           filter: { hasKeyword: keyword },
+          collapseThreads,
           limit: 0,
           calculateTotal: true,
         },
@@ -1789,6 +1798,7 @@ export const useMail = create<MailState>((set, get) => ({
             operator: "AND",
             conditions: [{ hasKeyword: keyword }, { notKeyword: SEEN_KEYWORD }],
           },
+          collapseThreads,
           limit: 0,
           calculateTotal: true,
         },

@@ -79,7 +79,6 @@ import { toast } from "@/ui/toast";
 import { AddressList, useAddressMenu } from "./AddressMenu";
 import { FilterFromMessageDialog } from "./FilterFromMessage";
 import { InviteCard } from "./InviteCard";
-import type { ListActions } from "./MessageList";
 import { SaveToFilesDialog } from "./SaveToFilesDialog";
 import { SignatureBanner } from "./SignatureBanner";
 import { VCardCard } from "./VCardCard";
@@ -91,7 +90,6 @@ interface Props {
   wasUnread?: boolean;
   onToggle: () => void;
   isLast: boolean;
-  actions: ListActions;
 }
 
 export const MessageView = memo(function MessageView({
@@ -99,7 +97,6 @@ export const MessageView = memo(function MessageView({
   expanded,
   wasUnread,
   onToggle,
-  actions,
 }: Props) {
   const accountId = useMail((s) => s.accountId)!;
   const signature = useSignature(e, accountId);
@@ -548,6 +545,15 @@ export const MessageView = memo(function MessageView({
           <span className="date" title={formatFullDate(e.receivedAt)}>
             {expanded ? formatFullDate(e.receivedAt) : formatListDate(e.receivedAt)}
           </span>
+          {/*
+           * This message's own star, and it writes that message's own star.
+           *
+           * It sits on one message of a conversation, shows that message's
+           * state, and must therefore change that message: going through the
+           * list's action would expand to the whole thread, so the button
+           * would show one message and silently star three. The conversation's
+           * own star is the one in the thread header, which says so.
+           */}
           <button
             className={`icon-btn sm ${e.keywords.$flagged ? "active" : ""}`}
             style={
@@ -558,7 +564,7 @@ export const MessageView = memo(function MessageView({
             title={translate("Star")}
             onClick={(ev) => {
               ev.stopPropagation();
-              void actions.star(!e.keywords.$flagged, [e.id]);
+              void useMail.getState().star([e.id], !e.keywords.$flagged);
             }}
           >
             <Star size={17} fill={e.keywords.$flagged ? "currentColor" : "none"} />

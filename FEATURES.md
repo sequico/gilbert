@@ -956,6 +956,22 @@ same way.
   of its own to rename, drawn by the same row and counted by the same read. The
   section is there whatever the account holds, because an account with no
   labels still has stars. Clicking either opens the messages it counts.
+- **The number counts the unit the list will show.** With conversation view on,
+  a conversation of three messages carrying a label is **one** — because that
+  is the row the reader is about to see — and with it off it is three. The
+  count is taken with the same thread-collapsing the list itself uses, so a
+  number can never contradict the list it opens.
+- **A star, and a label, belong to whatever the row is.** With conversation
+  view on, one row *is* the conversation, so starring it stars the conversation
+  and labelling it labels the conversation — every message of it that this
+  folder holds, never one that reached somewhere else. With conversation view
+  off a row is a message, and the star is that message's.
+
+  Inside an open conversation each message keeps its **own** star, which shows
+  and changes that one message: a button showing one message's state can only
+  write that message, and a control that showed one message while silently
+  starring three was the defect this rule removes. The conversation's own star
+  is the one at the top of the conversation, which says so.
 - **The unread half is kept, and it is a different number.** A label set to
   "only while unread" is drawn or dropped by how much of it is unread, while
   the row shows the total, so both are asked for — two queries per keyword, in

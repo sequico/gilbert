@@ -47,7 +47,14 @@ const email = (id: string, keywords: Record<string, boolean>): Email =>
   }) as unknown as Email;
 
 /** A server that answers `Email/query` totals from a map keyed by filter shape. */
-function stub(answers: (filter: unknown) => number) {
+/**
+ * A server that answers `Email/query` totals from a map keyed by filter shape.
+ *
+ * `queries` is handed the whole argument object of each query, for the tests
+ * that are about how a query was *asked* rather than what it matched --
+ * `collapseThreads` is a sibling of `filter`, not part of it.
+ */
+function stub(answers: (filter: unknown) => number, queries?: unknown[]) {
   const asked: unknown[] = [];
   vi.stubGlobal(
     "fetch",
@@ -57,6 +64,7 @@ function stub(answers: (filter: unknown) => number) {
       };
       const methodResponses = body.methodCalls.map(([name, args, id]) => {
         asked.push(args.filter);
+        queries?.push(args);
         return [name, { accountId: args.accountId, total: answers(args.filter) }, id];
       });
       return {
@@ -172,6 +180,35 @@ describe("a group mailbox's own labels", () => {
     expect(asked).toContainEqual({ hasKeyword: STARRED_KEYWORD });
     // The reader's personal label is not what a group mailbox files under.
     expect(asked).not.toContainEqual({ hasKeyword: "work" });
+  });
+
+  it("counts the unit the list will show: conversations when conversation view is on", async () => {
+    // A conversation of three messages carrying a label counts once when the
+    // list collapses threads, because that is the row the reader will see. A
+    // number that contradicts the list it opens is worse than no number.
+    useSettings.setState((s) => ({
+      settings: { ...s.settings, conversationMode: true },
+    }));
+    const queries: unknown[] = [];
+    stub(() => 0, queries);
+    await useMail.getState().loadLabelCounts();
+    expect(queries.length).toBeGreaterThan(0);
+    expect(
+      queries.every((q) => (q as { collapseThreads?: boolean }).collapseThreads),
+    ).toBe(true);
+  });
+
+  it("counts messages when conversation view is off", async () => {
+    useSettings.setState((s) => ({
+      settings: { ...s.settings, conversationMode: false },
+    }));
+    const queries: unknown[] = [];
+    stub(() => 0, queries);
+    await useMail.getState().loadLabelCounts();
+    expect(queries.length).toBeGreaterThan(0);
+    expect(
+      queries.every((q) => (q as { collapseThreads?: boolean }).collapseThreads),
+    ).toBe(false);
   });
 
   it("counts nothing but Starred while the group's catalog is not read yet", async () => {
