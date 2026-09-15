@@ -818,6 +818,17 @@ more attempt. A drag that is merely more sideways than not stays a scroll.
   reader asked for an order and got the closest the server can give, and a
   toast on every folder change would be the app complaining about its own
   request. `MOCK_NO_KEYWORD_SORT=1` reproduces such a server.
+- **Every row says where the message is stored**, in any list that is not a
+  folder. A label, a starred view and a search are all questions *about*
+  messages, and a row answering one of them says nothing about where the
+  message actually lives — so it says it there, beside the labels and quieter
+  than them: a label is what the reader filed the message under, a folder is
+  where it happens to be, and the folder mark is what tells the two apart. In a
+  folder the row is already in the answer, so what it adds is only the *other*
+  folders the message also sits in, and a message living in that folder alone
+  says nothing. The name is the pickers' own — the interface language's for a
+  standard folder, the whole path for a nested one, the last segment on the row
+  and the full path on hover.
 - **Multi-select** with `x`, shift-click for ranges, `Ctrl/Cmd+A` for all, and
   a long press on a touchscreen.
 - **Select the whole folder**, not just the rows that happen to be loaded. The
@@ -922,9 +933,24 @@ optionally listed in the sidebar.
   A child cannot be drawn under a parent that is not there, and promoting it to
   the top level would silently rearrange the tree at the moment the reader is
   least able to explain why. The parent comes back as a container instead.
-- **Unread counts** sit beside each label, fetched for every label in a single
-  request rather than one apiece, and refreshed on the same beat as the folder
-  counts — the things that move them are the same things.
+- **The sidebar counts the whole of it, and Starred leads the list.** Each
+  label's row carries how much mail is filed under it — read and unread alike —
+  and **Starred** sits above them as the first row of the same list. It is not
+  a label: it is the keyword a star writes, with no colour to tint and no name
+  of its own to rename, drawn by the same row and counted by the same read. The
+  section is there whatever the account holds, because an account with no
+  labels still has stars. Clicking either opens the messages it counts.
+- **The unread half is kept, and it is a different number.** A label set to
+  "only while unread" is drawn or dropped by how much of it is unread, while
+  the row shows the total, so both are asked for — two queries per keyword, in
+  one request, because one cannot be derived from the other.
+- **The number follows a write.** Starring, unstarring, labelling and unlabelling
+  move the count as the message changes, not on the next read: unstarring a
+  message and watching its count stay put is the kind of lag that makes a reader
+  distrust every number on the screen. Reading a message moves no total — it
+  files it nowhere else — and only the unread halves of the keywords it carries.
+  A write that fails puts the messages back and re-reads the counts rather than
+  reversing the arithmetic.
 
 ## Search
 

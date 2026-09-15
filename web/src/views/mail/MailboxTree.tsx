@@ -39,6 +39,7 @@ import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { canEmpty, confirmAndEmpty, emptyLabel } from "@/lib/emptyFolder";
 import { canDropFolder, folderColor, movable } from "@/lib/folderMove";
 import { plural, t } from "@/lib/i18n";
+import { countOf, STARRED_KEYWORD } from "@/lib/keywordCounts";
 import { labelTree, visibleLabels } from "@/lib/labelTree";
 import { isGroupMailboxAccount } from "@/lib/mailAccounts";
 import { mailboxDisplayName } from "@/lib/mailboxName";
@@ -67,6 +68,57 @@ const ROLE_ICONS: Record<string, ReactNode> = {
 
 /** Its own drag type, so a folder can only be dropped where folders belong. */
 const FOLDER_MIME = "application/x-gilbert-folder";
+
+/**
+ * One row of the keyword list: Starred, or a label.
+ *
+ * The same row for both, because they are the same thing to a reader — a
+ * question about messages, with how many it answers with, opening the list of
+ * them. A label brings a colour to tint and a depth to indent by; Starred
+ * brings neither, and nothing else about the two differs.
+ *
+ * The count is the whole of the mail under the keyword, read or not. The
+ * unread half stays in the tree for the visibility rule to act on, and is
+ * deliberately not what a row shows: a reader asking "how much is filed under
+ * this" is not asking how much of it is new.
+ */
+function KeywordRow({
+  href,
+  name,
+  total,
+  color,
+  icon,
+  depth,
+}: {
+  href: string;
+  name: string;
+  total: number;
+  color?: string;
+  icon?: ReactNode;
+  depth: number;
+}) {
+  return (
+    <Link
+      href={href}
+      className="nav-item folder-row"
+      title={name}
+      /* Indented rather than nested in the DOM: the rows are a flat list of
+         links and a nested one would break keyboard order. */
+      style={{ paddingLeft: 12 + depth * 14 }}
+    >
+      {color ? (
+        <span
+          className="nav-label-color"
+          style={{ "--label-color": color } as React.CSSProperties}
+        />
+      ) : (
+        <span className="nav-label-icon">{icon}</span>
+      )}
+      <span className="nav-label">{name}</span>
+      {total > 0 && <span className="nav-count">{total}</span>}
+    </Link>
+  );
+}
 
 interface MailTreeRow {
   m: Mailbox;
@@ -165,6 +217,7 @@ export function MailboxTree() {
     () => visibleLabels(labelTree(labels, labelCounts)),
     [labels, labelCounts],
   );
+  const starredCount = countOf(labelCounts, STARRED_KEYWORD);
   const menu = useMenu();
   const [menuTarget, setMenuTarget] = useState<Mailbox | null>(null);
   const [shareTarget, setShareTarget] = useState<Mailbox | null>(null);
@@ -492,11 +545,24 @@ export function MailboxTree() {
             </Fragment>
           );
         })}
-        {/* Labels are a flat list that belongs to the reader's own mailbox, not
-            to whichever folder is on screen -- and not to a group mailbox
-            either -- so they stay at the top level of the drill and stay away
-            while a group mailbox is open. */}
-        {!drill && !inGroup && labelsSidebar && shownLabels.length > 0 && (
+        {/*
+         * Labels are a flat list that belongs to the reader's own mailbox, not
+         * to whichever folder is on screen -- and not to a group mailbox
+         * either -- so they stay at the top level of the drill and stay away
+         * while a group mailbox is open.
+         *
+         * Starred starts it. It is not a label -- it is the keyword a star
+         * writes -- but it is the same kind of row: a question about messages,
+         * with a count of how many it answers with, opening the list of them.
+         * So it is drawn by the same component and its count comes from the
+         * same read; nothing about it is special except that it has no colour
+         * to tint and no name of its own to rename.
+         *
+         * The section is drawn whenever there is anything in it, which now
+         * includes "no labels at all": an account with no labels still has
+         * stars.
+         */}
+        {!drill && !inGroup && labelsSidebar && (
           <>
             <div className="nav-section">
               <span>{t("Labels")}</span>
@@ -509,23 +575,22 @@ export function MailboxTree() {
                 <Pencil size={14} />
               </Link>
             </div>
+            <KeywordRow
+              href="/search?q=is:starred"
+              name={t("Starred")}
+              total={starredCount.total}
+              icon={<Star size={14} />}
+              depth={0}
+            />
             {shownLabels.map((n) => (
-              <Link
+              <KeywordRow
                 key={n.label.keyword}
                 href={`/search?q=label:${encodeURIComponent(n.label.keyword)}`}
-                className="nav-item folder-row"
-                title={n.label.name}
-                /* Indented rather than nested in the DOM: the rows are a flat
-                   list of links and a nested one would break keyboard order. */
-                style={{ paddingLeft: 12 + n.depth * 14 }}
-              >
-                <span
-                  className="nav-label-color"
-                  style={{ "--label-color": n.label.color } as React.CSSProperties}
-                />
-                <span className="nav-label">{n.label.name}</span>
-                {n.unread > 0 && <span className="nav-count">{n.unread}</span>}
-              </Link>
+                name={n.label.name}
+                total={n.total}
+                color={n.label.color}
+                depth={n.depth}
+              />
             ))}
           </>
         )}

@@ -1381,6 +1381,9 @@ a.menu-item:hover { color: var(--fg); }
 .collapsed .nav-item.depth-1, .collapsed .nav-item.depth-2, .collapsed .nav-item.depth-3 { display: none; }
 .collapsed .nav-item .nav-dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 .nav-label-color { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; }
+/* A keyword row with no colour of its own -- Starred -- keeps the icon column
+   the coloured ones occupy, so the names line up down the list. */
+.nav-item.folder-row .nav-label-icon { flex: 0 0 20px; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; color: var(--fg-muted); }
 /* Outlook-style module bar at the bottom of the sidebar */
 .module-bar { display: flex; align-items: stretch; justify-content: space-around; gap: 2px; padding: 6px 4px 4px; border-top: 1px solid var(--border); flex: 0 0 auto; }
 .module-link { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex: 1; min-width: 0; padding: 6px 2px; border-radius: var(--radius-sm); color: var(--fg-muted); text-decoration: none; font-size: 11px; font-weight: 500; transition: background .12s, color .12s; }
@@ -1447,6 +1450,12 @@ a.menu-item:hover { color: var(--fg); }
 .msg-row:hover .msg-meta .msg-date { display: none; }
 .msg-row .msg-labels { display: inline-flex; gap: 4px; flex: 0 0 auto; }
 .msg-row .msg-labels .tag { height: 18px; font-size: 10.5px; padding: 0 6px; }
+/* Where the message is stored, when the list is not already a folder. Quieter
+   than a label on purpose: a label is what the reader filed it under, a folder
+   is where it happens to be, and a row that shouted both would read as two
+   lists of labels. */
+.msg-row .msg-folders { display: inline-flex; gap: 4px; flex: 0 0 auto; align-items: center; }
+.msg-row .folder-tag { height: 18px; font-size: 10.5px; padding: 0 6px; background: var(--bg-sunken); color: var(--fg-muted); border: 1px solid var(--border); font-weight: 500; display: inline-flex; align-items: center; gap: 3px; max-width: 160px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .msg-row .avatar { width: 32px; height: 32px; font-size: 12px; }
 .mail-list.compact .msg-row .avatar { display: none; }
 .msg-row .msg-attach { color: var(--fg-faint); }

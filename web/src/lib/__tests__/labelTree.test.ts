@@ -9,10 +9,23 @@ const L = (keyword: string, over: Partial<Label> = {}): Label => ({
   ...over,
 });
 
-const flat = (labels: Label[], counts: Record<string, number> = {}) =>
-  visibleLabels(labelTree(labels, counts)).map(
-    (n) => `${"  ".repeat(n.depth)}${n.label.keyword}`,
-  );
+/**
+ * The drawn keywords, at their depths.
+ *
+ * The numbers passed here are the **unread** counts, because that is the half
+ * every visibility rule below turns on -- and the totals, which the rows show,
+ * have no bearing on what is drawn. The one test about totals reads the tree
+ * directly.
+ */
+const flat = (labels: Label[], unread: Record<string, number> = {}) =>
+  visibleLabels(
+    labelTree(
+      labels,
+      Object.fromEntries(
+        Object.entries(unread).map(([k, n]) => [k, { total: n, unread: n }]),
+      ),
+    ),
+  ).map((n) => `${"  ".repeat(n.depth)}${n.label.keyword}`);
 
 describe("labelTree", () => {
   it("nests a label under its parent and indents it", () => {
@@ -47,9 +60,14 @@ describe("labelTree", () => {
     expect(flat([L("a", { parent: "a" })])).toEqual(["a"]);
   });
 
-  it("carries each label's own unread count, not its children's", () => {
-    const roots = labelTree([L("a"), L("b", { parent: "a" })], { a: 2, b: 5 });
+  it("carries each label's own counts, not its children's", () => {
+    const roots = labelTree([L("a"), L("b", { parent: "a" })], {
+      a: { total: 9, unread: 2 },
+      b: { total: 5, unread: 5 },
+    });
+    expect(roots[0]!.total).toBe(9);
     expect(roots[0]!.unread).toBe(2);
+    expect(roots[0]!.children[0]!.total).toBe(5);
     expect(roots[0]!.children[0]!.unread).toBe(5);
   });
 });

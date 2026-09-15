@@ -72,7 +72,7 @@ describe("what a switch to another account drops", () => {
       mailAccounts: [{ accountId: "a1", name: "me@example.org", kind: "own" }],
       accountTrees: { a1: { mb1: { id: "mb1", name: "Inbox" } as never } },
       openThreadId: "th-old",
-      labelCounts: { $label1: 3 },
+      labelCounts: { $label1: { total: 3, unread: 1 } },
       loadingThreads: { "th-old": true },
       lastThreadEmailIds: ["e-old"],
       emails: { "e-old": { id: "e-old" } as never },

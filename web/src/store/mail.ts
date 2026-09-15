@@ -26,6 +26,12 @@ import {
 } from "@/lib/archiveDate";
 import { withBase } from "@/lib/basePath";
 import { plural, t } from "@/lib/i18n";
+import {
+  countedKeywords,
+  type KeywordCounts,
+  keywordCountDelta,
+  SEEN_KEYWORD,
+} from "@/lib/keywordCounts";
 import { loadPlace, placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { isOptionalSort, withoutOptionalSorts } from "@/lib/listSort";
 import {
@@ -196,8 +202,8 @@ export interface MailState {
   vacation: VacationResponse | null;
   list: ListState | null;
   selected: Record<Id, true>;
-  /** Unread messages per label keyword, for the sidebar. */
-  labelCounts: Record<string, number>;
+  /** How much mail each counted keyword holds, for the sidebar. */
+  labelCounts: Record<string, KeywordCounts>;
   /**
    * The selection means "everything the current query matches", not the rows
    * that happen to be loaded. Ticking the header box selects the loaded page;
@@ -876,15 +882,29 @@ export const useMail = create<MailState>((set, get) => ({
     // optimistic
     set((s) => {
       const next = { ...s.emails };
+      /*
+       * The sidebar's numbers are server totals, and this write moves them
+       * here rather than on the next read: unstarring a message and watching
+       * the Starred count stay put reads as a broken app. The arithmetic is
+       * `keywordCountDelta`'s, once, so the row and the count cannot disagree
+       * about what the write did.
+       */
+      let labelCounts = s.labelCounts;
       for (const id of ids) {
         const e = next[id];
         if (!e) continue;
+        labelCounts = keywordCountDelta({
+          counts: labelCounts,
+          keywords: e.keywords,
+          keyword,
+          on: value,
+        });
         const kw = { ...e.keywords };
         if (value) kw[keyword] = true;
         else delete kw[keyword];
         next[id] = { ...e, keywords: kw };
       }
-      return { emails: next };
+      return { emails: next, labelCounts };
     });
     const update: Record<Id, Record<string, unknown>> = {};
     for (const id of ids) update[id] = { [`keywords/${keyword}`]: value ? true : null };
@@ -892,7 +912,12 @@ export const useMail = create<MailState>((set, get) => ({
       await setEmails(accountId, update);
     } catch (err) {
       toast.error(t("Could not update: {error}", { error: (err as Error).message }));
-      void get().getEmails(ids);
+      await get().getEmails(ids);
+      // The messages were put back; the counts moved with the optimistic write
+      // and have to come back the same way. Re-read rather than reverse the
+      // arithmetic: a second failure mid-reverse would leave a number nobody
+      // could reconstruct.
+      void get().loadLabelCounts();
     }
   },
 
@@ -1723,35 +1748,64 @@ export const useMail = create<MailState>((set, get) => ({
   async loadLabelCounts() {
     const accountId = get().accountId;
     const labels = labelsForAccount(accountId, settings().labels);
-    if (!accountId || !labels.length) {
+    /*
+     * Starred is counted too, and it is not a label: it is the keyword a star
+     * writes, drawn as the first row of the same list. An account with no
+     * labels still has stars, so the empty case is the counted set being
+     * empty and never the label array.
+     */
+    const keywords = countedKeywords(labels);
+    if (!accountId) {
       if (Object.keys(get().labelCounts).length) set({ labelCounts: {} });
       return;
     }
     /*
-     * One request carrying a query per label, rather than a request each. The
-     * count is the whole answer, so `limit: 0` keeps the server from sending
-     * ids that would only be thrown away -- what is wanted is `total`.
+     * Two queries per keyword -- the total, and the unread half -- carried in
+     * one request. The count is the whole answer, so `limit: 0` keeps the
+     * server from sending ids that would only be thrown away: what is wanted
+     * is `total`.
+     *
+     * Both are asked at once rather than derived, because one cannot be
+     * derived from the other and the sidebar needs both: the row shows the
+     * total, and a label set to "while unread" is drawn or dropped by the
+     * unread half.
      */
-    const calls: Invocation[] = labels.map((l, i) => [
-      "Email/query",
-      {
-        accountId,
-        filter: {
-          operator: "AND",
-          conditions: [{ hasKeyword: l.keyword }, { notKeyword: "$seen" }],
+    const calls: Invocation[] = keywords.flatMap((keyword, i) => [
+      [
+        "Email/query",
+        {
+          accountId,
+          filter: { hasKeyword: keyword },
+          limit: 0,
+          calculateTotal: true,
         },
-        limit: 0,
-        calculateTotal: true,
-      },
-      `c${i}`,
-    ]);
+        `t${i}`,
+      ],
+      [
+        "Email/query",
+        {
+          accountId,
+          filter: {
+            operator: "AND",
+            conditions: [{ hasKeyword: keyword }, { notKeyword: SEEN_KEYWORD }],
+          },
+          limit: 0,
+          calculateTotal: true,
+        },
+        `u${i}`,
+      ],
+    ]) as Invocation[];
     try {
       const res = await client.request(calls);
-      const counts: Record<string, number> = {};
+      const counts: Record<string, KeywordCounts> = {};
+      for (const keyword of keywords) counts[keyword] = { total: 0, unread: 0 };
       for (const [, result, id] of res.methodResponses) {
-        const label = labels[Number(String(id).slice(1))];
-        if (!label) continue;
-        counts[label.keyword] = (result as { total?: number }).total ?? 0;
+        const which = String(id).slice(0, 1);
+        const keyword = keywords[Number(String(id).slice(1))];
+        if (!keyword) continue;
+        const total = (result as { total?: number }).total ?? 0;
+        if (which === "t") counts[keyword]!.total = total;
+        else counts[keyword]!.unread = total;
       }
       set({ labelCounts: counts });
     } catch {

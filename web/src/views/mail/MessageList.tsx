@@ -10,6 +10,7 @@ import {
   CheckSquare,
   Eraser,
   Filter,
+  Folder,
   FolderInput,
   Forward,
   Inbox,
@@ -58,6 +59,7 @@ import { formatListDate } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
 import { rowClick } from "@/lib/listSelection";
 import { mailboxDisplayName } from "@/lib/mailboxName";
+import { messageFolders } from "@/lib/messageLocation";
 import { rowIsOpen } from "@/lib/openMessage";
 import {
   describeSwipe,
@@ -991,6 +993,28 @@ export function MessageList({
   );
 }
 
+/**
+ * Which folders a row's message sits in, beside its labels.
+ *
+ * A tag like a label is, and deliberately quieter: a label is something the
+ * reader filed the message under, a folder is where it happens to be, and a
+ * row that shouted both would read as two lists of labels. The folder icon is
+ * what tells the two apart at a glance, and the whole path is the title — a
+ * nested folder shows its last segment here and its full path on hover.
+ */
+function FolderTags({ folders }: { folders: string[] }) {
+  return (
+    <span className="msg-folders">
+      {folders.map((path) => (
+        <span key={path} className="tag folder-tag" title={path}>
+          <Folder size={11} />
+          {path.split(" / ").pop()}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 interface RowProps {
   email: Email;
   threadEmails?: Email[];
@@ -1057,6 +1081,7 @@ const Row = memo(function Row({
   onSwipeFire,
 }: RowProps) {
   const labels = useEffectiveLabels();
+  const mailboxes = useMail((s) => s.mailboxes);
   // Subscribed purely so the row re-renders when the date format changes.
   useSettings((s) => dateTimeKey(s.settings));
   const inScope = threadEmails
@@ -1098,6 +1123,19 @@ const Row = memo(function Row({
   const rowLabels = labels.filter(
     (l) => !isAgentLabel(l.keyword) && scope.some((x) => x.keywords[l.keyword]),
   );
+  /*
+   * Where each message of this row is stored. Shown in every list that is not
+   * a folder: a label, a starred view and a search all answer a question
+   * *about* messages without saying where they live. In a folder the row is
+   * already in the answer, so only the other folders are named — and a message
+   * that sits in that folder alone says nothing.
+   *
+   * `mailboxes` is the active account's tree, which is the account these rows
+   * came from, and the same source the folder pickers read.
+   */
+  const locations = mailboxes
+    ? [...new Set(scope.flatMap((x) => messageFolders(x, mailboxes, mailboxId)))]
+    : [];
 
   /*
    * How far this row has been dragged from home, and whether it is currently
@@ -1272,6 +1310,7 @@ const Row = memo(function Row({
                   {l.name}
                 </span>
               ))}
+              {locations.length > 0 && <FolderTags folders={locations} />}
             </div>
           )}
         </div>
@@ -1296,6 +1335,7 @@ const Row = memo(function Row({
                 ))}
               </span>
             )}
+            {locations.length > 0 && <FolderTags folders={locations} />}
             <span className="msg-subject notranslate" translate="no">
               {e.subject || t("(no subject)")}
             </span>

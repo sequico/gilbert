@@ -6,6 +6,8 @@
  * another rewrites nothing in the mailbox, and a client that knows nothing
  * about Gilbert still sees the same flat keywords.
  */
+
+import { countOf, type KeywordCounts } from "@/lib/keywordCounts";
 import type { Label, LabelVisibility } from "@/store/settings";
 
 export interface LabelNode {
@@ -13,7 +15,13 @@ export interface LabelNode {
   /** 0 at the top; only ever used to indent. */
   depth: number;
   children: LabelNode[];
-  /** Unread messages carrying this keyword. Its own, not its children's. */
+  /** Every message carrying this keyword, read or not. Its own, not its children's. */
+  total: number;
+  /**
+   * The unread ones. Its own, not its children's -- and the number the
+   * "while unread" visibility rule turns on, which is why it is kept beside
+   * the total rather than derived from it at each use.
+   */
   unread: number;
 }
 
@@ -33,7 +41,7 @@ const visibilityOf = (l: Label): LabelVisibility => l.visibility ?? "always";
  */
 export function labelTree(
   labels: Label[],
-  counts: Record<string, number> = {},
+  counts: Record<string, KeywordCounts> = {},
 ): LabelNode[] {
   const byKeyword = new Map<string, Label>();
   for (const l of labels) byKeyword.set(l.keyword, l);
@@ -51,13 +59,16 @@ export function labelTree(
   };
 
   const nodes = new Map<string, LabelNode>();
-  for (const l of labels)
+  for (const l of labels) {
+    const c = countOf(counts, l.keyword);
     nodes.set(l.keyword, {
       label: l,
       depth: 0,
       children: [],
-      unread: counts[l.keyword] ?? 0,
+      total: c.total,
+      unread: c.unread,
     });
+  }
 
   const roots: LabelNode[] = [];
   for (const l of labels) {
