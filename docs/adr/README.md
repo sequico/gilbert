@@ -1,6 +1,8 @@
 # Architecture decision records — index
 
-One file per decision (`NNNN-kebab-case-title.md`), numbered by the owner.
+One file per decision (`NNNN-kebab-case-title.md`), numbered by the owner and
+consecutively: a new record takes the number after the highest, so the
+sequence has no gaps.
 
 A citation names a record that is a file here, and a section inside it is
 named rather than numbered: the record's own structure is what a code
@@ -92,20 +94,20 @@ is, not what a user sees.
   already in Stalwart is left where it is, drawn as the calendar objects they
   are — no migration, no purge, no hiding pass. Supersedes ADR 0005's
   task-list enumeration.
-- **0016 — The policy publish is a job with an id.** One id per publish,
+- **0011 — The policy publish is a job with an id.** One id per publish,
   carried by every copy it writes, and the job — the population the
   directory reported, the accounts the policy reached, the ones it did not
   with a code each, and whether the installation can be said to carry the
   policy — is one document in the publishing administrator's own app
   folder. Every per-account write is conditional, and the outcome cannot
   claim more than it reached. Supersedes ADR 0001's policy-publish bullet.
-- **0017 — The installation's configuration is the Master's own document.**
+- **0012 — The installation's configuration is the Master's own document.**
   `installation.json` in the Master account's `gilbert` app folder, read
   whole at boot and written by the administration through the same
   impersonation door; the environment carries only the handshake, the
   container's and the image's own facts, the operator's own switch, and the
   facts about the process itself. A publish applies from the next boot.
-- **0018 — A durable write is caused by a change, not by a clock.** Stalwart
+- **0013 — A durable write is caused by a change, not by a clock.** Stalwart
   charges an account for every blob it uploads and never gives one back, so a
   write on a clock — a heartbeat, a renewed lease, a session's activity stamp —
   spends a finite budget saying that a process is alive. Liveness and activity

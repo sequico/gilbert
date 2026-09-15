@@ -1,4 +1,4 @@
-# ADR 0018 — A durable write is caused by a change, not by a clock
+# ADR 0013 — A durable write is caused by a change, not by a clock
 
 Status: Proposed
 

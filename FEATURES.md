@@ -434,7 +434,7 @@ an environment variable, so it survives a redeploy and needs no volume
 even under `IMMUTABLE=1` (ADR 0001). It applies at once and signs the
 other signed-in clients out so their next sign-in reads it (`GET`/`POST
 /api/admin/policy`, `GET /api/account/policy`; ADR 0001). **Each publish is a
-job with an id** (ADR 0016): one id is minted before the first copy goes
+job with an id** (ADR 0011): one id is minted before the first copy goes
 out, every copy carries it beside the policy as `published: { id, at }`, and
 the job itself is one document — `gilbert/publish-job.json` in the publishing
 administrator's own app folder — holding when it started, who published, the
@@ -458,7 +458,7 @@ account by impersonation, so an administrator whose own account is
 elsewhere administers the installation's document rather than one in their
 own Files; a deployment that names no Master (`GILBERT_AGENT_ADDRESS`
 unset) is refused as a value, with its own code, rather than opened onto
-whoever is asking (ADR 0017). The read answers the text as the account holds
+whoever is asking (ADR 0012). The read answers the text as the account holds
 it, including a document this build cannot read, and whether there is one at
 all; publishing validates with the boot's own validator and refuses anything
 that is not a document, with the reason, before a byte is written: a document

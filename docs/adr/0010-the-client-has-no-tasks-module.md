@@ -70,7 +70,7 @@ knows.**
 collections are calendars, address books and files, owned by the group from
 creation — and a task list is not one of the examples that rule carries.
 This record supersedes that clause of ADR 0005 and leaves the rest of it
-standing, the way ADR 0016 supersedes ADR 0001's policy bullet.
+standing, the way ADR 0011 supersedes ADR 0001's policy bullet.
 
 ### Rejected — hiding the module instead of removing it
 

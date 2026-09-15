@@ -1967,7 +1967,7 @@ export const useMail = create<MailState>((set, get) => ({
     }
     if (types.has("Identity")) {
       /*
-       * Both lists are "on screen" in the ADR 0018 sense while Settings is
+       * Both lists are "on screen" in the ADR 0013 sense while Settings is
        * open: the account being browsed, and the reader's own, which is every
        * group block under it. A change to either is a change to what is shown.
        */
