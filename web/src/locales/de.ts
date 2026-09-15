@@ -104,6 +104,8 @@ export const catalog: Catalog = {
     Edit: "Bearbeiten",
     "Edit…": "Bearbeiten…",
     Rename: "Umbenennen",
+    "Move “{name}” to…": "„{name}“ verschieben nach…",
+    "Top level": "Oberste Ebene",
     Remove: "Entfernen",
     Restore: "Wiederherstellen",
     Retry: "Erneut versuchen",

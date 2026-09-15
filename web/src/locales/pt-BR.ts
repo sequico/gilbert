@@ -99,6 +99,8 @@ export const catalog: Catalog = {
     Edit: "Editar",
     "Edit…": "Editar…",
     Rename: "Renomear",
+    "Move “{name}” to…": "Mover “{name}” para…",
+    "Top level": "Nível superior",
     Remove: "Remover",
     Restore: "Restaurar",
     Retry: "Tentar de novo",

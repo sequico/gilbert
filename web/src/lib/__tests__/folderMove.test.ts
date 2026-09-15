@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Id, Mailbox } from "@/jmap/types";
-import { canDropFolder, descendantIds, folderColor, movable } from "../folderMove";
+import {
+  canDropFolder,
+  canMoveFolderTo,
+  descendantIds,
+  folderColor,
+  movable,
+} from "../folderMove";
 
 const mb = (
   id: string,
@@ -20,6 +26,15 @@ const mb = (
   isSubscribed: true,
   myRights: {} as Mailbox["myRights"],
 });
+
+const rights = (over: Partial<Mailbox["myRights"]> = {}) =>
+  ({
+    mayReadItems: true,
+    mayAddItems: true,
+    mayRename: true,
+    mayCreateChild: true,
+    ...over,
+  }) as Mailbox["myRights"];
 
 /**  root ── Work ── Clients ── EU
  *        └─ Archive (role)
@@ -83,6 +98,52 @@ describe("canDropFolder", () => {
   it("refuses a target that does not exist", () => {
     expect(canDropFolder(tree, "news", "gone")).toBe(false);
     expect(canDropFolder(tree, "gone", "work")).toBe(false);
+  });
+});
+
+describe("canMoveFolderTo", () => {
+  /*
+   * The folder picker lists every folder at once, so it cannot let the server
+   * refuse one drag: the rights a drop would discover have to be checked up
+   * front. Reparenting is `mayRename` on the folder itself (RFC 8621) and
+   * `mayCreateChild` on the destination.
+   */
+  const withRights = (over: Record<string, Partial<Mailbox["myRights"]>>) => {
+    const out: Record<Id, Mailbox> = {};
+    for (const [id, m] of Object.entries(tree)) {
+      out[id] = { ...m, myRights: rights(over[id]) };
+    }
+    return out;
+  };
+
+  it("allows a legal destination when the rights are there", () => {
+    const t = withRights({});
+    expect(canMoveFolderTo(t, "news", "work")).toBe(true);
+    expect(canMoveFolderTo(t, "eu", null)).toBe(true);
+  });
+
+  it("refuses the same destinations a drop refuses", () => {
+    const t = withRights({});
+    expect(canMoveFolderTo(t, "work", "work")).toBe(false);
+    expect(canMoveFolderTo(t, "work", "eu")).toBe(false);
+    expect(canMoveFolderTo(t, "clients", "work")).toBe(false);
+    expect(canMoveFolderTo(t, "inbox", "work")).toBe(false);
+  });
+
+  it("refuses when the folder itself may not be renamed", () => {
+    // Reparenting is folded into mayRename, so this is the right that matters.
+    const t = withRights({ news: { mayRename: false } });
+    expect(canMoveFolderTo(t, "news", "work")).toBe(false);
+  });
+
+  it("refuses a destination that may not take a child", () => {
+    const t = withRights({ work: { mayCreateChild: false } });
+    expect(canMoveFolderTo(t, "eu", "work")).toBe(false);
+    // The root is not a folder and grants nothing, so a folder that may be
+    // renamed may always go there -- `news` may not, because it is already at
+    // the top level and that move would be a no-op.
+    expect(canMoveFolderTo(t, "eu", null)).toBe(true);
+    expect(canMoveFolderTo(t, "news", null)).toBe(false);
   });
 });
 

@@ -95,6 +95,8 @@ export const catalog: Catalog = {
     Edit: "編集",
     "Edit…": "編集…",
     Rename: "名前を変更",
+    "Move “{name}” to…": "「{name}」を移動…",
+    "Top level": "最上位",
     Remove: "削除",
     Restore: "元に戻す",
     Retry: "再試行",

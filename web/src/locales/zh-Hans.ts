@@ -92,6 +92,8 @@ export const catalog: Catalog = {
     Edit: "编辑",
     "Edit…": "编辑…",
     Rename: "重命名",
+    "Move “{name}” to…": "将「{name}」移动到…",
+    "Top level": "顶层",
     Remove: "移除",
     Restore: "恢复",
     Retry: "重试",

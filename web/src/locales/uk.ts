@@ -93,6 +93,8 @@ export const catalog: Catalog = {
     Edit: "Змінити",
     "Edit…": "Змінити…",
     Rename: "Перейменувати",
+    "Move “{name}” to…": "Перемістити «{name}» до…",
+    "Top level": "Верхній рівень",
     Remove: "Прибрати",
     Restore: "Відновити",
     Retry: "Повторити",
