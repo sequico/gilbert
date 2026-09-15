@@ -11,4 +11,4 @@
  * One copy on this side of the line, so at least the app cannot disagree with
  * itself.
  */
-export const SW_CACHE_NAME = "gilbert-v2";
+export const SW_CACHE_NAME = "gilbert-v3";

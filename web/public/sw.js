@@ -2,7 +2,22 @@
    Two jobs: app-shell caching for installability and fast loads (API requests
    are never cached), and Web Push, which is the only part of gilbert that runs
    when no tab is open. */
-const VERSION = "gilbert-v2";
+const VERSION = "gilbert-v3";
+
+/*
+ * The name of the shell cache, and the lever that refreshes it.
+ *
+ * `install` fills this cache from SHELL and `activate` deletes every cache
+ * whose name is not this one. A browser only runs `install` again when this
+ * file's own bytes changed, so an asset listed in SHELL that changed while
+ * this file did not -- an icon, the manifest -- stays at its old copy in the
+ * cache, and offline loads keep serving it. Bumping the string is what makes
+ * the shell be fetched again.
+ *
+ * `web/src/lib/swCache.ts` carries the same name on the app's side; the two
+ * have to match for a push verification or a share to be found. Nothing in the
+ * build makes them agree, so a test does (`lib/__tests__/swCache.test.ts`).
+ */
 
 /*
  * The mount, worked out rather than configured.

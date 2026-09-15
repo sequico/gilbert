@@ -8,6 +8,7 @@
   "scope": "./",
   "categories": ["productivity", "utilities"],
   "_comment_launch": "One window, not one per launch. A `mailto:` link, a manifest shortcut or a notification tapped while Gilbert is already open should arrive in the copy that is running rather than beside it -- two windows on the same inbox disagree about what has been read. `navigate-existing` rather than `focus-existing` because the latter only focuses and leaves the app to handle the target URL through launchQueue, which nothing here consumes: it would swallow the mailto entirely. The navigation goes through the same beforeunload guard as a reload, so an unsent draft still stops it and asks.",
+  "_comment_colours": "Both are the default theme's own background, which is the gilbert palette's dark navy: #0d2430 is that palette's --bg. A manifest cannot follow the reader's theme -- it is read before any of them is applied -- so what it carries is where the app starts, and the meta tag in index.html takes over from the first paint (see applyTheme). Anything else paints the splash in colours the app then leaves, and a default account runs dark.",
   "launch_handler": {
     "client_mode": "navigate-existing"
   },
@@ -47,8 +48,8 @@
   ],
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#ffffff",
-  "theme_color": "#0f766e",
+  "background_color": "#0d2430",
+  "theme_color": "#0d2430",
   "icons": [
     {
       "src": "img/icon-192.png",
