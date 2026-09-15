@@ -662,6 +662,7 @@ export const catalog: Catalog = {
     "Sign out all other sessions": "Alle andere sessies uitloggen",
     "Signed in as": "Ingelogd als",
     "This is my own device": "Dit is mijn eigen apparaat",
+    "Only on a device you've marked as your own. Sign in again with \u201cThis is my own device\u201d ticked.": "Alleen op een apparaat dat u als uw eigen apparaat hebt aangemerkt. Log opnieuw in met ‘Dit is mijn eigen apparaat’ aangevinkt.",
     "this device": "dit apparaat",
     Device: "Apparaat",
     IP: "IP",

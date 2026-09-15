@@ -48,8 +48,18 @@ export function Splitter({ direction, onResize, onEnd, onReset, ariaLabel }: Pro
         onEnd?.();
       }}
       onKeyDown={(e) => {
-        if (e.key === "ArrowLeft" || e.key === "ArrowUp") onResize(-24);
-        if (e.key === "ArrowRight" || e.key === "ArrowDown") onResize(24);
+        const step =
+          e.key === "ArrowLeft" || e.key === "ArrowUp"
+            ? -24
+            : e.key === "ArrowRight" || e.key === "ArrowDown"
+              ? 24
+              : 0;
+        if (!step) return;
+        e.preventDefault();
+        // A key press is a whole drag in one: without the end, the size moved on
+        // screen and was never saved.
+        onResize(step);
+        onEnd?.();
       }}
     >
       <span className="splitter-grip" />

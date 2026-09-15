@@ -9,6 +9,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { parseOtpauthUrl, verifyTotp } from "../totp.js";
 import { holdUntilOf, undoStatusOf } from "./futurerelease.js";
 import {
+  eventGetView,
   expandOccurrences,
   type Occurrence,
   occurrenceAt,
@@ -3777,7 +3778,15 @@ const handlers: Record<string, Handler> = {
   "CalendarEvent/get": (a) => {
     const list = eventsFor(a.accountId);
     const ids = a.ids as string[] | null | undefined;
-    if (!ids) return genericGet(list, "CalendarEvent")(a);
+    const properties = a.properties as string[] | null | undefined;
+    // With no ids every event comes back under its stored id, none synthetic.
+    if (!ids)
+      return {
+        accountId: ACCOUNT,
+        state: stateOf("CalendarEvent"),
+        list: list.map((x) => eventGetView(x, false, properties)),
+        notFound: [],
+      };
     const found: Obj[] = [];
     const notFound: string[] = [];
     for (const id of ids) {
@@ -3787,13 +3796,15 @@ const handlers: Record<string, Handler> = {
         continue;
       }
       found.push(
-        resolved.occ ? occurrenceView(resolved.base, resolved.occ) : resolved.base,
+        resolved.occ
+          ? eventGetView(occurrenceView(resolved.base, resolved.occ), true, properties)
+          : eventGetView(resolved.base, false, properties),
       );
     }
     return {
       accountId: ACCOUNT,
       state: stateOf("CalendarEvent"),
-      list: found.map((x) => pick(x, a.properties as string[] | null)),
+      list: found,
       notFound,
     };
   },
@@ -3955,6 +3966,8 @@ const handlers: Record<string, Handler> = {
       total: list.length,
     };
   },
+  // An empty `properties` list returns `id` alone, which `pick` already does.
+  // 0.16.22 made Stalwart agree; through 0.16.21 it returned every property.
   "ContactCard/get": (a) =>
     genericGet(
       a.accountId === SHARED_ACCOUNT

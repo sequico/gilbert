@@ -677,6 +677,7 @@ export const catalog: Catalog = {
     "Sign out all other sessions": "Déconnecter toutes les autres sessions",
     "Signed in as": "Connecté en tant que",
     "This is my own device": "Cet appareil est le mien",
+    "Only on a device you've marked as your own. Sign in again with \u201cThis is my own device\u201d ticked.": "Uniquement sur un appareil que vous avez indiqué comme le vôtre. Reconnectez-vous en cochant « Cet appareil est le mien ».",
     "this device": "cet appareil",
     Device: "Appareil",
     IP: "IP",

@@ -114,3 +114,12 @@ is, not what a user sees.
   are process facts (ADR 0003's claims, the sessions store), a write that would
   store what is already there is not made, and an idle installation therefore
   costs nothing.
+- **0014 — Administration is a door, not a menu.** The decision that a session
+  may administer is made where the request is: the JMAP proxy refuses a body
+  that names a registry object the session may not reach, behind an allowlist of
+  the account's own objects, and every `/api/admin` route enforces the same two
+  conditions — the installation offers administration (`server.administration`
+  in its own document), and the session was signed in on a device marked as the
+  person's own. The menu announces the decision and says why when it cannot;
+  the server is the door. Supersedes ADR 0001's placement of the decision in
+  the client alone.

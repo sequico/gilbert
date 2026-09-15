@@ -667,6 +667,7 @@ export const catalog: Catalog = {
     "Sign out all other sessions": "Завершить все остальные сеансы",
     "Signed in as": "Вход выполнен как",
     "This is my own device": "Это моё личное устройство",
+    "Only on a device you've marked as your own. Sign in again with \u201cThis is my own device\u201d ticked.": "Только на устройстве, отмеченном как ваше. Войдите снова, отметив «Это моё личное устройство».",
     "this device": "это устройство",
     Device: "Устройство",
     IP: "IP",

@@ -35,6 +35,18 @@ export interface JmapSession {
     /** Stalwart-admin state resolved at sign-in (ADR 0001): enables the admin surface. */
     isAdmin: boolean;
     /**
+     * ADR 0014: whether this session may administer at all — the installation
+     * offers administration and this device was marked as the person's own. The
+     * server refuses `x:` methods beyond the account's own when it is false, so
+     * the menu follows it rather than the other way round.
+     */
+    administration?: boolean;
+    /**
+     * ADR 0014: an administrator signed in on a device not marked as their own.
+     * The menu says why rather than losing the entry without a word.
+     */
+    administrationNeedsOwnDevice?: boolean;
+    /**
      * ADR 0001: the account must change its password before any data route
      * will serve it. Enforcement is server-side; this only tells the client
      * which screen to show.

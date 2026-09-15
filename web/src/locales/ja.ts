@@ -664,6 +664,7 @@ export const catalog: Catalog = {
     "Sign out all other sessions": "他のすべてのセッションをサインアウト",
     "Signed in as": "サインイン中のアカウント",
     "This is my own device": "これは自分のデバイスです",
+    "Only on a device you've marked as your own. Sign in again with \u201cThis is my own device\u201d ticked.": "自分のデバイスとして指定した端末でのみ使えます。「これは自分のデバイスです」にチェックを入れて、もう一度サインインしてください。",
     "this device": "このデバイス",
     Device: "デバイス",
     IP: "IP",

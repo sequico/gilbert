@@ -379,6 +379,15 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
     /* Whether JMAP responses are gzipped. Measured: see the bake-off rerun. */
     compressJmap: environment.COMPRESS_JMAP !== "0",
     /**
+     * Whether this installation offers administration to accounts whose
+     * Stalwart role allows it (ADR 0014). Off means off: the menu is not
+     * drawn, and the JMAP proxy refuses registry methods beyond the account's
+     * own, so an administrator cannot reach the registry from the browser
+     * console of a deployment that said no. The installation decides it --
+     * `server.administration` in the document.
+     */
+    administration: readBool(environment, "ADMINISTRATION", true),
+    /**
      * The `/api/account` permission that marks a Stalwart admin (ADR 0001).
      *
      * Live-verified 2026-09-09 on Stalwart 0.16.21: `sysAccountCreate` appears

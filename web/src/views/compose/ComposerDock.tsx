@@ -11,8 +11,10 @@ export function ComposerDock() {
   const visible = isMobile
     ? drafts.filter((d) => d.key === activeKey || d.minimized)
     : drafts;
+  // On desktop a full-screen composer stands alone: the rest are hidden until it is restored.
+  const hasMaximized = !isMobile && drafts.some((d) => d.maximized && !d.minimized);
   return (
-    <div className="composer-dock">
+    <div className={`composer-dock${hasMaximized ? " has-maximized" : ""}`}>
       {visible.map((d) => (
         <Composer
           key={d.key}

@@ -63,6 +63,14 @@ export interface InstallationServer {
   /** `COMPRESS_JMAP` (default `true`): whether JMAP responses are gzipped. */
   compressJmap: boolean;
   /**
+   * `ADMINISTRATION` (default `true`): whether this installation offers
+   * administration to accounts whose Stalwart role allows it. Off means off --
+   * no menu, and the JMAP proxy refuses registry methods beyond the account's
+   * own (ADR 0014, `adminGate.ts`). Stalwart's own interface is unaffected
+   * either way.
+   */
+  administration: boolean;
+  /**
    * `COOKIE_NAME` (default `"gilbert_session"`): the name of the session cookie.
    *
    * The installation decides it because it is a name this installation's own
@@ -210,6 +218,7 @@ export function installationDefaults(): InstallationDocument {
       trustedProxies: [], // TRUSTED_PROXIES ("" = loopback and the private ranges)
       secureCookies: "auto", // SECURE_COOKIES
       compressJmap: true, // COMPRESS_JMAP (`"0"` turned it off)
+      administration: true, // ADMINISTRATION (`"0"` turns it off)
       cookieName: "gilbert_session", // COOKIE_NAME
     },
     limits: {
@@ -441,6 +450,11 @@ export function parseInstallationDocumentDetailed(
         "server.compressJmap",
         server.compressJmap,
         defaults.server.compressJmap,
+      ),
+      administration: readBool(
+        "server.administration",
+        server.administration,
+        defaults.server.administration,
       ),
       cookieName,
     },

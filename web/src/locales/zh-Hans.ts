@@ -653,6 +653,7 @@ export const catalog: Catalog = {
     "Sign out all other sessions": "退出所有其他会话",
     "Signed in as": "已登录为",
     "This is my own device": "这是我自己的设备",
+    "Only on a device you've marked as your own. Sign in again with \u201cThis is my own device\u201d ticked.": "仅限在您标记为自己设备的设备上使用。请勾选「这是我自己的设备」后重新登录。",
     "this device": "当前设备",
     Device: "设备",
     IP: "IP",

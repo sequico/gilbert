@@ -305,7 +305,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <HelpCircle size={21} />
           </button>
           <ThemeToggle />
-          {session?.gilbert?.isAdmin && (
+          {session?.gilbert?.isAdmin && session?.gilbert?.administration !== false && (
             <button
               type="button"
               className={`icon-btn ${section === "admin" ? "active" : ""}`}
@@ -382,6 +382,25 @@ export function AppShell({ children }: { children: ReactNode }) {
               label={t("Settings")}
               onClick={() => navigate("/settings")}
             />
+            {session?.gilbert?.administrationNeedsOwnDevice && (
+              <MenuItem
+                icon={<Shield size={16} />}
+                disabled
+                label={
+                  <>
+                    <span style={{ display: "block" }}>{t("Administration")}</span>
+                    <span
+                      className="hint"
+                      style={{ display: "block", whiteSpace: "normal" }}
+                    >
+                      {t(
+                        "Only on a device you've marked as your own. Sign in again with \u201cThis is my own device\u201d ticked.",
+                      )}
+                    </span>
+                  </>
+                }
+              />
+            )}
             <MenuItem
               icon={<RefreshCw size={16} />}
               label={t("Refresh")}
