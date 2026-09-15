@@ -83,6 +83,23 @@ export function ownIdentityAccountId(session: MailSessionLike | null): string | 
   );
 }
 
+/**
+ * The address the session calls one account, or `""` when it names none.
+ *
+ * For a group mailbox that is the group's **own address**, and it is the input
+ * two things share: the assignment route is asked about this group by it
+ * (`/api/identities/assignment`), and step 2 of the sending cascade matches an
+ * identity carrying it (`@gilbert/shared/identityAssignment`). Defined once so
+ * the two cannot be spelt differently.
+ */
+export function mailAccountAddress(
+  accounts: ReadonlyArray<MailAccountInfo>,
+  accountId: string | null,
+): string {
+  if (!accountId) return "";
+  return accounts.find((a) => a.accountId === accountId)?.name ?? "";
+}
+
 /** Whether an account id is the reader's own, by this session's lights. */
 export function isOwnMailAccount(
   session: MailSessionLike | null,

@@ -135,13 +135,13 @@ describe("a group's identities in the member's own settings", () => {
     ({ ...identity(id, name), email: GROUP }) as Identity;
 
   /** What the member-group route answers, as the section reads it. */
-  let assignment: { assignedId: string | null; groupSenderId: string | null };
+  let assignment: { assignedId: string | null };
 
   beforeEach(async () => {
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
-    assignment = { assignedId: "g2", groupSenderId: "g1" };
+    assignment = { assignedId: "g2" };
     vi.spyOn(client, "call").mockImplementation(async (method, args) => {
       if (method !== "Identity/get") return {} as never;
       return {
@@ -164,7 +164,6 @@ describe("a group's identities in the member's own settings", () => {
           json: async () => ({
             group: GROUP,
             assignedId: assignment.assignedId,
-            groupSenderId: assignment.groupSenderId,
           }),
         } as Response;
       }
@@ -253,7 +252,7 @@ describe("a group's identities in the member's own settings", () => {
   it("says what the mail goes out as when nothing is assigned", async () => {
     // The state a member is in before the administration gets to them, and the
     // one the composer answers the same way: the group itself.
-    assignment = { assignedId: null, groupSenderId: "g1" };
+    assignment = { assignedId: null };
     await render();
 
     const text = host.textContent ?? "";
@@ -269,9 +268,7 @@ describe("a group's identities in the member's own settings", () => {
      * being given one.
      */
     useMail.setState({
-      assignmentByAccount: {
-        [GROUP_ACCOUNT]: { assignedId: "g1", groupSenderId: "g1" },
-      },
+      assignmentByAccount: { [GROUP_ACCOUNT]: { assignedId: "g1" } },
     });
     await render();
 

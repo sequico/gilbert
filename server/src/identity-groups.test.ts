@@ -212,13 +212,14 @@ test("a group answers its identities, its roster and who is assigned which", asy
   assert.equal(own.name, "Team", "which is the group's own voice");
 });
 
-test("the composer's question is answered as the member, with the group's own behind it", async () => {
+test("the composer's question is answered as the member, and only the member's own part", async () => {
   /*
    * `GET /identities/assignment` is what the composer asks (ADR 0007): the
-   * identity assigned to **the person signed in**, and the group's own, which is
-   * what they send as when nothing is assigned to them. Both are ids of the
-   * group's account, which the client resolves against the list it holds — so
-   * the cascade that picks between them lives in one place.
+   * identity assigned to **the person signed in**. The group's own identity —
+   * what they send as when nothing is assigned — is not answered here: it is
+   * step 2 of the cascade, one rule both tiers import
+   * (`@gilbert/shared/identityAssignment`), and the client derives it from the
+   * address the session calls the account rather than reading it back.
    */
   const view = (await group(TEAM)).body as unknown as GroupView;
   const mine = await call(`/api/identities/assignment?group=${encodeURIComponent(TEAM)}`);
@@ -226,7 +227,6 @@ test("the composer's question is answered as the member, with the group's own be
   const answer = mine.body as unknown as {
     group: string;
     assignedId: string | null;
-    groupSenderId: string | null;
   };
   assert.equal(answer.group, TEAM);
   assert.equal(
@@ -234,10 +234,10 @@ test("the composer's question is answered as the member, with the group's own be
     view.assignments[DEMO],
     "the member's own assignment, read as the member",
   );
-  assert.equal(
-    answer.groupSenderId,
-    view.groupSenderId,
-    "and the group's own identity beside it",
+  assert.deepEqual(
+    Object.keys(answer).sort(),
+    ["assignedId", "group"],
+    "and nothing else: the group's own identity is a rule, not this account's record",
   );
 
   // A group the reader is not in is refused by the same rule every member
@@ -677,23 +677,122 @@ test("an account that answers nothing of its own is no group of theirs", async (
   assert.deepEqual(unread?.identities, [], "so it carries none of its own");
 });
 
-test("the first assignment a group ever gets is written", async () => {
+test("the first assignment a group ever gets is written, for one upload", async () => {
   /*
    * The app folder does not exist until something writes it, and creating it
-   * moves the account FileNode state -- so a write that read the state before
-   * the folder existed is refused as a lost race. Nothing writes an assignment
-   * in the design group's fixture, so this is that first write.
+   * moves the account FileNode state -- so a state read before the folder
+   * existed is a token no write will pass. Nothing writes an assignment in the
+   * design group's fixture, so this is that first write, and the folder is
+   * created before the state is read for exactly that reason.
+   *
+   * What the order saves is the upload. A write uploads its bytes before the
+   * FileNode set that can refuse them, and JMAP has no blob removal: the account
+   * pays for that blob and never gets it back. One upload is what this write may
+   * spend; a write that read the state before the folder existed spends two, the
+   * second for a document that was already written.
    */
   const before = (await group(DESIGN)).body as unknown as GroupView;
   assert.deepEqual(before.assignments, {}, "nothing is assigned here yet");
 
-  const written = await post("/api/admin/identities/group", {
-    name: DESIGN,
-    member: AGENT,
-    id: null,
-    patch: { name: "Gilbert", email: DESIGN },
-  });
+  const realFetch = globalThis.fetch;
+  const uploads: string[] = [];
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method === "POST" && String(input).includes("/upload/"))
+      uploads.push(String(input));
+    return realFetch(input, init);
+  }) as typeof fetch;
+
+  let written: { status: number; body: Record<string, unknown> | null };
+  try {
+    written = await post("/api/admin/identities/group", {
+      name: DESIGN,
+      member: AGENT,
+      id: null,
+      patch: { name: "Gilbert", email: DESIGN },
+    });
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
   assert.equal(written.status, 200, JSON.stringify(written.body));
+  assert.equal(
+    uploads.length,
+    1,
+    `one upload, and no second for an attempt that was refused: ${JSON.stringify(uploads)}`,
+  );
   const after = (await group(DESIGN)).body as unknown as GroupView;
   assert.equal(after.assignments[AGENT], written.body?.id, "and it is recorded");
+});
+
+test("a write that lands between the state and the list is not overwritten", async () => {
+  /*
+   * Two administrators acting on one group at once is what the conditional
+   * write exists for, and the order it reads in is what keeps them from losing
+   * each other's work: the account's FileNode state is read **before** the
+   * assignment list, so a write that lands in the window between the two leaves
+   * this one holding a token older than its own list — refused by the server,
+   * and the retry then merges into the list as it now reads. Read the list first
+   * and the two disagree the other way round: a token newer than the data is a
+   * conditional write that passes while overwriting the entry it never saw.
+   *
+   * The other administrator's write is interposed on this one's state read,
+   * which is exactly the window in question.
+   */
+  const before = (await group(DESIGN)).body as unknown as GroupView;
+  const mine = before.assignments[AGENT];
+  assert.ok(mine, "the fixture assigns the agent an identity of its own");
+  const other = before.identities.find((row) => row.id !== mine)?.id;
+  assert.ok(other, "and the group holds another identity to assign instead");
+
+  const realFetch = globalThis.fetch;
+  let interposed = false;
+  let rival: { status: number; body: Record<string, unknown> | null } = {
+    status: 0,
+    body: null,
+  };
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const body = typeof init?.body === "string" ? init.body : "";
+    if (!interposed && body.includes("FileNode/get") && body.includes('"ids":[]')) {
+      interposed = true;
+      const res = await post("/api/admin/identities/group", {
+        name: DESIGN,
+        member: AGENT,
+        id: other,
+        patch: {},
+      });
+      rival = { status: res.status, body: res.body };
+    }
+    return realFetch(input, init);
+  }) as typeof fetch;
+
+  let written: { status: number; body: Record<string, unknown> | null };
+  try {
+    written = await post("/api/admin/identities/group", {
+      name: DESIGN,
+      member: "",
+      id: null,
+      patch: { name: "Nobodys", email: DESIGN },
+    });
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  assert.equal(interposed, true, "the other administrator's write landed mid-read");
+  assert.equal(rival.status, 200, JSON.stringify(rival.body));
+  assert.equal(written.status, 200, JSON.stringify(written.body));
+  const after = (await group(DESIGN)).body as unknown as GroupView;
+  assert.equal(
+    after.assignments[AGENT],
+    other,
+    "the assignment that landed in the window is still recorded",
+  );
+  assert.equal(
+    Object.values(after.assignments).includes(written.body?.id as string),
+    false,
+    "and this write assigned nobody",
+  );
+  assert.ok(
+    after.identities.some((row) => row.id === written.body?.id),
+    "though the identity it wrote is the group's",
+  );
 });

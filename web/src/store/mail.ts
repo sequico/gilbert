@@ -1,7 +1,4 @@
-import {
-  accountOwnIdentity,
-  groupSenderIdentity,
-} from "@gilbert/shared/identityAssignment";
+import { groupSenderIdentity } from "@gilbert/shared/identityAssignment";
 import { create } from "zustand";
 import { chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
 import type {
@@ -34,6 +31,7 @@ import { isOptionalSort, withoutOptionalSorts } from "@/lib/listSort";
 import {
   isGroupMailboxAccount,
   type MailAccountInfo,
+  mailAccountAddress,
   mailAccountCandidates,
   ownIdentityAccountId,
 } from "@/lib/mailAccounts";
@@ -177,19 +175,23 @@ export interface MailState {
   identitiesByAccount: Record<Id, Identity[]>;
   /**
    * What a group mailbox has **assigned to the reader**, by account id
-   * (ADR 0007): the identity that is theirs there, and the group's own, which
-   * is what they send as when nothing is assigned.
+   * (ADR 0007): the identity that is theirs there.
+   *
+   * Only the assignment is kept, because it is the one thing the client cannot
+   * work out: which of the group's identities an administrator gave this member
+   * is a fact the group's account records. The group's **own** identity — what
+   * an unassigned member sends as — is not a second fact, it is step 2 of the
+   * cascade, derived where the cascade is applied from the address the session
+   * calls the account, by the one function both tiers share.
    *
    * A missing entry is "not read yet", which is not the same as
-   * `assignedId: null` — "read, and nothing is assigned". The distinction is
-   * what keeps a group's view from offering the group's own identity for the
-   * instant before the assignment lands: until the read answers, the view
-   * holds what it had.
+   * `assignedId: null` — "read, and nothing is assigned". Both are applied by
+   * the one cascade, and an entry that has not landed yet is no assignment:
+   * the view offers the group's own identity until the answer arrives rather
+   * than an empty From, which the composer reports as a group that holds no
+   * identity at all.
    */
-  assignmentByAccount: Record<
-    Id,
-    { assignedId: string | null; groupSenderId: string | null }
-  >;
+  assignmentByAccount: Record<Id, { assignedId: string | null }>;
   quotas: Quota[];
   vacation: VacationResponse | null;
   list: ListState | null;
@@ -1528,17 +1530,14 @@ export const useMail = create<MailState>((set, get) => ({
     const state = get();
     if (!isGroupMailboxAccount(accountId, state.mailAccounts)) return;
     if (!opts?.force && state.assignmentByAccount[accountId] !== undefined) return;
-    const address = state.mailAccounts.find((a) => a.accountId === accountId)?.name;
+    const address = mailAccountAddress(state.mailAccounts, accountId);
     if (!address) return;
     const { fetchMemberAssignment } = await import("@/lib/identities");
     const view = await fetchMemberAssignment(address);
     set((s) => ({
       assignmentByAccount: {
         ...s.assignmentByAccount,
-        [accountId]: {
-          assignedId: view.assignedId,
-          groupSenderId: view.groupSenderId,
-        },
+        [accountId]: { assignedId: view.assignedId },
       },
     }));
     identitiesChanged(accountId);
@@ -2009,23 +2008,21 @@ function applyIdentities(accountId: Id): void {
   /*
    * The cascade lives once, in `@gilbert/shared/identityAssignment`, and is
    * imported rather than restated: the identity assigned to the reader, else
-   * the group's own.
+   * the group's own, matched by the address the session calls this account.
    *
-   * While the assignment has not been read the group's own identity stands in —
-   * computed here by the **same function** the server answered with, from the
-   * same list and the group's own address. That is step 2 of the cascade, so it
-   * is what the answer will be for a member nothing is assigned to anyway; the
-   * alternative is an empty From, which the composer reports as a group that
-   * holds no identity — a claim that is false for as long as the read takes.
+   * An assignment that has not been read is no assignment — `held?.assignedId`
+   * — so one call answers both before and after the read, and what stands in
+   * while it is on its way is step 2 of the cascade: what the answer will be
+   * for a member nothing is assigned to anyway. The alternative is an empty
+   * From, which the composer reports as a group that holds no identity, a
+   * claim that is false for as long as the read takes.
    */
   const held = state.assignmentByAccount[accountId];
-  if (held !== undefined) {
-    const sender = groupSenderIdentity(all, held.assignedId, held.groupSenderId);
-    useMail.setState({ identities: sender ? [sender] : [] });
-    return;
-  }
-  const own = state.mailAccounts.find((a) => a.accountId === accountId)?.name ?? "";
-  const sender = all.length ? accountOwnIdentity(all, own) : undefined;
+  const sender = groupSenderIdentity(
+    all,
+    held?.assignedId,
+    mailAccountAddress(state.mailAccounts, accountId),
+  );
   useMail.setState({ identities: sender ? [sender] : [] });
 }
 

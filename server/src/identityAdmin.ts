@@ -41,6 +41,7 @@ import {
   appFolderState,
   type Ctx,
   destroyAppNode,
+  ensureAppFolder,
   findAppFileAt,
   readAppJsonAt,
   writeAppBytesAt,
@@ -219,82 +220,55 @@ export async function setUserIdentityLock(
 /* The member-to-identity assignment (ADR 0007)                        */
 /* ------------------------------------------------------------------ */
 
-/**
- * Which identity each member of a group sends as, as that group's account
- * records it, together with whether there is a document at all.
- *
- * The two travel as one answer because they are used as one: a document that is
- * not there yet is the case where the write must be **unconditional** —
- * creating the app folder moves the account's FileNode state, so a write that
- * read the state before the folder existed is refused as a lost race, and the
- * first assignment a group ever gets would never land. That is the shape the
- * repo's other conditional writers use (`found ? { ifInState: found.state } : {}`),
- * and it is the reason `assignments` here is not read on its own.
- */
-async function readAssignmentDoc(
-  ctx: Ctx,
-  accountId: string,
-): Promise<{ members: Record<string, string>; exists: boolean }> {
-  const found = await readAppJsonAt(ctx, accountId, GROUP_ASSIGNMENTS_FILE);
-  return {
-    members: toAssignmentDoc(found)?.members ?? {},
-    exists: found !== null,
-  };
-}
-
 /** One member's assignment, or none: the reading a caller actually wants. */
-export async function readAssignments(
+async function readAssignments(
   ctx: Ctx,
   accountId: string,
 ): Promise<Record<string, string>> {
-  return (await readAssignmentDoc(ctx, accountId)).members;
+  const found = await readAppJsonAt(ctx, accountId, GROUP_ASSIGNMENTS_FILE);
+  return toAssignmentDoc(found)?.members ?? {};
 }
 
 /**
- * Record the assignments, as one conditional write.
+ * Record the assignments, as one compare-and-set write: the caller names the
+ * change, this reads and retries.
  *
- * Conditional on the account's FileNode state where there is a document to
- * compare against: two administrators acting at once is a lost race rather
- * than a silent overwrite, and a lost race is retried once against the list it
- * just re-read, because the write is the same one either way.
+ * The change is applied to the list **as it reads on this attempt**, so a retry
+ * merges into what is there rather than over it: two administrators acting at
+ * once is a lost race for one of them, not a silent overwrite of the other.
+ *
+ * The order of what it reads is the whole of it. The app folder is created
+ * first: creating it moves the account's FileNode state, so a token read while
+ * the folder was still missing would be refused for a reason that has nothing
+ * to do with this document — and the first assignment a group ever gets would
+ * never land. The state is then read **before** the list, as `agent/store.ts`
+ * reads every document it owns: a state newer than the data lets a conditional
+ * write land while the data it carries is already stale, which is the silent
+ * overwrite this is here to prevent.
  */
 async function writeAssignmentDoc(
   ctx: Ctx,
   accountId: string,
-  doc: { members: Record<string, string>; exists: boolean },
-  by: string,
-): Promise<void> {
-  const state = doc.exists ? await appFolderState(ctx, accountId) : "";
-  await writeAppFile(
-    ctx,
-    accountId,
-    GROUP_ASSIGNMENTS_FILE,
-    { v: 1, members: doc.members, updatedAt: new Date().toISOString(), updatedBy: by },
-    state ? { ifInState: state } : {},
-  );
-}
-
-/**
- * Record one member's assignment, or clear it with `null`.
- *
- * Written by the session that already holds the group, in the same action that
- * writes the identity it names, so the two cannot disagree.
- */
-export async function writeAssignment(
-  ctx: Ctx,
-  accountId: string,
-  member: string,
-  identityId: string | null,
+  change: (members: Record<string, string>) => Record<string, string>,
   by: string,
 ): Promise<void> {
   for (let attempt = 0; attempt < 2; attempt++) {
-    const doc = await readAssignmentDoc(ctx, accountId);
-    const next = { ...doc.members };
-    const key = member.trim().toLowerCase();
-    if (identityId) next[key] = identityId;
-    else delete next[key];
+    await ensureAppFolder(ctx, accountId);
+    const state = await appFolderState(ctx, accountId);
+    const members = await readAssignments(ctx, accountId);
     try {
-      await writeAssignmentDoc(ctx, accountId, { ...doc, members: next }, by);
+      await writeAppFile(
+        ctx,
+        accountId,
+        GROUP_ASSIGNMENTS_FILE,
+        {
+          v: 1,
+          members: change(members),
+          updatedAt: new Date().toISOString(),
+          updatedBy: by,
+        },
+        state ? { ifInState: state } : {},
+      );
       return;
     } catch (err) {
       if (attempt > 0 || !isStateMismatch(err)) throw err;
@@ -307,16 +281,20 @@ export async function writeAssignment(
  *
  * Read through the agent, because the document lives in the group's account and
  * a member reaches that account's Files through the group surfaces — never by
- * reading another account directly. Answers the two ids a composer needs and
- * nothing else: the one assigned to the person asking, and the group's own,
- * which is what they send as when nothing is assigned to them (ADR 0007).
+ * reading another account directly. Answers the one fact the client cannot work
+ * out and nothing else: which of the group's identities the administration
+ * assigned to the person asking. The group's **own** identity — what an
+ * unassigned member sends as — is not a fact of this account, it is step 2 of
+ * the sending cascade, a rule both tiers import
+ * (`@gilbert/shared/identityAssignment`) and the client derives from the address
+ * the session calls this account. Answering it from here would be a second
+ * definition of it, and a read of the identity list this route does not
+ * otherwise need.
  */
 export interface MemberAssignmentView {
   group: string;
   /** The identity this member sends as, or null when nothing is assigned. */
   assignedId: string | null;
-  /** The group's own identity: what an unassigned member sends as. */
-  groupSenderId: string | null;
 }
 
 /**
@@ -331,13 +309,11 @@ export async function memberGroupAssignment(
   const access = await memberGroupAccess(session, name, { need: "agent documents" });
   if (!access.ok) return access;
   const group = identityAddress(name, "group");
-  const identities = await readIdentities(access.ctx, access.accountId);
   const assignments = await readAssignments(access.ctx, access.accountId);
   const me = ownAddress(access.ctx);
   return {
     group,
     assignedId: assignmentFor(assignments, me),
-    groupSenderId: accountOwnIdentity(identities, group)?.id ?? null,
   };
 }
 
@@ -356,8 +332,6 @@ function ownAddress(ctx: Ctx): string {
     ?.name;
   return typeof name === "string" ? name.trim().toLowerCase() : "";
 }
-
-/** A lost compare-and-set comes from `jmap.ts`; nothing here re-states it. */
 
 /* ------------------------------------------------------------------ */
 /* Reaching the account that holds the identities                      */
@@ -1044,8 +1018,8 @@ export async function writeGroupIdentity(
       409,
     );
   const existing = await readIdentities(ctx, accountId);
-  const doc = await readAssignmentDoc(ctx, accountId);
-  const assigned = assignmentFor(doc.members, who);
+  const assignments = await readAssignments(ctx, accountId);
+  const assigned = assignmentFor(assignments, who);
   const held = (candidate: string | null) =>
     candidate && existing.some((identity) => identity.id === candidate)
       ? candidate
@@ -1066,17 +1040,19 @@ export async function writeGroupIdentity(
    * in hand. Two writes would be two chances to lose the race against another
    * administrator for no gain.
    */
-  const next: Record<string, string> = {};
-  for (const [address, identityId] of Object.entries(doc.members)) {
-    if (address === who) continue;
-    if (existing.some((identity) => identity.id === identityId))
-      next[address] = identityId;
-  }
-  if (who) next[who] = written;
   await writeAssignmentDoc(
     ctx,
     accountId,
-    { members: next, exists: doc.exists },
+    (members) => {
+      const next: Record<string, string> = {};
+      for (const [address, identityId] of Object.entries(members)) {
+        if (address === who) continue;
+        if (existing.some((identity) => identity.id === identityId))
+          next[address] = identityId;
+      }
+      if (who) next[who] = written;
+      return next;
+    },
     admin.username,
   );
   return { id: written };

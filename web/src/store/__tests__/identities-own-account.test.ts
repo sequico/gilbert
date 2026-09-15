@@ -50,13 +50,11 @@ const GROUP_LIST = [
 
 /**
  * What the group's own assignment document says, as the server answers it: the
- * identity assigned to the person signed in, and the group's own — what they
- * send as when nothing is assigned.
+ * identity assigned to the person signed in. The group's own identity is not
+ * part of that answer — it is step 2 of the cascade, derived here from this
+ * group's list and its own address — so nothing below sets it.
  */
-let assignment: { assignedId: string | null; groupSenderId: string | null } = {
-  assignedId: "g2",
-  groupSenderId: "g1",
-};
+let assignment: { assignedId: string | null } = { assignedId: "g2" };
 
 /** What the server answers with, per account, when a test renames something. */
 let ownList: Identity[] = [];
@@ -115,13 +113,12 @@ beforeEach(async () => {
         json: async () => ({
           group: "team@example.org",
           assignedId: assignment.assignedId,
-          groupSenderId: assignment.groupSenderId,
         }),
       } as Response;
     }
     return { ok: true, status: 200, statusText: "", json: async () => ({}) } as Response;
   });
-  assignment = { assignedId: "g2", groupSenderId: "g1" };
+  assignment = { assignedId: "g2" };
   await flush();
   useSession.setState({ status: "authenticated", session: SESSION, accountId: GROUP });
   /*
@@ -204,7 +201,7 @@ describe("the two views of one cache", () => {
      * writes as the group rather than being refused a sender. Never another
      * member's: g2 belongs to somebody, and g1 is what is offered.
      */
-    assignment = { assignedId: null, groupSenderId: "g1" };
+    assignment = { assignedId: null };
     await useMail.getState().loadIdentitiesFor(GROUP);
     await useMail.getState().loadAssignmentFor(GROUP);
 
@@ -226,7 +223,7 @@ describe("the two views of one cache", () => {
   });
 
   it("offers nothing when the group holds no identity at all", async () => {
-    assignment = { assignedId: null, groupSenderId: null };
+    assignment = { assignedId: null };
     groupList = [];
     await useMail.getState().loadIdentitiesFor(GROUP);
     await useMail.getState().loadAssignmentFor(GROUP);
@@ -244,7 +241,7 @@ describe("the two views of one cache", () => {
     // The administration gives the reader the group's own identity, and the
     // writer refreshes this session's answer (ADR 0007): the next read is the
     // new one.
-    assignment = { assignedId: "g1", groupSenderId: "g1" };
+    assignment = { assignedId: "g1" };
     await useMail.getState().refreshIdentities();
 
     expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g1"]);
@@ -258,13 +255,13 @@ describe("the two views of one cache", () => {
      * end of it, which is the same rule the person's own identity section
      * follows when it reads its list as it opens.
      */
-    assignment = { assignedId: null, groupSenderId: "g1" };
+    assignment = { assignedId: null };
     await useMail.getState().loadIdentitiesFor(GROUP);
     await useMail.getState().loadAssignmentFor(GROUP);
     // Assigned nothing, so the group's own stands in — and it is now cached.
     expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g1"]);
 
-    assignment = { assignedId: "g2", groupSenderId: "g1" };
+    assignment = { assignedId: "g2" };
     await useMail.getState().loadAssignmentFor(GROUP, { force: true });
 
     expect(useMail.getState().identities.map((i) => i.id)).toEqual(["g2"]);

@@ -271,19 +271,19 @@ export async function saveGroupIdentity(
 /* ------------------------------------------------------------------ */
 
 /**
- * The identity the signed-in member sends as in one group, and the group's own.
+ * The identity the signed-in member sends as in one group.
  *
- * Two ids rather than a whole list: the composer already holds the group's
- * identities and resolves them, so the answer is the assignment and the
- * fallback — and the cascade that picks between them lives once, in
- * `@gilbert/shared/identityAssignment`, rather than being restated here.
+ * One id rather than a whole list: the composer already holds the group's
+ * identities and resolves the id against them. The group's own identity — what
+ * an unassigned member sends as — is deliberately **not** answered beside it: it
+ * is step 2 of the cascade, a rule both tiers import
+ * (`@gilbert/shared/identityAssignment`) and the store derives from the address
+ * the session calls the account, so there is no second copy of it to go stale.
  */
 export interface MemberAssignment {
   group: string;
   /** The identity assigned to this member, or null when none is. */
   assignedId: string | null;
-  /** The group's own identity: what an unassigned member sends as. */
-  groupSenderId: string | null;
 }
 
 /** `GET /api/identities/assignment?group=` — as the member, for their own composer. */

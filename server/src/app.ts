@@ -2542,10 +2542,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    *
    * The composer's own question, answered as the member rather than as an
    * administrator: `assignedId` is the identity the administration assigned
-   * them, and `groupSenderId` is the group's own — what they send as when
-   * nothing is assigned to them. Both are ids of the group's account, which the
-   * caller resolves against the identities it already holds, so the cascade
-   * that picks one lives in one place (`@gilbert/shared/identityAssignment`).
+   * them, an id of the group's account that the caller resolves against the list
+   * it already holds. The group's **own** identity — what an unassigned member
+   * sends as — is not answered here: it is step 2 of the cascade, a rule the
+   * client derives from the address the session calls the account, by the one
+   * function both tiers import (`@gilbert/shared/identityAssignment`), so it
+   * cannot be spelt differently on either side of the wire.
    *
    * Read through the agent, because it is the group's own document: a member
    * reaches the group's Files through the group surfaces and never by reading
