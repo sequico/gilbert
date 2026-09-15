@@ -84,6 +84,13 @@ is, not what a user sees.
   own origin.** One subscription per account names every state type a
   Gilbert surface keeps live, and its callback address is derived from the
   request rather than configured.
+- **0010 — The client has no tasks module.** A task list is a calendar whose
+  `description` is the `tasklist` marker and a task is a `Task` object inside
+  it; the client recognises neither, writes no marker, offers no route and no
+  section, and never draws a `Task` on the grid — the guard that keeps the
+  calendar honest about objects it did not write stays. What is already in
+  Stalwart is left where it is: no migration, no purge, no hiding pass.
+  Supersedes ADR 0005's task-list enumeration.
 - **0016 — The policy publish is a job with an id.** One id per publish,
   carried by every copy it writes, and the job — the population the
   directory reported, the accounts the policy reached, the ones it did not
