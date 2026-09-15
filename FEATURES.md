@@ -918,6 +918,22 @@ and they survive Gilbert entirely. A message can carry any number. They are
 managed in Settings › Labels, applied from `l` or the context menu, and
 optionally listed in the sidebar.
 
+**The list belongs to the account in the foreground.** It sits under that
+account's folder tree and before the other accounts' sections, and only the
+foreground account has one: the reader's personal labels on their own mailbox,
+and a **group's own catalog** on a group's (ADR 0005) — so opening a group
+shows that group's labels and nothing of anybody else's, read and counted
+through the same rule that decides whose labels they are. The pencil goes only
+where the client manages labels; a group's catalog is read from the group's own
+app folder rather than edited here.
+
+**A change made by another member shows up live.** A star or a label written in
+a group mailbox reaches the other members through the push rail as an `Email`
+change on that account, and the counts are re-read when it arrives — so two
+people looking at the same group see the same numbers without reloading. A
+catalog edited in a group's app folder is a `FileNode` change, and re-reads the
+same way.
+
 - **Nesting.** A label can sit under another, and the sidebar indents it.
   Nesting is **display only** — the keywords stay flat on the message, so
   moving a label under another rewrites nothing in the mailbox and a client

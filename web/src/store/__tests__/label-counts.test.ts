@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { Email, JmapSession } from "@/jmap/types";
 import { countedKeywords, SEEN_KEYWORD, STARRED_KEYWORD } from "@/lib/keywordCounts";
+import { useGroupLabels } from "@/store/groupLabels";
 import { useMail } from "@/store/mail";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
 
@@ -138,6 +139,86 @@ describe("reading the counts", () => {
     );
     await useMail.getState().loadLabelCounts();
     expect(useMail.getState().labelCounts).toEqual({});
+  });
+});
+
+describe("a group mailbox's own labels", () => {
+  /** The group in the foreground, with its catalog already read. */
+  const onGroup = () => {
+    useMail.setState({
+      accountId: "g1",
+      ownAccountId: "a1",
+      mailAccounts: [
+        { accountId: "a1", name: "me@example.org", kind: "own" },
+        { accountId: "g1", name: "team@example.org", kind: "group" },
+      ],
+      mailboxes: { mb1: { id: "mb1", name: "Inbox" } as never },
+      labelCounts: {},
+    });
+    useGroupLabels.setState({
+      byAccount: {
+        g1: [{ keyword: "freight", name: "Freight", color: "#111" } as never],
+      },
+    });
+  };
+
+  beforeEach(onGroup);
+  afterEach(() => useGroupLabels.setState({ byAccount: {} }));
+
+  it("counts the group's own catalog, not the reader's personal labels", async () => {
+    const asked = stub(() => 0);
+    await useMail.getState().loadLabelCounts();
+    expect(asked).toContainEqual({ hasKeyword: "freight" });
+    expect(asked).toContainEqual({ hasKeyword: STARRED_KEYWORD });
+    // The reader's personal label is not what a group mailbox files under.
+    expect(asked).not.toContainEqual({ hasKeyword: "work" });
+  });
+
+  it("counts nothing but Starred while the group's catalog is not read yet", async () => {
+    // The catalog is a file in the group's app folder and arrives after the
+    // folder tree does, so the first recount of a freshly opened group has
+    // nothing to count but the star -- which is an account's anyway.
+    useGroupLabels.setState({ byAccount: {} });
+    const asked = stub(() => 0);
+    await useMail.getState().loadLabelCounts();
+    expect(asked).toEqual([
+      { hasKeyword: STARRED_KEYWORD },
+      {
+        operator: "AND",
+        conditions: [{ hasKeyword: STARRED_KEYWORD }, { notKeyword: SEEN_KEYWORD }],
+      },
+    ]);
+  });
+
+  it("refreshes them when another member changes a message, which is the live path", async () => {
+    // The observable claim: after an `Email` StateChange for the group -- as
+    // the push rail delivers it when somebody else stars or labels a message
+    // there -- the counts are asked for again, so the numbers the sidebar
+    // shows are the ones that just moved.
+    const asked = stub(() => 0);
+    vi.spyOn(client, "call").mockImplementation((async (method: string) => {
+      if (method === "Email/changes")
+        return {
+          created: [],
+          updated: [],
+          destroyed: [],
+          newState: "s2",
+          hasMoreChanges: false,
+        };
+      if (method === "Mailbox/get") return { list: [], state: "m2" };
+      return { list: [], state: "s2" };
+    }) as never);
+    useMail.setState({ emailState: "s1" });
+
+    await useMail.getState().applyChanges(new Set(["Email"]));
+
+    // The group's own label and the star, both halves of each.
+    expect(asked).toContainEqual({ hasKeyword: "freight" });
+    expect(asked).toContainEqual({ hasKeyword: STARRED_KEYWORD });
+    expect(asked).toContainEqual({
+      operator: "AND",
+      conditions: [{ hasKeyword: "freight" }, { notKeyword: SEEN_KEYWORD }],
+    });
   });
 });
 

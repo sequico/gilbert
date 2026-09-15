@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Mailbox, MailboxRole } from "@/jmap/types";
+import { useGroupLabels } from "@/store/groupLabels";
 import { useMail } from "@/store/mail";
 import { useSettings } from "@/store/settings";
 import { MailboxTree } from "../MailboxTree";
@@ -200,5 +201,125 @@ describe("folder drill-down", () => {
     // Reading Acme Corp, the drawer comes back inside Clients where it lives.
     expect(rows()).toEqual(["Clients", "Acme Corp"]);
     expect(rowFor("Acme Corp")!.className).toContain("active");
+  });
+});
+
+/**
+ * Whose labels the sidebar lists, and where they sit.
+ *
+ * A group mailbox has a catalog of its own (ADR 0005), so the section belongs
+ * to whichever account is in the foreground — the reader's personal labels on
+ * the reader's own mailbox, the group's own on a group's. And it sits under
+ * that account's folder tree and before the other accounts' sections, because
+ * it is part of what that account shows rather than a section of the sidebar in
+ * general.
+ */
+describe("the labels section", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+
+  /** The nav's own rows in document order: section headers and labelled rows. */
+  const outline = () =>
+    Array.from(document.querySelectorAll(".nav-section, .nav-item")).map((el) =>
+      (el.querySelector(".nav-label") ?? el.querySelector("span"))?.textContent?.trim(),
+    );
+
+  const mount = () => {
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+    act(() => root.render(<MailboxTree />));
+  };
+
+  beforeEach(() => {
+    setWidth(1280);
+    window.history.replaceState({}, "", "/mail/inbox");
+    useSettings.setState((s) => ({
+      settings: {
+        ...s.settings,
+        showHiddenFolders: false,
+        labelsSidebar: true,
+        labels: [{ keyword: "mine", name: "Mine", color: "#222" }] as never,
+      },
+    }));
+    useMail.setState({
+      accountId: "a1",
+      ownAccountId: "a1",
+      mailboxes: MAILBOXES,
+      mailboxesLoaded: true,
+      mailAccounts: [
+        { accountId: "a1", name: "me@example.org", kind: "own" },
+        { accountId: "g1", name: "team@example.org", kind: "group" },
+      ],
+      accountTrees: {
+        a1: MAILBOXES,
+        g1: { ginbox: box("ginbox", "Team Inbox", null, 0) },
+      },
+      labelCounts: {},
+    });
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    host.remove();
+    useGroupLabels.setState({ byAccount: {} });
+  });
+
+  it("lists the reader's own labels, under their tree and before the group's", () => {
+    mount();
+    expect(outline()).toEqual([
+      "Folders",
+      "Inbox",
+      "Sent",
+      "Work",
+      "Labels",
+      "Starred",
+      "Mine",
+      // The other account's section, after the labels and not among them.
+      "team@example.org",
+      "Team Inbox",
+    ]);
+  });
+
+  it("lists the group's own catalog when the group is in the foreground", () => {
+    useGroupLabels.setState({
+      byAccount: {
+        g1: [{ keyword: "freight", name: "Freight", color: "#111" }] as never,
+      },
+    });
+    useMail.setState({
+      accountId: "g1",
+      mailboxes: { ginbox: box("ginbox", "Team Inbox", null, 0) },
+      accountTrees: {
+        a1: MAILBOXES,
+        g1: { ginbox: box("ginbox", "Team Inbox", null, 0) },
+      },
+    });
+    mount();
+    const seen = outline();
+    // The group's label, and Starred, both above the reader's own mailbox.
+    expect(seen).toContain("Freight");
+    expect(seen).toContain("Starred");
+    // The reader's personal label is not what a group mailbox files under.
+    expect(seen).not.toContain("Mine");
+    expect(seen.indexOf("Freight")).toBeLessThan(seen.indexOf("me@example.org"));
+  });
+
+  it("shows Starred even when there is no label at all", () => {
+    useSettings.setState((s) => ({ settings: { ...s.settings, labels: [] } }));
+    mount();
+    expect(outline()).toContain("Starred");
+  });
+
+  it("offers no Manage link on a group's own catalog", () => {
+    useMail.setState({
+      accountId: "g1",
+      mailboxes: { ginbox: box("ginbox", "Team Inbox", null, 0) },
+      accountTrees: { g1: { ginbox: box("ginbox", "Team Inbox", null, 0) } },
+    });
+    mount();
+    // Settings › Labels edits the reader's personal labels, which is not this
+    // list: a pencil here would open the wrong surface.
+    expect(document.querySelector('a[href="/settings/labels"]')).toBeNull();
   });
 });

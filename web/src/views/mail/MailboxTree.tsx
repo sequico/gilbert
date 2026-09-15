@@ -506,6 +506,66 @@ export function MailboxTree() {
             onFolderDrop={(id) => void moveFolder(id, m.id)}
           />
         ))}
+        {/**
+         * The account's labels, under its own folder tree and before the other
+         * accounts' sections.
+         *
+         * They belong to whoever is in the foreground, not to the reader
+         * alone: a group mailbox has a catalog of its own (ADR 0005), so
+         * opening a group shows that group's labels here and nothing of
+         * anybody else's. The reads follow the same rule — `useEffectiveLabels`
+         * picks the catalog and `labelsForAccount` picks what is counted — so
+         * what is listed and what is counted cannot disagree about whose
+         * labels these are. Only the account in the foreground has this
+         * section; the others below are their folder trees and nothing more.
+         *
+         * Starred starts it. It is not a label -- it is the keyword a star
+         * writes -- but it is the same kind of row: a question about messages,
+         * with a count of how many it answers with, opening the list of them.
+         * So it is drawn by the same component and its count comes from the
+         * same read; nothing about it is special except that it has no colour
+         * to tint and no name of its own to rename, and that it is drawn for
+         * an account with no labels at all -- stars are not a label.
+         *
+         * The Manage link goes only where the client manages labels. A group's
+         * catalog is not that: it lives in the group's own app folder and the
+         * agent writes it (ADR 0003, resolution 9), so the pencil would open a
+         * surface that edits the reader's personal labels instead.
+         */}
+        {!drill && labelsSidebar && (
+          <>
+            <div className="nav-section">
+              <span>{t("Labels")}</span>
+              {!inGroup && (
+                <Link
+                  href="/settings/labels"
+                  className="icon-btn"
+                  title={t("Manage labels")}
+                  aria-label={t("Manage labels")}
+                >
+                  <Pencil size={14} />
+                </Link>
+              )}
+            </div>
+            <KeywordRow
+              href="/search?q=is:starred"
+              name={t("Starred")}
+              total={starredCount.total}
+              icon={<Star size={14} />}
+              depth={0}
+            />
+            {shownLabels.map((n) => (
+              <KeywordRow
+                key={n.label.keyword}
+                href={`/search?q=label:${encodeURIComponent(n.label.keyword)}`}
+                name={n.label.name}
+                total={n.total}
+                color={n.label.color}
+                depth={n.depth}
+              />
+            ))}
+          </>
+        )}
         {/* The other mailboxes, under the account on screen: group mailboxes
             under the reader's own, and the reader's own under a group they
             opened. Each section is that account's folder tree from the cache;
@@ -545,55 +605,6 @@ export function MailboxTree() {
             </Fragment>
           );
         })}
-        {/*
-         * Labels are a flat list that belongs to the reader's own mailbox, not
-         * to whichever folder is on screen -- and not to a group mailbox
-         * either -- so they stay at the top level of the drill and stay away
-         * while a group mailbox is open.
-         *
-         * Starred starts it. It is not a label -- it is the keyword a star
-         * writes -- but it is the same kind of row: a question about messages,
-         * with a count of how many it answers with, opening the list of them.
-         * So it is drawn by the same component and its count comes from the
-         * same read; nothing about it is special except that it has no colour
-         * to tint and no name of its own to rename.
-         *
-         * The section is drawn whenever there is anything in it, which now
-         * includes "no labels at all": an account with no labels still has
-         * stars.
-         */}
-        {!drill && !inGroup && labelsSidebar && (
-          <>
-            <div className="nav-section">
-              <span>{t("Labels")}</span>
-              <Link
-                href="/settings/labels"
-                className="icon-btn"
-                title={t("Manage labels")}
-                aria-label={t("Manage labels")}
-              >
-                <Pencil size={14} />
-              </Link>
-            </div>
-            <KeywordRow
-              href="/search?q=is:starred"
-              name={t("Starred")}
-              total={starredCount.total}
-              icon={<Star size={14} />}
-              depth={0}
-            />
-            {shownLabels.map((n) => (
-              <KeywordRow
-                key={n.label.keyword}
-                href={`/search?q=label:${encodeURIComponent(n.label.keyword)}`}
-                name={n.label.name}
-                total={n.total}
-                color={n.label.color}
-                depth={n.depth}
-              />
-            ))}
-          </>
-        )}
       </nav>
       <Popover
         anchor={menu.anchor}
