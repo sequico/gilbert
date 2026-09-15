@@ -1,8 +1,7 @@
 # ADR 0007 — Identity administration
 
 Status: Accepted. The assignment of a group identity to a member is decided
-here and not yet built: this record is the standing decision, and the code
-that carries it follows.
+here, and the tree carries it.
 
 An identity belongs to the account and is written by it: display name,
 address, `replyTo` and a signature (text and HTML, the latter capped by
@@ -117,7 +116,12 @@ own account** — `identity-assignments.json` in its app folder, whose keys are
 member addresses and whose values are ids of that account's identities. The
 administration writes it as the agent, in the same action that writes the
 identity, so the two cannot disagree; a member with no entry has been
-assigned nothing, which is a state and not a failure.
+assigned nothing, which is a state and not a failure. That write is one
+compare-and-set: the account's FileNode state is read **before** the document
+it guards, so a write landing in between leaves the writer holding a token
+older than its list — refused, and retried against the list as it then reads
+— rather than a token newer than its data, which is the one arrangement that
+lets a conditional write land while overwriting an entry it never saw.
 
 **A member sends as themselves, or as the group itself — never as another
 member.** Which identity the composer offers in a group's mailbox is one
@@ -154,11 +158,21 @@ administration's alone: no surface of this product offers a person a way to
 say which group identity is theirs, and no surface offers one member another
 member's. Their own Identities & signatures section lists their own account's
 identities for editing and, in the same place, one read-only block per group
-they are a member of, saying that the administration sets them. The composer,
-writing in a group's mailbox, offers that cascade's answer and nothing else —
-the identity assigned to them, else the group's own — never a guess from a
-name, and never another member's, which is what a surface that offered the
-whole membership would make of the rule.
+they are a member of, saying that the administration sets them and **which of
+them is theirs** — the identity assigned to them, or, with none assigned, the
+words that their mail goes out as the group itself. The assignment is written
+from another session, so that block reads it as it opens rather than trusting
+what the store holds, exactly as the person's own list beside it does. The
+composer, writing in a group's mailbox, offers that cascade's answer and
+nothing else — the identity assigned to them, else the group's own — never a
+guess from a name, and never another member's, which is what a surface that
+offered the whole membership would make of the rule. It reaches the
+assignment through the member's own door (`memberGroupAccess`), which reads
+the group's document as the agent: a member reaches a group's Files through
+the group surfaces and never by reading another account directly, and the
+step-2 identity is derived from the group's own address rather than answered
+beside the assignment, so the rule has one definition on both sides of the
+wire.
 
 ## Consequences
 
@@ -184,17 +198,19 @@ whole membership would make of the rule.
   the admin identity routes
 - `server/src/shared/signature.ts` — the one signature-application path
 - `web/src/views/settings/IdentitiesSettings.tsx` — the person's own form,
-  reused by the admin surface, and the list it reads when it opens
+  reused by the admin surface, and the two things it reads when it opens: their
+  list, and each group's assignment
 - `web/src/lib/identityVisibility.ts` — `ownIdentity`, the one rule for which
   of a person's identities is theirs, and the display name it reads for the
   identity the administration writes
 - `web/src/store/mail.ts` — the per-account identity lists, the assignment a
-  group mailbox narrows to, the write that spends a read already on its way,
-  and `refreshIdentities`
-- `web/src/lib/identities.ts` — the admin routes, each refreshing those lists
-  once the server has accepted the write
+  group mailbox narrows to and reads again when a surface asks it to, the write
+  that spends a read already on its way, and `refreshIdentities`
+- `web/src/lib/identities.ts` — `fetchMemberAssignment`, the assignment read as
+  the member, and the admin routes, each refreshing those lists once the server
+  has accepted the write
 - `identity-assignments.json` in a group account's own app folder — the
-  member-to-identity assignment, written as the agent and read by the
-  composer
+  member-to-identity assignment, written as the agent and read by the composer
+  and by the member's own settings block
 - ADR 0001 — impersonation, the identity lock's storage
 - ADR 0003 — the agent's grants and its own session
