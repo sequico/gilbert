@@ -2,14 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { JmapSession } from "@/jmap/types";
 import { useCalendar } from "@/store/calendar";
-import { useTasks } from "@/store/tasks";
 
 /**
- * A calendar the reader creates — a task list or a plain calendar — must be
- * created subscribed. Stalwart leaves a new calendar unsubscribed unless the
- * create says otherwise, so a client that omits the flag ends up with its own
- * fresh calendar invisible to every client that honours `isSubscribed`. These
- * pins keep the flag in both create payloads.
+ * A calendar the reader creates must be created subscribed. Stalwart leaves a
+ * new calendar unsubscribed unless the create says otherwise, so a client that
+ * omits the flag ends up with its own fresh calendar invisible to every client
+ * that honours `isSubscribed`. This pin keeps the flag in the create payload.
  */
 
 function stubServer() {
@@ -81,13 +79,6 @@ beforeEach(() => {
     sharedRanges: {},
     identities: [],
   });
-  useTasks.setState({
-    accountId: null,
-    lists: [],
-    tasks: {},
-    loaded: false,
-    selectedListId: null,
-  });
 });
 
 afterEach(() => {
@@ -95,21 +86,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("creating a task list", () => {
-  it("creates the tasklist calendar subscribed, so the reader keeps it", async () => {
-    const calls = stubServer();
-    const id = await useTasks.getState().createList("a1", "Grocery");
-    expect(id).toBe("nc");
-    const set = calls.find((c) => c.name === "Calendar/set");
-    expect(set?.args.accountId).toBe("a1");
-    expect(set?.args.create).toEqual({
-      c: { name: "Grocery", description: "tasklist", isSubscribed: true },
-    });
-  });
-});
-
 describe("creating a plain calendar", () => {
-  it("creates the calendar subscribed, the same way a task list is", async () => {
+  it("creates the calendar subscribed, so the reader keeps it", async () => {
     const calls = stubServer();
     const id = await useCalendar.getState().createCalendar({ name: "Holidays" });
     expect(id).toBe("nc");

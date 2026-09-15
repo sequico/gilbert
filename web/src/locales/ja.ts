@@ -941,7 +941,6 @@ export const catalog: Catalog = {
     "Live updates reconnecting…": "リアルタイム更新に再接続中…",
     "Live updates off — checking periodically instead":
       "リアルタイム更新はオフです — 代わりに定期的に確認します",
-    "New task": "新しいタスク",
     "Mark as read / unread": "既読 / 未読にする",
     "Star / unstar": "スターを付ける / 外す",
     "Report spam / not spam": "迷惑メールとして報告 / 報告を取り消す",

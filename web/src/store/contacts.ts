@@ -1423,7 +1423,7 @@ useSession.subscribe((s) => {
      * with the account: a card id is only unique within its account, and the
      * next reader on a shared machine must not briefly be offered the
      * previous reader's shared contacts while their own load, or inherit
-     * their selection into the contact list. Calendar, tasks and files clear
+     * their selection into the contact list. Calendar and files clear
      * their shared state the same way.
      */
     useContacts.setState({

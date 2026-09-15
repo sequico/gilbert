@@ -8,11 +8,12 @@ import { useSession } from "@/store/session";
 /**
  * A shared account whose calendars cannot be read keeps the calendars it had.
  *
- * Dropping them emptied a colleague's grid over one failed request, and a
- * group's task list is found in exactly that list -- so a failing read took a
- * group's tasks with it, for the rest of the session, with nothing on screen to
- * say why. The account is named on the console, because a shared account that
- * cannot be read is otherwise indistinguishable from one that holds nothing.
+ * Dropping them empties a colleague's grid over one failed request, and the
+ * calendars a group owns are found in exactly that list -- so a failing read
+ * takes a group's calendars with it, for the rest of the session, with nothing
+ * on screen to say why. The account is named on the console, because a shared
+ * account that cannot be read is otherwise indistinguishable from one that
+ * holds nothing.
  */
 
 const cal = (id: string, name: string) => ({ id, name }) as unknown as Calendar;
@@ -43,7 +44,7 @@ describe("reading the shared calendars", () => {
     const kept = {
       accountId: "acc-group",
       accountName: "Team",
-      calendar: cal("g1", "Team tasks"),
+      calendar: cal("g1", "Team"),
     };
     useCalendar.setState({ sharedCalendars: [kept] });
     vi.spyOn(client, "call").mockImplementation((async (
@@ -67,7 +68,7 @@ describe("reading the shared calendars", () => {
     const kept = {
       accountId: "acc-group",
       accountName: "Team",
-      calendar: cal("g1", "Team tasks"),
+      calendar: cal("g1", "Team"),
     };
     useCalendar.setState({ sharedCalendars: [kept] });
     vi.spyOn(console, "warn").mockImplementation(() => {});

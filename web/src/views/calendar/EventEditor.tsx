@@ -43,7 +43,6 @@ import {
   WEEKDAY_KEYS,
   weekdayOptions,
 } from "@/lib/recurrence";
-import { isTaskCalendar } from "@/lib/taskList";
 import {
   accountOfCalendarId,
   type EventScope,
@@ -282,9 +281,7 @@ function EventForm({
    */
   const calendars = [
     ...Object.values(cal.calendars)
-      .filter(
-        (c) => (c.myRights.mayWriteAll || c.myRights.mayWriteOwn) && !isTaskCalendar(c),
-      )
+      .filter((c) => c.myRights.mayWriteAll || c.myRights.mayWriteOwn)
       .map((c) => ({
         accountId: ownAccountId,
         id: c.id,
@@ -292,11 +289,7 @@ function EventForm({
         accountName: undefined as string | undefined,
       })),
     ...cal.sharedCalendars
-      .filter(
-        (x) =>
-          !isTaskCalendar(x.calendar) &&
-          (x.calendar.myRights.mayWriteAll || x.calendar.myRights.mayWriteOwn),
-      )
+      .filter((x) => x.calendar.myRights.mayWriteAll || x.calendar.myRights.mayWriteOwn)
       .map((x) => ({
         accountId: x.accountId,
         id: x.calendar.id,

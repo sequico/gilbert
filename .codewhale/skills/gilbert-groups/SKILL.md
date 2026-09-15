@@ -1,6 +1,6 @@
 ---
 name: gilbert-groups
-description: The group-ownership law of the Gilbert client — everything a group owns lives in the group's own account, owned by the group from creation, with no shareWith maintenance; how to tell a group mailbox from other shared accounts (mail probe), and the per-feature map (tasks, calendars, contacts, files, chat, composer pickers). Load before creating, moving, or showing group-owned data, or before changing a group feature.
+description: The group-ownership law of the Gilbert client — everything a group owns lives in the group's own account, owned by the group from creation, with no shareWith maintenance; how to tell a group mailbox from other shared accounts (mail probe), and the per-feature map (calendars, contacts, files, chat, composer pickers). Load before creating, moving, or showing group-owned data, or before changing a group feature.
 metadata:
   short-description: Group ownership law & per-feature map
 ---
@@ -15,9 +15,8 @@ group.** Concretely:
 
 1. Group data is **created in the group's own account**, never in a member's
    personal account and then shared out. A `shareWith` written at creation is
-   a smell — it is the old tasks/calendar/contacts mistake (per-object ACL
-   maintenance, members added later invisible) that this repository has been
-   fixing feature by feature.
+   a smell — it is the per-object ACL maintenance, members added later invisible —
+   that this repository has been fixing feature by feature.
 2. A member added **after** the data exists sees it without any per-user
    patching: it is the group's, and their session on the group account reaches
    it. Membership is the grant; leaving the group removes the session.
@@ -43,15 +42,13 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
 
 ## Per-feature map (state 2026-09-11)
 
-- **Task lists**: the pattern-setter. A group list is a `tasklist`-marked
-  calendar created with `accountId` = the group account
-  (`store/tasks.ts` `createList(accountId, …)`); sidebar has one section per
-  group mailbox with its own "+".
-- **Calendars**: `store/calendar.ts` `createCalendar(data, accountId?)` —
-  omit for your own, pass the group account id to create one the group owns
-  (subscribed from the start). `CalendarSidebar` renders one section per
-  group mailbox with "New calendar in {group}"; non-group shared calendars
-  stay in the read-only *Shared with me / Available to add* area.
+- **Calendars**: the pattern-setter. `store/calendar.ts`
+  `createCalendar(data, accountId?)` — omit for your own, pass the group
+  account id to create one the group owns (subscribed from the start).
+  `CalendarSidebar` renders one section per group mailbox with "New calendar
+  in {group}"; non-group shared calendars stay in the read-only *Shared with
+  me / Available to add* area. A calendar a group owns is deleted and renamed
+  from that same section, with no treatment of its own.
 - **Address books**: same shape — `store/contacts.ts`
   `createBook(name, accountId?)`; `ContactsSidebar` sections per group.
 - **Files**: ownership follows the browsed context (`store/files.ts`

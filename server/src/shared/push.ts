@@ -12,8 +12,8 @@
  * somebody noticed a stale calendar.
  *
  * The list therefore lives here, once, and `subscribe()` reads it. It is the
- * client's set: mail and its quota, files and chat, calendars and tasks,
- * contacts, and filters.
+ * client's set: mail and its quota, files and chat, calendars, contacts, and
+ * filters.
  *
  * These are JMAP state types, not capabilities. Stalwart parses them from its
  * `DataType` enum, which has no whitelist, and does not require the matching
@@ -39,7 +39,7 @@ export const PUSH_STATE_TYPES = [
   "Quota",
   // Files, which carry chat and the agent documents too.
   "FileNode",
-  // Calendars and tasks.
+  // Calendars.
   "Calendar",
   "CalendarEvent",
   // Contacts.

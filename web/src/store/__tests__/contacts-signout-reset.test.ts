@@ -9,7 +9,7 @@ import { useSession } from "@/store/session";
  * `selection` to survive into the next sign-in lets the previous reader's
  * selection route the Contacts list and lets `suggest()` offer their shared
  * contacts during the next reader's load window — a transient cross-user
- * exposure on shared machines. Calendar, tasks and files clear their shared
+ * exposure on shared machines. Calendar and files clear their shared
  * state on sign-out; contacts must too.
  */
 

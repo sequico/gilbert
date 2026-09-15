@@ -5,7 +5,7 @@ import { useContacts } from "@/store/contacts";
 
 /**
  * An address book made while acting for a group must be created in the
- * group's own account, exactly like a group calendar or task list: the group
+ * group's own account, exactly like a group calendar: the group
  * owns it from the first second, every member reaches it through their
  * session on the account, and a member added later needs nothing patched.
  * These pins keep the group create on the group account and subscribed, and

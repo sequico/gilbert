@@ -4,7 +4,6 @@ import {
   ChevronsUpDown,
   FolderOpen,
   HelpCircle,
-  ListChecks,
   LogOut,
   type LucideIcon,
   Mail,
@@ -43,7 +42,6 @@ import { MailboxPicker } from "./mail/MailboxPicker";
 import { MailboxTree } from "./mail/MailboxTree";
 import { SearchBar } from "./SearchBar";
 import { ShortcutsDialog, useGlobalShortcuts } from "./Shortcuts";
-import { TaskSidebar } from "./tasks/TaskSidebar";
 
 const PUSH_LABEL = {
   connected: "Live updates connected",
@@ -78,7 +76,7 @@ interface Module {
  *
  * A section that has an editor of its own is reached through `event` rather
  * than by this file: the shell dispatches, the view that owns the dialog
- * listens (see CalendarView, ContactsView, FilesView, TasksView). `.action`
+ * listens (see CalendarView, ContactsView, FilesView). `.action`
  * carrying no event is how mail says its composer is the app's own store and
  * is called directly.
  *
@@ -115,18 +113,11 @@ const MODULES: Module[] = [
     icon: FolderOpen,
     action: { label: "Upload", icon: Upload, event: "ihm:files-upload" },
   },
-  {
-    id: "tasks",
-    href: "/tasks",
-    label: "Tasks",
-    icon: ListChecks,
-    action: { label: "New task", icon: Plus, event: "ihm:new-task" },
-  },
 ];
 
 /**
  * The module a location's section belongs to, or `undefined` where there is
- * none — the settings and admin screens are not one of the five.
+ * none — the settings and admin screens are not one of the four.
  *
  * Search is deliberately not a section of its own: it is mail, filtered, so the
  * four renderers agree about which module is current while it is open.
@@ -456,7 +447,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             {section === "calendar" && <CalendarSidebar />}
             {section === "contacts" && <ContactsSidebar />}
             {section === "files" && <FilesTree />}
-            {section === "tasks" && <TaskSidebar />}
             {section === "settings" && (
               <div className="nav-section">
                 <span>{t("Settings")}</span>

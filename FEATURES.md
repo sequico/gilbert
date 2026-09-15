@@ -705,8 +705,8 @@ list and the reading pane is dragged to resize, and the size is remembered per
 device — a width chosen on a 27" monitor is wrong on a laptop, so it is one of
 the few settings that does not follow the account.
 
-- **It reopens where you were.** The mail account on screen, the address book,
-  the task list and the folder open in Files are remembered per reader and
+- **It reopens where you were.** The mail account on screen, the address book
+  and the folder open in Files are remembered per reader and
   restored next time — on this device only, because they are where you were
   sitting rather than a preference, and each one is checked against what still
   exists before a view moves.
@@ -1577,7 +1577,7 @@ individual rights by hand.
   shared with you belongs beside your own.
 - **Adding is a deliberate step**, for the reason given under Calendar: the
   server reports every collection you can reach. Except for **a group you
-  belong to** — its calendars, address books, task lists and files are the
+  belong to** — its calendars, address books and files are the
   group's own, owned by the group's account and written there at creation
   (never created in yours and shared out), so they answer everywhere without
   anyone adding them.

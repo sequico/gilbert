@@ -5,7 +5,6 @@ import {
   Download,
   Eye,
   EyeOff,
-  ListTodo,
   MoreVertical,
   Pencil,
   Plus,
@@ -32,7 +31,6 @@ import { formatWeekday } from "@/lib/datetime";
 import { formatMonthYear } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
-import { isTaskCalendar, TASKLIST_MARKER } from "@/lib/taskList";
 import { subscriptionCalendarId, useCalendar } from "@/store/calendar";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
@@ -147,10 +145,10 @@ export function CalendarSidebar() {
   const groups = useMemo(() => groupMailboxAccounts(mailAccounts), [mailAccounts]);
   const groupIds = new Set(groups.map((g) => g.accountId));
   const sharedOnlySubscribed = cal.sharedCalendars.filter(
-    (c) => !groupIds.has(c.accountId) && isAdded(c) && !isTaskCalendar(c.calendar),
+    (c) => !groupIds.has(c.accountId) && isAdded(c),
   );
   const sharedOnlyAvailable = cal.sharedCalendars.filter(
-    (c) => !groupIds.has(c.accountId) && !isAdded(c) && !isTaskCalendar(c.calendar),
+    (c) => !groupIds.has(c.accountId) && !isAdded(c),
   );
 
   const [menuCal, setMenuCal] = useState<Calendar | null>(null);
@@ -255,11 +253,9 @@ export function CalendarSidebar() {
   }, [birthdaysOn]);
 
   if (!cal.available) return null;
-  /* Task lists are calendars underneath, but they live in the Tasks module
-     only: never listed among calendars, never offered in the event editor. */
-  const calendars = Object.values(cal.calendars)
-    .filter((c) => !isTaskCalendar(c))
-    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+  const calendars = Object.values(cal.calendars).sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
+  );
 
   return (
     <div style={{ padding: "4px 8px" }}>
@@ -420,7 +416,7 @@ export function CalendarSidebar() {
             </button>
           </div>
           {cal.sharedCalendars
-            .filter((c) => c.accountId === g.accountId && !isTaskCalendar(c.calendar))
+            .filter((c) => c.accountId === g.accountId)
             .map((c) => (
               <Fragment key={`${c.accountId}:${c.calendar.id}`}>
                 {isAdded(c)
@@ -482,49 +478,6 @@ export function CalendarSidebar() {
                     setEditAccountId(menuAccountId);
                   }}
                 />
-                {/*
-                 * A calendar that is not a task list yet, and the way to say
-                 * it is one. The Tasks module recognises a list by this single
-                 * marker and nothing else, so a list made before the marker
-                 * existed -- or made for a group as an ordinary calendar -- is
-                 * invisible there; this write is also the repair.
-                 */}
-                {!isTaskCalendar(menuCal) && (
-                  <MenuItem
-                    icon={<ListTodo size={16} />}
-                    label={t("Use as task list")}
-                    disabled={shared && !menuCal.myRights.mayWriteAll}
-                    onClick={() => {
-                      /* The description is somebody's text -- a group's calendar
-                         may carry a sentence about itself -- and the marker
-                         replaces it outright. Ask when there is something to
-                         lose. */
-                      const described = Boolean(menuCal.description?.trim());
-                      void (async () => {
-                        if (
-                          described &&
-                          !(await confirmDialog({
-                            title: t("Use as task list?"),
-                            message: t(
-                              "Its description, \u201c{text}\u201d, will be replaced by the task-list marker.",
-                              { text: menuCal.description ?? "" },
-                            ),
-                            confirmLabel: t("Use as task list"),
-                          }))
-                        )
-                          return;
-                        const patch = { description: TASKLIST_MARKER };
-                        try {
-                          await (shared
-                            ? cal.updateSharedCalendar(menuAccountId!, menuCal.id, patch)
-                            : cal.updateCalendar(menuCal.id, patch));
-                        } catch (err) {
-                          toast.error((err as Error).message);
-                        }
-                      })();
-                    }}
-                  />
-                )}
                 <MenuItem
                   icon={<Upload size={16} />}
                   label={t("Import iCAL file…")}

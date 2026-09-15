@@ -864,7 +864,7 @@ export function isDarkTheme(theme: Theme, prefersDark = false): boolean {
  * A sign-out, a 401 and a sign-in on a device that is not ours all end with
  * nothing of the last reader's. `clearSignedInData`/`clearAllData` drop the
  * stored copy, but by then the copy the app is holding is this one, not
- * storage's -- so the reset has to happen here as well. Calendar, tasks, files
+ * storage's -- so the reset has to happen here as well. Calendar, files
  * and contacts clear themselves the same way, for the same reason.
  *
  * The other direction is the cache. A settings file is read over the network,

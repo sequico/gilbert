@@ -731,7 +731,7 @@ export interface JSCalendarVirtualLocation {
 }
 
 export interface JSCalendarEvent {
-  "@type"?: "Event" | "Task";
+  "@type"?: "Event";
   uid: string;
   relatedTo?: Record<string, JSContactRelation>;
   prodId?: string;
@@ -785,12 +785,6 @@ export interface JSCalendarEvent {
   start: LocalDate;
   duration?: string;
   status?: "confirmed" | "cancelled" | "tentative";
-  /** Task-only: where a task stands (RFC 8984 `progress`). */
-  progress?: "needs-action" | "in-process" | "completed" | "cancelled";
-  /** Task-only: when it is due (all-day in v1). */
-  due?: LocalDate;
-  /** Task-only: 0–100 completion, for the UI's own display. */
-  percentComplete?: number;
 }
 
 export interface CalendarEvent extends JSCalendarEvent {
@@ -804,26 +798,6 @@ export interface CalendarEvent extends JSCalendarEvent {
   mayInviteSelf?: boolean;
   mayInviteOthers?: boolean;
   hideAttendees?: boolean;
-}
-
-/**
- * A JSCalendar task object, as the Tasks module reads it. Tasks do not have a
- * `start`; they carry `progress` and an optional `due`. Kept apart from
- * `CalendarEvent` so the calendar grid never has to consider them.
- */
-export interface TaskItem {
-  id: Id;
-  "@type"?: "Task";
-  uid: string;
-  calendarIds: Record<Id, boolean>;
-  title?: string;
-  description?: string;
-  progress?: "needs-action" | "in-process" | "completed" | "cancelled";
-  due?: LocalDate;
-  priority?: number;
-  percentComplete?: number;
-  relatedTo?: Record<string, JSContactRelation>;
-  keywords?: Record<string, boolean>;
 }
 
 export interface ParticipantIdentity {

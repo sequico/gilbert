@@ -141,8 +141,8 @@ export function CalendarView({
    * Shared calendars are loaded by the store at sign-in and when the session
    * account set changes, but a group membership that lands after this
    * sign-in can still be missed on the first visit — opening Mail first
-   * refreshes the session and masks it. Re-asking on mount is the same belt
-   * the Tasks view wears; the cost is one Calendar/get per non-personal
+   * refreshes the session and masks it. Re-asking on mount is the belt a view
+   * wears for the same reason; the cost is one Calendar/get per non-personal
    * account.
    */
   const loadSharedCalendars = useCalendar((s) => s.loadSharedCalendars);

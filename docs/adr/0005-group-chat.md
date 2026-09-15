@@ -3,7 +3,7 @@
 Groups (team mailboxes such as `freight@…`) are Stalwart principals whose
 members reach the group's own account through their own JMAP session.
 Product rule: everything a group owns lives in the group's own account, owned
-by the group from creation — calendars, address books and task lists all
+by the group from creation — calendars, address books and files all
 follow it, and chat and labels are no exception. An object created in a
 member's personal account and shared out to the group would need per-object
 ACL maintenance and would never cover a member added later; nothing here

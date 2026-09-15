@@ -20,8 +20,8 @@ Stalwart for mail, contacts and calendars; chat between the members of a
 group; AI agents that act inside mail and file storage, for a person or a
 group — Gilbert's own agents now, external agent fleets later; and a workflow
 engine for delivery orders with checklists and to-do lists. Part of this
-already ships — the group accounts, the chat, the calendars, contacts, address
-books and task lists, and the agent fleet; the rest is the direction the code
+already ships — the group accounts, the chat, the calendars, contacts and
+address books, and the agent fleet; the rest is the direction the code
 is being pointed.
 
 What runs today is Gilbert: a Gmail-class, JMAP-only **mail client** for
@@ -320,7 +320,7 @@ the installation's `server.trustProxy` is on and the peer is inside
 directly, or over plain http, keeps the per-tab relay for every account: nothing
 is lost, reconnecting is simply not local. An account that never verifies stays
 on the relay for its whole life. The fan-out covers every surface -- mail, files
-and chat, calendars and tasks, contacts, filters and the storage quota -- for
+and chat, calendars, contacts, filters and the storage quota -- for
 every account.
 
 `GET /api/health` says what actually happened: `push.accounts` counts the

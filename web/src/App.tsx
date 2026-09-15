@@ -33,7 +33,6 @@ import { scheduleSupported, useScheduled } from "@/store/scheduled";
 import { useSession } from "@/store/session";
 import { settingsInHandFor, syncedPart, useSettings } from "@/store/settings";
 import { useSieve } from "@/store/sieve";
-import { useTasks } from "@/store/tasks";
 import { ConfirmHost } from "@/ui/dialog";
 import { Spinner } from "@/ui/misc";
 import { ToastHost, toast } from "@/ui/toast";
@@ -51,9 +50,6 @@ const CalendarView = lazyView(() =>
 );
 const FilesView = lazyView(() =>
   import("@/views/files/FilesView").then((m) => ({ default: m.FilesView })),
-);
-const TasksView = lazyView(() =>
-  import("@/views/tasks/TasksView").then((m) => ({ default: m.TasksView })),
 );
 const SettingsView = lazyView(() =>
   import("@/views/settings/SettingsView").then((m) => ({ default: m.SettingsView })),
@@ -340,7 +336,6 @@ function AuthedApp() {
            */
           useContacts.getState().applyChanges(types, a);
           useCalendar.getState().applyChanges(types, a);
-          useTasks.getState().applyChanges(types, a);
           if (a === useFiles.getState().accountId)
             useFiles.getState().applyChanges(types);
           if (a === useSieve.getState().accountId)
@@ -464,9 +459,6 @@ function AuthedApp() {
             {(p) => <CalendarView view={p.view} date={p.date} />}
           </Route>
           <Route path="/files/:nodeId?">{(p) => <FilesView nodeId={p.nodeId} />}</Route>
-          <Route path="/tasks">
-            <TasksView />
-          </Route>
           <Route path="/settings/:section?">
             {(p) => <SettingsView section={p.section} />}
           </Route>

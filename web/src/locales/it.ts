@@ -1307,7 +1307,6 @@ export const catalog: Catalog = {
 
     "Live updates off — checking periodically instead":
       "Aggiornamenti in tempo reale disattivati: si verificano aggiornamenti periodicamente",
-    "New task": "Nuova attività",
 
     "Mark as read / unread": "Segna come letto / non letto",
 

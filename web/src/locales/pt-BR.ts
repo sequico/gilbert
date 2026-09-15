@@ -840,7 +840,6 @@ export const catalog: Catalog = {
     "Live updates reconnecting…": "Reconectando as atualizações em tempo real…",
     "Live updates off — checking periodically instead":
       "Atualizações em tempo real desativadas — verificando periodicamente",
-    "New task": "Nova tarefa",
     "Mark as read / unread": "Marcar como lida / não lida",
     "Star / unstar": "Favoritar / desfavoritar",
     "Report spam / not spam": "Marcar como spam / não spam",

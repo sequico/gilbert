@@ -33,7 +33,6 @@ import {
 import { formatDuration, shiftStoredStart } from "@/lib/eventDrag";
 import { t } from "@/lib/i18n";
 import { type IcsEvent, looksLikeCalendar, parseIcs, toIcs } from "@/lib/ics";
-import { isTaskCalendar } from "@/lib/taskList";
 import { useContacts } from "./contacts";
 import { useSession } from "./session";
 import { settings, useSettings } from "./settings";
@@ -439,12 +438,8 @@ interface CalendarState {
  */
 const EVENT_PROPS = [
   /*
-   * `@type` is asked for because the grid decides whether a CalendarEvent is
-   * an event or a `Task` by exactly this property, and a `properties` list
-   * that leaves it out gets objects without it -- against a server that
-   * honours the list, the check below could never fire. Stalwart honours it
-   * (`properties` is why the JMAP-only fields above are named at all), so the
-   * tasks module has always asked for it; the calendar did not.
+   * Asked for by name, because a server that honours `properties` returns
+   * none of the JMAP-only fields above unless they are named.
    */
   "@type",
   "id",
@@ -677,8 +672,8 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       } catch (err) {
         unread.add(accountId);
         /* Named, because an account whose calendars cannot be read is
-           otherwise indistinguishable from one that has none -- and a group's
-           task list lives in exactly such an account. */
+           otherwise indistinguishable from one that has none -- and the
+           calendars a group owns live in exactly such an account. */
         console.warn(
           `[gilbert] calendars: could not read the shared account ${account.name} (${accountId}): ${(err as Error).message}`,
         );
@@ -694,10 +689,10 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         ...s.sharedCalendars.filter((x) => unread.has(x.accountId)),
       ],
       /* Every shared account is gone and the server said so -- a revoke, or
-         the reader left the team. Its events must not linger in the store
-         (the tasks signature keys off the calendars, but the grid reads the
-         ranges). On a partial answer the caches stay untouched: what is not
-         in `found` is dropped by the calendar set alone. */
+         the reader left the team. Its events must not linger in the store,
+         because the grid reads the ranges. On a partial answer the caches
+         stay untouched: what is not in `found` is dropped by the calendar set
+         alone. */
       sharedEvents:
         found.length || !Object.keys(s.sharedEvents).length ? s.sharedEvents : {},
       sharedRanges:
@@ -991,15 +986,9 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     const out: EventInstance[] = [];
     for (const id of ids) {
       const e = events[id];
-      if (!e || e["@type"] === "Task") continue;
+      if (!e) continue;
       const calId = Object.keys(e.calendarIds ?? {})[0];
       if (calId && hidden[calId]) continue;
-      /*
-       * And when the property is not enough: a task list is a calendar the
-       * Tasks module owns and the sidebar draws no row for, so nothing inside
-       * one is an event to draw either -- whatever a server does with `@type`.
-       */
-      if (isTaskCalendar(calId ? calendars[calId] : undefined)) continue;
       const inst = toInstance(e, calendars, ownAccount);
       if (!inst) continue;
       if (inst.end > start && inst.start < end) out.push(inst);
@@ -1013,7 +1002,7 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       for (const k of list) sharedKeys.add(k);
     for (const k of sharedKeys) {
       const e = sharedEvents[k];
-      if (!e || e["@type"] === "Task") continue;
+      if (!e) continue;
       const accountId = k.slice(0, k.length - e.id.length - 1);
       const calId = Object.keys(e.calendarIds ?? {})[0];
       if (calId && hidden[sharedKey(accountId, calId)]) continue;
@@ -1031,7 +1020,6 @@ export const useCalendar = create<CalendarState>((set, get) => ({
         theirs[c.calendar.id] = c.calendar;
       }
       if (calId && !theirs[calId]) continue;
-      if (isTaskCalendar(calId ? theirs[calId] : undefined)) continue;
       const inst = toInstance(e, theirs, accountId);
       if (!inst) continue;
       // Ids are unique only within an account, so a key that is the bare id
@@ -1340,11 +1328,10 @@ export const useCalendar = create<CalendarState>((set, get) => ({
    * member -- including one added after the fact -- reaches it through their
    * session on that account, and no share or per-user ACL is written.
    *
-   * Subscribed from the start, the same way a new task list is: the reader
-   * made the calendar to use it, and a server that leaves a new calendar
-   * unsubscribed unless the client says otherwise (Stalwart does; the mock
-   * hides it by filling the flag in) would keep it invisible to
-   * every client that honours `isSubscribed`.
+   * Subscribed from the start: the reader made the calendar to use it, and a
+   * server that leaves a new calendar unsubscribed unless the client says
+   * otherwise (Stalwart does; the mock hides it by filling the flag in) would
+   * keep it invisible to every client that honours `isSubscribed`.
    */
   async createCalendar(data, accountId?: Id) {
     const own = get().accountId!;
@@ -1653,9 +1640,8 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     if (accountId && accountId !== own) {
       /* An account with nothing listed here has either never been read or lost
          its read. Either way the answer is to read it now: ignoring what
-         arrives from it is what kept a group's calendars -- and its task list
-         with them -- out of the app for a whole session, since nothing else
-         asks again. */
+         arrives from it is what keeps a group's calendars out of the app for a
+         whole session, since nothing else asks again. */
       if (!get().sharedCalendars.some((c) => c.accountId === accountId)) {
         void get().loadSharedCalendars();
         return;
@@ -2061,8 +2047,7 @@ useSession.subscribe((s, prev) => {
     lastSharedAccounts = "";
     // A sign-out must not leave the previous reader's shared content behind:
     // the calendar store outlives the session, and on a shared machine the
-    // next reader would briefly see it. The tasks store keys off the same
-    // state, so an empty set here is what keeps its signature honest too.
+    // next reader would briefly see it.
     useCalendar.setState({
       accountId: null,
       calendars: {},

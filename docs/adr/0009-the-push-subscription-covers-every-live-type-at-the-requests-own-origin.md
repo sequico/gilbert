@@ -15,7 +15,7 @@ a deployment's connection count from tracking its open tabs.
 
 `PUSH_STATE_TYPES` in `server/src/shared/push.ts` names every state type a
 Gilbert surface keeps live, in one list, for every account: mail and its
-quota, files and chat, calendars and tasks, contacts, and filters — the same
+quota, files and chat, calendars, contacts, and filters — the same
 set the relay's `types=*` covers, so which transport an account is on does
 not decide which parts of the app stay live. A personal account's own Files
 are as live as a group's, and `FileNode` is not limited to chat-capable

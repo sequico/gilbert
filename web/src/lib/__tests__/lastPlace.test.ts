@@ -6,7 +6,7 @@ import { clearAllData, clearSignedInData, setDeviceTrusted } from "@/lib/storage
  * Where the reader was, for the next session on this device.
  *
  * One record per reader holds the place of every surface -- the mail account,
- * the book, the task list, the folder -- because they are one answer to one
+ * the book, the folder -- because they are one answer to one
  * question. It is written often and never synced, which is why it lives in the
  * device cache rather than in the account's settings file.
  */
@@ -19,12 +19,12 @@ describe("the record of where the reader was", () => {
 
   it("keeps one record and merges each surface into it", () => {
     rememberPlace("reader", { mailAccountId: "acc-2" });
-    rememberPlace("reader", { taskList: "acc-1/cal-1" });
+    rememberPlace("reader", { book: { accountId: "acc-1", bookId: "book-7" } });
     rememberPlace("reader", { files: { accountId: "acc-1", parentId: "n-9" } });
 
     expect(loadPlace("reader")).toEqual({
       mailAccountId: "acc-2",
-      taskList: "acc-1/cal-1",
+      book: { accountId: "acc-1", bookId: "book-7" },
       files: { accountId: "acc-1", parentId: "n-9" },
     });
   });

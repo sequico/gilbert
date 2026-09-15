@@ -149,8 +149,8 @@ describe("push reconnect catch-up", () => {
     for (const [, types] of queued) {
       expect([...types].sort()).toEqual(everyLiveType);
     }
-    // The types the old hand-written pass never asked for — calendar,
-    // contacts, tasks, filters, quota — are the point of the test.
+    // The types a hand-written pass is easy to leave out — calendar,
+    // contacts, filters, quota — are the point of the test.
     expect(everyLiveType).toContain("CalendarEvent");
     expect(everyLiveType).toContain("SieveScript");
   });
