@@ -952,10 +952,12 @@ same way.
 - **The sidebar counts the whole of it, and Starred leads the list.** Each
   label's row carries how much mail is filed under it — read and unread alike —
   and **Starred** sits above them as the first row of the same list. It is not
-  a label: it is the keyword a star writes, with no colour to tint and no name
-  of its own to rename, drawn by the same row and counted by the same read. The
-  section is there whatever the account holds, because an account with no
-  labels still has stars. Clicking either opens the messages it counts.
+  a label: it is the keyword a star writes, with no colour of a label's to tint
+  and no name of its own to rename, drawn by the same row and counted by the
+  same read — and drawn with the star it is named after, filled in the star's
+  own colour, the way a starred row draws it. The section is there whatever the
+  account holds, because an account with no labels still has stars. Clicking
+  either opens the messages it counts.
 - **The number counts the unit the list will show.** With conversation view on,
   a conversation of three messages carrying a label is **one** — because that
   is the row the reader is about to see — and with it off it is three. The
@@ -976,13 +978,18 @@ same way.
   "only while unread" is drawn or dropped by how much of it is unread, while
   the row shows the total, so both are asked for — two queries per keyword, in
   one request, because one cannot be derived from the other.
-- **The number follows a write.** Starring, unstarring, labelling and unlabelling
-  move the count as the message changes, not on the next read: unstarring a
-  message and watching its count stay put is the kind of lag that makes a reader
-  distrust every number on the screen. Reading a message moves no total — it
-  files it nowhere else — and only the unread halves of the keywords it carries.
-  A write that fails puts the messages back and re-reads the counts rather than
-  reversing the arithmetic.
+- **The number follows a write.** Starring, unstarring, labelling and
+  unlabelling move the count as the **row** changes, not on the next read:
+  unstarring a message and watching its count stay put is the kind of lag that
+  makes a reader distrust every number on the screen. The row is the unit the
+  count itself is taken over, so a write that reaches several messages of one
+  conversation moves its number once — by one when the conversation gains or
+  loses the keyword, and not at all while another of its messages still carries
+  it — and with conversation view off, where a row is a message, it moves once
+  per message. Reading a message moves no total — it files it nowhere else —
+  and only the unread halves of the keywords it carries. A write that fails puts
+  the messages back and re-reads the counts rather than reversing the
+  arithmetic.
 
 ## Search
 

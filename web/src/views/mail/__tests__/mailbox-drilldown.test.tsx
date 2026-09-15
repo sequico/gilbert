@@ -311,6 +311,17 @@ describe("the labels section", () => {
     expect(outline()).toContain("Starred");
   });
 
+  it("draws Starred as the star it is named after: filled, not an outline", () => {
+    // The one row that is not a label draws no swatch, and the icon standing in
+    // for it is the star itself -- filled, in the star's colour -- rather than
+    // the bare outline a stray `<Star />` renders.
+    mount();
+    const row = document.querySelector('a[href="/search?q=is:starred"]');
+    const svg = row?.querySelector(".nav-label-icon svg");
+    expect(svg?.getAttribute("fill")).toBe("currentColor");
+    expect(svg?.closest(".nav-label-icon")?.getAttribute("style")).toContain("--star");
+  });
+
   it("offers no Manage link on a group's own catalog", () => {
     useMail.setState({
       accountId: "g1",
