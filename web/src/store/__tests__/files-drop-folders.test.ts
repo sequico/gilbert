@@ -30,6 +30,10 @@ const node = (
   parentId: string | null = null,
 ) => ({ id, name, nodeType, parentId }) as never;
 
+/** The properties a names read asks for, which is how the fake tells it apart
+    from a view listing: see the note on `server`. */
+const NAMES_PROPS = ["id", "name", "nodeType", "parentId"];
+
 /**
  * A server holding one folder tree, answering the two calls a drop makes:
  * the listing of a level, and the create of a directory or a file.
@@ -50,6 +54,16 @@ const node = (
  * in play: `ids` is how many the query answers (so the page looks full) while
  * `nodes` is how many the `get` resolved, which is how a folder larger than one
  * page of `maxObjectsInGet` reaches a reader.
+ *
+ * The two counts are the drop's **own** reads, not every request the store
+ * makes: a drop ends by reloading the folder it landed in and the sidebar tree,
+ * and counting those would make the numbers say nothing about the drop. A names
+ * read is told apart by the properties it asks for -- the drop wants `parentId`
+ * and three others, where a view listing wants `fileNodeProps()`, and the
+ * `properties` of the `get` is what the server sees either way. The two tests
+ * that assert these counts do so in opposite directions, so a discriminator that
+ * stopped recognising reads would fail one of them rather than pass both
+ * vacuously.
  */
 function server(
   seed: Array<Record<string, unknown>>,
@@ -80,13 +94,18 @@ function server(
    * the walk look correct while it silently read nothing.
    */
   vi.spyOn(client, "chain").mockImplementation((async (calls: unknown[]) => {
-    const [, args] = calls[0] as [
+    const [, query] = calls[0] as [
       string,
       { filter?: Record<string, unknown>; limit?: number },
     ];
-    const filter = args.filter;
-    if (filter) levelReads.push(1);
-    else scans.push(1);
+    const [, get] = (calls[1] ?? []) as [string, { properties?: string[] }];
+    const filter = query.filter;
+    const askedNames =
+      Array.isArray(get?.properties) &&
+      get.properties.length === NAMES_PROPS.length &&
+      get.properties.every((p, i) => p === NAMES_PROPS[i]);
+    if (!filter) scans.push(1);
+    else if (askedNames) levelReads.push(1);
     let list = filter ? list_((filter.parentId as string | null) ?? null) : [...nodes];
     let total = list.length;
     if (!filter && opts.truncateScan && list.length > LEVEL_LIMIT) {
@@ -296,12 +315,24 @@ describe("a drop onto a folder that already exists", () => {
  */
 describe("an account past the read's ceiling", () => {
   /** More nodes than one read returns, so the account read comes back a page. */
-  const oversize = (extra: Array<Record<string, unknown>>) => [
-    ...extra,
-    ...Array.from({ length: LEVEL_LIMIT + 5 }, (_, i) =>
+  /**
+   * More nodes than one read returns, so the account read comes back a page.
+   *
+   * `where` decides whether the nodes that matter are inside that page or past
+   * it, and the difference is the whole point of these cases: a node the page
+   * reached is one the walk can see, and a node past it is one it cannot -- so
+   * only the second exercises the refusal-and-look-again path a real account at
+   * this size puts the walk through.
+   */
+  const oversize = (
+    extra: Array<Record<string, unknown>>,
+    where: "within" | "past" = "past",
+  ) => {
+    const pad = Array.from({ length: LEVEL_LIMIT + 5 }, (_, i) =>
       node(`pad-${i}`, `pad-${i}.txt`, "file"),
-    ),
-  ];
+    );
+    return where === "past" ? [...pad, ...extra] : [...extra, ...pad];
+  };
 
   it("refuses a file the truncated read could not see, without uploading it", async () => {
     const s = server(
@@ -343,7 +374,11 @@ describe("an account past the read's ceiling", () => {
   });
 
   it("reads the level it writes into once, and asks the account once", async () => {
-    const s = server(oversize([node("d1", "folder", "directory")]), {
+    // Inside the page, so the count is about one thing only: the walk finds the
+    // folder in the scan, and the single level read below is the one the files
+    // need. (Past the page it would be two -- the refusal, which makes the walk
+    // look again at the level the folder is in, and then this one.)
+    const s = server(oversize([node("d1", "folder", "directory")], "within"), {
       truncateScan: true,
     });
 
@@ -363,7 +398,7 @@ describe("an account past the read's ceiling", () => {
     expect(s.uploads).toHaveLength(2);
   });
 
-  it("asks the account once and no level at all when the read was whole", async () => {
+  it("asks the account once and no level read at all when the read was whole", async () => {
     const s = server([
       node("d1", "folder", "directory"),
       node("d2", "sub", "directory", "d1"),
@@ -377,10 +412,14 @@ describe("an account past the read's ceiling", () => {
       dirs: [["folder"], ["folder", "sub"]],
     });
 
-    // The whole point of the scan: a tree of any depth costs one request.
+    // The whole point of the scan: a tree of any depth costs one request, the
+    // level the files go into included -- an account the read finished is
+    // authoritative for every level, so a folder with no bucket in it is empty
+    // and costs nothing to ask about.
     expect(s.scans).toHaveLength(1);
     expect(s.levelReads).toEqual([]);
-    expect(s.created).toEqual([]);
+    // No folder made: both were there, and the scan knew it.
+    expect(s.created.filter((c) => c.nodeType === "directory")).toEqual([]);
     expect(s.nodes.find((n) => n.name === "a.txt")!.parentId).toBe("d1");
     expect(s.nodes.find((n) => n.name === "b.txt")!.parentId).toBe("d2");
   });

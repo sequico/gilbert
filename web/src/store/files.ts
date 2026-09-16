@@ -762,12 +762,12 @@ export const useFiles = create<FilesState>((set, get) => ({
      * whether or not it is the whole folder -- the worst it can do is miss a
      * duplicate, never invent one (see `levelNames`). What completeness
      * decides is whether it is worth a **request** to see more, and the account
-     * read is what says so: on an account it finished, what is in hand for a
-     * level is all of it, including "nothing" for a folder that is really
-     * empty. On one it did not, a level the drop writes into is read for
-     * itself -- unless this walk already read it, which it does when the folder
-     * was resolved through `namesAt` -- and the two are merged, since either
-     * read's names are real.
+     * read is what says so: on an account it finished, the scan is
+     * authoritative for every level, so what is in hand is all of it --
+     * including "nothing" for a folder that is really empty. On one it did not,
+     * a level the drop writes into is read for itself -- unless this walk
+     * already read it, which it does when the folder was resolved through
+     * `namesAt` -- and the two are merged, since either read's names are real.
      */
     const filesAt = async (id: Id | null): Promise<Map<string, SiblingNode>> => {
       const key = levelKey(id);
