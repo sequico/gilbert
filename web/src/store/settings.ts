@@ -159,15 +159,6 @@ export interface Settings {
   themeStyledMessages: boolean;
   undoSendSeconds: number;
   composeFormat: ComposeFormat;
-  /**
-   * Whether the app's *default* reply action is a reply to all.
-   *
-   * Every reply surface that shows the plain "Reply" affordance asks this:
-   * the reply strip, the per-message shortcut, the list's context menu and the
-   * `r` key. The explicit "Reply all" and "Reply" controls still say what they
-   * do, so the setting moves the default rather than taking the choice away.
-   */
-  replyAllDefault: boolean;
   signatureAboveQuote: boolean;
   includeQuote: boolean;
   requestReadReceipt: boolean;
@@ -349,7 +340,6 @@ export const DEFAULT_SETTINGS: Settings = {
   themeStyledMessages: false,
   undoSendSeconds: 8,
   composeFormat: "html",
-  replyAllDefault: true,
   signatureAboveQuote: true,
   includeQuote: true,
   requestReadReceipt: false,
@@ -454,28 +444,7 @@ export function acceptRemote(remote: Record<string, unknown>): Partial<Settings>
     if (value === undefined) continue;
     out[key] = value;
   }
-  return migratedReplyDefault(migratedThemeFields(out)) as Partial<Settings>;
-}
-
-/**
- * A stored `replyAllDefault: false` is the old default, not a choice.
- *
- * The field shipped with the plain reply as its default, so every settings file
- * an existing account had written carried `false` -- including the files of
- * people who never opened a setting. The default became reply all, and a stored
- * value beats a default, so those accounts kept answering the sender alone:
- * the new default reached the accounts that had no settings file and nobody
- * else. Nothing in the reader's Settings writes this key, so `false` there
- * cannot be somebody's decision; it is the old default surviving in the file.
- * Read as true, and the accounts the change was for get it.
- *
- * A policy still wins, because both of its powers are applied after this read
- * (`hydrate` re-applies `policyEnforced`, `applyPolicyChanges` runs later), so
- * an installation that wants the plain reply enforced or changed keeps it.
- */
-function migratedReplyDefault(source: Record<string, unknown>): Record<string, unknown> {
-  if (source?.replyAllDefault !== false) return source;
-  return { ...source, replyAllDefault: true };
+  return migratedThemeFields(out) as Partial<Settings>;
 }
 
 /**
@@ -584,14 +553,23 @@ interface SettingsState {
 /**
  * The settings this device painted from before the account's own arrived.
  *
- * The cache is a copy of a file, so it is read through the same migrations that
- * read the file: a `replyAllDefault: false` left in this browser is the old
- * default like any other, and a first frame that showed the plain reply while
- * the file corrected it would be the setting flickering rather than settling.
+ * The cache is a copy of a file, so it is read through the same schema the file
+ * is: a key this build no longer has is not a setting, and leaving one in the
+ * object would push it back into the file on the next write -- a key the schema
+ * dropped, kept alive by the one reader that did not ask it.
  */
-const initialSettings = migratedReplyDefault(
-  loadJson<Record<string, unknown>>("settings", { ...DEFAULT_SETTINGS }),
-) as unknown as Settings;
+const initialSettings = {
+  ...DEFAULT_SETTINGS,
+  ...knownSettings(loadJson<Record<string, unknown>>("settings", {})),
+};
+
+/** The keys of `DEFAULT_SETTINGS`, and nothing else: the schema is that list. */
+function knownSettings(raw: Record<string, unknown>): Partial<Settings> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(raw))
+    if (key in DEFAULT_SETTINGS && value !== undefined) out[key] = value;
+  return out as Partial<Settings>;
+}
 
 /**
  * The settings with `theme` brought back into line.
@@ -771,9 +749,7 @@ export const useSettings = create<SettingsState>((set, get) => ({
        * still handed on -- an import is the reader's own file, and the
        * known-keys-only rule is `acceptRemote`'s, for files off the server.
        */
-      get().update(
-        migratedReplyDefault(migratedThemeFields(parsed)) as Partial<Settings>,
-      );
+      get().update(migratedThemeFields(parsed) as Partial<Settings>);
       return true;
     } catch {
       return false;
@@ -961,18 +937,6 @@ export function useEffectiveTheme(): "light" | "dark" {
 }
 
 export const settings = () => useSettings.getState().settings;
-
-/**
- * The mode a plain "Reply" affordance opens with.
- *
- * One definition, because the answer has to be the same wherever the app
- * offers its default reply action -- a reply strip that answered the list and
- * an `r` key that answered the sender would be the setting half-applied. An
- * explicit "Reply all" or "Reply" does not come through here: those say what
- * they do whatever `replyAllDefault` is.
- */
-export const defaultReplyMode = (s: Settings): "reply" | "replyAll" =>
-  s.replyAllDefault ? "replyAll" : "reply";
 
 /**
  * Primitive that changes whenever a date/time preference does, so memoised

@@ -573,14 +573,12 @@ export const MessageView = memo(function MessageView({
             <>
               {/*
                 The quick action a message's own header offers is **Reply all**,
-                always, and the tooltip says so. It is the answer people mean
-                most of the time in a conversation with more than two people,
-                and one click is all there is room for -- so what is one click
-                away is the action that reaches everyone rather than the one
-                that leaves the list off. Replying to the sender alone is in
-                the menu beside it, where a deliberate choice belongs, and
-                `replyAllDefault` still moves the reply strip, the `r` key and
-                the list's menu, which are surfaces that can say which they are.
+                always, and the tooltip says so. One click is all the header has
+                room for, and the list is who people mean in a conversation with
+                more than one other person, so what is one click away is the
+                reply that reaches everyone. The plain **Reply** -- to the
+                sender alone -- is the item beside it in the menu, where a
+                deliberate choice belongs and where it can say what it does.
               */}
               <button
                 className="icon-btn sm hide-mobile"

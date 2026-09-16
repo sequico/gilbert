@@ -10,10 +10,10 @@ import { mailboxDisplayName } from "@/lib/mailboxName";
 import { isUnknownMailbox } from "@/lib/mailboxRoute";
 import { anyCarries, type CarriesKeywords, rowScope } from "@/lib/rowScope";
 import { buildFilter, describeFilter, parseQuery } from "@/lib/search";
-import { useCompose } from "@/store/compose";
+import { DEFAULT_REPLY_MODE, useCompose } from "@/store/compose";
 import { DEFAULT_SORT, type ListQuery, useMail } from "@/store/mail";
 import { scheduledMailboxIdFrom, useScheduled } from "@/store/scheduled";
-import { defaultReplyMode, useSettings } from "@/store/settings";
+import { useSettings } from "@/store/settings";
 import { confirmDialog } from "@/ui/dialog";
 import { useIsNarrow } from "@/ui/misc";
 import { Splitter } from "@/ui/Splitter";
@@ -558,11 +558,11 @@ export function MailView({
       },
       {
         keys: "r",
-        description: settings.replyAllDefault ? "Reply all" : "Reply",
+        description: "Reply all",
         group: "Conversation",
         handler: () =>
           window.dispatchEvent(
-            new CustomEvent("ihm:reply", { detail: defaultReplyMode(settings) }),
+            new CustomEvent("ihm:reply", { detail: DEFAULT_REPLY_MODE }),
           ),
       },
       {
@@ -605,7 +605,6 @@ export function MailView({
     currentRowIndex,
     threadId,
     settings.readingPane,
-    settings.replyAllDefault,
     rowThreadId,
     openThread,
     actions,

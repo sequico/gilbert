@@ -73,7 +73,7 @@ import { haptic, PULL_TRIGGER, usePullToRefresh, useTouchRow } from "@/lib/touch
 import { useCalendar } from "@/store/calendar";
 import { useCompose } from "@/store/compose";
 import { type ListState, useMail } from "@/store/mail";
-import { dateTimeKey, defaultReplyMode, useSettings } from "@/store/settings";
+import { dateTimeKey, useSettings } from "@/store/settings";
 import { Avatar, Empty, useIsMobile, useIsTouch } from "@/ui/misc";
 import { MenuItem, MenuSep, MenuTitle, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
@@ -876,12 +876,27 @@ export function MessageList({
         trigger={ctxMenu.trigger}
         width={250}
       >
+        {/*
+          Both actions, each saying which it is: reply reaches the sender
+          alone, reply all reaches everyone. The list's one-tap affordances
+          take the app's default; a menu is where a choice belongs, and a menu
+          offering only the default would leave the plain reply unreachable
+          from here.
+        */}
         <MenuItem
-          icon={settings.replyAllDefault ? <ReplyAll size={16} /> : <Reply size={16} />}
-          label={t(settings.replyAllDefault ? "Reply all" : "Reply")}
+          icon={<Reply size={16} />}
+          label={t("Reply")}
           onClick={() => {
             const e = ctxRow ? emails[ctxRow] : undefined;
-            if (e) void useCompose.getState().reply(e, defaultReplyMode(settings));
+            if (e) void useCompose.getState().reply(e, "reply");
+          }}
+        />
+        <MenuItem
+          icon={<ReplyAll size={16} />}
+          label={t("Reply all")}
+          onClick={() => {
+            const e = ctxRow ? emails[ctxRow] : undefined;
+            if (e) void useCompose.getState().reply(e, "replyAll");
           }}
         />
         <MenuItem

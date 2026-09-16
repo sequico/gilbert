@@ -1,7 +1,7 @@
-import { create } from "zustand";
+import { create, type StoreApi } from "zustand";
 import { CAP, client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, QueryResponse, SetResponse } from "@/jmap/types";
-import { childNames, isAppFolder } from "@/lib/appFolder";
+import { isAppFolder, listChildrenWithState } from "@/lib/appFolder";
 import { type DropPlan, folderPathKey, foldersNeeded } from "@/lib/dropUpload";
 import {
   directoryCreate,
@@ -210,9 +210,9 @@ export function nameTakenMessage(name: string): string {
  * message's attachments to Files can mean the reader's own files or a group's.
  *
  * Callers check the folder's names first, so a duplicate usually costs nothing
- * -- see `childNames`. This refusal is the server's, and it is the one that
- * counts: a name that appeared between that read and this write lands here, and
- * it reads the same as the duplicate the caller already caught.
+ * -- see the level reads in this store. This refusal is the server's, and it is
+ * the one that counts: a name that appeared between that read and this write
+ * lands here, and it reads the same as the duplicate the caller already caught.
  */
 async function putFile(
   accountId: Id,
@@ -273,6 +273,106 @@ async function createDirectory(
  * a folder, and which node to write into when it is.
  */
 type SiblingNode = Pick<FileNode, "id" | "name" | "nodeType">;
+
+/** The level a node sits at, as a map key: a parent id, or the top level. */
+const levelKey = (parentId: Id | null): string => parentId ?? "root";
+
+/** One folder's names, as the map a writer checks before it creates anything. */
+async function namesAtLevel(
+  accountId: Id,
+  parentId: Id | null,
+): Promise<Map<string, SiblingNode>> {
+  const { list } = await listChildrenWithState(accountId, parentId, [
+    "id",
+    "name",
+    "nodeType",
+  ]);
+  return new Map(
+    list.map((n) => [String(n.name), { id: n.id, name: n.name, nodeType: n.nodeType }]),
+  );
+}
+
+/**
+ * Every node in the account, by the level it sits at and the name it carries.
+ *
+ * One read for a whole drop, which is the point: resolving a tree folder by
+ * folder costs a listing per folder, and a listing is a request. This answers
+ * every level of the drop from a single query, so the walk that follows makes
+ * no requests at all -- and it is the same shape of read `loadTree` already
+ * makes for the sidebar, so a folder created by another client since the tree
+ * was drawn is still seen here.
+ *
+ * `limit` is the ceiling the module uses everywhere else. An account past it is
+ * an account whose own Files view is already paged, and a drop into the top
+ * thousandth folder would be guessing; the walk treats a folder it cannot see as
+ * one it cannot have, which refuses rather than misfiles.
+ */
+async function accountLevels(
+  accountId: Id,
+): Promise<Map<string, Map<string, SiblingNode>>> {
+  const levels = new Map<string, Map<string, SiblingNode>>();
+  const res = await client.chain([
+    ["FileNode/query", { accountId, limit: 1000 }, "q"],
+    [
+      "FileNode/get",
+      {
+        accountId,
+        "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
+        properties: ["id", "name", "nodeType", "parentId"],
+      },
+      "g",
+    ],
+  ]);
+  const got = res.get("g")?.[0] as unknown as GetResponse<FileNode>;
+  for (const n of got.list) {
+    const key = levelKey(n.parentId ?? null);
+    const names = levels.get(key) ?? new Map<string, SiblingNode>();
+    names.set(String(n.name), { id: n.id, name: n.name, nodeType: n.nodeType });
+    levels.set(key, names);
+  }
+  return levels;
+}
+
+/**
+ * One file: its tray row, the duplicate check, the upload and the node.
+ *
+ * Shared by the picker and by a drop, because both owe the reader the same
+ * three things -- a row that reports progress, a name that is not silently
+ * taken, and no upload paid for when the name is already there. The `taken` set
+ * is the caller's: the picker builds it from the one folder it writes into, and
+ * a drop from the account-wide read it already made, so neither lists a folder
+ * again per file.
+ */
+async function uploadOne(
+  set: StoreApi<FilesState>["setState"],
+  accountId: Id,
+  parentId: Id | null,
+  file: File,
+  taken: Map<string, SiblingNode>,
+): Promise<void> {
+  const row = uploadRow(file.name, null);
+  set((s) => ({ uploads: [...s.uploads, row] }));
+  try {
+    if (taken.has(file.name))
+      throw new NameTakenError(undefined, nameTakenMessage(file.name));
+    await putFile(accountId, parentId, file, (percent) =>
+      set((s) => ({
+        uploads: s.uploads.map((u) =>
+          u.id === row.id ? { ...u, progress: percent } : u,
+        ),
+      })),
+    );
+    taken.set(file.name, { id: "", name: file.name, nodeType: "file" });
+    set((s) => ({ uploads: s.uploads.filter((u) => u.id !== row.id) }));
+  } catch (err) {
+    // The row stays: its message *is* the error, and the reader takes it away.
+    set((s) => ({
+      uploads: s.uploads.map((u) =>
+        u.id === row.id ? { ...u, error: (err as Error).message } : u,
+      ),
+    }));
+  }
+}
 
 /**
  * A record in the upload tray, the one place a failure is reported.
@@ -481,32 +581,8 @@ export const useFiles = create<FilesState>((set, get) => ({
    */
   async upload(parentId, files) {
     const accountId = get().accountId!;
-    const taken = new Set(
-      (await childNames(accountId, parentId).catch(() => new Map())).keys(),
-    );
-    for (const f of files) {
-      const row = uploadRow(f.name, null);
-      set((s) => ({ uploads: [...s.uploads, row] }));
-      try {
-        if (taken.has(f.name))
-          throw new NameTakenError(undefined, nameTakenMessage(f.name));
-        await putFile(accountId, parentId, f, (percent) =>
-          set((s) => ({
-            uploads: s.uploads.map((u) =>
-              u.id === row.id ? { ...u, progress: percent } : u,
-            ),
-          })),
-        );
-        taken.add(f.name);
-        set((s) => ({ uploads: s.uploads.filter((u) => u.id !== row.id) }));
-      } catch (err) {
-        set((s) => ({
-          uploads: s.uploads.map((u) =>
-            u.id === row.id ? { ...u, error: (err as Error).message } : u,
-          ),
-        }));
-      }
-    }
+    const taken = await namesAtLevel(accountId, parentId);
+    for (const f of files) await uploadOne(set, accountId, parentId, f, taken);
     await get().loadChildren(parentId);
   },
 
@@ -525,8 +601,8 @@ export const useFiles = create<FilesState>((set, get) => ({
     const failed: string[] = [];
     const existing: string[] = [];
     let saved = 0;
-    const taken = new Set(
-      (await childNames(accountId, parentId).catch(() => new Map())).keys(),
+    const taken = await namesAtLevel(accountId, parentId).catch(
+      () => new Map<string, SiblingNode>(),
     );
     for (const f of files) {
       try {
@@ -535,7 +611,7 @@ export const useFiles = create<FilesState>((set, get) => ({
           continue;
         }
         await putFile(accountId, parentId, f);
-        taken.add(f.name);
+        taken.set(f.name, { id: "", name: f.name, nodeType: "file" });
         saved += 1;
       } catch (err) {
         // The folder's own answer decides which list it goes in: a name that is
@@ -586,13 +662,24 @@ export const useFiles = create<FilesState>((set, get) => ({
    */
   async uploadPlan(parentId, plan) {
     const accountId = get().accountId!;
-    // Every level's names, read once each: a folder's children are asked for
-    // once however many paths pass through it.
-    const levels = new Map<string, Map<string, SiblingNode>>();
-    const namesAt = async (key: string, id: Id | null) => {
+    /*
+     * One read of the account answers every level the drop names.
+     *
+     * The walk resolves one folder at a time and would otherwise list a folder
+     * per folder -- a request each -- for a tree the account can describe in a
+     * single query. So the levels are read together here, and the walk below
+     * makes no request at all except the creates it has to make. A read that
+     * fails is not a reason to guess: every folder then has to be looked up,
+     * and the walk does that through `namesAt`.
+     */
+    const levels = await accountLevels(accountId).catch(
+      () => new Map<string, Map<string, SiblingNode>>(),
+    );
+    const namesAt = async (parentId: Id | null) => {
+      const key = levelKey(parentId);
       const known = levels.get(key);
       if (known) return known;
-      const names = await childNames(accountId, id);
+      const names = await namesAtLevel(accountId, parentId);
       levels.set(key, names);
       return names;
     };
@@ -613,7 +700,7 @@ export const useFiles = create<FilesState>((set, get) => ({
         continue;
       }
       const into = dirIds.get(parentKey) ?? parentId;
-      const siblings = await namesAt(parentKey, into);
+      const siblings = await namesAt(into);
       const found = siblings.get(name);
       if (found?.nodeType === "directory") {
         dirIds.set(key, found.id);
@@ -633,16 +720,16 @@ export const useFiles = create<FilesState>((set, get) => ({
         siblings.set(name, { id, name, nodeType: "directory" });
       } catch (err) {
         /*
-         * Another writer can make the folder between the listing and this
-         * create, and the server refuses a second create of the same name.
-         * That refusal means the folder this drop wanted exists -- so take it
-         * rather than reporting a name nobody can see. The level is re-read
-         * rather than trusted: the listing this walk holds was taken before the
-         * other writer's create, which is why the create was refused at all.
+         * Another writer can make the folder between the read and this create,
+         * and the server refuses a second create of the same name. That refusal
+         * means the folder this drop wanted exists -- so take it rather than
+         * reporting a name nobody can see. The level is re-read rather than
+         * trusted: the listing in hand was taken before the other writer's
+         * create, which is why the create was refused at all.
          */
         if (isAlreadyExists(err)) {
-          const fresh = await childNames(accountId, into);
-          levels.set(parentKey, fresh);
+          const fresh = await namesAtLevel(accountId, into);
+          levels.set(levelKey(into), fresh);
           const theirs = fresh.get(name);
           if (theirs?.nodeType === "directory") {
             dirIds.set(key, theirs.id);
@@ -667,8 +754,18 @@ export const useFiles = create<FilesState>((set, get) => ({
       }
       byFolder.set(key, [...(byFolder.get(key) ?? []), item.file]);
     }
-    for (const [key, files] of byFolder)
-      await get().upload(dirIds.get(key) ?? parentId, files);
+    /*
+     * Every folder of the drop, uploaded through one writer each -- with the
+     * names already in hand, so no folder is listed a second time to find them.
+     * That is the difference between one query per folder and one for the whole
+     * drop.
+     */
+    for (const [key, files] of byFolder) {
+      const into = dirIds.get(key) ?? parentId;
+      const taken = await namesAt(into);
+      for (const file of files) await uploadOne(set, accountId, into, file, taken);
+    }
+    await get().loadChildren(parentId);
     void get().loadTree();
   },
 

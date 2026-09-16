@@ -6,6 +6,12 @@ import { useMail } from "@/store/mail";
 /*
  * Who a reply is addressed to.
  *
+ * The first rule, and the one the two actions turn on: a plain **Reply**
+ * reaches exactly one partner -- the sender, or their Reply-To -- and **Reply
+ * all** reaches everyone. That is the difference a reader can see in the draft,
+ * because reply all is the action that puts a list there. A reply that quietly
+ * kept the Cc would make the two menu items the same button.
+ *
  * The hard half is replying to something *I* sent, which is what following up
  * on your own last message is. The conversation is with the people I wrote to;
  * addressing the reply to myself, or to my own Reply-To, sends it nowhere
@@ -79,8 +85,24 @@ beforeEach(() => useCompose.setState({ drafts: [], activeKey: null }));
 afterEach(() => useCompose.setState({ drafts: [], activeKey: null }));
 
 describe("replying to a message somebody sent me", () => {
-  it("replies to the sender", async () => {
+  it("replies to the sender, and to nobody else", async () => {
     const d = await draftFor(HERS, "reply");
+    expect(addrs(d.to)).toEqual([ANN.email]);
+    expect(d.cc).toEqual([]);
+  });
+
+  /*
+   * The rule the two actions are told apart by, and the one a reader notices:
+   * a plain reply is one partner even when the sender addressed a list, so the
+   * message stays between the two of them.
+   */
+  it("keeps a plain reply to one partner however many the sender copied", async () => {
+    const crowded = {
+      ...HERS,
+      to: [ME, BOB],
+      cc: [{ name: "Cy", email: "cy@example.com" }],
+    } as unknown as Email;
+    const d = await draftFor(crowded, "reply");
     expect(addrs(d.to)).toEqual([ANN.email]);
     expect(d.cc).toEqual([]);
   });
@@ -101,7 +123,7 @@ describe("replying to a message somebody sent me", () => {
 });
 
 describe("replying to a message I sent", () => {
-  it("writes to the people I wrote to, not to me", async () => {
+  it("writes to the people I wrote to, and to one of them on a plain reply", async () => {
     const d = await draftFor(MINE, "reply");
     expect(addrs(d.to)).toEqual([ANN.email]);
     expect(d.cc).toEqual([]);
@@ -168,6 +190,12 @@ describe("a message of mine with nobody obvious to reply to", () => {
   it("uses the Cc when I addressed it to nobody else", async () => {
     const d = await draftFor({ ...MINE, to: [ME] } as Email, "replyAll");
     expect(addrs(d.to)).toEqual([BOB.email]);
+    expect(d.cc).toEqual([]);
+  });
+
+  it("reaches the one partner a plain reply has, rather than everyone", async () => {
+    const d = await draftFor({ ...MINE, to: [ANN, BOB] } as Email, "reply");
+    expect(addrs(d.to)).toEqual([ANN.email]);
     expect(d.cc).toEqual([]);
   });
 

@@ -1222,13 +1222,13 @@ minimisable and maximisable; full-screen on mobile.
 - **Attachment reminder** when the text mentions an attachment and none is there.
 - **Spell check** toggle.
 - **Drafts** save as you type and on close, with the save state shown.
-- **Quoting** on reply, with the signature placed above or below it. The
-  one-tap reply on a message's own header is **Reply all**, whatever the
-  settings say, because one click is all there is room for and the list is who
-  people mean; **Reply** to the sender alone is the item beside it in the menu.
-  `replyAllDefault` moves the reply strip at the foot of a thread, the `r` key
-  and the list's own menu — surfaces that can name the action they will take
-  rather than showing one icon for two meanings.
+- **Quoting** on reply, with the signature placed above or below it. One reply
+  reaches **one partner** and Reply all reaches **everyone** — the difference the
+  reader sees in the draft, since reply all is the action that puts a list there.
+  The one-tap affordances (a message's own header, the reply strip, the `r` key)
+  take **Reply all**, which is what the app does rather than a preference; every
+  menu offers both actions, each saying which it is, so the reply to the sender
+  alone is always one deliberate choice away.
 - **Compose as new** — the same mail again rather than passed on, for one that
   bounced or went to a misspelled address. Recipients, Reply-To, subject, body
   and attachments come across as they stand; the Message-ID, date and threading
@@ -2065,7 +2065,7 @@ per view, so the same letter can mean different things in mail and the calendar.
 | Global | `?` help · `/` search · `c` compose · `g i/s/t/d/a` inbox, starred, sent, drafts, all mail · `g l/c/f/k` calendar, contacts, files, settings |
 | List | `j`/`k` next/previous · `o` open · `u` back · `Esc` back or clear selection · `x` select · `Ctrl+A` select all |
 | Acting | `e` archive · `#` delete · `!` spam · `s` star · `Shift+I`/`Shift+U` read/unread · `v` move · `l` label |
-| Conversation | `r` the default reply (reply all unless Settings says otherwise) · `a` reply all · `f` forward · `n`/`p` next/previous message · `]` archive and open next |
+| Conversation | `r` reply all (the app's default) · `a` reply all · `f` forward · `n`/`p` next/previous message · `]` archive and open next |
 | Composer | `Ctrl+Enter` send · `Ctrl+S` save draft · `Esc` close, saving |
 | Calendar | `t` today · `n`/`p` next/previous · `d`/`w`/`m`/`a` day, week, month, agenda · `c` new event |
 

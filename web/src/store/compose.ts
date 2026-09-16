@@ -99,11 +99,16 @@ interface ComposeState {
   openDraftEmail(email: Email): Promise<string>;
   /** Open a message again as a mail that has not been sent yet. */
   composeAsNew(email: Email): Promise<string>;
-  reply(
-    email: Email,
-    mode: "reply" | "replyAll" | "forward",
-    opts?: { all?: boolean },
-  ): Promise<string>;
+  /**
+   * The reply the app's one-tap affordances open.
+   *
+   * Reply all, and not a preference: answering the list is what a conversation
+   * with more than one other person means, and a one-tap control cannot say
+   * which of the two it did. The explicit "Reply" -- to the sender alone -- is
+   * the item beside it wherever there is room for a choice, and every surface
+   * that shows it says what it does.
+   */
+  reply(email: Email, mode: "reply" | "replyAll" | "forward"): Promise<string>;
   /** Forward the message whole, as an attachment, rather than quoted into a new one. */
   forwardAsAttachment(email: Email): string;
   update(key: string, patch: Partial<Draft>): void;
@@ -234,6 +239,17 @@ function defaultIdentity(
   }
   return useMail.getState().defaultIdentity() ?? identities[0];
 }
+
+/**
+ * The reply the app's one-tap affordances open: reply all.
+ *
+ * One definition, because the answer has to be the same wherever the app offers
+ * its default reply action -- a reply strip that answered the list and an `r`
+ * key that answered the sender would be the same decision half-applied. It is
+ * not a setting: it is what the app does, and the surfaces that can say which
+ * action they take are the ones that offer the choice (see `reply`).
+ */
+export const DEFAULT_REPLY_MODE: "reply" | "replyAll" = "replyAll";
 
 export const useCompose = create<ComposeState>((set, get) => ({
   drafts: [],
@@ -514,7 +530,28 @@ export const useCompose = create<ComposeState>((set, get) => ({
     let to: EmailAddress[] = [];
     let cc: EmailAddress[] = [];
     if (mode === "reply" || mode === "replyAll") {
-      if (sentByMe && (full.to?.length || full.cc?.length)) {
+      /*
+       * Who a plain reply answers, and who a reply all answers.
+       *
+       * A plain reply reaches **one** partner, and that is the whole difference
+       * between the two actions -- the one a reader can see in the draft, since
+       * reply all is the action that puts a list there. It is the sender, their
+       * Reply-To first, that being what that header is for.
+       *
+       * A message of mine has no sender to answer, so the one partner is the
+       * person I wrote to -- and my own address when the message went nowhere
+       * else, because an empty To is worse than the only address there was.
+       * Reaching all of them is what Reply all is for.
+       */
+      const senders = uniqueAddresses(
+        full.replyTo?.length ? full.replyTo : (full.from ?? []),
+      );
+      const others = withoutOwn(
+        uniqueAddresses([...(full.to ?? []), ...(full.cc ?? [])]),
+      );
+      if (mode === "reply") {
+        to = (sentByMe ? (others.length ? others : senders) : senders).slice(0, 1);
+      } else if (sentByMe && (full.to?.length || full.cc?.length)) {
         /*
          * Replying to something I sent continues the conversation with the
          * people I wrote to. Not with myself, and not with my own Reply-To
@@ -522,21 +559,17 @@ export const useCompose = create<ComposeState>((set, get) => ({
          * it here would send my own reply to my own desk.
          */
         to = withoutOwn(full.to ?? []);
-        cc = mode === "replyAll" ? withoutOwn(full.cc ?? []) : [];
+        cc = withoutOwn(full.cc ?? []);
         // Addressed only to myself, or only in Cc: there is still somebody this
         // is a reply to, and an empty To is not it.
         if (!to.length) {
-          to = cc.length ? cc : withoutOwn(full.cc ?? []);
+          to = cc;
           cc = [];
         }
         if (!to.length) to = uniqueAddresses([...(full.to ?? []), ...(full.cc ?? [])]);
       } else {
-        to = uniqueAddresses(full.replyTo?.length ? full.replyTo : (full.from ?? []));
-        if (mode === "replyAll") {
-          cc = uniqueAddresses([...(full.to ?? []), ...(full.cc ?? [])]).filter(
-            (a) => !isOwn(a) && !to.some((t) => sameAddress(t.email, a.email)),
-          );
-        }
+        to = senders;
+        cc = others.filter((a) => !to.some((t) => sameAddress(t.email, a.email)));
       }
     }
 

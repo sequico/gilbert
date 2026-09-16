@@ -49,10 +49,18 @@ function server(seed: Array<Record<string, unknown>>, opts: { race?: boolean } =
   const list_ = (parentId: string | null) =>
     nodes.filter((n) => (n.parentId ?? null) === parentId);
 
+  /*
+   * The listing of one level, and the whole-account read a drop makes first.
+   *
+   * `accountLevels` asks for every node in the account in one query -- no
+   * filter at all -- which is how a drop resolves a whole tree without a
+   * request per folder. A fake that answered only the filtered form would let
+   * the walk look correct while it silently read nothing.
+   */
   vi.spyOn(client, "chain").mockImplementation((async (calls: unknown[]) => {
-    const [, args] = calls[0] as [string, { filter: Record<string, unknown> }];
-    const parentId = (args.filter.parentId as string | null) ?? null;
-    const list = list_(parentId);
+    const [, args] = calls[0] as [string, { filter?: Record<string, unknown> }];
+    const filter = args.filter;
+    const list = filter ? list_((filter.parentId as string | null) ?? null) : [...nodes];
     return new Map([
       ["q", [{ ids: list.map((n) => n.id), total: list.length }]],
       ["g", [{ list, state: "1" }]],

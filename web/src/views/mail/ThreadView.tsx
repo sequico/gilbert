@@ -31,9 +31,9 @@ import { visibleMessages } from "@/lib/openMessage";
 import { anyCarries, anyLacks } from "@/lib/rowScope";
 import { threadScrollTarget } from "@/lib/threadScroll";
 import { useEdgeBack } from "@/lib/touch";
-import { useCompose } from "@/store/compose";
+import { DEFAULT_REPLY_MODE, useCompose } from "@/store/compose";
 import { useMail } from "@/store/mail";
-import { defaultReplyMode, useSettings } from "@/store/settings";
+import { useSettings } from "@/store/settings";
 import { Spinner, useIsNarrow, useIsTouch } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { LabelPicker } from "./LabelPicker";
@@ -319,8 +319,9 @@ export function ThreadView({
   }, [messages, mailboxes, mailboxId]);
 
   const last = messages[messages.length - 1];
-  /* What the reply strip's first button does, and the other one beside it. */
-  const defaultReply = defaultReplyMode(settings);
+  /* What the reply strip's first button does, and the other one beside it: the
+     app's default reply all, and the plain reply to the sender alone. */
+  const defaultReply = DEFAULT_REPLY_MODE;
   const otherReply: "reply" | "replyAll" =
     defaultReply === "replyAll" ? "reply" : "replyAll";
   const accountId = useMail((s) => s.accountId);
@@ -497,9 +498,10 @@ export function ThreadView({
           <div className="reply-box">
             <div className="reply-prompt">
               {/*
-                The default reply action first and the other one beside it, so
-                `replyAllDefault` moves which action a click lands on without
-                taking either away.
+                The app's default reply first and the plain reply beside it, so
+                the one-tap action cannot be mistaken for the other: each
+                button says which it is, and the reply that reaches one person
+                is the one that says "Reply".
               */}
               <button onClick={() => void reply(last, defaultReply)}>
                 {defaultReply === "replyAll" ? (
