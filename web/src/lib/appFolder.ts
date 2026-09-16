@@ -79,6 +79,12 @@ async function children(
  * function is called with a page size for chat and with no limit at all for a
  * level, and "shorter than what I asked for" means something different in each.
  *
+ * `complete` describes a read **from the start of its result**. A windowed read
+ * -- a non-zero `position` -- cannot be complete in this sense, since a page
+ * shorter than asked means it reached the end of the *list* rather than of the
+ * query. Nothing asks it for one today: the only caller that reads `complete`
+ * is `readLevels`, which always starts at zero.
+ *
  * `scope` is which nodes to look at. `"level"` (the default) is one folder:
  * the children of `parentId`, or the top level when it is null. `"account"` is
  * every node in the account, no filter at all -- the read a tree walk makes so

@@ -308,9 +308,14 @@ type LevelScope = { kind: "account" } | { kind: "level"; parentId: Id | null };
  * query reported, and a `get` truncated by its own ceiling on a level larger
  * than one page made it call a partial read whole.
  *
- * A level read buckets to exactly one level, which is all the callers of the
- * single-level form want; they ask for their level by key. Asking for
- * `parentId` on a level read is one property that buys the shared code path.
+ * A level read buckets by the parent that was **asked for**, not by the
+ * `parentId` the nodes came back wearing. The level is known by construction
+ * there, and reading it off the response would make every caller depend on a
+ * property the caller never needed -- a level read of one folder does not care
+ * where its children say they live, and a server (or a test standing in for
+ * one) that omits the field would silently bucket the names at the wrong level
+ * and hand back an empty map. The account scan buckets by `parentId` because
+ * there the response is the only thing that knows.
  */
 async function readLevels(
   accountId: Id,
@@ -323,11 +328,12 @@ async function readLevels(
     { limit: LEVEL_LIMIT, scope: scope.kind === "account" ? "account" : "level" },
   );
   const levels = new Map<string, Map<string, SiblingNode>>();
+  const key = scope.kind === "level" ? levelKey(scope.parentId) : null;
   for (const n of list) {
-    const key = levelKey(n.parentId ?? null);
-    const names = levels.get(key) ?? new Map<string, SiblingNode>();
+    const where = key ?? levelKey(n.parentId ?? null);
+    const names = levels.get(where) ?? new Map<string, SiblingNode>();
     names.set(String(n.name), { id: n.id, name: n.name, nodeType: n.nodeType });
-    levels.set(key, names);
+    levels.set(where, names);
   }
   return { levels, complete };
 }
@@ -718,6 +724,11 @@ export const useFiles = create<FilesState>((set, get) => ({
      */
     const scan = await readLevels(accountId, { kind: "account" }).catch(() => null);
     const hint = scan?.levels ?? new Map<string, Map<string, SiblingNode>>();
+    /* Levels read for themselves during this walk. A level is read once, so the
+       folder walk and the file check share one request for it rather than
+       asking the same question twice -- which is what they did before the
+       shared rule, and what dropping the memo briefly cost. */
+    const readByUs = new Set<string>();
 
     /*
      * The names a **folder** may be resolved from: a hint is enough.
@@ -733,6 +744,7 @@ export const useFiles = create<FilesState>((set, get) => ({
       if (known) return known;
       const names = await namesAtLevel(accountId, id);
       hint.set(key, names);
+      readByUs.add(key);
       return names;
     };
 
@@ -743,18 +755,20 @@ export const useFiles = create<FilesState>((set, get) => ({
      * A page of a folder names real siblings, so checking against it is sound
      * whether or not it is the whole folder -- the worst it can do is miss a
      * duplicate, never invent one (see `namesAtLevel`). What completeness
-     * decides is whether it is worth a **request** to see more, and the
-     * account read is what says so: on an account it finished, what is in hand
-     * for a level is all of it, including "nothing" for a folder that is really
-     * empty. On one it did not, a level the drop writes into is read for itself
-     * -- one request per level written into, not per folder the drop names --
-     * and the two are merged, since either read's names are real.
+     * decides is whether it is worth a **request** to see more, and the account
+     * read is what says so: on an account it finished, what is in hand for a
+     * level is all of it, including "nothing" for a folder that is really
+     * empty. On one it did not, a level the drop writes into is read for
+     * itself -- unless this walk already read it, which it does when the folder
+     * was resolved through `namesAt` -- and the two are merged, since either
+     * read's names are real.
      */
     const filesAt = async (id: Id | null): Promise<Map<string, SiblingNode>> => {
       const key = levelKey(id);
       const known = hint.get(key);
-      if (scan?.complete) return known ?? new Map();
+      if (scan?.complete || readByUs.has(key)) return known ?? new Map();
       const fresh = await namesAtLevel(accountId, id).catch(() => null);
+      readByUs.add(key);
       if (!fresh) return known ?? new Map();
       const names = known ? new Map([...known, ...fresh]) : fresh;
       hint.set(key, names);
@@ -805,9 +819,17 @@ export const useFiles = create<FilesState>((set, get) => ({
          * create, which is why the create was refused at all.
          */
         if (isAlreadyExists(err)) {
+          const key0 = levelKey(into);
           const fresh = await namesAtLevel(accountId, into);
-          hint.set(levelKey(into), fresh);
-          const theirs = fresh.get(name);
+          /* Merged rather than substituted: the read in hand may have held names
+             this one did not (both can be pages of a level larger than one), and
+             every name either read saw is a real sibling, so dropping one set
+             for the other gives up refusals that were already paid for. */
+          const known = hint.get(key0);
+          const names = known ? new Map([...known, ...fresh]) : fresh;
+          hint.set(key0, names);
+          readByUs.add(key0);
+          const theirs = names.get(name);
           if (theirs?.nodeType === "directory") {
             dirIds.set(key, theirs.id);
             continue;
