@@ -339,28 +339,31 @@ async function readLevels(
 }
 
 /**
- * A folder's names, as a writer checks them before it creates anything.
+ * One level's names out of a read, and the only place that lookup is written.
  *
- * **A partial map is sound to check against, and that is the point.** Every
- * entry comes from a FileNode the server returned for this level, so a name
- * found here really is taken and a create of it really would be refused -- the
- * check can therefore never invent a duplicate. What a short read costs is the
- * opposite: a name it did not reach, which is a create that gets attempted and
- * refused with the blob already paid for.
+ * A pure function over what `readLevels` answered, rather than one that fetches
+ * as well. It is the smaller half on purpose: a caller that reads a level has
+ * the request in front of it, which matters here because the number of requests
+ * a drop makes is a thing this module's tests count and its design argues
+ * about. A helper that both fetched and picked out the names would hide how
+ * many requests a call site was making, which is the one detail a reader of
+ * these call sites needs.
  *
- * That asymmetry is why this is a plain map and not a map-plus-a-completeness-
- * flag. Gating the check on completeness was tried and is wrong: skipping a
- * check that could not have been false only gives up refusals that were free.
- * Completeness is still asked for -- `readLevels` answers it -- but its one
- * real use is deciding whether a level is worth **reading**, which is a
- * question about requests rather than about correctness.
+ * What a caller gets, and may check a name against, is a **page** at worst: a
+ * level larger than one read of it answers with part of itself. That is sound
+ * -- every entry came from a FileNode the server really returned for this
+ * level, so a name found here really is taken and a create of it really would
+ * be refused, which means the check can never invent a duplicate. What an
+ * incomplete page costs is the opposite, a duplicate it did not reach. See
+ * `readLevels` for why completeness is therefore not consulted here: it
+ * decides whether a level is worth *reading*, not whether what came back may
+ * be looked at.
  */
-async function namesAtLevel(
-  accountId: Id,
+function levelNames(
+  levels: Map<string, Map<string, SiblingNode>> | undefined,
   parentId: Id | null,
-): Promise<Map<string, SiblingNode>> {
-  const { levels } = await readLevels(accountId, { kind: "level", parentId });
-  return levels.get(levelKey(parentId)) ?? new Map();
+): Map<string, SiblingNode> {
+  return levels?.get(levelKey(parentId)) ?? new Map();
 }
 
 /**
@@ -376,7 +379,7 @@ async function namesAtLevel(
  * short: a level larger than one page of it answers with a page. Checking
  * against that page is still worth doing -- every entry is a real sibling, so a
  * name found there really is taken -- and an empty map simply means the folder
- * answered with nothing this writer could see. See `namesAtLevel`.
+ * answered with nothing this writer could see. See `levelNames`.
  */
 async function uploadOne(
   set: StoreApi<FilesState>["setState"],
@@ -616,9 +619,10 @@ export const useFiles = create<FilesState>((set, get) => ({
    */
   async upload(parentId, files) {
     const accountId = get().accountId!;
-    const taken = await namesAtLevel(accountId, parentId).catch(
-      () => new Map<string, SiblingNode>(),
+    const read = await readLevels(accountId, { kind: "level", parentId }).catch(
+      () => null,
     );
+    const taken = levelNames(read?.levels, parentId);
     for (const f of files) await uploadOne(set, accountId, parentId, f, taken);
     await get().loadChildren(parentId);
   },
@@ -645,9 +649,10 @@ export const useFiles = create<FilesState>((set, get) => ({
      * which refuses nothing and lets the server say so -- the same outcome as
      * having no list at all.
      */
-    const taken = await namesAtLevel(accountId, parentId).catch(
-      () => new Map<string, SiblingNode>(),
+    const read = await readLevels(accountId, { kind: "level", parentId }).catch(
+      () => null,
     );
+    const taken = levelNames(read?.levels, parentId);
     for (const f of files) {
       try {
         if (taken.has(f.name)) {
@@ -742,7 +747,8 @@ export const useFiles = create<FilesState>((set, get) => ({
       const key = levelKey(id);
       const known = hint.get(key);
       if (known) return known;
-      const names = await namesAtLevel(accountId, id);
+      const read = await readLevels(accountId, { kind: "level", parentId: id });
+      const names = levelNames(read.levels, id);
       hint.set(key, names);
       readByUs.add(key);
       return names;
@@ -754,7 +760,7 @@ export const useFiles = create<FilesState>((set, get) => ({
      *
      * A page of a folder names real siblings, so checking against it is sound
      * whether or not it is the whole folder -- the worst it can do is miss a
-     * duplicate, never invent one (see `namesAtLevel`). What completeness
+     * duplicate, never invent one (see `levelNames`). What completeness
      * decides is whether it is worth a **request** to see more, and the account
      * read is what says so: on an account it finished, what is in hand for a
      * level is all of it, including "nothing" for a folder that is really
@@ -767,9 +773,13 @@ export const useFiles = create<FilesState>((set, get) => ({
       const key = levelKey(id);
       const known = hint.get(key);
       if (scan?.complete || readByUs.has(key)) return known ?? new Map();
-      const fresh = await namesAtLevel(accountId, id).catch(() => null);
+      const read = await readLevels(accountId, {
+        kind: "level",
+        parentId: id,
+      }).catch(() => null);
       readByUs.add(key);
-      if (!fresh) return known ?? new Map();
+      if (!read) return known ?? new Map();
+      const fresh = levelNames(read.levels, id);
       const names = known ? new Map([...known, ...fresh]) : fresh;
       hint.set(key, names);
       return names;
@@ -820,7 +830,8 @@ export const useFiles = create<FilesState>((set, get) => ({
          */
         if (isAlreadyExists(err)) {
           const key0 = levelKey(into);
-          const fresh = await namesAtLevel(accountId, into);
+          const read = await readLevels(accountId, { kind: "level", parentId: into });
+          const fresh = levelNames(read.levels, into);
           /* Merged rather than substituted: the read in hand may have held names
              this one did not (both can be pages of a level larger than one), and
              every name either read saw is a real sibling, so dropping one set
