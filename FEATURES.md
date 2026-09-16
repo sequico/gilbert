@@ -1579,6 +1579,14 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   making). A folder the drop could not be created — a file is standing where it
   goes — stops with its whole subtree reported rather than filing those files
   into whatever folder does exist.
+- **A drop resolves its tree in one request.** The account is read once and the
+  whole walk answers from that, however deep the folder is; an account larger
+  than one read of it (a thousand nodes) is finished by reading the levels the
+  drop actually writes into, not by paging the account. Where a level could not
+  be read whole the duplicate check is skipped rather than guessed: the server's
+  own refusal is then what refuses the file, so the file is still refused and
+  still says why, at the cost of one uploaded blob — never a refusal reported
+  for a name that is not there.
 - **Sharing** per file or folder, with rights per person.
 - **Attach from Files** in the composer, with no re-upload.
 - **Saved into from mail**: a message's attachments can be kept here instead of

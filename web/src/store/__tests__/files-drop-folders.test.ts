@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { client } from "@/jmap/client";
-import { useFiles } from "@/store/files";
+import { LEVEL_LIMIT, useFiles } from "@/store/files";
 
 /**
  * A folder dropped onto a folder that is already there.
@@ -38,13 +38,26 @@ const node = (
  * folder that appeared between the listing and the create, which is the answer
  * a second worker gets. It is off by default so the ordinary path is the
  * ordinary path.
+ *
+ * `truncateScan` makes the whole-account read come back as a *page*: the query
+ * answers `LEVEL_LIMIT` ids while reporting more matches than that, which is
+ * what an account past the read's ceiling looks like from the walk. The ids and
+ * nodes past the page are simply not there to be seen, exactly as on a server,
+ * and the levels are still readable one at a time -- which is the whole point
+ * of the case.
  */
-function server(seed: Array<Record<string, unknown>>, opts: { race?: boolean } = {}) {
+function server(
+  seed: Array<Record<string, unknown>>,
+  opts: { race?: boolean; truncateScan?: boolean } = {},
+) {
   const nodes = [...seed];
   const created: Array<{ name: string; nodeType: string }> = [];
   const uploads: string[] = [];
   let next = 1;
   let raced = false;
+  /** The whole-account reads, and the per-level ones, so a test can count them. */
+  const scans: number[] = [];
+  const levelReads: number[] = [];
 
   const list_ = (parentId: string | null) =>
     nodes.filter((n) => (n.parentId ?? null) === parentId);
@@ -58,11 +71,21 @@ function server(seed: Array<Record<string, unknown>>, opts: { race?: boolean } =
    * the walk look correct while it silently read nothing.
    */
   vi.spyOn(client, "chain").mockImplementation((async (calls: unknown[]) => {
-    const [, args] = calls[0] as [string, { filter?: Record<string, unknown> }];
+    const [, args] = calls[0] as [
+      string,
+      { filter?: Record<string, unknown>; limit?: number },
+    ];
     const filter = args.filter;
-    const list = filter ? list_((filter.parentId as string | null) ?? null) : [...nodes];
+    if (filter) levelReads.push(1);
+    else scans.push(1);
+    let list = filter ? list_((filter.parentId as string | null) ?? null) : [...nodes];
+    let total = list.length;
+    if (!filter && opts.truncateScan && list.length > LEVEL_LIMIT) {
+      total = list.length;
+      list = list.slice(0, LEVEL_LIMIT);
+    }
     return new Map([
-      ["q", [{ ids: list.map((n) => n.id), total: list.length }]],
+      ["q", [{ ids: list.map((n) => n.id), total }]],
       ["g", [{ list, state: "1" }]],
     ]);
   }) as never);
@@ -94,7 +117,7 @@ function server(seed: Array<Record<string, unknown>>, opts: { race?: boolean } =
     return { accountId, blobId: `blob-${uploads.length}`, type: "text/plain", size: 5 };
   }) as never);
 
-  return { created, uploads, nodes };
+  return { created, uploads, nodes, scans, levelReads };
 }
 
 afterEach(() => {
@@ -232,5 +255,112 @@ describe("a drop onto a folder that already exists", () => {
     // drop reported nothing wrong.
     expect(s.nodes.find((n) => n.name === "x.txt")!.parentId).toBe("theirs");
     expect(useFiles.getState().uploads).toEqual([]);
+  });
+});
+
+/*
+ * An account larger than one read of it.
+ *
+ * The account-wide read is a *page*, not a promise: past its ceiling the walk
+ * sees a thousand nodes and not the ones after them. What that costs depends on
+ * the question being asked, and the two questions a drop asks are not equally
+ * forgiving.
+ *
+ * A folder resolved from a partial read costs a create the server refuses, and
+ * the refusal sends the walk back to read the level for real -- so the short
+ * read is recoverable. A **file** checked against a partial read is not: the
+ * name it cannot see is a blob already uploaded and about to be refused. That
+ * asymmetry is what these four cases pin, and the first of them fails without
+ * the fix: the file is paid for, uploaded, and refused afterwards.
+ */
+describe("an account past the read's ceiling", () => {
+  /** More nodes than one read returns, so the account read comes back a page. */
+  const oversize = (extra: Array<Record<string, unknown>>) => [
+    ...extra,
+    ...Array.from({ length: LEVEL_LIMIT + 5 }, (_, i) =>
+      node(`pad-${i}`, `pad-${i}.txt`, "file"),
+    ),
+  ];
+
+  it("refuses a file the truncated read could not see, without uploading it", async () => {
+    const s = server(
+      oversize([
+        node("d1", "folder", "directory"),
+        node("f1", "known.txt", "file", "d1"),
+      ]),
+      { truncateScan: true },
+    );
+
+    await useFiles.getState().uploadPlan(null, {
+      files: [{ file: file("known.txt"), path: ["folder"] }],
+      dirs: [["folder"]],
+    });
+
+    // The blob was never bought: this is the assertion the fix is for, and it
+    // is the one that fails when the level is not read for itself.
+    expect(s.uploads).toEqual([]);
+    const rows = useFiles.getState().uploads;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.name).toBe("known.txt");
+    expect(rows[0]!.error).toMatch(/already here/);
+  });
+
+  it("reuses a folder the truncated read could not see, without creating a second", async () => {
+    const s = server(
+      oversize([node("d1", "folder", "directory"), node("d2", "sub", "directory", "d1")]),
+      { truncateScan: true },
+    );
+
+    await useFiles.getState().uploadPlan(null, {
+      files: [{ file: file("new.txt"), path: ["folder", "sub"] }],
+      dirs: [["folder"], ["folder", "sub"]],
+    });
+
+    // Not one folder was created: the refusals taught the walk what was there.
+    expect(s.created.filter((c) => c.nodeType === "directory")).toEqual([]);
+    expect(s.nodes.find((n) => n.name === "new.txt")!.parentId).toBe("d2");
+  });
+
+  it("reads the level it writes into once, and asks the account once", async () => {
+    const s = server(oversize([node("d1", "folder", "directory")]), {
+      truncateScan: true,
+    });
+
+    await useFiles.getState().uploadPlan(null, {
+      files: [
+        { file: file("a.txt"), path: ["folder"] },
+        { file: file("b.txt"), path: ["folder"] },
+      ],
+      dirs: [["folder"]],
+    });
+
+    // One account read, and one read of the folder the files go into -- however
+    // many files go into it. The narrowing is per level written into, not per
+    // file and not per folder named.
+    expect(s.scans).toHaveLength(1);
+    expect(s.levelReads).toHaveLength(1);
+    expect(s.uploads).toHaveLength(2);
+  });
+
+  it("asks the account once and no level at all when the read was whole", async () => {
+    const s = server([
+      node("d1", "folder", "directory"),
+      node("d2", "sub", "directory", "d1"),
+    ]);
+
+    await useFiles.getState().uploadPlan(null, {
+      files: [
+        { file: file("a.txt"), path: ["folder"] },
+        { file: file("b.txt"), path: ["folder", "sub"] },
+      ],
+      dirs: [["folder"], ["folder", "sub"]],
+    });
+
+    // The whole point of the scan: a tree of any depth costs one request.
+    expect(s.scans).toHaveLength(1);
+    expect(s.levelReads).toEqual([]);
+    expect(s.created).toEqual([]);
+    expect(s.nodes.find((n) => n.name === "a.txt")!.parentId).toBe("d1");
+    expect(s.nodes.find((n) => n.name === "b.txt")!.parentId).toBe("d2");
   });
 });
