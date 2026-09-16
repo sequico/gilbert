@@ -112,6 +112,31 @@ export async function ensureFolder(accountId: Id): Promise<Id> {
 }
 
 /**
+ * The names a folder already holds, by name, so a writer can refuse a duplicate
+ * before spending a blob on it.
+ *
+ * Stalwart charges the account for every upload and never reclaims one, so a
+ * file whose name is taken is a write worth not making: the server refuses the
+ * create *after* the bytes have been paid for. The comparison is the exact name
+ * within one parent, which is what the server's own collision check does --
+ * `compareCaseInsensitively` is opt-in and nothing here sends it.
+ *
+ * The hidden app folder is in here like any other node: it is real state in the
+ * account, and a name it holds is a name no create can have.
+ *
+ * The server is still the authority. This read is a courtesy that saves an
+ * upload, and a name that appears between the read and the write is refused by
+ * the server exactly as a taken one is — see `isAlreadyExists`.
+ */
+export async function childNames(
+  accountId: Id,
+  parentId: Id | null,
+): Promise<Map<string, FileNode>> {
+  const { list } = await listChildrenWithState(accountId, parentId, folderProps());
+  return new Map(list.map((n) => [String(n.name), n]));
+}
+
+/**
  * A node's persistent blobId. `FileNode/set` does not return one on create, so
  * anything that needs the blob straight after making the node has to ask.
  */

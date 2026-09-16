@@ -23,7 +23,7 @@
  * write a single call at the call site.
  */
 
-import { JmapClient } from "./jmap.js";
+import { isAlreadyExistsRefusal, JmapClient } from "./jmap.js";
 import { appDocumentJson } from "./shared/appDocument.js";
 import type { UpstreamSession } from "./upstream.js";
 
@@ -185,24 +185,55 @@ async function ensureChildFolder(
   if (existing?.id) return String(existing.id);
   const created = await clientOf(ctx).call<{
     created?: Record<string, { id?: string }>;
+    notCreated?: Record<string, { type?: string; existingId?: string }>;
   }>(
     "FileNode/set",
     { accountId, create: { d: { parentId, name, nodeType: "directory" } } },
     [FILENODE_CAP],
   );
   const id = created.created?.d?.id;
-  if (!id)
+  /*
+   * A create that lost the race is not a failure to report.
+   *
+   * Creating a folder is a read-then-write that cannot be made conditional (the
+   * state a create would carry is the state of the account, which any other
+   * write invalidates), so two workers can both find the folder missing and both
+   * ask for it. Stalwart refuses the second with `alreadyExists` and names the
+   * folder that is there in `existingId` — the one this call was trying to
+   * reach. Taking it is the whole answer; the folder a caller asked for exists,
+   * which is what it asked for.
+   *
+   * Without this the refusal is read as "created but no id" and thrown, so a
+   * race that is entirely normal would fail one of two callers for no reason a
+   * reader could act on.
+   */
+  if (!id) {
+    const refused = created.notCreated?.d;
+    if (isAlreadyExistsRefusal(refused)) {
+      const named = refused?.existingId ? String(refused.existingId) : undefined;
+      if (named) return named;
+      const again = await fileChildren(ctx, accountId, parentId, FOLDER_PROPS);
+      const theirs = again.find(
+        (n) => n.nodeType === "directory" && n.name === name && n.id !== undefined,
+      );
+      if (theirs?.id) return String(theirs.id);
+    }
     throw new AppFolderError(
       `The mail server created the folder "${name}" but returned no id.`,
     );
-  // Creating a folder is a read-then-write and cannot be made conditional (the
-  // state a create would carry is the state of the account, which any other
-  // write invalidates), so two workers can both decide it is missing. When that
-  // happened there are two folders by this name, and every later lookup would
-  // pick whichever the server listed first: the documents would split across
-  // two trees and look as if they had vanished. The list is re-read, the
-  // smaller id wins — deterministically, the same one for both workers — and
-  // the copy this call created is removed.
+  }
+  /*
+   * And the state a duplicate would leave: two directories by one name under
+   * one parent.
+   *
+   * The refusal above is what keeps that from happening on 0.16, so this is a
+   * guard rather than a routine: it fires only if a create is accepted while a
+   * sibling already carries the name, which a 0.16 server does not do. A
+   * second one would make every later lookup pick whichever the server lists
+   * first -- the documents would split across two trees and look as if they had
+   * vanished -- so the list is re-read, the smaller id wins deterministically
+   * (the same one for every caller), and the copy this call created is removed.
+   */
   const after = await fileChildren(ctx, accountId, parentId, FOLDER_PROPS);
   const sameName = after
     .filter((n) => n.nodeType === "directory" && n.name === name && n.id !== undefined)

@@ -1,9 +1,15 @@
 import { create } from "zustand";
 import { CAP, client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, QueryResponse, SetResponse } from "@/jmap/types";
-import { isAppFolder } from "@/lib/appFolder";
-import { folderPathKey, foldersNeeded, type PlannedUpload } from "@/lib/dropUpload";
-import { directoryCreate, fileCreate, fileNodeProps } from "@/lib/filenode";
+import { childNames, isAppFolder } from "@/lib/appFolder";
+import { type DropPlan, folderPathKey, foldersNeeded } from "@/lib/dropUpload";
+import {
+  directoryCreate,
+  fileCreate,
+  fileNodeProps,
+  isAlreadyExists,
+  NameTakenError,
+} from "@/lib/filenode";
 import { t as translate } from "@/lib/i18n";
 import { placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { useSession } from "./session";
@@ -68,6 +74,16 @@ interface FilesState {
   openAccount(accountId: Id | null): void;
   loadChildren(parentId: Id | null): Promise<void>;
   mkdir(parentId: Id | null, name: string): Promise<Id>;
+  /*
+   * Upload files into a folder of the account being browsed.
+   *
+   * A file whose name the folder already holds is refused before its bytes are
+   * uploaded, and the refusal is left in the tray as a row: the alternative --
+   * a second node under the same name, or the first one quietly replaced -- is
+   * a decision this does not make. One listing covers the whole call, so a
+   * folder of two hundred files costs one query rather than two hundred, and
+   * two files of the same name in one drop are caught here as well.
+   */
   upload(parentId: Id | null, files: File[]): Promise<void>;
   /**
    * Take a failed upload out of the tray.
@@ -80,16 +96,25 @@ interface FilesState {
   /** Say which listing is on screen, so a push refreshes it and not the rest. */
   setListingShown(shown: { parentId: Id | null } | null): void;
   /**
-   * Save files into an account that is not the one being browsed.
+   * Save files into a folder of an account that is not the one being browsed.
    *
    * A message's attachments belong to the mailbox's account, and saving them
    * to Files can mean the reader's own files or a group's -- neither of which
    * is where Files happens to be looking. The nodes are created where the
    * blobs go and `accountId` is left alone, so the view does not move under
-   * the reader. Returns how many landed and the names of the ones that did
-   * not, because the caller has to say so.
+   * the reader. `parentId` is the folder chosen inside that account, the top
+   * level when it is null.
+   *
+   * Returns how many landed, the names that could not be saved, and the names
+   * the folder already held -- kept apart because the caller says something
+   * different about each: one is a failure, the other is a file that is still
+   * there and was not touched.
    */
-  uploadTo(accountId: Id, files: File[]): Promise<{ saved: number; failed: string[] }>;
+  uploadTo(
+    accountId: Id,
+    files: File[],
+    parentId?: Id | null,
+  ): Promise<{ saved: number; failed: string[]; existing: string[] }>;
   rename(id: Id, name: string): Promise<void>;
   /**
    * Write text back over a file. `seenBlobId` is what the editor started from:
@@ -105,8 +130,14 @@ interface FilesState {
   setDragging(ids: Id[]): void;
   /** Every directory in the account, for the tree in the sidebar. */
   loadTree(): Promise<void>;
-  /** Upload a planned drop, creating the folders it needs as it goes. */
-  uploadPlan(parentId: Id | null, plan: PlannedUpload[]): Promise<void>;
+  /**
+   * Upload a planned drop, spreading it over what is already in the folder.
+   *
+   * A folder the drop names is used when it is already there and made when it
+   * is not, so dropping the same tree twice adds what is new to the same
+   * folders rather than building a second copy beside them.
+   */
+  uploadPlan(parentId: Id | null, plan: DropPlan): Promise<void>;
   pathTo(id: Id | null): FileNode[];
   applyChanges(types: Set<string>): void;
 }
@@ -161,11 +192,27 @@ export function emptyForAccount(accountId: Id | null) {
 }
 
 /**
+ * What a name refused for being taken is called, in one place.
+ *
+ * The reader is told which file it was and that nothing was replaced, because
+ * the alternative the server offers -- `onExists: replace`, `rename`,
+ * `newest` -- is a different decision from this one and is not made here.
+ */
+export function nameTakenMessage(name: string): string {
+  return translate("A file called \u201c{name}\u201d is already here.", { name });
+}
+
+/**
  * Upload one file into an account and create the node that points at it.
  *
  * The account is a parameter because a node has to be created in the account
  * that holds the blob, and that is not always the one being browsed: saving a
  * message's attachments to Files can mean the reader's own files or a group's.
+ *
+ * Callers check the folder's names first, so a duplicate usually costs nothing
+ * -- see `childNames`. This refusal is the server's, and it is the one that
+ * counts: a name that appeared between that read and this write lands here, and
+ * it reads the same as the duplicate the caller already caught.
  */
 async function putFile(
   accountId: Id,
@@ -184,9 +231,63 @@ async function putFile(
     create: { f: fileCreate(parentId, file.name, up.blobId, type) },
   });
   const err = res.notCreated?.f;
-  if (err) throw new Error(setErrorMessage(err));
+  if (err)
+    throw isAlreadyExists(err)
+      ? new NameTakenError(err.existingId, nameTakenMessage(file.name))
+      : new Error(setErrorMessage(err));
   return res.created!.f!.id;
 }
+
+/**
+ * A directory in a named account's tree, made outright.
+ *
+ * The account is a parameter for the same reason `putFile`'s is: a node is
+ * created in the account that owns it, and a drop lands in whoever's files the
+ * reader has open. It is deliberately *not* the store's `mkdir`, which is the
+ * view's own action -- that one reloads the folder it was aimed at and
+ * refreshes the tree, and a drop that made thirty folders would do both thirty
+ * times.
+ */
+async function createDirectory(
+  accountId: Id,
+  parentId: Id | null,
+  name: string,
+): Promise<Id> {
+  const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
+    accountId,
+    create: { d: directoryCreate(parentId, name) },
+  });
+  const err = res.notCreated?.d;
+  // The type goes on the error, not only in its message: a create that lost a
+  // race is a folder somebody else made, and its caller has to be able to tell
+  // that from a create that failed.
+  if (err)
+    throw isAlreadyExists(err)
+      ? new NameTakenError(err.existingId, setErrorMessage(err))
+      : new Error(setErrorMessage(err));
+  return res.created!.d!.id;
+}
+
+/**
+ * A node as far as the folder walk is concerned: what to call it, whether it is
+ * a folder, and which node to write into when it is.
+ */
+type SiblingNode = Pick<FileNode, "id" | "name" | "nodeType">;
+
+/**
+ * A record in the upload tray, the one place a failure is reported.
+ *
+ * The id is what a progress update and a dismissal are aimed at, so two files
+ * of the same name in one drop must not share one -- `Date.now()` alone hands
+ * both the same value, and the second file's progress would then move the
+ * first file's row.
+ */
+const uploadRow = (name: string, error: string | null) => ({
+  id: `${Date.now()}-${name}-${Math.random().toString(36).slice(2, 7)}`,
+  name,
+  progress: 0,
+  error,
+});
 
 export const useFiles = create<FilesState>((set, get) => ({
   accountId: null,
@@ -361,38 +462,47 @@ export const useFiles = create<FilesState>((set, get) => ({
   },
 
   async mkdir(parentId, name) {
-    const accountId = get().accountId!;
-    const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
-      accountId,
-      create: { d: directoryCreate(parentId, name) },
-    });
-    const err = res.notCreated?.d;
-    if (err) throw new Error(setErrorMessage(err));
+    const id = await createDirectory(get().accountId!, parentId, name);
     await get().loadChildren(parentId);
     void get().loadTree();
-    return res.created!.d!.id;
+    return id;
   },
 
+  /*
+   * A file the folder already holds is refused before its bytes are uploaded.
+   *
+   * Stalwart charges for every upload and never gives one back, so the check is
+   * worth making here rather than discovering at the write: the server would
+   * refuse the create anyway (`alreadyExists`), and by then the blob is paid
+   * for. One listing covers the whole call, and the names it found are added to
+   * as this loop goes, so two files of the same name in one drop are caught
+   * too. A listing that fails is not a reason to refuse the upload: the server
+   * still is, one layer down.
+   */
   async upload(parentId, files) {
     const accountId = get().accountId!;
+    const taken = new Set(
+      (await childNames(accountId, parentId).catch(() => new Map())).keys(),
+    );
     for (const f of files) {
-      const id = `${Date.now()}-${f.name}`;
-      set((s) => ({
-        uploads: [...s.uploads, { id, name: f.name, progress: 0, error: null }],
-      }));
+      const row = uploadRow(f.name, null);
+      set((s) => ({ uploads: [...s.uploads, row] }));
       try {
+        if (taken.has(f.name))
+          throw new NameTakenError(undefined, nameTakenMessage(f.name));
         await putFile(accountId, parentId, f, (percent) =>
           set((s) => ({
             uploads: s.uploads.map((u) =>
-              u.id === id ? { ...u, progress: percent } : u,
+              u.id === row.id ? { ...u, progress: percent } : u,
             ),
           })),
         );
-        set((s) => ({ uploads: s.uploads.filter((u) => u.id !== id) }));
+        taken.add(f.name);
+        set((s) => ({ uploads: s.uploads.filter((u) => u.id !== row.id) }));
       } catch (err) {
         set((s) => ({
           uploads: s.uploads.map((u) =>
-            u.id === id ? { ...u, error: (err as Error).message } : u,
+            u.id === row.id ? { ...u, error: (err as Error).message } : u,
           ),
         }));
       }
@@ -411,18 +521,31 @@ export const useFiles = create<FilesState>((set, get) => ({
     set((s) => ({ uploads: s.uploads.filter((u) => u.id !== id) }));
   },
 
-  async uploadTo(accountId, files) {
+  async uploadTo(accountId, files, parentId = null) {
     const failed: string[] = [];
+    const existing: string[] = [];
     let saved = 0;
+    const taken = new Set(
+      (await childNames(accountId, parentId).catch(() => new Map())).keys(),
+    );
     for (const f of files) {
       try {
-        await putFile(accountId, null, f);
+        if (taken.has(f.name)) {
+          existing.push(f.name);
+          continue;
+        }
+        await putFile(accountId, parentId, f);
+        taken.add(f.name);
         saved += 1;
-      } catch {
-        failed.push(f.name);
+      } catch (err) {
+        // The folder's own answer decides which list it goes in: a name that is
+        // taken leaves a file that is still there, which is not a failure and
+        // must not be reported as one.
+        if (isAlreadyExists(err)) existing.push(f.name);
+        else failed.push(f.name);
       }
     }
-    return { saved, failed };
+    return { saved, failed, existing };
   },
 
   /* Re-read named nodes in place. Sharing changes one property of one node and
@@ -447,23 +570,101 @@ export const useFiles = create<FilesState>((set, get) => ({
     });
   },
 
+  /*
+   * A drop, landed in the tree it names -- reusing what is already there.
+   *
+   * Every folder of the drop is resolved first: the one already under the
+   * target is used as it is, and only a name that is not there is created. A
+   * folder dropped twice therefore adds what is new to the same folders instead
+   * of building a second copy beside them, which is what dropping onto a
+   * folder one already has has to mean.
+   *
+   * A folder that cannot be resolved is not a folder to guess at. Nothing below
+   * it is created, and the files that were headed for it are left in the tray as
+   * failures: filing them into the nearest folder that does exist is how a drop
+   * comes to scatter files somewhere nobody chose.
+   */
   async uploadPlan(parentId, plan) {
+    const accountId = get().accountId!;
+    // Every level's names, read once each: a folder's children are asked for
+    // once however many paths pass through it.
+    const levels = new Map<string, Map<string, SiblingNode>>();
+    const namesAt = async (key: string, id: Id | null) => {
+      const known = levels.get(key);
+      if (known) return known;
+      const names = await childNames(accountId, id);
+      levels.set(key, names);
+      return names;
+    };
     // Folders first, parents before children, so every file has somewhere to go.
     const dirIds = new Map<string, Id | null>([["", parentId]]);
+    // Paths the drop asked for and cannot have; the empty key is the drop
+    // itself, which always exists because that is where the reader aimed.
+    const missing = new Set<string>();
     for (const path of foldersNeeded(plan)) {
-      const parent = dirIds.get(folderPathKey(path.slice(0, -1))) ?? parentId;
+      const key = folderPathKey(path);
+      const parentKey = folderPathKey(path.slice(0, -1));
       const name = path[path.length - 1]!;
+      /* A parent that could not be resolved takes its whole subtree with it:
+         creating the child elsewhere would put it outside the folder it was
+         dropped in. */
+      if (missing.has(parentKey)) {
+        missing.add(key);
+        continue;
+      }
+      const into = dirIds.get(parentKey) ?? parentId;
+      const siblings = await namesAt(parentKey, into);
+      const found = siblings.get(name);
+      if (found?.nodeType === "directory") {
+        dirIds.set(key, found.id);
+        continue;
+      }
+      if (found) {
+        // A file is standing where the folder goes. Neither one may be moved
+        // out of the way silently, so the folder -- and what was in it -- stop
+        // here and say why.
+        missing.add(key);
+        set({ error: nameTakenMessage(name) });
+        continue;
+      }
       try {
-        dirIds.set(folderPathKey(path), await get().mkdir(parent, name));
+        const id = await createDirectory(accountId, into, name);
+        dirIds.set(key, id);
+        siblings.set(name, { id, name, nodeType: "directory" });
       } catch (err) {
-        // Leave it unmapped: its files land in the nearest folder that exists
-        // rather than vanishing, and the error is shown against the upload.
+        /*
+         * Another writer can make the folder between the listing and this
+         * create, and the server refuses a second create of the same name.
+         * That refusal means the folder this drop wanted exists -- so take it
+         * rather than reporting a name nobody can see. The level is re-read
+         * rather than trusted: the listing this walk holds was taken before the
+         * other writer's create, which is why the create was refused at all.
+         */
+        if (isAlreadyExists(err)) {
+          const fresh = await childNames(accountId, into);
+          levels.set(parentKey, fresh);
+          const theirs = fresh.get(name);
+          if (theirs?.nodeType === "directory") {
+            dirIds.set(key, theirs.id);
+            continue;
+          }
+        }
+        missing.add(key);
         set({ error: (err as Error).message });
       }
     }
     const byFolder = new Map<string, File[]>();
-    for (const item of plan) {
+    for (const item of plan.files) {
       const key = folderPathKey(item.path);
+      if (missing.has(key)) {
+        set((s) => ({
+          uploads: [
+            ...s.uploads,
+            uploadRow(item.file.name, translate("Its folder could not be created.")),
+          ],
+        }));
+        continue;
+      }
       byFolder.set(key, [...(byFolder.get(key) ?? []), item.file]);
     }
     for (const [key, files] of byFolder)

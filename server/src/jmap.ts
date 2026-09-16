@@ -111,6 +111,25 @@ export function isStateMismatch(err: unknown): boolean {
 }
 
 /**
+ * A create refused because a sibling already carries the name.
+ *
+ * `onExists` defaults to `Reject` on 0.16, and the refusal arrives **inside**
+ * `notCreated` -- it is one object in an otherwise successful response, not a
+ * request-level error -- carrying the existing node's id in `existingId`
+ * (`FileNodeSetArguments` and `find_sibling_collision`,
+ * `crates/jmap-proto/src/object/file_node.rs` / `crates/jmap/src/file/set.rs`,
+ * v0.16.21; `tests/src/jmap/files/node.rs` asserts the id). A read-then-write
+ * that found the name missing and lost the race gets exactly this back, so it
+ * is the answer "somebody made it while you were deciding" rather than a failure
+ * to report.
+ */
+export function isAlreadyExistsRefusal(
+  err: { type?: unknown; existingId?: unknown } | undefined,
+): boolean {
+  return err?.type === "alreadyExists";
+}
+
+/**
  * The server's own words about a refusal, bounded.
  *
  * A non-2xx body says what was wrong — the filter it did not accept, the

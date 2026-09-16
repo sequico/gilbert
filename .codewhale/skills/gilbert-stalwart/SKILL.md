@@ -85,6 +85,18 @@ Where the integration lives:
   0.16 the mock and client send/respect `nodeType`.
 - `FileNode/set` returns **no `blobId` on create** — ask with a follow-up get
   (`nodeBlobId`).
+- A create whose name a sibling already carries is **refused**, not accepted:
+  `onExists` defaults to `Reject` and the answer is `alreadyExists` with the
+  existing node's id in `existingId` (`FileNodeSetArguments` /
+  `find_sibling_collision`, `crates/jmap-proto/src/object/file_node.rs` /
+  `crates/jmap/src/file/set.rs`, v0.16.21; `tests/src/jmap/files/node.rs`
+  asserts the id). `replace` / `rename` / `newest` exist but are opt-in. The
+  comparison is name-within-parent and case-sensitive unless the request sends
+  `compareCaseInsensitively`. Two consequences the code lives with: every
+  read-then-create of a folder must treat this refusal as "somebody made it",
+  and every writer that must not overwrite has to look the name up first. The
+  mock reproduces the refusal, the id and the case-sensitivity
+  (`server/src/mock/index.ts`, `FileNode/set`).
 - Unshared nodes report `shareWith: {}`, not `null` (0.16.19, 2026-08-27) —
   test with `Object.keys(...).length`.
 - Stalwart refuses writing `isSubscribed` on an address book shared

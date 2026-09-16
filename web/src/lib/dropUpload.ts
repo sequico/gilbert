@@ -104,7 +104,21 @@ function readAll(entry: EntryLike, maxEntries: number): Promise<EntryLike[]> {
 }
 
 /**
- * Walk the dropped entries into a flat list of files and their folder paths.
+ * What a drop is made of: the files to upload, and every folder in the tree.
+ *
+ * The folders are carried beside the files rather than derived from them,
+ * because a dropped folder may hold an empty one: derived from the files alone,
+ * `sub/` holding nothing would never be created and the copy would not be the
+ * tree that was dropped. `dirs` holds every directory path the walk entered,
+ * parents included, each once.
+ */
+export interface DropPlan {
+  files: PlannedUpload[];
+  dirs: string[][];
+}
+
+/**
+ * Walk the dropped entries into the files to upload and the folders to make.
  *
  * Both bounds are there because a directory tree from outside the app is not
  * something to take on trust: a symlink loop would otherwise walk until the tab
@@ -114,20 +128,28 @@ function readAll(entry: EntryLike, maxEntries: number): Promise<EntryLike[]> {
 export async function planUpload(
   entries: EntryLike[],
   { maxDepth = 16, maxEntries = 20_000 } = {},
-): Promise<PlannedUpload[]> {
-  const out: PlannedUpload[] = [];
+): Promise<DropPlan> {
+  const files: PlannedUpload[] = [];
+  const dirs: string[][] = [];
+  const seenDirs = new Set<string>();
   const walk = async (entry: EntryLike, path: string[]): Promise<void> => {
     if (entry.isFile) {
       const file = await readFile(entry);
-      if (file) out.push({ file, path });
+      if (file) files.push({ file, path });
       return;
     }
     if (!entry.isDirectory || path.length >= maxDepth) return;
+    const here = [...path, entry.name];
+    const key = folderPathKey(here);
+    if (!seenDirs.has(key)) {
+      seenDirs.add(key);
+      dirs.push(here);
+    }
     const children = await readAll(entry, maxEntries);
-    for (const child of children) await walk(child, [...path, entry.name]);
+    for (const child of children) await walk(child, here);
   };
   for (const entry of entries) await walk(entry, []);
-  return out;
+  return { files, dirs };
 }
 
 /**
@@ -146,19 +168,26 @@ export function folderPathKey(path: ReadonlyArray<string>): string {
   return path.join("/");
 }
 
-/** The distinct folder paths a plan needs, parents always before their children. */
-export function foldersNeeded(plan: PlannedUpload[]): string[][] {
+/**
+ * The distinct folder paths a plan needs, parents always before their children.
+ *
+ * The union of what the files sit under and the folders the drop carried, so a
+ * dropped folder that holds nothing is still created.
+ */
+export function foldersNeeded(plan: DropPlan): string[][] {
   const seen = new Set<string>();
   const out: string[][] = [];
-  for (const item of plan) {
-    for (let i = 1; i <= item.path.length; i++) {
-      const prefix = item.path.slice(0, i);
+  const request = (path: string[]) => {
+    for (let i = 1; i <= path.length; i++) {
+      const prefix = path.slice(0, i);
       const key = folderPathKey(prefix);
       if (seen.has(key)) continue;
       seen.add(key);
       out.push(prefix);
     }
-  }
+  };
+  for (const dir of plan.dirs) request(dir);
+  for (const item of plan.files) request(item.path);
   // Shorter paths first, so a folder is never created before its parent.
   return out.sort((a, b) => a.length - b.length);
 }

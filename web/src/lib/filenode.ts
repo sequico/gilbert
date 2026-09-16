@@ -118,3 +118,48 @@ export function canDropFileNode(
   if (target.myRights && !target.myRights.mayAddChildren) return false;
   return !descendantIds(nodes, draggedId).has(targetId);
 }
+
+/**
+ * Whether a refusal is Stalwart saying the name is already taken.
+ *
+ * The type is `alreadyExists` -- its own, not `invalidProperties` -- and it
+ * carries the id of the node already holding the name in `existingId`
+ * (`find_sibling_collision` and `SetError::already_exists`,
+ * `crates/jmap/src/file/set.rs` / `crates/jmap-proto/src/error/set.rs`, v0.16.21).
+ * The comparison is by name within one parent, and it is case-sensitive unless
+ * the request sends `compareCaseInsensitively`.
+ *
+ * A client may not assume this away. Creating a node whose name a sibling
+ * already carries is refused rather than silently accepted, so a caller that
+ * wants the existing node has to look it up, and one that treats the refusal as
+ * success leaves the file it thought it wrote nowhere. Every writer that has to
+ * tell the two apart -- reuse the folder, stop on the file -- reads it here.
+ */
+export function isAlreadyExists(
+  err: unknown,
+): err is { type: "alreadyExists"; existingId?: Id } {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { type?: unknown }).type === "alreadyExists"
+  );
+}
+
+/**
+ * A name that is already taken, as an error a caller can catch.
+ *
+ * `isAlreadyExists` reads the server's own refusal off the wire; this is the
+ * same refusal after a writer has turned it into a sentence for the reader, so
+ * the type and the id of the node holding the name live on the error a caller
+ * actually catches. A catch that has to tell "already here" from "did not work"
+ * keeps working either way, which is why they survive the message.
+ */
+export class NameTakenError extends Error {
+  readonly type = "alreadyExists";
+  readonly existingId: Id | undefined;
+  constructor(existingId: Id | undefined, message: string) {
+    super(message);
+    this.name = "NameTakenError";
+    this.existingId = existingId;
+  }
+}

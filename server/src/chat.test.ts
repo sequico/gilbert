@@ -66,21 +66,60 @@ async function setNodes(
   return r[1].created ?? {};
 }
 
+/**
+ * The id of a directory by name under one parent, or null when it is not there.
+ *
+ * Read rather than remembered: the group account ships with a `gilbert` folder
+ * of its own (the identity assignments live in it), so a test that created one
+ * unconditionally would be asking for a second folder by a name already in use
+ * -- which a real server refuses, and rightly.
+ */
+async function findDir(parentId: string | null, name: string): Promise<string | null> {
+  const [resp] = await jmap([
+    [
+      "FileNode/query",
+      {
+        accountId: GROUP_ACCOUNT,
+        filter: parentId ? { parentId } : { isTopLevel: true },
+        limit: 1000,
+      },
+      "0",
+    ],
+  ]);
+  const ids = (resp as [string, { ids: string[] }])[1].ids;
+  if (!ids.length) return null;
+  const [got] = await jmap([
+    [
+      "FileNode/get",
+      { accountId: GROUP_ACCOUNT, ids, properties: ["id", "name", "nodeType"] },
+      "0",
+    ],
+  ]);
+  const list = (
+    got as [string, { list: Array<{ id: string; name: string; nodeType: string }> }]
+  )[1].list;
+  const found = list.find((n) => n.nodeType === "directory" && n.name === name);
+  return found?.id ?? null;
+}
+
+/** The same folder, made only when the account does not have one already. */
+async function dir(parentId: string | null, name: string): Promise<string> {
+  const existing = await findDir(parentId, name);
+  if (existing) return existing;
+  const made = await setNodes({ d: { parentId, name, nodeType: "directory" } });
+  return made.d!.id;
+}
+
 let chatFolder = "";
 let stateAfterFolders = "";
 
 before(async () => {
-  // The app folder and its chat subfolders, exactly as the client's
-  // ensureChatFolders makes them in the group's own account.
-  const dirs = await setNodes({
-    app: { parentId: null, name: "gilbert", nodeType: "directory" },
-  });
-  const appFolder = dirs.app!.id;
-  const sub = await setNodes({
-    chat: { parentId: appFolder, name: "chat", nodeType: "directory" },
-    state: { parentId: appFolder, name: "chat-state", nodeType: "directory" },
-  });
-  chatFolder = sub.chat!.id;
+  // The app folder and its chat subfolders, resolving the folders the account
+  // already has rather than asking for a second of each name -- which is what
+  // `ensureChatFolders` does in the group's own account.
+  const appFolder = await dir(null, "gilbert");
+  chatFolder = await dir(appFolder, "chat");
+  await dir(appFolder, "chat-state");
   const [ch] = await jmap([
     ["FileNode/changes", { accountId: GROUP_ACCOUNT, sinceState: "0" }, "0"],
   ]);

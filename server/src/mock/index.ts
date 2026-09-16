@@ -2348,6 +2348,8 @@ class SetError extends Error {
     readonly type: string,
     readonly description: string,
     readonly properties?: string[],
+    /** The node already carrying the name, for `alreadyExists`. */
+    readonly existingId?: string,
   ) {
     super(description);
   }
@@ -2356,6 +2358,7 @@ class SetError extends Error {
       type: this.type,
       description: this.description,
       ...(this.properties ? { properties: this.properties } : {}),
+      ...(this.existingId ? { existingId: this.existingId } : {}),
     };
   }
 }
@@ -4118,8 +4121,9 @@ const handlers: Record<string, Handler> = {
       casLoses.count -= 1;
       bumpState("FileNode");
     }
+    const family = nodesFor(a.accountId);
     const res = genericSet(
-      nodesFor(a.accountId),
+      family,
       "f",
       (o) => {
         const stamp = new Date(now()).toISOString();
@@ -4137,6 +4141,38 @@ const handlers: Record<string, Handler> = {
         // file properties. Keep it internally so query and get stay consistent.
         if (!o.nodeType)
           o.nodeType = o.blobId || o.size != null || o.type ? "file" : "directory";
+        /*
+         * A name a sibling already carries, refused the way 0.16 refuses it.
+         *
+         * `onExists` defaults to `Reject` (`FileNodeSetArguments`,
+         * `crates/jmap-proto/src/object/file_node.rs`), and a create whose
+         * effective name collides with a node under the same parent answers
+         * `alreadyExists` with that node's id in `existingId`
+         * (`find_sibling_collision`, `crates/jmap/src/file/set.rs`, v0.16.21;
+         * `tests/src/jmap/files/node.rs` asserts the id). The comparison is
+         * case-sensitive, and it covers files and folders alike — that is the
+         * server's default, and `compareCaseInsensitively`, the argument that
+         * widens it, is **not** modelled here because nothing in Gilbert sends
+         * it. A caller that starts to has to model it first.
+         *
+         * That refusal is not a detail a client may assume away: a folder drop
+         * that creates only what is missing depends on it, and so does every
+         * writer that must not overwrite. Without it a second identical create
+         * looked like success here and would be refused on a real server.
+         */
+        const clash = family.find(
+          (n) =>
+            n.id !== o.id &&
+            (n.parentId ?? null) === (o.parentId ?? null) &&
+            n.name === o.name,
+        );
+        if (clash)
+          throw new SetError(
+            "alreadyExists",
+            "The name is already in use.",
+            undefined,
+            String(clash.id),
+          );
       },
       "FileNode",
     )(a);

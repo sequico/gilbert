@@ -93,6 +93,13 @@ export interface SetError {
   type: string;
   description?: string;
   properties?: string[];
+  /**
+   * The node already carrying the name, on an `alreadyExists` refusal from
+   * `FileNode/set` (`find_sibling_collision`, `crates/jmap/src/file/set.rs`,
+   * v0.16.21). It is what lets a caller that lost a create race adopt the node
+   * somebody else made instead of reporting a name nobody can see.
+   */
+  existingId?: Id;
   [k: string]: unknown;
 }
 

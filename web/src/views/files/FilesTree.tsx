@@ -144,9 +144,13 @@ export function FilesTree() {
   const dropFiles = async (parentId: Id | null, dt: DataTransfer) => {
     const entries = entriesFromDrop(dt);
     const flat = Array.from(dt.files);
+    /* The entries carry the tree, and its folders are created even when they
+       hold nothing; `flat` is the fallback for a drop the entry API does not
+       describe. See the note in `FilesView`'s own drop handler. */
     if (entries.length && hasDirectory(entries)) {
       const plan = await planUpload(entries);
-      if (plan.length) await useFiles.getState().uploadPlan(parentId, plan);
+      if (plan.files.length || plan.dirs.length)
+        await useFiles.getState().uploadPlan(parentId, plan);
       return;
     }
     if (flat.length) await useFiles.getState().upload(parentId, flat);
