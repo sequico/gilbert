@@ -1042,10 +1042,15 @@ same query string — so what it builds can be read, edited and learned from.
 - **Attachments** listed with type and size: download, open in a new tab, and an
   inline preview for images and PDFs. **Download all** takes the lot, and
   **Download all to Files** keeps them in the account instead — asking first
-  whose: the reader's own files, or a group's, where every member of the group
-  finds them (a node created in the group's account is the group's from
-  creation). The blobs are copied into the chosen account, because a file node
-  can only point at a blob its own account holds.
+  whose files, then **which folder inside them**, for the reader's own files or
+  for a group's, where every member of the group finds them (a node created in
+  the group's account is the group's from creation). The folder list is read
+  from the destination account and a folder can be made there, and the walk is
+  rooted at the top level of the account chosen rather than at wherever Files
+  happens to be looking. The blobs are copied into the chosen account, because a
+  file node can only point at a blob its own account holds. Offered for one
+  attachment as much as for a set: a single file is the commonest thing to want
+  kept rather than downloaded.
 - **Show original**, **Show headers**, **Download (.eml)** and **Print**.
 - **`winmail.dat` opens.** Outlook sending in Rich Text packs every attachment
   into one TNEF blob that most clients cannot read, so the files inside are
@@ -1217,8 +1222,13 @@ minimisable and maximisable; full-screen on mobile.
 - **Attachment reminder** when the text mentions an attachment and none is there.
 - **Spell check** toggle.
 - **Drafts** save as you type and on close, with the save state shown.
-- **Quoting** on reply, with the signature placed above or below it, and
-  reply-all as an optional default.
+- **Quoting** on reply, with the signature placed above or below it. The
+  one-tap reply on a message's own header is **Reply all**, whatever the
+  settings say, because one click is all there is room for and the list is who
+  people mean; **Reply** to the sender alone is the item beside it in the menu.
+  `replyAllDefault` moves the reply strip at the foot of a thread, the `r` key
+  and the list's own menu — surfaces that can name the action they will take
+  rather than showing one icon for two meanings.
 - **Compose as new** — the same mail again rather than passed on, for one that
   bounced or went to a misspelled address. Recipients, Reply-To, subject, body
   and attachments come across as they stand; the Message-ID, date and threading
@@ -1555,15 +1565,28 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
 - **Drag a row** onto a folder in the list or anywhere in the tree to move it.
   A folder cannot be dropped inside itself.
 - **Drag from the desktop** to upload — and drag a *folder* to upload it with
-  its structure intact, subfolders created as needed. (The structure is only
-  reachable through `webkitGetAsEntry`, whose entries go stale the moment the
-  drop handler returns, so the tree is read out synchronously and walked
-  afterwards.)
+  its structure intact, subfolders created as needed, **empty folders
+  included**. (The structure is only reachable through `webkitGetAsEntry`,
+  whose entries go stale the moment the drop handler returns, so the tree is
+  read out synchronously and walked afterwards.)
+- **Dropping a folder that is already there adds to it** rather than making a
+  second one beside it: the folders of the drop are resolved first, a folder
+  the target already holds is used as it is, and only what is missing is
+  created. A **file** whose name the folder already holds is refused and the
+  refusal is shown on top — the existing file is neither duplicated nor
+  replaced, and the bytes are not uploaded at all (Stalwart charges for every
+  upload and never reclaims one, so a name that is taken is a write not worth
+  making). A folder the drop could not be created — a file is standing where it
+  goes — stops with its whole subtree reported rather than filing those files
+  into whatever folder does exist.
 - **Sharing** per file or folder, with rights per person.
 - **Attach from Files** in the composer, with no re-upload.
 - **Saved into from mail**: a message's attachments can be kept here instead of
   downloaded, into your own files or a group's — the group's account is the
-  destination that makes them the group's.
+  destination that makes them the group's — and into **any folder inside it**,
+  walked or created in the dialog. Offered for **one attachment as much as for
+  ten**. A file the chosen folder already holds is reported rather than
+  replaced.
 - One folder is hidden on purpose: **`gilbert`**, contents and all. It holds
   the settings file and signature images, and the Files view drops it from the
   listing so it never reads as a place to file your own.
