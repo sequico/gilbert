@@ -45,10 +45,19 @@ const node = (
  * nodes past the page are simply not there to be seen, exactly as on a server,
  * and the levels are still readable one at a time -- which is the whole point
  * of the case.
+ *
+ * `levelPage` does the same to a single-level read, which is the other ceiling
+ * in play: `ids` is how many the query answers (so the page looks full) while
+ * `nodes` is how many the `get` resolved, which is how a folder larger than one
+ * page of `maxObjectsInGet` reaches a reader.
  */
 function server(
   seed: Array<Record<string, unknown>>,
-  opts: { race?: boolean; truncateScan?: boolean } = {},
+  opts: {
+    race?: boolean;
+    truncateScan?: boolean;
+    levelPage?: { ids: number; nodes: number };
+  } = {},
 ) {
   const nodes = [...seed];
   const created: Array<{ name: string; nodeType: string }> = [];
@@ -84,8 +93,20 @@ function server(
       total = list.length;
       list = list.slice(0, LEVEL_LIMIT);
     }
+    /*
+     * A level read whose query answers a full page while its `get` resolves
+     * only some of it: the ids are the page, the nodes are what came back. Both
+     * are real answers, and they disagree -- which is the state the completeness
+     * rule has to be able to see.
+     */
+    let ids = list.map((n) => n.id);
+    if (filter && opts.levelPage) {
+      ids = Array.from({ length: opts.levelPage.ids }, (_, i) => `id-${i}`);
+      total = opts.levelPage.ids;
+      list = list.slice(0, opts.levelPage.nodes);
+    }
     return new Map([
-      ["q", [{ ids: list.map((n) => n.id), total }]],
+      ["q", [{ ids, total }]],
       ["g", [{ list, state: "1" }]],
     ]);
   }) as never);
@@ -362,5 +383,39 @@ describe("an account past the read's ceiling", () => {
     expect(s.created).toEqual([]);
     expect(s.nodes.find((n) => n.name === "a.txt")!.parentId).toBe("d1");
     expect(s.nodes.find((n) => n.name === "b.txt")!.parentId).toBe("d2");
+  });
+});
+
+/*
+ * What a *page* of a level is worth to the duplicate check.
+ *
+ * A level larger than one read of it answers with a page and no more. The
+ * tempting reading of that is "the list is incomplete, so it cannot be trusted
+ * and the check must be skipped" -- which is wrong, and wrong in a way that
+ * costs money: every entry in the page is a FileNode the server really returned
+ * for that level, so a name found there really is taken and refusing it early
+ * is correct. The only thing an incomplete page cannot do is *reach* a
+ * duplicate, and skipping the check would not reach it either -- it would just
+ * give up the refusals the page could have made for free.
+ *
+ * So what is asserted here is the observable that tells the two apart: with the
+ * duplicate inside the page, the blob is never uploaded. The opposite design
+ * uploads it, gets refused afterwards, and pays.
+ */
+describe("a level larger than one read of it", () => {
+  it("refuses a duplicate its page did reach, without uploading it", async () => {
+    const s = server(
+      [node("d1", "folder", "directory"), node("f1", "known.txt", "file", "d1")],
+      { levelPage: { ids: LEVEL_LIMIT, nodes: 1 } },
+    );
+
+    await useFiles.getState().upload("d1", [file("known.txt")]);
+
+    // Not one blob: the page held the name, and a page is enough to refuse on.
+    expect(s.uploads).toEqual([]);
+    const rows = useFiles.getState().uploads;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.name).toBe("known.txt");
+    expect(rows[0]!.error).toMatch(/already here/);
   });
 });

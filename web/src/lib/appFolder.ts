@@ -56,18 +56,58 @@ async function children(
  * and reports nothing twice (chat's transcript sync relies on that). The one
  * JMAP listing primitive -- callers that only want the list use `children`
  * or `findInFolder`.
+ *
+ * What comes back is the page, the state, and enough about the two ceilings
+ * this read went through to say whether it is the whole level. Three numbers,
+ * three different things, and conflating them is how a partial read comes to
+ * look complete:
+ *
+ *  - `list` -- the nodes the `get` resolved. This is what a caller reads.
+ *  - `total` -- the population the **query matched**, and only ever what the
+ *    server said. It is `undefined` when the server did not report one, and
+ *    deliberately *not* filled in with the page size: a caller that then
+ *    compares it against the page needs to know the difference between "the
+ *    server said there are 800" and "nobody said, and 800 is what I happened
+ *    to get back".
+ *  - `complete` -- whether this read saw all of it. Two ceilings, because the
+ *    `get` has one of its own (`maxObjectsInGet`) that can truncate *after* a
+ *    query that was itself complete: the ids have to be all of them, and the
+ *    nodes they resolved have to be all of those.
+ *
+ * `pageLimit` is what `complete` measures the page against, and it is the
+ * caller's to name because only the caller knows what it asked for: this
+ * function is called with a page size for chat and with no limit at all for a
+ * level, and "shorter than what I asked for" means something different in each.
+ *
+ * `scope` is which nodes to look at. `"level"` (the default) is one folder:
+ * the children of `parentId`, or the top level when it is null. `"account"` is
+ * every node in the account, no filter at all -- the read a tree walk makes so
+ * that it can resolve a whole depth of folders from one request.
  */
 export async function listChildrenWithState(
   accountId: Id,
   parentId: Id | null,
   properties: string[],
-  opts: { position?: number; limit?: number } = {},
-): Promise<{ list: FileNode[]; state: string; total: number }> {
-  const filter = parentId ? { parentId } : { isTopLevel: true };
+  opts: { position?: number; limit?: number; scope?: "level" | "account" } = {},
+): Promise<{
+  list: FileNode[];
+  state: string;
+  total: number | undefined;
+  ids: Id[];
+  complete: boolean;
+}> {
+  const filter =
+    opts.scope === "account" ? undefined : parentId ? { parentId } : { isTopLevel: true };
+  const asked = opts.limit ?? 1000;
   const res = await client.chain([
     [
       "FileNode/query",
-      { accountId, filter, position: opts.position ?? 0, limit: opts.limit ?? 1000 },
+      {
+        accountId,
+        ...(filter ? { filter } : {}),
+        position: opts.position ?? 0,
+        limit: asked,
+      },
       "q",
     ],
     [
@@ -83,12 +123,39 @@ export async function listChildrenWithState(
   const [g] = res.get("g") ?? [];
   const [q] = res.get("q") ?? [];
   const got = g as unknown as GetResponse<FileNode>;
-  const query = q as unknown as { total?: number };
+  const query = q as unknown as { total?: number; ids?: Id[] };
+  const ids = query.ids ?? [];
   return {
     list: got.list,
     state: got.state ?? "0",
-    total: query.total ?? got.list.length,
+    total: query.total,
+    ids,
+    complete:
+      pageReachedTheEnd(ids.length, asked, query.total) && got.list.length === ids.length,
   };
+}
+
+/**
+ * Whether one page of a query was the whole result.
+ *
+ * Two ways to know, and **either** is enough, because the server is not obliged
+ * to answer the second. A page shorter than the size asked for is the end by
+ * definition -- there was nothing more to return. A page of exactly that size
+ * is the end only if the server said how many matched and it is no more than
+ * the page.
+ *
+ * A server that reports no `total` therefore leaves the full page undecided,
+ * and undecided answers **false**: the cost of being wrong that way is a
+ * filtered read of one level, where the cost of the other is a duplicate nobody
+ * checked.
+ */
+export function pageReachedTheEnd(
+  returned: number,
+  asked: number,
+  total: number | undefined,
+): boolean {
+  if (returned < asked) return true;
+  return typeof total === "number" && total <= returned;
 }
 
 /** The account's own app folder, or null when there is not one yet. */

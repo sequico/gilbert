@@ -282,121 +282,79 @@ const levelKey = (parentId: Id | null): string => parentId ?? "root";
  *
  * The ceiling the module uses everywhere else (`loadChildren`, `loadTree`), and
  * it is a *ceiling*, not a promise: a read that comes back holding exactly this
- * many may have been cut short, which is what `complete` below is about.
+ * many may have been cut short, which is what `readLevels` reports as
+ * `complete`.
  */
 export const LEVEL_LIMIT = 1000;
 
 /**
- * A level's names, and whether they are all of them.
+ * Which nodes a level read looks at.
  *
- * The two travel together because they answer different questions. A folder may
- * be resolved from names that are merely a hint -- a create the server refuses
- * tells the walk to look again -- but a *file* may not: the whole point of the
- * duplicate check is to avoid paying for a blob the server is about to refuse,
- * and a name missing from a partial list is money spent for nothing. So the
- * caller that writes files needs `complete`, and the caller that creates
- * folders does not.
+ * A named union rather than a nullable id, because the two scopes are not a
+ * degree of each other: one is a folder, the other is the whole account, and
+ * `null` already means "the top level" in this module. Spelling it out keeps a
+ * caller from passing the wrong nothing.
  */
-interface LevelNames {
-  names: Map<string, SiblingNode>;
-  complete: boolean;
-}
-
-/** One folder's names, as the map a writer checks before it creates anything. */
-async function namesAtLevel(accountId: Id, parentId: Id | null): Promise<LevelNames> {
-  const { list, total } = await listChildrenWithState(
-    accountId,
-    parentId,
-    ["id", "name", "nodeType"],
-    { limit: LEVEL_LIMIT },
-  );
-  return {
-    names: new Map(
-      list.map((n) => [String(n.name), { id: n.id, name: n.name, nodeType: n.nodeType }]),
-    ),
-    complete: readReachedTheEnd(list.length, total),
-  };
-}
+type LevelScope = { kind: "account" } | { kind: "level"; parentId: Id | null };
 
 /**
- * Whether one page of a query was the whole result.
+ * The names at each level a read saw, keyed by the level they sit at.
  *
- * Two ways to know and either is enough, because the server is not obliged to
- * answer the first. A page shorter than the ceiling it asked for is the end by
- * definition -- there was nothing more to return. A page of exactly the ceiling
- * is the end only if the server said how many matched and it is no more than
- * the page, which is the `total` a JMAP query reports (asked for with
- * `calculateTotal`; Stalwart's FileNode/query answers it unasked, and a server
- * that does not leaves this false rather than wrong).
+ * **The one place** a tree of nodes is turned into names-to-write-against, and
+ * the one place a read's completeness is decided -- shared by the whole-account
+ * scan a drop starts with and by the single-level read a writer makes, so the
+ * two cannot answer the question differently. They did: the level read worked
+ * its completeness out from the nodes the `get` returned and the total the
+ * query reported, and a `get` truncated by its own ceiling on a level larger
+ * than one page made it call a partial read whole.
  *
- * False is the safe answer: it costs a filtered read of the level the caller
- * actually cares about, where true would mean a duplicate the caller never
- * checked.
+ * A level read buckets to exactly one level, which is all the callers of the
+ * single-level form want; they ask for their level by key. Asking for
+ * `parentId` on a level read is one property that buys the shared code path.
  */
-function readReachedTheEnd(returned: number, total: number | undefined): boolean {
-  if (returned < LEVEL_LIMIT) return true;
-  return typeof total === "number" && total <= returned;
-}
-
-/**
- * Every node in the account, by the level it sits at and the name it carries,
- * and whether that is the whole account.
- *
- * One read for a whole drop, which is the point: resolving a tree folder by
- * folder costs a listing per folder, and a listing is a request. This answers
- * every level of the drop from a single query, so the walk that follows makes
- * no request at all on an account it could read -- and it is the same shape of
- * read `loadTree` already makes for the sidebar, so a folder another client
- * created since the tree was drawn is still seen here.
- *
- * `complete` is what the walk is allowed to do with it, and the answer differs
- * per question (see `LevelNames`): folders may be resolved from a partial read,
- * because a create the server refuses sends the walk back to look; files may
- * not, so a level that receives files is read for itself when this read was cut
- * short.
- *
- * The alternative -- paging the whole account until it is exhausted -- would
- * spend a request per thousand nodes of the account to answer a question about
- * the handful of levels the drop actually names. Reading those levels is the
- * smaller, more targeted piece of work, so a read that came back short is
- * finished by narrowing rather than by widening.
- */
-async function accountLevels(
+async function readLevels(
   accountId: Id,
+  scope: LevelScope,
 ): Promise<{ levels: Map<string, Map<string, SiblingNode>>; complete: boolean }> {
+  const { list, complete } = await listChildrenWithState(
+    accountId,
+    scope.kind === "level" ? scope.parentId : null,
+    ["id", "name", "nodeType", "parentId"],
+    { limit: LEVEL_LIMIT, scope: scope.kind === "account" ? "account" : "level" },
+  );
   const levels = new Map<string, Map<string, SiblingNode>>();
-  const res = await client.chain([
-    ["FileNode/query", { accountId, limit: LEVEL_LIMIT }, "q"],
-    [
-      "FileNode/get",
-      {
-        accountId,
-        "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
-        properties: ["id", "name", "nodeType", "parentId"],
-      },
-      "g",
-    ],
-  ]);
-  const q = res.get("q")?.[0] as unknown as QueryResponse;
-  const got = res.get("g")?.[0] as unknown as GetResponse<FileNode>;
-  for (const n of got.list) {
+  for (const n of list) {
     const key = levelKey(n.parentId ?? null);
     const names = levels.get(key) ?? new Map<string, SiblingNode>();
     names.set(String(n.name), { id: n.id, name: n.name, nodeType: n.nodeType });
     levels.set(key, names);
   }
-  /*
-   * Two ceilings, not one. The query is told how many ids to return, and the
-   * `get` that resolves them has a ceiling of its own (`maxObjectsInGet`) that
-   * can truncate *after* a complete query -- so a full page of ids with fewer
-   * nodes back is an account this read did not finish seeing, and one whose
-   * levels must be read for themselves.
-   */
-  const ids = q?.ids ?? [];
-  return {
-    levels,
-    complete: readReachedTheEnd(ids.length, q?.total) && got.list.length === ids.length,
-  };
+  return { levels, complete };
+}
+
+/**
+ * A folder's names, as a writer checks them before it creates anything.
+ *
+ * **A partial map is sound to check against, and that is the point.** Every
+ * entry comes from a FileNode the server returned for this level, so a name
+ * found here really is taken and a create of it really would be refused -- the
+ * check can therefore never invent a duplicate. What a short read costs is the
+ * opposite: a name it did not reach, which is a create that gets attempted and
+ * refused with the blob already paid for.
+ *
+ * That asymmetry is why this is a plain map and not a map-plus-a-completeness-
+ * flag. Gating the check on completeness was tried and is wrong: skipping a
+ * check that could not have been false only gives up refusals that were free.
+ * Completeness is still asked for -- `readLevels` answers it -- but its one
+ * real use is deciding whether a level is worth **reading**, which is a
+ * question about requests rather than about correctness.
+ */
+async function namesAtLevel(
+  accountId: Id,
+  parentId: Id | null,
+): Promise<Map<string, SiblingNode>> {
+  const { levels } = await readLevels(accountId, { kind: "level", parentId });
+  return levels.get(levelKey(parentId)) ?? new Map();
 }
 
 /**
@@ -408,26 +366,23 @@ async function accountLevels(
  * is the caller's: the picker reads the one folder it writes into, and a drop
  * the account once, so neither lists a folder again per file.
  *
- * `taken` may be **null**, which means the caller could not establish what the
- * folder holds -- a level whose read was cut short. The check is then skipped
- * rather than guessed at, and the server's own refusal is the answer: the file
- * is still refused and the row still says why, at the cost of one blob, which
- * is the behaviour there was before the check existed. Substituting a partial
- * list for the folder's real contents would be worse than skipping it, because
- * it would report a duplicate that is not there -- a refusal the reader cannot
- * do anything about -- while missing the one that is.
+ * `taken` is what the caller could find out about the folder, and it may be
+ * short: a level larger than one page of it answers with a page. Checking
+ * against that page is still worth doing -- every entry is a real sibling, so a
+ * name found there really is taken -- and an empty map simply means the folder
+ * answered with nothing this writer could see. See `namesAtLevel`.
  */
 async function uploadOne(
   set: StoreApi<FilesState>["setState"],
   accountId: Id,
   parentId: Id | null,
   file: File,
-  taken: Map<string, SiblingNode> | null,
+  taken: Map<string, SiblingNode>,
 ): Promise<void> {
   const row = uploadRow(file.name, null);
   set((s) => ({ uploads: [...s.uploads, row] }));
   try {
-    if (taken?.has(file.name))
+    if (taken.has(file.name))
       throw new NameTakenError(undefined, nameTakenMessage(file.name));
     await putFile(accountId, parentId, file, (percent) =>
       set((s) => ({
@@ -436,7 +391,7 @@ async function uploadOne(
         ),
       })),
     );
-    taken?.set(file.name, { id: "", name: file.name, nodeType: "file" });
+    taken.set(file.name, { id: "", name: file.name, nodeType: "file" });
     set((s) => ({ uploads: s.uploads.filter((u) => u.id !== row.id) }));
   } catch (err) {
     // The row stays: its message *is* the error, and the reader takes it away.
@@ -655,9 +610,10 @@ export const useFiles = create<FilesState>((set, get) => ({
    */
   async upload(parentId, files) {
     const accountId = get().accountId!;
-    const taken = await namesAtLevel(accountId, parentId).catch(() => null);
-    for (const f of files)
-      await uploadOne(set, accountId, parentId, f, taken?.complete ? taken.names : null);
+    const taken = await namesAtLevel(accountId, parentId).catch(
+      () => new Map<string, SiblingNode>(),
+    );
+    for (const f of files) await uploadOne(set, accountId, parentId, f, taken);
     await get().loadChildren(parentId);
   },
 
@@ -677,22 +633,23 @@ export const useFiles = create<FilesState>((set, get) => ({
     const existing: string[] = [];
     let saved = 0;
     /*
-     * One read of the folder, and the duplicate check needs all of it. A level
-     * too large to read in one page has no list this may check against, so the
-     * check is skipped there and the server's refusal is what refuses the file
-     * -- which is why the names go through as null rather than as a partial
-     * map. See `uploadOne`.
+     * One read of the folder, and whatever it answered is worth checking
+     * against: a page of a large folder still names real siblings, so a name
+     * found in it really is taken. A read that failed leaves an empty map,
+     * which refuses nothing and lets the server say so -- the same outcome as
+     * having no list at all.
      */
-    const read = await namesAtLevel(accountId, parentId).catch(() => null);
-    const taken = read?.complete ? read.names : null;
+    const taken = await namesAtLevel(accountId, parentId).catch(
+      () => new Map<string, SiblingNode>(),
+    );
     for (const f of files) {
       try {
-        if (taken?.has(f.name)) {
+        if (taken.has(f.name)) {
           existing.push(f.name);
           continue;
         }
         await putFile(accountId, parentId, f);
-        taken?.set(f.name, { id: "", name: f.name, nodeType: "file" });
+        taken.set(f.name, { id: "", name: f.name, nodeType: "file" });
         saved += 1;
       } catch (err) {
         // The folder's own answer decides which list it goes in: a name that is
@@ -759,12 +716,8 @@ export const useFiles = create<FilesState>((set, get) => ({
      * read that failed outright is the same situation as a short one -- look
      * each level up when it is asked for.
      */
-    const scan = await accountLevels(accountId).catch(() => null);
+    const scan = await readLevels(accountId, { kind: "account" }).catch(() => null);
     const hint = scan?.levels ?? new Map<string, Map<string, SiblingNode>>();
-    /* Levels read for themselves, and whether that read was whole: a level read
-       once is not read again, and a level whose own read was cut short is
-       remembered as unanswerable rather than re-asked per file. */
-    const reads = new Map<string, Map<string, SiblingNode> | null>();
 
     /*
      * The names a **folder** may be resolved from: a hint is enough.
@@ -778,39 +731,33 @@ export const useFiles = create<FilesState>((set, get) => ({
       const key = levelKey(id);
       const known = hint.get(key);
       if (known) return known;
-      const read = await namesAtLevel(accountId, id);
-      hint.set(key, read.names);
-      // Only a whole read answers for the files question too. A short one is a
-      // hint and nothing more, and recording it here would let `filesAt` hand a
-      // partial list out as though it were the folder's contents.
-      if (read.complete) reads.set(key, read.names);
-      return read.names;
+      const names = await namesAtLevel(accountId, id);
+      hint.set(key, names);
+      return names;
     };
 
     /*
-     * The names a **file** may be checked against: null unless they are all of
-     * them.
+     * The names a **file** may be checked against: everything in hand for that
+     * level, however short it is.
      *
-     * This is the whole difference between the two questions a drop asks. A
-     * folder resolved from a hint that was wrong costs a refused create; a file
-     * checked against a list that was missing its name costs an uploaded blob,
-     * because the create is refused after the bytes have been paid for. So when
-     * the account read did not finish, the level is read for itself -- one
-     * request per level the drop writes files into, not per folder it names --
-     * and a level that cannot be read whole is reported as unknown rather than
-     * guessed at.
+     * A page of a folder names real siblings, so checking against it is sound
+     * whether or not it is the whole folder -- the worst it can do is miss a
+     * duplicate, never invent one (see `namesAtLevel`). What completeness
+     * decides is whether it is worth a **request** to see more, and the
+     * account read is what says so: on an account it finished, what is in hand
+     * for a level is all of it, including "nothing" for a folder that is really
+     * empty. On one it did not, a level the drop writes into is read for itself
+     * -- one request per level written into, not per folder the drop names --
+     * and the two are merged, since either read's names are real.
      */
-    const filesAt = async (id: Id | null): Promise<Map<string, SiblingNode> | null> => {
+    const filesAt = async (id: Id | null): Promise<Map<string, SiblingNode>> => {
       const key = levelKey(id);
-      if (scan?.complete) return namesAt(id);
-      const read = reads.get(key);
-      if (read !== undefined) return read;
+      const known = hint.get(key);
+      if (scan?.complete) return known ?? new Map();
       const fresh = await namesAtLevel(accountId, id).catch(() => null);
-      const names = fresh?.complete ? fresh.names : null;
-      reads.set(key, names);
-      // A read that was whole is also the answer for any folder under it, so the
-      // hint is brought up to date rather than left short.
-      if (names) hint.set(key, names);
+      if (!fresh) return known ?? new Map();
+      const names = known ? new Map([...known, ...fresh]) : fresh;
+      hint.set(key, names);
       return names;
     };
     // Folders first, parents before children, so every file has somewhere to go.
@@ -859,9 +806,8 @@ export const useFiles = create<FilesState>((set, get) => ({
          */
         if (isAlreadyExists(err)) {
           const fresh = await namesAtLevel(accountId, into);
-          hint.set(levelKey(into), fresh.names);
-          if (fresh.complete) reads.set(levelKey(into), fresh.names);
-          const theirs = fresh.names.get(name);
+          hint.set(levelKey(into), fresh);
+          const theirs = fresh.get(name);
           if (theirs?.nodeType === "directory") {
             dirIds.set(key, theirs.id);
             continue;
