@@ -4122,6 +4122,15 @@ const handlers: Record<string, Handler> = {
       bumpState("FileNode");
     }
     const family = nodesFor(a.accountId);
+    /*
+     * What the account already holds, before this call touches it.
+     *
+     * The collision check needs the difference between a name a committed node
+     * carries and one taken by a create earlier in this same request, because
+     * the server answers those two differently: the first names the node that
+     * has it in `existingId`, the second does not (see below).
+     */
+    const committed = new Set(family.map((n) => String(n.id)));
     const res = genericSet(
       family,
       "f",
@@ -4147,18 +4156,36 @@ const handlers: Record<string, Handler> = {
          * `onExists` defaults to `Reject` (`FileNodeSetArguments`,
          * `crates/jmap-proto/src/object/file_node.rs`), and a create whose
          * effective name collides with a node under the same parent answers
-         * `alreadyExists` with that node's id in `existingId`
-         * (`find_sibling_collision`, `crates/jmap/src/file/set.rs`, v0.16.21;
-         * `tests/src/jmap/files/node.rs` asserts the id). The comparison is
-         * case-sensitive, and it covers files and folders alike — that is the
-         * server's default, and `compareCaseInsensitively`, the argument that
-         * widens it, is **not** modelled here because nothing in Gilbert sends
-         * it. A caller that starts to has to model it first.
+         * `alreadyExists` (`find_sibling_collision`, `crates/jmap/src/file/set.rs`,
+         * v0.16.21). The comparison is case-sensitive, and it covers files and
+         * folders alike — that is the server's default, and
+         * `compareCaseInsensitively`, the argument that widens it, is **not**
+         * modelled here because nothing in Gilbert sends it. A caller that
+         * starts to has to model it first.
+         *
+         * `existingId` is the id of the node that has the name, and it is
+         * **absent** when that node was created earlier in the same request:
+         * `tests/src/jmap/files/node.rs` asserts both halves — a collision with
+         * a committed sibling carries the id, a collision with its own twin in
+         * one batch carries none ("Pending Create collision has no committed
+         * existingId"). So a client may not require it, and the one that reads
+         * it here falls back to looking the name up. A mock that always handed
+         * one over would let a client that trusts the field look correct here
+         * and break on a real server.
          *
          * That refusal is not a detail a client may assume away: a folder drop
          * that creates only what is missing depends on it, and so does every
          * writer that must not overwrite. Without it a second identical create
          * looked like success here and would be refused on a real server.
+         *
+         * Not reproduced: the same check on **update**. A real 0.16 runs
+         * `find_sibling_collision` on the update path too
+         * (`crates/jmap/src/file/set.rs`, `'update` branch), so renaming a node
+         * onto a name a sibling holds is refused there and accepted here. The
+         * client's rename surfaces that message when the server sends it; the
+         * mock does not send it, and nothing in the suite depends on the
+         * difference. Whoever needs it adds it here rather than trusting this
+         * comment.
          */
         const clash = family.find(
           (n) =>
@@ -4171,7 +4198,7 @@ const handlers: Record<string, Handler> = {
             "alreadyExists",
             "The name is already in use.",
             undefined,
-            String(clash.id),
+            committed.has(String(clash.id)) ? String(clash.id) : undefined,
           );
       },
       "FileNode",

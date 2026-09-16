@@ -122,18 +122,25 @@ export function canDropFileNode(
 /**
  * Whether a refusal is Stalwart saying the name is already taken.
  *
- * The type is `alreadyExists` -- its own, not `invalidProperties` -- and it
- * carries the id of the node already holding the name in `existingId`
+ * The type is `alreadyExists` -- its own, not `invalidProperties`
  * (`find_sibling_collision` and `SetError::already_exists`,
- * `crates/jmap/src/file/set.rs` / `crates/jmap-proto/src/error/set.rs`, v0.16.21).
- * The comparison is by name within one parent, and it is case-sensitive unless
- * the request sends `compareCaseInsensitively`.
+ * `crates/jmap/src/file/set.rs` / `crates/jmap-proto/src/error/set.rs`,
+ * v0.16.21). The comparison is by name within one parent, and it is
+ * case-sensitive unless the request sends `compareCaseInsensitively`.
  *
- * A client may not assume this away. Creating a node whose name a sibling
- * already carries is refused rather than silently accepted, so a caller that
- * wants the existing node has to look it up, and one that treats the refusal as
- * success leaves the file it thought it wrote nowhere. Every writer that has to
- * tell the two apart -- reuse the folder, stop on the file -- reads it here.
+ * `existingId` names the node that holds the name, and it is **absent** when
+ * that node was created earlier in the same request: `tests/src/jmap/files/node.rs`
+ * asserts both halves -- a collision with a committed sibling carries the id,
+ * and a collision with its own twin in one batch carries none. So the id is a
+ * shortcut, never the answer: a caller that needs the node looks it up by name
+ * under the parent, which is what its callers here do when it is missing.
+ *
+ * A client may not assume the refusal away either. Creating a node whose name a
+ * sibling already carries is refused rather than silently accepted, so a caller
+ * that wants the existing node has to go and read it, and one that treats the
+ * refusal as success leaves the file it thought it wrote nowhere. Every writer
+ * that has to tell the two apart -- reuse the folder, stop on the file -- reads
+ * it here.
  */
 export function isAlreadyExists(
   err: unknown,

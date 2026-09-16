@@ -64,13 +64,22 @@ export function SaveToFilesDialog({
   ];
   const chosen = places.find((p) => p.accountId === destination) ?? null;
 
-  /* A folder belongs to the account it is in, so moving to another account
-     starts at that account's top level rather than keeping a path that means
-     nothing there. */
-  useEffect(() => {
+  /*
+   * Choosing an account also clears the folder, in the same update.
+   *
+   * A folder belongs to the account it is in: the path from the account being
+   * left is a set of ids that mean nothing in the new one, and asking the new
+   * account about them is a query for somebody else's folders. It is done here,
+   * with the choice, rather than in an effect on `destination` -- an effect runs
+   * *after* the render that changed it, and the listing effect runs in that same
+   * pass with the old folder still in its closure, so it would go and ask.
+   */
+  const choose = (accountId: Id) => {
+    if (accountId === destination) return;
+    setDestination(accountId);
     setFolder(null);
     setPath([]);
-  }, [destination]);
+  };
 
   /*
    * The level on screen, read from the destination account.
@@ -265,7 +274,7 @@ export function SaveToFilesDialog({
               key={p.accountId}
               className={`btn btn-sm ${destination === p.accountId ? "btn-primary" : ""}`}
               disabled={busy}
-              onClick={() => setDestination(p.accountId)}
+              onClick={() => choose(p.accountId)}
             >
               {p.group ? <Users size={14} /> : <HardDrive size={14} />} {p.name}
             </button>
