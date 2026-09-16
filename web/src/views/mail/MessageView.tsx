@@ -70,7 +70,7 @@ import { useMail } from "@/store/mail";
 import { sendReadReceipt } from "@/store/mdn";
 import { useScheduled } from "@/store/scheduled";
 import { useSession } from "@/store/session";
-import { defaultReplyMode, useSettings } from "@/store/settings";
+import { useSettings } from "@/store/settings";
 import { choiceDialog, confirmDialog, Dialog } from "@/ui/dialog";
 import { FilePreviewDialog } from "@/ui/filepreview";
 import { Avatar } from "@/ui/misc";
@@ -572,24 +572,25 @@ export const MessageView = memo(function MessageView({
           {expanded && (
             <>
               {/*
-                The default reply action, which `replyAllDefault` decides. The
-                tooltip names what the click does rather than always saying
-                "Reply": a control that answers the list while it says it
-                answers the sender is the setting lying about itself.
+                The quick action a message's own header offers is **Reply all**,
+                always, and the tooltip says so. It is the answer people mean
+                most of the time in a conversation with more than two people,
+                and one click is all there is room for -- so what is one click
+                away is the action that reaches everyone rather than the one
+                that leaves the list off. Replying to the sender alone is in
+                the menu beside it, where a deliberate choice belongs, and
+                `replyAllDefault` still moves the reply strip, the `r` key and
+                the list's menu, which are surfaces that can say which they are.
               */}
               <button
                 className="icon-btn sm hide-mobile"
-                title={
-                  settings.replyAllDefault
-                    ? translate("Reply all (r)")
-                    : translate("Reply (r)")
-                }
+                title={translate("Reply all (r)")}
                 onClick={(ev) => {
                   ev.stopPropagation();
-                  void reply(e, defaultReplyMode(settings));
+                  void reply(e, "replyAll");
                 }}
               >
-                {settings.replyAllDefault ? <ReplyAll size={17} /> : <Reply size={17} />}
+                <ReplyAll size={17} />
               </button>
               <button
                 className="icon-btn sm"
@@ -1675,6 +1676,8 @@ function AttachmentList({
             </a>
           );
         })}
+        {/* "Download all" is about a set: one attachment already has its own
+          download, and a button that repeats the row's icon is noise. */}
         {attachments.length > 1 && (
           <button
             className="btn btn-ghost btn-sm"
@@ -1699,15 +1702,20 @@ function AttachmentList({
         )}
         {/* Saving to Files is the other half of "Download all": the same set of
             attachments, kept in the account rather than on the desktop -- and
-            which account is the reader's to choose, because a group's files are
-            the group's. */}
-        {attachments.length > 1 && filesAvailable && (
+            which account, and which folder inside it, is the reader's to
+            choose, because a group's files are the group's. Offered for one
+            attachment as much as for ten: a message with a single file is the
+            commonest case of wanting it kept rather than downloaded. */}
+        {attachments.length > 0 && filesAvailable && (
           <button
             className="btn btn-ghost btn-sm"
             style={{ alignSelf: "center" }}
             onClick={() => setSaveToFiles(true)}
           >
-            <FileUp size={14} /> {translate("Download all to Files")}
+            <FileUp size={14} />{" "}
+            {attachments.length > 1
+              ? translate("Download all to Files")
+              : translate("Save to Files")}
           </button>
         )}
       </div>

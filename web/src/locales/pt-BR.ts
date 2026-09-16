@@ -63,7 +63,6 @@ export const catalog: Catalog = {
     Delete: "Excluir",
     "Delete (#)": "Excluir (#)",
     Reply: "Responder",
-    "Reply (r)": "Responder (r)",
     "Reply all": "Responder a todos",
     Forward: "Encaminhar",
     "Move to…": "Mover para…",

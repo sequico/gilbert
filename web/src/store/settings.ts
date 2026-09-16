@@ -454,7 +454,28 @@ export function acceptRemote(remote: Record<string, unknown>): Partial<Settings>
     if (value === undefined) continue;
     out[key] = value;
   }
-  return migratedThemeFields(out) as Partial<Settings>;
+  return migratedReplyDefault(migratedThemeFields(out)) as Partial<Settings>;
+}
+
+/**
+ * A stored `replyAllDefault: false` is the old default, not a choice.
+ *
+ * The field shipped with the plain reply as its default, so every settings file
+ * an existing account had written carried `false` -- including the files of
+ * people who never opened a setting. The default became reply all, and a stored
+ * value beats a default, so those accounts kept answering the sender alone:
+ * the new default reached the accounts that had no settings file and nobody
+ * else. Nothing in the reader's Settings writes this key, so `false` there
+ * cannot be somebody's decision; it is the old default surviving in the file.
+ * Read as true, and the accounts the change was for get it.
+ *
+ * A policy still wins, because both of its powers are applied after this read
+ * (`hydrate` re-applies `policyEnforced`, `applyPolicyChanges` runs later), so
+ * an installation that wants the plain reply enforced or changed keeps it.
+ */
+function migratedReplyDefault(source: Record<string, unknown>): Record<string, unknown> {
+  if (source?.replyAllDefault !== false) return source;
+  return { ...source, replyAllDefault: true };
 }
 
 /**
@@ -560,7 +581,17 @@ interface SettingsState {
   applyPolicyChanges(): PolicyChange[];
 }
 
-const initialSettings = loadJson<Settings>("settings", DEFAULT_SETTINGS);
+/**
+ * The settings this device painted from before the account's own arrived.
+ *
+ * The cache is a copy of a file, so it is read through the same migrations that
+ * read the file: a `replyAllDefault: false` left in this browser is the old
+ * default like any other, and a first frame that showed the plain reply while
+ * the file corrected it would be the setting flickering rather than settling.
+ */
+const initialSettings = migratedReplyDefault(
+  loadJson<Record<string, unknown>>("settings", { ...DEFAULT_SETTINGS }),
+) as unknown as Settings;
 
 /**
  * The settings with `theme` brought back into line.
@@ -740,7 +771,9 @@ export const useSettings = create<SettingsState>((set, get) => ({
        * still handed on -- an import is the reader's own file, and the
        * known-keys-only rule is `acceptRemote`'s, for files off the server.
        */
-      get().update(migratedThemeFields(parsed) as Partial<Settings>);
+      get().update(
+        migratedReplyDefault(migratedThemeFields(parsed)) as Partial<Settings>,
+      );
       return true;
     } catch {
       return false;

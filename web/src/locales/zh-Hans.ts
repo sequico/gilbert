@@ -56,7 +56,6 @@ export const catalog: Catalog = {
     Delete: "删除",
     "Delete (#)": "删除 (#)",
     Reply: "回复",
-    "Reply (r)": "回复 (r)",
     "Reply all": "全部回复",
     Forward: "转发",
     "Move to…": "移动到…",
