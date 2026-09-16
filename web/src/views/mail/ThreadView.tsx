@@ -31,7 +31,13 @@ import { visibleMessages } from "@/lib/openMessage";
 import { anyCarries, anyLacks } from "@/lib/rowScope";
 import { threadScrollTarget } from "@/lib/threadScroll";
 import { useEdgeBack } from "@/lib/touch";
-import { DEFAULT_REPLY_MODE, useCompose } from "@/store/compose";
+import {
+  DEFAULT_REPLY_MODE,
+  REPLY,
+  REPLY_ALL,
+  type ReplyMode,
+  useCompose,
+} from "@/store/compose";
 import { useMail } from "@/store/mail";
 import { useSettings } from "@/store/settings";
 import { Spinner, useIsNarrow, useIsTouch } from "@/ui/misc";
@@ -269,7 +275,7 @@ export function ThreadView({
   // Keyboard: reply/forward events from MailView
   useEffect(() => {
     const onReply = (ev: Event) => {
-      const mode = (ev as CustomEvent<"reply" | "replyAll" | "forward">).detail;
+      const mode = (ev as CustomEvent<ReplyMode>).detail;
       const last = messages[messages.length - 1];
       if (last) void reply(last, mode);
     };
@@ -322,8 +328,7 @@ export function ThreadView({
   /* What the reply strip's first button does, and the other one beside it: the
      app's default reply all, and the plain reply to the sender alone. */
   const defaultReply = DEFAULT_REPLY_MODE;
-  const otherReply: "reply" | "replyAll" =
-    defaultReply === "replyAll" ? "reply" : "replyAll";
+  const otherReply: ReplyMode = defaultReply === REPLY_ALL ? REPLY : REPLY_ALL;
   const accountId = useMail((s) => s.accountId);
 
   return (

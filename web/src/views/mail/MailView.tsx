@@ -10,7 +10,7 @@ import { mailboxDisplayName } from "@/lib/mailboxName";
 import { isUnknownMailbox } from "@/lib/mailboxRoute";
 import { anyCarries, type CarriesKeywords, rowScope } from "@/lib/rowScope";
 import { buildFilter, describeFilter, parseQuery } from "@/lib/search";
-import { DEFAULT_REPLY_MODE, useCompose } from "@/store/compose";
+import { REPLY_KEYS, useCompose } from "@/store/compose";
 import { DEFAULT_SORT, type ListQuery, useMail } from "@/store/mail";
 import { scheduledMailboxIdFrom, useScheduled } from "@/store/scheduled";
 import { useSettings } from "@/store/settings";
@@ -556,22 +556,19 @@ export function MailView({
           useMail.getState().selectAll();
         },
       },
-      {
-        keys: "r",
-        description: "Reply all",
+      /*
+       * The two replies, from the one place their keys and modes are named.
+       * `r` answers the sender and `a` answers everyone: a key whose letter says
+       * "reply all" opening a plain reply is the kind of thing nobody notices
+       * until it has already sent.
+       */
+      ...REPLY_KEYS.map((k) => ({
+        keys: k.keys,
+        description: k.description,
         group: "Conversation",
         handler: () =>
-          window.dispatchEvent(
-            new CustomEvent("ihm:reply", { detail: DEFAULT_REPLY_MODE }),
-          ),
-      },
-      {
-        keys: "a",
-        description: "Reply all",
-        group: "Conversation",
-        handler: () =>
-          window.dispatchEvent(new CustomEvent("ihm:reply", { detail: "replyAll" })),
-      },
+          window.dispatchEvent(new CustomEvent("ihm:reply", { detail: k.mode })),
+      })),
       {
         keys: "f",
         description: "Forward",

@@ -63,7 +63,7 @@ import { findQuoteStart, htmlToText, textToHtml } from "@/lib/text";
 import { isTnef, parseTnef, type TnefAttachment } from "@/lib/tnef";
 import { internalDomains, isExternalSender, linkVerdict } from "@/lib/warnings";
 import { useCalendar } from "@/store/calendar";
-import { draftFromMailto, useCompose } from "@/store/compose";
+import { DEFAULT_REPLY_MODE, draftFromMailto, useCompose } from "@/store/compose";
 import { useContacts } from "@/store/contacts";
 import { useFiles } from "@/store/files";
 import { useMail } from "@/store/mail";
@@ -578,14 +578,16 @@ export const MessageView = memo(function MessageView({
                 more than one other person, so what is one click away is the
                 reply that reaches everyone. The plain **Reply** -- to the
                 sender alone -- is the item beside it in the menu, where a
-                deliberate choice belongs and where it can say what it does.
+                deliberate choice belongs and where it can say what it does;
+                `r` is that plain reply and `a` is this one, which is why the
+                tooltip names the action and not a key.
               */}
               <button
                 className="icon-btn sm hide-mobile"
-                title={translate("Reply all (r)")}
+                title={translate("Reply all")}
                 onClick={(ev) => {
                   ev.stopPropagation();
-                  void reply(e, "replyAll");
+                  void reply(e, DEFAULT_REPLY_MODE);
                 }}
               >
                 <ReplyAll size={17} />

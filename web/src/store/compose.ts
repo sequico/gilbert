@@ -51,6 +51,12 @@ export interface AttachableFile {
 
 export type Priority = "high" | "normal" | "low";
 
+/**
+ * How a message is being answered, which decides who the draft is addressed to:
+ * one partner for a reply, everyone for a reply all.
+ */
+export type ReplyMode = "reply" | "replyAll" | "forward";
+
 export interface Draft {
   key: string;
   draftId: Id | null;
@@ -83,7 +89,7 @@ export interface Draft {
   error: string | null;
   /** Original identity signature HTML currently embedded, to replace on identity switch. */
   signatureHtml: string;
-  replyMode: "reply" | "replyAll" | "forward" | null;
+  replyMode: ReplyMode | null;
   mailboxIdOnSend?: Id | null;
   /** When set, hand the message to the server held until this instant. */
   sendAt: number | null;
@@ -108,7 +114,7 @@ interface ComposeState {
    * the item beside it wherever there is room for a choice, and every surface
    * that shows it says what it does.
    */
-  reply(email: Email, mode: "reply" | "replyAll" | "forward"): Promise<string>;
+  reply(email: Email, mode: ReplyMode): Promise<string>;
   /** Forward the message whole, as an attachment, rather than quoted into a new one. */
   forwardAsAttachment(email: Email): string;
   update(key: string, patch: Partial<Draft>): void;
@@ -244,12 +250,31 @@ function defaultIdentity(
  * The reply the app's one-tap affordances open: reply all.
  *
  * One definition, because the answer has to be the same wherever the app offers
- * its default reply action -- a reply strip that answered the list and an `r`
- * key that answered the sender would be the same decision half-applied. It is
- * not a setting: it is what the app does, and the surfaces that can say which
- * action they take are the ones that offer the choice (see `reply`).
+ * the single-button reply -- a header button that reached the list and a reply
+ * strip that reached the sender would be the same decision half-applied. It is
+ * not a setting: it is what the app does, and every surface that offers a
+ * choice says which action each choice is (see `reply`).
  */
-export const DEFAULT_REPLY_MODE: "reply" | "replyAll" = "replyAll";
+export const REPLY_ALL: ReplyMode = "replyAll";
+export const REPLY: ReplyMode = "reply";
+export const DEFAULT_REPLY_MODE: ReplyMode = REPLY_ALL;
+
+/**
+ * The keys that answer a conversation, and which reply each one opens.
+ *
+ * One definition, so the pair cannot drift and a test can read it without
+ * rendering the mail view. The plain reply is the plain key and the reply to
+ * everyone is the one whose letter says so: `r` and `a`, which is also the
+ * order they are offered in.
+ */
+export const REPLY_KEYS: ReadonlyArray<{
+  keys: string;
+  mode: ReplyMode;
+  description: string;
+}> = [
+  { keys: "r", mode: REPLY, description: "Reply" },
+  { keys: "a", mode: REPLY_ALL, description: "Reply all" },
+];
 
 export const useCompose = create<ComposeState>((set, get) => ({
   drafts: [],

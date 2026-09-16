@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Email, Identity } from "@/jmap/types";
-import { useCompose } from "@/store/compose";
+import {
+  DEFAULT_REPLY_MODE,
+  REPLY,
+  REPLY_ALL,
+  REPLY_KEYS,
+  useCompose,
+} from "@/store/compose";
 import { useMail } from "@/store/mail";
 
 /*
@@ -218,5 +224,33 @@ describe("forwarding", () => {
       const d = await draftFor(m, "forward");
       expect([d.to, d.cc]).toEqual([[], []]);
     }
+  });
+});
+
+/*
+ * The keys, and the reply each opens.
+ *
+ * `r` and `a` are the shortcut a hand reaches for without looking, so which one
+ * opens which reply is the kind of thing nobody notices until it has already
+ * sent: a key whose letter says "reply all" opening a plain reply reaches the
+ * wrong number of people either way. The pair is data so this can read it
+ * without rendering the mail view, and so the two cannot drift apart.
+ */
+describe("the reply keys", () => {
+  it("opens the plain reply on `r` and the reply to everyone on `a`", () => {
+    expect(REPLY_KEYS.map((k) => [k.keys, k.mode])).toEqual([
+      ["r", REPLY],
+      ["a", REPLY_ALL],
+    ]);
+    expect(REPLY).toBe("reply");
+    expect(REPLY_ALL).toBe("replyAll");
+    // And each key says which it is, so the shortcut list is not a lie.
+    expect(REPLY_KEYS.map((k) => k.description)).toEqual(["Reply", "Reply all"]);
+  });
+
+  it("leaves the app's one-tap reply to everyone", () => {
+    // The header button, the reply strip and the list's affordances have one
+    // button each, and that button reaches the list.
+    expect(DEFAULT_REPLY_MODE).toBe(REPLY_ALL);
   });
 });

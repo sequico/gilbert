@@ -1225,10 +1225,10 @@ minimisable and maximisable; full-screen on mobile.
 - **Quoting** on reply, with the signature placed above or below it. One reply
   reaches **one partner** and Reply all reaches **everyone** — the difference the
   reader sees in the draft, since reply all is the action that puts a list there.
-  The one-tap affordances (a message's own header, the reply strip, the `r` key)
-  take **Reply all**, which is what the app does rather than a preference; every
-  menu offers both actions, each saying which it is, so the reply to the sender
-  alone is always one deliberate choice away.
+  The one-button affordances (a message's own header, the reply strip at the foot
+  of a thread) reach **everyone**, which is what the app does rather than a
+  preference; every menu offers both actions, each saying which it is, and the
+  keys are the plain pair — `r` answers the sender, `a` answers the list.
 - **Compose as new** — the same mail again rather than passed on, for one that
   bounced or went to a misspelled address. Recipients, Reply-To, subject, body
   and attachments come across as they stand; the Message-ID, date and threading
@@ -2065,7 +2065,7 @@ per view, so the same letter can mean different things in mail and the calendar.
 | Global | `?` help · `/` search · `c` compose · `g i/s/t/d/a` inbox, starred, sent, drafts, all mail · `g l/c/f/k` calendar, contacts, files, settings |
 | List | `j`/`k` next/previous · `o` open · `u` back · `Esc` back or clear selection · `x` select · `Ctrl+A` select all |
 | Acting | `e` archive · `#` delete · `!` spam · `s` star · `Shift+I`/`Shift+U` read/unread · `v` move · `l` label |
-| Conversation | `r` reply all (the app's default) · `a` reply all · `f` forward · `n`/`p` next/previous message · `]` archive and open next |
+| Conversation | `r` reply to the sender · `a` reply all · `f` forward · `n`/`p` next/previous message · `]` archive and open next |
 | Composer | `Ctrl+Enter` send · `Ctrl+S` save draft · `Esc` close, saving |
 | Calendar | `t` today · `n`/`p` next/previous · `d`/`w`/`m`/`a` day, week, month, agenda · `c` new event |
 
