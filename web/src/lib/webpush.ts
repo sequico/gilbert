@@ -163,17 +163,23 @@ export function deviceClientId(): string {
  * whole subscription. Without an id the filter simply leaves `inMailbox` out
  * and notifies more widely, which is a worse default but a working one.
  *
- * What this answers is the record's open question (ADR 0016): whether one
- * subscription may carry `emailPush` for several accounts at once, whether a
- * member may register one on a group account at all and whether the payload
- * then names that account, and how a `filter` applies across a subscription's
- * types. The chat wake-up adds the fourth, a `FileNode` narrowed to the chat
- * folder. The answers come from a live 0.16 and are owed.
+ * What this answers is read from Stalwart's own source at v0.16.22 rather than
+ * from a running server (ADR 0016): a subscription is stored in the account
+ * that asked for it and registered for every account in that token's
+ * `member_ids()` -- its own plus its group mailboxes -- while `emailPush` is a
+ * **map** with one entry per account, each with its own filter, and the entry
+ * for an account the token is not a member of is refused `forbidden`. So the
+ * reader's own account is where one row lives and where each group is named
+ * inside it, which is what this function does not yet build: it still sends one
+ * `emailPush` entry and `types: ["Email"]`, so a group's mail wakes this device
+ * only as a generic notification and its chat does not wake it at all. What a
+ * running server still has to say is written down where the record keeps its
+ * debt.
  *
- * ADR-0016 OWED: push-per-account
- * ADR-0016 OWED: group-subscription
- * ADR-0016 OWED: filenode-filter
- * ADR-0016 OWED: filter-per-type
+ * ADR-0016 OWED: live-emailpush-map
+ * ADR-0016 OWED: group-emailpush-payload
+ * ADR-0016 OWED: chat-wake-read
+ * ADR-0016 OWED: verification-per-device
  */
 export function subscriptionPayload(
   sub: PushSubscription,

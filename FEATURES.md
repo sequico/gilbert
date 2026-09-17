@@ -2002,6 +2002,15 @@ needed nothing in either half.
   run. Where the server also implements `emailpush`, the payload carries the
   sender, subject and preview; without it the notification says only that mail
   arrived. Offered only on a device you said was yours.
+- **The subscription is one row per device, and a delivery to a group is one of
+  the things it wakes for.** A push subscription belongs to the principal that
+  registered it and is served for every account that principal is a **member**
+  of — their own and each group mailbox — so a group's mail already wakes a
+  closed Gilbert today, as a notification that names nothing; what is not built
+  is the per-account payload that would name the sender, the subject and the
+  mailbox it landed in, and the chat wake-up beside it. Read from Stalwart's
+  source at v0.16.22 and written down in ADR 0016, which holds what a running
+  server still has to confirm.
 - **The switch says why it cannot be offered** where it cannot: a mail server
   with no push key, a browser with no Push API, and — the sentence worth
   writing — an iOS browser opened as a tab, which is told to add Gilbert to the
