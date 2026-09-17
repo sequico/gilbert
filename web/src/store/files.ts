@@ -766,8 +766,9 @@ async function copyOver(
  * because the caller made it before the scan -- the run exists from the moment
  * the reader asked, not from the first move.
  *
- * An abort is not an error: the loop breaks, the run's owner sees the signal and
- * takes the row away, and **what has been done stays done**. No step is undone,
+ * An abort is not an error: the loop breaks, or the step in flight rejects on the
+ * signal it was given, the run's owner sees the signal and takes the row away,
+ * and **what has been done stays done**. No step is undone,
  * which is why the plan puts the destruction of the folder given up last: a
  * merge that stopped halfway has moved part of a folder into another and left
  * both where they are, with nothing destroyed that still had something in it.
@@ -1126,6 +1127,12 @@ export const useFiles = create<FilesState>((set, get) => ({
       set((s) => ({
         runs: s.runs.map((u) => (u.id === row.id ? { ...u, error: message } : u)),
       }));
+    /*
+     * The row of a run that is over goes, whether the run carried it out or the
+     * reader stopped it: a merge that finished and a merge that was stopped say
+     * the same thing to the tray, which is nothing.
+     */
+    const dropRow = () => set((s) => ({ runs: s.runs.filter((u) => u.id !== row.id) }));
     try {
       const plan = await planMerge(
         mergeTree(accountId, merge),
@@ -1151,7 +1158,20 @@ export const useFiles = create<FilesState>((set, get) => ({
       }));
       await runMergeSteps(set, accountId, plan, row, run);
     } catch (err) {
-      if (run.controller.signal.aborted) return;
+      /*
+       * A run the reader stopped says nothing, and its row goes with it -- the
+       * way a cancelled upload's does. The abort arrives here as a rejection:
+       * the blob read and the upload are both given the run's signal, so a call
+       * in flight fails the moment the run is aborted, and the one that was
+       * waiting on it is the scan or a step. Leaving the row behind would leave
+       * a count nothing is advancing beside a Cancel that can no longer stop
+       * anything -- the run is out of the registry by then -- and no Dismiss
+       * either, which the tray draws on a row that failed and not on this one.
+       */
+      if (run.controller.signal.aborted) {
+        dropRow();
+        return;
+      }
       fail((err as Error).message);
       return;
     } finally {
@@ -1159,7 +1179,7 @@ export const useFiles = create<FilesState>((set, get) => ({
     }
     // Every step of the plan ran, the destruction of the folder given up among
     // them: the row has nothing left to report.
-    set((s) => ({ runs: s.runs.filter((u) => u.id !== row.id) }));
+    dropRow();
     await get().loadChildren(keep.parentId ?? null);
     void get().loadTree();
   },

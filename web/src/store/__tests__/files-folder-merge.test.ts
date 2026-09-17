@@ -348,6 +348,70 @@ describe("merging two folders", () => {
   });
 
   /*
+   * Cancel while a copy is actually in flight.
+   *
+   * The client hands the run's signal to the blob read and to the upload, so a
+   * call in flight rejects the moment the run is aborted -- which is what this
+   * mock does, rather than resolving into a run nobody is waiting for any more.
+   * That is the other half of the abort: the loop's own check ends the run
+   * between two steps, and this is the step it ends inside.
+   *
+   * What the reader is owed afterwards is a tray that holds nothing about it:
+   * a row left behind would say "0 of 1 item" beside a Cancel that can no
+   * longer stop anything -- the run is out of the registry by then -- and no
+   * Dismiss, which the tray draws on a row that failed.
+   */
+  it("takes the row away when the step in flight is aborted", async () => {
+    const keep = node("keep", "Work", "directory", null);
+    const merge = node("merge", "Archive", "directory", null);
+    const s = server([
+      keep,
+      merge,
+      node("m1", "a.txt", "file", "merge", { blobId: "b1" }),
+    ]);
+    open(keep, merge);
+    // A name both folders hold, so the step is a copy -- the one step that
+    // waits on the network for longer than a request.
+    s.nodes.push(node("k1", "a.txt", "file", "keep", { blobId: "old-1" }));
+
+    let reads = 0;
+    vi.spyOn(client, "fetchBlob").mockImplementation((async (
+      _account: string,
+      _blobId: string,
+      _type: string,
+      signal?: AbortSignal,
+    ) => {
+      reads += 1;
+      return new Promise<Blob>((_resolve, reject) => {
+        signal?.addEventListener("abort", () =>
+          reject(new DOMException("The operation was aborted.", "AbortError")),
+        );
+      });
+    }) as never);
+
+    vi.spyOn(client, "upload").mockRejectedValue(
+      new Error("The upload should never be reached: the run stops at the read."),
+    );
+
+    const run = useFiles.getState().mergeFolders("keep", "merge");
+    await vi.waitFor(() => expect(reads).toBe(1));
+    const rows = useFiles.getState().runs;
+    expect(rows).toHaveLength(1);
+    useFiles.getState().cancelRun(rows[0]!.id);
+    await run;
+
+    // The abort stopped the step where it was: no bytes written, and the file
+    // the bytes were coming from still under the name it had.
+    expect(s.uploaded).toEqual([]);
+    expect(s.nodes.find((n) => n.id === "m1")!.parentId).toBe("merge");
+    // Neither folder was destroyed: the plan's last step is nowhere near, and
+    // the folder given up is never destroyed before it is empty.
+    expect(s.destroyed).toEqual([]);
+    // And the tray holds nothing: the row went with the run.
+    expect(useFiles.getState().runs).toEqual([]);
+  });
+
+  /*
    * The guard the menu keeps, reached again where the ids are actually used.
    * Nothing is a merge but two folders, and a call that is not one is refused
    * with a sentence rather than a plan.
