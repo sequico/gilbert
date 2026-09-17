@@ -2,6 +2,10 @@
 
 Status: Proposed
 
+Implementation: Built. One id per publish, carried by every copy it writes, with
+the job recorded as one document in the publishing administrator's own app folder
+(`server/src/adminPolicy.ts`).
+
 ## Context
 
 The installation policy is per account (ADR 0001): `installation-policy.json`

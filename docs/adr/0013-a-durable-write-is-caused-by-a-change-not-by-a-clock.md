@@ -2,6 +2,10 @@
 
 Status: Proposed
 
+Implementation: Built. The claims, the sessions and the heartbeats write no
+document that would store what is already there, pinned by
+`server/src/agent/no-periodic-writes.test.ts`.
+
 ## Context
 
 Every durable byte lives in Stalwart (ADR 0001), and a document is stored as a

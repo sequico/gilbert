@@ -1,5 +1,11 @@
 # ADR 0002 — Upstream is download-only
 
+Status: Accepted
+
+Implementation: Built, and carried by the repository's own shape rather than by
+code: the `upstream` remote is fetch-only (`no_push`), no mirror branch exists,
+and a release is fetched by the merge that takes it in.
+
 Gilbert's mail client is based on
 [Coffey-Labs/ihasmail](https://github.com/Coffey-Labs/ihasmail). Upstream is
 consumed here and never contributed to: releases arrive, nothing goes back.

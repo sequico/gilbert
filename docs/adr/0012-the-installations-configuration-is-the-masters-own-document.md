@@ -2,6 +2,10 @@
 
 Status: Proposed
 
+Implementation: Built. `installation.json` in the Master account's `gilbert` app
+folder, read whole at boot and written by the administration through the
+impersonation door (`server/src/installation.ts`).
+
 ## Context
 
 Four kinds of value a running Gilbert reads are not the installation's to

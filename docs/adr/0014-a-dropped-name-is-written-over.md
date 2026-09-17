@@ -2,6 +2,10 @@
 
 Status: Proposed
 
+Implementation: Built. A drop writes into the node that holds the name,
+identified by the create's own `alreadyExists` refusal
+(`web/src/lib/dropUpload.ts`, `web/src/lib/filenode.ts`).
+
 ## Context
 
 A file lands in Files under a name, and every folder refuses a second node of a

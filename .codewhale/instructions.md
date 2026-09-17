@@ -62,8 +62,17 @@ Decisions that shape the architecture — where durable state lives, a protocol
 surface, a trust boundary, an enforcement door, or a documented invariant —
 are recorded as Architecture Decision Records under `docs/adr/`, one file per
 decision: `NNNN-kebab-case-title.md` starting at `0001`, written in English,
-with a `Status` line (Proposed / Accepted) and Context, Decision and
-Consequences sections.
+with a `Status` line (Proposed / Accepted) and an `Implementation` line, then
+Context, Decision and Consequences sections.
+**`Status` is where the decision stands; `Implementation` is where the tree
+stands.** One line each, both required. `Status` moves only when the owner
+accepts a decision — it is a judgement, not a build state — and it never carries
+a date or a note about what an earlier version said. `Implementation` says
+whether the tree carries the decision and names the files that do:
+`Built.` with the paths, `Partly built.` naming what is carried and what is
+not, or `Not built.` A record whose implementation is owed the live probe it
+depends on says so in its body, and `ROADMAP.md` carries what is planned.
+Neither line is a changelog: the version before this commit is git's.
 Write the ADR when the change is designed, before or alongside the
 implementation, so the design is reviewable first; an implementation must
 match the ADR that covers it. ADRs stay `Proposed` until the owner accepts them.

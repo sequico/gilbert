@@ -1,5 +1,11 @@
 # ADR 0005 — Group chat and the group label catalog
 
+Status: Accepted
+
+Implementation: Built. One JSON node per message and one read marker per member,
+both in the group account (`web/src/lib/chat.ts`, `web/src/store/chat.ts`), with
+the label catalog beside them (`web/src/store/groupLabels.ts`).
+
 Groups (team mailboxes such as `freight@…`) are Stalwart principals whose
 members reach the group's own account through their own JMAP session.
 Product rule: everything a group owns lives in the group's own account, owned

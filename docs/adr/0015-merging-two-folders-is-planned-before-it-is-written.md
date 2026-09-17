@@ -2,6 +2,10 @@
 
 Status: Proposed
 
+Implementation: Built. Both trees are read and the plan is built before any step
+is taken, and a stopped merge writes nothing (`web/src/lib/folderMerge.ts`, with
+`web/src/lib/__tests__/folderMerge.test.ts`).
+
 ## Context
 
 The reader selects two folders of one listing and asks for them to become one.

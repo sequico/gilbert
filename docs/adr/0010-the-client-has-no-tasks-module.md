@@ -2,6 +2,10 @@
 
 Status: Proposed
 
+Implementation: Built as an absence: no task module, route, store or catalog
+string exists, and nothing reads or writes the `tasklist` marker — `MODULES`
+(`web/src/views/AppShell.tsx`) names four sections, none of them a task list.
+
 ## Context
 
 A task list is a convention, not a type: a calendar whose `description` is the

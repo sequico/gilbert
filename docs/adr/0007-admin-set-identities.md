@@ -1,7 +1,11 @@
 # ADR 0007 — Identity administration
 
-Status: Accepted. The assignment of a group identity to a member is decided
-here, and the tree carries it.
+Status: Accepted
+
+Implementation: Built. The lock and the assignment are documents written through
+the impersonation door (`server/src/identityAdmin.ts`), and a member reads their
+own assignment from the group's account (`/identities/assignment` in
+`server/src/app.ts`).
 
 An identity belongs to the account and is written by it: display name,
 address, `replyTo` and a signature (text and HTML, the latter capped by

@@ -2,6 +2,11 @@
 
 Status: Proposed
 
+Implementation: Built. The composer's recipient picker, the To-field suggestions
+and the card's own action resolve a group through one resolver into chips for its
+member addresses (`web/src/views/compose/RecipientPicker.tsx`,
+`web/src/lib/contacts.ts`).
+
 This is **gilbertmailer**: the address books and the composer, the two surfaces
 a group of contacts is read and written from.
 

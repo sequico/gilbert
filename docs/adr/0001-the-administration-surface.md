@@ -1,5 +1,14 @@
 # ADR 0001 — Administration
 
+Status: Accepted
+
+Implementation: Built. `isStalwartAdmin` reads the marker from the principal's
+own permission list and `requireAdmin` repeats the check on every privileged
+route (`server/src/upstream.ts`, `server/src/app.ts`); every privileged write
+goes through `impersonationAuthorization` (`server/src/sessions.ts`), and the
+policy, identity-lock and forced-password documents are written by
+`server/src/adminPolicy.ts` and `server/src/identityAdmin.ts`.
+
 Gilbert admin is Stalwart admin. There is no `gilbert-*` capability group, no
 admin mailbox and no Gilbert-side registry: a principal is a Gilbert
 administrator exactly when Stalwart says so, and administration is granted in

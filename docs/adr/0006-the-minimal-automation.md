@@ -2,6 +2,12 @@
 
 Status: Proposed
 
+Implementation: Partly built. The code carries the rule shape, the four triggers
+and the review policy, with the consent floor no mode can lower (`AGENT_TRIGGERS`,
+`consentRequired`, `reviewOutcome` in `server/src/agent/documents.ts`). Decided
+here and not built: the three-area capability checklist, the two speeds of
+context, and a guard refusing a second enabled rule on one trigger.
+
 The surface this is about is **Admin → Group Agents → Automations** — the
 editor that writes a group's rule documents. ADR 0003 gives a rule one shape —
 trigger, prose instruction, capability allowlist, review policy — and nothing
