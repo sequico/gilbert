@@ -277,3 +277,13 @@ Full law: load skills/gilbert-project. Renames: load skills/gilbert-branding.
 UI strings & languages: load skills/gilbert-i18n. Settings & policy: load
 skills/gilbert-settings. Stalwart internals, quirks & integration: load
 skills/gilbert-stalwart. Upstream merges: load skills/gilbert-upstream-rebrand.
+
+## Worktrees
+
+- A worktree of this repository lives in `.worktree/` — the canonical name, here
+  and in every repository: `<repo>/.worktree/<slug>`. Not `.worktrees/`, not
+  `<name>.worktree/`, no per-tool spelling.
+- Create one with `git worktree add .worktree/<slug>`.
+- A worktree is a checkout, not content. `/.worktree/` is ignored — in a
+  repository whose `.gitignore` belongs to upstream, the pattern lives in
+  `.git/info/exclude` instead — so `git add -A` can never stage one.

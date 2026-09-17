@@ -12,13 +12,12 @@ coverage/
 # content, and `git add -A` in the main checkout would otherwise stage a whole
 # second tree of the files that are already tracked.
 #
-# Every place one is created, at any depth. `.claude/worktrees/` is where this
-# repo's agents put them and is covered by the first pattern, which is
-# deliberately not anchored: a named exception for it beside that pattern would
-# be the same rule written twice. `.worktrees/` is the other spelling the
-# tooling in use reaches for, and `<name>.worktree/` is the shape a tool that
-# makes one per branch leaves behind. Git's own registration lives under `.git/`,
-# which is never committed in the first place; this is about the working copy.
+# The canonical location is `.worktree/` at the repository root (owner decision
+# 2026-09-17). The remaining patterns are the older spellings, kept so a checkout
+# left under one of them can never be staged. Git's own registration lives under
+# `.git/`, which is never committed in the first place; this is about the working
+# copy.
+/.worktree/
 worktrees/
 .worktrees/
 *.worktree/
