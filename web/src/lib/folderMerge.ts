@@ -136,7 +136,7 @@ function may(n: MergeNode | undefined, right: keyof FilesRights): boolean {
  *   folder it emptied is destroyed on the way back up.
  * - **something carrying content on both sides** — the file's bytes are written
  *   into the node the kept tree already has under that name, which is
- *   `writeContent`'s rule from ADR 0014: the id, the sharing and the place in
+ *   `writeContent`'s rule from ADR 0013: the id, the sharing and the place in
  *   the tree stay, and only the content changes. Never a destroy-and-create, so
  *   nothing that referred to that file — a share, a chat message, a composer
  *   attachment — is invalidated by a name landing on it. The file the bytes came

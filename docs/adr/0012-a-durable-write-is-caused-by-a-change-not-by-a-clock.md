@@ -1,6 +1,6 @@
-# ADR 0013 — A durable write is caused by a change, not by a clock
+# ADR 0012 — A durable write is caused by a change, not by a clock
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Built. The claims, the sessions and the heartbeats write no
 document that would store what is already there, pinned by

@@ -1670,7 +1670,7 @@ export async function memberAgentView(
  * process about it, so the alternative to a window is asking the directory at
  * every mention. A minute keeps the read rare and the staleness small enough
  * that a departure is gone from the next mention after it. This is a cache of
- * a read, never a durable document: ADR 0013 refuses a write on a clock, not a
+ * a read, never a durable document: ADR 0012 refuses a write on a clock, not a
  * read, and nothing here is written anywhere.
  */
 const ROSTER_TTL_MS = 60_000;

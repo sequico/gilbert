@@ -735,7 +735,7 @@ async function destroyNodes(accountId: Id, ids: Id[], cascade: boolean): Promise
  * that describe it into the node that already holds the name. The reader's
  * bytes are the same afterwards either way, and the node the kept folder had is
  * the one that holds them -- same id, same sharing, same place in the tree
- * (ADR 0014). Re-pointing the node at the other one's blob would save both the
+ * (ADR 0013). Re-pointing the node at the other one's blob would save both the
  * download and the upload, and nothing here has read a 0.16 do it: the server
  * charges the account for the second blob and leaves the first to its GC, which
  * is the price of not resting a durable write on an unverified answer.

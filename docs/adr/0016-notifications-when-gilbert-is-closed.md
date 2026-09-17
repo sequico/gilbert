@@ -1,4 +1,4 @@
-# ADR 0017 — What notifies a closed Gilbert: the permission door, every mailbox, and chat
+# ADR 0016 — What notifies a closed Gilbert: the permission door, every mailbox, and chat
 
 Status: Accepted
 
@@ -268,7 +268,7 @@ answer is not the expected one, and none of them has been tried against a live
 
 Until they are answered the four items are the record's debt, and the
 implementation marks them where the code owes them (the repository's
-`ADR-0017 OWED:` convention).
+`ADR-0016 OWED:` convention).
 
 ## The order of the work
 

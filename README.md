@@ -508,7 +508,7 @@ sign-in reads the new policy (ADR 0001). One account's refusal — no
 impersonation grant, an unreachable session, an account with no Files to hold it
 — does not stop the rest.
 
-**The publish is a job with an id** (ADR 0011). One id is minted before the
+**The publish is a job with an id** (ADR 0010). One id is minted before the
 first copy goes out, and every copy written carries it as
 `published: { id, at }` beside the policy, so any account an administrator opens
 says which publish reached it. The job itself is one document,

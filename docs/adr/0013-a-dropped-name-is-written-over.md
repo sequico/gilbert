@@ -1,6 +1,6 @@
-# ADR 0014 — A dropped name is written over, in place
+# ADR 0013 — A dropped name is written over, in place
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Built. A drop writes into the node that holds the name,
 identified by the create's own `alreadyExists` refusal
@@ -37,7 +37,7 @@ Three properties of the server decide what the alternatives cost:
   where an update is one.
 - **A replaced blob is unreferenced, not deleted,** and JMAP offers no way to
   delete one; the server's GC reclaims it. An upload is charged and never
-  refunded (ADR 0013), which is what makes an unnecessary one worth avoiding
+  refunded (ADR 0012), which is what makes an unnecessary one worth avoiding
   and a necessary one worth paying.
 
 ## Decision
@@ -165,6 +165,6 @@ unbounded, and nothing in the account says which one is the current file.
   sidebar
 - `server/src/mock/index.ts` — the refusal, its `existingId`, and the update path
 - `server/src/jmap.ts` — `isAlreadyExistsRefusal`, the type read off the wire
-- ADR 0013 — a durable write is caused by a change, not by a clock, which is why
+- ADR 0012 — a durable write is caused by a change, not by a clock, which is why
   a blob that buys nothing is worth not uploading
 - ADR 0002 — upstream is download-only: the drop behaviour is this client's own

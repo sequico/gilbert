@@ -1,4 +1,4 @@
-# ADR 0016 — A group's mail is deleted by an administrator only
+# ADR 0015 — A group's mail is deleted by an administrator only
 
 Status: Proposed
 

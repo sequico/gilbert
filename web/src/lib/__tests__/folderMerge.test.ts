@@ -130,7 +130,7 @@ describe("planMerge", () => {
   /*
    * The name both hold as a file: the bytes are written into the node that is
    * already there, so its id, its sharing and its place in the tree stay
-   * (ADR 0014). A destroy-and-create would invalidate everything that pointed
+   * (ADR 0013). A destroy-and-create would invalidate everything that pointed
    * at that file.
    */
   it("writes one file's bytes into the node holding its name", async () => {

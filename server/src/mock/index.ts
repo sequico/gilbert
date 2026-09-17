@@ -4220,7 +4220,7 @@ const handlers: Record<string, Handler> = {
          * That refusal is not a detail a client may assume away: a folder drop
          * that creates only what is missing depends on it, and so does every
          * writer that replaces a file's content — the id it carries is the node
-         * to write the new bytes into (ADR 0014). Without it a second identical
+         * to write the new bytes into (ADR 0013). Without it a second identical
          * create looked like success here and would be refused on a real server.
          *
          * Not reproduced: the same check on **update**. A real 0.16 runs

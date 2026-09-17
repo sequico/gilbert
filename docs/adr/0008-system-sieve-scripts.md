@@ -1,6 +1,6 @@
 # ADR 0008 — System Sieve scripts
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Built. `server/src/adminSieve.ts`, behind `requireAdmin` on every
 route (`server/src/app.ts`), sharing its editor component with the personal

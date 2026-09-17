@@ -1,6 +1,6 @@
 # ADR 0004 — A contact group is not a recipient
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Built. The composer's recipient picker, the To-field suggestions
 and the card's own action resolve a group through one resolver into chips for its

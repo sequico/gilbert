@@ -91,34 +91,27 @@ is, not what a user sees.
   own origin.** One subscription per account names every state type a
   Gilbert surface keeps live, and its callback address is derived from the
   request rather than configured.
-- **0010 — The client has no tasks module.** A task list is a convention, not
-  a type: a calendar marked in its own `description`, holding objects the
-  client does not name. Nothing in the client recognises or writes it and no
-  document here calls it a thing: no route, no section, no catalog string, no
-  marker, no separate kind of calendar to filter out of the pickers. What is
-  already in Stalwart is left where it is, drawn as the calendar objects they
-  are — no migration, no purge, no hiding pass.
-- **0011 — The policy publish is a job with an id.** One id per publish,
+- **0010 — The policy publish is a job with an id.** One id per publish,
   carried by every copy it writes, and the job — the population the
   directory reported, the accounts the policy reached, the ones it did not
   with a code each, and whether the installation can be said to carry the
   policy — is one document in the publishing administrator's own app
   folder. Every per-account write is conditional, and the outcome cannot
   claim more than it reached.
-- **0012 — The installation's configuration is the Master's own document.**
+- **0011 — The installation's configuration is the Master's own document.**
   `installation.json` in the Master account's `gilbert` app folder, read
   whole at boot and written by the administration through the same
   impersonation door; the environment carries only the handshake, the
   container's and the image's own facts, the operator's own switch, and the
   facts about the process itself. A publish applies from the next boot.
-- **0013 — A durable write is caused by a change, not by a clock.** Stalwart
+- **0012 — A durable write is caused by a change, not by a clock.** Stalwart
   charges an account for every blob it uploads and never gives one back, so a
   write on a clock — a heartbeat, a renewed lease, a session's activity stamp —
   spends a finite budget saying that a process is alive. Liveness and activity
   are process facts (ADR 0003's claims, the sessions store), a write that would
   store what is already there is not made, and an idle installation therefore
   costs nothing.
-- **0014 — A dropped name is written over, in place.** A drop or a picker
+- **0013 — A dropped name is written over, in place.** A drop or a picker
   selection lands on a name the folder already holds by writing the bytes into
   the node that holds it — same id, same sharing, same place in the tree, only
   `blobId`, `type` and `size` change — so dropping a tree twice is one tree.
@@ -126,16 +119,25 @@ is, not what a user sees.
   is listed first; a name a **folder** holds stops the file instead of writing
   into it, and saving an attachment into Files still refuses a taken name rather
   than replacing one.
-- **0015 — Merging two folders is planned before it is written.** Both trees are
+- **0014 — Merging two folders is planned before it is written.** Both trees are
   read, the plan is built, and any collision — a name that is a folder on one
   side and a file on the other, or a right the reader does not hold — stops
   every step with nothing written. The folder whose name the reader keeps is the
   node that survives; a name both hold as a file is written into in place (ADR
-  0014) and its source node destroyed; the folder given up is destroyed last and
+  0013) and its source node destroyed; the folder given up is destroyed last and
   only once it is empty, so a stopped merge leaves both folders standing. The
   entry is offered for exactly two folders and drawn always, disabled until the
   selection is one it can act on.
-- **0017 — What notifies a closed Gilbert.** The browser's own subscription —
+- **0015 — A group's mail is deleted by an administrator only.** A group mailbox
+  is reached by membership rather than by a share, so the mail server tells one
+  member's delete from another's by nothing and offers no rank inside a group;
+  the rule is the client's. Moving, binning, labelling, archiving and forwarding
+  all stay, and the three things that end a message for good — deleting it out
+  of Deleted Items or Junk Mail, emptying one of those folders, and deleting a
+  folder together with its mail — are refused for every member but an
+  installation administrator, with one sentence. It is a rule the product
+  keeps, not a boundary: another client destroys the same mail.
+- **0016 — What notifies a closed Gilbert.** The browser's own subscription —
   the one Stalwart POSTs to the browser's push service directly — covers every
   mailbox the reader may open, not only their own, and chat rides the one
   vocabulary Stalwart has for a file: a `FileNode` state change wakes the

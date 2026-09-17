@@ -97,7 +97,7 @@ Where the integration lives:
   id, and a writer that means to **replace** does not look the name up at all —
   the refusal names the node, and writing the new bytes into it is an update of
   `blobId`/`type`/`size`, which is why a name on a level past the account
-  read's page is still written over (ADR 0014). The mock reproduces the
+  read's page is still written over (ADR 0013). The mock reproduces the
   refusal, the id and the case-sensitivity (`server/src/mock/index.ts`,
   `FileNode/set`).
 - A destroy of a **folder that still holds something** is refused unless the
@@ -109,7 +109,7 @@ Where the integration lives:
   rests on it is the file manager's delete (which sends the flag, and has
   always sent it) and a **merge**'s last step, which deliberately does not: it
   destroys a folder it emptied, so a folder it did not empty stops the merge
-  instead of disappearing with whatever landed in it meanwhile (ADR 0015). The
+  instead of disappearing with whatever landed in it meanwhile (ADR 0014). The
   safe direction is the one that assumes the refusal; if a real server destroys
   the contents anyway, a merge stopped early takes a folder the reader gave up
   anyway. The mock models the refusal, the empty case and the cascade

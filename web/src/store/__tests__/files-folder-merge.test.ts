@@ -182,7 +182,7 @@ describe("merging two folders", () => {
   /*
    * A name both folders hold as a file. The bytes cross, and they cross into the
    * node the kept folder already has: same id, same place, only the content
-   * changes (ADR 0014). The other node is then destroyed with its folder, so one
+   * changes (ADR 0013). The other node is then destroyed with its folder, so one
    * file of that name is left, holding the copy.
    */
   it("writes the other file's bytes into the node that already holds the name", async () => {

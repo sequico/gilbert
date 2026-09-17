@@ -1,6 +1,6 @@
 # ADR 0006 — The minimal automation
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Partly built. The code carries the rule shape, the four triggers
 and the review policy, with the consent floor no mode can lower (`AGENT_TRIGGERS`,

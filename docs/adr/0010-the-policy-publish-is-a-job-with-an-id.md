@@ -1,6 +1,6 @@
-# ADR 0011 — The policy publish is a job with an id
+# ADR 0010 — The policy publish is a job with an id
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Built. One id per publish, carried by every copy it writes, with
 the job recorded as one document in the publishing administrator's own app folder
@@ -118,5 +118,5 @@ sign-in reads it. What this record decides is the record of what a publish did.
   conditional-write discipline the publish follows
 - `scripts/probe-conditional-writes.mjs` — the live probe that asks whether
   `FileNode/set` honours `ifInState` and what a stale token is refused as
-- ADR 0012 — the installation's own configuration document, and the door that
+- ADR 0011 — the installation's own configuration document, and the door that
   publishes it

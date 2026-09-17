@@ -1,6 +1,6 @@
 # ADR 0009 — The push subscription covers every live type, at the request's own origin
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Built and live-verified. `PUSH_STATE_TYPES` names every live type
 and the callback address is derived from the request rather than configured

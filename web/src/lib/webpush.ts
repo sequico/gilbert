@@ -163,17 +163,17 @@ export function deviceClientId(): string {
  * whole subscription. Without an id the filter simply leaves `inMailbox` out
  * and notifies more widely, which is a worse default but a working one.
  *
- * What this answers is the record's open question (ADR 0017): whether one
+ * What this answers is the record's open question (ADR 0016): whether one
  * subscription may carry `emailPush` for several accounts at once, whether a
  * member may register one on a group account at all and whether the payload
  * then names that account, and how a `filter` applies across a subscription's
  * types. The chat wake-up adds the fourth, a `FileNode` narrowed to the chat
  * folder. The answers come from a live 0.16 and are owed.
  *
- * ADR-0017 OWED: push-per-account
- * ADR-0017 OWED: group-subscription
- * ADR-0017 OWED: filenode-filter
- * ADR-0017 OWED: filter-per-type
+ * ADR-0016 OWED: push-per-account
+ * ADR-0016 OWED: group-subscription
+ * ADR-0016 OWED: filenode-filter
+ * ADR-0016 OWED: filter-per-type
  */
 export function subscriptionPayload(
   sub: PushSubscription,

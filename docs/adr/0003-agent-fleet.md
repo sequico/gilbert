@@ -1,6 +1,6 @@
 # ADR 0003 — The agent fleet
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Built in the main: the fleet, the claim and the executor
 (`server/src/agent/agent.ts`, `lease.ts`, `executor.ts`), the capability

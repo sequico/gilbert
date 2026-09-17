@@ -70,7 +70,7 @@ async function children(
  *
  * How much of a level a page is, is a question this deliberately does not
  * answer. Nothing in the client asks it: the Files store resolves folders from
- * the page and lets the write itself answer for a name (ADR 0014), and a caller
+ * the page and lets the write itself answer for a name (ADR 0013), and a caller
  * that pages -- chat, walking its transcript -- knows what it asked for and
  * what came back. So the ceilings are described through the two values above
  * rather than through a verdict about them: `list` is what the `get` resolved,

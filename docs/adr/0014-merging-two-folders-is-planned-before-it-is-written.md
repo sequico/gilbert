@@ -1,6 +1,6 @@
-# ADR 0015 — Merging two folders is planned before it is written
+# ADR 0014 — Merging two folders is planned before it is written
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Built. Both trees are read and the plan is built before any step
 is taken, and a stopped merge writes nothing (`web/src/lib/folderMerge.ts`, with
@@ -50,7 +50,7 @@ step of it before the first write.**
   its id, its sharing and its place in the tree. Renaming the survivor instead
   would move a folder's identity onto a name taken from the other one, which is
   a rename dressed up as a merge.
-- **A name both hold as a file is written in place**, which is ADR 0014's rule
+- **A name both hold as a file is written in place**, which is ADR 0013's rule
   reaching a second writer: the destination node keeps its id and its sharing,
   and only content changes. The file the bytes came out of is then destroyed, so
   one node of that name is left rather than two.
@@ -77,7 +77,7 @@ step of it before the first write.**
 
 - **The drop path.** A dropped tree still reuses the folders it finds, writes
   over the files, and reports a subtree whose folder could not be made (ADR
-  0014). A merge is an explicit gesture between two folders that are already on
+  0013). A merge is an explicit gesture between two folders that are already on
   screen.
 - **Deleting a folder from the Files view**, which still takes its contents with
   it: that is what the reader asked for there, and it is what
@@ -102,7 +102,7 @@ step of it before the first write.**
   twice is a failure rather than a loop.
 - **A copy is an upload.** Content crosses by downloading the blob and uploading
   it into the node that keeps the name, which the account is charged for and
-  which the server's GC reclaims the other side of (ADR 0013). Pointing the kept
+  which the server's GC reclaims the other side of (ADR 0012). Pointing the kept
   node at the other node's blob would save both, and nothing here has read a
   0.16 do it: the second blob is the price of not resting a durable write on an
   unverified answer.
@@ -128,8 +128,8 @@ step of it before the first write.**
 - `web/src/jmap/client.ts` — `fetchBlob`, which the copy reads through
 - `server/src/mock/destroy-non-empty-folder.test.ts` — the mock's refusal, and
   the cascade the Files view's own delete uses
-- ADR 0014 — a dropped name is written over, in place: the rule a merge's files
+- ADR 0013 — a dropped name is written over, in place: the rule a merge's files
   follow, and the drop path it leaves alone
-- ADR 0013 — a durable write is caused by a change, not by a clock, which is why
+- ADR 0012 — a durable write is caused by a change, not by a clock, which is why
   a merge stores nothing about a run in progress
 - ADR 0002 — upstream is download-only: the merge is this client's own
