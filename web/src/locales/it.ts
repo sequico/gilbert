@@ -333,6 +333,24 @@ export const catalog: Catalog = {
 
     "No matching folders": "Nessuna cartella corrispondente",
 
+    "Merge folders…": "Unisci cartelle…",
+    "Merge folders": "Unisci cartelle",
+    Merge: "Unisci",
+    "Which folder should keep its name? The other one's contents move into it, and it is deleted.":
+      "Quale cartella deve mantenere il suo nome? Il contenuto dell'altra viene spostato qui, e quella cartella viene eliminata.",
+    "Its name stays, and the other folder's contents move in here.":
+      "Mantiene il suo nome e il contenuto dell'altra cartella viene spostato qui.",
+    "This folder is deleted once its contents have moved.":
+      "Questa cartella viene eliminata una volta spostato il suo contenuto.",
+    "Merging takes two folders.": "Per unire servono due cartelle.",
+    "The folder could not be read: the server answered the same page twice.":
+      "Non è stato possibile leggere la cartella: il server ha risposto due volte con la stessa pagina.",
+    "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":
+      "«{path}» è una cartella in una delle due e un file nell'altra, quindi nessuna delle due può essere unita all'altra.",
+    "“{path}” carries no content to write over the file of its name.":
+      "«{path}» non ha contenuto da scrivere sopra il file omonimo.",
+    "“{path}” is not yours to change.": "«{path}» non è suo da modificare.",
+
     "No subfolders here.": "Qui non ci sono sottocartelle.",
 
     "Type a folder name…": "Scrivi un nome di cartella…",
@@ -2521,6 +2539,15 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Plural forms ───────────────────────────────────────────────────
+    "{done} of {n} items": {
+      one: "{done} di {n} elemento",
+      other: "{done} di {n} elementi",
+    },
+    "{n} more collisions stop it too.": {
+      one: "Un'altra collisione lo ferma comunque.",
+      other: "Altre {n} collisioni lo fermano comunque.",
+    },
+
     "Delete {n} items": { one: "Elimina {n} elemento", other: "Elimina {n} elementi" },
     "Delete {n} items?": {
       one: "Eliminare {n} elemento?",

@@ -198,6 +198,16 @@ export function FilesTree() {
           className={`nav-item ${currentId === d.id ? "active" : ""} ${draggingIds.length && canDropOn(d.id) ? "drop-target" : ""}`}
           style={{ paddingLeft: 8 + depth * 14 }}
           onClick={() => navigate(`/files/${d.id}`)}
+          /*
+           * A double click opens the branch, the way it does in every file
+           * manager's tree: one click goes to the folder -- it is what the
+           * highlight and the listing follow -- and two are for looking inside
+           * it without leaving where the reader is. The twisty does the same
+           * thing one click sooner for a reader who aimed at it, and both go
+           * through `setFolder`, so what is open on screen and what is
+           * remembered cannot part.
+           */
+          onDoubleClick={() => setFolder(key, !open)}
           onContextMenu={(e) => {
             e.preventDefault();
             setMenuNode(d);
@@ -221,6 +231,11 @@ export function FilesTree() {
               e.stopPropagation();
               setFolder(key, !open);
             }}
+            /* The twisty's own two clicks are the whole story: letting the
+               double click through as well would toggle this branch once more,
+               so a reader aiming at the chevron would land where the row's
+               double click puts them rather than where they clicked. */
+            onDoubleClick={(e) => e.stopPropagation()}
           >
             {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           </button>

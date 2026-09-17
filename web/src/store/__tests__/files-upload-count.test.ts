@@ -39,7 +39,7 @@ const stubSet = (answers: unknown[]) => {
 
 afterEach(() => {
   vi.restoreAllMocks();
-  useFiles.setState({ accountId: BROWSE, ownAccountId: BROWSE, uploads: [] });
+  useFiles.setState({ accountId: BROWSE, ownAccountId: BROWSE, runs: [] });
 });
 
 describe("the count of an upload run", () => {
@@ -67,7 +67,7 @@ describe("the count of an upload run", () => {
       .upload(null, [file("a.txt"), file("b.txt"), file("c.txt")]);
     await vi.waitFor(() => expect(asked).toBe(2));
 
-    const rows = useFiles.getState().uploads;
+    const rows = useFiles.getState().runs;
     expect(rows).toHaveLength(1);
     expect(rows[0]!.name).toBe("b.txt");
     expect(rows[0]!.done).toBe(1);
@@ -75,7 +75,7 @@ describe("the count of an upload run", () => {
 
     release();
     await run;
-    expect(useFiles.getState().uploads).toEqual([]);
+    expect(useFiles.getState().runs).toEqual([]);
   });
 
   it("moves the count on the row that stays, not only on the one in flight", async () => {
@@ -100,7 +100,7 @@ describe("the count of an upload run", () => {
 
     await useFiles.getState().upload(null, [file("taken.txt"), file("fine.txt")]);
 
-    const rows = useFiles.getState().uploads;
+    const rows = useFiles.getState().runs;
     expect(rows).toHaveLength(1);
     expect(rows[0]!.name).toBe("taken.txt");
     expect(rows[0]!.error).toMatch(/already here/);

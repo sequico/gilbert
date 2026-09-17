@@ -2,16 +2,21 @@
 
 One file per decision (`NNNN-kebab-case-title.md`), numbered by the owner and
 consecutively: a new record takes the number after the highest, so the
-sequence has no gaps.
+sequence has no gaps. A number is minted for a decision that is new, never for
+a version of one already here.
 
 A citation names a record that is a file here, and a section inside it is
 named rather than numbered: the record's own structure is what a code
 comment is read against.
 
 Each record describes the decision as it stands and how it is built —
-architecture, not a changelog. A record is edited in place when the thing it
-describes changes; nothing here narrates what used to be true. History of
-that kind lives in git, not in these files.
+architecture, not a changelog. **A record is edited in place when the thing it
+describes changes**, in the change that alters it: a later version of one
+decision is the same file rewritten, so nothing here supersedes anything, no
+record carries a `Superseded` status, and nothing narrates what used to be
+true. A reader who wants the version before this commit asks git for it. The
+one exception is the owner asking for otherwise, explicitly: only then does a
+decision get a record beside the existing one instead of a rewrite of it.
 
 Every record names the four blocks — **gilbertmailer**, **gilbertserver**,
 **gilbertagents** and **gilbertstalwart** — the way `README.md` defines
@@ -92,15 +97,14 @@ is, not what a user sees.
   document here calls it a thing: no route, no section, no catalog string, no
   marker, no separate kind of calendar to filter out of the pickers. What is
   already in Stalwart is left where it is, drawn as the calendar objects they
-  are — no migration, no purge, no hiding pass. Supersedes ADR 0005's
-  task-list enumeration.
+  are — no migration, no purge, no hiding pass.
 - **0011 — The policy publish is a job with an id.** One id per publish,
   carried by every copy it writes, and the job — the population the
   directory reported, the accounts the policy reached, the ones it did not
   with a code each, and whether the installation can be said to carry the
   policy — is one document in the publishing administrator's own app
   folder. Every per-account write is conditional, and the outcome cannot
-  claim more than it reached. Supersedes ADR 0001's policy-publish bullet.
+  claim more than it reached.
 - **0012 — The installation's configuration is the Master's own document.**
   `installation.json` in the Master account's `gilbert` app folder, read
   whole at boot and written by the administration through the same
@@ -122,3 +126,12 @@ is, not what a user sees.
   is listed first; a name a **folder** holds stops the file instead of writing
   into it, and saving an attachment into Files still refuses a taken name rather
   than replacing one.
+- **0015 — Merging two folders is planned before it is written.** Both trees are
+  read, the plan is built, and any collision — a name that is a folder on one
+  side and a file on the other, or a right the reader does not hold — stops
+  every step with nothing written. The folder whose name the reader keeps is the
+  node that survives; a name both hold as a file is written into in place (ADR
+  0014) and its source node destroyed; the folder given up is destroyed last and
+  only once it is empty, so a stopped merge leaves both folders standing. The
+  entry is offered for exactly two folders and drawn always, disabled until the
+  selection is one it can act on.

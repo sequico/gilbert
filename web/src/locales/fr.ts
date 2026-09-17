@@ -246,6 +246,24 @@ export const catalog: Catalog = {
     "Open subfolders of {name}": "Ouvrir les sous-dossiers de {name}",
     "Delete folder": "Supprimer le dossier",
     "No matching folders": "Aucun dossier correspondant",
+    "Merge folders…": "Fusionner les dossiers…",
+    "Merge folders": "Fusionner les dossiers",
+    Merge: "Fusionner",
+    "Which folder should keep its name? The other one's contents move into it, and it is deleted.":
+      "Quel dossier doit garder son nom ? Le contenu de l'autre y est déplacé, et ce dossier est supprimé.",
+    "Its name stays, and the other folder's contents move in here.":
+      "Son nom est conservé, et le contenu de l'autre dossier est déplacé ici.",
+    "This folder is deleted once its contents have moved.":
+      "Ce dossier est supprimé une fois son contenu déplacé.",
+    "Merging takes two folders.": "La fusion demande deux dossiers.",
+    "The folder could not be read: the server answered the same page twice.":
+      "Le dossier n'a pas pu être lu : le serveur a renvoyé deux fois la même page.",
+    "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":
+      "« {path} » est un dossier dans l'un des deux et un fichier dans l'autre : aucun des deux ne peut être fusionné dans l'autre.",
+    "“{path}” carries no content to write over the file of its name.":
+      "« {path} » n'a pas de contenu à écrire par-dessus le fichier de son nom.",
+    "“{path}” is not yours to change.": "« {path} » n'est pas à vous de modifier.",
+
     "No subfolders here.": "Aucun sous-dossier ici.",
     "Type a folder name…": "Saisissez un nom de dossier…",
     "＋ New folder…": "＋ Nouveau dossier…",
@@ -1579,6 +1597,15 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
+    "{done} of {n} items": {
+      one: "{done} sur {n} élément",
+      other: "{done} sur {n} éléments",
+    },
+    "{n} more collisions stop it too.": {
+      one: "Une collision de plus l'arrête aussi.",
+      other: "{n} collisions de plus l'arrêtent aussi.",
+    },
+
     "Delete {n} items": { one: "Supprimer {n} élément", other: "Supprimer {n} éléments" },
     "Delete {n} items?": {
       one: "Supprimer {n} élément ?",

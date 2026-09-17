@@ -25,7 +25,7 @@ function stubListing() {
 
 afterEach(() => {
   vi.restoreAllMocks();
-  useFiles.setState({ accountId: BROWSE, ownAccountId: BROWSE, uploads: [] });
+  useFiles.setState({ accountId: BROWSE, ownAccountId: BROWSE, runs: [] });
 });
 
 describe("an upload that failed", () => {
@@ -37,7 +37,7 @@ describe("an upload that failed", () => {
 
     await useFiles.getState().upload(null, [file("bad<name>.txt")]);
 
-    const rows = useFiles.getState().uploads;
+    const rows = useFiles.getState().runs;
     expect(rows).toHaveLength(1);
     expect(rows[0]!.error).toMatch(/forbidden character/);
   });
@@ -48,8 +48,8 @@ describe("an upload that failed", () => {
     up.mockRejectedValue(new Error("Name contains a forbidden character. (name)"));
 
     await useFiles.getState().upload(null, [file("bad<name>.txt")]);
-    useFiles.getState().dismissUpload(useFiles.getState().uploads[0]!.id);
-    expect(useFiles.getState().uploads).toEqual([]);
+    useFiles.getState().dismissRun(useFiles.getState().runs[0]!.id);
+    expect(useFiles.getState().runs).toEqual([]);
 
     /* And a row that goes through still removes itself: there is nothing left
        to dismiss, which is what makes the button a remedy rather than a habit. */
@@ -64,6 +64,6 @@ describe("an upload that failed", () => {
     } as never);
 
     await useFiles.getState().upload(null, [file("fine.txt")]);
-    expect(useFiles.getState().uploads).toEqual([]);
+    expect(useFiles.getState().runs).toEqual([]);
   });
 });

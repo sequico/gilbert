@@ -236,6 +236,24 @@ export const catalog: Catalog = {
     "Open subfolders of {name}": "{name} のサブフォルダーを開く",
     "Delete folder": "フォルダーを削除",
     "No matching folders": "該当するフォルダーはありません",
+    "Merge folders…": "フォルダーを統合…",
+    "Merge folders": "フォルダーを統合",
+    Merge: "統合",
+    "Which folder should keep its name? The other one's contents move into it, and it is deleted.":
+      "どちらのフォルダーの名前を残しますか？もう一方の内容はこちらに移動し、そのフォルダーは削除されます。",
+    "Its name stays, and the other folder's contents move in here.":
+      "名前はそのまま残り、もう一方のフォルダーの内容がここに移動します。",
+    "This folder is deleted once its contents have moved.":
+      "このフォルダーは内容の移動が終わりしだい削除されます。",
+    "Merging takes two folders.": "統合にはフォルダーが 2 つ必要です。",
+    "The folder could not be read: the server answered the same page twice.":
+      "フォルダーを読み取れませんでした。サーバーが同じページを 2 回返しました。",
+    "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":
+      "「{path}」は一方ではフォルダー、もう一方ではファイルなので、どちらも他方に統合できません。",
+    "“{path}” carries no content to write over the file of its name.":
+      "「{path}」には同名のファイルに上書きする内容がありません。",
+    "“{path}” is not yours to change.": "「{path}」を変更する権限がありません。",
+
     "No subfolders here.": "サブフォルダーはありません。",
     "Type a folder name…": "フォルダー名を入力…",
     "＋ New folder…": "＋ 新しいフォルダー…",
@@ -1563,6 +1581,13 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
+    "{done} of {n} items": {
+      other: "{n} 件中 {done} 件",
+    },
+    "{n} more collisions stop it too.": {
+      other: "さらに {n} 件の衝突でも停止します。",
+    },
+
     "Delete {n} items": { other: "{n} 件を削除" },
     "Delete {n} items?": { other: "{n} 件を削除しますか？" },
     "Move {n} items": { other: "{n} 件を移動" },

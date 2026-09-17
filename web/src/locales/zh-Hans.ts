@@ -230,6 +230,24 @@ export const catalog: Catalog = {
     "Open subfolders of {name}": "打开{name}的子文件夹",
     "Delete folder": "删除文件夹",
     "No matching folders": "没有匹配的文件夹",
+    "Merge folders…": "合并文件夹…",
+    "Merge folders": "合并文件夹",
+    Merge: "合并",
+    "Which folder should keep its name? The other one's contents move into it, and it is deleted.":
+      "哪个文件夹保留名称？另一个文件夹的内容会移动到此处，该文件夹将被删除。",
+    "Its name stays, and the other folder's contents move in here.":
+      "保留其名称，另一个文件夹的内容移动到这里。",
+    "This folder is deleted once its contents have moved.":
+      "内容移动完成后，此文件夹将被删除。",
+    "Merging takes two folders.": "合并需要两个文件夹。",
+    "The folder could not be read: the server answered the same page twice.":
+      "无法读取文件夹：服务器两次返回了同一页。",
+    "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":
+      "“{path}”在其中一个里是文件夹，在另一个里是文件，因此两者无法相互合并。",
+    "“{path}” carries no content to write over the file of its name.":
+      "“{path}”没有可写入同名文件的内容。",
+    "“{path}” is not yours to change.": "“{path}”不属于您，无法更改。",
+
     "No subfolders here.": "这里没有子文件夹。",
     "Type a folder name…": "输入文件夹名称…",
     "＋ New folder…": "＋ 新建文件夹…",
@@ -1516,6 +1534,13 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
+    "{done} of {n} items": {
+      other: "第 {done} 项，共 {n} 项",
+    },
+    "{n} more collisions stop it too.": {
+      other: "还有 {n} 处冲突也会使其停止。",
+    },
+
     "Delete {n} items": { other: "删除 {n} 个项目" },
     "Delete {n} items?": { other: "要删除 {n} 个项目吗？" },
     "Move {n} items": { other: "移动 {n} 个项目" },

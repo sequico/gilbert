@@ -7,8 +7,21 @@ server/data/
 .vite/
 coverage/
 
-# Worktrees used by parallel agents; never part of a commit.
-.claude/worktrees/
+# Worktrees: a second checkout of this repository, made by whichever tool is
+# running parallel work. Never part of a commit -- a worktree is a checkout, not
+# content, and `git add -A` in the main checkout would otherwise stage a whole
+# second tree of the files that are already tracked.
+#
+# Every place one is created, at any depth. `.claude/worktrees/` is where this
+# repo's agents put them and is covered by the first pattern, which is
+# deliberately not anchored: a named exception for it beside that pattern would
+# be the same rule written twice. `.worktrees/` is the other spelling the
+# tooling in use reaches for, and `<name>.worktree/` is the shape a tool that
+# makes one per branch leaves behind. Git's own registration lives under `.git/`,
+# which is never committed in the first place; this is about the working copy.
+worktrees/
+.worktrees/
+*.worktree/
 
 # Codewhale runtime scratch: lock files, the agent harness's own journal and
 # state, and pasted attachments. Tracked repo content under .codewhale/

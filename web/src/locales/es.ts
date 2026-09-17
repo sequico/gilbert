@@ -240,6 +240,24 @@ export const catalog: Catalog = {
     "Open subfolders of {name}": "Abrir las subcarpetas de {name}",
     "Delete folder": "Eliminar la carpeta",
     "No matching folders": "Ninguna carpeta coincide",
+    "Merge folders…": "Fusionar carpetas…",
+    "Merge folders": "Fusionar carpetas",
+    Merge: "Fusionar",
+    "Which folder should keep its name? The other one's contents move into it, and it is deleted.":
+      "¿Qué carpeta debe conservar su nombre? El contenido de la otra se mueve aquí y esa carpeta se elimina.",
+    "Its name stays, and the other folder's contents move in here.":
+      "Conserva su nombre y el contenido de la otra carpeta se mueve aquí.",
+    "This folder is deleted once its contents have moved.":
+      "Esta carpeta se elimina cuando su contenido se haya movido.",
+    "Merging takes two folders.": "Fusionar requiere dos carpetas.",
+    "The folder could not be read: the server answered the same page twice.":
+      "No se pudo leer la carpeta: el servidor respondió dos veces con la misma página.",
+    "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":
+      "«{path}» es una carpeta en una de las dos y un archivo en la otra, así que ninguna puede fusionarse con la otra.",
+    "“{path}” carries no content to write over the file of its name.":
+      "«{path}» no tiene contenido que escribir sobre el archivo de su nombre.",
+    "“{path}” is not yours to change.": "«{path}» no está a su disposición.",
+
     "No subfolders here.": "Aquí no hay subcarpetas.",
     "Type a folder name…": "Escriba un nombre de carpeta…",
     "＋ New folder…": "＋ Carpeta nueva…",
@@ -1569,6 +1587,15 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
+    "{done} of {n} items": {
+      one: "{done} de {n} elemento",
+      other: "{done} de {n} elementos",
+    },
+    "{n} more collisions stop it too.": {
+      one: "Una colisión más también lo detiene.",
+      other: "{n} colisiones más también lo detienen.",
+    },
+
     "Delete {n} items": { one: "Eliminar {n} elemento", other: "Eliminar {n} elementos" },
     "Delete {n} items?": {
       one: "¿Eliminar {n} elemento?",

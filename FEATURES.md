@@ -1596,12 +1596,38 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   so it is sorted in the browser rather than asked of the server.
 - **Multi-select with checkboxes.** Every row carries one, with a select-all in
   the header (indeterminate while only some rows are ticked), and the selection
-  is acted on from the bar that counts it: **download its files**, **move** and
-  **delete** — the same three the row menu offers when a whole selection is
-  opened through one of its rows. A folder has no bytes to download, so the
-  action names how many *files* it will put on disk. Shift-click takes the run
-  from the last row clicked, ctrl/cmd-click adds or removes one, and the
-  selection is dropped when the folder changes.
+  is acted on from the bar that counts it: **download its files**, **move**,
+  **merge folders** and **delete** — the same actions the row menu offers when a
+  whole selection is opened through one of its rows. A folder has no bytes to
+  download, so the action names how many *files* it will put on disk. Shift-click
+  takes the run from the last row clicked, ctrl/cmd-click adds or removes one,
+  and the selection is dropped when the folder changes. The bar itself is
+  **always on screen**, counting *0 items selected* when nothing is ticked, so
+  the listing does not move under the pointer the moment the first box is
+  ticked; what changes with the count is what can be done, not what is drawn.
+- **Open a folder by double-clicking it.** A single click on a row selects it,
+  the name included — the name is a label, not a door — and the double click
+  opens a folder or previews a file. In the sidebar tree a single click goes to
+  the folder and a **double click opens or shuts its branch**, the way a file
+  manager's tree behaves, with the twisty doing the same thing in one click.
+- **Merge two folders into one.** Ticking exactly two folders makes **Merge
+  folders…** usable — with one, three or anything that is not a folder the entry
+  is there and greyed, because two is the number the feature is defined for —
+  and it asks once which of the two **names stays**. That name's folder is the
+  one that survives, and everything the other holds moves into it: a subfolder
+  that is in both is merged into one (deeper names by the same rules), a **file**
+  whose name is in both has the other one's bytes written into the node that
+  already holds it — same id, same sharing, same place in the tree — and the
+  file the bytes came from is destroyed, so one file of that name is left. The
+  folder given up is destroyed last, once it is empty. The whole thing is
+  **decided before anything is written**: both trees are read first, and a name
+  that is a folder on one side and a file on the other — or a right the reader
+  does not have — stops the merge with nothing created, moved, copied or
+  deleted. It then runs in the tray like an upload: *"2 of 7 items"* beside
+  **Cancel**, which stops the run and leaves whatever it had already done done.
+  A merge that is stopped or fails therefore leaves both folders in place, with
+  what had moved already inside the kept one, and can be asked for again
+  (ADR 0015).
 - **Drag a row** onto a folder in the list or anywhere in the tree to move it.
   A folder cannot be dropped inside itself.
 - **Drag from the desktop** to upload — and drag a *folder* to upload it with

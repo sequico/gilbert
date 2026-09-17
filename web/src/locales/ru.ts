@@ -240,6 +240,24 @@ export const catalog: Catalog = {
     "Open subfolders of {name}": "Открыть вложенные папки «{name}»",
     "Delete folder": "Удалить папку",
     "No matching folders": "Подходящих папок нет",
+    "Merge folders…": "Объединить папки…",
+    "Merge folders": "Объединить папки",
+    Merge: "Объединить",
+    "Which folder should keep its name? The other one's contents move into it, and it is deleted.":
+      "Какая папка сохранит своё имя? Содержимое другой переместится сюда, а сама она будет удалена.",
+    "Its name stays, and the other folder's contents move in here.":
+      "Имя сохраняется, а содержимое другой папки перемещается сюда.",
+    "This folder is deleted once its contents have moved.":
+      "Эта папка удаляется после того, как её содержимое перемещено.",
+    "Merging takes two folders.": "Для объединения нужны две папки.",
+    "The folder could not be read: the server answered the same page twice.":
+      "Не удалось прочитать папку: сервер дважды вернул одну и ту же страницу.",
+    "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":
+      "«{path}» — папка в одной из двух и файл в другой, поэтому ни одну нельзя объединить с другой.",
+    "“{path}” carries no content to write over the file of its name.":
+      "У «{path}» нет содержимого, чтобы записать его поверх одноимённого файла.",
+    "“{path}” is not yours to change.": "«{path}» вам не принадлежит, изменить нельзя.",
+
     "No subfolders here.": "Здесь нет вложенных папок.",
     "Type a folder name…": "Введите имя папки…",
     "＋ New folder…": "＋ Новая папка…",
@@ -1557,6 +1575,19 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
+    "{done} of {n} items": {
+      one: "{done} из {n} элемента",
+      few: "{done} из {n} элементов",
+      many: "{done} из {n} элементов",
+      other: "{done} из {n} элемента",
+    },
+    "{n} more collisions stop it too.": {
+      one: "Ещё одно расхождение тоже остановит это.",
+      few: "Ещё {n} расхождения тоже остановят это.",
+      many: "Ещё {n} расхождений тоже остановят это.",
+      other: "Ещё {n} расхождения тоже остановят это.",
+    },
+
     "Delete {n} items": {
       one: "Удалить {n} объект",
       few: "Удалить {n} объекта",

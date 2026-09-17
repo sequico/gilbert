@@ -471,9 +471,11 @@ export class JmapClient {
     accountId: Id,
     blobId: Id,
     type = "application/octet-stream",
+    signal?: AbortSignal,
   ): Promise<Blob> {
     const res = await fetch(this.downloadUrl(accountId, blobId, "blob", type), {
       credentials: "same-origin",
+      ...(signal ? { signal } : {}),
     });
     if (res.status === 401) {
       this.handleUnauthenticated();

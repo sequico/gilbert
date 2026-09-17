@@ -168,7 +168,7 @@ function server(
 
 afterEach(() => {
   vi.restoreAllMocks();
-  useFiles.setState({ accountId: BROWSE, ownAccountId: BROWSE, uploads: [] });
+  useFiles.setState({ accountId: BROWSE, ownAccountId: BROWSE, runs: [] });
 });
 
 describe("a drop onto a folder that already exists", () => {
@@ -257,7 +257,7 @@ describe("a drop onto a folder that already exists", () => {
     // And the file that was not a duplicate went up as its own node.
     expect(s.nodes.some((n) => n.name === "fresh.txt")).toBe(true);
     // A run of replacements reports nothing: the tray is empty when it is over.
-    expect(useFiles.getState().uploads).toEqual([]);
+    expect(useFiles.getState().runs).toEqual([]);
   });
 
   /*
@@ -280,7 +280,7 @@ describe("a drop onto a folder that already exists", () => {
 
     expect(s.updates).toEqual([]);
     expect(s.nodes.filter((n) => n.name === "sub")).toHaveLength(1);
-    const rows = useFiles.getState().uploads;
+    const rows = useFiles.getState().runs;
     expect(rows).toHaveLength(1);
     expect(rows[0]!.name).toBe("sub");
     expect(rows[0]!.error).toMatch(/already here/);
@@ -303,7 +303,7 @@ describe("a drop onto a folder that already exists", () => {
     expect(s.nodes.some((n) => n.name === "inside.txt")).toBe(false);
     // Nothing was dropped at the top level in its place either.
     expect(s.nodes.filter((n) => n.name === "inside.txt")).toEqual([]);
-    const rows = useFiles.getState().uploads;
+    const rows = useFiles.getState().runs;
     expect(rows).toHaveLength(1);
     expect(rows[0]!.name).toBe("inside.txt");
     expect(rows[0]!.error).toBeTruthy();
@@ -331,7 +331,7 @@ describe("a drop onto a folder that already exists", () => {
     // The file landed in the folder that was there, not beside it, and the
     // drop reported nothing wrong.
     expect(s.nodes.find((n) => n.name === "x.txt")!.parentId).toBe("theirs");
-    expect(useFiles.getState().uploads).toEqual([]);
+    expect(useFiles.getState().runs).toEqual([]);
   });
 });
 
@@ -394,7 +394,7 @@ describe("an account past the read's ceiling", () => {
     expect(s.levelReads).toHaveLength(1);
     expect(s.updates).toEqual(["f1"]);
     expect(s.blobs).toEqual([BROWSE]);
-    expect(useFiles.getState().uploads).toEqual([]);
+    expect(useFiles.getState().runs).toEqual([]);
   });
 
   it("reuses a folder the truncated read could not see, without creating a second", async () => {
@@ -482,6 +482,6 @@ describe("a name the open folder already holds, from the picker", () => {
 
     expect(s.updates).toEqual(["f1"]);
     expect(s.blobs).toEqual([BROWSE]);
-    expect(useFiles.getState().uploads).toEqual([]);
+    expect(useFiles.getState().runs).toEqual([]);
   });
 });

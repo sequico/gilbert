@@ -10,6 +10,12 @@ import {
   isAlreadyExists,
   NameTakenError,
 } from "@/lib/filenode";
+import {
+  type MergePlan,
+  type MergeTree,
+  mergeBlockedMessage,
+  planMerge,
+} from "@/lib/folderMerge";
 import { t as translate } from "@/lib/i18n";
 import { placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { useSession } from "./session";
@@ -51,7 +57,14 @@ interface FilesState {
   listingShown: { parentId: Id | null } | null;
   loading: boolean;
   error: string | null;
-  uploads: Array<{
+  /**
+   * The runs being reported in the tray, one row each.
+   *
+   * A row is one thing the reader asked for and can stop: an upload in flight,
+   * or the merge of two folders. The fields are what any of them owes the tray
+   * -- a name, how far it has come, and the switch that ends it.
+   */
+  runs: Array<{
     id: string;
     /**
      * The run that started this row -- one drop, or one picker action.
@@ -63,12 +76,25 @@ interface FilesState {
      */
     runId: string;
     name: string;
-    progress: number;
+    /**
+     * How far the step in flight has come, where that means anything: the
+     * percentage of the file being uploaded, or of the bytes being copied into
+     * a file a merge writes over. A step that moves no bytes -- a move, or the
+     * destruction of an emptied folder -- has no percentage, and the tray draws
+     * none for it rather than a `0%` that is not a measurement.
+     */
+    progress: number | null;
+    /**
+     * What those steps are called, because two kinds of run count different
+     * things: an upload counts files, and a merge counts the items it moves,
+     * replaces and destroys.
+     */
+    unit: "file" | "item";
     error: string | null;
     /**
-     * Files of this row's run that are already through, out of the files it set
-     * out to write. The count of the moment the row was made -- a run adds a row
-     * per file, and each one carries the count as it stood when its own upload
+     * Steps of this row's run that are already through, out of the steps it set
+     * out to take. The count of the moment the row was made -- a run adds a row
+     * per step, and each one carries the count as it stood when its own work
      * started, which is what makes the number move while the run lasts.
      */
     done: number;
@@ -114,21 +140,53 @@ interface FilesState {
    * message *is* the error and the reader has to be able to read it. So it is
    * the reader who takes it away, and only such a row offers to.
    */
-  dismissUpload(id: string): void;
+  dismissRun(id: string): void;
   /**
-   * Stop the upload run a tray row belongs to.
+   * Stop the run a tray row belongs to.
    *
-   * A run is one thing the reader asked for: a file, or a folder of two
-   * hundred. Cancelling it aborts the upload in flight and drops everything of
-   * the same run that had not started, so a folder does not owe the reader a
-   * press per file.
+   * A run is one thing the reader asked for: a file, a folder of two hundred,
+   * or the merge of two folders. Cancelling it aborts the work in flight and
+   * drops everything of the same run that had not started, so a folder does not
+   * owe the reader a press per file.
    *
    * **From the run's first file onward.** A drop creates and reads the folders
    * of its tree before it uploads anything, and until the first file is in
    * flight the tray holds no row of this run -- so that phase has nothing to
-   * press, and nothing in it checks for an abort.
+   * press, and nothing in it checks for an abort. A merge is cancellable from
+   * its first step, which is a scan and then the plan being carried out.
    */
-  cancelUpload(id: string): void;
+  cancelRun(id: string): void;
+  /**
+   * Merge two folders into one, keeping the node named by `keepId`.
+   *
+   * The merge is decided before it is carried out. Both trees are read, the plan
+   * is built, and a collision anywhere in either tree stops the whole thing with
+   * nothing written -- which is why the two folders are named by id and not by
+   * "keep this name": the plan needs the trees, and the caller has the nodes.
+   *
+   * What the plan does is `planMerge`'s (see `web/src/lib/folderMerge.ts`):
+   * everything the folder given up holds moves into the kept one, a name they
+   * both hold as a file has the other's bytes written into the node that already
+   * has the name, two folders of one name merge, and a name that is a folder on
+   * one side and a file on the other stops the merge. The folder given up is
+   * destroyed last, once it is empty.
+   *
+   * The run is registered before the scan, so the tray holds a row with a Cancel
+   * on it for the whole of it -- which is the difference between this and a drop,
+   * whose folder phase has no row because until the first file there is nothing
+   * on screen to press.
+   *
+   * It is cancellable like an upload, and what it has done when the reader stops
+   * it stays done: no step is undone. The folder being merged in is never
+   * destroyed unless every step of the plan ran, so a cancelled or a failed
+   * merge leaves both folders where they are, with whatever had moved already
+   * inside the kept one, and can be asked for again.
+   *
+   * A collision is reported in the tray rather than by throwing: nothing was
+   * written and the tray is where this view reports. The throw is kept for the
+   * one case that is not a merge at all -- two folders were not handed over.
+   */
+  mergeFolders(keepId: Id, mergeId: Id): Promise<void>;
   /** Say which listing is on screen, so a push refreshes it and not the rest. */
   setListingShown(shown: { parentId: Id | null } | null): void;
   /**
@@ -464,20 +522,20 @@ function levelNames(
 }
 
 /**
- * One run of uploads, and the switch that stops it.
+ * One run, and the switch that stops it.
  *
- * A run is what the reader asked for in one gesture -- the files of a picker, or
- * the tree of a drop -- and it is the unit Cancel acts on: the file in flight
- * is aborted, and the loop that owns it stops asking for the rest. Its rows are
- * the ones drawn in the tray while it lasts, and the run itself lives only as
- * long as they do.
+ * A run is what the reader asked for in one gesture -- the files of a picker,
+ * the tree of a drop, or the merge of two folders -- and it is the unit Cancel
+ * acts on: the work in flight is aborted, and the loop that owns it stops
+ * asking for the rest. Its rows are the ones drawn in the tray while it lasts,
+ * and the run itself lives only as long as they do.
  *
  * Its `tally` is the count those rows carry. It lives on the run because the
- * count is the gesture's and not the file's: the reader watching a folder go up
+ * count is the gesture's and not the step's: the reader watching a folder go up
  * is watching one job of two hundred files, and a row that counted only itself
  * would be a percentage with no sense of how much is left.
  */
-interface UploadRun {
+interface TrayRun {
   id: string;
   controller: AbortController;
   tally: { done: number; total: number };
@@ -491,20 +549,20 @@ interface UploadRun {
  * by the run a row names. Entries come and go with their run, so a row of a run
  * that is over cannot be cancelled by a stale id.
  */
-const uploadRuns = new Map<string, AbortController>();
+const trayRuns = new Map<string, AbortController>();
 
-function startUploadRun(total: number): UploadRun {
-  const run: UploadRun = {
+function startRun(total: number): TrayRun {
+  const run: TrayRun = {
     id: `run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     controller: new AbortController(),
     tally: { done: 0, total },
   };
-  uploadRuns.set(run.id, run.controller);
+  trayRuns.set(run.id, run.controller);
   return run;
 }
 
-function endUploadRun(run: UploadRun): void {
-  uploadRuns.delete(run.id);
+function endRun(run: TrayRun): void {
+  trayRuns.delete(run.id);
 }
 
 /**
@@ -525,18 +583,16 @@ async function uploadOne(
   accountId: Id,
   parentId: Id | null,
   file: File,
-  run: UploadRun,
+  run: TrayRun,
 ): Promise<void> {
-  const row = uploadRow(file.name, null, run.id, run.tally);
-  set((s) => ({ uploads: [...s.uploads, row] }));
+  const row = runRow(file.name, null, run.id, run.tally);
+  set((s) => ({ runs: [...s.runs, row] }));
   try {
     await putFile(accountId, parentId, file, {
       onExists: "replace",
       onProgress: (percent) =>
         set((s) => ({
-          uploads: s.uploads.map((u) =>
-            u.id === row.id ? { ...u, progress: percent } : u,
-          ),
+          runs: s.runs.map((u) => (u.id === row.id ? { ...u, progress: percent } : u)),
         })),
       signal: run.controller.signal,
     });
@@ -549,7 +605,7 @@ async function uploadOne(
      * when they were made.
      */
     set((s) => ({
-      uploads: s.uploads
+      runs: s.runs
         .filter((u) => u.id !== row.id)
         .map((u) => (u.runId === run.id ? { ...u, done: run.tally.done } : u)),
     }));
@@ -558,11 +614,11 @@ async function uploadOne(
     // row of a file that went up does. Anything else stays, because its
     // message *is* the error and the reader takes it away.
     if (run.controller.signal.aborted) {
-      set((s) => ({ uploads: s.uploads.filter((u) => u.id !== row.id) }));
+      set((s) => ({ runs: s.runs.filter((u) => u.id !== row.id) }));
       return;
     }
     set((s) => ({
-      uploads: s.uploads.map((u) =>
+      runs: s.runs.map((u) =>
         u.id === row.id ? { ...u, error: (err as Error).message } : u,
       ),
     }));
@@ -570,30 +626,241 @@ async function uploadOne(
 }
 
 /**
- * A record in the upload tray, the one place a failure is reported.
+ * One level of an account, read whole.
  *
- * The id is what a progress update and a dismissal are aimed at, so two files
- * of the same name in one drop must not share one -- `Date.now()` alone hands
- * both the same value, and the second file's progress would then move the
- * first file's row.
+ * `readLevels` above answers what a walk over names needs and stops at one
+ * page; this answers the nodes themselves and pages until the level is in hand,
+ * which is what a merge decides from: it has to know *every* name of a level
+ * before it may move anything into it, and a page of a larger level would
+ * silently plan half a merge.
+ *
+ * Three ways out, and the third is the point: a page shorter than the ceiling
+ * is the last one, a page count that has reached `total` is the last one, and a
+ * server that answers the same page twice is a **failure** rather than a loop.
+ * The last is not hypothetical caution -- a server ignoring `position` would
+ * spin here for ever, and a merge that hangs with a tray row and a Cancel
+ * button that does nothing is worse than one that stops and says so.
+ */
+async function readChildren(accountId: Id, parentId: Id | null): Promise<FileNode[]> {
+  const out: FileNode[] = [];
+  let seenFirst: Id | undefined;
+  for (let position = 0; ; ) {
+    const { list, total } = await listChildrenWithState(
+      accountId,
+      parentId,
+      fileNodeProps(),
+      { position, limit: LEVEL_LIMIT },
+    );
+    if (!list.length) break;
+    if (list[0]!.id === seenFirst)
+      throw new Error(
+        translate(
+          "The folder could not be read: the server answered the same page twice.",
+        ),
+      );
+    seenFirst = list[0]!.id;
+    out.push(...list);
+    position += list.length;
+    if (list.length < LEVEL_LIMIT) break;
+    if (total !== undefined && position >= total) break;
+  }
+  return out;
+}
+
+/**
+ * A folder as `planMerge` reads it: the node itself, and levels read once and
+ * remembered.
+ *
+ * The memo is what makes the plan cheap over a tree the walk visits once per
+ * level: the same folder is never read twice, and a folder the plan does not
+ * descend into is never read at all -- which is the whole reason the tree is a
+ * function rather than a snapshot.
+ */
+function mergeTree(accountId: Id, root: FileNode): MergeTree {
+  const levels = new Map<Id, FileNode[]>();
+  return {
+    root,
+    async childrenOf(parentId) {
+      const held = levels.get(parentId);
+      if (held) return held;
+      const list = await readChildren(accountId, parentId);
+      levels.set(parentId, list);
+      return list;
+    },
+  };
+}
+
+/**
+ * Move nodes into a folder, in one call.
+ *
+ * Not only for the round trip: a loop would move half of them and then throw,
+ * leaving a selection split across two folders with nothing saying which half
+ * went. One call is one answer, and `notUpdated` names whichever ones the
+ * server refused. The merge's steps go through here a batch at a time, and
+ * `moveMany` is the store's own action over the same call.
+ */
+async function moveNodes(accountId: Id, ids: Id[], parentId: Id | null): Promise<void> {
+  const update = Object.fromEntries(ids.map((id) => [id, { parentId }]));
+  const res = await client.call<SetResponse>("FileNode/set", { accountId, update });
+  const failed = Object.values(res.notUpdated ?? {})[0];
+  if (failed) throw new Error(setErrorMessage(failed));
+}
+
+/**
+ * Destroy nodes, in one call.
+ *
+ * `cascade` is the server's `onDestroyRemoveChildren`, and the two callers want
+ * different things from it. Deleting a folder from the file manager takes its
+ * contents with it, because that is what the reader asked for. A merge destroys
+ * a folder the **plan emptied**, so it does not ask: something that landed in
+ * there between the scan and this call is not the merge's to destroy, and a
+ * server that refuses a folder it still holds something in gives the reader the
+ * honest answer instead.
+ */
+async function destroyNodes(accountId: Id, ids: Id[], cascade: boolean): Promise<void> {
+  const res = await client.call<SetResponse>("FileNode/set", {
+    accountId,
+    destroy: ids,
+    ...(cascade ? { onDestroyRemoveChildren: true } : {}),
+  });
+  const failed = Object.values(res.notDestroyed ?? {})[0];
+  if (failed) throw new Error(setErrorMessage(failed));
+}
+
+/**
+ * Write one file's bytes over another node.
+ *
+ * The copy is what carries a merge's content across: the blob is read from the
+ * account and uploaded again, and `writeContent` writes the three properties
+ * that describe it into the node that already holds the name. The reader's
+ * bytes are the same afterwards either way, and the node the kept folder had is
+ * the one that holds them -- same id, same sharing, same place in the tree
+ * (ADR 0014). Re-pointing the node at the other one's blob would save both the
+ * download and the upload, and nothing here has read a 0.16 do it: the server
+ * charges the account for the second blob and leaves the first to its GC, which
+ * is the price of not resting a durable write on an unverified answer.
+ */
+async function copyOver(
+  accountId: Id,
+  dstId: Id,
+  blobId: Id,
+  type: string,
+  opts: { onProgress?: (percent: number) => void; signal?: AbortSignal } = {},
+): Promise<void> {
+  const blob = await client.fetchBlob(accountId, blobId, type, opts.signal);
+  const up = await client.upload(accountId, blob, {
+    type,
+    signal: opts.signal,
+    onProgress:
+      opts.onProgress &&
+      ((loaded, total) => opts.onProgress!(Math.round((loaded / total) * 100))),
+  });
+  await writeContent(accountId, dstId, up.blobId, type, blob.size);
+}
+
+/**
+ * A merge, carried out: the steps, the count, and the switch that stops them.
+ *
+ * The plan is already decided and has already refused anything that collides,
+ * so this does exactly what it says. The row it reports on belongs to the caller,
+ * because the caller made it before the scan -- the run exists from the moment
+ * the reader asked, not from the first move.
+ *
+ * An abort is not an error: the loop breaks, the run's owner sees the signal and
+ * takes the row away, and **what has been done stays done**. No step is undone,
+ * which is why the plan puts the destruction of the folder given up last: a
+ * merge that stopped halfway has moved part of a folder into another and left
+ * both where they are, with nothing destroyed that still had something in it.
+ */
+async function runMergeSteps(
+  set: StoreApi<FilesState>["setState"],
+  accountId: Id,
+  plan: MergePlan,
+  row: FilesState["runs"][number],
+  run: TrayRun,
+): Promise<void> {
+  let done = 0;
+  const report = (progress: number | null) =>
+    set((s) => ({
+      runs: s.runs.map((u) =>
+        u.id === row.id ? { ...u, done, total: run.tally.total, progress } : u,
+      ),
+    }));
+  for (let i = 0; i < plan.steps.length; ) {
+    if (run.controller.signal.aborted) return;
+    const step = plan.steps[i]!;
+    if (step.kind === "move") {
+      /*
+       * Consecutive moves into one folder are one call, chunked by what the
+       * server takes in one set: a folder of two hundred items joining another
+       * is one `FileNode/set` and not two hundred, and the tray counts the items
+       * because they are what the reader is watching move.
+       */
+      const ids: Id[] = [];
+      while (i < plan.steps.length) {
+        const next = plan.steps[i]!;
+        if (next.kind !== "move" || next.into !== step.into) break;
+        ids.push(next.srcId);
+        i += 1;
+      }
+      for (let at = 0; at < ids.length; at += client.maxObjectsInSet)
+        await moveNodes(accountId, ids.slice(at, at + client.maxObjectsInSet), step.into);
+      done += ids.length;
+      report(null);
+      continue;
+    }
+    if (step.kind === "replace") {
+      await copyOver(accountId, step.dstId, step.blobId, step.type, {
+        signal: run.controller.signal,
+        onProgress: (percent) => report(percent),
+      });
+      /*
+       * The file the bytes came out of goes, and it goes **after** the copy
+       * rather than before: a run stopped in between has a copy that landed and
+       * a file that is still there, which is two of one name and loses nothing,
+       * where the other order would destroy a file whose content had not crossed
+       * yet. It is also what leaves the folder given up empty enough for its own
+       * destruction to be accepted.
+       */
+      await destroyNodes(accountId, [step.srcId], false);
+    } else {
+      await destroyNodes(accountId, [step.id], false);
+    }
+    i += 1;
+    done += 1;
+    report(null);
+  }
+}
+
+/**
+ * A record in the tray, the one place a failure is reported.
+ *
+ * The id is what a progress update and a dismissal are aimed at, so two steps
+ * of the same name in one run must not share one -- `Date.now()` alone hands
+ * both the same value, and the second one's progress would then move the first
+ * one's row.
  *
  * The count is the run's, taken as it stood when the row was made: a row lives
- * for one file, and the number beside it says which file of how many this one
+ * for one step, and the number beside it says which step of how many this one
  * is -- a folder of two hundred items reads as a job with a size rather than as
- * two hundred unrelated files, one after another.
+ * two hundred unrelated files, one after another. `unit` is what those steps
+ * are called, because a run of uploads counts files and a merge counts the
+ * items it moves, replaces and destroys.
  */
-const uploadRow = (
+const runRow = (
   name: string,
   error: string | null,
   runId: string,
   tally: { done: number; total: number },
+  unit: "file" | "item" = "file",
 ) => ({
   id: `${Date.now()}-${name}-${Math.random().toString(36).slice(2, 7)}`,
   runId,
   name,
   done: tally.done,
   total: tally.total,
-  progress: 0,
+  progress: null as number | null,
+  unit,
   error,
 });
 
@@ -608,7 +875,7 @@ export const useFiles = create<FilesState>((set, get) => ({
   listingShown: null,
   loading: false,
   error: null,
-  uploads: [],
+  runs: [],
   dirIds: [],
   treeLoaded: false,
   draggingIds: [],
@@ -792,14 +1059,14 @@ export const useFiles = create<FilesState>((set, get) => ({
        long is a thing the reader can stop -- together with the files of the
        same gesture that had not started -- and so the count beside each row is
        about the whole selection rather than about one file. */
-    const run = startUploadRun(files.length);
+    const run = startRun(files.length);
     try {
       for (const f of files) {
         if (run.controller.signal.aborted) break;
         await uploadOne(set, accountId, parentId, f, run);
       }
     } finally {
-      endUploadRun(run);
+      endRun(run);
     }
     await get().loadChildren(parentId);
   },
@@ -811,8 +1078,8 @@ export const useFiles = create<FilesState>((set, get) => ({
    * reported, and a row left in it would sit there for the rest of the session,
    * in every folder, with nothing to press.
    */
-  dismissUpload(id) {
-    set((s) => ({ uploads: s.uploads.filter((u) => u.id !== id) }));
+  dismissRun(id) {
+    set((s) => ({ runs: s.runs.filter((u) => u.id !== id) }));
   },
 
   /*
@@ -834,9 +1101,67 @@ export const useFiles = create<FilesState>((set, get) => ({
    * flight alone, and this is the same rule one layer down, where it cannot be
    * forgotten by a second caller.
    */
-  cancelUpload(id) {
-    const row = get().uploads.find((u) => u.id === id);
-    if (row && !row.error) uploadRuns.get(row.runId)?.abort();
+  cancelRun(id) {
+    const row = get().runs.find((u) => u.id === id);
+    if (row && !row.error) trayRuns.get(row.runId)?.abort();
+  },
+
+  async mergeFolders(keepId, mergeId) {
+    const accountId = get().accountId!;
+    const keep = get().nodes[keepId];
+    const merge = get().nodes[mergeId];
+    if (keep?.nodeType !== "directory" || merge?.nodeType !== "directory")
+      throw new Error(translate("Merging takes two folders."));
+
+    /*
+     * The row first, the scan second. The scan is several requests over two
+     * trees and the reader has asked for something that has not begun to move;
+     * a run with no row yet would be a merge with nothing to watch and nothing
+     * to press, which for a large tree is a pause of its own.
+     */
+    const run = startRun(0);
+    const row = runRow(merge.name, null, run.id, run.tally, "item");
+    set((s) => ({ runs: [...s.runs, row] }));
+    const fail = (message: string) =>
+      set((s) => ({
+        runs: s.runs.map((u) => (u.id === row.id ? { ...u, error: message } : u)),
+      }));
+    try {
+      const plan = await planMerge(
+        mergeTree(accountId, merge),
+        mergeTree(accountId, keep),
+      );
+      if (plan.conflicts.length) {
+        /*
+         * Nothing was written -- planning first is exactly so that a collision
+         * costs the reader nothing but the sentence about it -- and the row
+         * carries it until it is dismissed, the way a failed upload's does.
+         */
+        fail(mergeBlockedMessage(plan.conflicts));
+        return;
+      }
+      run.tally.total = plan.steps.length;
+      // The row was made before the plan existed, so its size is written the
+      // moment there is one: until then the tray would read "0 of 0 items"
+      // beside a merge that is already scanning.
+      set((s) => ({
+        runs: s.runs.map((u) =>
+          u.id === row.id ? { ...u, total: plan.steps.length } : u,
+        ),
+      }));
+      await runMergeSteps(set, accountId, plan, row, run);
+    } catch (err) {
+      if (run.controller.signal.aborted) return;
+      fail((err as Error).message);
+      return;
+    } finally {
+      endRun(run);
+    }
+    // Every step of the plan ran, the destruction of the folder given up among
+    // them: the row has nothing left to report.
+    set((s) => ({ runs: s.runs.filter((u) => u.id !== row.id) }));
+    await get().loadChildren(keep.parentId ?? null);
+    void get().loadTree();
   },
 
   async uploadTo(accountId, files, parentId = null) {
@@ -924,7 +1249,7 @@ export const useFiles = create<FilesState>((set, get) => ({
        drop that had not started. The count starts at the files the drop carried
        and is corrected below, once the folders have said which of them have
        anywhere to go. */
-    const run = startUploadRun(plan.files.length);
+    const run = startRun(plan.files.length);
     try {
       /*
        * One read of the account answers every level the drop names -- as far as
@@ -1057,10 +1382,10 @@ export const useFiles = create<FilesState>((set, get) => ({
       run.tally.total = [...byFolder.values()].reduce((n, f) => n + f.length, 0);
       if (orphans.length)
         set((s) => ({
-          uploads: [
-            ...s.uploads,
+          runs: [
+            ...s.runs,
             ...orphans.map((f) =>
-              uploadRow(
+              runRow(
                 f.name,
                 translate("Its folder could not be created."),
                 run.id,
@@ -1085,7 +1410,7 @@ export const useFiles = create<FilesState>((set, get) => ({
         }
       }
     } finally {
-      endUploadRun(run);
+      endRun(run);
     }
     await get().loadChildren(parentId);
     void get().loadTree();

@@ -233,6 +233,24 @@ export const catalog: Catalog = {
     "Open subfolders of {name}": "Submappen van {name} openen",
     "Delete folder": "Map verwijderen",
     "No matching folders": "Geen overeenkomende mappen",
+    "Merge folders…": "Mappen samenvoegen…",
+    "Merge folders": "Mappen samenvoegen",
+    Merge: "Samenvoegen",
+    "Which folder should keep its name? The other one's contents move into it, and it is deleted.":
+      "Welke map houdt zijn naam? De inhoud van de andere verhuist hierheen, en die map wordt verwijderd.",
+    "Its name stays, and the other folder's contents move in here.":
+      "De naam blijft, en de inhoud van de andere map verhuist hierheen.",
+    "This folder is deleted once its contents have moved.":
+      "Deze map wordt verwijderd zodra de inhoud ervan verhuisd is.",
+    "Merging takes two folders.": "Samenvoegen vraagt twee mappen.",
+    "The folder could not be read: the server answered the same page twice.":
+      "De map kon niet worden gelezen: de server antwoordde tweemaal met dezelfde pagina.",
+    "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":
+      "‘{path}’ is in een van de twee een map en in de andere een bestand, dus geen van beide kan in de andere worden samengevoegd.",
+    "“{path}” carries no content to write over the file of its name.":
+      "‘{path}’ heeft geen inhoud om over het gelijknamige bestand te schrijven.",
+    "“{path}” is not yours to change.": "‘{path}’ is niet aan u om te wijzigen.",
+
     "No subfolders here.": "Hier zijn geen submappen.",
     "Type a folder name…": "Typ een mapnaam…",
     "＋ New folder…": "＋ Nieuwe map…",
@@ -1560,6 +1578,15 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
+    "{done} of {n} items": {
+      one: "{done} van {n} item",
+      other: "{done} van {n} items",
+    },
+    "{n} more collisions stop it too.": {
+      one: "Nog één conflict stopt het ook.",
+      other: "Nog {n} conflicten stoppen het ook.",
+    },
+
     "Delete {n} items": { one: "{n} item verwijderen", other: "{n} items verwijderen" },
     "Delete {n} items?": {
       one: "{n} item verwijderen?",

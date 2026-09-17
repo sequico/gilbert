@@ -234,6 +234,24 @@ export const catalog: Catalog = {
     "Open subfolders of {name}": "Відкрити вкладені теки «{name}»",
     "Delete folder": "Видалити теку",
     "No matching folders": "Відповідних тек немає",
+    "Merge folders…": "Об'єднати теки…",
+    "Merge folders": "Об'єднати теки",
+    Merge: "Об'єднати",
+    "Which folder should keep its name? The other one's contents move into it, and it is deleted.":
+      "Яка тека збереже свою назву? Вміст іншої переміститься сюди, а сама вона буде видалена.",
+    "Its name stays, and the other folder's contents move in here.":
+      "Назва зберігається, а вміст іншої теки переміщується сюди.",
+    "This folder is deleted once its contents have moved.":
+      "Цю теку буде видалено після того, як її вміст переміщено.",
+    "Merging takes two folders.": "Для об'єднання потрібні дві теки.",
+    "The folder could not be read: the server answered the same page twice.":
+      "Не вдалося прочитати теку: сервер двічі повернув ту саму сторінку.",
+    "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":
+      "«{path}» — тека в одній із двох і файл в іншій, тому жодну не можна об'єднати з іншою.",
+    "“{path}” carries no content to write over the file of its name.":
+      "«{path}» не має вмісту, щоб записати його поверх однойменного файлу.",
+    "“{path}” is not yours to change.": "«{path}» вам не належить, змінити не можна.",
+
     "No subfolders here.": "Тут немає вкладених тек.",
     "Type a folder name…": "Введіть назву теки…",
     "＋ New folder…": "＋ Нова тека…",
@@ -1551,6 +1569,19 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
+    "{done} of {n} items": {
+      one: "{done} з {n} елемента",
+      few: "{done} з {n} елементів",
+      many: "{done} з {n} елементів",
+      other: "{done} з {n} елемента",
+    },
+    "{n} more collisions stop it too.": {
+      one: "Ще одне розходження теж зупинить це.",
+      few: "Ще {n} розходження теж зупинять це.",
+      many: "Ще {n} розходжень теж зупинять це.",
+      other: "Ще {n} розходження теж зупинять це.",
+    },
+
     "Delete {n} items": {
       one: "Видалити {n} об’єкт",
       few: "Видалити {n} об’єкти",
