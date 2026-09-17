@@ -918,6 +918,16 @@ Real JMAP mailboxes, with the server's roles honoured.
   tree belongs to a different account rather than being extra rows in this one.
 - Rights are respected per folder: rename, delete, create-child and share each
   grey out when `myRights` says no.
+- **In a group, ending mail is an administrator's decision** (ADR 0015). A group
+  mailbox is reached by membership rather than by a share, so the mail server
+  tells one member's delete from another's by nothing and offers no rank inside a
+  group; the rule is therefore the client's, and it is one module. Everything a
+  member does to move mail around still works — filing it in the group's Deleted
+  Items, archiving, labelling, replying — and the three things that end a message
+  for good are refused: deleting it out of Deleted Items or Junk Mail, emptying
+  either folder, and deleting a folder that holds mail. A refused action says so
+  and names what still works. It is a rule the product keeps and not a boundary:
+  another client on the same account destroys the same mail.
 - A folder in the address that this account does not have says *this folder is
   missing*, rather than drawing an empty folder — a stale link should not read
   as a folder that emptied itself.

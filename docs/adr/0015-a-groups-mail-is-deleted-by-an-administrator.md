@@ -1,9 +1,14 @@
 # ADR 0015 — A group's mail is deleted by an administrator only
 
-Status: Proposed
+Status: Accepted
 
-Implementation: Not built. This record is written before the change that carries
-it, so nothing refuses a destroy in a group yet.
+Implementation: Built. The rule is one module (`web/src/lib/mailDelete.ts`) and
+its guard sits on the three effects that destroy — `destroy`, `emptyMailbox` and
+`destroyMailbox` in `web/src/store/mail.ts` — with the surfaces reading the same
+answer before drawing an entry (`web/src/views/mail/MessageList.tsx`,
+`MailView.tsx`, `MessageView.tsx`, `MailboxTree.tsx`,
+`web/src/lib/swipe.ts`), and the invariant pinned in
+`web/src/store/__tests__/group-mail-delete.test.ts`.
 
 ## Context
 
@@ -167,11 +172,11 @@ with; a group that wants the switch can be given one over it.
 
 - **ADR 0001.** The flag's source is untouched: it is Stalwart's own answer,
   re-resolved on every privileged call, and `requireAdmin` is still the only
-  thing that guards an account — this adds no door. One clause of that record
-  does become false when this lands, and it is the one to rewrite in the same
-  change: "that flag shows or hides the admin entry point and **nothing more**".
-  Here it is also what a destroy is asked against, so the client's copy gains a
-  second use.
+  thing that guards an account — this adds no door. What that record's own
+  sentence about the client's copy had to gain with this is the second use: the
+  flag shows or hides the admin entry point **and** decides whether a group's
+  mail may be ended, which is written there now rather than left to be
+  discovered against it.
 
   What does **not** change is that sentence's reason. The client is still not a
   door: the flag decides what is drawn and what this client will do, never what
@@ -220,19 +225,18 @@ with; a group that wants the switch can be given one over it.
 
 ## References
 
-The three paths this record decides are not in the tree yet: they are where the
-change lands, named so the decision and its site are read together.
-
-- `web/src/lib/mailDelete.ts` — to be written: the rule, and which refusal it
-  answers; the surface composes the sentence from the catalogue
-- `web/src/store/mail.ts` — `trash`, `destroy`, `emptyMailbox`, `destroyMailbox`
-  and the module-private `destroyEmails` they funnel through, where the guard
-  sits on the effect (`MAILBOX_PROPS` is the count it reads)
-- `web/src/store/__tests__/group-mail-delete.test.ts` — to be written: the
-  invariant that a member's destroy in a group reaches no server and an
-  administrator's does
-- `web/src/lib/swipe.ts` — a direction with no meaning here resolves to
-  nothing, and the label that currently disagrees with the list about Junk Mail
+- `web/src/lib/mailDelete.ts` — the rule: what a delete does, which refusal it
+  answers, and the final folders found by role; the surface composes the
+  sentence from the catalogue
+- `web/src/store/mail.ts` — the guards on `destroy`, `emptyMailbox` and
+  `destroyMailbox`, `mayDestroyHere()` for the surfaces, and the module-private
+  `destroyEmails` the guarded paths funnel through
+- `web/src/store/__tests__/group-mail-delete.test.ts` — the invariant: a
+  member's destroy in a group reaches no server, an administrator's does, and an
+  account nobody has classified yet is refused while the reader's own is served
+- `web/src/lib/swipe.ts` — a direction with no meaning here resolves to nothing,
+  and the delete label now follows the rule's answer rather than the folder's
+  role
 - `web/src/store/mdn.ts` — the receipt a refused submission destroys rather than
   leave in Sent looking sent
 - `web/src/store/session.ts` — `session.gilbert.isAdmin`, and `refresh()` with
@@ -241,9 +245,10 @@ change lands, named so the decision and its site are read together.
   `ThreadView`, which ask the rule before drawing an entry
 - `web/src/views/AdminView.tsx` — the surface an unconditional route reaches,
   with no client guard: every privileged call in it is refused by the server
-- `web/src/lib/mailAccounts.ts` — `isGroupMailboxAccount` and
-  `isOwnMailAccount`: the classifier the rule reads a group by, and the question
-  it asks before it
+- `web/src/lib/mailAccounts.ts` — `isOwnMailAccount`, the question the rule asks
+  before anything else, and `isGroupMailboxAccount`, the classifier the group
+  surfaces read for their own purposes (the rule itself does not need it: it
+  refuses everything that is not provably the reader's own)
 - ADR 0001 — administration is Stalwart's, and `isAdmin` is its answer
 - ADR 0005 — a group owns its data, and membership is the grant
 - ADR 0007 — identity in a group, and the sending path the drafts composer uses

@@ -43,6 +43,13 @@ import {
   ownIdentityAccountId,
 } from "@/lib/mailAccounts";
 import { mailboxDisplayName } from "@/lib/mailboxName";
+import {
+  type DeleteContext,
+  type DeleteRefusal,
+  destroyRefusal,
+  folderDestroyTakesMail,
+  mayDestroy,
+} from "@/lib/mailDelete";
 import { playNewMailSound, showNotification } from "@/lib/notify";
 import type { FolderRef } from "@/lib/sieveFolders";
 import { SPAM_HEADER_PROPS } from "@/lib/spamScore";
@@ -230,6 +237,16 @@ export interface MailState {
   openAccount(accountId: Id): Promise<void>;
   loadMailboxes(): Promise<void>;
   roleId(role: MailboxRole): Id | null;
+  /**
+   * ADR 0015: whether a destroy may be taken in the account on screen at all.
+   *
+   * The rule itself is `@/lib/mailDelete`, and this is the store's read of the
+   * two inputs it needs — the account on screen, and the session's `isAdmin`
+   * with the question `isOwnMailAccount` answers. Exposed so that a surface
+   * asks once instead of each of them assembling the same three values, and
+   * reads the same answer the guards on the effects use.
+   */
+  mayDestroyHere(): boolean;
   mailboxPath(id: Id): string;
   childrenOf(parentId: Id | null): Mailbox[];
 
@@ -621,6 +638,10 @@ export const useMail = create<MailState>((set, get) => ({
   roleId(role) {
     for (const m of Object.values(get().mailboxes)) if (m.role === role) return m.id;
     return null;
+  },
+
+  mayDestroyHere() {
+    return mayDestroy(deleteContext());
   },
 
   mailboxPath(id) {
@@ -1072,6 +1093,11 @@ export const useMail = create<MailState>((set, get) => ({
   async destroy(ids) {
     const accountId = get().accountId;
     if (!accountId || !ids.length) return;
+    const refused = destroyRefusal(deleteContext(), "final");
+    if (refused) {
+      toast.error(refusalSentence(refused));
+      return;
+    }
     removeFromList(ids, set, get, null);
     set((s) => {
       const next = { ...s.emails };
@@ -1235,6 +1261,17 @@ export const useMail = create<MailState>((set, get) => ({
     // what "delete all spam" means everywhere else. The dialogs say so.
     if (mailboxId !== get().roleId("trash") && mailboxId !== get().roleId("junk")) {
       toast.error(t("Only Deleted Items and Junk Mail can be emptied."));
+      return;
+    }
+    /*
+     * Then the group rule (ADR 0015), asked after the folder's own: a folder
+     * that may not be emptied at all is the more specific answer, and it says
+     * nothing about who is asking. A group's Deleted Items and Junk Mail are
+     * real folders members fill and cannot empty.
+     */
+    const refused = destroyRefusal(deleteContext(), "empty");
+    if (refused) {
+      toast.error(refusalSentence(refused));
       return;
     }
     // A folder can hold far more messages than the server will destroy in one
@@ -1448,6 +1485,19 @@ export const useMail = create<MailState>((set, get) => ({
 
   async destroyMailbox(id, removeEmails = true) {
     const accountId = get().accountId!;
+    /*
+     * A folder that holds mail is destroyed **with** it, so this is the third of
+     * the three entry points ADR 0015 closes in a group. The count is the one
+     * the folder list already carries: an empty folder is not mail, and a
+     * group's tree stays the group's to shape.
+     */
+    if (
+      folderDestroyTakesMail(get().mailboxes[id], removeEmails) &&
+      destroyRefusal(deleteContext(), "folder")
+    ) {
+      toast.error(refusalSentence("group_mail_folder"));
+      return;
+    }
     const before = folderRefs(get(), id);
     const res = await client.call<SetResponse>("Mailbox/set", {
       accountId,
@@ -2285,10 +2335,56 @@ async function runQueryOnce(
 }
 
 /**
+ * The delete rule's inputs, read at the moment an action is taken (ADR 0015).
+ *
+ * Read here rather than handed in because the store is where the action
+ * happens and the account on screen is the store's own; the session is asked
+ * for the copy it holds, which is ADR 0001's flag plus the question
+ * `isOwnMailAccount` answers. Both move when the session state changes, which
+ * the app re-reads on its own.
+ */
+function deleteContext(): DeleteContext {
+  const session = useSession.getState().session;
+  return {
+    accountId: useMail.getState().accountId,
+    session,
+    isAdmin: session?.gilbert?.isAdmin === true,
+  };
+}
+
+/**
+ * What a refused destroy says, in the reader's language.
+ *
+ * The rule answers a code and the sentence is composed where it shows, which is
+ * here for the actions the store performs: a string held in a library is a
+ * string no catalogue can translate. Each sentence says what still works rather
+ * than only what does not, because the reader's next move is the point.
+ */
+function refusalSentence(code: DeleteRefusal): string {
+  switch (code) {
+    case "group_mail_final":
+      return t(
+        "A group's mail is deleted by an installation administrator. Your delete filed it in the group's Deleted Items, where it can still be restored.",
+      );
+    case "group_mail_empty":
+      return t(
+        "Only an installation administrator can empty a group's Deleted Items or Junk Mail. Filing mail there still works, and so does moving it back out.",
+      );
+    case "group_mail_folder":
+      return t(
+        "A folder holding mail cannot be deleted in a group, because its mail would go with it. Move the mail out first, or ask an installation administrator.",
+      );
+  }
+}
+
+/**
  * Destroy emails in batches the server will accept.
  *
  * Handing Email/set more ids than `maxObjectsInSet` fails the whole call with
  * requestTooLarge — nothing is deleted — so split first and merge the results.
+ * Every final delete the client makes funnels through here, which is why the
+ * group rule's guard sits on the callers above rather than on this: a guard
+ * here would refuse the batches a caller had already promised.
  */
 async function destroyEmails(
   accountId: Id,

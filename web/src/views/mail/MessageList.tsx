@@ -60,6 +60,7 @@ import { plural, t } from "@/lib/i18n";
 import { SEEN_KEYWORD, STARRED_KEYWORD } from "@/lib/keywordCounts";
 import { rowClick } from "@/lib/listSelection";
 import { mailboxDisplayName } from "@/lib/mailboxName";
+import { deleteEffect, finalFoldersOf } from "@/lib/mailDelete";
 import { messageFolders } from "@/lib/messageLocation";
 import { rowIsOpen } from "@/lib/openMessage";
 import { anyCarries, anyLacks, rowScope } from "@/lib/rowScope";
@@ -194,7 +195,18 @@ export function MessageList({
   const ids = list?.ids ?? [];
   const selCount = Object.keys(selected).length;
   const mailbox = mailboxId ? mailboxes[mailboxId] : undefined;
-  const isTrashOrJunk = mailbox?.role === "trash" || mailbox?.role === "junk";
+  /*
+   * What a delete does to the rows on screen, from the one rule (ADR 0015).
+   * The toolbar's rows are the folder's, so the folder on screen is what it is
+   * asked about, and the same answer names the button and the gesture: the two
+   * used to disagree about Junk Mail, which destroys just as Deleted Items does.
+   */
+  const finalFolders = finalFoldersOf(mailboxes);
+  const listDeleteIsFinal = mailboxId
+    ? deleteEffect({ mailboxIds: { [mailboxId]: true } }, finalFolders) === "final"
+    : false;
+  /** ADR 0015: in a group, only an administrator may end a message. */
+  const mayEnd = useMail((s) => s.mayDestroyHere());
   const isDrafts = mailbox?.role === "drafts";
 
   const rowHeight = twoLine
@@ -414,8 +426,9 @@ export function MessageList({
             </button>
             <button
               className="icon-btn"
-              title={isTrashOrJunk ? t("Delete forever") : t("Delete (#)")}
+              title={listDeleteIsFinal ? t("Delete forever") : t("Delete (#)")}
               onClick={() => void actions.trash()}
+              disabled={!mayEnd}
             >
               <Trash2 size={19} />
             </button>
@@ -603,7 +616,7 @@ export function MessageList({
                 }
                 disabled={!mailboxId}
               />
-              {mailbox && canEmpty(mailbox.role) && (
+              {mailbox && canEmpty(mailbox.role) && mayEnd && (
                 <>
                   <MenuSep />
                   <MenuItem
@@ -667,7 +680,7 @@ export function MessageList({
         because that is the part worth knowing before clicking — these do not
         pass through Deleted Items on the way out.
       */}
-      {mailbox?.role === "junk" && !!mailbox.totalEmails && !selCount && (
+      {mailbox?.role === "junk" && !!mailbox.totalEmails && !selCount && mayEnd && (
         <div className="list-hint">
           <span className="grow">
             {t("Deleting spam is permanent — it does not go to Deleted Items first.")}
@@ -939,8 +952,9 @@ export function MessageList({
         />
         <MenuItem
           icon={<Trash2 size={16} />}
-          label={t("Delete")}
+          label={listDeleteIsFinal ? t("Delete forever") : t("Delete")}
           kbd="#"
+          disabled={!mayEnd}
           onClick={() => void actions.trash(ctxTargets)}
         />
         <MenuItem
@@ -1159,10 +1173,21 @@ const Row = memo(function Row({
   const [dx, setDx] = useState(0);
   const [gliding, setGliding] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
+  /*
+   * What this row's own delete would do, from the one rule (ADR 0015): the row
+   * is what knows which folders hold this message, so a message sitting in Junk
+   * Mail is named as the permanent delete it is, whatever folder is on screen.
+   */
+  const rowDeleteEffect = deleteEffect(e, finalFoldersOf(mailboxes));
   const descFor = useCallback(
     (dir: -1 | 1) =>
-      describeSwipe(dir === 1 ? swipeRight : swipeLeft, { role, unread, starred }),
-    [swipeLeft, swipeRight, role, unread, starred],
+      describeSwipe(dir === 1 ? swipeRight : swipeLeft, {
+        role,
+        deleteEffect: rowDeleteEffect,
+        unread,
+        starred,
+      }),
+    [swipeLeft, swipeRight, role, rowDeleteEffect, unread, starred],
   );
   // A row that scrolls out from under a live gesture takes its strip with it.
   useEffect(() => () => onSwipeState(e.id, null), [e.id, onSwipeState]);

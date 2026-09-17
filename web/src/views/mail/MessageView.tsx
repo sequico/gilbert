@@ -52,6 +52,7 @@ import {
   TEXT_EMAIL_CSS,
 } from "@/lib/html";
 import { plural, tc, tNode, t as translate } from "@/lib/i18n";
+import { deleteEffect, finalFoldersOf } from "@/lib/mailDelete";
 import { mdnDecision, refusalText } from "@/lib/mdn";
 import { openableInTab, previewKind } from "@/lib/preview";
 import { remoteImagesAllowed } from "@/lib/remoteImages";
@@ -653,16 +654,12 @@ export const MessageView = memo(function MessageView({
           label={translate("Delete this message")}
           onClick={() => {
             const mail = useMail.getState();
-            const trashId = mail.roleId("trash");
-            const junkId = mail.roleId("junk");
-            /* The list toolbar confirms a permanent delete (the message is in
-               Deleted Items or Junk, where Trash destroys outright) and honours
-               the confirmDelete setting; this per-message menu asks the same
-               question here, in the same words, so one click from inside
-               Deleted Items cannot destroy a message forever without one. */
-            const permanent =
-              Boolean(trashId && e.mailboxIds[trashId]) ||
-              Boolean(junkId && e.mailboxIds[junkId]);
+            /* The rule asks what deleting this message does (ADR 0015), so a
+               message sitting in Junk Mail is confirmed as the permanent
+               delete it is — the same question the list's toolbar asks, in the
+               same words, so one click from inside either folder cannot destroy
+               a message forever without one. */
+            const permanent = deleteEffect(e, finalFoldersOf(mail.mailboxes)) === "final";
             void (async () => {
               if (permanent || settings.confirmDelete) {
                 const ok = await confirmDialog({

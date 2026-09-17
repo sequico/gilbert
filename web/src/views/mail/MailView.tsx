@@ -8,6 +8,7 @@ import { STARRED_KEYWORD } from "@/lib/keywordCounts";
 import { appliesTo, comparatorsFor } from "@/lib/listSort";
 import { mailboxDisplayName } from "@/lib/mailboxName";
 import { isUnknownMailbox } from "@/lib/mailboxRoute";
+import { deleteEffect, finalFoldersOf } from "@/lib/mailDelete";
 import { anyCarries, type CarriesKeywords, rowScope } from "@/lib/rowScope";
 import { buildFilter, describeFilter, parseQuery } from "@/lib/search";
 import { REPLY_KEYS, useCompose } from "@/store/compose";
@@ -316,9 +317,14 @@ export function MailView({
         const t = await targetIds(rows);
         if (!t.length) return;
         const mail = useMail.getState();
-        const trashId = mail.roleId("trash");
+        /*
+         * The ask follows the one rule (ADR 0015) rather than the trash role
+         * alone: Junk Mail destroys too, so a selection sitting there used to
+         * be destroyed under a dialog that said only "Delete?".
+         */
+        const folders = finalFoldersOf(mail.mailboxes);
         const permanent = t.every(
-          (id) => trashId && mail.emails[id]?.mailboxIds[trashId],
+          (id) => deleteEffect(mail.emails[id], folders) === "final",
         );
         if (permanent || settings.confirmDelete) {
           // A plural form rather than "message(s)": that spelling puts a

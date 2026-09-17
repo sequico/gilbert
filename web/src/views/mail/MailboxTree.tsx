@@ -44,6 +44,7 @@ import { countOf, STARRED_KEYWORD } from "@/lib/keywordCounts";
 import { labelTree, visibleLabels } from "@/lib/labelTree";
 import { isGroupMailboxAccount } from "@/lib/mailAccounts";
 import { mailboxDisplayName } from "@/lib/mailboxName";
+import { folderDestroyTakesMail } from "@/lib/mailDelete";
 import { haptic, useTouchRow } from "@/lib/touch";
 import { useMail } from "@/store/mail";
 import { isScheduledMailbox } from "@/store/scheduled";
@@ -919,6 +920,8 @@ function MailboxMenu({
     walk(m.id);
     return n;
   });
+  /** ADR 0015: what this menu may offer, by the one rule. */
+  const mayEnd = useMail((s) => s.mayDestroyHere());
   const rename = async () => {
     const name = await // The server's own name, never the localised one: this box writes
     // back whatever it is prefilled with.
@@ -1051,7 +1054,7 @@ function MailboxMenu({
         />
       )}
       <MenuSep />
-      {canEmpty(m.role) && (
+      {canEmpty(m.role) && mayEnd && (
         <MenuItem
           icon={<Eraser size={16} />}
           label={emptyLabel(m)}
@@ -1065,7 +1068,17 @@ function MailboxMenu({
         label={t("Delete folder")}
         onClick={() => void remove()}
         danger
-        disabled={isSpecial || !m.myRights.mayDelete}
+        /*
+         * ADR 0015: a folder holding mail is destroyed with it, so in a group
+         * this is one of the three things an administrator alone may do. The
+         * entry stays drawn and tells the truth about why it is not offered,
+         * rather than disappearing for a reason nobody can look up.
+         */
+        disabled={
+          isSpecial ||
+          !m.myRights.mayDelete ||
+          (folderDestroyTakesMail(m, true) && !mayEnd)
+        }
       />
     </>
   );

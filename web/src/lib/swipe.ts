@@ -14,6 +14,7 @@
  */
 
 import { t } from "@/lib/i18n";
+import type { DeleteEffect } from "@/lib/mailDelete";
 
 export type SwipeAction =
   | "archive"
@@ -27,6 +28,15 @@ export type SwipeAction =
 export interface SwipeContext {
   /** The role of the folder on screen, where it has one. */
   role?: string | null;
+  /**
+   * What deleting this row would do to it, from the one rule (ADR 0015).
+   *
+   * Handed in rather than worked out from `role`, because the row is the only
+   * thing that knows which folders hold *this* message: the label used to be
+   * decided by the folder on screen alone, so the same gesture destroyed a
+   * message in Junk Mail under the word "Delete".
+   */
+  deleteEffect: DeleteEffect;
   /** Whether the row is unread — "mark as read" is a toggle, and says so. */
   unread: boolean;
   starred: boolean;
@@ -83,7 +93,7 @@ export function describeSwipe(
     case "delete":
       return {
         action,
-        label: ctx.role === "trash" ? "Delete forever" : "Delete",
+        label: ctx.deleteEffect === "final" ? "Delete forever" : "Delete",
         icon: "delete",
         tone: "danger",
         removes: true,

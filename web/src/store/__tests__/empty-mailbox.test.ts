@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { JmapSession } from "@/jmap/types";
 import { useMail } from "@/store/mail";
+import { useSession } from "@/store/session";
 import { useToasts } from "@/ui/toast";
 
 /**
@@ -120,15 +121,24 @@ function server(count: number, opts: { refuseDestroy?: boolean; mailbox?: string
 const messages = () => useToasts.getState().toasts.map((t) => t.message);
 
 beforeEach(() => {
+  /*
+   * The account under test is the reader's own, which the delete rule has to be
+   * able to prove (ADR 0015): the session names it, so this rig says what the
+   * app's session always says before any action is taken. A rig that left the
+   * account unnamed would be a group as far as the rule can tell.
+   */
   client.session = {
     capabilities: {
       [CAP.core]: { maxObjectsInGet: MAX, maxObjectsInSet: MAX },
       [CAP.mail]: {},
     },
-    accounts: {},
-    primaryAccounts: {},
+    accounts: {
+      a1: { name: "me@example.com", isPersonal: true, accountCapabilities: {} },
+    },
+    primaryAccounts: { [CAP.mail]: "a1" },
     state: "s1",
   } as unknown as JmapSession;
+  useSession.setState({ session: client.session, status: "authenticated" });
   useMail.setState({
     accountId: "a1",
     mailboxes: {
