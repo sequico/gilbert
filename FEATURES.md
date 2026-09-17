@@ -710,6 +710,10 @@ the few settings that does not follow the account.
   restored next time — on this device only, because they are where you were
   sitting rather than a preference, and each one is checked against what still
   exists before a view moves.
+- **Folder trees open collapsed.** The mailbox tree — the reader's own or a
+  group's — starts shut, and which folders were opened is remembered per reader
+  beside the place they were left in. A folder is remembered by its account as
+  well as its id, so opening one account's folders never opens another's.
 - **Reading pane** right of the list, below it, or off (messages open full width).
 - **Density** comfortable, cozy or compact, which changes row height as well as padding.
 - **Font size** small, medium or large.
@@ -949,9 +953,12 @@ same way.
   A child cannot be drawn under a parent that is not there, and promoting it to
   the top level would silently rearrange the tree at the moment the reader is
   least able to explain why. The parent comes back as a container instead.
-- **The sidebar counts the whole of it, and Starred leads the list.** Each
-  label's row carries how much mail is filed under it — read and unread alike —
-  and **Starred** sits above them as the first row of the same list. It is not
+- **The sidebar counts it as unread (all), and Starred leads the list.** Each
+  label's row carries *how much of it is new* ahead of how much is filed under
+  it — `3 (5)` is three unread out of five, the unread number in bold, and a
+  keyword with nothing unread shows its total alone because `0 (5)` says
+  nothing `5` does not — and **Starred** sits above them as the first row of
+  the same list. It is not
   a label: it is the keyword a star writes, with no colour of a label's to tint
   and no name of its own to rename, drawn by the same row and counted by the
   same read — and drawn with the star it is named after, filled in the star's
@@ -974,10 +981,10 @@ same way.
   write that message, and a control that showed one message while silently
   starring three was the defect this rule removes. The conversation's own star
   is the one at the top of the conversation, which says so.
-- **The unread half is kept, and it is a different number.** A label set to
-  "only while unread" is drawn or dropped by how much of it is unread, while
-  the row shows the total, so both are asked for — two queries per keyword, in
-  one request, because one cannot be derived from the other.
+- **The unread half is kept, and the row leads with it.** A label set to
+  "only while unread" is drawn or dropped by how much of it is unread, and the
+  row says that number beside the total, so both are asked for — two queries per
+  keyword, in one request, because one cannot be derived from the other.
 - **The number follows a write.** Starring, unstarring, labelling and
   unlabelling move the count as the **row** changes, not on the next read:
   unstarring a message and watching its count stay put is the kind of lag that
@@ -1561,7 +1568,21 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
 
 - **Folder tree** in the left pane, fetched **in one request**, so opening a
   folder never waits on a round trip.
+- **Collapsed by default, and remembered per reader.** The tree starts shut —
+  a group's or a shared account's folders as much as the reader's own — and the
+  folders that were opened come back next time, beside the rest of where the
+  reader was left. Each open folder is named by its account and its id, because
+  node ids are unique per account and an id alone would open another account's
+  folder.
 - Browse, download, create folders, rename, move, delete.
+- **Multi-select with checkboxes.** Every row carries one, with a select-all in
+  the header (indeterminate while only some rows are ticked), and the selection
+  is acted on from the bar that counts it: **download its files**, **move** and
+  **delete** — the same three the row menu offers when a whole selection is
+  opened through one of its rows. A folder has no bytes to download, so the
+  action names how many *files* it will put on disk. Shift-click takes the run
+  from the last row clicked, ctrl/cmd-click adds or removes one, and the
+  selection is dropped when the folder changes.
 - **Drag a row** onto a folder in the list or anywhere in the tree to move it.
   A folder cannot be dropped inside itself.
 - **Drag from the desktop** to upload — and drag a *folder* to upload it with
@@ -1586,6 +1607,13 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   checked against whatever the read reached: an entry is always a real sibling,
   so a duplicate it does hold is refused before its bytes are uploaded, and a
   duplicate it did not reach is refused by the server afterwards, saying why.
+- **Cancel an upload.** Every upload in flight shows its percentage with a
+  **Cancel** beside it — one file, or the whole run a drop or a picker action
+  started, so a folder of two hundred items is stopped in one press rather than
+  two hundred. What has already gone up stays, and nothing that had not started
+  is sent. The switch arrives with the run's **first file**: a drop creates the
+  folders of its tree before it uploads anything, and that phase has no row yet
+  to press.
 - **Sharing** per file or folder, with rights per person.
 - **Attach from Files** in the composer, with no re-upload.
 - **Saved into from mail**: a message's attachments can be kept here instead of

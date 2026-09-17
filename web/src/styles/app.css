@@ -1340,6 +1340,10 @@ a.menu-item:hover { color: var(--fg); }
 .nav-item .nav-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .nav-item .nav-count { font-size: .8em; font-weight: 700; color: var(--fg-muted); }
 .nav-item.active .nav-count { color: inherit; }
+/* The label rows count "unread (all)": the unread half leads it, in bold, and
+   the total follows in the row's own regular weight. */
+.nav-item .nav-count.label-count { font-weight: 400; }
+.nav-item .nav-count.label-count b { font-weight: 700; }
 .nav-item .nav-more { opacity: 0; width: 24px; height: 24px; margin-right: -6px; }
 .nav-item:hover .nav-more, .nav-item:focus-within .nav-more { opacity: 1; }
 .nav-item .nav-twisty { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; color: var(--fg-faint); border-radius: 4px; }
@@ -1432,8 +1436,17 @@ a.menu-item:hover { color: var(--fg); }
 .msg-row.focused { box-shadow: inset 3px 0 0 var(--accent); }
 .msg-row.open { background: var(--selected-bg); }
 .msg-row.dragging { opacity: .5; }
-.msg-row .msg-check { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; flex: 0 0 auto; opacity: 0; transition: opacity .1s; cursor: pointer; }
-.msg-row:hover .msg-check, .msg-row.selected .msg-check, .mail-list.has-selection .msg-check { opacity: 1; }
+/* One checkbox, three lists: the message list, the contact list and Files all
+   tick rows the same way, so the box itself is defined once -- sized, in the
+   accent colour, out of the way until it is wanted. What differs between them
+   is only what reveals it: hovering the row, the row being picked, or the list
+   being in selection mode. It is never hidden on a touchscreen, where there is
+   no hover to reveal it. */
+.msg-check, .contact-check, .f-check { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; flex: 0 0 auto; opacity: 0; transition: opacity .1s; cursor: pointer; }
+.msg-row:hover .msg-check, .msg-row.selected .msg-check, .mail-list.has-selection .msg-check,
+.contact-row:hover .contact-check, .contact-row.picked .contact-check, .contacts-scroll.has-selection .contact-check,
+.files-table tbody tr:hover .f-check, .files-table tbody tr.selected .f-check, .files-table.has-selection .f-check,
+.contacts-selbar .contact-check { opacity: 1; }
 .msg-row .msg-star { color: var(--fg-faint); flex: 0 0 auto; display: inline-flex; padding: 4px; border-radius: 50%; }
 .msg-row .msg-star:hover { color: var(--star); background: var(--bg-hover); }
 .msg-row .msg-star.on { color: var(--star); }
@@ -1728,11 +1741,6 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .contact-row .c-name { font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .contact-row .c-email { color: var(--fg-muted); font-size: .85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .contact-row.picked { background: var(--selected-bg); }
-/* Out of the way until wanted, and never on a touchscreen, where there is no
-   hover to reveal it -- the same rule the message list's checkbox follows. */
-.contact-check { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; flex: 0 0 auto; opacity: 0; transition: opacity .1s; cursor: pointer; }
-.contact-row:hover .contact-check, .contact-row.picked .contact-check, .contacts-scroll.has-selection .contact-check { opacity: 1; }
-.contacts-selbar .contact-check { opacity: 1; }
 .contacts-selbar { gap: 12px; padding-left: 14px; }
 .contact-letter { position: sticky; top: 0; background: var(--bg-sunken); padding: 4px 14px; font-size: .78em; font-weight: 700; color: var(--fg-muted); letter-spacing: .05em; z-index: 1; }
 .contact-detail { overflow-y: auto; padding: 28px 32px 64px; }
@@ -1890,6 +1898,7 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .files-table tr { cursor: pointer; }
 .files-table tbody tr:hover { background: var(--bg-hover); }
 .files-table tr.selected { background: var(--selected-bg); }
+.files-table .f-check-col { width: 1%; white-space: nowrap; }
 .files-table .f-name { display: flex; align-items: center; gap: 10px; font-weight: 500; }
 .files-table .f-name svg { color: var(--fg-muted); }
 .files-scroll { flex: 1; overflow: auto; }
@@ -2197,6 +2206,7 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 @media (hover: none) {
   .msg-row .msg-check { opacity: 1; }
   .contact-row .contact-check { opacity: 1; }
+  .files-table .f-check { opacity: 1; }
   .msg-row .msg-actions { display: none !important; }
   .msg-row:hover .msg-meta .msg-date { display: inline; }
   .nav-item .nav-more, .cal-list-item .nav-more { opacity: 1; }
@@ -2346,8 +2356,9 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 /* Files: the sidebar tree reuses .nav-item, so only the parts the mail tree has
    no equivalent for are here. A row in the list is a drop target the same way a
    folder in the tree is, and says so the same way. */
-/* Shown only when more than one row is selected: with a single row the row
-   menu already says everything this would. */
+/* Shown whenever a row is ticked: the bar counts the selection and holds its
+   actions, and the menu it opens is the same set the row menu offers for a
+   whole selection. */
 .selection-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin: 0 12px 4px; border-radius: var(--radius); background: var(--accent-soft); color: var(--accent-soft-fg); }
 .selection-bar .grow { font-weight: 600; }
 .files-table tbody tr.drop-target > td { background: var(--accent-soft); }

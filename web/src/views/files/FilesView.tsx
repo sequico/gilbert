@@ -25,6 +25,7 @@ import { canDropFileNodes, isShared, NODE_MIME, readDraggedIds } from "@/lib/fil
 import { formatListDate, formatSize } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
 import { loadPlace, placeOwnerFrom } from "@/lib/lastPlace";
+import { rangeIds } from "@/lib/listSelection";
 import { previewKind } from "@/lib/preview";
 import { useFiles } from "@/store/files";
 import { useSession } from "@/store/session";
@@ -32,6 +33,7 @@ import { confirmDialog, Dialog, promptDialog } from "@/ui/dialog";
 import { FilePreviewDialog, type PreviewFile } from "@/ui/filepreview";
 import { Empty, Spinner } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
+import { RowCheckbox, SelectAllCheckbox } from "@/ui/selection";
 import { toast } from "@/ui/toast";
 import { ShareDialog } from "../settings/ShareDialog";
 
@@ -46,6 +48,8 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   const [selection, setSelection] = useState<Set<Id>>(() => new Set());
   const [anchor, setAnchor] = useState<Id | null>(null);
   const menu = useMenu();
+  /** The selection's own menu, opened from the bar that counts it. */
+  const selMenu = useMenu();
   const [menuNode, setMenuNode] = useState<FileNode | null>(null);
   const [moveNodes, setMoveNodes] = useState<FileNode[] | null>(null);
   const [shareNode, setShareNode] = useState<FileNode | null>(null);
@@ -225,33 +229,57 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   };
 
   /*
+   * Every downloadable file of a selection, one after the other.
+   *
+   * A folder has no blob and no archive to ask for, so it is not one of them:
+   * what the action names is how many *files* it will put on disk, which is
+   * also what keeps it from looking like it silently skipped something.
+   */
+  const downloadAll = (list: FileNode[]) => {
+    for (const n of downloadable(list)) download(n);
+  };
+
+  const downloadable = (list: FileNode[]) =>
+    list.filter((n) => n.nodeType !== "directory" && n.blobId);
+
+  /*
    * Clicking a row, with the conventions a file manager has taught everyone:
    * plain replaces the selection, ctrl/cmd adds or removes one, shift takes
-   * the run from the last row clicked to this one. The anchor is the row a
-   * shift measures from, and a plain or toggling click moves it.
+   * the run from the last row clicked to this one -- `rangeIds`, the same rule
+   * the mail list extends a selection by. The anchor is the row a shift
+   * measures from, and a plain or toggling click moves it.
    */
   const clickRow = (n: FileNode, ev: React.MouseEvent) => {
-    if (ev.shiftKey && anchor) {
-      const from = nodes.findIndex((x) => x.id === anchor);
-      const to = nodes.findIndex((x) => x.id === n.id);
-      if (from >= 0 && to >= 0) {
-        const run = nodes
-          .slice(Math.min(from, to), Math.max(from, to) + 1)
-          .map((x) => x.id);
-        setSelection(new Set(ev.ctrlKey || ev.metaKey ? [...selection, ...run] : run));
-        return;
-      }
+    // Over the rows on screen rather than the listing's ids: the two are the
+    // same almost always, and where they are not -- a node still loading -- a
+    // run must not name rows nobody can see.
+    const run = ev.shiftKey
+      ? rangeIds(
+          nodes.map((r) => r.id),
+          anchor,
+          n.id,
+        )
+      : null;
+    if (run) {
+      setSelection(new Set(ev.ctrlKey || ev.metaKey ? [...selection, ...run] : run));
+      return;
     }
     if (ev.ctrlKey || ev.metaKey) {
-      const next = new Set(selection);
-      if (next.has(n.id)) next.delete(n.id);
-      else next.add(n.id);
-      setSelection(next);
-      setAnchor(n.id);
+      tick(n.id, !selection.has(n.id));
       return;
     }
     setSelection(new Set([n.id]));
     setAnchor(n.id);
+  };
+
+  /* One row's box: the row joins the selection or leaves it, and the anchor
+     follows the box rather than the row it belongs to. */
+  const tick = (id: Id, on: boolean) => {
+    const next = new Set(selection);
+    if (on) next.add(id);
+    else next.delete(id);
+    setSelection(next);
+    setAnchor(id);
   };
 
   /* Right-clicking inside the selection acts on all of it; right-clicking
@@ -272,6 +300,17 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   };
 
   const selectedNodes = () => nodes.filter((n) => selection.has(n.id));
+  /*
+   * What the reader has actually selected: the selection filtered to the rows
+   * on screen.
+   *
+   * One value, because the bar that counts a selection and the menu that acts
+   * on it have to name the same set. A node can vanish from under a selection
+   * -- another client deletes it, a push re-reads the folder -- and a count
+   * taken from the selection itself would then say three while the menu offered
+   * to delete two.
+   */
+  const sel = selectedNodes();
   /* What the menu and the bar act on: the whole selection when the row is part
      of it, and that row alone otherwise. */
   const targets = (n: FileNode | null) =>
@@ -280,6 +319,53 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
       : n
         ? [n]
         : selectedNodes();
+
+  const allSelected = nodes.length > 0 && nodes.every((n) => selection.has(n.id));
+
+  /*
+   * The actions a whole selection has, in one definition.
+   *
+   * They are the same actions wherever a selection is acted on -- the bar that
+   * counts it and the menu a right-click opens on one of its rows -- and two
+   * copies of them would part company the first time one gained an entry.
+   * What a list gets is only what it can be asked: a folder is not
+   * downloadable, so a selection holding none offers no Download.
+   */
+  const groupActions = (list: FileNode[]) => {
+    const files = downloadable(list);
+    return (
+      <>
+        {files.length > 0 && (
+          <MenuItem
+            icon={<Download size={16} />}
+            label={plural(files.length, {
+              one: "Download {n} file",
+              other: "Download {n} files",
+            })}
+            onClick={() => downloadAll(files)}
+          />
+        )}
+        <MenuItem
+          icon={<FolderInput size={16} />}
+          label={plural(list.length, {
+            one: "Move {n} item…",
+            other: "Move {n} items…",
+          })}
+          onClick={() => setMoveNodes(list)}
+        />
+        <MenuSep />
+        <MenuItem
+          danger
+          icon={<Trash2 size={16} />}
+          label={plural(list.length, {
+            one: "Delete {n} item",
+            other: "Delete {n} items",
+          })}
+          onClick={() => void removeNodes(list)}
+        />
+      </>
+    );
+  };
 
   const removeNodes = async (list: FileNode[]) => {
     if (!list.length) return;
@@ -446,28 +532,43 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                   </button>
                 </>
               ) : (
-                <span>{u.progress}%</span>
+                <>
+                  <span>{u.progress}%</span>
+                  {/*
+                   * The way out of an upload that is taking too long, which
+                   * is the whole of what a big file or a folder of many
+                   * offers otherwise: a percentage and no switch. Cancelling
+                   * a row cancels the run it belongs to -- the drop or the
+                   * picker action that started it -- so a folder of two
+                   * hundred items does not owe the reader two hundred
+                   * presses.
+                   */}
+                  <button className="btn btn-sm" onClick={() => files.cancelUpload(u.id)}>
+                    {t("Cancel")}
+                  </button>
+                </>
               )}
             </div>
           ))}
         </div>
       )}
-      {selection.size > 1 && (
+      {sel.length > 0 && (
         <div className="selection-bar">
           <span className="grow">
-            {plural(selection.size, {
+            {plural(sel.length, {
               one: "{n} item selected",
               other: "{n} items selected",
             })}
           </span>
-          <button className="btn btn-sm" onClick={() => setMoveNodes(selectedNodes())}>
-            <FolderInput size={16} /> {t("Move to…")}
-          </button>
+          {/* The selection's actions, in one menu: the bar counts and offers
+              them, the rows are what gets ticked. */}
           <button
-            className="btn btn-sm btn-danger"
-            onClick={() => void removeNodes(selectedNodes())}
+            className="btn btn-sm"
+            aria-label={t("Actions")}
+            title={t("Actions")}
+            onClick={selMenu.open}
           >
-            <Trash2 size={16} /> {t("Delete")}
+            <MoreVertical size={16} /> {t("Actions")}
           </button>
           <button
             className="icon-btn sm"
@@ -508,9 +609,21 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             {t("Drag files here or use Upload.")}
           </Empty>
         ) : (
-          <table className="files-table">
+          <table className={`files-table ${sel.length ? "has-selection" : ""}`}>
             <thead>
               <tr>
+                <th className="f-check-col">
+                  <SelectAllCheckbox
+                    checked={allSelected}
+                    partial={sel.length > 0 && !allSelected}
+                    label={t("Select all")}
+                    onChange={() =>
+                      allSelected || sel.length > 0
+                        ? setSelection(new Set())
+                        : setSelection(new Set(nodes.map((n) => n.id)))
+                    }
+                  />
+                </th>
                 <th>{t("Name")}</th>
                 <th className="hide-mobile">{t("Size")}</th>
                 <th className="hide-mobile">{t("Modified")}</th>
@@ -559,6 +672,14 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                     menuFor(n, menu.openAt, e.clientX, e.clientY);
                   }}
                 >
+                  <td className="f-check-col">
+                    <RowCheckbox
+                      checked={selection.has(n.id)}
+                      className="f-check"
+                      label={t("Select")}
+                      onChange={(on) => tick(n.id, on)}
+                    />
+                  </td>
                   <td>
                     <div className="f-name">
                       {n.nodeType === "directory" ? (
@@ -645,28 +766,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             />
           </>
         )}
-        {menuNode && targets(menuNode).length > 1 && (
-          <>
-            <MenuItem
-              icon={<FolderInput size={16} />}
-              label={plural(targets(menuNode).length, {
-                one: "Move {n} item…",
-                other: "Move {n} items…",
-              })}
-              onClick={() => setMoveNodes(targets(menuNode))}
-            />
-            <MenuSep />
-            <MenuItem
-              danger
-              icon={<Trash2 size={16} />}
-              label={plural(targets(menuNode).length, {
-                one: "Delete {n} item",
-                other: "Delete {n} items",
-              })}
-              onClick={() => void removeNodes(targets(menuNode))}
-            />
-          </>
-        )}
+        {menuNode && targets(menuNode).length > 1 && groupActions(targets(menuNode))}
         {menuNode && targets(menuNode).length <= 1 && (
           <>
             {menuNode.nodeType === "directory" ? (
@@ -738,6 +838,16 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
           </>
         )}
       </Popover>
+      {sel.length > 0 && (
+        <Popover
+          anchor={selMenu.anchor}
+          onClose={selMenu.close}
+          trigger={selMenu.trigger}
+          width={240}
+        >
+          {groupActions(sel)}
+        </Popover>
+      )}
       {moveNodes && (
         <MoveDialog
           nodes={moveNodes}

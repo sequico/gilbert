@@ -51,7 +51,21 @@ interface FilesState {
   listingShown: { parentId: Id | null } | null;
   loading: boolean;
   error: string | null;
-  uploads: Array<{ id: string; name: string; progress: number; error: string | null }>;
+  uploads: Array<{
+    id: string;
+    /**
+     * The run that started this row -- one drop, or one picker action.
+     *
+     * Carried on the row because Cancel is aimed at a row and stops a run: the
+     * row on screen is not always the one the run began with (a folder of two
+     * hundred items draws a row per file, one after another), and a reader
+     * pressing Cancel between two of them must still stop the same thing.
+     */
+    runId: string;
+    name: string;
+    progress: number;
+    error: string | null;
+  }>;
   dirIds: Id[];
   treeLoaded: boolean;
   /*
@@ -93,6 +107,20 @@ interface FilesState {
    * the reader who takes it away, and only such a row offers to.
    */
   dismissUpload(id: string): void;
+  /**
+   * Stop the upload run a tray row belongs to.
+   *
+   * A run is one thing the reader asked for: a file, or a folder of two
+   * hundred. Cancelling it aborts the upload in flight and drops everything of
+   * the same run that had not started, so a folder does not owe the reader a
+   * press per file.
+   *
+   * **From the run's first file onward.** A drop creates and reads the folders
+   * of its tree before it uploads anything, and until the first file is in
+   * flight the tray holds no row of this run -- so that phase has nothing to
+   * press, and nothing in it checks for an abort.
+   */
+  cancelUpload(id: string): void;
   /** Say which listing is on screen, so a push refreshes it and not the rest. */
   setListingShown(shown: { parentId: Id | null } | null): void;
   /**
@@ -219,10 +247,12 @@ async function putFile(
   parentId: Id | null,
   file: File,
   onProgress?: (percent: number) => void,
+  signal?: AbortSignal,
 ): Promise<Id> {
   const type = file.type || "application/octet-stream";
   const up = await client.upload(accountId, file, {
     type,
+    signal,
     onProgress:
       onProgress && ((loaded, total) => onProgress(Math.round((loaded / total) * 100))),
   });
@@ -367,6 +397,43 @@ function levelNames(
 }
 
 /**
+ * One run of uploads, and the switch that stops it.
+ *
+ * A run is what the reader asked for in one gesture -- the files of a picker, or
+ * the tree of a drop -- and it is the unit Cancel acts on: the file in flight
+ * is aborted, and the loop that owns it stops asking for the rest. Its rows are
+ * the ones drawn in the tray while it lasts, and the run itself lives only as
+ * long as they do.
+ */
+interface UploadRun {
+  id: string;
+  controller: AbortController;
+}
+
+/**
+ * The runs in flight, by id.
+ *
+ * Module state rather than store state because an `AbortController` is not a
+ * value to render: the tray draws rows, and the switch behind them is looked up
+ * by the run a row names. Entries come and go with their run, so a row of a run
+ * that is over cannot be cancelled by a stale id.
+ */
+const uploadRuns = new Map<string, AbortController>();
+
+function startUploadRun(): UploadRun {
+  const run: UploadRun = {
+    id: `run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    controller: new AbortController(),
+  };
+  uploadRuns.set(run.id, run.controller);
+  return run;
+}
+
+function endUploadRun(run: UploadRun): void {
+  uploadRuns.delete(run.id);
+}
+
+/**
  * One file: its tray row, the duplicate check, the upload and the node.
  *
  * Shared by the picker and by a drop, because both owe the reader the same
@@ -380,6 +447,11 @@ function levelNames(
  * against that page is still worth doing -- every entry is a real sibling, so a
  * name found there really is taken -- and an empty map simply means the folder
  * answered with nothing this writer could see. See `levelNames`.
+ *
+ * The run is the caller's, and carries its two answers: the row names it (what
+ * Cancel is aimed at) and its signal is what the upload itself watches. A run
+ * the reader stopped is not a failure to report -- its row leaves the way a
+ * finished one does -- so the abort is checked before the error is kept.
  */
 async function uploadOne(
   set: StoreApi<FilesState>["setState"],
@@ -387,23 +459,35 @@ async function uploadOne(
   parentId: Id | null,
   file: File,
   taken: Map<string, SiblingNode>,
+  run: UploadRun,
 ): Promise<void> {
-  const row = uploadRow(file.name, null);
+  const row = uploadRow(file.name, null, run.id);
   set((s) => ({ uploads: [...s.uploads, row] }));
   try {
     if (taken.has(file.name))
       throw new NameTakenError(undefined, nameTakenMessage(file.name));
-    await putFile(accountId, parentId, file, (percent) =>
-      set((s) => ({
-        uploads: s.uploads.map((u) =>
-          u.id === row.id ? { ...u, progress: percent } : u,
-        ),
-      })),
+    await putFile(
+      accountId,
+      parentId,
+      file,
+      (percent) =>
+        set((s) => ({
+          uploads: s.uploads.map((u) =>
+            u.id === row.id ? { ...u, progress: percent } : u,
+          ),
+        })),
+      run.controller.signal,
     );
     taken.set(file.name, { id: "", name: file.name, nodeType: "file" });
     set((s) => ({ uploads: s.uploads.filter((u) => u.id !== row.id) }));
   } catch (err) {
-    // The row stays: its message *is* the error, and the reader takes it away.
+    // A run the reader cancelled says nothing: the row goes, exactly as the
+    // row of a file that went up does. Anything else stays, because its
+    // message *is* the error and the reader takes it away.
+    if (run.controller.signal.aborted) {
+      set((s) => ({ uploads: s.uploads.filter((u) => u.id !== row.id) }));
+      return;
+    }
     set((s) => ({
       uploads: s.uploads.map((u) =>
         u.id === row.id ? { ...u, error: (err as Error).message } : u,
@@ -420,8 +504,9 @@ async function uploadOne(
  * both the same value, and the second file's progress would then move the
  * first file's row.
  */
-const uploadRow = (name: string, error: string | null) => ({
+const uploadRow = (name: string, error: string | null, runId: string) => ({
   id: `${Date.now()}-${name}-${Math.random().toString(36).slice(2, 7)}`,
+  runId,
   name,
   progress: 0,
   error,
@@ -623,7 +708,18 @@ export const useFiles = create<FilesState>((set, get) => ({
       () => null,
     );
     const taken = levelNames(read?.levels, parentId);
-    for (const f of files) await uploadOne(set, accountId, parentId, f, taken);
+    /* One run for the whole picker selection, so a file that is taking too
+       long is a thing the reader can stop -- together with the files of the
+       same gesture that had not started. */
+    const run = startUploadRun();
+    try {
+      for (const f of files) {
+        if (run.controller.signal.aborted) break;
+        await uploadOne(set, accountId, parentId, f, taken, run);
+      }
+    } finally {
+      endUploadRun(run);
+    }
     await get().loadChildren(parentId);
   },
 
@@ -636,6 +732,30 @@ export const useFiles = create<FilesState>((set, get) => ({
    */
   dismissUpload(id) {
     set((s) => ({ uploads: s.uploads.filter((u) => u.id !== id) }));
+  },
+
+  /*
+   * The way out of a row that is still going.
+   *
+   * The row names its run, so a reader who presses Cancel on the file that is
+   * on screen stops the run that file belongs to -- including the files of the
+   * same drop that had not started, which is the only way a folder of two
+   * hundred items can be stopped in one press. The abort travels two ways: the
+   * upload in flight is aborted through the signal it was given, and the loop
+   * that owns the run sees it before it starts the next file. A row whose run
+   * is already over has nothing to abort and does nothing, which is why the
+   * registry is emptied as each run ends.
+   *
+   * Only a row **in flight** may cancel: a row carrying an error is a failure
+   * the reader has been told about and has still to read, and its run may well
+   * have moved on to another file by now -- pressing Cancel there would stop
+   * work the press had nothing to do with. The tray offers Cancel on the row in
+   * flight alone, and this is the same rule one layer down, where it cannot be
+   * forgotten by a second caller.
+   */
+  cancelUpload(id) {
+    const row = get().uploads.find((u) => u.id === id);
+    if (row && !row.error) uploadRuns.get(row.runId)?.abort();
   },
 
   async uploadTo(accountId, files, parentId = null) {
@@ -711,170 +831,191 @@ export const useFiles = create<FilesState>((set, get) => ({
    */
   async uploadPlan(parentId, plan) {
     const accountId = get().accountId!;
-    /*
-     * One read of the account answers every level the drop names -- as far as
-     * it got.
-     *
-     * The walk resolves one folder at a time and would otherwise list a folder
-     * per folder -- a request each -- for a tree the account can describe in a
-     * single query. So the levels are read together here, and on an account the
-     * read finished the walk makes no request at all except the creates it has
-     * to make.
-     *
-     * A read that came back short is finished by **narrowing**, not by paging
-     * the account until it is exhausted: the drop already knows which levels it
-     * touches, and those are the smaller and more targeted piece of work. A
-     * read that failed outright is the same situation as a short one -- look
-     * each level up when it is asked for.
-     */
-    const scan = await readLevels(accountId, { kind: "account" }).catch(() => null);
-    const hint = scan?.levels ?? new Map<string, Map<string, SiblingNode>>();
-    /* Levels read for themselves during this walk. A level is read once, so the
+    /* One run for the whole dropped tree, so a folder of two hundred items is
+       one thing the reader can stop: the file in flight, and every file of the
+       drop that had not started. */
+    const run = startUploadRun();
+    try {
+      /*
+       * One read of the account answers every level the drop names -- as far as
+       * it got.
+       *
+       * The walk resolves one folder at a time and would otherwise list a folder
+       * per folder -- a request each -- for a tree the account can describe in a
+       * single query. So the levels are read together here, and on an account the
+       * read finished the walk makes no request at all except the creates it has
+       * to make.
+       *
+       * A read that came back short is finished by **narrowing**, not by paging
+       * the account until it is exhausted: the drop already knows which levels it
+       * touches, and those are the smaller and more targeted piece of work. A
+       * read that failed outright is the same situation as a short one -- look
+       * each level up when it is asked for.
+       */
+      const scan = await readLevels(accountId, { kind: "account" }).catch(() => null);
+      const hint = scan?.levels ?? new Map<string, Map<string, SiblingNode>>();
+      /* Levels read for themselves during this walk. A level is read once, so the
        folder walk and the file check share one request for it rather than
        asking the same question twice -- which is what they did before the
        shared rule, and what dropping the memo briefly cost. */
-    const readByUs = new Set<string>();
+      const readByUs = new Set<string>();
 
-    /*
-     * The names a **folder** may be resolved from: a hint is enough.
-     *
-     * A partial read can only make this walk try a create the server refuses,
-     * and that refusal sends it back to look at the level for real -- so the
-     * worst a short read costs here is one wasted create per folder that does
-     * exist, and the level it teaches is then in hand for everything below it.
-     */
-    const namesAt = async (id: Id | null): Promise<Map<string, SiblingNode>> => {
-      const key = levelKey(id);
-      const known = hint.get(key);
-      if (known) return known;
-      const read = await readLevels(accountId, { kind: "level", parentId: id });
-      const names = levelNames(read.levels, id);
-      hint.set(key, names);
-      readByUs.add(key);
-      return names;
-    };
+      /*
+       * The names a **folder** may be resolved from: a hint is enough.
+       *
+       * A partial read can only make this walk try a create the server refuses,
+       * and that refusal sends it back to look at the level for real -- so the
+       * worst a short read costs here is one wasted create per folder that does
+       * exist, and the level it teaches is then in hand for everything below it.
+       */
+      const namesAt = async (id: Id | null): Promise<Map<string, SiblingNode>> => {
+        const key = levelKey(id);
+        const known = hint.get(key);
+        if (known) return known;
+        const read = await readLevels(accountId, { kind: "level", parentId: id });
+        const names = levelNames(read.levels, id);
+        hint.set(key, names);
+        readByUs.add(key);
+        return names;
+      };
 
-    /*
-     * The names a **file** may be checked against: everything in hand for that
-     * level, however short it is.
-     *
-     * A page of a folder names real siblings, so checking against it is sound
-     * whether or not it is the whole folder -- the worst it can do is miss a
-     * duplicate, never invent one (see `levelNames`). What completeness
-     * decides is whether it is worth a **request** to see more, and the account
-     * read is what says so: on an account it finished, the scan is
-     * authoritative for every level, so what is in hand is all of it --
-     * including "nothing" for a folder that is really empty. On one it did not,
-     * a level the drop writes into is read for itself -- unless this walk
-     * already read it, which it does when the folder was resolved through
-     * `namesAt` -- and the two are merged, since either read's names are real.
-     */
-    const filesAt = async (id: Id | null): Promise<Map<string, SiblingNode>> => {
-      const key = levelKey(id);
-      const known = hint.get(key);
-      if (scan?.complete || readByUs.has(key)) return known ?? new Map();
-      const read = await readLevels(accountId, {
-        kind: "level",
-        parentId: id,
-      }).catch(() => null);
-      readByUs.add(key);
-      if (!read) return known ?? new Map();
-      const fresh = levelNames(read.levels, id);
-      const names = known ? new Map([...known, ...fresh]) : fresh;
-      hint.set(key, names);
-      return names;
-    };
-    // Folders first, parents before children, so every file has somewhere to go.
-    const dirIds = new Map<string, Id | null>([["", parentId]]);
-    // Paths the drop asked for and cannot have; the empty key is the drop
-    // itself, which always exists because that is where the reader aimed.
-    const missing = new Set<string>();
-    for (const path of foldersNeeded(plan)) {
-      const key = folderPathKey(path);
-      const parentKey = folderPathKey(path.slice(0, -1));
-      const name = path[path.length - 1]!;
-      /* A parent that could not be resolved takes its whole subtree with it:
+      /*
+       * The names a **file** may be checked against: everything in hand for that
+       * level, however short it is.
+       *
+       * A page of a folder names real siblings, so checking against it is sound
+       * whether or not it is the whole folder -- the worst it can do is miss a
+       * duplicate, never invent one (see `levelNames`). What completeness
+       * decides is whether it is worth a **request** to see more, and the account
+       * read is what says so: on an account it finished, the scan is
+       * authoritative for every level, so what is in hand is all of it --
+       * including "nothing" for a folder that is really empty. On one it did not,
+       * a level the drop writes into is read for itself -- unless this walk
+       * already read it, which it does when the folder was resolved through
+       * `namesAt` -- and the two are merged, since either read's names are real.
+       */
+      const filesAt = async (id: Id | null): Promise<Map<string, SiblingNode>> => {
+        const key = levelKey(id);
+        const known = hint.get(key);
+        if (scan?.complete || readByUs.has(key)) return known ?? new Map();
+        const read = await readLevels(accountId, {
+          kind: "level",
+          parentId: id,
+        }).catch(() => null);
+        readByUs.add(key);
+        if (!read) return known ?? new Map();
+        const fresh = levelNames(read.levels, id);
+        const names = known ? new Map([...known, ...fresh]) : fresh;
+        hint.set(key, names);
+        return names;
+      };
+      // Folders first, parents before children, so every file has somewhere to go.
+      //
+      // Nothing in this walk checks the run's signal, and that is deliberate: a
+      // run becomes cancellable when its first file is in flight, because until
+      // then the tray holds no row of it for the reader to press. The checks
+      // that matter are the ones in front of each file, below.
+      const dirIds = new Map<string, Id | null>([["", parentId]]);
+      // Paths the drop asked for and cannot have; the empty key is the drop
+      // itself, which always exists because that is where the reader aimed.
+      const missing = new Set<string>();
+      for (const path of foldersNeeded(plan)) {
+        const key = folderPathKey(path);
+        const parentKey = folderPathKey(path.slice(0, -1));
+        const name = path[path.length - 1]!;
+        /* A parent that could not be resolved takes its whole subtree with it:
          creating the child elsewhere would put it outside the folder it was
          dropped in. */
-      if (missing.has(parentKey)) {
-        missing.add(key);
-        continue;
-      }
-      const into = dirIds.get(parentKey) ?? parentId;
-      const siblings = await namesAt(into);
-      const found = siblings.get(name);
-      if (found?.nodeType === "directory") {
-        dirIds.set(key, found.id);
-        continue;
-      }
-      if (found) {
-        // A file is standing where the folder goes. Neither one may be moved
-        // out of the way silently, so the folder -- and what was in it -- stop
-        // here and say why.
-        missing.add(key);
-        set({ error: nameTakenMessage(name) });
-        continue;
-      }
-      try {
-        const id = await createDirectory(accountId, into, name);
-        dirIds.set(key, id);
-        siblings.set(name, { id, name, nodeType: "directory" });
-      } catch (err) {
-        /*
-         * Another writer can make the folder between the read and this create,
-         * and the server refuses a second create of the same name. That refusal
-         * means the folder this drop wanted exists -- so take it rather than
-         * reporting a name nobody can see. The level is re-read rather than
-         * trusted: the listing in hand was taken before the other writer's
-         * create, which is why the create was refused at all.
-         */
-        if (isAlreadyExists(err)) {
-          const key0 = levelKey(into);
-          const read = await readLevels(accountId, { kind: "level", parentId: into });
-          const fresh = levelNames(read.levels, into);
-          /* Merged rather than substituted: the read in hand may have held names
+        if (missing.has(parentKey)) {
+          missing.add(key);
+          continue;
+        }
+        const into = dirIds.get(parentKey) ?? parentId;
+        const siblings = await namesAt(into);
+        const found = siblings.get(name);
+        if (found?.nodeType === "directory") {
+          dirIds.set(key, found.id);
+          continue;
+        }
+        if (found) {
+          // A file is standing where the folder goes. Neither one may be moved
+          // out of the way silently, so the folder -- and what was in it -- stop
+          // here and say why.
+          missing.add(key);
+          set({ error: nameTakenMessage(name) });
+          continue;
+        }
+        try {
+          const id = await createDirectory(accountId, into, name);
+          dirIds.set(key, id);
+          siblings.set(name, { id, name, nodeType: "directory" });
+        } catch (err) {
+          /*
+           * Another writer can make the folder between the read and this create,
+           * and the server refuses a second create of the same name. That refusal
+           * means the folder this drop wanted exists -- so take it rather than
+           * reporting a name nobody can see. The level is re-read rather than
+           * trusted: the listing in hand was taken before the other writer's
+           * create, which is why the create was refused at all.
+           */
+          if (isAlreadyExists(err)) {
+            const key0 = levelKey(into);
+            const read = await readLevels(accountId, { kind: "level", parentId: into });
+            const fresh = levelNames(read.levels, into);
+            /* Merged rather than substituted: the read in hand may have held names
              this one did not (both can be pages of a level larger than one), and
              every name either read saw is a real sibling, so dropping one set
              for the other gives up refusals that were already paid for. */
-          const known = hint.get(key0);
-          const names = known ? new Map([...known, ...fresh]) : fresh;
-          hint.set(key0, names);
-          readByUs.add(key0);
-          const theirs = names.get(name);
-          if (theirs?.nodeType === "directory") {
-            dirIds.set(key, theirs.id);
-            continue;
+            const known = hint.get(key0);
+            const names = known ? new Map([...known, ...fresh]) : fresh;
+            hint.set(key0, names);
+            readByUs.add(key0);
+            const theirs = names.get(name);
+            if (theirs?.nodeType === "directory") {
+              dirIds.set(key, theirs.id);
+              continue;
+            }
           }
+          missing.add(key);
+          set({ error: (err as Error).message });
         }
-        missing.add(key);
-        set({ error: (err as Error).message });
       }
-    }
-    const byFolder = new Map<string, File[]>();
-    for (const item of plan.files) {
-      const key = folderPathKey(item.path);
-      if (missing.has(key)) {
-        set((s) => ({
-          uploads: [
-            ...s.uploads,
-            uploadRow(item.file.name, translate("Its folder could not be created.")),
-          ],
-        }));
-        continue;
+      const byFolder = new Map<string, File[]>();
+      for (const item of plan.files) {
+        const key = folderPathKey(item.path);
+        if (missing.has(key)) {
+          set((s) => ({
+            uploads: [
+              ...s.uploads,
+              uploadRow(
+                item.file.name,
+                translate("Its folder could not be created."),
+                run.id,
+              ),
+            ],
+          }));
+          continue;
+        }
+        byFolder.set(key, [...(byFolder.get(key) ?? []), item.file]);
       }
-      byFolder.set(key, [...(byFolder.get(key) ?? []), item.file]);
-    }
-    /*
-     * Every folder of the drop, uploaded through one writer each -- with the
-     * names already in hand where the account read could be trusted, and read
-     * for themselves where it could not. Either way no folder is listed twice
-     * for the same file, and a level the drop writes into is the only kind that
-     * costs a request at all.
-     */
-    for (const [key, files] of byFolder) {
-      const into = dirIds.get(key) ?? parentId;
-      const taken = await filesAt(into);
-      for (const file of files) await uploadOne(set, accountId, into, file, taken);
+      /*
+       * Every folder of the drop, uploaded through one writer each -- with the
+       * names already in hand where the account read could be trusted, and read
+       * for themselves where it could not. Either way no folder is listed twice
+       * for the same file, and a level the drop writes into is the only kind that
+       * costs a request at all.
+       */
+      for (const [key, files] of byFolder) {
+        if (run.controller.signal.aborted) break;
+        const into = dirIds.get(key) ?? parentId;
+        const taken = await filesAt(into);
+        for (const file of files) {
+          if (run.controller.signal.aborted) break;
+          await uploadOne(set, accountId, into, file, taken, run);
+        }
+      }
+    } finally {
+      endUploadRun(run);
     }
     await get().loadChildren(parentId);
     void get().loadTree();

@@ -11,13 +11,13 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import type { FileNode, Id } from "@/jmap/types";
 import { entriesFromDrop, hasDirectory, planUpload } from "@/lib/dropUpload";
 import { canDropFileNodes, isShared, NODE_MIME, readDraggedIds } from "@/lib/filenode";
+import { folderKey, useOpenFolders } from "@/lib/folderView";
 import { t } from "@/lib/i18n";
-import { loadRaw, saveJson } from "@/lib/storage";
 import { useFiles } from "@/store/files";
 import { useSession } from "@/store/session";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
@@ -65,16 +65,15 @@ export function FilesTree() {
   const sharedAccounts = useFiles((s) => s.sharedAccounts);
   const [refreshing, setRefreshing] = useState(false);
   const viewingShare = Boolean(accountId && accountId !== ownAccountId);
-  // Kept across sessions, the way the mailbox tree keeps its own.
-  const [expanded, setExpandedState] = useState<Record<Id, boolean>>(() =>
-    loadRaw("files-expanded", {}),
-  );
-  const setExpanded = (fn: (x: Record<Id, boolean>) => Record<Id, boolean>) =>
-    setExpandedState((x) => {
-      const next = fn(x);
-      saveJson("files-expanded", next);
-      return next;
-    });
+  /*
+   * Which folders are open, shut by default and kept per reader for the next
+   * session -- the same record the mailbox tree keeps its own in.
+   *
+   * A folder is named by its account as well as its id: Files opens a shared
+   * account in place, and two accounts hand out node ids that collide, so an
+   * id alone would carry one account's open folders into another's tree.
+   */
+  const { open: expanded, setFolder, openKeys } = useOpenFolders("files");
   const [menuNode, setMenuNode] = useState<FileNode | null>(null);
   const [shareNode, setShareNode] = useState<FileNode | null>(null);
   const [rootDrop, setRootDrop] = useState(false);
@@ -108,19 +107,32 @@ export function FilesTree() {
     ? location.slice("/files/".length)
     : null;
 
-  // Open the branch the reader is looking at, so the current folder is visible
-  // without them having to find it.
+  /*
+   * Open the branch the reader is looking at, **once per folder**, so the
+   * current folder is visible without them having to find it.
+   *
+   * Once, because this watches `nodes`, and the store replaces that map on
+   * every listing write -- a push, an upload finishing, a rename made
+   * elsewhere. A reader who closed the folder holding what they are reading
+   * would otherwise have it opened again under their hand the next time
+   * anything moved, which is the opposite of remembering the tree's shape.
+   */
+  const revealedFor = useRef<Id | null>(null);
   useEffect(() => {
-    if (!currentId) return;
-    const open: Record<Id, boolean> = {};
+    if (!currentId || revealedFor.current === currentId) return;
+    // The chain is only knowable once the node itself has arrived: a deep link
+    // lands here with nothing, and comes back when the folder answers.
+    if (!nodes[currentId]) return;
+    revealedFor.current = currentId;
+    const keys: string[] = [];
     for (
       let id: Id | null | undefined = nodes[currentId]?.parentId;
       id;
       id = nodes[id]?.parentId
     )
-      open[id] = true;
-    if (Object.keys(open).length) setExpanded((x) => ({ ...x, ...open }));
-  }, [currentId, nodes]);
+      keys.push(folderKey(accountId, id));
+    openKeys(keys);
+  }, [currentId, nodes, accountId]);
 
   if (!available) return null;
 
@@ -134,7 +146,7 @@ export function FilesTree() {
     setDragging([]);
     try {
       await useFiles.getState().moveMany(ids, parentId);
-      if (parentId) setExpanded((x) => ({ ...x, [parentId]: true }));
+      if (parentId) openKeys([folderKey(accountId, parentId)]);
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -178,7 +190,8 @@ export function FilesTree() {
 
   const row = (d: FileNode, depth: number) => {
     const kids = childrenOf(d.id);
-    const open = Boolean(expanded[d.id]);
+    const key = folderKey(accountId, d.id);
+    const open = Boolean(expanded[key]);
     return (
       <div key={d.id}>
         <div
@@ -206,7 +219,7 @@ export function FilesTree() {
             style={{ visibility: kids.length ? "visible" : "hidden" }}
             onClick={(e) => {
               e.stopPropagation();
-              setExpanded((x) => ({ ...x, [d.id]: !open }));
+              setFolder(key, !open);
             }}
           >
             {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -328,7 +341,7 @@ export function FilesTree() {
             if (!name?.trim()) return;
             try {
               await useFiles.getState().mkdir(menuNode?.id ?? null, name.trim());
-              if (menuNode) setExpanded((x) => ({ ...x, [menuNode.id]: true }));
+              if (menuNode) openKeys([folderKey(accountId, menuNode.id)]);
             } catch (err) {
               toast.error((err as Error).message);
             }

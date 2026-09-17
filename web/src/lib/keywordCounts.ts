@@ -8,8 +8,9 @@
  *
  *  - **the total**, which is what the sidebar shows beside a label — how much
  *    mail is filed under it, read or not;
- *  - **the unread half**, which is what decides whether a label set to
- *    "while unread" is drawn at all (`visibleLabels`), and nothing else.
+ *  - **the unread half**, which the sidebar shows **ahead of** the total
+ *    ("3 (5)") and which decides whether a label set to "while unread" is
+ *    drawn at all (`visibleLabels`).
  *
  * The `G-` state the agent writes (ADR 0003 resolution 9) is deliberately not
  * among the counted keywords: it is per-message processing state, never a row

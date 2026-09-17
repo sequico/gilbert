@@ -76,6 +76,7 @@ import { type ListState, useMail } from "@/store/mail";
 import { dateTimeKey, useSettings } from "@/store/settings";
 import { Avatar, Empty, useIsMobile, useIsTouch } from "@/ui/misc";
 import { MenuItem, MenuSep, MenuTitle, Popover, useMenu } from "@/ui/popover";
+import { RowCheckbox, SelectAllCheckbox } from "@/ui/selection";
 import { toast } from "@/ui/toast";
 import { FilterFromMessageDialog } from "./FilterFromMessage";
 
@@ -389,14 +390,10 @@ export function MessageList({
             <ArrowLeft size={20} />
           </button>
         )}
-        <input
-          type="checkbox"
-          className="select-all"
-          aria-label={t("Select all")}
+        <SelectAllCheckbox
           checked={allSelected}
-          ref={(el) => {
-            if (el) el.indeterminate = selCount > 0 && !allSelected;
-          }}
+          partial={selCount > 0 && !allSelected}
+          label={t("Select all")}
           onChange={() => (allSelected || selCount > 0 ? clearSelection() : selectAll())}
         />
         {selCount > 0 ? (
@@ -1259,13 +1256,11 @@ const Row = memo(function Row({
       role="row"
       aria-selected={selected}
     >
-      <input
-        type="checkbox"
-        className="msg-check"
+      <RowCheckbox
         checked={selected}
-        onClick={(ev) => ev.stopPropagation()}
-        onChange={(ev) => onSelect(e.id, ev.target.checked)}
-        aria-label={t("Select")}
+        className="msg-check"
+        label={t("Select")}
+        onChange={(on) => onSelect(e.id, on)}
       />
       {!twoLine && (
         <button
