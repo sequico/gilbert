@@ -1,4 +1,6 @@
 import {
+  ArrowDown,
+  ArrowUp,
   ChevronRight,
   Download,
   Eye,
@@ -22,9 +24,10 @@ import { client } from "@/jmap/client";
 import type { FileNode, Id } from "@/jmap/types";
 import { entriesFromDrop, hasDirectory, planUpload } from "@/lib/dropUpload";
 import { canDropFileNodes, isShared, NODE_MIME, readDraggedIds } from "@/lib/filenode";
+import { sortFiles, useFilesSort } from "@/lib/fileSort";
 import { formatListDate, formatSize } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
-import { loadPlace, placeOwnerFrom } from "@/lib/lastPlace";
+import { type FilesSortKey, loadPlace, placeOwnerFrom } from "@/lib/lastPlace";
 import { rangeIds } from "@/lib/listSelection";
 import { previewKind } from "@/lib/preview";
 import { useFiles } from "@/store/files";
@@ -66,6 +69,9 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   const draggingIds = files.draggingIds;
   const setDragging = files.setDragging;
   const inputRef = useRef<HTMLInputElement>(null);
+  /* Which column this folder is ordered by, remembered per folder on this
+     device like the folders the tree has open. */
+  const { sort, toggle: toggleSort } = useFilesSort(files.accountId, parentId);
 
   /* A selection belongs to the folder it was made in. Carrying it across would
      leave rows selected that are no longer on screen, and the delete two
@@ -166,8 +172,42 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     );
 
   const ids = files.children[parentId ?? "root"] ?? [];
-  const nodes = ids.map((id) => files.nodes[id]).filter((n): n is FileNode => Boolean(n));
+  /* The rows, in the order the reader asked for: `sortFiles` is the one
+     definition of that order, and everything below -- the selection a
+     shift-click takes, the bar's count, the drag -- reads this list, so what is
+     on screen and what a click means cannot disagree. */
+  const nodes = sortFiles(
+    ids.map((id) => files.nodes[id]).filter((n): n is FileNode => Boolean(n)),
+    sort,
+  );
   const path = files.pathTo(parentId);
+
+  /*
+   * One definition for the three sortable headers.
+   *
+   * The column the listing is in is **bold** and carries a small arrow for the
+   * direction; the other two are plain names you can click. There is no third
+   * state to draw, because there is no third state: a listing is always in some
+   * order, and the header in force is the one that says which.
+   */
+  const sortHeader = (key: FilesSortKey, label: string, className?: string) => {
+    const active = sort.key === key;
+    return (
+      <th
+        className={className}
+        aria-sort={active ? (sort.desc ? "descending" : "ascending") : "none"}
+      >
+        <button
+          type="button"
+          className={`th-sort ${active ? "sorted" : ""}`}
+          onClick={() => toggleSort(key)}
+        >
+          {label}
+          {active && (sort.desc ? <ArrowDown size={13} /> : <ArrowUp size={13} />)}
+        </button>
+      </th>
+    );
+  };
 
   /* A drop lands in `into`, which is the folder under the pointer when there is
      one and the folder being listed otherwise. Entries have to be read out
@@ -624,9 +664,9 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                     }
                   />
                 </th>
-                <th>{t("Name")}</th>
-                <th className="hide-mobile">{t("Size")}</th>
-                <th className="hide-mobile">{t("Modified")}</th>
+                {sortHeader("name", t("Name"))}
+                {sortHeader("size", t("Size"), "hide-mobile")}
+                {sortHeader("modified", t("Modified"), "hide-mobile")}
                 <th />
               </tr>
             </thead>

@@ -1894,6 +1894,12 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .breadcrumb button.current { color: var(--fg); font-weight: 650; }
 .files-table { width: 100%; border-collapse: collapse; }
 .files-table th { text-align: left; padding: 8px 12px; font-size: .8em; color: var(--fg-muted); font-weight: 600; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg-elev); z-index: 1; }
+/* The header is a control: the column the listing is in is bold and carries the
+   direction, the others are plain names -- so what is sorted, and which way, is
+   legible without a second look. */
+.files-table th .th-sort { display: inline-flex; align-items: center; gap: 4px; font: inherit; font-weight: 400; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.files-table th .th-sort:hover { color: var(--fg); }
+.files-table th .th-sort.sorted { font-weight: 700; color: var(--fg); }
 .files-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
 .files-table tr { cursor: pointer; }
 .files-table tbody tr:hover { background: var(--bg-hover); }

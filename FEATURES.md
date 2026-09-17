@@ -1575,6 +1575,17 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   node ids are unique per account and an id alone would open another account's
   folder.
 - Browse, download, create folders, rename, move, delete.
+- **Sorted by a clicked column, and each folder keeps its own order.** Clicking
+  **Name**, **Size** or **Modified** orders the listing by it, and clicking the
+  column already in force turns it around — two states and no third, because a
+  listing is always in some order. The sorted column's name is **bold** with a
+  small arrow for the direction, the other two are plain names you can click.
+  **Folders come first whatever the column** (a folder has no size), and within
+  each group the column decides with the name breaking ties, so two devices draw
+  the same order. The order is remembered **per folder** on this device, beside
+  where the reader was left, and applies to what the browser holds: a folder is
+  read whole (up to the store's own read ceiling) rather than a page at a time,
+  so it is sorted in the browser rather than asked of the server.
 - **Multi-select with checkboxes.** Every row carries one, with a select-all in
   the header (indeterminate while only some rows are ticked), and the selection
   is acted on from the bar that counts it: **download its files**, **move** and

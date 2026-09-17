@@ -42,10 +42,41 @@ export interface LastPlace {
     mail?: Record<string, boolean>;
     files?: Record<string, boolean>;
   };
+  /**
+   * How each file folder was last ordered on this device, keyed by account and
+   * folder (`folderKey`).
+   *
+   * Per folder rather than one order for Files, because which order is wanted
+   * is a property of what is in the folder -- a download folder by date, a
+   * documents folder by name -- and, like the open folders beside it, it is
+   * where this reader was reading rather than a preference to carry to another
+   * machine.
+   */
+  filesSort?: Record<string, FilesSort>;
 }
 
 /** Which sidebar tree a set of open folders belongs to. */
 export type TreeKind = "mail" | "files";
+
+/**
+ * The columns a file listing can be ordered by.
+ *
+ * Two states and no third: a listing is always in *some* order (the server
+ * answers in name order, and that is the default here), so clicking the column
+ * already in force turns it around rather than turning it off.
+ */
+export type FilesSortKey = "name" | "size" | "modified";
+
+export interface FilesSort {
+  key: FilesSortKey;
+  /** Largest first, newest first, Z–A -- the reverse of the column's own order. */
+  desc: boolean;
+}
+
+/** How a folder nobody has ordered yet is drawn: the order the server answers in. */
+export const DEFAULT_FILES_SORT: FilesSort = { key: "name", desc: false };
+
+const SORT_KEYS: FilesSortKey[] = ["name", "size", "modified"];
 
 /**
  * Whose record this is: the reader's own account, whatever capability is being
@@ -109,5 +140,38 @@ export function rememberOpenFolders(
   saveJson(accountKey(owner, "lastPlace"), {
     ...place,
     openFolders: { ...place.openFolders, [kind]: open },
+  });
+}
+
+/**
+ * One folder's remembered order, or the default when there is none to read.
+ *
+ * Validated rather than trusted: this record is written by one build and read
+ * by the next, and a column that is no longer one would otherwise reach a
+ * comparator that has nothing to say about it. Anything the shape does not
+ * recognise reads as "never sorted", which is a folder in the server's order
+ * rather than a listing in no order at all.
+ */
+export function loadFilesSort(
+  owner: string | null | undefined,
+  folder: string,
+): FilesSort {
+  const stored = loadPlace(owner).filesSort?.[folder];
+  if (stored && SORT_KEYS.includes(stored.key) && typeof stored.desc === "boolean")
+    return { key: stored.key, desc: stored.desc };
+  return DEFAULT_FILES_SORT;
+}
+
+/** Remember one folder's order, leaving every other folder's as it was. */
+export function rememberFilesSort(
+  owner: string | null | undefined,
+  folder: string,
+  sort: FilesSort,
+): void {
+  if (!owner) return;
+  const place = loadPlace(owner);
+  saveJson(accountKey(owner, "lastPlace"), {
+    ...place,
+    filesSort: { ...place.filesSort, [folder]: sort },
   });
 }
