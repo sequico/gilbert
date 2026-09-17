@@ -10,7 +10,10 @@ sync in, nothing goes back. Canonical statement: README.md top.
 ## Snapshot mode
 Files and comments describe the code as it is now. Never write "it used to
 be X, then it became Y", never narrate a rename, a migration or any
-before/after. If somebody wants history, it is in git.
+before/after. **A document is edited in place**: when what it describes
+changes, the sentence changes with it in the same diff, and the version it
+replaced is left to git rather than kept beside it or pointed at. If somebody
+wants history, it is in git.
 
 ## Naming rule
 The product has four blocks, named once in `README.md`: **gilbertmailer**,
@@ -59,13 +62,20 @@ Decisions that shape the architecture — where durable state lives, a protocol
 surface, a trust boundary, an enforcement door, or a documented invariant —
 are recorded as Architecture Decision Records under `docs/adr/`, one file per
 decision: `NNNN-kebab-case-title.md` starting at `0001`, written in English,
-with a `Status` line (Proposed / Accepted / Superseded) and Context, Decision
-and Consequences sections.
+with a `Status` line (Proposed / Accepted) and Context, Decision and
+Consequences sections.
 Write the ADR when the change is designed, before or alongside the
 implementation, so the design is reviewable first; an implementation must
-match the standing (newest non-superseded) ADR that covers it. Changing a
-standing decision means a new ADR that supersedes the old one — never edit an
-accepted ADR's history. ADRs stay `Proposed` until the owner accepts them.
+match the ADR that covers it. ADRs stay `Proposed` until the owner accepts them.
+**A record is edited in place, and the history is git's.** Changing a standing
+decision means rewriting the record that carries it, in the change that alters
+it, until it states the decision as it now stands: never a second record that
+supersedes the first, never a `Superseded` status, never a sentence narrating
+what the earlier version said or what used to be true. A number is minted for a
+decision that is new, not for a version of one already here. The single
+exception is the owner asking for otherwise, explicitly and in the turn: only
+then does a decision get a record beside the existing one instead of a rewrite
+of it.
 **Snapshot mode applies to the ADRs too, and a resolution carries no
 back-reference.** It states the decision and the facts it rests on — never the
 conversation that produced it: no "the first/second/third branch review found",

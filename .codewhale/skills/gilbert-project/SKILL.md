@@ -19,7 +19,10 @@ metadata:
   Ask before inventing product behaviour the acronym implies but
   the code does not have.
 - **Snapshot mode**: files and comments describe the code as it is now; never
-  narrate a rename or a migration — history lives in git.
+  narrate a rename or a migration — history lives in git. **Documents are
+  edited in place too**, ADRs included: what a record describes changing means
+  the record is rewritten in the same change, never superseded by a second one
+  and never left narrating the version it replaced.
 - Licence AGPL-3.0-or-later; `LICENSE` and `NOTICE` keep Coffey Labs' copyright (the mail core is their derivative work). Do not strip attribution.
 
 ## 2. Naming rule (the one that keeps every doc coherent)
@@ -70,8 +73,10 @@ code that stopped matching it. Three habits keep the two together:
   either wait or say nothing about it.
 - **A change that falsifies a claim fixes the claim in the same diff.** Grep the
   sentence you just invalidated: the old behaviour usually survives in another
-  file, a test's comment or an ADR. (When the ADR is `Proposed` it may be
-  amended; an `Accepted` one is superseded, never edited.)
+  file, a test's comment or an ADR. Every record is edited in place — `Proposed`
+  and `Accepted` alike — so an ADR always states the decision as it stands and
+  git holds the version before it. A number is minted for a decision that is
+  new, or where the owner asks for one explicitly.
 - **Every mechanism the ADR names has a test that fails if the mechanism is
   removed.** A test that only shows the code runs proves nothing about the
   guarantee. When a review names something as untested, the fix includes the

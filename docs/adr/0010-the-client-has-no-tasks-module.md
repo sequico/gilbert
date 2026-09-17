@@ -52,8 +52,8 @@ knows.**
   reader's own, and they stay where Stalwart holds them: this client neither
   migrates nor purges nor hides them. Not writing such objects and not
   deleting them are two different things, and the decision is the first.
-- **No reader names them.** `TaskItem` is gone, `JSCalendarEvent` declares no
-  `progress`, `due` or `percentComplete`, and `JSCalendarEvent["@type"]` is
+- **No reader names them.** There is no `TaskItem`, `JSCalendarEvent` declares
+  no `progress`, `due` or `percentComplete`, and `JSCalendarEvent["@type"]` is
   `Event` alone — there is no task type anywhere in the client, so nothing in
   it is written or read for one. (`JSCalendarParticipant`'s own `progress` and
   `percentComplete` are a participant's, and stay.)
@@ -62,15 +62,11 @@ knows.**
   surface needs nothing either: the manifest's `start_url` is mail and its
   shortcuts are Compose, Calendar and Contacts, so no installed address names
   a section that is not there.
-- **`PUSH_STATE_TYPES` is unchanged.** Tasks were never a state type of their
-  own, and the list goes on carrying `CalendarEvent` and `Calendar` for the
-  calendar that remains.
+- **`PUSH_STATE_TYPES` names no task type.** The list carries `CalendarEvent`
+  and `Calendar`, for the calendar that remains.
 
-**ADR 0005's rule is not what changes; its enumeration is.** A group's
-collections are calendars, address books and files, owned by the group from
-creation — and a task list is not one of the examples that rule carries.
-This record supersedes that clause of ADR 0005 and leaves the rest of it
-standing, the way ADR 0011 supersedes ADR 0001's policy bullet.
+**A group's collections are calendars, address books and files** (ADR 0005),
+owned by the group from creation — and a task list is not one of them.
 
 ### Rejected — hiding the module instead of removing it
 
@@ -109,12 +105,12 @@ exists.
   (ADR 0005), event editing, the pickers that offer a place to put an event.
   A calendar is offered there on its rights alone, and its `description` is the
   text it is.
-- **The mock's `CalendarEvent/query`**, which keeps answering `inCalendar` for
-  any calendar — that is the calendar's filter, exercised by a group calendar
+- **The mock's `CalendarEvent/query`**, which answers `inCalendar` for any
+  calendar — that is the calendar's filter, exercised by a group calendar
   in `server/src/mock/group-mailbox.test.ts`, and it is not a task feature.
-- **ADR 0005's rule.** Everything a group owns still lives in the group's own
-  account, owned from creation; what changes is the enumeration of what that
-  is — calendars, address books and files, without task lists.
+- **ADR 0005's rule.** Everything a group owns lives in the group's own
+  account, owned from creation, and the enumeration that rule carries is
+  calendars, address books and files.
 - **`gilbertagents`**, which never read a task: `RECONCILED_TYPES`
   (`server/src/agent/agent.ts`) reconciles `Email` and `FileNode` only, and no
   action in the catalogue reads or writes a calendar object.
@@ -131,13 +127,12 @@ exists.
   surface the push fan-out covers, and no catalog carries a string for an
   action the client does not have: a key the code does not ask for is a stale
   key, which the i18n check reports.
-- The seven tests of the module are gone, and so is the one that pinned the
-  grid's guard: there is no guard to pin.
+- Nothing in the suite pins a task surface: there is no module for a test to
+  exercise and no grid guard for one to pin.
 - The demo account seeds mail, calendars, contacts and files, and no list.
 - The last-place record holds three surfaces: the mail account on screen, the
-  address book, the folder open in Files. A `taskList` field written into a
-  device's local storage by an older build is read by nothing, and no
-  migration is owed for it.
+  address book, the folder open in Files. A `taskList` field in a device's
+  stored record is read by nothing, and no migration is owed for it.
 - A to-do list is not something Gilbert offers, in any form. A reader who
   wants one in Stalwart uses a client that has it, and this client draws the
   calendar they put it in and skips the objects inside — which is the whole of
@@ -146,12 +141,13 @@ exists.
 ## References
 
 - `web/src/store/calendar.ts` — the grid, with no task in it: an object in a
-  calendar the reader can see is drawn, and the filters that hid lists are gone
+  calendar the reader can see is drawn, and nothing filters a calendar's
+  contents by what the calendar is called
 - `web/src/views/AppShell.tsx` — `MODULES`, the table every renderer draws
 - `web/src/App.tsx` — the router's own fallback for a path that names no
   section
 - `web/src/jmap/types.ts` — `JSCalendarEvent`, whose `@type` is `Event` alone
-- `server/src/shared/push.ts` — `PUSH_STATE_TYPES`, unchanged
+- `server/src/shared/push.ts` — `PUSH_STATE_TYPES`, which names no task type
 - `server/src/mock/index.ts` — the calendars a demo account holds
 - ADR 0009 — the push subscription covers every live type, which is why a
   surface the client does not have costs the list no entry

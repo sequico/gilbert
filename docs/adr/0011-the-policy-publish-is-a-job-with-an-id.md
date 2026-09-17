@@ -75,13 +75,11 @@ measured against).
   the note about it — and a job no later read can find is never answered as
   though it had been kept.
 
-This record supersedes the policy bullet of **ADR 0001** where it describes a
-publish's answer as the number of accounts reached. What ADR 0001 decides
-stands: Gilbert admin is Stalwart admin, the policy is a per-account document
-written by impersonation, and its three powers are `defaults`, `enforced` and
-`changes`. The policy still applies at once, and the other signed-in sessions
-are still kicked so their next sign-in reads it; what this record adds is the
-record of what a publish did.
+**A publish answers with a job.** Everything around it is ADR 0001's: Gilbert
+admin is Stalwart admin, the policy is a per-account document written by
+impersonation, its three powers are `defaults`, `enforced` and `changes`, it
+applies at once, and the other signed-in sessions are kicked so their next
+sign-in reads it. What this record decides is the record of what a publish did.
 
 ## Consequences
 

@@ -63,7 +63,9 @@ save.
   writes the policy into every one's app folder by impersonation, the
   publishing administrator's own account included. One account's refusal —
   no impersonation grant, an unreachable session, no Files account — does not
-  stop the rest; the response names how many accounts were reached. A
+  stop the rest; what a publish answers with is the job ADR 0011 defines — one
+  document naming the population it measured itself against, the accounts the
+  policy reached and the ones it did not, each with a code. A
   reader's own policy is read from their own account: `GET
   /api/account/policy` answers with the signed-in account's own file, and
   `GET /admin/policy` (the editor's own display) reads the same file from the
