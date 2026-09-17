@@ -2484,8 +2484,8 @@ and in Settings › About.
 
 ## The mock server
 
-An in-memory fake Stalwart 0.16 — enough JMAP to develop, demo and screenshot
-against with no real mailbox. `npm run dev:mock`, then `demo@example.com` /
+An in-memory fake Stalwart 0.16 — enough JMAP to develop and demo against with
+no real mailbox. `npm run dev:mock`, then `demo@example.com` /
 `demo`.
 
 It reproduces the things a naive fake would get wrong, because each cost a live

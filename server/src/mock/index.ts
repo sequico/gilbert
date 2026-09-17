@@ -268,12 +268,11 @@ function bumpState(type: string): void {
 /* ---------- data ---------- */
 /*
  * The names are Stalwart's own defaults, which follow the Exchange convention:
- * "Deleted Items" and "Sent Items", not "Trash" and "Sent". The mock used the
- * short forms, so anything built from a folder's name read differently here
- * than in production -- "Empty Trash" against the mock, "Empty Deleted Items"
- * against a real server -- and every screenshot in the README showed a folder
- * list no user has. The role is what the client branches on; the name is only
- * ever displayed, which is exactly why it has to look right.
+ * "Deleted Items" and "Sent Items", not "Trash" and "Sent". A list built
+ * from the short forms reads differently here than in production -- "Empty
+ * Trash" against the mock, "Empty Deleted Items" against a real server. The
+ * role is what the client branches on; the name is only ever displayed, which
+ * is exactly why it has to look right.
  */
 /** Push subscriptions, as a fresh account has none. */
 const pushSubscriptions: Obj[] = [];
