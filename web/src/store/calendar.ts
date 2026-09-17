@@ -50,15 +50,17 @@ export interface EventInstance {
 }
 
 /*
- * Asked for by name, because `shareWith` is not among the properties Stalwart
- * returns by default.
+ * Asked for by name, so the properties a share is read from are always there.
  *
- * A `Calendar/get` with no `properties` comes back without it -- not null, not
- * empty, absent -- confirmed against 0.16.19 on 2026-08-27 with a calendar that
- * was genuinely shared: omit the list and there is no `shareWith`; name it and
- * the sharee is right there. Omitting it leaves the client with nothing to read
- * a share from: no badge, no "Stop sharing", and a share dialog that opens on
- * "not shared with anyone yet" over a live share.
+ * A `Calendar/get` with no `properties` came back without `shareWith` on
+ * 0.16.19 -- not null, not empty, absent -- confirmed on 2026-08-27 with a
+ * calendar that was genuinely shared: omit the list and there is no
+ * `shareWith`; name it and the sharee is right there. 0.16.21 returns every
+ * property when none are named (confirmed live on 2026-09-06), which makes
+ * naming them a guarantee rather than a rescue, and it is the guarantee a
+ * server older than that still needs. Omitting it leaves the client with
+ * nothing to read a share from: no badge, no "Stop sharing", and a share
+ * dialog that opens on "not shared with anyone yet" over a live share.
  *
  * Files and address books ask for their properties by name for the same reason.
  */

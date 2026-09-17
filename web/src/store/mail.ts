@@ -53,9 +53,11 @@ import { settings, useSettings } from "./settings";
 import { useSieve } from "./sieve";
 
 /*
- * Named explicitly so `shareWith` comes back, which it does not otherwise --
- * see the note on CALENDAR_PROPS and the KNOWN-ISSUES entry. Mailboxes, calendars
- * and address books all name their properties by hand for this reason.
+ * Named explicitly so `shareWith` comes back, which a mailbox does not
+ * otherwise return -- not on 0.16.19 and not on 0.16.21, where `Calendar/get`
+ * and `AddressBook/get` do hand over every property unasked. See the note on
+ * CALENDAR_PROPS and the KNOWN-ISSUES entry. So does `Files`, which names its
+ * own properties.
  *
  * It matters here for one narrow but real case. Sharing a mail folder is
  * withdrawn because Stalwart stores the share and never delivers it, and the

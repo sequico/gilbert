@@ -192,10 +192,11 @@ export interface Suggestion {
 }
 
 /*
- * Asked for by name: `shareWith` is not returned by default.
+ * Asked for by name, so `shareWith` is there to read on every 0.16.
  *
- * An `AddressBook/get` with no `properties` omits it entirely -- confirmed
- * against 0.16.19 on 2026-08-27 on a book that really was shared. See the note
+ * An `AddressBook/get` with no `properties` omits it entirely on 0.16.19 --
+ * confirmed on 2026-08-27 on a book that really was shared -- where 0.16.21
+ * returns every property unasked (confirmed live on 2026-09-06). See the note
  * on CALENDAR_PROPS; address books, calendars and Files all name their
  * properties for the same reason.
  */
