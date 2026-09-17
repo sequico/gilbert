@@ -109,7 +109,14 @@ in one sentence.**
   grants an administrator is a surface for a person; nothing an automation can
   be written to do changes with it. An automation's `mail.move` can file a
   message into the group's Deleted Items, which is the same place a member's
-  delete leaves it and is not a destroy.
+  delete leaves it and is not a destroy. **The Mail area of ADR 0006 does not
+  change this.** That record groups the five mail actions under one checkbox
+  precisely so a tick cannot be how somebody grants what the catalogue keeps
+  out, and its own rule already covers the case: a destroy added to
+  `AGENT_ACTION_SPECS` later would carry `irreversible` — and `external` too if
+  it ever reached another account — which excludes it from every area and
+  leaves it a checkbox of its own, beside `mail.send` rather than inside
+  *Mail*.
 - **A message Gilbert wrote itself is not in the way.** Discarding a draft, and
   the write that replaces a draft when a message is sent, are the compose
   store's own `Email/set` calls (ADR 0007's sending path), not the mail store's
