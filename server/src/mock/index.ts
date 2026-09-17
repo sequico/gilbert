@@ -4174,8 +4174,9 @@ const handlers: Record<string, Handler> = {
          *
          * That refusal is not a detail a client may assume away: a folder drop
          * that creates only what is missing depends on it, and so does every
-         * writer that must not overwrite. Without it a second identical create
-         * looked like success here and would be refused on a real server.
+         * writer that replaces a file's content — the id it carries is the node
+         * to write the new bytes into (ADR 0014). Without it a second identical
+         * create looked like success here and would be refused on a real server.
          *
          * Not reproduced: the same check on **update**. A real 0.16 runs
          * `find_sibling_collision` on the update path too

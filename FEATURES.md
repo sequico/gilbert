@@ -1612,27 +1612,34 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
 - **Dropping a folder that is already there adds to it** rather than making a
   second one beside it: the folders of the drop are resolved first, a folder
   the target already holds is used as it is, and only what is missing is
-  created. A **file** whose name the folder already holds is refused and the
-  refusal is shown on top — the existing file is neither duplicated nor
-  replaced, and the bytes are not uploaded at all (Stalwart charges for every
-  upload and never reclaims one, so a name that is taken is a write not worth
-  making). A folder the drop could not be created — a file is standing where it
-  goes — stops with its whole subtree reported rather than filing those files
-  into whatever folder does exist.
+  created. A **file** whose name the folder already holds is **written over**,
+  in place: the node that carried the name is the node that holds the bytes
+  now, so its id, its sharing and its place in the tree stay and only the
+  content changes. Dropping the same tree twice is therefore one tree holding
+  the latest bytes — never a second copy beside the first, and never a page of
+  errors (ADR 0014). What a file may not write over is a **folder** of its
+  name: nothing is renamed, destroyed or put beside it, and the file is
+  reported on top instead. A folder the drop could not be created — a file is
+  standing where it goes — stops with its whole subtree reported rather than
+  filing those files into whatever folder does exist.
 - **A drop resolves its tree in one request.** The account is read once and the
   whole walk answers from that, however deep the folder is; an account larger
-  than one read of it (a thousand nodes) is finished by reading the levels the
-  drop actually writes into, not by paging the account. A folder's names are
-  checked against whatever the read reached: an entry is always a real sibling,
-  so a duplicate it does hold is refused before its bytes are uploaded, and a
-  duplicate it did not reach is refused by the server afterwards, saying why.
-- **Cancel an upload.** Every upload in flight shows its percentage with a
-  **Cancel** beside it — one file, or the whole run a drop or a picker action
-  started, so a folder of two hundred items is stopped in one press rather than
-  two hundred. What has already gone up stays, and nothing that had not started
-  is sent. The switch arrives with the run's **first file**: a drop creates the
-  folders of its tree before it uploads anything, and that phase has no row yet
-  to press.
+  than one read of it (a thousand nodes) is finished by reading the levels it
+  has to — the folder that was past the page is looked up when the server
+  refuses the create — not by paging the account. What that read is **for** is
+  folders: a file's name is answered by the create itself, which names the node
+  holding it wherever in the account it sits, so a name the read never reached
+  is written over all the same.
+- **Cancel an upload.** Every upload in flight shows the count of its run —
+  *"3 of 12 files"* — beside its own percentage, and the count moves as each
+  file lands: a folder of two hundred items reads as one job with a size rather
+  than as two hundred unrelated files, and the number is on the row in flight as
+  well as on any row of the same run a failure left standing. **Cancel** sits
+  beside it — one file, or the whole run a drop or a picker action started, so a
+  folder of two hundred items is stopped in one press rather than two hundred.
+  What has already gone up stays, and nothing that had not started is sent. The
+  switch arrives with the run's **first file**: a drop creates the folders of
+  its tree before it uploads anything, and that phase has no row yet to press.
 - **Sharing** per file or folder, with rights per person.
 - **Attach from Files** in the composer, with no re-upload.
 - **Saved into from mail**: a message's attachments can be kept here instead of
@@ -1640,7 +1647,8 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   destination that makes them the group's — and into **any folder inside it**,
   walked or created in the dialog. Offered for **one attachment as much as for
   ten**. A file the chosen folder already holds is reported rather than
-  replaced.
+  replaced — the one write that still refuses a name, because a file somebody
+  already keeps is not a save's to overwrite (ADR 0014).
 - One folder is hidden on purpose: **`gilbert`**, contents and all. It holds
   the settings file and signature images, and the Files view drops it from the
   listing so it never reads as a place to file your own.

@@ -65,6 +65,14 @@ interface FilesState {
     name: string;
     progress: number;
     error: string | null;
+    /**
+     * Files of this row's run that are already through, out of the files it set
+     * out to write. The count of the moment the row was made -- a run adds a row
+     * per file, and each one carries the count as it stood when its own upload
+     * started, which is what makes the number move while the run lasts.
+     */
+    done: number;
+    total: number;
   }>;
   dirIds: Id[];
   treeLoaded: boolean;
@@ -91,12 +99,12 @@ interface FilesState {
   /*
    * Upload files into a folder of the account being browsed.
    *
-   * A file whose name the folder already holds is refused before its bytes are
-   * uploaded, and the refusal is left in the tray as a row: the alternative --
-   * a second node under the same name, or the first one quietly replaced -- is
-   * a decision this does not make. One listing covers the whole call, so a
-   * folder of two hundred files costs one query rather than two hundred, and
-   * two files of the same name in one drop are caught here as well.
+   * A file whose name the folder already holds is **written over** rather than
+   * refused, and a name that is a folder is left alone: dropping the same tree
+   * twice is one tree, which keeps a drop repeatable instead of turning the
+   * second one into a page of errors. One tray row per file carries the run's
+   * count -- files through, out of the files the gesture named -- beside the
+   * percentage of the file in flight.
    */
   upload(parentId: Id | null, files: File[]): Promise<void>;
   /**
@@ -222,33 +230,79 @@ export function emptyForAccount(accountId: Id | null) {
 /**
  * What a name refused for being taken is called, in one place.
  *
- * The reader is told which file it was and that nothing was replaced, because
- * the alternative the server offers -- `onExists: replace`, `rename`,
- * `newest` -- is a different decision from this one and is not made here.
+ * The reader is told which file it was, and the two writers that still refuse a
+ * name say it here rather than in two sentences of their own: saving an
+ * attachment must not touch a file somebody already keeps under that name, and
+ * neither writer may put a file where a **folder** of that name stands.
  */
 export function nameTakenMessage(name: string): string {
   return translate("A file called \u201c{name}\u201d is already here.", { name });
 }
 
 /**
- * Upload one file into an account and create the node that points at it.
+ * Write new bytes into a node that is already there.
+ *
+ * The one place the three properties that describe a file's content are
+ * written, because the two writers that replace bytes -- the editor saving over
+ * a file, and a drop landing on a name the folder already holds -- owe the node
+ * the same thing. `FileNode/set` returns no `blobId` on create and takes one on
+ * update, so a replacement is an update and never a destroy-and-create: the id,
+ * the sharing and the place in the tree stay, and only the content changes.
+ *
+ * `size` goes with the blob rather than being left to the server. It is the
+ * length of the bytes just uploaded, which this side knows exactly, and sending
+ * it is what the editor does; a listing that disagreed with the blob would show
+ * a size for content the server no longer holds.
+ */
+async function writeContent(
+  accountId: Id,
+  id: Id,
+  blobId: Id,
+  type: string,
+  size: number,
+): Promise<void> {
+  const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
+    accountId,
+    update: { [id]: { blobId, type, size } },
+  });
+  const err = res.notUpdated?.[id];
+  if (err) throw new Error(setErrorMessage(err));
+}
+
+/**
+ * Upload one file into an account and write the node that names it.
  *
  * The account is a parameter because a node has to be created in the account
  * that holds the blob, and that is not always the one being browsed: saving a
  * message's attachments to Files can mean the reader's own files or a group's.
  *
- * Callers check the folder's names first, so a duplicate usually costs nothing
- * -- see the level reads in this store. This refusal is the server's, and it is
- * the one that counts: a name that appeared between that read and this write
- * lands here, and it reads the same as the duplicate the caller already caught.
+ * `onExists` is the caller's decision, and it is said out loud because the two
+ * callers want opposite things from one server answer. The file manager
+ * **replaces**: a name the folder already holds is a file to write over --
+ * dropping the same tree twice is one tree, and the reader asked for those
+ * bytes to be there. Saving an attachment **refuses**: a file somebody already
+ * keeps under that name is not this reader's to overwrite.
+ *
+ * The refusal is what says which node carries the name, in `existingId`, and
+ * replacing writes into that node -- its `blobId`, `type` and `size`, the same
+ * three `saveText` writes -- rather than destroying it and creating another:
+ * the id, the sharing and the place in the tree stay, and only the bytes
+ * change. The one node that may not be written into is a **folder** of that
+ * name, so what the refusal named is read first and anything but a file is
+ * refused with the name it holds. The blob that was replaced is left
+ * unreferenced for the server's GC, JMAP having no way to delete one.
  */
 async function putFile(
   accountId: Id,
   parentId: Id | null,
   file: File,
-  onProgress?: (percent: number) => void,
-  signal?: AbortSignal,
+  opts: {
+    onExists: "replace" | "refuse";
+    onProgress?: (percent: number) => void;
+    signal?: AbortSignal;
+  },
 ): Promise<Id> {
+  const { onExists, onProgress, signal } = opts;
   const type = file.type || "application/octet-stream";
   const up = await client.upload(accountId, file, {
     type,
@@ -261,11 +315,31 @@ async function putFile(
     create: { f: fileCreate(parentId, file.name, up.blobId, type) },
   });
   const err = res.notCreated?.f;
-  if (err)
-    throw isAlreadyExists(err)
-      ? new NameTakenError(err.existingId, nameTakenMessage(file.name))
-      : new Error(setErrorMessage(err));
-  return res.created!.f!.id;
+  if (!err) return res.created!.f!.id;
+  if (!isAlreadyExists(err)) throw new Error(setErrorMessage(err));
+  if (onExists === "refuse")
+    throw new NameTakenError(err.existingId, nameTakenMessage(file.name));
+  /*
+   * The node the server named, read before anything is written into it.
+   *
+   * `existingId` is absent only for a collision with a create of the same
+   * request (`tests/src/jmap/files/node.rs`), which one file in one request
+   * cannot be -- and a refusal that named no node is not one to write into
+   * either way, so it stands as it is. The blob is paid for before the read:
+   * the create is what names the sibling, and a name a **folder** holds is the
+   * one case that pays for bytes it cannot use.
+   */
+  const id = err.existingId;
+  if (!id) throw new NameTakenError(undefined, nameTakenMessage(file.name));
+  const node = await client.call<GetResponse<FileNode>>("FileNode/get", {
+    accountId,
+    ids: [id],
+    properties: ["nodeType"],
+  });
+  if (node.list[0]?.nodeType !== "file")
+    throw new NameTakenError(id, nameTakenMessage(file.name));
+  await writeContent(accountId, id, up.blobId, type, file.size);
+  return id;
 }
 
 /**
@@ -312,8 +386,10 @@ const levelKey = (parentId: Id | null): string => parentId ?? "root";
  *
  * The ceiling the module uses everywhere else (`loadChildren`, `loadTree`), and
  * it is a *ceiling*, not a promise: a read that comes back holding exactly this
- * many may have been cut short, which is what `readLevels` reports as
- * `complete`.
+ * many may have been cut short. What that costs a walk is a folder it cannot
+ * see, and a folder is recovered by the create the server refuses -- so the
+ * ceiling never turns into a wrong answer, only into a request that was not
+ * needed (see `uploadPlan`).
  */
 export const LEVEL_LIMIT = 1000;
 
@@ -330,13 +406,9 @@ type LevelScope = { kind: "account" } | { kind: "level"; parentId: Id | null };
 /**
  * The names at each level a read saw, keyed by the level they sit at.
  *
- * **The one place** a tree of nodes is turned into names-to-write-against, and
- * the one place a read's completeness is decided -- shared by the whole-account
- * scan a drop starts with and by the single-level read a writer makes, so the
- * two cannot answer the question differently. They did: the level read worked
- * its completeness out from the nodes the `get` returned and the total the
- * query reported, and a `get` truncated by its own ceiling on a level larger
- * than one page made it call a partial read whole.
+ * **The one place** a tree of nodes is turned into folders-to-write-into,
+ * shared by the whole-account scan a drop starts with and by the single-level
+ * read the folder walk makes, so the two cannot disagree about what is there.
  *
  * A level read buckets by the parent that was **asked for**, not by the
  * `parentId` the nodes came back wearing. The level is known by construction
@@ -350,8 +422,8 @@ type LevelScope = { kind: "account" } | { kind: "level"; parentId: Id | null };
 async function readLevels(
   accountId: Id,
   scope: LevelScope,
-): Promise<{ levels: Map<string, Map<string, SiblingNode>>; complete: boolean }> {
-  const { list, complete } = await listChildrenWithState(
+): Promise<Map<string, Map<string, SiblingNode>>> {
+  const { list } = await listChildrenWithState(
     accountId,
     scope.kind === "level" ? scope.parentId : null,
     ["id", "name", "nodeType", "parentId"],
@@ -365,7 +437,7 @@ async function readLevels(
     names.set(String(n.name), { id: n.id, name: n.name, nodeType: n.nodeType });
     levels.set(where, names);
   }
-  return { levels, complete };
+  return levels;
 }
 
 /**
@@ -374,20 +446,15 @@ async function readLevels(
  * A pure function over what `readLevels` answered, rather than one that fetches
  * as well. It is the smaller half on purpose: a caller that reads a level has
  * the request in front of it, which matters here because the number of requests
- * a drop makes is a thing this module's tests count and its design argues
- * about. A helper that both fetched and picked out the names would hide how
- * many requests a call site was making, which is the one detail a reader of
- * these call sites needs.
+ * a drop makes is a thing this module's design argues about. A helper that both
+ * fetched and picked out the names would hide how many requests a call site was
+ * making, which is the one detail a reader of these call sites needs.
  *
- * What a caller gets, and may check a name against, is a **page** at worst: a
- * level larger than one read of it answers with part of itself. That is sound
- * -- every entry came from a FileNode the server really returned for this
- * level, so a name found here really is taken and a create of it really would
- * be refused, which means the check can never invent a duplicate. What an
- * incomplete page costs is the opposite, a duplicate it did not reach. See
- * `readLevels` for why completeness is therefore not consulted here: it
- * decides whether a level is worth *reading*, not whether what came back may
- * be looked at.
+ * A level larger than one read of it answers with a **page**, so a folder that
+ * is in the level but past the page is one these names do not hold. That is the
+ * folder walk's own case, and it recovers from it the way it recovers from any
+ * folder it could not see: the create is refused, the refusal names what is
+ * there, and the walk takes it (see `uploadPlan`).
  */
 function levelNames(
   levels: Map<string, Map<string, SiblingNode>> | undefined,
@@ -404,10 +471,16 @@ function levelNames(
  * is aborted, and the loop that owns it stops asking for the rest. Its rows are
  * the ones drawn in the tray while it lasts, and the run itself lives only as
  * long as they do.
+ *
+ * Its `tally` is the count those rows carry. It lives on the run because the
+ * count is the gesture's and not the file's: the reader watching a folder go up
+ * is watching one job of two hundred files, and a row that counted only itself
+ * would be a percentage with no sense of how much is left.
  */
 interface UploadRun {
   id: string;
   controller: AbortController;
+  tally: { done: number; total: number };
 }
 
 /**
@@ -420,10 +493,11 @@ interface UploadRun {
  */
 const uploadRuns = new Map<string, AbortController>();
 
-function startUploadRun(): UploadRun {
+function startUploadRun(total: number): UploadRun {
   const run: UploadRun = {
     id: `run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     controller: new AbortController(),
+    tally: { done: 0, total },
   };
   uploadRuns.set(run.id, run.controller);
   return run;
@@ -434,52 +508,51 @@ function endUploadRun(run: UploadRun): void {
 }
 
 /**
- * One file: its tray row, the duplicate check, the upload and the node.
+ * One file: its tray row, the upload, the node and the run's count.
  *
  * Shared by the picker and by a drop, because both owe the reader the same
- * three things -- a row that reports progress, a name that is not silently
- * taken, and no upload paid for when the name is already there. The `taken` map
- * is the caller's: the picker reads the one folder it writes into, and a drop
- * the account once, so neither lists a folder again per file.
+ * three things -- a row that reports progress, a name that is written into
+ * rather than refused, and the count of the files still to go beside it.
  *
- * `taken` is what the caller could find out about the folder, and it may be
- * short: a level larger than one page of it answers with a page. Checking
- * against that page is still worth doing -- every entry is a real sibling, so a
- * name found there really is taken -- and an empty map simply means the folder
- * answered with nothing this writer could see. See `levelNames`.
- *
- * The run is the caller's, and carries its two answers: the row names it (what
- * Cancel is aimed at) and its signal is what the upload itself watches. A run
- * the reader stopped is not a failure to report -- its row leaves the way a
- * finished one does -- so the abort is checked before the error is kept.
+ * The run is the caller's, and carries its three answers: the row names it
+ * (what Cancel is aimed at), its signal is what the upload itself watches, and
+ * its tally is what the row shows. A run the reader stopped is not a failure to
+ * report -- its row leaves the way a finished one does -- so the abort is
+ * checked before the error is kept.
  */
 async function uploadOne(
   set: StoreApi<FilesState>["setState"],
   accountId: Id,
   parentId: Id | null,
   file: File,
-  taken: Map<string, SiblingNode>,
   run: UploadRun,
 ): Promise<void> {
-  const row = uploadRow(file.name, null, run.id);
+  const row = uploadRow(file.name, null, run.id, run.tally);
   set((s) => ({ uploads: [...s.uploads, row] }));
   try {
-    if (taken.has(file.name))
-      throw new NameTakenError(undefined, nameTakenMessage(file.name));
-    await putFile(
-      accountId,
-      parentId,
-      file,
-      (percent) =>
+    await putFile(accountId, parentId, file, {
+      onExists: "replace",
+      onProgress: (percent) =>
         set((s) => ({
           uploads: s.uploads.map((u) =>
             u.id === row.id ? { ...u, progress: percent } : u,
           ),
         })),
-      run.controller.signal,
-    );
-    taken.set(file.name, { id: "", name: file.name, nodeType: "file" });
-    set((s) => ({ uploads: s.uploads.filter((u) => u.id !== row.id) }));
+      signal: run.controller.signal,
+    });
+    run.tally.done += 1;
+    /*
+     * The row of the file that went up leaves, and the count of the run moves
+     * on every row still standing -- the one in flight is about to be replaced
+     * by the next, and the failures that stay in the tray are about this same
+     * run, so they read the count it has reached rather than the one it had
+     * when they were made.
+     */
+    set((s) => ({
+      uploads: s.uploads
+        .filter((u) => u.id !== row.id)
+        .map((u) => (u.runId === run.id ? { ...u, done: run.tally.done } : u)),
+    }));
   } catch (err) {
     // A run the reader cancelled says nothing: the row goes, exactly as the
     // row of a file that went up does. Anything else stays, because its
@@ -503,11 +576,23 @@ async function uploadOne(
  * of the same name in one drop must not share one -- `Date.now()` alone hands
  * both the same value, and the second file's progress would then move the
  * first file's row.
+ *
+ * The count is the run's, taken as it stood when the row was made: a row lives
+ * for one file, and the number beside it says which file of how many this one
+ * is -- a folder of two hundred items reads as a job with a size rather than as
+ * two hundred unrelated files, one after another.
  */
-const uploadRow = (name: string, error: string | null, runId: string) => ({
+const uploadRow = (
+  name: string,
+  error: string | null,
+  runId: string,
+  tally: { done: number; total: number },
+) => ({
   id: `${Date.now()}-${name}-${Math.random().toString(36).slice(2, 7)}`,
   runId,
   name,
+  done: tally.done,
+  total: tally.total,
   progress: 0,
   error,
 });
@@ -692,30 +777,26 @@ export const useFiles = create<FilesState>((set, get) => ({
   },
 
   /*
-   * A file the folder already holds is refused before its bytes are uploaded.
-   *
-   * Stalwart charges for every upload and never gives one back, so the check is
-   * worth making here rather than discovering at the write: the server would
-   * refuse the create anyway (`alreadyExists`), and by then the blob is paid
-   * for. One listing covers the whole call, and the names it found are added to
-   * as this loop goes, so two files of the same name in one drop are caught
-   * too. A listing that fails is not a reason to refuse the upload: the server
-   * still is, one layer down.
+   * A file the folder already holds is written over, and its bytes are uploaded
+   * to do it: that is the same upload the first copy cost, paid again because
+   * the reader asked for these bytes to be here. A name a **folder** holds is
+   * the one case that stops, and the server is what says so -- the create is
+   * refused and the row carries the refusal. No level is listed first: the
+   * refusal names the node, which is what a replacement needs, so a drop of two
+   * hundred files costs two hundred uploads and one set each rather than a
+   * listing on top of them.
    */
   async upload(parentId, files) {
     const accountId = get().accountId!;
-    const read = await readLevels(accountId, { kind: "level", parentId }).catch(
-      () => null,
-    );
-    const taken = levelNames(read?.levels, parentId);
     /* One run for the whole picker selection, so a file that is taking too
        long is a thing the reader can stop -- together with the files of the
-       same gesture that had not started. */
-    const run = startUploadRun();
+       same gesture that had not started -- and so the count beside each row is
+       about the whole selection rather than about one file. */
+    const run = startUploadRun(files.length);
     try {
       for (const f of files) {
         if (run.controller.signal.aborted) break;
-        await uploadOne(set, accountId, parentId, f, taken, run);
+        await uploadOne(set, accountId, parentId, f, run);
       }
     } finally {
       endUploadRun(run);
@@ -765,21 +846,22 @@ export const useFiles = create<FilesState>((set, get) => ({
     /*
      * One read of the folder, and whatever it answered is worth checking
      * against: a page of a large folder still names real siblings, so a name
-     * found in it really is taken. A read that failed leaves an empty map,
-     * which refuses nothing and lets the server say so -- the same outcome as
-     * having no list at all.
+     * found in it really is taken, and an attachment that must not overwrite
+     * anything is worth not paying a blob for. A read that failed leaves an
+     * empty map, which refuses nothing and lets the server say so -- the same
+     * outcome as having no list at all, one blob later.
      */
     const read = await readLevels(accountId, { kind: "level", parentId }).catch(
       () => null,
     );
-    const taken = levelNames(read?.levels, parentId);
+    const taken = levelNames(read ?? undefined, parentId);
     for (const f of files) {
       try {
         if (taken.has(f.name)) {
           existing.push(f.name);
           continue;
         }
-        await putFile(accountId, parentId, f);
+        await putFile(accountId, parentId, f, { onExists: "refuse" });
         taken.set(f.name, { id: "", name: f.name, nodeType: "file" });
         saved += 1;
       } catch (err) {
@@ -824,6 +906,12 @@ export const useFiles = create<FilesState>((set, get) => ({
    * of building a second copy beside them, which is what dropping onto a
    * folder one already has has to mean.
    *
+   * The files are written over what the folder already holds of the same name,
+   * folder and file alike, so dropping the same tree twice leaves one tree and
+   * the latest bytes rather than a tray full of refusals. What that may not
+   * overwrite is a folder: a file whose name a folder carries is refused (see
+   * `putFile`).
+   *
    * A folder that cannot be resolved is not a folder to guess at. Nothing below
    * it is created, and the files that were headed for it are left in the tray as
    * failures: filing them into the nearest folder that does exist is how a drop
@@ -833,8 +921,10 @@ export const useFiles = create<FilesState>((set, get) => ({
     const accountId = get().accountId!;
     /* One run for the whole dropped tree, so a folder of two hundred items is
        one thing the reader can stop: the file in flight, and every file of the
-       drop that had not started. */
-    const run = startUploadRun();
+       drop that had not started. The count starts at the files the drop carried
+       and is corrected below, once the folders have said which of them have
+       anywhere to go. */
+    const run = startUploadRun(plan.files.length);
     try {
       /*
        * One read of the account answers every level the drop names -- as far as
@@ -853,62 +943,31 @@ export const useFiles = create<FilesState>((set, get) => ({
        * each level up when it is asked for.
        */
       const scan = await readLevels(accountId, { kind: "account" }).catch(() => null);
-      const hint = scan?.levels ?? new Map<string, Map<string, SiblingNode>>();
-      /* Levels read for themselves during this walk. A level is read once, so the
-       folder walk and the file check share one request for it rather than
-       asking the same question twice -- which is what they did before the
-       shared rule, and what dropping the memo briefly cost. */
-      const readByUs = new Set<string>();
+      const hint = scan ?? new Map<string, Map<string, SiblingNode>>();
 
       /*
-       * The names a **folder** may be resolved from: a hint is enough.
+       * The names a folder may be resolved from: a hint is enough.
        *
        * A partial read can only make this walk try a create the server refuses,
        * and that refusal sends it back to look at the level for real -- so the
        * worst a short read costs here is one wasted create per folder that does
        * exist, and the level it teaches is then in hand for everything below it.
+       *
+       * This is the walk's only use for a level's names. What a folder **holds**
+       * is not read at all: a file's name is written into rather than checked,
+       * and the refusal of a create is what names the node that has it (see
+       * `putFile`), so a level the drop writes files into costs no read.
        */
       const namesAt = async (id: Id | null): Promise<Map<string, SiblingNode>> => {
         const key = levelKey(id);
         const known = hint.get(key);
         if (known) return known;
         const read = await readLevels(accountId, { kind: "level", parentId: id });
-        const names = levelNames(read.levels, id);
+        const names = levelNames(read, id);
         hint.set(key, names);
-        readByUs.add(key);
         return names;
       };
 
-      /*
-       * The names a **file** may be checked against: everything in hand for that
-       * level, however short it is.
-       *
-       * A page of a folder names real siblings, so checking against it is sound
-       * whether or not it is the whole folder -- the worst it can do is miss a
-       * duplicate, never invent one (see `levelNames`). What completeness
-       * decides is whether it is worth a **request** to see more, and the account
-       * read is what says so: on an account it finished, the scan is
-       * authoritative for every level, so what is in hand is all of it --
-       * including "nothing" for a folder that is really empty. On one it did not,
-       * a level the drop writes into is read for itself -- unless this walk
-       * already read it, which it does when the folder was resolved through
-       * `namesAt` -- and the two are merged, since either read's names are real.
-       */
-      const filesAt = async (id: Id | null): Promise<Map<string, SiblingNode>> => {
-        const key = levelKey(id);
-        const known = hint.get(key);
-        if (scan?.complete || readByUs.has(key)) return known ?? new Map();
-        const read = await readLevels(accountId, {
-          kind: "level",
-          parentId: id,
-        }).catch(() => null);
-        readByUs.add(key);
-        if (!read) return known ?? new Map();
-        const fresh = levelNames(read.levels, id);
-        const names = known ? new Map([...known, ...fresh]) : fresh;
-        hint.set(key, names);
-        return names;
-      };
       // Folders first, parents before children, so every file has somewhere to go.
       //
       // Nothing in this walk checks the run's signal, and that is deliberate: a
@@ -961,7 +1020,7 @@ export const useFiles = create<FilesState>((set, get) => ({
           if (isAlreadyExists(err)) {
             const key0 = levelKey(into);
             const read = await readLevels(accountId, { kind: "level", parentId: into });
-            const fresh = levelNames(read.levels, into);
+            const fresh = levelNames(read, into);
             /* Merged rather than substituted: the read in hand may have held names
              this one did not (both can be pages of a level larger than one), and
              every name either read saw is a real sibling, so dropping one set
@@ -969,7 +1028,6 @@ export const useFiles = create<FilesState>((set, get) => ({
             const known = hint.get(key0);
             const names = known ? new Map([...known, ...fresh]) : fresh;
             hint.set(key0, names);
-            readByUs.add(key0);
             const theirs = names.get(name);
             if (theirs?.nodeType === "directory") {
               dirIds.set(key, theirs.id);
@@ -981,37 +1039,49 @@ export const useFiles = create<FilesState>((set, get) => ({
         }
       }
       const byFolder = new Map<string, File[]>();
+      const orphans: File[] = [];
       for (const item of plan.files) {
         const key = folderPathKey(item.path);
         if (missing.has(key)) {
-          set((s) => ({
-            uploads: [
-              ...s.uploads,
-              uploadRow(
-                item.file.name,
-                translate("Its folder could not be created."),
-                run.id,
-              ),
-            ],
-          }));
+          orphans.push(item.file);
           continue;
         }
         byFolder.set(key, [...(byFolder.get(key) ?? []), item.file]);
       }
       /*
-       * Every folder of the drop, uploaded through one writer each -- with the
-       * names already in hand where the account read could be trusted, and read
-       * for themselves where it could not. Either way no folder is listed twice
-       * for the same file, and a level the drop writes into is the only kind that
-       * costs a request at all.
+       * The run's size is the files that have somewhere to go, counted once
+       * they all do. A file whose folder could not be made is not of this run
+       * -- it was never going to be written -- and its row says so on its own
+       * line below, with the count the run it was not part of has.
+       */
+      run.tally.total = [...byFolder.values()].reduce((n, f) => n + f.length, 0);
+      if (orphans.length)
+        set((s) => ({
+          uploads: [
+            ...s.uploads,
+            ...orphans.map((f) =>
+              uploadRow(
+                f.name,
+                translate("Its folder could not be created."),
+                run.id,
+                run.tally,
+              ),
+            ),
+          ],
+        }));
+      /*
+       * Every folder of the drop, uploaded through one writer each, one file
+       * after another. What each file finds under its own name is the server's
+       * answer rather than a listing taken first: a name the folder already
+       * holds is written over, and one a folder holds stops the file with the
+       * refusal.
        */
       for (const [key, files] of byFolder) {
         if (run.controller.signal.aborted) break;
         const into = dirIds.get(key) ?? parentId;
-        const taken = await filesAt(into);
         for (const file of files) {
           if (run.controller.signal.aborted) break;
-          await uploadOne(set, accountId, into, file, taken, run);
+          await uploadOne(set, accountId, into, file, run);
         }
       }
     } finally {
@@ -1049,12 +1119,7 @@ export const useFiles = create<FilesState>((set, get) => ({
     const type = now.type || "text/plain";
     const blob = new Blob([text], { type });
     const up = await client.upload(accountId, blob, { type });
-    const res = await client.call<SetResponse<FileNode>>("FileNode/set", {
-      accountId,
-      update: { [id]: { blobId: up.blobId, type, size: blob.size } },
-    });
-    const err = res.notUpdated?.[id];
-    if (err) throw new Error(setErrorMessage(err));
+    await writeContent(accountId, id, up.blobId, type, blob.size);
     await get().refresh([id]);
     return up.blobId;
   },

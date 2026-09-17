@@ -57,10 +57,8 @@ async function children(
  * JMAP listing primitive -- callers that only want the list use `children`
  * or `findInFolder`.
  *
- * What comes back is the page, the state, and enough about the two ceilings
- * this read went through to say whether it is the whole level. Three numbers,
- * three different things, and conflating them is how a partial read comes to
- * look complete:
+ * What comes back is the page and the two things about it a caller cannot work
+ * out for itself:
  *
  *  - `list` -- the nodes the `get` resolved. This is what a caller reads.
  *  - `total` -- the population the **query matched**, and only ever what the
@@ -69,21 +67,17 @@ async function children(
  *    compares it against the page needs to know the difference between "the
  *    server said there are 800" and "nobody said, and 800 is what I happened
  *    to get back".
- *  - `complete` -- whether this read saw all of it. Two ceilings, because the
- *    `get` has one of its own (`maxObjectsInGet`) that can truncate *after* a
- *    query that was itself complete: the ids have to be all of them, and the
- *    nodes they resolved have to be all of those.
  *
- * `pageLimit` is what `complete` measures the page against, and it is the
- * caller's to name because only the caller knows what it asked for: this
- * function is called with a page size for chat and with no limit at all for a
- * level, and "shorter than what I asked for" means something different in each.
- *
- * `complete` describes a read **from the start of its result**. A windowed read
- * -- a non-zero `position` -- cannot be complete in this sense, since a page
- * shorter than asked means it reached the end of the *list* rather than of the
- * query. Nothing asks it for one today: the only caller that reads `complete`
- * is `readLevels`, which always starts at zero.
+ * How much of a level a page is, is a question this deliberately does not
+ * answer. Nothing in the client asks it: the Files store resolves folders from
+ * the page and lets the write itself answer for a name (ADR 0014), and a caller
+ * that pages -- chat, walking its transcript -- knows what it asked for and
+ * what came back. So the ceilings are described through the two values above
+ * rather than through a verdict about them: `list` is what the `get` resolved,
+ * `total` is what the query matched, and the two disagree exactly when the
+ * `get`'s own ceiling (`maxObjectsInGet`) cut a query that was itself
+ * complete. A caller needing a verdict draws it from `total` where the server
+ * reported one and from its own page size where it did not.
  *
  * `scope` is which nodes to look at. `"level"` (the default) is one folder:
  * the children of `parentId`, or the top level when it is null. `"account"` is
@@ -99,12 +93,9 @@ export async function listChildrenWithState(
   list: FileNode[];
   state: string;
   total: number | undefined;
-  ids: Id[];
-  complete: boolean;
 }> {
   const filter =
     opts.scope === "account" ? undefined : parentId ? { parentId } : { isTopLevel: true };
-  const asked = opts.limit ?? 1000;
   const res = await client.chain([
     [
       "FileNode/query",
@@ -112,7 +103,7 @@ export async function listChildrenWithState(
         accountId,
         ...(filter ? { filter } : {}),
         position: opts.position ?? 0,
-        limit: asked,
+        limit: opts.limit ?? 1000,
       },
       "q",
     ],
@@ -129,39 +120,12 @@ export async function listChildrenWithState(
   const [g] = res.get("g") ?? [];
   const [q] = res.get("q") ?? [];
   const got = g as unknown as GetResponse<FileNode>;
-  const query = q as unknown as { total?: number; ids?: Id[] };
-  const ids = query.ids ?? [];
+  const query = q as unknown as { total?: number };
   return {
     list: got.list,
     state: got.state ?? "0",
     total: query.total,
-    ids,
-    complete:
-      pageReachedTheEnd(ids.length, asked, query.total) && got.list.length === ids.length,
   };
-}
-
-/**
- * Whether one page of a query was the whole result.
- *
- * Two ways to know, and **either** is enough, because the server is not obliged
- * to answer the second. A page shorter than the size asked for is the end by
- * definition -- there was nothing more to return. A page of exactly that size
- * is the end only if the server said how many matched and it is no more than
- * the page.
- *
- * A server that reports no `total` therefore leaves the full page undecided,
- * and undecided answers **false**: the cost of being wrong that way is a
- * filtered read of one level, where the cost of the other is a duplicate nobody
- * checked.
- */
-export function pageReachedTheEnd(
-  returned: number,
-  asked: number,
-  total: number | undefined,
-): boolean {
-  if (returned < asked) return true;
-  return typeof total === "number" && total <= returned;
 }
 
 /** The account's own app folder, or null when there is not one yet. */

@@ -573,6 +573,25 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                 </>
               ) : (
                 <>
+                  {/*
+                   * How far the run has come, in files, beside the percentage
+                   * of the one in flight. A folder of two hundred items is one
+                   * job with a size rather than two hundred unrelated files:
+                   * the count is the run's -- files written out of the files
+                   * the gesture named -- and it moves as each file lands, which
+                   * is the only sense of "how much is left" a percentage of a
+                   * single file cannot give.
+                   */}
+                  <span>
+                    {plural(
+                      u.total,
+                      {
+                        one: "{done} of {n} file",
+                        other: "{done} of {n} files",
+                      },
+                      { done: u.done },
+                    )}
+                  </span>
                   <span>{u.progress}%</span>
                   {/*
                    * The way out of an upload that is taking too long, which

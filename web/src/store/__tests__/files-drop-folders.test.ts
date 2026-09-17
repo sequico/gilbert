@@ -6,16 +6,18 @@ import { LEVEL_LIMIT, useFiles } from "@/store/files";
  * A folder dropped onto a folder that is already there.
  *
  * What the reader means by it is "make this tree here": the folders that exist
- * are used as they are, the folders that do not are created, and a file whose
- * name is taken is refused rather than duplicated or replaced. Getting it wrong
- * is not subtle -- a create of a folder that exists is refused by the server,
- * and a caller that treats every refusal as "then upload to the parent" leaves
- * the subfolder at the top level with its files loose beside it, which is a copy
- * that is not the tree that was dropped.
+ * are used as they are, the folders that do not are created, and every file
+ * lands under its own name -- written over whatever the folder already held of
+ * that name, so dropping the same tree twice leaves one tree and the latest
+ * bytes rather than a tray of refusals. Getting it wrong is not subtle -- a
+ * create of a folder that exists is refused by the server, and a caller that
+ * treats every refusal as "then upload to the parent" leaves the subfolder at
+ * the top level with its files loose beside it, which is a copy that is not the
+ * tree that was dropped.
  *
  * The mock refuses a duplicate name the way Stalwart does (`alreadyExists`),
- * so the case is exercised against the refusal rather than against a fixture
- * that agrees with the code.
+ * naming the node that holds it -- so the overwrite is exercised against the
+ * refusal rather than against a fixture that agrees with the code.
  */
 
 const BROWSE = "acc-own";
@@ -35,8 +37,9 @@ const node = (
 const NAMES_PROPS = ["id", "name", "nodeType", "parentId"];
 
 /**
- * A server holding one folder tree, answering the two calls a drop makes:
- * the listing of a level, and the create of a directory or a file.
+ * A server holding one folder tree, answering the three calls a drop makes:
+ * the account-wide read a drop starts with, the create of a directory or a
+ * file, and the read of a node a refused create named.
  *
  * `race` makes the first directory create lose: the name is already taken by a
  * folder that appeared between the listing and the create, which is the answer
@@ -50,32 +53,28 @@ const NAMES_PROPS = ["id", "name", "nodeType", "parentId"];
  * and the levels are still readable one at a time -- which is the whole point
  * of the case.
  *
- * `levelPage` does the same to a single-level read, which is the other ceiling
- * in play: `ids` is how many the query answers (so the page looks full) while
- * `nodes` is how many the `get` resolved, which is how a folder larger than one
- * page of `maxObjectsInGet` reaches a reader.
- *
- * The two counts are the drop's **own** reads, not every request the store
+ * The request count is the drop's **own** reads, not every request the store
  * makes: a drop ends by reloading the folder it landed in and the sidebar tree,
  * and counting those would make the numbers say nothing about the drop. A names
- * read is told apart by the properties it asks for -- the drop wants `parentId`
- * and three others, where a view listing wants `fileNodeProps()`, and the
- * `properties` of the `get` is what the server sees either way. The two tests
- * that assert these counts do so in opposite directions, so a discriminator that
- * stopped recognising reads would fail one of them rather than pass both
- * vacuously.
+ * read is told apart by the properties it asks for -- the folder walk wants
+ * `parentId` and three others, where a view listing wants `fileNodeProps()`,
+ * and the `properties` of the `get` is what the server sees either way. No file
+ * depends on those counts: what a file is written over is the refusal of its
+ * own create, and the level reads counted here are the folder walk's.
+ *
+ * A refusal carries the id of the node holding the name, which the create read
+ * in the same request could not (it may only be one file per request here, so
+ * there is no such case). `updates` is the replacement path: the node that kept
+ * the name, patched with the bytes just uploaded.
  */
 function server(
   seed: Array<Record<string, unknown>>,
-  opts: {
-    race?: boolean;
-    truncateScan?: boolean;
-    levelPage?: { ids: number; nodes: number };
-  } = {},
+  opts: { race?: boolean; truncateScan?: boolean } = {},
 ) {
   const nodes = [...seed];
   const created: Array<{ name: string; nodeType: string }> = [];
-  const uploads: string[] = [];
+  const blobs: string[] = [];
+  const updates: string[] = [];
   let next = 1;
   let raced = false;
   /** The whole-account reads, and the per-level ones, so a test can count them. */
@@ -112,18 +111,7 @@ function server(
       total = list.length;
       list = list.slice(0, LEVEL_LIMIT);
     }
-    /*
-     * A level read whose query answers a full page while its `get` resolves
-     * only some of it: the ids are the page, the nodes are what came back. Both
-     * are real answers, and they disagree -- which is the state the completeness
-     * rule has to be able to see.
-     */
-    let ids = list.map((n) => n.id);
-    if (filter && opts.levelPage) {
-      ids = Array.from({ length: opts.levelPage.ids }, (_, i) => `id-${i}`);
-      total = opts.levelPage.ids;
-      list = list.slice(0, opts.levelPage.nodes);
-    }
+    const ids = list.map((n) => n.id);
     return new Map([
       ["q", [{ ids, total }]],
       ["g", [{ list, state: "1" }]],
@@ -131,9 +119,24 @@ function server(
   }) as never);
 
   vi.spyOn(client, "call").mockImplementation((async (
-    _method: string,
-    args: { create?: Record<string, Record<string, unknown>> },
+    method: string,
+    args: {
+      ids?: string[];
+      create?: Record<string, Record<string, unknown>>;
+      update?: Record<string, Record<string, unknown>>;
+    },
   ) => {
+    if (method === "FileNode/get")
+      return { list: nodes.filter((n) => (args.ids ?? []).includes(String(n.id))) };
+    const update = Object.entries(args.update ?? {});
+    if (update.length) {
+      for (const [id, patch] of update) {
+        const held = nodes.find((n) => n.id === id);
+        if (held) Object.assign(held, patch);
+        updates.push(id);
+      }
+      return { updated: Object.fromEntries(update.map(([id]) => [id, null])) };
+    }
     const [key, body] = Object.entries(args.create ?? {})[0] ?? [];
     if (!key) return { created: {} };
     const parentId = (body!.parentId as string | null) ?? null;
@@ -144,8 +147,11 @@ function server(
       nodes.push({ id: "theirs", name, parentId, nodeType: "directory" });
       return { notCreated: { [key]: { type: "alreadyExists", existingId: "theirs" } } };
     }
-    if (list_(parentId).some((n) => n.name === name))
-      return { notCreated: { [key]: { type: "alreadyExists" } } };
+    const clash = list_(parentId).find((n) => n.name === name);
+    if (clash)
+      return {
+        notCreated: { [key]: { type: "alreadyExists", existingId: clash.id } },
+      };
     const id = `new-${next++}`;
     nodes.push({ id, name, parentId, nodeType: body!.nodeType });
     created.push({ name, nodeType: String(body!.nodeType) });
@@ -153,11 +159,11 @@ function server(
   }) as never);
 
   vi.spyOn(client, "upload").mockImplementation((async (accountId: string) => {
-    uploads.push(accountId);
-    return { accountId, blobId: `blob-${uploads.length}`, type: "text/plain", size: 5 };
+    blobs.push(accountId);
+    return { accountId, blobId: `blob-${blobs.length}`, type: "text/plain", size: 5 };
   }) as never);
 
-  return { created, uploads, nodes, scans, levelReads };
+  return { created, blobs, updates, nodes, scans, levelReads };
 }
 
 afterEach(() => {
@@ -220,12 +226,13 @@ describe("a drop onto a folder that already exists", () => {
   });
 
   /*
-   * The refusal the reader is shown. The file is not uploaded at all -- Stalwart
-   * charges for every blob and never gives one back, so a name that is already
-   * taken is a write worth not making -- and the row that says so stays in the
-   * tray, where a failure can be read twice rather than fading.
+   * The overwrite. A file whose name the folder already holds is written into,
+   * and the node that held the name is the node that holds the bytes now: its
+   * id, its sharing and its place in the tree stay, and only the content
+   * changes. Duplicating it would leave two rows of one name side by side, and
+   * refusing it would turn dropping the same tree twice into a page of errors.
    */
-  it("refuses a file whose name the folder already holds, before uploading it", async () => {
+  it("writes over a file whose name the folder already holds", async () => {
     const s = server([
       node("d1", "folder", "directory"),
       node("f1", "known.txt", "file", "d1"),
@@ -239,14 +246,44 @@ describe("a drop onto a folder that already exists", () => {
       dirs: [["folder"]],
     });
 
-    // One blob for the two files: the duplicate cost nothing.
-    expect(s.uploads).toEqual([BROWSE]);
+    // The bytes were written, and written into the node that had the name.
+    expect(s.updates).toEqual(["f1"]);
+    expect(s.blobs).toEqual([BROWSE, BROWSE]);
+    // One node of that name in that folder, holding the new content.
+    const held = s.nodes.filter((n) => n.name === "known.txt" && n.parentId === "d1");
+    expect(held).toHaveLength(1);
+    expect(held[0]!.blobId).toMatch(/^blob-/);
+    expect(held[0]!.size).toBe(5);
+    // And the file that was not a duplicate went up as its own node.
+    expect(s.nodes.some((n) => n.name === "fresh.txt")).toBe(true);
+    // A run of replacements reports nothing: the tray is empty when it is over.
+    expect(useFiles.getState().uploads).toEqual([]);
+  });
+
+  /*
+   * The one node a replacement may not write into is a folder. A file dropped
+   * where a folder of that name stands is refused -- it is not renamed, not put
+   * beside the folder under a made-up name, and the folder is not destroyed to
+   * make room: only one of the two may carry the name, and the reader made no
+   * choice between them by dropping.
+   */
+  it("refuses a file whose name a folder holds, rather than writing into it", async () => {
+    const s = server([
+      node("d1", "folder", "directory"),
+      node("sub", "sub", "directory", "d1"),
+    ]);
+
+    await useFiles.getState().uploadPlan(null, {
+      files: [{ file: file("sub"), path: ["folder"] }],
+      dirs: [["folder"]],
+    });
+
+    expect(s.updates).toEqual([]);
+    expect(s.nodes.filter((n) => n.name === "sub")).toHaveLength(1);
     const rows = useFiles.getState().uploads;
     expect(rows).toHaveLength(1);
-    expect(rows[0]!.name).toBe("known.txt");
+    expect(rows[0]!.name).toBe("sub");
     expect(rows[0]!.error).toMatch(/already here/);
-    // And the file that was not a duplicate went up.
-    expect(s.nodes.some((n) => n.name === "fresh.txt")).toBe(true);
   });
 
   /*
@@ -262,7 +299,7 @@ describe("a drop onto a folder that already exists", () => {
       dirs: [["folder"]],
     });
 
-    expect(s.uploads).toEqual([]);
+    expect(s.blobs).toEqual([]);
     expect(s.nodes.some((n) => n.name === "inside.txt")).toBe(false);
     // Nothing was dropped at the top level in its place either.
     expect(s.nodes.filter((n) => n.name === "inside.txt")).toEqual([]);
@@ -302,19 +339,17 @@ describe("a drop onto a folder that already exists", () => {
  * An account larger than one read of it.
  *
  * The account-wide read is a *page*, not a promise: past its ceiling the walk
- * sees a thousand nodes and not the ones after them. What that costs depends on
- * the question being asked, and the two questions a drop asks are not equally
- * forgiving.
+ * sees a thousand nodes and not the ones after them. What that costs is a
+ * folder the walk cannot see -- so it tries a create the server refuses with
+ * the id of the folder that is there, and takes it: one request per level that
+ * was past the page, and nothing else.
  *
- * A folder resolved from a partial read costs a create the server refuses, and
- * the refusal sends the walk back to read the level for real -- so the short
- * read is recoverable. A **file** checked against a partial read is not: the
- * name it cannot see is a blob already uploaded and about to be refused. That
- * asymmetry is what these four cases pin, and the first of them fails without
- * the fix: the file is paid for, uploaded, and refused afterwards.
+ * A **file** is not exposed to the read at all. What a name meets is the
+ * create's own answer, which names the node holding it from wherever in the
+ * account it is, so a file the truncated read could not see is written over
+ * just the same, and neither of these cases depends on the read.
  */
 describe("an account past the read's ceiling", () => {
-  /** More nodes than one read returns, so the account read comes back a page. */
   /**
    * More nodes than one read returns, so the account read comes back a page.
    *
@@ -334,7 +369,7 @@ describe("an account past the read's ceiling", () => {
     return where === "past" ? [...pad, ...extra] : [...extra, ...pad];
   };
 
-  it("refuses a file the truncated read could not see, without uploading it", async () => {
+  it("writes over a file the truncated read could not see", async () => {
     const s = server(
       oversize([
         node("d1", "folder", "directory"),
@@ -348,13 +383,18 @@ describe("an account past the read's ceiling", () => {
       dirs: [["folder"]],
     });
 
-    // The blob was never bought: this is the assertion the fix is for, and it
-    // is the one that fails when the level is not read for itself.
-    expect(s.uploads).toEqual([]);
-    const rows = useFiles.getState().uploads;
-    expect(rows).toHaveLength(1);
-    expect(rows[0]!.name).toBe("known.txt");
-    expect(rows[0]!.error).toMatch(/already here/);
+    /*
+     * Two nodes of this case are past the page -- the folder and the file in it
+     * -- and the read answers for neither. The folder is recovered by the
+     * refusal of its create, which is the one level read of this run; the file
+     * needs nothing at all, because the refusal of *its* create names the node
+     * holding the name. So the bytes go into the file that was there, and the
+     * drop reports nothing.
+     */
+    expect(s.levelReads).toHaveLength(1);
+    expect(s.updates).toEqual(["f1"]);
+    expect(s.blobs).toEqual([BROWSE]);
+    expect(useFiles.getState().uploads).toEqual([]);
   });
 
   it("reuses a folder the truncated read could not see, without creating a second", async () => {
@@ -373,11 +413,9 @@ describe("an account past the read's ceiling", () => {
     expect(s.nodes.find((n) => n.name === "new.txt")!.parentId).toBe("d2");
   });
 
-  it("reads the level it writes into once, and asks the account once", async () => {
-    // Inside the page, so the count is about one thing only: the walk finds the
-    // folder in the scan, and the single level read below is the one the files
-    // need. (Past the page it would be two -- the refusal, which makes the walk
-    // look again at the level the folder is in, and then this one.)
+  it("asks the account once, and lists no folder the files go into", async () => {
+    // Inside the page, so the walk finds the folder in the scan and the account
+    // read is the only one there is.
     const s = server(oversize([node("d1", "folder", "directory")], "within"), {
       truncateScan: true,
     });
@@ -390,12 +428,12 @@ describe("an account past the read's ceiling", () => {
       dirs: [["folder"]],
     });
 
-    // One account read, and one read of the folder the files go into -- however
-    // many files go into it. The narrowing is per level written into, not per
-    // file and not per folder named.
+    // One account read, and nothing listed for the files however many of them
+    // go into one folder: what each of them meets is the answer to its own
+    // create, which is the only thing that knows the names in that level.
     expect(s.scans).toHaveLength(1);
-    expect(s.levelReads).toHaveLength(1);
-    expect(s.uploads).toHaveLength(2);
+    expect(s.levelReads).toEqual([]);
+    expect(s.blobs).toHaveLength(2);
   });
 
   it("asks the account once and no level read at all when the read was whole", async () => {
@@ -412,10 +450,9 @@ describe("an account past the read's ceiling", () => {
       dirs: [["folder"], ["folder", "sub"]],
     });
 
-    // The whole point of the scan: a tree of any depth costs one request, the
-    // level the files go into included -- an account the read finished is
-    // authoritative for every level, so a folder with no bucket in it is empty
-    // and costs nothing to ask about.
+    // The whole point of the scan: a tree of any depth costs one request -- a
+    // folder the read reached is one the walk knows, and the files it holds are
+    // none of the read's business.
     expect(s.scans).toHaveLength(1);
     expect(s.levelReads).toEqual([]);
     // No folder made: both were there, and the scan knew it.
@@ -426,35 +463,25 @@ describe("an account past the read's ceiling", () => {
 });
 
 /*
- * What a *page* of a level is worth to the duplicate check.
+ * The picker asks the same question and gets the same answer.
  *
- * A level larger than one read of it answers with a page and no more. The
- * tempting reading of that is "the list is incomplete, so it cannot be trusted
- * and the check must be skipped" -- which is wrong, and wrong in a way that
- * costs money: every entry in the page is a FileNode the server really returned
- * for that level, so a name found there really is taken and refusing it early
- * is correct. The only thing an incomplete page cannot do is *reach* a
- * duplicate, and skipping the check would not reach it either -- it would just
- * give up the refusals the page could have made for free.
- *
- * So what is asserted here is the observable that tells the two apart: with the
- * duplicate inside the page, the blob is never uploaded. The opposite design
- * uploads it, gets refused afterwards, and pays.
+ * A selection from the file picker is not a tree, but it is the same gesture as
+ * far as a name is concerned: the files land in the folder that is open, and one
+ * of them landing on a name the folder already holds is written over rather than
+ * refused. The one writer both paths use is what makes that true, so this pins
+ * the picker's side of it rather than leaving the two to drift apart.
  */
-describe("a level larger than one read of it", () => {
-  it("refuses a duplicate its page did reach, without uploading it", async () => {
-    const s = server(
-      [node("d1", "folder", "directory"), node("f1", "known.txt", "file", "d1")],
-      { levelPage: { ids: LEVEL_LIMIT, nodes: 1 } },
-    );
+describe("a name the open folder already holds, from the picker", () => {
+  it("writes over it, as a drop does", async () => {
+    const s = server([
+      node("d1", "folder", "directory"),
+      node("f1", "known.txt", "file", "d1"),
+    ]);
 
     await useFiles.getState().upload("d1", [file("known.txt")]);
 
-    // Not one blob: the page held the name, and a page is enough to refuse on.
-    expect(s.uploads).toEqual([]);
-    const rows = useFiles.getState().uploads;
-    expect(rows).toHaveLength(1);
-    expect(rows[0]!.name).toBe("known.txt");
-    expect(rows[0]!.error).toMatch(/already here/);
+    expect(s.updates).toEqual(["f1"]);
+    expect(s.blobs).toEqual([BROWSE]);
+    expect(useFiles.getState().uploads).toEqual([]);
   });
 });

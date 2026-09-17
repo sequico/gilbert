@@ -92,11 +92,14 @@ Where the integration lives:
   `crates/jmap/src/file/set.rs`, v0.16.21; `tests/src/jmap/files/node.rs`
   asserts the id). `replace` / `rename` / `newest` exist but are opt-in. The
   comparison is name-within-parent and case-sensitive unless the request sends
-  `compareCaseInsensitively`. Two consequences the code lives with: every
-  read-then-create of a folder must treat this refusal as "somebody made it",
-  and every writer that must not overwrite has to look the name up first. The
-  mock reproduces the refusal, the id and the case-sensitivity
-  (`server/src/mock/index.ts`, `FileNode/set`).
+  `compareCaseInsensitively`. What the code does with it: every
+  read-then-create of a folder treats it as "somebody made it" and adopts the
+  id, and a writer that means to **replace** does not look the name up at all —
+  the refusal names the node, and writing the new bytes into it is an update of
+  `blobId`/`type`/`size`, which is why a name on a level past the account
+  read's page is still written over (ADR 0014). The mock reproduces the
+  refusal, the id and the case-sensitivity (`server/src/mock/index.ts`,
+  `FileNode/set`).
 - Unshared nodes report `shareWith: {}`, not `null` (0.16.19, 2026-08-27) —
   test with `Object.keys(...).length`.
 - Stalwart refuses writing `isSubscribed` on an address book shared

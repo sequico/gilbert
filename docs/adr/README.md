@@ -114,3 +114,11 @@ is, not what a user sees.
   are process facts (ADR 0003's claims, the sessions store), a write that would
   store what is already there is not made, and an idle installation therefore
   costs nothing.
+- **0014 — A dropped name is written over, in place.** A drop or a picker
+  selection lands on a name the folder already holds by writing the bytes into
+  the node that holds it — same id, same sharing, same place in the tree, only
+  `blobId`, `type` and `size` change — so dropping a tree twice is one tree.
+  The create's `alreadyExists` refusal is what identifies that node, so no level
+  is listed first; a name a **folder** holds stops the file instead of writing
+  into it, and saving an attachment into Files still refuses a taken name rather
+  than replacing one.

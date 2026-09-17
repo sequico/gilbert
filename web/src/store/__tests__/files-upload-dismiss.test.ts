@@ -18,7 +18,7 @@ const BROWSE = "acc-own";
 
 const file = (name: string) => new File(["hello"], name, { type: "text/plain" });
 
-/** The upload asks for the folder listing afterwards; answer with none. */
+/** The folder listing an upload reloads when it is over; answer with none. */
 function stubListing() {
   vi.spyOn(client, "chain").mockResolvedValue(new Map([["g", [{ list: [] }]]]) as never);
 }
