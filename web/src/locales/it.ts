@@ -1479,7 +1479,6 @@ export const catalog: Catalog = {
     "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
       "Per un valore predefinito a livello di sistema, installare prima Gilbert come app (in Chrome: l'icona di installazione nella barra degli indirizzi). Il sistema operativo potrà poi offrire Gilbert direttamente ovunque chieda quale app di posta usare.",
 
-
     "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
       "Le notifiche arrivano direttamente dal server di posta nel browser, indicando mittente e oggetto, senza bisogno di una scheda di Gilbert aperta. Il browser deve comunque essere in esecuzione: se viene chiuso del tutto, le notifiche restano in attesa e arrivano alla riapertura.",
 
