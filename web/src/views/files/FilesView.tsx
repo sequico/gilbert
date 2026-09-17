@@ -1116,45 +1116,44 @@ function MergeFoldersDialog({
 }) {
   const files = useFiles();
   const [keepId, setKeepId] = useState<Id>(() => nodes[0]!.id);
-  const [busy, setBusy] = useState(false);
   const mergeId = nodes.find((n) => n.id !== keepId)!.id;
 
   return (
     <Dialog
       open
-      onClose={busy ? () => undefined : onClose}
+      onClose={onClose}
       title={t("Merge folders")}
-      size="sm"
+      size="md"
       footer={
         <>
-          <button className="btn" disabled={busy} onClick={onClose}>
+          <button className="btn" onClick={onClose}>
             {t("Cancel")}
           </button>
           <button
             className="btn btn-primary"
-            disabled={busy}
             onClick={() => {
               /*
-               * The dialog closes as the run starts rather than when it ends:
-               * the tray is where a run is watched and stopped, and two places
-               * offering Cancel for one run is one place too many. Nothing
-               * written has happened yet at this point -- the scan and the plan
-               * come first -- so closing cannot hide a failure.
+               * The press asks for the merge and the dialog goes with it: the
+               * question is answered, and the run is watched and stopped in the
+               * tray, where a second Cancel for one run would be one place too
+               * many. Waiting here would hold the reader in a dialog about a
+               * question already settled until the last step of the run -- the
+               * dialog is not what the merge reports to.
+               *
+               * Closing cannot hide anything: the scan and the plan come first,
+               * so nothing has been written at this point, and a collision, a
+               * stopped run or a failed one is carried by the tray.
                */
-              setBusy(true);
-              void files
-                .mergeFolders(keepId, mergeId)
-                .then(() => {
-                  onMerged();
-                  onClose();
-                })
-                .catch((err) => {
-                  // The guard the menu already keeps, reached again in case the
-                  // listing moved under the reader: nothing was written either
-                  // way, so the dialog stays open to be answered again.
-                  toast.error((err as Error).message);
-                  setBusy(false);
-                });
+              const asked = files.mergeFolders(keepId, mergeId);
+              onMerged();
+              onClose();
+              void asked.catch((err) => {
+                // The guard the menu already keeps, reached again in case the
+                // listing moved under the reader. Nothing was written either
+                // way and the dialog is gone, so the toast is what says why the
+                // merge did not start.
+                toast.error((err as Error).message);
+              });
             }}
           >
             {t("Merge")}
@@ -1170,7 +1169,7 @@ function MergeFoldersDialog({
       <div className="dialog-choices" style={{ marginTop: 8 }}>
         {nodes.map((n) => (
           <label key={n.id} className="btn dialog-choice" htmlFor={`merge-keep-${n.id}`}>
-            <span className="row gap-8">
+            <span className="row gap-8" style={{ alignItems: "flex-start" }}>
               {/*
                * A radio, not a checkbox: the answer is one of two rather than
                * any of two, and two boxes that can both be ticked (or neither)
@@ -1184,7 +1183,14 @@ function MergeFoldersDialog({
                 onChange={() => setKeepId(n.id)}
               />
               <Folder size={16} />
-              <span className="grow truncate">{n.name}</span>
+              {/*
+               * The name is the whole question, so it is read entire: a long
+               * one wraps rather than being cut off, and one with nothing to
+               * break on breaks inside itself.
+               */}
+              <span className="grow" style={{ overflowWrap: "anywhere" }}>
+                {n.name}
+              </span>
             </span>
             <small>
               {keepId === n.id

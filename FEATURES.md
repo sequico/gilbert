@@ -1623,8 +1623,10 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   **decided before anything is written**: both trees are read first, and a name
   that is a folder on one side and a file on the other — or a right the reader
   does not have — stops the merge with nothing created, moved, copied or
-  deleted. It then runs in the tray like an upload: *"2 of 7 items"* beside
-  **Cancel**, which stops the run and leaves whatever it had already done done.
+  deleted. The dialog closes as the merge is asked for — the question is
+  answered, and waiting would hold the reader in it for the whole run — and the
+  merge runs in the tray like an upload: *"2 of 7 items"* beside **Cancel**,
+  which stops the run and leaves whatever it had already done done.
   A merge that is stopped or fails therefore leaves both folders in place, with
   what had moved already inside the kept one, and can be asked for again
   (ADR 0015).
