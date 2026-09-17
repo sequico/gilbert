@@ -30,7 +30,7 @@
  * store here would be a cycle, and a rule that can only be exercised inside a
  * running app is the kind that stops being read.
  */
-import type { Id } from "@/jmap/types";
+import type { Id, Mailbox, MailboxRole } from "@/jmap/types";
 import { isOwnMailAccount, type MailSessionLike } from "./mailAccounts";
 
 /** What a delete does to a message: files it somewhere, or ends it. */
@@ -104,9 +104,9 @@ export interface FinalFolders {
  * Items is, and a translation of "Junk Mail" must not move this answer.
  */
 export function finalFoldersOf(
-  mailboxes: Record<Id, { role?: string | null } | undefined> | null | undefined,
+  mailboxes: Record<Id, Pick<Mailbox, "role"> | undefined> | null | undefined,
 ): FinalFolders {
-  const byRole = (role: string): Id | null => {
+  const byRole = (role: MailboxRole): Id | null => {
     for (const [id, box] of Object.entries(mailboxes ?? {})) {
       if (box?.role === role) return id;
     }
@@ -132,6 +132,40 @@ export function deleteEffect(
     if (id && held[id]) return "final";
   }
   return "move";
+}
+
+/**
+ * What deleting a message **in this folder** does, for a surface that speaks
+ * about the folder rather than about one message: a list toolbar and a thread's
+ * own toolbar describe the rows they were opened on, and those rows are the
+ * folder's.
+ *
+ * The same rule as `deleteEffect` and derived from it rather than restated: a
+ * message sitting in the folder asked about is the message this answers for.
+ */
+export function deleteEffectInFolder(
+  folderId: Id | null | undefined,
+  folders: FinalFolders,
+): DeleteEffect {
+  if (!folderId) return "move";
+  return deleteEffect({ mailboxIds: { [folderId]: true } }, folders);
+}
+
+/**
+ * Whether a surface may draw its delete entry here (ADR 0015).
+ *
+ * Only the delete that **ends** a message is withdrawn in a group; the one that
+ * files it stays, because deleting from a group's Inbox still moves the message
+ * to that group's Deleted Items and a member may do that. The distinction is the
+ * whole of what a surface has to know, so it is decided here once rather than
+ * written out at each entry — getting it wrong takes the main action away from
+ * every member of every group.
+ *
+ * `mayEnd` is `mayDestroy`'s answer for the account on screen, which the store
+ * exposes as `mayDestroyHere()`.
+ */
+export function deleteEntryOffered(mayEnd: boolean, effect: DeleteEffect): boolean {
+  return effect === "move" || mayEnd;
 }
 
 /**

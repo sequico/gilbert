@@ -56,8 +56,8 @@ replaces, and a read receipt the submission refused.
 ## Decision
 
 **In a group mailbox, mail is destroyed by an installation administrator only.
-Every other member is refused the three entry points that destroy, and told so
-in one sentence.**
+Every other member is refused the three entry points that destroy, each saying
+which one it is and what still works.**
 
 - **The destroy is refused; the move is not.** Delete from a group's Inbox
   still files the message in the group's Deleted Items, with Undo, and Archiving
@@ -76,10 +76,15 @@ in one sentence.**
   gesture destroys a message in Junk under the word "Delete". One answer, read
   by all of them, is what makes the words and the effect agree.
 - **The rule answers a code, and the sentence is composed where it shows.** The
-  module says *refused*, and which refusal it is; the surface composes the
-  sentence from the catalogue the reader's language loaded, which is the shape
-  every other refusal in this product already has. A sentence held in a library
-  is a string no catalogue can translate and no reading of the code can find.
+  module says *refused*, and which refusal it is — `group_mail_final`,
+  `group_mail_empty`, `group_mail_folder` — and the store and the surfaces
+  compose what the reader reads from the catalogue their language loaded, which
+  is the shape every other refusal in this product already has. A sentence held
+  in a library is a string no catalogue can translate and no reading of the code
+  can find. Three codes rather than one because the reader's next move differs:
+  a refused message is still restorable from Deleted Items, a refused folder
+  asks them to move the mail out first, and a refused emptying is a folder they
+  can still file into.
 - **The guard is where the effect is.** `destroy`, `emptyMailbox` and
   `destroyMailbox(id, removeEmails)` in the mail store refuse in a group, so the
   action is refused whatever calls it — a menu, a keyboard shortcut, a swipe —

@@ -94,7 +94,13 @@ The **group** is the unit everything else is built around: a group mailbox is an
 account of its own on the server, and what it owns — its chat, its label
 catalog, its calendars and files, its agent's documents — lives in that account
 and belongs to it from creation, shared with its members rather than copied to
-them. **Chat** is one conversation per group. And **Agents** is the largest
+them. **Chat** is one conversation per group. The one thing a member cannot do
+with what the group owns is **end its mail**: the mail server tells one member's
+delete from another's by nothing and offers no rank inside a group, so the
+refusal is this client's rule, and ending a message — out of Deleted Items or
+Junk Mail, by emptying either, or by deleting a folder with its mail — is an
+installation administrator's decision (ADR 0015). Everything else a member does
+to move mail around still works. And **Agents** is the largest
 thing here: an agent fleet that acts inside mail and file storage on a group's
 behalf, with its own identity, its own permissions and its own audit trail. That
 section is the detailed one; the two beside it are the surfaces a member and an

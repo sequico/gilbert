@@ -314,6 +314,48 @@ nor the directory's `type` vocabulary beyond `individual` and `group`.
   what a real server does; extend them (date + version) when you confirm
   something new rather than trusting memory.
 
+## What a push subscription actually covers (read at v0.16.22)
+
+Read from Stalwart's own source rather than a live instance, and it corrects
+what this file assumed about who a browser subscription reaches:
+
+- A subscription is stored in the account that created it
+  (`Collection::Principal` / `PrincipalField::PushSubscriptions`), but the push
+  server registers each **verified** one for every account in that token's
+  `member_ids()` — its own account **plus its group mailboxes**
+  (`crates/services/src/state_manager/push.rs` `load_push_subscriptions`,
+  `crates/common/src/auth/access_token.rs`). A member of a group is therefore
+  woken by that group's mail whether or not the client decided anything about
+  it. The pool is per **principal** and defaults to 15
+  (`crates/registry/src/schema/structs_impl.rs`, `max_subscriptions`).
+- `emailPush` is a **map keyed by account id**, one entry per account, each with
+  its own `filter`, `properties` and `urgency` (`parse_email_push`). An entry for
+  an account the token is not a member of is refused `forbidden`
+  ("No access to one of the accounts in the emailPush map").
+- An email event for an account with **no** `emailPush` entry is degraded to a
+  plain `StateChange`, and so is a payload the server cannot build
+  (`state_manager/push.rs`). A client that renders anything that is not an
+  `EmailPush` as "new mail" shows a group's mail as a senderless notice.
+- **One delivery is two pushes**: the storage transaction broadcasts a
+  `StateChange` (`crates/common/src/storage/transaction.rs`) and the delivery
+  broadcasts an `EmailPush` beside it (`crates/email/src/message/delivery.rs`),
+  and both are POSTed to the same endpoint.
+- A push `url` is **validated**: `https` only, no credentials, and no local or
+  reserved address (`validate_push_url`) — so a push service on the same LAN as
+  the server cannot be registered, and the refusal arrives as an
+  `invalidProperties` on `url`. A subscription with **no `types`** means every
+  type, not none (`Bitmap::all()`).
+- A JMAP push filter is **email-shaped only**: `EmailPush.filter` is
+  `Filter<EmailFilter>`, so there is no way to narrow a `FileNode` wake-up to a
+  folder. `types: ["FileNode"]` wakes on every file write in every account the
+  subscription serves, and the content has to be read back over `/api/jmap`.
+- Only the **newest** unverified subscription of an account is sent a
+  `PushVerification` per pass, throttled per account (`last_verify`) — one
+  subscription per device is what keeps the handshake one code.
+
+Where the client stands against this, and what is still owed a running server,
+is ADR 0016.
+
 ## FileNode state, changes and push (verified live 2026-09-07)
 
 FileNode is a first-class JMAP data type in Stalwart, not a second-class

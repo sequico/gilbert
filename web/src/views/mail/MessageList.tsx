@@ -60,7 +60,12 @@ import { plural, t } from "@/lib/i18n";
 import { SEEN_KEYWORD, STARRED_KEYWORD } from "@/lib/keywordCounts";
 import { rowClick } from "@/lib/listSelection";
 import { mailboxDisplayName } from "@/lib/mailboxName";
-import { deleteEffect, finalFoldersOf } from "@/lib/mailDelete";
+import {
+  deleteEffect,
+  deleteEffectInFolder,
+  deleteEntryOffered,
+  finalFoldersOf,
+} from "@/lib/mailDelete";
 import { messageFolders } from "@/lib/messageLocation";
 import { rowIsOpen } from "@/lib/openMessage";
 import { anyCarries, anyLacks, rowScope } from "@/lib/rowScope";
@@ -202,11 +207,16 @@ export function MessageList({
    * used to disagree about Junk Mail, which destroys just as Deleted Items does.
    */
   const finalFolders = finalFoldersOf(mailboxes);
-  const listDeleteIsFinal = mailboxId
-    ? deleteEffect({ mailboxIds: { [mailboxId]: true } }, finalFolders) === "final"
-    : false;
-  /** ADR 0015: in a group, only an administrator may end a message. */
+  const listDeleteEffect = deleteEffectInFolder(mailboxId, finalFolders);
+  const listDeleteIsFinal = listDeleteEffect === "final";
+  /**
+   * ADR 0015: in a group, only an administrator *ends* a message. Filing one is
+   * not ending it, so the entry stays offered wherever a delete would move —
+   * which is what deleting from a group's Inbox does. Only the final case is
+   * withdrawn, and it is withdrawn rather than refused afterwards.
+   */
   const mayEnd = useMail((s) => s.mayDestroyHere());
+  const listDeleteIsOffered = deleteEntryOffered(mayEnd, listDeleteEffect);
   const isDrafts = mailbox?.role === "drafts";
 
   const rowHeight = twoLine
@@ -428,7 +438,7 @@ export function MessageList({
               className="icon-btn"
               title={listDeleteIsFinal ? t("Delete forever") : t("Delete (#)")}
               onClick={() => void actions.trash()}
-              disabled={!mayEnd}
+              disabled={!listDeleteIsOffered}
             >
               <Trash2 size={19} />
             </button>
@@ -954,7 +964,7 @@ export function MessageList({
           icon={<Trash2 size={16} />}
           label={listDeleteIsFinal ? t("Delete forever") : t("Delete")}
           kbd="#"
-          disabled={!mayEnd}
+          disabled={!listDeleteIsOffered}
           onClick={() => void actions.trash(ctxTargets)}
         />
         <MenuItem

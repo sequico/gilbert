@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { JmapSession } from "@/jmap/types";
-import { deleteEffect, folderDestroyTakesMail, mayDestroy } from "@/lib/mailDelete";
+import {
+  deleteEffect,
+  deleteEntryOffered,
+  folderDestroyTakesMail,
+  mayDestroy,
+} from "@/lib/mailDelete";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { useToasts } from "@/ui/toast";
@@ -259,5 +264,19 @@ describe("the delete rule's parts", () => {
     expect(mayDestroy(ctx({ accountId: GROUP }))).toBe(false);
     expect(mayDestroy(ctx({ accountId: GROUP, isAdmin: true }))).toBe(true);
     expect(mayDestroy(ctx({ accountId: null }))).toBe(false);
+  });
+
+  /**
+   * The entry a surface draws is withdrawn only where the action would *end* a
+   * message. Filing one is not ending it — deleting from a group's Inbox still
+   * moves to that group's Deleted Items — so a group's list and thread keep
+   * their delete wherever it would move. This is the half a guard on the effect
+   * alone cannot express, and getting it wrong takes the main action away from
+   * every member of every group.
+   */
+  it("withdraws only the final delete in a group, not the filing one", () => {
+    expect(deleteEntryOffered(false, "move")).toBe(true);
+    expect(deleteEntryOffered(false, "final")).toBe(false);
+    expect(deleteEntryOffered(true, "final")).toBe(true);
   });
 });

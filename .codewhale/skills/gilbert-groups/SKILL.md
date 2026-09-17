@@ -40,7 +40,7 @@ the end** of the probe — code reading it early (boot races) must wait for
 that single transition, and only while it is still empty. Every probed
 mailbox is a group, whatever its name: there is no name-based exclusion left.
 
-## Per-feature map (state 2026-09-11)
+## Per-feature map (state 2026-09-18)
 
 - **Calendars**: the pattern-setter. `store/calendar.ts`
   `createCalendar(data, accountId?)` — omit for your own, pass the group
@@ -64,6 +64,23 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
 - **Chat (ADR 0005)**: one JSON node per message in `gilbert/chat` and one
   read marker per member in `gilbert/chat-state`, both in the group account,
   pushed by FileNode state changes (`lib/chat.ts`, `store/chat.ts`).
+- **Deleting the group's mail (ADR 0015)**: the one thing a member may not do.
+  A group is reached by membership, so the mail server tells one member's delete
+  from another's by nothing and there is no rank inside a group; the rule is the
+  client's and lives in `lib/mailDelete.ts` alone. The three entry points that
+  end a message for good — a destroy out of Deleted Items or Junk Mail,
+  `emptyMailbox`, and `destroyMailbox` **with** its mail — are refused for
+  everybody but an installation administrator (`session.gilbert.isAdmin`), and
+  the guards sit on those effects in `store/mail.ts` rather than on the menus,
+  because `trash()` destroys a message already in Deleted Items or Junk Mail by
+  calling `destroy`. Everything else stays: filing into the group's Deleted
+  Items, archiving, labelling, replying — so both folders are real folders
+  members fill and cannot empty. `mayDestroy` asks `isOwnMailAccount` **before**
+  anything else, never `isGroupMailboxAccount`: the classifier answers "group"
+  only after the account probe has listed the account, so an undiscovered group
+  and the reader's own mailbox are one answer to it. It is a rule the client
+  keeps, not a boundary — another client on the same account destroys the same
+  mail.
 
 ## Working rules
 
@@ -78,3 +95,6 @@ mailbox is a group, whatever its name: there is no name-based exclusion left.
    changes.
 4. UI strings are English `t()` keys (see gilbert-i18n); group names in copy
    are the account names as the session reports them.
+5. A group-only rule is asked from **one** module and guarded on the **effect**,
+   not on the surface that draws the entry (ADR 0015). A surface that asks for
+   itself, or a guard on a menu item, is how the group rule drifts.

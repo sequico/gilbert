@@ -135,8 +135,9 @@ is, not what a user sees.
   all stay, and the three things that end a message for good — deleting it out
   of Deleted Items or Junk Mail, emptying one of those folders, and deleting a
   folder together with its mail — are refused for every member but an
-  installation administrator, with one sentence. It is a rule the product
-  keeps, not a boundary: another client destroys the same mail.
+  installation administrator, each refusal saying which one it is and what still
+  works. It is a rule the product keeps, not a boundary: another client destroys
+  the same mail.
 - **0016 — What notifies a closed Gilbert.** A push subscription belongs to the
   principal that registered it and is served for every account that principal is
   a **member** of, so one row covers the reader's own mailbox and each of their
