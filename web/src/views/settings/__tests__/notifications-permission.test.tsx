@@ -2,20 +2,21 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useSettings } from "@/store/settings";
-import { toast } from "@/ui/toast";
 import { NotificationsSettings } from "../NotificationsSettings";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /**
- * The permission is asked for from a gesture, and a browser that no longer holds
- * an answer can be asked again.
+ * The permission is asked for from a gesture, and the one state that leaves is
+ * said out loud.
  *
  * Both halves are here because both are invisible when broken. An effect that
  * asks at start-up looks like nothing on a desktop browser -- the prompt simply
  * appears -- and is refused outright on iOS. A switch left on over a permission
  * the browser has forgotten looks like a working setting and delivers nothing,
  * which nobody reports as a bug; they report that notifications "do not work".
+ * The repair is the switch's own gesture, so what the section owes the reader is
+ * the sentence and not a prompt of its own.
  */
 describe("the notification permission door", () => {
   let host: HTMLDivElement;
@@ -34,6 +35,7 @@ describe("the notification permission door", () => {
   };
 
   const text = () => host.textContent ?? "";
+  const FORGOTTEN = "no longer holds an answer";
 
   beforeEach(() => {
     host = document.createElement("div");
@@ -49,36 +51,27 @@ describe("the notification permission door", () => {
     vi.restoreAllMocks();
   });
 
-  it("offers nothing to repair while the browser holds the answer", async () => {
+  it("says nothing while the browser holds the answer", async () => {
     await mount("granted", true);
-    expect(text()).not.toContain("Allow notifications");
+    expect(text()).not.toContain(FORGOTTEN);
   });
 
-  it("offers the permission again when the switch is on and the answer is gone", async () => {
+  it("says so when the switch is on and the answer is gone", async () => {
     await mount("default", true);
-    expect(text()).toContain("Allow notifications");
+    expect(text()).toContain(FORGOTTEN);
+    // And it names the gesture that repairs it, which is the only one allowed.
+    expect(text()).toContain("Turning a switch off and on again");
   });
 
-  it("does not offer it for a setting that was never turned on", async () => {
+  it("says nothing for a setting that was never turned on", async () => {
     await mount("default", false);
-    expect(text()).not.toContain("Allow notifications");
+    expect(text()).not.toContain(FORGOTTEN);
   });
 
-  it("asks, from the click, and reports the answer the browser gave", async () => {
-    const said = vi.spyOn(toast, "success");
+  it("draws no button of its own for it", async () => {
     await mount("default", true);
-    const button = [...host.querySelectorAll("button")].find(
-      (b) => b.textContent?.trim() === "Allow notifications",
-    );
-    expect(button).toBeDefined();
-    await act(async () => {
-      button?.click();
-    });
-    expect(ask).toHaveBeenCalledTimes(1);
-    // The outcome is what the reader is told, not that a request was made.
-    expect(said).toHaveBeenCalledWith("Notifications are on");
-    // And the row that offered it is gone: the browser holds an answer now.
-    expect(text()).not.toContain("Allow notifications");
+    const labels = [...host.querySelectorAll("button")].map((b) => b.textContent?.trim());
+    expect(labels).not.toContain("Allow notifications");
   });
 
   it("never asks on its own, however the section is entered", async () => {

@@ -77,10 +77,11 @@ export function NotificationsSettings() {
    *
    * An answer is recorded per device by the browser, and the browser is the one
    * that can forget it -- a permission reset in its own settings leaves the
-   * switch still on. Nothing asks again on its own, because asking belongs to
-   * the gesture that turns a switch on and this one is already on, and the hint
-   * under it would go on promising notifications that cannot arrive. A button
-   * is a gesture, which is why repairing this is one and not an effect.
+   * stored value alone. Nothing asks again on its own, because asking belongs to
+   * the gesture that turns a switch on and this one is already on -- so the
+   * section says as much and names the gesture that repairs it, which is the
+   * switch itself. An effect here would be the very request the gesture rule
+   * exists to forbid.
    */
   const permissionForgotten =
     perm === "default" && (s.desktopNotifications || background);
@@ -123,19 +124,8 @@ export function NotificationsSettings() {
       {permissionForgotten && (
         <p className="hint mt-8">
           {t(
-            "This browser has no recorded answer for notifications on this device, so nothing can be shown until they are allowed again.",
-          )}{" "}
-          <button
-            className="btn"
-            onClick={async () => {
-              const p = await requestNotificationPermission();
-              setPerm(p);
-              if (p === "granted") toast.success(t("Notifications are on"));
-              else toast.error(failureReason({ code: "permission-denied" }));
-            }}
-          >
-            {t("Allow notifications")}
-          </button>
+            "This browser no longer holds an answer for notifications on this device, so none can be shown. Turning a switch off and on again asks for the permission.",
+          )}
         </p>
       )}
       {/*

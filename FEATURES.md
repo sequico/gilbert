@@ -442,7 +442,7 @@ an environment variable, so it survives a redeploy and needs no volume
 even under `IMMUTABLE=1` (ADR 0001). It applies at once and signs the
 other signed-in clients out so their next sign-in reads it (`GET`/`POST
 /api/admin/policy`, `GET /api/account/policy`; ADR 0001). **Each publish is a
-job with an id** (ADR 0011): one id is minted before the first copy goes
+job with an id** (ADR 0010): one id is minted before the first copy goes
 out, every copy carries it beside the policy as `published: { id, at }`, and
 the job itself is one document — `gilbert/publish-job.json` in the publishing
 administrator's own app folder — holding when it started, who published, the
@@ -466,7 +466,7 @@ account by impersonation, so an administrator whose own account is
 elsewhere administers the installation's document rather than one in their
 own Files; a deployment that names no Master (`GILBERT_AGENT_ADDRESS`
 unset) is refused as a value, with its own code, rather than opened onto
-whoever is asking (ADR 0012). The read answers the text as the account holds
+whoever is asking (ADR 0011). The read answers the text as the account holds
 it, including a document this build cannot read, and whether there is one at
 all; publishing validates with the boot's own validator and refuses anything
 that is not a document, with the reason, before a byte is written: a document
@@ -1629,7 +1629,7 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   which stops the run and leaves whatever it had already done done.
   A merge that is stopped or fails therefore leaves both folders in place, with
   what had moved already inside the kept one, and can be asked for again
-  (ADR 0015).
+  (ADR 0014).
 - **Drag a row** onto a folder in the list or anywhere in the tree to move it.
   A folder cannot be dropped inside itself.
 - **Drag from the desktop** to upload — and drag a *folder* to upload it with
@@ -1645,7 +1645,7 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   now, so its id, its sharing and its place in the tree stay and only the
   content changes. Dropping the same tree twice is therefore one tree holding
   the latest bytes — never a second copy beside the first, and never a page of
-  errors (ADR 0014). What a file may not write over is a **folder** of its
+  errors (ADR 0013). What a file may not write over is a **folder** of its
   name: nothing is renamed, destroyed or put beside it, and the file is
   reported on top instead. A folder the drop could not be created — a file is
   standing where it goes — stops with its whole subtree reported rather than
@@ -1676,7 +1676,7 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
   walked or created in the dialog. Offered for **one attachment as much as for
   ten**. A file the chosen folder already holds is reported rather than
   replaced — the one write that still refuses a name, because a file somebody
-  already keeps is not a save's to overwrite (ADR 0014).
+  already keeps is not a save's to overwrite (ADR 0013).
 - One folder is hidden on purpose: **`gilbert`**, contents and all. It holds
   the settings file and signature images, and the Files view drops it from the
   listing so it never reads as a place to file your own.
@@ -2008,7 +2008,7 @@ needed nothing in either half.
   Home Screen in Safari, because that is the install that gives it the feature.
   The notification permission is asked for in the gesture that turns a switch
   on and nowhere else, and a permission the browser no longer holds an answer
-  for is repaired from the same surface, by a button rather than by an effect.
+  for is said out loud, with the switch's own gesture named as the repair.
 - The verification code a subscription needs is handed to an open tab, or left
   in the browser's cache under a key **anchored to where the app is mounted**
   for the next tab to collect. Both sides name it absolutely: a relative key is
