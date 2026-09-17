@@ -31,7 +31,7 @@ function blockerHint(code: WebPushBlocker): string {
   switch (code) {
     case "needs-install":
       return t(
-        "Add Gilbert to your Home Screen and open it from there: iOS offers notifications only to an app installed that way.",
+        "Add Gilbert to your Home Screen in Safari and open it from there: iOS offers notifications only to a web app installed that way.",
       );
     case "no-server-key":
       return t("Your mail server publishes no push key, so it cannot wake this browser.");
@@ -72,6 +72,18 @@ export function NotificationsSettings() {
   const [busy, setBusy] = useState(false);
   const blocker = webPushBlocker();
   const canBackground = blocker === null;
+  /*
+   * A permission this browser no longer holds an answer for.
+   *
+   * An answer is recorded per device by the browser, and the browser is the one
+   * that can forget it -- a permission reset in its own settings leaves the
+   * switch still on. Nothing asks again on its own, because asking belongs to
+   * the gesture that turns a switch on and this one is already on, and the hint
+   * under it would go on promising notifications that cannot arrive. A button
+   * is a gesture, which is why repairing this is one and not an effect.
+   */
+  const permissionForgotten =
+    perm === "default" && (s.desktopNotifications || background);
   useEffect(() => {
     void webPushActive().then(setBackground);
   }, []);
@@ -108,6 +120,24 @@ export function NotificationsSettings() {
         }
         disabled={perm === "denied" || perm === "unsupported"}
       />
+      {permissionForgotten && (
+        <p className="hint mt-8">
+          {t(
+            "This browser has no recorded answer for notifications on this device, so nothing can be shown until they are allowed again.",
+          )}{" "}
+          <button
+            className="btn"
+            onClick={async () => {
+              const p = await requestNotificationPermission();
+              setPerm(p);
+              if (p === "granted") toast.success(t("Notifications are on"));
+              else toast.error(failureReason({ code: "permission-denied" }));
+            }}
+          >
+            {t("Allow notifications")}
+          </button>
+        </p>
+      )}
       {/*
         The distinction worth drawing for the user: the switch above needs a tab
         open, this one does not. One label for both would call the tab-bound

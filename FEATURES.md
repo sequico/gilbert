@@ -2002,6 +2002,13 @@ needed nothing in either half.
   run. Where the server also implements `emailpush`, the payload carries the
   sender, subject and preview; without it the notification says only that mail
   arrived. Offered only on a device you said was yours.
+- **The switch says why it cannot be offered** where it cannot: a mail server
+  with no push key, a browser with no Push API, and — the sentence worth
+  writing — an iOS browser opened as a tab, which is told to add Gilbert to the
+  Home Screen in Safari, because that is the install that gives it the feature.
+  The notification permission is asked for in the gesture that turns a switch
+  on and nowhere else, and a permission the browser no longer holds an answer
+  for is repaired from the same surface, by a button rather than by an effect.
 - The verification code a subscription needs is handed to an open tab, or left
   in the browser's cache under a key **anchored to where the app is mounted**
   for the next tab to collect. Both sides name it absolutely: a relative key is

@@ -66,14 +66,18 @@ The notification switch asks for the permission **in the gesture that turned it
 on**, and never from an effect, a timer or a start-up path. A browser that has
 already answered is not asked again: `denied` is final inside the app, and the
 surface says where it is undone (the browser's own settings for this site)
-rather than offering a button that cannot work.
+rather than offering a button that cannot work. An answer the browser has
+forgotten while the switch stayed on is repaired from the same surface, by a
+button beside it — a click is a gesture and an effect is not — because a switch
+left on over a permission nobody granted promises notifications that cannot
+arrive.
 
 What the switch offers is decided by a reason rather than a boolean:
 `webPushBlocker()` answers the surface with a code it composes a sentence from,
 separating the browsers and servers that cannot do Web Push from the one
 platform where the reader has to install the app first — on iOS the hint is the
-install instruction, and the switch is not drawn as though switching it on were
-possible.
+install instruction, in Safari, and the switch is not drawn as though switching
+it on were possible.
 
 The device must be one the reader marked as their own, which is already
 required of the existing path and is not relaxed: a subscription outlives the
@@ -208,6 +212,10 @@ boolean that came back would fail here:
 - `webPushBlocker()` separates a browser that can be pushed from one whose
   server publishes no key, from an iOS browser that needs the install, from one
   with no Push API at all (`web/src/lib/__tests__/webpush.test.ts`).
+- Entering the notifications section asks for nothing, and the repair button —
+  drawn only while a switch is on over an answer the browser has forgotten —
+  asks once, from the click, and reports what the browser answered
+  (`web/src/views/settings/__tests__/notifications-permission.test.tsx`).
 
 Owed with the steps below:
 
