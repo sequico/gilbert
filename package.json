@@ -2,7 +2,7 @@
   "name": "gilbert",
   "version": "0.0.0",
   "private": true,
-  "description": "Gilbert \u2014 a fast, modern JMAP webmail for Stalwart Mail Server",
+  "description": "Gilbert \u2014 an enterprise butler for Stalwart: agents that work your mail and files, on a first-class JMAP mail client",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "workspaces": [

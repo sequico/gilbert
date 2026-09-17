@@ -1,7 +1,15 @@
 # Features
 
-Everything Gilbert does, in one place, at the level of detail someone
-evaluating it or working on it actually needs.
+Gilbert is an enterprise butler that lives in your own mail server: a
+first-class mail suite — mail, calendars, contacts, files — with **agents
+inside it** that work the mail and the files on a group's behalf. This is the
+inventory of everything it does, at the level of detail someone evaluating it
+or working on it actually needs; [README.md](README.md) is the short version of
+the same story.
+
+It is ordered the way this project cares about it: **Gilbert's own** first —
+the groups, the chat and above all the agents — and the client the mail core
+derives from after it.
 
 This is the inventory. Three files sit beside it and answer different
 questions:
