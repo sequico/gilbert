@@ -137,11 +137,15 @@ is, not what a user sees.
   folder together with its mail — are refused for every member but an
   installation administrator, with one sentence. It is a rule the product
   keeps, not a boundary: another client destroys the same mail.
-- **0016 — What notifies a closed Gilbert.** The browser's own subscription —
-  the one Stalwart POSTs to the browser's push service directly — covers every
-  mailbox the reader may open, not only their own, and chat rides the one
-  vocabulary Stalwart has for a file: a `FileNode` state change wakes the
-  service worker, which reads the message the app's watermark says it has not
-  seen and stays quiet for its own. The notification permission is asked for
-  in the reader's own gesture, iOS is answered with the install instruction
-  rather than a switch that cannot work, and no sender of ours is introduced.
+- **0016 — What notifies a closed Gilbert.** A push subscription belongs to the
+  principal that registered it and is served for every account that principal is
+  a **member** of, so one row covers the reader's own mailbox and each of their
+  groups — the group's mail already wakes a closed client today, as a
+  notification that names nothing, and what it is owed is the per-account
+  `emailPush` payload that names the sender, the subject and the mailbox it
+  landed in. Chat rides the one vocabulary Stalwart has for a file: `FileNode`
+  in the row's `types` wakes the service worker, which reads the message the
+  app's watermark says it has not seen and stays quiet for its own. The
+  notification permission is asked for in the reader's own gesture, iOS is
+  answered with the install instruction rather than a switch that cannot work,
+  and no sender of ours is introduced.
