@@ -70,6 +70,10 @@ jobs:
   # rather than a shallow clone.
   version:
     runs-on: ubuntu-latest
+    # The version comes from git history, so this job reads the repository and
+    # nothing else; the write belongs to the jobs that publish.
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.v.outputs.version }}
       docker_tag: ${{ steps.v.outputs.docker_tag }}

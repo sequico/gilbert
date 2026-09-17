@@ -28,6 +28,10 @@ jobs:
     # anyway, and this workflow stays the release pre-check plus Dependabot.
     if: github.event_name != 'pull_request' || github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
+    # Reading the repository is the whole of this job: it checks the tree out,
+    # runs the checks and smoke-builds the image, and nothing here writes back.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
