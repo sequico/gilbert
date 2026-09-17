@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.12/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.13/schema.json",
   // Code style is calibrated to how this codebase is actually written
   // (measured 2026-09-04): two-space indentation, double quotes, semicolons,
   // lines wrapped near 90 columns, LF endings. No markdown/css/html on
