@@ -19,15 +19,18 @@ Three facts about the mail server decide what is available to build on.
 - **Its access control distinguishes a share from a membership.** Per-object
   rights — a mailbox's `myRights`, `mayRemoveItems` among them — are read on
   the *shared-with-me* path; a member's own membership is not restricted by
-  them. Read at the newest release tag (`crates/jmap/src/email/set.rs` consults
-  `shared_mailboxes`; `crates/common/src/auth/access_token.rs` treats
-  membership as access). There is no rank inside a group, and no per-account
-  or per-collection right that would say "this member may bin the group's mail
-  and that one may not".
+  them. Read at **v0.16.22**: `crates/jmap/src/email/set.rs` asks for the item
+  rights only under `if access_token.is_shared(account_id)` and takes `None`
+  otherwise, and `crates/common/src/auth/access_token.rs` treats membership as
+  access. There is no rank inside a group, and no per-account or per-collection
+  right that would say "this member may bin the group's mail and that one may
+  not".
 - **Its destroy permission is role-wide.** `Email/set` with a `destroy` is
-  gated on one permission for the whole role, so withdrawing it closes
-  destroying everywhere the holder works — their own mail included — which is
-  not a trade the product accepts. Setting it is the mail server's own user
+  gated on one permission for the whole role — `JmapEmailDestroy`, checked once
+  for the request rather than per object (`validate_set` in
+  `crates/jmap/src/api/auth.rs`) — so withdrawing it closes destroying
+  everywhere the holder works, their own mail included, which is not a trade
+  the product accepts. Setting it is the mail server's own user
   administration, which ADR 0001 puts outside the product.
 - **Gilbert has one administration, and it is installation-wide.** The session
   carries a single `isAdmin` flag, resolved from Stalwart's own permission list
@@ -35,12 +38,15 @@ Three facts about the mail server decide what is available to build on.
   working group, and a member cannot even read their group's roster — that read
   needs a permission the built-in User role does not carry (`gilbertstalwart`).
 
-What is reachable from the client, and destroys a message for good, is three
-things: deleting a message that already sits in Deleted Items or Junk Mail,
-emptying one of those two folders, and deleting a folder **together with** the
-mail in it. Everything else a member does in a group — moving, labelling,
-archiving, replying, forwarding, drafting, sending — is a change that can be
-taken back or put right by somebody.
+What is reachable from the client, and destroys the group's mail for good, is
+three things: deleting a message that already sits in Deleted Items or Junk
+Mail, emptying one of those two folders, and deleting a folder **together
+with** the mail in it. Everything else a member does in a group — moving,
+labelling, archiving, replying, forwarding, drafting, sending — is a change that
+can be taken back or put right by somebody. Three messages are destroyed in a
+group account without being the group's mail, and are named among the decisions
+below rather than left to be discovered: an unsent draft, the draft a send
+replaces, and a read receipt the submission refused.
 
 ## Decision
 
@@ -58,21 +64,60 @@ in one sentence.**
   end of the message, by the role of the folders holding it) and *who may take
   one here* (the mail store's group classifier, the session's admin flag). Every
   surface asks it rather than restating it, which is also what settles a
-  disagreement the surfaces had with one another before it existed — whether
-  Junk Mail counts alongside Deleted Items when a delete is described as final.
+  disagreement the surfaces carry today: the list and the message menu call
+  Junk Mail final — their titles say *Delete forever* and their confirmation
+  counts Junk alongside Deleted Items — while the swipe's own label says it of
+  Deleted Items alone (`web/src/lib/swipe.ts`, `describeSwipe`), so the same
+  gesture destroys a message in Junk under the word "Delete". One answer, read
+  by all of them, is what makes the words and the effect agree.
+- **The rule answers a code, and the sentence is composed where it shows.** The
+  module says *refused*, and which refusal it is; the surface composes the
+  sentence from the catalogue the reader's language loaded, which is the shape
+  every other refusal in this product already has. A sentence held in a library
+  is a string no catalogue can translate and no reading of the code can find.
 - **The guard is where the effect is.** `destroy`, `emptyMailbox` and
   `destroyMailbox(id, removeEmails)` in the mail store refuse in a group, so the
   action is refused whatever calls it — a menu, a keyboard shortcut, a swipe —
   and the surfaces draw themselves from the same answer so that nothing offers
-  what would be refused.
-- **A drafts composer is not in the way.** Discarding a draft, and the write
-  that replaces a draft when a message is sent, are the compose store's own
-  `Email/set` calls (ADR 0007's sending path), not the mail store's delete.
-  A member's unsent mail goes away in a group exactly as it does anywhere.
+  what would be refused. `destroy` is the funnel every other final delete
+  reaches, `trash` among them: a message that already sits in Deleted Items or
+  Junk Mail is destroyed from there, so one guard closes both folder paths.
+- **Unknown is not the reader's own.** The classifier answers *group* only once
+  the account probe has listed the account, and before that it answers nothing
+  about anybody: an empty `mailAccounts` is indistinguishable from a group that
+  has not been discovered yet. So the guard asks the two questions in order — is
+  this account the reader's own (`isOwnMailAccount`, which the session answers
+  at any moment), and only then, is it a group — and refuses an account that is
+  not provably the reader's own while the set is unknown. A boot, a reload on a
+  group's address and a probe still in flight therefore fail closed, and the
+  reader's own mailbox is never the one refused: its answer does not depend on
+  the probe at all.
+- **The folder guard reads a count it already has.** Whether a folder holds mail
+  is `totalEmails` on the folder the store is looking at, which `MAILBOX_PROPS`
+  fetches with every tree: no query, and no second read that could disagree with
+  what the folder list shows.
+- **Both inputs are read from the session, and move when it does.** The
+  classifier comes from the account probe and the admin flag from
+  `session.gilbert.isAdmin`, which ADR 0001 resolves at sign-in; both are
+  re-read when the session state changes — `client.onSessionState` calls the
+  session's `refresh()` and re-runs `discoverMailAccounts()` — so a group joined
+  or left, and an administrator added or removed, are seen at that moment rather
+  than only at the next sign-in. The window between the two is the rule's own
+  limit and is named in the consequences.
 - **The agents hold no delete at all.** The capability catalogue
   (`AGENT_ACTION_SPECS`) names no action that destroys mail, so what this record
   grants an administrator is a surface for a person; nothing an automation can
-  be written to do changes with it.
+  be written to do changes with it. An automation's `mail.move` can file a
+  message into the group's Deleted Items, which is the same place a member's
+  delete leaves it and is not a destroy.
+- **A message Gilbert wrote itself is not in the way.** Discarding a draft, and
+  the write that replaces a draft when a message is sent, are the compose
+  store's own `Email/set` calls (ADR 0007's sending path), not the mail store's
+  delete; and a read receipt the reader asked for, created and then refused by
+  the submission, is destroyed by the MDN store rather than left in Sent looking
+  as though it had gone (`web/src/store/mdn.ts`). Each destroys a message
+  written in the reader's own name, in a folder nobody else reads. A member's
+  unsent mail goes away in a group exactly as it does anywhere.
 - **An empty folder is not mail.** Deleting a folder that holds nothing destroys
   nothing, and a group's tree stays the group's to shape.
 
@@ -113,9 +158,20 @@ with; a group that wants the switch can be given one over it.
 
 ## What this does not change
 
-- **ADR 0001.** `isAdmin` keeps its meaning — Stalwart's answer, re-resolved on
-  every privileged call. Here it decides an action in the client; the server is
-  still the only door that guards an account, and this does not add one.
+- **ADR 0001.** The flag's source is untouched: it is Stalwart's own answer,
+  re-resolved on every privileged call, and `requireAdmin` is still the only
+  thing that guards an account — this adds no door. One clause of that record
+  does become false when this lands, and it is the one to rewrite in the same
+  change: "that flag shows or hides the admin entry point and **nothing more**".
+  Here it is also what a destroy is asked against, so the client's copy gains a
+  second use.
+
+  What does **not** change is that sentence's reason. The client is still not a
+  door: the flag decides what is drawn and what this client will do, never what
+  the server allows, which is what the rule above says of itself when it states
+  that it is not a boundary. A reader who forged the flag would still be refused
+  by the mail server, exactly as a reader who forged it today gets an admin
+  surface whose every call fails.
 - **ADR 0005, and ADR 0007.** Ownership and identity are untouched: a member
   still sends from the identity the administration assigned, in the group's
   account. Delete is not an identity question.
@@ -134,6 +190,14 @@ with; a group that wants the switch can be given one over it.
   Filing it in the group's Deleted Items is where a member's version of "gone"
   stops, and the sentence a refused delete shows says what still works rather
   than only what does not.
+- **A withdrawn administrator keeps the surface until the session is read
+  again.** The flag is ADR 0001's, resolved at sign-in and re-read when the
+  session state changes — a group added or removed is discovered at the same
+  moment. Between those moments the client answers from what it holds, so a
+  person removed from the admin group can still destroy a group's mail in a tab
+  that was open across the change. It is the same order of staleness ADR 0001
+  already accepts for the client's view of its own privilege, and the server's
+  own door is the one that closes it.
 - **Deleting a folder stops on a folder that holds mail**, for a
   non-administrator: it is one of the three things that destroy, and it is
   refused by the folder's own count. An empty folder still goes.
@@ -149,17 +213,30 @@ with; a group that wants the switch can be given one over it.
 
 ## References
 
-- `web/src/lib/mailDelete.ts` — the rule: what a delete does, and who may take
-  one, with the refusal sentence
-- `web/src/store/mail.ts` — `destroy`, `emptyMailbox`, `destroyMailbox`, where
-  the guard sits on the effect
-- `web/src/lib/swipe.ts` — a direction with no meaning here resolves to nothing
+The three paths this record decides are not in the tree yet: they are where the
+change lands, named so the decision and its site are read together.
+
+- `web/src/lib/mailDelete.ts` — to be written: the rule, and which refusal it
+  answers; the surface composes the sentence from the catalogue
+- `web/src/store/mail.ts` — `trash`, `destroy`, `emptyMailbox`, `destroyMailbox`
+  and the module-private `destroyEmails` they funnel through, where the guard
+  sits on the effect (`MAILBOX_PROPS` is the count it reads)
+- `web/src/store/__tests__/group-mail-delete.test.ts` — to be written: the
+  invariant that a member's destroy in a group reaches no server and an
+  administrator's does
+- `web/src/lib/swipe.ts` — a direction with no meaning here resolves to
+  nothing, and the label that currently disagrees with the list about Junk Mail
+- `web/src/store/mdn.ts` — the receipt a refused submission destroys rather than
+  leave in Sent looking sent
+- `web/src/store/session.ts` — `session.gilbert.isAdmin`, and `refresh()` with
+  `client.onSessionState` as the moment the flag and the account set move
 - `web/src/views/mail/` — `MailView`, `MessageList`, `MessageView` and
   `ThreadView`, which ask the rule before drawing an entry
-- `web/src/lib/mailAccounts.ts` — `isGroupMailboxAccount`, the classifier the
-  rule reads a group by
-- `web/src/store/__tests__/group-mail-delete.test.ts` — the invariant: a
-  member's destroy in a group reaches no server, an administrator's does
+- `web/src/views/AdminView.tsx` — the surface an unconditional route reaches,
+  with no client guard: every privileged call in it is refused by the server
+- `web/src/lib/mailAccounts.ts` — `isGroupMailboxAccount` and
+  `isOwnMailAccount`: the classifier the rule reads a group by, and the question
+  it asks before it
 - ADR 0001 — administration is Stalwart's, and `isAdmin` is its answer
 - ADR 0005 — a group owns its data, and membership is the grant
 - ADR 0007 — identity in a group, and the sending path the drafts composer uses
