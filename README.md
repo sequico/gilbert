@@ -703,12 +703,43 @@ npm run typecheck      # tsc for both packages
 npm test               # vitest (web) + node:test (server)
 npm run build          # web/dist + server/dist
 npm start              # serve the production build
+
+npm run prepush        # the fast gate: typecheck + Biome + the check scripts + tests
+npm run codeql         # the code scanning analysis GitHub runs, on demand
+npm run prepush:full   # the fast gate, then `codeql`
 ```
 
 Open http://localhost:5173 in dev, or http://localhost:8080 for the production
 build. Running it for real is covered in upstream's docs —
 [Installing](https://docs.ihasmail.org/install/) and
 [Configuring](https://docs.ihasmail.org/configure/).
+
+### Code scanning
+
+Every push and pull request is analysed by GitHub's **code scanning**, on its
+default setup — configured in the repository's settings, not by a workflow here
+— with the JavaScript/TypeScript code-scanning suite. `npm run codeql` runs the
+same analysis on this checkout, so a finding shows up before it is pushed:
+
+```bash
+npm run codeql
+# → CodeQL: 0 result(s).
+```
+
+Its toolchain is a 686 MB bundle, which is why the fast gate does not carry it
+(`npm run prepush:full` is the two together). Install it once, or point
+`CODEQL_CLI` at an existing binary:
+
+```bash
+mkdir -p ~/.cache/gilbert/codeql
+curl -L https://github.com/github/codeql-action/releases/latest/download/codeql-bundle-linux64.tar.gz \
+  | tar xz -C ~/.cache/gilbert/codeql --strip-components=1
+```
+
+Run without a toolchain it **fails with those instructions** rather than
+reporting a clean tree, and it analyses the files a push would carry —
+`node_modules` and a built `web/dist` are not among them, because GitHub
+analyses a checkout and not a working tree.
 
 ### The mock
 

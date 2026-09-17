@@ -4,7 +4,7 @@
  * server at it with STALWART_URL=http://127.0.0.1:8788 (user: demo / pass: demo).
  */
 
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { parseOtpauthUrl, verifyTotp } from "../totp.js";
 import { holdUntilOf, undoStatusOf } from "./futurerelease.js";
@@ -4877,7 +4877,10 @@ export const server = createServer(async (req, res) => {
 
 // Periodically inject a new inbox email to demo push
 setInterval(() => {
-  const p = people[Math.floor(Math.random() * people.length)]!;
+  /* `randomInt`, not `Math.random`: the pick becomes the `From:` of a message,
+     and a sender drawn from a predictable generator is what code scanning
+     refuses to reason about. Unpredictable demo traffic costs nothing. */
+  const p = people[randomInt(people.length)]!;
   const injected = addEmail({
     from: [p[0]!, p[1]!],
     subject: `Live update ${new Date(now()).toLocaleTimeString()}`,
@@ -4908,7 +4911,9 @@ function postChatDemo(nodes: Obj[], accountId: string, senders: number) {
       )
     : undefined;
   if (!chat) return;
-  const [name, email] = people[Math.floor(Math.random() * senders)]!;
+  /* As in the inbox injection above: the sender is a header, so it comes from
+     the CSPRNG. */
+  const [name, email] = people[randomInt(senders)]!;
   const doc = JSON.stringify({
     v: 1,
     from: email,

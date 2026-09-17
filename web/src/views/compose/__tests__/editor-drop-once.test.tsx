@@ -59,13 +59,18 @@ describe("a file dropped on the message body", () => {
         removeEventListener() {}
       },
     );
-    // jsdom has no execCommand, which is how the editor puts the image in.
+    // jsdom has no execCommand, which is how the editor puts html into the
+    // body. The html is parsed and then appended rather than assigned in one
+    // string, so what the assertions below read is the nodes the editor asked
+    // for, not the text it passed.
     Object.defineProperty(document, "execCommand", {
       configurable: true,
       value: (command: string, _ui: boolean, html?: string) => {
         if (command === "insertHTML" && html) {
           const area = host.querySelector(".editor-area");
-          if (area) area.innerHTML += html;
+          if (!area) return true;
+          const parsed = new DOMParser().parseFromString(html, "text/html");
+          area.append(...parsed.body.childNodes);
         }
         return true;
       },

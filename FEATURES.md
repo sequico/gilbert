@@ -2482,6 +2482,44 @@ and in Settings › About.
 - **Sessions survive a restart** because they live in Stalwart, so an immutable
   instance loses nothing to being replaced.
 
+## Code scanning
+
+GitHub's own code scanning runs against this repository on every push and pull
+request, on the **default setup**: configured in the repository's settings rather
+than by a file here, analysing the tree with the JavaScript/TypeScript
+code-scanning suite (its Actions queries included, so `.github/workflows` is
+covered by the same run).
+
+`npm run codeql` is that same analysis on this checkout, so a finding shows up
+before it is pushed:
+
+```bash
+npm run codeql                  # → CodeQL: 0 result(s).
+npm run prepush:full            # the fast gate, then the analysis
+```
+
+- **It analyses the files a push would carry.** `git ls-files --cached --others
+  --exclude-standard` is the list, exported to a temporary tree: GitHub analyses
+  a checkout, so `node_modules` and a built `web/dist` are in front of neither.
+  `.gitignore` stays the one place that decides what is ignored.
+- **The database is not built inside the repository.** The JavaScript extractor
+  skips anything under a `node_modules`, and a database built under one
+  analyses nothing at all while reporting it as "no code found"; the work
+  directory is the system temporary space, named for a digest of the checkout.
+- **It is not part of `npm run prepush`.** The toolchain is a 686 MB bundle and
+  one analysis takes a couple of minutes — a gate that cannot run on a fresh
+  clone is not a gate. It is found through `CODEQL_CLI`, on `PATH`, or in
+  `~/.cache/gilbert/codeql`, and a run without one **fails with the install
+  instructions** rather than reporting a clean tree.
+- **It exits non-zero on any result**, and prints each one as `file:line`, the
+  rule and its `security-severity`. An alert is work to do in the same change,
+  like any other finding a gate prints.
+
+Both halves are pinned by tests (`server/src/codeql.test.ts`): the flags the
+database and the analysis are given, the suite the settings run, the file list,
+and that a run which did not happen reports as a failure rather than as nothing
+found.
+
 ## The mock server
 
 An in-memory fake Stalwart 0.16 — enough JMAP to develop and demo against with

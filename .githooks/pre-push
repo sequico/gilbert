@@ -2,6 +2,10 @@
 # Fast CI gate before every push: typecheck + tests (npm run prepush).
 # Enabled per clone with `git config core.hooksPath .githooks`; see
 # .codewhale/instructions.md. Bypass deliberately with `git push --no-verify`.
+#
+# Code scanning is not here: GitHub runs it on the push itself, and its
+# toolchain is a 686 MB bundle. `npm run prepush:full` is both gates, for a
+# machine that has one; `npm run codeql` is the analysis on its own.
 set -u
 
 if [ ! -x node_modules/.bin/tsc ]; then

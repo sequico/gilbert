@@ -221,6 +221,14 @@ async function run() {
 
   const groupAccountId =
     process.env.GILBERT_PROBE_GROUP_ACCOUNT || String(groups[0]?.id ?? "");
+  /* The group is named as the registry answered it rather than as the
+     environment spelled it: `emailAddress` is what the operator recognises,
+     and asking about an account the directory does not list is worth saying
+     outright, since every question below it answers empty. */
+  const groupRecord = groups.find((g) => g.id === groupAccountId);
+  const groupLabel = groupRecord
+    ? String(groupRecord.emailAddress ?? groupRecord.name ?? "an unnamed group")
+    : "the group named by GILBERT_PROBE_GROUP_ACCOUNT";
   if (!groupAccountId) {
     note(
       "a group's roster",
@@ -270,7 +278,7 @@ async function run() {
       ]);
       const list = answerOf(read.responses, "m1")[1]?.list ?? [];
       note(
-        `the roster of ${groupAccountId}`,
+        `the roster of ${groupLabel}`,
         `${list.length} member(s): ${list
           .filter((a) => a["@type"] === "User")
           .map((a) => a.emailAddress)

@@ -91,7 +91,8 @@ release pre-check.
 "Pre-existing" is not a category: every error, warning and informational finding
 the gate prints is fixed, whoever wrote the line and whenever it arrived — and a
 non-zero count is work to do, never context to report. Biome 0/0/0, no failing
-test, no skipped test, a dependency audit at zero.
+test, no skipped test, a dependency audit at zero, `npm run codeql` at zero
+result(s).
 **Tests assume the runner's local timezone is UTC** (GitHub's default); on a
 non-UTC machine run them as `TZ=UTC npm test` — `prepush` already forces it so
 the local gate matches CI.
@@ -208,9 +209,19 @@ output instead.
 **Every push is gated by the fast CI** (`npm run prepush`: typecheck + Biome
 lint + tests); a pre-push hook enforces it — hook in `.githooks/pre-push`,
 enabled per clone with `git config core.hooksPath .githooks`, bypass only
-deliberately with `--no-verify`. Remote CI does not run on push: it is the
-release pre-check, with one exception -- pull requests opened by Dependabot run
-it automatically (their branches never pass through the local hook).
+deliberately with `--no-verify`. `ci.yml` does not run on push: it is the
+release pre-check, and only Dependabot's pull requests start it, because their
+branches never pass through the local hook.
+
+**Code scanning runs on every push and pull request** (owner decision
+2026-09-17): GitHub's default setup, configured in the repository's settings
+and by no file here, analysing the tree with the JavaScript/TypeScript
+code-scanning suite. It stays out of the fast gate — a 686 MB toolchain and an
+analysis of minutes — so `npm run codeql` is that same analysis on demand and
+`npm run prepush:full` is the fast gate plus it; the toolchain is found through
+`CODEQL_CLI`, on `PATH`, or in the bundle cache, and a run without one **fails
+with the install instructions** rather than reporting a clean tree. An alert it
+prints is work to do in the same change, like any other finding a gate prints.
 **The full gate closes a turn; it is not a during-turn habit** (owner decision
 2026-09-13): while a turn is working, the checks are the narrow ones —
 `npm run typecheck`, `biome check` on the files touched, the affected test

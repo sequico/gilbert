@@ -125,7 +125,10 @@ const session = await json(`${STALWART_URL}/.well-known/jmap`, {
 const accountId =
   session.primaryAccounts?.["urn:ietf:params:jmap:mail"] ??
   Object.keys(session.accounts ?? {})[0];
-console.log(`account:  ${ACCOUNT || ADDRESS} (${accountId})`);
+/* The account is named as the server answered it rather than as the
+   environment spelled it: what this line is for is saying which account the
+   credential opened, and the session is what proved that. */
+console.log(`account:  ${session.username ?? accountId} (${accountId})`);
 console.log(`session:  ${session.apiUrl}`);
 
 const list = (await call(session, authorization, "PushSubscription/get", { ids: null }))
