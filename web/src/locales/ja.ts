@@ -905,8 +905,6 @@ export const catalog: Catalog = {
       "このブラウザーで登録を要求しました。実際に有効になるかどうかはブラウザー次第です。メールのリンクが別のアプリで開く場合は、ブラウザーの設定をご確認ください。",
     "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
       "システム全体の既定にするには、まず Gilbert をアプリとしてインストールしてください（Chrome ではアドレスバーのインストールアイコン）。以後、OS がメールアプリを尋ねる場面で Gilbert を直接選べるようになります。",
-    "Needs a browser with the Push API and a mail server that publishes a push key.":
-      "Push API に対応したブラウザーと、プッシュ用の鍵を公開しているメールサーバーが必要です。",
     "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
       "メールサーバーが通知をブラウザーへ直接届けるため、Gilbert のタブを開いていなくても、差出人と件名つきで届きます。ただしブラウザーは起動している必要があります。完全に終了すると、通知は次に起動したときにまとめて届きます。",
     "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.":

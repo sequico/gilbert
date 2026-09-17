@@ -944,8 +944,6 @@ export const catalog: Catalog = {
       "Запрошено в этом браузере. Сработало ли это, решает он сам — проверьте его настройки, если почтовые ссылки по-прежнему открываются в другом месте.",
     "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
       "Чтобы задать программу по умолчанию для всей системы, сначала установите Gilbert как приложение (в Chrome — значок установки в адресной строке). После этого операционная система сможет предлагать Gilbert везде, где спрашивает, какой почтовой программой воспользоваться.",
-    "Needs a browser with the Push API and a mail server that publishes a push key.":
-      "Нужен браузер с Push API и почтовый сервер, публикующий push-ключ.",
     "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
       "Почтовый сервер доставляет их прямо в браузер, поэтому они приходят без открытой вкладки Gilbert и содержат отправителя и тему. Браузер при этом должен быть запущен: если закрыть его полностью, уведомления подождут и придут при следующем запуске.",
     "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.":

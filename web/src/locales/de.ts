@@ -928,8 +928,6 @@ export const catalog: Catalog = {
       "In diesem Browser angefordert. Ob es gewirkt hat, entscheidet der Browser — prüfen Sie dessen Einstellungen, falls E-Mail-Links weiterhin anderswo geöffnet werden.",
     "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
       "Für einen systemweiten Standard installieren Sie Gilbert zuerst als App (in Chrome: das Installationssymbol in der Adressleiste). Ihr Betriebssystem kann Gilbert dann überall dort direkt anbieten, wo es nach einem E-Mail-Programm fragt.",
-    "Needs a browser with the Push API and a mail server that publishes a push key.":
-      "Erfordert einen Browser mit Push-API und einen Mailserver, der einen Push-Schlüssel veröffentlicht.",
     "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
       "Ihr Mailserver stellt diese direkt an Ihren Browser zu, sodass sie auch ohne geöffneten Gilbert-Tab ankommen — mit Absender und Betreff. Ihr Browser muss dennoch laufen: Beenden Sie ihn vollständig, warten die Benachrichtigungen und kommen an, sobald Sie ihn wieder öffnen.",
     "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.":

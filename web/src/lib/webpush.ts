@@ -50,15 +50,43 @@ export function supportsEmailPush(): boolean {
   );
 }
 
+/**
+ * Why background notifications cannot be offered here, as a code.
+ *
+ * A boolean was not enough to say anything useful. On iOS a browser that has
+ * never been added to the Home Screen has no `PushManager` at all, and reading
+ * that as "this browser does not support it" tells somebody to give up one tap
+ * away from the fix. The surface composes the sentence; this names the
+ * obstacle, so the same answer cannot be worded two ways.
+ */
+export type WebPushBlocker = "unsupported-browser" | "needs-install" | "no-server-key";
+
+/**
+ * iOS exposes the Push API only to an app added to the Home Screen, and iPadOS
+ * 13+ reports itself as a Mac -- which is why the touch points are asked as
+ * well as the user agent.
+ */
+function isIOS(): boolean {
+  return (
+    /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+export function webPushBlocker(): WebPushBlocker | null {
+  if (typeof navigator === "undefined" || typeof window === "undefined")
+    return "unsupported-browser";
+  if ("serviceWorker" in navigator && "PushManager" in window) {
+    return applicationServerKey() === null ? "no-server-key" : null;
+  }
+  // No PushManager is not the same answer everywhere: on iOS it is the install
+  // that is missing, and it is one the reader can complete.
+  return isIOS() ? "needs-install" : "unsupported-browser";
+}
+
 /** Whether this browser and this server can do Web Push at all. */
 export function webPushAvailable(): boolean {
-  return (
-    typeof navigator !== "undefined" &&
-    "serviceWorker" in navigator &&
-    typeof window !== "undefined" &&
-    "PushManager" in window &&
-    applicationServerKey() !== null
-  );
+  return webPushBlocker() === null;
 }
 
 /**
@@ -134,6 +162,18 @@ export function deviceClientId(): string {
  * nothing at all to the server, which answered "Invalid filter" and refused the
  * whole subscription. Without an id the filter simply leaves `inMailbox` out
  * and notifies more widely, which is a worse default but a working one.
+ *
+ * What this answers is the record's open question (ADR 0017): whether one
+ * subscription may carry `emailPush` for several accounts at once, whether a
+ * member may register one on a group account at all and whether the payload
+ * then names that account, and how a `filter` applies across a subscription's
+ * types. The chat wake-up adds the fourth, a `FileNode` narrowed to the chat
+ * folder. The answers come from a live 0.16 and are owed.
+ *
+ * ADR-0017 OWED: push-per-account
+ * ADR-0017 OWED: group-subscription
+ * ADR-0017 OWED: filenode-filter
+ * ADR-0017 OWED: filter-per-type
  */
 export function subscriptionPayload(
   sub: PushSubscription,

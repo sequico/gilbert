@@ -951,8 +951,6 @@ export const catalog: Catalog = {
       "Solicitado en este navegador. Que haya surtido efecto depende de él: revise su configuración si los enlaces de correo siguen abriéndose en otro sitio.",
     "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
       "Para un valor predeterminado en todo el sistema, instale antes Gilbert como aplicación (en Chrome: el icono de instalación de la barra de direcciones). Su sistema operativo podrá entonces ofrecer Gilbert directamente allí donde pregunte qué aplicación de correo usar.",
-    "Needs a browser with the Push API and a mail server that publishes a push key.":
-      "Requiere un navegador con la API Push y un servidor de correo que publique una clave push.",
     "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
       "Su servidor de correo las entrega directamente a su navegador, así que llegan sin ninguna pestaña de Gilbert abierta, con el remitente y el asunto. Aun así, su navegador debe estar en marcha: si lo cierra por completo, las notificaciones esperan y llegan cuando vuelva a abrirlo.",
     "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.":

@@ -884,8 +884,6 @@ export const catalog: Catalog = {
       "已在此浏览器中提出请求。是否生效由浏览器决定——如果邮件链接仍在别处打开，请检查浏览器的设置。",
     "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
       "若要设为系统级默认，请先把 Gilbert 安装为应用（在 Chrome 中：地址栏里的安装图标）。之后操作系统在询问使用哪个邮件应用时，就会直接提供 Gilbert。",
-    "Needs a browser with the Push API and a mail server that publishes a push key.":
-      "需要支持 Push API 的浏览器，以及发布了推送密钥的邮件服务器。",
     "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
       "您的邮件服务器会把通知直接送到浏览器，因此不必打开 Gilbert 标签页也能收到，并会显示发件人和主题。但浏览器仍需保持运行——如果完全退出浏览器，通知会等到您再次打开时送达。",
     "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.":

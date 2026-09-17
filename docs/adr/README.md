@@ -135,3 +135,11 @@ is, not what a user sees.
   only once it is empty, so a stopped merge leaves both folders standing. The
   entry is offered for exactly two folders and drawn always, disabled until the
   selection is one it can act on.
+- **0017 — What notifies a closed Gilbert.** The browser's own subscription —
+  the one Stalwart POSTs to the browser's push service directly — covers every
+  mailbox the reader may open, not only their own, and chat rides the one
+  vocabulary Stalwart has for a file: a `FileNode` state change wakes the
+  service worker, which reads the message the app's watermark says it has not
+  seen and stays quiet for its own. The notification permission is asked for
+  in the reader's own gesture, iOS is answered with the install instruction
+  rather than a switch that cannot work, and no sender of ours is introduced.

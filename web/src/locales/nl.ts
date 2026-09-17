@@ -940,8 +940,6 @@ export const catalog: Catalog = {
       "Aangevraagd in deze browser. Of het effect heeft gehad, bepaalt de browser — controleer zijn instellingen als e-maillinks nog elders openen.",
     "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
       "Installeer Gilbert eerst als app voor een systeembrede standaard (in Chrome: het installatiepictogram in de adresbalk). Uw besturingssysteem kan Gilbert dan overal direct aanbieden waar het vraagt welk e-mailprogramma gebruikt moet worden.",
-    "Needs a browser with the Push API and a mail server that publishes a push key.":
-      "Vereist een browser met de Push-API en een mailserver die een push-sleutel publiceert.",
     "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
       "Uw mailserver levert deze rechtstreeks bij uw browser af, dus ze komen aan zonder geopend Gilbert-tabblad, met afzender en onderwerp erbij. Uw browser moet wel draaien — sluit u hem helemaal af, dan wachten de meldingen en komen ze binnen zodra u hem weer opent.",
     "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.":

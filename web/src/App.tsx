@@ -7,11 +7,7 @@ import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { plural, t, useLanguageVersion, whenLanguageReady } from "@/lib/i18n";
 import { lazyView } from "@/lib/lazyView";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
-import {
-  requestNotificationPermission,
-  setBaseTitle,
-  setUnreadBadge,
-} from "@/lib/notify";
+import { setBaseTitle, setUnreadBadge } from "@/lib/notify";
 import { refreshSettingsPolicy } from "@/lib/settingsPolicy";
 import {
   armSettingsSync,
@@ -427,12 +423,6 @@ function AuthedApp() {
   useEffect(() => {
     void publishWorkerFacts(accountId, archiveId);
   }, [accountId, archiveId, languageVersion]);
-
-  // Request notification permission lazily when enabled
-  const notif = useSettings((s) => s.settings.desktopNotifications);
-  useEffect(() => {
-    if (notif) void requestNotificationPermission();
-  }, [notif]);
 
   // Nothing worth painting until the account's settings are in force; see the
   // comment on `ready` above. With a cache this was true from the first frame.
