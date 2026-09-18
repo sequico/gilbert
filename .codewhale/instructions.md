@@ -281,6 +281,14 @@ delta has been rebranded (gilbert-upstream-rebrand) **and** the inventory
 has been reconciled: features the merge adds/removes/changes are reflected
 in `FEATURES.md`, and the Gilbert-added sections survive intact. ADRs record
 the decisions behind features; the inventory records the features.
+**A merge takes a change, not a file — and a collision is decided, not
+assumed.** Where the tree diverged on purpose, an upstream hunk applied
+verbatim undoes a decision nobody re-opened — silently, since it neither
+conflicts nor fails a test. What is forbidden is the silence, not the
+direction: read both sides, take the better one, and rewrite the ADR or
+comment in the same change — including when upstream's version is the better
+one, which it often is. Two deliberate designs that both work are the user's
+choice, not the merge's. Recipe: `gilbert-upstream-rebrand`.
 **The public docs lead with Gilbert's own.** `README.md` and `FEATURES.md`
 open with what this project owns — groups, chat, and above all the agents,
 whose section is the detailed one — and treat the upstream client as a
