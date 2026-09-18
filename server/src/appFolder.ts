@@ -25,6 +25,7 @@
 
 import { isAlreadyExistsRefusal, JmapClient } from "./jmap.js";
 import { appDocumentJson } from "./shared/appDocument.js";
+import { CAPABILITIES } from "./shared/capabilities.js";
 import type { UpstreamSession } from "./upstream.js";
 
 /** The one encoder: what a document is about to be written as is bytes. */
@@ -34,7 +35,7 @@ const utf8 = new TextEncoder();
 export const APP_FOLDER_NAME = "gilbert";
 
 /** The JMAP capability that carries FileNode in Stalwart 0.16. */
-export const FILENODE_CAP = "urn:ietf:params:jmap:filenode";
+export const FILENODE_CAP = CAPABILITIES.filenode;
 
 /** Properties needed to find a node by name and parent. */
 const FOLDER_PROPS = ["id", "name", "nodeType", "parentId"];

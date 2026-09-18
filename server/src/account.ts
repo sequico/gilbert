@@ -7,7 +7,7 @@ import {
   writeAppFile,
 } from "./appFolder.js";
 import { config } from "./config.js";
-import { type Invocation, JmapClient, STALWART_CAP } from "./jmap.js";
+import { type Invocation, JMAP_MAIL, JmapClient, STALWART_CAP } from "./jmap.js";
 import { GROUP_LABELS_FILE } from "./shared/labels.js";
 import { generateSecret, otpauthUrl, parseOtpauthUrl, verifyTotp } from "./totp.js";
 import { UpstreamError } from "./upstream.js";
@@ -67,7 +67,7 @@ export class AccountError extends Error {
 export function accountId(ctx: Ctx): string {
   return (
     ctx.session.primaryAccounts?.[STALWART_CAP] ??
-    ctx.session.primaryAccounts?.["urn:ietf:params:jmap:mail"] ??
+    ctx.session.primaryAccounts?.[JMAP_MAIL] ??
     Object.keys(ctx.session.accounts ?? {})[0] ??
     ""
   );

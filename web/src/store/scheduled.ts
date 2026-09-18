@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { client, ref, setErrorMessage } from "@/jmap/client";
+import { CAP, client, ref, setErrorMessage } from "@/jmap/client";
 import type {
   EmailSubmission,
   GetResponse,
@@ -9,12 +9,7 @@ import type {
   SetResponse,
 } from "@/jmap/types";
 import { t } from "@/lib/i18n";
-import {
-  canScheduleSend,
-  maxDelayMs,
-  SUBMISSION_CAP,
-  type SubmissionCapability,
-} from "@/lib/schedule";
+import { canScheduleSend, maxDelayMs, type SubmissionCapability } from "@/lib/schedule";
 import { toast } from "@/ui/toast";
 import { useMail } from "./mail";
 
@@ -34,7 +29,7 @@ export const SCHEDULED_MAILBOX = "Scheduled";
 export function submissionCapability(): SubmissionCapability | undefined {
   const accountId = useMail.getState().accountId;
   if (!accountId) return undefined;
-  return client.accountCapability<SubmissionCapability>(accountId, SUBMISSION_CAP);
+  return client.accountCapability<SubmissionCapability>(accountId, CAP.submission);
 }
 
 /** Whether to offer scheduled send at all. */

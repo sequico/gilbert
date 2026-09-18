@@ -1,6 +1,6 @@
 import { groupSenderIdentity } from "@gilbert/shared/identityAssignment";
 import { create } from "zustand";
-import { chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
+import { CAP, chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
 import type {
   ChangesResponse,
   Comparator,
@@ -1840,7 +1840,7 @@ export const useMail = create<MailState>((set, get) => ({
 
   async loadQuota() {
     const accountId = get().accountId;
-    if (!accountId || !client.hasCapability("urn:ietf:params:jmap:quota")) return;
+    if (!accountId || !client.hasCapability(CAP.quota)) return;
     try {
       const res = await client.call<GetResponse<Quota>>("Quota/get", {
         accountId,

@@ -12,6 +12,7 @@
  */
 
 import { config } from "./config.js";
+import { CAPABILITIES, STALWART_REGISTRY } from "./shared/capabilities.js";
 import {
   absoluteUpstream,
   expandTemplate,
@@ -19,10 +20,14 @@ import {
   type UpstreamSession,
 } from "./upstream.js";
 
-export const JMAP_CORE = "urn:ietf:params:jmap:core";
-export const JMAP_MAIL = "urn:ietf:params:jmap:mail";
-export const JMAP_SUBMISSION = "urn:ietf:params:jmap:submission";
-export const STALWART_CAP = "urn:stalwart:jmap";
+/**
+ * This tier's names for the shared vocabulary (`shared/capabilities.ts`), kept
+ * because the agent and admin code names a capability by its tier's word.
+ */
+export const JMAP_CORE = CAPABILITIES.core;
+export const JMAP_MAIL = CAPABILITIES.mail;
+export const JMAP_SUBMISSION = CAPABILITIES.submission;
+export const STALWART_CAP = STALWART_REGISTRY;
 
 /** One JMAP method call: name, arguments, call id. */
 export type Invocation = [string, Record<string, unknown>, string];

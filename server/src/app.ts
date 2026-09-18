@@ -122,6 +122,7 @@ import {
   SessionStore,
   type SessionTtls,
 } from "./sessions.js";
+import { CAPABILITIES } from "./shared/capabilities.js";
 import { staticHandler } from "./static.js";
 import {
   type AccountInfo,
@@ -1052,7 +1053,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       setSessionCookie(c, cookie, session.remember);
       // Start the account's push subscription now, so it is usually verified
       // by the time the browser opens its stream. See push.ts.
-      const mailAccount = upstream.primaryAccounts?.["urn:ietf:params:jmap:mail"];
+      const mailAccount = upstream.primaryAccounts?.[CAPABILITIES.mail];
       if (mailAccount)
         pushPrepare(session.username, mailAccount, session.authorization, pushOrigin(c));
       const info = await getAccountInfo(session.id, session.authorization, upstream);
@@ -2972,7 +2973,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       // Subscribe mode: if this account's subscription is verified, the tab is
       // served by fan-out and holds nothing upstream. Otherwise it gets its own
       // relay, and is moved to fan-out the moment the account verifies.
-      const accountId = upstream.primaryAccounts?.["urn:ietf:params:jmap:mail"];
+      const accountId = upstream.primaryAccounts?.[CAPABILITIES.mail];
       if (
         accountId &&
         pushAttach(session.username, accountId, session.authorization, out, pushOrigin(c))

@@ -21,9 +21,6 @@ import { CAP, client } from "@/jmap/client";
 import type { GetResponse, Id, SetResponse } from "@/jmap/types";
 import { isDeviceTrusted } from "@/lib/storage";
 
-export const VAPID_CAP = "urn:ietf:params:jmap:webpush-vapid";
-export const EMAILPUSH_CAP = "urn:ietf:params:jmap:emailpush";
-
 /** Which Email properties to put in the payload, best first. */
 const PAYLOAD_PROPS = ["from", "subject", "preview", "receivedAt"];
 
@@ -37,7 +34,7 @@ export interface JmapPushSubscription {
 
 /** The VAPID key this server signs with, or null if it does not do Web Push. */
 export function applicationServerKey(): string | null {
-  const cap = client.session?.capabilities?.[VAPID_CAP] as
+  const cap = client.session?.capabilities?.[CAP.webpushVapid] as
     | { applicationServerKey?: string }
     | undefined;
   return typeof cap?.applicationServerKey === "string" ? cap.applicationServerKey : null;
@@ -46,7 +43,7 @@ export function applicationServerKey(): string | null {
 /** Whether the payload can carry the message, rather than only "something changed". */
 export function supportsEmailPush(): boolean {
   return Boolean(
-    client.session?.capabilities && EMAILPUSH_CAP in client.session.capabilities,
+    client.session?.capabilities && CAP.emailpush in client.session.capabilities,
   );
 }
 
@@ -293,7 +290,7 @@ export async function listSubscriptions(): Promise<JmapPushSubscription[]> {
   const res = await client.call<GetResponse<JmapPushSubscription>>(
     "PushSubscription/get",
     { ids: null },
-    [CAP.core, VAPID_CAP],
+    [CAP.core, CAP.webpushVapid],
   );
   return res.list;
 }
@@ -304,7 +301,7 @@ export async function createSubscription(
   const res = await client.call<SetResponse<JmapPushSubscription>>(
     "PushSubscription/set",
     { create: { s: body } },
-    [CAP.core, VAPID_CAP, EMAILPUSH_CAP],
+    [CAP.core, CAP.webpushVapid, CAP.emailpush],
   );
   if (res.notCreated?.s)
     throw new Error(String(res.notCreated.s.description ?? res.notCreated.s.type));
@@ -326,7 +323,7 @@ export async function verifySubscription(
   const res = await client.call<SetResponse<JmapPushSubscription>>(
     "PushSubscription/set",
     { update: { [id]: { verificationCode } } },
-    [CAP.core, VAPID_CAP],
+    [CAP.core, CAP.webpushVapid],
   );
   const err = res.notUpdated?.[id];
   if (err) throw new Error(String(err.description ?? err.type));
@@ -336,7 +333,7 @@ export async function destroySubscription(id: Id): Promise<void> {
   await client.call<SetResponse<JmapPushSubscription>>(
     "PushSubscription/set",
     { destroy: [id] },
-    [CAP.core, VAPID_CAP],
+    [CAP.core, CAP.webpushVapid],
   );
 }
 

@@ -3,6 +3,7 @@ import {
   GROUP_UNREADABLE,
   type GroupNeed,
 } from "@gilbert/agent/views";
+import { CAPABILITIES } from "@gilbert/shared/capabilities";
 import { agentErrorSentence } from "@/lib/agentErrors";
 import { withBase } from "@/lib/basePath";
 import { groupAccessSentence, groupUnreadableSentence } from "@/lib/groupAccess";
@@ -15,22 +16,32 @@ import type {
   UploadResponse,
 } from "./types";
 
+/*
+ * The capabilities this client names, one entry per URN the shared tier
+ * defines (`@gilbert/shared/capabilities`): what `usingFor` puts in a
+ * request's `using`, and what `primaryAccounts`/`accountCapabilities` are
+ * keyed by. The values are references rather than spellings so that a URN
+ * exists once in the tree; the test beside this file checks the two directions
+ * — nothing shared is missing here, and nothing here is unshared.
+ */
 export const CAP = {
-  core: "urn:ietf:params:jmap:core",
-  mail: "urn:ietf:params:jmap:mail",
-  submission: "urn:ietf:params:jmap:submission",
-  vacation: "urn:ietf:params:jmap:vacationresponse",
-  sieve: "urn:ietf:params:jmap:sieve",
-  contacts: "urn:ietf:params:jmap:contacts",
-  contactsParse: "urn:ietf:params:jmap:contacts:parse",
-  calendars: "urn:ietf:params:jmap:calendars",
-  calendarsParse: "urn:ietf:params:jmap:calendars:parse",
-  principals: "urn:ietf:params:jmap:principals",
-  availability: "urn:ietf:params:jmap:principals:availability",
-  quota: "urn:ietf:params:jmap:quota",
-  blob: "urn:ietf:params:jmap:blob",
-  filenode: "urn:ietf:params:jmap:filenode",
-  websocket: "urn:ietf:params:jmap:websocket",
+  core: CAPABILITIES.core,
+  mail: CAPABILITIES.mail,
+  submission: CAPABILITIES.submission,
+  vacation: CAPABILITIES.vacation,
+  sieve: CAPABILITIES.sieve,
+  contacts: CAPABILITIES.contacts,
+  contactsParse: CAPABILITIES.contactsParse,
+  calendars: CAPABILITIES.calendars,
+  calendarsParse: CAPABILITIES.calendarsParse,
+  principals: CAPABILITIES.principals,
+  availability: CAPABILITIES.availability,
+  quota: CAPABILITIES.quota,
+  blob: CAPABILITIES.blob,
+  filenode: CAPABILITIES.filenode,
+  websocket: CAPABILITIES.websocket,
+  webpushVapid: CAPABILITIES.webpushVapid,
+  emailpush: CAPABILITIES.emailpush,
 } as const;
 
 export class JmapMethodError extends Error {
