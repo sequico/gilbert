@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { act, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { readSource, sourcePath } from "@/lib/__tests__/readSource";
 import { BRAND_LOGO_COLORWAY_CLASS, BRAND_LOGO_FILES, BrandLogo } from "../BrandLogo";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -18,13 +19,10 @@ import { BRAND_LOGO_COLORWAY_CLASS, BRAND_LOGO_FILES, BrandLogo } from "../Brand
  * renders, and the rules that show one and hide the other are checked against
  * each other here.
  *
- * `process.cwd()` rather than `import.meta.url`, as in the other tests that
- * read the tree: vitest serves modules over http, so the latter is not a file
- * URL.
+ * `readSource` for the stylesheet: it resolves against the package root, as
+ * the other tests that read the tree do, because vitest serves modules over
+ * http and a module URL is not a file URL there.
  */
-const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
-
-/** A rule whose body matches, anywhere in a stylesheet with no nesting to mind. */
 const hasRule = (css: string, selector: string, body: RegExp) =>
   new RegExp(`${selector}[^{}]*\\{[^}]*${body.source}`).test(css);
 
@@ -54,7 +52,8 @@ describe("the mark in its two colorways", () => {
   it("ships a file for every colorway of both kinds", () => {
     for (const [kind, colorways] of Object.entries(BRAND_LOGO_FILES)) {
       for (const [colorway, file] of Object.entries(colorways)) {
-        const png = readFileSync(join(process.cwd(), "public", "img", file));
+        // Binary, so read whole rather than as text: only the path is shared.
+        const png = readFileSync(sourcePath(join("public", "img", file)));
         expect(
           png.subarray(1, 4).toString("latin1"),
           `${kind} ${colorway}: ${file}`,
@@ -76,7 +75,7 @@ describe("the mark in its two colorways", () => {
   });
 
   it("swaps the pair on the theme, so the one that is shown is the legible one", () => {
-    const css = read("src/styles/app.css");
+    const css = readSource("src/styles/app.css");
     const { base, inverse } = BRAND_LOGO_COLORWAY_CLASS;
     /* The inverse is what a dark theme shows, so it is the one hidden by
        default -- and `revert` rather than a display value, because these sit in
