@@ -27,8 +27,7 @@ import {
   startOfDay,
   toLocalDateOnly,
 } from "@/lib/dates";
-import { formatWeekday } from "@/lib/datetime";
-import { formatMonthYear } from "@/lib/format";
+import { formatMonthYear, formatWeekday } from "@/lib/datetime";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { subscriptionCalendarId, useCalendar } from "@/store/calendar";

@@ -16,10 +16,12 @@ import {
   weekDays,
 } from "@/lib/dates";
 import {
+  formatClock,
   formatDate,
   formatDateLong,
   formatDayMonth,
   formatHourLabel,
+  formatMonthYear,
   formatWeekday,
   formatWeekdayDate,
 } from "@/lib/datetime";
@@ -34,7 +36,6 @@ import {
   resizePatch,
   snap,
 } from "@/lib/eventDrag";
-import { formatMonthYear, formatTime } from "@/lib/format";
 import { t as translate } from "@/lib/i18n";
 import { keyboard } from "@/lib/keyboard";
 import { useSwipeNav } from "@/lib/touch";
@@ -726,7 +727,7 @@ function EventChip({
       title={inst.event.title ?? ""}
     >
       {!spansDay && <span className="ev-dot" style={{ background: color }} />}
-      {!spansDay && <span className="ev-time">{formatTime(inst.start)}</span>}
+      {!spansDay && <span className="ev-time">{formatClock(inst.start)}</span>}
       <span className="truncate">{inst.event.title || "(untitled)"}</span>
     </div>
   );
@@ -1154,7 +1155,7 @@ function TimeGrid({
                       <div className="ev-title">{inst.event.title || "(untitled)"}</div>
                       {height > 30 && (
                         <div className="ev-time">
-                          {formatTime(inst.start)} – {formatTime(inst.end)}
+                          {formatClock(inst.start)} – {formatClock(inst.end)}
                         </div>
                       )}
                     </div>
@@ -1173,8 +1174,8 @@ function TimeGrid({
                   >
                     <div className="ev-title">{translate("(new event)")}</div>
                     <div className="ev-time">
-                      {formatTime(new Date(d.getTime() + drag.startMin * 60_000))} –{" "}
-                      {formatTime(new Date(d.getTime() + drag.endMin * 60_000))}
+                      {formatClock(new Date(d.getTime() + drag.startMin * 60_000))} –{" "}
+                      {formatClock(new Date(d.getTime() + drag.endMin * 60_000))}
                     </div>
                   </div>
                 )}
@@ -1309,7 +1310,7 @@ function AgendaView({
               >
                 <span className="ev-dot" style={{ background: colorOf(i) }} />
                 <span className="ev-when">
-                  {i.allDay ? "All day" : `${formatTime(i.start)} – ${formatTime(i.end)}`}
+                  {i.allDay ? "All day" : `${formatClock(i.start)} – ${formatClock(i.end)}`}
                 </span>
                 <span className="grow truncate">{i.event.title || "(untitled)"}</span>
                 {Object.values(i.event.locations ?? {})[0]?.name && (
