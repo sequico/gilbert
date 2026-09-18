@@ -4,7 +4,11 @@ Status: Accepted
 
 Implementation: Built. One id per publish, carried by every copy it writes, with
 the job recorded as one document in the publishing administrator's own app folder
-(`server/src/adminPolicy.ts`).
+(`server/src/adminPolicy.ts`, which reads and writes it). The shape is shared with
+the surface that shows it (`server/src/shared/publishJob.ts`), including
+`record: "failed"` for a publish whose own report could not be stored — the one
+field the browser used to describe a document without, so the answer it held was
+never shown.
 
 ## Context
 

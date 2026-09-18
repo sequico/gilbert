@@ -37,7 +37,11 @@ account data.
 Session capabilities the client expects (`server/src/mock/index.ts`): core,
 mail, submission, vacationresponse, webpush-vapid + emailpush, sieve,
 calendars (+parse), contacts (+parse), principals (+availability), quota,
-blob, filenode. The client selects the account that owns a capability via
+blob, filenode. The URNs themselves are one record
+(`server/src/shared/capabilities.ts`) that both tiers read — `CAP` in
+`web/src/jmap/client.ts` and the server's own aliases in `jmap.ts` — so a
+capability is spelled once and `urn:stalwart:jmap` sits beside the set rather
+than in it, because the client never sends it. The client selects the account that owns a capability via
 `ownAccountFor(...)` in `web/src/store/session.ts` — never assume the first
 account. Shared accounts advertise the same capabilities as personal ones
 (confirmed on 0.16.19), so capability lists reveal nothing about what is

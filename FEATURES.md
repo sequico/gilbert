@@ -462,7 +462,9 @@ state, so a copy that would replace one somebody else just wrote is refused
 (`policy-moved`) instead; a publish whose own record could not be stored says
 `record: "failed"` rather than answering a job no later read can find; and
 the editor reads the job back out of the account, so it names the last
-publish it is showing even when this process never made one.
+publish it is showing even when this process never made one — and it says
+`record: "failed"` out loud, because the next visit to the page shows nothing
+about a publish that did happen.
 - **Installation document editor**: the Installation section beside Policy
 shows the installation's own configuration — one JSON document,
 `installation.json` in the `gilbert` app folder of **the Master's own

@@ -2,8 +2,10 @@
 
 Status: Accepted
 
-Implementation: Built. The rule is one module (`web/src/lib/mailDelete.ts`) and
-its guard sits on the three effects that destroy — `destroy`, `emptyMailbox` and
+Implementation: Built. The rule is one module (`web/src/lib/mailDelete.ts`),
+which also holds the two final folders as one predicate (`FINAL_FOLDER_ROLES`,
+`isFinalFolderRole`) that `canEmpty` and the store's `emptyMailbox` guard ask,
+and its guard sits on the three effects that destroy — `destroy`, `emptyMailbox` and
 `destroyMailbox` in `web/src/store/mail.ts` — each answering a `DeleteOutcome` so
 a caller can tell a refusal from work done, the rule's own refusals and the mail
 server's told apart by their code. The surfaces read the same answer
