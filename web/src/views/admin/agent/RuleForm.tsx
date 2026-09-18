@@ -24,9 +24,9 @@ import { useState } from "react";
 import {
   type AgentActionCatalogEntry,
   readDraft,
-  readingNotCountedNote,
 } from "@/lib/agents";
 import { t } from "@/lib/i18n";
+import { AskReading } from "./AskReading";
 import {
   AGENT_REVIEW_LABELS,
   AGENT_REVIEW_MEANING_LABELS,
@@ -458,23 +458,13 @@ export function RuleForm({
           )}
         </p>
       </div>
-      <button
-        type="button"
-        className="btn btn-ghost"
-        onClick={askReading}
-        disabled={readingBusy || !group || !rule.instruction.trim()}
-      >
-        {readingBusy ? t("Reading…") : t("Ask the model to read it")}
-      </button>
-      {reading && (
-        <div className="card" style={{ marginTop: 12 }}>
-          <p className="hint" style={{ marginTop: 0 }}>
-            {t("What the model said about this draft:")}
-          </p>
-          <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{reading}</p>
-          {!readingCounted && <p className="hint">{readingNotCountedNote()}</p>}
-        </div>
-      )}
+      <AskReading
+        ready={Boolean(group) && rule.instruction.trim().length > 0}
+        busy={readingBusy}
+        reading={reading}
+        counted={readingCounted}
+        onAsk={askReading}
+      />
 
       <h3>{t("Review")}</h3>
       <div className="field">

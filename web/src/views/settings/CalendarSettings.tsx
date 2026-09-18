@@ -4,6 +4,7 @@ import { isEnforced } from "@/lib/settingsPolicy";
 import { useSettings } from "@/store/settings";
 import { promptDialog } from "@/ui/dialog";
 import { CALENDAR_COLORS, ColorSwatches, Switch } from "@/ui/misc";
+import { WeekStartField } from "./WeekStartField";
 
 export function CalendarSettings() {
   const s = useSettings((st) => st.settings);
@@ -264,19 +265,11 @@ export function CalendarSettings() {
             ))}
           </select>
         </div>
-        <div className="field">
-          <label>{t("Week starts on")}</label>
-          <select
-            disabled={isEnforced("weekStart")}
-            className="select"
-            value={String(s.weekStart)}
-            onChange={(e) => update({ weekStart: Number(e.target.value) as 0 | 1 | 6 })}
-          >
-            <option value="1">{t("Monday")}</option>
-            <option value="0">{t("Sunday")}</option>
-            <option value="6">{t("Saturday")}</option>
-          </select>
-        </div>
+        <WeekStartField
+          value={s.weekStart}
+          locked={isEnforced("weekStart")}
+          onChange={(weekStart) => update({ weekStart })}
+        />
       </div>
     </div>
   );

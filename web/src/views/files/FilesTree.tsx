@@ -19,30 +19,19 @@ import { canDropFileNodes, isShared, NODE_MIME, readDraggedIds } from "@/lib/fil
 import { folderKey, useOpenFolders } from "@/lib/folderView";
 import { t } from "@/lib/i18n";
 import { useFiles } from "@/store/files";
-import { useSession } from "@/store/session";
+import { refreshSessionShares } from "@/lib/sharedCollections";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
 import { ShareDialog } from "../settings/ShareDialog";
 
 /**
- * Re-read the session, so the shared accounts on offer are current.
- *
- * Throttled because Files is navigated to often and this is a round trip that
- * tells the reader nothing new most times it runs.
+ * The shared accounts on offer are kept current: the session is re-read
+ * (`refreshSessionShares`), and the tree is then initialised on top of it --
+ * always, because it lists whatever the session currently says.
  */
-let lastShareRefresh = 0;
 async function refreshShares(force = false): Promise<void> {
-  const now = Date.now();
-  if (!force && now - lastShareRefresh < 30_000) return;
-  lastShareRefresh = now;
-  try {
-    await useSession.getState().refresh();
-  } catch {
-    // The tree still lists whatever the last session said; a failed refresh is
-    // not worth an error over something the reader did not ask for.
-    return;
-  }
+  await refreshSessionShares(force);
   await useFiles.getState().init();
 }
 

@@ -25,6 +25,7 @@ import { isEnforced } from "@/lib/settingsPolicy";
 import { useSettings } from "@/store/settings";
 import { confirmDialog } from "@/ui/dialog";
 import { Switch } from "@/ui/misc";
+import { WeekStartField } from "./WeekStartField";
 import { toast } from "@/ui/toast";
 
 /** Illustrative instant used for the format previews: 22 Nov 2025, 18:23. */
@@ -281,19 +282,11 @@ export function GeneralSettings() {
             ))}
           </select>
         </div>
-        <div className="field">
-          <label>{t("Week starts on")}</label>
-          <select
-            disabled={isEnforced("weekStart")}
-            className="select"
-            value={String(s.weekStart)}
-            onChange={(e) => update({ weekStart: Number(e.target.value) as 0 | 1 | 6 })}
-          >
-            <option value="1">{t("Monday")}</option>
-            <option value="0">{t("Sunday")}</option>
-            <option value="6">{t("Saturday")}</option>
-          </select>
-        </div>
+        <WeekStartField
+          value={s.weekStart}
+          locked={isEnforced("weekStart")}
+          onChange={(weekStart) => update({ weekStart })}
+        />
       </div>
       <div className="field-row">
         <div className="field">
