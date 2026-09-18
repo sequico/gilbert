@@ -2289,9 +2289,20 @@ away from a signed-in screen, which is the case that matters.
   request whose `Sec-Fetch-Site` is not same-origin is refused outright.
 - **Rate limiting** on sign-in, keyed by IP *and* IP+username, with
   `Retry-After`; a separate limiter guards the endpoints that check a password.
+  An **IPv6 address is counted by its /64** — one host holds a whole prefix, so
+  a limit keyed on the full address is no limit — which is the bargain an IPv4
+  NAT already makes. The never-refunded flood ceiling is consulted **before the
+  body is read**, since it needs nothing from it.
   Client IP is taken from `X-Forwarded-*` only for peers in `TRUSTED_PROXIES`
   (loopback and the private ranges by default) — otherwise anyone could pick
   their own key for the limiter.
+- **Body limits.** Every API route that reads JSON takes at most 64 KiB, except
+  the data path (`/jmap`, `/upload`), which carries real mail and is capped and
+  streamed where it is sent on; sign-in is capped tighter still, at 16 KiB, as
+  the one endpoint that reads a body from somebody not yet signed in. A checked
+  `/jmap` body (ADR 0017) is bounded three ways: 4 MB each, four reads per
+  session at once, and 32 MB across everyone, where exceeding the shared budget
+  answers `503 busy` rather than taking the process down.
 - **Upload and timeout limits** on the proxy (`MAX_UPLOAD_BYTES`,
   `UPSTREAM_TIMEOUT`).
 

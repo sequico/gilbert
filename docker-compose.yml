@@ -9,8 +9,22 @@ services:
         BASE_PATH: ${BASE_PATH:-}
     image: gilbert:2
     restart: unless-stopped
+    # Loopback only: Gilbert expects a TLS reverse proxy in front of it. On
+    # every interface the app is reachable over plain HTTP, passwords and all,
+    # and with TRUST_PROXY any machine on a private network can set its own
+    # X-Forwarded-For. A proxy running in Docker reaches the service by name on
+    # the compose network and needs no published port at all.
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
+    # The app needs no privileges and, with IMMUTABLE set, writes nowhere: the
+    # whole of its state lives in Stalwart.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
       # The handshake: the one thing this container has to be told. Where
       # Stalwart is, and, when a deployment runs an agent here, the account it
@@ -59,6 +73,15 @@ services:
       GILBERT_AGENT_PASSWORD: ${GILBERT_AGENT_PASSWORD:-}
       GILBERT_AGENT_HEALTH_PORT: "8081"
       IMMUTABLE: "1"
+    # The same posture as the server above: nothing to write, nothing to gain
+    # and no way to gain it.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     # What the restart policy asks: is this worker serving what it claimed.
     # `restart: unless-stopped` restarts a dead process; this catches one that
     # is up and holding nothing.

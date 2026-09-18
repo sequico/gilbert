@@ -79,8 +79,9 @@ import {
   readAppFileAt,
   writeAppFileAt,
 } from "./appFolder.js";
-import { isTrustedProxy, resolveClientIp } from "./clientip.js";
+import { isTrustedProxy, rateLimitKey, resolveClientIp } from "./clientip.js";
 import { agentAddress, config } from "./config.js";
+import { safeEqual } from "./crypto.js";
 import { icsProxyHandler } from "./icsproxy.js";
 import {
   groupIdentity,
@@ -112,6 +113,7 @@ import {
 } from "./push.js";
 import { RateLimiter } from "./ratelimit.js";
 import {
+  accountKey,
   impersonationAuthorization,
   type LiveSession,
   normalizeUsername,
@@ -344,23 +346,32 @@ export function acquireEventsStreamSlot(sessionId: string): (() => void) | null 
 /*
  * What a request body may weigh before any of it is buffered.
  *
- * The login payload is a username and a password — the checks on both come
- * after the parse — and the endpoint is the one place in the app that reads a
- * body from somebody not yet signed in, so it gets the tightest cap. The
- * account JSON posts (password / app-password / 2FA operations) are equally
- * small; 64 KiB is twenty times their real size and a hard stop for the
- * multi-hundred-MB body that would otherwise sit in heap. The data path
- * (/jmap, /upload) is exempt on purpose: it carries real mail and is capped
- * and streamed where it is sent on.
+ * Hono reads a JSON body whole, so a route that takes one takes it bounded or
+ * not at all: a handful of unauthenticated sign-in attempts carrying hundreds
+ * of megabytes each would otherwise run the process out of memory, and a
+ * restart signs everybody out. What these routes receive is a username and a
+ * password, a code, or a couple of settings — 64 KiB is twenty times the
+ * largest of them and a hard stop for the body that would otherwise sit in
+ * heap.
+ *
+ * The data path (`/jmap`, `/upload`) is exempt on purpose: it carries real
+ * mail and is capped and streamed where it is sent on, and the push callback
+ * has its own limit ahead of this one. Sign-in is capped tighter still,
+ * because it is the one endpoint that reads a body from somebody not yet
+ * signed in — the checks on both fields come after the parse.
  */
+const MAX_SMALL_BODY = 64 * 1024;
+const DATA_PATH = /\/api\/(jmap$|upload\/)/;
+const limitSmallBody = bodyLimit({
+  maxSize: MAX_SMALL_BODY,
+  onError: (c) => c.json({ error: "too_large" }, 413),
+});
 const loginBody = bodyLimit({
   maxSize: 16 * 1024,
   onError: (c) => c.json({ error: "too_large" }, 413),
 });
-const accountBody = bodyLimit({
-  maxSize: 64 * 1024,
-  onError: (c) => c.json({ error: "too_large" }, 413),
-});
+const smallBodies: MiddlewareHandler<Env> = (c, next) =>
+  DATA_PATH.test(c.req.path) ? next() : limitSmallBody(c, next);
 
 /** Per-session budget on the data path. See config.apiRateLimit. */
 const apiRateLimited: MiddlewareHandler<Env> = async (c, next) => {
@@ -840,8 +851,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
   const api = new Hono<Env>();
   api.use("*", csrfGuard);
-  api.use("/account/*", accountBody);
-  api.use("/admin/*", accountBody);
+  api.use("*", smallBodies);
 
   /*
    * The forced-password-change door (ADR 0001).
@@ -970,6 +980,19 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   // ---------- Auth ----------
   api.post("/auth/login", loginBody, async (c) => {
     const ip = clientIp(c);
+    // What the limits count under: the address, or its /64 for IPv6.
+    const rateIp = rateLimitKey(ip);
+    // The flood ceiling needs nothing from the body, so it goes before one is read.
+    if (!loginFloodLimiter().check(rateIp)) {
+      c.header("Retry-After", String(loginFloodLimiter().retryAfterSeconds(rateIp)));
+      return c.json(
+        {
+          error: "rate_limited",
+          message: "Too many login attempts. Please wait and try again.",
+        },
+        429,
+      );
+    }
     let body: { username?: string; password?: string; totp?: string; remember?: boolean };
     try {
       body = await c.req.json();
@@ -986,28 +1009,19 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     /*
      * Three checks, answering different questions.
      *
-     * `limitKey` is this username from this address, and `ip` is any username
-     * from it -- both guard guessing, and both are given back when the upstream
-     * never got as far as judging the password. Refunding only the first would
-     * not fix #239: ten retries through an outage would still spend the address
-     * budget, and behind one office NAT that budget belongs to the whole
-     * building.
+     * `limitKey` is this username from this address, and `rateIp` is any
+     * username from it -- both guard guessing, and both are given back when the
+     * upstream never got as far as judging the password. Refunding only the
+     * first would not fix #239: ten retries through an outage would still spend
+     * the address budget, and behind one office NAT that budget belongs to the
+     * whole building.
      *
      * The flood ceiling is the one that is never refunded, and it is the reason
-     * the other two safely can be.
+     * the other two safely can be. It has already been answered above, before
+     * the body was read.
      */
-    const limitKey = `${ip}|${username.toLowerCase()}`;
-    if (!loginFloodLimiter().check(ip)) {
-      c.header("Retry-After", String(loginFloodLimiter().retryAfterSeconds(ip)));
-      return c.json(
-        {
-          error: "rate_limited",
-          message: "Too many login attempts. Please wait and try again.",
-        },
-        429,
-      );
-    }
-    if (!loginLimiter().check(limitKey) || !loginLimiter().check(ip)) {
+    const limitKey = `${rateIp}|${username.toLowerCase()}`;
+    if (!loginLimiter().check(limitKey) || !loginLimiter().check(rateIp)) {
       c.header("Retry-After", String(loginLimiter().retryAfterSeconds(limitKey)));
       return c.json(
         {
@@ -1031,7 +1045,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         // The credentials were accepted; only the server is too old. Not an
         // attempt worth counting against them.
         loginLimiter().refund(limitKey);
-        loginLimiter().refund(ip);
+        loginLimiter().refund(rateIp);
         return c.json(
           {
             error: "unsupported_server",
@@ -1044,6 +1058,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       loginLimiter().reset(limitKey);
       const { cookie, session } = sessions.create({
         username,
+        account: accountKey(upstreamFor(username), upstream.username || username),
         password: effectivePassword,
         remember: Boolean(body.remember),
         userAgent: c.req.header("user-agent") ?? "",
@@ -1108,7 +1123,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
        */
       if (!(err instanceof UpstreamError && err.status === 401)) {
         loginLimiter().refund(limitKey);
-        loginLimiter().refund(ip);
+        loginLimiter().refund(rateIp);
       }
       return upstreamFailure(c, err);
     }
@@ -1163,13 +1178,13 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const session = c.get("session");
     return c.json({
       current: session.id,
-      sessions: sessions.listForUser(session.username),
+      sessions: sessions.listForUser(session.account),
     });
   });
 
   api.post("/auth/sessions/revoke-others", requireSession, (c) => {
     const session = c.get("session");
-    const n = sessions.destroyAllForUser(session.username, session.id);
+    const n = sessions.destroyAllForUser(session.account, session.id);
     return c.json({ revoked: n });
   });
 
@@ -1197,8 +1212,8 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   };
 
   /** Guard the endpoints that check a password against brute-forcing. */
-  const guarded = (c: Context<Env>): Response | null => {
-    const key = `account|${c.get("session").username.toLowerCase()}`;
+  const guarded = (c: Context<Env>, scope = "account"): Response | null => {
+    const key = `${scope}|${c.get("session").username.toLowerCase()}`;
     if (accountLimiter.check(key)) return null;
     c.header("Retry-After", String(accountLimiter.retryAfterSeconds(key)));
     return c.json(
@@ -1253,7 +1268,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       otpCode ? `${next}$${otpCode}` : next,
     );
     forgetUpstreamSession(session.id);
-    const revoked = sessions.destroyAllForUser(session.username, session.id);
+    const revoked = sessions.destroyAllForUser(session.account, session.id);
     // Was this user forced? The answer must be judged after the change, with
     // the freshly resealed credential: the door cache may still hold the
     // pre-force answer, and the old credential is dead the moment the change
@@ -1306,7 +1321,11 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     // do silently in one call: it is guarded against brute-forcing like every
     // other credential-mutating endpoint here, and it re-asks the account's
     // own password first, the same way disabling 2FA does.
-    const limited = guarded(c);
+    //
+    // A budget of its own, because this check is answered without Stalwart
+    // (see `confirmsPassword`): the shared one would let a wrong guess here
+    // spend the attempts the password change and the 2FA switch need.
+    const limited = guarded(c, "app-password");
     if (limited) return limited;
     const session = c.get("session");
     const body = await readJson<{ description?: string; current?: string }>(c);
@@ -1323,23 +1342,19 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         { error: "missing_fields", message: "Enter your current password." },
         400,
       );
+    // `x:AppPassword/set` carries no `currentSecret` field to delegate this
+    // check to (unlike `x:AccountPassword/set`), so it is verified here.
+    let confirmed: boolean;
     try {
-      // `x:AppPassword/set` carries no `currentSecret` field to delegate this
-      // check to (unlike `x:AccountPassword/set`), so it is verified the same
-      // way a sign-in is: a fresh session request with the password the caller
-      // just submitted.
-      await fetchUpstreamSession(
-        `Basic ${Buffer.from(`${session.username}:${current}`, "utf8").toString("base64")}`,
-        upstreamFor(session.username),
-      );
+      confirmed = await confirmsPassword(session, current);
     } catch (err) {
-      if (err instanceof UpstreamError && err.status === 401)
-        return c.json(
-          { error: "wrong_password", message: "That password is not correct." },
-          401,
-        );
       return accountFailure(c, err);
     }
+    if (!confirmed)
+      return c.json(
+        { error: "wrong_password", message: "That password is not correct." },
+        401,
+      );
     try {
       return c.json(await createAppPassword(await accountCtx(c), { description }));
     } catch (err) {
@@ -1420,7 +1435,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       if (sessionKept) forgetUpstreamSession(session.id);
     }
     // Other sessions still hold the bare password and will be refused.
-    const revoked = sessions.destroyAllForUser(session.username, session.id);
+    const revoked = sessions.destroyAllForUser(session.account, session.id);
     return c.json({ ok: true, sessionKept, revokedSessions: revoked });
   });
 
@@ -2855,16 +2870,35 @@ export function createApp(basePath = config.basePath): Hono<Env> {
      */
     let body: ReadableStream<Uint8Array> | string | null = c.req.raw.body;
     if (!adminAllows(session)) {
+      /*
+       * Bounded three ways, because a body that is read is a body held: at most
+       * this many checked reads per session at once, at most
+       * `MAX_GATED_REQUEST` each, and at most `GATED_BUDGET` across everyone.
+       * The third is what makes a burst cheap to refuse -- a 503 says try
+       * again, where letting it through costs the process.
+       */
+      const held = gatedReads.get(session.id) ?? 0;
+      if (held >= MAX_GATED_PER_SESSION) {
+        c.header("Retry-After", "1");
+        return c.json({ error: "rate_limited" }, 429);
+      }
+      gatedReads.set(session.id, held + 1);
       let raw: string;
       try {
+        if (Number(c.req.header("content-length") ?? "0") > MAX_GATED_REQUEST)
+          return c.json({ error: "too_large" }, 413);
         // Counted as it arrives: a chunked body carries no length to refuse up front.
-        raw = c.req.raw.body
-          ? await new Response(
-              c.req.raw.body.pipeThrough(byteCap(MAX_GATED_REQUEST)),
-            ).text()
-          : "";
-      } catch {
+        raw = c.req.raw.body ? await readGated(c.req.raw.body) : "";
+      } catch (err) {
+        if (err instanceof GatedBudgetError) {
+          c.header("Retry-After", "1");
+          return c.json({ error: "busy" }, 503);
+        }
         return c.json({ error: "too_large" }, 413);
+      } finally {
+        const left = (gatedReads.get(session.id) ?? 1) - 1;
+        if (left > 0) gatedReads.set(session.id, left);
+        else gatedReads.delete(session.id);
       }
       const gate = gateAdministration(raw);
       if (!gate.ok) {
@@ -2977,7 +3011,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       const safeInline = inline && isInlineSafe(type);
       headers.set(
         "Content-Disposition",
-        `${safeInline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(name)}`,
+        `${safeInline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(withoutBidiControls(name))}`,
       );
       headers.set("X-Content-Type-Options", "nosniff");
       // Sandbox everything except the browser's built-in PDF viewer (which needs scripts to render).
@@ -2999,7 +3033,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:",
         );
       }
-      headers.set("Cache-Control", "private, max-age=3600");
+      // Kept out of the browser's disk cache on a device that is not the
+      // person's own: signing out wipes what the app stores, not that.
+      headers.set(
+        "Cache-Control",
+        session.remember ? "private, max-age=3600" : "no-store",
+      );
       return new Response(res.body, { status: 200, headers });
     } catch (err) {
       return upstreamFailure(c, err);
@@ -3086,9 +3125,52 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 
 /**
  * The largest JMAP request read into memory for the administration check.
- * Stalwart's own default `maxSizeRequest` is 10 MB; uploads never come this way.
+ *
+ * Only sessions that may not administer come this way, and what the client
+ * sends is small: attachments and pasted images go through `/upload`, and the
+ * composer turns inline images into uploads before a draft is saved. Stalwart
+ * would take up to its own `maxSizeRequest` (10 MB by default), but a request
+ * is held here as a string, parsed and serialized again, so each one costs
+ * several times its size; 4 MB is far past anything the client sends.
  */
-const MAX_GATED_REQUEST = 16 * 1024 * 1024;
+const MAX_GATED_REQUEST = 4 * 1024 * 1024;
+/**
+ * How many checked requests one session may have in flight at once. Matches the
+ * `maxConcurrentRequests` Stalwart advertises by default, which the client
+ * already stays within.
+ */
+const MAX_GATED_PER_SESSION = 4;
+/**
+ * The bytes all checked requests together may hold at once. Counted as they
+ * arrive rather than reserved up front, so a slow body that has sent little
+ * holds little, and a burst of large ones is turned away with a 503 instead of
+ * taking the process down.
+ */
+const GATED_BUDGET = 32 * 1024 * 1024;
+const gatedReads = new Map<string, number>();
+let gatedBytes = 0;
+
+class GatedBudgetError extends Error {}
+
+/** Read a checked request body, counting it against the two budgets as it arrives. */
+async function readGated(stream: ReadableStream<Uint8Array>): Promise<string> {
+  let mine = 0;
+  const counted = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      mine += chunk.byteLength;
+      gatedBytes += chunk.byteLength;
+      if (mine > MAX_GATED_REQUEST) controller.error(new Error("request too large"));
+      else if (gatedBytes > GATED_BUDGET)
+        controller.error(new GatedBudgetError("gated read budget spent"));
+      else controller.enqueue(chunk);
+    },
+  });
+  try {
+    return await new Response(stream.pipeThrough(counted)).text();
+  } finally {
+    gatedBytes -= mine;
+  }
+}
 
 /**
  * Why an administrative route is unavailable, as one refusal (ADR 0017). The
@@ -3139,6 +3221,53 @@ async function readJson<T>(c: Context): Promise<T | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Is `candidate` the password of the account this session is signed in to?
+ *
+ * Compared with the credential the session holds first, which costs nothing
+ * and tells Stalwart nothing: its auto-ban counts failures against the proxy's
+ * address, which every user of this installation shares, and fail2ban reads
+ * the same log. That credential is the password, with a TOTP code after a `$`
+ * when one was given at sign-in. A session that turning on 2FA moved onto an
+ * app password (Stalwart's secrets start `$app$`) holds something else, and
+ * only then is the candidate put to the server -- where an answer that is not
+ * a refusal is a failed installation rather than a wrong password, and is
+ * thrown rather than reported as one (`accountFailure` answers it).
+ */
+async function confirmsPassword(
+  session: LiveSession,
+  candidate: string,
+): Promise<boolean> {
+  const raw = session.authorization.startsWith("Basic ")
+    ? session.authorization.slice("Basic ".length)
+    : "";
+  const decoded = Buffer.from(raw, "base64").toString("utf8");
+  const sep = decoded.indexOf(":");
+  const held = sep < 0 ? "" : decoded.slice(sep + 1);
+  if (safeEqual(held, candidate)) return true;
+  const withoutCode = held.replace(/\$\d{6,8}$/, "");
+  if (withoutCode !== held && safeEqual(withoutCode, candidate)) return true;
+  // Holding the password, the comparison above is the answer, and a wrong
+  // guess never reaches the server's auto-ban.
+  if (!held.startsWith("$app$")) return false;
+  try {
+    const authorization = `Basic ${Buffer.from(`${session.username}:${candidate}`, "utf8").toString("base64")}`;
+    await fetchUpstreamSession(authorization, upstreamFor(session.username));
+    return true;
+  } catch (err) {
+    if (err instanceof UpstreamError && err.status === 401) return false;
+    throw err;
+  }
+}
+
+/**
+ * Direction overrides and isolates, which can make `Invoice_\u202Efdp.exe`
+ * read as a PDF in the downloads list. A filename has no honest use for them.
+ */
+function withoutBidiControls(name: string): string {
+  return name.replace(/[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, "");
 }
 
 /** Name the app password after the browser it will live in. */
