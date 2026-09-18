@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { catalogFiles, sourceFiles } from "./lib/i18nSources.mjs";
 /*
  * User-visible English the extraction pass cannot see.
  *
@@ -31,6 +30,7 @@ import { catalogFiles, sourceFiles } from "./lib/i18nSources.mjs";
  * loud rather than silent.
  */
 import ts from "typescript";
+import { catalogFiles, sourceFiles } from "./lib/i18nSources.mjs";
 
 /* Where a string literal in this position is shown to somebody. */
 const UI_PROPS = new Set([

@@ -77,7 +77,7 @@ export interface AdminDirectoryUser {
 export interface AdminUserDirectory {
   users: AdminDirectoryUser[];
   enumeration: boolean;
-  enumerationMessage?: string | null;
+  enumerationMessage: string | null;
   impersonation: Impersonation;
 }
 
@@ -91,7 +91,7 @@ export interface AdminDirectoryGroup {
 export interface AdminGroupDirectory {
   groups: AdminDirectoryGroup[];
   enumeration: boolean;
-  enumerationMessage?: string | null;
+  enumerationMessage: string | null;
 }
 
 /** A person's identities, and whether the installation has taken the account over. */

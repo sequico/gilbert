@@ -40,8 +40,8 @@ import {
   saveAgentProviders,
   saveAgentRules,
 } from "@/lib/agents";
-import { useSession } from "@/store/session";
 import { debouncedReload } from "@/lib/fileNodeReload";
+import { useSession } from "@/store/session";
 
 /**
  * The key a group's agent view is held under.

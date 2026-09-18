@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/jmap/client";
+import { t } from "@/lib/i18n";
 import {
   type AdminDirectoryUser,
   fetchAdminUserDirectory,
   type Impersonation,
 } from "@/lib/identities";
-import { t } from "@/lib/i18n";
 import { DirectoryLoadError, DirectoryNotListed } from "./directory";
 
 /**

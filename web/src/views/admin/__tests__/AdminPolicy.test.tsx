@@ -53,13 +53,17 @@ describe("the policy publish notice", () => {
   function answerWith(published: Record<string, unknown>) {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (_url: string, init?: RequestInit) =>
-        ({
-          ok: true,
-          status: 200,
-          statusText: "",
-          json: async () => (init?.method === "POST" ? { job: published } : { policy: POLICY, job: null }),
-        }) as Response,
+      vi.fn(
+        async (_url: string, init?: RequestInit) =>
+          ({
+            ok: true,
+            status: 200,
+            statusText: "",
+            json: async () =>
+              init?.method === "POST"
+                ? { job: published }
+                : { policy: POLICY, job: null },
+          }) as Response,
       ),
     );
   }
@@ -113,7 +117,9 @@ describe("the policy publish notice", () => {
     // The publish reached every account; only its own record could not be
     // written. The reader has to be told, because the next visit to this page
     // shows nothing about a publish that happened.
-    answerWith(job({ record: "failed", recordMessage: "Files account refused the write" }));
+    answerWith(
+      job({ record: "failed", recordMessage: "Files account refused the write" }),
+    );
     await render();
     await type(`${POLICY}\n`);
     await publish();

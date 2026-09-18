@@ -25,11 +25,11 @@ import {
   browserTimeZone,
   DAY_MS,
   dateToZonedLocal,
+  formatDuration,
   parseDuration,
   toLocalDateTime,
   toUTCDate,
   zonedToDate,
-  formatDuration,
 } from "@/lib/dates";
 import { shiftStoredStart } from "@/lib/eventDrag";
 import { t } from "@/lib/i18n";

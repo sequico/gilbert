@@ -29,8 +29,6 @@ import {
 import {
   EMPTY_POLICY,
   type PolicyDocument,
-  type PublishJob,
-  type PublishUnreached,
   parsePolicyDocumentDetailed,
   policyDocumentText,
   readAccountPolicy,
@@ -123,6 +121,7 @@ import {
   type SessionTtls,
 } from "./sessions.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
+import type { PublishJob, PublishUnreached } from "./shared/publishJob.js";
 import { staticHandler } from "./static.js";
 import {
   type AccountInfo,

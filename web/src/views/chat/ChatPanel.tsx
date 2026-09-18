@@ -14,11 +14,11 @@ import type { Id } from "@/jmap/types";
 import {
   type ChatMention,
   type ChatMessage,
+  localPart,
   MAX_TEXT,
   mentionablesOf,
   mentionRegex,
   participantsOf,
-  localPart,
 } from "@/lib/chat";
 import { COMMON_EMOJI, emojiAsset } from "@/lib/emoji";
 import { formatListDate } from "@/lib/format";

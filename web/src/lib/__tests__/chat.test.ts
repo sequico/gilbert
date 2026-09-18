@@ -3,13 +3,13 @@ import {
   compareMessages,
   isChatMarkerDoc,
   isChatMessageDoc,
+  localPart,
   markerNameFor,
   mentionablesOf,
   mentionRegex,
   mentionsFromText,
   messageDoc,
   participantsOf,
-  localPart,
   unreadCount,
 } from "@/lib/chat";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";

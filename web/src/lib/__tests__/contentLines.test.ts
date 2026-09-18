@@ -72,6 +72,14 @@ describe("unfoldLines", () => {
     expect(unfoldLines(" oops")).toEqual([" oops"]);
   });
 
+  it("takes a tab as a continuation too, which LDIF exporters do emit", () => {
+    // Wider than RFC 2849 (a single space) on purpose: the line is not legal
+    // LDIF, and a real exporter means it as continued content — see `ldif.ts`.
+    // One character comes off, marker or not, so the tab does not survive in
+    // the value — the same rule that takes the single space off a space fold.
+    expect(unfoldLines("cn: X\r\n\tphoto: junk\r\n")).toEqual(["cn: Xphoto: junk", ""]);
+  });
+
   it("does not continue onto a blank line, which LDIF separates records with", () => {
     // Joining here would swallow the separator and merge two entries.
     expect(unfoldLines("dn: a\r\n\r\n b\r\n")).toEqual(["dn: a", "", " b", ""]);

@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { componentFiles } from "./lib/i18nSources.mjs";
 /*
  * How much of the interface is extracted, and what is left.
  *
@@ -24,6 +23,7 @@ import { componentFiles } from "./lib/i18nSources.mjs";
  * loud rather than silent.
  */
 import ts from "typescript";
+import { componentFiles } from "./lib/i18nSources.mjs";
 
 /** Attributes a person reads. `className` and `key` are not among them. */
 const ATTRS = new Set([

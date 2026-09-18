@@ -47,6 +47,7 @@
  */
 
 import { basic } from "./lib/probeKit.mjs";
+
 const CAP = "urn:ietf:params:jmap:core";
 
 const args = process.argv.slice(2);

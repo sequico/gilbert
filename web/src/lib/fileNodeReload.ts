@@ -20,7 +20,13 @@
  * the shape.
  */
 
-/** How long a burst of events for one key is coalesced before the read. */
+/**
+ * How long a burst of push events is coalesced before the read.
+ *
+ * The window both shapes share: the per-key re-read below, and the app-wide
+ * `StateChange` batch in `web/src/App.tsx`, which collects whole bursts and
+ * fires from the first event. Moving this number moves both.
+ */
 export const RELOAD_DEBOUNCE_MS = 400;
 
 export interface DebouncedReload {

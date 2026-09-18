@@ -24,15 +24,12 @@ export function identityLabel(identity: Identity): string {
 export function IdentityCard({
   identity,
   onEdit,
-  disabled,
   head,
   trailing,
 }: {
   identity: Identity;
   /** Open this identity's form. */
   onEdit: () => void;
-  /** True while a write is in flight: the surface's own buttons go dead. */
-  disabled?: boolean;
   /** This surface's buttons, between the name and Edit. */
   head?: ReactNode;
   /** And the ones it wants last, where a destructive button belongs. */
@@ -45,7 +42,6 @@ export function IdentityCard({
         {head}
         <button
           className="btn btn-sm btn-ghost"
-          disabled={disabled}
           onClick={(e) => {
             e.stopPropagation();
             onEdit();

@@ -4,16 +4,15 @@ import { isRecord } from "./shared/json.js";
 import {
   PUBLISH_JOB_FILE,
   type PublishJob,
-  type PublishRefusal,
   type PublishUnreached,
 } from "./shared/publishJob.js";
 
 /*
- * Re-exported, so the modules that read a job through the reader that
- * lives here (`app.ts`, the policy tests) keep naming it here.
+ * The document's name is re-exported, so a module that reads a job through the
+ * reader that lives here names the file here. The job's *shape* is not: it is
+ * `shared/publishJob.ts`, and `app.ts` imports it from there.
  */
 export { PUBLISH_JOB_FILE };
-export type { PublishJob, PublishRefusal, PublishUnreached };
 
 /**
  * The installation-wide settings policy, as the administration surface edits

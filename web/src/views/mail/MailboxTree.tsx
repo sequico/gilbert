@@ -42,11 +42,11 @@ import { canDropFolder, folderColor, movable } from "@/lib/folderMove";
 import { folderKey, useOpenFolders } from "@/lib/folderView";
 import { t } from "@/lib/i18n";
 import { countOf, STARRED_KEYWORD } from "@/lib/keywordCounts";
-import { EMAILS_MIME, FOLDER_MIME } from "@/lib/mime";
 import { labelTree, visibleLabels } from "@/lib/labelTree";
 import { isGroupMailboxAccount } from "@/lib/mailAccounts";
 import { mailboxDisplayName } from "@/lib/mailboxName";
 import { folderDestroyTakesMail } from "@/lib/mailDelete";
+import { EMAILS_MIME, FOLDER_MIME } from "@/lib/mime";
 import { haptic, useTouchRow } from "@/lib/touch";
 import { useMayDestroy } from "@/lib/useMayDestroy";
 import { useMail } from "@/store/mail";
@@ -726,12 +726,7 @@ function FolderRow({
   const onDragOver = (e: DragEvent) => {
     if (readOnly) return;
     const folder = e.dataTransfer.types.includes(FOLDER_MIME);
-    if (
-      folder
-        ? !acceptsFolder
-        : !e.dataTransfer.types.includes(EMAILS_MIME)
-    )
-      return;
+    if (folder ? !acceptsFolder : !e.dataTransfer.types.includes(EMAILS_MIME)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     if (!dropping) setDropping(true);

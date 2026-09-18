@@ -18,13 +18,9 @@
  * tab was a second answer to the same question.
  */
 import { useEffect, useState } from "react";
-import {
-  fetchGroupInstruction,
-  readDraft,
-  saveGroupInstruction,
-} from "@/lib/agents";
-import { AskReading } from "./AskReading";
+import { fetchGroupInstruction, readDraft, saveGroupInstruction } from "@/lib/agents";
 import { t } from "@/lib/i18n";
+import { AskReading } from "./AskReading";
 
 export function GroupInstruction({ group }: { group: string }) {
   const [text, setText] = useState("");

@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { sourceFiles } from "./lib/i18nSources.mjs";
 /*
  * Every source string a catalogue needs, straight out of the calls.
  *
@@ -22,6 +21,7 @@ import { sourceFiles } from "./lib/i18nSources.mjs";
  * loud rather than silent.
  */
 import ts from "typescript";
+import { sourceFiles } from "./lib/i18nSources.mjs";
 
 const strings = new Set();
 const plurals = new Set();

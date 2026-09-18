@@ -35,9 +35,13 @@ function octetLength(text: string): number {
  * Break one content line the way the formats require, or leave it alone.
  *
  * The first line may carry `FOLD_LIMIT` octets and each continuation one less,
- * because the leading space is part of the line it belongs to. The break is
- * placed at a character boundary: `for…of` walks code points, so a surrogate
- * pair or an accented letter is never cut in half by the count.
+ * because the leading space is part of the line it belongs to — so a long ASCII
+ * line also re-folds into different chunks than a copy that gave the first line
+ * 74 would. The break falls on a **code point** boundary: `for…of` walks code
+ * points, so a surrogate pair or an accented letter is never cut in half by the
+ * count. A combining mark is a code point of its own, so a decomposed `e` and
+ * U+0301 can still be split across a fold; both RFCs forbid splitting a
+ * multi-octet *character*, and nothing more.
  */
 export function foldLine(line: string): string {
   if (octetLength(line) <= FOLD_LIMIT) return line;

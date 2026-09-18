@@ -1310,7 +1310,9 @@ function AgendaView({
               >
                 <span className="ev-dot" style={{ background: colorOf(i) }} />
                 <span className="ev-when">
-                  {i.allDay ? "All day" : `${formatClock(i.start)} – ${formatClock(i.end)}`}
+                  {i.allDay
+                    ? "All day"
+                    : `${formatClock(i.start)} – ${formatClock(i.end)}`}
                 </span>
                 <span className="grow truncate">{i.event.title || "(untitled)"}</span>
                 {Object.values(i.event.locations ?? {})[0]?.name && (

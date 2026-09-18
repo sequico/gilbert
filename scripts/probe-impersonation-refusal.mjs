@@ -90,25 +90,6 @@ const absent =
  */
 const composite = (address) => basic(`${address}%${master}`, password);
 
-const answers = [];
-const notes = [];
-
-/** Record one question's answer and whether the code depends on it. */
-function record(question, answer, assumed) {
-  const wanted = Array.isArray(assumed) ? assumed : [assumed];
-  answers.push({
-    question,
-    answer,
-    assumed: wanted.join(" | "),
-    ok: wanted.includes(answer),
-  });
-}
-
-/** Something the code survives either way, or that settles none of it. Read. */
-function note(question, answer) {
-  notes.push({ question, answer });
-}
-
 /**
  * One session call, classified the way `fetchUpstreamSession` classifies it:
  * 200 with an `apiUrl` is a session (the code refuses one without), 401/403 is
@@ -170,10 +151,10 @@ const run = async () => {
   if (classify(own) !== "opened a session") {
     note("why nothing else was asked", `the session call answered: ${own.detail}`);
     return report({
-    where:
-      "in the owed note in the `gilbert-stalwart` skill and beside `impersonateAs` in\n" +
-      "server/src/agentAdmin.ts",
-  });
+      where:
+        "in the owed note in the `gilbert-stalwart` skill and beside `impersonateAs` in\n" +
+        "server/src/agentAdmin.ts",
+    });
   }
 
   // 2. The refusal the code depends on.

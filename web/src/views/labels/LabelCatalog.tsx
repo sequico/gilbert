@@ -55,7 +55,9 @@ export function LabelRow({
 }: LabelRowProps) {
   const rename = (name: string) =>
     onChange(
-      labels.map((x) => (x.keyword === label.keyword ? { ...x, name: name || x.name } : x)),
+      labels.map((x) =>
+        x.keyword === label.keyword ? { ...x, name: name || x.name } : x,
+      ),
     );
 
   return (

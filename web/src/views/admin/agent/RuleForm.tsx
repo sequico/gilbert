@@ -21,17 +21,14 @@ import {
 import { isRecord } from "@gilbert/shared/json";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import {
-  type AgentActionCatalogEntry,
-  readDraft,
-} from "@/lib/agents";
+import { type AgentActionCatalogEntry, readDraft } from "@/lib/agents";
 import { t } from "@/lib/i18n";
-import { AskReading } from "./AskReading";
 import {
   AGENT_REVIEW_LABELS,
   AGENT_REVIEW_MEANING_LABELS,
   AGENT_TRIGGER_LABELS,
 } from "@/views/agent/agentText";
+import { AskReading } from "./AskReading";
 
 /** The filter keys whose value is a number, and must be written as one. */
 const AGENT_FILTER_NUMBERS = new Set(["minSize", "maxSize"]);

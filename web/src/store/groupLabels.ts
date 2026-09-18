@@ -1,13 +1,13 @@
 import { isRecord } from "@gilbert/shared/json";
 import { GROUP_LABELS_FILE, isLabelCatalogEntry } from "@gilbert/shared/labels";
-import { debouncedReload } from "@/lib/fileNodeReload";
-import { JSON_MIME } from "@/lib/mime";
 import { create } from "zustand";
 import { client } from "@/jmap/client";
 import { push } from "@/jmap/push";
 import type { Id } from "@/jmap/types";
 import { ensureFolder, findInFolder } from "@/lib/appFolder";
+import { debouncedReload } from "@/lib/fileNodeReload";
 import { isGroupMailboxAccount } from "@/lib/mailAccounts";
+import { JSON_MIME } from "@/lib/mime";
 import type { Label } from "@/store/settings";
 import { useMail } from "./mail";
 

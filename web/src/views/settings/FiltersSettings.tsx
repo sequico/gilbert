@@ -4,7 +4,6 @@ import {
   ArrowUp,
   Code,
   GripVertical,
-  Play,
   Plus,
   Power,
   Trash2,
@@ -13,6 +12,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import type { SieveScript } from "@/jmap/types";
 import { t, tNode } from "@/lib/i18n";
+import { SIEVE_RULE_MIME } from "@/lib/mime";
 import {
   describeRule,
   newRule,
@@ -21,14 +21,13 @@ import {
   type SieveRule,
   upsertRule,
 } from "@/lib/sieve";
-import { SIEVE_RULE_MIME } from "@/lib/mime";
 import { confirmLeaveUnsaved, useUnsavedChanges } from "@/lib/unsavedChanges";
 import { useMail } from "@/store/mail";
 import { useSieve } from "@/store/sieve";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { Spinner, Switch } from "@/ui/misc";
-import { SieveScriptPanel } from "@/views/sieve/SieveScriptPanel";
 import { toast } from "@/ui/toast";
+import { SieveScriptPanel } from "@/views/sieve/SieveScriptPanel";
 import { saveAndApply } from "../mail/FilterFromMessage";
 import { RuleDialog } from "./RuleDialog";
 
@@ -263,7 +262,10 @@ function RulesEditor() {
           }}
           onDragEnd={endDrag}
           onDragOver={(e) => {
-            if (!e.dataTransfer.types.includes(SIEVE_RULE_MIME) || dragging.current === r.id)
+            if (
+              !e.dataTransfer.types.includes(SIEVE_RULE_MIME) ||
+              dragging.current === r.id
+            )
               return;
             e.preventDefault();
             e.dataTransfer.dropEffect = "move";

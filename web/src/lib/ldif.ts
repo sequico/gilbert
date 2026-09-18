@@ -9,6 +9,13 @@
 
 import { unfoldLines } from "./contentLines";
 
+/*
+ * The reader takes a tab as a continuation marker as well as a space, which is
+ * wider than RFC 2849 (a single space). A tab-led line is not legal LDIF: a real
+ * exporter means it as continued content, and joining it keeps the value
+ * readable where ignoring it would drop a fragment of somebody's address.
+ */
+
 /** One entry: its distinguished name, and its attributes in file order. */
 export interface LdifRecord {
   dn: string;
@@ -21,7 +28,6 @@ export interface LdifRecord {
    */
   attrs: Record<string, string[]>;
 }
-
 
 /**
  * `::` means the value is base64, which is how a non-ASCII name or one with

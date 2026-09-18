@@ -8,8 +8,8 @@
  * and reports rights as a single `mayWrite` rather than the four separate ones.
  */
 import type { FileNode, Id } from "@/jmap/types";
-import { NODE_MIME } from "./mime";
 import { descendantIds } from "./folderMove";
+import { NODE_MIME } from "./mime";
 
 /** Properties to request for a node. */
 export function fileNodeProps(): string[] {

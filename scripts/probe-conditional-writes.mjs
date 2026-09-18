@@ -216,8 +216,7 @@ const run = async () => {
   }
 
   return report({
-    where:
-      'in ADR 0003 resolution 19 and in the mock\'s note beside `checkIfInState`',
+    where: "in ADR 0003 resolution 19 and in the mock's note beside `checkIfInState`",
   });
 };
 

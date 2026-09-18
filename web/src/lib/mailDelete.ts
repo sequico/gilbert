@@ -164,7 +164,10 @@ export function finalFoldersOf(
   const found: FinalFolders = { trash: null, junk: null };
   for (const [id, box] of Object.entries(mailboxes ?? {})) {
     const role = box?.role;
-    if (isFinalFolderRole(role)) found[role] = id;
+    // The first mailbox carrying a role is the folder: an account that somehow
+    // holds two of one role answers with the one it lists first, so the answer
+    // cannot depend on which of the two the iteration reaches last.
+    if (isFinalFolderRole(role) && found[role] === null) found[role] = id;
   }
   return found;
 }

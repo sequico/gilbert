@@ -83,26 +83,6 @@ const STALWART = "urn:stalwart:jmap";
 const TIMEOUT = 30_000;
 const SESSION_URL = process.env.GILBERT_PROBE_SESSION_URL || `${base}/.well-known/jmap`;
 
-
-const answers = [];
-const notes = [];
-
-/** Record one question's answer and whether it is one the code depends on. */
-function record(question, answer, assumed) {
-  const wanted = Array.isArray(assumed) ? assumed : [assumed];
-  answers.push({
-    question,
-    answer,
-    assumed: wanted.join(" | "),
-    ok: wanted.includes(answer),
-  });
-}
-
-/** Something the code survives either way, or that settles none of it. Read. */
-function note(question, answer) {
-  notes.push({ question, answer });
-}
-
 async function session(authorization) {
   const res = await fetch(SESSION_URL, {
     headers: { authorization, accept: "application/json" },
@@ -323,7 +303,6 @@ async function run() {
       "in the membership note in the `gilbert-stalwart` skill and in server/src/agentAdmin.ts",
   });
 }
-
 
 run()
   .then((code) => process.exit(code))

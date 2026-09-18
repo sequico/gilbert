@@ -96,30 +96,6 @@ const TIMEOUT = 30_000;
 
 const SESSION_URL = process.env.GILBERT_PROBE_SESSION_URL || `${base}/.well-known/jmap`;
 
-
-const answers = [];
-const notes = [];
-
-/**
- * Record one question's answer and whether it is one the code depends on.
- * `assumed` may be a list: a read that survives either shape says so rather
- * than pretending the server answered one way.
- */
-function record(question, answer, assumed) {
-  const wanted = Array.isArray(assumed) ? assumed : [assumed];
-  answers.push({
-    question,
-    answer,
-    assumed: wanted.join(" | "),
-    ok: wanted.includes(answer),
-  });
-}
-
-/** Something the code survives either way, or that settles none of it. Read. */
-function note(question, answer) {
-  notes.push({ question, answer });
-}
-
 /**
  * A refusal the code reads as `denied`: HTTP 400 or 403 on the whole request,
  * or a first method response that is not `Principal/query` (upstream.ts, `post`
@@ -648,7 +624,6 @@ const run = async () => {
       "server/src/mock/directory-paging.test.ts",
   });
 };
-
 
 run()
   .then((code) => process.exit(code))

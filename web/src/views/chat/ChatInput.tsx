@@ -19,7 +19,7 @@
  * mentioned.
  */
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { mentionRegex, localPart } from "@/lib/chat";
+import { localPart, mentionRegex } from "@/lib/chat";
 import { emojiAsset } from "@/lib/emoji";
 import { t } from "@/lib/i18n";
 

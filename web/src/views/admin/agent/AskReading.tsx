@@ -1,5 +1,5 @@
-import { t } from "@/lib/i18n";
 import { readingNotCountedNote } from "@/lib/agents";
+import { t } from "@/lib/i18n";
 
 /**
  * The "ask the model to read it" card.

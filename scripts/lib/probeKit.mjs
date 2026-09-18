@@ -1,5 +1,5 @@
 /**
- * What the live probes share: a credential, a session, and the answer sheet.
+ * What the live probes share: a credential and the answer sheet.
  *
  * Every `scripts/probe-*.mjs` asks a real server a question the mock cannot
  * answer, prints what it was told, and exits non-zero when an answer is not the
@@ -20,25 +20,6 @@
 /** Stalwart's Basic credential. The password is never printed, here or after. */
 export function basic(address, secret) {
   return `Basic ${Buffer.from(`${address}:${secret}`, "utf8").toString("base64")}`;
-}
-
-/**
- * The session document, at whichever endpoint serves it.
- *
- * Throws on anything that is not a session: a probe that cannot read one has
- * nothing to ask about, and the refusal is easier to read than a `TypeError`
- * from a field that was never there.
- */
-export async function session(url, authorization, timeoutMs = 30_000) {
-  const res = await fetch(url, {
-    headers: { authorization, accept: "application/json" },
-    redirect: "follow",
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  if (!res.ok) throw new Error(`the session endpoint answered ${res.status}`);
-  const body = await res.json();
-  if (typeof body.apiUrl !== "string") throw new Error("the session carries no apiUrl");
-  return body;
 }
 
 const answers = [];

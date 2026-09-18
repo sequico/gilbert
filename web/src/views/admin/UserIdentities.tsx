@@ -294,7 +294,6 @@ export function UserIdentities() {
               key={identity.id}
               identity={identity}
               onEdit={() => setEditing(identity)}
-              disabled={busy}
               head={
                 <button
                   className="btn btn-sm btn-ghost"

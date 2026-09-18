@@ -32,8 +32,8 @@ import { t } from "@/lib/i18n";
 import { useUnsavedChanges } from "@/lib/unsavedChanges";
 import { confirmDialog } from "@/ui/dialog";
 import { Spinner } from "@/ui/misc";
-import { SieveScriptPanel } from "@/views/sieve/SieveScriptPanel";
 import { toast } from "@/ui/toast";
+import { SieveScriptPanel } from "@/views/sieve/SieveScriptPanel";
 
 interface Opened {
   name: string;

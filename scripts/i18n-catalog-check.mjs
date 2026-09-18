@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-import { catalogFiles, sourceFiles } from "./lib/i18nSources.mjs";
 /*
  * Check a catalogue against the strings the code actually asks for.
  *
@@ -25,6 +24,7 @@ import { catalogFiles, sourceFiles } from "./lib/i18nSources.mjs";
  * loud rather than silent.
  */
 import ts from "typescript";
+import { catalogFiles, sourceFiles } from "./lib/i18nSources.mjs";
 
 const wanted = new Set();
 for (const file of sourceFiles()) {

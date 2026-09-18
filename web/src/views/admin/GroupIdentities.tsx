@@ -36,7 +36,6 @@
 import { Pencil, Plus, RotateCw } from "lucide-react";
 import { useRef, useState } from "react";
 import type { Identity } from "@/jmap/types";
-import { formatAddressList } from "@/lib/address";
 import { t } from "@/lib/i18n";
 import {
   type AdminGroupIdentity,

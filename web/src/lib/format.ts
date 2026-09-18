@@ -14,6 +14,8 @@
  * caller that wants `formatClock` or `formatMonthYear` imports `./datetime`,
  * where they are defined.
  */
+
+import { isSameDay } from "./dates";
 import {
   formatClock,
   formatDate,
@@ -21,7 +23,6 @@ import {
   formatFullDateTime,
   relativeFormat,
 } from "./datetime";
-import { isSameDay } from "./dates";
 
 export function formatSize(bytes: number | null | undefined): string {
   if (bytes == null || !Number.isFinite(bytes)) return "";

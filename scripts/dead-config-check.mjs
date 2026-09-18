@@ -36,7 +36,7 @@
  * `checkDeadConfiguration` is pure — it takes text, not paths — so the rules
  * can be exercised without a repository to stage.
  */
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { walk } from "./lib/repoWalk.mjs";

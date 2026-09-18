@@ -27,6 +27,10 @@ export const SKIP_DIRS = new Set([
   "coverage",
   ".vite",
   ".turbo",
+  // A worktree is a checkout, not content (`/.worktree/` is ignored): a second
+  // checkout of this repository inside it is not this tree's Markdown, and its
+  // harness state quotes whatever a session said.
+  ".worktree",
   // Git's own storage.
   ".git",
 ]);

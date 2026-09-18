@@ -25,8 +25,8 @@ import { isEnforced } from "@/lib/settingsPolicy";
 import { useSettings } from "@/store/settings";
 import { confirmDialog } from "@/ui/dialog";
 import { Switch } from "@/ui/misc";
-import { WeekStartField } from "./WeekStartField";
 import { toast } from "@/ui/toast";
+import { WeekStartField } from "./WeekStartField";
 
 /** Illustrative instant used for the format previews: 22 Nov 2025, 18:23. */
 const SAMPLE = new Date(2025, 10, 22, 18, 23);

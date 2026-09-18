@@ -17,7 +17,6 @@
  * arrive.
  */
 import { isRecord } from "@gilbert/shared/json";
-import { JSON_MIME } from "@/lib/mime";
 import { CAP, client } from "@/jmap/client";
 import {
   ensureFolder,
@@ -26,11 +25,11 @@ import {
   writeAppJson,
 } from "@/lib/appFolder";
 import { t } from "@/lib/i18n";
+import { JSON_MIME } from "@/lib/mime";
 import { useSession } from "@/store/session";
 import { toast } from "@/ui/toast";
 
 const FILE = "settings.json";
-
 
 /** How long a change sits before it is written up. */
 const DEBOUNCE_MS = 3000;

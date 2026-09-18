@@ -800,8 +800,7 @@ async function openSession(
     } catch (err) {
       last = err;
       if (err instanceof UpstreamError && err.status === 401) break;
-      if (attempt < BOOT_ATTEMPTS)
-        await sleep(BOOT_DELAY_MS * attempt);
+      if (attempt < BOOT_ATTEMPTS) await sleep(BOOT_DELAY_MS * attempt);
     }
   }
   throw last instanceof Error ? last : new Error("the agent session could not be opened");
