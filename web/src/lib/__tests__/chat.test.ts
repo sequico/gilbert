@@ -9,7 +9,7 @@ import {
   mentionsFromText,
   messageDoc,
   participantsOf,
-  shortName,
+  localPart,
   unreadCount,
 } from "@/lib/chat";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
@@ -212,7 +212,7 @@ describe("mention round-trip", () => {
       "ada@example.org",
       " there",
     ]);
-    expect(shortName("ada@example.org")).toBe("ada");
+    expect(localPart("ada@example.org")).toBe("ada");
   });
 });
 

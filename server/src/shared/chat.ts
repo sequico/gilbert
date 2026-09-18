@@ -23,8 +23,15 @@ export const MAX_TEXT = 4000;
 /** How many messages one transcript page holds (scroll-up paging). */
 export const CHAT_PAGE = 200;
 
-/** The local part of an address — the chat's short display name. */
-export function shortName(address: string): string {
+/**
+ * The local part of an address — the chat's short display name.
+ *
+ * Not `web/src/lib/address.ts`'s `shortName`: that one shortens a *display
+ * name*, preferring the name and falling back through the address. This one
+ * takes an address and answers what is before the `@`, and a string with no
+ * `@` in it comes back unchanged.
+ */
+export function localPart(address: string): string {
   const at = address.indexOf("@");
   return at > 0 ? address.slice(0, at) : address;
 }
@@ -225,7 +232,7 @@ export function mentionsAddress(text: string, address: string): boolean {
 export function mentionsName(text: string, address: string): boolean {
   if (!address) return false;
   if (mentionsAddress(text, address)) return true;
-  const local = shortName(address);
+  const local = localPart(address);
   if (!local) return false;
   // The local part is followed by something that ends a name: a space, the end
   // of the text, or the punctuation a sentence ends with. `@gilbert.` in a
