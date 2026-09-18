@@ -438,6 +438,28 @@ Product administration inside Gilbert, for users who are **Stalwart admins**
   and no Gilbert-side capability registry to forge. Admin without Stalwart's
   `Impersonate` permission administers the install but cannot act on another
   user: the per-user writes fail closed on the permission.
+- **Administration is a door, not a menu (ADR 0017).** The decision is made
+  where the request is. `/api/jmap` refuses any body naming a registry object
+  beyond the account's own — an allowlist of the self-service objects, so a
+  registry object Stalwart adds later is refused by default — with the refused
+  method named in the answer; ordinary mail, calendars, contacts and files are
+  not inspected at all, and a session that may administer streams through
+  untouched. Every `/api/admin` route enforces the same conditions beside the
+  marker. The installation can switch administration off entirely
+  (`server.administration` in its own document, `ADMINISTRATION` for a process
+  with no boot), which holds against a browser console and not only against the
+  drawing of a menu; it can separately require the session to have been signed
+  in on a device marked as its owner's
+  (`server.administrationNeedsOwnDevice`, off by default — the sign-in form's
+  box is about how long a session lasts, and a shorter one is not a less
+  trusted one). The session tells the client which of the two applies, so the
+  menu says why the entry is missing instead of losing it without a word.
+- **An account is not acted on by one it outranks.** The admin marker is one
+  permission, and it does not say whether the account about to be acted on
+  holds *more* than the account acting. Stalwart does not re-check that for
+  every write, so forcing a password change compares the two permission lists
+  the server resolved and refuses an account carrying a permission the
+  administrator does not (`target_outranks`).
 - **Installation-wide policy editor**: the shield opens the administration
 surface; its Policy section edits one JSON document with upstream's
 `defaults` / `enforced` / `changes` shape (issue #207) and publishes it.
@@ -716,10 +738,12 @@ part to read to understand what Gilbert is.
 
 ## Layout
 
-Three panes: folder tree, message list, reading pane. The splitter between the
-list and the reading pane is dragged to resize, and the size is remembered per
-device — a width chosen on a 27" monitor is wrong on a laptop, so it is one of
-the few settings that does not follow the account.
+Three panes: folder tree, message list, reading pane. Both dividers are
+dragged to resize, and both sizes are remembered per device — a width chosen on
+a 27" monitor is wrong on a laptop, so they are among the few settings that do
+not follow the account. The sidebar's edge takes a double-click to go back to
+the width the stylesheet sets, which is also what a reader who never dragged it
+has, so their own CSS for it is left alone until they choose otherwise.
 
 - **It reopens where you were.** The mail account on screen, the address book
   and the folder open in Files are remembered per reader and
@@ -733,7 +757,9 @@ the few settings that does not follow the account.
 - **Reading pane** right of the list, below it, or off (messages open full width).
 - **Density** comfortable, cozy or compact, which changes row height as well as padding.
 - **Font size** small, medium or large.
-- **Sidebar** collapsible to icons; a drawer on mobile.
+- **Sidebar** collapsible to icons; a drawer on mobile; dragged by its edge on
+desktop, where it is hidden while collapsed (there is no width to choose) and
+on a phone (the sidebar is a drawer).
 - **Mobile layout** with a bottom tab bar, full-screen composer and full-screen
   reading. Full-screen surfaces measure in `dvh` rather than `vh`, because a
   phone browser's `100vh` is the taller viewport that ignores the address bar —
@@ -910,9 +936,14 @@ for that one, and the dialog says so.
 Real JMAP mailboxes, with the server's roles honoured.
 
 - Create, rename, create a subfolder, delete (with or without its mail).
-- **Drag a folder onto another** to reparent it. Folders with a server role
-  (Inbox, Sent, Drafts, Trash, Junk, Archive) are structural and are not
-  offered the drag, because the server refuses to move them anyway.
+- **Move a folder** by dragging it onto another, or from its menu — *Move to…*
+  opens the same searchable picker moving messages uses, with a *Top level* row
+  above the folders, which is the only way to move one on a touch screen and the
+  quick way in a long list. The picker offers only legal destinations: the
+  rights are checked up front (`mayRename` on the folder, `mayCreateChild` on
+  the destination) rather than left for the server to refuse one drag. Folders
+  with a server role (Inbox, Sent, Drafts, Trash, Junk, Archive) are structural
+  and are offered neither, because the server refuses to move them anyway.
 - **Subscribe / unsubscribe** — *Show in list* / *Hide from list*. An
   unsubscribed folder still exists and still receives; it is just out of the
   way. Inbox cannot be hidden.
@@ -1520,6 +1551,11 @@ The editor is still there and still does everything a drag cannot.
 
 JMAP Contacts and JSContact.
 
+- **The list is resized by its edge**, dragged between a floor that keeps a
+  name and an address legible and a ceiling that always leaves the contact its
+  own width, with a double-click back to the default. Its width is remembered
+  per device, beside the mail list's, for the same reason. The divider is hidden
+  where a narrow screen shows one pane at a time.
 - **Address books**, yours under *My address books*, one section per group
   mailbox you belong to — its books, and a **+** that creates a book **owned by
   the group** in the group's own account — and other people's plainly separate

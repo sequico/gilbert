@@ -148,6 +148,10 @@ const isMac =
 
 export function comboOf(e: KeyboardEvent): string | null {
   const key = e.key;
+  // Chrome's password autofill dispatches a plain Event named "keydown" when a
+  // saved login is picked: no key, nothing to match, and reading its length
+  // threw on every sign-in.
+  if (!key) return null;
   if (key === "Shift" || key === "Control" || key === "Alt" || key === "Meta")
     return null;
   const parts: string[] = [];

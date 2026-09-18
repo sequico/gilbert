@@ -10,6 +10,7 @@ import { localDateTime } from "../shared/localDateTime.js";
 import { parseOtpauthUrl, verifyTotp } from "../totp.js";
 import { holdUntilOf, undoStatusOf } from "./futurerelease.js";
 import {
+  eventGetView,
   expandOccurrences,
   type Occurrence,
   occurrenceAt,
@@ -123,6 +124,8 @@ const MOCK_ADMIN = process.env.MOCK_ADMIN !== "0";
 /** Exercise the guard that refuses to force another Gilbert admin (the
  *  target principal holds the admin marker too). */
 const TARGET_IS_ADMIN = process.env.MOCK_TARGET_IS_ADMIN === "1";
+/** A permission the target holds and a plain administrator does not (see `permissionsOf`). */
+const TARGET_EXTRA_PERMISSION = process.env.MOCK_TARGET_EXTRA_PERMISSION ?? "";
 /**
  * A principal the directory lists and the mock refuses to impersonate, named
  * by `MOCK_REFUSED_USER=carol@example.com`.
@@ -192,9 +195,18 @@ const USER_PERMISSIONS = ["jmapEmailGet", "sysAccountSettingsGet"];
 const permissionsOf = (username: string): string[] => {
   const admin =
     username === USER ? MOCK_ADMIN : username === TARGET_USER ? TARGET_IS_ADMIN : false;
-  return admin
+  const base = admin
     ? [...USER_PERMISSIONS, "sysAccountCreate", "impersonate", "scimAccess"]
     : [...USER_PERMISSIONS];
+  /*
+   * A permission a plain administrator does not hold, for the case the admin
+   * marker cannot describe: a target carrying a richer custom role. The route
+   * that acts on another account compares the two lists (see `outranks` in
+   * upstream.ts) and refuses the target that outranks the caller.
+   */
+  if (username === TARGET_USER && TARGET_EXTRA_PERMISSION)
+    return [...base, TARGET_EXTRA_PERMISSION];
+  return base;
 };
 /** Locale the fake directory reports for the account (POSIX style, as Stalwart does). */
 const MOCK_LOCALE = process.env.MOCK_LOCALE ?? "en_US";
@@ -3823,7 +3835,15 @@ const handlers: Record<string, Handler> = {
   "CalendarEvent/get": (a) => {
     const list = eventsFor(a.accountId);
     const ids = a.ids as string[] | null | undefined;
-    if (!ids) return genericGet(list, "CalendarEvent")(a);
+    const properties = a.properties as string[] | null | undefined;
+    // With no ids every event comes back under its stored id, none synthetic.
+    if (!ids)
+      return {
+        accountId: ACCOUNT,
+        state: stateOf("CalendarEvent"),
+        list: list.map((x) => eventGetView(x, false, properties)),
+        notFound: [],
+      };
     const found: Obj[] = [];
     const notFound: string[] = [];
     for (const id of ids) {
@@ -3833,13 +3853,15 @@ const handlers: Record<string, Handler> = {
         continue;
       }
       found.push(
-        resolved.occ ? occurrenceView(resolved.base, resolved.occ) : resolved.base,
+        resolved.occ
+          ? eventGetView(occurrenceView(resolved.base, resolved.occ), true, properties)
+          : eventGetView(resolved.base, false, properties),
       );
     }
     return {
       accountId: ACCOUNT,
       state: stateOf("CalendarEvent"),
-      list: found.map((x) => pick(x, a.properties as string[] | null)),
+      list: found,
       notFound,
     };
   },
@@ -4001,6 +4023,8 @@ const handlers: Record<string, Handler> = {
       total: list.length,
     };
   },
+  // An empty `properties` list returns `id` alone, which `pick` already does.
+  // 0.16.22 made Stalwart agree; through 0.16.21 it returned every property.
   "ContactCard/get": (a) =>
     genericGet(
       a.accountId === SHARED_ACCOUNT

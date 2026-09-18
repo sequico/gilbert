@@ -296,6 +296,10 @@ export interface InstallationConfiguration {
   /** The session cookie's name, `server.cookieName` in the document. */
   cookieName: string;
   compressJmap: boolean;
+  /** Whether this installation offers administration at all, `server.administration` in the document. */
+  administration: boolean;
+  /** Whether it requires the session's device to be the signer's own, `server.administrationNeedsOwnDevice`. */
+  administrationNeedsOwnDevice: boolean;
   upstreamTimeout: number;
   maxUploadBytes: number;
   imageProxy: boolean;
@@ -338,6 +342,8 @@ export function configurationFrom(
     secureCookies: document.server.secureCookies,
     cookieName: document.server.cookieName,
     compressJmap: document.server.compressJmap,
+    administration: document.server.administration,
+    administrationNeedsOwnDevice: document.server.administrationNeedsOwnDevice,
     upstreamTimeout: document.limits.upstreamTimeout,
     maxUploadBytes: document.limits.maxUploadBytes,
     imageProxy: document.limits.imageProxy,

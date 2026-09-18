@@ -11,6 +11,7 @@ import {
   EyeOff,
   File,
   Folder,
+  FolderInput,
   FolderPlus,
   Inbox,
   Mail,
@@ -38,7 +39,7 @@ import type { Id, Mailbox } from "@/jmap/types";
 import { askDeleteFolder } from "@/lib/deleteConfirm";
 import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { canEmpty, confirmAndEmpty, emptyLabel } from "@/lib/emptyFolder";
-import { canDropFolder, folderColor, movable } from "@/lib/folderMove";
+import { canDropFolder, canMoveFolderTo, folderColor, movable } from "@/lib/folderMove";
 import { folderKey, useOpenFolders } from "@/lib/folderView";
 import { t } from "@/lib/i18n";
 import { countOf, STARRED_KEYWORD } from "@/lib/keywordCounts";
@@ -57,6 +58,7 @@ import { CALENDAR_COLORS, useIsMobile, useIsTouch } from "@/ui/misc";
 import { MenuItem, MenuSep, MenuTitle, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
 import { ShareDialog } from "../settings/ShareDialog";
+import { MailboxPicker } from "./MailboxPicker";
 
 const ROLE_ICONS: Record<string, ReactNode> = {
   inbox: <Inbox size={20} />,
@@ -243,6 +245,8 @@ export function MailboxTree() {
   const menu = useMenu();
   const [menuTarget, setMenuTarget] = useState<Mailbox | null>(null);
   const [shareTarget, setShareTarget] = useState<Mailbox | null>(null);
+  /** The folder being moved from its menu -- the way to move one without a drag, and on touch the only way. */
+  const [moveTarget, setMoveTarget] = useState<Mailbox | null>(null);
   /**
    * The folder being dragged. Held here rather than read from the drag itself:
    * dataTransfer.getData is blocked during dragover, so a row cannot ask what
@@ -635,10 +639,37 @@ export function MailboxTree() {
             onClose={menu.close}
             onCreateChild={() => void createFolder(menuTarget.id)}
             onShare={() => setShareTarget(menuTarget)}
+            onMove={() => {
+              menu.close();
+              setMoveTarget(menuTarget);
+            }}
             inGroup={inGroup}
           />
         )}
       </Popover>
+      {moveTarget && (
+        <MailboxPicker
+          title={t("Move “{name}” to…", { name: mailboxDisplayName(moveTarget) })}
+          need="mayReadItems"
+          allow={(id) => canMoveFolderTo(mailboxes, moveTarget.id, id)}
+          root={
+            canMoveFolderTo(mailboxes, moveTarget.id, null)
+              ? {
+                  label: t("Top level"),
+                  onPick: () => {
+                    setMoveTarget(null);
+                    void moveFolder(moveTarget.id, null);
+                  },
+                }
+              : undefined
+          }
+          onClose={() => setMoveTarget(null)}
+          onPick={(id) => {
+            setMoveTarget(null);
+            void moveFolder(moveTarget.id, id);
+          }}
+        />
+      )}
       {shareTarget && (
         <ShareDialog
           kind="Mailbox"
@@ -886,12 +917,14 @@ function MailboxMenu({
   onClose,
   onCreateChild,
   onShare,
+  onMove,
   inGroup,
 }: {
   mailbox: Mailbox;
   onClose: () => void;
   onCreateChild: () => void;
   onShare: () => void;
+  onMove: () => void;
   /** Shared mailbox accounts: hiding a folder is not offered (see buildMailTree). */
   inGroup: boolean;
 }) {
@@ -994,6 +1027,14 @@ function MailboxMenu({
         label={t("Rename")}
         onClick={() => void rename()}
         disabled={isSpecial || !m.myRights.mayRename}
+      />
+      {/* No drag on a touch screen, and a long list makes it slow anyway: the
+          same picker the message move uses, listing only legal destinations. */}
+      <MenuItem
+        icon={<FolderInput size={16} />}
+        label={t("Move to…")}
+        onClick={onMove}
+        disabled={!movable(m) || !m.myRights.mayRename}
       />
       <MenuItem
         icon={m.isSubscribed ? <EyeOff size={16} /> : <Eye size={16} />}

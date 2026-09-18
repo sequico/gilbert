@@ -415,6 +415,27 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
     compressJmap:
       environment.COMPRESS_JMAP === "0" ? false : defaults.server.compressJmap,
     /**
+     * Whether this installation offers administration to accounts whose
+     * Stalwart role allows it (ADR 0017). Off means off: the menu is not
+     * drawn, and the JMAP proxy refuses registry methods beyond the account's
+     * own, so an administrator cannot reach the registry from the browser
+     * console of a deployment that said no. The installation decides it --
+     * `server.administration` in the document.
+     */
+    administration: readBool(environment, "ADMINISTRATION", true),
+    /**
+     * Whether administration additionally requires the session to have been
+     * signed in on a device marked as its owner's (ADR 0017). Off by default:
+     * the sign-in form's box is about how long a session lasts, and keying a
+     * restriction on it is a deployment's choice rather than this product's.
+     * `server.administrationNeedsOwnDevice` in the document.
+     */
+    administrationNeedsOwnDevice: readBool(
+      environment,
+      "ADMINISTRATION_NEEDS_OWN_DEVICE",
+      false,
+    ),
+    /**
      * The `/api/account` permission that marks a Stalwart admin (ADR 0001).
      *
      * Live-verified 2026-09-09 on Stalwart 0.16.21: `sysAccountCreate` appears

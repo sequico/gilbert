@@ -150,3 +150,11 @@ is, not what a user sees.
   notification permission is asked for in the reader's own gesture, iOS is
   answered with the install instruction rather than a switch that cannot work,
   and no sender of ours is introduced.
+- **0017 — Administration is a door, not a menu.** The decision that a session
+  may administer is made where the request is: the JMAP proxy refuses a body
+  that names a registry object the session may not reach, behind an allowlist of
+  the account's own objects, and every `/api/admin` route enforces the same two
+  conditions — the installation offers administration (`server.administration`
+  in its own document), and, where the installation asked for the rule, the
+  session was signed in on a device marked as the person's own. The menu
+  announces the decision and says why when it cannot; the server is the door.

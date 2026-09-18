@@ -69,6 +69,24 @@ export interface InstallationServer {
   /** `COMPRESS_JMAP` (default `true`): whether JMAP responses are gzipped. */
   compressJmap: boolean;
   /**
+   * `ADMINISTRATION` (default `true`): whether this installation offers
+   * administration to accounts whose Stalwart role allows it. Off means off --
+   * no menu, and the JMAP proxy refuses registry methods beyond the account's
+   * own (ADR 0017, `adminGate.ts`). Stalwart's own interface is unaffected
+   * either way.
+   */
+  administration: boolean;
+  /**
+   * `ADMINISTRATION_NEEDS_OWN_DEVICE` (default `false`): whether administration
+   * additionally requires the session to have been signed in on a device marked
+   * as its owner's. Off, a session administers wherever it was opened, which is
+   * what every installation did before this rule existed. Off by default
+   * because the sign-in form's box is about how long a session lasts, and a
+   * shorter session is not a less trusted one: an installation that wants the
+   * rule states it.
+   */
+  administrationNeedsOwnDevice: boolean;
+  /**
    * `COOKIE_NAME` (default `"gilbert_session"`): the name of the session cookie.
    *
    * The installation decides it because it is a name this installation's own
@@ -216,6 +234,8 @@ export function installationDefaults(): InstallationDocument {
       trustedProxies: [], // TRUSTED_PROXIES ("" = loopback and the private ranges)
       secureCookies: "auto", // SECURE_COOKIES
       compressJmap: true, // COMPRESS_JMAP (`"0"` turned it off)
+      administration: true, // ADMINISTRATION (`"0"` turns it off)
+      administrationNeedsOwnDevice: false, // ADMINISTRATION_NEEDS_OWN_DEVICE
       cookieName: "gilbert_session", // COOKIE_NAME
     },
     limits: {
@@ -443,6 +463,16 @@ export function parseInstallationDocumentDetailed(
         "server.compressJmap",
         server.compressJmap,
         defaults.server.compressJmap,
+      ),
+      administration: readBool(
+        "server.administration",
+        server.administration,
+        defaults.server.administration,
+      ),
+      administrationNeedsOwnDevice: readBool(
+        "server.administrationNeedsOwnDevice",
+        server.administrationNeedsOwnDevice,
+        defaults.server.administrationNeedsOwnDevice,
       ),
       cookieName,
     },

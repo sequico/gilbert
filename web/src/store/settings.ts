@@ -275,6 +275,16 @@ export interface Settings {
   sendAndArchive: boolean;
   /** Width (px) of the message list when the reading pane is on the right. */
   listPaneWidth: number;
+  /** Width (px) of the contact list, beside the contact on show. */
+  contactsListWidth: number;
+  /**
+   * Width (px) of the sidebar, dragged by its edge. Null until someone drags
+   * it, and null again after a double-click resets it — which leaves the width
+   * to the stylesheet's `--sidebar-w`, so a reader who already widens the
+   * sidebar with their own CSS keeps what they had until they choose
+   * otherwise.
+   */
+  sidebarWidth: number | null;
   /** Height (px) of the message list when the reading pane is below. */
   listPaneHeight: number;
   /** Outlook-style colour categories for calendar events. */
@@ -389,6 +399,8 @@ export const DEFAULT_SETTINGS: Settings = {
   spellcheck: true,
   sendAndArchive: false,
   listPaneWidth: 520,
+  contactsListWidth: 320,
+  sidebarWidth: null,
   listPaneHeight: 340,
   eventCategories: [
     { name: "Important", color: "#dc2626" },
@@ -419,6 +431,8 @@ export const DEVICE_KEYS: ReadonlySet<keyof Settings> = new Set<keyof Settings>(
   "desktopNotifications",
   "notificationSound",
   "listPaneWidth",
+  "contactsListWidth",
+  "sidebarWidth",
   "listPaneHeight",
 ]);
 

@@ -101,6 +101,8 @@ export const catalog: Catalog = {
     Edit: "Modifica",
     "Edit…": "Modifica…",
     Rename: "Rinomina",
+    "Move “{name}” to…": "Sposta «{name}» in…",
+    "Top level": "Livello principale",
 
     Remove: "Rimuovi",
     Restore: "Ripristina",
@@ -1074,6 +1076,8 @@ export const catalog: Catalog = {
     "Signed in as": "Accesso effettuato come",
 
     "This is my own device": "Questo è il mio dispositivo",
+    "Only on a device you've marked as your own. Sign in again with \u201cThis is my own device\u201d ticked.":
+      "Solo su un dispositivo contrassegnato come tuo. Accedi di nuovo selezionando «Questo è il mio dispositivo».",
 
     "this device": "questo dispositivo",
     Device: "Dispositivo",
@@ -1924,6 +1928,8 @@ export const catalog: Catalog = {
     "Full screen": "Schermo intero",
 
     "Resize panes": "Ridimensiona i riquadri",
+    "Resize sidebar": "Ridimensiona la barra laterale",
+    "Resize contact list": "Ridimensiona l'elenco dei contatti",
 
     "QR code": "Codice QR",
 
