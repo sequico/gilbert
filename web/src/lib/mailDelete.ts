@@ -119,28 +119,55 @@ export function destroyRefusal(
   return mayDestroy(ctx) ? null : REFUSAL_BY_KIND[kind];
 }
 
-/** The folders whose role decides that a delete ends the message. */
-export interface FinalFolders {
-  trash?: Id | null;
-  junk?: Id | null;
+/**
+ * The roles of the two folders whose mail a delete ends (ADR 0015).
+ *
+ * One list, three readers: `isFinalFolderRole` below is built from it, the
+ * pair `finalFoldersOf` returns is keyed by `FinalFolderRole`, and the guard in
+ * `store/mail.ts` maps the roles to the ids an action may name. A third final
+ * folder is therefore a change here rather than three expressions that have to
+ * be kept in agreement.
+ */
+export const FINAL_FOLDER_ROLES = ["trash", "junk"] as const;
+
+/** One of them. */
+export type FinalFolderRole = (typeof FINAL_FOLDER_ROLES)[number];
+
+const FINAL_ROLE_SET: ReadonlySet<string> = new Set(FINAL_FOLDER_ROLES);
+
+/**
+ * Whether this role is one of the two final folders.
+ *
+ * The question the surfaces ask about a folder they are drawing — `canEmpty`
+ * (`lib/emptyFolder.tsx`) and `store/mail.ts`'s `emptyMailbox` guard both
+ * answer the same about the folder they were given — so "which folders are
+ * final" is one sentence rather than a test written out three times.
+ */
+export function isFinalFolderRole(
+  role: MailboxRole | undefined | null,
+): role is FinalFolderRole {
+  return role != null && FINAL_ROLE_SET.has(role);
 }
+
+/** The folders whose role decides that a delete ends the message. */
+export type FinalFolders = Record<FinalFolderRole, Id | null>;
 
 /**
  * The two final folders, found in the account's tree by the roles it carries.
  *
  * By role and not by name: a folder the reader renamed is still where Deleted
- * Items is, and a translation of "Junk Mail" must not move this answer.
+ * Items is, and a translation of "Junk Mail" must not move this answer. Both
+ * entries are always present, `null` where the account has no such folder.
  */
 export function finalFoldersOf(
   mailboxes: Record<Id, Pick<Mailbox, "role"> | undefined> | null | undefined,
 ): FinalFolders {
-  const byRole = (role: MailboxRole): Id | null => {
-    for (const [id, box] of Object.entries(mailboxes ?? {})) {
-      if (box?.role === role) return id;
-    }
-    return null;
-  };
-  return { trash: byRole("trash"), junk: byRole("junk") };
+  const found: FinalFolders = { trash: null, junk: null };
+  for (const [id, box] of Object.entries(mailboxes ?? {})) {
+    const role = box?.role;
+    if (isFinalFolderRole(role)) found[role] = id;
+  }
+  return found;
 }
 
 /**

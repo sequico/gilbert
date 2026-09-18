@@ -237,8 +237,11 @@ with; a group that wants the switch can be given one over it.
 ## References
 
 - `web/src/lib/mailDelete.ts` — the rule: what a delete does, which refusal it
-  answers, the final folders found by role, and the three questions the surfaces
-  ask (`deleteEffect`, `deleteEntryOffered`, `messageDeleteOffered` /
+  answers, and the two final folders as one predicate (`FINAL_FOLDER_ROLES`,
+  `isFinalFolderRole`, and `finalFoldersOf` which finds them by it) that
+  `canEmpty` in `web/src/lib/emptyFolder.tsx` and the `emptyMailbox` guard in
+  `web/src/store/mail.ts` both ask, and the three questions the surfaces ask
+  (`deleteEffect`, `deleteEntryOffered`, `messageDeleteOffered` /
   `folderDeleteOffered`)
 - `web/src/lib/useMayDestroy.ts` — the one hook every surface reads it through,
   so the drawn answer re-renders when the admin flag or the account set moves

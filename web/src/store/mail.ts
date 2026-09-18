@@ -49,6 +49,7 @@ import {
   type DeleteOutcome,
   type DeleteRefusal,
   destroyRefusal,
+  FINAL_FOLDER_ROLES,
   folderDestroyTakesMail,
   mayDestroy,
 } from "@/lib/mailDelete";
@@ -1302,7 +1303,10 @@ export const useMail = create<MailState>((set, get) => ({
     // Junk Mail is destroyed outright rather than moved to Deleted Items —
     // there is no point routing spam through the bin on its way out, and it is
     // what "delete all spam" means everywhere else. The dialogs say so.
-    if (mailboxId !== get().roleId("trash") && mailboxId !== get().roleId("junk")) {
+    // The two folders are the rule's (`FINAL_FOLDER_ROLES`), asked as ids so
+    // the question is the one the action actually names.
+    const finalIds = FINAL_FOLDER_ROLES.map((role) => get().roleId(role));
+    if (!finalIds.includes(mailboxId)) {
       toast.error(t("Only Deleted Items and Junk Mail can be emptied."));
       return { ok: true };
     }

@@ -34,7 +34,7 @@
 import type { Id, MailboxRole } from "@/jmap/types";
 import { deletedMessages } from "@/lib/deleteConfirm";
 import { plural, t } from "@/lib/i18n";
-import type { DeleteOutcome } from "@/lib/mailDelete";
+import { type DeleteOutcome, isFinalFolderRole } from "@/lib/mailDelete";
 import { useMail } from "@/store/mail";
 import { confirmDialog } from "@/ui/dialog";
 
@@ -47,7 +47,7 @@ export interface EmptyTarget {
 
 /** Whether this folder is one that may be emptied at all. */
 export function canEmpty(role: MailboxRole | undefined | null): boolean {
-  return role === "trash" || role === "junk";
+  return isFinalFolderRole(role);
 }
 
 /** What the button or menu item is called, in the folder's own terms. */

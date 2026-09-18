@@ -322,12 +322,11 @@ export function ThreadView({
    * not offered at all in a group, where only an administrator ends mail.
    */
   const mayEnd = useMayDestroy();
-  const threadDeleteEffect = deleteEffectInFolder(mailboxId, finalFoldersOf(mailboxes));
-  const deleteIsOffered = folderDeleteOffered(
-    mailboxId,
-    finalFoldersOf(mailboxes),
-    mayEnd,
-  );
+  // Asked once and reused: the toolbar's effect and whether the entry is drawn
+  // are two questions about the same pair of folders.
+  const finalFolders = finalFoldersOf(mailboxes);
+  const threadDeleteEffect = deleteEffectInFolder(mailboxId, finalFolders);
+  const deleteIsOffered = folderDeleteOffered(mailboxId, finalFolders, mayEnd);
   /* `G-` labels describe one message, not the conversation (ADR 0003
      resolution 9), so the thread row shows the group's own labels and the
      agent's state stays on the message it was written on. */
