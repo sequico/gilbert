@@ -48,9 +48,10 @@ metadata:
   and translated at the render site (`t(s.label)`) is a real convention, and
   `i18n-catalog-check.mjs` collects `label:` properties and `*_LABELS`
   variables so they are not reported stale. Do not inline-translate there.
-- The app's own name appears in strings as the runtime name (`APP_NAME`), not
-  a hardcoded word — check how a neighbouring string does it before writing
-  "Gilbert" or "gilbert" into UI copy.
+- The app's own name appears in strings as the runtime name (`APP_NAME`) in
+  some places and as the literal word in others — `About Gilbert` and the
+  settings labels hardcode it. Check the neighbouring string and match it;
+  never invent a third spelling, and never translate the name itself.
 
 ## Adding a language
 
@@ -69,9 +70,9 @@ metadata:
 - `npm run i18n:check` — runs catalog-check (a catalogue file with no
   `UI_LANGUAGES` entry, and vice versa; **stale keys** — translated but never
   looked up, so they render nothing) plus literals (user-visible English that
-  is neither wrapped nor a catalogue key). Read its output rather than the
-  exit code: both scripts exit non-zero only with `--check`, which the npm
-  script does not pass today.
+  is neither wrapped nor a catalogue key). It passes `--check` to both, so it
+  **exits non-zero** and is a real gate inside `prepush` — read its output, not
+  just the code, because a stale-key report lists languages one after another.
 - `npm run i18n:coverage` — progress report of hardcoded UI text still to
   extract; not a gate unless given `--check`. Not part of `prepush`.
 - Tests: `web/src/lib/__tests__/i18n.test.tsx`, catalogs' own `__tests__`.

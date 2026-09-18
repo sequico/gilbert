@@ -64,6 +64,7 @@ import {
   deleteEffect,
   deleteEffectInFolder,
   deleteEntryOffered,
+  type FinalFolders,
   finalFoldersOf,
 } from "@/lib/mailDelete";
 import { messageFolders } from "@/lib/messageLocation";
@@ -76,6 +77,7 @@ import {
   type SwipeIcon,
 } from "@/lib/swipe";
 import { haptic, PULL_TRIGGER, usePullToRefresh, useTouchRow } from "@/lib/touch";
+import { useMayDestroy } from "@/lib/useMayDestroy";
 import { useCalendar } from "@/store/calendar";
 import { useCompose } from "@/store/compose";
 import { type ListState, useMail } from "@/store/mail";
@@ -215,7 +217,7 @@ export function MessageList({
    * which is what deleting from a group's Inbox does. Only the final case is
    * withdrawn, and it is withdrawn rather than refused afterwards.
    */
-  const mayEnd = useMail((s) => s.mayDestroyHere());
+  const mayEnd = useMayDestroy();
   const listDeleteIsOffered = deleteEntryOffered(mayEnd, listDeleteEffect);
   const isDrafts = mailbox?.role === "drafts";
 
@@ -877,6 +879,8 @@ export function MessageList({
                       selectedIds={selected}
                       touch={isTouch}
                       role={mailbox?.role ?? null}
+                      finalFolders={finalFolders}
+                      mayEnd={mayEnd}
                       swipeLeft={settings.swipeLeft}
                       swipeRight={settings.swipeRight}
                       onLongPress={onLongPress}
@@ -1078,6 +1082,16 @@ interface RowProps {
   /** Whether this list is being pointed at with a finger. */
   touch: boolean;
   role: string | null;
+  /**
+   * The account's final folders, found once by the list (ADR 0015).
+   *
+   * Passed rather than looked up per row: it is a walk of the whole tree, and
+   * a virtualised list mounts and unmounts rows constantly. One question per
+   * list, and every row draws the same answer.
+   */
+  finalFolders: FinalFolders;
+  /** Whether this reader may end a message in the account on screen. */
+  mayEnd: boolean;
   swipeLeft: SwipeAction;
   swipeRight: SwipeAction;
   onLongPress: (id: Id) => void;
@@ -1112,6 +1126,8 @@ const Row = memo(function Row({
   onRead,
   touch,
   role,
+  finalFolders,
+  mayEnd,
   swipeLeft,
   swipeRight,
   onLongPress,
@@ -1188,16 +1204,18 @@ const Row = memo(function Row({
    * is what knows which folders hold this message, so a message sitting in Junk
    * Mail is named as the permanent delete it is, whatever folder is on screen.
    */
-  const rowDeleteEffect = deleteEffect(e, finalFoldersOf(mailboxes));
+  const rowDeleteEffect = deleteEffect(e, finalFolders);
+  const rowDeleteOffered = deleteEntryOffered(mayEnd, rowDeleteEffect);
   const descFor = useCallback(
     (dir: -1 | 1) =>
       describeSwipe(dir === 1 ? swipeRight : swipeLeft, {
         role,
         deleteEffect: rowDeleteEffect,
+        deleteOffered: rowDeleteOffered,
         unread,
         starred,
       }),
-    [swipeLeft, swipeRight, role, rowDeleteEffect, unread, starred],
+    [swipeLeft, swipeRight, role, rowDeleteEffect, rowDeleteOffered, unread, starred],
   );
   // A row that scrolls out from under a live gesture takes its strip with it.
   useEffect(() => () => onSwipeState(e.id, null), [e.id, onSwipeState]);

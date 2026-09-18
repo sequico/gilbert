@@ -42,6 +42,20 @@ export type DeleteEffect = "move" | "final";
  */
 export type DeleteRefusal = "group_mail_final" | "group_mail_empty" | "group_mail_folder";
 
+/**
+ * What a guarded write did, so a caller can tell a refusal from work done.
+ *
+ * `ok: false` is a refusal **by the rule** — the one thing a caller must not
+ * read as success, because the row, the selection and the folder are all still
+ * as they were. `ok: true` means the rule did not refuse; the action may still
+ * have had nothing to do (no account, no ids), which no caller has to care
+ * about.
+ *
+ * The store composes the sentence for the actions it performs itself, where the
+ * catalogue reaches it; a caller that needs its own wording reads `code`.
+ */
+export type DeleteOutcome = { ok: true } | { ok: false; code: DeleteRefusal };
+
 /** Which of the three entry points is asking. */
 export type DestroyKind = "final" | "empty" | "folder";
 
@@ -160,12 +174,33 @@ export function deleteEffectInFolder(
  * whole of what a surface has to know, so it is decided here once rather than
  * written out at each entry — getting it wrong takes the main action away from
  * every member of every group.
- *
- * `mayEnd` is `mayDestroy`'s answer for the account on screen, which the store
- * exposes as `mayDestroyHere()`.
  */
 export function deleteEntryOffered(mayEnd: boolean, effect: DeleteEffect): boolean {
   return effect === "move" || mayEnd;
+}
+
+/**
+ * The same question, asked about one message.
+ *
+ * The composition every message surface needs — which folders hold it, what that
+ * makes of a delete, and whether this reader may take one — so no surface
+ * assembles it itself and the four copies of it cannot drift apart.
+ */
+export function messageDeleteOffered(
+  email: { mailboxIds?: Record<Id, boolean> } | undefined,
+  folders: FinalFolders,
+  mayEnd: boolean,
+): boolean {
+  return deleteEntryOffered(mayEnd, deleteEffect(email, folders));
+}
+
+/** The same question, asked about the folder on screen rather than one message. */
+export function folderDeleteOffered(
+  folderId: Id | null | undefined,
+  folders: FinalFolders,
+  mayEnd: boolean,
+): boolean {
+  return deleteEntryOffered(mayEnd, deleteEffectInFolder(folderId, folders));
 }
 
 /**

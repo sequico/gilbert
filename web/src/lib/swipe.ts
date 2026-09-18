@@ -37,6 +37,17 @@ export interface SwipeContext {
    * message in Junk Mail under the word "Delete".
    */
   deleteEffect: DeleteEffect;
+  /**
+   * Whether this reader may take that delete at all — ADR 0015's answer for the
+   * account on screen, from `deleteEntryOffered`.
+   *
+   * A direction that would be refused resolves to `null` and the row does not
+   * move in it, which is what the record asks for and what the record's own
+   * words describe: a strip that slides open to reveal an action it cannot take
+   * is worse than one that does not slide. The default is `true` so a caller
+   * that has no account to ask about is not silently stripped of its gesture.
+   */
+  deleteOffered?: boolean;
   /** Whether the row is unread — "mark as read" is a toggle, and says so. */
   unread: boolean;
   starred: boolean;
@@ -91,6 +102,14 @@ export function describeSwipe(
         ? null
         : { action, label: "Archive", icon: "archive", tone: "accent", removes: true };
     case "delete":
+      /*
+       * Withdrawn where the rule would refuse it (ADR 0015): a delete that would
+       * end the message, by a reader who may not end one. The condition reads the
+       * effect as well as the offer, so a caller that passes a stale offer cannot
+       * take away a direction that only files — a move is never what the rule
+       * refuses.
+       */
+      if (ctx.deleteEffect === "final" && ctx.deleteOffered === false) return null;
       return {
         action,
         label: ctx.deleteEffect === "final" ? "Delete forever" : "Delete",

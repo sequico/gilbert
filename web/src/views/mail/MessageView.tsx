@@ -52,7 +52,7 @@ import {
   TEXT_EMAIL_CSS,
 } from "@/lib/html";
 import { plural, tc, tNode, t as translate } from "@/lib/i18n";
-import { deleteEffect, finalFoldersOf } from "@/lib/mailDelete";
+import { deleteEffect, finalFoldersOf, messageDeleteOffered } from "@/lib/mailDelete";
 import { mdnDecision, refusalText } from "@/lib/mdn";
 import { openableInTab, previewKind } from "@/lib/preview";
 import { remoteImagesAllowed } from "@/lib/remoteImages";
@@ -62,6 +62,7 @@ import { useSignature } from "@/lib/smime/useSignature";
 import { type SpamReport, spamReport } from "@/lib/spamScore";
 import { findQuoteStart, htmlToText, textToHtml } from "@/lib/text";
 import { isTnef, parseTnef, type TnefAttachment } from "@/lib/tnef";
+import { useMayDestroy } from "@/lib/useMayDestroy";
 import { internalDomains, isExternalSender, linkVerdict } from "@/lib/warnings";
 import { useCalendar } from "@/store/calendar";
 import { DEFAULT_REPLY_MODE, draftFromMailto, useCompose } from "@/store/compose";
@@ -101,6 +102,20 @@ export const MessageView = memo(function MessageView({
 }: Props) {
   const accountId = useMail((s) => s.accountId)!;
   const signature = useSignature(e, accountId);
+  /*
+   * ADR 0015: whether this message's delete may be taken here. Read from the
+   * session's admin flag and the rule's own answer, exactly as the store's
+   * guard does, so the entry and the guard cannot disagree.
+   */
+  const mayEnd = useMayDestroy();
+  /*
+   * Subscribed to the tree itself, not to a derived object: a selector that
+   * builds a new value every call makes React re-render without end, and the
+   * folders only change when the tree does.
+   */
+  const mailboxes = useMail((s) => s.mailboxes);
+  const deleteOffered = messageDeleteOffered(e, finalFoldersOf(mailboxes), mayEnd);
+
   const settings = useSettings((s) => s.settings);
   const updateSettings = useSettings((s) => s.update);
 
@@ -652,6 +667,14 @@ export const MessageView = memo(function MessageView({
         <MenuItem
           icon={<Trash2 size={16} />}
           label={translate("Delete this message")}
+          /*
+           * ADR 0015: withdrawn where the rule would refuse it — a group's
+           * message that is already in Deleted Items or Junk Mail, which only
+           * an administrator may end. The entry is not drawn as offered and
+           * then refused after a confirmation, which is what the record asks
+           * for and what the reader would otherwise be walked into.
+           */
+          disabled={!deleteOffered}
           onClick={() => {
             const mail = useMail.getState();
             /* The rule asks what deleting this message does (ADR 0015), so a

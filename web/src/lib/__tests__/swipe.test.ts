@@ -14,7 +14,6 @@ const inbox = {
   unread: false,
   starred: false,
 };
-
 describe("describeSwipe", () => {
   it("offers nothing for a direction turned off", () => {
     expect(describeSwipe("none", inbox)).toBe(null);

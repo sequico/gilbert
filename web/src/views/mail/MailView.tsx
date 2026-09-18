@@ -326,7 +326,16 @@ export function MailView({
         const permanent = t.every(
           (id) => deleteEffect(mail.emails[id], folders) === "final",
         );
-        if (permanent || settings.confirmDelete) {
+        /*
+         * ADR 0015: no confirmation in front of a delete that cannot happen.
+         * A wholly-refused selection goes straight to the guard, which is what
+         * announces the refusal — a dialog would only offer the impossible and
+         * then say no. A *mixed* selection is not refused as a whole: the half
+         * that files is what a group's member may still do, and blocking it
+         * would be an over-refusal in the other direction.
+         */
+        const allRefused = permanent && !mail.mayDestroyHere();
+        if (!allRefused && (permanent || settings.confirmDelete)) {
           // A plural form rather than "message(s)": that spelling puts a
           // parenthesis where every language that inflects wants agreement.
           const ok = await confirmDialog({
@@ -345,8 +354,14 @@ export function MailView({
           });
           if (!ok) return;
         }
-        await mail.trash(t);
-        afterAction(true);
+        /*
+         * The guard's answer decides whether the list is treated as changed: a
+         * refusal leaves every row where it was, so moving the focus and
+         * clearing the selection would be the list lying about a message that
+         * did not go (ADR 0015).
+         */
+        const outcome = await mail.trash(t);
+        if (outcome.ok) afterAction(true);
       },
       spam: async (rows?: Id[]) => {
         const t = await targetIds(rows);

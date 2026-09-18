@@ -6,6 +6,7 @@ import { plural, t } from "@/lib/i18n";
 import { mailboxDisplayPath } from "@/lib/mailboxName";
 import { settingsMailboxTree } from "@/lib/mailboxScope";
 import { folderDestroyTakesMail } from "@/lib/mailDelete";
+import { useMayDestroy } from "@/lib/useMayDestroy";
 import { useMail } from "@/store/mail";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
@@ -58,7 +59,7 @@ export function FoldersSettings() {
   );
   const quotas = useMail((s) => s.quotas);
   /** ADR 0015: this surface edits the reader's own tree, so the rule is asked once here. */
-  const mayDestroyHere = useMail((s) => s.mayDestroyHere());
+  const mayDestroyHere = useMayDestroy();
   const q = quotas.find((x) => x.resourceType === "octets");
   /*
    * A role belongs to exactly one folder -- Stalwart answers "A mailbox with
@@ -271,7 +272,11 @@ export function FoldersSettings() {
                       ) {
                         try {
                           await asOwn();
-                          await useMail.getState().destroyMailbox(m.id, true);
+                          const outcome = await useMail
+                            .getState()
+                            .destroyMailbox(m.id, true);
+                          if (!outcome.ok) return;
+                          toast.success(t("Folder deleted"));
                         } catch (err) {
                           toast.error((err as Error).message);
                         }

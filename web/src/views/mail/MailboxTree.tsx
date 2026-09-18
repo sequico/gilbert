@@ -46,6 +46,7 @@ import { isGroupMailboxAccount } from "@/lib/mailAccounts";
 import { mailboxDisplayName } from "@/lib/mailboxName";
 import { folderDestroyTakesMail } from "@/lib/mailDelete";
 import { haptic, useTouchRow } from "@/lib/touch";
+import { useMayDestroy } from "@/lib/useMayDestroy";
 import { useMail } from "@/store/mail";
 import { isScheduledMailbox } from "@/store/scheduled";
 import { useSettings } from "@/store/settings";
@@ -921,7 +922,7 @@ function MailboxMenu({
     return n;
   });
   /** ADR 0015: what this menu may offer, by the one rule. */
-  const mayEnd = useMail((s) => s.mayDestroyHere());
+  const mayEnd = useMayDestroy();
   const rename = async () => {
     const name = await // The server's own name, never the localised one: this box writes
     // back whatever it is prefilled with.
@@ -945,7 +946,13 @@ function MailboxMenu({
     });
     if (!ok) return;
     try {
-      await useMail.getState().destroyMailbox(m.id, true);
+      /*
+       * ADR 0015: a refusal is not a deletion, so the confirmation here is not
+       * followed by a success message about a folder that still exists and a
+       * navigation away from it. The guard's own sentence has already said why.
+       */
+      const outcome = await useMail.getState().destroyMailbox(m.id, true);
+      if (!outcome.ok) return;
       toast.success(t("Folder deleted"));
       navigate(`/mail/${useMail.getState().roleId("inbox") ?? ""}`);
     } catch (err) {

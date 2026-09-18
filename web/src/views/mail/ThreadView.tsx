@@ -29,13 +29,14 @@ import { plural, t } from "@/lib/i18n";
 import { SEEN_KEYWORD, STARRED_KEYWORD } from "@/lib/keywordCounts";
 import {
   deleteEffectInFolder,
-  deleteEntryOffered,
   finalFoldersOf,
+  folderDeleteOffered,
 } from "@/lib/mailDelete";
 import { visibleMessages } from "@/lib/openMessage";
 import { anyCarries, anyLacks } from "@/lib/rowScope";
 import { threadScrollTarget } from "@/lib/threadScroll";
 import { useEdgeBack } from "@/lib/touch";
+import { useMayDestroy } from "@/lib/useMayDestroy";
 import {
   DEFAULT_REPLY_MODE,
   REPLY,
@@ -320,9 +321,13 @@ export function ThreadView({
    * Deleted Items or Junk Mail is destroying rather than filing — and it is
    * not offered at all in a group, where only an administrator ends mail.
    */
-  const threadDeleteIsFinal = deleteEffectInFolder(mailboxId, finalFoldersOf(mailboxes));
-  const mayEnd = useMail((s) => s.mayDestroyHere());
-  const deleteIsOffered = deleteEntryOffered(mayEnd, threadDeleteIsFinal);
+  const mayEnd = useMayDestroy();
+  const threadDeleteEffect = deleteEffectInFolder(mailboxId, finalFoldersOf(mailboxes));
+  const deleteIsOffered = folderDeleteOffered(
+    mailboxId,
+    finalFoldersOf(mailboxes),
+    mayEnd,
+  );
   /* `G-` labels describe one message, not the conversation (ADR 0003
      resolution 9), so the thread row shows the group's own labels and the
      agent's state stays on the message it was written on. */
@@ -371,7 +376,7 @@ export function ThreadView({
         </button>
         <button
           className="icon-btn"
-          title={threadDeleteIsFinal === "final" ? t("Delete forever") : t("Delete (#)")}
+          title={threadDeleteEffect === "final" ? t("Delete forever") : t("Delete (#)")}
           disabled={!deleteIsOffered}
           onClick={() => void actions.trash(rowIds)}
         >

@@ -7,6 +7,7 @@ import {
   folderDestroyTakesMail,
   mayDestroy,
 } from "@/lib/mailDelete";
+import { describeSwipe } from "@/lib/swipe";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { useToasts } from "@/ui/toast";
@@ -176,10 +177,39 @@ describe("destroying mail in a group (ADR 0015)", () => {
   it("refuses a member's final delete without asking any server", async () => {
     const s = transport();
     mount(GROUP, { isAdmin: false, withGroup: true });
-    await useMail.getState().destroy(["e1"]);
+    const outcome = await useMail.getState().destroy(["e1"]);
     expect(s.destroys).toEqual([]);
     // And says why, naming what still works rather than only what does not.
     expect(messages().join(" ")).toContain("installation administrator");
+    /*
+     * And *answers*, which is what no caller can guess from silence: the list
+     * uses this to decide whether to move its focus off a row that is still
+     * there, and a menu whether to report a deletion that did not happen.
+     */
+    expect(outcome).toEqual({ ok: false, code: "group_mail_final" });
+  });
+
+  it("answers ok on a delete that went through", async () => {
+    const s = transport();
+    mount(OWN, { isAdmin: false, withGroup: true });
+    expect(await useMail.getState().destroy(["e1"])).toEqual({ ok: true });
+    expect(s.destroys).toEqual([{ accountId: OWN, ids: ["e1"] }]);
+  });
+
+  /**
+   * A mixed selection is the case a single boolean would get wrong. `trash`
+   * destroys what sits in Deleted Items or Junk Mail and files the rest, and in
+   * a group only the first half is refused — so the answer has to be "something
+   * happened", or a caller would undo a move that did happen.
+   */
+  it("still reports success when only part of a selection was refused", async () => {
+    const s = transport();
+    mount(GROUP, { isAdmin: false, withGroup: true });
+    const outcome = await useMail.getState().trash(["e1", "e3"]);
+    expect(outcome).toEqual({ ok: true });
+    // e3 was filed into the group's Deleted Items; e1 was refused.
+    expect(messages().join(" ")).toContain("installation administrator");
+    expect(s.destroys).toEqual([]);
   });
 
   it("lets an administrator's final delete through", async () => {
@@ -215,20 +245,23 @@ describe("destroying mail in a group (ADR 0015)", () => {
   it("refuses a member's emptying of the group's Deleted Items", async () => {
     const s = transport();
     mount(GROUP, { isAdmin: false, withGroup: true });
-    await useMail.getState().emptyMailbox(TRASH);
+    const outcome = await useMail.getState().emptyMailbox(TRASH);
     expect(s.destroys).toEqual([]);
     expect(messages().join(" ")).toContain("installation administrator");
+    expect(outcome).toEqual({ ok: false, code: "group_mail_empty" });
   });
 
   it("refuses deleting a group folder that holds mail, and allows an empty one", async () => {
     const s = transport();
     mount(GROUP, { isAdmin: false, withGroup: true });
-    await useMail.getState().destroyMailbox(TRASH, true);
+    const refused = await useMail.getState().destroyMailbox(TRASH, true);
     expect(s.destroys).toEqual([]);
+    expect(refused).toEqual({ ok: false, code: "group_mail_folder" });
 
     // An empty folder is not mail: the group's tree stays the group's to shape.
     mount(GROUP, { isAdmin: false, withGroup: true });
-    await useMail.getState().destroyMailbox("mbEmpty", true);
+    const allowed = await useMail.getState().destroyMailbox("mbEmpty", true);
+    expect(allowed).toEqual({ ok: true });
     expect(messages().join(" ")).not.toContain("folder holding mail");
   });
 });
@@ -278,5 +311,31 @@ describe("the delete rule's parts", () => {
     expect(deleteEntryOffered(false, "move")).toBe(true);
     expect(deleteEntryOffered(false, "final")).toBe(false);
     expect(deleteEntryOffered(true, "final")).toBe(true);
+  });
+
+  /**
+   * The direction a row is refused in does not move at all — the same treatment
+   * a swipe out of the archive gets, and the reason is the same: a strip that
+   * reveals an action it cannot take is worse than one that does not open.
+   */
+  it("resolves a swipe to nothing where the delete would be refused", () => {
+    const offered = {
+      role: "inbox",
+      deleteEffect: "final" as const,
+      deleteOffered: true,
+      unread: false,
+      starred: false,
+    };
+    expect(describeSwipe("delete", offered)?.label).toBe("Delete forever");
+    expect(describeSwipe("delete", { ...offered, deleteOffered: false })).toBe(null);
+    // And a direction that files is untouched by the rule, whatever the reader
+    // may end: moving to Deleted Items is what a group's member still does.
+    expect(
+      describeSwipe("delete", {
+        ...offered,
+        deleteEffect: "move",
+        deleteOffered: false,
+      })?.label,
+    ).toBe("Delete");
   });
 });
