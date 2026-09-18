@@ -27,7 +27,7 @@ import { useMail } from "@/store/mail";
 import { useSieve } from "@/store/sieve";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { Spinner, Switch } from "@/ui/misc";
-import { SieveEditor } from "@/ui/SieveEditor";
+import { SieveScriptPanel } from "@/views/sieve/SieveScriptPanel";
 import { toast } from "@/ui/toast";
 import { saveAndApply } from "../mail/FilterFromMessage";
 import { RuleDialog } from "./RuleDialog";
@@ -433,6 +433,15 @@ function ScriptsEditor() {
     else start("", 'require ["fileinto"];\n\n');
   };
 
+  /** The personal tab's own preflight: it asks before saving, not on save. */
+  async function validate() {
+    setBusy(true);
+    const err = await sieve.validate(content);
+    setValidation(err);
+    setBusy(false);
+    if (!err) toast.success(t("Script is valid"));
+  }
+
   const save = async (activate: boolean): Promise<boolean> => {
     if (!name.trim()) {
       toast.error(t("Script name is required"));
@@ -478,52 +487,24 @@ function ScriptsEditor() {
   // after a save, since a saved script still has both.
   if (opened !== null) {
     return (
-      <div>
-        <div className="field">
-          <label>{t("Script name")}</label>
-          <input
-            className="input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={Boolean(sel)}
-          />
-        </div>
-        <div className="field">
-          <label>{t("Sieve source")}</label>
-          <SieveEditor value={content} onChange={setContent} minHeight={320} />
-        </div>
-        {validation && <div className="error-box mb-16">{validation}</div>}
-        <div className="row save-bar">
-          <button className="btn btn-ghost" onClick={close}>
-            {t("Cancel")}
-          </button>
-          <button
-            className="btn"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              const err = await sieve.validate(content);
-              setValidation(err);
-              setBusy(false);
-              if (!err) toast.success(t("Script is valid"));
-            }}
-          >
-            <Play size={14} /> {t("Validate")}
-          </button>
-          <span className="spacer" />
-          {dirty && <span className="unsaved">{t("Unsaved changes")}</span>}
-          <button className="btn" disabled={busy} onClick={() => void save(false)}>
-            {t("Save")}
-          </button>
-          <button
-            className="btn btn-primary"
-            disabled={busy}
-            onClick={() => void save(true)}
-          >
-            {t("Save & activate")}
-          </button>
-        </div>
-      </div>
+      <SieveScriptPanel
+        form={{
+          name,
+          setName,
+          nameLocked: Boolean(sel),
+          content,
+          setContent,
+          dirty,
+          busy,
+          // The plain save leaves "which script is active" alone, which the
+          // dialog offering it promises.
+          onSave: () => void save(false),
+          onSaveActivate: () => void save(true),
+          onClose: close,
+          onValidate: () => void validate(),
+          validation,
+        }}
+      />
     );
   }
 

@@ -32,7 +32,7 @@ import { t } from "@/lib/i18n";
 import { useUnsavedChanges } from "@/lib/unsavedChanges";
 import { confirmDialog } from "@/ui/dialog";
 import { Spinner } from "@/ui/misc";
-import { SieveEditor } from "@/ui/SieveEditor";
+import { SieveScriptPanel } from "@/views/sieve/SieveScriptPanel";
 import { toast } from "@/ui/toast";
 
 interface Opened {
@@ -162,50 +162,24 @@ export function SystemSieve() {
 
   if (opened !== null) {
     return (
-      <div>
-        <div className="field">
-          <label>{t("Script name")}</label>
-          <input
-            className="input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={Boolean(sel)}
-          />
-        </div>
-        <div className="field">
-          <label>{t("Description")}</label>
-          <input
-            className="input"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label>{t("Sieve source")}</label>
-          <SieveEditor value={content} onChange={setContent} minHeight={320} />
-        </div>
-        <div className="row save-bar">
-          <button className="btn btn-ghost" onClick={close}>
-            {t("Cancel")}
-          </button>
-          <span className="spacer" />
-          {dirty && <span className="unsaved">{t("Unsaved changes")}</span>}
-          <button
-            className="btn"
-            disabled={busy}
-            onClick={() => void save(sel?.isActive ?? false)}
-          >
-            {t("Save")}
-          </button>
-          <button
-            className="btn btn-primary"
-            disabled={busy}
-            onClick={() => void save(true)}
-          >
-            {t("Save & activate")}
-          </button>
-        </div>
-      </div>
+      <SieveScriptPanel
+        form={{
+          name,
+          setName,
+          nameLocked: Boolean(sel),
+          description,
+          setDescription,
+          content,
+          setContent,
+          dirty,
+          busy,
+          // Saving a system script leaves it as active as it was; the other
+          // button is the one that turns it on.
+          onSave: () => void save(sel?.isActive ?? false),
+          onSaveActivate: () => void save(true),
+          onClose: close,
+        }}
+      />
     );
   }
 
