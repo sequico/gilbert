@@ -55,11 +55,15 @@ For larger changes, please open an issue to discuss the approach **before** subm
    `node scripts/i18n-catalog-check.mjs` report where you stand; the catalogue
    key for a plural is the `other` form.
 
-`main` is not branch-protected. The gate that keeps a broken change off it is
-the fast CI check every push runs — `npm run prepush`: typecheck, Biome lint,
-and the test suite in UTC — enforced by the pre-push hook in `.githooks/`. A
-push that fails the gate is refused; bypass it with `--no-verify` only
-deliberately and knowingly.
+`main` is branch-protected: a force push and a deletion of the branch are
+refused, so history that cannot be recovered stays where it is. It asks for no
+review and no status check — the repository owner can still bypass it, since
+the protection guards those two pushes rather than the maintainer. The gate
+that keeps a broken change off it is the fast CI check every push runs —
+`npm run prepush`: typecheck, Biome lint, the check scripts and the test suite
+in UTC — enforced by the pre-push hook in `.githooks/` (enable it once per
+clone with `git config core.hooksPath .githooks`). A push that fails the gate is
+refused; bypass it with `--no-verify` only deliberately and knowingly.
 
 ### Code Style
 

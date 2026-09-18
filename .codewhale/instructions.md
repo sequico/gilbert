@@ -289,8 +289,14 @@ with its detail kept afterwards for completeness and never as the lead. A
 change that makes a sentence in any public doc false fixes it in the same
 commit, and a new Gilbert feature is written where the reader starts, not
 only in the section that happens to own it.
-`origin/main` is **not branch-protected** (private repo): direct commit + push
-to main is the normal flow.
+`origin/main` carries **branch protection** (private repo, set through the
+API): it refuses a force push and a branch deletion, with `enforce_admins` off
+so the owner can still bypass it — the point is to guard the two pushes that
+cannot be undone, not to bind the owner. Nothing else is required of it: no
+review, no status check, since the gate a push meets is the local pre-push hook
+— so direct commit + push to main is still the normal flow. Lifting or widening
+the protection is the owner's call, never a side effect of another change; when
+it moves, this sentence and `CONTRIBUTING.md` are what state it.
 **Releases are called manually by the user — for now there are none and none are
 automated.** Never tag, publish, or trigger release/publish workflows on your
 own (see `.github/workflows/release.yml`, `publish.yml`).
