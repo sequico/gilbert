@@ -1,5 +1,6 @@
 import { isRecord } from "@gilbert/shared/json";
 import { GROUP_LABELS_FILE, isLabelCatalogEntry } from "@gilbert/shared/labels";
+import { debouncedReload } from "@/lib/fileNodeReload";
 import { JSON_MIME } from "@/lib/mime";
 import { create } from "zustand";
 import { client } from "@/jmap/client";
@@ -22,9 +23,6 @@ import { useMail } from "./mail";
  * colour and nesting here are display only. Renaming a label therefore
  * changes nothing on any message.
  */
-
-/** Coalesce the FileNode changes of one burst (a chat message floods the same rail) into one read. */
-const RELOAD_DEBOUNCE_MS = 400;
 
 interface GroupLabelsState {
   /** label list per group account, as loaded from its `labels.json`. */
@@ -96,21 +94,19 @@ export function labelsForAccount(accountId: Id | null, personal: Label[]): Label
   return useGroupLabels.getState().byAccount[accountId] ?? [];
 }
 
-const reloadTimers: Record<Id, number> = {};
+const reloads = debouncedReload();
 
 // A group's catalog is a FileNode. When an admin edits it, the push rail
 // reports a FileNode StateChange for that account; re-read it so every member
 // sees the change live. A StateChange carries only account+type (not which
-// node changed), and chat messages ride the same rail, so the re-read is
-// debounced per account.
+// node changed), and chat messages ride the same rail, so the re-read goes
+// through the one per-key debounce (`lib/fileNodeReload`).
 push.subscribe((accountId, type) => {
   if (type !== "FileNode") return;
   if (!(accountId in useGroupLabels.getState().byAccount)) return;
-  if (reloadTimers[accountId]) clearTimeout(reloadTimers[accountId]);
-  reloadTimers[accountId] = window.setTimeout(() => {
-    delete reloadTimers[accountId];
+  reloads.schedule(accountId, () => {
     void useGroupLabels.getState().load(accountId);
-  }, RELOAD_DEBOUNCE_MS);
+  });
 });
 
 // Push replays nothing to a tab that was away, so a catalog already loaded is

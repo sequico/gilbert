@@ -41,9 +41,7 @@ import {
   saveAgentRules,
 } from "@/lib/agents";
 import { useSession } from "@/store/session";
-
-/** Coalesce one burst of FileNode changes into a single group reload. */
-const RELOAD_DEBOUNCE_MS = 400;
+import { debouncedReload } from "@/lib/fileNodeReload";
 
 /**
  * The key a group's agent view is held under.
@@ -322,16 +320,16 @@ function groupNameForAccount(accountId: string): string | null {
   return typeof account.name === "string" ? agentViewKey(account.name) : null;
 }
 
-const reloadTimers: Record<string, number> = {};
+const reloads = debouncedReload();
 
 /*
  * A group's agent documents are FileNodes in the group's own account: when an
  * administrator saves rules or the standing instruction, or a worker writes a
  * job, the push rail reports a StateChange for that account and the view
  * re-reads it. A StateChange carries only account and type — not which node
- * changed — and chat messages ride the same rail, so the re-read is debounced
- * per group, like the label catalog. Both doors are re-read, each only for the
- * groups already open through it.
+ * changed — and chat messages ride the same rail, so the re-read goes through
+ * the one per-key debounce (`lib/fileNodeReload`). Both doors are re-read, each
+ * only for the groups already open through it.
  */
 push.subscribe((accountId, type) => {
   if (type !== "FileNode") return;
@@ -339,13 +337,11 @@ push.subscribe((accountId, type) => {
   if (!name) return;
   const open = useAgents.getState();
   if (!(name in open.groupViews) && !(name in open.memberViews)) return;
-  if (reloadTimers[name]) clearTimeout(reloadTimers[name]);
-  reloadTimers[name] = window.setTimeout(() => {
-    delete reloadTimers[name];
+  reloads.schedule(name, () => {
     const now = useAgents.getState();
     if (name in now.groupViews) void now.loadGroup(name);
     if (name in now.memberViews) void now.loadMemberView(name);
-  }, RELOAD_DEBOUNCE_MS);
+  });
 });
 
 // Push replays nothing to a tab that was away, so a view already open is

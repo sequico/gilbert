@@ -6,6 +6,7 @@ import { BASE_PATH, withBase } from "@/lib/basePath";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { plural, t, useLanguageVersion, whenLanguageReady } from "@/lib/i18n";
 import { lazyView } from "@/lib/lazyView";
+import { RELOAD_DEBOUNCE_MS } from "@/lib/fileNodeReload";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { setBaseTitle, setUnreadBadge } from "@/lib/notify";
 import { refreshSettingsPolicy } from "@/lib/settingsPolicy";
@@ -306,6 +307,15 @@ function AuthedApp() {
      * when the app is open and about to use the subscription -- so it runs on
      * every start, chained onto the mailbox load above.
      */
+    /*
+     * One pass for a burst of StateChanges, every account and type in it.
+     *
+     * Not the per-key debounce the FileNode readers use
+     * (`lib/fileNodeReload`): this one collects the whole burst and hands it to
+     * the dispatchers once, because each dispatcher routes the accounts it
+     * holds, while those re-read one group or one account each. The window is
+     * the same number, because it is the same burst being smoothed.
+     */
     const pending = new Map<string, Set<string>>();
     let timer: number | null = null;
     const queue = (acct: string, type: string) => {
@@ -342,7 +352,7 @@ function AuthedApp() {
           if (types.has("FileNode")) void useChat.getState().applyChanges(a);
         }
         pending.clear();
-      }, 400);
+      }, RELOAD_DEBOUNCE_MS);
     };
     const unsub = push.subscribe((acct, type) => queue(acct, type));
     /*
