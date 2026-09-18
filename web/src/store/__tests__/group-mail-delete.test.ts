@@ -63,27 +63,36 @@ function sessionOf(opts: { isAdmin: boolean; withGroup?: boolean }): JmapSession
 }
 
 /** Counts what actually left the client, so a refusal that called is visible. */
-function transport() {
+function transport(mode: "ok" | "refuse" | "partial" | "throw" = "ok") {
   const destroys: { accountId: string; ids: string[] }[] = [];
   const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+    if (mode === "throw") throw new Error("the server is unreachable");
     const body = JSON.parse(init.body as string) as {
       methodCalls: [string, Record<string, unknown>, string][];
     };
     const methodResponses = body.methodCalls.map(
       ([name, args, id]: [string, Record<string, unknown>, string]) => {
         if (name === "Email/set" && Array.isArray(args.destroy)) {
-          destroys.push({
-            accountId: String(args.accountId),
-            ids: args.destroy as string[],
-          });
+          const ids = args.destroy as string[];
+          destroys.push({ accountId: String(args.accountId), ids });
+          /*
+           * The server's own refusal, in the shape JMAP answers it: the ids it
+           * would not destroy come back under `notDestroyed` with a reason, and
+           * `destroyed` carries only the ones that went.
+           */
+          const refused: Record<string, unknown> = {};
+          if (mode !== "ok")
+            for (const one of mode === "partial" ? ids.slice(0, 1) : ids)
+              refused[one] = { type: "forbidden" };
+          const gone = ids.filter((one) => !(one in refused));
           return [
             name,
             {
               accountId: args.accountId,
               oldState: "1",
               newState: "2",
-              destroyed: args.destroy,
-              notDestroyed: {},
+              destroyed: gone,
+              notDestroyed: refused,
             },
             id,
           ];
@@ -194,6 +203,57 @@ describe("destroying mail in a group (ADR 0015)", () => {
     mount(OWN, { isAdmin: false, withGroup: true });
     expect(await useMail.getState().destroy(["e1"])).toEqual({ ok: true });
     expect(s.destroys).toEqual([{ accountId: OWN, ids: ["e1"] }]);
+  });
+
+  /**
+   * The other half of "a caller can tell a refusal from work done": the refusal
+   * can come from the *server*, not only from the rule. Silence read as success
+   * is the same defect on either path — the list clears its selection and moves
+   * the focus off a row the server just left in place.
+   */
+  it("answers the server's own refusal, which is not the rule's", async () => {
+    transport("refuse");
+    mount(OWN, { isAdmin: false, withGroup: true });
+    expect(await useMail.getState().destroy(["e1"])).toEqual({
+      ok: false,
+      code: "server_refused",
+    });
+  });
+
+  /**
+   * And the partial case is deliberately *not* a refusal: some of the mail went,
+   * the toast named the mail that stayed, and a caller that undid the action
+   * would be undoing something that happened.
+   */
+  it("still answers ok when the server refused only part of the selection", async () => {
+    transport("partial");
+    mount(OWN, { isAdmin: false, withGroup: true });
+    expect(await useMail.getState().destroy(["e1", "e3"])).toEqual({ ok: true });
+    expect(messages().join(" ")).toContain("could not be deleted");
+  });
+
+  it("answers a failure that never reached the server", async () => {
+    transport("throw");
+    mount(OWN, { isAdmin: false, withGroup: true });
+    expect(await useMail.getState().destroy(["e1"])).toEqual({
+      ok: false,
+      code: "server_refused",
+    });
+  });
+
+  /**
+   * A mixed selection whose destroy half the server refused, with nothing to
+   * file the rest into, is the case where "did anything happen" has to answer
+   * no: the trash half went nowhere and there was no Deleted Items to move to.
+   */
+  it("answers the refusal when no half of a mixed selection happened", async () => {
+    transport("refuse");
+    mount(OWN, { isAdmin: false, withGroup: true });
+    useMail.setState({ mailboxes: {} as never });
+    expect(await useMail.getState().trash(["e1"])).toEqual({
+      ok: false,
+      code: "server_refused",
+    });
   });
 
   /**

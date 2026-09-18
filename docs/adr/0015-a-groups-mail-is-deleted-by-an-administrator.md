@@ -5,7 +5,8 @@ Status: Accepted
 Implementation: Built. The rule is one module (`web/src/lib/mailDelete.ts`) and
 its guard sits on the three effects that destroy — `destroy`, `emptyMailbox` and
 `destroyMailbox` in `web/src/store/mail.ts` — each answering a `DeleteOutcome` so
-a caller can tell a refusal from work done. The surfaces read the same answer
+a caller can tell a refusal from work done, the rule's own refusals and the mail
+server's told apart by their code. The surfaces read the same answer
 before drawing an entry, through `deleteEntryOffered` and its two per-target
 wrappers, and reach it through one hook (`web/src/lib/useMayDestroy.ts`) so the
 drawn answer moves with the admin flag: `web/src/views/mail/MessageList.tsx`,
@@ -242,7 +243,8 @@ with; a group that wants the switch can be given one over it.
 - `web/src/lib/useMayDestroy.ts` — the one hook every surface reads it through,
   so the drawn answer re-renders when the admin flag or the account set moves
 - `web/src/store/mail.ts` — the guards on `destroy`, `emptyMailbox` and
-  `destroyMailbox`, each answering a `DeleteOutcome`, and the module-private
+  `destroyMailbox`, each answering a `DeleteOutcome` in which the rule's refusal
+  and the server's own are different codes, and the module-private
   `destroyEmails` the guarded paths funnel through
 - `web/src/store/__tests__/group-mail-delete.test.ts` — the invariant: a
   member's destroy in a group reaches no server, an administrator's does, an

@@ -43,18 +43,32 @@ export type DeleteEffect = "move" | "final";
 export type DeleteRefusal = "group_mail_final" | "group_mail_empty" | "group_mail_folder";
 
 /**
+ * Why nothing happened, when the rule itself did not.
+ *
+ * `server_refused` is the mail server saying no — an ACL, a quota, a lock. It
+ * is a refusal a caller must not read as success either, and it is not the
+ * rule's: the sentences differ, and only one of them is a policy.
+ *
+ * A partial server refusal is **not** one of these: when some of the ids went
+ * and some did not, the action did happen and the reader is told which mail
+ * stayed through the ordinary toast. `server_refused` is the total case.
+ */
+export type DeleteFailure = DeleteRefusal | "server_refused";
+
+/**
  * What a guarded write did, so a caller can tell a refusal from work done.
  *
- * `ok: false` is a refusal **by the rule** — the one thing a caller must not
- * read as success, because the row, the selection and the folder are all still
- * as they were. `ok: true` means the rule did not refuse; the action may still
- * have had nothing to do (no account, no ids), which no caller has to care
- * about.
+ * `ok: false` is the one thing a caller must not read as success, because the
+ * row, the selection and the folder are all still as they were: either the rule
+ * refused (`DeleteRefusal`) or the mail server did (`server_refused`).
+ * `ok: true` means something happened — which includes an action that had
+ * nothing to do (no account, no ids), and a selection whose refused half was
+ * announced while the rest went through.
  *
  * The store composes the sentence for the actions it performs itself, where the
  * catalogue reaches it; a caller that needs its own wording reads `code`.
  */
-export type DeleteOutcome = { ok: true } | { ok: false; code: DeleteRefusal };
+export type DeleteOutcome = { ok: true } | { ok: false; code: DeleteFailure };
 
 /** Which of the three entry points is asking. */
 export type DestroyKind = "final" | "empty" | "folder";

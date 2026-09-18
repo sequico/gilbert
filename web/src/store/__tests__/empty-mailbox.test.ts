@@ -208,9 +208,15 @@ describe("emptyMailbox", () => {
 
   it("stops instead of looping when the server destroys nothing", async () => {
     const s = server(5192, { refuseDestroy: true });
-    await useMail.getState().emptyMailbox(TRASH);
+    /*
+     * Nothing went, so the folder is still full — and the answer says so rather
+     * than leaving a caller to read silence as an emptied folder.
+     */
+    const outcome = await useMail.getState().emptyMailbox(TRASH);
     expect(s.destroyBatches).toHaveLength(1);
     expect(messages().some((m) => m.startsWith("Could not empty folder"))).toBe(true);
+    expect(outcome).toEqual({ ok: false, code: "server_refused" });
+    expect(s.live.size).toBe(5192);
   });
 });
 

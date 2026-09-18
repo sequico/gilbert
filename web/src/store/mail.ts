@@ -45,6 +45,7 @@ import {
 import { mailboxDisplayName } from "@/lib/mailboxName";
 import {
   type DeleteContext,
+  type DeleteFailure,
   type DeleteOutcome,
   type DeleteRefusal,
   destroyRefusal,
@@ -1093,15 +1094,26 @@ export const useMail = create<MailState>((set, get) => ({
      * and a caller must not read that as nothing having happened. The refused
      * half is announced by `destroy` below either way.
      */
-    let refused: DeleteRefusal | null = null;
+    let refused: DeleteFailure | null = null;
+    let acted = false;
     if (inTrash.length) {
       const outcome = await get().destroy(inTrash);
-      if (!outcome.ok) refused = outcome.code;
+      if (outcome.ok) acted = true;
+      else refused = outcome.code;
     }
-    if (toMove.length && trashId)
-      await get().move(toMove, trashId, { label: "Deleted Items" });
-    else if (toMove.length) await get().destroy(toMove);
-    if (refused && !toMove.length) return { ok: false, code: refused };
+    if (toMove.length) {
+      if (trashId) {
+        await get().move(toMove, trashId, { label: "Deleted Items" });
+        acted = true;
+      } else {
+        // No Deleted Items to file into, so the rest is destroyed outright —
+        // and that half's outcome is the caller's business too.
+        const outcome = await get().destroy(toMove);
+        if (outcome.ok) acted = true;
+        else refused ??= outcome.code;
+      }
+    }
+    if (!acted && refused) return { ok: false, code: refused };
     return { ok: true };
   },
 
@@ -1139,15 +1151,24 @@ export const useMail = create<MailState>((set, get) => ({
           `${ids.length === 1 ? "Message" : `${ids.length} messages`} deleted forever`,
         );
       void get().loadMailboxes();
+      /*
+       * Part of the selection went and part did not: the action happened, and
+       * the toast above already named the mail that stayed. Only the total
+       * refusal is the answer a caller has to read — nothing moved, so nothing
+       * may be reported as done.
+       */
+      if (failed.length && failed.length === ids.length)
+        return { ok: false, code: "server_refused" };
     } catch (err) {
       toast.error(t("Delete failed: {error}", { error: (err as Error).message }));
       void get().refreshList();
       /*
        * The server refused, so the messages are still there — and the optimistic
-       * removal above has to be undone by the refresh, which is what the caller
-       * is told here rather than being left to assume success.
+       * removal above has to be undone by the refresh. That is why this is the
+       * answer rather than silence: a caller that read it as success would move
+       * its focus off a row that is still in the list.
        */
-      return { ok: true };
+      return { ok: false, code: "server_refused" };
     }
     return { ok: true };
   },
@@ -1348,16 +1369,21 @@ export const useMail = create<MailState>((set, get) => ({
               })
             : ""),
       );
+      /*
+       * Nothing was destroyed before the failure — the folder is as it was — so
+       * a caller may not read this as an emptied folder. The housekeeping below
+       * runs either way: this branch only has to answer.
+       */
+      if (!deleted) return { ok: false, code: "server_refused" };
     } finally {
       if (progress !== null) toast.dismiss(progress);
       void get().loadMailboxes();
       void get().refreshList();
     }
     /*
-     * The server's own refusal above is a failure the reader is already told
-     * about, not the group rule declining to act — so the rule's outcome is the
-     * answer here, and an emptying that the server partly refused still counts
-     * as having happened.
+     * The server's own refusal part-way through is a failure the reader is
+     * already told about, not the group rule declining to act — and mail did go,
+     * so the emptying happened and the answer says so.
      */
     return { ok: true };
   },
