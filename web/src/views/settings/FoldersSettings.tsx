@@ -1,14 +1,15 @@
 import { Eye, EyeOff, Folder, Inbox, Pencil, Plus, Share2, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Mailbox, MailboxRole } from "@/jmap/types";
+import { askDeleteFolder } from "@/lib/deleteConfirm";
 import { formatSize } from "@/lib/format";
-import { plural, t } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import { mailboxDisplayPath } from "@/lib/mailboxName";
 import { settingsMailboxTree } from "@/lib/mailboxScope";
 import { folderDestroyTakesMail } from "@/lib/mailDelete";
 import { useMayDestroy } from "@/lib/useMayDestroy";
 import { useMail } from "@/store/mail";
-import { confirmDialog, promptDialog } from "@/ui/dialog";
+import { promptDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 import { ShareDialog } from "./ShareDialog";
 
@@ -260,15 +261,7 @@ export function FoldersSettings() {
                     }
                     onClick={async () => {
                       if (
-                        await confirmDialog({
-                          title: t("Delete “{name}”?", { name: m.name }),
-                          message: plural(m.totalEmails, {
-                            one: "{n} message will be permanently deleted.",
-                            other: "{n} messages will be permanently deleted.",
-                          }),
-                          confirmLabel: t("Delete"),
-                          danger: true,
-                        })
+                        await askDeleteFolder({ name: m.name, emails: m.totalEmails })
                       ) {
                         try {
                           await asOwn();

@@ -40,6 +40,7 @@ import { client } from "@/jmap/client";
 import type { Email, EmailAddress, EmailBodyPart, Id } from "@/jmap/types";
 import { displayName, domainOf, formatAddress } from "@/lib/address";
 import { startAppointment } from "@/lib/appointment";
+import { askDeleteMessages } from "@/lib/deleteConfirm";
 import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { emlFilename } from "@/lib/emlName";
 import { formatFullDate, formatListDate, formatSize } from "@/lib/format";
@@ -51,7 +52,7 @@ import {
   sanitizeEmailHtml,
   TEXT_EMAIL_CSS,
 } from "@/lib/html";
-import { plural, tc, tNode, t as translate } from "@/lib/i18n";
+import { tc, tNode, t as translate } from "@/lib/i18n";
 import { deleteEffect, finalFoldersOf, messageDeleteOffered } from "@/lib/mailDelete";
 import { mdnDecision, refusalText } from "@/lib/mdn";
 import { openableInTab, previewKind } from "@/lib/preview";
@@ -73,7 +74,7 @@ import { sendReadReceipt } from "@/store/mdn";
 import { useScheduled } from "@/store/scheduled";
 import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
-import { choiceDialog, confirmDialog, Dialog } from "@/ui/dialog";
+import { choiceDialog, Dialog } from "@/ui/dialog";
 import { FilePreviewDialog } from "@/ui/filepreview";
 import { Avatar } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
@@ -685,21 +686,12 @@ export const MessageView = memo(function MessageView({
             const permanent = deleteEffect(e, finalFoldersOf(mail.mailboxes)) === "final";
             void (async () => {
               if (permanent || settings.confirmDelete) {
-                const ok = await confirmDialog({
-                  title: permanent ? translate("Delete forever?") : translate("Delete?"),
-                  message: permanent
-                    ? plural(1, {
-                        one: "{n} message will be permanently deleted.",
-                        other: "{n} messages will be permanently deleted.",
-                      })
-                    : plural(1, {
-                        one: "Move {n} message to Trash?",
-                        other: "Move {n} messages to Trash?",
-                      }),
-                  confirmLabel: translate("Delete"),
-                  danger: permanent,
-                });
-                if (!ok) return;
+                /*
+                 * The same question the list's toolbar asks, in the same words
+                 * (`askDeleteMessages`), so one click from inside either folder
+                 * cannot destroy a message forever without one.
+                 */
+                if (!(await askDeleteMessages({ count: 1, permanent }))) return;
               }
               await mail.trash([e.id]);
             })();

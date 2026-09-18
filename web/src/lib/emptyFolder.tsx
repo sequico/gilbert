@@ -18,7 +18,13 @@
  * is exactly the position where a string ships English in all ten languages
  * with nobody noticing: the labels and the dialog text were template literals,
  * and no catalogue can key on a template literal. Counted sentences go through
- * `plural`, so a language with three plural forms gets its own.
+ * `plural`, so a language with three plural forms gets its own — and the one
+ * pair this shares with the delete dialogs (`deletedMessages`) is composed in
+ * `lib/deleteConfirm` rather than written out a second time here.
+ *
+ * What comes back is the emptying's own outcome, so a caller can tell an
+ * emptied folder from one the server refused — `null` where the reader
+ * declined, which is not an outcome about the folder at all.
  *
  * Nothing here decides *whether* emptying is allowed: that is ADR 0015's rule,
  * asked by the store before this is called, and it is why a group's menu never
@@ -26,7 +32,9 @@
  */
 
 import type { Id, MailboxRole } from "@/jmap/types";
+import { deletedMessages } from "@/lib/deleteConfirm";
 import { plural, t } from "@/lib/i18n";
+import type { DeleteOutcome } from "@/lib/mailDelete";
 import { useMail } from "@/store/mail";
 import { confirmDialog } from "@/ui/dialog";
 
@@ -49,9 +57,11 @@ export function emptyLabel(target: Pick<EmptyTarget, "name" | "role">): string {
     : t("Empty {name}", { name: target.name });
 }
 
-/** Ask, then empty. Resolves once the emptying has been attempted, or declined. */
-export async function confirmAndEmpty(target: EmptyTarget): Promise<void> {
-  if (!canEmpty(target.role)) return;
+/** Ask, then empty. Resolves with what the emptying did, or `null` where the reader declined. */
+export async function confirmAndEmpty(
+  target: EmptyTarget,
+): Promise<DeleteOutcome | null> {
+  if (!canEmpty(target.role)) return null;
   const junk = target.role === "junk";
   const n = target.totalEmails;
   const ok = await confirmDialog({
@@ -64,14 +74,10 @@ export async function confirmAndEmpty(target: EmptyTarget): Promise<void> {
           other:
             "All {n} messages will be deleted permanently. They do not go to Deleted Items first, so this cannot be undone.",
         })
-      : plural(n, {
-          // The same pair the delete confirmations use: one sentence about a
-          // folder's mail is the same sentence wherever it is asked.
-          one: "{n} message will be permanently deleted.",
-          other: "{n} messages will be permanently deleted.",
-        }),
+      : deletedMessages(n),
     confirmLabel: junk ? t("Delete all spam") : t("Empty folder"),
     danger: true,
   });
-  if (ok) await useMail.getState().emptyMailbox(target.id);
+  if (!ok) return null;
+  return useMail.getState().emptyMailbox(target.id);
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import type { Comparator, Id } from "@/jmap/types";
 import { withBase } from "@/lib/basePath";
+import { askDeleteMessages } from "@/lib/deleteConfirm";
 import { plural, tNode, t as translate } from "@/lib/i18n";
 import { keyboard } from "@/lib/keyboard";
 import { STARRED_KEYWORD } from "@/lib/keywordCounts";
@@ -15,7 +16,6 @@ import { REPLY_KEYS, useCompose } from "@/store/compose";
 import { DEFAULT_SORT, type ListQuery, useMail } from "@/store/mail";
 import { scheduledMailboxIdFrom, useScheduled } from "@/store/scheduled";
 import { useSettings } from "@/store/settings";
-import { confirmDialog } from "@/ui/dialog";
 import { useIsNarrow } from "@/ui/misc";
 import { Splitter } from "@/ui/Splitter";
 import { toast } from "@/ui/toast";
@@ -335,24 +335,13 @@ export function MailView({
          * would be an over-refusal in the other direction.
          */
         const allRefused = permanent && !mail.mayDestroyHere();
+        /*
+         * Whether to ask is this caller's question; what the dialog says is
+         * `askDeleteMessages`'s, so the same delete is not described one way in
+         * the list and another in a message's own menu.
+         */
         if (!allRefused && (permanent || settings.confirmDelete)) {
-          // A plural form rather than "message(s)": that spelling puts a
-          // parenthesis where every language that inflects wants agreement.
-          const ok = await confirmDialog({
-            title: permanent ? translate("Delete forever?") : translate("Delete?"),
-            message: permanent
-              ? plural(t.length, {
-                  one: "{n} message will be permanently deleted.",
-                  other: "{n} messages will be permanently deleted.",
-                })
-              : plural(t.length, {
-                  one: "Move {n} message to Trash?",
-                  other: "Move {n} messages to Trash?",
-                }),
-            confirmLabel: translate("Delete"),
-            danger: permanent,
-          });
-          if (!ok) return;
+          if (!(await askDeleteMessages({ count: t.length, permanent }))) return;
         }
         /*
          * The guard's answer decides whether the list is treated as changed: a

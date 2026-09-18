@@ -35,11 +35,12 @@ import {
 } from "react";
 import { Link, useLocation } from "wouter";
 import type { Id, Mailbox } from "@/jmap/types";
+import { askDeleteFolder } from "@/lib/deleteConfirm";
 import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { canEmpty, confirmAndEmpty, emptyLabel } from "@/lib/emptyFolder";
 import { canDropFolder, folderColor, movable } from "@/lib/folderMove";
 import { folderKey, useOpenFolders } from "@/lib/folderView";
-import { plural, t } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import { countOf, STARRED_KEYWORD } from "@/lib/keywordCounts";
 import { labelTree, visibleLabels } from "@/lib/labelTree";
 import { isGroupMailboxAccount } from "@/lib/mailAccounts";
@@ -50,7 +51,7 @@ import { useMayDestroy } from "@/lib/useMayDestroy";
 import { useMail } from "@/store/mail";
 import { isScheduledMailbox } from "@/store/scheduled";
 import { useSettings } from "@/store/settings";
-import { confirmDialog, promptDialog } from "@/ui/dialog";
+import { promptDialog } from "@/ui/dialog";
 import { CALENDAR_COLORS, useIsMobile, useIsTouch } from "@/ui/misc";
 import { MenuItem, MenuSep, MenuTitle, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
@@ -935,14 +936,9 @@ function MailboxMenu({
     }
   };
   const remove = async () => {
-    const ok = await confirmDialog({
-      title: t("Delete “{name}”?", { name: mailboxDisplayName(m) }),
-      message: plural(m.totalEmails, {
-        one: "This permanently deletes the folder and its {n} message.",
-        other: "This permanently deletes the folder and its {n} messages.",
-      }),
-      confirmLabel: t("Delete"),
-      danger: true,
+    const ok = await askDeleteFolder({
+      name: mailboxDisplayName(m),
+      emails: m.totalEmails,
     });
     if (!ok) return;
     try {
