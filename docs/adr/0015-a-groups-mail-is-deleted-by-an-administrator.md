@@ -4,11 +4,16 @@ Status: Accepted
 
 Implementation: Built. The rule is one module (`web/src/lib/mailDelete.ts`) and
 its guard sits on the three effects that destroy — `destroy`, `emptyMailbox` and
-`destroyMailbox` in `web/src/store/mail.ts` — with the surfaces reading the same
-answer before drawing an entry (`web/src/views/mail/MessageList.tsx`,
-`MailView.tsx`, `MessageView.tsx`, `MailboxTree.tsx`,
-`web/src/lib/swipe.ts`), and the invariant pinned in
-`web/src/store/__tests__/group-mail-delete.test.ts`.
+`destroyMailbox` in `web/src/store/mail.ts` — each answering a `DeleteOutcome` so
+a caller can tell a refusal from work done. The surfaces read the same answer
+before drawing an entry, through `deleteEntryOffered` and its two per-target
+wrappers, and reach it through one hook (`web/src/lib/useMayDestroy.ts`) so the
+drawn answer moves with the admin flag: `web/src/views/mail/MessageList.tsx`,
+`MailView.tsx`, `MessageView.tsx`, `ThreadView.tsx`, `MailboxTree.tsx` and
+`web/src/lib/swipe.ts`, which resolves a refused direction to nothing at all. The
+invariant is pinned in `web/src/store/__tests__/group-mail-delete.test.ts`, and
+the exception for the reader's own draft in
+`web/src/store/__tests__/compose-save.test.ts`.
 
 ## Context
 
@@ -231,14 +236,21 @@ with; a group that wants the switch can be given one over it.
 ## References
 
 - `web/src/lib/mailDelete.ts` — the rule: what a delete does, which refusal it
-  answers, and the final folders found by role; the surface composes the
-  sentence from the catalogue
+  answers, the final folders found by role, and the three questions the surfaces
+  ask (`deleteEffect`, `deleteEntryOffered`, `messageDeleteOffered` /
+  `folderDeleteOffered`)
+- `web/src/lib/useMayDestroy.ts` — the one hook every surface reads it through,
+  so the drawn answer re-renders when the admin flag or the account set moves
 - `web/src/store/mail.ts` — the guards on `destroy`, `emptyMailbox` and
-  `destroyMailbox`, `mayDestroyHere()` for the surfaces, and the module-private
+  `destroyMailbox`, each answering a `DeleteOutcome`, and the module-private
   `destroyEmails` the guarded paths funnel through
 - `web/src/store/__tests__/group-mail-delete.test.ts` — the invariant: a
-  member's destroy in a group reaches no server, an administrator's does, and an
-  account nobody has classified yet is refused while the reader's own is served
+  member's destroy in a group reaches no server, an administrator's does, an
+  account nobody has classified yet is refused while the reader's own is served,
+  a mixed selection still reports what it did, and a refused direction resolves
+  to nothing
+- `web/src/store/__tests__/compose-save.test.ts` — the deliberate exception: a
+  member still discards their own draft with a group open
 - `web/src/lib/swipe.ts` — a direction with no meaning here resolves to nothing,
   and the delete label now follows the rule's answer rather than the folder's
   role
