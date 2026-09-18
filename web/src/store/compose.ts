@@ -643,11 +643,16 @@ export const useCompose = create<ComposeState>((set, get) => ({
       }
     }
     // Inline images are shown via their blob URLs in the editor and converted back to cid: at send time.
+    //
+    // `<style>` blocks go: what comes out of here is quoted into the composer,
+    // which is a live document of ours and not a scoped view of a message, so a
+    // style block carried in with the quote would restyle the app around it.
     const quotedHtmlBody = origHtml
       ? sanitizeEmailHtml(origHtml, {
           cidMap,
           allowRemote: quoteAllowsRemote(full.from?.[0]),
           proxyRemote: false,
+          stripStyleBlocks: true,
         }).html
       : textToHtml(origText).replace(/\n/g, "<br>");
     const fromStr = escapeHtml((full.from ?? []).map(formatAddress).join(", "));

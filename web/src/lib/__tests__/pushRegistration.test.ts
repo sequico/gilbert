@@ -4,9 +4,9 @@ import type { JmapSession } from "@/jmap/types";
 import { setDeviceTrusted } from "@/lib/storage";
 import {
   deviceClientId,
+  type JmapPushSubscription,
   roomToMake,
   setPushEnabledHere,
-  type JmapPushSubscription,
 } from "@/lib/webpush";
 import { renewWebPush } from "@/lib/webpushEnable";
 
@@ -33,7 +33,17 @@ const DAY = 24 * 60 * 60 * 1000;
 const OTHER = (n: number) =>
   `gilbert-00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
-type Row = JmapPushSubscription & { types?: string[] | null; verified?: boolean };
+/**
+ * A row as the fake server holds it.
+ *
+ * Deliberately without `url` and `keys`: a live 0.16.22 hands neither back (the
+ * URL was confirmed absent on 0.16.21, 2026-09-14), and modelling the row
+ * without them is what makes a test that reads one fail instead of pass.
+ */
+type Row = Omit<JmapPushSubscription, "url" | "keys"> & {
+  types?: string[] | null;
+  verified?: boolean;
+};
 
 let server: Row[];
 let writes: Array<[string, Record<string, unknown>]>;
@@ -82,15 +92,9 @@ function install(running: ReturnType<typeof browserSub> | null) {
       };
       const methodResponses = methodCalls.map(([name, args, id]) => {
         if (name === "PushSubscription/get") {
-          // `keys` is write-only and `url` is never handed back.
-          return [
-            name,
-            {
-              list: server.map(({ keys: _k, url: _u, ...rest }) => rest),
-              notFound: [],
-            },
-            id,
-          ];
+          // `keys` is write-only and `url` is never handed back, which is
+          // exactly what the rows above do not carry.
+          return [name, { list: server.map((s) => ({ ...s })), notFound: [] }, id];
         }
         if (name === "PushSubscription/set") {
           writes.push([name, args]);
@@ -253,7 +257,7 @@ describe("a full account is not the end of notifications", () => {
 });
 
 describe("which row is given up", () => {
-  const row = (id: string, days: number, verified: boolean): JmapPushSubscription => ({
+  const row = (id: string, days: number, verified: boolean): Row => ({
     id,
     deviceClientId: OTHER(Number(id.replace(/\D/g, "")) || 0),
     expires: new Date(Date.now() + days * DAY).toISOString(),
@@ -273,7 +277,11 @@ describe("which row is given up", () => {
 
   it("takes the never-verified row before one that works, then the soonest to expire", () => {
     const mine = deviceClientId();
-    const rows = [row("other1", 6, true), row("other2", 5, false), row("other3", 1, true)];
+    const rows = [
+      row("other1", 6, true),
+      row("other2", 5, false),
+      row("other3", 1, true),
+    ];
     expect(roomToMake(rows, mine, 2)).toEqual(["other2", "other3"]);
   });
 });

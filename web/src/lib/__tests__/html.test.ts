@@ -8,6 +8,7 @@ import {
   sanitizeEditorHtml,
   sanitizeEmailHtml,
 } from "../html";
+import { readSource } from "./readSource";
 
 describe("sanitizeEmailHtml", () => {
   it("removes scripts and event handlers", () => {
@@ -36,6 +37,61 @@ describe("sanitizeEmailHtml", () => {
     const r = sanitizeEmailHtml('<a href="https://x.io">x</a>');
     expect(r.html).toContain('target="_blank"');
     expect(r.html).toContain("noopener");
+  });
+
+  /*
+   * An image map's `<area>` is a link too, and the map can be clicked through
+   * by whatever the message draws -- so it gets the same treatment as an
+   * anchor. Without it, an `<area href>` was a way to navigate the app's own
+   * tab, which is the one thing the sanitizer's link handling exists to stop.
+   */
+  it("treats an image map's area as a link, not as decoration", () => {
+    const r = sanitizeEmailHtml(
+      '<map name="m"><area shape="rect" coords="0,0,9,9" href="https://x.io"></map>',
+    );
+    expect(r.html).toContain('target="_blank"');
+    expect(r.html).toContain("noopener");
+  });
+
+  /*
+   * `image-set()` and `cross-fade()` take their URLs as plain strings, so the
+   * `url()` surgery never saw them and the reader's browser would have fetched
+   * straight from the sender. Renamed rather than cut out, because cutting a
+   * substring out of CSS joins what was either side of it.
+   */
+  it("blunts the image functions that carry a bare URL, in every spelling", () => {
+    const r = sanitizeEmailHtml(
+      "<div style=\"background:image-set('https://t.example/a.png' 1x)\"></div>" +
+        "<div><style>.x{background:-webkit-image-set(url(https://t.example/b.png) 2x)}" +
+        ".y{background:image('https://t.example/c.png')}</style></div>",
+    );
+    expect(r.html).not.toMatch(/[^-]image-set\(/);
+    expect(r.html).not.toMatch(/[^-]cross-fade\(/);
+    expect(r.html).not.toContain("url(https://t.example/b.png)");
+  });
+
+  it("blunts @import by renaming it, never by cutting it out", () => {
+    const r = sanitizeEmailHtml(
+      "<div><style>@import url(https://t.example/a.css);</style></div>",
+    );
+    expect(r.html).not.toContain("@import");
+    // Renamed, so the surrounding text is untouched and cannot be joined.
+    expect(r.html).toContain("@gilbert-blocked-import");
+  });
+
+  /*
+   * The composer is a live document of ours, and its policy allows inline
+   * styles, so a `<style>` block quoted in from a message would restyle the app
+   * around the editor. The reader's own view keeps its styles, which is why
+   * this is a property of where the text is going and not of the sanitizer.
+   */
+  it("drops a style block for the composer, and keeps it for the reader", () => {
+    const src =
+      "<div><style>body{background:url(https://t.example/x.png)}</style><p>hi</p></div>";
+    expect(sanitizeEmailHtml(src).html).toContain("<style");
+    expect(sanitizeEmailHtml(src, { stripStyleBlocks: true }).html).not.toContain(
+      "<style",
+    );
   });
   it("strips javascript: urls", () => {
     const r = sanitizeEmailHtml('<a href="javascript:alert(1)">x</a>');
@@ -380,19 +436,29 @@ describe("CSS escapes and comments cannot hide remote content", () => {
     }
   });
 
-  it("drops an escaped or comment-split @import from a <style> block outright", () => {
+  it("blunts an escaped or comment-split @import so it cannot load", () => {
     const srcs = [
       `<div><style>@import "https://evil.example/x.css";p{color:red}</style><p>x</p></div>`,
       `<div><style>@\\69mport "https://evil.example/x.css";p{color:red}</style><p>x</p></div>`,
       `<div><style>@/**/import "https://evil.example/x.css";p{color:red}</style><p>x</p></div>`,
     ];
     for (const src of srcs) {
-      // A stylesheet fetch cannot be proxied, so it is removed even when
-      // remote content is allowed -- and it must not count as a remote image.
+      // A stylesheet fetch cannot be proxied, so the at-rule is neutralised
+      // even when remote content is allowed -- and it must not count as a
+      // remote image.
       const r = sanitizeEmailHtml(src, { allowRemote: true, proxyRemote: true });
       expect(r.remoteCount).toBe(0);
       expect(r.html).not.toContain("@import");
-      expect(r.html).not.toContain("evil.example");
+      /*
+       * The characters of the URL stay, and that is the deliberate half: the
+       * at-rule is renamed rather than cut out, because deleting a substring of
+       * CSS joins whatever was either side of it. An `@import` a browser does
+       * not recognise is dropped along with its URL, so the fetch cannot happen
+       * -- which is the guarantee, where "the URL is absent from the markup"
+       * only ever looked like one. The stylesheet's own rules survive, which is
+       * the other half of that trade.
+       */
+      expect(r.html).toContain("@gilbert-blocked-import");
       expect(r.html).toContain("color:red");
     }
   });
@@ -469,15 +535,25 @@ describe("the <body> style the sanitizer returns is hardened like any other CSS"
 });
 
 describe("the containment that mail CSS cannot override", () => {
-  it("is still applied to the message body container", async () => {
-    // jsdom does no layout, so this asserts the control is present rather than
-    // that it works; the behaviour was verified in a real browser. Without it,
-    // a message can cover the viewport regardless of what the sanitizer does.
-    const { readFile } = await import("node:fs/promises");
-    const { join } = await import("node:path");
-    // vitest serves modules over http, so import.meta.url is not a file URL.
-    const css = await readFile(join(process.cwd(), "src/styles/app.css"), "utf8");
-    const rule = /\.message-body\s*\{[^}]*\}/.exec(css)?.[0] ?? "";
-    expect(rule).toMatch(/contain\s*:\s*layout/);
+  /*
+   * Two containers, for two reasons. A message's own CSS is scoped by the
+   * shadow root but not by layout, so `.message-body`'s containment is what
+   * stops a `position:fixed` card from covering the app. The composer's area
+   * needs the same control for a different reason: HTML quoted into it is a
+   * live part of our document rather than an isolated view, so containment is
+   * what keeps a quoted layout inside the editor.
+   *
+   * jsdom does no layout, so this asserts the controls are present rather than
+   * that they work; the behaviour was verified in a real browser.
+   */
+  it("is applied to the message body and to the composer's editor", () => {
+    const css = readSource("src/styles/app.css");
+    for (const selector of [".message-body", ".editor-area"]) {
+      const rule =
+        new RegExp(`${selector.replace(".", "\\.")}\\s*\\{[^}]*\\}`).exec(css)?.[0] ?? "";
+      expect(rule, `${selector} should carry containment`).toMatch(
+        /contain\s*:\s*layout/,
+      );
+    }
   });
 });

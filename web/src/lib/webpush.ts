@@ -38,7 +38,14 @@ const PAYLOAD_PROPS = ["id", "threadId", "from", "subject", "preview", "received
 export interface JmapPushSubscription {
   id: Id;
   deviceClientId: string;
-  url: string;
+  /**
+   * Write-only in practice: Stalwart never hands it back, so a row read from
+   * the server has none (`url: null` even for one registered with a URL -- live
+   * on 0.16.21, 2026-09-14). Optional rather than required, because required
+   * would be a claim that reading a row gives a URL, and the whole reason a row
+   * is recognised by its `deviceClientId` is that it does not.
+   */
+  url?: string;
   expires: string | null;
   verificationCode?: string | null;
 }

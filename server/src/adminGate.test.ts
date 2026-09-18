@@ -61,11 +61,7 @@ test("an API key is not the account's to reach from here at all", () => {
 });
 
 test("but not written: a credential minted here would outlive a borrowed session", () => {
-  for (const m of [
-    "x:AppPassword/set",
-    "x:AccountPassword/set",
-    "x:MaskedEmail/set",
-  ]) {
+  for (const m of ["x:AppPassword/set", "x:AccountPassword/set", "x:MaskedEmail/set"]) {
     assert.deepEqual(gateAdministration(req("x:AccountSettings/get", m)), {
       ok: false,
       method: m,

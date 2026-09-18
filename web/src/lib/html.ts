@@ -8,6 +8,18 @@ export interface SanitizeOptions {
   allowRemote?: boolean;
   /** Route remote images through the privacy proxy. */
   proxyRemote?: boolean;
+  /**
+   * Drop `<style>` elements entirely.
+   *
+   * For HTML quoted into the composer, which is a live document of ours rather
+   * than an isolated view of somebody else's message: the app's policy allows
+   * inline styles (`style-src 'self' 'unsafe-inline'`, which the sanitized
+   * *style attributes* need), and the composer is not in a shadow root -- so a
+   * style block carried in from a quoted message is free to restyle the app
+   * around it. The reader's view of the same message keeps its styles: they are
+   * scoped there by `.message-body`'s containment.
+   */
+  stripStyleBlocks?: boolean;
 }
 
 export interface SanitizeResult {
@@ -26,7 +38,12 @@ function ensureHooks() {
   if (hooked) return;
   hooked = true;
   DOMPurify.addHook("afterSanitizeAttributes", (node) => {
-    if (node.tagName === "A") {
+    /*
+     * `<area>` is a link too, and the map it belongs to can be clicked through
+     * by anything the message draws -- so it gets the same treatment as an
+     * anchor, or an image map becomes a way to navigate the app's own tab.
+     */
+    if (node.tagName === "A" || node.tagName === "AREA") {
       node.setAttribute("target", "_blank");
       node.setAttribute("rel", "noopener noreferrer nofollow");
     }
@@ -145,6 +162,22 @@ function dropIeCssHooks(css: string): string {
   flush("");
   return out;
 }
+
+/**
+ * Functions that load an image from a bare string, with no `url()` to rewrite.
+ *
+ * `image-set()` and `cross-fade()` take their URLs as plain strings -- with an
+ * optional `type()` and a resolution -- so the `url()` surgery above never sees
+ * them: `image-set("http://tracker.example/a.png" 1x)` would leave the reader's
+ * browser fetching straight from the sender. They are renamed rather than cut
+ * out, because deleting a substring joins whatever was either side of it.
+ *
+ * `image()` and `src()` are in the list for the same reason, and the negative
+ * lookbehind is what keeps a property or function whose *name ends* with one of
+ * these -- `mask-image(`, `-webkit-mask-src(` -- from being renamed too.
+ */
+const STRING_IMAGE_FN =
+  /(?<![\w\\-\u0080-\uFFFF])(-webkit-image-set|image-set|-webkit-cross-fade|cross-fade|image|src)(\s*\()/gi;
 
 /**
  * Blunt the positioning tricks mail CSS can use to escape its card.
@@ -308,12 +341,22 @@ export function sanitizeEmailHtml(
       return r.keep ? `url(${q}${r.url}${q})` : "none";
     });
   // One pipeline for every CSS surface the sanitizer touches: decode what a
-  // CSS parser would decode, drop the constructs that must not survive, then
-  // harden and rewrite on the decoded form.
+  // CSS parser would decode, neutralise the constructs that must not survive,
+  // then harden and rewrite on the decoded form.
   const processCss = (raw: string): string => {
     const decoded = decodeCss(raw);
-    const noImports = decoded.replace(/@import[^;]+;?/gi, "");
-    return hardenCss(rewriteCss(dropIeCssHooks(noImports)));
+    /*
+     * Both of these are renamed rather than removed, and the order is why that
+     * matters: `url()` rewriting runs on what this returns, so a substring cut
+     * out here could join the text either side of it into a `url(` that the
+     * rewrite then sees as an unprefixed one -- or, worse, into the `</style`
+     * the escaping at the call site is there to prevent. A rename cannot join
+     * anything, and a browser drops an at-rule or function it does not know.
+     */
+    const blocked = decoded
+      .replace(/@import/gi, "@gilbert-blocked-import")
+      .replace(STRING_IMAGE_FN, "gilbert-blocked$2");
+    return hardenCss(rewriteCss(dropIeCssHooks(blocked)));
   };
   clean.querySelectorAll<HTMLElement>("[style]").forEach((el) => {
     const s = el.getAttribute("style");
@@ -322,6 +365,15 @@ export function sanitizeEmailHtml(
     if (out !== s) el.setAttribute("style", out);
   });
   clean.querySelectorAll("style").forEach((st) => {
+    /*
+     * Quoted into the composer, the block goes rather than being neutralised:
+     * there is nothing to scope it to, so the choice is between deleting it and
+     * letting it restyle the app.
+     */
+    if (opts.stripStyleBlocks) {
+      st.remove();
+      return;
+    }
     const css = st.textContent ?? "";
     if (!css) return;
     const out = processCss(css);
