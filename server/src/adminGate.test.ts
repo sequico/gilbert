@@ -47,13 +47,17 @@ test("the account's own registry objects can be read", () => {
 });
 
 /*
- * `ApiKey` stays on the allowlist through the upstream security pass that
- * removed it, because ADR 0017 names it as readable and the write refusal is
- * what closes the console door. This is the assertion that keeps the record
- * and the code saying the same thing.
+ * An API key is not the account's to reach from here at all, reading
+ * included: no surface in this product mints or shows one, so an allowlist
+ * entry for it would be reach nobody asked for. Upstream reached the same
+ * conclusion and removed the object in its security pass; this tree followed,
+ * which is the case below going the other way.
  */
-test("an API key is still the account's own to read", () => {
-  assert.equal(gateAdministration(req("x:ApiKey/get")).ok, true);
+test("an API key is not the account's to reach from here at all", () => {
+  assert.deepEqual(gateAdministration(req("x:ApiKey/get")), {
+    ok: false,
+    method: "x:ApiKey/get",
+  });
 });
 
 test("but not written: a credential minted here would outlive a borrowed session", () => {
@@ -61,7 +65,6 @@ test("but not written: a credential minted here would outlive a borrowed session
     "x:AppPassword/set",
     "x:AccountPassword/set",
     "x:MaskedEmail/set",
-    "x:ApiKey/set",
   ]) {
     assert.deepEqual(gateAdministration(req("x:AccountSettings/get", m)), {
       ok: false,

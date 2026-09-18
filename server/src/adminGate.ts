@@ -25,7 +25,6 @@ const SELF_SERVICE = new Set([
   "AccountSettings",
   "AccountPassword",
   "AppPassword",
-  "ApiKey",
   "PublicKey",
   "MaskedEmail",
 ]);

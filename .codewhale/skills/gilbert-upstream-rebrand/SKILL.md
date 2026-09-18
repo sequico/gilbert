@@ -108,13 +108,14 @@ than inherited. This skill is that checklist.
 
 Four real ones, from the `v2026.9.15-pr369` → `v2026.9.18` range. Read them as
 *how the call was made*, not as precedents — and note which way each went: one
-is a bound taken from upstream with our tighter number kept on top, one is ours
-kept, one is settled by the one-source-of-truth rule rather than by preference,
-and one is not ours to settle at all. None of them is "upstream was wrong"; in
-every one, upstream's change was worth taking and the question was only what it
-was worth taking *over*. Where upstream is simply right — and often it is, being
-the larger project with the real deployments in front of it — the same reading
-ends the other way, and the record changes with it.
+is a bound taken from upstream with our tighter number kept on top, one ends
+the other way with the record rewritten, one is settled by the
+one-source-of-truth rule rather than by preference, and one is not ours to
+settle at all. None of them is "upstream was wrong"; in every one, upstream's
+change was worth taking and the question was only what it was worth taking
+*over*. Where upstream is simply right — and often it is, being the larger
+project with the real deployments in front of it — the reading ends that way,
+and the ADR, the inventory bullet or the comment changes with it.
 
 - **`loginBody`: a third version, built from both.** We cap sign-in at 16 KiB
   (`d45f011`) — the one endpoint that reads a body from somebody not yet signed
@@ -123,14 +124,17 @@ ends the other way, and the record changes with it.
   file is taken: the *change* is (a bound on every JSON route, an exemption
   shaped like the route), and our tighter number and clearer scoping stay on top
   of it. Reconciling is not always choosing.
-- **`ApiKey`: ours kept, and the reason matters.** ADR 0017 names it; upstream's
-  security pass (`dfe885a`) removes it while adding the real fix, a refusal of
-  every `x:` `set`. Both are defensible — upstream's argument is that an API key
-  is not a credential the self-service door should reach at all, ours is that
-  the ADR says otherwise and the write refusal is what closes the door. Ours was
-  kept, the refusal was taken with it, and the ADR now states the read-only rule
-  and a test pins it. Had the call gone the other way, the ADR line would have
-  been rewritten instead — that is the part the rule actually requires.
+- **`ApiKey` went upstream's way, and the record moved with it.** Upstream's
+  security pass (`dfe885a`) removes the object from the self-service allowlist
+  while adding the real fix — a refusal of every `x:` `set` — and this tree had
+  copied the list from upstream's own draft, so `ApiKey` was never a decision
+  here, only an inheritance. Two things settled it: upstream is the side that
+  re-thought it, and no surface in Gilbert mints or shows an API key, so an
+  entry for it was reach nobody had asked for. It came off the list, ADR 0017's
+  sentence lost the name and gained the reason, and `adminGate.test.ts` now
+  asserts the refusal. **This is the shape a collision takes when upstream is
+  right**: the change is taken and the claim that named the old behaviour is
+  rewritten in the same commit.
 - **`staleBuild`: a duplicate module, which is not a matter of taste.** We have
   `web/src/lib/staleBuild.ts`; upstream has `web/src/lib/sw/staleBuild.ts`, and
   its `sw/` changes (#394–#396) touch theirs. This one is decided by the

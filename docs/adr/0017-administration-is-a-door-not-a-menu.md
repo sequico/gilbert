@@ -64,18 +64,21 @@ the rule*, the session was signed in on a device marked as the person's own.
 
 **An allowlist, not a list of forbidden objects — and it authorises reads.**
 `SELF_SERVICE` names the objects that are about the signed-in account itself —
-`AccountSettings`, `AccountPassword`, `AppPassword`, `ApiKey`, `PublicKey`,
+`AccountSettings`, `AccountPassword`, `AppPassword`, `PublicKey`,
 `MaskedEmail`. Every other `x:` object is refused without being named, so a
 registry object that Stalwart adds in a later release is refused by default: the
 gate errs toward the operator's decision rather than toward the next release's
-object list. The standard JMAP methods — mail, calendars, contacts, files,
-sharing — are not inspected at all: they act on what the account can already
-reach.
+object list. The list carries only what this product actually does: an object
+with no surface here is reach nobody asked for, which is why `ApiKey` is not on
+it — no page in Gilbert mints or shows a key, so nothing needs to read one.
+The standard JMAP methods — mail, calendars, contacts, files, sharing — are not
+inspected at all: they act on what the account can already reach.
 
-The gate admits a `set` on none of them. Every one of the six is a credential or
-a credential-shaped document, so a write through this door would mint, change or
-revoke something that outlives the session doing it — `x:AppPassword/set` alone
-would hand a permanent key to whoever is at the keyboard of a borrowed machine.
+The gate admits a `set` on none of the five. Every one of them is a credential
+or a credential-shaped document, so a write through this door would mint, change
+or revoke something that outlives the session doing it — `x:AppPassword/set`
+alone would hand a permanent key to whoever is at the keyboard of a borrowed
+machine.
 The client sends no `x:` write at all: the password, app-password and 2FA
 changes go through `/api/account`, which re-asks for the account's own password
 first. So refusing writes costs the product nothing and closes the console
