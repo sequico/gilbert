@@ -11,6 +11,7 @@
  * and the caller decides whether it is allowed to save that.
  */
 
+import { localDateTime } from "@gilbert/shared/localDateTime";
 import type { CalendarEvent } from "@/jmap/types";
 import { isBirthdayEvent } from "./birthdays";
 import { addMinutes } from "./dates";
@@ -123,16 +124,11 @@ function parseStored(start: string): Date | null {
   );
 }
 
-function formatStored(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-}
-
 /** Shift a stored `YYYY-MM-DDTHH:mm:ss` start by whole milliseconds. */
 export function shiftStoredStart(start: string, deltaMs: number): string | null {
   const base = parseStored(start);
   if (!base || Number.isNaN(deltaMs)) return null;
-  return formatStored(new Date(base.getTime() + deltaMs));
+  return localDateTime(new Date(base.getTime() + deltaMs));
 }
 
 export interface DragPatch {
@@ -144,7 +140,7 @@ export interface DragPatch {
 export function movePatch(storedStart: string, deltaMinutes: number): DragPatch {
   const base = parseStored(storedStart);
   if (!base) return {};
-  return { start: formatStored(addMinutes(base, snap(deltaMinutes))) };
+  return { start: localDateTime(addMinutes(base, snap(deltaMinutes))) };
 }
 
 /**
@@ -173,7 +169,7 @@ export function moveByDaysPatch(storedStart: string, days: number): DragPatch {
     base.getSeconds(),
     0,
   );
-  return { start: formatStored(moved) };
+  return { start: localDateTime(moved) };
 }
 
 /** Whole days between two local dates, ignoring the time of day on each. */

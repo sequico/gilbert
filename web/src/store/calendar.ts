@@ -1739,7 +1739,7 @@ function birthdayCalendar(): Calendar {
 
 /** A CalendarEvent shaped enough for the views, and for nothing else. */
 function synthesiseBirthdayEvent(b: Birthday): CalendarEvent {
-  const local = `${b.date.getFullYear()}-${String(b.date.getMonth() + 1).padStart(2, "0")}-${String(b.date.getDate()).padStart(2, "0")}T00:00:00`;
+  const local = toLocalDateTime(b.date);
   return {
     id: b.id,
     calendarIds: { [BIRTHDAY_CALENDAR_ID]: true },
@@ -1789,7 +1789,11 @@ function subscriptionCalendar(sub: {
 }
 
 function synthesiseSubscriptionEvent(subId: string, e: IcsEvent): CalendarEvent {
-  const local = `${e.start.getFullYear()}-${String(e.start.getMonth() + 1).padStart(2, "0")}-${String(e.start.getDate()).padStart(2, "0")}T${String(e.start.getHours()).padStart(2, "0")}:${String(e.start.getMinutes()).padStart(2, "0")}:00`;
+  // The feed's instants carry seconds; a subscribed event is placed to the
+  // minute, which is the precision the grid has for it.
+  const minute = new Date(e.start.getTime());
+  minute.setSeconds(0, 0);
+  const local = toLocalDateTime(minute);
   // The feed says when the event ends, and a subscribed event drawn without it
   // is an event of no length: the grid can only place what it is told.
   const seconds = Math.max(0, Math.round((e.end.getTime() - e.start.getTime()) / 1000));

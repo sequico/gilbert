@@ -17,6 +17,8 @@
  * dropped here, in silence, on purpose.
  */
 
+import { localDateTime } from "../shared/localDateTime.js";
+
 export type Obj = Record<string, unknown>;
 
 /** How far the expander will walk before giving up on a rule. */
@@ -61,12 +63,6 @@ export function parseSyntheticId(
     `${c.slice(0, 4)}-${c.slice(4, 6)}-${c.slice(6, 8)}` +
     `T${c.slice(9, 11)}:${c.slice(11, 13)}:${c.slice(13, 15)}`;
   return { baseId: m[1]!, recurrenceId };
-}
-
-/** `2026-08-31T09:00:00` — the naive local form the mock stores `start` in. */
-export function localDateTime(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
 const parseLocal = (s: string): Date => new Date(s);

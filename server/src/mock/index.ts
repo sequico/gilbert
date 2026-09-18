@@ -6,6 +6,7 @@
 
 import { randomInt, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { localDateTime } from "../shared/localDateTime.js";
 import { parseOtpauthUrl, verifyTotp } from "../totp.js";
 import { holdUntilOf, undoStatusOf } from "./futurerelease.js";
 import {
@@ -1426,8 +1427,6 @@ const events: Obj[] = [];
     );
     return x;
   };
-  const local = (x: Date) =>
-    `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}T${String(x.getHours()).padStart(2, "0")}:00:00`;
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   events.push({
     id: "ev1",
@@ -1435,7 +1434,7 @@ const events: Obj[] = [];
     "@type": "Event",
     uid: "ev1",
     title: "Standup",
-    start: local(d(0, 9)),
+    start: localDateTime(d(0, 9)),
     timeZone: tz,
     duration: "PT30M",
     recurrenceRule: {
@@ -1454,7 +1453,7 @@ const events: Obj[] = [];
     "@type": "Event",
     uid: "ev2",
     title: "Design review",
-    start: local(d(1, 14)),
+    start: localDateTime(d(1, 14)),
     timeZone: tz,
     duration: "PT1H30M",
     showWithoutTime: false,
@@ -1484,7 +1483,7 @@ const events: Obj[] = [];
     "@type": "Event",
     uid: "ev3",
     title: "Conference",
-    start: `${local(d(3, 0)).slice(0, 10)}T00:00:00`,
+    start: `${localDateTime(d(3, 0)).slice(0, 10)}T00:00:00`,
     duration: "P2D",
     showWithoutTime: true,
     timeZone: null,
@@ -1501,7 +1500,7 @@ const events: Obj[] = [];
     "@type": "Event",
     uid: "ev9",
     title: "Tokyo sync",
-    start: local(d(2, 15)),
+    start: localDateTime(d(2, 15)),
     timeZone: "Asia/Tokyo",
     duration: "PT1H",
     showWithoutTime: false,
@@ -1513,7 +1512,7 @@ const events: Obj[] = [];
     "@type": "Event",
     uid: "ev4",
     title: "Lunch with Grace",
-    start: local(d(2, 12)),
+    start: localDateTime(d(2, 12)),
     timeZone: tz,
     duration: "PT1H",
     showWithoutTime: false,
@@ -1526,7 +1525,7 @@ const events: Obj[] = [];
     "@type": "Event",
     uid: "sv1",
     title: "Grace: release planning",
-    start: local(d(1, 10)),
+    start: localDateTime(d(1, 10)),
     timeZone: tz,
     duration: "PT1H",
     showWithoutTime: false,
@@ -1540,7 +1539,7 @@ const events: Obj[] = [];
     "@type": "Event",
     uid: "sv2",
     title: "Grace: on leave",
-    start: `${local(d(4, 0)).slice(0, 10)}T00:00:00`,
+    start: `${localDateTime(d(4, 0)).slice(0, 10)}T00:00:00`,
     duration: "P1D",
     showWithoutTime: true,
     timeZone: null,
@@ -1551,7 +1550,7 @@ const events: Obj[] = [];
     "@type": "Event",
     uid: "gv1",
     title: "Team sync",
-    start: local(d(2, 11)),
+    start: localDateTime(d(2, 11)),
     timeZone: tz,
     duration: "PT45M",
     showWithoutTime: false,
