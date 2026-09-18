@@ -8,13 +8,15 @@
  * whatever the credential's role allows — so without this, an administrator
  * could still manage accounts, or the whole server, from the browser console
  * of an installation whose operator said no. With it off, the proxy refuses
- * every `x:` method except the few that are about the signed-in account
- * itself.
+ * every `x:` method except a **read** of the few objects that are about the
+ * signed-in account itself.
  *
  * An allowlist rather than a list of administrative objects, because the
  * registry has dozens of them — listeners, stores, tracers, system settings —
  * and a new release adds more. An object not named here is refused, which errs
- * toward the operator's decision.
+ * toward the operator's decision; and the allowlist is for reads, because a
+ * write to any of them mints or changes a credential that outlives the
+ * session doing it.
  *
  * The standard JMAP methods (mail, calendars, contacts, files, sharing) are
  * not touched: they act on what the account can already reach.
@@ -94,8 +96,15 @@ export function gateAdministration(raw: string): GateResult {
     const name = Array.isArray(call) ? call[0] : undefined;
     if (typeof name !== "string") return { ok: false, method: null };
     if (!name.startsWith("x:")) continue;
-    const object = name.slice(2).split("/")[0] ?? "";
-    if (!SELF_SERVICE.has(object)) return { ok: false, method: name };
+    const [object = "", op = ""] = name.slice(2).split("/");
+    /*
+     * Read, never write. The browser sends none of these itself: password,
+     * app-password and 2FA changes go through `/api/account`, which checks the
+     * account password first. So a write here could only come from somebody
+     * working the console of a session on a borrowed machine, and
+     * `x:AppPassword/set` would hand them a credential that outlives it.
+     */
+    if (!SELF_SERVICE.has(object) || op === "set") return { ok: false, method: name };
   }
   return { ok: true, body: JSON.stringify(parsed) };
 }

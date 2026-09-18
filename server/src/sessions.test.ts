@@ -3,7 +3,9 @@ import { test } from "node:test";
 
 process.env.APP_SECRET = "test-secret-for-sessions";
 
-const { SESSION_DOCUMENT_VERSION, SessionStore } = await import("./sessions.js");
+const { accountKey, SESSION_DOCUMENT_VERSION, SessionStore } = await import(
+  "./sessions.js"
+);
 
 /**
  * Sessions outlive the process (ADR 0001, the installation's own document).
@@ -39,8 +41,9 @@ function documentIo() {
   };
 }
 
-const params = (username: string, remember = false) => ({
+const params = (username: string, remember = false, account?: string) => ({
   username,
+  account,
   password: `${username}-password`,
   remember,
   userAgent: "a test",
@@ -135,15 +138,31 @@ test("destroy ends one session, and destroyAllForUser leaves another account's a
   const io = documentIo();
   const store = new SessionStore(io, TTLS);
   await store.init();
-  const ada = store.create(params("ada@example.org"));
-  const bob = store.create(params("Bob@Example.org"));
-  const bobElsewhere = store.create(params("bob@example.org"));
+  /*
+   * Bob's two sessions are one account typed two ways, and they carry the
+   * account the sign-in learned from the server rather than the string that
+   * was typed: `accountKey` is what the list and the ending both group by, so
+   * a bare or differently cased name is the same account here.
+   */
+  const bobAccount = accountKey("https://mail.example.org", "bob@example.org");
+  const ada = store.create(
+    params(
+      "ada@example.org",
+      false,
+      accountKey("https://mail.example.org", "ada@example.org"),
+    ),
+  );
+  const bob = store.create(params("Bob@Example.org", false, bobAccount));
+  const bobElsewhere = store.create(params("bob", false, bobAccount));
 
   store.destroy(ada.session.id);
   assert.equal(store.resolve(ada.cookie), null, "the destroyed one is gone");
   assert.ok(store.resolve(bob.cookie), "and the others are not");
 
-  const ended = store.destroyAllForUser("BOB@example.org");
+  const listed = store.listForUser(bobAccount);
+  assert.equal(listed.length, 2, "the list holds both of that account's sessions");
+
+  const ended = store.destroyAllForUser(bobAccount);
   assert.equal(ended, 2, "every session of that account, whoever typed the address how");
   assert.equal(store.resolve(bob.cookie), null);
   assert.equal(store.resolve(bobElsewhere.cookie), null);

@@ -68,6 +68,11 @@ export interface StoredSession {
   /** sealed JSON {username, password} */
   sealedCredentials: string;
   username: string;
+  /**
+   * Which account this is; see `accountKey`. Absent on records written before
+   * the field existed, where the lower-cased username is the answer.
+   */
+  account?: string;
   createdAt: number;
   lastSeenAt: number;
   expiresAt: number;
@@ -93,6 +98,8 @@ export interface LiveSession {
    */
   id: string;
   username: string;
+  /** See `accountKey`; what the session list and "sign out my other sessions" group by. */
+  account: string;
   /** Basic Authorization header value for upstream calls. */
   authorization: string;
   remember: boolean;
@@ -125,6 +132,8 @@ export interface CreateSessionParams {
   ip: string;
   /** Set when the presented credential was an app password (ADR 0001). */
   appPassword?: boolean;
+  /** From `accountKey`; defaults to the lower-cased username. */
+  account?: string;
 }
 
 /**
@@ -218,9 +227,10 @@ export interface SessionBackend {
   resolve(cookie: string | undefined): LiveSession | null;
   reseal(cookie: string | undefined, password: string, appPassword?: boolean): boolean;
   destroy(id: string): void;
-  destroyAllForUser(username: string, exceptId?: string): number;
+  destroyAllForUser(account: string, exceptId?: string): number;
   destroyAllExcept(exceptId?: string): number;
-  listForUser(username: string): SessionSummary[];
+  /** `account` is an `accountKey`, as carried on `LiveSession.account`. */
+  listForUser(account: string): SessionSummary[];
 }
 
 /**
@@ -257,13 +267,34 @@ export function impersonationAuthorization(
  * One normaliser for an account name.
  *
  * An account name is an address, and addresses do not differ by case or by
- * surrounding space. Every place that matches a session by name goes through
- * this -- the session list, ending an account's sessions, and the keys app.ts
- * caches per account -- so a session opened as `Bob@Example.com` is the same
- * account as one opened as `bob@example.com`, in all of them or in none.
+ * surrounding space. Every place that has only the typed name to go on goes
+ * through this -- the keys `app.ts` caches per account, and the fallback for a
+ * record written before sessions carried their account. Where the session
+ * knows which account it is, `accountKey` is the answer instead, because a
+ * bare `alice` and `Alice@example.com` are one account to Stalwart and must be
+ * one to this store too.
  */
 export function normalizeUsername(username: string): string {
   return username.trim().toLowerCase();
+}
+
+/**
+ * The key sessions are grouped by: which account this is, on which server.
+ *
+ * Not the username as typed. Stalwart takes `Alice@example.com` and a bare
+ * `alice` as the same account, so grouping by the typed string left the bare
+ * session out of the list and alive through "sign out my other sessions" —
+ * the one case where the answer has to be right. Hence the server's own name
+ * for the account, lower-cased (`UpstreamSession.username`), qualified by the
+ * server, because the same name on two configured servers is two accounts.
+ */
+export function accountKey(upstream: string, canonicalUsername: string): string {
+  return `${upstream}|${normalizeUsername(canonicalUsername)}`;
+}
+
+/** Which account a stored record belongs to, for records written before the field. */
+function accountOf(s: StoredSession): string {
+  return s.account ?? normalizeUsername(s.username);
 }
 
 /**
@@ -538,6 +569,7 @@ export class SessionStore implements SessionBackend {
         key,
       ),
       username: params.username,
+      account: params.account ?? normalizeUsername(params.username),
       createdAt: now,
       lastSeenAt: now,
       expiresAt: now + ttl,
@@ -658,11 +690,10 @@ export class SessionStore implements SessionBackend {
    * session signed in — which is how a lock, or a revocation, would quietly
    * miss the one session it was meant for.
    */
-  destroyAllForUser(username: string, exceptId?: string): number {
-    const want = normalizeUsername(username);
+  destroyAllForUser(account: string, exceptId?: string): number {
     let n = 0;
     for (const [id, s] of this.sessions) {
-      if (normalizeUsername(s.username) === want && id !== exceptId) {
+      if (accountOf(s) === account && id !== exceptId) {
         this.sessions.delete(id);
         this.onDestroy?.(id);
         n++;
@@ -688,16 +719,16 @@ export class SessionStore implements SessionBackend {
     return n;
   }
 
-  listForUser(username: string): SessionSummary[] {
-    const want = normalizeUsername(username);
+  listForUser(account: string): SessionSummary[] {
     const out = [];
     for (const s of this.sessions.values()) {
-      if (normalizeUsername(s.username) !== want) continue;
+      if (accountOf(s) !== account) continue;
       const {
         secretHash: _h,
         salt: _s,
         sealedCredentials: _c,
         appPassword: _a,
+        account: _k,
         idHash,
         ...rest
       } = s;
@@ -712,6 +743,7 @@ export class SessionStore implements SessionBackend {
     return {
       id: s.idHash,
       username,
+      account: accountOf(s),
       authorization: `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString("base64")}`,
       remember: s.remember,
       appPassword: s.appPassword ?? false,

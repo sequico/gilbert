@@ -61,7 +61,7 @@ import { formatScheduleTime } from "@/lib/schedule";
 import { canShare, canShareFiles, shareFile, shareText } from "@/lib/share";
 import { useSignature } from "@/lib/smime/useSignature";
 import { type SpamReport, spamReport } from "@/lib/spamScore";
-import { findQuoteStart, htmlToText, textToHtml } from "@/lib/text";
+import { findQuoteStart, htmlToText, textToHtml, withoutBidiControls } from "@/lib/text";
 import { isTnef, parseTnef, type TnefAttachment } from "@/lib/tnef";
 import { useMayDestroy } from "@/lib/useMayDestroy";
 import { internalDomains, isExternalSender, linkVerdict } from "@/lib/warnings";
@@ -1471,10 +1471,19 @@ function TnefContents({ part, accountId }: { part: EmailBodyPart; accountId: Id 
       const blob = await client.fetchBlob(accountId, part.blobId, part.type);
       const found = parseTnef(await blob.arrayBuffer());
       setFiles(found);
+      /*
+       * The type inside a winmail.dat is whatever the sender wrote, and never
+       * passed the server's check on what may be shown inline. Opened from its
+       * blob: URL, text/html would render as a page on this origin -- so only
+       * the types the server itself would show are kept, and everything else
+       * comes back as an opaque download.
+       */
       setUrls(
         found.map((f) =>
           URL.createObjectURL(
-            new Blob([f.data as unknown as BlobPart], { type: f.type }),
+            new Blob([f.data as unknown as BlobPart], {
+              type: openableInTab(f.type) ? f.type : "application/octet-stream",
+            }),
           ),
         ),
       );
@@ -1573,7 +1582,7 @@ function AttachmentList({
    */
   const shareAttachment = async (a: EmailBodyPart) => {
     if (!a.blobId) return;
-    const name = a.name ?? "attachment";
+    const name = (a.name ? withoutBidiControls(a.name) : "") || "attachment";
     const download = () => {
       const l = document.createElement("a");
       l.href = client.downloadUrl(accountId, a.blobId!, name, a.type);
@@ -1606,25 +1615,20 @@ function AttachmentList({
         ))}
       <div className="attachments">
         {attachments.map((a, i) => {
+          const name = a.name ? withoutBidiControls(a.name) : null;
           const url = a.blobId
-            ? client.downloadUrl(accountId, a.blobId, a.name ?? "attachment", a.type)
+            ? client.downloadUrl(accountId, a.blobId, name ?? "attachment", a.type)
             : "#";
           const inlineUrl = a.blobId
-            ? client.downloadUrl(
-                accountId,
-                a.blobId,
-                a.name ?? "attachment",
-                a.type,
-                true,
-              )
+            ? client.downloadUrl(accountId, a.blobId, name ?? "attachment", a.type, true)
             : "#";
           return (
             <a
               key={a.blobId ?? i}
               className="attachment"
               href={url}
-              download={a.name ?? undefined}
-              title={`${a.name ?? "attachment"} (${formatSize(a.size)})`}
+              download={name ?? undefined}
+              title={`${name ?? "attachment"} (${formatSize(a.size)})`}
               onClick={(ev) => {
                 if (viewable(a)) {
                   ev.preventDefault();
@@ -1640,7 +1644,7 @@ function AttachmentList({
                 )}
               </span>
               <span className="att-text">
-                <span className="att-name">{a.name ?? "(unnamed)"}</span>
+                <span className="att-name">{name ?? "(unnamed)"}</span>
                 <span className="att-size">{formatSize(a.size)}</span>
                 <span className="att-actions">
                   <button
@@ -1651,7 +1655,7 @@ function AttachmentList({
                       ev.stopPropagation();
                       const l = document.createElement("a");
                       l.href = url;
-                      l.download = a.name ?? "";
+                      l.download = name ?? "";
                       l.click();
                     }}
                   >
@@ -1701,10 +1705,10 @@ function AttachmentList({
                 l.href = client.downloadUrl(
                   accountId,
                   a.blobId,
-                  a.name ?? "attachment",
+                  a.name ? withoutBidiControls(a.name) : "attachment",
                   a.type,
                 );
-                l.download = a.name ?? "";
+                l.download = a.name ? withoutBidiControls(a.name) : "";
                 l.click();
               }
             }}

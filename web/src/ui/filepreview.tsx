@@ -5,6 +5,7 @@ import { t, tc } from "@/lib/i18n";
 import { isMarkdown, renderMarkdown } from "@/lib/markdown";
 import { previewKind, TEXT_PREVIEW_CHARS, TEXT_PREVIEW_MAX } from "@/lib/preview";
 import { canShareFiles, shareFile } from "@/lib/share";
+import { withoutBidiControls } from "@/lib/text";
 import { confirmDialog, Dialog } from "./dialog";
 
 /**
@@ -49,6 +50,9 @@ export function FilePreviewDialog({
   startInEdit?: boolean;
 }) {
   const kind = file ? previewKind(file.type, file.name) : null;
+  // What is shown and what is written to disk is the name with the direction
+  // controls taken out, so a sender cannot make a filename read as another one.
+  const shownName = file ? withoutBidiControls(file.name) : "";
   const tooBig =
     kind === "text" && typeof file?.size === "number" && file.size > TEXT_PREVIEW_MAX;
   const markdown = Boolean(file) && kind === "text" && isMarkdown(file!.type, file!.name);
@@ -188,7 +192,7 @@ export function FilePreviewDialog({
     const download = () => {
       const l = document.createElement("a");
       l.href = file.url;
-      l.download = file.name;
+      l.download = shownName;
       l.click();
     };
     try {
@@ -196,7 +200,7 @@ export function FilePreviewDialog({
       if (!res.ok) throw new Error(String(res.status));
       const blob = await res.blob();
       const out = await shareFile(
-        new File([blob], file.name, {
+        new File([blob], shownName, {
           type: file.type || blob.type || "application/octet-stream",
         }),
       );
@@ -250,7 +254,7 @@ export function FilePreviewDialog({
     <Dialog
       open={Boolean(file)}
       onClose={requestClose}
-      title={file?.name ?? t("Preview")}
+      title={file ? shownName : t("Preview")}
       size="xl"
       closeOnBackdrop={!editing}
       footer={
@@ -304,7 +308,7 @@ export function FilePreviewDialog({
                 <Printer size={16} /> {t("Print")}
               </button>
             )}
-            <a className="btn" href={file.url} download={file.name}>
+            <a className="btn" href={file.url} download={shownName}>
               <Download size={16} /> {t("Download")}
             </a>
           </>
@@ -323,7 +327,7 @@ export function FilePreviewDialog({
           ) : kind === "image" ? (
             <img
               src={file.inlineUrl}
-              alt={file.name}
+              alt={shownName}
               style={{
                 maxWidth: "100%",
                 maxHeight: "70vh",
@@ -334,7 +338,7 @@ export function FilePreviewDialog({
           ) : kind === "pdf" ? (
             <iframe
               ref={pdfRef}
-              title={file.name}
+              title={shownName}
               src={file.inlineUrl}
               style={{ width: "100%", height: "70vh", border: 0 }}
             />

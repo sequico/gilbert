@@ -131,6 +131,20 @@ export const useSession = create<SessionState>((set, get) => ({
       /* never block signing out over this */
     }
     stopSettingsSync();
+    /*
+     * A message still inside its undo window goes now, while there is a session
+     * to send it with; signing out is not an undo. What is left -- a draft
+     * never sent -- is closed by the compose store's own subscriber.
+     *
+     * Imported here rather than at the top of the module: the compose store
+     * reads the sign-in state, so a static import would close the cycle.
+     */
+    try {
+      const { useCompose } = await import("./compose");
+      await useCompose.getState().flushPendingSends();
+    } catch {
+      /* never block signing out over this */
+    }
     try {
       await apiFetch("/api/auth/logout", { method: "POST" });
     } catch {

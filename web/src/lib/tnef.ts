@@ -19,6 +19,8 @@
  * they are the part that is decoded.
  */
 
+import { withoutBidiControls } from "@/lib/text";
+
 /** Little-endian, and every offset is checked before it is read. */
 const SIGNATURE = 0x223e9f78;
 
@@ -241,7 +243,8 @@ export function parseTnef(input: ArrayBuffer | Uint8Array): TnefAttachment[] {
       return;
     }
     const name =
-      (current.mapiName || current.title || "attachment").trim() || "attachment";
+      withoutBidiControls(current.mapiName || current.title || "attachment").trim() ||
+      "attachment";
     out.push({
       name,
       type: current.mapiType || guessType(name),

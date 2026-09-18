@@ -32,18 +32,42 @@ test("mail, calendars and the rest pass untouched", () => {
   assert.equal(r.ok, true);
 });
 
-test("the account's own registry objects pass", () => {
+test("the account's own registry objects can be read", () => {
   assert.equal(
     gateAdministration(
       req(
         "x:AccountSettings/get",
-        "x:AppPassword/set",
+        "x:AppPassword/get",
         "x:PublicKey/get",
-        "x:MaskedEmail/set",
+        "x:MaskedEmail/query",
       ),
     ).ok,
     true,
   );
+});
+
+/*
+ * `ApiKey` stays on the allowlist through the upstream security pass that
+ * removed it, because ADR 0017 names it as readable and the write refusal is
+ * what closes the console door. This is the assertion that keeps the record
+ * and the code saying the same thing.
+ */
+test("an API key is still the account's own to read", () => {
+  assert.equal(gateAdministration(req("x:ApiKey/get")).ok, true);
+});
+
+test("but not written: a credential minted here would outlive a borrowed session", () => {
+  for (const m of [
+    "x:AppPassword/set",
+    "x:AccountPassword/set",
+    "x:MaskedEmail/set",
+    "x:ApiKey/set",
+  ]) {
+    assert.deepEqual(gateAdministration(req("x:AccountSettings/get", m)), {
+      ok: false,
+      method: m,
+    });
+  }
 });
 
 test("directory and server objects are refused, and named", () => {

@@ -444,7 +444,12 @@ Product administration inside Gilbert, for users who are **Stalwart admins**
   registry object Stalwart adds later is refused by default — with the refused
   method named in the answer; ordinary mail, calendars, contacts and files are
   not inspected at all, and a session that may administer streams through
-  untouched. Every `/api/admin` route enforces the same conditions beside the
+  untouched. **The allowlist authorises reads only**: every `x:` `set` is
+  refused, because each object on it is a credential or a credential-shaped
+  document and a write would mint something outliving the session — the client
+  sends none, since password, app-password and 2FA changes go through
+  `/api/account`, which asks for the account's password first. Every
+  `/api/admin` route enforces the same conditions beside the
   marker. The installation can switch administration off entirely
   (`server.administration` in its own document, `ADMINISTRATION` for a process
   with no boot), which holds against a browser console and not only against the
@@ -2305,6 +2310,11 @@ away from a signed-in screen, which is the case that matters.
   answers `503 busy` rather than taking the process down.
 - **Upload and timeout limits** on the proxy (`MAX_UPLOAD_BYTES`,
   `UPSTREAM_TIMEOUT`).
+- **Attachment and proxied-image responses are `no-store` on a device that is
+  not the person's own.** Signing out wipes what the app stores; the browser's
+  own disk cache is the one it does not reach. Filenames attached to a message
+  are shown and saved with **direction controls stripped**, so a sender cannot
+  make one read as another.
 
 ## The image proxy is SSRF-safe
 
@@ -2324,8 +2334,24 @@ Over Stalwart's own registry objects, so there is no administrator in the loop:
   (LDAP, SQL, OIDC) Stalwart refuses, and Gilbert shows the server's own reason
   rather than inventing one.
 - **App passwords** — create, list and revoke a separate password per mail app
-  or device.
+  or device. Creating one **asks for the account's current password**, the way
+  disabling 2FA does: it is a standing credential that outlives the session,
+  so a session merely left open on somebody else's machine must not be able to
+  mint one. The password is compared against what the session already holds, so
+  a wrong guess never reaches Stalwart's auto-ban — which counts failures
+  against the proxy's address, shared by everyone — and the server is asked
+  only when turning on 2FA moved the session onto an app password. Minting one
+  has a **rate-limit budget of its own**, separate from the password change and
+  the 2FA switch, because its check is answered without asking the server.
 - **Active webmail sessions** — see them, and revoke every session but this one.
+  A session is grouped by **the account Stalwart names on the server it lives
+  on**, not by the string that was typed at sign-in, so a session opened as a
+  bare or differently cased username is the same account here and does not
+  survive the revoke.
+- **Signing out leaves nothing of the session behind**, composers included: a
+  send still inside its undo window goes on the way out, then every open
+  composer is closed, so the next person at a shared machine does not find the
+  last one's draft open and able to send it.
 - **Two-factor**: an account that has it can turn it **off** here. Turning it
   **on** is not offered, and there is no code field on the sign-in page.
   Stalwart accepts a TOTP code only through an OAuth flow and offers no password

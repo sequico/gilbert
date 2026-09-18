@@ -242,12 +242,18 @@ export function safeFetchStatus(err: SafeFetchError): number {
  * `signal` is the client's. An aborted request means nobody downstream is
  * reading any more, so the upstream response is destroyed here rather than
  * left streaming megabytes of image into a dead socket.
+ *
+ * `remember` says whether the session was signed in on a device marked as the
+ * person's own. A proxied image is the same kind of thing as an attachment, and
+ * signing out wipes what the app stores, not what the browser cached on disk --
+ * so on a borrowed machine it is kept out of that cache.
  */
 export function imageResponse(
   res: IncomingMessage,
   type: string,
   signal: AbortSignal,
   done: () => void,
+  remember = false,
 ): Response {
   // Enforce the size limit while streaming.
   let total = 0;
@@ -270,7 +276,7 @@ export function imageResponse(
   });
   const headers = new Headers({
     "Content-Type": type,
-    "Cache-Control": "private, max-age=86400",
+    "Cache-Control": remember ? "private, max-age=86400" : "no-store",
     "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": "sandbox; default-src 'none'",
     "Cross-Origin-Resource-Policy": "same-origin",
@@ -301,5 +307,11 @@ export async function imageProxyHandler(c: Context) {
     res.resume();
     return c.json({ error: "too_large" }, 413);
   }
-  return imageResponse(res, type, c.req.raw.signal, done);
+  return imageResponse(
+    res,
+    type,
+    c.req.raw.signal,
+    done,
+    (c.get("session") as { remember?: boolean } | undefined)?.remember ?? false,
+  );
 }
