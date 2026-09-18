@@ -135,14 +135,13 @@ written down.
 **A unit of work is committed when it is finished (global user rule, active here
 — owner decision 2026-09-18):** within a turn that authorises commits at all (see
 the rule below), each unit lands as it is finished — not at the end of the turn,
-and not once a review has been answered. A unit is one coherent change that
-builds, typechecks and passes the tests of the files it touches — a rule with its
-guard and its test, a document with the sentences the change falsified, an i18n
-fix with the catalogs it emptied — and it lands with its own message. Work held
-back until a review or a turn's end becomes a mega-commit whose message cannot
-say what it did and whose parts cannot be read apart. The gates are unchanged:
-`prepush` still runs once on a stopped tree, so a unit commit is the narrow
-checks above plus the commit.
+and not once a review has been answered. A unit is one coherent change — a rule
+with its guard and its test, a document with the sentences the change falsified,
+an i18n fix with the catalogs it emptied — and it lands with its own message.
+Work held back until a review or a turn's end becomes a mega-commit whose message
+cannot say what it did and whose parts cannot be read apart. What is **not** part
+of the unit is its check: the gates run once, at the end of the coding (the rule
+below), so a unit commit is the change and its message and nothing else.
 **Single source of truth, no code duplication (global user rule, owner-confirmed
 2026-09-08):** every concept, constant, classifier, schema and helper has one
 canonical definition; everything else imports or derives from it. Before
@@ -259,13 +258,19 @@ analysis of minutes — so `npm run codeql` is that same analysis on demand and
 `CODEQL_CLI`, on `PATH`, or in the bundle cache, and a run without one **fails
 with the install instructions** rather than reporting a clean tree. An alert it
 prints is work to do in the same change, like any other finding a gate prints.
-**The full gate closes a turn; it is not a during-turn habit** (owner decision
-2026-09-13): while a turn is working, the checks are the narrow ones —
-`npm run typecheck`, `biome check` on the files touched, the affected test
-files, the check scripts — and `npm run prepush` runs once, at the end, on a
-tree whose work has stopped moving (the push hook runs it too). A dispatched
-child never runs `prepush`, and a full run in the middle of a turn is not
-evidence of anything except that the work waited for it.
+**Coding first, gates once, at the end of the turn (global user rule, active
+here — owner decision 2026-09-18):** a task that carries a plan of several units
+does **all** of its work first — coding, docs and the claim fixes that go with
+them — landing one commit per finished unit, and runs **no test, no typecheck, no
+lint and no check script between units**. The gates run **once, at the end, on a
+tree whose work has stopped moving**: the checks that would gate a commit, then
+`npm run prepush` (once; the push hook runs it too), and `prepush:full`/`codeql`
+where the turn calls for them — and everything they report is fixed in one pass
+before the turn closes. A dispatched child runs no gate at all. A check run in
+the middle of a plan reports a tree that is still moving and shatters one pass of
+fixes into a queue of interruptions; it is not evidence of anything. What this
+moves is **when** the checks run, never **whether**: a turn does not close on an
+unchecked tree, and what the end-of-turn run finds is fixed in that same turn.
 No commit or push unless the user's message in the current turn says so.
 **The feature inventory stays current.** `FEATURES.md` is the inventory of
 what Gilbert does (its upstream text arrives by merge, renamed); every
