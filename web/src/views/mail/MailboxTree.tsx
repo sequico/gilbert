@@ -42,6 +42,7 @@ import { canDropFolder, folderColor, movable } from "@/lib/folderMove";
 import { folderKey, useOpenFolders } from "@/lib/folderView";
 import { t } from "@/lib/i18n";
 import { countOf, STARRED_KEYWORD } from "@/lib/keywordCounts";
+import { EMAILS_MIME, FOLDER_MIME } from "@/lib/mime";
 import { labelTree, visibleLabels } from "@/lib/labelTree";
 import { isGroupMailboxAccount } from "@/lib/mailAccounts";
 import { mailboxDisplayName } from "@/lib/mailboxName";
@@ -68,9 +69,6 @@ const ROLE_ICONS: Record<string, ReactNode> = {
   flagged: <Star size={20} />,
   important: <Tag size={20} />,
 };
-
-/** Its own drag type, so a folder can only be dropped where folders belong. */
-const FOLDER_MIME = "application/x-gilbert-folder";
 
 /**
  * One row of the keyword list: Starred, or a label.
@@ -731,7 +729,7 @@ function FolderRow({
     if (
       folder
         ? !acceptsFolder
-        : !e.dataTransfer.types.includes("application/x-gilbert-emails")
+        : !e.dataTransfer.types.includes(EMAILS_MIME)
     )
       return;
     e.preventDefault();
@@ -747,7 +745,7 @@ function FolderRow({
       if (acceptsFolder) onFolderDrop(folderId);
       return;
     }
-    const raw = e.dataTransfer.getData("application/x-gilbert-emails");
+    const raw = e.dataTransfer.getData(EMAILS_MIME);
     if (!raw) return;
     try {
       const ids = JSON.parse(raw) as string[];

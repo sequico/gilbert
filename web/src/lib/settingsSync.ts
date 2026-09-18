@@ -17,6 +17,7 @@
  * arrive.
  */
 import { isRecord } from "@gilbert/shared/json";
+import { JSON_MIME } from "@/lib/mime";
 import { CAP, client } from "@/jmap/client";
 import {
   ensureFolder,
@@ -29,7 +30,7 @@ import { useSession } from "@/store/session";
 import { toast } from "@/ui/toast";
 
 const FILE = "settings.json";
-const TYPE = "application/json";
+
 
 /** How long a change sits before it is written up. */
 const DEBOUNCE_MS = 3000;
@@ -105,7 +106,7 @@ async function readSettingsFile(
   const { file, state } = await findInFolderWithState(accountId, folderId, FILE);
   if (!file?.blobId) return { doc: null, state };
   try {
-    const text = await client.fetchBlobText(accountId, file.blobId, TYPE);
+    const text = await client.fetchBlobText(accountId, file.blobId, JSON_MIME);
     const parsed = JSON.parse(text) as unknown;
     if (!isRecord(parsed)) {
       return { doc: null, state };
@@ -294,7 +295,7 @@ async function writeSettings(body: Record<string, unknown>): Promise<void> {
      */
     const next = { ...(doc ?? {}), ...body };
     try {
-      await writeAppJson(accountId, FILE, next, { ifInState: state, type: TYPE });
+      await writeAppJson(accountId, FILE, next, { ifInState: state, type: JSON_MIME });
       return;
     } catch (err) {
       // Somebody wrote the file between the read and this write. Round again:

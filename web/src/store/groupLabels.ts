@@ -1,5 +1,6 @@
 import { isRecord } from "@gilbert/shared/json";
-import { isLabelCatalogEntry } from "@gilbert/shared/labels";
+import { GROUP_LABELS_FILE, isLabelCatalogEntry } from "@gilbert/shared/labels";
+import { JSON_MIME } from "@/lib/mime";
 import { create } from "zustand";
 import { client } from "@/jmap/client";
 import { push } from "@/jmap/push";
@@ -22,8 +23,6 @@ import { useMail } from "./mail";
  * changes nothing on any message.
  */
 
-const FILE = "labels.json";
-const TYPE = "application/json";
 /** Coalesce the FileNode changes of one burst (a chat message floods the same rail) into one read. */
 const RELOAD_DEBOUNCE_MS = 400;
 
@@ -69,9 +68,9 @@ function validLabel(x: unknown): x is Label {
 async function readGroupLabels(accountId: Id): Promise<Label[] | null> {
   try {
     const folderId = await ensureFolder(accountId);
-    const node = await findInFolder(accountId, folderId, FILE);
+    const node = await findInFolder(accountId, folderId, GROUP_LABELS_FILE);
     if (!node?.blobId) return null;
-    const text = await client.fetchBlobText(accountId, node.blobId, TYPE);
+    const text = await client.fetchBlobText(accountId, node.blobId, JSON_MIME);
     const parsed = JSON.parse(text) as unknown;
     if (!isRecord(parsed)) return null;
     const list = parsed.labels;

@@ -21,6 +21,7 @@ import {
   type SieveRule,
   upsertRule,
 } from "@/lib/sieve";
+import { SIEVE_RULE_MIME } from "@/lib/mime";
 import { confirmLeaveUnsaved, useUnsavedChanges } from "@/lib/unsavedChanges";
 import { useMail } from "@/store/mail";
 import { useSieve } from "@/store/sieve";
@@ -91,9 +92,6 @@ export function FiltersSettings() {
     </div>
   );
 }
-
-/** Private drag type, so a rule can only be dropped on the rule list. */
-const RULE_MIME = "application/x-gilbert-sieve-rule";
 
 function RulesEditor() {
   const sieve = useSieve();
@@ -258,14 +256,14 @@ function RulesEditor() {
           className={`rule-card ${r.enabled ? "" : "disabled"} ${dragId === r.id ? "dragging" : ""} ${over?.id === r.id ? (over.below ? "drop-below" : "drop-above") : ""}`}
           draggable={armed === r.id}
           onDragStart={(e) => {
-            e.dataTransfer.setData(RULE_MIME, r.id);
+            e.dataTransfer.setData(SIEVE_RULE_MIME, r.id);
             e.dataTransfer.effectAllowed = "move";
             dragging.current = r.id;
             setDragId(r.id);
           }}
           onDragEnd={endDrag}
           onDragOver={(e) => {
-            if (!e.dataTransfer.types.includes(RULE_MIME) || dragging.current === r.id)
+            if (!e.dataTransfer.types.includes(SIEVE_RULE_MIME) || dragging.current === r.id)
               return;
             e.preventDefault();
             e.dataTransfer.dropEffect = "move";
@@ -275,7 +273,7 @@ function RulesEditor() {
           onDragLeave={() => setOver((o) => (o?.id === r.id ? null : o))}
           onDrop={(e) => {
             e.preventDefault();
-            const from = e.dataTransfer.getData(RULE_MIME);
+            const from = e.dataTransfer.getData(SIEVE_RULE_MIME);
             if (from)
               setLocal(
                 reorderRules(list, from, r.id, isBelow(e.currentTarget, e.clientY)),

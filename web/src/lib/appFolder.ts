@@ -25,6 +25,7 @@ import { appDocumentJson } from "@gilbert/shared/appDocument";
 import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
 import { directoryCreate, fileCreate } from "@/lib/filenode";
+import { JSON_MIME } from "@/lib/mime";
 
 /** The folder Gilbert keeps its own documents in, in every account. */
 export const APP_FOLDER = "gilbert";
@@ -330,7 +331,7 @@ export async function writeAppJson(
   opts: { ifInState?: string; type?: string } = {},
 ): Promise<{ id: Id; blobId: Id }> {
   const folderId = await ensureFolder(accountId);
-  const type = opts.type ?? "application/json";
+  const type = opts.type ?? JSON_MIME;
   // The bytes come from the one serializer both tiers write through, so the
   // document a browser saves is the document the server saves.
   const blob = new Blob([appDocumentJson(value)], { type });

@@ -8,6 +8,7 @@
  * and reports rights as a single `mayWrite` rather than the four separate ones.
  */
 import type { FileNode, Id } from "@/jmap/types";
+import { NODE_MIME } from "./mime";
 import { descendantIds } from "./folderMove";
 
 /** Properties to request for a node. */
@@ -75,8 +76,12 @@ export function isShared(node: Pick<FileNode, "shareWith">): boolean {
  * legal moves behind a disabled drop. The server refuses those with a message
  * of its own, which is a better answer than a silent one.
  */
-/** The MIME a dragged node is offered under, so a target can recognise it. */
-export const NODE_MIME = "application/x-gilbert-filenode";
+/*
+ * The node drag's MIME. Defined in `lib/mime` with the rest of them, and
+ * re-exported here because every reader of a node drag also reads
+ * `readDraggedIds` and `canDropFileNodes` from this module.
+ */
+export { NODE_MIME };
 
 /**
  * The ids in a node drag. A multi-file selection is dragged as one payload, so

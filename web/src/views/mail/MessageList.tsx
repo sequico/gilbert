@@ -68,6 +68,7 @@ import {
   finalFoldersOf,
 } from "@/lib/mailDelete";
 import { messageFolders } from "@/lib/messageLocation";
+import { EMAILS_MIME } from "@/lib/mime";
 import { rowIsOpen } from "@/lib/openMessage";
 import { anyCarries, anyLacks, rowScope } from "@/lib/rowScope";
 import {
@@ -1272,7 +1273,7 @@ const Row = memo(function Row({
       all.add(id);
     }
     for (const x of scope) all.add(x.id);
-    ev.dataTransfer.setData("application/x-gilbert-emails", JSON.stringify([...all]));
+    ev.dataTransfer.setData(EMAILS_MIME, JSON.stringify([...all]));
     ev.dataTransfer.effectAllowed = "move";
     const ghost = document.createElement("div");
     ghost.className = "drag-ghost";
