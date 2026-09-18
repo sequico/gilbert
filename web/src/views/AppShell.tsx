@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { withBase } from "@/lib/basePath";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { formatSize } from "@/lib/format";
 import { t } from "@/lib/i18n";
@@ -31,6 +30,7 @@ import { draftFromMailto, useCompose } from "@/store/compose";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { useEffectiveTheme, useSettings } from "@/store/settings";
+import { BrandLogo } from "@/ui/BrandLogo";
 import { Avatar, useIsMobile } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { TranslateBoundary } from "@/ui/TranslateBoundary";
@@ -269,7 +269,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <MenuIcon size={22} />
         </button>
         <Link href="/mail" className="brand">
-          <img src={withBase("/img/logo.png")} alt="" />
+          <BrandLogo kind="mark" />
           {/* A product name, not a word: translated it is a different product.
               Read from the session rather than written here, so a deployment
               that set APP_NAME is called what it calls itself -- the document

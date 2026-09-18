@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="web/public/img/logo.png" alt="Gilbert" width="150">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="web/public/img/logo-inverse.png">
+    <img src="web/public/img/logo.png" alt="Gilbert" width="150">
+  </picture>
 </p>
 
 <p align="center">

@@ -2090,7 +2090,10 @@ needed nothing in either half.
   icons — a 192 and a 512 for `any`, and a third declared `maskable` for the
   launchers that crop one to their own shape — and its splash colours are the
   default theme's background, so an installed app opens in the colours it is
-  about to be, not in another theme's.
+  about to be, not in another theme's. The artwork on them is the mark on its
+  own dark navy rather than the lockup: the wordmark inside a 192px square is a
+  texture, and the tagline is dropped below 180px, where it is a smear rather
+  than a word.
 - **Manifest shortcuts** for Compose, Calendar and Contacts.
 - **One window, not one per launch.** A `mailto:` link, a shortcut or a
   notification opened while Gilbert is already running arrives in the copy
@@ -2529,7 +2532,11 @@ prefix with nothing substituted into them.
 The installation's own name is `branding.appName` in its document (the `APP_NAME`
 variable is what a process with no boot runs on), and where **your** source can
 be had is a variable the image states; the logo, icons and palette are
-files. See [Rebranding](https://docs.ihasmail.org/rebranding/). If you run a
+files. The mark ships in two colorways — `web/public/img/logo.png` navy for a
+light surface, `logo-inverse.png` white for a dark one, and a mark-alone
+`mark.png`/`mark-inverse.png` pair for the places the wordmark does not fit —
+and a deployment that swaps them keeps both in two colors. See
+[Rebranding](https://docs.ihasmail.org/rebranding/). If you run a
 modified Gilbert, `SOURCE_URL` must point at **your** tree — the AGPL's offer
 is for the source of the version being run, and it is shown on the sign-in page
 and in Settings › About.

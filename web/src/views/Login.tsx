@@ -7,6 +7,7 @@ import { t } from "@/lib/i18n";
 import { DEFAULT_SOURCE_URL } from "@/lib/source";
 import { APP_VERSION } from "@/lib/version";
 import { useSession } from "@/store/session";
+import { BrandLogo } from "@/ui/BrandLogo";
 
 export function LoginPage() {
   const login = useSession((s) => s.login);
@@ -77,7 +78,7 @@ export function LoginPage() {
     <div className="login-page">
       <form className="login-card" onSubmit={submit}>
         <div className="logo">
-          <img src={withBase("/img/logo.png")} alt="" width={120} height={143} />
+          <BrandLogo width={120} height={150} />
           {/* A product name, not a word: not translated, and not guessed at
               from the page it is on. */}
           <h1 className="notranslate" translate="no">

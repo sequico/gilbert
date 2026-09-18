@@ -1,8 +1,8 @@
 import { LogOut } from "lucide-react";
-import { withBase } from "@/lib/basePath";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { t } from "@/lib/i18n";
 import { useSession } from "@/store/session";
+import { BrandLogo } from "@/ui/BrandLogo";
 import { PasswordForm } from "@/views/settings/SecuritySettings";
 
 /**
@@ -25,7 +25,7 @@ export function ForcedPasswordChange() {
     <div className="login-page">
       <div className="login-card">
         <div className="logo">
-          <img src={withBase("/img/logo.png")} alt="" width={120} height={143} />
+          <BrandLogo width={120} height={150} />
           {/* A product name, not a word: not translated, and not guessed at
               from the page it is on. */}
           <h1 className="notranslate" translate="no">

@@ -92,8 +92,8 @@
 
 /*
  * The "gilbert" theme: the palette from ihasmail.org, which is a teal-navy
- * rather than the blue-slate of the plain dark theme, warmed by the orange the
- * logo's cat is drawn in.
+ * rather than the blue-slate of the plain dark theme, warmed by the orange of
+ * ihasmail's own mark -- the cat over the envelope, not Gilbert's butler.
  *
  * It rides on data-theme="dark" rather than replacing it, so every dark-only
  * rule further down this file -- tooltips, toasts, the message frame -- keeps
@@ -131,7 +131,7 @@
   --read-bg: #12303e;
   --selected-bg: rgba(70, 202, 195, 0.18);
   --focus-ring: 0 0 0 3px rgba(70, 202, 195, 0.4);
-  /* The cat is orange; so is the star. */
+  /* ihasmail's cat is orange; so is the star. */
   --star: #f9a34b;
   --q1: #6fdcd6;
   --q2: #4ade80;
@@ -1245,6 +1245,31 @@ a.menu-item:hover { color: var(--fg); }
 .warn-box { padding: 12px 14px; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); }
 
 /* ==========================================================================
+   The mark's two colorways
+   ========================================================================== */
+/*
+ * Both files ship; exactly one of them is shown.
+ *
+ * The base drawing is navy and the inverted one is white, so one of the two is
+ * legible on any given surface and the other is not: navy on a dark card
+ * disappears, white on a light one does the same. `BrandLogo` renders the pair
+ * and this picks between them -- off `data-theme`, the attribute `applyTheme()`
+ * writes before the first paint and the same one every dark-only rule below
+ * keys off. Two drawings rather than a recolour or a filter, because that is
+ * what they are: the sheet sets the inverted mark in its own greys rather than
+ * as the base one reversed.
+ *
+ * `display: none` keeps the hidden one out of the layout and out of the
+ * accessibility tree, so a pair of images does not announce as two. Shown again
+ * is `revert`, not a display value: these sit in a flex row in the top bar and
+ * in a column on the sign-in card, and the image that is shown has to be
+ * whatever the container says an image is.
+ */
+.brand-logo-inverse { display: none; }
+:root[data-theme="dark"] .brand-logo-base { display: none; }
+:root[data-theme="dark"] .brand-logo-inverse { display: revert; }
+
+/* ==========================================================================
    App shell
    ========================================================================== */
 /*
@@ -1917,7 +1942,9 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .login-card { width: 100%; max-width: 400px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); padding: 32px 28px 24px; animation: rise .25s var(--ease); }
 .login-card .logo { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 20px; }
 .login-card .logo img { width: 120px; height: auto; }
-/* The logo is the mark alone, so the name is set here rather than baked in. */
+/* The lockup carries the wordmark, so what is set here is the deployment's own
+   name -- a Gilbert that set APP_NAME is called what it calls itself, beside
+   the image that says Gilbert. */
 .login-card h1 { margin: 0; font-size: 1.6em; font-weight: 800; letter-spacing: -.02em; color: #14b8a6; }
 .login-card .sub { color: var(--fg-muted); font-size: .92em; margin: 0; }
 .login-card .tagline { color: var(--fg-muted); font-size: 1em; margin: 4px 0 0; text-align: center; }

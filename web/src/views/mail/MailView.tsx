@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import type { Comparator, Id } from "@/jmap/types";
-import { withBase } from "@/lib/basePath";
 import { askDeleteMessages } from "@/lib/deleteConfirm";
 import { plural, tNode, t as translate } from "@/lib/i18n";
 import { keyboard } from "@/lib/keyboard";
@@ -16,6 +15,7 @@ import { REPLY_KEYS, useCompose } from "@/store/compose";
 import { DEFAULT_SORT, type ListQuery, useMail } from "@/store/mail";
 import { scheduledMailboxIdFrom, useScheduled } from "@/store/scheduled";
 import { useSettings } from "@/store/settings";
+import { BrandLogo } from "@/ui/BrandLogo";
 import { useIsNarrow } from "@/ui/misc";
 import { Splitter } from "@/ui/Splitter";
 import { toast } from "@/ui/toast";
@@ -735,7 +735,7 @@ export function MailView({
             />
           ) : (
             <div className="no-thread">
-              <img src={withBase("/img/logo.png")} alt="" />
+              <BrandLogo />
               <div>
                 {list?.total
                   ? settings.conversationMode
