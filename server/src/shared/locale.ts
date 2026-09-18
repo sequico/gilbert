@@ -38,10 +38,12 @@ export function normalizeLocale(raw: unknown): string | null {
   /*
    * A language tag before anything is asked of it: `Intl` throws on some input
    * and answers `"und"` for other input, and neither is a locale to store. The
-   * guard is why this belongs on one side of the wire — a tier that accepted
-   * what the other refuses is a stored value one of them cannot read back.
+   * subtag is one to eight characters, not two, because the singleton is a
+   * subtag too — `de-DE-u-ca-buddhist` is a German tag whose calendar is stated
+   * by an extension, and it is exactly the shape a server reports a locale in.
+   * What survives this is still checked by `Intl`, in the `try` below.
    */
-  if (!/^[A-Za-z]{2,8}(-[A-Za-z0-9]{2,8})*$/.test(base)) return null;
+  if (!/^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$/.test(base)) return null;
   const script = modifier ? SCRIPT_MODIFIERS[modifier.toLowerCase()] : undefined;
   try {
     const [canonical] = Intl.getCanonicalLocales(base);
