@@ -351,6 +351,14 @@ self.addEventListener("push", (event) => {
       : [];
   event.waitUntil(
     (async () => {
+      /*
+       * Someone reading the app already knows. A focused, visible window of
+       * this app has its own event stream, so a notification on top of it is
+       * the same news told twice. Chrome does not require one while the site
+       * is in the foreground.
+       */
+      const windows = await self.clients.matchAll({ type: "window" });
+      if (windows.some((w) => w.focused && w.visibilityState === "visible")) return;
       const facts = await readFacts();
       /*
        * What a tab has not written yet: the worker is installed and a push
@@ -377,8 +385,10 @@ self.addEventListener("push", (event) => {
         await self.navigator.setAppBadge().catch(() => {});
 
       if (!emails.length) {
-        // A StateChange, or a payload too large to carry the message. Say
-        // something true rather than inventing a sender.
+        // A delivery from a server that sends a StateChange rather than an
+        // EmailPush -- the subscription asks for `EmailDelivery`, so what
+        // changed is that mail arrived -- or a payload too large to carry the
+        // message. Say something true rather than inventing a sender.
         await self.registration.showNotification(strings.newMail, {
           icon: `${BASE}/img/icon-192.png`,
           badge: `${BASE}/img/favicon-64.png`,

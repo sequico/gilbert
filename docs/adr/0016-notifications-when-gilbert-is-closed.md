@@ -7,11 +7,17 @@ permission in its own gesture and nowhere else, `webPushBlocker()` names why a
 browser cannot be offered background notifications — the iOS install case among
 them — and the surface composes the sentence from that code
 (`web/src/lib/webpush.ts`, `web/src/lib/webpushEnable.ts`,
-`web/src/views/settings/NotificationsSettings.tsx`). Not built: the payload for
-the group mailboxes the subscription already wakes for, the worker's rule for
-the generic wake-up that double-notifies today, and the chat read. What those
-three rest on is read from Stalwart's source at v0.16.22 and written down below;
-the one thing still owed is seeing a running server do it.
+`web/src/views/settings/NotificationsSettings.tsx`). The noise half is built:
+the subscription names `EmailDelivery` rather than `Email`, so a read or a move
+no longer arrives as mail, the payload asks for `id` and `threadId`, which is
+what lets a notification be tagged and carry its actions, and the worker stays
+quiet while a focused window of this app is on screen — all three pinned by
+`web/src/lib/__tests__/swPushRules.test.ts` and the payload's own assertions.
+Not built: the payload for the group mailboxes the subscription already wakes
+for, the generic wake-up narrowed to the accounts the briefing does not
+describe, and the chat read. What those rest on is read from Stalwart's source
+at v0.16.22 and written down below; the one thing still owed is seeing a
+running server do it.
 
 ## Context
 
@@ -40,8 +46,8 @@ account **plus its group mailboxes**, which come from the account's
 `member_group_ids` (`crates/jmap/src/push/set.rs`,
 `crates/services/src/state_manager/push.rs` `load_push_subscriptions`,
 `crates/common/src/auth/access_token.rs`). What wakes it is the subscription's
-own `types` bitmap, and `Email` is in it: so a delivery to a group mailbox
-already wakes a closed client today.
+own `types` bitmap, and `EmailDelivery` is in it: so a delivery to a group
+mailbox already wakes a closed client today.
 
 It wakes it **generically**, and that is the gap: an email event for an account
 with no `emailPush` entry is degraded to a plain `StateChange`
@@ -54,10 +60,19 @@ Chat is missing entirely. A chat message is one JSON node in the group
 account's `gilbert/chat`, with a per-member read marker in `gilbert/chat-state`
 (ADR 0005), and it is live over `FileNode` state changes — live while a tab or
 gilbertserver holds a connection, and invisible to a closed client because
-`types: ["Email"]` names no `FileNode`. A new chat node *is* a `FileNode`
-change, so the type is all that is missing to wake for one: `emailpush` carries
-`Email` objects and has no vocabulary for a file, and Stalwart's only push
-filter is email-shaped (`EmailPush.filter` is `Filter<EmailFilter>`).
+`types: ["EmailDelivery"]` names no `FileNode`. A new chat node *is* a
+`FileNode` change, so the type is all that is missing to wake for one:
+`emailpush` carries `Email` objects and has no vocabulary for a file, and
+Stalwart's only push filter is email-shaped (`EmailPush.filter` is
+`Filter<EmailFilter>`).
+
+**Why the bitmap names `EmailDelivery` and not `Email`.** `Email` changes on
+every read, flag and move, from any client, and every one of those arrived as a
+push the worker could only render as "New mail" — the app has its own event
+stream while it is open, so this channel exists for when it is not.
+`EmailDelivery` changes only when a message is delivered, and a subscription
+carrying an `emailPush` filter is sent a delivery as an `EmailPush` alone. That
+is what makes this channel mean "mail arrived" and nothing else.
 
 The permission is the OS's, granted to the origin and never to an
 installation's "app": Web Push needs the browser's notification permission, and
@@ -253,10 +268,13 @@ they are using it.
   an agent's document, an upload, the reader's own stored settings. This is
   battery and push-service traffic rather than user noise: the notification, not
   the wake-up, is what the watermark and the sender rule gate.
-- The double notification is fixed by the same change that adds group mail: a
-  `StateChange` notifies generically only for the accounts the briefing does not
-  describe, so a delivery to the reader's own Inbox stops producing a second,
-  nameless notification beside the one that names the sender.
+- The double notification is fixed in two steps, and the first is built: the
+  subscription names `EmailDelivery` rather than `Email`, so a read, flag or
+  move from any client no longer arrives at all, and a delivery to the reader's
+  own Inbox produces the `EmailPush` that names its sender rather than a second,
+  nameless notice beside it. What is left is the group case, which needs the
+  second step: a `StateChange` notifies generically only for the accounts the
+  briefing does not describe.
 - `PushVerification` stays one pending code per device, and the reason is now
   the server's own: only the **newest** unverified subscription of an account is
   sent a verification POST per pass, and the throttle on it is per account
@@ -323,13 +341,13 @@ event is degraded to a state change without an `emailPush` entry, that the
 of, that `emailPush` carries `Email` properties only, that a missing `types`
 means every type, and that push URLs are validated for scheme, credentials and
 address class. Those are read facts rather than a running server's testimony,
-and four things still want the server's word before the code is called done:
+and five things still want the server's word before the code is called done:
 
 <!-- owed: live-emailpush-map -->
 1. that a running 0.16 accepts the whole subscription as one row in the reader's
-ow account — `types: ["Email", "FileNode"]` beside an `emailPush` map naming the
-reader's account and each group, each with its own filter — and answers it
-`created` rather than refusing a property;
+ow account — `types: ["EmailDelivery", "FileNode"]` beside an `emailPush` map
+naming the reader's account and each group, each with its own filter — and
+answers it `created` rather than refusing a property;
 <!-- owed: group-emailpush-payload -->
 2. that a delivery to a group mailbox then arrives with the account named, in
 the shape `sw.js` expects: an `EmailPush` whose `accountId`/`changed` key is the
@@ -345,9 +363,21 @@ node changed;
 4. that a device holding one subscription sees its verification arrive once, so
 that the handshake `sw.js` already implements is enough for it; the server
 sends a verification only for the **newest** unverified subscription of an
-account, which is the same fact read from the other side.
+account, which is the same fact read from the other side;
+<!-- owed: degraded-statechange-type -->
+5. **which type a degraded `StateChange` carries** when a delivery lands in an
+account the subscription serves and no `emailPush` entry describes — which today
+is every group mailbox. The bitmap decides what a subscription is sent, so if
+that state change names `Email` rather than `EmailDelivery` then a subscription
+asking for `EmailDelivery` alone is sent **nothing** for a group delivery, and
+the notification that today says "New mail" for it stops arriving in silence.
+What the source says is that the delivery is degraded to a plain state change;
+what it does not say, anywhere this tree has read, is which name that state
+change wears. Everything about group notifications that is already built rests
+on the answer, which is why it is a probe of its own rather than a note inside
+the one above.
 
-Until they are answered the four items are the record's debt, and the
+Until they are answered the five items are the record's debt, and the
 implementation marks them where the code owes them (the repository's
 `ADR-0016 OWED:` convention).
 

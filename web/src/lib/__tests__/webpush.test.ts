@@ -145,13 +145,34 @@ describe("what gets registered", () => {
     expect(subscriptionPayload(fakeSub, null)).not.toHaveProperty("emailPush");
   });
 
-  it("subscribes to Email changes only, since EventSource covers an open tab", () => {
+  it("subscribes to delivered mail only, so reading or moving says nothing", () => {
     client.session = session({
       "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
     });
+    /*
+     * `Email` would wake this device on every read, flag and move made from
+     * any client, and the worker could only render each one as "New mail". A
+     * subscription with an `emailPush` filter is sent a delivery as an
+     * `EmailPush` alone, so subscribing to `EmailDelivery` is what makes the
+     * channel mean "mail arrived" and nothing else.
+     */
     expect((subscriptionPayload(fakeSub, "a1") as Record<string, unknown>).types).toEqual(
-      ["Email"],
+      ["EmailDelivery"],
     );
+  });
+
+  it("asks for the id, so a notification can be tagged and acted on", () => {
+    // Stalwart sends only the properties named, and `sw.js` draws its Archive
+    // and Mark-read buttons only for a payload that carries an id -- so a list
+    // without one is a notification that can never be acted on.
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+      "urn:ietf:params:jmap:emailpush": {},
+    });
+    const props = (subscriptionPayload(fakeSub, "a1") as WebPushPayload).emailPush.a1
+      .properties;
+    expect(props).toContain("id");
+    expect(props).toContain("threadId");
   });
 });
 

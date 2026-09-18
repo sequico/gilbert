@@ -268,11 +268,19 @@ test("a refused create takes back what earlier builds left, and a browser's own 
     types: ["Email", "Calendar"],
     expires: new Date(Date.now() + 7 * 86_400_000).toISOString(),
   }));
+  /*
+   * Subscribed to `EmailDelivery`, which is what this client actually sends.
+   * The owner of a row is read off the shape of its device id, never off what
+   * it asked for: a browser that subscribes to something else is still a
+   * browser's row, and reading it the other way once made this very
+   * registration a candidate for deletion. This assertion is that guard --
+   * change the discriminator back to `types` and it fails.
+   */
   const browser = {
     id: "browser",
     deviceClientId: "gilbert-9f6c2b1a-0000-4000-8000-000000000000",
     url: "https://push.example.net/abc123",
-    types: ["Email"],
+    types: ["EmailDelivery"],
   };
   const fake = fakePushServer({ cap: 15 }, [...leftovers, browser]);
   try {

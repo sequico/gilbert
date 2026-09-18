@@ -289,6 +289,15 @@ function bumpState(type: string): void {
  */
 /** Push subscriptions, as a fresh account has none. */
 const pushSubscriptions: Obj[] = [];
+/**
+ * How many subscriptions one account may hold before a create is refused.
+ *
+ * Stalwart's [`max_subscriptions`] default, which its registry can change; 15
+ * is what every deployment gets without saying otherwise, and it is the number
+ * the client has to stay under while gilbertserver's own fan-out row for the
+ * same account spends from it too.
+ */
+const MAX_PUSH_SUBSCRIPTIONS = 15;
 
 const mailboxes: Obj[] = [
   mb("inbox", "Inbox", "inbox"),
@@ -3336,10 +3345,21 @@ const handlers: Record<string, Handler> = {
         };
         continue;
       }
-      // One per device: re-subscribing replaces rather than accumulates.
+      // Keep every create, even one repeating a `deviceClientId`, and refuse
+      // past the ceiling. A live 0.16.22 was seen to do both (2026-09-16): the
+      // second create with the same device id leaves the first in place, and
+      // the sixteenth is refused `overQuota`. This mock used to replace on a
+      // repeated id, which made the account's limit unreachable here and so
+      // hid the one path that can hit it -- a client that renews by creating.
+      if (pushSubscriptions.length >= MAX_PUSH_SUBSCRIPTIONS) {
+        notCreated[cid] = {
+          type: "overQuota",
+          description:
+            "There are too many subscriptions, please delete some before adding a new one.",
+        };
+        continue;
+      }
       const deviceId = String(o.deviceClientId ?? "");
-      const clash = pushSubscriptions.findIndex((s) => s.deviceClientId === deviceId);
-      if (clash >= 0) pushSubscriptions.splice(clash, 1);
       const id = `ps${randomUUID().slice(0, 6)}`;
       /*
        * A subscription expires. Answering `expires: null` is the one shape that
@@ -3381,6 +3401,23 @@ const handlers: Record<string, Handler> = {
           continue;
         }
         s.verified = true;
+      }
+      // An expiry can be moved, which is what lets a client extend the
+      // subscription it already has instead of registering another. The
+      // server may shorten what is asked for, so what it keeps is the answer.
+      const expires = (patch as Obj).expires;
+      if (expires !== undefined) {
+        if (typeof expires !== "string" || Number.isNaN(Date.parse(expires))) {
+          notUpdated[id] = {
+            type: "invalidProperties",
+            properties: ["expires"],
+            description: "expires must be a UTCDate.",
+          };
+          continue;
+        }
+        s.expires = new Date(
+          Math.min(Date.parse(expires), now() + PUSH_TTL_MS),
+        ).toISOString();
       }
       updated[id] = null;
     }

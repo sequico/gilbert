@@ -2058,9 +2058,17 @@ needed nothing in either half.
 - **Web Push** for notifications with Gilbert **closed**, where the server
   signs with VAPID (RFC 9749). Nothing in that path touches Gilbert's server —
   Stalwart talks to the browser's push service directly, so there is no relay to
-  run. Where the server also implements `emailpush`, the payload carries the
-  sender, subject and preview; without it the notification says only that mail
-  arrived. Offered only on a device you said was yours.
+  run. The subscription asks for **`EmailDelivery`**, not `Email`: a delivery is
+  the only thing that wakes it, where `Email` also changes on every read, flag
+  and move from any client — each of which arrived as a notification that could
+  only say "New mail". Where the server also implements `emailpush`, the
+  payload carries the message's `id` and `threadId` as well as the sender,
+  subject and preview, which is what lets a notification be tagged by message,
+  offer Archive and Mark-read, and open the message rather than the inbox;
+  without it the notification says only that mail arrived. Nothing is shown
+  while a focused Gilbert window is on screen, since that window is already
+  being told by its own event stream. Offered only on a device you said was
+  yours.
 - **The subscription is one row per device, and a delivery to a group is one of
   the things it wakes for.** A push subscription belongs to the principal that
   registered it and is served for every account that principal is a **member**
@@ -2070,6 +2078,14 @@ needed nothing in either half.
   mailbox it landed in, and the chat wake-up beside it. Read from Stalwart's
   source at v0.16.22 and written down in ADR 0016, which holds what a running
   server still has to confirm.
+- **A full account is not the end of notifications.** Stalwart allows fifteen
+  subscriptions per account, shared with Gilbert's own server-side row, and the
+  sixteenth create is refused `overQuota`. The client releases its own rows
+  before registering, and on that refusal gives up one belonging to another
+  browser — never verified first, then the one closest to expiring — because a
+  row left behind by a browser whose site data was cleared can never be reached
+  again, and the device it belonged to registers afresh the next time it is
+  opened.
 - **The switch says why it cannot be offered** where it cannot: a mail server
   with no push key, a browser with no Push API, and — the sentence worth
   writing — an iOS browser opened as a tab, which is told to add Gilbert to the
@@ -2097,6 +2113,13 @@ needed nothing in either half.
   that says push is on and a browser that is no longer listening.
   Registration is per browser, not per account: a phone having push does not
   make it on for the desktop, and each device tracks its own.
+- **A subscription is extended rather than replaced.** Registering again was a
+  create, and Stalwart keeps every create — a repeated `deviceClientId` does not
+  replace the row it repeats (confirmed live on 0.16.22, 2026-09-16) — so a
+  renewal that ran inside the window added a row every time until the account's
+  fifteen were gone. A registration now finds the row it already has, extends
+  its `expires` where the server accepts it, releases any duplicate of its own,
+  and starts a fresh one only when the endpoint actually changed.
 - **Stale build reload** — when the server starts serving a build the open tab
   did not come from, the tab reloads itself rather than going on talking to a
   newer server with older JavaScript. The reload is unconditional once the

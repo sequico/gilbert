@@ -17,12 +17,23 @@
  * publishes a real `applicationServerKey`, and `PushSubscription/get` answers a
  * normal user rather than refusing them.
  */
+
+import { gilbertDeviceClientId, isBrowserDeviceClientId } from "@gilbert/shared/push";
 import { CAP, client } from "@/jmap/client";
 import type { GetResponse, Id, SetResponse } from "@/jmap/types";
 import { isDeviceTrusted } from "@/lib/storage";
 
-/** Which Email properties to put in the payload, best first. */
-const PAYLOAD_PROPS = ["from", "subject", "preview", "receivedAt"];
+/**
+ * Which Email properties to put in the payload, best first.
+ *
+ * `id` and `threadId` have to be asked for: Stalwart sends only the
+ * properties named here (0.16.22). Without them a notification could not be
+ * tagged by message, carried no Archive or Mark-read button, and opened the
+ * inbox rather than the message -- and because `sw.js` draws its buttons only
+ * for a payload that names an `id`, leaving them out meant the buttons it is
+ * written to show never appeared at all.
+ */
+const PAYLOAD_PROPS = ["id", "threadId", "from", "subject", "preview", "receivedAt"];
 
 export interface JmapPushSubscription {
   id: Id;
@@ -138,15 +149,16 @@ export function encodeKey(buffer: ArrayBuffer | null): string {
 let fallbackDeviceId: string | null = null;
 export function deviceClientId(): string {
   const KEY = "gilbert:pushDeviceId";
-  if (!isDeviceTrusted()) return (fallbackDeviceId ??= `gilbert-${crypto.randomUUID()}`);
+  if (!isDeviceTrusted())
+    return (fallbackDeviceId ??= gilbertDeviceClientId(crypto.randomUUID()));
   try {
     const existing = localStorage.getItem(KEY);
     if (existing) return existing;
-    const made = `gilbert-${crypto.randomUUID()}`;
+    const made = gilbertDeviceClientId(crypto.randomUUID());
     localStorage.setItem(KEY, made);
     return made;
   } catch {
-    return (fallbackDeviceId ??= `gilbert-${crypto.randomUUID()}`);
+    return (fallbackDeviceId ??= gilbertDeviceClientId(crypto.randomUUID()));
   }
 }
 
@@ -168,15 +180,16 @@ export function deviceClientId(): string {
  * for an account the token is not a member of is refused `forbidden`. So the
  * reader's own account is where one row lives and where each group is named
  * inside it, which is what this function does not yet build: it still sends one
- * `emailPush` entry and `types: ["Email"]`, so a group's mail wakes this device
- * only as a generic notification and its chat does not wake it at all. What a
- * running server still has to say is written down where the record keeps its
- * debt.
+ * `emailPush` entry for the reader's own account only, so a group's mail wakes
+ * this device only as a generic notification and its chat does not wake it at
+ * all. What a running server still has to say is written down where the record
+ * keeps its debt.
  *
  * ADR-0016 OWED: live-emailpush-map
  * ADR-0016 OWED: group-emailpush-payload
  * ADR-0016 OWED: chat-wake-read
  * ADR-0016 OWED: verification-per-device
+ * ADR-0016 OWED: degraded-statechange-type
  */
 export function subscriptionPayload(
   sub: PushSubscription,
@@ -191,9 +204,30 @@ export function subscriptionPayload(
       p256dh: json.keys?.p256dh ?? encodeKey(sub.getKey("p256dh")),
       auth: json.keys?.auth ?? encodeKey(sub.getKey("auth")),
     },
-    // StateChange notifications are not wanted: the app already has EventSource
-    // while it is open, and this channel exists for when it is not.
-    types: ["Email"],
+    /*
+     * New mail, and nothing else.
+     *
+     * `EmailDelivery` changes only when a message is delivered. `Email`
+     * changes on every read, flag and move, from any client, and each of
+     * those arrived here as a push the worker could only show as "New mail"
+     * -- the app has its own event stream while it is open, so this channel
+     * exists for when it is not. A subscription carrying an `emailPush` filter
+     * is sent a delivery as an `EmailPush` alone, so what the filter describes
+     * does not arrive twice.
+     *
+     * `FileNode` is deliberately not named: a `FileNode` change here would
+     * render as "New mail", and what would make it a chat notification is the
+     * worker's read of what changed -- ADR 0016 carries that work, and the
+     * type goes in with it rather than before it.
+     *
+     * A delivery with no `emailPush` entry describing its account -- a group
+     * mailbox, today -- is degraded to a state change instead, and whether that
+     * state change wears this same name is a fact only a live server can settle
+     * (ADR 0016, `degraded-statechange-type`). If it does not, a group delivery
+     * stops waking this device rather than merely losing its sender, which is
+     * why the question is written down rather than assumed.
+     */
+    types: ["EmailDelivery"],
   };
   if (accountId && supportsEmailPush()) {
     body.emailPush = {
@@ -250,12 +284,30 @@ export function setPushEnabledHere(on: boolean): void {
  */
 export const RENEW_WITHIN_MS = 2 * 24 * 60 * 60 * 1000;
 
-/** This browser's registered subscription, out of everything the account has. */
+/**
+ * The lifetime asked for when renewing a subscription, and JMAP's ceiling.
+ *
+ * Seven days, which is what Stalwart grants a new row. A create leaves the
+ * lifetime to the server, since the default is this same seven days; an
+ * extension has to name one, and naming anything smaller would shorten the row
+ * on every renewal.
+ */
+export const PUSH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * This browser's newest registered row, out of everything the account has.
+ *
+ * Defined in terms of `mySubscriptions` rather than as its own scan: "this
+ * browser's row" means the one with the most time left when there are several
+ * -- Stalwart keeps every create (0.16.22, 2026-09-16) -- and two scans that
+ * could disagree about which one that is would be a bug waiting for the day the
+ * account has two.
+ */
 export function findSubscription(
   subs: JmapPushSubscription[],
   deviceId: string,
 ): JmapPushSubscription | null {
-  return subs.find((s) => s.deviceClientId === deviceId) ?? null;
+  return mySubscriptions(subs, deviceId)[0] ?? null;
 }
 
 /**
@@ -295,6 +347,25 @@ export async function listSubscriptions(): Promise<JmapPushSubscription[]> {
   return res.list;
 }
 
+/**
+ * A `PushSubscription/set` refusal, with the server's own type kept.
+ *
+ * The type is what makes the refusal actionable: `overQuota` means the
+ * account's fifteen are spent and something has to be released, where any
+ * other type means this registration is simply not going to be made. A plain
+ * `Error` carrying only the description left the caller unable to tell them
+ * apart.
+ */
+export class PushSetError extends Error {
+  constructor(
+    readonly type: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "PushSetError";
+  }
+}
+
 export async function createSubscription(
   body: Record<string, unknown>,
 ): Promise<Id | null> {
@@ -303,9 +374,137 @@ export async function createSubscription(
     { create: { s: body } },
     [CAP.core, CAP.webpushVapid, CAP.emailpush],
   );
-  if (res.notCreated?.s)
-    throw new Error(String(res.notCreated.s.description ?? res.notCreated.s.type));
+  const refused = res.notCreated?.s;
+  if (refused)
+    throw new PushSetError(
+      String(refused.type),
+      String(refused.description ?? refused.type),
+    );
   return (res.created?.s as { id?: Id } | undefined)?.id ?? null;
+}
+
+/**
+ * Whether a subscription was registered by a browser running Gilbert.
+ *
+ * The shape is the shared module's (`@gilbert/shared/push`), because
+ * gilbertserver reads the same rows from the other side and has to tell a
+ * browser's registration from its own: reading that off the `types` a client
+ * happens to ask for is how a browser's own row became a deletion candidate on
+ * a full quota. One definition, both readers.
+ */
+export function isBrowserSubscription(s: JmapPushSubscription): boolean {
+  return isBrowserDeviceClientId(s.deviceClientId);
+}
+
+/**
+ * Which subscriptions to release when the account's quota is spent.
+ *
+ * Stalwart allows fifteen per account and refuses the sixteenth with
+ * `overQuota`. Both this app's rows and gilbertserver's own fan-out row spend
+ * from that one pool, and a row this app can no longer reach -- a browser whose
+ * site data was cleared hands itself a new `deviceClientId` while the old row
+ * keeps its slot -- is exactly how a pool fills with nothing serving it. Only
+ * another browser's rows are candidates, never this browser's and never the
+ * server's: one that was never verified goes first, then the one closest to
+ * expiring. A device that loses its subscription this way registers again the
+ * next time the app is opened there, because it then finds no row of its own.
+ */
+export function roomToMake(
+  subs: JmapPushSubscription[],
+  deviceId: string,
+  count = 1,
+): Id[] {
+  const expiry = (s: JmapPushSubscription) =>
+    s.expires ? Date.parse(s.expires) || 0 : Number.MAX_SAFE_INTEGER;
+  return subs
+    .filter((s) => s.deviceClientId !== deviceId && isBrowserSubscription(s))
+    .sort(
+      (a, b) =>
+        Number(Boolean(a.verificationCode)) - Number(Boolean(b.verificationCode)) ||
+        expiry(a) - expiry(b),
+    )
+    .slice(0, count)
+    .map((s) => s.id);
+}
+
+export async function destroySubscriptions(ids: Id[]): Promise<void> {
+  if (!ids.length) return;
+  await client.call<SetResponse<JmapPushSubscription>>(
+    "PushSubscription/set",
+    { destroy: ids },
+    [CAP.core, CAP.webpushVapid],
+  );
+}
+
+/**
+ * This browser's registered rows, the one with the most time left first.
+ *
+ * Plural because Stalwart keeps every create: a second create under the same
+ * `deviceClientId` sits beside the first rather than replacing it (confirmed
+ * live on 0.16.22, 2026-09-16). An account therefore holds as many as were ever
+ * registered under that identity until each expires.
+ */
+export function mySubscriptions(
+  subs: JmapPushSubscription[],
+  deviceId: string,
+): JmapPushSubscription[] {
+  const left = (s: JmapPushSubscription) =>
+    s.expires ? Date.parse(s.expires) || 0 : Number.MAX_SAFE_INTEGER;
+  return subs
+    .filter((s) => s.deviceClientId === deviceId)
+    .sort((a, b) => left(b) - left(a));
+}
+
+/**
+ * Give a row more time rather than registering another one.
+ *
+ * Seven days is JMAP's ceiling and what Stalwart grants a new row; the server
+ * may shorten what is asked for, and whatever it keeps is what counts. This is
+ * the whole reason renewal does not go through a destroy-then-create: that
+ * leaves a window in which the account has no subscription at all, and a create
+ * that fails inside it leaves a device that is not listening until the next app
+ * start. Extending has no window.
+ */
+export async function extendSubscription(id: Id): Promise<void> {
+  const expires = new Date(Date.now() + PUSH_TTL_MS)
+    .toISOString()
+    .replace(/\.\d+Z$/, "Z");
+  const res = await client.call<SetResponse<JmapPushSubscription>>(
+    "PushSubscription/set",
+    { update: { [id]: { expires } } },
+    [CAP.core, CAP.webpushVapid],
+  );
+  const err = res.notUpdated?.[id];
+  if (err) throw new PushSetError(String(err.type), String(err.description ?? err.type));
+}
+
+/**
+ * The push endpoint this browser last registered with the server.
+ *
+ * The server never returns a row's URL — `url: null` even for one registered
+ * with a URL (live on 0.16.21, 2026-09-14) — so a row cannot be matched by
+ * endpoint, and this local note is the only way to tell a row that still points
+ * at this browser's endpoint from one made for an endpoint the browser has
+ * since replaced. Extending a stale row would leave the account with a
+ * subscription that is alive and delivering nowhere.
+ */
+const ENDPOINT_KEY = "gilbert:pushEndpoint";
+
+export function registeredEndpoint(): string | null {
+  try {
+    return localStorage.getItem(ENDPOINT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function rememberEndpoint(endpoint: string | null): void {
+  try {
+    if (endpoint) localStorage.setItem(ENDPOINT_KEY, endpoint);
+    else localStorage.removeItem(ENDPOINT_KEY);
+  } catch {
+    /* private mode: every start is then a fresh registration, which still works */
+  }
 }
 
 /**
@@ -329,32 +528,23 @@ export async function verifySubscription(
   if (err) throw new Error(String(err.description ?? err.type));
 }
 
-export async function destroySubscription(id: Id): Promise<void> {
-  await client.call<SetResponse<JmapPushSubscription>>(
-    "PushSubscription/set",
-    { destroy: [id] },
-    [CAP.core, CAP.webpushVapid],
-  );
-}
-
 /**
  * Destroy every subscription this browser registered at the server.
  *
  * The account's ceiling is fifteen subscriptions and the server keeps one of
  * its own per account, so a re-registration releases what it replaces rather
  * than adding to the pile. Relying on the server to replace by
- * `deviceClientId` is an assumption about Stalwart that nothing here validates
- * — the mock replaces, and the deployed server accumulated the subscriptions
- * of processes that died mid-flight (KNOWN-ISSUES) — so the release is done by
- * hand. It costs one listing plus one destroy per row found, which is nothing
- * next to a slot that cannot be had back.
+ * `deviceClientId` is an assumption nothing here can validate -- and it is now
+ * known to be false: a live 0.16.22 keeps both rather than replacing
+ * (2026-09-16), which is why the mock was changed to keep them too. So the
+ * release is done by hand, by the rows this browser can name.
  *
  * Two marks, because one of them can be lost: this browser's `deviceClientId`,
  * and the push endpoint itself (`endpoint`), which is this browser's own
  * subscription and nobody else's. Clearing site data hands the browser a new
  * device id while the old rows keep their slots, and the endpoint is what
  * would still recognise them -- on a server that hands a subscription's `url`
- * back, which the deployed Stalwart does not (live on 0.16.21, 2026-09-14:
+ * back, which a live Stalwart does not (live on 0.16.21, 2026-09-14:
  * `url: null` even for a row registered with one). A browser that cleared its
  * site data therefore leaves a row behind that only an operator's cleanup can
  * free: `scripts/probe-push-subscriptions.mjs`.
@@ -363,11 +553,11 @@ export async function releaseThisDevice(endpoint?: string | null): Promise<numbe
   const mine = deviceClientId();
   let released = 0;
   try {
-    for (const s of await listSubscriptions())
-      if (s.deviceClientId === mine || (endpoint && s.url === endpoint)) {
-        await destroySubscription(s.id);
-        released++;
-      }
+    const doomed = (await listSubscriptions()).filter(
+      (s) => s.deviceClientId === mine || Boolean(endpoint && s.url === endpoint),
+    );
+    await destroySubscriptions(doomed.map((s) => s.id));
+    released = doomed.length;
   } catch (err) {
     /* The registration that follows will say so itself if it cannot be made;
        but a release that failed has to be visible, because what it leaves

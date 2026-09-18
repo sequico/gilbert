@@ -11,12 +11,19 @@ import {
   applicationServerKey,
   createSubscription,
   decodeApplicationServerKey,
+  destroySubscriptions,
   deviceClientId,
+  extendSubscription,
   findSubscription,
   listSubscriptions,
+  mySubscriptions,
   needsRenewal,
+  PushSetError,
   pushEnabledHere,
+  registeredEndpoint,
   releaseThisDevice,
+  rememberEndpoint,
+  roomToMake,
   setPushEnabledHere,
   subscriptionPayload,
   unsubscribeThisDevice,
@@ -114,14 +121,22 @@ export async function enableWebPush(): Promise<
 }
 
 /**
- * Get this browser subscribed at the push service and registered at Stalwart.
+ * Get this browser subscribed at the push service and registered at Stalwart,
+ * with exactly one row there, and that one current.
  *
- * Shared by turning push on and by renewing it, because they are the same
- * call. What it replaces is released first, by our own hand rather than by
- * trusting the server to recognise a repeated `deviceClientId`: the account's
- * fifteen subscriptions are shared with the server's own per-account one, and
- * nothing here has verified that Stalwart replaces rather than accumulates
- * (see `releaseThisDevice`).
+ * Shared by turning push on and by renewing it, because they are the same call.
+ * It used to release its own row and create another, which is how an account
+ * filled up: a renewal inside the window added one every time. Now —
+ *
+ * - the same endpoint as last time, already registered: extend the newest row
+ *   when it is close to expiring, and release any extra copies of its own;
+ * - anything else — a new endpoint, nothing registered, an extension the server
+ *   refused: release this browser's old rows and register afresh.
+ *
+ * Extending rather than replacing is not only frugal: destroy-then-create
+ * leaves a window in which the account has no subscription at all, and a create
+ * that fails inside it leaves a device that is not listening until the next app
+ * start. An extension has no window.
  *
  * The local subscription is created when it is missing rather than only reused.
  * A browser may drop or rotate one on its own -- a `pushsubscriptionchange`
@@ -137,6 +152,30 @@ async function registerThisBrowser(key: string): Promise<void> {
       userVisibleOnly: true,
       applicationServerKey: decodeApplicationServerKey(key),
     }));
+  const deviceId = deviceClientId();
+  const mine = mySubscriptions(await listSubscriptions(), deviceId);
+  const [newest, ...extra] = mine;
+
+  /*
+   * The row already pointing at this browser's endpoint, when it is still this
+   * browser's: `registeredEndpoint` is local and the server never hands a row's
+   * URL back, so it is the only way to know whether the row we are about to
+   * extend is still aimed where this browser is listening. Extending a stale one
+   * would leave a subscription that is alive and delivering nowhere.
+   */
+  if (newest && registeredEndpoint() === sub.endpoint) {
+    if (extra.length) await destroySubscriptions(extra.map((s) => s.id));
+    // The same predicate the old renewal gate used, so the boundary between
+    // "close enough to extend" and "leave it" is defined once and tested once.
+    if (!needsRenewal(mine, deviceId)) return;
+    try {
+      await extendSubscription(newest.id);
+      return;
+    } catch {
+      /* Not extendable: replaced below, which is what this did before. */
+    }
+  }
+
   const accountId = useSession.getState().ownAccountFor(CAP.mail);
   const inboxId = useMail.getState().roleId("inbox");
   const payload = subscriptionPayload(sub, accountId, inboxId);
@@ -152,8 +191,25 @@ async function registerThisBrowser(key: string): Promise<void> {
   for (let attempt = 0; ; attempt++) {
     try {
       await createSubscription(payload);
+      rememberEndpoint(sub.endpoint);
       return;
     } catch (err) {
+      /*
+       * The account's fifteen are spent. Releasing our own rows (above) freed
+       * the ones we held, so what is left is somebody else's: a second browser
+       * of the reader's, or a row left behind by a browser whose site data was
+       * cleared, which no tab can ever reach again. Making room means releasing
+       * one of those, and `roomToMake` picks the one that was never verified or
+       * is closest to expiring -- never this browser's, never the server's own
+       * fan-out row. The device it belonged to registers again next time it is
+       * opened, which is the only repair available from here.
+       */
+      if (err instanceof PushSetError && err.type === "overQuota" && attempt < 1) {
+        const room = roomToMake(await listSubscriptions(), deviceClientId());
+        if (!room.length) throw err;
+        await destroySubscriptions(room);
+        continue;
+      }
       if (attempt >= 1) throw err;
       console.warn("[gilbert] push: registration failed, trying once more:", err);
     }
@@ -180,7 +236,9 @@ export async function renewWebPush(): Promise<void> {
   const key = applicationServerKey();
   if (!key) return;
   try {
-    if (!needsRenewal(await listSubscriptions(), deviceClientId())) return;
+    // `registerThisBrowser` decides for itself whether anything is due: it
+    // reads the rows and extends only one close to expiring, so a start with
+    // nothing to do costs one request and no write.
     await registerThisBrowser(key);
     listenForVerification();
   } catch (err) {

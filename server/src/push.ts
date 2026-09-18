@@ -27,7 +27,12 @@ import { createHash, randomBytes } from "node:crypto";
 import type { ServerResponse } from "node:http";
 import { config } from "./config.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
-import { PUSH_STATE_TYPES } from "./shared/push.js";
+import {
+  GILBERT_DEVICE_PREFIX,
+  gilbertDeviceClientId,
+  isBrowserDeviceClientId,
+  PUSH_STATE_TYPES,
+} from "./shared/push.js";
 import { absoluteUpstream, getUpstreamSession, upstreamFor } from "./upstream.js";
 
 const USING = [CAPABILITIES.core, CAPABILITIES.mail];
@@ -173,29 +178,31 @@ function deviceIdFor(base: string, origin: string): string {
  */
 function isMine(entry: AccountPush, sub: UpstreamSubscription): boolean {
   return (
-    sub.id === entry.subscriptionId || sub.deviceClientId === `gilbert-${entry.deviceId}`
+    sub.id === entry.subscriptionId ||
+    sub.deviceClientId === gilbertDeviceClientId(entry.deviceId)
   );
 }
 
 /**
- * What an earlier build left behind: a row wearing a `gilbert-…` device id
- * that is not this installation's own.
+ * What an earlier build left behind: a row wearing a Gilbert device id that is
+ * neither this installation's own nor a browser's registration.
  *
  * The URL would have named it, and Stalwart does not return it -- a
- * `PushSubscription/get` answers `url: null` even for a row registered with
- * one (live on 0.16.21, 2026-09-14) -- so the device id is what is left, and
- * it is enough: nothing but Gilbert sets one beginning `gilbert-`. A browser's
- * own registration also wears that prefix, and is the one Gilbert row that
- * must not go: the type list tells it apart, a browser asking for `Email`
- * alone where a server asks for every live type. Used only when a create has
- * been *refused* for want of a slot -- never on the path that renews or
- * releases.
+ * `PushSubscription/get` answers `url: null` even for a row registered with one
+ * (live on 0.16.21, 2026-09-14) -- so the device id is what is left, and the
+ * shape separates the two kinds exactly: this installation derives a
+ * sixteen-character identity, a browser makes a random UUID
+ * (`isBrowserDeviceClientId`). The types are deliberately not consulted: a
+ * browser may change what it subscribes to, and reading the row's owner off
+ * that once made a browser's own registration a candidate for deletion here.
+ *
+ * Used only when a create has been *refused* for want of a slot -- never on the
+ * path that renews or releases.
  */
 function isPastBuildOfOurs(entry: AccountPush, sub: UpstreamSubscription): boolean {
   const id = sub.deviceClientId ?? "";
-  if (!id.startsWith("gilbert-") || id === `gilbert-${entry.deviceId}`) return false;
-  const types = sub.types;
-  return !(Array.isArray(types) && types.length === 1 && types[0] === "Email");
+  if (id === gilbertDeviceClientId(entry.deviceId)) return false;
+  return id.startsWith(GILBERT_DEVICE_PREFIX) && !isBrowserDeviceClientId(id);
 }
 
 interface UpstreamSubscription {
@@ -209,9 +216,11 @@ interface UpstreamSubscription {
   url?: string | null;
   expires?: string | null;
   /**
-   * What the subscription was registered for: a browser's own registration
-   * asks for `Email` alone where a server's asks for every live type, and
-   * that is the mark `isPastBuildOfOurs` reads to tell them apart.
+   * What the subscription was registered for.
+   *
+   * Part of the row's shape and deliberately not read to tell one owner from
+   * another: a client may change what it subscribes to, and the two kinds of
+   * row are told apart by their device id (`isBrowserDeviceClientId`).
    */
   types?: string[] | null;
 }
@@ -315,7 +324,7 @@ async function subscribe(entry: AccountPush) {
      Stalwart 0.16 accept it -- so a server that refuses it gets the create
      again without it rather than no subscription at all. */
   const ask = (withExpiry: boolean) => ({
-    deviceClientId: `gilbert-${entry.deviceId}`,
+    deviceClientId: gilbertDeviceClientId(entry.deviceId),
     url,
     types,
     ...(withExpiry ? { expires: new Date(Date.now() + TTL_MS).toISOString() } : {}),
