@@ -16,6 +16,12 @@ describe("dates", () => {
     expect(formatDuration(5400)).toBe("PT1H30M");
     expect(formatDuration(-600)).toBe("-PT10M");
     expect(formatDuration(86400)).toBe("P1D");
+    // The shapes the wire expects, including the two a clamp would erase.
+    expect(formatDuration(3600)).toBe("PT1H");
+    expect(formatDuration(900)).toBe("PT15M");
+    expect(formatDuration(90000)).toBe("P1DT1H");
+    expect(formatDuration(45)).toBe("PT45S");
+    expect(formatDuration(0)).toBe("PT0S");
   });
   it("converts zoned local times to instants", () => {
     const d = zonedToDate("2024-07-01T12:00:00", "America/New_York");

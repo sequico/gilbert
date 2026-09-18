@@ -14,7 +14,7 @@
 import { localDateTime } from "@gilbert/shared/localDateTime";
 import type { CalendarEvent } from "@/jmap/types";
 import { isBirthdayEvent } from "./birthdays";
-import { addMinutes } from "./dates";
+import { addMinutes, formatDuration } from "./dates";
 
 /**
  * Fifteen minutes, which is the smallest slot anybody schedules against and
@@ -78,20 +78,6 @@ export function resizedBy(span: Span, deltaMinutes: number): Span {
   const end = addMinutes(span.end, snap(deltaMinutes));
   const minimum = addMinutes(span.start, MIN_DURATION_MINUTES);
   return { start: span.start, end: end.getTime() < minimum.getTime() ? minimum : end };
-}
-
-/** Seconds, as an ISO 8601 duration — the shape `duration` takes on the wire. */
-export function formatDuration(seconds: number): string {
-  const total = Math.max(0, Math.round(seconds));
-  const days = Math.floor(total / 86400);
-  const hours = Math.floor((total % 86400) / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const secs = total % 60;
-  if (!total) return "PT0S";
-  const time = [hours && `${hours}H`, minutes && `${minutes}M`, secs && `${secs}S`]
-    .filter(Boolean)
-    .join("");
-  return `P${days ? `${days}D` : ""}${time ? `T${time}` : ""}`;
 }
 
 /**

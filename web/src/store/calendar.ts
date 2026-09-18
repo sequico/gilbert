@@ -29,8 +29,9 @@ import {
   toLocalDateTime,
   toUTCDate,
   zonedToDate,
+  formatDuration,
 } from "@/lib/dates";
-import { formatDuration, shiftStoredStart } from "@/lib/eventDrag";
+import { shiftStoredStart } from "@/lib/eventDrag";
 import { t } from "@/lib/i18n";
 import { type IcsEvent, looksLikeCalendar, parseIcs, toIcs } from "@/lib/ics";
 import { useContacts } from "./contacts";
