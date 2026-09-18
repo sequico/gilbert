@@ -10,10 +10,9 @@
  *
  * What is deliberately not here: the date and time primitives themselves
  * (`./datetime`), the calendar arithmetic and the naive-local form (`./dates`,
- * `@gilbert/shared/localDateTime`), and `isSameDay`, which is `./dates`'.
- * `formatTime` and `formatMonthYear` used to be pass-throughs to `formatClock`
- * and `formatMonthYear` in `./datetime`, which is two names for one function
- * and one import away from being one.
+ * `@gilbert/shared/localDateTime`), and `isSameDay`, which is `./dates`'. A
+ * caller that wants `formatClock` or `formatMonthYear` imports `./datetime`,
+ * where they are defined.
  */
 import {
   formatClock,

@@ -6,12 +6,11 @@ import { t } from "@/lib/i18n";
  *
  * Both of them edit one whole document as text and publish it: the
  * installation's configuration (`AdminInstallation.tsx`) and the
- * installation-wide policy (`AdminPolicy.tsx`). Before this they carried the
- * same field, the same button row, the same notice and error boxes and the same
- * "that is not valid JSON" pre-check, written out twice — and the two had
- * already drifted in the details that are not a decision: the height of the
- * box, and whether the sentence was composed before or after the request went
- * out.
+ * installation-wide policy (`AdminPolicy.tsx`), and the field, the button row,
+ * the notice and error boxes and the "that is not valid JSON" pre-check are one
+ * piece of code rather than two: two copies of a form drift in the details that
+ * are not a decision — the height of the box, the order of the sentence and the
+ * request — and neither copy then says which of the two is meant.
  *
  * What is *not* shared is what genuinely differs: where the document comes
  * from, what publishing it does, and what the surface says about it — the

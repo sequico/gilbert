@@ -173,9 +173,9 @@ export function AdminPolicy() {
    *
    * Its shape is the server's (`@gilbert/shared/publishJob`) rather than a
    * second description of it: the same document is what `POST /admin/policy`
-   * answers with and what a later `GET /admin/policy` reads back, and a
-   * declaration here is how the `record` field the server writes went missing
-   * from what this surface read.
+   * answers with and what a later `GET /admin/policy` reads back, and a field
+   * the server writes is a field this surface has to know about — `record` is
+   * one, and it is read from the shared shape.
    */
   const [job, setJob] = useState<PublishJob | null>(null);
   /** What the server last held: what "unchanged" is measured against. */

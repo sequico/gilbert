@@ -3,11 +3,10 @@
  *
  * A calendar, a vCard or an LDIF file fits a long value onto a line by breaking
  * it and prefixing the continuation with a single space; a reader puts it back
- * together before anything looks at the value. The writers and readers in this
- * library each carried their own copy of that arithmetic — `foldLine` in
- * `ics.ts` and `fold` in `contacts.ts` were the same twelve lines twice, and
- * `unfold` in `ics.ts` and `unfold` in `ldif.ts` were two variants of one
- * reader that disagreed about tabs and about blank lines.
+ * together before anything looks at the value. Both halves live here so the
+ * three formats agree about it: their readers differ only in what they do with
+ * a line, never in where a line ends, and a continuation is a continuation in
+ * all three.
  *
  * **The limit is octets, not characters.** Both RFCs say 75 octets, and the
  * difference is exactly the text a mail client holds: a 75-character line of

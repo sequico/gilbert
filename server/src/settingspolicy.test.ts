@@ -11,10 +11,9 @@ import { isRecord } from "./shared/json.js";
  * example: somebody copies it, the server refuses to start, and the first
  * experience of the feature is a crash loop. This does not import the config
  * module -- reading it has side effects and wants a whole environment -- so the
- * rules it checks are restated here. A rule that already has one home in the
- * tree is asked at that home instead of being spelled a third time: the
- * sections below are checked with `isRecord` (`server/src/shared/json.ts`),
- * the predicate the server itself reads them with.
+ * rules it checks are restated here. A rule that has one home in the tree is
+ * asked at that home: the sections below are checked with `isRecord`
+ * (`server/src/shared/json.ts`), the predicate the server reads them with.
  */
 const EXAMPLE = fileURLToPath(
   new URL("../../settings-policy.example.json", import.meta.url),

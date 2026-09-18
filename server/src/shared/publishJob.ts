@@ -13,10 +13,9 @@
  * Both tiers read it: the server writes the document and validates it on the
  * way back in (`isPublishJob`, `readPublishJob` in `server/src/adminPolicy.ts`),
  * and the administration surface says what it means
- * (`web/src/views/admin/AdminPolicy.tsx`). It is here because a second
- * declaration of these fields is how the client's copy came to be missing one:
- * `record` was added to the server's shape and the browser kept describing a
- * document the server no longer wrote.
+ * (`web/src/views/admin/AdminPolicy.tsx`). One declaration is what keeps the two
+ * readers describing one document: a field the server writes and the browser
+ * does not know is a fact the surface cannot report.
  *
  * What is **not** a second copy of anything here: `web/src/lib/settingsPolicy.ts`
  * is the client's reader of the policy's three sections, typed as the

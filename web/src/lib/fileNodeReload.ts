@@ -5,11 +5,10 @@
  * (`store/agents.ts`) and a group's label catalog (`store/groupLabels.ts`) —
  * and both hear about a change the same way: a push `StateChange` names an
  * account and a type and nothing else, so a burst of events cannot be told
- * apart from one, and every event for the same key costs the same read. Each
- * carried the same twelve lines: a timer per key, cleared and reset on every
- * event, so a burst settles into one read `RELOAD_DEBOUNCE_MS` after the last
- * of it. The two agreed on the delay, on the comment and on the arithmetic,
- * which is one place away from agreeing on nothing.
+ * apart from one, and every event for the same key costs the same read. The
+ * wait is per key, cleared and reset on every event, so a burst settles into
+ * one read `RELOAD_DEBOUNCE_MS` after the last of it — one window for the two
+ * readers of the same push rail.
  *
  * **Not the same mechanism as the `StateChange` dispatch in `web/src/App.tsx`,
  * and the difference is not cosmetic.** That one collects *every* account and
