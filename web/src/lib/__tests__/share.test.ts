@@ -6,6 +6,7 @@ import {
   shareFile,
   shareText,
 } from "@/lib/share";
+import { stubNavigator } from "@/test/testkit";
 
 /**
  * The outcomes are the whole of this module: what the callers do next is
@@ -19,11 +20,6 @@ import {
  * permissions refusal, and would otherwise reach the reader as a toast about
  * something they cannot act on.
  */
-
-function stubNavigator(nav: Partial<Navigator>) {
-  vi.stubGlobal("navigator", nav as Navigator);
-  resetShareSupport();
-}
 
 const aFile = () => new File(["x"], "note.txt", { type: "text/plain" });
 

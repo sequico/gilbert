@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { waitForPort } from "./testkit.js";
 
 /**
  * The write funnel's no-op rule, against the mock Stalwart.
@@ -54,7 +55,7 @@ let accountId: string;
 before(async () => {
   // Importing the mock starts it listening (it is a process, not a factory),
   // which is what the server's own suites rely on too.
-  await waitForPort();
+  await waitForPort(BASE, AUTH);
   const session = await fetchUpstreamSession(AUTH, BASE);
   ctx = { authorization: AUTH, session, username: "demo@example.com" };
   accountId = filesAccountId(ctx);
@@ -64,22 +65,6 @@ before(async () => {
 after(() => {
   (mock as { server?: { close(): void } }).server?.close();
 });
-
-/** The mock is listening by the time its import resolves; give it a moment. */
-async function waitForPort(): Promise<void> {
-  for (let i = 0; i < 50; i++) {
-    try {
-      const res = await fetch(`${BASE}/.well-known/jmap`, {
-        headers: { authorization: AUTH },
-      });
-      if (res.ok) return;
-    } catch {
-      /* not up yet */
-    }
-    await new Promise((r) => setTimeout(r, 50));
-  }
-  throw new Error("the mock never came up");
-}
 
 test("the same document written twice consumes one upload and leaves the state where it was", async () => {
   const path = "write-skip/same.json";

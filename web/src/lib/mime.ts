@@ -1,13 +1,13 @@
 /**
- * The MIME types Gilbert's own surfaces hand each other, in one place.
+ * The MIME types Gilbert's own surfaces hand each other, in one place: the
+ * **drag payloads**.
  *
- * Two families, here for two reasons.
+ * The app-folder document's own type is deliberately not here. It is what both
+ * tiers store a document as and fetch one back by name, so it is declared once
+ * in `@gilbert/shared/appFolder` (`APP_DOCUMENT_TYPE`) and imported where it is
+ * needed, rather than spelled again beside these.
  *
- * The **app-folder document** is `application/json`, and the type travels with
- * the blob: `writeAppJson` stores one under it and the reader asks for it back
- * by name, so the writer and the reader have to mean the same string.
- *
- * The **drag payloads** are the four `application/x-gilbert-*` types a surface
+ * The drag payloads are the four `application/x-gilbert-*` types a surface
  * offers a dragged thing under and its drop targets recognise it by. They are
  * private spellings on purpose: a file dragged in from the desktop must not be
  * mistaken for a FileNode, and a folder drop has to be told from a message drop
@@ -20,9 +20,6 @@
  * the tab that made them, so only the two ends have to agree, which is exactly
  * what one module buys.
  */
-
-/** What an app-folder document is stored and fetched as, in both tiers. */
-export const JSON_MIME = "application/json";
 
 /** A dragged FileNode. */
 export const NODE_MIME = "application/x-gilbert-filenode";

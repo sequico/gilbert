@@ -41,7 +41,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { walk } from "./lib/repoWalk.mjs";
+import { lineOf, walk } from "./lib/repoWalk.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -101,13 +101,6 @@ const SKIP_FILES = new Set([
   "scripts/adr-citation-check.mjs",
   "server/src/adr-citation.test.ts",
 ]);
-
-/** The line number of an offset, for a report a reader can act on. */
-function lineOf(text, index) {
-  let line = 1;
-  for (let i = 0; i < index; i++) if (text[i] === "\n") line++;
-  return line;
-}
 
 /**
  * Whether one record carries its two lines. Pure: `{ name, text }` in, and

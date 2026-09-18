@@ -20,9 +20,13 @@
  *   filesystem is read-only. They stay in the environment, with defaults.
  * - **Everything else** is here, and is the majority.
  *
- * Each default below names the variable it replaces and the value that
- * variable falls back to today, so a reader can check the translation field by
- * field against `config.ts` rather than taking it on trust.
+ * Each default below names the variable it replaces, and they are not only the
+ * document's: `configuration.ts` reads the environment *over* this object
+ * (`installationDefaults()`), so a value the environment is silent about is the
+ * one stated here. That is what keeps a process with no boot and an
+ * installation that has just created its document describing the same
+ * installation, and it is why these literals live here rather than in a copy
+ * beside the environment's reader.
  *
  * The document carries a `version` (the schema this build writes) and an
  * `epoch` (bumped by every write, and the value a conditional write compares

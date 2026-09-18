@@ -50,6 +50,7 @@ import {
 import { agentAddress } from "./config.js";
 import { isStateMismatch, JMAP_SUBMISSION, JmapClient } from "./jmap.js";
 import type { LiveSession } from "./sessions.js";
+import { sameAddress } from "./shared/address.js";
 import {
   accountOwnIdentity,
   assignmentFor,
@@ -57,7 +58,26 @@ import {
   isMemberKey,
   toAssignmentDoc,
 } from "./shared/identityAssignment.js";
+/*
+ * The shapes these routes answer with, declared once for both tiers: a field
+ * added on one side and forgotten on the other compiles on both and arrives as
+ * `undefined` on one. See the module's own header.
+ */
+import type {
+  GroupIdentityView,
+  Identity,
+  IdentityAddress,
+  IdentityPatch,
+  MemberAssignmentView,
+  PersonGroupIdentities,
+  PersonIdentitiesView,
+} from "./shared/identityViews.js";
 import { isRecord } from "./shared/json.js";
+/*
+ * The client's settings document, and the one key of it this tier writes.
+ * Both names are contracts — see the module's own header.
+ */
+import { DEFAULT_IDENTITY_KEY, SETTINGS_FILE } from "./shared/settingsDocument.js";
 import { SIGNATURE_LIMIT, utf8Length } from "./shared/signature.js";
 import { UpstreamError } from "./upstream.js";
 
@@ -71,39 +91,6 @@ export class IdentityAdminError extends Error {
     super(message);
     this.name = "IdentityAdminError";
   }
-}
-
-/** One address on an identity's Reply-To or Bcc line. */
-export interface IdentityAddress {
-  name: string;
-  email: string;
-}
-
-/**
- * The identity fields this product sets, and the whole of what it reads back.
- *
- * The same shape the client's own settings work with, so an identity means the
- * same thing wherever it is written.
- */
-export interface AdminIdentity {
-  id: string;
-  name: string;
-  email: string;
-  replyTo: IdentityAddress[] | null;
-  bcc: IdentityAddress[] | null;
-  textSignature: string;
-  htmlSignature: string;
-  mayDelete: boolean;
-}
-
-/** What a caller may change. `id` and `mayDelete` are the server's answers. */
-export interface IdentityPatch {
-  name?: string;
-  email?: string;
-  replyTo?: IdentityAddress[] | null;
-  bcc?: IdentityAddress[] | null;
-  textSignature?: string;
-  htmlSignature?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -120,23 +107,6 @@ export interface IdentityPatch {
  * next settings save. Missing file = not locked.
  */
 const IDENTITY_LOCK_FILE = "identity-lock.json";
-
-/**
- * Whether an account's identity is locked, or that this server cannot say.
- *
- * `true` and `false` are reads: the account's own file records a lock, or it
- * does not. `"unknown"` is the third answer, for an account whose file no
- * session here can open at all -- the lock lives inside the locked account's
- * own app folder (ADR 0001), so a session that cannot impersonate that account
- * cannot read that folder either. Answering `false` there tells an
- * administrator that an account is free when it may be taken over, which is
- * the one thing this surface must not guess. The reason travels with the state,
- * as `IdentityLockUnknownReason`.
- */
-export type IdentityLockState = true | false | "unknown";
-
-/** Why a lock state comes back `"unknown"`: the read the account refused. */
-export type IdentityLockUnknownReason = "impersonation_denied";
 
 /**
  * Whether this account is locked (ADR 0007, ADR 0001): its own lock file.
@@ -290,13 +260,8 @@ async function writeAssignmentDoc(
  * (`@gilbert/shared/identityAssignment`) and the client derives from the address
  * the session calls this account. Answering it from here would be a second
  * definition of it, and a read of the identity list this route does not
- * otherwise need.
+ * otherwise need. The shape itself is in `./shared/identityViews.js`.
  */
-export interface MemberAssignmentView {
-  group: string;
-  /** The identity this member sends as, or null when nothing is assigned. */
-  assignedId: string | null;
-}
 
 /**
  * The assignment as the member's own session reads it — the door every group
@@ -353,10 +318,6 @@ export function identityAddress(value: string, what = "account"): string {
  * The one way this file compares two addresses: trimmed and case-insensitive,
  * the normalisation `identityAddress` applies to every address it validates.
  */
-function sameAddress(a: string, b: string): boolean {
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
-}
-
 /**
  * The account a principal's **own** identities live in.
  *
@@ -407,7 +368,7 @@ function refusalOf(entry: { type?: unknown; description?: unknown } | undefined)
   return description || type || "the mail server refused the change without saying why";
 }
 
-function toIdentity(raw: unknown): AdminIdentity | null {
+function toIdentity(raw: unknown): Identity | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   if (typeof r.id !== "string") return null;
@@ -424,10 +385,7 @@ function toIdentity(raw: unknown): AdminIdentity | null {
 }
 
 /** Every identity the account holds, in the server's own order. */
-export async function readIdentities(
-  ctx: Ctx,
-  accountId: string,
-): Promise<AdminIdentity[]> {
+export async function readIdentities(ctx: Ctx, accountId: string): Promise<Identity[]> {
   try {
     const res = await new JmapClient(ctx).call<{ list?: unknown[] }>(
       "Identity/get",
@@ -436,7 +394,7 @@ export async function readIdentities(
     );
     return (res.list ?? [])
       .map(toIdentity)
-      .filter((identity): identity is AdminIdentity => identity !== null);
+      .filter((identity): identity is Identity => identity !== null);
   } catch (err) {
     throw asIdentityError(err, "could not be read");
   }
@@ -603,13 +561,6 @@ function asIdentityError(err: unknown, tail: string): IdentityAdminError {
 /* The two surfaces                                                    */
 /* ------------------------------------------------------------------ */
 
-/** A person's identities, and whether the installation has taken them over. */
-/** The document the client keeps its settings in, inside the app folder. */
-const SETTINGS_FILE = "settings.json";
-
-/** The settings key that names the identity an account sends from by default. */
-const DEFAULT_IDENTITY_KEY = "defaultIdentityByAccount";
-
 /**
  * The identity an account sends from by default, or null.
  *
@@ -653,50 +604,6 @@ export async function writeDefaultIdentity(
   else delete map[accountId];
   doc[DEFAULT_IDENTITY_KEY] = map;
   await writeAppFile(ctx, accountId, SETTINGS_FILE, doc);
-}
-
-/**
- * One group a person's own session holds, and what their account sends as
- * there (ADR 0007).
- */
-export interface PersonGroupIdentities {
-  /** The group's own address — what the server calls the account. */
-  name: string;
-  /** The identities this person's account sends as in that group. */
-  identities: AdminIdentity[];
-  /**
-   * False when the person's own session could not read that account. An answer,
-   * not a failure: the surface says which group it could not read rather than
-   * showing it as one with no identities.
-   */
-  readable: boolean;
-}
-
-export interface PersonIdentitiesView {
-  address: string;
-  /**
-   * Whether the installation has taken this account's identity over, and
-   * `"unknown"` when the session could not read the account's own lock file.
-   */
-  locked: IdentityLockState;
-  /**
-   * What stopped that read. Null exactly when `locked` is `true` or `false`,
-   * because nothing stopped it then; set when `locked` is `"unknown"`, so the
-   * reason travels with the state that needs it and no consumer has to infer
-   * it from the impersonation answer beside it.
-   */
-  lockUnknownReason: IdentityLockUnknownReason | null;
-  impersonation: "ok" | "denied" | "unknown";
-  identities: AdminIdentity[];
-  /** The identity that account sends from by default, or null when it has not
-   * chosen one and the client falls back to its first. */
-  defaultIdentityId: string | null;
-  /**
-   * The groups this person belongs to, and what their own account may send as
-   * in each (ADR 0007). Read as the person, so it is the same list their own
-   * Identities & signatures section shows beneath their own.
-   */
-  groups: PersonGroupIdentities[];
 }
 
 /**
@@ -896,28 +803,6 @@ async function agentSession(admin: LiveSession): Promise<Ctx> {
       409,
     );
   return agent.ctx;
-}
-
-/** A group's identities, its roster, and who sends as which of them. */
-export interface GroupIdentityView {
-  name: string;
-  granted: boolean;
-  /**
-   * One identity per member (ADR 0007): the group's own address, each member's
-   * own display name and signature.
-   */
-  identities: AdminIdentity[];
-  /** The group's roster, or `null` when it could not be read at all. */
-  members: string[] | null;
-  /**
-   * Which identity each member is assigned, by member address — the fact that
-   * binds them, rather than a display name compared on both sides. A member
-   * absent from it has been assigned nothing, which is a state: they send as
-   * the group's own identity (`groupSenderId`) until one is assigned.
-   */
-  assignments: Record<string, string>;
-  /** The group's own identity: what an unassigned member sends as. */
-  groupSenderId: string | null;
 }
 
 /**

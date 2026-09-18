@@ -22,13 +22,19 @@
  * filter it does not know fails the whole query rather than being ignored.
  */
 import { appDocumentJson } from "@gilbert/shared/appDocument";
+import { APP_DOCUMENT_TYPE, APP_FOLDER_NAME } from "@gilbert/shared/appFolder";
+
+/*
+ * The folder's name is the shared constant's, not this module's: the server
+ * looks the same folder up by it (`server/src/appFolder.ts`), so one spelling
+ * serves both tiers. Re-exported because this tier's surfaces name it when they
+ * decide what to show or where to write.
+ */
+export { APP_FOLDER_NAME };
+
 import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
 import { directoryCreate, fileCreate } from "@/lib/filenode";
-import { JSON_MIME } from "@/lib/mime";
-
-/** The folder Gilbert keeps its own documents in, in every account. */
-export const APP_FOLDER = "gilbert";
 
 /** Just enough to find the folder. */
 export const folderProps = (): string[] => ["id", "name", "nodeType", "parentId"];
@@ -37,7 +43,7 @@ export const folderProps = (): string[] => ["id", "name", "nodeType", "parentId"
 export function isAppFolder(
   n: Pick<FileNode, "name" | "parentId" | "nodeType">,
 ): boolean {
-  return !n.parentId && n.nodeType === "directory" && String(n.name) === APP_FOLDER;
+  return !n.parentId && n.nodeType === "directory" && String(n.name) === APP_FOLDER_NAME;
 }
 
 /** List one level of the tree: the top level, or the children of a folder. */
@@ -142,7 +148,7 @@ export async function ensureFolder(accountId: Id): Promise<Id> {
   if (existing) return existing;
   const set = await client.call<SetResponse<FileNode>>("FileNode/set", {
     accountId,
-    create: { d: directoryCreate(null, APP_FOLDER) },
+    create: { d: directoryCreate(null, APP_FOLDER_NAME) },
   });
   const err = set.notCreated?.d;
   if (err) throw new Error(setErrorMessage(err));
@@ -331,7 +337,7 @@ export async function writeAppJson(
   opts: { ifInState?: string; type?: string } = {},
 ): Promise<{ id: Id; blobId: Id }> {
   const folderId = await ensureFolder(accountId);
-  const type = opts.type ?? JSON_MIME;
+  const type = opts.type ?? APP_DOCUMENT_TYPE;
   // The bytes come from the one serializer both tiers write through, so the
   // document a browser saves is the document the server saves.
   const blob = new Blob([appDocumentJson(value)], { type });

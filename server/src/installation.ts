@@ -30,6 +30,7 @@ import {
   readAppFileAt,
   writeAppFileIn,
 } from "./appFolder.js";
+import { errorMessage } from "./shared/errors.js";
 import {
   INSTALLATION_EPOCH_START,
   INSTALLATION_FILE,
@@ -156,7 +157,7 @@ export async function readInstallation(
   const where = installationLocation(store.accountId);
   const stored = await store.read().catch((err: unknown) => {
     throw new InstallationError(
-      `The installation document (${where}) could not be read: ${messageOf(err)}`,
+      `The installation document (${where}) could not be read: ${errorMessage(err)}`,
     );
   });
 
@@ -258,8 +259,4 @@ function requiredDocument(text: string, where: string): InstallationDocument {
         "remove the document to have a new installation created with one.",
     );
   return parsed.doc;
-}
-
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }

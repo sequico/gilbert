@@ -39,7 +39,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { walk } from "./lib/repoWalk.mjs";
+import { lineOf, walk } from "./lib/repoWalk.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -171,13 +171,6 @@ const ENV_MENTION =
   /process\.env\b(?:\.([A-Za-z_][A-Za-z0-9_]*)|\[\s*(?:["'`]([A-Za-z_][A-Za-z0-9_]*)["'`]|([A-Za-z_][A-Za-z0-9_]*))\s*\])?/g;
 /** The name a mention that names no key is reported under. */
 const WHOLE_ENV = "<the environment itself>";
-
-/** The line number of an offset, for a report a reader can act on. */
-function lineOf(text, index) {
-  let line = 1;
-  for (let i = 0; i < index; i++) if (text[i] === "\n") line++;
-  return line;
-}
 
 /** Every retired name one file's text carries: `{ name, line }` each. */
 export function retiredNamesIn(text) {

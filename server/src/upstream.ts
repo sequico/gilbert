@@ -1,5 +1,6 @@
 import { config } from "./config.js";
 import { CAPABILITIES, STALWART_REGISTRY } from "./shared/capabilities.js";
+import { normalizeLocale } from "./shared/locale.js";
 
 export interface UpstreamSession {
   capabilities: Record<string, unknown>;
@@ -237,43 +238,6 @@ const EMPTY_INFO: AccountInfo = { locale: null, edition: null };
  * "sr_RS@latin" is Latin Serbian (sr-Latn-RS), not sr-RS. Anything not listed
  * here (@valencia, @saaho, @euro …) carries no script and is dropped.
  */
-const SCRIPT_MODIFIERS: Record<string, string> = {
-  latin: "Latn",
-  latn: "Latn",
-  cyrillic: "Cyrl",
-  cyrl: "Cyrl",
-  devanagari: "Deva",
-  iqtelif: "Latn",
-};
-
-/**
- * Normalise a POSIX-style locale ("de_DE.UTF-8@euro") into a BCP-47 tag
- * ("de-DE"). Returns null for the locale-less values ("C", "POSIX") and for
- * anything that does not look like a language tag.
- */
-export function normalizeLocale(raw: unknown): string | null {
-  if (typeof raw !== "string") return null;
-  const [head, modifier] = raw.trim().split("@");
-  const base = head!.split(".")[0]!.replace(/_/g, "-");
-  if (!base || base === "C" || base.toUpperCase() === "POSIX") return null;
-  if (!/^[A-Za-z]{2,8}(-[A-Za-z0-9]{2,8})*$/.test(base)) return null;
-  const script = modifier ? SCRIPT_MODIFIERS[modifier.toLowerCase()] : undefined;
-  try {
-    const [canonical] = Intl.getCanonicalLocales(base);
-    if (!canonical) return null;
-    if (!script) return canonical;
-    const loc = new Intl.Locale(canonical);
-    // Adding the script only helps when it differs from the one the locale
-    // already implies (ru-RU is Cyrillic, so "ru_RU@cyrillic" is just ru-RU).
-    const implied = loc.script ?? loc.maximize().script;
-    return implied === script
-      ? canonical
-      : new Intl.Locale(canonical, { script }).toString();
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Best-effort lookup of what the server can tell us about this account.
  *

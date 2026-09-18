@@ -122,6 +122,7 @@ import {
 } from "./sessions.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
 import type { PublishJob, PublishUnreached } from "./shared/publishJob.js";
+import type { SystemSieveScriptWrite } from "./shared/sieveViews.js";
 import { staticHandler } from "./static.js";
 import {
   type AccountInfo,
@@ -1964,7 +1965,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         return c.json({ error: access.error, need: access.need }, 403);
       }
       const labels = await readGroupLabels(access.ctx, access.accountId);
-      return c.json({ labels: labels ?? [] });
+      /* A catalog the validator refuses reads as no catalog: the surface shows
+         what it can render, and a write over one is refused where it is made. */
+      return c.json({ labels: labels.state === "catalog" ? labels.labels : [] });
     } catch (err) {
       return agentFailure(c, err);
     }
@@ -2705,25 +2708,23 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     return upstreamFailure(c, err);
   }
 
-  interface SystemSieveScriptBody {
-    name?: unknown;
-    description?: unknown;
-    contents?: unknown;
-    activate?: unknown;
-    /** The `state` this write was read against — omitted only for a create. */
-    state?: unknown;
-  }
-
-  function readSystemSieveBody(body: SystemSieveScriptBody | null) {
-    const name = typeof body?.name === "string" ? body.name.trim() : "";
-    const contents = typeof body?.contents === "string" ? body.contents : null;
+  /**
+   * The body of a System Sieve write, validated into the shape both tiers name
+   * (`@gilbert/shared/sieveViews`) rather than into a second declaration of it:
+   * a field added to the surface's write and forgotten here is a field this
+   * route silently drops.
+   */
+  function readSystemSieveBody(body: unknown): SystemSieveScriptWrite | null {
+    const raw = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+    const name = typeof raw.name === "string" ? raw.name.trim() : "";
+    const contents = typeof raw.contents === "string" ? raw.contents : null;
     if (!name || contents === null) return null;
     const description =
-      typeof body?.description === "string" && body.description.trim()
-        ? body.description.trim()
+      typeof raw.description === "string" && raw.description.trim()
+        ? raw.description.trim()
         : null;
-    const state = typeof body?.state === "string" && body.state ? body.state : undefined;
-    return { name, description, contents, activate: Boolean(body?.activate), state };
+    const state = typeof raw.state === "string" && raw.state ? raw.state : undefined;
+    return { name, description, contents, activate: Boolean(raw.activate), state };
   }
 
   api.get("/admin/sieve/system", requireSession, requireAdmin, async (c) => {
@@ -2745,14 +2746,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   api.post("/admin/sieve/system", requireSession, requireAdmin, async (c) => {
-    const parsed = readSystemSieveBody(await readJson<SystemSieveScriptBody>(c));
+    const parsed = readSystemSieveBody(await readJson<unknown>(c));
     if (!parsed) return c.json({ error: "bad_request" }, 400);
-    // A create has no prior read to lose, so `state` (if the body carried one)
-    // is dropped rather than sent as `ifInState`.
-    const { state: _ignored, ...create } = parsed;
     try {
       const ctx = await accountCtx(c);
-      const id = await saveSystemSieveScript(ctx, { id: null, ...create });
+      /* A create has no prior read to lose, and the write ignores a `state`. */
+      const id = await saveSystemSieveScript(ctx, null, parsed);
       return c.json({ id });
     } catch (err) {
       return systemSieveFailure(c, err);
@@ -2760,16 +2759,11 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   api.put("/admin/sieve/system/:id", requireSession, requireAdmin, async (c) => {
-    const parsed = readSystemSieveBody(await readJson<SystemSieveScriptBody>(c));
+    const parsed = readSystemSieveBody(await readJson<unknown>(c));
     if (!parsed) return c.json({ error: "bad_request" }, 400);
-    const { state, ...rest } = parsed;
     try {
       const ctx = await accountCtx(c);
-      const id = await saveSystemSieveScript(ctx, {
-        id: c.req.param("id"),
-        ...rest,
-        ifInState: state,
-      });
+      const id = await saveSystemSieveScript(ctx, c.req.param("id"), parsed);
       return c.json({ id });
     } catch (err) {
       return systemSieveFailure(c, err);

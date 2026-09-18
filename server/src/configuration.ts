@@ -70,7 +70,7 @@ import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { normalizeBasePath } from "../../scripts/basePath.mjs";
 import { resolveVersion } from "../../scripts/version.mjs";
-import { AGENT_PAGES_DEFAULT, PLACEHOLDER_APP_SECRET } from "./shared/installation.js";
+import { installationDefaults, PLACEHOLDER_APP_SECRET } from "./shared/installation.js";
 
 /**
  * The app secret this process runs on, and where it came from.
@@ -113,10 +113,16 @@ function resolveAppSecret(
 /**
  * The runtime configuration, resolved from the environment alone.
  *
- * Every default here is the value the code used before the installation's
- * document existed, so a process that never boots behaves as it always has.
+ * The environment is read over the installation's own defaults, and those
+ * defaults are the document's (`installationDefaults()`), not a second set of
+ * literals kept in step by hand: a value the environment is silent about is the
+ * value a fresh installation's document states, so a process that never boots
+ * and an installation that just created itself agree. A default moved in the
+ * document moves here with it, which is what a copy beside this file could not
+ * promise.
  */
 export function configurationFromEnvironment(environment: InstallationEnvironment) {
+  const defaults = installationDefaults();
   /**
    * `NODE_ENV === "production"`: a fact about the process that happens to be
    * running rather than about the installation, so it stays the environment's
@@ -170,22 +176,30 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * this is deliberately unhurried: a minute of latency on a lost stream is
      * far cheaper than a minute of hammering Stalwart.
      */
-    pollMs: readInt(environment, "GILBERT_AGENT_POLL_MS", 60_000),
+    pollMs: readInt(environment, "GILBERT_AGENT_POLL_MS", defaults.agent.poll),
     /* How often a working worker says it is alive, in its claims and heartbeat. */
-    heartbeatMs: readInt(environment, "GILBERT_AGENT_HEARTBEAT_MS", 30_000),
+    heartbeatMs: readInt(
+      environment,
+      "GILBERT_AGENT_HEARTBEAT_MS",
+      defaults.agent.heartbeat,
+    ),
     /*
      * How long a claim may go un-renewed before another worker takes it over.
      * Longer than a few heartbeats on purpose: an agent's work can sit in a
      * model call or wait on a person, and a takeover that fires during a
      * legitimate pause would run the same job twice.
      */
-    leaseMs: readInt(environment, "GILBERT_AGENT_LEASE_MS", 180_000),
+    leaseMs: readInt(environment, "GILBERT_AGENT_LEASE_MS", defaults.agent.lease),
     /*
      * Where the worker answers a health probe, or 0 for no endpoint at all.
      * A deployment with a restart policy wants this (ADR 0003 resolution 8);
      * a worker nobody asks anything needs no listening socket.
      */
-    healthPort: readInt(environment, "GILBERT_AGENT_HEALTH_PORT", 0),
+    healthPort: readInt(
+      environment,
+      "GILBERT_AGENT_HEALTH_PORT",
+      defaults.agent.healthPort,
+    ),
     /*
      * Whether the server starts a fleet of its own beside the web tier, which is
      * what makes `node server/dist/index.js` an installation that also works
@@ -193,7 +207,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * its own restart policy — says `GILBERT_AGENT_INPROCESS=0` and runs
      * `node server/dist/agent/agent.js` itself.
      */
-    inprocess: readBool(environment, "GILBERT_AGENT_INPROCESS", true),
+    inprocess: readBool(environment, "GILBERT_AGENT_INPROCESS", defaults.agent.inProcess),
     /*
      * Whether a run pays for the model's chain of thought. The provider reasons
      * by default; a run that wants a cheaper, faster answer says so here, and an
@@ -203,7 +217,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * spent, so a behaviour that changed with the machine that ran it is
      * readable rather than inferred (ADR 0003).
      */
-    thinking: readBool(environment, "GILBERT_AGENT_THINKING", true),
+    thinking: readBool(environment, "GILBERT_AGENT_THINKING", defaults.agent.thinking),
     /**
      * Whether this deployment may point the installation's model at an address
      * inside its own network — a model running on the same host, say.
@@ -231,7 +245,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * told that the page could not be read rather than being told an image was
      * handed over (ADR 0003).
      */
-    vision: readBool(environment, "GILBERT_AGENT_VISION", true),
+    vision: readBool(environment, "GILBERT_AGENT_VISION", defaults.agent.vision),
     /**
      * How many readings one installation may ask for in a month.
      *
@@ -243,7 +257,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
     authoringMonthlyMax: readInt(
       environment,
       "GILBERT_AGENT_AUTHORING_MAX_PER_MONTH",
-      200,
+      defaults.agent.authoringMaxPerMonth,
     ),
     /*
      * How many pages one run may hand the model as images (ADR 0003). A page
@@ -259,7 +273,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
     // business logic review finding.
     maxPages: Math.max(
       1,
-      readInt(environment, "GILBERT_AGENT_MAX_PAGES", AGENT_PAGES_DEFAULT),
+      readInt(environment, "GILBERT_AGENT_MAX_PAGES", defaults.agent.pages),
     ),
     /*
      * How many hops a chain of automations runs before the next one is refused
@@ -273,7 +287,10 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
     // deployment that sets this to 0 or a negative number would otherwise
     // refuse every run, even an unchained hop-one trigger, as though it were a
     // runaway chain (a business logic review finding).
-    maxChainHops: Math.max(1, readInt(environment, "GILBERT_AGENT_MAX_CHAIN_HOPS", 5)),
+    maxChainHops: Math.max(
+      1,
+      readInt(environment, "GILBERT_AGENT_MAX_CHAIN_HOPS", defaults.agent.chainHops),
+    ),
   };
 
   /**
@@ -286,7 +303,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
   const agent = { ...resolveAgentBootstrap(), ...agentWorkerSettings };
   return {
     production,
-    appName: readEnv(environment, "APP_NAME", "Gilbert"),
+    appName: readEnv(environment, "APP_NAME", defaults.branding.appName),
     /**
      * What this build calls itself: `2.16.57`. Set by the image build from
      * `--build-arg GILBERT_VERSION`, since `.dockerignore` keeps `.git` out of
@@ -302,8 +319,8 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * Gilbert should point this at their own tree.
      */
     sourceUrl: readEnv(environment, "SOURCE_URL", "https://github.com/sequico/gilbert"),
-    host: readEnv(environment, "HOST", "0.0.0.0"),
-    port: readInt(environment, "PORT", 8080),
+    host: readEnv(environment, "HOST", defaults.server.host),
+    port: readInt(environment, "PORT", defaults.server.port),
     /**
      * The subpath this instance answers on: `/webmail` for a proxy that maps
      * `https://example.com/webmail/` here, and `""` for the root.
@@ -335,7 +352,7 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * or a value minted because neither stated one. See `AppSecretSource`.
      */
     appSecretSource,
-    trustProxy: readBool(environment, "TRUST_PROXY", true),
+    trustProxy: readBool(environment, "TRUST_PROXY", defaults.server.trustProxy),
     /**
      * Peers whose X-Forwarded-* headers are believed. Empty falls back to
      * loopback and the private ranges, which covers the usual reverse proxy on
@@ -347,23 +364,41 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
       .map((s) => s.trim())
       .filter(Boolean),
     /** "auto" = Secure when the request arrived over https; "1"/"0" to force. */
-    secureCookies: (environment.SECURE_COOKIES ?? "auto").toLowerCase(),
-    sessionTtl: readInt(environment, "SESSION_TTL", 12 * 60 * 60),
-    sessionRememberTtl: readInt(environment, "SESSION_REMEMBER_TTL", 30 * 24 * 60 * 60),
+    secureCookies: (
+      environment.SECURE_COOKIES ?? defaults.server.secureCookies
+    ).toLowerCase(),
+    sessionTtl: readInt(environment, "SESSION_TTL", defaults.sessions.ttl),
+    sessionRememberTtl: readInt(
+      environment,
+      "SESSION_REMEMBER_TTL",
+      defaults.sessions.rememberTtl,
+    ),
     /** True when this instance has asserted, and verified, that it is immutable. */
     immutable,
-    upstreamTimeout: readInt(environment, "UPSTREAM_TIMEOUT", 30_000),
-    maxUploadBytes: readInt(environment, "MAX_UPLOAD_BYTES", 50 * 1024 * 1024),
-    imageProxy: readBool(environment, "IMAGE_PROXY", true),
+    upstreamTimeout: readInt(
+      environment,
+      "UPSTREAM_TIMEOUT",
+      defaults.limits.upstreamTimeout,
+    ),
+    maxUploadBytes: readInt(
+      environment,
+      "MAX_UPLOAD_BYTES",
+      defaults.limits.maxUploadBytes,
+    ),
+    imageProxy: readBool(environment, "IMAGE_PROXY", defaults.limits.imageProxy),
     /**
      * The name of the session cookie. The installation decides it --
      * `server.cookieName` in the document — and this is the value a process
      * with no boot runs on.
      */
-    cookieName: readEnv(environment, "COOKIE_NAME", "gilbert_session"),
+    cookieName: readEnv(environment, "COOKIE_NAME", defaults.server.cookieName),
     staticDir:
       environment.STATIC_DIR ?? fileURLToPath(new URL("../../web/dist", import.meta.url)),
-    loginRateLimit: readInt(environment, "LOGIN_RATE_LIMIT", 10),
+    loginRateLimit: readInt(
+      environment,
+      "LOGIN_RATE_LIMIT",
+      defaults.limits.loginRateLimit,
+    ),
     /*
      * Requests per minute one session may make on the data path -- JMAP, blobs,
      * the image and calendar proxies. The proxy is one Node process and saturates
@@ -375,9 +410,10 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * The installation decides the number — `limits.apiRateLimit` in the
      * document — and this is the value a process with no boot runs on.
      */
-    apiRateLimit: readInt(environment, "API_RATE_LIMIT", 1200),
+    apiRateLimit: readInt(environment, "API_RATE_LIMIT", defaults.limits.apiRateLimit),
     /* Whether JMAP responses are gzipped. Measured: see the bake-off rerun. */
-    compressJmap: environment.COMPRESS_JMAP !== "0",
+    compressJmap:
+      environment.COMPRESS_JMAP === "0" ? false : defaults.server.compressJmap,
     /**
      * The `/api/account` permission that marks a Stalwart admin (ADR 0001).
      *
@@ -405,11 +441,11 @@ export function configurationFromEnvironment(environment: InstallationEnvironmen
      * account and in each group's.
      */
     agent,
-    pushMode: (environment.PUSH_MODE === "relay" ? "relay" : "subscribe") as
+    pushMode: (environment.PUSH_MODE === "relay" ? "relay" : defaults.push.mode) as
       | "relay"
       | "subscribe",
     /* See relayPushRaw(): pipe the push stream socket-to-socket instead of through fetch(). */
-    rawPushRelay: environment.RAW_PUSH_RELAY !== "0",
+    rawPushRelay: environment.RAW_PUSH_RELAY === "0" ? false : defaults.push.rawRelay,
     /* See absoluteUpstream(): follow Stalwart's advertised origin instead of pinning to ours. */
     followAdvertisedUrls: environment.STALWART_FOLLOW_ADVERTISED_URLS === "1",
   };

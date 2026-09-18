@@ -38,11 +38,11 @@ import { useRef, useState } from "react";
 import type { Identity } from "@/jmap/types";
 import { t } from "@/lib/i18n";
 import {
-  type AdminGroupIdentity,
-  type AdminIdentityPatch,
-  type AdminUserIdentities,
   fetchGroupIdentity,
   fetchUserIdentities,
+  type GroupIdentityView,
+  type IdentityPatch,
+  type PersonIdentitiesView,
   saveGroupIdentity,
   storeAdminSignatureHtml,
 } from "@/lib/identities";
@@ -78,7 +78,7 @@ function blankIdentity(name: string, email: string): Partial<Identity> {
  * has to match it (`ownIdentity`, ADR 0007). Empty when their own account holds
  * no identity to read a name from.
  */
-function ownDisplayName(view: AdminUserIdentities, address: string): string {
+function ownDisplayName(view: PersonIdentitiesView, address: string): string {
   const chosen = ownIdentity(view.identities, address, view.defaultIdentityId);
   return chosen?.name?.trim() ?? "";
 }
@@ -253,7 +253,7 @@ export function GroupIdentities() {
   const directory = useGroupDirectory();
   const { groups, enumeration, enumerationMessage, loadError } = directory;
   const [name, setName] = useState("");
-  const [view, setView] = useState<AdminGroupIdentity | null>(null);
+  const [view, setView] = useState<GroupIdentityView | null>(null);
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<{
     /** The member address the write assigns to; "" for the group's own. */
@@ -336,7 +336,7 @@ export function GroupIdentities() {
       name,
       editing.member,
       editing.draft.id ?? null,
-      patch as AdminIdentityPatch,
+      patch as IdentityPatch,
     );
     await load(name);
   }

@@ -241,8 +241,15 @@ export interface BookSelection {
   bookId: Id | "all";
 }
 
-/** Cards from shared accounts are keyed by account too: ids collide across them. */
-export const sharedKey = (accountId: Id, id: Id): string => `${accountId}:${id}`;
+/*
+ * Declared once, in `@/lib/sharedKey`: its format is what the reader's own
+ * `settings.addedShares` stores, so a second spelling here would be a selection
+ * that stops being found. Re-exported because this store's callers key cards by
+ * it.
+ */
+import { sharedKey } from "@/lib/sharedKey";
+
+export { sharedKey };
 
 interface ContactsState {
   accountId: Id | null;

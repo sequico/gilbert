@@ -4,6 +4,7 @@ import type { ContactCard, EmailAddress } from "@/jmap/types";
 import { contactDisplayName, contactEmails } from "@/lib/contacts";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
+import { sharedKey } from "@/lib/sharedKey";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { useSettings } from "@/store/settings";
@@ -86,7 +87,7 @@ export function RecipientPicker({
     (b) =>
       groupIds.has(b.accountId) ||
       b.book.isSubscribed ||
-      addedShares.has(`${b.accountId}:${b.book.id}`),
+      addedShares.has(sharedKey(b.accountId, b.book.id)),
   );
   const ownBooks = Object.values(contacts.books).sort(
     (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
@@ -264,8 +265,8 @@ export function RecipientPicker({
           ))}
           {subscribed.map((b) => (
             <option
-              key={`${b.accountId}:${b.book.id}`}
-              value={`${b.accountId}:${b.book.id}`}
+              key={sharedKey(b.accountId, b.book.id)}
+              value={sharedKey(b.accountId, b.book.id)}
             >
               {b.book.name} · {b.accountName}
             </option>

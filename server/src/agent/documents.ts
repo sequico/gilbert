@@ -26,6 +26,7 @@
 
 import { type Schema, Validator } from "@cfworker/json-schema";
 import type { ChatMention } from "../shared/chat.js";
+import { countOrNull } from "../shared/counts.js";
 import { AGENT_PAGES_DEFAULT } from "../shared/installation.js";
 import { isRecord } from "../shared/json.js";
 
@@ -1658,11 +1659,6 @@ export interface AgentUsage {
   inputHitTokens: number | null;
   inputMissTokens: number | null;
   outputTokens: number | null;
-}
-
-/** One reported count, or null: a provider that says nothing says nothing. */
-function countOrNull(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
 export function isAgentUsage(x: unknown): x is AgentUsage {

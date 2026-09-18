@@ -313,8 +313,15 @@ export interface SharedCalendar {
   calendar: Calendar;
 }
 
-/** Shared events are keyed by account too: ids only differ within an account. */
-export const sharedKey = (accountId: Id, id: Id): string => `${accountId}:${id}`;
+/*
+ * Declared once, in `@/lib/sharedKey`: its format is what the reader's own
+ * `settings.addedShares` stores, so a second spelling here would be a selection
+ * that stops being found. Re-exported because this store's callers key shared
+ * calendars by it.
+ */
+import { sharedKey } from "@/lib/sharedKey";
+
+export { sharedKey };
 
 /**
  * An event begun outside the calendar -- from a message, so far.

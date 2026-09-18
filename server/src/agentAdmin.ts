@@ -122,18 +122,14 @@ import {
 } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
 import { isRecord } from "./shared/json.js";
-import {
-  AGENT_LABELS,
-  isLabelCatalog,
-  isLabelCatalogEntry,
-  type LabelCatalogEntry,
-} from "./shared/labels.js";
+import { AGENT_LABELS } from "./shared/labels.js";
 import {
   fetchUpstreamSession,
   getUpstreamSession,
   UpstreamError,
   upstreamFor,
 } from "./upstream.js";
+import { basicAuth } from "./util.js";
 
 /**
  * A refusal from the admin surface, as the route answers it.
@@ -152,11 +148,6 @@ export class AgentAdminError extends Error {
     super(reason.code);
     this.name = "AgentAdminError";
   }
-}
-
-/** The Basic header for a principal's own credential. */
-function basic(address: string, password: string): string {
-  return `Basic ${Buffer.from(`${address}:${password}`, "utf8").toString("base64")}`;
 }
 
 /** How many decisions and audit entries a view shows. */
@@ -368,7 +359,7 @@ export async function openAgentSession(
 > {
   const password = config.agent.password.trim();
   if (password) {
-    const authorization = basic(address, password);
+    const authorization = basicAuth(address, password);
     try {
       const session = await fetchUpstreamSession(authorization, upstreamFor(address));
       return { ok: true, ctx: { authorization, session, username: address } };
@@ -1529,16 +1520,20 @@ export async function addAgentLabels(
   access: GroupAccess,
   accountId: string,
 ): Promise<{ added: string[] }> {
-  const existing = (await readGroupLabels(access.ctx, accountId)) ?? [];
-  const have = new Set(
-    existing.filter(isLabelCatalogEntry).map((l: LabelCatalogEntry) => l.keyword),
-  );
+  const read = await readGroupLabels(access.ctx, accountId);
+  /*
+   * A catalog holding entries Gilbert cannot read is refused rather than
+   * rewritten — writing over somebody's labels because one of them is the wrong
+   * shape would lose them — and the reader reports that state on its own,
+   * separately from a group that has no catalog at all.
+   */
+  if (read.state === "unreadable")
+    throw new AgentAdminError({ code: "group_labels_unreadable" }, 502);
+  const existing = read.state === "catalog" ? read.labels : [];
+  const have = new Set(existing.map((l) => l.keyword));
   const missing = AGENT_LABELS.filter((l) => !have.has(l.keyword));
   if (!missing.length) return { added: [] };
-  const labels: unknown[] = [...existing, ...missing];
-  if (!isLabelCatalog({ labels }))
-    throw new AgentAdminError({ code: "group_labels_unreadable" }, 502);
-  await writeGroupLabels(access.ctx, accountId, labels);
+  await writeGroupLabels(access.ctx, accountId, [...existing, ...missing]);
   return { added: missing.map((l) => l.keyword) };
 }
 

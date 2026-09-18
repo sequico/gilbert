@@ -5,6 +5,7 @@ import { CAP, client } from "@/jmap/client";
 import type { Identity, JmapSession } from "@/jmap/types";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
+import { flushTwice as flush } from "@/test/testkit";
 import { IdentitiesSettings } from "../IdentitiesSettings";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -51,11 +52,6 @@ const SESSION = {
   },
   primaryAccounts: { [CAP.mail]: OWN, [CAP.submission]: OWN },
 } as unknown as JmapSession;
-
-const flush = async () => {
-  await new Promise<void>((res) => setTimeout(res, 0));
-  await new Promise<void>((res) => setTimeout(res, 0));
-};
 
 describe("the person's own identities section", () => {
   let host: HTMLDivElement;

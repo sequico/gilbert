@@ -23,16 +23,16 @@
  * write a single call at the call site.
  */
 
-import { isAlreadyExistsRefusal, JmapClient } from "./jmap.js";
+import { isAlreadyExistsRefusal } from "./jmap.js";
 import { appDocumentJson } from "./shared/appDocument.js";
+import { APP_DOCUMENT_TYPE, APP_FOLDER_NAME } from "./shared/appFolder.js";
+import { sameBytes } from "./shared/bytes.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
 import type { UpstreamSession } from "./upstream.js";
+import { clientOf } from "./util.js";
 
 /** The one encoder: what a document is about to be written as is bytes. */
 const utf8 = new TextEncoder();
-
-/** The folder Gilbert keeps its own documents in, in every account. */
-export const APP_FOLDER_NAME = "gilbert";
 
 /** The JMAP capability that carries FileNode in Stalwart 0.16. */
 export const FILENODE_CAP = CAPABILITIES.filenode;
@@ -69,10 +69,6 @@ export interface Ctx {
   authorization: string;
   session: UpstreamSession;
   username: string;
-}
-
-function clientOf(ctx: Ctx): JmapClient {
-  return new JmapClient(ctx);
 }
 
 /**
@@ -360,7 +356,7 @@ export async function uploadJsonBlob(
   const blobId = await clientOf(ctx).upload(
     accountId,
     appDocumentJson(value),
-    "application/json",
+    APP_DOCUMENT_TYPE,
   );
   return blobId;
 }
@@ -410,13 +406,6 @@ export async function downloadBlobText(
   name = "document.json",
 ): Promise<string> {
   return clientOf(ctx).downloadText(accountId, blobId, name, type);
-}
-
-/** Whether two byte sequences are the same, byte for byte. */
-function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.byteLength !== b.byteLength) return false;
-  for (let i = 0; i < a.byteLength; i += 1) if (a[i] !== b[i]) return false;
-  return true;
 }
 
 /**

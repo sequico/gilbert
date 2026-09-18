@@ -41,7 +41,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { walk } from "./lib/repoWalk.mjs";
+import { lineOf, walk } from "./lib/repoWalk.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -63,13 +63,6 @@ const SLUG_HEAD = /^[a-z0-9-]+/;
 const CODE_ROOTS = ["server", "web"];
 const CODE_EXT = new Set([".ts", ".tsx", ".mts", ".mjs"]);
 const TEST_FILE = /\.test\.(?:ts|tsx|mts|mjs)$/;
-
-/** The line number of an offset, for a report that can be acted on. */
-function lineOf(text, index) {
-  let line = 1;
-  for (let i = 0; i < index; i++) if (text[i] === "\n") line++;
-  return line;
-}
 
 /**
  * The slug a token starts with, or why it is not one. Greedy on the head, so

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { postWith } from "./testkit.js";
 
 /**
  * A group's identities, and the roster they belong to (ADR 0007).
@@ -88,8 +89,7 @@ async function call(path: string, init: RequestInit = {}) {
   };
 }
 
-const post = (path: string, body: unknown) =>
-  call(path, { method: "POST", body: JSON.stringify(body) });
+const post = postWith(call);
 
 const group = (name: string) =>
   call(`/api/admin/identities/group?name=${encodeURIComponent(name)}`);

@@ -2,7 +2,7 @@ import { ChevronRight, Folder, HardDrive, Home, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { client, setErrorMessage } from "@/jmap/client";
 import type { EmailBodyPart, FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
-import { APP_FOLDER } from "@/lib/appFolder";
+import { APP_FOLDER_NAME } from "@/lib/appFolder";
 import { directoryCreate, fileNodeProps } from "@/lib/filenode";
 import { plural, t as translate } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
@@ -121,7 +121,7 @@ export function SaveToFilesDialog({
         if (!live) return;
         setFolders(
           got.list.filter(
-            (n) => n.nodeType === "directory" && String(n.name) !== APP_FOLDER,
+            (n) => n.nodeType === "directory" && String(n.name) !== APP_FOLDER_NAME,
           ),
         );
       } catch (err) {

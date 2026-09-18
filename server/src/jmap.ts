@@ -29,11 +29,14 @@ export const JMAP_MAIL = CAPABILITIES.mail;
 export const JMAP_SUBMISSION = CAPABILITIES.submission;
 export const STALWART_CAP = STALWART_REGISTRY;
 
-/** One JMAP method call: name, arguments, call id. */
-export type Invocation = [string, Record<string, unknown>, string];
+/*
+ * Declared once, in `./shared/jmap`: the client builds one of these per call it
+ * makes through this proxy, and the shape is the protocol's rather than either
+ * tier's.
+ */
+import type { Invocation, MethodResponses } from "./shared/jmap.js";
 
-/** The `methodResponses` array a JMAP request answers with. */
-export type MethodResponses = Array<[string, Record<string, unknown>, string]>;
+export type { Invocation, MethodResponses };
 
 /** A JMAP method that answered with an error object. */
 export class JmapError extends UpstreamError {

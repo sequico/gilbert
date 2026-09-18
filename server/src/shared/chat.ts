@@ -15,7 +15,6 @@
 
 export const CHAT_FOLDER = "chat";
 export const CHAT_STATE_FOLDER = "chat-state";
-export const MESSAGE_TYPE = "application/json";
 
 /** Messages are plain text; the bound keeps the documents small (ADR 0005). */
 export const MAX_TEXT = 4000;

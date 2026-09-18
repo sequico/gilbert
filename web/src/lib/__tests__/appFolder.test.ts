@@ -36,7 +36,7 @@ interface FakeNode {
 }
 
 /** The app folder itself: a top-level directory by the name `ensureFolder` looks for. */
-const APP_FOLDER: FakeNode = {
+const APP_FOLDER_NODE: FakeNode = {
   id: FOLDER,
   parentId: null,
   name: "gilbert",
@@ -73,7 +73,7 @@ const asRecord = (node: object): Record<string, unknown> =>
  * moves the state, so the token taken before it is refused after it.
  */
 function fakeServer(files: FakeNode[] = []) {
-  const nodes: FakeNode[] = [APP_FOLDER, ...files];
+  const nodes: FakeNode[] = [APP_FOLDER_NODE, ...files];
   const uploads: Array<{ type?: string; text: string }> = [];
   const setCalls: Array<Record<string, unknown>> = [];
   const asked: Array<string[] | undefined> = [];

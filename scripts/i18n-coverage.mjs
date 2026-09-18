@@ -23,48 +23,13 @@ import { readFileSync } from "node:fs";
  * loud rather than silent.
  */
 import ts from "typescript";
-import { componentFiles } from "./lib/i18nSources.mjs";
-
-/** Attributes a person reads. `className` and `key` are not among them. */
-const ATTRS = new Set([
-  "title",
-  "aria-label",
-  "placeholder",
-  "alt",
-  "label",
-  "hint",
-  "confirmLabel",
-  "message",
-  "description",
-]);
-/* Text that is not prose: punctuation, separators, and the single glyphs used
-   as dividers. Counting these as untranslated would put a floor under the
-   number that no amount of work could reach. */
-const NOT_PROSE = /^[\s·—–\-—:;,.()[\]{}/|+×✓~<>#*@0-9]*$/u;
-/*
- * Text that is deliberately not translated is not "remaining work". Counting
- * it put a floor under the number that no amount of effort could reach -- the
- * report sat at 21 with only 6 real items left, which makes the number
- * something to argue with rather than act on. Same rule the codemod uses.
- */
-const CODE_TAGS = new Set(["code", "kbd", "pre", "samp", "var"]);
-const optedOut = (node, src) => {
-  const opening = ts.isJsxElement(node)
-    ? node.openingElement
-    : ts.isJsxSelfClosingElement(node)
-      ? node
-      : null;
-  return Boolean(
-    opening?.attributes.properties.some(
-      (a) =>
-        ts.isJsxAttribute(a) &&
-        a.name.getText(src) === "translate" &&
-        a.initializer &&
-        ts.isStringLiteral(a.initializer) &&
-        a.initializer.text === "no",
-    ),
-  );
-};
+import {
+  ATTRS,
+  CODE_TAGS,
+  componentFiles,
+  NOT_PROSE,
+  optedOut,
+} from "./lib/i18nSources.mjs";
 
 const files = componentFiles();
 const rows = [];

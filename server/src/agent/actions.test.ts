@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { PDFDocument } from "pdf-lib";
+import { blankPdf } from "../testkit.js";
 
 /**
  * The capability runner against the mock (ADR 0003 resolution 2).
@@ -40,13 +40,6 @@ const client = new JmapClient({ authorization: AUTH, session });
 let draftsId = "";
 let messageId = "";
 let attachedId = "";
-
-/** A PDF of `pages` pages, none of which carries a text layer of its own. */
-async function blankPdf(pages: number): Promise<Uint8Array> {
-  const document = await PDFDocument.create();
-  for (let page = 0; page < pages; page++) document.addPage([300, 200]);
-  return document.save();
-}
 
 async function createMessage(input: {
   subject: string;

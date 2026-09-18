@@ -26,11 +26,11 @@ import type { Identity } from "@/jmap/types";
 import { formatAddressList } from "@/lib/address";
 import { t } from "@/lib/i18n";
 import {
-  type AdminIdentityPatch,
-  type AdminUserIdentities,
   deleteUserIdentity,
   fetchUserIdentities,
   type IdentityLockState,
+  type IdentityPatch,
+  type PersonIdentitiesView,
   saveUserIdentity,
   setUserDefaultIdentity,
   setUserIdentityLock,
@@ -53,7 +53,7 @@ export function UserIdentities() {
   const directory = useUserDirectory();
   const { users, enumeration, enumerationMessage, impersonation, loadError } = directory;
   const [address, setAddress] = useState("");
-  const [view, setView] = useState<AdminUserIdentities | null>(null);
+  const [view, setView] = useState<PersonIdentitiesView | null>(null);
   const [loading, setLoading] = useState(false);
   /*
    * The lock as the account's own file answered it, and as this page last wrote
@@ -113,7 +113,7 @@ export function UserIdentities() {
   }
 
   async function save(patch: Partial<Identity>) {
-    await saveUserIdentity(address, editing?.id ?? null, patch as AdminIdentityPatch);
+    await saveUserIdentity(address, editing?.id ?? null, patch as IdentityPatch);
     await load(address);
   }
 

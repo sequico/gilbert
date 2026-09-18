@@ -13,9 +13,9 @@
  * (resolution 10: a pending draft is one a human has to see).
  */
 
+import { readGroupLabels } from "../account.js";
 import {
   type Ctx,
-  readAppJsonAt,
   readVisibleFileBytes,
   unusedVisibleName,
   writeBytesIntoVisibleFolder,
@@ -26,7 +26,6 @@ import { accountOwnIdentity } from "../shared/identityAssignment.js";
 import {
   GROUP_LABELS_FILE,
   isAgentLabel,
-  isLabelCatalog,
   type LabelCatalogEntry,
   missingAgentLabels,
 } from "../shared/labels.js";
@@ -248,8 +247,14 @@ function agentKeywordsOf(action: AgentAction): string[] {
 }
 
 async function catalogOf(ctx: Ctx, accountId: string): Promise<LabelCatalogEntry[]> {
-  const raw = await readAppJsonAt(ctx, accountId, GROUP_LABELS_FILE);
-  return isLabelCatalog(raw) ? raw.labels : [];
+  /*
+   * The group's own reader, not a second one: this module used to read the
+   * document again, with the agent's own idea of what a catalog is. A document
+   * the validator refuses answers no labels here, which is the conservative
+   * half — the guard below refuses a keyword the catalog does not define.
+   */
+  const read = await readGroupLabels(ctx, accountId);
+  return read.state === "catalog" ? read.labels : [];
 }
 
 /**

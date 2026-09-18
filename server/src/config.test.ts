@@ -373,6 +373,53 @@ test("a document cannot move the prefix the build was made for", async () => {
   assert.equal(booted.basePathStated, true);
 });
 
+/*
+ * One set of defaults, not two.
+ *
+ * The environment is read *over* the installation's own defaults, and those
+ * defaults are the document's -- `installationDefaults()` is what a fresh
+ * installation writes and what its administration shows. So a process with no
+ * environment and an installation that has just created its document describe
+ * the same installation, field for field. Nothing compared the two while the
+ * literals stood in both places, which is how a default moved in one and not
+ * in the other left an installation depending on how it was started.
+ *
+ * The fields listed are exactly the ones both sides carry: the container's own
+ * facts (`HOST`, `PORT`, `IMMUTABLE`, `BASE_PATH`, `STATIC_DIR`) are the
+ * process's and are no part of a document, and the handshake has no default at
+ * all.
+ */
+test("a silent environment resolves to the document's own defaults", () => {
+  const c = configurationFromEnvironment({});
+  const d = installationDefaults();
+  assert.equal(c.appName, d.branding.appName);
+  assert.equal(c.host, d.server.host);
+  assert.equal(c.port, d.server.port);
+  assert.equal(c.trustProxy, d.server.trustProxy);
+  assert.equal(c.secureCookies, d.server.secureCookies);
+  assert.equal(c.compressJmap, d.server.compressJmap);
+  assert.equal(c.cookieName, d.server.cookieName);
+  assert.equal(c.sessionTtl, d.sessions.ttl);
+  assert.equal(c.sessionRememberTtl, d.sessions.rememberTtl);
+  assert.equal(c.upstreamTimeout, d.limits.upstreamTimeout);
+  assert.equal(c.maxUploadBytes, d.limits.maxUploadBytes);
+  assert.equal(c.imageProxy, d.limits.imageProxy);
+  assert.equal(c.loginRateLimit, d.limits.loginRateLimit);
+  assert.equal(c.apiRateLimit, d.limits.apiRateLimit);
+  assert.equal(c.pushMode, d.push.mode);
+  assert.equal(c.rawPushRelay, d.push.rawRelay);
+  assert.equal(c.agent.pollMs, d.agent.poll);
+  assert.equal(c.agent.heartbeatMs, d.agent.heartbeat);
+  assert.equal(c.agent.leaseMs, d.agent.lease);
+  assert.equal(c.agent.maxChainHops, d.agent.chainHops);
+  assert.equal(c.agent.maxPages, d.agent.pages);
+  assert.equal(c.agent.thinking, d.agent.thinking);
+  assert.equal(c.agent.vision, d.agent.vision);
+  assert.equal(c.agent.authoringMonthlyMax, d.agent.authoringMaxPerMonth);
+  assert.equal(c.agent.healthPort, d.agent.healthPort);
+  assert.equal(c.agent.inprocess, d.agent.inProcess);
+});
+
 test("a production process refuses to serve a prefix nobody stated", () => {
   /* A secret of its own, so the only thing in question here is the prefix. */
   const { BASE_PATH: _unstated, ...env } = {

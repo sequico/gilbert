@@ -12,24 +12,24 @@
  * silently overwriting whatever changed it.
  */
 
+import type {
+  SystemSieveScriptContent,
+  SystemSieveScriptList,
+  SystemSieveScriptWrite,
+} from "@gilbert/shared/sieveViews";
 import { apiFetch } from "@/jmap/client";
 
-export interface SystemSieveScript {
-  id: string;
-  name: string;
-  description: string | null;
-  isActive: boolean;
-}
-
-export interface SystemSieveScriptList {
-  scripts: SystemSieveScript[];
-  state: string;
-}
-
-export interface SystemSieveScriptContent extends SystemSieveScript {
-  contents: string;
-  state: string;
-}
+/*
+ * Read here, declared there: the shapes these routes answer with and the body a
+ * write carries, so a consumer of this module names the same fields the route
+ * reads (`@gilbert/shared` is the alias both tiers read; see web/tsconfig.json).
+ */
+export type {
+  SystemSieveScript,
+  SystemSieveScriptContent,
+  SystemSieveScriptList,
+  SystemSieveScriptWrite,
+} from "@gilbert/shared/sieveViews";
 
 /** `GET /api/admin/sieve/system` — every system script, without its contents. */
 export function listSystemSieveScripts(): Promise<SystemSieveScriptList> {
@@ -41,15 +41,6 @@ export function getSystemSieveScript(id: string): Promise<SystemSieveScriptConte
   return apiFetch<SystemSieveScriptContent>(
     `/api/admin/sieve/system/${encodeURIComponent(id)}`,
   );
-}
-
-export interface SystemSieveScriptWrite {
-  name: string;
-  description: string | null;
-  contents: string;
-  activate: boolean;
-  /** The `state` this edit was opened with; omitted for a new script. */
-  state?: string;
 }
 
 /**

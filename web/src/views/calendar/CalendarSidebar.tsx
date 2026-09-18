@@ -30,6 +30,7 @@ import {
 import { formatMonthYear, formatWeekday } from "@/lib/datetime";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
+import { sharedKey } from "@/lib/sharedKey";
 import { subscriptionCalendarId, useCalendar } from "@/store/calendar";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
@@ -134,7 +135,7 @@ export function CalendarSidebar() {
     calendar: { id: string; isSubscribed?: boolean };
   }) =>
     Boolean(c.calendar.isSubscribed) ||
-    addedShares.has(`${c.accountId}:${c.calendar.id}`);
+    addedShares.has(sharedKey(c.accountId, c.calendar.id));
   /* Accounts that are group mailboxes get their own calendar section; any
      other shared account (a colleague's calendar-only share) stays in the
      read-only area below the group sections. */
@@ -162,8 +163,8 @@ export function CalendarSidebar() {
      job (the row has no key of its own). */
   const subscribedRow = (accountId: Id, accountName: string, c: Calendar) => (
     <div
-      className={`cal-list-item ${cal.hidden[`${accountId}:${c.id}`] ? "hidden-cal" : ""}`}
-      onClick={() => cal.toggleHidden(`${accountId}:${c.id}`)}
+      className={`cal-list-item ${cal.hidden[sharedKey(accountId, c.id)] ? "hidden-cal" : ""}`}
+      onClick={() => cal.toggleHidden(sharedKey(accountId, c.id))}
       title={`${c.name} — shared by ${accountName}`}
     >
       <span
@@ -417,7 +418,7 @@ export function CalendarSidebar() {
           {cal.sharedCalendars
             .filter((c) => c.accountId === g.accountId)
             .map((c) => (
-              <Fragment key={`${c.accountId}:${c.calendar.id}`}>
+              <Fragment key={sharedKey(c.accountId, c.calendar.id)}>
                 {isAdded(c)
                   ? subscribedRow(c.accountId, c.accountName, c.calendar)
                   : availableRow(c.accountId, c.accountName, c.calendar)}
@@ -431,7 +432,7 @@ export function CalendarSidebar() {
             <span>{t("Shared with me")}</span>
           </div>
           {sharedOnlySubscribed.map((c) => (
-            <Fragment key={`${c.accountId}:${c.calendar.id}`}>
+            <Fragment key={sharedKey(c.accountId, c.calendar.id)}>
               {subscribedRow(c.accountId, c.accountName, c.calendar)}
             </Fragment>
           ))}
@@ -443,7 +444,7 @@ export function CalendarSidebar() {
             <span>{t("Available to add")}</span>
           </div>
           {sharedOnlyAvailable.map((c) => (
-            <Fragment key={`${c.accountId}:${c.calendar.id}`}>
+            <Fragment key={sharedKey(c.accountId, c.calendar.id)}>
               {availableRow(c.accountId, c.accountName, c.calendar)}
             </Fragment>
           ))}

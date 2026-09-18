@@ -4,6 +4,7 @@ import type { SetResponse } from "@/jmap/types";
 import { useCompose } from "@/store/compose";
 import { useMail } from "@/store/mail";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
+import { flushMicrotasks as flush } from "@/test/testkit";
 
 /**
  * Draft saves, serialised per draft.
@@ -29,9 +30,6 @@ function deferred<T = void>() {
   });
   return { promise, resolve };
 }
-
-/** Let queued microtasks (and the odd macrotask) run. */
-const flush = () => new Promise<void>((res) => setTimeout(res, 0));
 
 /** What a save asked the server to destroy, in order. */
 const destroyLog: string[][] = [];

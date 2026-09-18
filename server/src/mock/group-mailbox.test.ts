@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { postWith } from "../testkit.js";
 
 /**
  * The mock models a group (team) mailbox the demo user is a member of: an extra
@@ -46,8 +47,7 @@ async function call(
   return { status: res.status, body: text ? JSON.parse(text) : null };
 }
 
-const post = (path: string, body: unknown) =>
-  call(path, { method: "POST", body: JSON.stringify(body) });
+const post = postWith(call);
 
 type MethodCall = [string, Record<string, unknown>, string];
 

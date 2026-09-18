@@ -19,6 +19,7 @@
  */
 
 import type { AgentRule } from "@gilbert/agent/documents";
+import { errorMessage } from "@gilbert/shared/errors";
 import { create } from "zustand";
 import { push } from "@/jmap/push";
 import {
@@ -52,10 +53,6 @@ import { useSession } from "@/store/session";
  */
 export function agentViewKey(name: string): string {
   return name.trim().toLowerCase();
-}
-
-function message(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 interface AgentsState {
@@ -168,7 +165,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
     try {
       set({ status: await fetchAgentStatus() });
     } catch (err) {
-      set(markProblem("status", message(err)));
+      set(markProblem("status", errorMessage(err)));
     } finally {
       set(markBusy("status", false));
     }
@@ -183,7 +180,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
       const view = await fetchAgentGroup(name);
       set((s) => ({ groupViews: { ...s.groupViews, [key]: view } }));
     } catch (err) {
-      set(markProblem(op, message(err)));
+      set(markProblem(op, errorMessage(err)));
     } finally {
       set(markBusy(op, false));
     }
@@ -198,7 +195,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
       const view = await fetchMemberAgentView(name);
       set((s) => ({ memberViews: { ...s.memberViews, [key]: view } }));
     } catch (err) {
-      set(markProblem(op, message(err)));
+      set(markProblem(op, errorMessage(err)));
     } finally {
       set(markBusy(op, false));
     }
@@ -238,7 +235,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
     } catch (err) {
       // Loud to both: the editor reports what the server refused, and a save
       // that failed quietly would look like one that worked.
-      set(markProblem(op, message(err)));
+      set(markProblem(op, errorMessage(err)));
       throw err;
     } finally {
       set(markBusy(op, false));
@@ -251,7 +248,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
     try {
       set({ providers: await fetchAgentProviders() });
     } catch (err) {
-      set(markProblem("providers", message(err)));
+      set(markProblem("providers", errorMessage(err)));
     } finally {
       set(markBusy("providers", false));
     }
@@ -263,7 +260,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
     try {
       set({ catalogue: actionCatalog(await fetchAgentRuleSchema()) });
     } catch (err) {
-      set(markProblem("catalogue", message(err)));
+      set(markProblem("catalogue", errorMessage(err)));
     } finally {
       set(markBusy("catalogue", false));
     }
@@ -278,7 +275,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
       // is read back rather than assumed from what was posted.
       set({ providers: await fetchAgentProviders() });
     } catch (err) {
-      set(markProblem("providers", message(err)));
+      set(markProblem("providers", errorMessage(err)));
       throw err;
     } finally {
       set(markBusy("providers", false));
@@ -292,7 +289,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
       const view = await fetchPendingApprovals();
       set({ approvals: view.approvals });
     } catch (err) {
-      set(markProblem("approvals", message(err)));
+      set(markProblem("approvals", errorMessage(err)));
     } finally {
       set(markBusy("approvals", false));
     }

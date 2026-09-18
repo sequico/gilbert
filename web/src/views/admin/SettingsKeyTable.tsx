@@ -1,3 +1,4 @@
+import { DEFAULT_IDENTITY_KEY } from "@gilbert/shared/settingsDocument";
 import { t } from "@/lib/i18n";
 import { DEFAULT_SETTINGS } from "@/store/settings";
 
@@ -321,7 +322,7 @@ const GROUPS: Array<{ title: string; keys: string[] }> = [
       "labelsSidebar",
       "folderColors",
       "hiddenIdentities",
-      "defaultIdentityByAccount",
+      DEFAULT_IDENTITY_KEY,
       "addedShares",
     ],
   },

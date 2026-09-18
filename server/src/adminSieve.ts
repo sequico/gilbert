@@ -18,26 +18,35 @@
  */
 
 import { accountId, type Ctx } from "./account.js";
-import { isStateMismatch, JmapClient } from "./jmap.js";
+import { isStateMismatch } from "./jmap.js";
+/*
+ * The shapes these routes answer with, and the body a write carries, declared
+ * once for both tiers: the surface that sends a write names the same fields the
+ * route reads. See the module's own header for why the wire keeps `state`.
+ */
+import type {
+  SystemSieveScript,
+  SystemSieveScriptContent,
+  SystemSieveScriptList,
+  SystemSieveScriptWrite,
+} from "./shared/sieveViews.js";
+import {
+  clientOf,
+  describeSetError,
+  type SetErrorPhrases,
+  type SetErrorShape,
+} from "./util.js";
+
+/** How a refusal from Stalwart reads on this surface. */
+const SET_ERRORS: SetErrorPhrases = {
+  server: "Stalwart",
+  forbidden:
+    "Stalwart refused the change — this administrator may be missing the sysSieveSystemScript* permission.",
+  rejected: (properties) => `Stalwart rejected ${properties.join(", ")}.`,
+  rejectedValue: "Stalwart rejected the script.",
+};
 
 const OBJECT = "x:SieveSystemScript";
-
-export interface SystemSieveScript {
-  id: string;
-  name: string;
-  description: string | null;
-  isActive: boolean;
-}
-
-export interface SystemSieveScriptList {
-  scripts: SystemSieveScript[];
-  state: string;
-}
-
-export interface SystemSieveScriptContent extends SystemSieveScript {
-  contents: string;
-  state: string;
-}
 
 /** An error with a message meant for the administrator using the surface. */
 export class SystemSieveError extends Error {
@@ -51,31 +60,10 @@ export class SystemSieveError extends Error {
   }
 }
 
-interface SetErrorShape {
-  type?: string;
-  description?: string;
-  properties?: string[];
-}
-
 /** Stalwart's own words about a refusal — this is where a bad script's compile error surfaces. */
-function describeSetError(err: SetErrorShape): string {
-  if (err.description) return err.description;
-  if (err.type === "forbidden")
-    return "Stalwart refused the change — this administrator may be missing the sysSieveSystemScript* permission.";
-  if (err.type === "invalidProperties")
-    return err.properties?.length
-      ? `Stalwart rejected ${err.properties.join(", ")}.`
-      : "Stalwart rejected the script.";
-  return `Stalwart refused the change (${err.type ?? "error"}).`;
-}
-
 /** The one message for a lost race: reload and see the current version before trying again. */
 const CONFLICT_MESSAGE =
   "This script was changed by someone else since it was last read here. Reload and try again.";
-
-function clientOf(ctx: Ctx): JmapClient {
-  return new JmapClient(ctx);
-}
 
 function toRow(o: Record<string, unknown>): SystemSieveScript {
   return {
@@ -131,37 +119,30 @@ export async function getSystemSieveScript(
   };
 }
 
-export interface SystemSieveScriptWrite {
-  id: string | null;
-  name: string;
-  description: string | null;
-  contents: string;
-  activate: boolean;
-  /** The state read alongside this script when it was opened; omitted for a create, which has no baseline to lose. */
-  ifInState?: string;
-}
-
 /**
  * Create or update, in the shape Stalwart's own `x:SieveSystemScript/set`
  * validates: a bad script (or a name collision among active scripts) is
- * refused as a `SetError` here, not compiled or checked client-side. An
- * update additionally carries `ifInState` when the caller has one, so a save
- * built on a since-changed read is refused rather than silently overwriting it.
+ * refused as a `SetError` here, not compiled or checked client-side. `id` is
+ * null for a create. An update carries the wire's `state` to Stalwart as
+ * `ifInState` when the caller has one — this is the one place the two
+ * vocabularies meet — so a save built on a since-changed read is refused
+ * rather than silently overwriting it.
  */
 export async function saveSystemSieveScript(
   ctx: Ctx,
-  opts: SystemSieveScriptWrite,
+  id: string | null,
+  body: SystemSieveScriptWrite,
 ): Promise<string> {
   const properties = {
-    name: opts.name,
-    description: opts.description,
-    contents: opts.contents,
-    isActive: opts.activate,
+    name: body.name,
+    description: body.description,
+    contents: body.contents,
+    isActive: body.activate,
   };
   const args: Record<string, unknown> = { accountId: accountId(ctx) };
-  if (opts.id) {
-    args.update = { [opts.id]: properties };
-    if (opts.ifInState) args.ifInState = opts.ifInState;
+  if (id) {
+    args.update = { [id]: properties };
+    if (body.state) args.ifInState = body.state;
   } else {
     args.create = { s: properties };
   }
@@ -170,21 +151,22 @@ export async function saveSystemSieveScript(
     notCreated?: Record<string, SetErrorShape>;
     notUpdated?: Record<string, SetErrorShape>;
   }>(ctx, args);
-  if (opts.id) {
-    const err = res.notUpdated?.[opts.id];
-    if (err) throw new SystemSieveError(describeSetError(err), 400, "invalid");
-    return opts.id;
+  if (id) {
+    const err = res.notUpdated?.[id];
+    if (err)
+      throw new SystemSieveError(describeSetError(err, SET_ERRORS), 400, "invalid");
+    return id;
   }
   const err = res.notCreated?.s;
-  if (err) throw new SystemSieveError(describeSetError(err), 400, "invalid");
-  const id = res.created?.s?.id;
-  if (!id)
+  if (err) throw new SystemSieveError(describeSetError(err, SET_ERRORS), 400, "invalid");
+  const created = res.created?.s?.id;
+  if (!created)
     throw new SystemSieveError(
       "Stalwart created the script but did not return its id.",
       502,
       "upstream",
     );
-  return id;
+  return created;
 }
 
 export async function setSystemSieveScriptActive(
@@ -199,7 +181,7 @@ export async function setSystemSieveScriptActive(
     ...(ifInState ? { ifInState } : {}),
   });
   const err = res.notUpdated?.[id];
-  if (err) throw new SystemSieveError(describeSetError(err), 400, "invalid");
+  if (err) throw new SystemSieveError(describeSetError(err, SET_ERRORS), 400, "invalid");
 }
 
 export async function deleteSystemSieveScript(
@@ -216,5 +198,5 @@ export async function deleteSystemSieveScript(
     },
   );
   const err = res.notDestroyed?.[id];
-  if (err) throw new SystemSieveError(describeSetError(err), 400, "invalid");
+  if (err) throw new SystemSieveError(describeSetError(err, SET_ERRORS), 400, "invalid");
 }

@@ -13,6 +13,10 @@ import { join } from "node:path";
  * The set is the perimeter: everything in it is generated or third-party, and a
  * check that read those trees would report on files nobody wrote — a citation
  * inside `web/dist`, a record inside `node_modules`.
+ *
+ * A caller reports what it found by line rather than by offset, because a line
+ * is what a reader and an editor share, so the count from an offset is here
+ * too, beside the files those offsets are in.
  */
 
 /** Repository directories a walk never enters. */
@@ -70,4 +74,18 @@ export function walk(dir, { skipPaths = new Set() } = {}) {
     return here;
   };
   return step(dir, "");
+}
+
+/**
+ * The line an offset falls on, counting from 1.
+ *
+ * Every check that locates a match by its index — the two ADR checks and the
+ * dead configuration check — reports the line it sits on, because a line is
+ * what a reader opens the file at. An offset at the very end of a text counts
+ * the lines that text has.
+ */
+export function lineOf(text, index) {
+  let line = 1;
+  for (let i = 0; i < index; i++) if (text[i] === "\n") line++;
+  return line;
 }

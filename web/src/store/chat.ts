@@ -15,6 +15,7 @@
  */
 
 import { appDocumentJson } from "@gilbert/shared/appDocument";
+import { APP_DOCUMENT_TYPE } from "@gilbert/shared/appFolder";
 import { create } from "zustand";
 import { client } from "@/jmap/client";
 import type { ChangesResponse, FileNode, GetResponse, Id } from "@/jmap/types";
@@ -28,7 +29,6 @@ import {
   fetchMessage,
   isChatMarkerDoc,
   MAX_TEXT,
-  MESSAGE_TYPE,
   markerNameFor,
   mentionablesOf,
   mentionsFromText,
@@ -319,12 +319,12 @@ export const useChat = create<ChatState>((set, get) => {
       if (marker?.id) {
         // Rewrite the existing marker node's blob.
         const json = appDocumentJson(doc);
-        const blob = new Blob([json], { type: MESSAGE_TYPE });
-        const up = await client.upload(accountId, blob, { type: MESSAGE_TYPE });
+        const blob = new Blob([json], { type: APP_DOCUMENT_TYPE });
+        const up = await client.upload(accountId, blob, { type: APP_DOCUMENT_TYPE });
         await client.call("FileNode/set", {
           accountId,
           update: {
-            [marker.id]: { blobId: up.blobId, type: MESSAGE_TYPE, size: blob.size },
+            [marker.id]: { blobId: up.blobId, type: APP_DOCUMENT_TYPE, size: blob.size },
           },
         });
       } else {

@@ -1,5 +1,5 @@
-import { isRecord } from "@gilbert/shared/json";
-import { GROUP_LABELS_FILE, isLabelCatalogEntry } from "@gilbert/shared/labels";
+import { APP_DOCUMENT_TYPE } from "@gilbert/shared/appFolder";
+import { GROUP_LABELS_FILE, isLabelCatalog } from "@gilbert/shared/labels";
 import { create } from "zustand";
 import { client } from "@/jmap/client";
 import { push } from "@/jmap/push";
@@ -7,7 +7,6 @@ import type { Id } from "@/jmap/types";
 import { ensureFolder, findInFolder } from "@/lib/appFolder";
 import { debouncedReload } from "@/lib/fileNodeReload";
 import { isGroupMailboxAccount } from "@/lib/mailAccounts";
-import { JSON_MIME } from "@/lib/mime";
 import type { Label } from "@/store/settings";
 import { useMail } from "./mail";
 
@@ -59,20 +58,23 @@ export const useGroupLabels = create<GroupLabelsState>((set, get) => ({
   reset: () => set({ byAccount: {}, loading: {} }),
 }));
 
-/** Whether a catalog entry is usable: one validator, shared with the server tier. */
-function validLabel(x: unknown): x is Label {
-  return isLabelCatalogEntry(x);
-}
+/**
+ * A group's label catalog, read once for this tier.
+ *
+ * Validated as the document it is, through the same shared validator the server
+ * reads through (`isLabelCatalog`), rather than entry by entry: a catalog with
+ * one entry the two tiers disagree about is a catalog neither of them has, and
+ * rendering the entries this side happens to like is how the surface and the
+ * keyword guard come to see different labels.
+ */
 async function readGroupLabels(accountId: Id): Promise<Label[] | null> {
   try {
     const folderId = await ensureFolder(accountId);
     const node = await findInFolder(accountId, folderId, GROUP_LABELS_FILE);
     if (!node?.blobId) return null;
-    const text = await client.fetchBlobText(accountId, node.blobId, JSON_MIME);
-    const parsed = JSON.parse(text) as unknown;
-    if (!isRecord(parsed)) return null;
-    const list = parsed.labels;
-    return Array.isArray(list) ? list.filter(validLabel) : null;
+    const text = await client.fetchBlobText(accountId, node.blobId, APP_DOCUMENT_TYPE);
+    const parsed: unknown = JSON.parse(text);
+    return isLabelCatalog(parsed) ? parsed.labels : null;
   } catch {
     // A catalog we cannot read must not cost anyone their mail view.
     return null;

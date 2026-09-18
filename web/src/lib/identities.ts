@@ -13,9 +13,32 @@
  * answer the surface shows, not an error to hide.
  */
 
+import type {
+  GroupIdentityView,
+  IdentityPatch,
+  Impersonation,
+  MemberAssignmentView,
+  PersonIdentitiesView,
+} from "@gilbert/shared/identityViews";
 import { apiFetch } from "@/jmap/client";
-import type { Identity } from "@/jmap/types";
 import { useMail } from "@/store/mail";
+
+/*
+ * Read here, declared there: every shape a route answers with, so a consumer of
+ * this module names the same type the route builds. They live in the server
+ * tree because the server is the tier that builds them (`@gilbert/shared` is
+ * the alias both tiers read; see web/tsconfig.json).
+ */
+export type {
+  GroupIdentityView,
+  IdentityLockState,
+  IdentityLockUnknownReason,
+  IdentityPatch,
+  Impersonation,
+  MemberAssignmentView,
+  PersonGroupIdentities,
+  PersonIdentitiesView,
+} from "@gilbert/shared/identityViews";
 
 /**
  * Read this session's identity lists again, after one of the writes below.
@@ -36,28 +59,6 @@ import { useMail } from "@/store/mail";
 async function afterIdentityWrite(): Promise<void> {
   await useMail.getState().refreshIdentities();
 }
-
-/** Whether this session can act as another principal at all. */
-export type Impersonation = "ok" | "denied" | "unknown";
-
-/**
- * Whether an account's identity has been taken over, or that the server could
- * not read the record at all.
- *
- * `"unknown"` is the third answer, and it is not the same as "not enforced":
- * the lock is a file in the locked account's own app folder, so a session that
- * cannot impersonate the account cannot read it and must not claim the account
- * is free. `IdentityLockUnknownReason` says what stopped the read.
- */
-export type IdentityLockState = true | false | "unknown";
-
-/** Why a lock state comes back `"unknown"`: the read the account refused. */
-export type IdentityLockUnknownReason = "impersonation_denied";
-
-/** The identity fields an administrator writes; `id` and `mayDelete` are the server's. */
-export type AdminIdentityPatch = Partial<
-  Pick<Identity, "name" | "email" | "replyTo" | "bcc" | "textSignature" | "htmlSignature">
->;
 
 /** One account of the directory the picker offers, as `GET /api/admin/users` lists it. */
 export interface AdminDirectoryUser {
@@ -94,68 +95,6 @@ export interface AdminGroupDirectory {
   enumerationMessage: string | null;
 }
 
-/** A person's identities, and whether the installation has taken the account over. */
-export interface AdminUserIdentities {
-  address: string;
-  /** `"unknown"` when the server could not read the account's own lock file. */
-  locked: IdentityLockState;
-  /**
-   * What stopped that read: null exactly when `locked` is `true` or `false`, and
-   * the reason when it is `"unknown"`.
-   */
-  lockUnknownReason: IdentityLockUnknownReason | null;
-  impersonation: Impersonation;
-  identities: Identity[];
-  /** The identity that account sends from by default, or null when it has not
-   * chosen one and the client falls back to its first. */
-  defaultIdentityId: string | null;
-  /**
-   * The groups this person belongs to, and what their own account may send as
-   * in each (ADR 0007). Read as the person, so it is the same list their own
-   * Identities & signatures section shows beneath their own.
-   */
-  groups: AdminPersonGroup[];
-}
-
-/** One group a person belongs to, and the identities their account sends as there. */
-export interface AdminPersonGroup {
-  /** The group's own address — what the server calls the account. */
-  name: string;
-  identities: Identity[];
-  /**
-   * False when the person's own session could not read that account. An answer,
-   * not a failure: the surface says which group it could not read rather than
-   * showing it as one with no identities.
-   */
-  readable: boolean;
-}
-
-/**
- * A group's identities, its roster, and whether the agent is granted on it.
- *
- * A group holds **one identity per member** (ADR 0007) — the group's own
- * address, each member's own display name and signature — so this is a list
- * where the surface used to hold one, and the administrator assigns them by
- * member.
- * `members` is that roster, read as the agent: `null` when it could not be read
- * at all, which is an answer rather than a failure — the identities it holds
- * are still listed, and the surface says the roster is unreadable.
- */
-export interface AdminGroupIdentity {
-  name: string;
-  granted: boolean;
-  identities: Identity[];
-  members: string[] | null;
-  /**
-   * Which identity each member is **assigned**, by member address (ADR 0007).
-   * The fact that binds a member to theirs; a member absent from it has been
-   * assigned nothing and sends as `groupSenderId`.
-   */
-  assignments: Record<string, string>;
-  /** The group's own identity: what an unassigned member sends as. */
-  groupSenderId: string | null;
-}
-
 /* ------------------------------------------------------------------ */
 /* The directories the pickers offer                                   */
 /* ------------------------------------------------------------------ */
@@ -175,8 +114,8 @@ export function fetchAdminGroups(): Promise<AdminGroupDirectory> {
 /* ------------------------------------------------------------------ */
 
 /** `GET /api/admin/identities/user` — every identity the account holds. */
-export function fetchUserIdentities(address: string): Promise<AdminUserIdentities> {
-  return apiFetch<AdminUserIdentities>(
+export function fetchUserIdentities(address: string): Promise<PersonIdentitiesView> {
+  return apiFetch<PersonIdentitiesView>(
     `/api/admin/identities/user?address=${encodeURIComponent(address)}`,
   );
 }
@@ -185,7 +124,7 @@ export function fetchUserIdentities(address: string): Promise<AdminUserIdentitie
 export async function saveUserIdentity(
   address: string,
   id: string | null,
-  patch: AdminIdentityPatch,
+  patch: IdentityPatch,
 ): Promise<string> {
   const res = await apiFetch<{ ok: true; id: string }>("/api/admin/identities/user", {
     method: "POST",
@@ -245,8 +184,8 @@ export async function setUserDefaultIdentity(
 /* ------------------------------------------------------------------ */
 
 /** `GET /api/admin/identities/group` — a group's identities, roster and assignments. */
-export function fetchGroupIdentity(name: string): Promise<AdminGroupIdentity> {
-  return apiFetch<AdminGroupIdentity>(
+export function fetchGroupIdentity(name: string): Promise<GroupIdentityView> {
+  return apiFetch<GroupIdentityView>(
     `/api/admin/identities/group?name=${encodeURIComponent(name)}`,
   );
 }
@@ -265,7 +204,7 @@ export async function saveGroupIdentity(
   name: string,
   member: string,
   id: string | null,
-  patch: AdminIdentityPatch,
+  patch: IdentityPatch,
 ): Promise<string> {
   const res = await apiFetch<{ ok: true; id: string }>("/api/admin/identities/group", {
     method: "POST",
@@ -279,25 +218,9 @@ export async function saveGroupIdentity(
 /* What a member sends as in a group                                    */
 /* ------------------------------------------------------------------ */
 
-/**
- * The identity the signed-in member sends as in one group.
- *
- * One id rather than a whole list: the composer already holds the group's
- * identities and resolves the id against them. The group's own identity — what
- * an unassigned member sends as — is deliberately **not** answered beside it: it
- * is step 2 of the cascade, a rule both tiers import
- * (`@gilbert/shared/identityAssignment`) and the store derives from the address
- * the session calls the account, so there is no second copy of it to go stale.
- */
-export interface MemberAssignment {
-  group: string;
-  /** The identity assigned to this member, or null when none is. */
-  assignedId: string | null;
-}
-
 /** `GET /api/identities/assignment?group=` — as the member, for their own composer. */
-export function fetchMemberAssignment(group: string): Promise<MemberAssignment> {
-  return apiFetch<MemberAssignment>(
+export function fetchMemberAssignment(group: string): Promise<MemberAssignmentView> {
+  return apiFetch<MemberAssignmentView>(
     `/api/identities/assignment?group=${encodeURIComponent(group)}`,
   );
 }

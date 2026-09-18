@@ -54,6 +54,9 @@ import {
   environmentConfiguration,
   type InstallationEnvironment,
 } from "./configuration.js";
+import { basicAuth as basicAuthorization } from "./util.js";
+
+export { basicAuthorization };
 
 /**
  * How long the first request of a boot may take.
@@ -180,11 +183,6 @@ export interface MasterLogin {
   authorization: string;
   /** The JMAP session resource Stalwart answered with. */
   session: UpstreamSession;
-}
-
-/** The Basic header for a principal's own credential. */
-export function basicAuthorization(address: string, password: string): string {
-  return `Basic ${Buffer.from(`${address}:${password}`, "utf8").toString("base64")}`;
 }
 
 /**

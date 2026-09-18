@@ -15,6 +15,7 @@
  * them.
  */
 
+import { countOrNull } from "../shared/counts.js";
 import { isRecord } from "../shared/json.js";
 import type { PageImage } from "./documentFamily.js";
 import type { AgentUsage } from "./documents.js";
@@ -246,11 +247,6 @@ function contentBlocks(
   ];
 }
 
-/** One reported count, or null when the provider did not report it. */
-function count(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
-}
-
 /**
  * The cost the provider reported for this call.
  *
@@ -269,9 +265,9 @@ function usageOf(body: unknown): AgentUsage | undefined {
       ? ((body as { usage?: unknown }).usage as Record<string, unknown> | undefined)
       : undefined;
   const reported: AgentUsage = {
-    inputHitTokens: count(usage?.prompt_cache_hit_tokens),
-    inputMissTokens: count(usage?.prompt_cache_miss_tokens),
-    outputTokens: count(usage?.completion_tokens),
+    inputHitTokens: countOrNull(usage?.prompt_cache_hit_tokens),
+    inputMissTokens: countOrNull(usage?.prompt_cache_miss_tokens),
+    outputTokens: countOrNull(usage?.completion_tokens),
   };
   return reported.inputHitTokens === null &&
     reported.inputMissTokens === null &&

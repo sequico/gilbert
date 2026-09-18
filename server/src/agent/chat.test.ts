@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { sleep } from "../shared/async.js";
 import type { ChatMessage } from "../shared/chat.js";
 
 /**
@@ -40,8 +41,6 @@ const AUTH = `Basic ${Buffer.from("demo@example.com:demo").toString("base64")}`;
 const session = await fetchUpstreamSession(AUTH, BASE);
 const ctx = { authorization: AUTH, session, username: "demo@example.com" };
 const client = new JmapClient({ authorization: AUTH, session });
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 let first = "";
 let agentMessage = "";

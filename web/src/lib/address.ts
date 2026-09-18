@@ -110,12 +110,12 @@ export function avatarColor(seed: string | null | undefined): string {
   return PALETTE[h % PALETTE.length]!;
 }
 
-export function sameAddress(
-  a: string | null | undefined,
-  b: string | null | undefined,
-): boolean {
-  return (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
-}
+/*
+ * Declared once, in `@gilbert/shared/address`: the server asks the same
+ * question of the accounts a group holds, and two answers to "the same
+ * address?" is a match one tier makes and the other does not.
+ */
+export { sameAddress } from "@gilbert/shared/address";
 
 export function uniqueAddresses(list: EmailAddress[]): EmailAddress[] {
   const seen = new Set<string>();

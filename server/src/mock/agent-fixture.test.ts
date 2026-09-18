@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { type MethodCall, responseOf } from "../testkit.js";
 
 /**
  * The agent fixture (ADR 0003): the principal the worker authenticates as, and
@@ -41,7 +42,6 @@ const FILENODE = "urn:ietf:params:jmap:filenode";
 const MAIL = "urn:ietf:params:jmap:mail";
 const SUBMISSION = "urn:ietf:params:jmap:submission";
 
-type MethodCall = [string, Record<string, unknown>, string];
 type Obj = Record<string, unknown>;
 
 /** The agent's own session, as the worker derives it at boot. */
@@ -70,12 +70,6 @@ async function jmap(
   assert.equal(res.status, 200);
   const body = (await res.json()) as { methodResponses: MethodCall[] };
   return body.methodResponses;
-}
-
-function responseOf(responses: MethodCall[], callId: string): MethodCall {
-  const found = responses.find((r) => r[2] === callId);
-  assert.ok(found, `${callId} should answer`);
-  return found;
 }
 
 const createdId = (call: MethodCall, key: string): string =>

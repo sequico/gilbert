@@ -3,6 +3,7 @@ import { client } from "@/jmap/client";
 import type { ChangesResponse } from "@/jmap/types";
 import type { ChatMessage } from "@/lib/chat";
 import { type ChatConversation, useChat } from "@/store/chat";
+import { flushMicrotasks as flush } from "@/test/testkit";
 
 /**
  * The live re-sync of an open conversation.
@@ -65,8 +66,6 @@ function seed(over: Partial<ChatConversation>): void {
     openAccountId: null,
   });
 }
-
-const flush = () => new Promise<void>((res) => setTimeout(res, 0));
 
 let next: ChangesResponse = changes({});
 /** Transcript reads, so a re-read the store asked for is visible. */
