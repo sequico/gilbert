@@ -1,6 +1,10 @@
-# ADR 0012 — The installation's configuration is the Master's own document
+# ADR 0011 — The installation's configuration is the Master's own document
 
-Status: Proposed
+Status: Accepted
+
+Implementation: Built. `installation.json` in the Master account's `gilbert` app
+folder, read whole at boot and written by the administration through the
+impersonation door (`server/src/installation.ts`).
 
 ## Context
 
@@ -132,4 +136,4 @@ being asked to believe.
 - `.env.example` — the environment's own list, in the words a deployment reads
 - ADR 0001 — administration, impersonation, and the admin permission marker
 - ADR 0003 — the Master, and the agent fleet that acts as it
-- ADR 0011 — the policy publish, the other document the administration writes
+- ADR 0010 — the policy publish, the other document the administration writes

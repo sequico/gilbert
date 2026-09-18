@@ -36,6 +36,8 @@
  *   node scripts/probe-conditional-writes.mjs
  */
 
+import { basic, record, report } from "./lib/probeKit.mjs";
+
 const base = (process.env.GILBERT_PROBE_URL ?? "").replace(/\/+$/, "");
 const user = process.env.GILBERT_PROBE_USER ?? "";
 const password = process.env.GILBERT_PROBE_PASS ?? "";
@@ -59,14 +61,8 @@ const CORE_CAP = "urn:ietf:params:jmap:core";
 /* Stalwart's own FileNode capability, the one the app authenticates against. */
 const FILENODE_CAP = "urn:ietf:params:jmap:filenode";
 const sessionUrl = process.env.GILBERT_PROBE_SESSION_URL || `${base}/.well-known/jmap`;
-const auth = `Basic ${Buffer.from(`${user}:${password}`, "utf8").toString("base64")}`;
+const auth = basic(user, password);
 const jsonHeaders = { authorization: auth, "content-type": "application/json" };
-
-const answers = [];
-/** Record one question's answer, and whether it is what the fleet assumes. */
-function record(question, answer, assumed) {
-  answers.push({ question, answer, assumed, ok: answer === assumed });
-}
 
 async function session() {
   const res = await fetch(sessionUrl, { headers: { authorization: auth } });
@@ -219,29 +215,9 @@ const run = async () => {
     );
   }
 
-  console.log("");
-  let wrong = 0;
-  for (const entry of answers) {
-    const mark = entry.ok ? "ok  " : "DIFF";
-    if (!entry.ok) wrong += 1;
-    console.log(`${mark} ${entry.question}: ${entry.answer} (assumed ${entry.assumed})`);
-  }
-  console.log("");
-  if (wrong) {
-    console.log(
-      `${wrong} assumption(s) differ. This is the answer that changes what "ready` +
-        ` for main" means: record it in ADR 0003 resolution 19 and in the mock's note` +
-        ` beside checkIfInState, and fix what depends on it before the fleet runs` +
-        ` against this server.`,
-    );
-    return 1;
-  }
-  console.log(
-    "Every assumed behaviour holds on this server. Record the answers, with the" +
-      " date and the server's version, in ADR 0003 resolution 19 and in the mock's" +
-      " note beside checkIfInState (that note is the TODO this run answers).",
-  );
-  return 0;
+  return report({
+    where: "in ADR 0003 resolution 19 and in the mock's note beside `checkIfInState`",
+  });
 };
 
 run()

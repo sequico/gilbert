@@ -13,7 +13,7 @@ const req = (...methods: string[]) =>
   });
 
 /**
- * The door ADR 0014 puts in front of the registry (see `adminGate.ts`): with
+ * The door ADR 0017 puts in front of the registry (see `adminGate.ts`): with
  * the installation's administration off the menu is not the enforcement, the
  * proxy is. These are the cases that decide what a session which may not
  * administer can still send.

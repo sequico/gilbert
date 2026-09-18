@@ -16,8 +16,6 @@ import { plural, t } from "@/lib/i18n";
 import { addDays, startOfDay } from "./dates";
 import { formatFullDateTime } from "./datetime";
 
-export const SUBMISSION_CAP = "urn:ietf:params:jmap:submission";
-
 /** The account's `urn:ietf:params:jmap:submission` capability object. */
 export interface SubmissionCapability {
   maxDelayedSend?: number;

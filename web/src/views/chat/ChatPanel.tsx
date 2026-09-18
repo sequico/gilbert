@@ -14,11 +14,11 @@ import type { Id } from "@/jmap/types";
 import {
   type ChatMention,
   type ChatMessage,
+  localPart,
   MAX_TEXT,
   mentionablesOf,
   mentionRegex,
   participantsOf,
-  shortName,
 } from "@/lib/chat";
 import { COMMON_EMOJI, emojiAsset } from "@/lib/emoji";
 import { formatListDate } from "@/lib/format";
@@ -107,7 +107,7 @@ function MentionedText({
             className={`chat-mention${p === me ? " me" : ""}${gone ? " gone" : ""}`}
             title={gone ? t("No longer in this group") : p}
           >
-            @{shortName(p)}
+            @{localPart(p)}
           </span>
         );
       })}
@@ -458,7 +458,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                   >
                     <span className="chat-result-meta">
                       <span className="chat-result-who">
-                        {m.from === me ? t("You") : shortName(m.from)}
+                        {m.from === me ? t("You") : localPart(m.from)}
                       </span>
                       <span className="chat-result-date">{formatListDate(m.at)}</span>
                     </span>
@@ -523,7 +523,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                           title={t("Go to the message being answered")}
                         >
                           <span className="chat-quote-name">
-                            {reply.from === me ? t("You") : shortName(reply.from)}
+                            {reply.from === me ? t("You") : localPart(reply.from)}
                           </span>
                           <span className="chat-quote-text">
                             <MentionedText
@@ -537,7 +537,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                       )}
                       <div className="chat-bubble-meta">
                         <span className="chat-sender">
-                          {mine ? t("You") : shortName(m.from)}
+                          {mine ? t("You") : localPart(m.from)}
                         </span>
                         <span className="chat-clock">{formatListDate(m.at)}</span>
                         <button
@@ -585,7 +585,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
                   const target = byId.get(open.replyTo!);
                   return target
                     ? t("Replying to {who}", {
-                        who: target.from === me ? t("You") : shortName(target.from),
+                        who: target.from === me ? t("You") : localPart(target.from),
                       })
                     : t("Reply");
                 })()}
@@ -648,7 +648,7 @@ export function ChatPanel({ accounts, onClose }: ChatPanelProps) {
               value={open.draft}
               maxLength={MAX_TEXT}
               mentionables={mentionables}
-              placeholder={t("Message {group}", { group: shortName(open.name) })}
+              placeholder={t("Message {group}", { group: localPart(open.name) })}
               onChange={(text) => setDraft(open.accountId, text)}
               onSend={submit}
             />

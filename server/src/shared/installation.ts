@@ -20,9 +20,13 @@
  *   filesystem is read-only. They stay in the environment, with defaults.
  * - **Everything else** is here, and is the majority.
  *
- * Each default below names the variable it replaces and the value that
- * variable falls back to today, so a reader can check the translation field by
- * field against `config.ts` rather than taking it on trust.
+ * Each default below names the variable it replaces, and they are not only the
+ * document's: `configuration.ts` reads the environment *over* this object
+ * (`installationDefaults()`), so a value the environment is silent about is the
+ * one stated here. That is what keeps a process with no boot and an
+ * installation that has just created its document describing the same
+ * installation, and it is why these literals live here rather than in a copy
+ * beside the environment's reader.
  *
  * The document carries a `version` (the schema this build writes) and an
  * `epoch` (bumped by every write, and the value a conditional write compares
@@ -35,6 +39,8 @@
  * and the server that boots from it cannot drift into two ideas of what an
  * installation is.
  */
+
+import { isRecord } from "./json.js";
 
 /** The document's name inside the Master account's `gilbert` app folder. */
 export const INSTALLATION_FILE = "installation.json";
@@ -66,7 +72,7 @@ export interface InstallationServer {
    * `ADMINISTRATION` (default `true`): whether this installation offers
    * administration to accounts whose Stalwart role allows it. Off means off --
    * no menu, and the JMAP proxy refuses registry methods beyond the account's
-   * own (ADR 0014, `adminGate.ts`). Stalwart's own interface is unaffected
+   * own (ADR 0017, `adminGate.ts`). Stalwart's own interface is unaffected
    * either way.
    */
   administration: boolean;
@@ -265,10 +271,6 @@ export function installationDefaults(): InstallationDocument {
     },
     secret: "", // APP_SECRET — generated on the first boot, never a literal
   };
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return !!v && typeof v === "object" && !Array.isArray(v);
 }
 
 /** The domains and URLs of the routing table, checked the way `config.ts` checked them. */

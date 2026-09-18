@@ -16,6 +16,7 @@ import { pathToFileURL } from "node:url";
 import { type Ctx, filesAccountId, readAppJsonAt, writeAppFileAt } from "../appFolder.js";
 import { config } from "../config.js";
 import { JmapClient, serverNow } from "../jmap.js";
+import { sleep } from "../shared/async.js";
 import {
   fetchUpstreamSession,
   UpstreamError,
@@ -799,8 +800,7 @@ async function openSession(
     } catch (err) {
       last = err;
       if (err instanceof UpstreamError && err.status === 401) break;
-      if (attempt < BOOT_ATTEMPTS)
-        await new Promise((resolve) => setTimeout(resolve, BOOT_DELAY_MS * attempt));
+      if (attempt < BOOT_ATTEMPTS) await sleep(BOOT_DELAY_MS * attempt);
     }
   }
   throw last instanceof Error ? last : new Error("the agent session could not be opened");

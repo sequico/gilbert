@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { loginWith } from "./testkit.js";
 
 /**
  * The admin Users surface (ADR 0001): the directory
@@ -51,12 +52,7 @@ async function call(
   };
 }
 
-async function login(username: string, password: string) {
-  return call("/api/auth/login", "", {
-    method: "POST",
-    body: JSON.stringify({ username, password }),
-  });
-}
+const login = loginWith(call);
 
 let adminCookie = "";
 

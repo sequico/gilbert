@@ -1,6 +1,6 @@
 import { groupSenderIdentity } from "@gilbert/shared/identityAssignment";
 import { create } from "zustand";
-import { chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
+import { CAP, chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
 import type {
   ChangesResponse,
   Comparator,
@@ -43,6 +43,16 @@ import {
   ownIdentityAccountId,
 } from "@/lib/mailAccounts";
 import { mailboxDisplayName } from "@/lib/mailboxName";
+import {
+  type DeleteContext,
+  type DeleteFailure,
+  type DeleteOutcome,
+  type DeleteRefusal,
+  destroyRefusal,
+  FINAL_FOLDER_ROLES,
+  folderDestroyTakesMail,
+  mayDestroy,
+} from "@/lib/mailDelete";
 import { playNewMailSound, showNotification } from "@/lib/notify";
 import type { FolderRef } from "@/lib/sieveFolders";
 import { SPAM_HEADER_PROPS } from "@/lib/spamScore";
@@ -53,9 +63,11 @@ import { settings, useSettings } from "./settings";
 import { useSieve } from "./sieve";
 
 /*
- * Named explicitly so `shareWith` comes back, which it does not otherwise --
- * see the note on CALENDAR_PROPS and the KNOWN-ISSUES entry. Mailboxes, calendars
- * and address books all name their properties by hand for this reason.
+ * Named explicitly so `shareWith` comes back, which a mailbox does not
+ * otherwise return -- not on 0.16.19 and not on 0.16.21, where `Calendar/get`
+ * and `AddressBook/get` do hand over every property unasked. See the note on
+ * CALENDAR_PROPS and the KNOWN-ISSUES entry. So does `Files`, which names its
+ * own properties.
  *
  * It matters here for one narrow but real case. Sharing a mail folder is
  * withdrawn because Stalwart stores the share and never delivers it, and the
@@ -228,6 +240,16 @@ export interface MailState {
   openAccount(accountId: Id): Promise<void>;
   loadMailboxes(): Promise<void>;
   roleId(role: MailboxRole): Id | null;
+  /**
+   * ADR 0015: whether a destroy may be taken in the account on screen at all.
+   *
+   * The rule itself is `@/lib/mailDelete`, and this is the store's read of the
+   * two inputs it needs — the account on screen, and the session's `isAdmin`
+   * with the question `isOwnMailAccount` answers. Exposed so that a surface
+   * asks once instead of each of them assembling the same three values, and
+   * reads the same answer the guards on the effects use.
+   */
+  mayDestroyHere(): boolean;
   mailboxPath(id: Id): string;
   childrenOf(parentId: Id | null): Mailbox[];
 
@@ -249,13 +271,13 @@ export interface MailState {
     opts?: { fromMailboxId?: Id | null; silent?: boolean; label?: string },
   ): Promise<void>;
   addToMailbox(ids: Id[], mailboxId: Id, add: boolean): Promise<void>;
-  trash(ids: Id[]): Promise<void>;
-  destroy(ids: Id[]): Promise<void>;
+  trash(ids: Id[]): Promise<DeleteOutcome>;
+  destroy(ids: Id[]): Promise<DeleteOutcome>;
   archive(ids: Id[]): Promise<void>;
   /** Archive into a dated subfolder of Archive, creating the folders as needed. */
   archiveByDate(ids: Id[], granularity: ArchiveGranularity): Promise<void>;
   spam(ids: Id[], isSpam: boolean): Promise<void>;
-  emptyMailbox(mailboxId: Id): Promise<void>;
+  emptyMailbox(mailboxId: Id): Promise<DeleteOutcome>;
   /** Mark every unread message in a mailbox read; optionally its subfolders too. */
   markMailboxRead(mailboxId: Id, includeChildren?: boolean): Promise<void>;
   /** The mailbox plus all of its descendants. */
@@ -265,7 +287,7 @@ export interface MailState {
   /** Give something the Archive role -- adopting a folder already named for it, or making one. */
   ensureArchiveFolder(): Promise<Id>;
   updateMailbox(id: Id, patch: Partial<Mailbox>): Promise<void>;
-  destroyMailbox(id: Id, removeEmails?: boolean): Promise<void>;
+  destroyMailbox(id: Id, removeEmails?: boolean): Promise<DeleteOutcome>;
 
   loadIdentities(): Promise<Identity[]>;
   /** Read one account's identities: the one fetch behind both views. */
@@ -619,6 +641,10 @@ export const useMail = create<MailState>((set, get) => ({
   roleId(role) {
     for (const m of Object.values(get().mailboxes)) if (m.role === role) return m.id;
     return null;
+  },
+
+  mayDestroyHere() {
+    return mayDestroy(deleteContext());
   },
 
   mailboxPath(id) {
@@ -1061,15 +1087,45 @@ export const useMail = create<MailState>((set, get) => ({
         (roleId("junk") && emails[id]?.mailboxIds[roleId("junk")!]),
     );
     const toMove = ids.filter((id) => !inTrash.includes(id));
-    if (inTrash.length) await get().destroy(inTrash);
-    if (toMove.length && trashId)
-      await get().move(toMove, trashId, { label: "Deleted Items" });
-    else if (toMove.length) await get().destroy(toMove);
+    /*
+     * A delete does two different things, and in a group only one of them is
+     * refused: the messages already in Deleted Items or Junk Mail would be
+     * ended, and the rest are filed. So the answer is "did anything happen",
+     * not "was anything refused" — a mixed selection still moves what it can,
+     * and a caller must not read that as nothing having happened. The refused
+     * half is announced by `destroy` below either way.
+     */
+    let refused: DeleteFailure | null = null;
+    let acted = false;
+    if (inTrash.length) {
+      const outcome = await get().destroy(inTrash);
+      if (outcome.ok) acted = true;
+      else refused = outcome.code;
+    }
+    if (toMove.length) {
+      if (trashId) {
+        await get().move(toMove, trashId, { label: "Deleted Items" });
+        acted = true;
+      } else {
+        // No Deleted Items to file into, so the rest is destroyed outright —
+        // and that half's outcome is the caller's business too.
+        const outcome = await get().destroy(toMove);
+        if (outcome.ok) acted = true;
+        else refused ??= outcome.code;
+      }
+    }
+    if (!acted && refused) return { ok: false, code: refused };
+    return { ok: true };
   },
 
   async destroy(ids) {
     const accountId = get().accountId;
-    if (!accountId || !ids.length) return;
+    if (!accountId || !ids.length) return { ok: true };
+    const refused = destroyRefusal(deleteContext(), "final");
+    if (refused) {
+      toast.error(refusalSentence(refused));
+      return { ok: false, code: refused };
+    }
     removeFromList(ids, set, get, null);
     set((s) => {
       const next = { ...s.emails };
@@ -1096,10 +1152,26 @@ export const useMail = create<MailState>((set, get) => ({
           `${ids.length === 1 ? "Message" : `${ids.length} messages`} deleted forever`,
         );
       void get().loadMailboxes();
+      /*
+       * Part of the selection went and part did not: the action happened, and
+       * the toast above already named the mail that stayed. Only the total
+       * refusal is the answer a caller has to read — nothing moved, so nothing
+       * may be reported as done.
+       */
+      if (failed.length && failed.length === ids.length)
+        return { ok: false, code: "server_refused" };
     } catch (err) {
       toast.error(t("Delete failed: {error}", { error: (err as Error).message }));
       void get().refreshList();
+      /*
+       * The server refused, so the messages are still there — and the optimistic
+       * removal above has to be undone by the refresh. That is why this is the
+       * answer rather than silence: a caller that read it as success would move
+       * its focus off a row that is still in the list.
+       */
+      return { ok: false, code: "server_refused" };
     }
+    return { ok: true };
   },
 
   async archive(ids) {
@@ -1222,7 +1294,7 @@ export const useMail = create<MailState>((set, get) => ({
 
   async emptyMailbox(mailboxId) {
     const accountId = get().accountId;
-    if (!accountId) return;
+    if (!accountId) return { ok: true };
     // Emptying is permanent and covers the whole folder at once, so it is
     // offered only for the two folders whose whole purpose is holding what you
     // did not want. The menus hide it elsewhere; this is the guard that makes
@@ -1231,9 +1303,23 @@ export const useMail = create<MailState>((set, get) => ({
     // Junk Mail is destroyed outright rather than moved to Deleted Items —
     // there is no point routing spam through the bin on its way out, and it is
     // what "delete all spam" means everywhere else. The dialogs say so.
-    if (mailboxId !== get().roleId("trash") && mailboxId !== get().roleId("junk")) {
+    // The two folders are the rule's (`FINAL_FOLDER_ROLES`), asked as ids so
+    // the question is the one the action actually names.
+    const finalIds = FINAL_FOLDER_ROLES.map((role) => get().roleId(role));
+    if (!finalIds.includes(mailboxId)) {
       toast.error(t("Only Deleted Items and Junk Mail can be emptied."));
-      return;
+      return { ok: true };
+    }
+    /*
+     * Then the group rule (ADR 0015), asked after the folder's own: a folder
+     * that may not be emptied at all is the more specific answer, and it says
+     * nothing about who is asking. A group's Deleted Items and Junk Mail are
+     * real folders members fill and cannot empty.
+     */
+    const refused = destroyRefusal(deleteContext(), "empty");
+    if (refused) {
+      toast.error(refusalSentence(refused));
+      return { ok: false, code: refused };
     }
     // A folder can hold far more messages than the server will destroy in one
     // call, so walk it a page at a time instead of back-referencing one huge
@@ -1287,11 +1373,23 @@ export const useMail = create<MailState>((set, get) => ({
               })
             : ""),
       );
+      /*
+       * Nothing was destroyed before the failure — the folder is as it was — so
+       * a caller may not read this as an emptied folder. The housekeeping below
+       * runs either way: this branch only has to answer.
+       */
+      if (!deleted) return { ok: false, code: "server_refused" };
     } finally {
       if (progress !== null) toast.dismiss(progress);
       void get().loadMailboxes();
       void get().refreshList();
     }
+    /*
+     * The server's own refusal part-way through is a failure the reader is
+     * already told about, not the group rule declining to act — and mail did go,
+     * so the emptying happened and the answer says so.
+     */
+    return { ok: true };
   },
 
   descendantMailboxIds(mailboxId) {
@@ -1446,6 +1544,19 @@ export const useMail = create<MailState>((set, get) => ({
 
   async destroyMailbox(id, removeEmails = true) {
     const accountId = get().accountId!;
+    /*
+     * A folder that holds mail is destroyed **with** it, so this is the third of
+     * the three entry points ADR 0015 closes in a group. The count is the one
+     * the folder list already carries: an empty folder is not mail, and a
+     * group's tree stays the group's to shape.
+     */
+    if (
+      folderDestroyTakesMail(get().mailboxes[id], removeEmails) &&
+      destroyRefusal(deleteContext(), "folder")
+    ) {
+      toast.error(refusalSentence("group_mail_folder"));
+      return { ok: false, code: "group_mail_folder" };
+    }
     const before = folderRefs(get(), id);
     const res = await client.call<SetResponse>("Mailbox/set", {
       accountId,
@@ -1456,6 +1567,12 @@ export const useMail = create<MailState>((set, get) => ({
     if (err) throw new Error(setErrorMessage(err));
     await get().loadMailboxes();
     await followFolders(before);
+    /*
+     * A refusal from the server still throws, which is the existing contract
+     * this method has with its callers; only the rule's own refusal is returned,
+     * because that one is not a failure — it is the answer.
+     */
+    return { ok: true };
   },
 
   async loadIdentitiesFor(accountId) {
@@ -1727,7 +1844,7 @@ export const useMail = create<MailState>((set, get) => ({
 
   async loadQuota() {
     const accountId = get().accountId;
-    if (!accountId || !client.hasCapability("urn:ietf:params:jmap:quota")) return;
+    if (!accountId || !client.hasCapability(CAP.quota)) return;
     try {
       const res = await client.call<GetResponse<Quota>>("Quota/get", {
         accountId,
@@ -1981,7 +2098,7 @@ export const useMail = create<MailState>((set, get) => ({
     }
     if (types.has("Identity")) {
       /*
-       * Both lists are "on screen" in the ADR 0013 sense while Settings is
+       * Both lists are "on screen" in the ADR 0012 sense while Settings is
        * open: the account being browsed, and the reader's own, which is every
        * group block under it. A change to either is a change to what is shown.
        */
@@ -2283,10 +2400,62 @@ async function runQueryOnce(
 }
 
 /**
+ * The delete rule's inputs, read at the moment an action is taken (ADR 0015).
+ *
+ * Read here rather than handed in because the store is where the action
+ * happens and the account on screen is the store's own; the session is asked
+ * for the copy it holds, which is ADR 0001's flag plus the question
+ * `isOwnMailAccount` answers. Both move when the session state changes, which
+ * the app re-reads on its own.
+ */
+function deleteContext(): DeleteContext {
+  const session = useSession.getState().session;
+  return {
+    accountId: useMail.getState().accountId,
+    session,
+    isAdmin: session?.gilbert?.isAdmin === true,
+  };
+}
+
+/**
+ * What a refused destroy says, in the reader's language.
+ *
+ * The rule answers a code and the sentence is composed where it shows, which is
+ * here for the actions the store performs: a string held in a library is a
+ * string no catalogue can translate. Each sentence says what still works rather
+ * than only what does not, because the reader's next move is the point.
+ */
+function refusalSentence(code: DeleteRefusal): string {
+  switch (code) {
+    case "group_mail_final":
+      /*
+       * Deliberately not "your delete filed it in Deleted Items": a selection
+       * can hold messages that were already in Deleted Items or Junk Mail, and
+       * those are not filed — they are the ones the rule refused. The sentence
+       * states the rule and what still works, which is true of every case.
+       */
+      return t(
+        "A group's mail is ended by an installation administrator. Filing a message in the group's Deleted Items still works, and so does moving it back out.",
+      );
+    case "group_mail_empty":
+      return t(
+        "Only an installation administrator can empty a group's Deleted Items or Junk Mail. Filing mail there still works, and so does moving it back out.",
+      );
+    case "group_mail_folder":
+      return t(
+        "A folder holding mail cannot be deleted in a group, because its mail would go with it. Move the mail out first, or ask an installation administrator.",
+      );
+  }
+}
+
+/**
  * Destroy emails in batches the server will accept.
  *
  * Handing Email/set more ids than `maxObjectsInSet` fails the whole call with
  * requestTooLarge — nothing is deleted — so split first and merge the results.
+ * Every final delete the client makes funnels through here, which is why the
+ * group rule's guard sits on the callers above rather than on this: a guard
+ * here would refuse the batches a caller had already promised.
  */
 async function destroyEmails(
   accountId: Id,

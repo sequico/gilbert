@@ -121,18 +121,15 @@ import {
   STALWART_CAP,
 } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
-import {
-  AGENT_LABELS,
-  isLabelCatalog,
-  isLabelCatalogEntry,
-  type LabelCatalogEntry,
-} from "./shared/labels.js";
+import { isRecord } from "./shared/json.js";
+import { AGENT_LABELS } from "./shared/labels.js";
 import {
   fetchUpstreamSession,
   getUpstreamSession,
   UpstreamError,
   upstreamFor,
 } from "./upstream.js";
+import { basicAuth } from "./util.js";
 
 /**
  * A refusal from the admin surface, as the route answers it.
@@ -151,11 +148,6 @@ export class AgentAdminError extends Error {
     super(reason.code);
     this.name = "AgentAdminError";
   }
-}
-
-/** The Basic header for a principal's own credential. */
-function basic(address: string, password: string): string {
-  return `Basic ${Buffer.from(`${address}:${password}`, "utf8").toString("base64")}`;
 }
 
 /** How many decisions and audit entries a view shows. */
@@ -367,7 +359,7 @@ export async function openAgentSession(
 > {
   const password = config.agent.password.trim();
   if (password) {
-    const authorization = basic(address, password);
+    const authorization = basicAuth(address, password);
     try {
       const session = await fetchUpstreamSession(authorization, upstreamFor(address));
       return { ok: true, ctx: { authorization, session, username: address } };
@@ -1033,9 +1025,9 @@ function providerView(provider: AgentProvider | undefined): AgentProviderView | 
  */
 export async function writeProviders(admin: LiveSession, input: unknown): Promise<void> {
   const { store, address } = await agentStore(admin);
-  if (!input || typeof input !== "object" || Array.isArray(input))
+  if (!isRecord(input))
     throw new AgentAdminError({ code: "provider_not_an_object" }, 400);
-  const given = input as Record<string, unknown>;
+  const given = input;
   const settable = ["provider", "maxOutputTokens", "maxChainHops", "maxPages"];
   for (const key of Object.keys(given)) {
     if (!settable.includes(key))
@@ -1130,9 +1122,8 @@ function providerEntry(
   previous: AgentProvider | undefined,
 ): AgentProvider | null {
   if (raw === null || raw === undefined) return null;
-  if (typeof raw !== "object" || Array.isArray(raw))
-    throw new AgentAdminError({ code: "provider_incomplete" }, 400);
-  const entry = raw as Record<string, unknown>;
+  if (!isRecord(raw)) throw new AgentAdminError({ code: "provider_incomplete" }, 400);
+  const entry = raw;
   const text = (key: string): string =>
     typeof entry[key] === "string" ? (entry[key] as string).trim() : "";
   const provider = text("provider");
@@ -1479,7 +1470,7 @@ export async function saveGroupNotebook(
   input: unknown,
   by: string,
 ): Promise<GroupNotebookView> {
-  if (!input || typeof input !== "object" || Array.isArray(input))
+  if (!isRecord(input))
     throw new AgentAdminError({ code: "notebook_not_an_object" }, 400);
   const raw = (input as { facts?: unknown }).facts;
   if (!Array.isArray(raw))
@@ -1529,16 +1520,20 @@ export async function addAgentLabels(
   access: GroupAccess,
   accountId: string,
 ): Promise<{ added: string[] }> {
-  const existing = (await readGroupLabels(access.ctx, accountId)) ?? [];
-  const have = new Set(
-    existing.filter(isLabelCatalogEntry).map((l: LabelCatalogEntry) => l.keyword),
-  );
+  const read = await readGroupLabels(access.ctx, accountId);
+  /*
+   * A catalog holding entries Gilbert cannot read is refused rather than
+   * rewritten — writing over somebody's labels because one of them is the wrong
+   * shape would lose them — and the reader reports that state on its own,
+   * separately from a group that has no catalog at all.
+   */
+  if (read.state === "unreadable")
+    throw new AgentAdminError({ code: "group_labels_unreadable" }, 502);
+  const existing = read.state === "catalog" ? read.labels : [];
+  const have = new Set(existing.map((l) => l.keyword));
   const missing = AGENT_LABELS.filter((l) => !have.has(l.keyword));
   if (!missing.length) return { added: [] };
-  const labels: unknown[] = [...existing, ...missing];
-  if (!isLabelCatalog({ labels }))
-    throw new AgentAdminError({ code: "group_labels_unreadable" }, 502);
-  await writeGroupLabels(access.ctx, accountId, labels);
+  await writeGroupLabels(access.ctx, accountId, [...existing, ...missing]);
   return { added: missing.map((l) => l.keyword) };
 }
 
@@ -1670,7 +1665,7 @@ export async function memberAgentView(
  * process about it, so the alternative to a window is asking the directory at
  * every mention. A minute keeps the read rare and the staleness small enough
  * that a departure is gone from the next mention after it. This is a cache of
- * a read, never a durable document: ADR 0013 refuses a write on a clock, not a
+ * a read, never a durable document: ADR 0012 refuses a write on a clock, not a
  * read, and nothing here is written anywhere.
  */
 const ROSTER_TTL_MS = 60_000;

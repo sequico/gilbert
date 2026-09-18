@@ -16,6 +16,25 @@ export type RowClick =
   | { kind: "open" }
   | { kind: "select"; ids: Id[]; on: boolean; moveAnchor: boolean };
 
+/**
+ * The rows a shift-click covers: the run from the anchor to the row clicked,
+ * **inclusive at both ends**, in the order they are shown. `null` when either
+ * end is not on screen -- an anchor can name a row of a folder that is no
+ * longer open, and a range to nowhere is not a range.
+ *
+ * Its own function because two lists select a run this way -- the mail list
+ * and the Files list -- and the rule that both ends are in it is exactly the
+ * thing that was got wrong once (issue #186).
+ */
+export function rangeIds(ids: Id[], anchor: Id | null, rowId: Id): Id[] | null {
+  if (!anchor) return null;
+  const from = ids.indexOf(anchor);
+  const to = ids.indexOf(rowId);
+  if (from < 0 || to < 0) return null;
+  const [start, end] = from < to ? [from, to] : [to, from];
+  return ids.slice(start, end + 1);
+}
+
 export function rowClick(opts: {
   /** The row clicked. */
   rowId: Id;
@@ -31,20 +50,11 @@ export function rowClick(opts: {
   const selectedCount = Object.keys(selected).length;
 
   // A range, from the anchor to here, inclusive at both ends.
-  if (modifiers.shift && anchor) {
-    const from = ids.indexOf(anchor);
-    const to = ids.indexOf(rowId);
-    if (from >= 0 && to >= 0) {
-      const [start, end] = from < to ? [from, to] : [to, from];
-      // The anchor stays where it is, so extending the range again grows it
-      // from the same place rather than from wherever it last reached.
-      return {
-        kind: "select",
-        ids: ids.slice(start, end + 1),
-        on: true,
-        moveAnchor: false,
-      };
-    }
+  if (modifiers.shift) {
+    const run = rangeIds(ids, anchor, rowId);
+    // The anchor stays where it is, so extending the range again grows it
+    // from the same place rather than from wherever it last reached.
+    if (run) return { kind: "select", ids: run, on: true, moveAnchor: false };
   }
 
   if (modifiers.ctrl) {

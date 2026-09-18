@@ -13,8 +13,7 @@ import {
 import { useLocation } from "wouter";
 import type { CalendarEvent } from "@/jmap/types";
 import { toLocalDateOnly } from "@/lib/dates";
-import { formatDayMonth } from "@/lib/datetime";
-import { formatTime } from "@/lib/format";
+import { formatClock, formatDayMonth } from "@/lib/datetime";
 import { t } from "@/lib/i18n";
 import {
   type EventInstance,
@@ -79,7 +78,7 @@ export function CalendarContextMenu({ ctx, onClose, onOpen, onEdit, onCreate }: 
           label={
             allDay
               ? t("New all-day event on {date}", { date: formatDayMonth(start) })
-              : t("New event at {time}", { time: formatTime(start) })
+              : t("New event at {time}", { time: formatClock(start) })
           }
           onClick={() => onCreate(start, end, allDay)}
         />

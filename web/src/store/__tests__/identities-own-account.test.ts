@@ -5,6 +5,7 @@ import { ownIdentityAccountId } from "@/lib/mailAccounts";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
+import { flushTwice as flush, identity } from "@/test/testkit";
 
 /**
  * The two views of one identity cache, and what binds a member to a group's
@@ -26,18 +27,6 @@ import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
 
 const OWN = "own";
 const GROUP = "gg";
-
-const identity = (id: string, name: string, email: string): Identity =>
-  ({
-    id,
-    name,
-    email,
-    replyTo: null,
-    bcc: null,
-    textSignature: "",
-    htmlSignature: "",
-    mayDelete: true,
-  }) as Identity;
 
 const OWN_LIST = [
   identity("o1", "Me", "me@example.org"),
@@ -76,11 +65,6 @@ const SESSION = {
   },
   primaryAccounts: { [CAP.mail]: OWN, [CAP.submission]: OWN },
 } as unknown as JmapSession;
-
-const flush = async () => {
-  await new Promise<void>((res) => setTimeout(res, 0));
-  await new Promise<void>((res) => setTimeout(res, 0));
-};
 
 let calls: Array<{ method: string; accountId: unknown }>;
 

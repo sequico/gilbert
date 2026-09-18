@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * The administration gate on the JMAP proxy (ADR 0014), end to end.
+ * The administration gate on the JMAP proxy (ADR 0017), end to end.
  *
  * Hiding the menu is not turning it off: `/api/jmap` forwards whatever the
  * browser sends, and Stalwart's registry answers whatever the credential's role
@@ -23,7 +23,7 @@ process.env.STALWART_URL = `http://127.0.0.1:${PORT}`;
 process.env.APP_SECRET = "test-secret-for-admin-gate";
 process.env.LOGIN_RATE_LIMIT = "10000";
 /*
- * The own-device rule is off by default (ADR 0014): this file is about the
+ * The own-device rule is off by default (ADR 0017): this file is about the
  * installation that asked for it, so it says so the way a deployment would.
  */
 process.env.ADMINISTRATION_NEEDS_OWN_DEVICE = "1";

@@ -81,7 +81,7 @@ metadata:
   authenticated `GET /api/account/policy` each read from the signed-in
   account's own file (`readAccountPolicy`, `server/src/adminPolicy.ts`), fetched
   once by `web/src/lib/settingsPolicy.ts`.
-- **A publish is a job with an id (ADR 0011).** One id is minted before the
+- **A publish is a job with an id (ADR 0010).** One id is minted before the
   first copy goes out, every copy carries it beside the policy as
   `published: { id, at }` (`PolicyPublished`), and the job itself is one
   document — `gilbert/publish-job.json`, in the publishing administrator's own

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /**
+
  * The live probe of the directory read's paging (`server/src/upstream.ts`,
  * `fetchDirectoryPrincipals` and the two surfaces over it).
  *
@@ -56,6 +57,8 @@
  * settled, and 2 when the environment does not say where to ask.
  */
 
+import { basic, note, record, report } from "./lib/probeKit.mjs";
+
 const base = (process.env.STALWART_URL ?? "").replace(/\/+$/, "");
 const user = process.env.GILBERT_AGENT_ADDRESS ?? "";
 const password = process.env.GILBERT_AGENT_PASSWORD ?? "";
@@ -92,32 +95,6 @@ const SMALL_MAX_PAGES = 50;
 const TIMEOUT = 30_000;
 
 const SESSION_URL = process.env.GILBERT_PROBE_SESSION_URL || `${base}/.well-known/jmap`;
-
-const basic = (address, secret) =>
-  `Basic ${Buffer.from(`${address}:${secret}`, "utf8").toString("base64")}`;
-
-const answers = [];
-const notes = [];
-
-/**
- * Record one question's answer and whether it is one the code depends on.
- * `assumed` may be a list: a read that survives either shape says so rather
- * than pretending the server answered one way.
- */
-function record(question, answer, assumed) {
-  const wanted = Array.isArray(assumed) ? assumed : [assumed];
-  answers.push({
-    question,
-    answer,
-    assumed: wanted.join(" | "),
-    ok: wanted.includes(answer),
-  });
-}
-
-/** Something the code survives either way, or that settles none of it. Read. */
-function note(question, answer) {
-  notes.push({ question, answer });
-}
 
 /**
  * A refusal the code reads as `denied`: HTTP 400 or 403 on the whole request,
@@ -368,7 +345,7 @@ const run = async () => {
         "accepted",
       );
       note("what the refusal said", err.message || "(nothing)");
-      report();
+      report({ where: "in server/src/upstream.ts beside `fetchDirectoryPrincipals`" });
       console.log(
         "\nThe read is refused for this credential, so nothing about paging is settled.\n" +
           "Stalwart gates Principal/query behind `allow_directory_query` or the\n" +
@@ -641,39 +618,12 @@ const run = async () => {
     );
   }
 
-  return report();
+  return report({
+    where:
+      "in the comment beside `fetchDirectoryPrincipals` in server/src/upstream.ts and in\n" +
+      "server/src/mock/directory-paging.test.ts",
+  });
 };
-
-/** The answers, one line each, and whether any of them is not what was assumed. */
-function report() {
-  console.log("");
-  for (const { question, answer } of notes) console.log(`note ${question}: ${answer}`);
-  console.log("");
-  let wrong = 0;
-  for (const entry of answers) {
-    if (!entry.ok) wrong += 1;
-    console.log(
-      `${entry.ok ? "ok  " : "DIFF"} ${entry.question}: ${entry.answer} (assumed ${entry.assumed})`,
-    );
-  }
-  console.log("");
-  if (wrong) {
-    console.log(
-      `${wrong} question(s) did not answer the way the read assumes. Record the answers,\n` +
-        "with the server's version and the date, in the comment beside `fetchDirectoryPrincipals`\n" +
-        "in server/src/upstream.ts and in the owed note in server/src/mock/directory-paging.test.ts,\n" +
-        "and change what depends on them before an installation larger than one page relies\n" +
-        "on this read.",
-    );
-    return 1;
-  }
-  console.log(
-    "Every assumed behaviour holds on this server. Record the answers, with the version\n" +
-      "and the date, in the comment beside `fetchDirectoryPrincipals` (that comment is the\n" +
-      "owed probe) and in server/src/mock/directory-paging.test.ts.",
-  );
-  return 0;
-}
 
 run()
   .then((code) => process.exit(code))

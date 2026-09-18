@@ -92,8 +92,8 @@
 
 /*
  * The "gilbert" theme: the palette from ihasmail.org, which is a teal-navy
- * rather than the blue-slate of the plain dark theme, warmed by the orange the
- * logo's cat is drawn in.
+ * rather than the blue-slate of the plain dark theme, warmed by the orange of
+ * ihasmail's own mark -- the cat over the envelope, not Gilbert's butler.
  *
  * It rides on data-theme="dark" rather than replacing it, so every dark-only
  * rule further down this file -- tooltips, toasts, the message frame -- keeps
@@ -131,7 +131,7 @@
   --read-bg: #12303e;
   --selected-bg: rgba(70, 202, 195, 0.18);
   --focus-ring: 0 0 0 3px rgba(70, 202, 195, 0.4);
-  /* The cat is orange; so is the star. */
+  /* ihasmail's cat is orange; so is the star. */
   --star: #f9a34b;
   --q1: #6fdcd6;
   --q2: #4ade80;
@@ -1245,6 +1245,31 @@ a.menu-item:hover { color: var(--fg); }
 .warn-box { padding: 12px 14px; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); }
 
 /* ==========================================================================
+   The mark's two colorways
+   ========================================================================== */
+/*
+ * Both files ship; exactly one of them is shown.
+ *
+ * The base drawing is navy and the inverted one is white, so one of the two is
+ * legible on any given surface and the other is not: navy on a dark card
+ * disappears, white on a light one does the same. `BrandLogo` renders the pair
+ * and this picks between them -- off `data-theme`, the attribute `applyTheme()`
+ * writes before the first paint and the same one every dark-only rule below
+ * keys off. Two drawings rather than a recolour or a filter, because that is
+ * what they are: the sheet sets the inverted mark in its own greys rather than
+ * as the base one reversed.
+ *
+ * `display: none` keeps the hidden one out of the layout and out of the
+ * accessibility tree, so a pair of images does not announce as two. Shown again
+ * is `revert`, not a display value: these sit in a flex row in the top bar and
+ * in a column on the sign-in card, and the image that is shown has to be
+ * whatever the container says an image is.
+ */
+.brand-logo-inverse { display: none; }
+:root[data-theme="dark"] .brand-logo-base { display: none; }
+:root[data-theme="dark"] .brand-logo-inverse { display: revert; }
+
+/* ==========================================================================
    App shell
    ========================================================================== */
 /*
@@ -1349,6 +1374,10 @@ a.menu-item:hover { color: var(--fg); }
 .nav-item .nav-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .nav-item .nav-count { font-size: .8em; font-weight: 700; color: var(--fg-muted); }
 .nav-item.active .nav-count { color: inherit; }
+/* The label rows count "unread (all)": the unread half leads it, in bold, and
+   the total follows in the row's own regular weight. */
+.nav-item .nav-count.label-count { font-weight: 400; }
+.nav-item .nav-count.label-count b { font-weight: 700; }
 .nav-item .nav-more { opacity: 0; width: 24px; height: 24px; margin-right: -6px; }
 .nav-item:hover .nav-more, .nav-item:focus-within .nav-more { opacity: 1; }
 .nav-item .nav-twisty { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; color: var(--fg-faint); border-radius: 4px; }
@@ -1441,8 +1470,17 @@ a.menu-item:hover { color: var(--fg); }
 .msg-row.focused { box-shadow: inset 3px 0 0 var(--accent); }
 .msg-row.open { background: var(--selected-bg); }
 .msg-row.dragging { opacity: .5; }
-.msg-row .msg-check { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; flex: 0 0 auto; opacity: 0; transition: opacity .1s; cursor: pointer; }
-.msg-row:hover .msg-check, .msg-row.selected .msg-check, .mail-list.has-selection .msg-check { opacity: 1; }
+/* One checkbox, three lists: the message list, the contact list and Files all
+   tick rows the same way, so the box itself is defined once -- sized, in the
+   accent colour, out of the way until it is wanted. What differs between them
+   is only what reveals it: hovering the row, the row being picked, or the list
+   being in selection mode. It is never hidden on a touchscreen, where there is
+   no hover to reveal it. */
+.msg-check, .contact-check, .f-check { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; flex: 0 0 auto; opacity: 0; transition: opacity .1s; cursor: pointer; }
+.msg-row:hover .msg-check, .msg-row.selected .msg-check, .mail-list.has-selection .msg-check,
+.contact-row:hover .contact-check, .contact-row.picked .contact-check, .contacts-scroll.has-selection .contact-check,
+.files-table tbody tr:hover .f-check, .files-table tbody tr.selected .f-check, .files-table.has-selection .f-check,
+.contacts-selbar .contact-check { opacity: 1; }
 .msg-row .msg-star { color: var(--fg-faint); flex: 0 0 auto; display: inline-flex; padding: 4px; border-radius: 50%; }
 .msg-row .msg-star:hover { color: var(--star); background: var(--bg-hover); }
 .msg-row .msg-star.on { color: var(--star); }
@@ -1743,11 +1781,6 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .contact-row .c-name { font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .contact-row .c-email { color: var(--fg-muted); font-size: .85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .contact-row.picked { background: var(--selected-bg); }
-/* Out of the way until wanted, and never on a touchscreen, where there is no
-   hover to reveal it -- the same rule the message list's checkbox follows. */
-.contact-check { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; flex: 0 0 auto; opacity: 0; transition: opacity .1s; cursor: pointer; }
-.contact-row:hover .contact-check, .contact-row.picked .contact-check, .contacts-scroll.has-selection .contact-check { opacity: 1; }
-.contacts-selbar .contact-check { opacity: 1; }
 .contacts-selbar { gap: 12px; padding-left: 14px; }
 .contact-letter { position: sticky; top: 0; background: var(--bg-sunken); padding: 4px 14px; font-size: .78em; font-weight: 700; color: var(--fg-muted); letter-spacing: .05em; z-index: 1; }
 .contact-detail { overflow-y: auto; padding: 28px 32px 64px; }
@@ -1901,10 +1934,17 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .breadcrumb button.current { color: var(--fg); font-weight: 650; }
 .files-table { width: 100%; border-collapse: collapse; }
 .files-table th { text-align: left; padding: 8px 12px; font-size: .8em; color: var(--fg-muted); font-weight: 600; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg-elev); z-index: 1; }
+/* The header is a control: the column the listing is in is bold and carries the
+   direction, the others are plain names -- so what is sorted, and which way, is
+   legible without a second look. */
+.files-table th .th-sort { display: inline-flex; align-items: center; gap: 4px; font: inherit; font-weight: 400; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.files-table th .th-sort:hover { color: var(--fg); }
+.files-table th .th-sort.sorted { font-weight: 700; color: var(--fg); }
 .files-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
 .files-table tr { cursor: pointer; }
 .files-table tbody tr:hover { background: var(--bg-hover); }
 .files-table tr.selected { background: var(--selected-bg); }
+.files-table .f-check-col { width: 1%; white-space: nowrap; }
 .files-table .f-name { display: flex; align-items: center; gap: 10px; font-weight: 500; }
 .files-table .f-name svg { color: var(--fg-muted); }
 .files-scroll { flex: 1; overflow: auto; }
@@ -1917,7 +1957,9 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .login-card { width: 100%; max-width: 400px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); padding: 32px 28px 24px; animation: rise .25s var(--ease); }
 .login-card .logo { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 20px; }
 .login-card .logo img { width: 120px; height: auto; }
-/* The logo is the mark alone, so the name is set here rather than baked in. */
+/* The lockup carries the wordmark, so what is set here is the deployment's own
+   name -- a Gilbert that set APP_NAME is called what it calls itself, beside
+   the image that says Gilbert. */
 .login-card h1 { margin: 0; font-size: 1.6em; font-weight: 800; letter-spacing: -.02em; color: #14b8a6; }
 .login-card .sub { color: var(--fg-muted); font-size: .92em; margin: 0; }
 .login-card .tagline { color: var(--fg-muted); font-size: 1em; margin: 4px 0 0; text-align: center; }
@@ -2212,6 +2254,7 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 @media (hover: none) {
   .msg-row .msg-check { opacity: 1; }
   .contact-row .contact-check { opacity: 1; }
+  .files-table .f-check { opacity: 1; }
   .msg-row .msg-actions { display: none !important; }
   .msg-row:hover .msg-meta .msg-date { display: inline; }
   .nav-item .nav-more, .cal-list-item .nav-more { opacity: 1; }
@@ -2361,8 +2404,9 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 /* Files: the sidebar tree reuses .nav-item, so only the parts the mail tree has
    no equivalent for are here. A row in the list is a drop target the same way a
    folder in the tree is, and says so the same way. */
-/* Shown only when more than one row is selected: with a single row the row
-   menu already says everything this would. */
+/* Shown whenever a row is ticked: the bar counts the selection and holds its
+   actions, and the menu it opens is the same set the row menu offers for a
+   whole selection. */
 .selection-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin: 0 12px 4px; border-radius: var(--radius); background: var(--accent-soft); color: var(--accent-soft-fg); }
 .selection-bar .grow { font-weight: 600; }
 .files-table tbody tr.drop-target > td { background: var(--accent-soft); }

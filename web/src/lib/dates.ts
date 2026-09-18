@@ -1,3 +1,4 @@
+import { localDateOnly, localDateTime, pad2 } from "@gilbert/shared/localDateTime";
 import {
   formatClock,
   formatDayMonth,
@@ -85,18 +86,13 @@ export function weekDays(anchor: Date, weekStart = 1, count = 7): Date[] {
   return out;
 }
 
-function pad(n: number, w = 2): string {
-  return String(n).padStart(w, "0");
-}
-
-/** Format a Date's wall-clock (browser local) as JSCalendar LocalDateTime. */
-export function toLocalDateTime(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-
-export function toLocalDateOnly(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
+/**
+ * The client's names for the shared naive-local formatters
+ * (`@gilbert/shared/localDateTime`): one implementation, and the call sites in
+ * the views keep reading the word this file has always used.
+ */
+export const toLocalDateTime = localDateTime;
+export const toLocalDateOnly = localDateOnly;
 
 /** Date → "YYYY-MM-DDTHH:MM:SSZ" (JMAP UTCDate, no millis). */
 export function toUTCDate(d: Date): string {
@@ -307,7 +303,7 @@ export function formatTimeRange(start: Date, end: Date, allDay: boolean): string
 
 /** For <input type="datetime-local"> */
 export function toInputDateTime(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
 export function fromInputDateTime(s: string): Date {

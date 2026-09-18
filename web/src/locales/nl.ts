@@ -55,7 +55,6 @@ export const catalog: Catalog = {
     Delete: "Verwijderen",
     "Delete (#)": "Verwijderen (#)",
     Reply: "Beantwoorden",
-    "Reply (r)": "Beantwoorden (r)",
     "Reply all": "Allen beantwoorden",
     Forward: "Doorsturen",
     "Move to…": "Verplaatsen naar…",
@@ -236,6 +235,24 @@ export const catalog: Catalog = {
     "Open subfolders of {name}": "Submappen van {name} openen",
     "Delete folder": "Map verwijderen",
     "No matching folders": "Geen overeenkomende mappen",
+    "Merge folders…": "Mappen samenvoegen…",
+    "Merge folders": "Mappen samenvoegen",
+    Merge: "Samenvoegen",
+    "Which folder should keep its name? The other one's contents move into it, and it is deleted.":
+      "Welke map houdt zijn naam? De inhoud van de andere verhuist hierheen, en die map wordt verwijderd.",
+    "Its name stays, and the other folder's contents move in here.":
+      "De naam blijft, en de inhoud van de andere map verhuist hierheen.",
+    "This folder is deleted once its contents have moved.":
+      "Deze map wordt verwijderd zodra de inhoud ervan verhuisd is.",
+    "Merging takes two folders.": "Samenvoegen vraagt twee mappen.",
+    "The folder could not be read: the server answered the same page twice.":
+      "De map kon niet worden gelezen: de server antwoordde tweemaal met dezelfde pagina.",
+    "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":
+      "‘{path}’ is in een van de twee een map en in de andere een bestand, dus geen van beide kan in de andere worden samengevoegd.",
+    "“{path}” carries no content to write over the file of its name.":
+      "‘{path}’ heeft geen inhoud om over het gelijknamige bestand te schrijven.",
+    "“{path}” is not yours to change.": "‘{path}’ is niet aan u om te wijzigen.",
+
     "No subfolders here.": "Hier zijn geen submappen.",
     "Type a folder name…": "Typ een mapnaam…",
     "＋ New folder…": "＋ Nieuwe map…",
@@ -927,8 +944,6 @@ export const catalog: Catalog = {
       "Aangevraagd in deze browser. Of het effect heeft gehad, bepaalt de browser — controleer zijn instellingen als e-maillinks nog elders openen.",
     "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
       "Installeer Gilbert eerst als app voor een systeembrede standaard (in Chrome: het installatiepictogram in de adresbalk). Uw besturingssysteem kan Gilbert dan overal direct aanbieden waar het vraagt welk e-mailprogramma gebruikt moet worden.",
-    "Needs a browser with the Push API and a mail server that publishes a push key.":
-      "Vereist een browser met de Push-API en een mailserver die een push-sleutel publiceert.",
     "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
       "Uw mailserver levert deze rechtstreeks bij uw browser af, dus ze komen aan zonder geopend Gilbert-tabblad, met afzender en onderwerp erbij. Uw browser moet wel draaien — sluit u hem helemaal af, dan wachten de meldingen en komen ze binnen zodra u hem weer opent.",
     "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.":
@@ -1567,6 +1582,15 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
+    "{done} of {n} items": {
+      one: "{done} van {n} item",
+      other: "{done} van {n} items",
+    },
+    "{n} more collisions stop it too.": {
+      one: "Nog één conflict stopt het ook.",
+      other: "Nog {n} conflicten stoppen het ook.",
+    },
+
     "Delete {n} items": { one: "{n} item verwijderen", other: "{n} items verwijderen" },
     "Delete {n} items?": {
       one: "{n} item verwijderen?",

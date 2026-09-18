@@ -1,4 +1,6 @@
 import { config } from "./config.js";
+import { CAPABILITIES, STALWART_REGISTRY } from "./shared/capabilities.js";
+import { normalizeLocale } from "./shared/locale.js";
 
 export interface UpstreamSession {
   capabilities: Record<string, unknown>;
@@ -208,9 +210,6 @@ export function hasChatGroupAccounts(
 /* Account locale                                                      */
 /* ------------------------------------------------------------------ */
 
-const STALWART_CAP = "urn:stalwart:jmap";
-const JMAP_CORE = "urn:ietf:params:jmap:core";
-
 /**
  * Whether this server has Stalwart's JMAP registry — the `x:` objects that
  * carry credentials, account settings and the newer FileNode shape.
@@ -235,13 +234,14 @@ export function hasStalwartRegistry(
     | undefined,
 ): boolean {
   if (!session) return false;
-  if (session.primaryAccounts && STALWART_CAP in session.primaryAccounts) return true;
+  if (session.primaryAccounts && STALWART_REGISTRY in session.primaryAccounts)
+    return true;
   for (const account of Object.values(session.accounts ?? {})) {
     const caps = (account as { accountCapabilities?: Record<string, unknown> } | null)
       ?.accountCapabilities;
-    if (caps && STALWART_CAP in caps) return true;
+    if (caps && STALWART_REGISTRY in caps) return true;
   }
-  return Boolean(session.capabilities && STALWART_CAP in session.capabilities);
+  return Boolean(session.capabilities && STALWART_REGISTRY in session.capabilities);
 }
 
 export interface AccountInfo {
@@ -260,43 +260,6 @@ const EMPTY_INFO: AccountInfo = { locale: null, edition: null };
  * "sr_RS@latin" is Latin Serbian (sr-Latn-RS), not sr-RS. Anything not listed
  * here (@valencia, @saaho, @euro …) carries no script and is dropped.
  */
-const SCRIPT_MODIFIERS: Record<string, string> = {
-  latin: "Latn",
-  latn: "Latn",
-  cyrillic: "Cyrl",
-  cyrl: "Cyrl",
-  devanagari: "Deva",
-  iqtelif: "Latn",
-};
-
-/**
- * Normalise a POSIX-style locale ("de_DE.UTF-8@euro") into a BCP-47 tag
- * ("de-DE"). Returns null for the locale-less values ("C", "POSIX") and for
- * anything that does not look like a language tag.
- */
-export function normalizeLocale(raw: unknown): string | null {
-  if (typeof raw !== "string") return null;
-  const [head, modifier] = raw.trim().split("@");
-  const base = head!.split(".")[0]!.replace(/_/g, "-");
-  if (!base || base === "C" || base.toUpperCase() === "POSIX") return null;
-  if (!/^[A-Za-z]{2,8}(-[A-Za-z0-9]{2,8})*$/.test(base)) return null;
-  const script = modifier ? SCRIPT_MODIFIERS[modifier.toLowerCase()] : undefined;
-  try {
-    const [canonical] = Intl.getCanonicalLocales(base);
-    if (!canonical) return null;
-    if (!script) return canonical;
-    const loc = new Intl.Locale(canonical);
-    // Adding the script only helps when it differs from the one the locale
-    // already implies (ru-RU is Cyrillic, so "ru_RU@cyrillic" is just ru-RU).
-    const implied = loc.script ?? loc.maximize().script;
-    return implied === script
-      ? canonical
-      : new Intl.Locale(canonical, { script }).toString();
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Best-effort lookup of what the server can tell us about this account.
  *
@@ -316,8 +279,8 @@ async function fetchAccountInfo(
   // but a session we cannot read capabilities from is not one to ask.
   if (!session.capabilities || !hasStalwartRegistry(session)) return EMPTY_INFO;
   const accountId =
-    session.primaryAccounts?.[STALWART_CAP] ??
-    session.primaryAccounts?.["urn:ietf:params:jmap:mail"] ??
+    session.primaryAccounts?.[STALWART_REGISTRY] ??
+    session.primaryAccounts?.[CAPABILITIES.mail] ??
     Object.keys(session.accounts ?? {})[0];
   if (!accountId) return EMPTY_INFO;
   const res = await fetch(absoluteUpstream(session.apiUrl), {
@@ -328,7 +291,7 @@ async function fetchAccountInfo(
       accept: "application/json",
     },
     body: JSON.stringify({
-      using: [JMAP_CORE, STALWART_CAP],
+      using: [CAPABILITIES.core, STALWART_REGISTRY],
       methodCalls: [
         [
           "x:AccountSettings/get",
@@ -513,7 +476,7 @@ export interface DirectoryPrincipals {
  * session that advertises nothing gets `DIRECTORY_PAGE`.
  */
 function directoryBatch(session: UpstreamSession): number {
-  const core = session.capabilities?.["urn:ietf:params:jmap:core"] as
+  const core = session.capabilities?.[CAPABILITIES.core] as
     | { maxObjectsInGet?: unknown }
     | undefined;
   const advertised = core?.maxObjectsInGet;
@@ -560,11 +523,10 @@ export async function fetchDirectoryPrincipals(
   // The account that owns the principals capability, picked the way the
   // client picks it: the personal account advertising it, then any account
   // that does.
-  const PRINCIPALS = "urn:ietf:params:jmap:principals";
   const accounts = Object.entries(session.accounts ?? {});
   const withCap = accounts.filter(([, a]) => {
     const account = a as { accountCapabilities?: Record<string, unknown> };
-    return !!account.accountCapabilities?.[PRINCIPALS];
+    return !!account.accountCapabilities?.[CAPABILITIES.principals];
   });
   const personal =
     withCap.find(([, a]) => (a as { isPersonal?: unknown }).isPersonal === true) ??
@@ -586,7 +548,7 @@ export async function fetchDirectoryPrincipals(
         accept: "application/json",
       },
       body: JSON.stringify({
-        using: ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:principals"],
+        using: [CAPABILITIES.core, CAPABILITIES.principals],
         methodCalls,
       }),
       signal: AbortSignal.timeout(config.upstreamTimeout),
@@ -773,7 +735,7 @@ export function localizeSession(
 ): Record<string, unknown> {
   const caps = { ...s.capabilities };
   // We proxy push as Server-Sent Events; hide the upstream websocket endpoint.
-  delete caps["urn:ietf:params:jmap:websocket"];
+  delete caps[CAPABILITIES.websocket];
   return {
     ...s,
     capabilities: caps,

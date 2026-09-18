@@ -51,6 +51,12 @@ export interface AttachableFile {
 
 export type Priority = "high" | "normal" | "low";
 
+/**
+ * How a message is being answered, which decides who the draft is addressed to:
+ * one partner for a reply, everyone for a reply all.
+ */
+export type ReplyMode = "reply" | "replyAll" | "forward";
+
 export interface Draft {
   key: string;
   draftId: Id | null;
@@ -83,7 +89,7 @@ export interface Draft {
   error: string | null;
   /** Original identity signature HTML currently embedded, to replace on identity switch. */
   signatureHtml: string;
-  replyMode: "reply" | "replyAll" | "forward" | null;
+  replyMode: ReplyMode | null;
   mailboxIdOnSend?: Id | null;
   /** When set, hand the message to the server held until this instant. */
   sendAt: number | null;
@@ -99,11 +105,16 @@ interface ComposeState {
   openDraftEmail(email: Email): Promise<string>;
   /** Open a message again as a mail that has not been sent yet. */
   composeAsNew(email: Email): Promise<string>;
-  reply(
-    email: Email,
-    mode: "reply" | "replyAll" | "forward",
-    opts?: { all?: boolean },
-  ): Promise<string>;
+  /**
+   * The reply the app's one-tap affordances open.
+   *
+   * Reply all, and not a preference: answering the list is what a conversation
+   * with more than one other person means, and a one-tap control cannot say
+   * which of the two it did. The explicit "Reply" -- to the sender alone -- is
+   * the item beside it wherever there is room for a choice, and every surface
+   * that shows it says what it does.
+   */
+  reply(email: Email, mode: ReplyMode): Promise<string>;
   /** Forward the message whole, as an attachment, rather than quoted into a new one. */
   forwardAsAttachment(email: Email): string;
   update(key: string, patch: Partial<Draft>): void;
@@ -234,6 +245,36 @@ function defaultIdentity(
   }
   return useMail.getState().defaultIdentity() ?? identities[0];
 }
+
+/**
+ * The reply the app's one-tap affordances open: reply all.
+ *
+ * One definition, because the answer has to be the same wherever the app offers
+ * the single-button reply -- a header button that reached the list and a reply
+ * strip that reached the sender would be the same decision half-applied. It is
+ * not a setting: it is what the app does, and every surface that offers a
+ * choice says which action each choice is (see `reply`).
+ */
+export const REPLY_ALL: ReplyMode = "replyAll";
+export const REPLY: ReplyMode = "reply";
+export const DEFAULT_REPLY_MODE: ReplyMode = REPLY_ALL;
+
+/**
+ * The keys that answer a conversation, and which reply each one opens.
+ *
+ * One definition, so the pair cannot drift and a test can read it without
+ * rendering the mail view. The plain reply is the plain key and the reply to
+ * everyone is the one whose letter says so: `r` and `a`, which is also the
+ * order they are offered in.
+ */
+export const REPLY_KEYS: ReadonlyArray<{
+  keys: string;
+  mode: ReplyMode;
+  description: string;
+}> = [
+  { keys: "r", mode: REPLY, description: "Reply" },
+  { keys: "a", mode: REPLY_ALL, description: "Reply all" },
+];
 
 export const useCompose = create<ComposeState>((set, get) => ({
   drafts: [],
@@ -514,7 +555,28 @@ export const useCompose = create<ComposeState>((set, get) => ({
     let to: EmailAddress[] = [];
     let cc: EmailAddress[] = [];
     if (mode === "reply" || mode === "replyAll") {
-      if (sentByMe && (full.to?.length || full.cc?.length)) {
+      /*
+       * Who a plain reply answers, and who a reply all answers.
+       *
+       * A plain reply reaches **one** partner, and that is the whole difference
+       * between the two actions -- the one a reader can see in the draft, since
+       * reply all is the action that puts a list there. It is the sender, their
+       * Reply-To first, that being what that header is for.
+       *
+       * A message of mine has no sender to answer, so the one partner is the
+       * person I wrote to -- and my own address when the message went nowhere
+       * else, because an empty To is worse than the only address there was.
+       * Reaching all of them is what Reply all is for.
+       */
+      const senders = uniqueAddresses(
+        full.replyTo?.length ? full.replyTo : (full.from ?? []),
+      );
+      const others = withoutOwn(
+        uniqueAddresses([...(full.to ?? []), ...(full.cc ?? [])]),
+      );
+      if (mode === "reply") {
+        to = (sentByMe ? (others.length ? others : senders) : senders).slice(0, 1);
+      } else if (sentByMe && (full.to?.length || full.cc?.length)) {
         /*
          * Replying to something I sent continues the conversation with the
          * people I wrote to. Not with myself, and not with my own Reply-To
@@ -522,21 +584,17 @@ export const useCompose = create<ComposeState>((set, get) => ({
          * it here would send my own reply to my own desk.
          */
         to = withoutOwn(full.to ?? []);
-        cc = mode === "replyAll" ? withoutOwn(full.cc ?? []) : [];
+        cc = withoutOwn(full.cc ?? []);
         // Addressed only to myself, or only in Cc: there is still somebody this
         // is a reply to, and an empty To is not it.
         if (!to.length) {
-          to = cc.length ? cc : withoutOwn(full.cc ?? []);
+          to = cc;
           cc = [];
         }
         if (!to.length) to = uniqueAddresses([...(full.to ?? []), ...(full.cc ?? [])]);
       } else {
-        to = uniqueAddresses(full.replyTo?.length ? full.replyTo : (full.from ?? []));
-        if (mode === "replyAll") {
-          cc = uniqueAddresses([...(full.to ?? []), ...(full.cc ?? [])]).filter(
-            (a) => !isOwn(a) && !to.some((t) => sameAddress(t.email, a.email)),
-          );
-        }
+        to = senders;
+        cc = others.filter((a) => !to.some((t) => sameAddress(t.email, a.email)));
       }
     }
 

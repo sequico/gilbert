@@ -32,6 +32,11 @@ jobs:
   # smoke build) must pass before anything is cut. Nothing ships on a red
   # check.
   ci:
+    # The called workflow can only lose permissions, never gain them, so this is
+    # the ceiling it needs: an empty set would leave actions/checkout in ci.yml
+    # without contents: read, and the pre-check would fail rather than tighten.
+    permissions:
+      contents: read
     uses: ./.github/workflows/ci.yml
 
   check:

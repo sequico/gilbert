@@ -15,6 +15,7 @@
  */
 
 import { appDocumentJson } from "@gilbert/shared/appDocument";
+import { APP_DOCUMENT_TYPE } from "@gilbert/shared/appFolder";
 import { create } from "zustand";
 import { client } from "@/jmap/client";
 import type { ChangesResponse, FileNode, GetResponse, Id } from "@/jmap/types";
@@ -28,7 +29,6 @@ import {
   fetchMessage,
   isChatMarkerDoc,
   MAX_TEXT,
-  MESSAGE_TYPE,
   markerNameFor,
   mentionablesOf,
   mentionsFromText,
@@ -216,7 +216,20 @@ export const useChat = create<ChatState>((set, get) => {
       position,
       limit,
     });
-    return { nodes: await parseMessages(accountId, list), state: readState, total };
+    /*
+     * The population the query matched, which is what the paging arithmetic
+     * needs. A server that reports no `total` leaves it unknown, and the honest
+     * substitute is what this page actually holds -- the transcript is then
+     * walked one page at a time from where the read got to, rather than the
+     * caller being handed a number that claims to be a population and is a page
+     * size. That distinction is why `listChildrenWithState` no longer fills it
+     * in itself.
+     */
+    return {
+      nodes: await parseMessages(accountId, list),
+      state: readState,
+      total: total ?? list.length,
+    };
   }
 
   async function loadOlderImpl(accountId: Id): Promise<void> {
@@ -306,12 +319,12 @@ export const useChat = create<ChatState>((set, get) => {
       if (marker?.id) {
         // Rewrite the existing marker node's blob.
         const json = appDocumentJson(doc);
-        const blob = new Blob([json], { type: MESSAGE_TYPE });
-        const up = await client.upload(accountId, blob, { type: MESSAGE_TYPE });
+        const blob = new Blob([json], { type: APP_DOCUMENT_TYPE });
+        const up = await client.upload(accountId, blob, { type: APP_DOCUMENT_TYPE });
         await client.call("FileNode/set", {
           accountId,
           update: {
-            [marker.id]: { blobId: up.blobId, type: MESSAGE_TYPE, size: blob.size },
+            [marker.id]: { blobId: up.blobId, type: APP_DOCUMENT_TYPE, size: blob.size },
           },
         });
       } else {

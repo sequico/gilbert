@@ -22,12 +22,19 @@
  * filter it does not know fails the whole query rather than being ignored.
  */
 import { appDocumentJson } from "@gilbert/shared/appDocument";
+import { APP_DOCUMENT_TYPE, APP_FOLDER_NAME } from "@gilbert/shared/appFolder";
+
+/*
+ * The folder's name is the shared constant's, not this module's: the server
+ * looks the same folder up by it (`server/src/appFolder.ts`), so one spelling
+ * serves both tiers. Re-exported because this tier's surfaces name it when they
+ * decide what to show or where to write.
+ */
+export { APP_FOLDER_NAME };
+
 import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
 import { directoryCreate, fileCreate } from "@/lib/filenode";
-
-/** The folder Gilbert keeps its own documents in, in every account. */
-export const APP_FOLDER = "gilbert";
 
 /** Just enough to find the folder. */
 export const folderProps = (): string[] => ["id", "name", "nodeType", "parentId"];
@@ -36,7 +43,7 @@ export const folderProps = (): string[] => ["id", "name", "nodeType", "parentId"
 export function isAppFolder(
   n: Pick<FileNode, "name" | "parentId" | "nodeType">,
 ): boolean {
-  return !n.parentId && n.nodeType === "directory" && String(n.name) === APP_FOLDER;
+  return !n.parentId && n.nodeType === "directory" && String(n.name) === APP_FOLDER_NAME;
 }
 
 /** List one level of the tree: the top level, or the children of a folder. */
@@ -56,18 +63,55 @@ async function children(
  * and reports nothing twice (chat's transcript sync relies on that). The one
  * JMAP listing primitive -- callers that only want the list use `children`
  * or `findInFolder`.
+ *
+ * What comes back is the page and the two things about it a caller cannot work
+ * out for itself:
+ *
+ *  - `list` -- the nodes the `get` resolved. This is what a caller reads.
+ *  - `total` -- the population the **query matched**, and only ever what the
+ *    server said. It is `undefined` when the server did not report one, and
+ *    deliberately *not* filled in with the page size: a caller that then
+ *    compares it against the page needs to know the difference between "the
+ *    server said there are 800" and "nobody said, and 800 is what I happened
+ *    to get back".
+ *
+ * How much of a level a page is, is a question this deliberately does not
+ * answer. Nothing in the client asks it: the Files store resolves folders from
+ * the page and lets the write itself answer for a name (ADR 0013), and a caller
+ * that pages -- chat, walking its transcript -- knows what it asked for and
+ * what came back. So the ceilings are described through the two values above
+ * rather than through a verdict about them: `list` is what the `get` resolved,
+ * `total` is what the query matched, and the two disagree exactly when the
+ * `get`'s own ceiling (`maxObjectsInGet`) cut a query that was itself
+ * complete. A caller needing a verdict draws it from `total` where the server
+ * reported one and from its own page size where it did not.
+ *
+ * `scope` is which nodes to look at. `"level"` (the default) is one folder:
+ * the children of `parentId`, or the top level when it is null. `"account"` is
+ * every node in the account, no filter at all -- the read a tree walk makes so
+ * that it can resolve a whole depth of folders from one request.
  */
 export async function listChildrenWithState(
   accountId: Id,
   parentId: Id | null,
   properties: string[],
-  opts: { position?: number; limit?: number } = {},
-): Promise<{ list: FileNode[]; state: string; total: number }> {
-  const filter = parentId ? { parentId } : { isTopLevel: true };
+  opts: { position?: number; limit?: number; scope?: "level" | "account" } = {},
+): Promise<{
+  list: FileNode[];
+  state: string;
+  total: number | undefined;
+}> {
+  const filter =
+    opts.scope === "account" ? undefined : parentId ? { parentId } : { isTopLevel: true };
   const res = await client.chain([
     [
       "FileNode/query",
-      { accountId, filter, position: opts.position ?? 0, limit: opts.limit ?? 1000 },
+      {
+        accountId,
+        ...(filter ? { filter } : {}),
+        position: opts.position ?? 0,
+        limit: opts.limit ?? 1000,
+      },
       "q",
     ],
     [
@@ -87,7 +131,7 @@ export async function listChildrenWithState(
   return {
     list: got.list,
     state: got.state ?? "0",
-    total: query.total ?? got.list.length,
+    total: query.total,
   };
 }
 
@@ -104,7 +148,7 @@ export async function ensureFolder(accountId: Id): Promise<Id> {
   if (existing) return existing;
   const set = await client.call<SetResponse<FileNode>>("FileNode/set", {
     accountId,
-    create: { d: directoryCreate(null, APP_FOLDER) },
+    create: { d: directoryCreate(null, APP_FOLDER_NAME) },
   });
   const err = set.notCreated?.d;
   if (err) throw new Error(setErrorMessage(err));
@@ -293,7 +337,7 @@ export async function writeAppJson(
   opts: { ifInState?: string; type?: string } = {},
 ): Promise<{ id: Id; blobId: Id }> {
   const folderId = await ensureFolder(accountId);
-  const type = opts.type ?? "application/json";
+  const type = opts.type ?? APP_DOCUMENT_TYPE;
   // The bytes come from the one serializer both tiers write through, so the
   // document a browser saves is the document the server saves.
   const blob = new Blob([appDocumentJson(value)], { type });

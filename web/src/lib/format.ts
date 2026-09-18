@@ -1,10 +1,26 @@
+/**
+ * The formatters the mail and file surfaces share, and nothing else.
+ *
+ * Four of them, in two families: `formatListDate` and `formatFullDate` for a
+ * message's place in time, `formatRelative` and `formatSize` for "how long ago"
+ * and "how big". Each composes the locale-aware primitives in `./datetime` —
+ * `formatListDate` is the one that picks between them by how recent the instant
+ * is — and `formatSize` is the product's own because no platform call answers
+ * "1.2 MB" the way a file list needs.
+ *
+ * What is deliberately not here: the date and time primitives themselves
+ * (`./datetime`), the calendar arithmetic and the naive-local form (`./dates`,
+ * `@gilbert/shared/localDateTime`), and `isSameDay`, which is `./dates`'. A
+ * caller that wants `formatClock` or `formatMonthYear` imports `./datetime`,
+ * where they are defined.
+ */
+
+import { isSameDay } from "./dates";
 import {
-  formatMonthYear as fmtMonthYear,
   formatClock,
   formatDate,
   formatDayMonth,
   formatFullDateTime,
-  formatWeekday,
   relativeFormat,
 } from "./datetime";
 
@@ -19,14 +35,6 @@ export function formatSize(bytes: number | null | undefined): string {
     i++;
   }
   return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
-}
-
-export function isSameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
 }
 
 /** Gmail-style compact date for list views. */
@@ -61,57 +69,18 @@ export function formatRelative(iso: string | null | undefined, now = new Date())
   return formatListDate(iso, now);
 }
 
-export function formatDateShort(d: Date): string {
-  return `${formatWeekday(d)}, ${formatDayMonth(d)}`;
-}
-
-export function formatTime(d: Date): string {
-  return formatClock(d);
-}
-
-export function formatMonthYear(d: Date): string {
-  return fmtMonthYear(d);
-}
-
-export function plural(n: number, one: string, many = `${one}s`): string {
-  return `${n} ${n === 1 ? one : many}`;
-}
-
-export function clamp(n: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, n));
-}
-
-export function truncate(s: string, n: number): string {
-  return s.length > n ? `${s.slice(0, n - 1)}…` : s;
-}
-
+/**
+ * A prefixed random id for a name the client mints and never shows: a draft
+ * key, an attachment's id, a content-id, a MIME boundary, a `Message-ID`.
+ *
+ * The time component is what makes that list one function. These names are
+ * compared against other names minted in the same session — two content-ids
+ * that collided would be one attachment shown twice, a repeated boundary would
+ * cut a message in the wrong place — so it carries more than the six random
+ * characters a key inside one document needs. `contacts.ts`'s `newKey` is that
+ * other thing and stays its own: a key in a JSContact or JSCalendar object map,
+ * unique within the document and read by nothing else.
+ */
 export function uid(prefix = "u"): string {
   return `${prefix}${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
-}
-
-export function debounce<T extends (...args: never[]) => void>(
-  fn: T,
-  ms: number,
-): T & { cancel(): void } {
-  let t: number | null = null;
-  const wrapped = ((...args: Parameters<T>) => {
-    if (t) window.clearTimeout(t);
-    t = window.setTimeout(() => {
-      t = null;
-      fn(...args);
-    }, ms);
-  }) as T & { cancel(): void };
-  wrapped.cancel = () => {
-    if (t) window.clearTimeout(t);
-    t = null;
-  };
-  return wrapped;
-}
-
-export function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-export function cx(...parts: Array<string | false | null | undefined>): string {
-  return parts.filter(Boolean).join(" ");
 }

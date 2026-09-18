@@ -10,7 +10,16 @@
  * locale Stalwart reports for the account, and finally to the browser's.
  */
 
+import { pad2 } from "@gilbert/shared/localDateTime";
+/*
+ * Declared once, in `@gilbert/shared/locale`: the server normalises a locale
+ * out of its environment with the same rule, and a tier that accepted what the
+ * other refuses is a stored value one of them cannot read back.
+ */
+import { normalizeLocale } from "@gilbert/shared/locale";
 import { LOCALE_TAGS } from "./locales";
+
+export { normalizeLocale };
 
 export type DateFormat = "auto" | "dmy-dot" | "dmy-slash" | "mdy-slash" | "ymd-dash";
 export type TimeFormat = "auto" | "12" | "24";
@@ -75,47 +84,6 @@ export function setServerLocale(raw: string | null | undefined): void {
 
 export function getServerLocale(): string | null {
   return serverLocale;
-}
-
-/**
- * glibc locale modifiers that name a script rather than a dialect or a
- * currency: "sr_RS@latin" means Latin Serbian, which is a different tag
- * (sr-Latn-RS) and not just sr-RS. Modifiers not listed here (@valencia,
- * @saaho, @euro …) carry no script and are dropped.
- */
-const SCRIPT_MODIFIERS: Record<string, string> = {
-  latin: "Latn",
-  latn: "Latn",
-  cyrillic: "Cyrl",
-  cyrl: "Cyrl",
-  devanagari: "Deva",
-  iqtelif: "Latn",
-};
-
-/**
- * Turn a POSIX-style locale ("de_DE.UTF-8@euro") or BCP-47 tag into a plain
- * BCP-47 tag, or null when it is unusable ("POSIX", "C", garbage).
- */
-export function normalizeLocale(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const [head, modifier] = raw.trim().split("@");
-  const base = head!.split(".")[0]!.replace(/_/g, "-");
-  if (!base || base === "C" || base.toUpperCase() === "POSIX") return null;
-  const script = modifier ? SCRIPT_MODIFIERS[modifier.toLowerCase()] : undefined;
-  try {
-    const [canonical] = Intl.getCanonicalLocales(base);
-    if (!canonical) return null;
-    if (!script) return canonical;
-    const loc = new Intl.Locale(canonical);
-    // Adding the script only helps when it differs from the one the locale
-    // already implies (ru-RU is Cyrillic, so "ru_RU@cyrillic" is just ru-RU).
-    const implied = loc.script ?? loc.maximize().script;
-    return implied === script
-      ? canonical
-      : new Intl.Locale(canonical, { script }).toString();
-  } catch {
-    return null;
-  }
 }
 
 /** Explicit choice → chosen interface language → server → browser default. */
@@ -430,8 +398,8 @@ export function formatDateInput(d: Date): string {
   if (Number.isNaN(d.getTime())) return "";
   const { order, separator } = dateInputPattern();
   const parts: Record<"d" | "m" | "y", string> = {
-    d: String(d.getDate()).padStart(2, "0"),
-    m: String(d.getMonth() + 1).padStart(2, "0"),
+    d: pad2(d.getDate()),
+    m: pad2(d.getMonth() + 1),
     y: String(d.getFullYear()).padStart(4, "0"),
   };
   return order.map((f) => parts[f]).join(separator);

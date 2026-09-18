@@ -1,5 +1,12 @@
 # ADR 0008 — System Sieve scripts
 
+Status: Accepted
+
+Implementation: Built. `server/src/adminSieve.ts`, behind `requireAdmin` on every
+route (`server/src/app.ts`); the form both this surface and the personal scripts
+tab draw is one component, `web/src/views/sieve/SieveScriptPanel.tsx`, with each
+surface handing in what it loads and what saving it means.
+
 The administration gains **System Sieve**, an editor for the Sieve scripts
 Stalwart itself runs — the trusted, server-wide filters an operator writes for
 the whole installation (spam stages, MTA hooks, routing), as opposed to the

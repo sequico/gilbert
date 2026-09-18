@@ -41,6 +41,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { lineOf, walk } from "./lib/repoWalk.mjs";
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** The ADR a file name owns the debt of: `0003-agent-fleet.md` -> `0003`. */
@@ -60,24 +62,7 @@ const SLUG_HEAD = /^[a-z0-9-]+/;
 
 const CODE_ROOTS = ["server", "web"];
 const CODE_EXT = new Set([".ts", ".tsx", ".mts", ".mjs"]);
-const SKIP_DIRS = new Set([
-  "node_modules",
-  "dist",
-  "dev-dist",
-  "build",
-  "coverage",
-  ".git",
-  ".vite",
-  ".turbo",
-]);
 const TEST_FILE = /\.test\.(?:ts|tsx|mts|mjs)$/;
-
-/** The line number of an offset, for a report that can be acted on. */
-function lineOf(text, index) {
-  let line = 1;
-  for (let i = 0; i < index; i++) if (text[i] === "\n") line++;
-  return line;
-}
 
 /**
  * The slug a token starts with, or why it is not one. Greedy on the head, so
@@ -261,26 +246,6 @@ export function formatReport(result) {
 }
 
 /** Every file under a directory, relative to it, skipping what cannot be a site. */
-function walk(dir) {
-  const found = [];
-  let entries;
-  try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return found;
-  }
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      if (SKIP_DIRS.has(entry.name)) continue;
-      for (const child of walk(join(dir, entry.name)))
-        found.push(join(entry.name, child));
-    } else if (entry.isFile()) {
-      found.push(entry.name);
-    }
-  }
-  return found;
-}
-
 /** Read this repository: the ADRs, and the code that could owe them something. */
 export function collectRepoInput(root = ROOT) {
   const adrDir = join(root, "docs", "adr");

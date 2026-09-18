@@ -7,6 +7,15 @@
  * `mozillaAb.ts` next door, because LDIF says nothing about either.
  */
 
+import { unfoldLines } from "./contentLines";
+
+/*
+ * The reader takes a tab as a continuation marker as well as a space, which is
+ * wider than RFC 2849 (a single space). A tab-led line is not legal LDIF: a real
+ * exporter means it as continued content, and joining it keeps the value
+ * readable where ignoring it would drop a fragment of somebody's address.
+ */
+
 /** One entry: its distinguished name, and its attributes in file order. */
 export interface LdifRecord {
   dn: string;
@@ -18,25 +27,6 @@ export interface LdifRecord {
    * the fifty-odd places that reads one.
    */
   attrs: Record<string, string[]>;
-}
-
-/**
- * Undo line folding: a line beginning with a single space continues the one
- * before it, which is how LDIF fits a long value into 78 columns. Done first
- * and for every line, so nothing downstream has to think about it -- including
- * comments, which fold the same way.
- */
-function unfold(text: string): string[] {
-  const out: string[] = [];
-  for (const raw of text.replace(/\r\n?/g, "\n").split("\n")) {
-    // A continuation with nothing above it to continue is not a continuation.
-    if (raw.startsWith(" ") && out.length && out[out.length - 1] !== "") {
-      out[out.length - 1] += raw.slice(1);
-      continue;
-    }
-    out.push(raw);
-  }
-  return out;
 }
 
 /**
@@ -70,7 +60,7 @@ export function parseLdif(text: string): LdifRecord[] {
     current = null;
   };
 
-  for (const line of unfold(text)) {
+  for (const line of unfoldLines(text)) {
     if (line.trim() === "") {
       finish();
       continue;

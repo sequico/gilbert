@@ -21,6 +21,8 @@
  * So nothing here ever renders the bare word "verified". The caller is given
  * the crypto result and the trust judgement separately, and has to say both.
  */
+
+import { sameBytes } from "@gilbert/shared/bytes";
 import { parseSignedData, type SignerInfo } from "./cms";
 import {
   decodeTransfer,
@@ -323,11 +325,4 @@ export function shouldRemember(report: SignatureReport): boolean {
     report.trust === "first-seen" &&
     report.warnings.length === 0
   );
-}
-
-function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a[i]! ^ b[i]!;
-  return diff === 0;
 }

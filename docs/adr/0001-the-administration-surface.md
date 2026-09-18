@@ -1,5 +1,14 @@
 # ADR 0001 — Administration
 
+Status: Accepted
+
+Implementation: Built. `isStalwartAdmin` reads the marker from the principal's
+own permission list and `requireAdmin` repeats the check on every privileged
+route (`server/src/upstream.ts`, `server/src/app.ts`); every privileged write
+goes through `impersonationAuthorization` (`server/src/sessions.ts`), and the
+policy, identity-lock and forced-password documents are written by
+`server/src/adminPolicy.ts` and `server/src/identityAdmin.ts`.
+
 Gilbert admin is Stalwart admin. There is no `gilbert-*` capability group, no
 admin mailbox and no Gilbert-side registry: a principal is a Gilbert
 administrator exactly when Stalwart says so, and administration is granted in
@@ -21,8 +30,11 @@ freshly on every privileged call — admin-ness is never sealed into the
 session at sign-in, so a demotion in Stalwart lands on the next privileged
 call of an already open session. The client only ever receives `isAdmin:
 boolean` on the session's `gilbert` extension; that flag shows or hides the
-admin entry point and nothing more — the server is the door, the client is
-cosmetic.
+admin entry point **and decides the one action of this client's own that asks
+about it** — whether a group's mail may be ended (ADR 0015). It is still not a
+door: the server is the door and the client is cosmetic in the sense that
+matters, because a forged flag is refused by the mail server exactly as a forged
+admin surface is today, whose every call fails.
 
 First-install sequence: an operator grants the Stalwart admin role to the
 first administrator in Stalwart's own administration; that administrator
@@ -63,7 +75,9 @@ save.
   writes the policy into every one's app folder by impersonation, the
   publishing administrator's own account included. One account's refusal —
   no impersonation grant, an unreachable session, no Files account — does not
-  stop the rest; the response names how many accounts were reached. A
+  stop the rest; what a publish answers with is the job ADR 0010 defines — one
+  document naming the population it measured itself against, the accounts the
+  policy reached and the ones it did not, each with a code. A
   reader's own policy is read from their own account: `GET
   /api/account/policy` answers with the signed-in account's own file, and
   `GET /admin/policy` (the editor's own display) reads the same file from the

@@ -1,10 +1,10 @@
 import { client } from "@/jmap/client";
-import { withBase } from "@/lib/basePath";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { t, tNode } from "@/lib/i18n";
 import { DEFAULT_SOURCE_URL } from "@/lib/source";
 import { APP_VERSION } from "@/lib/version";
 import { useSession } from "@/store/session";
+import { BrandLogo } from "@/ui/BrandLogo";
 
 export function AboutSettings() {
   const session = useSession((s) => s.session);
@@ -25,7 +25,7 @@ export function AboutSettings() {
         })}
       </p>
       <div className="row" style={{ gap: 16, alignItems: "center", marginBottom: 16 }}>
-        <img src={withBase("/img/logo.png")} alt={appName} width={96} />
+        <BrandLogo width={96} height={120} alt={appName} />
         <div>
           {/* A product name and a version string: neither is a word to translate. */}
           <div

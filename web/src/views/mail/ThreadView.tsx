@@ -27,13 +27,25 @@ import type { Email, Id } from "@/jmap/types";
 import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { plural, t } from "@/lib/i18n";
 import { SEEN_KEYWORD, STARRED_KEYWORD } from "@/lib/keywordCounts";
+import {
+  deleteEffectInFolder,
+  finalFoldersOf,
+  folderDeleteOffered,
+} from "@/lib/mailDelete";
 import { visibleMessages } from "@/lib/openMessage";
 import { anyCarries, anyLacks } from "@/lib/rowScope";
 import { threadScrollTarget } from "@/lib/threadScroll";
 import { useEdgeBack } from "@/lib/touch";
-import { useCompose } from "@/store/compose";
+import { useMayDestroy } from "@/lib/useMayDestroy";
+import {
+  DEFAULT_REPLY_MODE,
+  REPLY,
+  REPLY_ALL,
+  type ReplyMode,
+  useCompose,
+} from "@/store/compose";
 import { useMail } from "@/store/mail";
-import { defaultReplyMode, useSettings } from "@/store/settings";
+import { useSettings } from "@/store/settings";
 import { Spinner, useIsNarrow, useIsTouch } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { LabelPicker } from "./LabelPicker";
@@ -269,7 +281,7 @@ export function ThreadView({
   // Keyboard: reply/forward events from MailView
   useEffect(() => {
     const onReply = (ev: Event) => {
-      const mode = (ev as CustomEvent<"reply" | "replyAll" | "forward">).detail;
+      const mode = (ev as CustomEvent<ReplyMode>).detail;
       const last = messages[messages.length - 1];
       if (last) void reply(last, mode);
     };
@@ -304,6 +316,17 @@ export function ThreadView({
   const anyUnread = anyLacks(messages, SEEN_KEYWORD);
   const anyStarred = anyCarries(messages, STARRED_KEYWORD);
   const inJunk = Boolean(mailboxId && mailboxes[mailboxId]?.role === "junk");
+  /*
+   * ADR 0015: the toolbar says which delete it is — a thread open out of
+   * Deleted Items or Junk Mail is destroying rather than filing — and it is
+   * not offered at all in a group, where only an administrator ends mail.
+   */
+  const mayEnd = useMayDestroy();
+  // Asked once and reused: the toolbar's effect and whether the entry is drawn
+  // are two questions about the same pair of folders.
+  const finalFolders = finalFoldersOf(mailboxes);
+  const threadDeleteEffect = deleteEffectInFolder(mailboxId, finalFolders);
+  const deleteIsOffered = folderDeleteOffered(mailboxId, finalFolders, mayEnd);
   /* `G-` labels describe one message, not the conversation (ADR 0003
      resolution 9), so the thread row shows the group's own labels and the
      agent's state stays on the message it was written on. */
@@ -319,10 +342,10 @@ export function ThreadView({
   }, [messages, mailboxes, mailboxId]);
 
   const last = messages[messages.length - 1];
-  /* What the reply strip's first button does, and the other one beside it. */
-  const defaultReply = defaultReplyMode(settings);
-  const otherReply: "reply" | "replyAll" =
-    defaultReply === "replyAll" ? "reply" : "replyAll";
+  /* What the reply strip's first button does, and the other one beside it: the
+     app's default reply all, and the plain reply to the sender alone. */
+  const defaultReply = DEFAULT_REPLY_MODE;
+  const otherReply: ReplyMode = defaultReply === REPLY_ALL ? REPLY : REPLY_ALL;
   const accountId = useMail((s) => s.accountId);
 
   return (
@@ -352,7 +375,8 @@ export function ThreadView({
         </button>
         <button
           className="icon-btn"
-          title={t("Delete (#)")}
+          title={threadDeleteEffect === "final" ? t("Delete forever") : t("Delete (#)")}
+          disabled={!deleteIsOffered}
           onClick={() => void actions.trash(rowIds)}
         >
           <Trash2 size={19} />
@@ -497,9 +521,10 @@ export function ThreadView({
           <div className="reply-box">
             <div className="reply-prompt">
               {/*
-                The default reply action first and the other one beside it, so
-                `replyAllDefault` moves which action a click lands on without
-                taking either away.
+                The app's default reply first and the plain reply beside it, so
+                the one-tap action cannot be mistaken for the other: each
+                button says which it is, and the reply that reaches one person
+                is the one that says "Reply".
               */}
               <button onClick={() => void reply(last, defaultReply)}>
                 {defaultReply === "replyAll" ? (

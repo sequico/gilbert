@@ -18,13 +18,9 @@
  * tab was a second answer to the same question.
  */
 import { useEffect, useState } from "react";
-import {
-  fetchGroupInstruction,
-  readDraft,
-  readingNotCountedNote,
-  saveGroupInstruction,
-} from "@/lib/agents";
+import { fetchGroupInstruction, readDraft, saveGroupInstruction } from "@/lib/agents";
 import { t } from "@/lib/i18n";
+import { AskReading } from "./AskReading";
 
 export function GroupInstruction({ group }: { group: string }) {
   const [text, setText] = useState("");
@@ -180,23 +176,13 @@ export function GroupInstruction({ group }: { group: string }) {
               )}
             </p>
           </div>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={askReading}
-            disabled={readingBusy || !text.trim()}
-          >
-            {readingBusy ? t("Reading…") : t("Ask the model to read it")}
-          </button>
-          {reading && (
-            <div className="card" style={{ marginTop: 12 }}>
-              <p className="hint" style={{ marginTop: 0 }}>
-                {t("What the model said about this draft:")}
-              </p>
-              <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{reading}</p>
-              {!readingCounted && <p className="hint">{readingNotCountedNote()}</p>}
-            </div>
-          )}
+          <AskReading
+            ready={text.trim().length > 0}
+            busy={readingBusy}
+            reading={reading}
+            counted={readingCounted}
+            onAsk={askReading}
+          />
           {problem && <div className="error-box">{problem}</div>}
           {done && !problem && <p className="hint">{t("Saved.")}</p>}
           <button

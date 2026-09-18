@@ -40,6 +40,7 @@ import { client } from "@/jmap/client";
 import type { Email, EmailAddress, EmailBodyPart, Id } from "@/jmap/types";
 import { displayName, domainOf, formatAddress } from "@/lib/address";
 import { startAppointment } from "@/lib/appointment";
+import { askDeleteMessages } from "@/lib/deleteConfirm";
 import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { emlFilename } from "@/lib/emlName";
 import { formatFullDate, formatListDate, formatSize } from "@/lib/format";
@@ -51,7 +52,8 @@ import {
   sanitizeEmailHtml,
   TEXT_EMAIL_CSS,
 } from "@/lib/html";
-import { plural, tc, tNode, t as translate } from "@/lib/i18n";
+import { tc, tNode, t as translate } from "@/lib/i18n";
+import { deleteEffect, finalFoldersOf, messageDeleteOffered } from "@/lib/mailDelete";
 import { mdnDecision, refusalText } from "@/lib/mdn";
 import { openableInTab, previewKind } from "@/lib/preview";
 import { remoteImagesAllowed } from "@/lib/remoteImages";
@@ -61,17 +63,18 @@ import { useSignature } from "@/lib/smime/useSignature";
 import { type SpamReport, spamReport } from "@/lib/spamScore";
 import { findQuoteStart, htmlToText, textToHtml } from "@/lib/text";
 import { isTnef, parseTnef, type TnefAttachment } from "@/lib/tnef";
+import { useMayDestroy } from "@/lib/useMayDestroy";
 import { internalDomains, isExternalSender, linkVerdict } from "@/lib/warnings";
 import { useCalendar } from "@/store/calendar";
-import { draftFromMailto, useCompose } from "@/store/compose";
+import { DEFAULT_REPLY_MODE, draftFromMailto, useCompose } from "@/store/compose";
 import { useContacts } from "@/store/contacts";
 import { useFiles } from "@/store/files";
 import { useMail } from "@/store/mail";
 import { sendReadReceipt } from "@/store/mdn";
 import { useScheduled } from "@/store/scheduled";
 import { useSession } from "@/store/session";
-import { defaultReplyMode, useSettings } from "@/store/settings";
-import { choiceDialog, confirmDialog, Dialog } from "@/ui/dialog";
+import { useSettings } from "@/store/settings";
+import { choiceDialog, Dialog } from "@/ui/dialog";
 import { FilePreviewDialog } from "@/ui/filepreview";
 import { Avatar } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
@@ -100,6 +103,20 @@ export const MessageView = memo(function MessageView({
 }: Props) {
   const accountId = useMail((s) => s.accountId)!;
   const signature = useSignature(e, accountId);
+  /*
+   * ADR 0015: whether this message's delete may be taken here. Read from the
+   * session's admin flag and the rule's own answer, exactly as the store's
+   * guard does, so the entry and the guard cannot disagree.
+   */
+  const mayEnd = useMayDestroy();
+  /*
+   * Subscribed to the tree itself, not to a derived object: a selector that
+   * builds a new value every call makes React re-render without end, and the
+   * folders only change when the tree does.
+   */
+  const mailboxes = useMail((s) => s.mailboxes);
+  const deleteOffered = messageDeleteOffered(e, finalFoldersOf(mailboxes), mayEnd);
+
   const settings = useSettings((s) => s.settings);
   const updateSettings = useSettings((s) => s.update);
 
@@ -572,24 +589,25 @@ export const MessageView = memo(function MessageView({
           {expanded && (
             <>
               {/*
-                The default reply action, which `replyAllDefault` decides. The
-                tooltip names what the click does rather than always saying
-                "Reply": a control that answers the list while it says it
-                answers the sender is the setting lying about itself.
+                The quick action a message's own header offers is **Reply all**,
+                always, and the tooltip says so. One click is all the header has
+                room for, and the list is who people mean in a conversation with
+                more than one other person, so what is one click away is the
+                reply that reaches everyone. The plain **Reply** -- to the
+                sender alone -- is the item beside it in the menu, where a
+                deliberate choice belongs and where it can say what it does;
+                `r` is that plain reply and `a` is this one, which is why the
+                tooltip names the action and not a key.
               */}
               <button
                 className="icon-btn sm hide-mobile"
-                title={
-                  settings.replyAllDefault
-                    ? translate("Reply all (r)")
-                    : translate("Reply (r)")
-                }
+                title={translate("Reply all")}
                 onClick={(ev) => {
                   ev.stopPropagation();
-                  void reply(e, defaultReplyMode(settings));
+                  void reply(e, DEFAULT_REPLY_MODE);
                 }}
               >
-                {settings.replyAllDefault ? <ReplyAll size={17} /> : <Reply size={17} />}
+                <ReplyAll size={17} />
               </button>
               <button
                 className="icon-btn sm"
@@ -650,35 +668,30 @@ export const MessageView = memo(function MessageView({
         <MenuItem
           icon={<Trash2 size={16} />}
           label={translate("Delete this message")}
+          /*
+           * ADR 0015: withdrawn where the rule would refuse it — a group's
+           * message that is already in Deleted Items or Junk Mail, which only
+           * an administrator may end. The entry is not drawn as offered and
+           * then refused after a confirmation, which is what the record asks
+           * for and what the reader would otherwise be walked into.
+           */
+          disabled={!deleteOffered}
           onClick={() => {
             const mail = useMail.getState();
-            const trashId = mail.roleId("trash");
-            const junkId = mail.roleId("junk");
-            /* The list toolbar confirms a permanent delete (the message is in
-               Deleted Items or Junk, where Trash destroys outright) and honours
-               the confirmDelete setting; this per-message menu asks the same
-               question here, in the same words, so one click from inside
-               Deleted Items cannot destroy a message forever without one. */
-            const permanent =
-              Boolean(trashId && e.mailboxIds[trashId]) ||
-              Boolean(junkId && e.mailboxIds[junkId]);
+            /* The rule asks what deleting this message does (ADR 0015), so a
+               message sitting in Junk Mail is confirmed as the permanent
+               delete it is — the same question the list's toolbar asks, in the
+               same words, so one click from inside either folder cannot destroy
+               a message forever without one. */
+            const permanent = deleteEffect(e, finalFoldersOf(mail.mailboxes)) === "final";
             void (async () => {
               if (permanent || settings.confirmDelete) {
-                const ok = await confirmDialog({
-                  title: permanent ? translate("Delete forever?") : translate("Delete?"),
-                  message: permanent
-                    ? plural(1, {
-                        one: "{n} message will be permanently deleted.",
-                        other: "{n} messages will be permanently deleted.",
-                      })
-                    : plural(1, {
-                        one: "Move {n} message to Trash?",
-                        other: "Move {n} messages to Trash?",
-                      }),
-                  confirmLabel: translate("Delete"),
-                  danger: permanent,
-                });
-                if (!ok) return;
+                /*
+                 * The same question the list's toolbar asks, in the same words
+                 * (`askDeleteMessages`), so one click from inside either folder
+                 * cannot destroy a message forever without one.
+                 */
+                if (!(await askDeleteMessages({ count: 1, permanent }))) return;
               }
               await mail.trash([e.id]);
             })();
@@ -1675,6 +1688,8 @@ function AttachmentList({
             </a>
           );
         })}
+        {/* "Download all" is about a set: one attachment already has its own
+          download, and a button that repeats the row's icon is noise. */}
         {attachments.length > 1 && (
           <button
             className="btn btn-ghost btn-sm"
@@ -1699,15 +1714,20 @@ function AttachmentList({
         )}
         {/* Saving to Files is the other half of "Download all": the same set of
             attachments, kept in the account rather than on the desktop -- and
-            which account is the reader's to choose, because a group's files are
-            the group's. */}
-        {attachments.length > 1 && filesAvailable && (
+            which account, and which folder inside it, is the reader's to
+            choose, because a group's files are the group's. Offered for one
+            attachment as much as for ten: a message with a single file is the
+            commonest case of wanting it kept rather than downloaded. */}
+        {attachments.length > 0 && filesAvailable && (
           <button
             className="btn btn-ghost btn-sm"
             style={{ alignSelf: "center" }}
             onClick={() => setSaveToFiles(true)}
           >
-            <FileUp size={14} /> {translate("Download all to Files")}
+            <FileUp size={14} />{" "}
+            {attachments.length > 1
+              ? translate("Download all to Files")
+              : translate("Save to Files")}
           </button>
         )}
       </div>

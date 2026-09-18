@@ -21,9 +21,6 @@ import { CAP, client } from "@/jmap/client";
 import type { GetResponse, Id, SetResponse } from "@/jmap/types";
 import { isDeviceTrusted } from "@/lib/storage";
 
-export const VAPID_CAP = "urn:ietf:params:jmap:webpush-vapid";
-export const EMAILPUSH_CAP = "urn:ietf:params:jmap:emailpush";
-
 /** Which Email properties to put in the payload, best first. */
 const PAYLOAD_PROPS = ["from", "subject", "preview", "receivedAt"];
 
@@ -37,7 +34,7 @@ export interface JmapPushSubscription {
 
 /** The VAPID key this server signs with, or null if it does not do Web Push. */
 export function applicationServerKey(): string | null {
-  const cap = client.session?.capabilities?.[VAPID_CAP] as
+  const cap = client.session?.capabilities?.[CAP.webpushVapid] as
     | { applicationServerKey?: string }
     | undefined;
   return typeof cap?.applicationServerKey === "string" ? cap.applicationServerKey : null;
@@ -46,19 +43,47 @@ export function applicationServerKey(): string | null {
 /** Whether the payload can carry the message, rather than only "something changed". */
 export function supportsEmailPush(): boolean {
   return Boolean(
-    client.session?.capabilities && EMAILPUSH_CAP in client.session.capabilities,
+    client.session?.capabilities && CAP.emailpush in client.session.capabilities,
   );
+}
+
+/**
+ * Why background notifications cannot be offered here, as a code.
+ *
+ * A boolean was not enough to say anything useful. On iOS a browser that has
+ * never been added to the Home Screen has no `PushManager` at all, and reading
+ * that as "this browser does not support it" tells somebody to give up one tap
+ * away from the fix. The surface composes the sentence; this names the
+ * obstacle, so the same answer cannot be worded two ways.
+ */
+export type WebPushBlocker = "unsupported-browser" | "needs-install" | "no-server-key";
+
+/**
+ * iOS exposes the Push API only to an app added to the Home Screen, and iPadOS
+ * 13+ reports itself as a Mac -- which is why the touch points are asked as
+ * well as the user agent.
+ */
+function isIOS(): boolean {
+  return (
+    /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+export function webPushBlocker(): WebPushBlocker | null {
+  if (typeof navigator === "undefined" || typeof window === "undefined")
+    return "unsupported-browser";
+  if ("serviceWorker" in navigator && "PushManager" in window) {
+    return applicationServerKey() === null ? "no-server-key" : null;
+  }
+  // No PushManager is not the same answer everywhere: on iOS it is the install
+  // that is missing, and it is one the reader can complete.
+  return isIOS() ? "needs-install" : "unsupported-browser";
 }
 
 /** Whether this browser and this server can do Web Push at all. */
 export function webPushAvailable(): boolean {
-  return (
-    typeof navigator !== "undefined" &&
-    "serviceWorker" in navigator &&
-    typeof window !== "undefined" &&
-    "PushManager" in window &&
-    applicationServerKey() !== null
-  );
+  return webPushBlocker() === null;
 }
 
 /**
@@ -134,6 +159,24 @@ export function deviceClientId(): string {
  * nothing at all to the server, which answered "Invalid filter" and refused the
  * whole subscription. Without an id the filter simply leaves `inMailbox` out
  * and notifies more widely, which is a worse default but a working one.
+ *
+ * What this answers is read from Stalwart's own source at v0.16.22 rather than
+ * from a running server (ADR 0016): a subscription is stored in the account
+ * that asked for it and registered for every account in that token's
+ * `member_ids()` -- its own plus its group mailboxes -- while `emailPush` is a
+ * **map** with one entry per account, each with its own filter, and the entry
+ * for an account the token is not a member of is refused `forbidden`. So the
+ * reader's own account is where one row lives and where each group is named
+ * inside it, which is what this function does not yet build: it still sends one
+ * `emailPush` entry and `types: ["Email"]`, so a group's mail wakes this device
+ * only as a generic notification and its chat does not wake it at all. What a
+ * running server still has to say is written down where the record keeps its
+ * debt.
+ *
+ * ADR-0016 OWED: live-emailpush-map
+ * ADR-0016 OWED: group-emailpush-payload
+ * ADR-0016 OWED: chat-wake-read
+ * ADR-0016 OWED: verification-per-device
  */
 export function subscriptionPayload(
   sub: PushSubscription,
@@ -247,7 +290,7 @@ export async function listSubscriptions(): Promise<JmapPushSubscription[]> {
   const res = await client.call<GetResponse<JmapPushSubscription>>(
     "PushSubscription/get",
     { ids: null },
-    [CAP.core, VAPID_CAP],
+    [CAP.core, CAP.webpushVapid],
   );
   return res.list;
 }
@@ -258,7 +301,7 @@ export async function createSubscription(
   const res = await client.call<SetResponse<JmapPushSubscription>>(
     "PushSubscription/set",
     { create: { s: body } },
-    [CAP.core, VAPID_CAP, EMAILPUSH_CAP],
+    [CAP.core, CAP.webpushVapid, CAP.emailpush],
   );
   if (res.notCreated?.s)
     throw new Error(String(res.notCreated.s.description ?? res.notCreated.s.type));
@@ -280,7 +323,7 @@ export async function verifySubscription(
   const res = await client.call<SetResponse<JmapPushSubscription>>(
     "PushSubscription/set",
     { update: { [id]: { verificationCode } } },
-    [CAP.core, VAPID_CAP],
+    [CAP.core, CAP.webpushVapid],
   );
   const err = res.notUpdated?.[id];
   if (err) throw new Error(String(err.description ?? err.type));
@@ -290,7 +333,7 @@ export async function destroySubscription(id: Id): Promise<void> {
   await client.call<SetResponse<JmapPushSubscription>>(
     "PushSubscription/set",
     { destroy: [id] },
-    [CAP.core, VAPID_CAP],
+    [CAP.core, CAP.webpushVapid],
   );
 }
 

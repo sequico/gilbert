@@ -60,7 +60,6 @@ export const catalog: Catalog = {
     Delete: "Eliminar",
     "Delete (#)": "Eliminar (#)",
     Reply: "Responder",
-    "Reply (r)": "Responder (r)",
     "Reply all": "Responder a todos",
     Forward: "Reenviar",
     "Move to…": "Mover a…",
@@ -243,6 +242,24 @@ export const catalog: Catalog = {
     "Open subfolders of {name}": "Abrir las subcarpetas de {name}",
     "Delete folder": "Eliminar la carpeta",
     "No matching folders": "Ninguna carpeta coincide",
+    "Merge folders…": "Fusionar carpetas…",
+    "Merge folders": "Fusionar carpetas",
+    Merge: "Fusionar",
+    "Which folder should keep its name? The other one's contents move into it, and it is deleted.":
+      "¿Qué carpeta debe conservar su nombre? El contenido de la otra se mueve aquí y esa carpeta se elimina.",
+    "Its name stays, and the other folder's contents move in here.":
+      "Conserva su nombre y el contenido de la otra carpeta se mueve aquí.",
+    "This folder is deleted once its contents have moved.":
+      "Esta carpeta se elimina cuando su contenido se haya movido.",
+    "Merging takes two folders.": "Fusionar requiere dos carpetas.",
+    "The folder could not be read: the server answered the same page twice.":
+      "No se pudo leer la carpeta: el servidor respondió dos veces con la misma página.",
+    "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":
+      "«{path}» es una carpeta en una de las dos y un archivo en la otra, así que ninguna puede fusionarse con la otra.",
+    "“{path}” carries no content to write over the file of its name.":
+      "«{path}» no tiene contenido que escribir sobre el archivo de su nombre.",
+    "“{path}” is not yours to change.": "«{path}» no está a su disposición.",
+
     "No subfolders here.": "Aquí no hay subcarpetas.",
     "Type a folder name…": "Escriba un nombre de carpeta…",
     "＋ New folder…": "＋ Carpeta nueva…",
@@ -938,8 +955,6 @@ export const catalog: Catalog = {
       "Solicitado en este navegador. Que haya surtido efecto depende de él: revise su configuración si los enlaces de correo siguen abriéndose en otro sitio.",
     "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
       "Para un valor predeterminado en todo el sistema, instale antes Gilbert como aplicación (en Chrome: el icono de instalación de la barra de direcciones). Su sistema operativo podrá entonces ofrecer Gilbert directamente allí donde pregunte qué aplicación de correo usar.",
-    "Needs a browser with the Push API and a mail server that publishes a push key.":
-      "Requiere un navegador con la API Push y un servidor de correo que publique una clave push.",
     "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
       "Su servidor de correo las entrega directamente a su navegador, así que llegan sin ninguna pestaña de Gilbert abierta, con el remitente y el asunto. Aun así, su navegador debe estar en marcha: si lo cierra por completo, las notificaciones esperan y llegan cuando vuelva a abrirlo.",
     "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.":
@@ -1576,6 +1591,15 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
+    "{done} of {n} items": {
+      one: "{done} de {n} elemento",
+      other: "{done} de {n} elementos",
+    },
+    "{n} more collisions stop it too.": {
+      one: "Una colisión más también lo detiene.",
+      other: "{n} colisiones más también lo detienen.",
+    },
+
     "Delete {n} items": { one: "Eliminar {n} elemento", other: "Eliminar {n} elementos" },
     "Delete {n} items?": {
       one: "¿Eliminar {n} elemento?",

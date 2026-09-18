@@ -1,6 +1,21 @@
-# ADR 0014 — Administration is a door, not a menu
+# ADR 0017 — Administration is a door, not a menu
 
 Status: Proposed
+
+Implementation: Built. `server/src/adminGate.ts` holds the allowlist
+(`SELF_SERVICE`) and the two rules a session is measured against
+(`administrationAllowed`, `gateAdministration`); `server/src/app.ts` refuses an
+inspected `/api/jmap` body that names a registry object and enforces the same
+two conditions beside `requireAdmin` on every `/api/admin` route
+(`administrationRefusal`, `MAX_GATED_REQUEST`, `sessionExtras`);
+`server/src/upstream.ts` compares two permission lists (`outranks`) and
+`/api/admin/force-password-change` refuses with `target_outranks`;
+`server/src/configuration.ts` reads `ADMINISTRATION` and
+`ADMINISTRATION_NEEDS_OWN_DEVICE` for a process with no boot and
+`server/src/shared/installation.ts` carries `server.administration` and
+`server.administrationNeedsOwnDevice` in the installation's document; the
+client follows the session's two flags (`web/src/views/AppShell.tsx`, the
+`gilbert` extension in `web/src/jmap/types.ts`).
 
 ## Context
 
@@ -21,7 +36,7 @@ and any of them can be named in a request body by anyone the role allows.
 **An operator needs a switch that means something.** A deployment may want an
 installation that signs people in and offers no administration at all — a
 hosted instance, an installation administered entirely through Stalwart's own
-interface. Saying so has to be a fact about the installation (ADR 0012) rather
+interface. Saying so has to be a fact about the installation (ADR 0011) rather
 than a deployment's environment, and it has to hold against the browser, not
 against the drawing of a sidebar.
 
@@ -109,7 +124,7 @@ the route gives when the acting administrator's own list cannot be read.
 **The switch is the installation's, in the installation's document.** The
 `ADMINISTRATION` environment variable is the reading a process with no boot
 uses, and `server.administration` in `installation.json` is the same value in a
-booted deployment — one field, two readings (ADR 0012). The default is on: an
+booted deployment — one field, two readings (ADR 0011). The default is on: an
 installation that has said nothing offers administration the way it always has.
 The own-device rule follows the same shape (`ADMINISTRATION_NEEDS_OWN_DEVICE`,
 `server.administrationNeedsOwnDevice`) and defaults to off, which is what makes
@@ -165,4 +180,4 @@ client is cosmetic, exactly as in ADR 0001.
 - `web/src/views/AppShell.tsx` — the admin entry point and the disabled
   explanation
 - ADR 0001 — the admin grant, `requireAdmin`, and the client's cosmetic flag
-- ADR 0012 — the installation's configuration, its document and its environment
+- ADR 0011 — the installation's configuration, its document and its environment

@@ -1,18 +1,12 @@
-import { Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { apiFetch } from "@/jmap/client";
 import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
-import { labelKeywordFromName } from "@/lib/labelKeyword";
 import { useSession } from "@/store/session";
 import type { Label } from "@/store/settings";
-import { confirmDialog, promptDialog } from "@/ui/dialog";
-import { CALENDAR_COLORS, ColorSwatches } from "@/ui/misc";
-
-interface DirectoryGroup {
-  id: string;
-  name: string;
-}
+import { confirmDialog } from "@/ui/dialog";
+import { askNewLabel, LabelRow, NewLabelButton } from "@/views/labels/LabelCatalog";
+import { DirectoryLoadError, DirectoryNotListed, useGroupDirectory } from "./directory";
 
 /**
  * The admin group-label surface (ADR 0005): the label catalog of a group
@@ -24,11 +18,10 @@ interface DirectoryGroup {
  * the messages is stable, so nothing in the mailbox is rewritten.
  */
 export function GroupLabels() {
-  const [groups, setGroups] = useState<DirectoryGroup[] | null>(null);
-  const [enumeration, setEnumeration] = useState(true);
+  const directory = useGroupDirectory();
+  const { groups, enumeration, enumerationMessage, loading, loadError } = directory;
   const [selected, setSelected] = useState<string | null>(null);
   const [labels, setLabels] = useState<Label[]>([]);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
@@ -45,25 +38,6 @@ export function GroupLabels() {
     );
   };
   const selectedIsMember = selected !== null && memberOf(selected);
-
-  async function loadGroups() {
-    setLoadError(null);
-    try {
-      const res = await apiFetch<{
-        groups: DirectoryGroup[];
-        enumeration: boolean;
-        enumerationMessage?: string | null;
-      }>("/api/admin/groups");
-      setGroups(res.groups);
-      setEnumeration(res.enumeration);
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : String(err));
-    }
-  }
-
-  useEffect(() => {
-    void loadGroups();
-  }, []);
 
   async function select(name: string) {
     setSelected(name);
@@ -98,22 +72,8 @@ export function GroupLabels() {
   }
 
   async function add() {
-    const name = await promptDialog({
-      title: t("New label"),
-      placeholder: t("Label name"),
-    });
-    if (!name?.trim()) return;
-    const keyword = labelKeywordFromName(name);
-    if (labels.some((l) => l.keyword === keyword)) return;
-    const next = [
-      ...labels,
-      {
-        keyword,
-        name: name.trim(),
-        color: CALENDAR_COLORS[labels.length % CALENDAR_COLORS.length]!,
-      },
-    ];
-    await save(next);
+    const label = await askNewLabel(labels);
+    if (label) await save([...labels, label]);
   }
 
   return (
@@ -128,23 +88,16 @@ export function GroupLabels() {
         {groupAccessSentence("labels")}
       </p>
       {loadError && (
-        <div className="error-box">
-          {loadError}
-          <p>
-            <button className="btn" onClick={() => void loadGroups()}>
-              {t("Retry")}
-            </button>
-          </p>
-        </div>
+        <DirectoryLoadError loadError={loadError} reload={directory.reload} />
       )}
-      {groups !== null && !enumeration && (
-        <div className="warn-box" style={{ marginBottom: 12 }}>
+      {!loading && !enumeration && !loadError && (
+        <DirectoryNotListed message={enumerationMessage}>
           {t(
             "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.",
           )}
-        </div>
+        </DirectoryNotListed>
       )}
-      {groups !== null && enumeration && (
+      {!loading && enumeration && (
         <>
           <div className="field" style={{ marginBottom: 16 }}>
             <label>{t("Group mailbox")}</label>
@@ -182,90 +135,38 @@ export function GroupLabels() {
                 <p className="hint">{t("No labels yet.")}</p>
               ) : (
                 labels.map((l) => (
-                  <div key={l.keyword} className="card">
-                    <div className="card-head">
-                      <span
-                        className="label-dot"
-                        style={{ background: l.color, width: 14, height: 14 }}
-                      />
-                      {editing === l.keyword ? (
-                        <input
-                          className="input sm"
-                          defaultValue={l.name}
-                          autoFocus
-                          onBlur={(e) => {
-                            const name = e.target.value.trim();
-                            void save(
-                              labels.map((x) =>
-                                x.keyword === l.keyword
-                                  ? { ...x, name: name || x.name }
-                                  : x,
-                              ),
-                            );
-                            setEditing(null);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                          }}
-                          style={{ width: 240 }}
-                        />
-                      ) : (
-                        <h3
-                          style={{ cursor: "text" }}
-                          onClick={() => setEditing(l.keyword)}
-                        >
-                          {l.name}{" "}
-                          <span className="hint" style={{ fontWeight: 400 }}>
-                            ({l.keyword})
-                          </span>
-                        </h3>
-                      )}
-                      <button
-                        className="icon-btn sm danger"
-                        aria-label={t("Delete label")}
-                        disabled={busy}
-                        onClick={() =>
-                          void (async () => {
-                            // Persists immediately for the whole group, and
-                            // any message already carrying the keyword loses
-                            // its visible label for every member until it is
-                            // re-added — unlike removing an identity or a
-                            // rule elsewhere in the admin surface, this had no
-                            // confirmation at all.
-                            const ok = await confirmDialog({
-                              title: t("Delete “{name}”?", { name: l.name }),
-                              message: t(
-                                "Messages already carrying this label lose it for everyone in the group.",
-                              ),
-                              confirmLabel: t("Delete"),
-                              danger: true,
-                            });
-                            if (!ok) return;
-                            await save(labels.filter((x) => x.keyword !== l.keyword));
-                          })()
-                        }
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                    <div style={{ marginTop: 8 }}>
-                      <ColorSwatches
-                        value={l.color}
-                        onChange={(c) =>
-                          void save(
-                            labels.map((x) =>
-                              x.keyword === l.keyword ? { ...x, color: c } : x,
-                            ),
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
+                  <LabelRow
+                    key={l.keyword}
+                    labels={labels}
+                    label={l}
+                    onChange={(next) => void save(next)}
+                    onDelete={() =>
+                      void (async () => {
+                        // Persists immediately for the whole group, and any
+                        // message already carrying the keyword loses its
+                        // visible label for every member until it is
+                        // re-added — unlike removing an identity or a rule
+                        // elsewhere in the admin surface, this had no
+                        // confirmation at all.
+                        const ok = await confirmDialog({
+                          title: t("Delete “{name}”?", { name: l.name }),
+                          message: t(
+                            "Messages already carrying this label lose it for everyone in the group.",
+                          ),
+                          confirmLabel: t("Delete"),
+                          danger: true,
+                        });
+                        if (!ok) return;
+                        await save(labels.filter((x) => x.keyword !== l.keyword));
+                      })()
+                    }
+                    editing={editing === l.keyword}
+                    onEdit={setEditing}
+                    busy={busy}
+                  />
                 ))
               )}
-              <button className="btn" disabled={busy} onClick={() => void add()}>
-                <Plus size={16} /> {t("New label")}
-              </button>
+              <NewLabelButton busy={busy} onClick={() => void add()} />
             </>
           )}
         </>

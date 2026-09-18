@@ -1,30 +1,27 @@
 # Roadmap / not yet
 
 Things Gilbert does not do, and why. An issue number here says where the entry
-came from, not that it is tracked elsewhere — a report can be closed because the
-bug in it was fixed while the larger thing it asked for stays on this page. What
-is genuinely open — where an item quotes one, the issue is upstream's historical thread; Gilbert's own open work is listed here and in this repository's tracker;
-the rest is here because the answer is "no", not "not yet".
+came from — upstream's thread where the item quotes one — not that it is
+tracked there. An entry is here because the answer is "no", or because the
+work is Gilbert's own and is listed in this repository.
 
 See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about.
 
-
-
 - **Sharing a mail folder.** Stalwart stores the share and never delivers it; see [KNOWN-ISSUES.md](KNOWN-ISSUES.md). Not offered until the server does something with it. Sharing files, calendars and address books is unaffected and works.
-- **A scheduling view of its own**, for asking "when is everyone free next week?" without an event in hand. The grid itself is built and lives in the event editor — a row per participant, steppable, and clickable to place the event — which is where the question gets asked while you are arranging something. What is not built is the same thing as a destination you can visit with nothing in progress. Came out of [#172](https://github.com/Coffey-Labs/ihasmail/issues/172), which asked for a separate view and is closed by the panel: the reasoning for putting it in the editor is that a separate surface can only ever tell you a time you then retype, whereas one beside the event can set it. It stays here rather than in the tracker because nobody has yet said they want to ask the question on its own.
+- **A scheduling view of its own**, for asking "when is everyone free next week?" without an event in hand. The grid itself is built and lives in the event editor — a row per participant, steppable, and clickable to place the event — which is where the question gets asked while you are arranging something. What is not built is the same thing as a destination you can visit with nothing in progress. [#172](https://github.com/Coffey-Labs/ihasmail/issues/172) is where the ask came from, and the panel in the editor answers it: the reasoning for putting it there is that a separate surface can only ever tell you a time you then retype, whereas one beside the event can set it. It stays here because nobody has yet said they want to ask the question on its own.
 - **Per-message actions from the message list on a touchscreen.** Reply, Forward and compose-as-new are on the list row's context menu, which is a right-click — and holding a row on a phone starts selection instead, so none of them are reachable there. They are all available inside a thread, which is where the actions on a single message belong; what is missing is the shortcut from the list. Fixing it means deciding what a long press should do when it already means something, which is a bigger question than the actions themselves.
 - Snooze (nothing in JMAP or Stalwart supports it, and Gilbert never stores a password, so nothing could act on a mailbox while you are away)
 - **A translation anybody has checked.** Ten translations ship alongside English, and the extraction they need is done — see [FEATURES.md](FEATURES.md#interface-language). What is *not* done is the other half, and it is the half that cannot be bought or automated. All ten were produced by AI against standard dictionaries and **not one has been read by anybody who speaks the language**, which is exactly where a bad translation does harm rather than merely looking untidy. They ship marked Beta, with that said in Settings and a link for reporting anything wrong, because shipping them quietly would ask people to trust text nobody has checked. A language loses the Beta mark when a speaker reads it and says so — a deliberate act by a person, not something a coverage percentage earns. If you speak one of them and are willing to read a few hundred strings, that is the single most useful thing anyone could contribute right now.
 - **Right-to-left languages.** Arabic, Hebrew and Persian are held back deliberately, and not for want of translators. RTL is bidi and layout work throughout — mirrored panes, gesture directions, icon sides, the message list's own geometry — and a catalogue without it produces a page that is translated and unusable. Adding one is not another entry in the picker.
-- **Two-factor sign-in.** Today an account with 2FA must use an app password (see [Quick start](README.md#quick-start-docker)), and Settings › Security offers no way to switch 2FA *on* — only off, for an account that already has it. Supporting a TOTP code directly means implementing OAuth: Stalwart offers the authorization-code and device flows and no password grant, so Gilbert would hand sign-in to Stalwart's own login and come back with a token. That is a better security posture than the sealed password it holds now — a refresh token rather than a credential — but it replaces Gilbert's own sign-in page for those users and may need an OAuth client registered. Came out of [#75](https://github.com/Coffey-Labs/ihasmail/issues/75), which is closed: what was reported there was a sign-in refused with nothing but "Invalid credentials"; the refusal names the problem and points at app passwords. The OAuth work it uncovered is tracked here rather than as an open issue, so there is no ticket to watch for it.
+- **Two-factor sign-in.** Today an account with 2FA must use an app password (see [Quick start](README.md#quick-start-docker)), and Settings › Security offers no way to switch 2FA *on* — only off, for an account that already has it. Supporting a TOTP code directly means implementing OAuth: Stalwart offers the authorization-code and device flows and no password grant, so Gilbert would hand sign-in to Stalwart's own login and come back with a token. That is a better security posture than the sealed password it holds now — a refresh token rather than a credential — but it replaces Gilbert's own sign-in page for those users and may need an OAuth client registered. [#75](https://github.com/Coffey-Labs/ihasmail/issues/75) is where it came from, and the refusal names the problem and points at app passwords.
 
 - **Signing and encrypting mail.** *Reading* a signature is built: S/MIME signed mail is checked as it is read, and the signer is remembered so a change is called out — see [Checking a signature](FEATURES.md#checking-a-signature). What is not built is anything that produces a signature or touches ciphertext, and the reason is not Stalwart. This is client work over the message body: JMAP hands over the MIME blob and the rest is ours.
 
-  The blocker is a security model, not code, and it is the same one it has always been. Signing and decrypting need a **private** key in a page served by the same host that would handle it, which runs straight into two things Gilbert says about itself: that it never stores a credential, and that it runs immutably with nowhere to keep one. Verifying needs none of that — the certificate travels inside the message — which is exactly why verifying comes first.
+  The blocker is a security model, not code. Signing and decrypting need a **private** key in a page served by the same host that would handle it, which runs straight into two things Gilbert says about itself: that it never stores a credential, and that it runs immutably with nowhere to keep one. Verifying needs none of that — the certificate travels inside the message — which is exactly why verifying comes first.
 
   **OpenPGP signatures are not checked, and this is a harder problem than it looks.** A PGP signature does not carry the key, so verifying one means having the sender's public key already. Gilbert has no source for it: `x:PublicKey` is the account's *own* registry, and fetching from a keyserver or WKD would tell a third party who you correspond with, which is precisely the leak the image proxy exists to close. A local store of correspondents' keys is possible and is not a small feature; nobody has asked for it yet.
 
-  *Managing* keys — publishing your own to `x:PublicKey` — is not built, twice over ([PR #67](https://github.com/Coffey-Labs/ihasmail/pull/67), [PR #285](https://github.com/Coffey-Labs/ihasmail/pull/285)), because a Settings page for keys nothing uses is furniture. That reasoning is partly spent: something does use a key. But what signature checking uses is the certificate inside the message, not anything in the registry, so publishing your own key remains a feature waiting for a consumer.
+  *Managing* keys — publishing your own to `x:PublicKey` — is not built ([PR #67](https://github.com/Coffey-Labs/ihasmail/pull/67), [PR #285](https://github.com/Coffey-Labs/ihasmail/pull/285)), because a Settings page for keys nothing uses is furniture: nothing in Gilbert reads one. What signature checking uses is the certificate inside the message, not anything in the registry, so publishing your own key is a feature waiting for a consumer.
 
   **Encryption at rest is refused rather than deferred.** Stalwart offers it as `encryptionAtRest`, a field on `x:AccountSettings` beside `description`, `locale` and `timeZone` — there is no `x:EncryptionAtRest` object whatever the docs suggest, and its value is a typed object (`{"@type": "Disabled"}`) rather than a bare string. It is self-service, needs no administrator, and would be easy to offer. It will not be: turning it *off does not decrypt what is already there*. Every message delivered while it was on stays encrypted on disk, readable only by a client holding the private key, so switching it on is a one-way door — and a toggle that reads as "make my mail safer" while quietly being irreversible is the wrong thing to hand an ordinary user.
 
@@ -36,7 +33,7 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
 
 - **Checks on an agent that is hung rather than gone.** An agent that stops making progress is recovered today but never diagnosed. The lease covers the outcome: three missed heartbeats and it reads as not reporting, the claim lapses, and a successor takes the account over with the work it left mid-run — a job nobody comes back for is recorded as a `timeout`, not a failure. What is missing is the answer to *what it was doing and where it stopped*: the account and job in flight, the call it is waiting on, and the errors it swallowed into one log line per account and per pass, with nothing counting them. This is optimisation work, not a hole in the guarantees: the guarantee is that the work moves, and it does.
 
-  It matters more now than it did. The server can run an agent beside the web tier in its own process (ADR 0003), so "the agent hung" and "the server hung" are one event and one restart, and a fleet that is quiet inside a process that still answers requests is exactly the state nothing would name.
+  It matters because the server can run an agent beside the web tier in its own process (ADR 0003), so "the agent hung" and "the server hung" are one event and one restart, and a fleet that is quiet inside a process that still answers requests is exactly the state nothing would name.
 
   **The shape of it is decided (ADR 0003: nothing supervises the fleet).** The heartbeat record each agent already rewrites — which names the groups it holds — gains the unit it is working and the job it is in, with the instant that started, so "hung" and "in the middle of a long model call" stop reading the same from outside; the timeouts the model and JMAP clients already carry (`AbortSignal.timeout`) are named where a person looks, with the job and the call they ended, instead of being a line in a log; and the health endpoint reports the same two, so a restart policy can tell *working* from *stuck*. No supervisor and no process manager is introduced to get it: a supervisor would be a second coordinator beside the claims, and restarting what looks stuck is the double execution a claim exists to prevent — a lease already takes an account over from a dead holder. Diagnosis first, because it is what a person actually lacks; concurrency, if it ever comes, is a bounded fan-out over units that hold their own claim (below).
 - **More than one agent inside one group.** Today the account is the unit of exclusivity: a claim on `<group>/gilbert/agent/claim.json` is held by one agent at a time (ADR 0003), which is what keeps two agents from acting on the same mail twice. Work *between* groups already spreads — several agents split the groups between them by lease — but inside one group everything is serial: one change type at a time, jobs one after another. What is not built is parallel execution inside a group, and the shape of the change is known: the account claim stops being one document and becomes the pieces that actually need exclusivity (a lease per reconcile type, carrying that type's catch-up anchor, an entry per schedule rule), while job execution keeps the lease it already has and job *creation* stops depending on a single holder — the job's name derived from the rule and its trigger, created under a folder-state compare-and-set, so two matchers racing produce one document instead of two.
@@ -46,22 +43,21 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   Worth doing when a measurement says the bottleneck is inside one group. Nothing in the product is slow because of this yet, and the failure it can cause (two effects on the same message) is the one the current design spends a whole document on preventing. What it buys is a bounded fan-out over units that hold their own claim — never a pool of child processes inside one process, which would contend for the same account claim and buy nothing (ADR 0003).
 
 - **The code says "worker" where the product says "agent".** The vocabulary is
-  settled (`instructions.md`): one **master**, its **agents**, its
-  **automations**, and "worker" kept for the browser's service worker. The
-  surface and the prose follow it, and the file follows: the fleet's entrypoint
-  is `server/src/agent/agent.ts`, its built path `server/dist/agent/agent.js`,
-  and every reader of that path moved with it — the package script, the two
-  imports, the deployment's own command in `docker-compose.yml`, `.env.example`,
-  the README and the ADRs. What is left of the cheap half is the rest of the
-  names — `WorkerHandle`, `startWorker`, `startFleet`, `AgentWorkerRecord`,
-  `AgentStatusWorker`, the worker-named tests, the mock — cheap because it is
-  inside this codebase.
-- **What moves only with its readers.** The expensive half is contracts rather
-  than names: the `workers` field of the admin status answer, which the client
-  reads; `workers_unreadable`, a refusal code a client composes a sentence from;
-  the `worker` field of a claim document, written in every group's account by
-  every installation that has ever run an agent, so a successor has to recognise
-  a holder named before any rename; and the `agent/workers/<id>.json` path the
+  one **master**, its **agents**, its **automations**, and "worker" for the
+  browser's service worker. The surface and the prose follow it, and the fleet's
+  own file does: its entrypoint is `server/src/agent/agent.ts` and its built path
+  `server/dist/agent/agent.js`, and every reader of that path names the same
+  file — the package script, the two imports, the deployment's own command in
+  `docker-compose.yml`, `.env.example`, the README and the ADRs. What still says
+  worker is the rest of the names, inside this codebase — `WorkerHandle`,
+  `WorkerDeps`, `startWorker`, `startFleet`, `AgentWorkerRecord`,
+  `AgentStatusWorker`, `LiveWorker`, the worker-named tests, the mock.
+- **What moves only with its readers.** The names that are contracts rather than
+  code: the `workers` field of the admin status answer, which the client reads;
+  `workers_unreadable`, a refusal code a client composes a sentence from; the
+  `worker` field of a claim document, written in every group's account by every
+  installation that has run an agent, so a successor has to recognise a holder
+  named under either spelling; and the `agent/workers/<id>.json` path the
   heartbeats live at. One direction per change: a wire field moves with both
   sides of the wire in one commit, and a durable field moves only with a reader
   that accepts both spellings until the last installation has re-written it.

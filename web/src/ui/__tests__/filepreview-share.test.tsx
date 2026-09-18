@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetShareSupport } from "@/lib/share";
+import { stubNavigator } from "@/test/testkit";
 import { FilePreviewDialog, type PreviewFile } from "../filepreview";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -24,11 +25,6 @@ const FILE: PreviewFile = {
   url: "/api/blob/photo.png",
   inlineUrl: "/api/blob/photo.png?inline=1",
 };
-
-function stubNavigator(nav: Partial<Navigator>) {
-  vi.stubGlobal("navigator", nav as Navigator);
-  resetShareSupport();
-}
 
 describe("sharing from the file preview", () => {
   let host: HTMLDivElement;

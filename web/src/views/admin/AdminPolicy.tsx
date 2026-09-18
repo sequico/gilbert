@@ -1,9 +1,11 @@
+import type { PublishJob } from "@gilbert/shared/publishJob";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/jmap/client";
 import { formatDateTime } from "@/lib/datetime";
 import { plural, t } from "@/lib/i18n";
 import { policyEnforced, refreshSettingsPolicy } from "@/lib/settingsPolicy";
 import { useSettings } from "@/store/settings";
+import { JsonDocumentEditor, jsonProblem } from "@/ui/JsonDocumentEditor";
 import { SettingsKeyTable } from "@/views/admin/SettingsKeyTable";
 
 /** A valid document the editor can be reset to, with one of each section. */
@@ -18,50 +20,6 @@ const EXAMPLE = JSON.stringify(
 );
 
 /**
- * Why one account did not receive the policy, as the server codes it.
- *
- * A code rather than a sentence: the server says what happened, this surface
- * says it in the reader's language, and a code this build does not know is
- * reported as unexplained rather than guessed at.
- */
-type PublishRefusal =
-  | "impersonation-refused"
-  | "no-files-account"
-  | "write-failed"
-  | "policy-moved"
-  | "directory-denied";
-
-/**
- * One publish, as the account that made it holds it (`PublishJob`,
- * `server/src/adminPolicy.ts`).
- *
- * The same document is the answer to `POST /admin/policy` and the job a later
- * `GET /admin/policy` reads back from the publishing administrator's own app
- * folder, so this surface says the same thing about a publish it just made and
- * one made by an instance that has since restarted.
- */
-interface PublishJob {
-  /** This publish's id; the copies it wrote into the accounts carry it too. */
-  id: string;
-  /** When the publish started, ISO. */
-  startedAt: string;
-  /** Who published, as the address they signed in with. */
-  by: string;
-  population: { read: number; complete: boolean; total: number | null };
-  reached: string[];
-  /**
-   * The accounts that were not written to. `code` is one of `PublishRefusal`,
-   * and it is deliberately an open `string`: a server newer than this build
-   * may send one this surface does not know, and that is reported as
-   * unexplained rather than guessed at (`refusalReason`).
-   */
-  unreached: Array<{ address: string; code: PublishRefusal | string; message: string }>;
-  complete: boolean;
-  /** What the server said when it refused to list the directory at all. */
-  directory?: string;
-}
-
-/**
  * The sentence a refusal code earns, in the reader's language.
  *
  * The server's own `message` is English prose written for a log; the code is
@@ -69,7 +27,10 @@ interface PublishJob {
  * sentence says exactly what the server said happened and nothing more. A code
  * this build does not know is not silently rounded to "it failed": it is
  * reported as unexplained, because inventing a reason for one is a claim the
- * outcome does not make.
+ * outcome does not make. The parameter is deliberately a plain `string` rather
+ * than the union of codes the server documents: the code arrives as JSON, so a
+ * server newer than this build can send one, and the `default` is what it lands
+ * on.
  */
 function refusalReason(code: string): string {
   switch (code) {
@@ -116,57 +77,74 @@ function startedAtText(startedAt: string): string {
  * the outcome does.
  */
 function publishNotice(job: PublishJob): string {
+  const parts: string[] = [];
   if (job.complete) {
-    return plural(
-      job.reached.length,
-      {
-        one: "Published. The directory listed one account, and it carries this policy now; the other signed-in clients will sign in again.",
-        other:
-          "Published. The directory listed {n} accounts, and they all carry this policy now; the other signed-in clients will sign in again.",
-      },
-      { n: job.reached.length },
-    );
-  }
-  const parts = [t("The policy was not published everywhere.")];
-  if (job.directory) {
     parts.push(
-      t(
-        "The directory could not be listed, so there was no population to publish to beyond the publisher's own account.",
+      plural(
+        job.reached.length,
+        {
+          one: "Published. The directory listed one account, and it carries this policy now; the other signed-in clients will sign in again.",
+          other:
+            "Published. The directory listed {n} accounts, and they all carry this policy now; the other signed-in clients will sign in again.",
+        },
+        { n: job.reached.length },
       ),
     );
   } else {
-    parts.push(
-      plural(
-        job.population.read,
-        {
-          one: "The directory listed one account.",
-          other: "The directory listed {n} accounts.",
-        },
-        { n: job.population.read },
-      ),
-    );
-    if (!job.population.complete)
+    parts.push(t("The policy was not published everywhere."));
+    if (job.directory) {
       parts.push(
         t(
-          "That listing was not the whole directory, so any account it did not list was not reached.",
+          "The directory could not be listed, so there was no population to publish to beyond the publisher's own account.",
         ),
       );
+    } else {
+      parts.push(
+        plural(
+          job.population.read,
+          {
+            one: "The directory listed one account.",
+            other: "The directory listed {n} accounts.",
+          },
+          { n: job.population.read },
+        ),
+      );
+      if (!job.population.complete)
+        parts.push(
+          t(
+            "That listing was not the whole directory, so any account it did not list was not reached.",
+          ),
+        );
+    }
+    if (job.unreached.length) {
+      parts.push(
+        plural(
+          job.unreached.length,
+          {
+            one: "One account was not written to:",
+            other: "{n} accounts were not written to:",
+          },
+          { n: job.unreached.length },
+        ),
+      );
+      parts.push(
+        job.unreached
+          .map((one) => `${one.address} — ${refusalReason(one.code)}`)
+          .join("; "),
+      );
+    }
   }
-  if (job.unreached.length) {
+  /*
+   * The publish ran and the account could not keep its report: every copy is
+   * where it belongs, and the next visit to this page will show nothing about
+   * it. Said here rather than left to the stored document, because the reader
+   * who needs it is the one looking at this answer.
+   */
+  if (job.record === "failed") {
     parts.push(
-      plural(
-        job.unreached.length,
-        {
-          one: "One account was not written to:",
-          other: "{n} accounts were not written to:",
-        },
-        { n: job.unreached.length },
+      t(
+        "This publish could not be recorded in your account, so reopening this page will not show it.",
       ),
-    );
-    parts.push(
-      job.unreached
-        .map((one) => `${one.address} — ${refusalReason(one.code)}`)
-        .join("; "),
     );
   }
   return parts.join(" ");
@@ -192,6 +170,12 @@ export function AdminPolicy() {
    * The last publish this account recorded: the one just made, or the one an
    * earlier session made — the surface reads it from the account, so reopening
    * this page says what the last publish did rather than nothing at all.
+   *
+   * Its shape is the server's (`@gilbert/shared/publishJob`) rather than a
+   * second description of it: the same document is what `POST /admin/policy`
+   * answers with and what a later `GET /admin/policy` reads back, and a field
+   * the server writes is a field this surface has to know about — `record` is
+   * one, and it is read from the shared shape.
    */
   const [job, setJob] = useState<PublishJob | null>(null);
   /** What the server last held: what "unchanged" is measured against. */
@@ -221,10 +205,9 @@ export function AdminPolicy() {
   async function publish() {
     if (saving) return;
     setError(null);
-    try {
-      JSON.parse(text);
-    } catch {
-      setError(t("That is not valid JSON — fix the document and publish again."));
+    const problem = jsonProblem(text);
+    if (problem) {
+      setError(problem);
       return;
     }
     setSaving(true);
@@ -323,27 +306,22 @@ export function AdminPolicy() {
           )}
         </li>
       </ul>
-      <textarea
-        className="textarea"
-        aria-label={t("Policy document")}
-        spellCheck={false}
-        disabled={saving}
-        style={{ minHeight: "18rem", fontFamily: "var(--font-mono, monospace)" }}
+      <JsonDocumentEditor
+        label={t("Policy document")}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={setText}
+        saving={saving}
+        dirty={dirty}
+        action={t("Publish policy")}
+        busy={t("Publishing…")}
+        onAction={() => void publish()}
+        secondary={
+          <button className="btn btn-ghost" disabled={saving} onClick={insertExample}>
+            {t("Insert example")}
+          </button>
+        }
+        error={error}
       />
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
-        <button
-          className="btn btn-primary"
-          disabled={saving || !dirty}
-          onClick={() => void publish()}
-        >
-          {saving ? t("Publishing…") : t("Publish policy")}
-        </button>
-        <button className="btn btn-ghost" disabled={saving} onClick={insertExample}>
-          {t("Insert example")}
-        </button>
-      </div>
       {job && (
         <div style={{ marginTop: 12 }}>
           <p className={job.complete ? "hint" : "error-box"}>{publishNotice(job)}</p>
@@ -354,11 +332,6 @@ export function AdminPolicy() {
               who: job.by,
             })}
           </p>
-        </div>
-      )}
-      {error && (
-        <div className="error-box" style={{ marginTop: 12 }}>
-          {error}
         </div>
       )}
       <SettingsKeyTable />

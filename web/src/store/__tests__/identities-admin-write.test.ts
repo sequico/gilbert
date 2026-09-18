@@ -4,6 +4,7 @@ import type { Identity, JmapSession } from "@/jmap/types";
 import { deleteUserIdentity, saveUserIdentity } from "@/lib/identities";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
+import { flushTwice as flush, identity } from "@/test/testkit";
 
 /**
  * An administration write, and the list the person's own section goes on
@@ -32,18 +33,6 @@ const OWN = "own";
 const GROUP = "gg";
 const ME = "me@example.org";
 
-const identity = (id: string, name: string, email: string): Identity =>
-  ({
-    id,
-    name,
-    email,
-    replyTo: null,
-    bcc: null,
-    textSignature: "",
-    htmlSignature: "",
-    mayDelete: true,
-  }) as Identity;
-
 const SESSION = {
   accounts: {
     [OWN]: {
@@ -59,11 +48,6 @@ const SESSION = {
   },
   primaryAccounts: { [CAP.mail]: OWN, [CAP.submission]: OWN },
 } as unknown as JmapSession;
-
-const flush = async () => {
-  await new Promise<void>((res) => setTimeout(res, 0));
-  await new Promise<void>((res) => setTimeout(res, 0));
-};
 
 /** What the server answers for the reader's own account, as it changes. */
 let ownList: Identity[] = [];

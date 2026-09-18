@@ -19,9 +19,9 @@ import { setErrorMessage } from "@/jmap/client";
 import type { AddressBook } from "@/jmap/types";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
+import { refreshSessionShares } from "@/lib/sharedCollections";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
-import { useSession } from "@/store/session";
 import { useSettings } from "@/store/settings";
 import { confirmDialog, promptDialog } from "@/ui/dialog";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
@@ -29,23 +29,12 @@ import { toast } from "@/ui/toast";
 import { ShareDialog } from "../settings/ShareDialog";
 
 /**
- * Re-read the session so newly shared books appear without a sign-in.
- *
- * Shared accounts arrive in the JMAP session, which is otherwise fetched once
- * and refreshed only when a state change is pushed to this tab. Opening
- * Contacts is when the answer matters, so that is when it is asked for --
- * throttled, since this is navigated to often and usually says nothing new.
+ * Newly shared books appear without a sign-in: the session is re-read
+ * (`refreshSessionShares`), and this store is then initialised on top of it --
+ * always, because it lists whatever the session currently says.
  */
-let lastRefresh = 0;
 async function refreshShares(force = false): Promise<void> {
-  const now = Date.now();
-  if (!force && now - lastRefresh < 30_000) return;
-  lastRefresh = now;
-  try {
-    await useSession.getState().refresh();
-  } catch {
-    return;
-  }
+  await refreshSessionShares(force);
   await useContacts.getState().init();
 }
 

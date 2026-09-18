@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { isRecord } from "./shared/json.js";
 
 /**
  * The shipped example policy, checked against the rules the server enforces.
@@ -10,8 +11,9 @@ import { fileURLToPath } from "node:url";
  * example: somebody copies it, the server refuses to start, and the first
  * experience of the feature is a crash loop. This does not import the config
  * module -- reading it has side effects and wants a whole environment -- so the
- * rules it checks are restated here, and both are short enough that saying them
- * twice is cheaper than the machinery to say them once.
+ * rules it checks are restated here. A rule that has one home in the tree is
+ * asked at that home: the sections below are checked with `isRecord`
+ * (`server/src/shared/json.ts`), the predicate the server reads them with.
  */
 const EXAMPLE = fileURLToPath(
   new URL("../../settings-policy.example.json", import.meta.url),
@@ -25,10 +27,7 @@ test("the example policy has the three sections, in the shapes the server reads"
   const p = JSON.parse(readFileSync(EXAMPLE, "utf8")) as Record<string, unknown>;
   for (const section of ["defaults", "enforced"]) {
     const v = p[section];
-    assert.ok(
-      v && typeof v === "object" && !Array.isArray(v),
-      `${section} must be an object`,
-    );
+    assert.ok(isRecord(v), `${section} must be an object`);
   }
   assert.ok(Array.isArray(p.changes), "changes must be a list");
 });
@@ -46,10 +45,7 @@ test("every change in the example has a unique version and settings", () => {
       `changes[${i}] repeats version ${String(c.version)}`,
     );
     seen.add(c.version as string);
-    assert.ok(
-      c.settings && typeof c.settings === "object" && !Array.isArray(c.settings),
-      `changes[${i}] needs a settings object`,
-    );
+    assert.ok(isRecord(c.settings), `changes[${i}] needs a settings object`);
   }
 });
 

@@ -25,6 +25,7 @@ import {
   writeAppFileAt,
 } from "../appFolder.js";
 import { isStateMismatch } from "../jmap.js";
+import { sleep } from "../shared/async.js";
 import {
   AGENT_AUDIT_DIR,
   AGENT_AUTHORING_DIR,
@@ -119,10 +120,6 @@ const AUDIT_CAS_ATTEMPTS = 6;
 function backoffMs(attempt: number): number {
   const base = Math.min(400, 25 * 2 ** (attempt - 1));
   return base + Math.floor(Math.random() * base);
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**

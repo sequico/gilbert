@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { loadPlace, rememberPlace } from "@/lib/lastPlace";
+import {
+  DEFAULT_FILES_SORT,
+  loadFilesSort,
+  loadPlace,
+  rememberFilesSort,
+  rememberPlace,
+} from "@/lib/lastPlace";
 import { clearAllData, clearSignedInData, setDeviceTrusted } from "@/lib/storage";
 
 /**
@@ -48,5 +54,33 @@ describe("the record of where the reader was", () => {
     /* A device we do not trust keeps nothing at all, this record included. */
     clearAllData();
     expect(loadPlace("reader")).toEqual({});
+  });
+
+  it("keeps one order per folder, and only for the folder it was made in", () => {
+    rememberFilesSort("reader", "acc-1/root", { key: "modified", desc: true });
+    rememberFilesSort("reader", "acc-1/folder-9", { key: "size", desc: false });
+
+    expect(loadFilesSort("reader", "acc-1/root")).toEqual({
+      key: "modified",
+      desc: true,
+    });
+    expect(loadFilesSort("reader", "acc-1/folder-9")).toEqual({
+      key: "size",
+      desc: false,
+    });
+    // A folder nobody has sorted, another account's folder, and no reader at
+    // all: the order the server answers in, rather than no order.
+    expect(loadFilesSort("reader", "acc-1/other")).toEqual(DEFAULT_FILES_SORT);
+    expect(loadFilesSort("reader", "acc-2/root")).toEqual(DEFAULT_FILES_SORT);
+    expect(loadFilesSort(null, "acc-1/root")).toEqual(DEFAULT_FILES_SORT);
+  });
+
+  it("reads a column it no longer knows as never sorted", () => {
+    // The record is written by one build and read by the next.
+    localStorage.setItem(
+      "gilbert:reader:lastPlace",
+      JSON.stringify({ filesSort: { "acc-1/root": { key: "colour", desc: "yes" } } }),
+    );
+    expect(loadFilesSort("reader", "acc-1/root")).toEqual(DEFAULT_FILES_SORT);
   });
 });

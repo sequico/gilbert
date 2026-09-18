@@ -30,8 +30,6 @@ import { administrationAllowed, gateAdministration } from "./adminGate.js";
 import {
   EMPTY_POLICY,
   type PolicyDocument,
-  type PublishJob,
-  type PublishUnreached,
   parsePolicyDocumentDetailed,
   policyDocumentText,
   readAccountPolicy,
@@ -123,6 +121,9 @@ import {
   SessionStore,
   type SessionTtls,
 } from "./sessions.js";
+import { CAPABILITIES } from "./shared/capabilities.js";
+import type { PublishJob, PublishUnreached } from "./shared/publishJob.js";
+import type { SystemSieveScriptWrite } from "./shared/sieveViews.js";
 import { staticHandler } from "./static.js";
 import {
   type AccountInfo,
@@ -1054,7 +1055,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       setSessionCookie(c, cookie, session.remember);
       // Start the account's push subscription now, so it is usually verified
       // by the time the browser opens its stream. See push.ts.
-      const mailAccount = upstream.primaryAccounts?.["urn:ietf:params:jmap:mail"];
+      const mailAccount = upstream.primaryAccounts?.[CAPABILITIES.mail];
       if (mailAccount)
         pushPrepare(session.username, mailAccount, session.authorization, pushOrigin(c));
       const info = await getAccountInfo(session.id, session.authorization, upstream);
@@ -1444,7 +1445,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     return c.json({ ok: true });
   });
 
-  // ---------- Administration (ADR 0001, ADR 0014) ----------
+  // ---------- Administration (ADR 0001, ADR 0017) ----------
   /**
    * Stalwart admin is the Gilbert admin: the session's own `/api/account`
    * permission list, read freshly on every privileged call so a demotion
@@ -1453,7 +1454,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
    * admin marker is a plain 403.
    *
    * Two conditions on top of that marker bound every admin route as well as
-   * the JMAP proxy (ADR 0014): the installation still offers administration
+   * the JMAP proxy (ADR 0017): the installation still offers administration
    * (`server.administration`), and this session was signed in on a device
    * marked as its owner's. An operator who turned administration off means it
    * of every door — this is the second one, and the version of the product that
@@ -2004,7 +2005,9 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         return c.json({ error: access.error, need: access.need }, 403);
       }
       const labels = await readGroupLabels(access.ctx, access.accountId);
-      return c.json({ labels: labels ?? [] });
+      /* A catalog the validator refuses reads as no catalog: the surface shows
+         what it can render, and a write over one is refused where it is made. */
+      return c.json({ labels: labels.state === "catalog" ? labels.labels : [] });
     } catch (err) {
       return agentFailure(c, err);
     }
@@ -2745,25 +2748,23 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     return upstreamFailure(c, err);
   }
 
-  interface SystemSieveScriptBody {
-    name?: unknown;
-    description?: unknown;
-    contents?: unknown;
-    activate?: unknown;
-    /** The `state` this write was read against — omitted only for a create. */
-    state?: unknown;
-  }
-
-  function readSystemSieveBody(body: SystemSieveScriptBody | null) {
-    const name = typeof body?.name === "string" ? body.name.trim() : "";
-    const contents = typeof body?.contents === "string" ? body.contents : null;
+  /**
+   * The body of a System Sieve write, validated into the shape both tiers name
+   * (`@gilbert/shared/sieveViews`) rather than into a second declaration of it:
+   * a field added to the surface's write and forgotten here is a field this
+   * route silently drops.
+   */
+  function readSystemSieveBody(body: unknown): SystemSieveScriptWrite | null {
+    const raw = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+    const name = typeof raw.name === "string" ? raw.name.trim() : "";
+    const contents = typeof raw.contents === "string" ? raw.contents : null;
     if (!name || contents === null) return null;
     const description =
-      typeof body?.description === "string" && body.description.trim()
-        ? body.description.trim()
+      typeof raw.description === "string" && raw.description.trim()
+        ? raw.description.trim()
         : null;
-    const state = typeof body?.state === "string" && body.state ? body.state : undefined;
-    return { name, description, contents, activate: Boolean(body?.activate), state };
+    const state = typeof raw.state === "string" && raw.state ? raw.state : undefined;
+    return { name, description, contents, activate: Boolean(raw.activate), state };
   }
 
   api.get("/admin/sieve/system", requireSession, requireAdmin, async (c) => {
@@ -2785,14 +2786,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   api.post("/admin/sieve/system", requireSession, requireAdmin, async (c) => {
-    const parsed = readSystemSieveBody(await readJson<SystemSieveScriptBody>(c));
+    const parsed = readSystemSieveBody(await readJson<unknown>(c));
     if (!parsed) return c.json({ error: "bad_request" }, 400);
-    // A create has no prior read to lose, so `state` (if the body carried one)
-    // is dropped rather than sent as `ifInState`.
-    const { state: _ignored, ...create } = parsed;
     try {
       const ctx = await accountCtx(c);
-      const id = await saveSystemSieveScript(ctx, { id: null, ...create });
+      /* A create has no prior read to lose, and the write ignores a `state`. */
+      const id = await saveSystemSieveScript(ctx, null, parsed);
       return c.json({ id });
     } catch (err) {
       return systemSieveFailure(c, err);
@@ -2800,16 +2799,11 @@ export function createApp(basePath = config.basePath): Hono<Env> {
   });
 
   api.put("/admin/sieve/system/:id", requireSession, requireAdmin, async (c) => {
-    const parsed = readSystemSieveBody(await readJson<SystemSieveScriptBody>(c));
+    const parsed = readSystemSieveBody(await readJson<unknown>(c));
     if (!parsed) return c.json({ error: "bad_request" }, 400);
-    const { state, ...rest } = parsed;
     try {
       const ctx = await accountCtx(c);
-      const id = await saveSystemSieveScript(ctx, {
-        id: c.req.param("id"),
-        ...rest,
-        ifInState: state,
-      });
+      const id = await saveSystemSieveScript(ctx, c.req.param("id"), parsed);
       return c.json({ id });
     } catch (err) {
       return systemSieveFailure(c, err);
@@ -2855,7 +2849,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     /*
      * For a session that may not administer -- administration switched off on
      * this installation, or a device not marked as the person's own -- the body
-     * is read and checked before it goes anywhere (ADR 0014). A session that may
+     * is read and checked before it goes anywhere (ADR 0017). A session that may
      * administer streams straight through as it always has, and pays nothing for
      * this.
      */
@@ -3040,7 +3034,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       // Subscribe mode: if this account's subscription is verified, the tab is
       // served by fan-out and holds nothing upstream. Otherwise it gets its own
       // relay, and is moved to fan-out the moment the account verifies.
-      const accountId = upstream.primaryAccounts?.["urn:ietf:params:jmap:mail"];
+      const accountId = upstream.primaryAccounts?.[CAPABILITIES.mail];
       if (
         accountId &&
         pushAttach(session.username, accountId, session.authorization, out, pushOrigin(c))
@@ -3097,7 +3091,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
 const MAX_GATED_REQUEST = 16 * 1024 * 1024;
 
 /**
- * Why an administrative route is unavailable, as one refusal (ADR 0014). The
+ * Why an administrative route is unavailable, as one refusal (ADR 0017). The
  * two causes are told apart because they are fixed differently: one by the
  * operator, one by signing in again on your own device. `method` names what was
  * refused, where a request had a name to give.
@@ -3181,7 +3175,7 @@ function sessionExtras(
       /** Stalwart-admin state resolved at sign-in (ADR 0001): enables the admin surface. */
       isAdmin,
       /**
-       * ADR 0014: whether this session may administer at all. The menu follows
+       * ADR 0017: whether this session may administer at all. The menu follows
        * it, and the JMAP proxy is the door that enforces it: a false here also
        * means every `x:` method beyond the account's own is refused. False when
        * the installation offers no administration, and when it asked for the

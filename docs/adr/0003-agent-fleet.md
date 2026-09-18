@@ -1,5 +1,13 @@
 # ADR 0003 — The agent fleet
 
+Status: Accepted
+
+Implementation: Built in the main: the fleet, the claim and the executor
+(`server/src/agent/agent.ts`, `lease.ts`, `executor.ts`), the capability
+allowlist, and the three admin surfaces. Decided here and not built: diagnosing
+an agent that is hung rather than gone, and more than one agent inside one group
+(both in `ROADMAP.md`).
+
 This is **gilbertagents**, one of the four blocks `README.md` names: agents
 that act on Stalwart events and on time schedules, inside mail and file
 storage, for a person or a group. Sieve owns delivery-time actions inside

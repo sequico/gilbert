@@ -11,9 +11,10 @@
  * and the caller decides whether it is allowed to save that.
  */
 
+import { localDateTime } from "@gilbert/shared/localDateTime";
 import type { CalendarEvent } from "@/jmap/types";
 import { isBirthdayEvent } from "./birthdays";
-import { addMinutes } from "./dates";
+import { addMinutes, formatDuration } from "./dates";
 
 /**
  * Fifteen minutes, which is the smallest slot anybody schedules against and
@@ -79,20 +80,6 @@ export function resizedBy(span: Span, deltaMinutes: number): Span {
   return { start: span.start, end: end.getTime() < minimum.getTime() ? minimum : end };
 }
 
-/** Seconds, as an ISO 8601 duration — the shape `duration` takes on the wire. */
-export function formatDuration(seconds: number): string {
-  const total = Math.max(0, Math.round(seconds));
-  const days = Math.floor(total / 86400);
-  const hours = Math.floor((total % 86400) / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const secs = total % 60;
-  if (!total) return "PT0S";
-  const time = [hours && `${hours}H`, minutes && `${minutes}M`, secs && `${secs}S`]
-    .filter(Boolean)
-    .join("");
-  return `P${days ? `${days}D` : ""}${time ? `T${time}` : ""}`;
-}
-
 /**
  * The patch a move or a resize sends.
  *
@@ -123,16 +110,11 @@ function parseStored(start: string): Date | null {
   );
 }
 
-function formatStored(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-}
-
 /** Shift a stored `YYYY-MM-DDTHH:mm:ss` start by whole milliseconds. */
 export function shiftStoredStart(start: string, deltaMs: number): string | null {
   const base = parseStored(start);
   if (!base || Number.isNaN(deltaMs)) return null;
-  return formatStored(new Date(base.getTime() + deltaMs));
+  return localDateTime(new Date(base.getTime() + deltaMs));
 }
 
 export interface DragPatch {
@@ -144,7 +126,7 @@ export interface DragPatch {
 export function movePatch(storedStart: string, deltaMinutes: number): DragPatch {
   const base = parseStored(storedStart);
   if (!base) return {};
-  return { start: formatStored(addMinutes(base, snap(deltaMinutes))) };
+  return { start: localDateTime(addMinutes(base, snap(deltaMinutes))) };
 }
 
 /**
@@ -173,7 +155,7 @@ export function moveByDaysPatch(storedStart: string, days: number): DragPatch {
     base.getSeconds(),
     0,
   );
-  return { start: formatStored(moved) };
+  return { start: localDateTime(moved) };
 }
 
 /** Whole days between two local dates, ignoring the time of day on each. */

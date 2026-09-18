@@ -1,11 +1,8 @@
-import { Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { t, tNode } from "@/lib/i18n";
-import { labelKeywordFromName } from "@/lib/labelKeyword";
 import { descendantKeywords, labelTree } from "@/lib/labelTree";
 import { type LabelVisibility, useSettings } from "@/store/settings";
-import { promptDialog } from "@/ui/dialog";
-import { CALENDAR_COLORS, ColorSwatches } from "@/ui/misc";
+import { askNewLabel, LabelRow, NewLabelButton } from "@/views/labels/LabelCatalog";
 
 export function LabelsSettings() {
   const labels = useSettings((s) => s.settings.labels);
@@ -15,23 +12,8 @@ export function LabelsSettings() {
   const descendantsOf = (keyword: string) => descendantKeywords(roots, keyword);
 
   const add = async () => {
-    const name = await promptDialog({
-      title: t("New label"),
-      placeholder: t("Label name"),
-    });
-    if (!name?.trim()) return;
-    const keyword = labelKeywordFromName(name);
-    if (labels.some((l) => l.keyword === keyword)) return;
-    update({
-      labels: [
-        ...labels,
-        {
-          keyword,
-          name: name.trim(),
-          color: CALENDAR_COLORS[labels.length % CALENDAR_COLORS.length]!,
-        },
-      ],
-    });
+    const label = await askNewLabel(labels);
+    if (label) update({ labels: [...labels, label] });
   };
 
   return (
@@ -43,61 +25,17 @@ export function LabelsSettings() {
         )}
       </p>
       {labels.map((l) => (
-        <div key={l.keyword} className="card">
-          <div className="card-head">
-            <span
-              className="label-dot"
-              style={{ background: l.color, width: 14, height: 14 }}
-            />
-            {editing === l.keyword ? (
-              <input
-                className="input sm"
-                defaultValue={l.name}
-                onBlur={(e) => {
-                  update({
-                    labels: labels.map((x) =>
-                      x.keyword === l.keyword
-                        ? { ...x, name: e.target.value || x.name }
-                        : x,
-                    ),
-                  });
-                  setEditing(null);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                }}
-                style={{ width: 240 }}
-              />
-            ) : (
-              <h3 style={{ cursor: "text" }} onClick={() => setEditing(l.keyword)}>
-                {l.name}{" "}
-                <span className="hint" style={{ fontWeight: 400 }}>
-                  ({l.keyword})
-                </span>
-              </h3>
-            )}
-            <button
-              className="icon-btn sm danger"
-              aria-label={t("Delete label")}
-              onClick={() =>
-                update({ labels: labels.filter((x) => x.keyword !== l.keyword) })
-              }
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-          <div style={{ marginTop: 8 }}>
-            <ColorSwatches
-              value={l.color}
-              onChange={(c) =>
-                update({
-                  labels: labels.map((x) =>
-                    x.keyword === l.keyword ? { ...x, color: c } : x,
-                  ),
-                })
-              }
-            />
-          </div>
+        <LabelRow
+          key={l.keyword}
+          labels={labels}
+          label={l}
+          onChange={(next) => update({ labels: next })}
+          onDelete={() =>
+            update({ labels: labels.filter((x) => x.keyword !== l.keyword) })
+          }
+          editing={editing === l.keyword}
+          onEdit={setEditing}
+        >
           <div className="field-row" style={{ marginTop: 10 }}>
             <div className="field">
               <label>{t("Nested under")}</label>
@@ -150,11 +88,9 @@ export function LabelsSettings() {
               </select>
             </div>
           </div>
-        </div>
+        </LabelRow>
       ))}
-      <button className="btn" onClick={() => void add()}>
-        <Plus size={16} /> {t("New label")}
-      </button>
+      <NewLabelButton onClick={() => void add()} />
       <p className="hint mt-8">
         {tNode(
           "Tip: press {key} on a conversation to apply labels. Search with {operator}.",

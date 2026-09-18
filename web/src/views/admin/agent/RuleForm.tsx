@@ -18,19 +18,17 @@ import {
   type AgentTrigger,
   isAgentTriggerOn,
 } from "@gilbert/agent/documents";
+import { isRecord } from "@gilbert/shared/json";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import {
-  type AgentActionCatalogEntry,
-  readDraft,
-  readingNotCountedNote,
-} from "@/lib/agents";
+import { type AgentActionCatalogEntry, readDraft } from "@/lib/agents";
 import { t } from "@/lib/i18n";
 import {
   AGENT_REVIEW_LABELS,
   AGENT_REVIEW_MEANING_LABELS,
   AGENT_TRIGGER_LABELS,
 } from "@/views/agent/agentText";
+import { AskReading } from "./AskReading";
 
 /** The filter keys whose value is a number, and must be written as one. */
 const AGENT_FILTER_NUMBERS = new Set(["minSize", "maxSize"]);
@@ -76,7 +74,7 @@ const AGENT_FILTER_KEYS = new Set(AGENT_FILTER_LABELS.map((f) => f.key));
  * carried as it is instead of being flattened into something it never was.
  */
 function isWritableCondition(condition: unknown): condition is Record<string, unknown> {
-  if (!condition || typeof condition !== "object" || Array.isArray(condition)) {
+  if (!isRecord(condition)) {
     return false;
   }
   for (const [key, value] of Object.entries(condition)) {
@@ -457,23 +455,13 @@ export function RuleForm({
           )}
         </p>
       </div>
-      <button
-        type="button"
-        className="btn btn-ghost"
-        onClick={askReading}
-        disabled={readingBusy || !group || !rule.instruction.trim()}
-      >
-        {readingBusy ? t("Reading…") : t("Ask the model to read it")}
-      </button>
-      {reading && (
-        <div className="card" style={{ marginTop: 12 }}>
-          <p className="hint" style={{ marginTop: 0 }}>
-            {t("What the model said about this draft:")}
-          </p>
-          <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{reading}</p>
-          {!readingCounted && <p className="hint">{readingNotCountedNote()}</p>}
-        </div>
-      )}
+      <AskReading
+        ready={Boolean(group) && rule.instruction.trim().length > 0}
+        busy={readingBusy}
+        reading={reading}
+        counted={readingCounted}
+        onAsk={askReading}
+      />
 
       <h3>{t("Review")}</h3>
       <div className="field">

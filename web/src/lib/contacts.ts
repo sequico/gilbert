@@ -1,5 +1,6 @@
 import type { ContactCard, EmailAddress, JSContactName } from "@/jmap/types";
 import { withBase } from "@/lib/basePath";
+import { foldLine } from "./contentLines";
 
 /** Best display name for a card. */
 export function contactDisplayName(c: ContactCard): string {
@@ -300,18 +301,7 @@ export function toVCard(c: ContactCard): string {
     if (s.uri) lines.push(`IMPP:${s.uri}`);
   if (c.members) for (const m of Object.keys(c.members)) lines.push(`MEMBER:${m}`);
   lines.push("END:VCARD");
-  return `${lines.map(fold).join("\r\n")}\r\n`;
-}
-
-function fold(line: string): string {
-  if (line.length <= 75) return line;
-  const out: string[] = [];
-  let i = 0;
-  while (i < line.length) {
-    out.push((i ? " " : "") + line.slice(i, i + 74));
-    i += 74;
-  }
-  return out.join("\r\n");
+  return `${lines.map(foldLine).join("\r\n")}\r\n`;
 }
 
 export function newKey(prefix = "k"): string {

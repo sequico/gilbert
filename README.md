@@ -1,10 +1,27 @@
 <p align="center">
-  <img src="web/public/img/logo.png" alt="Gilbert" width="150">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="web/public/img/logo-inverse.png">
+    <img src="web/public/img/logo.png" alt="Gilbert" width="150">
+  </picture>
 </p>
 
+<!-- Facts this file verifies further down, and states nowhere twice: the licence
+     is LICENSE's, the Stalwart floor is the section of that name, Node 24 is what
+     the Dockerfile, ci.yml, `engines` and @types/node all say, the container is
+     the Quick start's, and the second row is what the Development and Code
+     scanning sections describe as the gates. No badge here is GitHub-derived
+     through shields: this repository is private, so `img.shields.io/github/...`
+     answers "repo not found" for it. The CI badge is GitHub's own, which a
+     signed-in reader with access gets. -->
 <p align="center">
   <a href="LICENSE"><img alt="Licence: AGPL-3.0-or-later" src="https://img.shields.io/badge/licence-AGPL--3.0--or--later-2dd4bf?style=flat-square"></a>
   <a href="https://stalw.art" target="_blank" rel="noreferrer"><img alt="Requires Stalwart 0.16 or newer; followed against 0.16.22" src="https://img.shields.io/badge/Stalwart-0.16.22-6366f1?style=flat-square"></a>
+  <a href="#development"><img alt="Node 24 on the latest LTS line" src="https://img.shields.io/badge/Node-24-5fa04e?style=flat-square"></a>
+  <a href="#quick-start-docker"><img alt="Ships as a container image and a docker compose stack" src="https://img.shields.io/badge/Docker-image_%2B_compose-2496ed?style=flat-square"></a>
+  <br>
+  <a href="https://github.com/sequico/gilbert/actions/workflows/ci.yml"><img alt="CI: the release pre-check — typecheck, Biome, i18n, the tests, the build and a Docker smoke build" src="https://github.com/sequico/gilbert/actions/workflows/ci.yml/badge.svg"></a>
+  <a href=".githooks/pre-push"><img alt="The pre-push hook runs the fast gate before every push: typecheck, Biome, the check scripts and the tests" src="https://img.shields.io/badge/gate-typecheck%20%C2%B7%20Biome%20%C2%B7%20tests-1f6feb?style=flat-square"></a>
+  <a href="#code-scanning"><img alt="GitHub code scanning with the JavaScript/TypeScript suite, on every push and pull request" src="https://img.shields.io/badge/code_scanning-CodeQL-1f6feb?style=flat-square"></a>
 </p>
 
 # Gilbert
@@ -12,193 +29,198 @@
 **G**eneral-purpose **I**ntelligent **L**ifecycle **B**utler for **E**nterprise
 **R**esource **T**raceability.
 
-Gilbert manages an organisation's *resources* — mail, contacts, calendars,
-files and the documents that move between people — through their whole
-lifecycle, with [Stalwart Mail Server](https://stalw.art) as the single store
-that keeps the trace. Concretely, in rough order: shared group accounts on
-Stalwart for mail, contacts and calendars; chat between the members of a
-group; AI agents that act inside mail and file storage, for a person or a
-group — Gilbert's own agents now, external agent fleets later; and a workflow
-engine for delivery orders with checklists and to-do lists. Part of this
-already ships — the group accounts, the chat, the calendars, contacts and
-address books, and the agent fleet; the rest is the direction the code
-is being pointed.
+**An enterprise butler that lives in your own mail server.** Gilbert is a
+first-class mail suite — mail, calendars, contacts, files — with **agents
+inside it**. They read what arrives, file the paperwork in the right folder,
+read the document inside it, draft the answer, and say in the group's chat what
+they have done. What they may do is a list an administrator writes; every
+effect is written down before it happens; and anything that reaches outside the
+group waits for a person to say yes, in words.
 
-What runs today is Gilbert: a Gmail-class, JMAP-only **mail client** for
-Stalwart, and an **agent fleet** — a second process that acts inside mail and
-file storage on a group's behalf, with its own identity, its own permissions
-and its own audit trail. Both run in a disposable container, and everything
-durable lives in Stalwart (see [What's in it](#whats-in-it) and
-[Architecture](#architecture)). The mail client is based on
-[ihasmail](https://github.com/Coffey-Labs/ihasmail), Coffey Labs' immutable
-webmail for Stalwart; Gilbert is a distinct product around it, and its own
-layer is the groups, the chat and the agents.
+Everything Gilbert keeps — the mail, the files, the rules, the audit trail —
+is a document in your own [Stalwart](https://stalw.art) mail server, under the
+account it belongs to. There is no Gilbert database: no index, no cache tier,
+no writable disk, nothing to back up twice, and a redeploy that loses nothing.
+The one thing that leaves the building is the *thinking*: an installation
+names one model to reason with — a provider, a model and an address you choose,
+which may be inside your own network.
 
-**Four blocks, named once — in [The blocks, and the line to
-upstream](#the-blocks-and-the-line-to-upstream).** Every document here uses
-those names and no others.
+**You already have the hard part.** Gilbert stores nothing of its own, so
+getting it running means pointing it at the mail server you already operate.
+What you get is a client good enough to move into, and a set of agents that do
+the work around it.
 
-> **Try it locally:** `npm run dev:mock` runs a complete instance against an
-> in-memory mock Stalwart — open http://localhost:5173 and sign in with
-> `demo@example.com` / `demo`.
+> **Try it in a minute — no server needed.** `npm run dev:mock` runs a complete
+> Gilbert against an in-memory mock Stalwart; open http://localhost:5173 and
+> sign in with `demo@example.com` / `demo`. `npm run dev:mock:agent` is the same
+> stack with an agent process running, so the agent surfaces — Master, Group
+> Agents, Approvals — are there with a group already granted. The automations
+> are yours to write, and a run needs a model configured in Master first.
 
-**Licence and lineage.** Gilbert is AGPL-3.0-or-later, and its copyright is
-**Sequi Company's**. Its mail client is a derivative work of
-[ihasmail](https://github.com/Coffey-Labs/ihasmail) by **Coffey Labs**, used and
-modified under the same licence: they are *attributed* — in
-[NOTICE](NOTICE) and in the table below — and upstream's code and docs are
-linked where they are still accurate. The source offer for *this* build points
-at this repository (Settings › About, or the sign-in page).
+## What you get today
 
-| | |
-| --- | --- |
-| 📋 **[FEATURES.md](FEATURES.md)** | Everything the client does today, feature by feature, with the capability each one needs |
-| 🧪 **[KNOWN-ISSUES.md](KNOWN-ISSUES.md)** | What was verified live, and where Stalwart departs from a spec |
-| 🛣 **[ROADMAP.md](ROADMAP.md)** | What Gilbert does not do yet, and why |
-| ⬆ **[ihasmail](https://github.com/Coffey-Labs/ihasmail) upstream** | The project Gilbert derives from — [site](https://ihasmail.org) · [docs](https://docs.ihasmail.org) · [demo](https://demo.ihasmail.com), all theirs, linked for attribution and because most install and usage detail still lives there |
+Everything below ships. It is the order this project cares about, not the order
+someone would build a mail client in: the agents are the reason Gilbert exists,
+and the mail client is what they live in.
 
-This file is for people working *on* Gilbert and for the people running it.
+- **Agents that work the mail and the files.** An agent is a mailbox of its
+  own on Stalwart — `gilbert@…` — granted on a group the way any colleague is.
+  It watches four things: **mail** arriving, a **file** landing in the group's
+  Files, a **chat** message, and the **clock**. For each of them an
+  administrator writes an automation: *when* this happens, *if* it looks like
+  this, *then* do this — in a form, not in code, and the "do this" is prose a
+  model carries out. It can label and move a message, save its attachments
+  into the right folder, read a PDF or a spreadsheet or a scan, split, merge
+  and extract PDF pages, prepare a reply in Drafts, write a text document,
+  post in the chat, and send.
+- **A leash, not a promise.** What an automation may do is a short list of
+  permissions checked in code on every answer, so neither the model nor a
+  cleverly worded instruction can widen it. A review policy can pause a run
+  for a person; the pause becomes a question in the group's chat, answered in
+  words by any member. Sending outside the group always asks first, whatever
+  the policy says.
+- **A receipt for everything.** Every run is recorded — one line written
+  *before* the effect, so an effect never exists without a line that accounts
+  for it — in a monthly document per group, kept twelve months, readable by
+  every member and exportable as JSON by an administrator before the oldest
+  month is pruned. What the thinking cost is recorded in tokens, run by run.
+- **Agents that know the place.** A group keeps a **standing instruction** (how
+  it works, in what language, in what tone) and a **notebook** of facts nobody
+  should have to repeat — its clients' names, how its mail is filed. Both are
+  documents in the group's own account, so a replacement agent, a restart or a
+  redeploy picks up exactly where the last one was.
+- **Groups, as real accounts.** A group mailbox is an account of its own,
+  owned by the group from creation: its mail, its calendars, its files, its
+  label catalog, its agent's documents. Membership *is* the permission — set
+  in Stalwart's own administration — and a member added later finds everything
+  already there.
+- **Chat, one conversation per group.** In the group's own account, so it
+  survives people joining and leaving, with replies, `@` mentions of the whole
+  roster, per-member read markers and search across the whole history. This is
+  also where the agents talk and where approvals happen.
+- **File management that holds up.** A folder tree that remembers how you left
+  it, drag and drop from your desktop — a whole folder uploads with its
+  structure, empty folders included — uploads you can **cancel** mid-flight,
+  sorted columns that keep their order per folder, multi-select with download,
+  move and delete, and sharing per file and folder with rights per person.
+  Attach from Files without uploading again; save a message's attachments
+  straight into a folder of your own **or a group's**, so the file becomes the
+  group's.
+- **A mail client you would keep anyway.** Three-pane, keyboard-driven, with
+  conversations, labels, search grammar, cards inside messages, undo send,
+  scheduled send, read receipts, S/MIME signature checking, and graceful
+  degradation: if the server lacks a capability, the surface for it is not
+  drawn rather than broken. Calendars with invitations and free/busy, contacts
+  with vCard import, and a visual Sieve rule builder whose script is a real
+  Sieve script. (This part began as upstream's — see
+  [the line to upstream](#the-blocks-and-the-line-to-upstream).)
+- **Administration, three surfaces and no more.** **Master** configures the
+  installation once — the agent's identity, the one model and its bounds, which
+  groups it serves. **Group Agents** is one group's workspace: its automations,
+  its instruction, its notebook, its audit, and a button that runs one now.
+  **Approvals** is the cross-group view of what is waiting for a person and
+  what the fleet has done.
+- **Nothing sensitive in the browser.** The password somebody types at sign-in
+  is sealed on the server and never kept in the page; the browser gets an
+  `HttpOnly` cookie and nothing else. Strict CSP, sanitised HTML with remote
+  images fetched through a proxy that refuses to be pointed at private network
+  addresses, and every JMAP call on the same origin.
+- **Every device, in your language.** Installable PWA with Web Push while
+  Gilbert is closed, `mailto:` handler, eleven interface languages (ten still
+  marked Beta, honestly), twelve themes, and a container that runs with no
+  writable filesystem at all.
+- **Nothing of its own to keep.** No database, no search index, no cache
+  tier. Every durable byte is in Stalwart under the account's quota, sessions
+  included — which is why a redeploy does not sign anybody out, and why
+  keeping the mail server is the whole backup story.
 
-## What's in it
+**Not in it yet**, and said plainly: agents for individual mailboxes (group
+agents only), more than one agent inside the same group at a time, two-factor
+sign-in without an app password, snooze, and translations no native speaker
+has read yet. The reasons, and the rest, are in [ROADMAP.md](ROADMAP.md).
 
-Gilbert's own work, in the order it matters here. The long version, feature by
-feature, is in [FEATURES.md](FEATURES.md).
+## A day with the butler
 
-- **Groups** — a group mailbox is an account of its own on Stalwart, and what it owns lives in that account and belongs to it: its chat, its label catalog, its calendars and files, its agent's documents. Membership *is* the grant, and the grant is administered on the server, never in the product
-- **Chat** — one conversation per group mailbox, stored in the group's own account so a member added later finds all of it (ADR 0005)
-- **Agents** — an agent fleet that acts inside mail and file storage on a group's behalf. Each automation is a document in the group's own account — when it reacts, which messages it looks at, what it is asked to do — an instruction in prose that the installation's model carries out, a capability allowlist that bounds every answer, a review policy that can pause a run for a person, and the approval itself happening in the group's chat. Every run is audited, one document per month per group, and an administrator can export that trail before the retention prunes it. The installation's Master is **named by the deployment's environment** — `GILBERT_AGENT_ADDRESS` and the account's own password. It runs with the server unless the deployment keeps the two apart, holds its claims in the documents themselves, and no model can widen what a rule was granted
-- **Nothing of its own to keep** — no database, no search index, no cache tier: every durable thing lives in the mail store, under the account's quota, and the container is disposable (`IMMUTABLE=1` needs no writable root)
-- **Platform** — installable PWA, Web Push with Gilbert closed, `mailto:` handler, no credentials in the browser, strict CSP, SSRF-safe image proxy
-- **Everything else is upstream's** — the mail client, calendar, contacts, files, sharing and Sieve editing come from [ihasmail](https://github.com/Coffey-Labs/ihasmail), renamed for this build. This project does not re-document them; upstream's own documentation is the reference — [Using ihasmail](https://docs.ihasmail.org/using/). What this build adds on top: twelve themes, eleven interface languages (beta), signature checking, and a container that can run read-only
+Three examples, close to what the code actually does. None of it is a mock-up:
+automations are documents, runs are audited, and the permissions below are the
+ones in the catalogue.
 
-The feature-by-feature inventory, with Gilbert's own part first, is
-[FEATURES.md](FEATURES.md).
+**The invoice that files itself.** An invoice arrives at `accounts@`. The
+group's standing instruction says clients are filed under the name on the
+document and that the group is told what came in. The mail automation wakes,
+hands the message and the instruction to the installation's model, which saves
+the attachment into the group's Files — in the folder the automation named, or
+the one the model chose, and into `Needs attention` when neither decided —
+labels the message, and posts one line in the group's chat: *"Acme — invoice
+2481, dated 12 March, filed under Acme."* If the automation's review policy
+asks for confirmation, the draft is prepared and the question appears in the
+chat instead, and nothing goes out until a member answers.
 
-## The blocks, and the line to upstream
+**The contract nobody wants to retype.** Somebody drops a forty-page PDF into
+the group's Files. A file automation reads it — the text layer where there is
+one, and where a page is only a picture, that page is rendered and read as a
+picture — and writes what it says back into the group's Files as a text
+document, or answers in the chat. A reading carries a bounded number of pages
+(eight, unless the installation says otherwise) and when a document is longer
+than that, the run is *told* it read the beginning rather than being left to
+pretend it saw the whole thing.
 
-Gilbert is four blocks. They are areas of the product and not directories — one
-code tree holds several of them — and every document here names them this way
-and no other:
+**The bundle that becomes four documents.** A scan of four contracts arrives as
+one PDF. An automation splits it into one file per page, into the folder the
+automation names, and the group is told in the chat that it happened. Sending
+anything is a different permission entirely, and it is not on the list.
 
-- **gilbertmailer** — the mail suite: mail, calendars, contacts, files, sharing
-  and the Sieve editor. This is the block that came from upstream.
-- **gilbertserver** — the Node process that runs beside the browser: sign-in,
-  the sealed sessions, the JMAP forwarding, the policy, the image and calendar
-  proxies. It is also where the agent fleet runs. Part of it came from
-  upstream — the layer that serves the mail client — and the fleet inside it is
-  Gilbert's.
-- **gilbertagents** — the agents: the principal, the agent fleet, the
-  automations, the approvals and the audit.
-- **gilbertstalwart** — what is set inside Stalwart itself: the server's own
-  configuration and system scripts, written through its management API, and the
-  objects the server holds and sends with, an account's identities among them,
-  written through JMAP. Which door carried the write does not decide the block;
-  what the write fixes inside the server does.
+Work like that hands off to work like that: a file written into the group's
+Files wakes the rule that watches files, and a question answered in the chat
+closes the run that asked it. A chain runs five hops by default and then
+refuses loudly, with a line in the chat naming the automation and the bound —
+so two automations that wake each other end by themselves, with a reason a
+person can read. The number is the installation's to set.
 
-The word *server* is the one worth pinning down: **Stalwart** is the mail
-server that holds every durable byte, and **gilbertserver** is this product's
-own Node process. This document says which one it means every time.
+## Why it is different
 
-These are the documentation's names for what the product is made of, and not
-UI labels. The administration's navigation presents three of the blocks under
-its own headings — *Gilbert Mailer*, *Gilbert Assistant*, *Stalwart* — which is
-that surface labelling them rather than a second set of names; the server
-process has no navigation of its own, because it is what serves it.
+- **It works where your mail already is.** No sync, no import, no second copy
+  of anything. Gilbert is a client and an agent process; the server holds every
+  durable byte.
+- **The permissions are code, not a prompt.** An automation's capability list
+  is checked on every answer the model gives. Asking nicely does not widen it.
+- **A person can always stop it.** Review policies pause runs, approvals
+  happen in the group's chat, and an external send always needs an explicit
+  yes from a human.
+- **It is auditable without a data warehouse.** The trail is a document per
+  month per group in the group's own account: members can read it, and an
+  administrator can export it as JSON before it ages out.
+- **The model is yours to choose.** One model per installation, configured
+  once — provider, model, base URL, write-only key — and a deployment may point
+  it at a model on its own network, which the operator states in the
+  environment rather than the installation granting itself the right.
+- **It is a real mail client, not a chat window with an inbox.** The mail,
+  calendar, contacts, files, filters and sharing surfaces are the ones people
+  use all day; the agents are an addition to that, not a replacement for it.
+- **Yours to run, and quiet by default.** Self-hosted on the server you already
+  pay for, with no telemetry and no vendor cloud in the loop. What an
+  automation needs to reason over goes to the model the installation names and
+  nowhere else — and a deployment that runs that model inside its own network
+  sends nothing out at all.
+- **Open source, AGPL.** Run it, read it, change it. Modifications you serve to
+  others come back as source, which is the point of the licence.
 
-**The line.** One block and part of another came from
-[ihasmail](https://github.com/Coffey-Labs/ihasmail), Coffey Labs' immutable
-webmail for Stalwart. Everything else is Gilbert's, written here. That is the
-whole of the upstream relationship, stated so a reader can tell which is which
-without reading the tree:
+## Try it, then run it
 
-- **From upstream**: the mail client — `gilbertmailer` — and inside
-  `gilbertserver` the parts that serve it: sign-in and sessions, the JMAP
-  forwarding, the image and calendar proxies, the rate limiting. Renamed for
-  this build and changed here.
-- **Gilbert's own**: the groups, the chat, the agent fleet, the administration,
-  the settings policy, the app folder, and every Stalwart configuration
-  surface. None of it exists upstream, and none of it is contributed back
-  (ADR 0002).
-
-Where this matters: an upstream release is a delta to the first list only, and
-the merge that takes one in renames it before it lands. Everywhere else there
-is nothing to merge.
-
-## Agents, in detail
-
-The installation's **Master** is an ordinary account on the server that
-Gilbert acts as; its **agents** — the fleet — are the processes that act as it,
-and they are the largest thing this project owns, so this is the short version of
-how to turn it on, what it does, and what holds it back. (A *worker* is only ever
-the browser's service worker, which is a different animal with a confusingly
-similar name.) The long version is the first part of [FEATURES.md](FEATURES.md).
-
-**Turning it on.** The operator creates the Master's account in **Stalwart's own
-administration** and adds it to the groups it may work in: membership *is* the
-grant, and no switch in the product can replace it. The account's address and
-its own password — not an app password: the Master signs in as itself — are then
-given to the deployment, and that pair is the whole of it:
-
+```bash
+npm install
+npm run dev:mock        # complete Gilbert, mock Stalwart, demo@example.com / demo
+npm run dev:mock:agent  # the same, plus an agent process
 ```
-GILBERT_AGENT_ADDRESS=gilbert@example.com \
-GILBERT_AGENT_PASSWORD=<the account's own password> \
-npm start
-```
 
-That one command is an installation that both serves and acts: the pair is the
-boot's handshake, and with it the server runs an agent beside the web tier in its
-own process (ADR 0003). The agent is the same entrypoint either way — `node
-server/dist/agent/agent.js` is what a deployment that wants the fleet apart runs
-instead, with `agent.inProcess` false in the installation document.
+Then http://localhost:5173. For a real server, keep reading.
 
-How often it re-reads, how long a claim lives, and how a restart policy reaches
-it are that document's `agent.poll`, `agent.lease` and `agent.healthPort` — the
-`GILBERT_AGENT_*` variables of the same names are what a process with no boot
-runs on (see [The installation's own
-configuration](#the-installations-own-configuration)). **Admin → Agents** shows
-the groups the agent is in, read from the Master's own session in Stalwart, and
-**Admin → Group agents** narrows what it does inside them, one group at a time:
-the automations it runs there, what is waiting on a person, and the agents
-carrying them out. The pair is what a boot cannot do without: a deployment that
-states neither, or whose pair Stalwart refuses, does not come up, and the boot
-names what is missing rather than serving an installation whose document nobody
-can read. An agent process started on its own is the other half of that
-sentence — with nothing named it warns once, keeps running and serves nothing
-rather than failing to come up.
+---
 
-**What it does.** An **automation** is a document in the group's own account:
-when it reacts (an email arriving, a chat message, a file, a time), which
-messages it looks at (the JMAP filter grammar), and what it then does — from the
-capability catalogue: label, move, file attachments into the group's visible
-Files, prepare a draft, send, write a text document. Each carries an
-**instruction** in prose and a **capability allowlist**: every run hands it to
-the installation's model, which decides and acts inside what the automation was
-granted.
-A group also keeps one **standing instruction** — the shape of an `AGENTS.md` —
-which the model is handed first on every call. An automation can also be **run
-now**, on the newest message in the group's inbox: that is how you see one work
-without waiting for mail to arrive, and the ask is recorded as an ask.
-
-**What holds it back.** The automation's **capability allowlist** bounds every
-answer, checked in code rather than asked for in a prompt, so neither the model
-nor the group's instruction can widen it. A **review policy** can pause every
-run, or any run below a confidence threshold; the approval happens **in the
-group's chat**, by any member, in words. Nothing that leaves the group is ever
-sent on a guessed approval.
-
-**What it leaves behind.** Every run is recorded in the group's **audit** — one
-document per month, kept twelve months, one line written before any effect so
-that an effect never exists without a record — and an administrator can download
-the whole retained trail as JSON before the oldest month is pruned. A failure
-lands the message in `G-needattention` and tells the group's chat which automation
-could not finish. Work is claimed per account with a lease, so a crashed agent's
-work is taken up by the next one, and a run whose rule changed under it is
-refused rather than executed.
-
-**Every member sees it.** The group's chat carries an AI panel showing what the
-agent is told and what it has done — the standing instruction, each automation,
-and the recent audit — read through the member's own session, and editable by
-nobody but an administrator of that group.
+*Below this line: everything for the people running Gilbert and the people
+working on it.* The first part of this file is the product; `FEATURES.md` is
+the feature-by-feature inventory; `docs/adr/` explains why the architecture is
+shaped the way it is.
 
 ## Requires Stalwart 0.16 or newer
 
@@ -243,11 +265,12 @@ docker compose up --build -d
 # → http://localhost:8080  (put Caddy/nginx in front for TLS; see Caddyfile.example / nginx.example.conf)
 ```
 
-Users sign in with their Stalwart mailbox credentials. **An account with
-two-factor authentication needs an app password**, created in Stalwart's own
-settings — Stalwart accepts a TOTP code only through an OAuth flow and offers no
-password grant, so no client holding a username and password can exchange them
-plus a code for a token.
+That command is a complete installation: the web client, and an agent beside it
+that serves the groups you have granted it. Users sign in with their Stalwart
+mailbox credentials. **An account with two-factor authentication needs an app
+password**, created in Stalwart's own settings — Stalwart accepts a TOTP code
+only through an OAuth flow and offers no password grant, so no client holding a
+username and password can exchange them plus a code for a token.
 
 Full instructions and TLS — upstream's docs, still the reference for the
 underlying client:
@@ -255,7 +278,29 @@ underlying client:
 [Configuring](https://docs.ihasmail.org/configure/). The variables *this* build
 reads, and what each one is for, are in [`.env.example`](.env.example).
 
-### Container images
+### Turning the agents on
+
+An agent is a Stalwart account, and its grant is membership — there is no
+second switch in the product. So the whole of it is:
+
+1. In **Stalwart's own administration**, create an account for the agent
+   (`gilbert@example.com`) and **add it to the groups it should work in**.
+2. Give the deployment that account's **own password** — not an app password:
+   the agent signs in as itself — in `GILBERT_AGENT_ADDRESS` and
+   `GILBERT_AGENT_PASSWORD`.
+3. Start Gilbert. The server runs an agent beside the web tier in its own
+   process (ADR 0003); a deployment that wants the fleet apart runs
+   `node server/dist/agent/agent.js` instead, with `agent.inProcess` false in
+   the installation document.
+
+Then **Administration → Master** shows the groups the agent can see, and
+**Group Agents** is where each group's automations are written. A group the
+agent belongs to that has never heard from it gets one message — *"Hi all!
+Gilbert here, at your service."* — posted when the agent takes the group up,
+which is the proof it is working there, readable through any member's own
+session.
+
+## Container images
 
 Gilbert images are published to GHCR on every release (cut by hand), for
 `linux/amd64` and `linux/arm64`:
@@ -387,8 +432,8 @@ rotating `APP_SECRET` signs nobody out. `appSecretSource` travels with the
 configuration and says which of the three it was.
 
 Every other knob — the session lifetimes, the upload ceiling, the routing table,
-whether a proxy is trusted, the cookie's name, the fleet's timers and bounds — is
-a field of that document, with the `TRUST_PROXY`, `SESSION_TTL`,
+whether a proxy is trusted, the cookie's name, the fleet's timers and bounds —
+is a field of that document, with the `TRUST_PROXY`, `SESSION_TTL`,
 `GILBERT_AGENT_*` and other names of the same settings being what a process with
 no boot runs on. The sections, and what each one holds, are listed in
 [`.env.example`](.env.example) and in
@@ -490,7 +535,7 @@ sign-in reads the new policy (ADR 0001). One account's refusal — no
 impersonation grant, an unreachable session, an account with no Files to hold it
 — does not stop the rest.
 
-**The publish is a job with an id** (ADR 0011). One id is minted before the
+**The publish is a job with an id** (ADR 0010). One id is minted before the
 first copy goes out, and every copy written carries it as
 `published: { id, at }` beside the policy, so any account an administrator opens
 says which publish reached it. The job itself is one document,
@@ -544,6 +589,113 @@ defaults, not to Gilbert's.
 
 [#207]: https://github.com/Coffey-Labs/ihasmail/issues/207
 
+## Agents, in detail
+
+The installation's **Master** is an ordinary account on the server that
+Gilbert acts as; its **agents** — the fleet — are the processes that act as it,
+and they are the largest thing this project owns. This is the technical
+version; [FEATURES.md](FEATURES.md#agents) is the long one. (A *worker* is only
+ever the browser's service worker, which is a different animal with a
+confusingly similar name.)
+
+**Admin → Master** shows the groups the agent is in, read from the Master's own
+session in Stalwart, and **Admin → Group Agents** narrows what it does inside
+them, one group at a time: the automations it runs there, what is waiting on a
+person, and the agents carrying them out. The pair of environment variables is
+what a boot cannot do without: a deployment that states neither, or whose pair
+Stalwart refuses, does not come up, and the boot names what is missing rather
+than serving an installation whose document nobody can read. An agent process
+started on its own is the other half of that sentence — with nothing named it
+warns once, keeps running and serves nothing rather than failing to come up.
+
+**What it does.** An **automation** is a document in the group's own account:
+when it reacts (an email arriving, a chat message, a file, a time), which
+messages it looks at (the JMAP filter grammar), and what it then does — from the
+capability catalogue: label, move, file attachments into the group's visible
+Files, prepare a draft, send, write a text document, read a document, split and
+merge PDFs. Each carries an **instruction** in prose and a **capability
+allowlist**: every run hands it to the installation's model, which decides and
+acts inside what the automation was granted. A group also keeps one **standing
+instruction** — the shape of an `AGENTS.md` — which the model is handed first on
+every call, and a **notebook** of durable facts about the group. An automation
+can also be **run now**, on the newest message in the group's inbox: that is how
+you see one work without waiting for mail to arrive, and the ask is recorded as
+an ask.
+
+**What holds it back.** The automation's **capability allowlist** bounds every
+answer, checked in code rather than asked for in a prompt, so neither the model
+nor the group's instruction can widen it. A **review policy** can pause every
+run, or any run below a confidence threshold; the approval happens **in the
+group's chat**, by any member, in words. Nothing that leaves the group is ever
+sent on a guessed approval.
+
+**What it leaves behind.** Every run is recorded in the group's **audit** — one
+document per month, kept twelve months, one line written before any effect so
+that an effect never exists without a record — and an administrator can download
+the whole retained trail as JSON before the oldest month is pruned. A failure
+lands the message in `G-needattention` and tells the group's chat which automation
+could not finish. Work is claimed per account with a lease, so a crashed agent's
+work is taken up by the next one, and a run whose rule changed under it is
+refused rather than executed.
+
+**Every member sees it.** The group's chat carries an AI panel showing what the
+agent is told and what it has done — the standing instruction, each automation,
+and the recent audit — read through the member's own session, and editable by
+nobody but an administrator of that group.
+
+## The blocks, and the line to upstream
+
+Gilbert is four blocks. They are areas of the product and not directories — one
+code tree holds several of them — and every document here names them this way
+and no other:
+
+- **gilbertmailer** — the mail suite: mail, calendars, contacts, files, sharing
+  and the Sieve editor. This is the block that came from upstream.
+- **gilbertserver** — the Node process that runs beside the browser: sign-in,
+  the sealed sessions, the JMAP forwarding, the policy, the image and calendar
+  proxies. It is also where the agent fleet runs. Part of it came from
+  upstream — the layer that serves the mail client — and the fleet inside it is
+  Gilbert's.
+- **gilbertagents** — the agents: the principal, the agent fleet, the
+  automations, the approvals and the audit.
+- **gilbertstalwart** — what is set inside Stalwart itself: the server's own
+  configuration and system scripts, written through its management API, and the
+  objects the server holds and sends with, an account's identities among them,
+  written through JMAP. Which door carried the write does not decide the block;
+  what the write fixes inside the server does.
+
+The word *server* is the one worth pinning down: **Stalwart** is the mail
+server that holds every durable byte, and **gilbertserver** is this product's
+own Node process. This document says which one it means every time.
+
+These are the documentation's names for what the product is made of, and not
+UI labels. The administration's navigation presents three of the blocks under
+its own headings — *Gilbert Mailer*, *Gilbert Assistant*, *Stalwart* — which is
+that surface labelling them rather than a second set of names; the server
+process has no navigation of its own, because it is what serves it.
+
+**The line.** One block and part of another came from
+[ihasmail](https://github.com/Coffey-Labs/ihasmail), Coffey Labs' immutable
+webmail for Stalwart. Everything else is Gilbert's, written here. That is the
+whole of the upstream relationship, stated so a reader can tell which is which
+without reading the tree:
+
+- **From upstream**: the mail client — `gilbertmailer` — and inside
+  `gilbertserver` the parts that serve it: sign-in and sessions, the JMAP
+  forwarding, the image and calendar proxies, the rate limiting. Renamed for
+  this build and changed here.
+- **Gilbert's own**: the groups, the chat, the agent fleet, the administration,
+  the settings policy, the app folder, and every Stalwart configuration
+  surface. None of it exists upstream, and none of it is contributed back
+  (ADR 0002). What this build adds on top of the client: twelve themes, eleven
+  interface languages (beta), signature checking, the file-management work —
+  cancelling an upload, remembering a sort per folder, dropping a folder with
+  its structure — and a container that can run read-only.
+
+Where this matters: an upstream release is a delta to the first list only, and
+the merge that takes one in renames it before it lands. Everywhere else there
+is nothing to merge.
+
 ## Architecture
 
 ```
@@ -553,7 +705,7 @@ browser  ──(same-origin /api/*)──►  Gilbert server (Node + Hono)  ─�
 ```
 
 - `web/` — Vite + React 19 + TypeScript SPA. `src/jmap` (client, push, types), `src/store` (zustand: session, mail, compose, contacts, calendar, files, sieve, settings), `src/views`, `src/lib` (sanitiser, search parser, Sieve codec, locale-aware dates, vCard, …).
-- `server/` — Node/Hono backend: authenticates against Stalwart's JMAP session endpoint, seals the credentials with a key derived from the cookie secret, proxies JMAP/blob/SSE, serves the SPA under a strict CSP. `src/mock/` is an in-memory fake Stalwart for development and demos.
+- `server/` — Node/Hono backend: authenticates against Stalwart's JMAP session endpoint, seals the credentials with a key derived from the cookie secret, proxies JMAP/blob/SSE, serves the SPA under a strict CSP. `src/mock/` is an in-memory fake Stalwart for development and demos. `src/agent/` is the fleet: the claim documents, the capability catalogue, the executor, the model client and the admin surfaces behind it.
 
 Capabilities used: `core`, `mail`, `submission`, `vacationresponse`, `sieve`,
 `contacts`(+`parse`), `calendars`(+`parse`), `principals`(+`availability`),
@@ -571,18 +723,50 @@ npm install
 
 npm run dev            # real Stalwart (STALWART_URL in .env) — server :8080, Vite :5173
 npm run dev:mock       # built-in mock Stalwart (demo@example.com / demo), mock on :8788
+npm run dev:mock:agent # the same plus an agent process
 npm run dev:mock:no-future-release   # mock that advertises FUTURERELEASE and drops every hold
 
 npm run typecheck      # tsc for both packages
 npm test               # vitest (web) + node:test (server)
 npm run build          # web/dist + server/dist
 npm start              # serve the production build
+
+npm run prepush        # the fast gate: typecheck + Biome + the check scripts + tests
+npm run codeql         # the code scanning analysis GitHub runs, on demand
+npm run prepush:full   # the fast gate, then `codeql`
 ```
 
 Open http://localhost:5173 in dev, or http://localhost:8080 for the production
 build. Running it for real is covered in upstream's docs —
 [Installing](https://docs.ihasmail.org/install/) and
 [Configuring](https://docs.ihasmail.org/configure/).
+
+### Code scanning
+
+Every push and pull request is analysed by GitHub's **code scanning**, on its
+default setup — configured in the repository's settings, not by a workflow here
+— with the JavaScript/TypeScript code-scanning suite. `npm run codeql` runs the
+same analysis on this checkout, so a finding shows up before it is pushed:
+
+```bash
+npm run codeql
+# → CodeQL: 0 result(s).
+```
+
+Its toolchain is a 686 MB bundle, which is why the fast gate does not carry it
+(`npm run prepush:full` is the two together). Install it once, or point
+`CODEQL_CLI` at an existing binary:
+
+```bash
+mkdir -p ~/.cache/gilbert/codeql
+curl -L https://github.com/github/codeql-action/releases/latest/download/codeql-bundle-linux64.tar.gz \
+  | tar xz -C ~/.cache/gilbert/codeql --strip-components=1
+```
+
+Run without a toolchain it **fails with those instructions** rather than
+reporting a clean tree, and it analyses the files a push would carry —
+`node_modules` and a built `web/dist` are not among them, because GitHub
+analyses a checkout and not a working tree.
 
 ### The mock
 
@@ -657,6 +841,16 @@ container, waits for healthy, then prunes all but the newest
 ```
 
 `--yes` does not override a hold; clearing one means deleting its line.
+
+## Where to read more
+
+| | |
+| --- | --- |
+| 📋 **[FEATURES.md](FEATURES.md)** | Everything Gilbert does today, feature by feature, with the capability each one needs |
+| 🧪 **[KNOWN-ISSUES.md](KNOWN-ISSUES.md)** | What was verified live, and where Stalwart departs from a spec |
+| 🛣 **[ROADMAP.md](ROADMAP.md)** | What Gilbert does not do yet, and why |
+| 🏛 **[docs/adr](docs/adr/README.md)** | The architecture decisions behind all of it, one file each |
+| ⬆ **[ihasmail](https://github.com/Coffey-Labs/ihasmail) upstream** | The project the mail client derives from — [site](https://ihasmail.org) · [docs](https://docs.ihasmail.org) · [demo](https://demo.ihasmail.com), all theirs, linked for attribution and because most install and usage detail still lives there |
 
 ## Contributing
 

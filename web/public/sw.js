@@ -33,10 +33,21 @@ const VERSION = "gilbert-v3";
  * eventually would.
  */
 const BASE = new URL("./", self.location).pathname.replace(/\/$/, "");
+/*
+ * The shell: everything a first paint needs, images included.
+ *
+ * Both colorways of the lockup and of the mark are here, though a theme shows
+ * only one of each. The stylesheet picks between them, not a request: the theme
+ * is known before the first paint, so both are in the tree and the one it did
+ * not pick is the one an offline load would otherwise be missing.
+ */
 const SHELL = [
   `${BASE}/`,
   `${BASE}/manifest.webmanifest`,
   `${BASE}/img/logo.png`,
+  `${BASE}/img/logo-inverse.png`,
+  `${BASE}/img/mark.png`,
+  `${BASE}/img/mark-inverse.png`,
   `${BASE}/img/icon-192.png`,
   `${BASE}/favicon.ico`,
 ];

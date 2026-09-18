@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
 /**
- * An installation that offers no administration at all (ADR 0014).
+ * An installation that offers no administration at all (ADR 0017).
  *
  * This is the operator's switch, and the point of it is that it holds against
  * the browser rather than against the drawing of a menu: `/api/jmap` forwards

@@ -2,7 +2,7 @@
   "name": "gilbert",
   "version": "0.0.0",
   "private": true,
-  "description": "Gilbert \u2014 a fast, modern JMAP webmail for Stalwart Mail Server",
+  "description": "Gilbert \u2014 an enterprise butler for Stalwart: agents that work your mail and files, on a first-class JMAP mail client",
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "workspaces": [
@@ -19,8 +19,10 @@
     "typecheck": "npm run typecheck -w web && npm run typecheck -w server",
     "test": "npm run test -w web && npm run test -w server",
     "prepush": "npm run typecheck && npm run lint && npm run adr:owed && npm run adr:cite && npm run config:dead && npm run i18n:check && TZ=UTC npm test",
+    "prepush:full": "npm run prepush && npm run codeql",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
+    "codeql": "node scripts/codeql.mjs",
     "lint:unsafe": "biome check --write --unsafe .",
     "mock": "npm run mock -w server",
     "dev:mock": "concurrently -n mock,server,web -c yellow,blue,magenta \"npm run mock -w server\" \"GILBERT_AGENT_ADDRESS=gilbert@example.com GILBERT_AGENT_PASSWORD=gilbert-password STALWART_URL=http://127.0.0.1:8788 npm run dev -w server\" \"npm run dev -w web\"",
@@ -36,7 +38,7 @@
     "dev:mock:agent": "concurrently -n mock,server,agent,web -c yellow,blue,green,magenta \"MOCK_AGENT_ADDRESS=gilbert@example.com MOCK_AGENT_PASSWORD=gilbert-password npm run mock -w server\" \"GILBERT_AGENT_ADDRESS=gilbert@example.com GILBERT_AGENT_PASSWORD=gilbert-password STALWART_URL=http://127.0.0.1:8788 npm run dev -w server\" \"GILBERT_AGENT_ADDRESS=gilbert@example.com GILBERT_AGENT_PASSWORD=gilbert-password STALWART_URL=http://127.0.0.1:8788 npm run agent -w server\" \"npm run dev -w web\""
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.12",
+    "@biomejs/biome": "^2.5.13",
     "concurrently": "^10.0.5",
     "typescript": "^5.7.3"
   },

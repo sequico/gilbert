@@ -8,8 +8,12 @@ import { describeSwipe, SWIPE_CHOICES, type SwipeAction } from "../swipe";
  * descriptor exists rather than a fixed label per setting.
  */
 
-const inbox = { role: "inbox", unread: false, starred: false };
-
+const inbox = {
+  role: "inbox",
+  deleteEffect: "move" as const,
+  unread: false,
+  starred: false,
+};
 describe("describeSwipe", () => {
   it("offers nothing for a direction turned off", () => {
     expect(describeSwipe("none", inbox)).toBe(null);
@@ -25,7 +29,9 @@ describe("describeSwipe", () => {
 
   it("says out loud that a delete from Deleted Items is permanent", () => {
     expect(describeSwipe("delete", inbox)?.label).toBe("Delete");
-    expect(describeSwipe("delete", { ...inbox, role: "trash" })?.label).toBe(
+    // The effect, not the folder's role: the row is what knows which folders
+    // hold this message, and Junk Mail destroys too (ADR 0015).
+    expect(describeSwipe("delete", { ...inbox, deleteEffect: "final" })?.label).toBe(
       "Delete forever",
     );
   });

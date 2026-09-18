@@ -47,7 +47,11 @@ account data.
 Session capabilities the client expects (`server/src/mock/index.ts`): core,
 mail, submission, vacationresponse, webpush-vapid + emailpush, sieve,
 calendars (+parse), contacts (+parse), principals (+availability), quota,
-blob, filenode. The client selects the account that owns a capability via
+blob, filenode. The URNs themselves are one record
+(`server/src/shared/capabilities.ts`) that both tiers read — `CAP` in
+`web/src/jmap/client.ts` and the server's own aliases in `jmap.ts` — so a
+capability is spelled once and `urn:stalwart:jmap` sits beside the set rather
+than in it, because the client never sends it. The client selects the account that owns a capability via
 `ownAccountFor(...)` in `web/src/store/session.ts` — never assume the first
 account. Shared accounts advertise the same capabilities as personal ones
 (confirmed on 0.16.19), so capability lists reveal nothing about what is
@@ -95,6 +99,35 @@ Where the integration lives:
   0.16 the mock and client send/respect `nodeType`.
 - `FileNode/set` returns **no `blobId` on create** — ask with a follow-up get
   (`nodeBlobId`).
+- A create whose name a sibling already carries is **refused**, not accepted:
+  `onExists` defaults to `Reject` and the answer is `alreadyExists` with the
+  existing node's id in `existingId` (`FileNodeSetArguments` /
+  `find_sibling_collision`, `crates/jmap-proto/src/object/file_node.rs` /
+  `crates/jmap/src/file/set.rs`, v0.16.21; `tests/src/jmap/files/node.rs`
+  asserts the id). `replace` / `rename` / `newest` exist but are opt-in. The
+  comparison is name-within-parent and case-sensitive unless the request sends
+  `compareCaseInsensitively`. What the code does with it: every
+  read-then-create of a folder treats it as "somebody made it" and adopts the
+  id, and a writer that means to **replace** does not look the name up at all —
+  the refusal names the node, and writing the new bytes into it is an update of
+  `blobId`/`type`/`size`, which is why a name on a level past the account
+  read's page is still written over (ADR 0013). The mock reproduces the
+  refusal, the id and the case-sensitivity (`server/src/mock/index.ts`,
+  `FileNode/set`).
+- A destroy of a **folder that still holds something** is refused unless the
+  call carries `onDestroyRemoveChildren: true`; with the flag the folder goes
+  **with** its descendants, and an emptied folder goes either way. Nothing here
+  has asked a live server to confirm the refusal — it is read off the client's
+  own habit of sending the flag on the Files view's delete
+  (`destroyNodes` in `web/src/store/files.ts`), and it is owed as a probe. What
+  rests on it is the file manager's delete (which sends the flag, and has
+  always sent it) and a **merge**'s last step, which deliberately does not: it
+  destroys a folder it emptied, so a folder it did not empty stops the merge
+  instead of disappearing with whatever landed in it meanwhile (ADR 0014). The
+  safe direction is the one that assumes the refusal; if a real server destroys
+  the contents anyway, a merge stopped early takes a folder the reader gave up
+  anyway. The mock models the refusal, the empty case and the cascade
+  (`server/src/mock/destroy-non-empty-folder.test.ts`).
 - Unshared nodes report `shareWith: {}`, not `null` (0.16.19, 2026-08-27) —
   test with `Object.keys(...).length`.
 - Stalwart refuses writing `isSubscribed` on an address book shared
@@ -294,6 +327,48 @@ nor the directory's `type` vocabulary beyond `individual` and `group`.
   `web/src/lib`, `web/src/store`, `server/src/mock` are the best record of
   what a real server does; extend them (date + version) when you confirm
   something new rather than trusting memory.
+
+## What a push subscription actually covers (read at v0.16.22)
+
+Read from Stalwart's own source rather than a live instance, and it corrects
+what this file assumed about who a browser subscription reaches:
+
+- A subscription is stored in the account that created it
+  (`Collection::Principal` / `PrincipalField::PushSubscriptions`), but the push
+  server registers each **verified** one for every account in that token's
+  `member_ids()` — its own account **plus its group mailboxes**
+  (`crates/services/src/state_manager/push.rs` `load_push_subscriptions`,
+  `crates/common/src/auth/access_token.rs`). A member of a group is therefore
+  woken by that group's mail whether or not the client decided anything about
+  it. The pool is per **principal** and defaults to 15
+  (`crates/registry/src/schema/structs_impl.rs`, `max_subscriptions`).
+- `emailPush` is a **map keyed by account id**, one entry per account, each with
+  its own `filter`, `properties` and `urgency` (`parse_email_push`). An entry for
+  an account the token is not a member of is refused `forbidden`
+  ("No access to one of the accounts in the emailPush map").
+- An email event for an account with **no** `emailPush` entry is degraded to a
+  plain `StateChange`, and so is a payload the server cannot build
+  (`state_manager/push.rs`). A client that renders anything that is not an
+  `EmailPush` as "new mail" shows a group's mail as a senderless notice.
+- **One delivery is two pushes**: the storage transaction broadcasts a
+  `StateChange` (`crates/common/src/storage/transaction.rs`) and the delivery
+  broadcasts an `EmailPush` beside it (`crates/email/src/message/delivery.rs`),
+  and both are POSTed to the same endpoint.
+- A push `url` is **validated**: `https` only, no credentials, and no local or
+  reserved address (`validate_push_url`) — so a push service on the same LAN as
+  the server cannot be registered, and the refusal arrives as an
+  `invalidProperties` on `url`. A subscription with **no `types`** means every
+  type, not none (`Bitmap::all()`).
+- A JMAP push filter is **email-shaped only**: `EmailPush.filter` is
+  `Filter<EmailFilter>`, so there is no way to narrow a `FileNode` wake-up to a
+  folder. `types: ["FileNode"]` wakes on every file write in every account the
+  subscription serves, and the content has to be read back over `/api/jmap`.
+- Only the **newest** unverified subscription of an account is sent a
+  `PushVerification` per pass, throttled per account (`last_verify`) — one
+  subscription per device is what keeps the handshake one code.
+
+Where the client stands against this, and what is still owed a running server,
+is ADR 0016.
 
 ## FileNode state, changes and push (verified live 2026-09-07)
 

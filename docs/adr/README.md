@@ -2,16 +2,21 @@
 
 One file per decision (`NNNN-kebab-case-title.md`), numbered by the owner and
 consecutively: a new record takes the number after the highest, so the
-sequence has no gaps.
+sequence has no gaps. A number is minted for a decision that is new, never for
+a version of one already here.
 
 A citation names a record that is a file here, and a section inside it is
 named rather than numbered: the record's own structure is what a code
 comment is read against.
 
 Each record describes the decision as it stands and how it is built —
-architecture, not a changelog. A record is edited in place when the thing it
-describes changes; nothing here narrates what used to be true. History of
-that kind lives in git, not in these files.
+architecture, not a changelog. **A record is edited in place when the thing it
+describes changes**, in the change that alters it: a later version of one
+decision is the same file rewritten, so nothing here supersedes anything, no
+record carries a `Superseded` status, and nothing narrates what used to be
+true. A reader who wants the version before this commit asks git for it. The
+one exception is the owner asking for otherwise, explicitly: only then does a
+decision get a record beside the existing one instead of a rewrite of it.
 
 Every record names the four blocks — **gilbertmailer**, **gilbertserver**,
 **gilbertagents** and **gilbertstalwart** — the way `README.md` defines
@@ -86,40 +91,70 @@ is, not what a user sees.
   own origin.** One subscription per account names every state type a
   Gilbert surface keeps live, and its callback address is derived from the
   request rather than configured.
-- **0010 — The client has no tasks module.** A task list is a convention, not
-  a type: a calendar marked in its own `description`, holding objects the
-  client does not name. Nothing in the client recognises or writes it and no
-  document here calls it a thing: no route, no section, no catalog string, no
-  marker, no separate kind of calendar to filter out of the pickers. What is
-  already in Stalwart is left where it is, drawn as the calendar objects they
-  are — no migration, no purge, no hiding pass. Supersedes ADR 0005's
-  task-list enumeration.
-- **0011 — The policy publish is a job with an id.** One id per publish,
+- **0010 — The policy publish is a job with an id.** One id per publish,
   carried by every copy it writes, and the job — the population the
   directory reported, the accounts the policy reached, the ones it did not
   with a code each, and whether the installation can be said to carry the
   policy — is one document in the publishing administrator's own app
   folder. Every per-account write is conditional, and the outcome cannot
-  claim more than it reached. Supersedes ADR 0001's policy-publish bullet.
-- **0012 — The installation's configuration is the Master's own document.**
+  claim more than it reached.
+- **0011 — The installation's configuration is the Master's own document.**
   `installation.json` in the Master account's `gilbert` app folder, read
   whole at boot and written by the administration through the same
   impersonation door; the environment carries only the handshake, the
   container's and the image's own facts, the operator's own switch, and the
   facts about the process itself. A publish applies from the next boot.
-- **0013 — A durable write is caused by a change, not by a clock.** Stalwart
+- **0012 — A durable write is caused by a change, not by a clock.** Stalwart
   charges an account for every blob it uploads and never gives one back, so a
   write on a clock — a heartbeat, a renewed lease, a session's activity stamp —
   spends a finite budget saying that a process is alive. Liveness and activity
   are process facts (ADR 0003's claims, the sessions store), a write that would
   store what is already there is not made, and an idle installation therefore
   costs nothing.
-- **0014 — Administration is a door, not a menu.** The decision that a session
+- **0013 — A dropped name is written over, in place.** A drop or a picker
+  selection lands on a name the folder already holds by writing the bytes into
+  the node that holds it — same id, same sharing, same place in the tree, only
+  `blobId`, `type` and `size` change — so dropping a tree twice is one tree.
+  The create's `alreadyExists` refusal is what identifies that node, so no level
+  is listed first; a name a **folder** holds stops the file instead of writing
+  into it, and saving an attachment into Files still refuses a taken name rather
+  than replacing one.
+- **0014 — Merging two folders is planned before it is written.** Both trees are
+  read, the plan is built, and any collision — a name that is a folder on one
+  side and a file on the other, or a right the reader does not hold — stops
+  every step with nothing written. The folder whose name the reader keeps is the
+  node that survives; a name both hold as a file is written into in place (ADR
+  0013) and its source node destroyed; the folder given up is destroyed last and
+  only once it is empty, so a stopped merge leaves both folders standing. The
+  entry is offered for exactly two folders and drawn always, disabled until the
+  selection is one it can act on.
+- **0015 — A group's mail is deleted by an administrator only.** A group mailbox
+  is reached by membership rather than by a share, so the mail server tells one
+  member's delete from another's by nothing and offers no rank inside a group;
+  the rule is the client's. Moving, binning, labelling, archiving and forwarding
+  all stay, and the three things that end a message for good — deleting it out
+  of Deleted Items or Junk Mail, emptying one of those folders, and deleting a
+  folder together with its mail — are refused for every member but an
+  installation administrator, each refusal saying which one it is and what still
+  works. It is a rule the product keeps, not a boundary: another client destroys
+  the same mail.
+- **0016 — What notifies a closed Gilbert.** A push subscription belongs to the
+  principal that registered it and is served for every account that principal is
+  a **member** of, so one row covers the reader's own mailbox and each of their
+  groups — the group's mail already wakes a closed client today, as a
+  notification that names nothing, and what it is owed is the per-account
+  `emailPush` payload that names the sender, the subject and the mailbox it
+  landed in. Chat rides the one vocabulary Stalwart has for a file: `FileNode`
+  in the row's `types` wakes the service worker, which reads the message the
+  app's watermark says it has not seen and stays quiet for its own. The
+  notification permission is asked for in the reader's own gesture, iOS is
+  answered with the install instruction rather than a switch that cannot work,
+  and no sender of ours is introduced.
+- **0017 — Administration is a door, not a menu.** The decision that a session
   may administer is made where the request is: the JMAP proxy refuses a body
   that names a registry object the session may not reach, behind an allowlist of
   the account's own objects, and every `/api/admin` route enforces the same two
   conditions — the installation offers administration (`server.administration`
-  in its own document), and the session was signed in on a device marked as the
-  person's own. The menu announces the decision and says why when it cannot;
-  the server is the door. Supersedes ADR 0001's placement of the decision in
-  the client alone.
+  in its own document), and, where the installation asked for the rule, the
+  session was signed in on a device marked as the person's own. The menu
+  announces the decision and says why when it cannot; the server is the door.

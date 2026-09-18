@@ -26,7 +26,9 @@
 
 import { type Schema, Validator } from "@cfworker/json-schema";
 import type { ChatMention } from "../shared/chat.js";
+import { countOrNull } from "../shared/counts.js";
 import { AGENT_PAGES_DEFAULT } from "../shared/installation.js";
+import { isRecord } from "../shared/json.js";
 
 /* ------------------------------------------------------------------ */
 /* Layout                                                              */
@@ -327,7 +329,7 @@ export function isAgentAction(x: unknown): x is AgentAction {
   const a = x as Record<string, unknown>;
   if (!isAgentActionName(a.do)) return false;
   if (a.with === undefined) return true;
-  return typeof a.with === "object" && a.with !== null && !Array.isArray(a.with);
+  return isRecord(a.with);
 }
 
 /** The parameters an action is missing, given the catalogue. Empty is complete. */
@@ -493,8 +495,7 @@ export function isAgentTrigger(x: unknown): x is AgentTrigger {
   const t = x as Record<string, unknown>;
   if (!isAgentTriggerOn(t.on)) return false;
   if (t.filter !== undefined) {
-    if (!t.filter || typeof t.filter !== "object" || Array.isArray(t.filter))
-      return false;
+    if (!isRecord(t.filter)) return false;
   }
   if (t.everyMinutes !== undefined) {
     if (typeof t.everyMinutes !== "number" || t.everyMinutes < 5) return false;
@@ -521,7 +522,7 @@ export function isAgentRule(x: unknown): x is AgentRule {
 }
 
 export function isAgentRulesDoc(x: unknown): x is AgentRulesDoc {
-  if (!x || typeof x !== "object" || Array.isArray(x)) return false;
+  if (!isRecord(x)) return false;
   const d = x as Record<string, unknown>;
   return d.v === 1 && Array.isArray(d.rules) && d.rules.every(isAgentRule);
 }
@@ -595,7 +596,7 @@ export function filterProblems(
     }
     if (Array.isArray(conditions)) {
       for (const condition of conditions) {
-        if (condition && typeof condition === "object" && !Array.isArray(condition)) {
+        if (isRecord(condition)) {
           problems.push(
             ...filterProblems(condition as Record<string, unknown>, where).filter(
               (problem) => problem.startsWith(where),
@@ -1310,7 +1311,7 @@ export function isAgentClaim(x: unknown): x is AgentClaim {
 
 /** Whether a value is a map of keys to strings: the claim's states and instants. */
 function isStringMap(x: unknown): x is Record<string, string> {
-  if (!x || typeof x !== "object" || Array.isArray(x)) return false;
+  if (!isRecord(x)) return false;
   return Object.values(x as Record<string, unknown>).every(
     (value) => typeof value === "string",
   );
@@ -1378,7 +1379,7 @@ export interface AgentScheduleDoc {
 }
 
 export function isAgentScheduleDoc(x: unknown): x is AgentScheduleDoc {
-  if (!x || typeof x !== "object" || Array.isArray(x)) return false;
+  if (!isRecord(x)) return false;
   const d = x as Record<string, unknown>;
   if (d.v !== 1 || !Array.isArray(d.entries)) return false;
   return d.entries.every((e) => {
@@ -1466,7 +1467,7 @@ export function notesProblem(
 export function ruleNotesProblem(
   rule: unknown,
 ): { code: "notes_too_long"; max: number; length: number } | null {
-  if (!rule || typeof rule !== "object" || Array.isArray(rule)) return null;
+  if (!isRecord(rule)) return null;
   const notes = (rule as { notes?: unknown }).notes;
   return typeof notes === "string" ? notesProblem(notes) : null;
 }
@@ -1660,11 +1661,6 @@ export interface AgentUsage {
   outputTokens: number | null;
 }
 
-/** One reported count, or null: a provider that says nothing says nothing. */
-function countOrNull(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
-}
-
 export function isAgentUsage(x: unknown): x is AgentUsage {
   if (!x || typeof x !== "object") return false;
   const u = x as Record<string, unknown>;
@@ -1796,7 +1792,7 @@ export interface AgentAuthoringDoc {
 }
 
 export function isAgentAuthoringDoc(x: unknown): x is AgentAuthoringDoc {
-  if (!x || typeof x !== "object" || Array.isArray(x)) return false;
+  if (!isRecord(x)) return false;
   const d = x as Record<string, unknown>;
   if (d.v !== 1 || typeof d.month !== "string" || !Array.isArray(d.entries)) return false;
   return d.entries.every((e) => {
@@ -1813,7 +1809,7 @@ export function isAgentAuthoringDoc(x: unknown): x is AgentAuthoringDoc {
 }
 
 export function isAgentAuditDoc(x: unknown): x is AgentAuditDoc {
-  if (!x || typeof x !== "object" || Array.isArray(x)) return false;
+  if (!isRecord(x)) return false;
   const d = x as Record<string, unknown>;
   if (d.v !== 1 || typeof d.month !== "string" || !Array.isArray(d.entries)) return false;
   return d.entries.every((e) => {
@@ -1971,7 +1967,7 @@ export function isAgentProvider(x: unknown): x is AgentProvider {
 }
 
 export function isAgentConfigDoc(x: unknown): x is AgentConfigDoc {
-  if (!x || typeof x !== "object" || Array.isArray(x)) return false;
+  if (!isRecord(x)) return false;
   const d = x as Record<string, unknown>;
   if (d.v !== 1 || typeof d.address !== "string" || !d.address) return false;
   if (d.maxOutputTokens !== undefined && !isModelMaxOutput(d.maxOutputTokens))

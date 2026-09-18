@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { after, before, test } from "node:test";
 import zlib from "node:zlib";
 import { PDFDocument, rgb } from "pdf-lib";
+import { blankPdf } from "../testkit.js";
 
 /**
  * The model client against a stub OpenAI-compatible endpoint.
@@ -138,13 +139,6 @@ async function textPdf(): Promise<Uint8Array> {
 async function stampedPdf(): Promise<Uint8Array> {
   const document = await PDFDocument.create();
   document.addPage([300, 200]).drawText("Ref 42", { x: 20, y: 120, size: 12 });
-  return document.save();
-}
-
-/** A PDF of `pages` pages, none of which carries a text layer. */
-async function blankPdf(pages: number): Promise<Uint8Array> {
-  const document = await PDFDocument.create();
-  for (let page = 0; page < pages; page++) document.addPage([300, 200]);
   return document.save();
 }
 

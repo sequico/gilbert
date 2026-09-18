@@ -98,7 +98,7 @@ SOURCES = {
     "gilbert": {
         # Daylight over the same teal-navy: the dark palette's background
         # becomes the text, so the two halves are recognisably one palette read
-        # from either end. The cat is still orange, so the star still is.
+        # from either end. ihasmail's cat is still orange, so the star still is.
         "light": dict(
             bg="#f4f9f9", elev="#ffffff", sunken="#e7f1f2", line="#cfe2e4",
             fg="#0d2430", muted="#4a6b74", accent="#46cac3", link="#0e7490",

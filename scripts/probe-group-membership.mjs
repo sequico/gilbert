@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /**
+
  * The live probe of group membership over Stalwart's registry (ADR 0005).
  *
  * The `@` picker beside a group's chat offers the group's members, and the
@@ -51,6 +52,8 @@
  * settled, and 2 when the environment does not say where to ask.
  */
 
+import { basic, note, record, report } from "./lib/probeKit.mjs";
+
 const base = (process.env.STALWART_URL ?? "").replace(/\/+$/, "");
 const user = process.env.GILBERT_AGENT_ADDRESS ?? "";
 const password = process.env.GILBERT_AGENT_PASSWORD ?? "";
@@ -79,28 +82,6 @@ const PRINCIPALS = "urn:ietf:params:jmap:principals";
 const STALWART = "urn:stalwart:jmap";
 const TIMEOUT = 30_000;
 const SESSION_URL = process.env.GILBERT_PROBE_SESSION_URL || `${base}/.well-known/jmap`;
-
-const basic = (address, secret) =>
-  `Basic ${Buffer.from(`${address}:${secret}`, "utf8").toString("base64")}`;
-
-const answers = [];
-const notes = [];
-
-/** Record one question's answer and whether it is one the code depends on. */
-function record(question, answer, assumed) {
-  const wanted = Array.isArray(assumed) ? assumed : [assumed];
-  answers.push({
-    question,
-    answer,
-    assumed: wanted.join(" | "),
-    ok: wanted.includes(answer),
-  });
-}
-
-/** Something the code survives either way, or that settles none of it. Read. */
-function note(question, answer) {
-  notes.push({ question, answer });
-}
 
 async function session(authorization) {
   const res = await fetch(SESSION_URL, {
@@ -221,6 +202,14 @@ async function run() {
 
   const groupAccountId =
     process.env.GILBERT_PROBE_GROUP_ACCOUNT || String(groups[0]?.id ?? "");
+  /* The group is named as the registry answered it rather than as the
+     environment spelled it: `emailAddress` is what the operator recognises,
+     and asking about an account the directory does not list is worth saying
+     outright, since every question below it answers empty. */
+  const groupRecord = groups.find((g) => g.id === groupAccountId);
+  const groupLabel = groupRecord
+    ? String(groupRecord.emailAddress ?? groupRecord.name ?? "an unnamed group")
+    : "the group named by GILBERT_PROBE_GROUP_ACCOUNT";
   if (!groupAccountId) {
     note(
       "a group's roster",
@@ -270,7 +259,7 @@ async function run() {
       ]);
       const list = answerOf(read.responses, "m1")[1]?.list ?? [];
       note(
-        `the roster of ${groupAccountId}`,
+        `the roster of ${groupLabel}`,
         `${list.length} member(s): ${list
           .filter((a) => a["@type"] === "User")
           .map((a) => a.emailAddress)
@@ -309,38 +298,10 @@ async function run() {
     );
   }
 
-  return report();
-}
-
-/** The answers, one line each, and whether any of them is not what was assumed. */
-function report() {
-  console.log("");
-  for (const { question, answer } of notes) console.log(`note ${question}: ${answer}`);
-  console.log("");
-  let wrong = 0;
-  for (const entry of answers) {
-    if (!entry.ok) wrong += 1;
-    console.log(
-      `${entry.ok ? "ok  " : "DIFF"} ${entry.question}: ${entry.answer} (assumed ${entry.assumed})`,
-    );
-  }
-  console.log("");
-  if (wrong) {
-    console.log(
-      `${wrong} question(s) did not answer the way the roster read assumes. Record the answers,\n` +
-        "with the server's version and the date, in the membership note in\n" +
-        ".codewhale/skills/gilbert-stalwart/SKILL.md and in the owed note beside the mock's\n" +
-        "x:Account handlers, and change what depends on them before an installation grants\n" +
-        "the permission and relies on the roster.",
-    );
-    return 1;
-  }
-  console.log(
-    "Every assumed behaviour holds on this server. Record the answers, with the version\n" +
-      "and the date, in the membership note in .codewhale/skills/gilbert-stalwart/SKILL.md\n" +
-      "and in the owed note beside the mock's x:Account handlers.",
-  );
-  return 0;
+  return report({
+    where:
+      "in the membership note in the `gilbert-stalwart` skill and in server/src/agentAdmin.ts",
+  });
 }
 
 run()

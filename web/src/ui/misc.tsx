@@ -189,6 +189,16 @@ export function ColorSwatches({
   );
 }
 
+/**
+ * The product's "this is on" colour, as a theme token rather than a hex.
+ *
+ * `--success` is defined per palette in `styles/app.css`, so a state dot drawn
+ * with it turns with the theme; a literal green does not, and a fallback that
+ * names a variable nothing defines (`--ok`) reads as a live token while being
+ * the same fixed colour it was avoiding.
+ */
+export const ACTIVE_COLOR = "var(--success)";
+
 export const CALENDAR_COLORS = [
   "#0f766e",
   "#2563eb",

@@ -16,6 +16,9 @@
  * therefore shows defaults for one frame before the account's real settings
  * arrive.
  */
+import { APP_DOCUMENT_TYPE } from "@gilbert/shared/appFolder";
+import { isRecord } from "@gilbert/shared/json";
+import { SETTINGS_FILE } from "@gilbert/shared/settingsDocument";
 import { CAP, client } from "@/jmap/client";
 import {
   ensureFolder,
@@ -27,10 +30,7 @@ import { t } from "@/lib/i18n";
 import { useSession } from "@/store/session";
 import { toast } from "@/ui/toast";
 
-const FILE = "settings.json";
-const TYPE = "application/json";
-
-/** How long a change sits before it is written up. */
+/* How long a change sits before it is written up. */
 const DEBOUNCE_MS = 3000;
 /** How long a failed write waits before trying again. */
 const RETRY_DEBOUNCE_MS = 15_000;
@@ -101,15 +101,15 @@ async function readSettingsFile(
   accountId: string,
   folderId: string,
 ): Promise<{ doc: Record<string, unknown> | null; state: string }> {
-  const { file, state } = await findInFolderWithState(accountId, folderId, FILE);
+  const { file, state } = await findInFolderWithState(accountId, folderId, SETTINGS_FILE);
   if (!file?.blobId) return { doc: null, state };
   try {
-    const text = await client.fetchBlobText(accountId, file.blobId, TYPE);
+    const text = await client.fetchBlobText(accountId, file.blobId, APP_DOCUMENT_TYPE);
     const parsed = JSON.parse(text) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    if (!isRecord(parsed)) {
       return { doc: null, state };
     }
-    return { doc: parsed as Record<string, unknown>, state };
+    return { doc: parsed, state };
   } catch {
     return { doc: null, state };
   }
@@ -293,7 +293,10 @@ async function writeSettings(body: Record<string, unknown>): Promise<void> {
      */
     const next = { ...(doc ?? {}), ...body };
     try {
-      await writeAppJson(accountId, FILE, next, { ifInState: state, type: TYPE });
+      await writeAppJson(accountId, SETTINGS_FILE, next, {
+        ifInState: state,
+        type: APP_DOCUMENT_TYPE,
+      });
       return;
     } catch (err) {
       // Somebody wrote the file between the read and this write. Round again:

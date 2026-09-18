@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type RowClick, rowClick } from "@/lib/listSelection";
+import { type RowClick, rangeIds, rowClick } from "@/lib/listSelection";
 
 const IDS = ["a", "b", "c", "d", "e"];
 const click = (over: Partial<Parameters<typeof rowClick>[0]> = {}): RowClick =>
@@ -129,6 +129,26 @@ describe("shift-clicking", () => {
     expect(click({ anchor: "gone", modifiers: { shift: true, ctrl: false } })).toEqual({
       kind: "open",
     });
+  });
+});
+
+describe("the run a shift-click takes", () => {
+  /*
+   * The rule itself, apart from either list that uses it. It has two callers --
+   * the mail list and the Files list -- and the property both need from it is
+   * the one that was got wrong once (issue #186): the run contains **both**
+   * ends.
+   */
+  it("is the run between the two rows, both ends included", () => {
+    expect(rangeIds(IDS, "b", "d")).toEqual(["b", "c", "d"]);
+    expect(rangeIds(IDS, "d", "b")).toEqual(["b", "c", "d"]);
+    expect(rangeIds(IDS, "c", "c")).toEqual(["c"]);
+  });
+
+  it("is nothing to take when there is no anchor, or the anchor is gone", () => {
+    expect(rangeIds(IDS, null, "c")).toBeNull();
+    expect(rangeIds(IDS, "gone", "c")).toBeNull();
+    expect(rangeIds(IDS, "b", "not-here")).toBeNull();
   });
 });
 

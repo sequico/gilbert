@@ -1,7 +1,15 @@
 # Features
 
-Everything Gilbert does, in one place, at the level of detail someone
-evaluating it or working on it actually needs.
+Gilbert is an enterprise butler that lives in your own mail server: a
+first-class mail suite — mail, calendars, contacts, files — with **agents
+inside it** that work the mail and the files on a group's behalf. This is the
+inventory of everything it does, at the level of detail someone evaluating it
+or working on it actually needs; [README.md](README.md) is the short version of
+the same story.
+
+It is ordered the way this project cares about it: **Gilbert's own** first —
+the groups, the chat and above all the agents — and the client the mail core
+derives from after it.
 
 This is the inventory. Three files sit beside it and answer different
 questions:
@@ -86,7 +94,13 @@ The **group** is the unit everything else is built around: a group mailbox is an
 account of its own on the server, and what it owns — its chat, its label
 catalog, its calendars and files, its agent's documents — lives in that account
 and belongs to it from creation, shared with its members rather than copied to
-them. **Chat** is one conversation per group. And **Agents** is the largest
+them. **Chat** is one conversation per group. The one thing a member cannot do
+with what the group owns is **end its mail**: the mail server tells one member's
+delete from another's by nothing and offers no rank inside a group, so the
+refusal is this client's rule, and ending a message — out of Deleted Items or
+Junk Mail, by emptying either, or by deleting a folder with its mail — is an
+installation administrator's decision (ADR 0015). Everything else a member does
+to move mail around still works. And **Agents** is the largest
 thing here: an agent fleet that acts inside mail and file storage on a group's
 behalf, with its own identity, its own permissions and its own audit trail. That
 section is the detailed one; the two beside it are the surfaces a member and an
@@ -424,7 +438,7 @@ Product administration inside Gilbert, for users who are **Stalwart admins**
   and no Gilbert-side capability registry to forge. Admin without Stalwart's
   `Impersonate` permission administers the install but cannot act on another
   user: the per-user writes fail closed on the permission.
-- **Administration is a door, not a menu (ADR 0014).** The decision is made
+- **Administration is a door, not a menu (ADR 0017).** The decision is made
   where the request is. `/api/jmap` refuses any body naming a registry object
   beyond the account's own — an allowlist of the self-service objects, so a
   registry object Stalwart adds later is refused by default — with the refused
@@ -456,7 +470,7 @@ an environment variable, so it survives a redeploy and needs no volume
 even under `IMMUTABLE=1` (ADR 0001). It applies at once and signs the
 other signed-in clients out so their next sign-in reads it (`GET`/`POST
 /api/admin/policy`, `GET /api/account/policy`; ADR 0001). **Each publish is a
-job with an id** (ADR 0011): one id is minted before the first copy goes
+job with an id** (ADR 0010): one id is minted before the first copy goes
 out, every copy carries it beside the policy as `published: { id, at }`, and
 the job itself is one document — `gilbert/publish-job.json` in the publishing
 administrator's own app folder — holding when it started, who published, the
@@ -470,7 +484,9 @@ state, so a copy that would replace one somebody else just wrote is refused
 (`policy-moved`) instead; a publish whose own record could not be stored says
 `record: "failed"` rather than answering a job no later read can find; and
 the editor reads the job back out of the account, so it names the last
-publish it is showing even when this process never made one.
+publish it is showing even when this process never made one — and it says
+`record: "failed"` out loud, because the next visit to the page shows nothing
+about a publish that did happen.
 - **Installation document editor**: the Installation section beside Policy
 shows the installation's own configuration — one JSON document,
 `installation.json` in the `gilbert` app folder of **the Master's own
@@ -480,7 +496,7 @@ account by impersonation, so an administrator whose own account is
 elsewhere administers the installation's document rather than one in their
 own Files; a deployment that names no Master (`GILBERT_AGENT_ADDRESS`
 unset) is refused as a value, with its own code, rather than opened onto
-whoever is asking (ADR 0012). The read answers the text as the account holds
+whoever is asking (ADR 0011). The read answers the text as the account holds
 it, including a document this build cannot read, and whether there is one at
 all; publishing validates with the boot's own validator and refuses anything
 that is not a document, with the reason, before a byte is written: a document
@@ -734,6 +750,10 @@ has, so their own CSS for it is left alone until they choose otherwise.
   restored next time — on this device only, because they are where you were
   sitting rather than a preference, and each one is checked against what still
   exists before a view moves.
+- **Folder trees open collapsed.** The mailbox tree — the reader's own or a
+  group's — starts shut, and which folders were opened is remembered per reader
+  beside the place they were left in. A folder is remembered by its account as
+  well as its id, so opening one account's folders never opens another's.
 - **Reading pane** right of the list, below it, or off (messages open full width).
 - **Density** comfortable, cozy or compact, which changes row height as well as padding.
 - **Font size** small, medium or large.
@@ -937,6 +957,16 @@ Real JMAP mailboxes, with the server's roles honoured.
   tree belongs to a different account rather than being extra rows in this one.
 - Rights are respected per folder: rename, delete, create-child and share each
   grey out when `myRights` says no.
+- **In a group, ending mail is an administrator's decision** (ADR 0015). A group
+  mailbox is reached by membership rather than by a share, so the mail server
+  tells one member's delete from another's by nothing and offers no rank inside a
+  group; the rule is therefore the client's, and it is one module. Everything a
+  member does to move mail around still works — filing it in the group's Deleted
+  Items, archiving, labelling, replying — and the three things that end a message
+  for good are refused: deleting it out of Deleted Items or Junk Mail, emptying
+  either folder, and deleting a folder that holds mail. A refused action says so
+  and names what still works. It is a rule the product keeps and not a boundary:
+  another client on the same account destroys the same mail.
 - A folder in the address that this account does not have says *this folder is
   missing*, rather than drawing an empty folder — a stale link should not read
   as a folder that emptied itself.
@@ -980,9 +1010,12 @@ same way.
   A child cannot be drawn under a parent that is not there, and promoting it to
   the top level would silently rearrange the tree at the moment the reader is
   least able to explain why. The parent comes back as a container instead.
-- **The sidebar counts the whole of it, and Starred leads the list.** Each
-  label's row carries how much mail is filed under it — read and unread alike —
-  and **Starred** sits above them as the first row of the same list. It is not
+- **The sidebar counts it as unread (all), and Starred leads the list.** Each
+  label's row carries *how much of it is new* ahead of how much is filed under
+  it — `3 (5)` is three unread out of five, the unread number in bold, and a
+  keyword with nothing unread shows its total alone because `0 (5)` says
+  nothing `5` does not — and **Starred** sits above them as the first row of
+  the same list. It is not
   a label: it is the keyword a star writes, with no colour of a label's to tint
   and no name of its own to rename, drawn by the same row and counted by the
   same read — and drawn with the star it is named after, filled in the star's
@@ -1005,10 +1038,10 @@ same way.
   write that message, and a control that showed one message while silently
   starring three was the defect this rule removes. The conversation's own star
   is the one at the top of the conversation, which says so.
-- **The unread half is kept, and it is a different number.** A label set to
-  "only while unread" is drawn or dropped by how much of it is unread, while
-  the row shows the total, so both are asked for — two queries per keyword, in
-  one request, because one cannot be derived from the other.
+- **The unread half is kept, and the row leads with it.** A label set to
+  "only while unread" is drawn or dropped by how much of it is unread, and the
+  row says that number beside the total, so both are asked for — two queries per
+  keyword, in one request, because one cannot be derived from the other.
 - **The number follows a write.** Starring, unstarring, labelling and
   unlabelling move the count as the **row** changes, not on the next read:
   unstarring a message and watching its count stay put is the kind of lag that
@@ -1073,10 +1106,15 @@ same query string — so what it builds can be read, edited and learned from.
 - **Attachments** listed with type and size: download, open in a new tab, and an
   inline preview for images and PDFs. **Download all** takes the lot, and
   **Download all to Files** keeps them in the account instead — asking first
-  whose: the reader's own files, or a group's, where every member of the group
-  finds them (a node created in the group's account is the group's from
-  creation). The blobs are copied into the chosen account, because a file node
-  can only point at a blob its own account holds.
+  whose files, then **which folder inside them**, for the reader's own files or
+  for a group's, where every member of the group finds them (a node created in
+  the group's account is the group's from creation). The folder list is read
+  from the destination account and a folder can be made there, and the walk is
+  rooted at the top level of the account chosen rather than at wherever Files
+  happens to be looking. The blobs are copied into the chosen account, because a
+  file node can only point at a blob its own account holds. Offered for one
+  attachment as much as for a set: a single file is the commonest thing to want
+  kept rather than downloaded.
 - **Show original**, **Show headers**, **Download (.eml)** and **Print**.
 - **`winmail.dat` opens.** Outlook sending in Rich Text packs every attachment
   into one TNEF blob that most clients cannot read, so the files inside are
@@ -1248,8 +1286,13 @@ minimisable and maximisable; full-screen on mobile.
 - **Attachment reminder** when the text mentions an attachment and none is there.
 - **Spell check** toggle.
 - **Drafts** save as you type and on close, with the save state shown.
-- **Quoting** on reply, with the signature placed above or below it, and
-  reply-all as an optional default.
+- **Quoting** on reply, with the signature placed above or below it. One reply
+  reaches **one partner** and Reply all reaches **everyone** — the difference the
+  reader sees in the draft, since reply all is the action that puts a list there.
+  The one-button affordances (a message's own header, the reply strip at the foot
+  of a thread) reach **everyone**, which is what the app does rather than a
+  preference; every menu offers both actions, each saying which it is, and the
+  keys are the plain pair — `r` answers the sender, `a` answers the list.
 - **Compose as new** — the same mail again rather than passed on, for one that
   bounced or went to a misspelled address. Recipients, Reply-To, subject, body
   and attachments come across as they stand; the Message-ID, date and threading
@@ -1587,19 +1630,107 @@ JMAP `FileNode`, in the shape 0.16 defines (`nodeType`, four separate rights).
 
 - **Folder tree** in the left pane, fetched **in one request**, so opening a
   folder never waits on a round trip.
+- **Collapsed by default, and remembered per reader.** The tree starts shut —
+  a group's or a shared account's folders as much as the reader's own — and the
+  folders that were opened come back next time, beside the rest of where the
+  reader was left. Each open folder is named by its account and its id, because
+  node ids are unique per account and an id alone would open another account's
+  folder.
 - Browse, download, create folders, rename, move, delete.
+- **Sorted by a clicked column, and each folder keeps its own order.** Clicking
+  **Name**, **Size** or **Modified** orders the listing by it, and clicking the
+  column already in force turns it around — two states and no third, because a
+  listing is always in some order. The sorted column's name is **bold** with a
+  small arrow for the direction, the other two are plain names you can click.
+  **Folders come first whatever the column** (a folder has no size), and within
+  each group the column decides with the name breaking ties, so two devices draw
+  the same order. The order is remembered **per folder** on this device, beside
+  where the reader was left, and applies to what the browser holds: a folder is
+  read whole (up to the store's own read ceiling) rather than a page at a time,
+  so it is sorted in the browser rather than asked of the server.
+- **Multi-select with checkboxes.** Every row carries one, with a select-all in
+  the header (indeterminate while only some rows are ticked), and the selection
+  is acted on from the bar that counts it: **download its files**, **move**,
+  **merge folders** and **delete** — the same actions the row menu offers when a
+  whole selection is opened through one of its rows. A folder has no bytes to
+  download, so the action names how many *files* it will put on disk. Shift-click
+  takes the run from the last row clicked, ctrl/cmd-click adds or removes one,
+  and the selection is dropped when the folder changes. The bar itself is
+  **always on screen**, counting *0 items selected* when nothing is ticked, so
+  the listing does not move under the pointer the moment the first box is
+  ticked; what changes with the count is what can be done, not what is drawn.
+- **Open a folder by double-clicking it.** A single click on a row selects it,
+  the name included — the name is a label, not a door — and the double click
+  opens a folder or previews a file. In the sidebar tree a single click goes to
+  the folder and a **double click opens or shuts its branch**, the way a file
+  manager's tree behaves, with the twisty doing the same thing in one click.
+- **Merge two folders into one.** Ticking exactly two folders makes **Merge
+  folders…** usable — with one, three or anything that is not a folder the entry
+  is there and greyed, because two is the number the feature is defined for —
+  and it asks once which of the two **names stays**. That name's folder is the
+  one that survives, and everything the other holds moves into it: a subfolder
+  that is in both is merged into one (deeper names by the same rules), a **file**
+  whose name is in both has the other one's bytes written into the node that
+  already holds it — same id, same sharing, same place in the tree — and the
+  file the bytes came from is destroyed, so one file of that name is left. The
+  folder given up is destroyed last, once it is empty. The whole thing is
+  **decided before anything is written**: both trees are read first, and a name
+  that is a folder on one side and a file on the other — or a right the reader
+  does not have — stops the merge with nothing created, moved, copied or
+  deleted. The dialog closes as the merge is asked for — the question is
+  answered, and waiting would hold the reader in it for the whole run — and the
+  merge runs in the tray like an upload: *"2 of 7 items"* beside **Cancel**,
+  which stops the run and leaves whatever it had already done done.
+  A merge that is stopped or fails therefore leaves both folders in place, with
+  what had moved already inside the kept one, and can be asked for again
+  (ADR 0014).
 - **Drag a row** onto a folder in the list or anywhere in the tree to move it.
   A folder cannot be dropped inside itself.
 - **Drag from the desktop** to upload — and drag a *folder* to upload it with
-  its structure intact, subfolders created as needed. (The structure is only
-  reachable through `webkitGetAsEntry`, whose entries go stale the moment the
-  drop handler returns, so the tree is read out synchronously and walked
-  afterwards.)
+  its structure intact, subfolders created as needed, **empty folders
+  included**. (The structure is only reachable through `webkitGetAsEntry`,
+  whose entries go stale the moment the drop handler returns, so the tree is
+  read out synchronously and walked afterwards.)
+- **Dropping a folder that is already there adds to it** rather than making a
+  second one beside it: the folders of the drop are resolved first, a folder
+  the target already holds is used as it is, and only what is missing is
+  created. A **file** whose name the folder already holds is **written over**,
+  in place: the node that carried the name is the node that holds the bytes
+  now, so its id, its sharing and its place in the tree stay and only the
+  content changes. Dropping the same tree twice is therefore one tree holding
+  the latest bytes — never a second copy beside the first, and never a page of
+  errors (ADR 0013). What a file may not write over is a **folder** of its
+  name: nothing is renamed, destroyed or put beside it, and the file is
+  reported on top instead. A folder the drop could not be created — a file is
+  standing where it goes — stops with its whole subtree reported rather than
+  filing those files into whatever folder does exist.
+- **A drop resolves its tree in one request.** The account is read once and the
+  whole walk answers from that, however deep the folder is; an account larger
+  than one read of it (a thousand nodes) is finished by reading the levels it
+  has to — the folder that was past the page is looked up when the server
+  refuses the create — not by paging the account. What that read is **for** is
+  folders: a file's name is answered by the create itself, which names the node
+  holding it wherever in the account it sits, so a name the read never reached
+  is written over all the same.
+- **Cancel an upload.** Every upload in flight shows the count of its run —
+  *"3 of 12 files"* — beside its own percentage, and the count moves as each
+  file lands: a folder of two hundred items reads as one job with a size rather
+  than as two hundred unrelated files, and the number is on the row in flight as
+  well as on any row of the same run a failure left standing. **Cancel** sits
+  beside it — one file, or the whole run a drop or a picker action started, so a
+  folder of two hundred items is stopped in one press rather than two hundred.
+  What has already gone up stays, and nothing that had not started is sent. The
+  switch arrives with the run's **first file**: a drop creates the folders of
+  its tree before it uploads anything, and that phase has no row yet to press.
 - **Sharing** per file or folder, with rights per person.
 - **Attach from Files** in the composer, with no re-upload.
 - **Saved into from mail**: a message's attachments can be kept here instead of
   downloaded, into your own files or a group's — the group's account is the
-  destination that makes them the group's.
+  destination that makes them the group's — and into **any folder inside it**,
+  walked or created in the dialog. Offered for **one attachment as much as for
+  ten**. A file the chosen folder already holds is reported rather than
+  replaced — the one write that still refuses a name, because a file somebody
+  already keeps is not a save's to overwrite (ADR 0013).
 - One folder is hidden on purpose: **`gilbert`**, contents and all. It holds
   the settings file and signature images, and the Files view drops it from the
   listing so it never reads as a place to file your own.
@@ -1925,6 +2056,22 @@ needed nothing in either half.
   run. Where the server also implements `emailpush`, the payload carries the
   sender, subject and preview; without it the notification says only that mail
   arrived. Offered only on a device you said was yours.
+- **The subscription is one row per device, and a delivery to a group is one of
+  the things it wakes for.** A push subscription belongs to the principal that
+  registered it and is served for every account that principal is a **member**
+  of — their own and each group mailbox — so a group's mail already wakes a
+  closed Gilbert today, as a notification that names nothing; what is not built
+  is the per-account payload that would name the sender, the subject and the
+  mailbox it landed in, and the chat wake-up beside it. Read from Stalwart's
+  source at v0.16.22 and written down in ADR 0016, which holds what a running
+  server still has to confirm.
+- **The switch says why it cannot be offered** where it cannot: a mail server
+  with no push key, a browser with no Push API, and — the sentence worth
+  writing — an iOS browser opened as a tab, which is told to add Gilbert to the
+  Home Screen in Safari, because that is the install that gives it the feature.
+  The notification permission is asked for in the gesture that turns a switch
+  on and nowhere else, and a permission the browser no longer holds an answer
+  for is said out loud, with the switch's own gesture named as the repair.
 - The verification code a subscription needs is handed to an open tab, or left
   in the browser's cache under a key **anchored to where the app is mounted**
   for the next tab to collect. Both sides name it absolutely: a relative key is
@@ -1979,7 +2126,10 @@ needed nothing in either half.
   icons — a 192 and a 512 for `any`, and a third declared `maskable` for the
   launchers that crop one to their own shape — and its splash colours are the
   default theme's background, so an installed app opens in the colours it is
-  about to be, not in another theme's.
+  about to be, not in another theme's. The artwork on them is the mark on its
+  own dark navy rather than the lockup: the wordmark inside a 192px square is a
+  texture, and the tagline is dropped below 180px, where it is a smear rather
+  than a word.
 - **Manifest shortcuts** for Compose, Calendar and Contacts.
 - **One window, not one per launch.** A `mailto:` link, a shortcut or a
   notification opened while Gilbert is already running arrives in the copy
@@ -2078,7 +2228,7 @@ per view, so the same letter can mean different things in mail and the calendar.
 | Global | `?` help · `/` search · `c` compose · `g i/s/t/d/a` inbox, starred, sent, drafts, all mail · `g l/c/f/k` calendar, contacts, files, settings |
 | List | `j`/`k` next/previous · `o` open · `u` back · `Esc` back or clear selection · `x` select · `Ctrl+A` select all |
 | Acting | `e` archive · `#` delete · `!` spam · `s` star · `Shift+I`/`Shift+U` read/unread · `v` move · `l` label |
-| Conversation | `r` the default reply (reply all unless Settings says otherwise) · `a` reply all · `f` forward · `n`/`p` next/previous message · `]` archive and open next |
+| Conversation | `r` reply to the sender · `a` reply all · `f` forward · `n`/`p` next/previous message · `]` archive and open next |
 | Composer | `Ctrl+Enter` send · `Ctrl+S` save draft · `Esc` close, saving |
 | Calendar | `t` today · `n`/`p` next/previous · `d`/`w`/`m`/`a` day, week, month, agenda · `c` new event |
 
@@ -2418,7 +2568,11 @@ prefix with nothing substituted into them.
 The installation's own name is `branding.appName` in its document (the `APP_NAME`
 variable is what a process with no boot runs on), and where **your** source can
 be had is a variable the image states; the logo, icons and palette are
-files. See [Rebranding](https://docs.ihasmail.org/rebranding/). If you run a
+files. The mark ships in two colorways — `web/public/img/logo.png` navy for a
+light surface, `logo-inverse.png` white for a dark one, and a mark-alone
+`mark.png`/`mark-inverse.png` pair for the places the wordmark does not fit —
+and a deployment that swaps them keeps both in two colors. See
+[Rebranding](https://docs.ihasmail.org/rebranding/). If you run a
 modified Gilbert, `SOURCE_URL` must point at **your** tree — the AGPL's offer
 is for the source of the version being run, and it is shown on the sign-in page
 and in Settings › About.
@@ -2441,10 +2595,48 @@ and in Settings › About.
 - **Sessions survive a restart** because they live in Stalwart, so an immutable
   instance loses nothing to being replaced.
 
+## Code scanning
+
+GitHub's own code scanning runs against this repository on every push and pull
+request, on the **default setup**: configured in the repository's settings rather
+than by a file here, analysing the tree with the JavaScript/TypeScript
+code-scanning suite (its Actions queries included, so `.github/workflows` is
+covered by the same run).
+
+`npm run codeql` is that same analysis on this checkout, so a finding shows up
+before it is pushed:
+
+```bash
+npm run codeql                  # → CodeQL: 0 result(s).
+npm run prepush:full            # the fast gate, then the analysis
+```
+
+- **It analyses the files a push would carry.** `git ls-files --cached --others
+  --exclude-standard` is the list, exported to a temporary tree: GitHub analyses
+  a checkout, so `node_modules` and a built `web/dist` are in front of neither.
+  `.gitignore` stays the one place that decides what is ignored.
+- **The database is not built inside the repository.** The JavaScript extractor
+  skips anything under a `node_modules`, and a database built under one
+  analyses nothing at all while reporting it as "no code found"; the work
+  directory is the system temporary space, named for a digest of the checkout.
+- **It is not part of `npm run prepush`.** The toolchain is a 686 MB bundle and
+  one analysis takes a couple of minutes — a gate that cannot run on a fresh
+  clone is not a gate. It is found through `CODEQL_CLI`, on `PATH`, or in
+  `~/.cache/gilbert/codeql`, and a run without one **fails with the install
+  instructions** rather than reporting a clean tree.
+- **It exits non-zero on any result**, and prints each one as `file:line`, the
+  rule and its `security-severity`. An alert is work to do in the same change,
+  like any other finding a gate prints.
+
+Both halves are pinned by tests (`server/src/codeql.test.ts`): the flags the
+database and the analysis are given, the suite the settings run, the file list,
+and that a run which did not happen reports as a failure rather than as nothing
+found.
+
 ## The mock server
 
-An in-memory fake Stalwart 0.16 — enough JMAP to develop, demo and screenshot
-against with no real mailbox. `npm run dev:mock`, then `demo@example.com` /
+An in-memory fake Stalwart 0.16 — enough JMAP to develop and demo against with
+no real mailbox. `npm run dev:mock`, then `demo@example.com` /
 `demo`.
 
 It reproduces the things a naive fake would get wrong, because each cost a live

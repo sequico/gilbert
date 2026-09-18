@@ -13,7 +13,7 @@ import {
 } from "@/store/settings";
 import { toast } from "@/ui/toast";
 import * as appFolder from "../appFolder";
-import { APP_FOLDER, isAppFolder } from "../appFolder";
+import { APP_FOLDER_NAME, isAppFolder } from "../appFolder";
 import {
   armSettingsSync,
   flushSettingsPush,
@@ -138,20 +138,20 @@ describe("applying a settings file", () => {
 
 describe("the client's own folder", () => {
   it("is a top-level directory under the app folder's name, and nothing else", () => {
-    expect(APP_FOLDER).toBe("gilbert");
-    expect(isAppFolder({ name: APP_FOLDER, parentId: null, nodeType: "directory" })).toBe(
-      true,
-    );
+    expect(APP_FOLDER_NAME).toBe("gilbert");
+    expect(
+      isAppFolder({ name: APP_FOLDER_NAME, parentId: null, nodeType: "directory" }),
+    ).toBe(true);
   });
 
   it("is not a folder of that name someone made inside another one", () => {
-    expect(isAppFolder({ name: APP_FOLDER, parentId: "n1", nodeType: "directory" })).toBe(
-      false,
-    );
+    expect(
+      isAppFolder({ name: APP_FOLDER_NAME, parentId: "n1", nodeType: "directory" }),
+    ).toBe(false);
   });
 
   it("is not a file that happens to be called that", () => {
-    expect(isAppFolder({ name: APP_FOLDER, parentId: null, nodeType: "file" })).toBe(
+    expect(isAppFolder({ name: APP_FOLDER_NAME, parentId: null, nodeType: "file" })).toBe(
       false,
     );
   });

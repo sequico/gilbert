@@ -3,6 +3,7 @@ import { CAP, client } from "@/jmap/client";
 import type { JmapSession } from "@/jmap/types";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
+import { flushMicrotasks as flush } from "@/test/testkit";
 
 /**
  * Two things the mail store must not carry across an account boundary.
@@ -18,8 +19,6 @@ import { useSession } from "@/store/session";
  * return as if it had an answer, and an answer that lands after a sign-out
  * belongs to the session it was asked of, not to the one on screen.
  */
-
-const flush = () => new Promise<void>((res) => setTimeout(res, 0));
 
 const SESSION = {
   accounts: {

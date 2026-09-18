@@ -15,6 +15,17 @@
  *     after a number points at a structure the record does not have, and
  *     `ADR §6` — which names no record at all — is the same error twice.
  *
+ * A third rule is about the records rather than about what cites them, and it
+ * is here because a citation can only be followed to a record that says what
+ * it is.
+ *
+ *   - Every record states its `Status` and its `Implementation`, once each,
+ *     above its first section. Both are required of every record and neither is
+ *     optional: `Status` is where the decision stands, `Implementation` is where
+ *     the tree stands, and a record missing either is a record a reader cannot
+ *     place. Six records once carried no `Status` at all and nothing noticed,
+ *     which is what this half exists to stop happening again.
+ *
  * The scan covers the code, the skills, and the documents and deployment
  * files a reader meets by name: a number left in a stylesheet or a compose
  * file misleads exactly as one left in a module.
@@ -29,6 +40,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { lineOf, walk } from "./lib/repoWalk.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -66,7 +79,22 @@ const FILES = [
 ];
 
 const EXT = new Set([".ts", ".tsx", ".mts", ".mjs", ".md", ".css"]);
-const SKIP_DIRS = new Set(["node_modules", "dist", "dev-dist", "coverage", ".git"]);
+
+/**
+ * The two lines a record must carry, and the words each one may begin with.
+ *
+ * The vocabulary is the one `docs/adr/README.md` and the ADR section of
+ * `.codewhale/instructions.md` define: a decision is `Proposed` until the owner
+ * accepts it and `Accepted` after, and the tree either carries it (`Built`),
+ * carries part of it (`Partly built`), or carries none of it (`Not built`).
+ */
+const STATUS_LINE = /^Status: (.+)$/gm;
+const IMPLEMENTATION_LINE = /^Implementation: (.+)$/gm;
+const STATUS_VALUES = ["Proposed", "Accepted"];
+const IMPLEMENTATION_VALUES = ["Built", "Partly built", "Not built"];
+
+/** The first section heading: the block above it is the record's own header. */
+const FIRST_SECTION = /^## /m;
 
 /** This check's own fixtures contain the shapes it refuses. */
 const SKIP_FILES = new Set([
@@ -74,11 +102,67 @@ const SKIP_FILES = new Set([
   "server/src/adr-citation.test.ts",
 ]);
 
-/** The line number of an offset, for a report a reader can act on. */
-function lineOf(text, index) {
-  let line = 1;
-  for (let i = 0; i < index; i++) if (text[i] === "\n") line++;
-  return line;
+/**
+ * Whether one record carries its two lines. Pure: `{ name, text }` in, and
+ * `[{ line, why }]` out — the same shape the citation half reports in, so a
+ * reader meets one kind of sentence.
+ *
+ * The lines are required exactly once and above the first section, which is
+ * where every record puts them: a `Status` under `## Consequences` is a record
+ * whose header says nothing, and a reader looking for it does not scroll.
+ */
+export function recordProblems({ name, text }) {
+  const problems = [];
+  const headerEnd = FIRST_SECTION.exec(text)?.index ?? text.length;
+
+  for (const [what, pattern, allowed] of [
+    ["Status", STATUS_LINE, STATUS_VALUES],
+    ["Implementation", IMPLEMENTATION_LINE, IMPLEMENTATION_VALUES],
+  ]) {
+    const found = [...text.matchAll(pattern)];
+    if (found.length === 0) {
+      problems.push({ why: `no \`${what}\` line: every record states one` });
+      continue;
+    }
+    if (found.length > 1) {
+      problems.push({
+        line: lineOf(text, found[1].index),
+        why: `${found.length} \`${what}\` lines: a record states one`,
+      });
+    }
+    const [match] = found;
+    const line = lineOf(text, match.index);
+    if (match.index > headerEnd) {
+      problems.push({
+        line,
+        why: `\`${what}\` is below the record's first section; it belongs in the header`,
+      });
+    }
+    /* The word it begins with, so a value that says nothing is refused: `Built`
+       may be followed by a comma or a full stop, which is why this is a word
+       boundary rather than a period. */
+    const value = match[1].trim();
+    if (!allowed.some((word) => new RegExp(`^${word}\\b`).test(value))) {
+      problems.push({
+        line,
+        why: `\`${what}: ${value}\` begins with none of ${allowed.join(", ")}`,
+      });
+    }
+  }
+  return problems.map((one) => ({ path: name, ...one }));
+}
+
+/**
+ * Whether every record states its two lines. Pure: the records as
+ * `[{ name, text }]` in, `{ ok, problems }` out.
+ */
+export function checkRecordShape({ recordFiles = [] } = {}) {
+  const problems = recordFiles.flatMap((record) => recordProblems(record));
+  return {
+    ok: problems.length === 0,
+    problems,
+    counts: { records: recordFiles.length },
+  };
 }
 
 /**
@@ -160,33 +244,30 @@ export function formatReport(result) {
   return lines;
 }
 
-/** Every file under a directory, relative to it, skipping what cannot cite. */
-function walk(dir) {
-  const found = [];
-  let entries;
-  try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return found;
-  }
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      if (SKIP_DIRS.has(entry.name)) continue;
-      for (const child of walk(join(dir, entry.name)))
-        found.push(join(entry.name, child));
-    } else if (entry.isFile()) {
-      found.push(entry.name);
-    }
-  }
-  return found;
+/** What a record's own header got wrong, one line each. */
+export function formatShapeReport(result) {
+  return result.problems.map(
+    (one) =>
+      `record: ${one.path}${one.line === undefined ? "" : `:${one.line}`} — ${one.why}`,
+  );
 }
 
+/** Every file under a directory, relative to it, skipping what cannot cite. */
 /** Read this repository: the records that exist, and what cites them. */
 export function collectRepoInput(root = ROOT) {
   const adrDir = join(root, "docs", "adr");
-  const records = readdirSync(adrDir)
+  const entries = readdirSync(adrDir).sort();
+  const records = entries
     .map((name) => ADR_FILE.exec(name)?.[1])
     .filter((n) => n !== undefined);
+  /* The records read whole, for the header half: a citation is checked against
+     the numbers, and a record is checked against itself. */
+  const recordFiles = entries
+    .filter((name) => ADR_FILE.test(name))
+    .map((name) => ({
+      name: `docs/adr/${name}`,
+      text: readFileSync(join(adrDir, name), "utf8"),
+    }));
 
   const files = [];
   for (const base of ROOTS) {
@@ -205,34 +286,38 @@ export function collectRepoInput(root = ROOT) {
       // A file this installation does not ship is not a citation.
     }
   }
-  return { files, records };
+  return { files, records, recordFiles };
 }
 
 const USAGE =
   "Every `ADR <nnnn>` in the code, the skills and the documents that ship " +
-  "beside them must name a record that is a file in docs/adr/, and sections " +
-  "are cited by name or not at all. " +
+  "beside them must name a record that is a file in docs/adr/, sections are " +
+  "cited by name or not at all, and every record states its `Status` and its " +
+  "`Implementation` above its first section. " +
   "This check takes no arguments; running it is checking.";
 
-/** Run the check over the repository, and say what is wrong. 0 or 1. */
+/** Run both halves over the repository, and say what is wrong. 0 or 1. */
 function main() {
   if (process.argv.length > 2) {
     process.stdout.write(`adr-citation-check takes no arguments.\n${USAGE}\n`);
     return 1;
   }
-  const { files, records } = collectRepoInput();
+  const { files, records, recordFiles } = collectRepoInput();
   const result = checkCitations({ files, records });
+  const shape = checkRecordShape({ recordFiles });
   const { citations, records: count } = result.counts;
-  if (result.ok) {
+  if (result.ok && shape.ok) {
     process.stdout.write(
       `ADR citations: ${citations} citation(s) in ${files.length} file(s) name ` +
-        `one of ${count} record(s).\n`,
+        `one of ${count} record(s), and every one states its Status and Implementation.\n`,
     );
     return 0;
   }
-  const problems = formatReport(result).map((line) => `  ${line}`);
+  const problems = [...formatReport(result), ...formatShapeReport(shape)].map(
+    (line) => `  ${line}`,
+  );
   process.stdout.write(
-    `ADR citations do not resolve (${citations} citation(s), ${count} record(s)):\n` +
+    `ADR records and their citations (${citations} citation(s), ${count} record(s)):\n` +
       `${problems.join("\n")}\n${USAGE}\n`,
   );
   return 1;

@@ -2,6 +2,8 @@
 /* JMAP core (RFC 8620)                                                */
 /* ------------------------------------------------------------------ */
 
+import type { Invocation, MethodResponses } from "@gilbert/shared/jmap";
+
 export type Id = string;
 export type UTCDate = string; // "2024-01-01T10:00:00Z"
 export type LocalDate = string; // "2024-01-01T10:00:00"
@@ -35,14 +37,14 @@ export interface JmapSession {
     /** Stalwart-admin state resolved at sign-in (ADR 0001): enables the admin surface. */
     isAdmin: boolean;
     /**
-     * ADR 0014: whether this session may administer at all — the installation
+     * ADR 0017: whether this session may administer at all — the installation
      * offers administration and this device was marked as the person's own. The
      * server refuses `x:` methods beyond the account's own when it is false, so
      * the menu follows it rather than the other way round.
      */
     administration?: boolean;
     /**
-     * ADR 0014: an administrator signed in on a device not marked as their own.
+     * ADR 0017: an administrator signed in on a device not marked as their own.
      * The menu says why rather than losing the entry without a word.
      */
     administrationNeedsOwnDevice?: boolean;
@@ -87,7 +89,13 @@ export interface MailCapabilities {
   mayCreateTopLevelMailbox: boolean;
 }
 
-export type Invocation = [name: string, args: Record<string, unknown>, callId: string];
+/*
+ * The protocol tuple, declared once: the server builds one of these for every
+ * call it makes upstream and this client builds one for every call it makes
+ * through the proxy, so its three positions are shared vocabulary rather than
+ * either tier's own. `@gilbert/shared/jmap` owns it.
+ */
+export type { Invocation, MethodResponses };
 
 export interface JmapResponse {
   methodResponses: Invocation[];
@@ -105,6 +113,13 @@ export interface SetError {
   type: string;
   description?: string;
   properties?: string[];
+  /**
+   * The node already carrying the name, on an `alreadyExists` refusal from
+   * `FileNode/set` (`find_sibling_collision`, `crates/jmap/src/file/set.rs`,
+   * v0.16.21). It is what lets a caller that lost a create race adopt the node
+   * somebody else made instead of reporting a name nobody can see.
+   */
+  existingId?: Id;
   [k: string]: unknown;
 }
 
@@ -281,16 +296,15 @@ export interface Thread {
   emailIds: Id[];
 }
 
-export interface Identity {
-  id: Id;
-  name: string;
-  email: string;
-  replyTo: EmailAddress[] | null;
-  bcc: EmailAddress[] | null;
-  textSignature: string;
-  htmlSignature: string;
-  mayDelete: boolean;
-}
+/*
+ * The identity object, declared once. It is not this file's to declare: the
+ * administration writes it through the routes beside the server's own copy,
+ * this session reads it back through `Identity/get`, and one object that two
+ * tiers write has one shape. `@gilbert/shared/identityViews` owns it and this
+ * re-exports it, because a field added on one side and forgotten on the other
+ * compiles on both and arrives as `undefined` on one.
+ */
+export type { Identity } from "@gilbert/shared/identityViews";
 
 export interface EmailSubmission {
   id: Id;

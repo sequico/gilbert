@@ -39,6 +39,7 @@ import {
   type InstallationStore,
   readInstallation,
 } from "./installation.js";
+import { sleep as defaultSleep } from "./shared/async.js";
 import type { InstallationAgent, InstallationDocument } from "./shared/installation.js";
 import type { UpstreamSession } from "./upstream.js";
 
@@ -53,6 +54,9 @@ import {
   environmentConfiguration,
   type InstallationEnvironment,
 } from "./configuration.js";
+import { basicAuth as basicAuthorization } from "./util.js";
+
+export { basicAuthorization };
 
 /**
  * How long the first request of a boot may take.
@@ -179,11 +183,6 @@ export interface MasterLogin {
   authorization: string;
   /** The JMAP session resource Stalwart answered with. */
   session: UpstreamSession;
-}
-
-/** The Basic header for a principal's own credential. */
-export function basicAuthorization(address: string, password: string): string {
-  return `Basic ${Buffer.from(`${address}:${password}`, "utf8").toString("base64")}`;
 }
 
 /**
@@ -438,7 +437,7 @@ export async function bootInstallation(deps: BootDeps = {}): Promise<BootConfigu
   const exit = deps.exit ?? ((code: number): never => process.exit(code));
   const attempts = deps.signInAttempts ?? 10;
   const retryMs = deps.signInRetryMs ?? 1000;
-  const sleep = deps.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  const wait = deps.sleep ?? defaultSleep;
   const openStore =
     deps.store ??
     ((login: MasterLogin) => {
@@ -508,7 +507,7 @@ export async function bootInstallation(deps: BootDeps = {}): Promise<BootConfigu
         log(
           `[gilbert] ${handshake.stalwartUrl} did not answer (${err instanceof Error ? err.message : String(err)}) — trying again (${attempt}/${attempts})`,
         );
-        await sleep(retryMs);
+        await wait(retryMs);
       }
     }
   }

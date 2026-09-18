@@ -23,6 +23,7 @@ import type {
   JSCalendarParticipant,
   JSCalendarRecurrenceRule,
 } from "@/jmap/types";
+import { foldLine, unfoldLines } from "./contentLines";
 
 export interface IcsEvent {
   uid: string;
@@ -34,20 +35,6 @@ export interface IcsEvent {
   description?: string;
   /** True when the source carried an RRULE that has not been expanded. */
   recurring: boolean;
-}
-
-/**
- * Undo the line folding RFC 5545 requires: a continuation is any line starting
- * with a space or a tab, and it joins the one before with nothing between.
- */
-export function unfold(text: string): string[] {
-  const out: string[] = [];
-  for (const raw of text.split(/\r\n|\n|\r/)) {
-    if ((raw.startsWith(" ") || raw.startsWith("\t")) && out.length)
-      out[out.length - 1] += raw.slice(1);
-    else out.push(raw);
-  }
-  return out;
 }
 
 interface Line {
@@ -206,7 +193,7 @@ export function parseIcs(text: string): ParseResult {
   /** Depth of any component that is not a VEVENT, so its properties are ignored. */
   let skipping = 0;
 
-  for (const raw of unfold(text)) {
+  for (const raw of unfoldLines(text)) {
     const line = parseLine(raw);
     if (!line) continue;
     const { name: prop, params, value } = line;
@@ -381,18 +368,6 @@ function escText(s: string): string {
     .replace(/;/g, "\\;")
     .replace(/,/g, "\\,")
     .replace(/\r?\n/g, "\\n");
-}
-
-/** 75 octets is the limit; a continuation begins with one space. */
-function foldLine(line: string): string {
-  if (line.length <= 75) return line;
-  const out: string[] = [];
-  let i = 0;
-  while (i < line.length) {
-    out.push((i ? " " : "") + line.slice(i, i + 74));
-    i += 74;
-  }
-  return out.join("\r\n");
 }
 
 /** "2026-09-02T09:00:00" -> "20260902T090000"; the date half alone for all-day. */

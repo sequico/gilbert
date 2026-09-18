@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { postWith } from "./testkit.js";
 
 /**
  * End-to-end self-service credential flows against the mock, which enforces
@@ -44,8 +45,7 @@ async function call(
   return { status: res.status, body: text ? JSON.parse(text) : null };
 }
 
-const post = (path: string, body: unknown) =>
-  call(path, { method: "POST", body: JSON.stringify(body) });
+const post = postWith(call);
 
 before(async () => {
   const res = await post("/api/auth/login", {

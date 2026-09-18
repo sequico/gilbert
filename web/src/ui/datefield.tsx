@@ -14,6 +14,7 @@ import {
   isToday,
   monthGrid,
   startOfDay,
+  toInputDateTime,
   toLocalDateOnly,
 } from "@/lib/dates";
 import {
@@ -224,14 +225,6 @@ interface FieldProps {
   id?: string;
 }
 
-function pad(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-function toIsoDateTime(d: Date): string {
-  return `${toLocalDateOnly(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 /** Shared text-box behaviour: type freely, commit on blur or Enter, revert what won't parse. */
 function useTextField(
   value: string,
@@ -379,7 +372,7 @@ export function DateTimeField({
   const current = value ? new Date(value) : null;
   const valid = current && !Number.isNaN(current.getTime()) ? current : null;
 
-  const setParts = (d: Date) => onChange(toIsoDateTime(d));
+  const setParts = (d: Date) => onChange(toInputDateTime(d));
 
   const dateDisplay = useCallback(
     (v: string) => (v ? formatDateInput(new Date(v)) : ""),

@@ -2,6 +2,7 @@ import { installationDefaults } from "@gilbert/shared/installation";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/jmap/client";
 import { t, tNode } from "@/lib/i18n";
+import { JsonDocumentEditor, jsonProblem } from "@/ui/JsonDocumentEditor";
 
 /**
  * The installation's own document, as the Master's account holds it.
@@ -118,10 +119,9 @@ export function AdminInstallation() {
     if (saving) return;
     setError(null);
     setNotice(null);
-    try {
-      JSON.parse(text);
-    } catch {
-      setError(t("That is not valid JSON — fix the document and publish again."));
+    const problem = jsonProblem(text);
+    if (problem) {
+      setError(problem);
       return;
     }
     setSaving(true);
@@ -209,37 +209,30 @@ export function AdminInstallation() {
           { field: <code>secret</code> },
         )}
       </p>
-      <textarea
-        className="textarea"
-        aria-label={t("Installation document")}
-        spellCheck={false}
-        disabled={saving}
-        style={{ minHeight: "24rem", fontFamily: "var(--font-mono, monospace)" }}
+      <JsonDocumentEditor
+        label={t("Installation document")}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={setText}
+        saving={saving}
+        dirty={dirty}
+        action={t("Publish document")}
+        busy={t("Publishing…")}
+        onAction={() => void publish()}
+        minHeight="24rem"
+        secondary={
+          <button className="btn btn-ghost" disabled={saving} onClick={() => void load()}>
+            {t("Reload")}
+          </button>
+        }
+        notice={
+          notice && (
+            <>
+              <strong>{t("Takes effect at the next boot.")}</strong> {notice.message}
+            </>
+          )
+        }
+        error={error}
       />
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
-        <button
-          className="btn btn-primary"
-          disabled={saving || !dirty}
-          onClick={() => void publish()}
-        >
-          {saving ? t("Publishing…") : t("Publish document")}
-        </button>
-        <button className="btn btn-ghost" disabled={saving} onClick={() => void load()}>
-          {t("Reload")}
-        </button>
-      </div>
-      {notice && (
-        <div className="hint" style={{ marginTop: 12 }}>
-          <strong>{t("Takes effect at the next boot.")}</strong> {notice.message}
-        </div>
-      )}
-      {error && (
-        <div className="error-box" style={{ marginTop: 12 }}>
-          {error}
-        </div>
-      )}
     </div>
   );
 }

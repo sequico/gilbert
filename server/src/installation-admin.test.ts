@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import type { InstallationPublished, InstallationView } from "./installationAdmin.js";
+import { loginWith } from "./testkit.js";
 import type { UpstreamSession } from "./upstream.js";
 
 /**
@@ -91,12 +92,7 @@ async function call(
   };
 }
 
-async function login(username: string, password: string) {
-  return call("/api/auth/login", "", {
-    method: "POST",
-    body: JSON.stringify({ username, password }),
-  });
-}
+const login = loginWith(call);
 
 /**
  * What this deployment names as its Master.

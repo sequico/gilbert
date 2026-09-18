@@ -36,20 +36,24 @@ import {
 } from "react";
 import { Link, useLocation } from "wouter";
 import type { Id, Mailbox } from "@/jmap/types";
+import { askDeleteFolder } from "@/lib/deleteConfirm";
 import { useEffectiveLabels } from "@/lib/effectiveLabels";
 import { canEmpty, confirmAndEmpty, emptyLabel } from "@/lib/emptyFolder";
 import { canDropFolder, canMoveFolderTo, folderColor, movable } from "@/lib/folderMove";
-import { plural, t } from "@/lib/i18n";
+import { folderKey, useOpenFolders } from "@/lib/folderView";
+import { t } from "@/lib/i18n";
 import { countOf, STARRED_KEYWORD } from "@/lib/keywordCounts";
 import { labelTree, visibleLabels } from "@/lib/labelTree";
 import { isGroupMailboxAccount } from "@/lib/mailAccounts";
 import { mailboxDisplayName } from "@/lib/mailboxName";
-import { loadRaw, saveJson } from "@/lib/storage";
+import { folderDestroyTakesMail } from "@/lib/mailDelete";
+import { EMAILS_MIME, FOLDER_MIME } from "@/lib/mime";
 import { haptic, useTouchRow } from "@/lib/touch";
+import { useMayDestroy } from "@/lib/useMayDestroy";
 import { useMail } from "@/store/mail";
 import { isScheduledMailbox } from "@/store/scheduled";
 import { useSettings } from "@/store/settings";
-import { confirmDialog, promptDialog } from "@/ui/dialog";
+import { promptDialog } from "@/ui/dialog";
 import { CALENDAR_COLORS, useIsMobile, useIsTouch } from "@/ui/misc";
 import { MenuItem, MenuSep, MenuTitle, Popover, useMenu } from "@/ui/popover";
 import { toast } from "@/ui/toast";
@@ -68,9 +72,6 @@ const ROLE_ICONS: Record<string, ReactNode> = {
   important: <Tag size={20} />,
 };
 
-/** Its own drag type, so a folder can only be dropped where folders belong. */
-const FOLDER_MIME = "application/x-gilbert-folder";
-
 /**
  * One row of the keyword list: Starred, or a label.
  *
@@ -81,15 +82,19 @@ const FOLDER_MIME = "application/x-gilbert-folder";
  * as the list draws a star — filled, in the star's own token (`--star`), the
  * one a starred row's star is drawn with. Nothing else about the two differs.
  *
- * The count is the whole of the mail under the keyword, read or not. The
- * unread half stays in the tree for the visibility rule to act on, and is
- * deliberately not what a row shows: a reader asking "how much is filed under
- * this" is not asking how much of it is new.
+ * The count reads **unread (all)** — "3 (5)" is three unread out of five —
+ * with the unread number standing out. The total alone would leave the reader
+ * to open a label to find out whether anything in it is new, and the unread
+ * alone would hide how much is filed under it; the two together answer the
+ * question a row of a mail sidebar is asked ("is there anything here for me,
+ * and how much is here at all"). A keyword with nothing unread shows the total
+ * by itself, because "0 (5)" says nothing "5" does not.
  */
 function KeywordRow({
   href,
   name,
   total,
+  unread,
   color,
   icon,
   iconColor,
@@ -98,6 +103,8 @@ function KeywordRow({
   href: string;
   name: string;
   total: number;
+  /** How much of it is not marked read. Drawn bold, ahead of the total. */
+  unread: number;
   color?: string;
   icon?: ReactNode;
   /** The colour to draw an icon in, where a label's swatch would go. */
@@ -127,7 +134,12 @@ function KeywordRow({
         </span>
       )}
       <span className="nav-label">{name}</span>
-      {total > 0 && <span className="nav-count">{total}</span>}
+      {total > 0 && (
+        <span className="nav-count label-count">
+          {unread > 0 && <b>{unread}</b>}
+          {unread > 0 ? ` (${total})` : total}
+        </span>
+      )}
     </Link>
   );
 }
@@ -252,11 +264,7 @@ export function MailboxTree() {
     try {
       await useMail.getState().updateMailbox(id, { parentId });
       // Show where it landed rather than leaving it hidden in a closed parent.
-      if (parentId) {
-        const next = { ...expanded, [parentId]: true };
-        setExpanded(next);
-        saveJson("mbx-expanded", next);
-      }
+      if (parentId) openKeys([folderKey(accountId, parentId)]);
       toast.success(
         parentId
           ? t("“{name}” moved into “{parent}”", {
@@ -277,14 +285,8 @@ export function MailboxTree() {
 
   // Tree: A–Z at every level (Inbox pinned to the top of the root), subfolders nested and
   // collapsed by default. Expansion state is remembered per folder.
-  const [expanded, setExpanded] = useState<Record<Id, boolean>>(() =>
-    loadRaw("mbx-expanded", {}),
-  );
-  const toggle = (id: Id) => {
-    const next = { ...expanded, [id]: !expanded[id] };
-    setExpanded(next);
-    saveJson("mbx-expanded", next);
-  };
+  const { open: expanded, setFolder, openKeys } = useOpenFolders("mail");
+  const toggle = (key: string) => setFolder(key, !expanded[key]);
   /*
    * Whether the account on screen is a group mailbox rather than the reader's
    * own: the one classifier, the mail store's probe. The folder rows of the
@@ -298,8 +300,11 @@ export function MailboxTree() {
    */
   const inGroup = isGroupMailboxAccount(accountId, mailAccounts);
   const { rows, childrenOf, subtreeUnread } = useMemo(
-    () => buildMailTree(mailboxes, expanded, showHidden, inGroup, (id) => id),
-    [mailboxes, expanded, showHidden, inGroup],
+    () =>
+      buildMailTree(mailboxes, expanded, showHidden, inGroup, (id) =>
+        folderKey(accountId, id),
+      ),
+    [mailboxes, expanded, showHidden, inGroup, accountId],
   );
   const activeAccountName = mailAccounts.find((a) => a.accountId === accountId)?.name;
   /*
@@ -328,16 +333,10 @@ export function MailboxTree() {
         // opened, keeps its per-user subscriptions; other accounts are
         // shared, so their whole accessible tree is shown.
         a.info.accountId !== ownAccountId,
-        (id) => `${a.info.accountId}/${id}`,
+        (id) => folderKey(a.info.accountId, id),
       );
     return out;
   }, [extraAccounts, expanded, showHidden, ownAccountId]);
-  const toggleExtra = (accountIdOf: Id, id: Id) => {
-    const key = `${accountIdOf}/${id}`;
-    const next = { ...expanded, [key]: !expanded[key] };
-    setExpanded(next);
-    saveJson("mbx-expanded", next);
-  };
   const openMailbox = async (toAccount: Id, mailboxId: Id) => {
     if (useMail.getState().accountId !== toAccount)
       await useMail.getState().openAccount(toAccount);
@@ -374,6 +373,10 @@ export function MailboxTree() {
     if (!name?.trim()) return;
     try {
       await useMail.getState().createMailbox(name.trim(), parentId);
+      // Show the folder that was just made. A new subfolder inside a parent the
+      // reader has closed is otherwise created and reported without ever
+      // appearing -- the same "show where it landed" rule `moveFolder` follows.
+      if (parentId) openKeys([folderKey(accountId, parentId)]);
       toast.success(t("Folder “{name}” created", { name: name.trim() }));
     } catch (err) {
       toast.error((err as Error).message);
@@ -503,7 +506,7 @@ export function MailboxTree() {
             open={open}
             hiddenUnread={hiddenUnread}
             childUnread={childUnread}
-            onToggle={() => toggle(m.id)}
+            onToggle={() => toggle(folderKey(accountId, m.id))}
             onDrillIn={isMobile && hasChildren ? () => setDrillId(m.id) : undefined}
             currentId={currentId}
             onMenu={(mb, e) => {
@@ -566,6 +569,7 @@ export function MailboxTree() {
               href="/search?q=is:starred"
               name={t("Starred")}
               total={starredCount.total}
+              unread={starredCount.unread}
               icon={<Star size={14} fill="currentColor" />}
               iconColor="var(--star)"
               depth={0}
@@ -576,6 +580,7 @@ export function MailboxTree() {
                 href={`/search?q=label:${encodeURIComponent(n.label.keyword)}`}
                 name={n.label.name}
                 total={n.total}
+                unread={n.unread}
                 color={n.label.color}
                 depth={n.depth}
               />
@@ -605,7 +610,7 @@ export function MailboxTree() {
                     open={open}
                     hiddenUnread={hiddenUnread}
                     childUnread={childUnread}
-                    onToggle={() => toggleExtra(a.info.accountId, m.id)}
+                    onToggle={() => toggle(folderKey(a.info.accountId, m.id))}
                     currentId={a.info.accountId === accountId ? currentId : undefined}
                     onMenu={() => {}}
                     readOnly
@@ -752,12 +757,7 @@ function FolderRow({
   const onDragOver = (e: DragEvent) => {
     if (readOnly) return;
     const folder = e.dataTransfer.types.includes(FOLDER_MIME);
-    if (
-      folder
-        ? !acceptsFolder
-        : !e.dataTransfer.types.includes("application/x-gilbert-emails")
-    )
-      return;
+    if (folder ? !acceptsFolder : !e.dataTransfer.types.includes(EMAILS_MIME)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     if (!dropping) setDropping(true);
@@ -771,7 +771,7 @@ function FolderRow({
       if (acceptsFolder) onFolderDrop(folderId);
       return;
     }
-    const raw = e.dataTransfer.getData("application/x-gilbert-emails");
+    const raw = e.dataTransfer.getData(EMAILS_MIME);
     if (!raw) return;
     try {
       const ids = JSON.parse(raw) as string[];
@@ -948,6 +948,8 @@ function MailboxMenu({
     walk(m.id);
     return n;
   });
+  /** ADR 0015: what this menu may offer, by the one rule. */
+  const mayEnd = useMayDestroy();
   const rename = async () => {
     const name = await // The server's own name, never the localised one: this box writes
     // back whatever it is prefilled with.
@@ -960,18 +962,19 @@ function MailboxMenu({
     }
   };
   const remove = async () => {
-    const ok = await confirmDialog({
-      title: t("Delete “{name}”?", { name: mailboxDisplayName(m) }),
-      message: plural(m.totalEmails, {
-        one: "This permanently deletes the folder and its {n} message.",
-        other: "This permanently deletes the folder and its {n} messages.",
-      }),
-      confirmLabel: t("Delete"),
-      danger: true,
+    const ok = await askDeleteFolder({
+      name: mailboxDisplayName(m),
+      emails: m.totalEmails,
     });
     if (!ok) return;
     try {
-      await useMail.getState().destroyMailbox(m.id, true);
+      /*
+       * ADR 0015: a refusal is not a deletion, so the confirmation here is not
+       * followed by a success message about a folder that still exists and a
+       * navigation away from it. The guard's own sentence has already said why.
+       */
+      const outcome = await useMail.getState().destroyMailbox(m.id, true);
+      if (!outcome.ok) return;
       toast.success(t("Folder deleted"));
       navigate(`/mail/${useMail.getState().roleId("inbox") ?? ""}`);
     } catch (err) {
@@ -1088,7 +1091,7 @@ function MailboxMenu({
         />
       )}
       <MenuSep />
-      {canEmpty(m.role) && (
+      {canEmpty(m.role) && mayEnd && (
         <MenuItem
           icon={<Eraser size={16} />}
           label={emptyLabel(m)}
@@ -1102,7 +1105,17 @@ function MailboxMenu({
         label={t("Delete folder")}
         onClick={() => void remove()}
         danger
-        disabled={isSpecial || !m.myRights.mayDelete}
+        /*
+         * ADR 0015: a folder holding mail is destroyed with it, so in a group
+         * this is one of the three things an administrator alone may do. The
+         * entry stays drawn and tells the truth about why it is not offered,
+         * rather than disappearing for a reason nobody can look up.
+         */
+        disabled={
+          isSpecial ||
+          !m.myRights.mayDelete ||
+          (folderDestroyTakesMail(m, true) && !mayEnd)
+        }
       />
     </>
   );

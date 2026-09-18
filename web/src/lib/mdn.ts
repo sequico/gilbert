@@ -11,6 +11,7 @@
  * a spammer wants to learn, and the sender chooses the address it goes to.
  * The rules in `mdnDecision` below are what keep that from being automatic.
  */
+import { pad2 } from "@gilbert/shared/localDateTime";
 import type { Email, EmailAddress, Id } from "@/jmap/types";
 import { t } from "@/lib/i18n";
 import { formatAddress, sameAddress } from "./address";
@@ -101,10 +102,6 @@ export function refusalText(refusal: MdnRefusal): string {
   }
 }
 
-function pad(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = [
   "Jan",
@@ -123,7 +120,7 @@ const MONTHS = [
 
 /** RFC 5322 date-time, which is not what toUTCString produces. */
 export function rfc5322Date(d: Date): string {
-  return `${DAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} +0000`;
+  return `${DAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()} ${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())} +0000`;
 }
 
 /**

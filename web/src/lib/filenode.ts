@@ -9,6 +9,7 @@
  */
 import type { FileNode, Id } from "@/jmap/types";
 import { descendantIds } from "./folderMove";
+import { NODE_MIME } from "./mime";
 
 /** Properties to request for a node. */
 export function fileNodeProps(): string[] {
@@ -75,8 +76,12 @@ export function isShared(node: Pick<FileNode, "shareWith">): boolean {
  * legal moves behind a disabled drop. The server refuses those with a message
  * of its own, which is a better answer than a silent one.
  */
-/** The MIME a dragged node is offered under, so a target can recognise it. */
-export const NODE_MIME = "application/x-gilbert-filenode";
+/*
+ * The node drag's MIME. Defined in `lib/mime` with the rest of them, and
+ * re-exported here because every reader of a node drag also reads
+ * `readDraggedIds` and `canDropFileNodes` from this module.
+ */
+export { NODE_MIME };
 
 /**
  * The ids in a node drag. A multi-file selection is dragged as one payload, so
@@ -117,4 +122,56 @@ export function canDropFileNode(
   if (target?.nodeType !== "directory") return false;
   if (target.myRights && !target.myRights.mayAddChildren) return false;
   return !descendantIds(nodes, draggedId).has(targetId);
+}
+
+/**
+ * Whether a refusal is Stalwart saying the name is already taken.
+ *
+ * The type is `alreadyExists` -- its own, not `invalidProperties`
+ * (`find_sibling_collision` and `SetError::already_exists`,
+ * `crates/jmap/src/file/set.rs` / `crates/jmap-proto/src/error/set.rs`,
+ * v0.16.21). The comparison is by name within one parent, and it is
+ * case-sensitive unless the request sends `compareCaseInsensitively`.
+ *
+ * `existingId` names the node that holds the name, and it is **absent** when
+ * that node was created earlier in the same request: `tests/src/jmap/files/node.rs`
+ * asserts both halves -- a collision with a committed sibling carries the id,
+ * and a collision with its own twin in one batch carries none. So the id is a
+ * shortcut, never the answer: a caller that needs the node looks it up by name
+ * under the parent, which is what its callers here do when it is missing.
+ *
+ * A client may not assume the refusal away either. Creating a node whose name a
+ * sibling already carries is refused rather than silently accepted, so a caller
+ * that wants the existing node has to go and read it, and one that treats the
+ * refusal as success leaves the file it thought it wrote nowhere. Every writer
+ * that has to tell the two apart -- reuse the folder, stop on the file -- reads
+ * it here.
+ */
+export function isAlreadyExists(
+  err: unknown,
+): err is { type: "alreadyExists"; existingId?: Id } {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { type?: unknown }).type === "alreadyExists"
+  );
+}
+
+/**
+ * A name that is already taken, as an error a caller can catch.
+ *
+ * `isAlreadyExists` reads the server's own refusal off the wire; this is the
+ * same refusal after a writer has turned it into a sentence for the reader, so
+ * the type and the id of the node holding the name live on the error a caller
+ * actually catches. A catch that has to tell "already here" from "did not work"
+ * keeps working either way, which is why they survive the message.
+ */
+export class NameTakenError extends Error {
+  readonly type = "alreadyExists";
+  readonly existingId: Id | undefined;
+  constructor(existingId: Id | undefined, message: string) {
+    super(message);
+    this.name = "NameTakenError";
+    this.existingId = existingId;
+  }
 }

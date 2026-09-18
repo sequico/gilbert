@@ -16,6 +16,7 @@ import {
   supportsEmailPush,
   unsubscribeThisDevice,
   webPushAvailable,
+  webPushBlocker,
 } from "@/lib/webpush";
 
 /**
@@ -158,6 +159,75 @@ describe("availability", () => {
   it("is false without a push key, however capable the browser", () => {
     client.session = session({ "urn:ietf:params:jmap:core": {} });
     expect(webPushAvailable()).toBe(false);
+  });
+});
+
+/**
+ * The reason, not just the answer.
+ *
+ * A boolean made three different situations read the same, and one of them —
+ * an iOS browser that was never added to the Home Screen — is the one the
+ * reader can fix in a tap. Every case below is a sentence somebody acts on, so
+ * the code has to tell them apart.
+ */
+describe("why background notifications cannot be offered", () => {
+  const withKey = () => {
+    client.session = session({
+      "urn:ietf:params:jmap:webpush-vapid": { applicationServerKey: LIVE_KEY },
+    });
+  };
+
+  /*
+   * The presence of `PushManager` is the question, so an own property set to
+   * `undefined` still counts as present. It is deleted rather than blanked.
+   */
+  const stubBrowser = (
+    userAgent: string,
+    platform: string,
+    maxTouchPoints: number,
+    push: boolean,
+  ) => {
+    const w = { ...window } as Record<string, unknown>;
+    delete w.PushManager;
+    if (push) w.PushManager = class {};
+    vi.stubGlobal("window", w);
+    vi.stubGlobal("navigator", {
+      ...window.navigator,
+      serviceWorker: {},
+      userAgent,
+      platform,
+      maxTouchPoints,
+    });
+  };
+
+  const CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
+  const IOS = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)";
+
+  it("is nothing at all on a browser that can be pushed", () => {
+    withKey();
+    stubBrowser(CHROME, "Win32", 0, true);
+    expect(webPushBlocker()).toBeNull();
+    expect(webPushAvailable()).toBe(true);
+  });
+
+  it("names the server's missing key, not the browser", () => {
+    client.session = session({ "urn:ietf:params:jmap:core": {} });
+    stubBrowser(CHROME, "Win32", 0, true);
+    expect(webPushBlocker()).toBe("no-server-key");
+  });
+
+  it("tells an iOS browser to install the app rather than to give up", () => {
+    withKey();
+    // A Safari tab on iOS: no PushManager to find, and not because the platform
+    // lacks push.
+    stubBrowser(IOS, "iPhone", 5, false);
+    expect(webPushBlocker()).toBe("needs-install");
+  });
+
+  it("calls anything else without the Push API unsupported", () => {
+    withKey();
+    stubBrowser(CHROME, "Win32", 0, false);
+    expect(webPushBlocker()).toBe("unsupported-browser");
   });
 });
 

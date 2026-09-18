@@ -1,20 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import type { Comparator, Id } from "@/jmap/types";
-import { withBase } from "@/lib/basePath";
+import { askDeleteMessages } from "@/lib/deleteConfirm";
 import { plural, tNode, t as translate } from "@/lib/i18n";
 import { keyboard } from "@/lib/keyboard";
 import { STARRED_KEYWORD } from "@/lib/keywordCounts";
 import { appliesTo, comparatorsFor } from "@/lib/listSort";
 import { mailboxDisplayName } from "@/lib/mailboxName";
 import { isUnknownMailbox } from "@/lib/mailboxRoute";
+import { deleteEffect, finalFoldersOf } from "@/lib/mailDelete";
 import { anyCarries, type CarriesKeywords, rowScope } from "@/lib/rowScope";
 import { buildFilter, describeFilter, parseQuery } from "@/lib/search";
-import { useCompose } from "@/store/compose";
+import { REPLY_KEYS, useCompose } from "@/store/compose";
 import { DEFAULT_SORT, type ListQuery, useMail } from "@/store/mail";
 import { scheduledMailboxIdFrom, useScheduled } from "@/store/scheduled";
-import { defaultReplyMode, useSettings } from "@/store/settings";
-import { confirmDialog } from "@/ui/dialog";
+import { useSettings } from "@/store/settings";
+import { BrandLogo } from "@/ui/BrandLogo";
 import { useIsNarrow } from "@/ui/misc";
 import { Splitter } from "@/ui/Splitter";
 import { toast } from "@/ui/toast";
@@ -316,31 +317,40 @@ export function MailView({
         const t = await targetIds(rows);
         if (!t.length) return;
         const mail = useMail.getState();
-        const trashId = mail.roleId("trash");
+        /*
+         * The ask follows the one rule (ADR 0015) rather than the trash role
+         * alone: Junk Mail destroys too, so a selection sitting there used to
+         * be destroyed under a dialog that said only "Delete?".
+         */
+        const folders = finalFoldersOf(mail.mailboxes);
         const permanent = t.every(
-          (id) => trashId && mail.emails[id]?.mailboxIds[trashId],
+          (id) => deleteEffect(mail.emails[id], folders) === "final",
         );
-        if (permanent || settings.confirmDelete) {
-          // A plural form rather than "message(s)": that spelling puts a
-          // parenthesis where every language that inflects wants agreement.
-          const ok = await confirmDialog({
-            title: permanent ? translate("Delete forever?") : translate("Delete?"),
-            message: permanent
-              ? plural(t.length, {
-                  one: "{n} message will be permanently deleted.",
-                  other: "{n} messages will be permanently deleted.",
-                })
-              : plural(t.length, {
-                  one: "Move {n} message to Trash?",
-                  other: "Move {n} messages to Trash?",
-                }),
-            confirmLabel: translate("Delete"),
-            danger: permanent,
-          });
-          if (!ok) return;
+        /*
+         * ADR 0015: no confirmation in front of a delete that cannot happen.
+         * A wholly-refused selection goes straight to the guard, which is what
+         * announces the refusal — a dialog would only offer the impossible and
+         * then say no. A *mixed* selection is not refused as a whole: the half
+         * that files is what a group's member may still do, and blocking it
+         * would be an over-refusal in the other direction.
+         */
+        const allRefused = permanent && !mail.mayDestroyHere();
+        /*
+         * Whether to ask is this caller's question; what the dialog says is
+         * `askDeleteMessages`'s, so the same delete is not described one way in
+         * the list and another in a message's own menu.
+         */
+        if (!allRefused && (permanent || settings.confirmDelete)) {
+          if (!(await askDeleteMessages({ count: t.length, permanent }))) return;
         }
-        await mail.trash(t);
-        afterAction(true);
+        /*
+         * The guard's answer decides whether the list is treated as changed: a
+         * refusal leaves every row where it was, so moving the focus and
+         * clearing the selection would be the list lying about a message that
+         * did not go (ADR 0015).
+         */
+        const outcome = await mail.trash(t);
+        if (outcome.ok) afterAction(true);
       },
       spam: async (rows?: Id[]) => {
         const t = await targetIds(rows);
@@ -556,22 +566,19 @@ export function MailView({
           useMail.getState().selectAll();
         },
       },
-      {
-        keys: "r",
-        description: settings.replyAllDefault ? "Reply all" : "Reply",
+      /*
+       * The two replies, from the one place their keys and modes are named.
+       * `r` answers the sender and `a` answers everyone: a key whose letter says
+       * "reply all" opening a plain reply is the kind of thing nobody notices
+       * until it has already sent.
+       */
+      ...REPLY_KEYS.map((k) => ({
+        keys: k.keys,
+        description: k.description,
         group: "Conversation",
         handler: () =>
-          window.dispatchEvent(
-            new CustomEvent("ihm:reply", { detail: defaultReplyMode(settings) }),
-          ),
-      },
-      {
-        keys: "a",
-        description: "Reply all",
-        group: "Conversation",
-        handler: () =>
-          window.dispatchEvent(new CustomEvent("ihm:reply", { detail: "replyAll" })),
-      },
+          window.dispatchEvent(new CustomEvent("ihm:reply", { detail: k.mode })),
+      })),
       {
         keys: "f",
         description: "Forward",
@@ -605,7 +612,6 @@ export function MailView({
     currentRowIndex,
     threadId,
     settings.readingPane,
-    settings.replyAllDefault,
     rowThreadId,
     openThread,
     actions,
@@ -729,7 +735,7 @@ export function MailView({
             />
           ) : (
             <div className="no-thread">
-              <img src={withBase("/img/logo.png")} alt="" />
+              <BrandLogo />
               <div>
                 {list?.total
                   ? settings.conversationMode

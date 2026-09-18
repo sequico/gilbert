@@ -7,10 +7,24 @@ import {
   writeAppFile,
 } from "./appFolder.js";
 import { config } from "./config.js";
-import { type Invocation, JmapClient, STALWART_CAP } from "./jmap.js";
-import { GROUP_LABELS_FILE } from "./shared/labels.js";
+import { type Invocation, JMAP_MAIL, STALWART_CAP } from "./jmap.js";
+import {
+  GROUP_LABELS_FILE,
+  isLabelCatalog,
+  type LabelCatalogEntry,
+} from "./shared/labels.js";
 import { generateSecret, otpauthUrl, parseOtpauthUrl, verifyTotp } from "./totp.js";
 import { UpstreamError } from "./upstream.js";
+import { clientOf, describeSetError, type SetErrorPhrases } from "./util.js";
+
+/** How a refusal reads where a person's own settings are being written. */
+const SET_ERRORS: SetErrorPhrases = {
+  server: "The mail server",
+  forbidden: "The mail server refused the change.",
+  overQuota: "You have reached the number of app passwords this account allows.",
+  rejected: (properties) => `The mail server rejected ${properties.join(", ")}.`,
+  rejectedValue: "The mail server rejected the value.",
+};
 
 export type { Ctx };
 export { filesAccountId };
@@ -67,14 +81,10 @@ export class AccountError extends Error {
 export function accountId(ctx: Ctx): string {
   return (
     ctx.session.primaryAccounts?.[STALWART_CAP] ??
-    ctx.session.primaryAccounts?.["urn:ietf:params:jmap:mail"] ??
+    ctx.session.primaryAccounts?.[JMAP_MAIL] ??
     Object.keys(ctx.session.accounts ?? {})[0] ??
     ""
   );
-}
-
-function clientOf(ctx: Ctx): JmapClient {
-  return new JmapClient(ctx);
 }
 
 /**
@@ -128,30 +138,13 @@ function setResult(
   if (failure) {
     const err = failure as { type?: string; description?: string; properties?: string[] };
     throw new AccountError(
-      describeSetError(err),
+      describeSetError(err, SET_ERRORS),
       err.type === "forbidden" ? 403 : 400,
       err.type ?? "invalid",
     );
   }
   const ok = body[kind];
   return ok ? ((Object.values(ok)[0] ?? {}) as Record<string, unknown>) : null;
-}
-
-function describeSetError(err: {
-  type?: string;
-  description?: string;
-  properties?: string[];
-}): string {
-  if (err.description) return err.description;
-  if (err.type === "forbidden") return "The mail server refused the change.";
-  if (err.type === "overQuota")
-    return "You have reached the number of app passwords this account allows.";
-  if (err.type === "invalidProperties") {
-    return err.properties?.length
-      ? `The mail server rejected ${err.properties.join(", ")}.`
-      : "The mail server rejected the value.";
-  }
-  return `The mail server refused the change (${err.type ?? "error"}).`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -434,14 +427,30 @@ export async function clearPasswordChangeDirective(ctx: Ctx): Promise<void> {
 /* Group label catalog (ADR 0005)                                     */
 /* ------------------------------------------------------------------ */
 
-/** Read a group's label catalog, or null when it has none or is unreadable. */
+/**
+ * A group's label catalog, as its one reader on this tier sees it.
+ *
+ * Three answers, because they are three different things a caller must not
+ * conflate — and a caller about to write would: a group that has no catalog,
+ * a catalog whose entries are what the document says they are, and a document
+ * that is there but that the validator refuses. Read as `entries | null`, the
+ * third one becomes "nothing stored" and a writer overwrites whatever a person
+ * put there. Its entries are checked through `isLabelCatalog` rather than
+ * returned as they were found: this is the document the agent's keyword guard
+ * reads, and a keyword nobody can render is a label nobody sees.
+ */
+export type GroupLabelsRead =
+  | { state: "absent" }
+  | { state: "catalog"; labels: LabelCatalogEntry[] }
+  | { state: "unreadable" };
+
 export async function readGroupLabels(
   ctx: Ctx,
   accountId: string,
-): Promise<unknown[] | null> {
-  if (!accountId) return null;
+): Promise<GroupLabelsRead> {
+  if (!accountId) return { state: "absent" };
   const { file } = await findAppFileAt(ctx, accountId, GROUP_LABELS_FILE);
-  if (!file) return null;
+  if (!file) return { state: "absent" };
   try {
     const text = await downloadBlobText(
       ctx,
@@ -450,10 +459,12 @@ export async function readGroupLabels(
       "application/json",
       GROUP_LABELS_FILE,
     );
-    const parsed = JSON.parse(text) as { labels?: unknown };
-    return Array.isArray(parsed?.labels) ? parsed.labels : null;
+    const parsed: unknown = JSON.parse(text);
+    return isLabelCatalog(parsed)
+      ? { state: "catalog", labels: parsed.labels }
+      : { state: "unreadable" };
   } catch {
-    return null;
+    return { state: "absent" };
   }
 }
 

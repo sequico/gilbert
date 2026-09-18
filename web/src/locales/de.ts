@@ -68,7 +68,6 @@ export const catalog: Catalog = {
     Delete: "Löschen",
     "Delete (#)": "Löschen (#)",
     Reply: "Antworten",
-    "Reply (r)": "Antworten (r)",
     "Reply all": "Allen antworten",
     Forward: "Weiterleiten",
     "Move to…": "Verschieben nach…",
@@ -296,6 +295,24 @@ export const catalog: Catalog = {
     "Open subfolders of {name}": "Unterordner von {name} öffnen",
     "Delete folder": "Ordner löschen",
     "No matching folders": "Keine passenden Ordner",
+    "Merge folders…": "Ordner zusammenführen…",
+    "Merge folders": "Ordner zusammenführen",
+    Merge: "Zusammenführen",
+    "Which folder should keep its name? The other one's contents move into it, and it is deleted.":
+      "Welcher Ordner soll seinen Namen behalten? Der Inhalt des anderen wird hierher verschoben, und er wird gelöscht.",
+    "Its name stays, and the other folder's contents move in here.":
+      "Sein Name bleibt, und der Inhalt des anderen Ordners wird hierher verschoben.",
+    "This folder is deleted once its contents have moved.":
+      "Dieser Ordner wird gelöscht, sobald sein Inhalt verschoben ist.",
+    "Merging takes two folders.": "Zum Zusammenführen gehören zwei Ordner.",
+    "The folder could not be read: the server answered the same page twice.":
+      "Der Ordner konnte nicht gelesen werden: Der Server hat dieselbe Seite zweimal geantwortet.",
+    "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":
+      "„{path}“ ist in einem der beiden ein Ordner und im anderen eine Datei, also lässt sich keiner in den anderen überführen.",
+    "“{path}” carries no content to write over the file of its name.":
+      "„{path}“ hat keinen Inhalt, der über die gleichnamige Datei geschrieben werden könnte.",
+    "“{path}” is not yours to change.": "„{path}“ steht nicht in Ihrer Verfügungsgewalt.",
+
     "No subfolders here.": "Hier gibt es keine Unterordner.",
     "Type a folder name…": "Ordnernamen eingeben…",
     "＋ New folder…": "＋ Neuer Ordner…",
@@ -915,8 +932,6 @@ export const catalog: Catalog = {
       "In diesem Browser angefordert. Ob es gewirkt hat, entscheidet der Browser — prüfen Sie dessen Einstellungen, falls E-Mail-Links weiterhin anderswo geöffnet werden.",
     "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
       "Für einen systemweiten Standard installieren Sie Gilbert zuerst als App (in Chrome: das Installationssymbol in der Adressleiste). Ihr Betriebssystem kann Gilbert dann überall dort direkt anbieten, wo es nach einem E-Mail-Programm fragt.",
-    "Needs a browser with the Push API and a mail server that publishes a push key.":
-      "Erfordert einen Browser mit Push-API und einen Mailserver, der einen Push-Schlüssel veröffentlicht.",
     "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
       "Ihr Mailserver stellt diese direkt an Ihren Browser zu, sodass sie auch ohne geöffneten Gilbert-Tab ankommen — mit Absender und Betreff. Ihr Browser muss dennoch laufen: Beenden Sie ihn vollständig, warten die Benachrichtigungen und kommen an, sobald Sie ihn wieder öffnen.",
     "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.":
@@ -1658,6 +1673,15 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
+    "{done} of {n} items": {
+      one: "{done} von {n} Element",
+      other: "{done} von {n} Elementen",
+    },
+    "{n} more collisions stop it too.": {
+      one: "Eine weitere Kollision stoppt es ebenfalls.",
+      other: "{n} weitere Kollisionen stoppen es ebenfalls.",
+    },
+
     "Delete {n} items": { one: "{n} Element löschen", other: "{n} Elemente löschen" },
     "Delete {n} items?": { one: "{n} Element löschen?", other: "{n} Elemente löschen?" },
     "Move {n} items": {

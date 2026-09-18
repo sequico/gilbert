@@ -45,6 +45,9 @@
  * subscription's URL lived under, and there is no URL to read. Without
  * `--destroy-ours` the probe only counts and lists.
  */
+
+import { basic } from "./lib/probeKit.mjs";
+
 const CAP = "urn:ietf:params:jmap:core";
 
 const args = process.argv.slice(2);
@@ -72,11 +75,12 @@ if (!STALWART_URL || !ADDRESS || !PASSWORD) {
   process.exit(2);
 }
 
-/** Stalwart's composite credential: the target, authenticated by the admin. */
-const authorizationFor = (target) => {
-  const user = target ? `${target}%${ADDRESS}` : ADDRESS;
-  return `Basic ${Buffer.from(`${user}:${PASSWORD}`).toString("base64")}`;
-};
+/**
+ * Stalwart's composite credential: the target, authenticated by the admin —
+ * the shape `impersonationAuthorization` builds, from the probe's own pair.
+ */
+const authorizationFor = (target) =>
+  basic(target ? `${target}%${ADDRESS}` : ADDRESS, PASSWORD);
 
 async function call(session, authorization, method, args, using = [CAP]) {
   const res = await fetch(session.apiUrl, {
@@ -125,7 +129,10 @@ const session = await json(`${STALWART_URL}/.well-known/jmap`, {
 const accountId =
   session.primaryAccounts?.["urn:ietf:params:jmap:mail"] ??
   Object.keys(session.accounts ?? {})[0];
-console.log(`account:  ${ACCOUNT || ADDRESS} (${accountId})`);
+/* The account is named as the server answered it rather than as the
+   environment spelled it: what this line is for is saying which account the
+   credential opened, and the session is what proved that. */
+console.log(`account:  ${session.username ?? accountId} (${accountId})`);
 console.log(`session:  ${session.apiUrl}`);
 
 const list = (await call(session, authorization, "PushSubscription/get", { ids: null }))

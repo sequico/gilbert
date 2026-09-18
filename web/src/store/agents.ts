@@ -19,6 +19,7 @@
  */
 
 import type { AgentRule } from "@gilbert/agent/documents";
+import { errorMessage } from "@gilbert/shared/errors";
 import { create } from "zustand";
 import { push } from "@/jmap/push";
 import {
@@ -40,10 +41,8 @@ import {
   saveAgentProviders,
   saveAgentRules,
 } from "@/lib/agents";
+import { debouncedReload } from "@/lib/fileNodeReload";
 import { useSession } from "@/store/session";
-
-/** Coalesce one burst of FileNode changes into a single group reload. */
-const RELOAD_DEBOUNCE_MS = 400;
 
 /**
  * The key a group's agent view is held under.
@@ -54,10 +53,6 @@ const RELOAD_DEBOUNCE_MS = 400;
  */
 export function agentViewKey(name: string): string {
   return name.trim().toLowerCase();
-}
-
-function message(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 interface AgentsState {
@@ -170,7 +165,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
     try {
       set({ status: await fetchAgentStatus() });
     } catch (err) {
-      set(markProblem("status", message(err)));
+      set(markProblem("status", errorMessage(err)));
     } finally {
       set(markBusy("status", false));
     }
@@ -185,7 +180,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
       const view = await fetchAgentGroup(name);
       set((s) => ({ groupViews: { ...s.groupViews, [key]: view } }));
     } catch (err) {
-      set(markProblem(op, message(err)));
+      set(markProblem(op, errorMessage(err)));
     } finally {
       set(markBusy(op, false));
     }
@@ -200,7 +195,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
       const view = await fetchMemberAgentView(name);
       set((s) => ({ memberViews: { ...s.memberViews, [key]: view } }));
     } catch (err) {
-      set(markProblem(op, message(err)));
+      set(markProblem(op, errorMessage(err)));
     } finally {
       set(markBusy(op, false));
     }
@@ -240,7 +235,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
     } catch (err) {
       // Loud to both: the editor reports what the server refused, and a save
       // that failed quietly would look like one that worked.
-      set(markProblem(op, message(err)));
+      set(markProblem(op, errorMessage(err)));
       throw err;
     } finally {
       set(markBusy(op, false));
@@ -253,7 +248,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
     try {
       set({ providers: await fetchAgentProviders() });
     } catch (err) {
-      set(markProblem("providers", message(err)));
+      set(markProblem("providers", errorMessage(err)));
     } finally {
       set(markBusy("providers", false));
     }
@@ -265,7 +260,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
     try {
       set({ catalogue: actionCatalog(await fetchAgentRuleSchema()) });
     } catch (err) {
-      set(markProblem("catalogue", message(err)));
+      set(markProblem("catalogue", errorMessage(err)));
     } finally {
       set(markBusy("catalogue", false));
     }
@@ -280,7 +275,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
       // is read back rather than assumed from what was posted.
       set({ providers: await fetchAgentProviders() });
     } catch (err) {
-      set(markProblem("providers", message(err)));
+      set(markProblem("providers", errorMessage(err)));
       throw err;
     } finally {
       set(markBusy("providers", false));
@@ -294,7 +289,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
       const view = await fetchPendingApprovals();
       set({ approvals: view.approvals });
     } catch (err) {
-      set(markProblem("approvals", message(err)));
+      set(markProblem("approvals", errorMessage(err)));
     } finally {
       set(markBusy("approvals", false));
     }
@@ -322,16 +317,16 @@ function groupNameForAccount(accountId: string): string | null {
   return typeof account.name === "string" ? agentViewKey(account.name) : null;
 }
 
-const reloadTimers: Record<string, number> = {};
+const reloads = debouncedReload();
 
 /*
  * A group's agent documents are FileNodes in the group's own account: when an
  * administrator saves rules or the standing instruction, or a worker writes a
  * job, the push rail reports a StateChange for that account and the view
  * re-reads it. A StateChange carries only account and type — not which node
- * changed — and chat messages ride the same rail, so the re-read is debounced
- * per group, like the label catalog. Both doors are re-read, each only for the
- * groups already open through it.
+ * changed — and chat messages ride the same rail, so the re-read goes through
+ * the one per-key debounce (`lib/fileNodeReload`). Both doors are re-read, each
+ * only for the groups already open through it.
  */
 push.subscribe((accountId, type) => {
   if (type !== "FileNode") return;
@@ -339,13 +334,11 @@ push.subscribe((accountId, type) => {
   if (!name) return;
   const open = useAgents.getState();
   if (!(name in open.groupViews) && !(name in open.memberViews)) return;
-  if (reloadTimers[name]) clearTimeout(reloadTimers[name]);
-  reloadTimers[name] = window.setTimeout(() => {
-    delete reloadTimers[name];
+  reloads.schedule(name, () => {
     const now = useAgents.getState();
     if (name in now.groupViews) void now.loadGroup(name);
     if (name in now.memberViews) void now.loadMemberView(name);
-  }, RELOAD_DEBOUNCE_MS);
+  });
 });
 
 // Push replays nothing to a tab that was away, so a view already open is

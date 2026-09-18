@@ -4,7 +4,6 @@ import { BIRTHDAY_ID_PREFIX } from "@/lib/birthdays";
 import {
   canDragEvent,
   dayDelta,
-  formatDuration,
   MIN_DURATION_MINUTES,
   moveBothPatch,
   moveByDaysPatch,
@@ -109,18 +108,6 @@ describe("resizedBy", () => {
       const out = resizedBy(span(at(9), at(9, 30)), delta);
       expect(out.end.getTime()).toBeGreaterThan(out.start.getTime());
     }
-  });
-});
-
-describe("formatDuration", () => {
-  it("writes the shapes the wire expects", () => {
-    expect(formatDuration(3600)).toBe("PT1H");
-    expect(formatDuration(5400)).toBe("PT1H30M");
-    expect(formatDuration(900)).toBe("PT15M");
-    expect(formatDuration(86400)).toBe("P1D");
-    expect(formatDuration(90000)).toBe("P1DT1H");
-    expect(formatDuration(0)).toBe("PT0S");
-    expect(formatDuration(45)).toBe("PT45S");
   });
 });
 

@@ -1,4 +1,5 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
+import { safeEqual } from "./crypto.js";
 
 /**
  * TOTP (RFC 6238) — just enough to enrol a second factor safely.
@@ -151,11 +152,4 @@ export function verifyTotp(
     if (safeEqual(expected, cleaned)) ok = true;
   }
   return ok;
-}
-
-function safeEqual(a: string, b: string): boolean {
-  const ba = Buffer.from(a);
-  const bb = Buffer.from(b);
-  if (ba.length !== bb.length) return false;
-  return timingSafeEqual(ba, bb);
 }

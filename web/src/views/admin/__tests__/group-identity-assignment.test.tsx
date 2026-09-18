@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Identity } from "@/jmap/types";
+import { flushTwice as flush, identity } from "@/test/testkit";
 import { GroupIdentities } from "../GroupIdentities";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -34,23 +35,6 @@ const GROUP = "team@example.org";
 const ALICE = "alice@example.org";
 const BOB = "bob@example.org";
 const NOBODY = "nobody@example.org";
-
-const identity = (id: string, name: string, email: string): Identity =>
-  ({
-    id,
-    name,
-    email,
-    replyTo: null,
-    bcc: null,
-    textSignature: "",
-    htmlSignature: "",
-    mayDelete: true,
-  }) as Identity;
-
-const flush = async () => {
-  await new Promise<void>((res) => setTimeout(res, 0));
-  await new Promise<void>((res) => setTimeout(res, 0));
-};
 
 /** The shape `apiFetch` reads: JSON with a status. */
 function json(body: unknown, status = 200): Response {

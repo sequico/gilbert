@@ -60,7 +60,15 @@ import { plural, t } from "@/lib/i18n";
 import { SEEN_KEYWORD, STARRED_KEYWORD } from "@/lib/keywordCounts";
 import { rowClick } from "@/lib/listSelection";
 import { mailboxDisplayName } from "@/lib/mailboxName";
+import {
+  deleteEffect,
+  deleteEffectInFolder,
+  deleteEntryOffered,
+  type FinalFolders,
+  finalFoldersOf,
+} from "@/lib/mailDelete";
 import { messageFolders } from "@/lib/messageLocation";
+import { EMAILS_MIME } from "@/lib/mime";
 import { rowIsOpen } from "@/lib/openMessage";
 import { anyCarries, anyLacks, rowScope } from "@/lib/rowScope";
 import {
@@ -70,12 +78,14 @@ import {
   type SwipeIcon,
 } from "@/lib/swipe";
 import { haptic, PULL_TRIGGER, usePullToRefresh, useTouchRow } from "@/lib/touch";
+import { useMayDestroy } from "@/lib/useMayDestroy";
 import { useCalendar } from "@/store/calendar";
 import { useCompose } from "@/store/compose";
 import { type ListState, useMail } from "@/store/mail";
-import { dateTimeKey, defaultReplyMode, useSettings } from "@/store/settings";
+import { dateTimeKey, useSettings } from "@/store/settings";
 import { Avatar, Empty, useIsMobile, useIsTouch } from "@/ui/misc";
 import { MenuItem, MenuSep, MenuTitle, Popover, useMenu } from "@/ui/popover";
+import { RowCheckbox, SelectAllCheckbox } from "@/ui/selection";
 import { toast } from "@/ui/toast";
 import { FilterFromMessageDialog } from "./FilterFromMessage";
 
@@ -193,7 +203,23 @@ export function MessageList({
   const ids = list?.ids ?? [];
   const selCount = Object.keys(selected).length;
   const mailbox = mailboxId ? mailboxes[mailboxId] : undefined;
-  const isTrashOrJunk = mailbox?.role === "trash" || mailbox?.role === "junk";
+  /*
+   * What a delete does to the rows on screen, from the one rule (ADR 0015).
+   * The toolbar's rows are the folder's, so the folder on screen is what it is
+   * asked about, and the same answer names the button and the gesture: the two
+   * used to disagree about Junk Mail, which destroys just as Deleted Items does.
+   */
+  const finalFolders = finalFoldersOf(mailboxes);
+  const listDeleteEffect = deleteEffectInFolder(mailboxId, finalFolders);
+  const listDeleteIsFinal = listDeleteEffect === "final";
+  /**
+   * ADR 0015: in a group, only an administrator *ends* a message. Filing one is
+   * not ending it, so the entry stays offered wherever a delete would move —
+   * which is what deleting from a group's Inbox does. Only the final case is
+   * withdrawn, and it is withdrawn rather than refused afterwards.
+   */
+  const mayEnd = useMayDestroy();
+  const listDeleteIsOffered = deleteEntryOffered(mayEnd, listDeleteEffect);
   const isDrafts = mailbox?.role === "drafts";
 
   const rowHeight = twoLine
@@ -389,14 +415,10 @@ export function MessageList({
             <ArrowLeft size={20} />
           </button>
         )}
-        <input
-          type="checkbox"
-          className="select-all"
-          aria-label={t("Select all")}
+        <SelectAllCheckbox
           checked={allSelected}
-          ref={(el) => {
-            if (el) el.indeterminate = selCount > 0 && !allSelected;
-          }}
+          partial={selCount > 0 && !allSelected}
+          label={t("Select all")}
           onChange={() => (allSelected || selCount > 0 ? clearSelection() : selectAll())}
         />
         {selCount > 0 ? (
@@ -417,8 +439,9 @@ export function MessageList({
             </button>
             <button
               className="icon-btn"
-              title={isTrashOrJunk ? t("Delete forever") : t("Delete (#)")}
+              title={listDeleteIsFinal ? t("Delete forever") : t("Delete (#)")}
               onClick={() => void actions.trash()}
+              disabled={!listDeleteIsOffered}
             >
               <Trash2 size={19} />
             </button>
@@ -606,7 +629,7 @@ export function MessageList({
                 }
                 disabled={!mailboxId}
               />
-              {mailbox && canEmpty(mailbox.role) && (
+              {mailbox && canEmpty(mailbox.role) && mayEnd && (
                 <>
                   <MenuSep />
                   <MenuItem
@@ -670,7 +693,7 @@ export function MessageList({
         because that is the part worth knowing before clicking — these do not
         pass through Deleted Items on the way out.
       */}
-      {mailbox?.role === "junk" && !!mailbox.totalEmails && !selCount && (
+      {mailbox?.role === "junk" && !!mailbox.totalEmails && !selCount && mayEnd && (
         <div className="list-hint">
           <span className="grow">
             {t("Deleting spam is permanent — it does not go to Deleted Items first.")}
@@ -857,6 +880,8 @@ export function MessageList({
                       selectedIds={selected}
                       touch={isTouch}
                       role={mailbox?.role ?? null}
+                      finalFolders={finalFolders}
+                      mayEnd={mayEnd}
                       swipeLeft={settings.swipeLeft}
                       swipeRight={settings.swipeRight}
                       onLongPress={onLongPress}
@@ -876,12 +901,27 @@ export function MessageList({
         trigger={ctxMenu.trigger}
         width={250}
       >
+        {/*
+          Both actions, each saying which it is: reply reaches the sender
+          alone, reply all reaches everyone. The list's one-tap affordances
+          take the app's default; a menu is where a choice belongs, and a menu
+          offering only the default would leave the plain reply unreachable
+          from here.
+        */}
         <MenuItem
-          icon={settings.replyAllDefault ? <ReplyAll size={16} /> : <Reply size={16} />}
-          label={t(settings.replyAllDefault ? "Reply all" : "Reply")}
+          icon={<Reply size={16} />}
+          label={t("Reply")}
           onClick={() => {
             const e = ctxRow ? emails[ctxRow] : undefined;
-            if (e) void useCompose.getState().reply(e, defaultReplyMode(settings));
+            if (e) void useCompose.getState().reply(e, "reply");
+          }}
+        />
+        <MenuItem
+          icon={<ReplyAll size={16} />}
+          label={t("Reply all")}
+          onClick={() => {
+            const e = ctxRow ? emails[ctxRow] : undefined;
+            if (e) void useCompose.getState().reply(e, "replyAll");
           }}
         />
         <MenuItem
@@ -927,8 +967,9 @@ export function MessageList({
         />
         <MenuItem
           icon={<Trash2 size={16} />}
-          label={t("Delete")}
+          label={listDeleteIsFinal ? t("Delete forever") : t("Delete")}
           kbd="#"
+          disabled={!listDeleteIsOffered}
           onClick={() => void actions.trash(ctxTargets)}
         />
         <MenuItem
@@ -1042,6 +1083,16 @@ interface RowProps {
   /** Whether this list is being pointed at with a finger. */
   touch: boolean;
   role: string | null;
+  /**
+   * The account's final folders, found once by the list (ADR 0015).
+   *
+   * Passed rather than looked up per row: it is a walk of the whole tree, and
+   * a virtualised list mounts and unmounts rows constantly. One question per
+   * list, and every row draws the same answer.
+   */
+  finalFolders: FinalFolders;
+  /** Whether this reader may end a message in the account on screen. */
+  mayEnd: boolean;
   swipeLeft: SwipeAction;
   swipeRight: SwipeAction;
   onLongPress: (id: Id) => void;
@@ -1076,6 +1127,8 @@ const Row = memo(function Row({
   onRead,
   touch,
   role,
+  finalFolders,
+  mayEnd,
   swipeLeft,
   swipeRight,
   onLongPress,
@@ -1147,10 +1200,23 @@ const Row = memo(function Row({
   const [dx, setDx] = useState(0);
   const [gliding, setGliding] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
+  /*
+   * What this row's own delete would do, from the one rule (ADR 0015): the row
+   * is what knows which folders hold this message, so a message sitting in Junk
+   * Mail is named as the permanent delete it is, whatever folder is on screen.
+   */
+  const rowDeleteEffect = deleteEffect(e, finalFolders);
+  const rowDeleteOffered = deleteEntryOffered(mayEnd, rowDeleteEffect);
   const descFor = useCallback(
     (dir: -1 | 1) =>
-      describeSwipe(dir === 1 ? swipeRight : swipeLeft, { role, unread, starred }),
-    [swipeLeft, swipeRight, role, unread, starred],
+      describeSwipe(dir === 1 ? swipeRight : swipeLeft, {
+        role,
+        deleteEffect: rowDeleteEffect,
+        deleteOffered: rowDeleteOffered,
+        unread,
+        starred,
+      }),
+    [swipeLeft, swipeRight, role, rowDeleteEffect, rowDeleteOffered, unread, starred],
   );
   // A row that scrolls out from under a live gesture takes its strip with it.
   useEffect(() => () => onSwipeState(e.id, null), [e.id, onSwipeState]);
@@ -1207,7 +1273,7 @@ const Row = memo(function Row({
       all.add(id);
     }
     for (const x of scope) all.add(x.id);
-    ev.dataTransfer.setData("application/x-gilbert-emails", JSON.stringify([...all]));
+    ev.dataTransfer.setData(EMAILS_MIME, JSON.stringify([...all]));
     ev.dataTransfer.effectAllowed = "move";
     const ghost = document.createElement("div");
     ghost.className = "drag-ghost";
@@ -1244,13 +1310,11 @@ const Row = memo(function Row({
       role="row"
       aria-selected={selected}
     >
-      <input
-        type="checkbox"
-        className="msg-check"
+      <RowCheckbox
         checked={selected}
-        onClick={(ev) => ev.stopPropagation()}
-        onChange={(ev) => onSelect(e.id, ev.target.checked)}
-        aria-label={t("Select")}
+        className="msg-check"
+        label={t("Select")}
+        onChange={(on) => onSelect(e.id, on)}
       />
       {!twoLine && (
         <button

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { type MethodCall, responseOf } from "../testkit.js";
 
 /**
  * The agent fixture (ADR 0003): the principal the worker authenticates as, and
@@ -41,7 +42,6 @@ const FILENODE = "urn:ietf:params:jmap:filenode";
 const MAIL = "urn:ietf:params:jmap:mail";
 const SUBMISSION = "urn:ietf:params:jmap:submission";
 
-type MethodCall = [string, Record<string, unknown>, string];
 type Obj = Record<string, unknown>;
 
 /** The agent's own session, as the worker derives it at boot. */
@@ -70,12 +70,6 @@ async function jmap(
   assert.equal(res.status, 200);
   const body = (await res.json()) as { methodResponses: MethodCall[] };
   return body.methodResponses;
-}
-
-function responseOf(responses: MethodCall[], callId: string): MethodCall {
-  const found = responses.find((r) => r[2] === callId);
-  assert.ok(found, `${callId} should answer`);
-  return found;
 }
 
 const createdId = (call: MethodCall, key: string): string =>
@@ -158,36 +152,32 @@ test("the agent writes its own app folder into the group's account, conditionall
   const ownAccount = (await agentSession()).primaryAccounts[FILENODE]!;
   const state = await fileNodeState(AGENT_AUTH);
 
-  const app = await jmap(AGENT_AUTH, using, [
+  /*
+   * The group account already carries a `gilbert` folder of its own (the
+   * identity assignments live in it), and a create of a name a sibling holds is
+   * refused `alreadyExists` -- so this asks for the folder the way production
+   * does, take it if it is there and make it if it is not.
+   */
+  const existing = await jmap(AGENT_AUTH, using, [
     [
-      "FileNode/set",
-      {
-        accountId: GROUP_ACCOUNT,
-        ifInState: state,
-        create: { gilbert: { name: "gilbert", nodeType: "directory", parentId: null } },
-      },
+      "FileNode/query",
+      { accountId: GROUP_ACCOUNT, filter: { isTopLevel: true }, limit: 1000 },
+      "q",
+    ],
+  ]);
+  const topIds = responseOf(existing, "q")[1].ids as string[];
+  const top = await jmap(AGENT_AUTH, using, [
+    [
+      "FileNode/get",
+      { accountId: GROUP_ACCOUNT, ids: topIds, properties: ["id", "name", "nodeType"] },
       "g",
     ],
   ]);
-  assert.equal(responseOf(app, "g")[0], "FileNode/set");
-  const appId = createdId(responseOf(app, "g"), "gilbert");
-  const afterApp = String(responseOf(app, "g")[1].newState);
-
-  // The state read before the first write is stale now: this is the write that
-  // would have overwritten somebody else's work.
-  const stale = await jmap(AGENT_AUTH, using, [
-    [
-      "FileNode/set",
-      {
-        accountId: GROUP_ACCOUNT,
-        ifInState: state,
-        create: { agent: { name: "agent", nodeType: "directory", parentId: appId } },
-      },
-      "a",
-    ],
-  ]);
-  assert.equal(responseOf(stale, "a")[0], "error");
-  assert.equal((responseOf(stale, "a")[1] as { type: string }).type, "stateMismatch");
+  const found = (
+    responseOf(top, "g")[1].list as Array<{ id: string; name: string; nodeType: string }>
+  ).find((n) => n.nodeType === "directory" && n.name === "gilbert");
+  assert.ok(found, "the group's own gilbert folder is there to be found, not made");
+  const appId = found.id;
 
   // The normal path builds the folder the store writes into, on demand.
   const dir = await jmap(AGENT_AUTH, using, [
@@ -195,7 +185,6 @@ test("the agent writes its own app folder into the group's account, conditionall
       "FileNode/set",
       {
         accountId: GROUP_ACCOUNT,
-        ifInState: afterApp,
         create: { agent: { name: "agent", nodeType: "directory", parentId: appId } },
       },
       "a",
@@ -203,6 +192,52 @@ test("the agent writes its own app folder into the group's account, conditionall
   ]);
   assert.equal(responseOf(dir, "a")[0], "FileNode/set");
   const agentDir = createdId(responseOf(dir, "a"), "agent");
+
+  /*
+   * The token read before that write is stale now, and a conditional write
+   * carrying it is refused: this is the write that would have overwritten
+   * somebody else's work.
+   */
+  const stale = await jmap(AGENT_AUTH, using, [
+    [
+      "FileNode/set",
+      {
+        accountId: GROUP_ACCOUNT,
+        ifInState: state,
+        create: { later: { name: "later", nodeType: "directory", parentId: appId } },
+      },
+      "l",
+    ],
+  ]);
+  assert.equal(responseOf(stale, "l")[0], "error");
+  assert.equal((responseOf(stale, "l")[1] as { type: string }).type, "stateMismatch");
+
+  /*
+   * And the refusal a second worker gets for that same folder, which is the
+   * answer `ensureChildFolder` reads as "somebody made it while you were
+   * deciding" rather than as a failure. A mock that let the second create
+   * through would leave that branch untested here and broken on a real server.
+   */
+  const again = await jmap(AGENT_AUTH, using, [
+    [
+      "FileNode/set",
+      {
+        accountId: GROUP_ACCOUNT,
+        create: { agent: { name: "agent", nodeType: "directory", parentId: appId } },
+      },
+      "a",
+    ],
+  ]);
+  const refused = responseOf(again, "a")[1].notCreated as Record<
+    string,
+    { type: string; existingId?: string }
+  >;
+  assert.equal(refused.agent!.type, "alreadyExists");
+  assert.equal(
+    refused.agent!.existingId,
+    agentDir,
+    "and it names the folder that is there",
+  );
 
   const blobId = await upload(AGENT_AUTH, '{"v":1}');
   const doc = await jmap(AGENT_AUTH, using, [

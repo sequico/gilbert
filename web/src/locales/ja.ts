@@ -59,7 +59,6 @@ export const catalog: Catalog = {
     Delete: "削除",
     "Delete (#)": "削除 (#)",
     Reply: "返信",
-    "Reply (r)": "返信 (r)",
     "Reply all": "全員に返信",
     Forward: "転送",
     "Move to…": "移動…",
@@ -239,6 +238,24 @@ export const catalog: Catalog = {
     "Open subfolders of {name}": "{name} のサブフォルダーを開く",
     "Delete folder": "フォルダーを削除",
     "No matching folders": "該当するフォルダーはありません",
+    "Merge folders…": "フォルダーを統合…",
+    "Merge folders": "フォルダーを統合",
+    Merge: "統合",
+    "Which folder should keep its name? The other one's contents move into it, and it is deleted.":
+      "どちらのフォルダーの名前を残しますか？もう一方の内容はこちらに移動し、そのフォルダーは削除されます。",
+    "Its name stays, and the other folder's contents move in here.":
+      "名前はそのまま残り、もう一方のフォルダーの内容がここに移動します。",
+    "This folder is deleted once its contents have moved.":
+      "このフォルダーは内容の移動が終わりしだい削除されます。",
+    "Merging takes two folders.": "統合にはフォルダーが 2 つ必要です。",
+    "The folder could not be read: the server answered the same page twice.":
+      "フォルダーを読み取れませんでした。サーバーが同じページを 2 回返しました。",
+    "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":
+      "「{path}」は一方ではフォルダー、もう一方ではファイルなので、どちらも他方に統合できません。",
+    "“{path}” carries no content to write over the file of its name.":
+      "「{path}」には同名のファイルに上書きする内容がありません。",
+    "“{path}” is not yours to change.": "「{path}」を変更する権限がありません。",
+
     "No subfolders here.": "サブフォルダーはありません。",
     "Type a folder name…": "フォルダー名を入力…",
     "＋ New folder…": "＋ 新しいフォルダー…",
@@ -892,8 +909,6 @@ export const catalog: Catalog = {
       "このブラウザーで登録を要求しました。実際に有効になるかどうかはブラウザー次第です。メールのリンクが別のアプリで開く場合は、ブラウザーの設定をご確認ください。",
     "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
       "システム全体の既定にするには、まず Gilbert をアプリとしてインストールしてください（Chrome ではアドレスバーのインストールアイコン）。以後、OS がメールアプリを尋ねる場面で Gilbert を直接選べるようになります。",
-    "Needs a browser with the Push API and a mail server that publishes a push key.":
-      "Push API に対応したブラウザーと、プッシュ用の鍵を公開しているメールサーバーが必要です。",
     "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
       "メールサーバーが通知をブラウザーへ直接届けるため、Gilbert のタブを開いていなくても、差出人と件名つきで届きます。ただしブラウザーは起動している必要があります。完全に終了すると、通知は次に起動したときにまとめて届きます。",
     "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.":
@@ -1570,6 +1585,13 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
+    "{done} of {n} items": {
+      other: "{n} 件中 {done} 件",
+    },
+    "{n} more collisions stop it too.": {
+      other: "さらに {n} 件の衝突でも停止します。",
+    },
+
     "Delete {n} items": { other: "{n} 件を削除" },
     "Delete {n} items?": { other: "{n} 件を削除しますか？" },
     "Move {n} items": { other: "{n} 件を移動" },

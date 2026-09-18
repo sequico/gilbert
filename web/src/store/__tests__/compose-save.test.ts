@@ -4,6 +4,7 @@ import type { SetResponse } from "@/jmap/types";
 import { useCompose } from "@/store/compose";
 import { useMail } from "@/store/mail";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
+import { flushMicrotasks as flush } from "@/test/testkit";
 
 /**
  * Draft saves, serialised per draft.
@@ -29,9 +30,6 @@ function deferred<T = void>() {
   });
   return { promise, resolve };
 }
-
-/** Let queued microtasks (and the odd macrotask) run. */
-const flush = () => new Promise<void>((res) => setTimeout(res, 0));
 
 /** What a save asked the server to destroy, in order. */
 const destroyLog: string[][] = [];
@@ -230,5 +228,47 @@ describe("discarding while a save is in flight", () => {
     expect(destroyLog.some((d) => d.includes("d1"))).toBe(true);
     expect([...serverDrafts.keys()]).toEqual([]);
     openDraft = null; // closed already
+  });
+});
+
+/**
+ * The one destroy a member still takes in a group (ADR 0015).
+ *
+ * The rule closes the three entry points that end **the group's mail**; a draft
+ * is the reader's own unsent message in their own name, and discarding it is the
+ * compose store's own `Email/set` rather than the mail store's delete. The record
+ * names this as a deliberate exception, and this is the test that keeps it
+ * deliberate: putting the draft destroy behind the mail store's guard would make
+ * every member of every group unable to throw a draft away, which is the failure
+ * a later tidy-up would introduce and nothing would catch.
+ */
+describe("a draft is the reader's own, even in a group", () => {
+  it("is destroyed while a group mailbox is the account on screen", async () => {
+    const GROUP = "aGroup";
+    /*
+     * A group open, a member signed in, nothing assigned as an administrator —
+     * the exact state in which the mail store's guard refuses to end mail.
+     */
+    useMail.setState({
+      accountId: GROUP,
+      ownAccountId: "a1",
+      mailAccounts: [
+        { accountId: "a1", name: "me@example.com", kind: "own" },
+        { accountId: GROUP, name: "team@example.com", kind: "group" },
+      ] as never,
+    });
+    const key = useCompose.getState().open({
+      identityId: "i1",
+      draftId: "orig",
+      to: [{ name: null, email: "ann@example.com" }],
+      subject: "Hi",
+      html: "<div>v1</div>",
+      text: "v1",
+      dirty: true,
+    });
+    await useCompose.getState().close(key, { discard: true });
+    // It reached the server: the rule did not refuse the reader's own draft.
+    expect(destroyLog.flat()).toContain("orig");
+    expect([...serverDrafts.keys()]).toEqual([]);
   });
 });

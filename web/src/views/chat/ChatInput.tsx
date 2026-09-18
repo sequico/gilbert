@@ -19,7 +19,7 @@
  * mentioned.
  */
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { mentionRegex, shortName } from "@/lib/chat";
+import { localPart, mentionRegex } from "@/lib/chat";
 import { emojiAsset } from "@/lib/emoji";
 import { t } from "@/lib/i18n";
 
@@ -111,7 +111,7 @@ function buildRich(root: HTMLElement, text: string, addresses: string[]): void {
       chip.className = "chat-mention-chip";
       chip.contentEditable = "false";
       chip.dataset.address = part;
-      chip.textContent = `@${shortName(part)}`;
+      chip.textContent = `@${localPart(part)}`;
       frag.append(chip);
     } else {
       appendPlain(part);
@@ -340,7 +340,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
   const uniqueParticipantFor = (query: string): string | null => {
     const q = query.toLowerCase();
     const hits = participants.filter(
-      (a) => a.toLowerCase() === q || shortName(a).toLowerCase() === q,
+      (a) => a.toLowerCase() === q || localPart(a).toLowerCase() === q,
     );
     return hits.length === 1 ? (hits[0] ?? null) : null;
   };
@@ -563,7 +563,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
               onClick={() => pickMention(a)}
               title={a}
             >
-              @{shortName(a)}
+              @{localPart(a)}
             </button>
           ))}
         </div>

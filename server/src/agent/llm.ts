@@ -15,6 +15,8 @@
  * them.
  */
 
+import { countOrNull } from "../shared/counts.js";
+import { isRecord } from "../shared/json.js";
 import type { PageImage } from "./documentFamily.js";
 import type { AgentUsage } from "./documents.js";
 import {
@@ -245,11 +247,6 @@ function contentBlocks(
   ];
 }
 
-/** One reported count, or null when the provider did not report it. */
-function count(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
-}
-
 /**
  * The cost the provider reported for this call.
  *
@@ -268,9 +265,9 @@ function usageOf(body: unknown): AgentUsage | undefined {
       ? ((body as { usage?: unknown }).usage as Record<string, unknown> | undefined)
       : undefined;
   const reported: AgentUsage = {
-    inputHitTokens: count(usage?.prompt_cache_hit_tokens),
-    inputMissTokens: count(usage?.prompt_cache_miss_tokens),
-    outputTokens: count(usage?.completion_tokens),
+    inputHitTokens: countOrNull(usage?.prompt_cache_hit_tokens),
+    inputMissTokens: countOrNull(usage?.prompt_cache_miss_tokens),
+    outputTokens: countOrNull(usage?.completion_tokens),
   };
   return reported.inputHitTokens === null &&
     reported.inputMissTokens === null &&
@@ -299,9 +296,9 @@ function firstLine(text: string): string {
 }
 
 function asRecord(answer: unknown, provider: AgentProvider): Record<string, unknown> {
-  if (!answer || typeof answer !== "object" || Array.isArray(answer))
+  if (!isRecord(answer))
     throw new Error(`${provider.provider} answered with something that is not an object`);
-  return answer as Record<string, unknown>;
+  return answer;
 }
 
 function confidenceOf(answer: Record<string, unknown>, provider: AgentProvider): number {

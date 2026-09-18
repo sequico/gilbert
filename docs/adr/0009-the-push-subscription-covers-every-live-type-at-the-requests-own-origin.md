@@ -1,5 +1,11 @@
 # ADR 0009 — The push subscription covers every live type, at the request's own origin
 
+Status: Accepted
+
+Implementation: Built and live-verified. `PUSH_STATE_TYPES` names every live type
+and the callback address is derived from the request rather than configured
+(`server/src/shared/push.ts`, `server/src/push.ts`).
+
 Live updates reach a tab by one of two transports.
 
 The **relay** holds one Server-Sent Events stream per tab, upstream to

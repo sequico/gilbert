@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { type MethodCall, responseOf } from "../testkit.js";
 
 /**
  * The mock's compare-and-set, its FileNode change log and its clock.
@@ -34,8 +35,6 @@ const GROUP_ACCOUNT = "a3";
 const AUTH = `Basic ${Buffer.from("demo@example.com:demo-password").toString("base64")}`;
 const HEADERS = { authorization: AUTH, "content-type": "application/json" };
 
-type MethodCall = [string, Record<string, unknown>, string];
-
 async function jmap(methodCalls: unknown[], using?: string[]): Promise<MethodCall[]> {
   const res = await fetch(`${BASE}/jmap/`, {
     method: "POST",
@@ -48,12 +47,6 @@ async function jmap(methodCalls: unknown[], using?: string[]): Promise<MethodCal
   assert.equal(res.status, 200);
   const body = (await res.json()) as { methodResponses: MethodCall[] };
   return body.methodResponses;
-}
-
-function responseOf(responses: MethodCall[], callId: string): MethodCall {
-  const found = responses.find((r) => r[2] === callId);
-  assert.ok(found, `${callId} should answer`);
-  return found;
 }
 
 /** Every node of an account, so a refused write can be shown to have left none. */

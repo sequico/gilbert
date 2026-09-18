@@ -6,7 +6,6 @@ import {
   parseIcsDuration,
   parseLine,
   unescapeText,
-  unfold,
 } from "@/lib/ics";
 
 const cal = (body: string) =>
@@ -16,23 +15,6 @@ const ymd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const hhmm = (d: Date) =>
   `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-
-describe("unfold", () => {
-  it("joins a continuation with nothing between, per the RFC", () => {
-    expect(unfold("SUMMARY:A very\r\n  long title")).toEqual([
-      "SUMMARY:A very long title",
-    ]);
-    expect(unfold("SUMMARY:A\r\n\tB")).toEqual(["SUMMARY:AB"]);
-  });
-
-  it("handles all three line endings", () => {
-    expect(unfold("A\r\nB\nC\rD")).toEqual(["A", "B", "C", "D"]);
-  });
-
-  it("does not treat a leading space on the first line as a continuation", () => {
-    expect(unfold(" oops")).toEqual([" oops"]);
-  });
-});
 
 describe("parseLine", () => {
   it("splits a plain property", () => {

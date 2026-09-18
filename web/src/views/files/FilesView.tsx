@@ -1,4 +1,6 @@
 import {
+  ArrowDown,
+  ArrowUp,
   ChevronRight,
   Download,
   Eye,
@@ -8,6 +10,7 @@ import {
   FolderInput,
   FolderOpen,
   FolderPlus,
+  Folders,
   Home,
   MoreVertical,
   Pencil,
@@ -22,9 +25,11 @@ import { client } from "@/jmap/client";
 import type { FileNode, Id } from "@/jmap/types";
 import { entriesFromDrop, hasDirectory, planUpload } from "@/lib/dropUpload";
 import { canDropFileNodes, isShared, NODE_MIME, readDraggedIds } from "@/lib/filenode";
+import { sortFiles, useFilesSort } from "@/lib/fileSort";
 import { formatListDate, formatSize } from "@/lib/format";
 import { plural, t } from "@/lib/i18n";
-import { loadPlace, placeOwnerFrom } from "@/lib/lastPlace";
+import { type FilesSortKey, loadPlace, placeOwnerFrom } from "@/lib/lastPlace";
+import { rangeIds } from "@/lib/listSelection";
 import { previewKind } from "@/lib/preview";
 import { useFiles } from "@/store/files";
 import { useSession } from "@/store/session";
@@ -32,6 +37,7 @@ import { confirmDialog, Dialog, promptDialog } from "@/ui/dialog";
 import { FilePreviewDialog, type PreviewFile } from "@/ui/filepreview";
 import { Empty, Spinner } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
+import { RowCheckbox, SelectAllCheckbox } from "@/ui/selection";
 import { toast } from "@/ui/toast";
 import { ShareDialog } from "../settings/ShareDialog";
 
@@ -46,8 +52,12 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   const [selection, setSelection] = useState<Set<Id>>(() => new Set());
   const [anchor, setAnchor] = useState<Id | null>(null);
   const menu = useMenu();
+  /** The selection's own menu, opened from the bar that counts it. */
+  const selMenu = useMenu();
   const [menuNode, setMenuNode] = useState<FileNode | null>(null);
   const [moveNodes, setMoveNodes] = useState<FileNode[] | null>(null);
+  /** The two folders being merged, and the dialog that asks which name stays. */
+  const [mergeNodes, setMergeNodes] = useState<FileNode[] | null>(null);
   const [shareNode, setShareNode] = useState<FileNode | null>(null);
   const [preview, setPreview] = useState<PreviewFile | null>(null);
   /* What the open editor is editing, and the blob its text came from -- the
@@ -62,6 +72,9 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   const draggingIds = files.draggingIds;
   const setDragging = files.setDragging;
   const inputRef = useRef<HTMLInputElement>(null);
+  /* Which column this folder is ordered by, remembered per folder on this
+     device like the folders the tree has open. */
+  const { sort, toggle: toggleSort } = useFilesSort(files.accountId, parentId);
 
   /* A selection belongs to the folder it was made in. Carrying it across would
      leave rows selected that are no longer on screen, and the delete two
@@ -162,8 +175,42 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     );
 
   const ids = files.children[parentId ?? "root"] ?? [];
-  const nodes = ids.map((id) => files.nodes[id]).filter((n): n is FileNode => Boolean(n));
+  /* The rows, in the order the reader asked for: `sortFiles` is the one
+     definition of that order, and everything below -- the selection a
+     shift-click takes, the bar's count, the drag -- reads this list, so what is
+     on screen and what a click means cannot disagree. */
+  const nodes = sortFiles(
+    ids.map((id) => files.nodes[id]).filter((n): n is FileNode => Boolean(n)),
+    sort,
+  );
   const path = files.pathTo(parentId);
+
+  /*
+   * One definition for the three sortable headers.
+   *
+   * The column the listing is in is **bold** and carries a small arrow for the
+   * direction; the other two are plain names you can click. There is no third
+   * state to draw, because there is no third state: a listing is always in some
+   * order, and the header in force is the one that says which.
+   */
+  const sortHeader = (key: FilesSortKey, label: string, className?: string) => {
+    const active = sort.key === key;
+    return (
+      <th
+        className={className}
+        aria-sort={active ? (sort.desc ? "descending" : "ascending") : "none"}
+      >
+        <button
+          type="button"
+          className={`th-sort ${active ? "sorted" : ""}`}
+          onClick={() => toggleSort(key)}
+        >
+          {label}
+          {active && (sort.desc ? <ArrowDown size={13} /> : <ArrowUp size={13} />)}
+        </button>
+      </th>
+    );
+  };
 
   /* A drop lands in `into`, which is the folder under the pointer when there is
      one and the folder being listed otherwise. Entries have to be read out
@@ -188,9 +235,17 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
     const entries = entriesFromDrop(e.dataTransfer);
     const flat = Array.from(e.dataTransfer.files);
     void (async () => {
+      /*
+       * The entries are the tree and the flat list is the fallback, and which
+       * one is worth reading is decided per drop rather than up front: a folder
+       * arrives with entries and no readable files, a set of loose files with
+       * both. Walking the entries answers `dirs` as well as files, so a folder
+       * that holds nothing is still created -- `planUpload` is the walk that
+       * does, and `flat` is only ever the fallback.
+       */
       if (entries.length && hasDirectory(entries)) {
         const plan = await planUpload(entries);
-        if (plan.length) await files.uploadPlan(into, plan);
+        if (plan.files.length || plan.dirs.length) await files.uploadPlan(into, plan);
         return;
       }
       if (flat.length) await files.upload(into, flat);
@@ -217,33 +272,57 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   };
 
   /*
+   * Every downloadable file of a selection, one after the other.
+   *
+   * A folder has no blob and no archive to ask for, so it is not one of them:
+   * what the action names is how many *files* it will put on disk, which is
+   * also what keeps it from looking like it silently skipped something.
+   */
+  const downloadAll = (list: FileNode[]) => {
+    for (const n of downloadable(list)) download(n);
+  };
+
+  const downloadable = (list: FileNode[]) =>
+    list.filter((n) => n.nodeType !== "directory" && n.blobId);
+
+  /*
    * Clicking a row, with the conventions a file manager has taught everyone:
    * plain replaces the selection, ctrl/cmd adds or removes one, shift takes
-   * the run from the last row clicked to this one. The anchor is the row a
-   * shift measures from, and a plain or toggling click moves it.
+   * the run from the last row clicked to this one -- `rangeIds`, the same rule
+   * the mail list extends a selection by. The anchor is the row a shift
+   * measures from, and a plain or toggling click moves it.
    */
   const clickRow = (n: FileNode, ev: React.MouseEvent) => {
-    if (ev.shiftKey && anchor) {
-      const from = nodes.findIndex((x) => x.id === anchor);
-      const to = nodes.findIndex((x) => x.id === n.id);
-      if (from >= 0 && to >= 0) {
-        const run = nodes
-          .slice(Math.min(from, to), Math.max(from, to) + 1)
-          .map((x) => x.id);
-        setSelection(new Set(ev.ctrlKey || ev.metaKey ? [...selection, ...run] : run));
-        return;
-      }
+    // Over the rows on screen rather than the listing's ids: the two are the
+    // same almost always, and where they are not -- a node still loading -- a
+    // run must not name rows nobody can see.
+    const run = ev.shiftKey
+      ? rangeIds(
+          nodes.map((r) => r.id),
+          anchor,
+          n.id,
+        )
+      : null;
+    if (run) {
+      setSelection(new Set(ev.ctrlKey || ev.metaKey ? [...selection, ...run] : run));
+      return;
     }
     if (ev.ctrlKey || ev.metaKey) {
-      const next = new Set(selection);
-      if (next.has(n.id)) next.delete(n.id);
-      else next.add(n.id);
-      setSelection(next);
-      setAnchor(n.id);
+      tick(n.id, !selection.has(n.id));
       return;
     }
     setSelection(new Set([n.id]));
     setAnchor(n.id);
+  };
+
+  /* One row's box: the row joins the selection or leaves it, and the anchor
+     follows the box rather than the row it belongs to. */
+  const tick = (id: Id, on: boolean) => {
+    const next = new Set(selection);
+    if (on) next.add(id);
+    else next.delete(id);
+    setSelection(next);
+    setAnchor(id);
   };
 
   /* Right-clicking inside the selection acts on all of it; right-clicking
@@ -264,6 +343,17 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
   };
 
   const selectedNodes = () => nodes.filter((n) => selection.has(n.id));
+  /*
+   * What the reader has actually selected: the selection filtered to the rows
+   * on screen.
+   *
+   * One value, because the bar that counts a selection and the menu that acts
+   * on it have to name the same set. A node can vanish from under a selection
+   * -- another client deletes it, a push re-reads the folder -- and a count
+   * taken from the selection itself would then say three while the menu offered
+   * to delete two.
+   */
+  const sel = selectedNodes();
   /* What the menu and the bar act on: the whole selection when the row is part
      of it, and that row alone otherwise. */
   const targets = (n: FileNode | null) =>
@@ -272,6 +362,90 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
       : n
         ? [n]
         : selectedNodes();
+
+  /**
+   * Whether the selection is the one thing Merge is for: **two folders, and
+   * not one or three.**
+   *
+   * The rule is about the node that survives as much as about the gesture.
+   * Merging is defined between exactly two, because the dialog asks which of
+   * the two names to keep -- and with three there is no such question, only a
+   * choice among three with a second answer that is not a name. So the entry is
+   * offered for two and disabled for anything else, including a selection of two
+   * files.
+   *
+   * Rights are read here too, and the same way round: either folder may be the
+   * one given up, so both have to be deletable, and either may be the one kept,
+   * so both have to take children. Which of the two it actually is is settled in
+   * the dialog, and a collision the plan then finds is refused with the name it
+   * is about.
+   */
+  const canMerge = (list: FileNode[]) =>
+    list.length === 2 &&
+    list.every((n) => n.nodeType === "directory") &&
+    list.every(
+      (n) => n.myRights?.mayDelete !== false && n.myRights?.mayAddChildren !== false,
+    );
+
+  const allSelected = nodes.length > 0 && nodes.every((n) => selection.has(n.id));
+
+  /*
+   * The actions a whole selection has, in one definition.
+   *
+   * They are the same actions wherever a selection is acted on -- the bar that
+   * counts it and the menu a right-click opens on one of its rows -- and two
+   * copies of them would part company the first time one gained an entry.
+   * What a list gets is only what it can be asked: a folder is not
+   * downloadable, so a selection holding none offers no Download.
+   */
+  const groupActions = (list: FileNode[]) => {
+    const files = downloadable(list);
+    return (
+      <>
+        {files.length > 0 && (
+          <MenuItem
+            icon={<Download size={16} />}
+            label={plural(files.length, {
+              one: "Download {n} file",
+              other: "Download {n} files",
+            })}
+            onClick={() => downloadAll(files)}
+          />
+        )}
+        <MenuItem
+          icon={<FolderInput size={16} />}
+          label={plural(list.length, {
+            one: "Move {n} item…",
+            other: "Move {n} items…",
+          })}
+          onClick={() => setMoveNodes(list)}
+        />
+        {/*
+         * Always here, and usable only for two folders. A menu entry that
+         * appears and disappears leaves the reader wondering whether it exists
+         * at all, which is worse than a greyed one that says what it is waiting
+         * for -- so it is drawn for any selection and disabled until the
+         * selection is one it can act on.
+         */}
+        <MenuItem
+          icon={<Folders size={16} />}
+          label={t("Merge folders…")}
+          disabled={!canMerge(list)}
+          onClick={() => setMergeNodes(list)}
+        />
+        <MenuSep />
+        <MenuItem
+          danger
+          icon={<Trash2 size={16} />}
+          label={plural(list.length, {
+            one: "Delete {n} item",
+            other: "Delete {n} items",
+          })}
+          onClick={() => void removeNodes(list)}
+        />
+      </>
+    );
+  };
 
   const removeNodes = async (list: FileNode[]) => {
     if (!list.length) return;
@@ -411,12 +585,12 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
           <FolderPlus size={16} /> {t("New folder")}
         </button>
       </div>
-      {files.uploads.length > 0 && (
+      {files.runs.length > 0 && (
         <div
           className="list-hint"
           style={{ flexDirection: "column", alignItems: "stretch", gap: 4 }}
         >
-          {files.uploads.map((u) => (
+          {files.runs.map((u) => (
             <div key={u.id} className="row">
               <span className="truncate grow">{u.name}</span>
               {u.error ? (
@@ -432,45 +606,97 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                     className="icon-btn sm"
                     aria-label={t("Dismiss")}
                     title={t("Dismiss")}
-                    onClick={() => files.dismissUpload(u.id)}
+                    onClick={() => files.dismissRun(u.id)}
                   >
                     <X size={16} />
                   </button>
                 </>
               ) : (
-                <span>{u.progress}%</span>
+                <>
+                  {/*
+                   * How far the run has come, in the units of the gesture,
+                   * beside the percentage of the step in flight. A folder of
+                   * two hundred items is one job with a size rather than two
+                   * hundred unrelated files: the count is the run's -- steps
+                   * through out of the steps it named -- and it moves as each
+                   * one lands, which is the only sense of "how much is left" a
+                   * percentage of a single step cannot give. A step that moves
+                   * no bytes -- a folder merge's move or its delete -- has no
+                   * percentage, and none is drawn for it.
+                   */}
+                  <span>
+                    {u.unit === "item"
+                      ? plural(
+                          u.total,
+                          { one: "{done} of {n} item", other: "{done} of {n} items" },
+                          { done: u.done },
+                        )
+                      : plural(
+                          u.total,
+                          { one: "{done} of {n} file", other: "{done} of {n} files" },
+                          { done: u.done },
+                        )}
+                  </span>
+                  {u.progress !== null && <span>{u.progress}%</span>}
+                  {/*
+                   * The way out of a run that is taking too long, which
+                   * is the whole of what a big file or a folder of many
+                   * offers otherwise: a percentage and no switch. Cancelling
+                   * a row cancels the run it belongs to -- the drop, the merge
+                   * or the picker action that started it -- so a folder of two
+                   * hundred items does not owe the reader two hundred
+                   * presses. What it has done by then stays done.
+                   */}
+                  <button className="btn btn-sm" onClick={() => files.cancelRun(u.id)}>
+                    {t("Cancel")}
+                  </button>
+                </>
               )}
             </div>
           ))}
         </div>
       )}
-      {selection.size > 1 && (
-        <div className="selection-bar">
-          <span className="grow">
-            {plural(selection.size, {
-              one: "{n} item selected",
-              other: "{n} items selected",
-            })}
-          </span>
-          <button className="btn btn-sm" onClick={() => setMoveNodes(selectedNodes())}>
-            <FolderInput size={16} /> {t("Move to…")}
-          </button>
-          <button
-            className="btn btn-sm btn-danger"
-            onClick={() => void removeNodes(selectedNodes())}
-          >
-            <Trash2 size={16} /> {t("Delete")}
-          </button>
-          <button
-            className="icon-btn sm"
-            aria-label={t("Clear selection")}
-            title={t("Clear selection")}
-            onClick={() => setSelection(new Set())}
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
+      {/*
+       * The bar is always there, counting zero when nothing is ticked.
+       *
+       * It used to be drawn only with a selection, and a bar that appears out of
+       * nothing moves every row below it down by its own height: ticking one box
+       * made the listing jump under the pointer, and the second click of a
+       * two-row selection landed somewhere other than the first. A bar that is
+       * always where it was costs an empty strip and buys a listing that never
+       * moves.
+       *
+       * What changes with the count is what can be done, not what is drawn: with
+       * nothing ticked the two buttons are there and inert.
+       */}
+      <div className="selection-bar">
+        <span className="grow">
+          {plural(sel.length, {
+            one: "{n} item selected",
+            other: "{n} items selected",
+          })}
+        </span>
+        {/* The selection's actions, in one menu: the bar counts and offers
+            them, the rows are what gets ticked. */}
+        <button
+          className="btn btn-sm"
+          aria-label={t("Actions")}
+          title={t("Actions")}
+          disabled={sel.length === 0}
+          onClick={selMenu.open}
+        >
+          <MoreVertical size={16} /> {t("Actions")}
+        </button>
+        <button
+          className="icon-btn sm"
+          aria-label={t("Clear selection")}
+          title={t("Clear selection")}
+          disabled={sel.length === 0}
+          onClick={() => setSelection(new Set())}
+        >
+          <X size={16} />
+        </button>
+      </div>
       {files.error && (
         <div className="error-box" style={{ margin: 12 }}>
           {files.error}
@@ -500,12 +726,24 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             {t("Drag files here or use Upload.")}
           </Empty>
         ) : (
-          <table className="files-table">
+          <table className={`files-table ${sel.length ? "has-selection" : ""}`}>
             <thead>
               <tr>
-                <th>{t("Name")}</th>
-                <th className="hide-mobile">{t("Size")}</th>
-                <th className="hide-mobile">{t("Modified")}</th>
+                <th className="f-check-col">
+                  <SelectAllCheckbox
+                    checked={allSelected}
+                    partial={sel.length > 0 && !allSelected}
+                    label={t("Select all")}
+                    onChange={() =>
+                      allSelected || sel.length > 0
+                        ? setSelection(new Set())
+                        : setSelection(new Set(nodes.map((n) => n.id)))
+                    }
+                  />
+                </th>
+                {sortHeader("name", t("Name"))}
+                {sortHeader("size", t("Size"), "hide-mobile")}
+                {sortHeader("modified", t("Modified"), "hide-mobile")}
                 <th />
               </tr>
             </thead>
@@ -551,6 +789,14 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                     menuFor(n, menu.openAt, e.clientX, e.clientY);
                   }}
                 >
+                  <td className="f-check-col">
+                    <RowCheckbox
+                      checked={selection.has(n.id)}
+                      className="f-check"
+                      label={t("Select")}
+                      onChange={(on) => tick(n.id, on)}
+                    />
+                  </td>
                   <td>
                     <div className="f-name">
                       {n.nodeType === "directory" ? (
@@ -558,19 +804,15 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                       ) : (
                         <File size={18} />
                       )}
-                      <span
-                        onClick={(e) => {
-                          if (n.nodeType === "directory") {
-                            e.stopPropagation();
-                            navigate(`/files/${n.id}`);
-                          }
-                        }}
-                        style={
-                          n.nodeType === "directory" ? { cursor: "pointer" } : undefined
-                        }
-                      >
-                        {n.name}
-                      </span>
+                      {/*
+                       * A name is a label, not a door. Clicking it selects the
+                       * row — the same thing clicking anywhere else on the row
+                       * does — and opening a folder is the double click, the
+                       * way it is in every file manager. A single click that
+                       * navigated would also mean a click meant to tick a row,
+                       * or to start a drag, left the folder instead.
+                       */}
+                      <span>{n.name}</span>
                       {isShared(n) && (
                         <Share2 size={13} className="faint" aria-label={t("Shared")} />
                       )}
@@ -637,28 +879,7 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
             />
           </>
         )}
-        {menuNode && targets(menuNode).length > 1 && (
-          <>
-            <MenuItem
-              icon={<FolderInput size={16} />}
-              label={plural(targets(menuNode).length, {
-                one: "Move {n} item…",
-                other: "Move {n} items…",
-              })}
-              onClick={() => setMoveNodes(targets(menuNode))}
-            />
-            <MenuSep />
-            <MenuItem
-              danger
-              icon={<Trash2 size={16} />}
-              label={plural(targets(menuNode).length, {
-                one: "Delete {n} item",
-                other: "Delete {n} items",
-              })}
-              onClick={() => void removeNodes(targets(menuNode))}
-            />
-          </>
-        )}
+        {menuNode && targets(menuNode).length > 1 && groupActions(targets(menuNode))}
         {menuNode && targets(menuNode).length <= 1 && (
           <>
             {menuNode.nodeType === "directory" ? (
@@ -730,11 +951,28 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
           </>
         )}
       </Popover>
+      {sel.length > 0 && (
+        <Popover
+          anchor={selMenu.anchor}
+          onClose={selMenu.close}
+          trigger={selMenu.trigger}
+          width={240}
+        >
+          {groupActions(sel)}
+        </Popover>
+      )}
       {moveNodes && (
         <MoveDialog
           nodes={moveNodes}
           onClose={() => setMoveNodes(null)}
           onMoved={() => setSelection(new Set())}
+        />
+      )}
+      {mergeNodes && (
+        <MergeFoldersDialog
+          nodes={mergeNodes}
+          onClose={() => setMergeNodes(null)}
+          onMerged={() => setSelection(new Set())}
         />
       )}
       <FilePreviewDialog
@@ -843,6 +1081,125 @@ function MoveDialog({
         </button>
       ))}
       {!dirs.length && <p className="hint">{t("No subfolders here.")}</p>}
+    </Dialog>
+  );
+}
+
+/**
+ * Which of the two folders survives, asked once, before anything is written.
+ *
+ * Merging is defined between exactly two folders and one of them has to go, so
+ * there is one question — which name stays — and the answer settles the rest:
+ * the folder whose name is kept is the node that survives, and everything the
+ * other one holds moves into it before that folder is destroyed. The dialog
+ * therefore chooses a *folder*, not a name to rename something to: renaming the
+ * survivor would move a folder's identity onto a name the reader picked from a
+ * different folder, which is a rename dressed up as a merge.
+ *
+ * Both lines say what happens to the folder they are on, because the
+ * consequence is asymmetric — one of the two is destroyed — and a reader who
+ * read only the title would be choosing between two words.
+ *
+ * The merge itself runs in the tray, like an upload: it is a run the reader can
+ * watch and stop, and this dialog closes once it has been asked for. A
+ * collision the plan finds is reported there too, with nothing written, because
+ * the tray is the one place this view reports a failure.
+ */
+function MergeFoldersDialog({
+  nodes,
+  onClose,
+  onMerged,
+}: {
+  nodes: FileNode[];
+  onClose: () => void;
+  onMerged: () => void;
+}) {
+  const files = useFiles();
+  const [keepId, setKeepId] = useState<Id>(() => nodes[0]!.id);
+  const mergeId = nodes.find((n) => n.id !== keepId)!.id;
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={t("Merge folders")}
+      size="md"
+      footer={
+        <>
+          <button className="btn" onClick={onClose}>
+            {t("Cancel")}
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              /*
+               * The press asks for the merge and the dialog goes with it: the
+               * question is answered, and the run is watched and stopped in the
+               * tray, where a second Cancel for one run would be one place too
+               * many. Waiting here would hold the reader in a dialog about a
+               * question already settled until the last step of the run -- the
+               * dialog is not what the merge reports to.
+               *
+               * Closing cannot hide anything: the scan and the plan come first,
+               * so nothing has been written at this point, and a collision, a
+               * stopped run or a failed one is carried by the tray.
+               */
+              const asked = files.mergeFolders(keepId, mergeId);
+              onMerged();
+              onClose();
+              void asked.catch((err) => {
+                // The guard the menu already keeps, reached again in case the
+                // listing moved under the reader. Nothing was written either
+                // way and the dialog is gone, so the toast is what says why the
+                // merge did not start.
+                toast.error((err as Error).message);
+              });
+            }}
+          >
+            {t("Merge")}
+          </button>
+        </>
+      }
+    >
+      <p style={{ marginTop: 0 }}>
+        {t(
+          "Which folder should keep its name? The other one's contents move into it, and it is deleted.",
+        )}
+      </p>
+      <div className="dialog-choices" style={{ marginTop: 8 }}>
+        {nodes.map((n) => (
+          <label key={n.id} className="btn dialog-choice" htmlFor={`merge-keep-${n.id}`}>
+            <span className="row gap-8" style={{ alignItems: "flex-start" }}>
+              {/*
+               * A radio, not a checkbox: the answer is one of two rather than
+               * any of two, and two boxes that can both be ticked (or neither)
+               * would describe a state this question does not have.
+               */}
+              <input
+                id={`merge-keep-${n.id}`}
+                type="radio"
+                name="merge-keep"
+                checked={keepId === n.id}
+                onChange={() => setKeepId(n.id)}
+              />
+              <Folder size={16} />
+              {/*
+               * The name is the whole question, so it is read entire: a long
+               * one wraps rather than being cut off, and one with nothing to
+               * break on breaks inside itself.
+               */}
+              <span className="grow" style={{ overflowWrap: "anywhere" }}>
+                {n.name}
+              </span>
+            </span>
+            <small>
+              {keepId === n.id
+                ? t("Its name stays, and the other folder's contents move in here.")
+                : t("This folder is deleted once its contents have moved.")}
+            </small>
+          </label>
+        ))}
+      </div>
     </Dialog>
   );
 }

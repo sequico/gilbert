@@ -1,3 +1,4 @@
+import { DEFAULT_IDENTITY_KEY } from "@gilbert/shared/settingsDocument";
 import { t } from "@/lib/i18n";
 import { DEFAULT_SETTINGS } from "@/store/settings";
 
@@ -107,7 +108,6 @@ const ENTRIES: Record<string, KeyEntry> = {
     desc: t("Put the signature above the quoted text."),
     example: false,
   },
-  replyAllDefault: { desc: t("Reply to all by default."), example: false },
   sendAndArchive: { desc: t("Send and archive in one action."), example: false },
   undoSendSeconds: { desc: t("How long Send is undoable, in seconds."), example: 10 },
   spellcheck: { desc: t("Spellcheck the composer."), example: true },
@@ -268,7 +268,6 @@ const GROUPS: Array<{ title: string; keys: string[] }> = [
       "composeFormat",
       "includeQuote",
       "signatureAboveQuote",
-      "replyAllDefault",
       "sendAndArchive",
       "undoSendSeconds",
       "spellcheck",
@@ -323,7 +322,7 @@ const GROUPS: Array<{ title: string; keys: string[] }> = [
       "labelsSidebar",
       "folderColors",
       "hiddenIdentities",
-      "defaultIdentityByAccount",
+      DEFAULT_IDENTITY_KEY,
       "addedShares",
     ],
   },

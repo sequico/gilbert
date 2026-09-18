@@ -43,8 +43,6 @@ export const catalog: Catalog = {
     "Delete (#)": "Elimina (#)",
     Reply: "Rispondi",
 
-    "Reply (r)": "Rispondi (r)",
-
     "Reply all": "Rispondi a tutti",
     Forward: "Inoltra",
 
@@ -336,6 +334,24 @@ export const catalog: Catalog = {
     "Delete folder": "Elimina cartella",
 
     "No matching folders": "Nessuna cartella corrispondente",
+
+    "Merge folders…": "Unisci cartelle…",
+    "Merge folders": "Unisci cartelle",
+    Merge: "Unisci",
+    "Which folder should keep its name? The other one's contents move into it, and it is deleted.":
+      "Quale cartella deve mantenere il suo nome? Il contenuto dell'altra viene spostato qui, e quella cartella viene eliminata.",
+    "Its name stays, and the other folder's contents move in here.":
+      "Mantiene il suo nome e il contenuto dell'altra cartella viene spostato qui.",
+    "This folder is deleted once its contents have moved.":
+      "Questa cartella viene eliminata una volta spostato il suo contenuto.",
+    "Merging takes two folders.": "Per unire servono due cartelle.",
+    "The folder could not be read: the server answered the same page twice.":
+      "Non è stato possibile leggere la cartella: il server ha risposto due volte con la stessa pagina.",
+    "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":
+      "«{path}» è una cartella in una delle due e un file nell'altra, quindi nessuna delle due può essere unita all'altra.",
+    "“{path}” carries no content to write over the file of its name.":
+      "«{path}» non ha contenuto da scrivere sopra il file omonimo.",
+    "“{path}” is not yours to change.": "«{path}» non è suo da modificare.",
 
     "No subfolders here.": "Qui non ci sono sottocartelle.",
 
@@ -1467,9 +1483,6 @@ export const catalog: Catalog = {
     "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
       "Per un valore predefinito a livello di sistema, installare prima Gilbert come app (in Chrome: l'icona di installazione nella barra degli indirizzi). Il sistema operativo potrà poi offrire Gilbert direttamente ovunque chieda quale app di posta usare.",
 
-    "Needs a browser with the Push API and a mail server that publishes a push key.":
-      "Serve un browser con l'API Push e un server di posta che pubblichi una chiave push.",
-
     "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
       "Le notifiche arrivano direttamente dal server di posta nel browser, indicando mittente e oggetto, senza bisogno di una scheda di Gilbert aperta. Il browser deve comunque essere in esecuzione: se viene chiuso del tutto, le notifiche restano in attesa e arrivano alla riapertura.",
 
@@ -2529,6 +2542,15 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Plural forms ───────────────────────────────────────────────────
+    "{done} of {n} items": {
+      one: "{done} di {n} elemento",
+      other: "{done} di {n} elementi",
+    },
+    "{n} more collisions stop it too.": {
+      one: "Un'altra collisione lo ferma comunque.",
+      other: "Altre {n} collisioni lo fermano comunque.",
+    },
+
     "Delete {n} items": { one: "Elimina {n} elemento", other: "Elimina {n} elementi" },
     "Delete {n} items?": {
       one: "Eliminare {n} elemento?",

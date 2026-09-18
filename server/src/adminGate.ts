@@ -3,7 +3,7 @@
  * the operator turned it off (`ADMINISTRATION=0`), or the session was signed
  * in without "This is my own device".
  *
- * Hiding the menu is not turning it off (ADR 0001, ADR 0014). `/api/jmap`
+ * Hiding the menu is not turning it off (ADR 0001, ADR 0017). `/api/jmap`
  * forwards any method the browser sends, and Stalwart's registry answers
  * whatever the credential's role allows — so without this, an administrator
  * could still manage accounts, or the whole server, from the browser console

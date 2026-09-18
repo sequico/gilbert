@@ -63,7 +63,6 @@ export const catalog: Catalog = {
     Delete: "Excluir",
     "Delete (#)": "Excluir (#)",
     Reply: "Responder",
-    "Reply (r)": "Responder (r)",
     "Reply all": "Responder a todos",
     Forward: "Encaminhar",
     "Move to…": "Mover para…",
@@ -245,6 +244,24 @@ export const catalog: Catalog = {
     "Open subfolders of {name}": "Abrir as subpastas de {name}",
     "Delete folder": "Excluir a pasta",
     "No matching folders": "Nenhuma pasta corresponde",
+    "Merge folders…": "Mesclar pastas…",
+    "Merge folders": "Mesclar pastas",
+    Merge: "Mesclar",
+    "Which folder should keep its name? The other one's contents move into it, and it is deleted.":
+      "Qual pasta deve manter o nome? O conteúdo da outra é movido para cá, e ela é excluída.",
+    "Its name stays, and the other folder's contents move in here.":
+      "O nome é mantido, e o conteúdo da outra pasta é movido para cá.",
+    "This folder is deleted once its contents have moved.":
+      "Esta pasta é excluída depois que o conteúdo dela for movido.",
+    "Merging takes two folders.": "Mesclar exige duas pastas.",
+    "The folder could not be read: the server answered the same page twice.":
+      "Não foi possível ler a pasta: o servidor respondeu duas vezes com a mesma página.",
+    "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":
+      "“{path}” é uma pasta em uma das duas e um arquivo na outra, então nenhuma pode ser mesclada na outra.",
+    "“{path}” carries no content to write over the file of its name.":
+      "“{path}” não tem conteúdo para escrever sobre o arquivo de mesmo nome.",
+    "“{path}” is not yours to change.": "“{path}” não é seu para alterar.",
+
     "No subfolders here.": "Não há subpastas aqui.",
     "Type a folder name…": "Digite um nome de pasta…",
     "＋ New folder…": "＋ Nova pasta…",
@@ -937,8 +954,6 @@ export const catalog: Catalog = {
       "Solicitado neste navegador. Se surtiu efeito é decisão dele — verifique as configurações se os links de e-mail ainda abrirem em outro lugar.",
     "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
       "Para um padrão em todo o sistema, instale o Gilbert como aplicativo primeiro (no Chrome: o ícone de instalação na barra de endereços). Seu sistema operacional poderá então oferecer o Gilbert diretamente onde quer que pergunte qual aplicativo de e-mail usar.",
-    "Needs a browser with the Push API and a mail server that publishes a push key.":
-      "Exige um navegador com a API Push e um servidor de e-mail que publique uma chave push.",
     "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
       "Seu servidor de e-mail as entrega direto ao navegador, então elas chegam sem nenhuma aba do Gilbert aberta, com o remetente e o assunto. Mesmo assim o navegador precisa estar em execução — se você fechá-lo por completo, as notificações esperam e chegam quando você abri-lo de novo.",
     "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.":
@@ -1578,6 +1593,15 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
+    "{done} of {n} items": {
+      one: "{done} de {n} item",
+      other: "{done} de {n} itens",
+    },
+    "{n} more collisions stop it too.": {
+      one: "Mais uma colisão também o interrompe.",
+      other: "Mais {n} colisões também o interrompem.",
+    },
+
     "Delete {n} items": { one: "Excluir {n} item", other: "Excluir {n} itens" },
     "Delete {n} items?": { one: "Excluir {n} item?", other: "Excluir {n} itens?" },
     "Move {n} items": { one: "Mover {n} item", other: "Mover {n} itens" },

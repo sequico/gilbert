@@ -9,6 +9,7 @@
  * way wherever they are recorded from.
  */
 
+import { errorMessage } from "../shared/errors.js";
 import type {
   AgentAction,
   AgentAuditEntry,
@@ -20,6 +21,8 @@ import type {
 } from "./documents.js";
 import { changeIdOf } from "./documents.js";
 import type { AgentStore } from "./store.js";
+
+export { errorMessage };
 
 /** What one line of the trail needs to know about its rule. */
 export type AuditRule = Pick<AgentRule, "id" | "name" | "version">;
@@ -216,9 +219,4 @@ export function unreadableDocumentAuditEntry(
     [],
     detail,
   );
-}
-
-/** How a failure reads in the trail, the chat and the admin surface. */
-export function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }

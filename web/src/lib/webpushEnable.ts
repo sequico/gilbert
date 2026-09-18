@@ -21,7 +21,9 @@ import {
   subscriptionPayload,
   unsubscribeThisDevice,
   verifySubscription,
+  type WebPushBlocker,
   webPushAvailable,
+  webPushBlocker,
 } from "@/lib/webpush";
 import { useMail } from "@/store/mail";
 import { useSession } from "@/store/session";
@@ -67,6 +69,19 @@ async function collectStoredVerification(): Promise<void> {
 }
 
 /**
+ * Why turning background notifications on did not work, as a code.
+ *
+ * A code rather than a sentence: the reader's language lives in the catalogue
+ * and the surface composes what it says, which is the same reason the admin
+ * surface answers a refusal as a code and its parameters.
+ */
+export type WebPushFailure =
+  | WebPushBlocker
+  | "permission-denied"
+  | "untrusted-device"
+  | "subscribe-failed";
+
+/**
  * Subscribe this browser. Safe to call again — what it replaces is released
  * first, by our own hand (see `registerThisBrowser`).
  *
@@ -75,32 +90,18 @@ async function collectStoredVerification(): Promise<void> {
  * permission they declined.
  */
 export async function enableWebPush(): Promise<
-  { ok: true } | { ok: false; reason: string }
+  { ok: true } | { ok: false; code: WebPushFailure; detail?: string }
 > {
-  if (!webPushAvailable()) {
-    return {
-      ok: false,
-      reason: "This browser or mail server does not support background notifications.",
-    };
-  }
-  if (Notification.permission === "denied") {
-    return {
-      ok: false,
-      reason: "Notifications are blocked for this site in your browser's settings.",
-    };
-  }
+  const blocker = webPushBlocker();
+  if (blocker) return { ok: false, code: blocker };
+  if (Notification.permission === "denied")
+    return { ok: false, code: "permission-denied" };
   // A subscription outlives the tab and belongs to the account, not the
   // session -- so on a machine the user has told us is not theirs, it would go
   // on delivering their mail to it long after they had gone.
-  if (!isDeviceTrusted()) {
-    return {
-      ok: false,
-      reason:
-        "Background notifications need a device you have marked as your own. Sign in again with \u201CThis is my own device\u201D ticked.",
-    };
-  }
+  if (!isDeviceTrusted()) return { ok: false, code: "untrusted-device" };
   const key = applicationServerKey();
-  if (!key) return { ok: false, reason: "This mail server does not publish a push key." };
+  if (!key) return { ok: false, code: "no-server-key" };
 
   try {
     await registerThisBrowser(key);
@@ -108,10 +109,7 @@ export async function enableWebPush(): Promise<
     listenForVerification();
     return { ok: true };
   } catch (err) {
-    return {
-      ok: false,
-      reason: (err as Error).message || "Could not subscribe to notifications.",
-    };
+    return { ok: false, code: "subscribe-failed", detail: (err as Error).message };
   }
 }
 

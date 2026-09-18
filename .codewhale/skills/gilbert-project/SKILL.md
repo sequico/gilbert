@@ -19,7 +19,10 @@ metadata:
   Ask before inventing product behaviour the acronym implies but
   the code does not have.
 - **Snapshot mode**: files and comments describe the code as it is now; never
-  narrate a rename or a migration — history lives in git.
+  narrate a rename or a migration — history lives in git. **Documents are
+  edited in place too**, ADRs included: what a record describes changing means
+  the record is rewritten in the same change, never superseded by a second one
+  and never left narrating the version it replaced.
 - Licence AGPL-3.0-or-later; `LICENSE` and `NOTICE` keep Coffey Labs' copyright (the mail core is their derivative work). Do not strip attribution.
 
 ## 2. Naming rule (the one that keeps every doc coherent)
@@ -42,17 +45,19 @@ metadata:
 ## 3. Architecture law
 
 - JMAP only, to Stalwart. No IMAP/POP3/SMTP fallback and no database of its own: everything durable lives in Stalwart; the container is disposable; with `IMMUTABLE=1` there is no writable filesystem, and nothing Gilbert keeps durably is on it anyway (sessions included).
-- **The installation's configuration is one document in Stalwart** (ADR 0012): `installation.json` in the Master account's own `gilbert` app folder, read whole at boot (`bootstrap.ts` → `config.ts`'s `useConfiguration`), created on the first boot with the defaults and a generated app secret, and edited at Administration → Installation. The environment carries the handshake, the container's own facts, the image's facts and the operator's own switch — and nothing that the document decides for a booted process. `BASE_PATH` is the image's fact rather than a document field (the build argument and the container's copy are the same value), and a production process that states no prefix refuses to serve; a key that must not be the installation's (`BASE_PATH`, `GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`) is read from the environment and nowhere else — see `.env.example` for the list in a deployment's own words.
+- **The installation's configuration is one document in Stalwart** (ADR 0011): `installation.json` in the Master account's own `gilbert` app folder, read whole at boot (`bootstrap.ts` → `config.ts`'s `useConfiguration`), created on the first boot with the defaults and a generated app secret, and edited at Administration → Installation. The environment carries the handshake, the container's own facts, the image's facts and the operator's own switch — and nothing that the document decides for a booted process. `BASE_PATH` is the image's fact rather than a document field (the build argument and the container's copy are the same value), and a production process that states no prefix refuses to serve; a key that must not be the installation's (`BASE_PATH`, `GILBERT_AGENT_ALLOW_PRIVATE_PROVIDER`) is read from the environment and nowhere else — see `.env.example` for the list in a deployment's own words.
 - `web/` = React 19 + TypeScript SPA (Vite): `src/jmap` (client/push/types), `src/store` (zustand: session, mail, compose, contacts, calendar, files, sieve, settings, mdn, scheduled), `src/lib` (incl. `src/lib/smime`: pure-TS S/MIME verification over WebCrypto), `src/views`, `src/ui`, `src/locales`. `server/` = Node + Hono proxy (`/api/jmap`, blob, upload, EventSource, image, ics) — responses compressed, the data path per-session rate-limited (`apiRateLimited`), with an optional `rawPushRelay` — and an in-memory mock Stalwart in `server/src/mock` (which serves really-signed S/MIME fixtures from `signedMessages.ts`).
 - Standing values: graceful degradation per JMAP capability; fail loudly rather than quietly; sanitised HTML with remote images blocked; strict CSP; settings follow the account (`settings.json` in the account's Files) with localStorage only as a cache.
+- **A client-side rule is asked from one module and guarded on the effect** (ADR 0015). The mail deletion rule is the worked example: `web/src/lib/mailDelete.ts` is the only place that answers what a delete does and who may take one, `store/mail.ts` asks it inside `destroy`, `emptyMailbox` and `destroyMailbox` — never only in the menu that draws the entry — and it answers **codes**, with the sentence composed where it is shown so a catalogue can translate it. It refuses every account that is not provably the reader's own (`isOwnMailAccount`), not "a group by the classifier": the group classifier answers nothing until the account probe has landed, so asking it would fail open in the window a boot sits in. The rule is a convention the client keeps and never a boundary — say so wherever it is described.
 - The mock reproduces real-server quirks on purpose (per-account `urn:stalwart:jmap`, 2047-byte signatures, Stalwart's calendar vocabulary, renumbering synthetic ids). Where mock and server disagree, ask a real server.
 
 ## 4. Toolchain and gates
 
 - Node on the latest LTS line (24 today — the Dockerfile, CI, engines and @types/node all say the same one), npm workspaces. `npm install` once.
-- `npm run dev` (real Stalwart) · `npm run dev:mock` (demo@example.com / demo, mock on :8788) · `npm run dev:mock:no-future-release` · `npm run dev:mock:no-keyword-sort` · `npm run typecheck` · `npm test` (vitest for web, node:test for server) · `npm run build` · `npm start`.
+- `npm run dev` (real Stalwart) · `npm run dev:mock` (demo@example.com / demo, mock on :8788) · `npm run dev:mock:no-future-release` · `npm run dev:mock:no-keyword-sort` · `npm run typecheck` · `npm test` (vitest for web, node:test for server) · `npm run build` · `npm start` · `npm run codeql` · `npm run prepush:full`.
 - i18n: `npm run i18n:coverage`, `npm run i18n:check`; catalogs in `web/src/locales/*.ts`.
 - Lint + format: **Biome** (`biome.jsonc`) via `npm run lint` / `npm run lint:fix`; part of `prepush` and of the CI release pre-check. The config is calibrated to this repo's measured style and its off-rules are deliberate and commented — never re-enable a disabled rule just to silence a file; adjust the code or argue the rule.
+- **Code scanning**: GitHub's default setup, configured in the repository's settings and by no file here, analyses the tree on every push and pull request with the JavaScript/TypeScript code-scanning suite. `npm run codeql` (`scripts/codeql.mjs`) runs that same analysis locally: it exports the files a push would carry (`git ls-files`, so `.gitignore` decides and `node_modules`/`web/dist` are never analysed), builds a database in the system temp directory — never under a `node_modules`, which the JS extractor skips — runs the suite, and exits non-zero on any result. `npm run prepush:full` is the fast gate plus it; it is deliberately not in `prepush` (a 686 MB toolchain and minutes of analysis). The CLI is found in `CODEQL_CLI`, on `PATH`, or in `~/.cache/gilbert/codeql`; without one the run fails with the install instructions rather than reporting a clean tree. An alert is work to do in the same change, like any other finding a gate prints.
 - Version comes from git at build time: `node scripts/version.mjs`; nothing writes a version into the tree.
 - Done means: typecheck passes, the relevant tests pass, the diff has been read, and claims are verified against tests or a live server — not exit codes alone.
 - Code comments, documentation and every commit message are written in **English** (repo-wide rule set by the owner). Chat replies follow the user's language — the chat is not repo content.
@@ -69,8 +74,10 @@ code that stopped matching it. Three habits keep the two together:
   either wait or say nothing about it.
 - **A change that falsifies a claim fixes the claim in the same diff.** Grep the
   sentence you just invalidated: the old behaviour usually survives in another
-  file, a test's comment or an ADR. (When the ADR is `Proposed` it may be
-  amended; an `Accepted` one is superseded, never edited.)
+  file, a test's comment or an ADR. Every record is edited in place — `Proposed`
+  and `Accepted` alike — so an ADR always states the decision as it stands and
+  git holds the version before it. A number is minted for a decision that is
+  new, or where the owner asks for one explicitly.
 - **Every mechanism the ADR names has a test that fails if the mechanism is
   removed.** A test that only shows the code runs proves nothing about the
   guarantee. When a review names something as untested, the fix includes the

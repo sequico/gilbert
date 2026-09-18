@@ -4,8 +4,9 @@
  * server at it with STALWART_URL=http://127.0.0.1:8788 (user: demo / pass: demo).
  */
 
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { localDateTime } from "../shared/localDateTime.js";
 import { parseOtpauthUrl, verifyTotp } from "../totp.js";
 import { holdUntilOf, undoStatusOf } from "./futurerelease.js";
 import {
@@ -280,12 +281,11 @@ function bumpState(type: string): void {
 /* ---------- data ---------- */
 /*
  * The names are Stalwart's own defaults, which follow the Exchange convention:
- * "Deleted Items" and "Sent Items", not "Trash" and "Sent". The mock used the
- * short forms, so anything built from a folder's name read differently here
- * than in production -- "Empty Trash" against the mock, "Empty Deleted Items"
- * against a real server -- and every screenshot in the README showed a folder
- * list no user has. The role is what the client branches on; the name is only
- * ever displayed, which is exactly why it has to look right.
+ * "Deleted Items" and "Sent Items", not "Trash" and "Sent". A list built
+ * from the short forms reads differently here than in production -- "Empty
+ * Trash" against the mock, "Empty Deleted Items" against a real server. The
+ * role is what the client branches on; the name is only ever displayed, which
+ * is exactly why it has to look right.
  */
 /** Push subscriptions, as a fresh account has none. */
 const pushSubscriptions: Obj[] = [];
@@ -1439,8 +1439,6 @@ const events: Obj[] = [];
     );
     return x;
   };
-  const local = (x: Date) =>
-    `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}T${String(x.getHours()).padStart(2, "0")}:00:00`;
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   events.push({
     id: "ev1",
@@ -1448,7 +1446,7 @@ const events: Obj[] = [];
     "@type": "Event",
     uid: "ev1",
     title: "Standup",
-    start: local(d(0, 9)),
+    start: localDateTime(d(0, 9)),
     timeZone: tz,
     duration: "PT30M",
     recurrenceRule: {
@@ -1467,7 +1465,7 @@ const events: Obj[] = [];
     "@type": "Event",
     uid: "ev2",
     title: "Design review",
-    start: local(d(1, 14)),
+    start: localDateTime(d(1, 14)),
     timeZone: tz,
     duration: "PT1H30M",
     showWithoutTime: false,
@@ -1497,7 +1495,7 @@ const events: Obj[] = [];
     "@type": "Event",
     uid: "ev3",
     title: "Conference",
-    start: `${local(d(3, 0)).slice(0, 10)}T00:00:00`,
+    start: `${localDateTime(d(3, 0)).slice(0, 10)}T00:00:00`,
     duration: "P2D",
     showWithoutTime: true,
     timeZone: null,
@@ -1514,7 +1512,7 @@ const events: Obj[] = [];
     "@type": "Event",
     uid: "ev9",
     title: "Tokyo sync",
-    start: local(d(2, 15)),
+    start: localDateTime(d(2, 15)),
     timeZone: "Asia/Tokyo",
     duration: "PT1H",
     showWithoutTime: false,
@@ -1526,7 +1524,7 @@ const events: Obj[] = [];
     "@type": "Event",
     uid: "ev4",
     title: "Lunch with Grace",
-    start: local(d(2, 12)),
+    start: localDateTime(d(2, 12)),
     timeZone: tz,
     duration: "PT1H",
     showWithoutTime: false,
@@ -1539,7 +1537,7 @@ const events: Obj[] = [];
     "@type": "Event",
     uid: "sv1",
     title: "Grace: release planning",
-    start: local(d(1, 10)),
+    start: localDateTime(d(1, 10)),
     timeZone: tz,
     duration: "PT1H",
     showWithoutTime: false,
@@ -1553,7 +1551,7 @@ const events: Obj[] = [];
     "@type": "Event",
     uid: "sv2",
     title: "Grace: on leave",
-    start: `${local(d(4, 0)).slice(0, 10)}T00:00:00`,
+    start: `${localDateTime(d(4, 0)).slice(0, 10)}T00:00:00`,
     duration: "P1D",
     showWithoutTime: true,
     timeZone: null,
@@ -1564,7 +1562,7 @@ const events: Obj[] = [];
     "@type": "Event",
     uid: "gv1",
     title: "Team sync",
-    start: local(d(2, 11)),
+    start: localDateTime(d(2, 11)),
     timeZone: tz,
     duration: "PT45M",
     showWithoutTime: false,
@@ -2354,12 +2352,40 @@ function resolveEvent(list: Obj[], id: string): { base: Obj; occ?: Occurrence } 
   return occ ? { base, occ } : null;
 }
 
+/**
+ * Every node under one, so a cascade destroy can take a branch with its trunk.
+ *
+ * The client has the same walk for the same shape of tree (`descendantIds` in
+ * `web/src/lib/folderMove.ts`), and it is written out again here rather than
+ * shared because the two live on opposite sides of the wire: the server's copy
+ * is over its own node array and the client's is over a record of mailboxes and
+ * file nodes. The depth guard is the same one and for the same reason.
+ */
+function descendantIdsIn(list: Obj[], id: string): string[] {
+  const out: string[] = [];
+  let frontier: string[] = [id];
+  for (let depth = 0; depth < 50 && frontier.length; depth++) {
+    const next: string[] = [];
+    for (const n of list) {
+      const held = String(n.id);
+      if (n.parentId && frontier.includes(String(n.parentId)) && !out.includes(held)) {
+        out.push(held);
+        next.push(held);
+      }
+    }
+    frontier = next;
+  }
+  return out;
+}
+
 /** Thrown from an onCreate hook to refuse a create the way a real server would. */
 class SetError extends Error {
   constructor(
     readonly type: string,
     readonly description: string,
     readonly properties?: string[],
+    /** The node already carrying the name, for `alreadyExists`. */
+    readonly existingId?: string,
   ) {
     super(description);
   }
@@ -2368,15 +2394,29 @@ class SetError extends Error {
       type: this.type,
       description: this.description,
       ...(this.properties ? { properties: this.properties } : {}),
+      ...(this.existingId ? { existingId: this.existingId } : {}),
     };
   }
 }
 
+/**
+ * The generic set, over one type's node list.
+ *
+ * `onDestroy` is a guard for the destroy path, and it exists for one caller: a
+ * **folder** in Stalwart's files is refused when a destroy does not carry
+ * `onDestroyRemoveChildren` and the folder still holds something, which is what
+ * makes a merge's last step safe -- it never asks a folder to go with its
+ * contents, so a folder it did not empty stops the merge instead of vanishing
+ * with whatever landed in it meanwhile. A guard rather than a throw, because the
+ * refusal belongs against that id in `notDestroyed` and nowhere else, exactly as
+ * a create's refusal sits in `notCreated`.
+ */
 function genericSet(
   list: Obj[],
   prefix: string,
   onCreate: ((o: Obj) => void) | undefined,
   type: string,
+  onDestroy?: (o: Obj, a: Obj) => SetError | undefined,
 ) {
   return (a: Obj) => {
     /* Compare-and-set first, before anything is touched: a stale `ifInState`
@@ -2386,6 +2426,7 @@ function genericSet(
     const updated: Obj = {};
     const destroyed: string[] = [];
     const notCreated: Obj = {};
+    const notDestroyed: Obj = {};
     for (const [cid, obj] of Object.entries((a.create as Obj) ?? {})) {
       const id = `${prefix}${randomUUID().slice(0, 6)}`;
       const o = { ...(obj as Obj), id };
@@ -2408,16 +2449,21 @@ function genericSet(
     }
     for (const id of (a.destroy as string[]) ?? []) {
       const i = list.findIndex((x) => x.id === id);
-      if (i >= 0) {
-        list.splice(i, 1);
-        destroyed.push(id);
+      if (i < 0) continue;
+      const refusal = onDestroy?.(list[i]!, a);
+      if (refusal) {
+        notDestroyed[id] = refusal.toJSON();
+        continue;
       }
+      list.splice(i, 1);
+      destroyed.push(id);
     }
     return setResp(type, {
       created,
       updated,
       destroyed,
       ...(Object.keys(notCreated).length ? { notCreated } : {}),
+      ...(Object.keys(notDestroyed).length ? { notDestroyed } : {}),
     });
   };
 }
@@ -4142,8 +4188,18 @@ const handlers: Record<string, Handler> = {
       casLoses.count -= 1;
       bumpState("FileNode");
     }
+    const family = nodesFor(a.accountId);
+    /*
+     * What the account already holds, before this call touches it.
+     *
+     * The collision check needs the difference between a name a committed node
+     * carries and one taken by a create earlier in this same request, because
+     * the server answers those two differently: the first names the node that
+     * has it in `existingId`, the second does not (see below).
+     */
+    const committed = new Set(family.map((n) => String(n.id)));
     const res = genericSet(
-      nodesFor(a.accountId),
+      family,
       "f",
       (o) => {
         const stamp = new Date(now()).toISOString();
@@ -4161,8 +4217,110 @@ const handlers: Record<string, Handler> = {
         // file properties. Keep it internally so query and get stay consistent.
         if (!o.nodeType)
           o.nodeType = o.blobId || o.size != null || o.type ? "file" : "directory";
+        /*
+         * A name a sibling already carries, refused the way 0.16 refuses it.
+         *
+         * `onExists` defaults to `Reject` (`FileNodeSetArguments`,
+         * `crates/jmap-proto/src/object/file_node.rs`), and a create whose
+         * effective name collides with a node under the same parent answers
+         * `alreadyExists` (`find_sibling_collision`, `crates/jmap/src/file/set.rs`,
+         * v0.16.21). The comparison is case-sensitive, and it covers files and
+         * folders alike — that is the server's default, and
+         * `compareCaseInsensitively`, the argument that widens it, is **not**
+         * modelled here because nothing in Gilbert sends it. A caller that
+         * starts to has to model it first.
+         *
+         * `existingId` is the id of the node that has the name, and it is
+         * **absent** when that node was created earlier in the same request:
+         * `tests/src/jmap/files/node.rs` asserts both halves — a collision with
+         * a committed sibling carries the id, a collision with its own twin in
+         * one batch carries none ("Pending Create collision has no committed
+         * existingId"). So a client may not require it, and the one that reads
+         * it here falls back to looking the name up. A mock that always handed
+         * one over would let a client that trusts the field look correct here
+         * and break on a real server.
+         *
+         * That refusal is not a detail a client may assume away: a folder drop
+         * that creates only what is missing depends on it, and so does every
+         * writer that replaces a file's content — the id it carries is the node
+         * to write the new bytes into (ADR 0013). Without it a second identical
+         * create looked like success here and would be refused on a real server.
+         *
+         * Not reproduced: the same check on **update**. A real 0.16 runs
+         * `find_sibling_collision` on the update path too
+         * (`crates/jmap/src/file/set.rs`, `'update` branch), so renaming a node
+         * onto a name a sibling holds is refused there and accepted here. The
+         * client's rename surfaces that message when the server sends it; the
+         * mock does not send it, and nothing in the suite depends on the
+         * difference. Whoever needs it adds it here rather than trusting this
+         * comment.
+         */
+        const clash = family.find(
+          (n) =>
+            n.id !== o.id &&
+            (n.parentId ?? null) === (o.parentId ?? null) &&
+            n.name === o.name,
+        );
+        if (clash)
+          throw new SetError(
+            "alreadyExists",
+            "The name is already in use.",
+            undefined,
+            committed.has(String(clash.id)) ? String(clash.id) : undefined,
+          );
       },
       "FileNode",
+      /*
+       * A folder that still holds something is refused, unless the call asks
+       * for the contents to go with it.
+       *
+       * `onDestroyRemoveChildren` is what the Files view's own delete sends
+       * (`destroy` in `web/src/store/files.ts`), and what a merge deliberately
+       * does not: a merge destroys a folder it **emptied**, so a folder that is
+       * not empty is not the merge's to destroy, and a real server refusing it
+       * gives the reader the honest answer instead of taking a file that landed
+       * in there between the scan and the last step.
+       *
+       * The file and folder distinction is the point of the guard, and so is
+       * its absence elsewhere: `x:AccountSettings` and the rest go through this
+       * same function with no guard, and a guard applied to every type would
+       * refuse a destroy that nothing about the type says is unsafe.
+       *
+       * Not verified live: that a real 0.16 refuses a non-empty folder without
+       * the flag is read off the client's own habit of sending it, not off a
+       * server that was asked. The probe is one `FileNode/set` destroy of a
+       * folder holding a file, without the flag, against a live instance -- and
+       * it is owed in KNOWN-ISSUES.md rather than assumed. What rests on it is
+       * one thing and it is the safe direction: if a real server destroys the
+       * folder and its contents anyway, a merge that stopped early takes a
+       * folder the reader gave up anyway.
+       */
+      (o, a) => {
+        if (o.nodeType !== "directory") return undefined;
+        if (a.onDestroyRemoveChildren) {
+          /*
+           * The flag means the folder goes **with** its contents, and on a real
+           * server that is what happens: `destroyed` names the ids the request
+           * asked for, and the descendants are removed without being listed,
+           * which is exactly what the flag exists for. Modelled here because
+           * the Files view's own Delete has always sent it, and a mock that
+           * spliced out the folder alone left its contents behind holding a
+           * `parentId` nothing answers to.
+           */
+          for (const id of descendantIdsIn(family, String(o.id))) {
+            const at = family.findIndex((n) => n.id === id);
+            if (at >= 0) family.splice(at, 1);
+          }
+          return undefined;
+        }
+        const holds = family.some((n) => (n.parentId ?? null) === o.id);
+        return holds
+          ? new SetError(
+              "forbidden",
+              "The folder is not empty. Destroy it with onDestroyRemoveChildren to remove its contents.",
+            )
+          : undefined;
+      },
     )(a);
     /* A real server pushes a FileNode StateChange after a set, and the chat
        client acts on it -- `FileNode/changes` runs and the store reconciles
@@ -4839,7 +4997,10 @@ export const server = createServer(async (req, res) => {
 
 // Periodically inject a new inbox email to demo push
 setInterval(() => {
-  const p = people[Math.floor(Math.random() * people.length)]!;
+  /* `randomInt`, not `Math.random`: the pick becomes the `From:` of a message,
+     and a sender drawn from a predictable generator is what code scanning
+     refuses to reason about. Unpredictable demo traffic costs nothing. */
+  const p = people[randomInt(people.length)]!;
   const injected = addEmail({
     from: [p[0]!, p[1]!],
     subject: `Live update ${new Date(now()).toLocaleTimeString()}`,
@@ -4870,7 +5031,9 @@ function postChatDemo(nodes: Obj[], accountId: string, senders: number) {
       )
     : undefined;
   if (!chat) return;
-  const [name, email] = people[Math.floor(Math.random() * senders)]!;
+  /* As in the inbox injection above: the sender is a header, so it comes from
+     the CSPRNG. */
+  const [name, email] = people[randomInt(senders)]!;
   const doc = JSON.stringify({
     v: 1,
     from: email,

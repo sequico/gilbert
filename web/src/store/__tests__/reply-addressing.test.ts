@@ -1,10 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Email, Identity } from "@/jmap/types";
-import { useCompose } from "@/store/compose";
+import {
+  DEFAULT_REPLY_MODE,
+  REPLY,
+  REPLY_ALL,
+  REPLY_KEYS,
+  useCompose,
+} from "@/store/compose";
 import { useMail } from "@/store/mail";
 
 /*
  * Who a reply is addressed to.
+ *
+ * The first rule, and the one the two actions turn on: a plain **Reply**
+ * reaches exactly one partner -- the sender, or their Reply-To -- and **Reply
+ * all** reaches everyone. That is the difference a reader can see in the draft,
+ * because reply all is the action that puts a list there. A reply that quietly
+ * kept the Cc would make the two menu items the same button.
  *
  * The hard half is replying to something *I* sent, which is what following up
  * on your own last message is. The conversation is with the people I wrote to;
@@ -79,8 +91,24 @@ beforeEach(() => useCompose.setState({ drafts: [], activeKey: null }));
 afterEach(() => useCompose.setState({ drafts: [], activeKey: null }));
 
 describe("replying to a message somebody sent me", () => {
-  it("replies to the sender", async () => {
+  it("replies to the sender, and to nobody else", async () => {
     const d = await draftFor(HERS, "reply");
+    expect(addrs(d.to)).toEqual([ANN.email]);
+    expect(d.cc).toEqual([]);
+  });
+
+  /*
+   * The rule the two actions are told apart by, and the one a reader notices:
+   * a plain reply is one partner even when the sender addressed a list, so the
+   * message stays between the two of them.
+   */
+  it("keeps a plain reply to one partner however many the sender copied", async () => {
+    const crowded = {
+      ...HERS,
+      to: [ME, BOB],
+      cc: [{ name: "Cy", email: "cy@example.com" }],
+    } as unknown as Email;
+    const d = await draftFor(crowded, "reply");
     expect(addrs(d.to)).toEqual([ANN.email]);
     expect(d.cc).toEqual([]);
   });
@@ -101,7 +129,7 @@ describe("replying to a message somebody sent me", () => {
 });
 
 describe("replying to a message I sent", () => {
-  it("writes to the people I wrote to, not to me", async () => {
+  it("writes to the people I wrote to, and to one of them on a plain reply", async () => {
     const d = await draftFor(MINE, "reply");
     expect(addrs(d.to)).toEqual([ANN.email]);
     expect(d.cc).toEqual([]);
@@ -171,6 +199,12 @@ describe("a message of mine with nobody obvious to reply to", () => {
     expect(d.cc).toEqual([]);
   });
 
+  it("reaches the one partner a plain reply has, rather than everyone", async () => {
+    const d = await draftFor({ ...MINE, to: [ANN, BOB] } as Email, "reply");
+    expect(addrs(d.to)).toEqual([ANN.email]);
+    expect(d.cc).toEqual([]);
+  });
+
   it("uses the Cc on a plain reply too, rather than leaving To empty", async () => {
     const d = await draftFor({ ...MINE, to: [] } as Email, "reply");
     expect(addrs(d.to)).toEqual([BOB.email]);
@@ -190,5 +224,33 @@ describe("forwarding", () => {
       const d = await draftFor(m, "forward");
       expect([d.to, d.cc]).toEqual([[], []]);
     }
+  });
+});
+
+/*
+ * The keys, and the reply each opens.
+ *
+ * `r` and `a` are the shortcut a hand reaches for without looking, so which one
+ * opens which reply is the kind of thing nobody notices until it has already
+ * sent: a key whose letter says "reply all" opening a plain reply reaches the
+ * wrong number of people either way. The pair is data so this can read it
+ * without rendering the mail view, and so the two cannot drift apart.
+ */
+describe("the reply keys", () => {
+  it("opens the plain reply on `r` and the reply to everyone on `a`", () => {
+    expect(REPLY_KEYS.map((k) => [k.keys, k.mode])).toEqual([
+      ["r", REPLY],
+      ["a", REPLY_ALL],
+    ]);
+    expect(REPLY).toBe("reply");
+    expect(REPLY_ALL).toBe("replyAll");
+    // And each key says which it is, so the shortcut list is not a lie.
+    expect(REPLY_KEYS.map((k) => k.description)).toEqual(["Reply", "Reply all"]);
+  });
+
+  it("leaves the app's one-tap reply to everyone", () => {
+    // The header button, the reply strip and the list's affordances have one
+    // button each, and that button reaches the list.
+    expect(DEFAULT_REPLY_MODE).toBe(REPLY_ALL);
   });
 });

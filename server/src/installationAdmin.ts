@@ -56,6 +56,7 @@ import {
 } from "./installation.js";
 import { isStateMismatch } from "./jmap.js";
 import { appDocumentJson } from "./shared/appDocument.js";
+import { errorMessage } from "./shared/errors.js";
 import {
   INSTALLATION_EPOCH_START,
   INSTALLATION_FILE,
@@ -147,7 +148,7 @@ export async function readInstallationForAdmin(
       refused: {
         status: 502,
         error: "read_failed",
-        message: `The installation document (${where}) could not be read: ${messageOf(err)}`,
+        message: `The installation document (${where}) could not be read: ${errorMessage(err)}`,
       },
     };
   }
@@ -233,7 +234,7 @@ export async function publishInstallation(
       refused: {
         status: 502,
         error: "upstream_error",
-        message: `The installation document could not be written: ${messageOf(err)}`,
+        message: `The installation document could not be written: ${errorMessage(err)}`,
       },
     };
   }
@@ -251,7 +252,7 @@ export async function publishInstallation(
       refused: {
         status: 502,
         error: "read_failed",
-        message: `The installation document (${where}) could not be read: ${messageOf(err)}`,
+        message: `The installation document (${where}) could not be read: ${errorMessage(err)}`,
       },
     };
   }
@@ -271,7 +272,7 @@ export async function publishInstallation(
       refused: {
         status: 502,
         error: "write_failed",
-        message: `The installation document could not be written to ${where}: ${messageOf(err)}`,
+        message: `The installation document could not be written to ${where}: ${errorMessage(err)}`,
       },
     };
   }
@@ -284,7 +285,7 @@ export async function publishInstallation(
       refused: {
         status: 502,
         error: "write_failed",
-        message: `The installation document could not be written to ${where}: ${messageOf(err)}`,
+        message: `The installation document could not be written to ${where}: ${errorMessage(err)}`,
       },
     };
   }
@@ -332,7 +333,7 @@ export async function publishInstallation(
       refused: {
         status: 502,
         error: "write_failed",
-        message: `The installation document could not be written to ${where}: ${messageOf(err)}`,
+        message: `The installation document could not be written to ${where}: ${errorMessage(err)}`,
       },
     };
   }
@@ -416,8 +417,4 @@ function noFilesAccount(): InstallationRefused {
       "it from or write it to. Every account on this Stalwart should have one; check the server's version " +
       "and the principal's capabilities.",
   };
-}
-
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }

@@ -24,25 +24,8 @@ import { readFileSync, writeFileSync } from "node:fs";
  * loud rather than silent.
  */
 import ts from "typescript";
+import { ATTRS, CODE_TAGS, NOT_PROSE, optedOut } from "./lib/i18nSources.mjs";
 
-const ATTRS = new Set([
-  "title",
-  "aria-label",
-  "placeholder",
-  "alt",
-  "label",
-  "hint",
-  "confirmLabel",
-  "description",
-]);
-const NOT_PROSE = /^[\s·—–\-:;,.()[\]{}/|+×✓~<>#*@0-9]*$/u;
-/*
- * Elements whose text is not prose however much it looks like it. `label:name`
- * inside <code> is a search operator: translating it breaks the thing it
- * documents. The first run of this wrapped exactly that, which is why the list
- * exists.
- */
-const CODE_TAGS = new Set(["code", "kbd", "pre", "samp", "var"]);
 /*
  * JSX decodes HTML entities in text; a JS string literal does not. Moving
  * `Language &amp; region` into t("...") without decoding renders the entity
@@ -68,23 +51,6 @@ const decode = (s) =>
     .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)));
 const tagOf = (node, src) =>
   ts.isJsxElement(node) ? node.openingElement.tagName.getText(src) : "";
-const optedOut = (node, src) => {
-  const opening = ts.isJsxElement(node)
-    ? node.openingElement
-    : ts.isJsxSelfClosingElement(node)
-      ? node
-      : null;
-  return Boolean(
-    opening?.attributes.properties.some(
-      (a) =>
-        ts.isJsxAttribute(a) &&
-        a.name.getText(src) === "translate" &&
-        a.initializer &&
-        ts.isStringLiteral(a.initializer) &&
-        a.initializer.text === "no",
-    ),
-  );
-};
 
 const dry = process.argv.includes("--dry");
 const files = process.argv.slice(2).filter((a) => !a.startsWith("--"));

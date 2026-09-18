@@ -25,12 +25,13 @@ import {
   browserTimeZone,
   DAY_MS,
   dateToZonedLocal,
+  formatDuration,
   parseDuration,
   toLocalDateTime,
   toUTCDate,
   zonedToDate,
 } from "@/lib/dates";
-import { formatDuration, shiftStoredStart } from "@/lib/eventDrag";
+import { shiftStoredStart } from "@/lib/eventDrag";
 import { t } from "@/lib/i18n";
 import { type IcsEvent, looksLikeCalendar, parseIcs, toIcs } from "@/lib/ics";
 import { useContacts } from "./contacts";
@@ -50,15 +51,17 @@ export interface EventInstance {
 }
 
 /*
- * Asked for by name, because `shareWith` is not among the properties Stalwart
- * returns by default.
+ * Asked for by name, so the properties a share is read from are always there.
  *
- * A `Calendar/get` with no `properties` comes back without it -- not null, not
- * empty, absent -- confirmed against 0.16.19 on 2026-08-27 with a calendar that
- * was genuinely shared: omit the list and there is no `shareWith`; name it and
- * the sharee is right there. Omitting it leaves the client with nothing to read
- * a share from: no badge, no "Stop sharing", and a share dialog that opens on
- * "not shared with anyone yet" over a live share.
+ * A `Calendar/get` with no `properties` came back without `shareWith` on
+ * 0.16.19 -- not null, not empty, absent -- confirmed on 2026-08-27 with a
+ * calendar that was genuinely shared: omit the list and there is no
+ * `shareWith`; name it and the sharee is right there. 0.16.21 returns every
+ * property when none are named (confirmed live on 2026-09-06), which makes
+ * naming them a guarantee rather than a rescue, and it is the guarantee a
+ * server older than that still needs. Omitting it leaves the client with
+ * nothing to read a share from: no badge, no "Stop sharing", and a share
+ * dialog that opens on "not shared with anyone yet" over a live share.
  *
  * Files and address books ask for their properties by name for the same reason.
  */
@@ -310,8 +313,15 @@ export interface SharedCalendar {
   calendar: Calendar;
 }
 
-/** Shared events are keyed by account too: ids only differ within an account. */
-export const sharedKey = (accountId: Id, id: Id): string => `${accountId}:${id}`;
+/*
+ * Declared once, in `@/lib/sharedKey`: its format is what the reader's own
+ * `settings.addedShares` stores, so a second spelling here would be a selection
+ * that stops being found. Re-exported because this store's callers key shared
+ * calendars by it.
+ */
+import { sharedKey } from "@/lib/sharedKey";
+
+export { sharedKey };
 
 /**
  * An event begun outside the calendar -- from a message, so far.
@@ -1737,7 +1747,7 @@ function birthdayCalendar(): Calendar {
 
 /** A CalendarEvent shaped enough for the views, and for nothing else. */
 function synthesiseBirthdayEvent(b: Birthday): CalendarEvent {
-  const local = `${b.date.getFullYear()}-${String(b.date.getMonth() + 1).padStart(2, "0")}-${String(b.date.getDate()).padStart(2, "0")}T00:00:00`;
+  const local = toLocalDateTime(b.date);
   return {
     id: b.id,
     calendarIds: { [BIRTHDAY_CALENDAR_ID]: true },
@@ -1787,7 +1797,11 @@ function subscriptionCalendar(sub: {
 }
 
 function synthesiseSubscriptionEvent(subId: string, e: IcsEvent): CalendarEvent {
-  const local = `${e.start.getFullYear()}-${String(e.start.getMonth() + 1).padStart(2, "0")}-${String(e.start.getDate()).padStart(2, "0")}T${String(e.start.getHours()).padStart(2, "0")}:${String(e.start.getMinutes()).padStart(2, "0")}:00`;
+  // The feed's instants carry seconds; a subscribed event is placed to the
+  // minute, which is the precision the grid has for it.
+  const minute = new Date(e.start.getTime());
+  minute.setSeconds(0, 0);
+  const local = toLocalDateTime(minute);
   // The feed says when the event ends, and a subscribed event drawn without it
   // is an event of no length: the grid can only place what it is told.
   const seconds = Math.max(0, Math.round((e.end.getTime() - e.start.getTime()) / 1000));

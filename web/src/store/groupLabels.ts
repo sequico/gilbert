@@ -1,9 +1,11 @@
-import { isLabelCatalogEntry } from "@gilbert/shared/labels";
+import { APP_DOCUMENT_TYPE } from "@gilbert/shared/appFolder";
+import { GROUP_LABELS_FILE, isLabelCatalog } from "@gilbert/shared/labels";
 import { create } from "zustand";
 import { client } from "@/jmap/client";
 import { push } from "@/jmap/push";
 import type { Id } from "@/jmap/types";
 import { ensureFolder, findInFolder } from "@/lib/appFolder";
+import { debouncedReload } from "@/lib/fileNodeReload";
 import { isGroupMailboxAccount } from "@/lib/mailAccounts";
 import type { Label } from "@/store/settings";
 import { useMail } from "./mail";
@@ -20,11 +22,6 @@ import { useMail } from "./mail";
  * colour and nesting here are display only. Renaming a label therefore
  * changes nothing on any message.
  */
-
-const FILE = "labels.json";
-const TYPE = "application/json";
-/** Coalesce the FileNode changes of one burst (a chat message floods the same rail) into one read. */
-const RELOAD_DEBOUNCE_MS = 400;
 
 interface GroupLabelsState {
   /** label list per group account, as loaded from its `labels.json`. */
@@ -61,20 +58,23 @@ export const useGroupLabels = create<GroupLabelsState>((set, get) => ({
   reset: () => set({ byAccount: {}, loading: {} }),
 }));
 
-/** Whether a catalog entry is usable: one validator, shared with the server tier. */
-function validLabel(x: unknown): x is Label {
-  return isLabelCatalogEntry(x);
-}
+/**
+ * A group's label catalog, read once for this tier.
+ *
+ * Validated as the document it is, through the same shared validator the server
+ * reads through (`isLabelCatalog`), rather than entry by entry: a catalog with
+ * one entry the two tiers disagree about is a catalog neither of them has, and
+ * rendering the entries this side happens to like is how the surface and the
+ * keyword guard come to see different labels.
+ */
 async function readGroupLabels(accountId: Id): Promise<Label[] | null> {
   try {
     const folderId = await ensureFolder(accountId);
-    const node = await findInFolder(accountId, folderId, FILE);
+    const node = await findInFolder(accountId, folderId, GROUP_LABELS_FILE);
     if (!node?.blobId) return null;
-    const text = await client.fetchBlobText(accountId, node.blobId, TYPE);
-    const parsed = JSON.parse(text) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-    const list = (parsed as { labels?: unknown }).labels;
-    return Array.isArray(list) ? list.filter(validLabel) : null;
+    const text = await client.fetchBlobText(accountId, node.blobId, APP_DOCUMENT_TYPE);
+    const parsed: unknown = JSON.parse(text);
+    return isLabelCatalog(parsed) ? parsed.labels : null;
   } catch {
     // A catalog we cannot read must not cost anyone their mail view.
     return null;
@@ -96,21 +96,19 @@ export function labelsForAccount(accountId: Id | null, personal: Label[]): Label
   return useGroupLabels.getState().byAccount[accountId] ?? [];
 }
 
-const reloadTimers: Record<Id, number> = {};
+const reloads = debouncedReload();
 
 // A group's catalog is a FileNode. When an admin edits it, the push rail
 // reports a FileNode StateChange for that account; re-read it so every member
 // sees the change live. A StateChange carries only account+type (not which
-// node changed), and chat messages ride the same rail, so the re-read is
-// debounced per account.
+// node changed), and chat messages ride the same rail, so the re-read goes
+// through the one per-key debounce (`lib/fileNodeReload`).
 push.subscribe((accountId, type) => {
   if (type !== "FileNode") return;
   if (!(accountId in useGroupLabels.getState().byAccount)) return;
-  if (reloadTimers[accountId]) clearTimeout(reloadTimers[accountId]);
-  reloadTimers[accountId] = window.setTimeout(() => {
-    delete reloadTimers[accountId];
+  reloads.schedule(accountId, () => {
     void useGroupLabels.getState().load(accountId);
-  }, RELOAD_DEBOUNCE_MS);
+  });
 });
 
 // Push replays nothing to a tab that was away, so a catalog already loaded is

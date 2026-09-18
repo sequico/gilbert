@@ -75,6 +75,15 @@ export function setUnreadBadge(count: number): void {
   }
 }
 
+/**
+ * Ask for the browser's notification permission, from a gesture the reader
+ * made.
+ *
+ * The callers are the switches that turn notifications on, and that is the only
+ * place it may be asked from: a prompt raised on a start-up path has no gesture
+ * behind it, which iOS refuses outright and every other browser teaches people
+ * to dismiss.
+ */
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
   if (!("Notification" in window)) return "denied";
   if (Notification.permission !== "default") return Notification.permission;

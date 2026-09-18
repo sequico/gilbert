@@ -26,10 +26,11 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { ServerResponse } from "node:http";
 import { config } from "./config.js";
+import { CAPABILITIES } from "./shared/capabilities.js";
 import { PUSH_STATE_TYPES } from "./shared/push.js";
 import { absoluteUpstream, getUpstreamSession, upstreamFor } from "./upstream.js";
 
-const USING = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"];
+const USING = [CAPABILITIES.core, CAPABILITIES.mail];
 const RENEW_BEFORE_MS = 60 * 60_000; // renew an hour before Stalwart expires it
 const VERIFY_TIMEOUT_MS = 3 * 60_000; // Stalwart's first attempt waits 60 s; allow retries
 const SWEEP_MS = 30_000;

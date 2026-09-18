@@ -56,7 +56,6 @@ export const catalog: Catalog = {
     Delete: "删除",
     "Delete (#)": "删除 (#)",
     Reply: "回复",
-    "Reply (r)": "回复 (r)",
     "Reply all": "全部回复",
     Forward: "转发",
     "Move to…": "移动到…",
@@ -233,6 +232,24 @@ export const catalog: Catalog = {
     "Open subfolders of {name}": "打开{name}的子文件夹",
     "Delete folder": "删除文件夹",
     "No matching folders": "没有匹配的文件夹",
+    "Merge folders…": "合并文件夹…",
+    "Merge folders": "合并文件夹",
+    Merge: "合并",
+    "Which folder should keep its name? The other one's contents move into it, and it is deleted.":
+      "哪个文件夹保留名称？另一个文件夹的内容会移动到此处，该文件夹将被删除。",
+    "Its name stays, and the other folder's contents move in here.":
+      "保留其名称，另一个文件夹的内容移动到这里。",
+    "This folder is deleted once its contents have moved.":
+      "内容移动完成后，此文件夹将被删除。",
+    "Merging takes two folders.": "合并需要两个文件夹。",
+    "The folder could not be read: the server answered the same page twice.":
+      "无法读取文件夹：服务器两次返回了同一页。",
+    "“{path}” is a folder in one of the two and a file in the other, so neither can be merged into the other.":
+      "“{path}”在其中一个里是文件夹，在另一个里是文件，因此两者无法相互合并。",
+    "“{path}” carries no content to write over the file of its name.":
+      "“{path}”没有可写入同名文件的内容。",
+    "“{path}” is not yours to change.": "“{path}”不属于您，无法更改。",
+
     "No subfolders here.": "这里没有子文件夹。",
     "Type a folder name…": "输入文件夹名称…",
     "＋ New folder…": "＋ 新建文件夹…",
@@ -871,8 +888,6 @@ export const catalog: Catalog = {
       "已在此浏览器中提出请求。是否生效由浏览器决定——如果邮件链接仍在别处打开，请检查浏览器的设置。",
     "For a system-wide default, install Gilbert as an app first (in Chrome: the install icon in the address bar). Your operating system can then offer Gilbert directly wherever it asks which mail app to use.":
       "若要设为系统级默认，请先把 Gilbert 安装为应用（在 Chrome 中：地址栏里的安装图标）。之后操作系统在询问使用哪个邮件应用时，就会直接提供 Gilbert。",
-    "Needs a browser with the Push API and a mail server that publishes a push key.":
-      "需要支持 Push API 的浏览器，以及发布了推送密钥的邮件服务器。",
     "Your mail server delivers these straight to your browser, so they arrive with no Gilbert tab open, naming the sender and subject. Your browser still has to be running — if you quit it completely, notifications wait and arrive when you open it again.":
       "您的邮件服务器会把通知直接送到浏览器，因此不必打开 Gilbert 标签页也能收到，并会显示发件人和主题。但浏览器仍需保持运行——如果完全退出浏览器，通知会等到您再次打开时送达。",
     "Your mail server can wake this browser, but will not include the sender or subject. Your browser still has to be running.":
@@ -1523,6 +1538,13 @@ export const catalog: Catalog = {
   },
   plurals: {
     // ── Third pass ─────────────────────────────────────────────────────
+    "{done} of {n} items": {
+      other: "第 {done} 项，共 {n} 项",
+    },
+    "{n} more collisions stop it too.": {
+      other: "还有 {n} 处冲突也会使其停止。",
+    },
+
     "Delete {n} items": { other: "删除 {n} 个项目" },
     "Delete {n} items?": { other: "要删除 {n} 个项目吗？" },
     "Move {n} items": { other: "移动 {n} 个项目" },

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { sleep } from "../shared/async.js";
 
 /**
  * Push as the wake-up and polling as the fallback (ADR 0003).
@@ -26,8 +27,6 @@ const AUTH = `Basic ${Buffer.from("demo@example.com:demo").toString("base64")}`;
 
 const session = await fetchUpstreamSession(AUTH, BASE);
 const ctx = { authorization: AUTH, session, username: "demo@example.com" };
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 after(() => {
   (mock as { server?: { close(): void } }).server?.close();

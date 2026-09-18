@@ -10,8 +10,9 @@ import { describe, expect, it } from "vitest";
  * manifest to the images beside it. A manifest naming an icon that is not
  * there, or declaring a size the file does not have, does not fail: the browser
  * skips that entry and installs the app with the one it can use, or with none.
- * The icons sat four renderings of this app behind the logo in `img/` for
- * exactly that reason, and nothing said so.
+ * The icons are made by hand from the mark beside them, and nothing in the
+ * build derives one from the other -- which is exactly the arrangement in which
+ * a manifest entry quietly stops matching the file it names.
  *
  * So the two are checked against each other here: every `src` exists, every
  * declared `sizes` is the file's real pixel size (read from the PNG's IHDR

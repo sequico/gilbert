@@ -34,6 +34,7 @@ import {
 } from "react";
 import { sanitizeEditorHtml } from "@/lib/html";
 import { t as translate } from "@/lib/i18n";
+import { escapeHtml } from "@/lib/text";
 import { Popover, useMenu } from "@/ui/popover";
 
 export interface RichEditorHandle {
@@ -307,17 +308,28 @@ export const RichEditor = forwardRef<RichEditorHandle, Props>(function RichEdito
     const url = linkUrl.trim();
     linkMenu.close();
     if (!url) return;
-    const href = /^(https?:|mailto:|tel:)/i.test(url) ? url : `https://${url}`;
+    /* A scheme this composer will not link, so the text typed into the box
+       becomes a URL rather than being taken at its word. */
+    const typed = /^(https?:|mailto:|tel:)/i.test(url) ? url : `https://${url}`;
+    /* The three characters a URL cannot carry raw, percent-encoded the way a
+       URL parser reads them back. Both branches below put this string where a
+       browser will parse it, and a `"` left in it would end the href attribute
+       and put whatever followed into the message body as markup. */
+    const target = typed.replace(/"/g, "%22").replace(/</g, "%3C").replace(/>/g, "%3E");
     elRef.current?.focus();
     restoreRange();
     const sel = window.getSelection();
-    if (sel?.isCollapsed)
+    if (sel?.isCollapsed) {
+      /* Typed, not from the selection, so the href and the visible label are
+         both built from it; the `&` escaping `escapeHtml` adds is the correct
+         attribute form, and the browser reads it back as `&`. */
+      const safe = escapeHtml(target);
       document.execCommand(
         "insertHTML",
         false,
-        `<a href="${href}" target="_blank" rel="noopener">${href}</a>`,
+        `<a href="${safe}" target="_blank" rel="noopener">${safe}</a>`,
       );
-    else document.execCommand("createLink", false, href);
+    } else document.execCommand("createLink", false, target);
     emit();
     setLinkUrl("");
   };

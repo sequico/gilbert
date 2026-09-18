@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { createServer, type IncomingMessage } from "node:http";
 import { after, before, test } from "node:test";
-import { PDFDocument } from "pdf-lib";
+import { sleep } from "../shared/async.js";
+import { blankPdf } from "../testkit.js";
 import type { AgentJob, AgentRule } from "./documents.js";
 import type { ScheduleGuard } from "./executor.js";
 
@@ -134,8 +135,6 @@ const executor = new Executor({
   log: (line) => logLines.push(line),
 });
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 async function createMessage(
   subject: string,
   text = "please handle this",
@@ -240,13 +239,6 @@ function userParts(call: ModelCall): Array<{ type?: string; text?: string }> {
   const user = call.messages.find((message) => message.role === "user")?.content;
   if (typeof user === "string") return [{ type: "text", text: user }];
   return Array.isArray(user) ? (user as Array<{ type?: string; text?: string }>) : [];
-}
-
-/** A PDF of `pages` pages, none of which carries a text layer of its own. */
-async function blankPdf(pages: number): Promise<Uint8Array> {
-  const document = await PDFDocument.create();
-  for (let page = 0; page < pages; page++) document.addPage([300, 200]);
-  return document.save();
 }
 
 before(async () => {

@@ -1,3 +1,4 @@
+import { isRecord } from "@gilbert/shared/json";
 import { withBase } from "@/lib/basePath";
 import { pendingSettingsKeys } from "@/lib/settingsSync";
 import { DEFAULT_SETTINGS, type Settings, useSettings } from "@/store/settings";
@@ -95,11 +96,6 @@ function known(obj: Record<string, unknown>): Partial<Settings> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj)) if (k in DEFAULT_SETTINGS) out[k] = v;
   return out as Partial<Settings>;
-}
-
-/** A plain object, which is what every section of a policy document is. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 /**

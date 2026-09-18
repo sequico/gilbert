@@ -12,6 +12,7 @@
  */
 
 import { config } from "./config.js";
+import { CAPABILITIES, STALWART_REGISTRY } from "./shared/capabilities.js";
 import {
   absoluteUpstream,
   expandTemplate,
@@ -19,16 +20,23 @@ import {
   type UpstreamSession,
 } from "./upstream.js";
 
-export const JMAP_CORE = "urn:ietf:params:jmap:core";
-export const JMAP_MAIL = "urn:ietf:params:jmap:mail";
-export const JMAP_SUBMISSION = "urn:ietf:params:jmap:submission";
-export const STALWART_CAP = "urn:stalwart:jmap";
+/**
+ * This tier's names for the shared vocabulary (`shared/capabilities.ts`), kept
+ * because the agent and admin code names a capability by its tier's word.
+ */
+export const JMAP_CORE = CAPABILITIES.core;
+export const JMAP_MAIL = CAPABILITIES.mail;
+export const JMAP_SUBMISSION = CAPABILITIES.submission;
+export const STALWART_CAP = STALWART_REGISTRY;
 
-/** One JMAP method call: name, arguments, call id. */
-export type Invocation = [string, Record<string, unknown>, string];
+/*
+ * Declared once, in `./shared/jmap`: the client builds one of these per call it
+ * makes through this proxy, and the shape is the protocol's rather than either
+ * tier's.
+ */
+import type { Invocation, MethodResponses } from "./shared/jmap.js";
 
-/** The `methodResponses` array a JMAP request answers with. */
-export type MethodResponses = Array<[string, Record<string, unknown>, string]>;
+export type { Invocation, MethodResponses };
 
 /** A JMAP method that answered with an error object. */
 export class JmapError extends UpstreamError {
@@ -108,6 +116,25 @@ export class JmapResult {
  */
 export function isStateMismatch(err: unknown): boolean {
   return err instanceof JmapError && err.type === "stateMismatch";
+}
+
+/**
+ * A create refused because a sibling already carries the name.
+ *
+ * `onExists` defaults to `Reject` on 0.16, and the refusal arrives **inside**
+ * `notCreated` -- it is one object in an otherwise successful response, not a
+ * request-level error -- carrying the existing node's id in `existingId`
+ * (`FileNodeSetArguments` and `find_sibling_collision`,
+ * `crates/jmap-proto/src/object/file_node.rs` / `crates/jmap/src/file/set.rs`,
+ * v0.16.21; `tests/src/jmap/files/node.rs` asserts the id). A read-then-write
+ * that found the name missing and lost the race gets exactly this back, so it
+ * is the answer "somebody made it while you were deciding" rather than a failure
+ * to report.
+ */
+export function isAlreadyExistsRefusal(
+  err: { type?: unknown; existingId?: unknown } | undefined,
+): boolean {
+  return err?.type === "alreadyExists";
 }
 
 /**

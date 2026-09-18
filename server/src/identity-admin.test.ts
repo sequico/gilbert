@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { loginWith } from "./testkit.js";
 
 /**
  * Identities an administrator sets (ADR 0007): a person's through impersonation,
@@ -99,12 +100,7 @@ async function call(
   };
 }
 
-async function login(username: string, password: string) {
-  return call("/api/auth/login", "", {
-    method: "POST",
-    body: JSON.stringify({ username, password }),
-  });
-}
+const login = loginWith(call);
 
 const post = (path: string, cookie: string, body: unknown) =>
   call(path, cookie, { method: "POST", body: JSON.stringify(body) });

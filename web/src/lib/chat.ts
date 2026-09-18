@@ -18,12 +18,12 @@
  */
 
 import { appDocumentJson } from "@gilbert/shared/appDocument";
+import { APP_DOCUMENT_TYPE } from "@gilbert/shared/appFolder";
 import {
   CHAT_FOLDER,
   CHAT_STATE_FOLDER,
   type ChatMessage,
   isChatMessageDoc,
-  MESSAGE_TYPE,
   messageFileName,
   messageProps,
 } from "@gilbert/shared/chat";
@@ -70,7 +70,7 @@ export async function ensureChatFolders(accountId: Id): Promise<ChatFolders> {
 
 /** Fetch the text of a chat document node. */
 export async function readDoc(accountId: Id, blobId: Id): Promise<unknown> {
-  const text = await client.fetchBlobText(accountId, blobId, MESSAGE_TYPE);
+  const text = await client.fetchBlobText(accountId, blobId, APP_DOCUMENT_TYPE);
   return JSON.parse(text) as unknown;
 }
 
@@ -87,8 +87,14 @@ export async function writeDoc(
   name: string,
   doc: object,
 ): Promise<Id> {
-  const blob = new Blob([appDocumentJson(doc)], { type: MESSAGE_TYPE });
-  const written = await writeBlobInFolder(accountId, folderId, name, blob, MESSAGE_TYPE);
+  const blob = new Blob([appDocumentJson(doc)], { type: APP_DOCUMENT_TYPE });
+  const written = await writeBlobInFolder(
+    accountId,
+    folderId,
+    name,
+    blob,
+    APP_DOCUMENT_TYPE,
+  );
   return written.id;
 }
 

@@ -19,6 +19,8 @@
  * surface that assigned it.
  */
 
+import { isRecord } from "./json.js";
+
 /** The file a group's member-to-identity assignment lives in. */
 export const GROUP_ASSIGNMENTS_FILE = "identity-assignments.json";
 
@@ -45,13 +47,12 @@ export function isMemberKey(address: string): boolean {
  * reader of an app-folder document here does.
  */
 export function toAssignmentDoc(raw: unknown): AssignmentDoc | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const r = raw as Record<string, unknown>;
+  if (!isRecord(raw)) return null;
+  const r = raw;
   if (r.v !== 1) return null;
-  if (!r.members || typeof r.members !== "object" || Array.isArray(r.members))
-    return null;
+  if (!isRecord(r.members)) return null;
   const members: Record<string, string> = {};
-  for (const [key, value] of Object.entries(r.members as Record<string, unknown>)) {
+  for (const [key, value] of Object.entries(r.members)) {
     if (!isMemberKey(key)) continue;
     if (typeof value !== "string" || !value) continue;
     members[key.trim().toLowerCase()] = value;
