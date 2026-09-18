@@ -1,5 +1,6 @@
 import { type Ctx, readAppJsonAt, writeAppFile } from "./appFolder.js";
 import { isStateMismatch } from "./jmap.js";
+import { isRecord } from "./shared/json.js";
 
 /**
  * The installation-wide settings policy, as the administration surface edits
@@ -57,9 +58,6 @@ export interface PolicyDocument {
  * shape so every reader can hold one type rather than two.
  */
 export const EMPTY_POLICY: PolicyDocument = { defaults: {}, enforced: {}, changes: [] };
-
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  !!v && typeof v === "object" && !Array.isArray(v);
 
 /** One publish's provenance, read back out of a stored document. */
 function readPolicyPublished(v: unknown): PolicyPublished | undefined {
@@ -201,8 +199,8 @@ export async function readAccountPolicy(
 ): Promise<PolicyDocument | null> {
   if (!accountId) return null;
   const raw = await readAppJsonAt(ctx, accountId, INSTALLATION_POLICY_FILE);
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const r = raw as Record<string, unknown>;
+  if (!isRecord(raw)) return null;
+  const r = raw;
   const defaults = readPolicySection("defaults", r.defaults);
   if (typeof defaults === "string") return null;
   const enforced = readPolicySection("enforced", r.enforced);

@@ -1,3 +1,4 @@
+import { isRecord } from "@gilbert/shared/json";
 import { isLabelCatalogEntry } from "@gilbert/shared/labels";
 import { create } from "zustand";
 import { client } from "@/jmap/client";
@@ -72,8 +73,8 @@ async function readGroupLabels(accountId: Id): Promise<Label[] | null> {
     if (!node?.blobId) return null;
     const text = await client.fetchBlobText(accountId, node.blobId, TYPE);
     const parsed = JSON.parse(text) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-    const list = (parsed as { labels?: unknown }).labels;
+    if (!isRecord(parsed)) return null;
+    const list = parsed.labels;
     return Array.isArray(list) ? list.filter(validLabel) : null;
   } catch {
     // A catalog we cannot read must not cost anyone their mail view.

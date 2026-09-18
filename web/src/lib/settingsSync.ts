@@ -16,6 +16,7 @@
  * therefore shows defaults for one frame before the account's real settings
  * arrive.
  */
+import { isRecord } from "@gilbert/shared/json";
 import { CAP, client } from "@/jmap/client";
 import {
   ensureFolder,
@@ -106,10 +107,10 @@ async function readSettingsFile(
   try {
     const text = await client.fetchBlobText(accountId, file.blobId, TYPE);
     const parsed = JSON.parse(text) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    if (!isRecord(parsed)) {
       return { doc: null, state };
     }
-    return { doc: parsed as Record<string, unknown>, state };
+    return { doc: parsed, state };
   } catch {
     return { doc: null, state };
   }

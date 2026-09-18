@@ -19,10 +19,11 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      // The canonical durable formats both tiers share (chat documents, the
-      // label catalog and the reserved agent labels) live in the server tree,
-      // because the server is the tier that validates and stores them. The
-      // client imports them, never a copy (SSOT).
+      // What both tiers read as one definition: the documents the installation
+      // keeps, the shapes and predicates that validate them, and the pure
+      // helpers around them. They live in the server tree because the server is
+      // the tier that validates and stores those documents. The client imports
+      // them, never a copy (SSOT).
       "@gilbert/shared/*": ["../server/src/shared/*"],
       "@gilbert/agent/*": ["../server/src/agent/*"]
     }

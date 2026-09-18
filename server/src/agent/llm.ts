@@ -15,6 +15,7 @@
  * them.
  */
 
+import { isRecord } from "../shared/json.js";
 import type { PageImage } from "./documentFamily.js";
 import type { AgentUsage } from "./documents.js";
 import {
@@ -299,9 +300,9 @@ function firstLine(text: string): string {
 }
 
 function asRecord(answer: unknown, provider: AgentProvider): Record<string, unknown> {
-  if (!answer || typeof answer !== "object" || Array.isArray(answer))
+  if (!isRecord(answer))
     throw new Error(`${provider.provider} answered with something that is not an object`);
-  return answer as Record<string, unknown>;
+  return answer;
 }
 
 function confidenceOf(answer: Record<string, unknown>, provider: AgentProvider): number {

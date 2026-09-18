@@ -18,6 +18,7 @@ import {
   type AgentTrigger,
   isAgentTriggerOn,
 } from "@gilbert/agent/documents";
+import { isRecord } from "@gilbert/shared/json";
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import {
@@ -76,7 +77,7 @@ const AGENT_FILTER_KEYS = new Set(AGENT_FILTER_LABELS.map((f) => f.key));
  * carried as it is instead of being flattened into something it never was.
  */
 function isWritableCondition(condition: unknown): condition is Record<string, unknown> {
-  if (!condition || typeof condition !== "object" || Array.isArray(condition)) {
+  if (!isRecord(condition)) {
     return false;
   }
   for (const [key, value] of Object.entries(condition)) {

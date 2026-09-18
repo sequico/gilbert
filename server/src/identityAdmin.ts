@@ -57,6 +57,7 @@ import {
   isMemberKey,
   toAssignmentDoc,
 } from "./shared/identityAssignment.js";
+import { isRecord } from "./shared/json.js";
 import { SIGNATURE_LIMIT, utf8Length } from "./shared/signature.js";
 import { UpstreamError } from "./upstream.js";
 
@@ -149,8 +150,8 @@ export type IdentityLockUnknownReason = "impersonation_denied";
 export async function identityLocked(ctx: Ctx, accountId: string): Promise<boolean> {
   if (!accountId) return false;
   const doc = await readAppJsonAt(ctx, accountId, IDENTITY_LOCK_FILE);
-  if (!doc || typeof doc !== "object" || Array.isArray(doc)) return false;
-  return (doc as Record<string, unknown>).locked === true;
+  if (!isRecord(doc)) return false;
+  return doc.locked === true;
 }
 
 /**
@@ -443,9 +444,9 @@ export async function readIdentities(
 
 /** The patch, checked and narrowed to the fields this product may set. */
 function checkedPatch(raw: unknown, creating: boolean): IdentityPatch {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw))
+  if (!isRecord(raw))
     throw new IdentityAdminError("invalid_identity", "The identity must be an object.");
-  const r = raw as Record<string, unknown>;
+  const r = raw;
   const patch: IdentityPatch = {};
   const addresses = (value: unknown, field: string): IdentityAddress[] | null => {
     if (value == null) return null;
@@ -623,10 +624,10 @@ export async function readDefaultIdentity(
   accountId: string,
 ): Promise<string | null> {
   const doc = await readAppJsonAt(ctx, accountId, SETTINGS_FILE);
-  if (!doc || typeof doc !== "object" || Array.isArray(doc)) return null;
-  const map = (doc as Record<string, unknown>)[DEFAULT_IDENTITY_KEY];
-  if (!map || typeof map !== "object" || Array.isArray(map)) return null;
-  const value = (map as Record<string, unknown>)[accountId];
+  if (!isRecord(doc)) return null;
+  const map = doc[DEFAULT_IDENTITY_KEY];
+  if (!isRecord(map)) return null;
+  const value = map[accountId];
   return typeof value === "string" && value ? value : null;
 }
 
@@ -645,15 +646,9 @@ export async function writeDefaultIdentity(
   identityId: string | null,
 ): Promise<void> {
   const raw = await readAppJsonAt(ctx, accountId, SETTINGS_FILE);
-  const doc =
-    raw && typeof raw === "object" && !Array.isArray(raw)
-      ? { ...(raw as Record<string, unknown>) }
-      : {};
+  const doc = isRecord(raw) ? { ...raw } : {};
   const current = doc[DEFAULT_IDENTITY_KEY];
-  const map =
-    current && typeof current === "object" && !Array.isArray(current)
-      ? { ...(current as Record<string, unknown>) }
-      : {};
+  const map = isRecord(current) ? { ...current } : {};
   if (identityId) map[accountId] = identityId;
   else delete map[accountId];
   doc[DEFAULT_IDENTITY_KEY] = map;

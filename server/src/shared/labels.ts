@@ -17,6 +17,8 @@
  * state nobody can see is a silent failure.
  */
 
+import { isRecord } from "./json.js";
+
 /** The prefix that marks agent processing state. Reserved, never a human label. */
 export const G_LABEL_PREFIX = "G-";
 
@@ -98,8 +100,8 @@ export function isLabelCatalogEntry(x: unknown): x is LabelCatalogEntry {
 }
 
 export function isLabelCatalog(x: unknown): x is LabelCatalog {
-  if (!x || typeof x !== "object" || Array.isArray(x)) return false;
-  const list = (x as { labels?: unknown }).labels;
+  if (!isRecord(x)) return false;
+  const list = x.labels;
   return Array.isArray(list) && list.every(isLabelCatalogEntry);
 }
 

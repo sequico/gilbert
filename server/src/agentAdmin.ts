@@ -121,6 +121,7 @@ import {
   STALWART_CAP,
 } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
+import { isRecord } from "./shared/json.js";
 import {
   AGENT_LABELS,
   isLabelCatalog,
@@ -1033,9 +1034,9 @@ function providerView(provider: AgentProvider | undefined): AgentProviderView | 
  */
 export async function writeProviders(admin: LiveSession, input: unknown): Promise<void> {
   const { store, address } = await agentStore(admin);
-  if (!input || typeof input !== "object" || Array.isArray(input))
+  if (!isRecord(input))
     throw new AgentAdminError({ code: "provider_not_an_object" }, 400);
-  const given = input as Record<string, unknown>;
+  const given = input;
   const settable = ["provider", "maxOutputTokens", "maxChainHops", "maxPages"];
   for (const key of Object.keys(given)) {
     if (!settable.includes(key))
@@ -1130,9 +1131,8 @@ function providerEntry(
   previous: AgentProvider | undefined,
 ): AgentProvider | null {
   if (raw === null || raw === undefined) return null;
-  if (typeof raw !== "object" || Array.isArray(raw))
-    throw new AgentAdminError({ code: "provider_incomplete" }, 400);
-  const entry = raw as Record<string, unknown>;
+  if (!isRecord(raw)) throw new AgentAdminError({ code: "provider_incomplete" }, 400);
+  const entry = raw;
   const text = (key: string): string =>
     typeof entry[key] === "string" ? (entry[key] as string).trim() : "";
   const provider = text("provider");
@@ -1479,7 +1479,7 @@ export async function saveGroupNotebook(
   input: unknown,
   by: string,
 ): Promise<GroupNotebookView> {
-  if (!input || typeof input !== "object" || Array.isArray(input))
+  if (!isRecord(input))
     throw new AgentAdminError({ code: "notebook_not_an_object" }, 400);
   const raw = (input as { facts?: unknown }).facts;
   if (!Array.isArray(raw))

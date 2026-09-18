@@ -36,6 +36,8 @@
  * installation is.
  */
 
+import { isRecord } from "./json.js";
+
 /** The document's name inside the Master account's `gilbert` app folder. */
 export const INSTALLATION_FILE = "installation.json";
 
@@ -245,10 +247,6 @@ export function installationDefaults(): InstallationDocument {
     },
     secret: "", // APP_SECRET — generated on the first boot, never a literal
   };
-}
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return !!v && typeof v === "object" && !Array.isArray(v);
 }
 
 /** The domains and URLs of the routing table, checked the way `config.ts` checked them. */
