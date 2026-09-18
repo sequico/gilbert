@@ -7,6 +7,8 @@
  * `mozillaAb.ts` next door, because LDIF says nothing about either.
  */
 
+import { unfoldLines } from "./contentLines";
+
 /** One entry: its distinguished name, and its attributes in file order. */
 export interface LdifRecord {
   dn: string;
@@ -20,24 +22,6 @@ export interface LdifRecord {
   attrs: Record<string, string[]>;
 }
 
-/**
- * Undo line folding: a line beginning with a single space continues the one
- * before it, which is how LDIF fits a long value into 78 columns. Done first
- * and for every line, so nothing downstream has to think about it -- including
- * comments, which fold the same way.
- */
-function unfold(text: string): string[] {
-  const out: string[] = [];
-  for (const raw of text.replace(/\r\n?/g, "\n").split("\n")) {
-    // A continuation with nothing above it to continue is not a continuation.
-    if (raw.startsWith(" ") && out.length && out[out.length - 1] !== "") {
-      out[out.length - 1] += raw.slice(1);
-      continue;
-    }
-    out.push(raw);
-  }
-  return out;
-}
 
 /**
  * `::` means the value is base64, which is how a non-ASCII name or one with
@@ -70,7 +54,7 @@ export function parseLdif(text: string): LdifRecord[] {
     current = null;
   };
 
-  for (const line of unfold(text)) {
+  for (const line of unfoldLines(text)) {
     if (line.trim() === "") {
       finish();
       continue;
