@@ -34,7 +34,7 @@
  */
 
 import { Pencil, Plus, RotateCw } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { Identity } from "@/jmap/types";
 import { formatAddressList } from "@/lib/address";
 import { t } from "@/lib/i18n";
@@ -42,24 +42,21 @@ import {
   type AdminGroupIdentity,
   type AdminIdentityPatch,
   type AdminUserIdentities,
-  fetchAdminGroups,
   fetchGroupIdentity,
   fetchUserIdentities,
   saveGroupIdentity,
   storeAdminSignatureHtml,
 } from "@/lib/identities";
 import { ownIdentity } from "@/lib/identityVisibility";
-import { htmlToText } from "@/lib/text";
-import { MenuSelect } from "@/ui/popover";
+import { ACTIVE_COLOR } from "@/ui/misc";
 import { IdentityDialog } from "@/views/settings/IdentityDialog";
-
-interface DirectoryGroup {
-  id: string;
-  name: string;
-}
-
-/** The state a signature shows, in one line, the way the fleet does. */
-const ACTIVE = "var(--ok, #2e7d32)";
+import {
+  DirectoryLoadError,
+  DirectoryNotListed,
+  DirectoryPicker,
+  useGroupDirectory,
+} from "./directory";
+import { IdentityCard, identityLabel } from "./IdentityCard";
 
 /**
  * What a new identity opens at: the address it will send from — a group's own
@@ -85,12 +82,6 @@ function blankIdentity(name: string, email: string): Partial<Identity> {
 function ownDisplayName(view: AdminUserIdentities, address: string): string {
   const chosen = ownIdentity(view.identities, address, view.defaultIdentityId);
   return chosen?.name?.trim() ?? "";
-}
-
-/** An identity in one line: its display name and address, or its address alone. */
-function identityLabel(identity: Identity): string {
-  const name = (identity.name || "").trim();
-  return name ? `${name} <${identity.email}>` : identity.email;
 }
 
 /**
@@ -127,36 +118,6 @@ function assignmentsOf(
     taken.add(identity.id);
   }
   return { byMember, rest: identities.filter((i) => !taken.has(i.id)) };
-}
-
-/** One identity as the fleet shows one: who it sends as, its Reply-To, its signature. */
-function IdentityCard({ identity, onEdit }: { identity: Identity; onEdit: () => void }) {
-  return (
-    <div className="card clickable" onClick={onEdit}>
-      <div className="card-head">
-        <h3>{identityLabel(identity)}</h3>
-        <button
-          className="btn btn-sm btn-ghost"
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit();
-          }}
-        >
-          <Pencil size={14} /> {t("Edit")}
-        </button>
-      </div>
-      {identity.replyTo?.length ? (
-        <div className="hint">
-          {t("Reply-To: {addresses}", { addresses: formatAddressList(identity.replyTo) })}
-        </div>
-      ) : null}
-      {(identity.htmlSignature || identity.textSignature) && (
-        <div className="hint" style={{ marginTop: 4 }}>
-          {htmlToText(identity.htmlSignature || identity.textSignature).slice(0, 120)}
-        </div>
-      )}
-    </div>
-  );
 }
 
 /**
@@ -254,7 +215,7 @@ function MemberRow({
         </div>
       )}
       {assigned && (
-        <div className="hint" style={{ color: ACTIVE }}>
+        <div className="hint" style={{ color: ACTIVE_COLOR }}>
           {t("Sends as {identity}", { identity: identityLabel(assigned) })}
         </div>
       )}
@@ -290,10 +251,8 @@ function MemberRow({
 }
 
 export function GroupIdentities() {
-  const [groups, setGroups] = useState<DirectoryGroup[]>([]);
-  const [enumeration, setEnumeration] = useState(true);
-  const [enumerationMessage, setEnumerationMessage] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const directory = useGroupDirectory();
+  const { groups, enumeration, enumerationMessage, loadError } = directory;
   const [name, setName] = useState("");
   const [view, setView] = useState<AdminGroupIdentity | null>(null);
   const [loading, setLoading] = useState(false);
@@ -305,22 +264,6 @@ export function GroupIdentities() {
   const [error, setError] = useState<string | null>(null);
   /** What a member's own account said their display name is; absent until read. */
   const [memberNames, setMemberNames] = useState<Record<string, string | null>>({});
-
-  async function loadDirectory() {
-    setLoadError(null);
-    try {
-      const res = await fetchAdminGroups();
-      setGroups(res.groups);
-      setEnumeration(res.enumeration);
-      setEnumerationMessage(res.enumerationMessage ?? null);
-    } catch (err) {
-      setLoadError((err as Error).message);
-    }
-  }
-
-  useEffect(() => {
-    void loadDirectory();
-  }, []);
 
   /**
    * Which group read is the one that counts.
@@ -379,7 +322,7 @@ export function GroupIdentities() {
    */
   async function reload() {
     setError(null);
-    await loadDirectory();
+    directory.reload();
     if (name) await readGroup(name);
   }
 
@@ -454,52 +397,27 @@ export function GroupIdentities() {
       </p>
 
       {loadError && (
-        <div className="error-box">
-          {loadError}
-          <p>
-            <button className="btn" onClick={() => void loadDirectory()}>
-              {t("Retry")}
-            </button>
-          </p>
-        </div>
+        <DirectoryLoadError loadError={loadError} reload={directory.reload} />
       )}
       {!enumeration && !loadError && (
-        <div className="warn-box" style={{ marginBottom: 12 }}>
+        <DirectoryNotListed message={enumerationMessage}>
           {t(
-            "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have \u2014 being a Gilbert administrator is not enough. Type a group address below instead.",
+            "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have — being a Gilbert administrator is not enough. Type a group address below instead.",
           )}
-          {enumerationMessage && (
-            <p className="hint" style={{ marginTop: 6 }}>
-              <code>{enumerationMessage}</code>
-            </p>
-          )}
-        </div>
+        </DirectoryNotListed>
       )}
 
-      <div className="field" style={{ maxWidth: "28rem" }}>
-        <label htmlFor="identity-group">{t("Group mailbox")}</label>
-        {enumeration ? (
-          <MenuSelect
-            id="identity-group"
-            value={name}
-            placeholder={t("Choose a group…")}
-            ariaLabel={t("Group mailbox")}
-            options={groups.map((g) => ({ id: g.id, value: g.name }))}
-            onPick={(next) => void load(next)}
-          />
-        ) : (
-          <input
-            id="identity-group"
-            className="input"
-            defaultValue={name}
-            placeholder={t("team@example.org")}
-            aria-label={t("Group mailbox")}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void load(e.currentTarget.value);
-            }}
-          />
-        )}
-      </div>
+      <DirectoryPicker
+        id="identity-group"
+        label={t("Group mailbox")}
+        value={name}
+        entries={groups}
+        enumerable={enumeration}
+        placeholder={t("Choose a group…")}
+        typedPlaceholder={t("team@example.org")}
+        typedLabel={t("Group mailbox")}
+        onChoose={(next) => void load(next)}
+      />
       <div style={{ marginBottom: 12 }}>
         <button className="btn" disabled={loading || !name} onClick={() => void reload()}>
           <RotateCw size={16} /> {t("Reload identities")}
@@ -522,7 +440,7 @@ export function GroupIdentities() {
             </div>
           )}
           {granted && identities.length > 0 && (
-            <p className="hint" style={{ color: ACTIVE }}>
+            <p className="hint" style={{ color: ACTIVE_COLOR }}>
               {t("Identity active — mail sent as this group carries what is set here.")}
             </p>
           )}

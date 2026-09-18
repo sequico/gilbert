@@ -63,6 +63,14 @@ export type AdminIdentityPatch = Partial<
 export interface AdminDirectoryUser {
   id: string;
   name: string;
+  /**
+   * Whether the account's password change is currently forced (ADR 0001).
+   *
+   * Every entry carries it: the route answers with the flag for each account it
+   * listed, and `false` where it could not ask — so a surface reads the state
+   * rather than inferring it from a missing field.
+   */
+  forced: boolean;
 }
 
 /** The account directory, and what the server was willing to say about itself. */

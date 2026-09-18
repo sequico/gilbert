@@ -20,8 +20,8 @@
  * as one that could not be read, never shown as one with nothing in it.
  */
 
-import { Pencil, Plus, RotateCw, Star, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Plus, RotateCw, Star, Trash2 } from "lucide-react";
+import { useState } from "react";
 import type { Identity } from "@/jmap/types";
 import { formatAddressList } from "@/lib/address";
 import { t } from "@/lib/i18n";
@@ -29,10 +29,8 @@ import {
   type AdminIdentityPatch,
   type AdminUserIdentities,
   deleteUserIdentity,
-  fetchAdminUserDirectory,
   fetchUserIdentities,
   type IdentityLockState,
-  type Impersonation,
   saveUserIdentity,
   setUserDefaultIdentity,
   setUserIdentityLock,
@@ -41,23 +39,19 @@ import {
 import { htmlToText } from "@/lib/text";
 import { useSession } from "@/store/session";
 import { confirmDialog } from "@/ui/dialog";
-import { MenuSelect } from "@/ui/popover";
+import { ACTIVE_COLOR } from "@/ui/misc";
 import { IdentityDialog } from "@/views/settings/IdentityDialog";
-
-interface DirectoryUser {
-  id: string;
-  name: string;
-}
-
-/** The state a signature shows, in one line, the way the fleet does. */
-const ACTIVE = "var(--ok, #2e7d32)";
+import {
+  DirectoryLoadError,
+  DirectoryNotListed,
+  DirectoryPicker,
+  useUserDirectory,
+} from "./directory";
+import { IdentityCard, identityLabel } from "./IdentityCard";
 
 export function UserIdentities() {
-  const [users, setUsers] = useState<DirectoryUser[]>([]);
-  const [enumeration, setEnumeration] = useState(true);
-  const [enumerationMessage, setEnumerationMessage] = useState<string | null>(null);
-  const [impersonation, setImpersonation] = useState<Impersonation>("unknown");
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const directory = useUserDirectory();
+  const { users, enumeration, enumerationMessage, impersonation, loadError } = directory;
   const [address, setAddress] = useState("");
   const [view, setView] = useState<AdminUserIdentities | null>(null);
   const [loading, setLoading] = useState(false);
@@ -71,24 +65,6 @@ export function UserIdentities() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-
-  /** The accounts the picker offers, and what the server said about acting. */
-  async function loadDirectory() {
-    setLoadError(null);
-    try {
-      const res = await fetchAdminUserDirectory();
-      setUsers(res.users);
-      setEnumeration(res.enumeration);
-      setEnumerationMessage(res.enumerationMessage ?? null);
-      setImpersonation(res.impersonation);
-    } catch (err) {
-      setLoadError((err as Error).message);
-    }
-  }
-
-  useEffect(() => {
-    void loadDirectory();
-  }, []);
 
   /** Read the chosen account's identities, and whether it is locked. */
   async function readAccount(who: string) {
@@ -131,7 +107,7 @@ export function UserIdentities() {
   async function reload() {
     setError(null);
     setNotice(null);
-    await loadDirectory();
+    directory.reload();
     if (address && (await readAccount(address)))
       setNotice(t("Re-read from the server. What you were editing is still open."));
   }
@@ -237,14 +213,7 @@ export function UserIdentities() {
       </p>
 
       {loadError && (
-        <div className="error-box">
-          {loadError}
-          <p>
-            <button className="btn" onClick={() => void loadDirectory()}>
-              {t("Retry")}
-            </button>
-          </p>
-        </div>
+        <DirectoryLoadError loadError={loadError} reload={directory.reload} />
       )}
       {denied && (
         <div className="warn-box" style={{ marginBottom: 12 }}>
@@ -254,44 +223,25 @@ export function UserIdentities() {
         </div>
       )}
       {!enumeration && !loadError && (
-        <div className="warn-box" style={{ marginBottom: 12 }}>
+        <DirectoryNotListed message={enumerationMessage}>
           {t(
             "Listing accounts needs Stalwart server-administrator privilege, which this session does not have \u2014 being a Gilbert administrator is not enough. Type an address below instead.",
           )}
-          {enumerationMessage && (
-            <p className="hint" style={{ marginTop: 6 }}>
-              <code>{enumerationMessage}</code>
-            </p>
-          )}
-        </div>
+        </DirectoryNotListed>
       )}
 
-      <div className="field" style={{ maxWidth: "28rem" }}>
-        <label htmlFor="identity-account">{t("Account")}</label>
-        {enumeration ? (
-          <MenuSelect
-            id="identity-account"
-            value={address}
-            placeholder={t("Choose an account…")}
-            ariaLabel={t("Account")}
-            options={users.map((u) => ({ id: u.id, value: u.name }))}
-            disabled={denied}
-            onPick={(next) => void load(next)}
-          />
-        ) : (
-          <input
-            id="identity-account"
-            className="input"
-            defaultValue={address}
-            placeholder={t("user@example.com")}
-            aria-label={t("Account address")}
-            disabled={denied}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void load(e.currentTarget.value);
-            }}
-          />
-        )}
-      </div>
+      <DirectoryPicker
+        id="identity-account"
+        label={t("Account")}
+        value={address}
+        entries={users}
+        enumerable={enumeration}
+        placeholder={t("Choose an account\u2026")}
+        typedPlaceholder={t("user@example.com")}
+        typedLabel={t("Account address")}
+        disabled={denied}
+        onChoose={(next) => void load(next)}
+      />
       <div style={{ marginBottom: 12 }}>
         <button
           className="btn"
@@ -313,7 +263,7 @@ export function UserIdentities() {
           {view.impersonation === "ok" && (
             <p
               className="hint"
-              style={{ color: locked === "unknown" ? "var(--warn)" : ACTIVE }}
+              style={{ color: locked === "unknown" ? "var(--warn)" : ACTIVE_COLOR }}
             >
               {locked === "unknown"
                 ? t(
@@ -340,17 +290,12 @@ export function UserIdentities() {
             <p className="hint">{t("This account holds no identity yet.")}</p>
           )}
           {view.identities.map((identity) => (
-            <div
+            <IdentityCard
               key={identity.id}
-              className="card clickable"
-              onClick={() => setEditing(identity)}
-            >
-              <div className="card-head">
-                <h3>
-                  {identity.name
-                    ? `${identity.name} <${identity.email}>`
-                    : identity.email}
-                </h3>
+              identity={identity}
+              onEdit={() => setEditing(identity)}
+              disabled={busy}
+              head={
                 <button
                   className="btn btn-sm btn-ghost"
                   aria-pressed={view.defaultIdentityId === identity.id}
@@ -368,16 +313,9 @@ export function UserIdentities() {
                     ? t("Default")
                     : t("Make default")}
                 </button>
-                <button
-                  className="btn btn-sm btn-ghost"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditing(identity);
-                  }}
-                >
-                  <Pencil size={14} /> {t("Edit")}
-                </button>
-                {identity.mayDelete && (
+              }
+              trailing={
+                identity.mayDelete && (
                   <button
                     className="icon-btn sm danger"
                     aria-label={t("Delete identity")}
@@ -388,24 +326,9 @@ export function UserIdentities() {
                   >
                     <Trash2 size={16} />
                   </button>
-                )}
-              </div>
-              {identity.replyTo?.length ? (
-                <div className="hint">
-                  {t("Reply-To: {addresses}", {
-                    addresses: formatAddressList(identity.replyTo),
-                  })}
-                </div>
-              ) : null}
-              {(identity.htmlSignature || identity.textSignature) && (
-                <div className="hint" style={{ marginTop: 4 }}>
-                  {htmlToText(identity.htmlSignature || identity.textSignature).slice(
-                    0,
-                    120,
-                  )}
-                </div>
-              )}
-            </div>
+                )
+              }
+            />
           ))}
           <button
             className="btn"
@@ -452,11 +375,7 @@ export function UserIdentities() {
                     group.identities.map((identity) => (
                       <div key={identity.id} className="card">
                         <div className="card-head">
-                          <h3>
-                            {identity.name
-                              ? `${identity.name} <${identity.email}>`
-                              : identity.email}
-                          </h3>
+                          <h3>{identityLabel(identity)}</h3>
                         </div>
                         {identity.replyTo?.length ? (
                           <div className="hint">

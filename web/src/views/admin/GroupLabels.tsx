@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { apiFetch } from "@/jmap/client";
 import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
@@ -6,11 +6,7 @@ import { useSession } from "@/store/session";
 import type { Label } from "@/store/settings";
 import { confirmDialog } from "@/ui/dialog";
 import { askNewLabel, LabelRow, NewLabelButton } from "@/views/labels/LabelCatalog";
-
-interface DirectoryGroup {
-  id: string;
-  name: string;
-}
+import { DirectoryLoadError, DirectoryNotListed, useGroupDirectory } from "./directory";
 
 /**
  * The admin group-label surface (ADR 0005): the label catalog of a group
@@ -22,11 +18,10 @@ interface DirectoryGroup {
  * the messages is stable, so nothing in the mailbox is rewritten.
  */
 export function GroupLabels() {
-  const [groups, setGroups] = useState<DirectoryGroup[] | null>(null);
-  const [enumeration, setEnumeration] = useState(true);
+  const directory = useGroupDirectory();
+  const { groups, enumeration, enumerationMessage, loading, loadError } = directory;
   const [selected, setSelected] = useState<string | null>(null);
   const [labels, setLabels] = useState<Label[]>([]);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
@@ -43,25 +38,6 @@ export function GroupLabels() {
     );
   };
   const selectedIsMember = selected !== null && memberOf(selected);
-
-  async function loadGroups() {
-    setLoadError(null);
-    try {
-      const res = await apiFetch<{
-        groups: DirectoryGroup[];
-        enumeration: boolean;
-        enumerationMessage?: string | null;
-      }>("/api/admin/groups");
-      setGroups(res.groups);
-      setEnumeration(res.enumeration);
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : String(err));
-    }
-  }
-
-  useEffect(() => {
-    void loadGroups();
-  }, []);
 
   async function select(name: string) {
     setSelected(name);
@@ -112,23 +88,16 @@ export function GroupLabels() {
         {groupAccessSentence("labels")}
       </p>
       {loadError && (
-        <div className="error-box">
-          {loadError}
-          <p>
-            <button className="btn" onClick={() => void loadGroups()}>
-              {t("Retry")}
-            </button>
-          </p>
-        </div>
+        <DirectoryLoadError loadError={loadError} reload={directory.reload} />
       )}
-      {groups !== null && !enumeration && (
-        <div className="warn-box" style={{ marginBottom: 12 }}>
+      {!loading && !enumeration && !loadError && (
+        <DirectoryNotListed message={enumerationMessage}>
           {t(
             "Listing group mailboxes needs Stalwart server-administrator privilege, which this session does not have.",
           )}
-        </div>
+        </DirectoryNotListed>
       )}
-      {groups !== null && enumeration && (
+      {!loading && enumeration && (
         <>
           <div className="field" style={{ marginBottom: 16 }}>
             <label>{t("Group mailbox")}</label>

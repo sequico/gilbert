@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/jmap/client";
+import {
+  type AdminDirectoryUser,
+  fetchAdminUserDirectory,
+  type Impersonation,
+} from "@/lib/identities";
 import { t } from "@/lib/i18n";
-
-interface DirectoryUser {
-  id: string;
-  name: string;
-  forced: boolean;
-}
-
-type Impersonation = "ok" | "denied" | "unknown";
+import { DirectoryLoadError, DirectoryNotListed } from "./directory";
 
 /**
  * The admin Force passwords surface (ADR 0001): every
@@ -20,7 +18,7 @@ type Impersonation = "ok" | "denied" | "unknown";
 export function AdminUsers() {
   const [target, setTarget] = useState("");
   const [manualForced, setManualForced] = useState(false);
-  const [users, setUsers] = useState<DirectoryUser[] | null>(null);
+  const [users, setUsers] = useState<AdminDirectoryUser[] | null>(null);
   const [enumeration, setEnumeration] = useState(true);
   const [enumerationMessage, setEnumerationMessage] = useState<string | null>(null);
   const [impersonation, setImpersonation] = useState<Impersonation>("unknown");
@@ -31,12 +29,7 @@ export function AdminUsers() {
   async function load() {
     setLoadError(null);
     try {
-      const res = await apiFetch<{
-        users: DirectoryUser[];
-        enumeration: boolean;
-        enumerationMessage?: string | null;
-        impersonation: Impersonation;
-      }>("/api/admin/users");
+      const res = await fetchAdminUserDirectory();
       setUsers(res.users);
       setEnumeration(res.enumeration);
       setEnumerationMessage(res.enumerationMessage ?? null);
@@ -72,7 +65,7 @@ export function AdminUsers() {
     }
   }
 
-  async function forceRow(u: DirectoryUser) {
+  async function forceRow(u: AdminDirectoryUser) {
     if (await act(u.name, false)) {
       setUsers(
         (prev) => prev?.map((x) => (x.id === u.id ? { ...x, forced: true } : x)) ?? null,
@@ -80,7 +73,7 @@ export function AdminUsers() {
     }
   }
 
-  async function releaseRow(u: DirectoryUser) {
+  async function releaseRow(u: AdminDirectoryUser) {
     if (await act(u.name, true)) {
       setUsers(
         (prev) => prev?.map((x) => (x.id === u.id ? { ...x, forced: false } : x)) ?? null,
@@ -121,26 +114,14 @@ export function AdminUsers() {
         </div>
       )}
       {users !== null && !enumeration && (
-        <div className="warn-box" style={{ marginBottom: 12 }}>
+        <DirectoryNotListed message={enumerationMessage}>
           {t(
             "Listing accounts needs Stalwart server-administrator privilege, which this session does not have \u2014 being a Gilbert administrator is not enough. Type an address below instead.",
           )}
-          {enumerationMessage && (
-            <p className="hint" style={{ marginTop: 6 }}>
-              <code>{enumerationMessage}</code>
-            </p>
-          )}
-        </div>
+        </DirectoryNotListed>
       )}
       {loadError && (
-        <div className="error-box">
-          {loadError}
-          <p>
-            <button className="btn" onClick={() => void load()}>
-              {t("Retry")}
-            </button>
-          </p>
-        </div>
+        <DirectoryLoadError loadError={loadError} reload={() => void load()} />
       )}
       {users !== null && enumeration && (
         <>
