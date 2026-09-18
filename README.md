@@ -5,9 +5,23 @@
   </picture>
 </p>
 
+<!-- Facts this file verifies further down, and states nowhere twice: the licence
+     is LICENSE's, the Stalwart floor is the section of that name, Node 24 is what
+     the Dockerfile, ci.yml, `engines` and @types/node all say, the container is
+     the Quick start's, and the second row is what the Development and Code
+     scanning sections describe as the gates. No badge here is GitHub-derived
+     through shields: this repository is private, so `img.shields.io/github/...`
+     answers "repo not found" for it. The CI badge is GitHub's own, which a
+     signed-in reader with access gets. -->
 <p align="center">
   <a href="LICENSE"><img alt="Licence: AGPL-3.0-or-later" src="https://img.shields.io/badge/licence-AGPL--3.0--or--later-2dd4bf?style=flat-square"></a>
   <a href="https://stalw.art" target="_blank" rel="noreferrer"><img alt="Requires Stalwart 0.16 or newer; tested against 0.16.21" src="https://img.shields.io/badge/Stalwart-0.16.21-6366f1?style=flat-square"></a>
+  <a href="#development"><img alt="Node 24 on the latest LTS line" src="https://img.shields.io/badge/Node-24-5fa04e?style=flat-square"></a>
+  <a href="#quick-start-docker"><img alt="Ships as a container image and a docker compose stack" src="https://img.shields.io/badge/Docker-image_%2B_compose-2496ed?style=flat-square"></a>
+  <br>
+  <a href="https://github.com/sequico/gilbert/actions/workflows/ci.yml"><img alt="CI: the release pre-check — typecheck, Biome, i18n, the tests, the build and a Docker smoke build" src="https://github.com/sequico/gilbert/actions/workflows/ci.yml/badge.svg"></a>
+  <a href=".githooks/pre-push"><img alt="The pre-push hook runs the fast gate before every push: typecheck, Biome, the check scripts and the tests" src="https://img.shields.io/badge/gate-typecheck%20%C2%B7%20Biome%20%C2%B7%20tests-1f6feb?style=flat-square"></a>
+  <a href="#code-scanning"><img alt="GitHub code scanning with the JavaScript/TypeScript suite, on every push and pull request" src="https://img.shields.io/badge/code_scanning-CodeQL-1f6feb?style=flat-square"></a>
 </p>
 
 # Gilbert
