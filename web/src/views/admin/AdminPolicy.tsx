@@ -5,6 +5,7 @@ import { formatDateTime } from "@/lib/datetime";
 import { plural, t } from "@/lib/i18n";
 import { policyEnforced, refreshSettingsPolicy } from "@/lib/settingsPolicy";
 import { useSettings } from "@/store/settings";
+import { JsonDocumentEditor, jsonProblem } from "@/ui/JsonDocumentEditor";
 import { SettingsKeyTable } from "@/views/admin/SettingsKeyTable";
 
 /** A valid document the editor can be reset to, with one of each section. */
@@ -204,10 +205,9 @@ export function AdminPolicy() {
   async function publish() {
     if (saving) return;
     setError(null);
-    try {
-      JSON.parse(text);
-    } catch {
-      setError(t("That is not valid JSON — fix the document and publish again."));
+    const problem = jsonProblem(text);
+    if (problem) {
+      setError(problem);
       return;
     }
     setSaving(true);
@@ -306,27 +306,22 @@ export function AdminPolicy() {
           )}
         </li>
       </ul>
-      <textarea
-        className="textarea"
-        aria-label={t("Policy document")}
-        spellCheck={false}
-        disabled={saving}
-        style={{ minHeight: "18rem", fontFamily: "var(--font-mono, monospace)" }}
+      <JsonDocumentEditor
+        label={t("Policy document")}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={setText}
+        saving={saving}
+        dirty={dirty}
+        action={t("Publish policy")}
+        busy={t("Publishing…")}
+        onAction={() => void publish()}
+        secondary={
+          <button className="btn btn-ghost" disabled={saving} onClick={insertExample}>
+            {t("Insert example")}
+          </button>
+        }
+        error={error}
       />
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
-        <button
-          className="btn btn-primary"
-          disabled={saving || !dirty}
-          onClick={() => void publish()}
-        >
-          {saving ? t("Publishing…") : t("Publish policy")}
-        </button>
-        <button className="btn btn-ghost" disabled={saving} onClick={insertExample}>
-          {t("Insert example")}
-        </button>
-      </div>
       {job && (
         <div style={{ marginTop: 12 }}>
           <p className={job.complete ? "hint" : "error-box"}>{publishNotice(job)}</p>
@@ -337,11 +332,6 @@ export function AdminPolicy() {
               who: job.by,
             })}
           </p>
-        </div>
-      )}
-      {error && (
-        <div className="error-box" style={{ marginTop: 12 }}>
-          {error}
         </div>
       )}
       <SettingsKeyTable />
