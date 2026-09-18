@@ -125,23 +125,24 @@ content.
 
 ## Workflow
 Read the affected area first; smallest coherent diff.
-**Load the skill that governs the work before the first edit of it (owner
-decision 2026-09-18).** The list at the end of this file says which skill a
-kind of work belongs to, and `gilbert-project` is loaded at the start of any
-task here. A skill read afterwards is a skill that did not do its job: it is
-where a convention this file states once is written out in full, and the cost of
-skipping it is a change rewritten against rules that were already written down.
-**A unit of work is committed when it is finished (owner decision 2026-09-18):**
-within a turn that authorises commits at all (see the rule below), each unit
-lands as it is finished — not at the end of the turn, and not once a review has
-been answered. A unit is one coherent change that builds, typechecks and passes
-the tests of the files it touches — a rule with its guard and its test, a
-document with the sentences the change falsified, an i18n fix with the catalogs
-it emptied — and it lands with its own message. Work held back until a review or
-a turn's end becomes a mega-commit whose message cannot say what it did and
-whose parts cannot be read apart. The gates are unchanged: `prepush` still runs
-once on a stopped tree, so a unit commit is the narrow checks above plus the
-commit.
+**Load the skill that governs the work before the first edit of it (global user
+rule, active here — owner decision 2026-09-18).** The list at the end of this
+file says which skill a kind of work belongs to, and `gilbert-project` is loaded
+at the start of any task here. A skill read afterwards is a skill that did not do
+its job: it is where a convention this file states once is written out in full,
+and the cost of skipping it is a change rewritten against rules that were already
+written down.
+**A unit of work is committed when it is finished (global user rule, active here
+— owner decision 2026-09-18):** within a turn that authorises commits at all (see
+the rule below), each unit lands as it is finished — not at the end of the turn,
+and not once a review has been answered. A unit is one coherent change that
+builds, typechecks and passes the tests of the files it touches — a rule with its
+guard and its test, a document with the sentences the change falsified, an i18n
+fix with the catalogs it emptied — and it lands with its own message. Work held
+back until a review or a turn's end becomes a mega-commit whose message cannot
+say what it did and whose parts cannot be read apart. The gates are unchanged:
+`prepush` still runs once on a stopped tree, so a unit commit is the narrow
+checks above plus the commit.
 **Single source of truth, no code duplication (global user rule, owner-confirmed
 2026-09-08):** every concept, constant, classifier, schema and helper has one
 canonical definition; everything else imports or derives from it. Before
