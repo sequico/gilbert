@@ -27,8 +27,8 @@
  * the resolver read the environment" a sample of the tree rather than a fact
  * about it.
  *
- * What the walk reads is decided by *exclusion* (see `EXCLUDED_DIRS` and
- * `EXCLUDED_PATHS`): the whole repository, less what is not this tree's own
+ * What the walk reads is decided by *exclusion* (`lib/repoWalk.mjs`'s
+ * `SKIP_DIRS` and this file's `EXCLUDED_PATHS`): the whole repository, less what is not this tree's own
  * text. That is what makes "nowhere in the tree" a claim about the tree rather
  * than about the trees somebody remembered — a `Dockerfile`, a `Makefile`, a
  * workflow, a file added tomorrow, is covered without being listed here.
@@ -39,6 +39,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { walk } from "./lib/repoWalk.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -85,15 +86,6 @@ const RETIRED_ALLOWED = new Set([
  *     whatever a session said, including the names this check refuses;
  *   - `package-lock.json` — npm's file, generated from `package.json`.
  */
-const EXCLUDED_DIRS = new Set([
-  ".git",
-  "node_modules",
-  "dist",
-  "dev-dist",
-  "coverage",
-  ".vite",
-  ".turbo",
-]);
 
 /** Repository-relative paths the walk steps over, whether a tree or a file. */
 const EXCLUDED_PATHS = new Set([".codewhale/state", "package-lock.json"]);
@@ -277,29 +269,10 @@ export function formatReport(result) {
 
 /**
  * Every file under a directory, as a path relative to it, stepping over
- * `EXCLUDED_DIRS` and `EXCLUDED_PATHS`. A symlink is neither a directory nor a
+ * `SKIP_DIRS` and `EXCLUDED_PATHS`. A symlink is neither a directory nor a
  * file to this walk: it follows nothing, and a link is not a claim of its own
  * — whatever it points at is read where it lives.
  */
-function walk(dir, rel = "") {
-  const found = [];
-  let entries;
-  try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return found;
-  }
-  for (const entry of entries) {
-    const child = rel ? `${rel}/${entry.name}` : entry.name;
-    if (EXCLUDED_DIRS.has(entry.name) || EXCLUDED_PATHS.has(child)) continue;
-    if (entry.isDirectory()) {
-      for (const inside of walk(join(dir, entry.name), child)) found.push(inside);
-    } else if (entry.isFile()) {
-      found.push(child);
-    }
-  }
-  return found;
-}
 
 /**
  * Read this repository: every text file the exclusions above do not step over.
@@ -310,7 +283,7 @@ function walk(dir, rel = "") {
  */
 export function collectRepoInput(root = ROOT) {
   const files = [];
-  for (const path of walk(root).sort()) {
+  for (const path of walk(root, { skipPaths: EXCLUDED_PATHS }).sort()) {
     if (!TEXT_EXT.has(extname(path))) continue;
     if (RETIRED_ALLOWED.has(path)) continue;
     let text;

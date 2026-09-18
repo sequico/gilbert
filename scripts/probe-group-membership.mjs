@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /**
+
  * The live probe of group membership over Stalwart's registry (ADR 0005).
  *
  * The `@` picker beside a group's chat offers the group's members, and the
@@ -51,6 +52,8 @@
  * settled, and 2 when the environment does not say where to ask.
  */
 
+import { basic, note, record, report } from "./lib/probeKit.mjs";
+
 const base = (process.env.STALWART_URL ?? "").replace(/\/+$/, "");
 const user = process.env.GILBERT_AGENT_ADDRESS ?? "";
 const password = process.env.GILBERT_AGENT_PASSWORD ?? "";
@@ -80,8 +83,6 @@ const STALWART = "urn:stalwart:jmap";
 const TIMEOUT = 30_000;
 const SESSION_URL = process.env.GILBERT_PROBE_SESSION_URL || `${base}/.well-known/jmap`;
 
-const basic = (address, secret) =>
-  `Basic ${Buffer.from(`${address}:${secret}`, "utf8").toString("base64")}`;
 
 const answers = [];
 const notes = [];
@@ -317,39 +318,12 @@ async function run() {
     );
   }
 
-  return report();
+  return report({
+    where:
+      "in the membership note in the `gilbert-stalwart` skill and in server/src/agentAdmin.ts",
+  });
 }
 
-/** The answers, one line each, and whether any of them is not what was assumed. */
-function report() {
-  console.log("");
-  for (const { question, answer } of notes) console.log(`note ${question}: ${answer}`);
-  console.log("");
-  let wrong = 0;
-  for (const entry of answers) {
-    if (!entry.ok) wrong += 1;
-    console.log(
-      `${entry.ok ? "ok  " : "DIFF"} ${entry.question}: ${entry.answer} (assumed ${entry.assumed})`,
-    );
-  }
-  console.log("");
-  if (wrong) {
-    console.log(
-      `${wrong} question(s) did not answer the way the roster read assumes. Record the answers,\n` +
-        "with the server's version and the date, in the membership note in\n" +
-        ".codewhale/skills/gilbert-stalwart/SKILL.md and in the owed note beside the mock's\n" +
-        "x:Account handlers, and change what depends on them before an installation grants\n" +
-        "the permission and relies on the roster.",
-    );
-    return 1;
-  }
-  console.log(
-    "Every assumed behaviour holds on this server. Record the answers, with the version\n" +
-      "and the date, in the membership note in .codewhale/skills/gilbert-stalwart/SKILL.md\n" +
-      "and in the owed note beside the mock's x:Account handlers.",
-  );
-  return 0;
-}
 
 run()
   .then((code) => process.exit(code))

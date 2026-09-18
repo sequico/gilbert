@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { globSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { catalogFiles, sourceFiles } from "./lib/i18nSources.mjs";
 /*
  * User-visible English the extraction pass cannot see.
  *
@@ -90,16 +91,14 @@ const looksLikeUi = (s) =>
  * indent-agnostic, so reformatting a catalogue cannot blind this half.
  */
 const keys = new Set();
-for (const file of globSync("web/src/locales/*.ts")) {
+for (const file of catalogFiles()) {
   const src = readFileSync(file, "utf8");
   for (const m of src.matchAll(/^\s+"((?:[^"\\]|\\.)*)":/gm))
     keys.add(m[1].replaceAll("\\u0004", ""));
 }
 
 const found = [];
-for (const file of globSync("web/src/**/*.{ts,tsx}").filter(
-  (f) => !f.includes("__tests__") && !f.includes("/locales/"),
-)) {
+for (const file of sourceFiles()) {
   const src = ts.createSourceFile(
     file,
     readFileSync(file, "utf8"),

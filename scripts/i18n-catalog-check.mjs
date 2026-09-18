@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { globSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { catalogFiles, sourceFiles } from "./lib/i18nSources.mjs";
 /*
  * Check a catalogue against the strings the code actually asks for.
  *
@@ -26,9 +27,7 @@ import { globSync, readFileSync } from "node:fs";
 import ts from "typescript";
 
 const wanted = new Set();
-for (const file of globSync("web/src/**/*.{ts,tsx}").filter(
-  (f) => !f.includes("__tests__") && !f.includes("/locales/"),
-)) {
+for (const file of sourceFiles()) {
   const src = ts.createSourceFile(
     file,
     readFileSync(file, "utf8"),
@@ -134,7 +133,7 @@ const registered = new Set(
   [...languagesSrc.matchAll(/tag:\s*"([\w-]+)"/g)].map((m) => m[1]),
 );
 const catalogues = new Set(
-  globSync("web/src/locales/*.ts").map((f) => f.split("/").pop().replace(".ts", "")),
+  catalogFiles().map((f) => f.split("/").pop().replace(".ts", "")),
 );
 
 let failed = false;
@@ -155,7 +154,7 @@ for (const tag of registered) {
   }
 }
 
-for (const file of globSync("web/src/locales/*.ts")) {
+for (const file of catalogFiles()) {
   const tag = file.split("/").pop().replace(".ts", "");
   const src = ts.createSourceFile(
     file,

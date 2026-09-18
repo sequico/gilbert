@@ -41,6 +41,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { walk } from "./lib/repoWalk.mjs";
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** The ADR a file name owns: `0003-agent-fleet.md` -> `0003`. */
@@ -77,7 +79,6 @@ const FILES = [
 ];
 
 const EXT = new Set([".ts", ".tsx", ".mts", ".mjs", ".md", ".css"]);
-const SKIP_DIRS = new Set(["node_modules", "dist", "dev-dist", "coverage", ".git"]);
 
 /**
  * The two lines a record must carry, and the words each one may begin with.
@@ -259,26 +260,6 @@ export function formatShapeReport(result) {
 }
 
 /** Every file under a directory, relative to it, skipping what cannot cite. */
-function walk(dir) {
-  const found = [];
-  let entries;
-  try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return found;
-  }
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      if (SKIP_DIRS.has(entry.name)) continue;
-      for (const child of walk(join(dir, entry.name)))
-        found.push(join(entry.name, child));
-    } else if (entry.isFile()) {
-      found.push(entry.name);
-    }
-  }
-  return found;
-}
-
 /** Read this repository: the records that exist, and what cites them. */
 export function collectRepoInput(root = ROOT) {
   const adrDir = join(root, "docs", "adr");

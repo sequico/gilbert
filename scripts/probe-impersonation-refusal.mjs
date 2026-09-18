@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /**
+
  * The live probe of a refused impersonation (`server/src/agentAdmin.ts`,
  * `impersonateAs`, and `server/src/app.ts`'s `/admin/users` acting-check).
  *
@@ -50,6 +51,8 @@
  * is never printed, and neither is the Authorization header it builds.
  */
 
+import { basic, note, record, report } from "./lib/probeKit.mjs";
+
 const base = (process.env.STALWART_URL ?? "").replace(/\/+$/, "");
 const master = process.env.GILBERT_AGENT_ADDRESS ?? "";
 const password = process.env.GILBERT_AGENT_PASSWORD ?? "";
@@ -79,9 +82,6 @@ const TIMEOUT = 30_000;
 const absent =
   process.env.GILBERT_PROBE_REFUSED_ADDRESS ??
   `no-such-account-${Date.now()}@${master.includes("@") ? master.slice(master.lastIndexOf("@") + 1) : "example.com"}`;
-
-const basic = (address, secret) =>
-  `Basic ${Buffer.from(`${address}:${secret}`, "utf8").toString("base64")}`;
 
 /**
  * The composite credential the code builds (`impersonationAuthorization` in
@@ -169,7 +169,11 @@ const run = async () => {
   note("the session's username", own.username ?? "(absent)");
   if (classify(own) !== "opened a session") {
     note("why nothing else was asked", `the session call answered: ${own.detail}`);
-    return report();
+    return report({
+    where:
+      "in the owed note in the `gilbert-stalwart` skill and beside `impersonateAs` in\n" +
+      "server/src/agentAdmin.ts",
+  });
   }
 
   // 2. The refusal the code depends on.
@@ -228,40 +232,12 @@ const run = async () => {
   const self = await open(composite(master));
   note("a composite naming the master as its own target", classify(self));
 
-  return report();
+  return report({
+    where:
+      "in the owed note in the `gilbert-stalwart` skill and beside `impersonateAs` in\n" +
+      "server/src/agentAdmin.ts",
+  });
 };
-
-/** The answers, one line each, and whether any of them is not what was assumed. */
-function report() {
-  console.log("");
-  for (const { question, answer } of notes) console.log(`note ${question}: ${answer}`);
-  console.log("");
-  let wrong = 0;
-  for (const entry of answers) {
-    if (!entry.ok) wrong += 1;
-    console.log(
-      `${entry.ok ? "ok  " : "DIFF"} ${entry.question}: ${entry.answer} (assumed ${entry.assumed})`,
-    );
-  }
-  console.log("");
-  if (wrong) {
-    console.log(
-      `${wrong} question(s) did not answer the way the code assumes. A 200 where a\n` +
-        "refusal was assumed is the one that matters most: the composite authenticated as\n" +
-        "the target, and `impersonateAs` returns a working session — nothing refuses and\n" +
-        "the surface acts as somebody it should not reach. Record the answers, with the\n" +
-        "server's version and the date, beside `impersonateAs` in server/src/agentAdmin.ts\n" +
-        "and in the mock's `resolveIdentity` comment, and change what depends on them.",
-    );
-    return 1;
-  }
-  console.log(
-    "Every assumed behaviour holds on this server. Record the answers, with the version\n" +
-      "and the date, beside `impersonateAs` in server/src/agentAdmin.ts and in the mock's\n" +
-      "`resolveIdentity` comment (that comment is the owed probe).",
-  );
-  return 0;
-}
 
 run()
   .then((code) => process.exit(code))

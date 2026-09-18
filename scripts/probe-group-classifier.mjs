@@ -30,6 +30,8 @@
  * It writes nothing to the server: every call is a read.
  */
 
+import { basic } from "./lib/probeKit.mjs";
+
 const url = (process.env.GILBERT_PROBE_URL ?? "").replace(/\/$/, "");
 const user = process.env.GILBERT_PROBE_USER ?? "";
 const pass = process.env.GILBERT_PROBE_PASS ?? "";
@@ -40,9 +42,6 @@ if (!url || !user || !pass) {
   console.error("set GILBERT_PROBE_URL, GILBERT_PROBE_USER and GILBERT_PROBE_PASS");
   process.exit(2);
 }
-
-const basic = (address, password) =>
-  `Basic ${Buffer.from(`${address}:${password}`, "utf8").toString("base64")}`;
 
 /** The session, and what the account list says about each account. */
 async function session(authorization) {

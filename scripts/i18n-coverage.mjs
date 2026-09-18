@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { globSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { componentFiles } from "./lib/i18nSources.mjs";
 /*
  * How much of the interface is extracted, and what is left.
  *
@@ -65,7 +66,7 @@ const optedOut = (node, src) => {
   );
 };
 
-const files = globSync("web/src/**/*.tsx").filter((f) => !f.includes("__tests__"));
+const files = componentFiles();
 const rows = [];
 let done = 0,
   todo = 0;

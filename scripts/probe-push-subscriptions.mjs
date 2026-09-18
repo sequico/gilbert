@@ -45,6 +45,8 @@
  * subscription's URL lived under, and there is no URL to read. Without
  * `--destroy-ours` the probe only counts and lists.
  */
+
+import { basic } from "./lib/probeKit.mjs";
 const CAP = "urn:ietf:params:jmap:core";
 
 const args = process.argv.slice(2);
@@ -72,11 +74,12 @@ if (!STALWART_URL || !ADDRESS || !PASSWORD) {
   process.exit(2);
 }
 
-/** Stalwart's composite credential: the target, authenticated by the admin. */
-const authorizationFor = (target) => {
-  const user = target ? `${target}%${ADDRESS}` : ADDRESS;
-  return `Basic ${Buffer.from(`${user}:${PASSWORD}`).toString("base64")}`;
-};
+/**
+ * Stalwart's composite credential: the target, authenticated by the admin —
+ * the shape `impersonationAuthorization` builds, from the probe's own pair.
+ */
+const authorizationFor = (target) =>
+  basic(target ? `${target}%${ADDRESS}` : ADDRESS, PASSWORD);
 
 async function call(session, authorization, method, args, using = [CAP]) {
   const res = await fetch(session.apiUrl, {

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { globSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { sourceFiles } from "./lib/i18nSources.mjs";
 /*
  * Every source string a catalogue needs, straight out of the calls.
  *
@@ -25,9 +26,7 @@ import ts from "typescript";
 const strings = new Set();
 const plurals = new Set();
 
-for (const file of globSync("web/src/**/*.{ts,tsx}").filter(
-  (f) => !f.includes("__tests__"),
-)) {
+for (const file of sourceFiles()) {
   const src = ts.createSourceFile(
     file,
     readFileSync(file, "utf8"),
