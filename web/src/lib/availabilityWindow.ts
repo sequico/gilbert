@@ -1,4 +1,4 @@
-import { DAY_MS } from "@/lib/dates";
+import { addDays, DAY_MS, startOfDay } from "@/lib/dates";
 
 /**
  * The span an availability bar covers, and the marks along it.
@@ -37,24 +37,6 @@ export interface AvailabilityWindow {
    * use than showing it.
    */
   daysHidden: number;
-}
-
-/** Midnight starting the day `d` falls in, in local time. */
-function startOfDay(d: Date): Date {
-  const out = new Date(d);
-  out.setHours(0, 0, 0, 0);
-  return out;
-}
-
-/**
- * `n` days on from `d`, by the calendar rather than by arithmetic: a day is 23
- * or 25 hours twice a year, and adding 24 of them lands an hour off.
- */
-function addDays(d: Date, n: number): Date {
-  const out = new Date(d);
-  out.setDate(out.getDate() + n);
-  out.setHours(0, 0, 0, 0);
-  return out;
 }
 
 /** How far apart the marks go, in hours, and which of them get a label. */

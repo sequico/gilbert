@@ -39,6 +39,7 @@ import {
   type InstallationStore,
   readInstallation,
 } from "./installation.js";
+import { sleep } from "./shared/async.js";
 import type { InstallationAgent, InstallationDocument } from "./shared/installation.js";
 import type { UpstreamSession } from "./upstream.js";
 
@@ -432,7 +433,7 @@ export async function bootInstallation(deps: BootDeps = {}): Promise<BootConfigu
   const exit = deps.exit ?? ((code: number): never => process.exit(code));
   const attempts = deps.signInAttempts ?? 10;
   const retryMs = deps.signInRetryMs ?? 1000;
-  const sleep = deps.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  const wait = deps.sleep ?? sleep;
   const openStore =
     deps.store ??
     ((login: MasterLogin) => {
@@ -502,7 +503,7 @@ export async function bootInstallation(deps: BootDeps = {}): Promise<BootConfigu
         log(
           `[gilbert] ${handshake.stalwartUrl} did not answer (${err instanceof Error ? err.message : String(err)}) — trying again (${attempt}/${attempts})`,
         );
-        await sleep(retryMs);
+        await wait(retryMs);
       }
     }
   }

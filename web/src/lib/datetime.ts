@@ -10,6 +10,7 @@
  * locale Stalwart reports for the account, and finally to the browser's.
  */
 
+import { pad2 } from "@gilbert/shared/localDateTime";
 import { LOCALE_TAGS } from "./locales";
 
 export type DateFormat = "auto" | "dmy-dot" | "dmy-slash" | "mdy-slash" | "ymd-dash";
@@ -430,8 +431,8 @@ export function formatDateInput(d: Date): string {
   if (Number.isNaN(d.getTime())) return "";
   const { order, separator } = dateInputPattern();
   const parts: Record<"d" | "m" | "y", string> = {
-    d: String(d.getDate()).padStart(2, "0"),
-    m: String(d.getMonth() + 1).padStart(2, "0"),
+    d: pad2(d.getDate()),
+    m: pad2(d.getMonth() + 1),
     y: String(d.getFullYear()).padStart(4, "0"),
   };
   return order.map((f) => parts[f]).join(separator);

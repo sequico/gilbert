@@ -70,12 +70,16 @@ export function formatRelative(iso: string | null | undefined, now = new Date())
 }
 
 /**
- * A short random id for a key the client mints and never shows.
+ * A prefixed random id for a name the client mints and never shows: a draft
+ * key, an attachment's id, a content-id, a MIME boundary, a `Message-ID`.
  *
- * Local to this client and deliberately weak: it names an entry inside one
- * document the reader is composing — an alert, a location, an image — where
- * what matters is only that two of them in the same document differ, and
- * nothing else ever compares them.
+ * The time component is what makes that list one function. These names are
+ * compared against other names minted in the same session — two content-ids
+ * that collided would be one attachment shown twice, a repeated boundary would
+ * cut a message in the wrong place — so it carries more than the six random
+ * characters a key inside one document needs. `contacts.ts`'s `newKey` is that
+ * other thing and stays its own: a key in a JSContact or JSCalendar object map,
+ * unique within the document and read by nothing else.
  */
 export function uid(prefix = "u"): string {
   return `${prefix}${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
