@@ -1,6 +1,19 @@
 import { type Ctx, readAppJsonAt, writeAppFile } from "./appFolder.js";
 import { isStateMismatch } from "./jmap.js";
 import { isRecord } from "./shared/json.js";
+import {
+  PUBLISH_JOB_FILE,
+  type PublishJob,
+  type PublishRefusal,
+  type PublishUnreached,
+} from "./shared/publishJob.js";
+
+/*
+ * Re-exported, so the modules that read a job through the reader that
+ * lives here (`app.ts`, the policy tests) keep naming it here.
+ */
+export { PUBLISH_JOB_FILE };
+export type { PublishJob, PublishRefusal, PublishUnreached };
 
 /**
  * The installation-wide settings policy, as the administration surface edits
@@ -253,83 +266,6 @@ export async function writeAccountPolicy(
 /* The publish job: what one publish did, kept in the publisher's own account  */
 /* so the administration surface reads the same answer back later              */
 /* -------------------------------------------------------------------------- */
-
-/**
- * Why one account did not receive a publish's copy.
- *
- * A code rather than a sentence, because a caller composes prose from it: the
- * client shows the reason in the reader's own language, and a test can assert
- * on the reason without matching a message.
- */
-export type PublishRefusal =
-  | "impersonation-refused"
-  | "no-files-account"
-  | "write-failed"
-  /** The folder moved between the read and the write: nothing was written. */
-  | "policy-moved";
-
-/** One account a publish could not write to, and why. */
-export interface PublishUnreached {
-  address: string;
-  code: PublishRefusal | "directory-denied";
-  message: string;
-}
-
-/**
- * One publish, as the account that made it holds it.
- *
- * A publish is a job with an id: the id rides the copies it wrote into every
- * account (`PolicyPublished`), the population it measured itself against is
- * the directory as it read it, and `complete` is the claim itself — true only
- * when the directory was the whole directory and every account it listed got
- * the policy. The record lives in the publishing administrator's own app
- * folder rather than in the process, so the surface that shows it can be
- * restarted, redeployed, or answered by another instance and still say the
- * same thing.
- */
-export interface PublishJob {
-  /** The document's own version, so a later shape can tell itself apart. */
-  v: 1;
-  /** This publish's id; the same one every copy it wrote carries. */
-  id: string;
-  /** When the publish started. */
-  startedAt: string;
-  /** Who published, as the address they signed in with. */
-  by: string;
-  /**
-   * The directory as the publish read it: how many individual accounts it
-   * listed, whether that list was the whole directory, and how many there are
-   * in total when the server said so.
-   */
-  population: { read: number; complete: boolean; total: number | null };
-  /** The addresses the policy was written to, the publisher's own included. */
-  reached: string[];
-  /** The ones it was not written to, each with the reason and what was said. */
-  unreached: PublishUnreached[];
-  /** Whether the installation can be said to carry this policy. */
-  complete: boolean;
-  /** What the server said when it refused to list the directory at all. */
-  directory?: string;
-  /**
-   * Whether the account actually keeps this job: `"failed"` means the publish
-   * ran and this report could not be stored, with the reason beside it. A job
-   * read back from an account never carries it.
-   */
-  record?: "failed";
-  recordMessage?: string;
-}
-
-/**
- * The job document's name, in the publisher's own app folder.
- *
- * One document, replaced by each publish: the question it answers is "what did
- * the last publish do", and a history of publishes is a different document
- * with a different retention rule. Its own file rather than a key of
- * `installation-policy.json`, because the two are written at different moments
- * for different readers: the copy is what an account follows, the job is what
- * the administrator reads back.
- */
-export const PUBLISH_JOB_FILE = "publish-job.json";
 
 const isUnreached = (v: unknown): v is PublishUnreached =>
   isRecord(v) &&
