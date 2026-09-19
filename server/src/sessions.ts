@@ -51,6 +51,7 @@
  */
 
 import { randomBytes } from "node:crypto";
+import { type SessionSummary } from "./shared/accountSecurity.js";
 import { config } from "./config.js";
 import { deriveKey, open, randomToken, safeEqual, seal, sha256 } from "./crypto.js";
 
@@ -112,18 +113,7 @@ export interface LiveSession {
   ip: string;
 }
 
-/** What `/api/auth/sessions` reports about a session, with nothing secret in it. */
-export interface SessionSummary {
-  id: string;
-  username: string;
-  createdAt: number;
-  lastSeenAt: number;
-  expiresAt: number;
-  remember: boolean;
-  userAgent: string;
-  ip: string;
-}
-
+/** What a caller may ask for when a session is created. */
 export interface CreateSessionParams {
   username: string;
   password: string;

@@ -9,6 +9,10 @@ import {
 import { config } from "./config.js";
 import { type Invocation, JMAP_MAIL, STALWART_CAP } from "./jmap.js";
 import {
+  type AppPasswordRow,
+  type SecurityState,
+} from "./shared/accountSecurity.js";
+import {
   GROUP_LABELS_FILE,
   isLabelCatalog,
   type LabelCatalogEntry,
@@ -43,18 +47,6 @@ export { filesAccountId };
 const SINGLETON = "singleton";
 /** Returned in place of a stored secret; echo it back to leave one unchanged. */
 const MASKED = "[********]";
-
-export interface AppPasswordRow {
-  id: string;
-  description: string;
-  createdAt: string | null;
-  expiresAt: string | null;
-}
-
-export interface SecurityState {
-  otpEnabled: boolean;
-  appPasswords: AppPasswordRow[];
-}
 
 /** An error with a message meant for the person using the app. */
 export class AccountError extends Error {

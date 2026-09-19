@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import type {
+  AppPasswordRow,
+  SecurityState,
+  SessionList,
+  SessionSummary,
+} from "./shared/accountSecurity.js";
 import { postWith } from "./testkit.js";
 
 /**
@@ -309,4 +315,63 @@ test("a rejected sign-in without a code is still a plain credential failure", as
   cookie = saved;
   assert.equal(res.status, 401);
   assert.equal(res.body.error, "invalid_credentials");
+});
+
+/**
+ * The two answers the client's security page reads.
+ *
+ * The page reads these fields by name through a cast — `apiFetch<SessionList>`
+ * checks nothing at runtime — so a field the server stopped sending is a row
+ * that renders blank rather than an error anybody sees. The shapes themselves
+ * are `@gilbert/shared/accountSecurity`, and these key lists are spelled as
+ * records over those types: a field added on either side stops this file
+ * compiling until the answer carries it too.
+ */
+const SUMMARY_FIELDS: Record<keyof SessionSummary, true> = {
+  id: true,
+  username: true,
+  createdAt: true,
+  lastSeenAt: true,
+  expiresAt: true,
+  remember: true,
+  userAgent: true,
+  ip: true,
+};
+
+const SECURITY_FIELDS: Record<keyof SecurityState, true> = {
+  otpEnabled: true,
+  appPasswords: true,
+};
+
+const APP_PASSWORD_FIELDS: Record<keyof AppPasswordRow, true> = {
+  id: true,
+  description: true,
+  createdAt: true,
+  expiresAt: true,
+};
+
+test("the session list carries the fields the security page reads", async () => {
+  const res = await call("/api/auth/sessions");
+  assert.equal(res.status, 200);
+  const list = res.body as SessionList;
+  assert.deepEqual(Object.keys(list).sort(), ["current", "sessions"]);
+  assert.ok(list.sessions.length > 0, "the caller's own session is in the list");
+  for (const row of list.sessions) {
+    assert.deepEqual(Object.keys(row).sort(), Object.keys(SUMMARY_FIELDS).sort());
+  }
+});
+
+test("the security answer carries the fields the security page reads", async () => {
+  const res = await call("/api/account/security");
+  assert.equal(res.status, 200);
+  assert.deepEqual(
+    Object.keys(res.body).sort(),
+    Object.keys(SECURITY_FIELDS).sort(),
+  );
+  for (const row of (res.body as SecurityState).appPasswords) {
+    assert.deepEqual(
+      Object.keys(row).sort(),
+      Object.keys(APP_PASSWORD_FIELDS).sort(),
+    );
+  }
 });

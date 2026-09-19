@@ -9,11 +9,12 @@
  * something anyone filed there: the Files view drops it from the listing, so it
  * never appears as a place to file your own.
  *
- * Which folder that is is **one rule, applied on both sides**: this module and
- * the server's `server/src/appFolder.ts`. There is one name, and the name is
- * the whole rule: no marker to leave, no second name to fall back to, nothing
- * for the two sides to resolve differently. Gilbert is pre-release, so there is
- * no compatibility path for a folder under any other name: its documents are
+ * Which folder that is is **one rule, kept once**: `@gilbert/shared/appFolder`
+ * owns the predicate and the find-then-create both tiers run, and this module is
+ * that rule over the client's transport. There is one name, and the name is the
+ * whole rule: no marker to leave, no second name to fall back to, nothing for
+ * the two sides to resolve differently. Gilbert is pre-release, so there is no
+ * compatibility path for a folder under any other name: its documents are
  * neither read nor migrated.
  *
  * The lookup below filters on `parentId`/`isTopLevel` alone and matches the
@@ -22,29 +23,27 @@
  * filter it does not know fails the whole query rather than being ignored.
  */
 import { appDocumentJson } from "@gilbert/shared/appDocument";
-import { APP_DOCUMENT_TYPE, APP_FOLDER_NAME } from "@gilbert/shared/appFolder";
+import {
+  APP_DOCUMENT_TYPE,
+  APP_FOLDER_NAME,
+  appFolderCreate,
+  ensureAppFolderId,
+  findAppFolderId,
+} from "@gilbert/shared/appFolder";
 
 /*
- * The folder's name is the shared constant's, not this module's: the server
- * looks the same folder up by it (`server/src/appFolder.ts`), so one spelling
- * serves both tiers. Re-exported because this tier's surfaces name it when they
- * decide what to show or where to write.
+ * The folder's name is the shared constant's, not this module's: the predicate
+ * that finds the folder reads it, on both tiers. Re-exported because this tier's
+ * surfaces name it when they decide what to show or where to write.
  */
 export { APP_FOLDER_NAME };
 
 import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
-import { directoryCreate, fileCreate } from "@/lib/filenode";
+import { fileCreate } from "@/lib/filenode";
 
 /** Just enough to find the folder. */
 export const folderProps = (): string[] => ["id", "name", "nodeType", "parentId"];
-
-/** A top-level directory by the app folder's name. */
-export function isAppFolder(
-  n: Pick<FileNode, "name" | "parentId" | "nodeType">,
-): boolean {
-  return !n.parentId && n.nodeType === "directory" && String(n.name) === APP_FOLDER_NAME;
-}
 
 /** List one level of the tree: the top level, or the children of a folder. */
 async function children(
@@ -135,24 +134,32 @@ export async function listChildrenWithState(
   };
 }
 
-/** The account's own app folder, or null when there is not one yet. */
+/**
+ * The account's own app folder, or null when there is not one yet.
+ *
+ * What the folder *is* is `@gilbert/shared/appFolder`'s rule, which the server
+ * asks as well: this is that rule over this tier's transport.
+ */
 export async function findAppFolder(accountId: Id): Promise<Id | null> {
-  const top = await children(accountId, null, folderProps());
-  const found = top.find(isAppFolder);
-  return found ? found.id : null;
+  return findAppFolderId((parentId) =>
+    children(accountId, parentId, folderProps()),
+  );
 }
 
 /** The account's own app folder, creating it when missing. */
 export async function ensureFolder(accountId: Id): Promise<Id> {
-  const existing = await findAppFolder(accountId);
-  if (existing) return existing;
-  const set = await client.call<SetResponse<FileNode>>("FileNode/set", {
-    accountId,
-    create: { d: directoryCreate(null, APP_FOLDER_NAME) },
-  });
-  const err = set.notCreated?.d;
-  if (err) throw new Error(setErrorMessage(err));
-  return set.created!.d!.id;
+  return ensureAppFolderId(
+    (parentId) => children(accountId, parentId, folderProps()),
+    async () => {
+      const set = await client.call<SetResponse<FileNode>>("FileNode/set", {
+        accountId,
+        create: { d: appFolderCreate() },
+      });
+      const err = set.notCreated?.d;
+      if (err) throw new Error(setErrorMessage(err));
+      return set.created!.d!.id;
+    },
+  );
 }
 
 /**

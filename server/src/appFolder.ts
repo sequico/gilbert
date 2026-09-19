@@ -25,7 +25,13 @@
 
 import { isAlreadyExistsRefusal } from "./jmap.js";
 import { appDocumentJson } from "./shared/appDocument.js";
-import { APP_DOCUMENT_TYPE, APP_FOLDER_NAME } from "./shared/appFolder.js";
+import {
+  APP_DOCUMENT_TYPE,
+  APP_FOLDER_NAME,
+  appFolderCreate,
+  ensureAppFolderId,
+  findAppFolderId,
+} from "./shared/appFolder.js";
 import { sameBytes } from "./shared/bytes.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
 import type { UpstreamSession } from "./upstream.js";
@@ -137,37 +143,38 @@ export async function appFolderState(ctx: Ctx, accountId: string): Promise<strin
   return typeof res.state === "string" ? res.state : "";
 }
 
-/** The account's own app folder, or null when there is not one yet. */
+/**
+ * The account's own app folder, or null when there is not one yet.
+ *
+ * What the folder *is* is `@gilbert/shared/appFolder`'s rule, which the client
+ * asks as well: this is that rule over this tier's transport.
+ */
 export async function findAppFolder(ctx: Ctx, accountId: string): Promise<string | null> {
-  const top = await fileChildren(ctx, accountId, null, FOLDER_PROPS);
-  const found = top.find(
-    (n) => n.parentId == null && n.nodeType === "directory" && n.name === APP_FOLDER_NAME,
+  return findAppFolderId((parentId) =>
+    fileChildren(ctx, accountId, parentId, FOLDER_PROPS),
   );
-  return found ? String(found.id) : null;
 }
 
 /** The account's own app folder, creating it when missing. */
 export async function ensureAppFolder(ctx: Ctx, accountId: string): Promise<string> {
-  const existing = await findAppFolder(ctx, accountId);
-  if (existing) return existing;
-  const created = await clientOf(ctx).call<{
-    created?: Record<string, { id?: string }>;
-  }>(
-    "FileNode/set",
-    {
-      accountId,
-      create: {
-        d: { parentId: null, name: APP_FOLDER_NAME, nodeType: "directory" },
-      },
+  return ensureAppFolderId(
+    (parentId) => fileChildren(ctx, accountId, parentId, FOLDER_PROPS),
+    async () => {
+      const created = await clientOf(ctx).call<{
+        created?: Record<string, { id?: string }>;
+      }>(
+        "FileNode/set",
+        { accountId, create: { d: appFolderCreate() } },
+        [FILENODE_CAP],
+      );
+      const id = created.created?.d?.id;
+      if (!id)
+        throw new AppFolderError(
+          "The mail server created the app folder but returned no id.",
+        );
+      return String(id);
     },
-    [FILENODE_CAP],
   );
-  const id = created.created?.d?.id;
-  if (!id)
-    throw new AppFolderError(
-      "The mail server created the app folder but returned no id.",
-    );
-  return id;
 }
 
 /** A directory by name under `parentId`, creating it when missing. */

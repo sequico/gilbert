@@ -12,8 +12,9 @@ import {
   syncedPart,
 } from "@/store/settings";
 import { toast } from "@/ui/toast";
+import { isAppFolder } from "@gilbert/shared/appFolder";
 import * as appFolder from "../appFolder";
-import { APP_FOLDER_NAME, isAppFolder } from "../appFolder";
+import { APP_FOLDER_NAME } from "../appFolder";
 import {
   armSettingsSync,
   flushSettingsPush,

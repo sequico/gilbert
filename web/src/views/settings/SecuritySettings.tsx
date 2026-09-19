@@ -1,3 +1,9 @@
+import {
+  type AppPasswordRow,
+  type SecurityState,
+  type SessionList,
+  type SessionSummary,
+} from "@gilbert/shared/accountSecurity";
 import { Copy, KeyRound, ShieldCheck, Smartphone } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, apiFetch } from "@/jmap/client";
@@ -7,31 +13,8 @@ import { useSession } from "@/store/session";
 import { confirmDialog, Dialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 
-interface SessionRow {
-  id: string;
-  username: string;
-  createdAt: number;
-  lastSeenAt: number;
-  expiresAt: number;
-  remember: boolean;
-  userAgent: string;
-  ip: string;
-}
-
-interface AppPasswordRow {
-  id: string;
-  description: string;
-  createdAt: string | null;
-  expiresAt: string | null;
-}
-
-interface SecurityState {
-  otpEnabled: boolean;
-  appPasswords: AppPasswordRow[];
-}
-
 export function SecuritySettings() {
-  const [rows, setRows] = useState<SessionRow[] | null>(null);
+  const [rows, setRows] = useState<SessionSummary[] | null>(null);
   const [current, setCurrent] = useState<string>("");
   const [state, setState] = useState<SecurityState | null>(null);
   /** Set when the server has no self-service API at all (a proxy, say). */
@@ -40,7 +23,7 @@ export function SecuritySettings() {
   const logout = useSession((s) => s.logout);
 
   const load = () =>
-    apiFetch<{ current: string; sessions: SessionRow[] }>("/api/auth/sessions")
+    apiFetch<SessionList>("/api/auth/sessions")
       .then((r) => {
         setRows(r.sessions);
         setCurrent(r.current);

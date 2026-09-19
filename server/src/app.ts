@@ -22,10 +22,10 @@ import {
   isPasswordChangeForced,
   readGroupLabels,
   revokeAppPassword,
-  type SecurityState,
   setPasswordChangeDirective,
   writeGroupLabels,
 } from "./account.js";
+import { type SecurityState } from "./shared/accountSecurity.js";
 import { administrationAllowed, gateAdministration } from "./adminGate.js";
 import {
   EMPTY_POLICY,

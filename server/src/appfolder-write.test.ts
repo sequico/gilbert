@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { waitForPort } from "./testkit.js";
+import { isAppFolder } from "./shared/appFolder.js";
 
 /**
  * The write funnel's no-op rule, against the mock Stalwart.
@@ -34,8 +35,11 @@ const { fetchUpstreamSession } = await import("./upstream.js");
 const { isStateMismatch } = await import("./jmap.js");
 const {
   appFolderState,
+  ensureAppFolder,
+  fileChildren,
   filesAccountId,
   findAppFileAt,
+  findAppFolder,
   readAppFileAt,
   readAppJsonAt,
   readVisibleFileAt,
@@ -229,5 +233,33 @@ test("the byte writers skip the same bytes too", async () => {
   assert.equal(
     (await readVisibleFileAt(ctx, accountId, `${folder}/agenda.txt`))?.text,
     "Team agenda\n",
+  );
+});
+
+/**
+ * The find-then-create the two tiers share (`@gilbert/shared/appFolder`).
+ *
+ * Every document Gilbert keeps lives in this folder, so the first boot creates
+ * it and every later boot has to find the one that is there. A tier that
+ * created instead of finding would answer with a second folder of the same name
+ * — the account would then hold two `gilbert` folders, writes would land in
+ * whichever came back first, and nothing would report a problem.
+ */
+test("the app folder is found after it has been created, not created again", async () => {
+  const created = await ensureAppFolder(ctx, accountId);
+  const again = await ensureAppFolder(ctx, accountId);
+  assert.equal(again, created, "the second ask is answered by the folder already there");
+  assert.equal(await findAppFolder(ctx, accountId), created);
+
+  const top = await fileChildren(ctx, accountId, null, [
+    "id",
+    "name",
+    "nodeType",
+    "parentId",
+  ]);
+  assert.equal(
+    top.filter(isAppFolder).length,
+    1,
+    "the account holds one app folder, however many writers asked for it",
   );
 });
