@@ -3,6 +3,7 @@ import { CAP, client } from "@/jmap/client";
 import type { Calendar, JmapSession } from "@/jmap/types";
 import { useCalendar } from "@/store/calendar";
 import { useSession } from "@/store/session";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /**
  * Shared calendars follow the session's non-personal accounts.
@@ -43,31 +44,9 @@ function sessionWith(accountIds: string[]) {
   } as unknown as JmapSession;
 }
 
+/** A server that answers the envelope and nothing else; see `@/test/jmapServer`. */
 function stubServer() {
-  const calls: string[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init: RequestInit) => {
-      const body = JSON.parse(init.body as string) as {
-        methodCalls: [string, Record<string, unknown>, string][];
-      };
-      const methodResponses: unknown[] = [];
-      for (const [name, args, id] of body.methodCalls) {
-        calls.push(name);
-        methodResponses.push([
-          name,
-          { accountId: args.accountId, state: "1", list: [], notFound: [] },
-          id,
-        ]);
-      }
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ methodResponses, sessionState: "1" }),
-      } as Response;
-    }),
-  );
-  return calls;
+  return fakeJmapServer();
 }
 
 const flush = () => new Promise((r) => setTimeout(r, 5));
@@ -108,7 +87,7 @@ afterEach(() => {
 
 describe("shared calendars across session changes", () => {
   it("clears shared calendars and events when every shared account is gone", async () => {
-    const calls = stubServer();
+    const srv = stubServer();
     useCalendar.setState({
       accountId: "a1",
       sharedCalendars: [{ accountId: "a2", accountName: "team", calendar: CAL("gc1") }],
@@ -135,7 +114,7 @@ describe("shared calendars across session changes", () => {
     expect(useCalendar.getState().sharedEvents).toEqual({});
     expect(useCalendar.getState().sharedRanges).toEqual({});
     // The clearing went through a Calendar/get round, not a silent local drop.
-    expect(calls.some((n) => n === "Calendar/get")).toBe(false);
+    expect(srv.calls.some((c) => c.method === "Calendar/get")).toBe(false);
   });
 
   it("drops all shared state on sign-out", async () => {

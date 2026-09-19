@@ -4,6 +4,7 @@ import type { Calendar, JmapSession } from "@/jmap/types";
 import { dateToZonedLocal, toLocalDateTime } from "@/lib/dates";
 import { useCalendar } from "@/store/calendar";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /*
  * Calendar range queries were sent with `after`/`before` formatted in the
@@ -41,45 +42,14 @@ const tz =
   "Pacific/Kiritimati";
 
 function stubServer() {
-  const queries: Array<Record<string, unknown>> = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init: RequestInit) => {
-      const body = JSON.parse(init.body as string) as {
-        methodCalls: [string, Record<string, unknown>, string][];
-      };
-      const methodResponses: unknown[] = [];
-      for (const [name, args, id] of body.methodCalls) {
-        if (name === "CalendarEvent/query") {
-          queries.push(args);
-          methodResponses.push([
-            name,
-            {
-              accountId: args.accountId,
-              queryState: "q",
-              ids: [],
-              position: (args.position as number) ?? 0,
-              total: 0,
-              canCalculateChanges: false,
-            },
-            id,
-          ]);
-        } else {
-          methodResponses.push([
-            name,
-            { accountId: args.accountId, state: "1", list: [], notFound: [] },
-            id,
-          ]);
-        }
-      }
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ methodResponses, sessionState: "1" }),
-      } as Response;
-    }),
-  );
-  return queries;
+  return fakeJmapServer().on("CalendarEvent/query", ({ args }) => ({
+    accountId: args.accountId,
+    queryState: "q",
+    ids: [],
+    position: (args.position as number) ?? 0,
+    total: 0,
+    canCalculateChanges: false,
+  }));
 }
 
 beforeEach(() => {
@@ -124,9 +94,9 @@ afterEach(() => {
 
 describe("calendar range query bounds follow the zone the server is told", () => {
   it("asks the own-account window in the settings zone's clock", async () => {
-    const queries = stubServer();
+    const srv = stubServer();
     await useCalendar.getState().loadRange(START, END);
-    const q = queries[0]!;
+    const q = srv.callsTo("CalendarEvent/query")[0]!.args;
     expect(q.accountId).toBe("a1");
     expect(q.timeZone).toBe(tz);
     expect(q.filter).toEqual({
@@ -142,9 +112,9 @@ describe("calendar range query bounds follow the zone the server is told", () =>
   });
 
   it("asks the shared window in the settings zone's clock", async () => {
-    const queries = stubServer();
+    const srv = stubServer();
     await useCalendar.getState().loadSharedRange(START, END);
-    const q = queries[0]!;
+    const q = srv.callsTo("CalendarEvent/query")[0]!.args;
     expect(q.accountId).toBe("a2");
     expect(q.timeZone).toBe(tz);
     expect(q.filter).toEqual({

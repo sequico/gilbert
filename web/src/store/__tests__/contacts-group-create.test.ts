@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { AddressBook, JmapSession } from "@/jmap/types";
 import { useContacts } from "@/store/contacts";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /**
  * An address book made while acting for a group must be created in the
@@ -13,50 +14,21 @@ import { useContacts } from "@/store/contacts";
  */
 
 function stubServer() {
-  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init: RequestInit) => {
-      const body = JSON.parse(init.body as string) as {
-        methodCalls: [string, Record<string, unknown>, string][];
-      };
-      const methodResponses: unknown[] = [];
-      for (const [name, args, id] of body.methodCalls) {
-        calls.push({ name, args });
-        if (name === "AddressBook/set") {
-          const created: Record<string, unknown> = {};
-          for (const k of Object.keys((args.create as Record<string, unknown>) ?? {}))
-            created[k] = { id: `n${k}` };
-          methodResponses.push([
-            name,
-            {
-              accountId: args.accountId,
-              state: "1",
-              created,
-              updated: {},
-              destroyed: [],
-              notCreated: {},
-              notUpdated: {},
-              notDestroyed: {},
-            },
-            id,
-          ]);
-        } else {
-          methodResponses.push([
-            name,
-            { accountId: args.accountId, state: "1", list: [], notFound: [] },
-            id,
-          ]);
-        }
-      }
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ methodResponses, sessionState: "1" }),
-      } as Response;
-    }),
-  );
-  return calls;
+  return fakeJmapServer().on("AddressBook/set", ({ args }) => {
+    const created: Record<string, unknown> = {};
+    for (const k of Object.keys((args.create as Record<string, unknown>) ?? {}))
+      created[k] = { id: `n${k}` };
+    return {
+      accountId: args.accountId,
+      state: "1",
+      created,
+      updated: {},
+      destroyed: [],
+      notCreated: {},
+      notUpdated: {},
+      notDestroyed: {},
+    };
+  });
 }
 
 beforeEach(() => {
@@ -94,10 +66,10 @@ afterEach(() => {
 
 describe("creating an address book", () => {
   it("creates a group book in the group's own account, subscribed", async () => {
-    const calls = stubServer();
+    const calls = stubServer().calls;
     const id = await useContacts.getState().createBook("Team", "a2");
     expect(id).toBe("nb");
-    const sets = calls.filter((c) => c.name === "AddressBook/set");
+    const sets = calls.filter((c) => c.method === "AddressBook/set");
     expect(sets).toHaveLength(1);
     expect(sets[0]?.args.accountId).toBe("a2");
     expect(sets[0]?.args.create).toEqual({
@@ -106,9 +78,9 @@ describe("creating an address book", () => {
   });
 
   it("creates the reader's own book in their own account, as before", async () => {
-    const calls = stubServer();
+    const calls = stubServer().calls;
     await useContacts.getState().createBook("Private");
-    const sets = calls.filter((c) => c.name === "AddressBook/set");
+    const sets = calls.filter((c) => c.method === "AddressBook/set");
     expect(sets).toHaveLength(1);
     expect(sets[0]?.args.accountId).toBe("a1");
     expect(sets[0]?.args.create).toEqual({ b: { name: "Private" } });
@@ -144,28 +116,28 @@ describe("renaming an address book", () => {
   } as unknown as AddressBook;
 
   it("writes a group's book in the group's own account", async () => {
-    const calls = stubServer();
+    const calls = stubServer().calls;
     useContacts.setState({
       accountId: "a1",
       books: {},
       sharedBooks: [{ accountId: "a2", accountName: "Team", book: groupBook }],
     });
     await useContacts.getState().updateBook("gb1", { name: "Freight directory" });
-    const sets = calls.filter((c) => c.name === "AddressBook/set");
+    const sets = calls.filter((c) => c.method === "AddressBook/set");
     expect(sets).toHaveLength(1);
     expect(sets[0]?.args.accountId).toBe("a2");
     expect(sets[0]?.args.update).toEqual({ gb1: { name: "Freight directory" } });
   });
 
   it("writes the reader's own book in their own account", async () => {
-    const calls = stubServer();
+    const calls = stubServer().calls;
     useContacts.setState({
       accountId: "a1",
       books: { b1: { ...groupBook, id: "b1", name: "Mine" } as unknown as AddressBook },
       sharedBooks: [],
     });
     await useContacts.getState().updateBook("b1", { name: "Personal" });
-    const sets = calls.filter((c) => c.name === "AddressBook/set");
+    const sets = calls.filter((c) => c.method === "AddressBook/set");
     expect(sets).toHaveLength(1);
     expect(sets[0]?.args.accountId).toBe("a1");
   });
@@ -178,7 +150,7 @@ describe("renaming an address book", () => {
      * which renamed the wrong book; the caller that holds a row passes the
      * account it came from.
      */
-    const calls = stubServer();
+    const calls = stubServer().calls;
     useContacts.setState({
       accountId: "a1",
       books: { b1: { ...groupBook, id: "b1", name: "Mine" } as unknown as AddressBook },
@@ -187,7 +159,7 @@ describe("renaming an address book", () => {
       ],
     });
     await useContacts.getState().updateBook("b1", { name: "Freight" }, "a2");
-    const sets = calls.filter((c) => c.name === "AddressBook/set");
+    const sets = calls.filter((c) => c.method === "AddressBook/set");
     expect(sets).toHaveLength(1);
     expect(sets[0]?.args.accountId).toBe("a2");
     expect(sets[0]?.args.update).toEqual({ b1: { name: "Freight" } });

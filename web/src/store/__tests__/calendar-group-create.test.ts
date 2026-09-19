@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { JmapSession } from "@/jmap/types";
 import { useCalendar } from "@/store/calendar";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /**
  * A calendar made while acting for a group must be created in the group's
@@ -14,50 +15,21 @@ import { useCalendar } from "@/store/calendar";
  */
 
 function stubServer() {
-  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init: RequestInit) => {
-      const body = JSON.parse(init.body as string) as {
-        methodCalls: [string, Record<string, unknown>, string][];
-      };
-      const methodResponses: unknown[] = [];
-      for (const [name, args, id] of body.methodCalls) {
-        calls.push({ name, args });
-        if (name === "Calendar/set") {
-          const created: Record<string, unknown> = {};
-          for (const k of Object.keys((args.create as Record<string, unknown>) ?? {}))
-            created[k] = { id: `n${k}` };
-          methodResponses.push([
-            name,
-            {
-              accountId: args.accountId,
-              state: "1",
-              created,
-              updated: {},
-              destroyed: [],
-              notCreated: {},
-              notUpdated: {},
-              notDestroyed: {},
-            },
-            id,
-          ]);
-        } else {
-          methodResponses.push([
-            name,
-            { accountId: args.accountId, state: "1", list: [], notFound: [] },
-            id,
-          ]);
-        }
-      }
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ methodResponses, sessionState: "1" }),
-      } as Response;
-    }),
-  );
-  return calls;
+  return fakeJmapServer().on("Calendar/set", ({ args }) => {
+    const created: Record<string, unknown> = {};
+    for (const k of Object.keys((args.create as Record<string, unknown>) ?? {}))
+      created[k] = { id: `n${k}` };
+    return {
+      accountId: args.accountId,
+      state: "1",
+      created,
+      updated: {},
+      destroyed: [],
+      notCreated: {},
+      notUpdated: {},
+      notDestroyed: {},
+    };
+  });
 }
 
 beforeEach(() => {
@@ -91,12 +63,12 @@ afterEach(() => {
 
 describe("creating a calendar", () => {
   it("creates a group calendar in the group's own account, subscribed and unshared", async () => {
-    const calls = stubServer();
+    const calls = stubServer().calls;
     const id = await useCalendar
       .getState()
       .createCalendar({ name: "Ops", color: "#0f766e" }, "a2");
     expect(id).toBe("nc");
-    const sets = calls.filter((c) => c.name === "Calendar/set");
+    const sets = calls.filter((c) => c.method === "Calendar/set");
     expect(sets).toHaveLength(1);
     expect(sets[0]?.args.accountId).toBe("a2");
     expect(sets[0]?.args.create).toEqual({
@@ -105,9 +77,9 @@ describe("creating a calendar", () => {
   });
 
   it("creates the reader's own calendar in their own account", async () => {
-    const calls = stubServer();
+    const calls = stubServer().calls;
     await useCalendar.getState().createCalendar({ name: "Home" });
-    const sets = calls.filter((c) => c.name === "Calendar/set");
+    const sets = calls.filter((c) => c.method === "Calendar/set");
     expect(sets).toHaveLength(1);
     expect(sets[0]?.args.accountId).toBe("a1");
     expect(sets[0]?.args.create).toEqual({
