@@ -1380,7 +1380,10 @@ a.menu-item:hover { color: var(--fg); }
 .nav-item .nav-count.label-count b { font-weight: 700; }
 .nav-item .nav-more { opacity: 0; width: 24px; height: 24px; margin-right: -6px; }
 .nav-item:hover .nav-more, .nav-item:focus-within .nav-more { opacity: 1; }
-.nav-item .nav-twisty { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; color: var(--fg-faint); border-radius: 4px; }
+/* The twisty holds a fixed slot in the row's column, so it never shrinks: the
+   row is a flex box, and a shrinkable slot would let a long name pull the
+   folder icon -- and the name beside it -- left of every short-named row's. */
+.nav-item .nav-twisty { flex: 0 0 auto; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; color: var(--fg-faint); border-radius: 4px; }
 .nav-item .nav-twisty:hover { background: var(--bg-active); }
 /* Folder rows keep the expand chevron in a gutter to the LEFT of the icon, so a
    folder with subfolders and one without still line up on their icon. */
