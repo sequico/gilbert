@@ -798,7 +798,9 @@ export function FilesView({ nodeId }: { nodeId?: string }) {
                     />
                   </td>
                   <td>
-                    <div className="f-name">
+                    <div
+                      className={`f-name ${n.nodeType === "directory" ? "is-folder" : ""}`}
+                    >
                       {n.nodeType === "directory" ? (
                         <Folder size={18} />
                       ) : (

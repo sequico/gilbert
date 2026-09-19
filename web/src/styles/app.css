@@ -1946,6 +1946,9 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .files-table tr.selected { background: var(--selected-bg); }
 .files-table .f-check-col { width: 1%; white-space: nowrap; }
 .files-table .f-name { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+/* A folder is where a listing can take you, so its name is set heavier than a
+   file's and the two are told apart without reading the icon. */
+.files-table .f-name.is-folder { font-weight: 700; }
 .files-table .f-name svg { color: var(--fg-muted); }
 .files-scroll { flex: 1; overflow: auto; }
 .files-layout.dropping .files-scroll { outline: 3px dashed var(--accent); outline-offset: -10px; }
