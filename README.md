@@ -1,3 +1,5 @@
+*Gilbert was born on **19 September 2026, at 23:55:47 CEST** (Europe/Rome) — the push that turned a pile of opinions into a product. Everything below is what it has been arguing about since.*
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="web/public/img/logo-inverse.png">
