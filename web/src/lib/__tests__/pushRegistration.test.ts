@@ -197,17 +197,17 @@ describe("a registration does not add a row it can reuse", () => {
     install(browserSub("https://push.example/mine"));
     const mine = deviceClientId();
     localStorage.setItem("gilbert:pushEndpoint", "https://push.example/mine");
+    /*
+     * One instant for both rows, read once. Two `Date.now()` calls are two
+     * reads of a clock that moves: under load the second can land a millisecond
+     * later, the two rows then differ in expiry, and a renewal that keeps the
+     * newer one keeps `psB` — which is this test failing for a reason that is
+     * not about duplicates at all.
+     */
+    const expires = new Date(Date.now() + 6 * DAY).toISOString();
     server.push(
-      {
-        id: "psA",
-        deviceClientId: mine,
-        expires: new Date(Date.now() + 6 * DAY).toISOString(),
-      },
-      {
-        id: "psB",
-        deviceClientId: mine,
-        expires: new Date(Date.now() + 6 * DAY).toISOString(),
-      },
+      { id: "psA", deviceClientId: mine, expires },
+      { id: "psB", deviceClientId: mine, expires },
     );
 
     await renewWebPush();

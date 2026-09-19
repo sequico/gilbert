@@ -214,6 +214,15 @@ interface RunPlan {
  */
 class RefusedError extends Error {}
 
+/**
+ * How many times a decision's settle is retried after losing a compare-and-set.
+ *
+ * Three attempts cover the ordinary race — the account's own bookkeeping moving
+ * between the read and the write — and a longer fight means something else is
+ * wrong, which the log is the place for rather than an unbounded loop.
+ */
+const DECISION_SETTLE_ATTEMPTS = 3;
+
 export interface ExecutorDeps {
   /** The agent's own session context: the worker's, never a member's. */
   ctx: Ctx;
@@ -1868,25 +1877,44 @@ export class Executor {
     const store = new AgentStore(this.deps.ctx, accountId);
     const closed: string[] = [];
     for (const id of decisionIds) {
-      const found = await store.readDecision(id);
-      const decision = found?.doc;
-      if (!found || !decision || decision.state !== "pending" || !decision.draft)
-        continue;
-      const record = await fetchEmailRecord(
-        this.deps.client,
-        accountId,
-        decision.draft.emailId,
-        {},
-      );
-      const inDrafts = record?.mailboxIds?.[decision.draft.mailboxId] === true;
-      if (inDrafts) continue;
-      const inTrash = record ? await this.inTrash(accountId, record) : false;
-      if (!record || inTrash) {
-        if (await this.expireDraftDecision(store, found)) closed.push(decision.id);
-        continue;
+      /*
+       * A decision is settled under a conditional write, and a lost
+       * compare-and-set is not a rival: the account this reads is the same one
+       * the worker writes its own bookkeeping into — a schedule armed, a job
+       * closed, an anchor advanced — so the document moves under a read for
+       * reasons that have nothing to do with the decision. Every other
+       * read-modify-write here retries on that (see `saveRules` in
+       * `agentAdmin.ts`); this one did not, and a settle it lost left a
+       * decision pending for a person who had already answered.
+       */
+      for (let attempt = 0; attempt < DECISION_SETTLE_ATTEMPTS; attempt++) {
+        const found = await store.readDecision(id);
+        const decision = found?.doc;
+        if (!found || !decision || decision.state !== "pending" || !decision.draft) break;
+        const record = await fetchEmailRecord(
+          this.deps.client,
+          accountId,
+          decision.draft.emailId,
+          {},
+        );
+        const inDrafts = record?.mailboxIds?.[decision.draft.mailboxId] === true;
+        if (inDrafts) break;
+        const inTrash = record ? await this.inTrash(accountId, record) : false;
+        if (!record || inTrash) {
+          // `false` is the document having moved: read it again and settle what
+          // is actually there, rather than leaving it pending over a write that
+          // landed somewhere else.
+          if (await this.expireDraftDecision(store, found)) {
+            closed.push(decision.id);
+            break;
+          }
+          continue;
+        }
+        if (await this.settleSentDraft(store, accountId, found, "draft")) {
+          closed.push(decision.id);
+        }
+        break;
       }
-      await this.settleSentDraft(store, accountId, found, "draft");
-      closed.push(decision.id);
     }
     return closed;
   }
@@ -1936,7 +1964,7 @@ export class Executor {
     accountId: string,
     found: AgentDoc<AgentDecision>,
     by: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const decision = found.doc;
     const decided: AgentDecision = {
       ...decision,
@@ -1951,7 +1979,9 @@ export class Executor {
     try {
       await store.writeDecision(decided, { ifInState: found.state });
     } catch (err) {
-      if (isStateMismatch(err)) return;
+      // The document moved: `false` is the caller's to retry against what is
+      // actually there, not a silent abandon.
+      if (isStateMismatch(err)) return false;
       throw err;
     }
     const job = (await store.readJob(decision.jobId))?.doc ?? null;
@@ -1980,7 +2010,7 @@ export class Executor {
           `Sent from the group's Drafts, but nothing ran: ${message}`,
         );
       }
-      return;
+      return true;
     }
     const detail = `sent from the group's Drafts by ${by} at ${decided.appliedAt}`;
     try {
@@ -2021,6 +2051,7 @@ export class Executor {
           decisionAuditEntry(decided, auditRule, "failed", actions, message),
         );
     }
+    return true;
   }
 
   /**

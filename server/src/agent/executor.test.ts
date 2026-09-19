@@ -97,13 +97,18 @@ function answerFor(label: string, value: unknown): void {
  * every later test's run received.
  *
  * And the group's policy is a document, like the rules: a test about who a run
- * stops for changes it, and the change outlives the test. So it is put back to
- * the suite's own reading — unattended — before every test, and a test that is
- * about the gate states its own after this runs.
+ * stops for changes it, and the change outlives the test. Putting it back is
+ * therefore done **only when a test moved it** — `policyMoved` is set by
+ * `setPolicy` itself — because every test in this file shares one account, and
+ * a write per test restores a document nobody touched while adding contention
+ * to the very reads and writes the tests are about.
  */
+let policyMoved = false;
+
 beforeEach(async () => {
   answers.clear();
-  await setPolicy({ review: "never" });
+  if (policyMoved) await setPolicy({ review: "never" });
+  policyMoved = false;
 });
 
 const modelStub = createServer(async (req: IncomingMessage, res) => {
@@ -214,6 +219,7 @@ function rule(overrides: Partial<AgentRule> = {}): AgentRule {
 async function setPolicy(
   over: Partial<Pick<AgentGroupPolicyDoc, "review" | "allowExternal">> = {},
 ): Promise<void> {
+  policyMoved = true;
   const found = await store.readPolicy();
   await store.writePolicy(
     { review: over.review ?? "never", allowExternal: over.allowExternal ?? false },
@@ -359,6 +365,7 @@ before(async () => {
    * and a test that is about who a run stops for states its own policy.
    */
   await setPolicy({ review: "never" });
+  policyMoved = false;
 });
 
 after(() => {
@@ -1765,6 +1772,15 @@ test("a chain carries its lineage, and the run past the bound is refused loudly"
     "and it records no parent, because nothing woke it but the mail",
   );
   const readBefore = asked.filter((label) => label === "File automation").length;
+  /*
+   * The chat is the group's and this suite shares one account, so what "told
+   * once" means here is one **new** line: another test's refusal is another
+   * automation's, and counting the transcript's absolute total would make this
+   * assertion depend on what ran before it.
+   */
+  const toldBefore = (await readChat(ctx, GROUP, client)).filter((message) =>
+    message.text.includes("past 2 hops"),
+  ).length;
 
   // The file changes, pass by pass: the run of each pass writes the file that
   // wakes the next one, up to the bound the installation set. The claim that
@@ -1840,7 +1856,7 @@ test("a chain carries its lineage, and the run past the bound is refused loudly"
   assert.equal(
     (await readChat(ctx, GROUP, client)).filter((message) =>
       message.text.includes("past 2 hops"),
-    ).length,
+    ).length - toldBefore,
     1,
     "and the group is told once",
   );
