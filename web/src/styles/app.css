@@ -1783,10 +1783,12 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .contact-row.active { background: var(--selected-bg); }
 .contact-row .c-name { display: flex; align-items: baseline; gap: 6px; font-weight: 550; }
 /* Everything on the name line truncates, and the name gives up its width first
-   because it is the longest of them. The kind label keeps its own, so it is
-   never the part that is cut. */
+   because it is the only part that may: the kind label and the company keep
+   theirs, the company up to a share of the row so a very long one cannot take
+   the name away. */
 .contact-row .c-name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .contact-row .c-name > .hint { flex: 0 0 auto; }
+.contact-row .c-name > .c-company { flex: 0 0 auto; max-width: 45%; }
 /* A group is a set of people rather than one, and the name says so on its own
    -- set bold, where a person's name is not and an organisation's is followed
    by the word. */

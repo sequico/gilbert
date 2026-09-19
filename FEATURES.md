@@ -1649,8 +1649,10 @@ JMAP Contacts and JSContact.
   installation administrator only, and the dialog names each group and the books
   it owns. Filing a **new** contact into a group's book, editing one where it
   lives and re-filing a card between two books of the same account are not moves
-  and are unchanged — a member does all three. It is a rule this client keeps,
-  not a boundary: another JMAP client moves the same card.
+  and are unchanged — a member does all three. The editor's address-book picker
+  follows the same rule: a new contact may be filed into any book you can write,
+  an existing one is offered no account that would be refused. It is a rule this
+  client keeps, not a boundary: another JMAP client moves the same card.
 
 ---
 

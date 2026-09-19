@@ -18,6 +18,7 @@ import {
 } from "@/lib/contacts";
 import { t } from "@/lib/i18n";
 import { isGroupMailboxAccount } from "@/lib/mailAccounts";
+import { useMayMoveContact } from "@/lib/useMayMoveContact";
 import { sharedKey, useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { useSettings } from "@/store/settings";
@@ -156,13 +157,29 @@ export function ContactEditor({
   /* The mail store's probe is the one classifier for what is a group, read as
      state so a book appears when it lands. */
   const mailAccounts = useMail((s) => s.mailAccounts);
+  /*
+   * Whether this card may change the account it lives in (ADR 0018). Read from
+   * the rule's own hook, so the picker redraws when the admin flag moves.
+   *
+   * A **new** card is not moving anything: it is filed into whichever book the
+   * reader picks, group books included, and that is what a member is for. An
+   * existing card may only be re-filed where the rule allows, so the accounts
+   * the rule would refuse are not offered at all -- a control that lists a
+   * destination which will be refused on Save is the refusal shown in the wrong
+   * place, and it is worse than an entry that is not there.
+   */
+  const mayMove = useMayMoveContact();
+  const mayFileInto = (accountId: string) =>
+    !card.id || mayMove || accountId === (sourceAccountId ?? own);
   const books = [
-    ...Object.values(contacts.books).map((b) => ({
-      accountId: own,
-      id: b.id,
-      name: b.name,
-      note: "",
-    })),
+    ...(mayFileInto(own)
+      ? Object.values(contacts.books).map((b) => ({
+          accountId: own,
+          id: b.id,
+          name: b.name,
+          note: "",
+        }))
+      : []),
     /* Books the reader may write to and may reach without adding them: a book
        somebody shared, and a group's own directory. A group's book needs no
        subscribing -- membership of the group is the subscription, the rule the
@@ -177,6 +194,7 @@ export function ContactEditor({
     ...contacts.sharedBooks
       .filter(
         (b) =>
+          mayFileInto(b.accountId) &&
           b.book.myRights.mayWrite &&
           (isGroupMailboxAccount(b.accountId, mailAccounts) ||
             b.book.isSubscribed ||

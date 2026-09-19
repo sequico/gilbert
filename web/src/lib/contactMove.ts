@@ -58,13 +58,23 @@ export function movesBetweenAccounts(
   return Boolean(fromAccountId && toAccountId && fromAccountId !== toAccountId);
 }
 
+/**
+ * Whether a reader with this administration may move a contact between
+ * accounts **at all**.
+ *
+ * The one place the policy is stated, read by both the refusal below and the
+ * surface that decides whether to draw the entry at all (through
+ * `useMayMoveContact`), so the two cannot come to different answers about who
+ * this is for. A surface's question is the reader-level one because the
+ * destination is not chosen yet when the entry is drawn — whether there is
+ * anywhere to move the card *to* is the accounts' business, not the rule's.
+ */
+export function mayMoveBetweenAccounts(isAdmin: boolean): boolean {
+  return isAdmin;
+}
+
 /** Why this move is refused, or `null` where it may be taken. */
 export function contactMoveRefusal(ctx: ContactMoveContext): ContactMoveRefusal | null {
   if (!movesBetweenAccounts(ctx.fromAccountId, ctx.toAccountId)) return null;
-  return ctx.isAdmin ? null : "contact_move_admin";
-}
-
-/** Whether this move may be taken here. */
-export function mayMoveContact(ctx: ContactMoveContext): boolean {
-  return contactMoveRefusal(ctx) === null;
+  return mayMoveBetweenAccounts(ctx.isAdmin) ? null : "contact_move_admin";
 }

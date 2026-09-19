@@ -4,17 +4,21 @@ Status: Accepted
 
 Implementation: Built. The rule is one module (`web/src/lib/contactMove.ts`),
 which answers whether a write is a move between accounts at all
-(`movesBetweenAccounts`) and why one is refused (`contactMoveRefusal`, answering
-the code `contact_move_admin`); the guard sits on the effect —
+(`movesBetweenAccounts`), whether this reader may take one
+(`mayMoveBetweenAccounts`), and why one is refused (`contactMoveRefusal`,
+answering the code `contact_move_admin`); the guard sits on the effect —
 `moveCardTo` in `web/src/store/contacts.ts`, which refuses before any call
 leaves the client — and the sentence is composed there from the catalogue, as
-the mail rule's refusals are (`contactMoveSentence`). The surface reads the same
-answer before drawing the entry, through one hook
+the mail rule's refusals are (`contactMoveSentence`). The surfaces read the same
+answer before drawing anything, through one hook
 (`web/src/lib/useMayMoveContact.ts`) so the drawn answer moves with the admin
 flag: the row menu and the destination dialog in
-`web/src/views/contacts/ContactsView.tsx`. The invariant is pinned in
+`web/src/views/contacts/ContactsView.tsx`, and the address-book picker of an
+existing card in `web/src/views/contacts/ContactEditor.tsx`, which names no
+account the rule would refuse. The invariant is pinned in
 `web/src/store/__tests__/contact-move-admin.test.ts`, with the surfaces pinned
-in `web/src/views/contacts/__tests__/contacts-move.test.tsx`.
+in `web/src/views/contacts/__tests__/contacts-move.test.tsx` and
+`web/src/views/contacts/__tests__/contact-editor-destinations.test.tsx`.
 
 ## Context
 
@@ -62,8 +66,13 @@ contacts is unchanged.**
 - **The surfaces draw the same answer.** The right-click menu on a row carries
   **Move to…** only for a session that may move a card, and the dialog behind it
   is reached by nothing else, so nothing is offered that would be refused. The
-  hook is the reason to re-render when the flag moves, exactly as
-  `useMayDestroy` is for the mail rule.
+  editor's address-book picker is the second surface with a destination in it,
+  and it names only the accounts the rule allows: a **new** card may be filed
+  into any book the reader may write, group books included, while an **existing**
+  card is offered no account the rule would refuse — the refusal belongs on the
+  write, not in a control the reader has already used to choose. The hook is the
+  reason a surface re-renders when the flag moves, exactly as `useMayDestroy` is
+  for the mail rule.
 - **The rule answers a code, and the sentence is composed where it shows.** The
   module says `contact_move_admin`; `contactMoveSentence` in the store composes
   the sentence the reader reads from the catalogue in force, and it says what
@@ -92,9 +101,12 @@ rather than claiming a protection.
   into the group's directory and editing it there still work, so the group's
   records are still the group's to keep; what is closed is the one action that
   moves a card across the line between two principals.
-- **The contact editor's account change is refused with it.** A form that saves
-  a card into another account's book goes through the same write, and a member
-  meets the same sentence there. The editor is otherwise unchanged.
+- **The contact editor's account change.** An existing card's picker offers only
+  the account it already lives in to a reader who may not move one, so a member
+  keeps filing **new** cards into a group's directory and never meets a refusal
+  for a destination the control could not have named; an administrator's editor
+  is unchanged. The write is guarded either way, so a session that reaches the
+  change by another route meets the same sentence.
 - **A withdrawn administrator keeps the menu until the session is read again.**
   The flag is ADR 0001's, resolved at sign-in and re-read when the session state
   changes; between those moments the client answers from what it holds, and the
@@ -106,19 +118,23 @@ rather than claiming a protection.
 
 ## References
 
-- `web/src/lib/contactMove.ts` — the rule: what counts as a move and which
-  refusal it answers
+- `web/src/lib/contactMove.ts` — the rule: what counts as a move, who may take
+  one, and which refusal it answers
 - `web/src/lib/useMayMoveContact.ts` — the hook the surfaces read it through, so
   the drawn answer re-renders when the admin flag moves
 - `web/src/store/contacts.ts` — `moveCardTo`'s guard, before any call leaves the
   client, and `contactMoveSentence` composing the refusal from the catalogue
 - `web/src/views/contacts/ContactsView.tsx` — the row's right-click menu, and
   `MoveContactDialog` naming each group and the books it owns
+- `web/src/views/contacts/ContactEditor.tsx` — the picker that names no account
+  the rule would refuse for a card that already exists
 - `web/src/store/__tests__/contact-move-admin.test.ts` — the invariant: a
   non-administrator's move reaches no server, an administrator's reaches the
   target account, and re-filing a card inside one account is served to anybody
 - `web/src/views/contacts/__tests__/contacts-move.test.tsx` — the surfaces:
   the entry is offered to an administrator and drawn for nobody else
+- `web/src/views/contacts/__tests__/contact-editor-destinations.test.tsx` — the
+  editor's picker: one account for a member, both for an administrator
 - ADR 0001 — administration is Stalwart's, and `isAdmin` is its answer
 - ADR 0005 — a group owns its data, and membership is the grant
 - ADR 0015 — the same posture for a group's mail, and the shape this rule copies
