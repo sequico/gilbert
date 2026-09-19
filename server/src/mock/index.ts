@@ -5014,10 +5014,30 @@ export const server = createServer(async (req, res) => {
       res.writeHead(404);
       return res.end();
     }
-    res.writeHead(200, {
-      "content-type": url.searchParams.get("accept") ?? b.type,
-      "content-length": b.data.length,
-    });
+    /*
+     * One byte range, answered the way Stalwart answers it (0.16.22, checked
+     * live on 2026-09-16): a 206 for a single range it can serve, and the whole
+     * file with a 200 for anything else -- several ranges, or one starting past
+     * the end, which is a 416 on a server that implements the RFC and is not
+     * what this one does. It never sends `Accept-Ranges`, which is why the
+     * proxy has to say so itself.
+     */
+    const type = url.searchParams.get("accept") ?? b.type;
+    const m = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range ?? ""));
+    if (m && (m[1] || m[2])) {
+      const size = b.data.length;
+      const start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
+      const end = m[1] && m[2] ? Math.min(Number(m[2]), size - 1) : size - 1;
+      if (start < size && start <= end) {
+        res.writeHead(206, {
+          "content-type": type,
+          "content-length": end - start + 1,
+          "content-range": `bytes ${start}-${end}/${size}`,
+        });
+        return res.end(b.data.subarray(start, end + 1));
+      }
+    }
+    res.writeHead(200, { "content-type": type, "content-length": b.data.length });
     return res.end(b.data);
   }
   if (url.pathname.startsWith("/jmap/eventsource")) {

@@ -2985,6 +2985,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     const { accountId, blobId, name } = c.req.param();
     const accept = c.req.query("accept") ?? "application/octet-stream";
     const inline = c.req.query("inline") === "1";
+    const range = c.req.header("range");
     try {
       const upstream = await getUpstreamSession(
         session.id,
@@ -2999,15 +3000,38 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         // Ask for the bytes as they are. undici would otherwise negotiate gzip
         // on our behalf and hand back a decompressed body whose content-length
         // header still describes the compressed one -- see forwardedContentLength.
-        headers: { authorization: session.authorization, "accept-encoding": "identity" },
+        //
+        // A PDF viewer or a video element asks for pieces, so that request is
+        // passed on: a server that ignores it answers with the whole file,
+        // which is what happened before this and still works. Only a header
+        // that reads as a byte range is forwarded -- it is somebody else's
+        // syntax, and one that does not parse is dropped rather than passed on
+        // unread.
+        headers: {
+          authorization: session.authorization,
+          "accept-encoding": "identity",
+          ...(range && /^bytes=[\d,\s-]+$/.test(range) ? { range } : {}),
+        },
         signal: AbortSignal.timeout(Math.max(config.upstreamTimeout, 5 * 60_000)),
       });
+      if (res.status === 416) return c.body(null, 416);
       if (!res.ok) return c.json({ error: "not_found" }, res.status === 404 ? 404 : 502);
       const headers = new Headers();
       const type = blobContentType(res.headers.get("content-type"), accept);
       headers.set("Content-Type", type);
       const cl = forwardedContentLength(res.headers);
       if (cl) headers.set("Content-Length", cl);
+      const partial = res.status === 206 && res.headers.get("content-range");
+      if (partial) headers.set("Content-Range", partial);
+      /*
+       * Said here because Stalwart does not say it. It honours a single byte
+       * range but sends no `Accept-Ranges` (0.16.22, checked live on
+       * 2026-09-16), and a PDF viewer reads a file in pieces only when the first
+       * response advertises that it can. A server that ignores a range sends the
+       * whole file with a 200, which the browser takes just as well -- so this
+       * says what the client may try, not what every request will get.
+       */
+      headers.set("Accept-Ranges", "bytes");
       const safeInline = inline && isInlineSafe(type);
       headers.set(
         "Content-Disposition",
@@ -3039,7 +3063,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         "Cache-Control",
         session.remember ? "private, max-age=3600" : "no-store",
       );
-      return new Response(res.body, { status: 200, headers });
+      return new Response(res.body, { status: res.status === 206 ? 206 : 200, headers });
     } catch (err) {
       return upstreamFailure(c, err);
     }

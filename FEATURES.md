@@ -2333,6 +2333,24 @@ away from a signed-in screen, which is the case that matters.
   answers `503 busy` rather than taking the process down.
 - **Upload and timeout limits** on the proxy (`MAX_UPLOAD_BYTES`,
   `UPSTREAM_TIMEOUT`).
+- **Byte ranges on a download**, so a PDF preview pages through a file instead
+  of pulling all of it: a well-formed `Range` is forwarded to Stalwart, which
+  honours a single range, and the 206 and its `Content-Range` are passed back.
+  The proxy advertises `Accept-Ranges: bytes` itself, because Stalwart honours a
+  range without saying so and a PDF viewer reads in pieces only when the first
+  response says it may. A range the server cannot serve comes back as the whole
+  file with a 200, never a 416, and a malformed one is dropped rather than
+  forwarded.
+- **The bundle is served precompressed, and revalidation is free.** The web
+  build writes a Brotli and a gzip copy of every compressible file
+  (`scripts/precompress.mjs`), and the static handler hands over the smallest
+  one the browser accepts, with `Vary: Accept-Encoding` — Brotli at the quality
+  worth using is far too slow to run per request, which is why the bundle used
+  to be gzipped again on every request instead. Every static file carries an
+  `ETag`, and a matching `If-None-Match` gets a 304: the shell and the
+  never-stale files are revalidated on every load, and without a validator each
+  of those revalidations downloaded the whole file again. A precompressed copy
+  older than the file it was made from is ignored rather than served.
 - **Attachment and proxied-image responses are `no-store` on a device that is
   not the person's own.** Signing out wipes what the app stores; the browser's
   own disk cache is the one it does not reach. Filenames attached to a message
