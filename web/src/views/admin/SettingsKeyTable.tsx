@@ -11,20 +11,23 @@ import { DEFAULT_SETTINGS } from "@/store/settings";
  * under `defaults`, under `enforced`, or inside a `change`'s `settings`.
  *
  * The data below is written from the doc comments on the `Settings`
- * interface in `web/src/store/settings.ts`; keep the two in step when a key
- * changes. Keys that upstream adds later have no entry yet and fall back to a
+ * interface in `web/src/store/settings.ts`: `GROUPS` names the keys each
+ * category holds and `ENTRIES` says what each one does, kept in step by hand.
+ * What is *checked* is that hand work: `settingsKeyTable.test.ts` fails when a
+ * key a group names has no entry, or when an entry names a key this build does
+ * not have. Keys that upstream adds later have no entry yet and fall back to a
  * generic row rather than vanishing.
  */
 
 type Example = string | number | boolean | null | string[] | Record<string, never>;
 
-interface KeyEntry {
+export interface KeyEntry {
   /** English source; rendered through t(). */
   desc: string;
   example: Example;
 }
 
-const ENTRIES: Record<string, KeyEntry> = {
+export const ENTRIES: Record<string, KeyEntry> = {
   theme: {
     desc: t("The theme this build knows: system, light, dark, or Gilbert's own."),
     example: "gilbert",
@@ -227,7 +230,7 @@ const ENTRIES: Record<string, KeyEntry> = {
 };
 
 /** Category → keys, in display order. A key belongs to exactly one category. */
-const GROUPS: Array<{ title: string; keys: string[] }> = [
+export const GROUPS: Array<{ title: string; keys: string[] }> = [
   {
     title: t("Appearance and layout"),
     keys: [
