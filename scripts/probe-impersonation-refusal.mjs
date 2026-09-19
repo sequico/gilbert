@@ -51,7 +51,14 @@
  * is never printed, and neither is the Authorization header it builds.
  */
 
-import { basic, note, record, report } from "./lib/probeKit.mjs";
+import {
+  basic,
+  note,
+  record,
+  report,
+  requireProbeEnvironment,
+  sessionUrlFor,
+} from "./lib/probeKit.mjs";
 
 const base = (process.env.STALWART_URL ?? "").replace(/\/+$/, "");
 const master = process.env.GILBERT_AGENT_ADDRESS ?? "";
@@ -59,24 +66,22 @@ const password = process.env.GILBERT_AGENT_PASSWORD ?? "";
 const target = process.env.GILBERT_PROBE_TARGET ?? "";
 const group = process.env.GILBERT_PROBE_GROUP_ADDRESS ?? "";
 
-if (!base || !master || !password) {
-  console.error(
-    [
-      "This probe asks a real server, so it needs the installation's own facts:",
-      "  STALWART_URL            the instance, e.g. https://stalwart.example:8080",
-      "  GILBERT_AGENT_ADDRESS   the principal that will impersonate (a Stalwart",
-      "                          administrator, ADR 0001)",
-      "  GILBERT_AGENT_PASSWORD  its password",
-      "",
-      "Optional: GILBERT_PROBE_TARGET (an account it may act as — the control that",
-      "makes a refusal mean something), GILBERT_PROBE_GROUP_ADDRESS,",
-      "GILBERT_PROBE_REFUSED_ADDRESS, GILBERT_PROBE_SESSION_URL.",
-    ].join("\n"),
-  );
-  process.exit(2);
-}
+requireProbeEnvironment(
+  [base, master, password],
+  [
+    "This probe asks a real server, so it needs the installation's own facts:",
+    "  STALWART_URL            the instance, e.g. https://stalwart.example:8080",
+    "  GILBERT_AGENT_ADDRESS   the principal that will impersonate (a Stalwart",
+    "                          administrator, ADR 0001)",
+    "  GILBERT_AGENT_PASSWORD  its password",
+    "",
+    "Optional: GILBERT_PROBE_TARGET (an account it may act as — the control that",
+    "makes a refusal mean something), GILBERT_PROBE_GROUP_ADDRESS,",
+    "GILBERT_PROBE_REFUSED_ADDRESS, GILBERT_PROBE_SESSION_URL.",
+  ],
+);
 
-const SESSION_URL = process.env.GILBERT_PROBE_SESSION_URL || `${base}/.well-known/jmap`;
+const SESSION_URL = sessionUrlFor(base);
 const TIMEOUT = 30_000;
 /** An address nothing can hold: fresh each run, so it cannot have appeared. */
 const absent =

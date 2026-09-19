@@ -79,3 +79,23 @@ export function report({ where }) {
   );
   return 0;
 }
+
+/**
+ * Stop when the environment does not say where to ask.
+ *
+ * Every probe needs the same three facts — the instance, an account, its
+ * password — and each wrote the same five lines to check them: the guard, the
+ * `console.error`, the `join` and the `exit(2)`. What stays with the probe is
+ * the message, because the line that differs between them is the one an operator
+ * reads: what *this* probe's account has to be allowed to do.
+ */
+export function requireProbeEnvironment(values, message) {
+  if (values.every(Boolean)) return;
+  console.error(message.join("\n"));
+  process.exit(2);
+}
+
+/** The session endpoint for a probe: the override, or the well-known one. */
+export function sessionUrlFor(base) {
+  return process.env.GILBERT_PROBE_SESSION_URL || `${base}/.well-known/jmap`;
+}

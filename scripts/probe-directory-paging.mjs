@@ -57,7 +57,14 @@
  * settled, and 2 when the environment does not say where to ask.
  */
 
-import { basic, note, record, report } from "./lib/probeKit.mjs";
+import {
+  basic,
+  note,
+  record,
+  report,
+  requireProbeEnvironment,
+  sessionUrlFor,
+} from "./lib/probeKit.mjs";
 
 const base = (process.env.STALWART_URL ?? "").replace(/\/+$/, "");
 const user = process.env.GILBERT_AGENT_ADDRESS ?? "";
@@ -65,22 +72,20 @@ const password = process.env.GILBERT_AGENT_PASSWORD ?? "";
 const plainUser = process.env.GILBERT_PROBE_PLAIN_USER ?? "";
 const plainPassword = process.env.GILBERT_PROBE_PLAIN_PASSWORD ?? "";
 
-if (!base || !user || !password) {
-  console.error(
-    [
-      "This probe asks a real server, so it needs the installation's own facts:",
-      "  STALWART_URL             the instance, e.g. https://stalwart.example:8080",
-      "  GILBERT_AGENT_ADDRESS    an account that may read the directory (a Stalwart",
-      "                           administrator, or a principal the server grants",
-      "                           allow_directory_query to)",
-      "  GILBERT_AGENT_PASSWORD   its password",
-      "",
-      "Optional: GILBERT_PROBE_SESSION_URL, GILBERT_PROBE_PLAIN_USER,",
-      "GILBERT_PROBE_PLAIN_PASSWORD (see the header of this file).",
-    ].join("\n"),
-  );
-  process.exit(2);
-}
+requireProbeEnvironment(
+  [base, user, password],
+  [
+    "This probe asks a real server, so it needs the installation's own facts:",
+    "  STALWART_URL             the instance, e.g. https://stalwart.example:8080",
+    "  GILBERT_AGENT_ADDRESS    an account that may read the directory (a Stalwart",
+    "                           administrator, or a principal the server grants",
+    "                           allow_directory_query to)",
+    "  GILBERT_AGENT_PASSWORD   its password",
+    "",
+    "Optional: GILBERT_PROBE_SESSION_URL, GILBERT_PROBE_PLAIN_USER,",
+    "GILBERT_PROBE_PLAIN_PASSWORD (see the header of this file).",
+  ],
+);
 
 /* The two capabilities the read names, and the page size it works out. */
 const CORE = "urn:ietf:params:jmap:core";
@@ -94,7 +99,7 @@ const SMALL_LIMIT = 2;
 const SMALL_MAX_PAGES = 50;
 const TIMEOUT = 30_000;
 
-const SESSION_URL = process.env.GILBERT_PROBE_SESSION_URL || `${base}/.well-known/jmap`;
+const SESSION_URL = sessionUrlFor(base);
 
 /**
  * A refusal the code reads as `denied`: HTTP 400 or 403 on the whole request,

@@ -36,26 +36,24 @@
  *   node scripts/probe-conditional-writes.mjs
  */
 
-import { basic, record, report } from "./lib/probeKit.mjs";
+import { basic, record, report, requireProbeEnvironment } from "./lib/probeKit.mjs";
 
 const base = (process.env.GILBERT_PROBE_URL ?? "").replace(/\/+$/, "");
 const user = process.env.GILBERT_PROBE_USER ?? "";
 const password = process.env.GILBERT_PROBE_PASS ?? "";
 
-if (!base || !user || !password) {
-  console.error(
-    [
-      "This probe asks a real server, so it needs credentials in the environment:",
-      "  GILBERT_PROBE_URL   the instance, e.g. https://stalwart.example:8080",
-      "  GILBERT_PROBE_USER  an administrator account",
-      "  GILBERT_PROBE_PASS  its password",
-      "",
-      "Nothing is written to the repository, and the only thing it creates is a",
-      "folder it destroys again in the same run.",
-    ].join("\n"),
-  );
-  process.exit(2);
-}
+requireProbeEnvironment(
+  [base, user, password],
+  [
+    "This probe asks a real server, so it needs credentials in the environment:",
+    "  GILBERT_PROBE_URL   the instance, e.g. https://stalwart.example:8080",
+    "  GILBERT_PROBE_USER  an administrator account",
+    "  GILBERT_PROBE_PASS  its password",
+    "",
+    "Nothing is written to the repository, and the only thing it creates is a",
+    "folder it destroys again in the same run.",
+  ],
+);
 
 const CORE_CAP = "urn:ietf:params:jmap:core";
 /* Stalwart's own FileNode capability, the one the app authenticates against. */
