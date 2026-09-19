@@ -35,8 +35,10 @@ import {
 import { formatDate, formatDateLong } from "@/lib/datetime";
 import { downloadFile } from "@/lib/download";
 import { plural, t as translate } from "@/lib/i18n";
+import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { useCompose } from "@/store/compose";
 import { useContacts } from "@/store/contacts";
+import { useMail } from "@/store/mail";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
 import { confirmDialog } from "@/ui/dialog";
 import { Avatar, Empty, Spinner, useIsNarrow } from "@/ui/misc";
@@ -69,6 +71,10 @@ export function ContactsView({ id }: { id?: string }) {
   const [liveWidth, setLiveWidth] = useState<number | null>(null);
   const liveWidthRef = useRef<number | null>(null);
   const [q, setQ] = useState("");
+  /* The mail store's probe is the one classifier for what is a group, read as
+     state so the answer turns up when it lands -- the same read the sidebar and
+     the editor make. */
+  const mailAccounts = useMail((s) => s.mailAccounts);
   /* The book being shown lives in the store, because the list that chooses it
      is the app's own sidebar rather than anything this view owns. */
   const sel = contacts.selection;
@@ -128,6 +134,14 @@ export function ContactsView({ id }: { id?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   });
 
+  /* The group mailboxes the reader belongs to, per the mail store's probe: one
+     classifier for the list that shows their contacts and for the note on a row
+     that says which of them a card came from. */
+  const groupCardAccounts = useMemo(
+    () => groupMailboxAccounts(mailAccounts),
+    [mailAccounts],
+  );
+
   const list = useMemo(() => {
     // A shared book lists that account's cards; anything else lists the
     // reader's own. They are never mixed: whose contacts you are looking at is
@@ -140,9 +154,40 @@ export function ContactsView({ id }: { id?: string }) {
         .filter((c) => bookId === "all" || c.addressBookIds?.[bookId]);
       return contacts.filterCards(theirs, q);
     }
-    const all = contacts.search(q);
-    return bookId === "all" ? all : all.filter((c) => c.addressBookIds?.[bookId]);
-  }, [contacts, q, bookId, sel.accountId]);
+    /*
+     * **All contacts** is the reader's own cards and the cards of every group
+     * they belong to, because a group's books need nobody to add them --
+     * membership of the group is the subscription, the same rule the composer's
+     * suggestions and `loadShared` follow. Each row says which group it came
+     * from, so the two are still told apart without opening anything.
+     *
+     * A colleague's shared book is not a group's, and stays out: that one the
+     * reader adds deliberately, and it has a section of its own in the sidebar
+     * for it. `cardsIn` reads the groups' cards rather than the whole shared
+     * cache, so what `loadShared` left unloaded (a stranger's account) can not
+     * arrive here by the back door.
+     */
+    if (bookId === "all") {
+      const cards = [
+        ...Object.values(contacts.cards),
+        ...groupCardAccounts.flatMap((g) => contacts.cardsIn(g.accountId)),
+      ];
+      return contacts.filterCards(cards, q);
+    }
+    const mine = contacts.search(q);
+    return mine.filter((c) => c.addressBookIds?.[bookId]);
+  }, [contacts, q, bookId, sel.accountId, groupCardAccounts]);
+
+  /*
+   * The group a row came from, named on the row itself and nowhere else: only
+   * in the one list that mixes them. A group's own section already says whose
+   * contacts you are looking at, and a note repeating it would be noise.
+   */
+  const showingAll = !sel.accountId && bookId === "all";
+  const groupNameOf = (accountId: string | null) =>
+    accountId && showingAll
+      ? groupCardAccounts.find((g) => g.accountId === accountId)?.name
+      : undefined;
 
   // `selected` is resolved by id alone, not by the sidebar's current book
   // selection -- a deep link or a search result can land on a shared card
@@ -508,6 +553,7 @@ export function ContactsView({ id }: { id?: string }) {
                   const cardAccount = contacts.accountOfCard(c.id);
                   const photoAccount = cardAccount ?? contacts.accountId;
                   const photo = photoAccount ? contactPhoto(c, photoAccount) : null;
+                  const groupName = groupNameOf(cardAccount);
                   return (
                     <div
                       key={c.id}
@@ -565,6 +611,14 @@ export function ContactsView({ id }: { id?: string }) {
                           {email ?? Object.values(c.phones ?? {})[0]?.number ?? ""}
                         </div>
                       </div>
+                      {groupName && (
+                        <span
+                          className="c-group"
+                          title={translate("From the group {group}", { group: groupName })}
+                        >
+                          {groupName}
+                        </span>
+                      )}
                     </div>
                   );
                 })}

@@ -1792,6 +1792,11 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
    by the word. */
 .contact-row .c-name.is-group { font-weight: 700; }
 .contact-row .c-company { color: var(--fg-muted); font-size: .85em; font-weight: 400; }
+/* Which group a contact came from, on the row itself: small, quiet and by
+   itself at the end of the row, because it is a note beside the name rather
+   than a title -- and it is only drawn where the list mixes groups with the
+   reader's own cards. */
+.contact-row .c-group { flex: 0 0 auto; max-width: 34%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 8px; border-radius: 999px; background: var(--bg-sunken); color: var(--fg-muted); font-size: .72em; }
 .contact-row .c-email { color: var(--fg-muted); font-size: .85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .contact-row.picked { background: var(--selected-bg); }
 .contacts-selbar { gap: 12px; padding-left: 14px; }

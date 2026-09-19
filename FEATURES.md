@@ -1583,6 +1583,13 @@ JMAP Contacts and JSContact.
   A card with no person name of its own is shown as its company, and says it
   once. **Email group** on a group's own page addresses
   its members through the one resolution the composer uses (ADR 0004).
+- **All contacts holds every group's contacts as well as your own.** A group
+  mailbox's books need nobody to add them — membership of the group is the
+  subscription, the same rule the composer's suggestions follow — so the one
+  list of everything is the reader's own cards **and** the cards of every group
+  they belong to, with **the group named on the row** that came from one, small
+  and at its end. A colleague's shared book is not a group's and stays out: that
+  one is added deliberately and has a section of its own in the sidebar.
 - **Select and delete in bulk** — tick rows in the list, shift-click for a run,
   and delete the lot; or **Empty address book** from the book's own menu, which
   is the operation a migration asks for when an import needs doing again. A card
