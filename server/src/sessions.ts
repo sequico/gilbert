@@ -268,11 +268,17 @@ export function impersonationAuthorization(
  *
  * An account name is an address, and addresses do not differ by case or by
  * surrounding space. Every place that has only the typed name to go on goes
- * through this -- the keys `app.ts` caches per account, and the fallback for a
+ * through this -- the caches `app.ts` keeps per account, and the fallback for a
  * record written before sessions carried their account. Where the session
- * knows which account it is, `accountKey` is the answer instead, because a
- * bare `alice` and `Alice@example.com` are one account to Stalwart and must be
- * one to this store too.
+ * knows which account it is, `accountKey` is the answer instead, because a bare
+ * `alice` and `Alice@example.com` are one account to Stalwart and must be one
+ * group of sessions here too.
+ *
+ * The caches are the weaker case of the two, and deliberately left so: they
+ * answer "have I already looked this up", so a second spelling costs a re-read
+ * of a document rather than a wrong answer. Matching them the way sessions
+ * match would mean paying for the account's canonical name on every request
+ * that touches one.
  */
 export function normalizeUsername(username: string): string {
   return username.trim().toLowerCase();
@@ -326,6 +332,18 @@ function readRecords(value: unknown): StoredSession[] {
       salt: r.salt,
       sealedCredentials: r.sealedCredentials,
       username: r.username,
+      /*
+       * Read back, or the grouping this field exists for is lost at every
+       * restart: a restored record would fall back to the typed username while
+       * this process's own sessions carry the account key, the two would not
+       * compare equal, and "sign out my other sessions" would stop reaching
+       * anything that survived a restart. Written and not read is also dead
+       * data in a document, which is how that went unnoticed.
+       *
+       * `undefined` for a record written before the field existed, which is
+       * what `accountOf` is for.
+       */
+      ...(typeof r.account === "string" ? { account: r.account } : {}),
       createdAt: typeof r.createdAt === "number" ? r.createdAt : 0,
       lastSeenAt: typeof r.lastSeenAt === "number" ? r.lastSeenAt : 0,
       expiresAt: r.expiresAt,

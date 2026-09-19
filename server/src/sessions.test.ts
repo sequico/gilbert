@@ -178,6 +178,44 @@ test("destroy ends one session, and destroyAllForUser leaves another account's a
   await after.close();
 });
 
+/*
+ * The account a session belongs to has to survive the document, or the grouping
+ * it exists for is lost at every restart -- `account` written but never read
+ * back leaves a restored record keyed by its typed username while this
+ * process's own sessions carry the account key, and "sign out my other
+ * sessions" then reaches none of the survivors. The earlier case asserts the
+ * destruction rather than the grouping, which is why it passed while the field
+ * was being dropped on load.
+ */
+test("the account a session belongs to survives a restart, and is what the list groups by", async () => {
+  const io = documentIo();
+  const before = new SessionStore(io, TTLS);
+  await before.init();
+  const account = accountKey("https://mail.example.org", "bob@example.org");
+  const bob = before.create(params("Bob@Example.org", false, account));
+  const ada = before.create(
+    params(
+      "ada@example.org",
+      false,
+      accountKey("https://mail.example.org", "ada@example.org"),
+    ),
+  );
+  await before.close();
+
+  const after = new SessionStore(io, TTLS);
+  await after.init();
+  assert.equal(after.resolve(bob.cookie)?.account, account, "the account came back");
+  assert.equal(after.listForUser(account).length, 1, "the list still groups by it");
+  assert.equal(
+    after.destroyAllForUser(account),
+    1,
+    "and signing out other sessions reaches the survivor",
+  );
+  assert.equal(after.resolve(bob.cookie), null);
+  assert.ok(after.resolve(ada.cookie), "without touching another account's");
+  await after.close();
+});
+
 test("reseal keeps the session and moves the credential behind it", async () => {
   const io = documentIo();
   const store = new SessionStore(io, TTLS);

@@ -92,7 +92,41 @@ export interface ForwardHeaders {
  * The client address to attribute a request to. `peer` is the socket address,
  * which is the only part nobody downstream can forge.
  */
+/**
+ * The same client, spelled one way.
+ *
+ * An IPv4 client reaching a dual-stack socket arrives as `::ffff:a.b.c.d`, and
+ * that — not the dotted quad — is what Node reports for the peer. So the same
+ * client would be one address when a trusted proxy forwarded it and another
+ * when it connected directly, and everything keyed on the address would see
+ * two: the sign-in rate limits, which would spend a *shared* budget for every
+ * IPv4 client on an installation behind one; and the address recorded on a
+ * session.
+ *
+ * The mapping is the only difference between the two spellings — the address
+ * is the same address — so this is a spelling of the input and not a policy
+ * about it, and it is applied once, here, for every reader.
+ */
+export function normalizeClientIp(ip: string): string {
+  return ip.replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/i, "");
+}
+
+/**
+ * The client address to attribute a request to. `peer` is the socket address,
+ * which is the only part nobody downstream can forge.
+ *
+ * Always the normalised spelling, whatever path inside produced it: an address
+ * a caller can key on is worth one guarantee rather than one per return.
+ */
 export function resolveClientIp(
+  peer: string,
+  headers: ForwardHeaders,
+  cfg: TrustConfig,
+): string {
+  return normalizeClientIp(resolveRawClientIp(peer, headers, cfg));
+}
+
+function resolveRawClientIp(
   peer: string,
   headers: ForwardHeaders,
   cfg: TrustConfig,
@@ -102,12 +136,7 @@ export function resolveClientIp(
   if (!isTrustedProxy(peer, cfg)) return peer;
   const chain = (headers.forwardedFor ?? "")
     .split(",")
-    .map((s) =>
-      s
-        .trim()
-        .replace(/^\[|\]$/g, "")
-        .replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/i, ""),
-    )
+    .map((s) => normalizeClientIp(s.trim().replace(/^\[|\]$/g, "")))
     .filter((s) => isIP(s) !== 0);
   // Rightmost first: the last hop we trust is ours, anything left of the first
   // untrusted entry was written by someone we have no reason to believe.
@@ -127,11 +156,17 @@ export function resolveClientIp(
  * address holds 2^64 of them, and a limit keyed on the full address is no
  * limit at all. Everyone behind one /64 shares a budget, which is the same
  * bargain an IPv4 NAT already makes.
+ *
+ * The address is normalised first (`normalizeClientIp`), because a mapped
+ * spelling would otherwise cut an **IPv4** client to a /64 made of nothing but
+ * the mapping — one key shared by every IPv4 client there is, which is a limit
+ * on the installation rather than on the attacker.
  */
 export function rateLimitKey(ip: string): string {
-  if (isIP(ip) !== 6) return ip;
-  const bits = toBits(ip);
-  if (!bits) return ip;
+  const addr = normalizeClientIp(ip);
+  if (isIP(addr) !== 6) return addr;
+  const bits = toBits(addr);
+  if (!bits) return addr;
   const prefix = bits.value >> 64n;
   const groups = [48n, 32n, 16n, 0n].map((s) => ((prefix >> s) & 0xffffn).toString(16));
   return `${groups.join(":")}::/64`;

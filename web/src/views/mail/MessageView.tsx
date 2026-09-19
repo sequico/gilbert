@@ -1701,14 +1701,12 @@ function AttachmentList({
             onClick={() => {
               for (const a of attachments) {
                 if (!a.blobId) continue;
+                // Named once per attachment: the URL and the saved filename
+                // have to agree, and stripping twice is how they stop doing so.
+                const name = a.name ? withoutBidiControls(a.name) : "attachment";
                 const l = document.createElement("a");
-                l.href = client.downloadUrl(
-                  accountId,
-                  a.blobId,
-                  a.name ? withoutBidiControls(a.name) : "attachment",
-                  a.type,
-                );
-                l.download = a.name ? withoutBidiControls(a.name) : "";
+                l.href = client.downloadUrl(accountId, a.blobId, name, a.type);
+                l.download = name;
                 l.click();
               }
             }}

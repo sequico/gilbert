@@ -71,11 +71,16 @@ than inherited. This skill is that checklist.
   standing is the defect this rule exists to prevent (repo rule: *a change that
   makes a claim false fixes the claim in the same diff*,
   `.codewhale/instructions.md`).
-- **Some collisions are the owner's call.** Two deliberate designs that both
-  work — ours and theirs — are not something to settle inside a merge. Name both,
-  say what each costs, and put the choice to the user; the push subscription
-  below is the worked case. A merge is the wrong place to redesign a feature,
-  in either direction.
+- **Some collisions are the owner's call — but read them before escalating
+  them.** Two deliberate designs that both work, ours and theirs, are not
+  something to settle inside a merge: name both, say what each costs, and put the
+  choice to the user. That is the last resort rather than the first, though,
+  because a collision read only from our side *looks* like taste. Reading what
+  upstream's change was for, and what our own code was actually doing, is what
+  turns most of them into a defect, a fact, or a synthesis — the push
+  subscription below was escalated first as two designs and turned out to hold a
+  bug of ours, an upstream fact we were wrong about, and one genuine collision.
+  A merge is still the wrong place to redesign a feature, in either direction.
 - **Prefer taking a delta to merging the release.** When the change we want sits
   in a handful of upstream commits and the merge would drag in hundreds of files
   we have diverged from, hand-take it (the way `84dea39` took four fixes out of
@@ -107,15 +112,16 @@ than inherited. This skill is that checklist.
 ## Worked collisions
 
 Four real ones, from the `v2026.9.15-pr369` → `v2026.9.18` range. Read them as
-*how the call was made*, not as precedents — and note which way each went: one
-is a bound taken from upstream with our tighter number kept on top, one ends
-the other way with the record rewritten, one is settled by the
-one-source-of-truth rule rather than by preference, and one is not ours to
-settle at all. None of them is "upstream was wrong"; in every one, upstream's
-change was worth taking and the question was only what it was worth taking
-*over*. Where upstream is simply right — and often it is, being the larger
-project with the real deployments in front of it — the reading ends that way,
-and the ADR, the inventory bullet or the comment changes with it.
+*how the call was made*, not as precedents — and note that they went four
+different ways: one is a bound taken from upstream with our tighter number kept
+on top, one ends the other way with the record rewritten, one is settled by the
+one-source-of-truth rule rather than by preference, and one took upstream's
+diagnosis, kept our design and turned up a defect on our own side. None of them
+is "upstream was wrong"; in every one, upstream's change was worth taking and
+the question was only what it was worth taking *over*. Where upstream is simply
+right — and often it is, being the larger project with the real deployments in
+front of it — the reading ends that way, and the ADR, the inventory bullet or
+the comment changes with it.
 
 - **`loginBody`: a third version, built from both.** We cap sign-in at 16 KiB
   (`d45f011`) — the one endpoint that reads a body from somebody not yet signed
@@ -146,16 +152,38 @@ and the ADR, the inventory bullet or the comment changes with it.
   instance holds sessions in memory**, which is false here, where sessions live
   in the account's own document (ADR 0001). Reconcile by taking the *behaviour*
   into our file; never by landing their module beside ours.
-- **The push subscription: the owner's call, not the merge's.** ADR 0016 owns it
-  and says `types: ["Email"]` today, planning `["Email", "FileNode"]` so a
-  group's chat wakes the device. Upstream's fix (`4054f82`) subscribes to
-  `EmailDelivery` **only** and drops duplicate subscriptions — and it is a good
-  fix: it is live-checked on 0.16.22 and it repairs a real fault we share. But it
-  would falsify our record and retire the chat wake-up the record exists for,
-  and we had answered the same noise a different way (a server-side `emailPush`
-  filter). Two deliberate designs, both working: name both, say what each costs,
-  and let the user choose. A merge is the wrong place to redesign a feature, in
-  either direction.
+- **The push subscription: upstream's diagnosis won, our design was kept, and
+  the third thing was ours to fix.** ADR 0016 owns this surface. At the time of
+  the merge it said `types: ["Email"]` and planned `["Email", "FileNode"]` so a
+  group's chat would wake the device; upstream's `4054f82` subscribes to
+  `EmailDelivery` instead, and that is a better answer to the question the type
+  list was there for — a delivery is the only thing worth waking a closed client
+  for, and `Email` changes on every read and move from any client. So the type
+  list moved to upstream's, and the *plan* was not dropped but deferred: naming
+  `FileNode` before the worker can read what changed would render a chat write as
+  "New mail", so the chat wake-up stays owed on the record with the reason
+  written down.
+
+  Three findings in that one collision, of three different kinds, which is why
+  it is worth reading as a case rather than as a precedent:
+
+  1. a fact upstream was simply right about, where the record changed with the
+     code (`EmailDelivery`);
+  2. a decision of ours that upstream had not made, where a first reading said
+     "the owner's call" and a second one — reading what each subscription
+     actually consumes — showed the loudest symptom was a bug we shared, not two
+     designs to choose between (the payload asked for no `id`, so the Archive
+     and Mark-read buttons the worker draws could never appear);
+  3. a genuine collision, neither side's to settle alone: gilbertserver told a
+     browser's row from its own by the types it asked for, so *changing* that
+     type list turned a browser's registration into a candidate for deletion on
+     a full quota. Both sides now decide it by the shape of the device id, in
+     `server/src/shared/push.ts`, which both tiers already import.
+
+  The lesson worth keeping: **a collision read only from our side looks like a
+  matter of taste.** Reading what upstream's change was *for* — and what our own
+  code was actually doing — is what turned two of these three from an opinion
+  into a defect. Enumerate the collisions, then read them.
 
 **The pattern**, and the reason this list exists: a hunk is hardest to judge
 exactly when *both* sides are deliberate. `grep` the ADR index and

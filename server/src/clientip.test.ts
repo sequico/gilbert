@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { inRange, isTrustedProxy, resolveClientIp } from "./clientip.js";
+import {
+  inRange,
+  isTrustedProxy,
+  normalizeClientIp,
+  rateLimitKey,
+  resolveClientIp,
+} from "./clientip.js";
 
 /**
  * The rate limiter keys on whatever this returns, so anything a client can
@@ -143,5 +149,34 @@ test("a chain of nothing but our own proxies still yields an address", () => {
   assert.equal(
     resolveClientIp("127.0.0.1", { forwardedFor: "10.0.0.2, 10.0.0.3" }, cfg),
     "10.0.0.2",
+  );
+});
+
+/*
+ * One spelling for one client.
+ *
+ * An IPv4 client on a dual-stack socket arrives as `::ffff:a.b.c.d`, and that is
+ * what Node reports for the peer -- so the peer path, the forwarded chain and
+ * `X-Real-IP` can each produce either spelling for the same client. Everything
+ * keyed on the address has to see one of them, the sign-in limits most of all:
+ * a mapped address cut to its /64 is the *mapping* rather than the client, so
+ * every IPv4 client there is would share one budget.
+ */
+test("an IPv4-mapped address is the same client as its dotted quad", () => {
+  assert.equal(normalizeClientIp("::ffff:203.0.113.5"), "203.0.113.5");
+  assert.equal(normalizeClientIp("203.0.113.5"), "203.0.113.5");
+  // A real IPv6 address is left alone: `::ffff:1` is not a mapped IPv4 address.
+  assert.equal(normalizeClientIp("2001:db8::1"), "2001:db8::1");
+  assert.equal(normalizeClientIp("::ffff:0"), "::ffff:0");
+});
+
+test("a mapped address is normalised, whichever path chose it", () => {
+  // No proxy in front: the peer itself is the client.
+  assert.equal(resolveClientIp("::ffff:203.0.113.5", {}, direct), "203.0.113.5");
+  assert.equal(rateLimitKey("::ffff:203.0.113.5"), "203.0.113.5");
+  assert.notEqual(
+    rateLimitKey("::ffff:203.0.113.5"),
+    rateLimitKey("::ffff:198.51.100.9"),
+    "two IPv4 clients must not share a key",
   );
 });
