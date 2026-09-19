@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { FileNode, JmapSession } from "@/jmap/types";
 import { useFiles } from "@/store/files";
+import { fakeJmapServer, type JmapFake } from "@/test/jmapServer";
 
 /*
  * A FileNode push change (a folder created, renamed or deleted on another
@@ -18,47 +19,9 @@ const NODE = (id: string, parentId: string | null = null) =>
     parentId,
   }) as unknown as FileNode;
 
-function stubServer() {
-  const queries: Array<Record<string, unknown>> = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init: RequestInit) => {
-      const body = JSON.parse(init.body as string) as {
-        methodCalls: [string, Record<string, unknown>, string][];
-      };
-      const methodResponses: unknown[] = [];
-      for (const [name, args, id] of body.methodCalls) {
-        if (name === "FileNode/query") {
-          queries.push(args);
-          methodResponses.push([
-            name,
-            {
-              accountId: args.accountId,
-              queryState: "q",
-              ids: [],
-              position: (args.position as number) ?? 0,
-              total: 0,
-              canCalculateChanges: false,
-            },
-            id,
-          ]);
-        } else {
-          methodResponses.push([
-            name,
-            { accountId: args.accountId, state: "1", list: [], notFound: [] },
-            id,
-          ]);
-        }
-      }
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ methodResponses, sessionState: "1" }),
-      } as Response;
-    }),
-  );
-  return queries;
-}
+/** The `FileNode/query` calls the client made, as the arguments it sent. */
+const queriesOf = (srv: JmapFake): Array<Record<string, unknown>> =>
+  srv.callsTo("FileNode/query").map((call) => call.args);
 
 beforeEach(() => {
   client.session = {
@@ -79,7 +42,7 @@ afterEach(() => {
 
 describe("a FileNode push reloads the sidebar tree as well as the listings", () => {
   it("asks for the whole tree again when one is on screen", async () => {
-    const queries = stubServer();
+    const srv = fakeJmapServer();
     useFiles.setState({
       accountId: "a1",
       ownAccountId: "a1",
@@ -97,7 +60,7 @@ describe("a FileNode push reloads the sidebar tree as well as the listings", () 
     useFiles.getState().applyChanges(new Set(["FileNode"]));
     await vi.waitFor(() =>
       expect(
-        queries.some(
+        queriesOf(srv).some(
           (q) =>
             (q.filter as { nodeType?: string } | undefined)?.nodeType === "directory",
         ),
@@ -106,7 +69,7 @@ describe("a FileNode push reloads the sidebar tree as well as the listings", () 
   });
 
   it("leaves a tree that is not on screen alone", async () => {
-    const queries = stubServer();
+    const srv = fakeJmapServer();
     useFiles.setState({
       accountId: "a1",
       ownAccountId: "a1",
@@ -126,7 +89,7 @@ describe("a FileNode push reloads the sidebar tree as well as the listings", () 
     // chance to appear before asserting none did.
     await new Promise((r) => setTimeout(r, 0));
     expect(
-      queries.some(
+      queriesOf(srv).some(
         (q) => (q.filter as { nodeType?: string } | undefined)?.nodeType === "directory",
       ),
     ).toBe(false);
@@ -137,7 +100,7 @@ describe("a FileNode push reloads the sidebar tree as well as the listings", () 
        folder the reader has ever opened is a different thing: that set grows
        with the session, and re-reading it cost a query and a get per folder per
        change. */
-    const queries = stubServer();
+    const srv = fakeJmapServer();
     useFiles.setState({
       accountId: "a1",
       ownAccountId: "a1",
@@ -153,8 +116,8 @@ describe("a FileNode push reloads the sidebar tree as well as the listings", () 
       draggingIds: [],
     });
     useFiles.getState().applyChanges(new Set(["FileNode"]));
-    await vi.waitFor(() => expect(queries.length).toBeGreaterThan(0));
-    const asked = queries.map(
+    await vi.waitFor(() => expect(queriesOf(srv).length).toBeGreaterThan(0));
+    const asked = queriesOf(srv).map(
       (q) => (q.filter as { parentId?: string }).parentId ?? "(top)",
     );
     expect(asked).toEqual(["d2"]);

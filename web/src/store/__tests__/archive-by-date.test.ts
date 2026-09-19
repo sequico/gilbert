@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { JmapSession, Mailbox } from "@/jmap/types";
 import { useMail } from "@/store/mail";
+import { fakeJmapServer } from "@/test/jmapServer";
 import { useToasts } from "@/ui/toast";
 
 /**
@@ -27,82 +28,53 @@ function server(initial: Array<Partial<Mailbox> & { id: string; name: string }> 
   const moves: Array<{ id: string; to: string }> = [];
   let counter = 0;
 
-  const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as {
-      methodCalls: [string, Record<string, unknown>, string][];
-    };
-    const methodResponses = body.methodCalls.map(([name, args, id]) => {
-      if (name === "Mailbox/set" && args.create) {
-        const spec = (
-          args.create as Record<string, { name: string; parentId: string | null }>
-        ).n!;
-        const newId = `mb-new-${++counter}`;
-        created.push({ name: spec.name, parentId: spec.parentId });
-        boxes.set(newId, {
-          id: newId,
-          name: spec.name,
-          parentId: spec.parentId,
-          role: null,
-        });
-        return [
-          name,
-          {
-            accountId: "a1",
-            oldState: "1",
-            newState: "2",
-            created: { n: { id: newId } },
-            notCreated: {},
-          },
-          id,
-        ];
-      }
-      if (name === "Mailbox/get") {
-        return [
-          name,
-          { accountId: "a1", state: "1", list: [...boxes.values()], notFound: [] },
-          id,
-        ];
-      }
-      if (name === "Email/set" && args.update) {
-        // Moves arrive as per-folder patch paths now (mailboxIds/<id>: true /
-        // null); the destinations are the entries the patch sets to true.
-        for (const [emailId, patch] of Object.entries(
-          args.update as Record<string, Record<string, unknown>>,
-        )) {
-          for (const [path, v] of Object.entries(patch)) {
-            if (!path.startsWith("mailboxIds/") || v !== true) continue;
-            moves.push({ id: emailId, to: path.slice("mailboxIds/".length) });
-          }
+  fakeJmapServer()
+    .on("Mailbox/set", ({ args }) => {
+      const spec = (
+        args.create as Record<string, { name: string; parentId: string | null }>
+      ).n!;
+      const newId = `mb-new-${++counter}`;
+      created.push({ name: spec.name, parentId: spec.parentId });
+      boxes.set(newId, {
+        id: newId,
+        name: spec.name,
+        parentId: spec.parentId,
+        role: null,
+      });
+      return {
+        accountId: "a1",
+        oldState: "1",
+        newState: "2",
+        created: { n: { id: newId } },
+        notCreated: {},
+      };
+    })
+    .on("Mailbox/get", () => ({
+      accountId: "a1",
+      state: "1",
+      list: [...boxes.values()],
+      notFound: [],
+    }))
+    .on("Email/set", ({ args }) => {
+      // Moves arrive as per-folder patch paths now (mailboxIds/<id>: true /
+      // null); the destinations are the entries the patch sets to true.
+      for (const [emailId, patch] of Object.entries(
+        (args.update ?? {}) as Record<string, Record<string, unknown>>,
+      )) {
+        for (const [path, v] of Object.entries(patch)) {
+          if (!path.startsWith("mailboxIds/") || v !== true) continue;
+          moves.push({ id: emailId, to: path.slice("mailboxIds/".length) });
         }
-        return [
-          name,
-          { accountId: "a1", oldState: "1", newState: "2", updated: {}, notUpdated: {} },
-          id,
-        ];
       }
-      return [
-        name,
-        {
-          accountId: "a1",
-          state: "1",
-          list: [],
-          notFound: [],
-          ids: [],
-          total: 0,
-          queryState: "q",
-          position: 0,
-          canCalculateChanges: false,
-        },
-        id,
-      ];
+      return {
+        accountId: "a1",
+        oldState: "1",
+        newState: "2",
+        updated: {},
+        notUpdated: {},
+      };
     });
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({ methodResponses, sessionState: "1" }),
-    } as Response;
-  });
-  vi.stubGlobal("fetch", fetchMock);
+
   return { created, moves, boxes };
 }
 

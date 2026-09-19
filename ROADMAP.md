@@ -64,3 +64,22 @@ See [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for what is built but worth knowing about
   **The environment variables stay as they are** (owner decision 2026-09-12):
   `GILBERT_AGENT_ADDRESS` and its neighbours name the master's credentials, and
   a rename is a change to somebody's deployment file rather than to a codebase.
+
+- **The web's test suites still fake the JMAP envelope for themselves.** Thirty
+  of them wrote the same loop out: parse `methodCalls`, answer one
+  `methodResponses` entry per call in the call's own id, each with its own map of
+  methods to answers and its own grab-bag default. `web/src/test/jmapServer.ts`
+  is that loop once — a suite registers the methods its assertions are about
+  (`srv.on("Mailbox/set", ({ args }) => …)`), closes over whatever state it
+  keeps, and reads back what was asked (`srv.calls`, `srv.callsTo`, `srv.count`).
+  Four suites use it (`files-push-tree`, `thread-not-found`,
+  `select-all-in-folder`, `archive-by-date`); the other twenty-six migrate as
+  they are touched, which is the moment a suite is read closely anyway.
+
+  What the shared fake deliberately does not do is model Stalwart: it answers the
+  envelope and records the calls, and a method nobody registered comes back as
+  the empty result of every shape. The simulation is `server/src/mock`, the one
+  that has to agree with a real server. Pointing the client's suites at *that*
+  instead of at a fetch stub is the change that would make "one Stalwart" literal
+  rather than rhetorical, and it is a bigger change than this file's shape:
+  the mock is a Node server, and the suites stub `fetch`.

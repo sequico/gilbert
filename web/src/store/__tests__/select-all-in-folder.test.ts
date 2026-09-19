@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { JmapSession } from "@/jmap/types";
 import { useMail } from "@/store/mail";
+import { fakeJmapServer } from "@/test/jmapServer";
 import { useToasts } from "@/ui/toast";
 
 /**
@@ -24,59 +25,31 @@ function server(totalIds: number) {
     [];
   const updates: Array<Record<string, unknown>> = [];
 
-  const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as {
-      methodCalls: [string, Record<string, unknown>, string][];
-    };
-    const methodResponses = body.methodCalls.map(([name, args, id]) => {
-      if (name === "Email/query") {
-        const position = (args.position as number) ?? 0;
-        const limit = (args.limit as number) ?? PAGE;
-        queries.push({ position, limit, collapseThreads: args.collapseThreads });
-        return [
-          name,
-          {
-            accountId: "a1",
-            queryState: "q",
-            canCalculateChanges: false,
-            position,
-            ids: all.slice(position, position + limit),
-            total: all.length,
-          },
-          id,
-        ];
-      }
-      if (name === "Email/set" && args.update) {
-        updates.push(args.update as Record<string, unknown>);
-        return [
-          name,
-          { accountId: "a1", oldState: "1", newState: "2", updated: {}, notUpdated: {} },
-          id,
-        ];
-      }
-      return [
-        name,
-        {
-          accountId: "a1",
-          state: "1",
-          list: [],
-          notFound: [],
-          ids: [],
-          total: 0,
-          queryState: "q",
-          position: 0,
-          canCalculateChanges: false,
-        },
-        id,
-      ];
+  fakeJmapServer()
+    .on("Email/query", ({ args }) => {
+      const position = (args.position as number) ?? 0;
+      const limit = (args.limit as number) ?? PAGE;
+      queries.push({ position, limit, collapseThreads: args.collapseThreads });
+      return {
+        accountId: "a1",
+        queryState: "q",
+        canCalculateChanges: false,
+        position,
+        ids: all.slice(position, position + limit),
+        total: all.length,
+      };
+    })
+    .on("Email/set", ({ args }) => {
+      if (args.update) updates.push(args.update as Record<string, unknown>);
+      return {
+        accountId: "a1",
+        oldState: "1",
+        newState: "2",
+        updated: {},
+        notUpdated: {},
+      };
     });
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({ methodResponses, sessionState: "1" }),
-    } as Response;
-  });
-  vi.stubGlobal("fetch", fetchMock);
+
   return { all, queries, updates };
 }
 

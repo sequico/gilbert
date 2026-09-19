@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { JmapSession } from "@/jmap/types";
 import { useMail } from "@/store/mail";
+import { fakeJmapServer } from "@/test/jmapServer";
 
 /**
  * loadThread against a Thread/get that says the thread is not there.
@@ -18,40 +19,22 @@ const EMAIL = "e1";
 
 /** A server that knows `threads` and hands `emails` back to every Email/get. */
 function server(threads: Array<{ id: string; emailIds: string[] }>, emails: unknown[]) {
-  const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as {
-      methodCalls: [string, Record<string, unknown>, string][];
-    };
-    const methodResponses = body.methodCalls.map(([name, args, id]) => {
-      if (name === "Thread/get") {
-        const wanted = (args.ids as string[]) ?? [];
-        return [
-          name,
-          {
-            accountId: "a1",
-            state: "s1",
-            list: threads.filter((t) => wanted.includes(t.id)),
-            notFound: wanted.filter((x) => !threads.some((t) => t.id === x)),
-          },
-          id,
-        ];
-      }
-      if (name === "Email/get") {
-        return [name, { accountId: "a1", state: "s1", list: emails, notFound: [] }, id];
-      }
-      return [
-        name,
-        { accountId: "a1", state: "s1", list: [], notFound: [], ids: [], total: 0 },
-        id,
-      ];
-    });
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({ methodResponses, sessionState: "s1" }),
-    } as Response;
-  });
-  vi.stubGlobal("fetch", fetchMock);
+  return fakeJmapServer()
+    .on("Thread/get", ({ args }) => {
+      const wanted = (args.ids as string[]) ?? [];
+      return {
+        accountId: "a1",
+        state: "s1",
+        list: threads.filter((t) => wanted.includes(t.id)),
+        notFound: wanted.filter((x) => !threads.some((t) => t.id === x)),
+      };
+    })
+    .on("Email/get", () => ({
+      accountId: "a1",
+      state: "s1",
+      list: emails,
+      notFound: [],
+    }));
 }
 
 beforeEach(() => {
