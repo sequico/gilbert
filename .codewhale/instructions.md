@@ -324,6 +324,17 @@ UI strings & languages: load skills/gilbert-i18n. Settings & policy: load
 skills/gilbert-settings. Stalwart internals, quirks & integration: load
 skills/gilbert-stalwart. Upstream merges: load skills/gilbert-upstream-rebrand.
 
+## Shell: nothing unbounded in the foreground (global user rule, active here)
+
+- A command that is not bounded to a few seconds goes to the background at
+  launch (`background=true` / `task_shell_start`) and is polled. The runtime's
+  own tool text puts the line at >5 s; there is no global default and no
+  auto-promotion, and `Ctrl+B → /jobs` is the owner's manual override, never
+  the recovery path for a command an agent launched.
+- If a foreground command is already sitting with no output, move it to `/jobs`
+  yourself and poll it, or kill it and relaunch it in the background — the
+  owner must never be the one who unsticks it.
+
 ## Worktrees
 
 - A worktree of this repository lives in `.worktree/` — the canonical name, here
