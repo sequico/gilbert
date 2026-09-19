@@ -4,6 +4,7 @@ import {
   Cake,
   Calendar as CalIcon,
   Download,
+  FolderInput,
   Globe,
   Mail,
   MapPin,
@@ -36,12 +37,14 @@ import { formatDate, formatDateLong } from "@/lib/datetime";
 import { downloadFile } from "@/lib/download";
 import { plural, t as translate } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
+import { useMayMoveContact } from "@/lib/useMayMoveContact";
 import { useCompose } from "@/store/compose";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { DEFAULT_SETTINGS, useSettings } from "@/store/settings";
-import { confirmDialog } from "@/ui/dialog";
+import { confirmDialog, Dialog } from "@/ui/dialog";
 import { Avatar, Empty, Spinner, useIsNarrow } from "@/ui/misc";
+import { MenuItem, Popover, useMenu } from "@/ui/popover";
 import { Splitter } from "@/ui/Splitter";
 import { toast } from "@/ui/toast";
 import { ContactEditor } from "./ContactEditor";
@@ -80,6 +83,20 @@ export function ContactsView({ id }: { id?: string }) {
   const sel = contacts.selection;
   const bookId = sel.bookId;
   const [editing, setEditing] = useState<Partial<ContactCard> | null>(null);
+  /*
+   * The row a right-click menu belongs to, and the card it is about to be moved
+   * from. Kept apart from the ticked selection: a move is one card's, and the
+   * menu is opened on the row the pointer is over.
+   */
+  const [menuCard, setMenuCard] = useState<ContactCard | null>(null);
+  const [moving, setMoving] = useState<ContactCard | null>(null);
+  const menu = useMenu();
+  /*
+   * Whether this reader may move a card between accounts at all (ADR 0018).
+   * Read through the rule's own hook, so the answer re-renders when the admin
+   * flag moves rather than being read once when the view mounted.
+   */
+  const mayMove = useMayMoveContact();
   const openCompose = useCompose((s) => s.open);
   /*
    * Ticked rows, and the last one ticked so a shift-click has something to
@@ -188,6 +205,12 @@ export function ContactsView({ id }: { id?: string }) {
     accountId && showingAll
       ? groupCardAccounts.find((g) => g.accountId === accountId)?.name
       : undefined;
+
+  const openMenuAt = (e: React.MouseEvent, c: ContactCard) => {
+    e.preventDefault();
+    setMenuCard(c);
+    menu.openAt(e.clientX, e.clientY);
+  };
 
   // `selected` is resolved by id alone, not by the sidebar's current book
   // selection -- a deep link or a search result can land on a shared card
@@ -559,6 +582,14 @@ export function ContactsView({ id }: { id?: string }) {
                       key={c.id}
                       className={`contact-row ${id === c.id ? "active" : ""} ${picked[c.id] ? "picked" : ""}`}
                       onClick={() => navigate(`/contacts/${c.id}`)}
+                      /*
+                       * The one action that is about where the card lives rather
+                       * than what is in it: a right-click offers it, and the move
+                       * dialog asks the destination. Nothing is drawn on a row
+                       * that has nowhere to go, so the menu is opened only where
+                       * the reader may move one (ADR 0018).
+                       */
+                      onContextMenu={mayMove ? (e) => openMenuAt(e, c) : undefined}
                     >
                       {contacts.cardWritable(c) && (
                         <input
@@ -576,9 +607,7 @@ export function ContactsView({ id }: { id?: string }) {
                       <span
                         className="avatar"
                         style={{
-                          background: photo
-                            ? "transparent"
-                            : avatarColor(email ?? name),
+                          background: photo ? "transparent" : avatarColor(email ?? name),
                         }}
                       >
                         {photo ? (
@@ -614,7 +643,9 @@ export function ContactsView({ id }: { id?: string }) {
                       {groupName && (
                         <span
                           className="c-group"
-                          title={translate("From the group {group}", { group: groupName })}
+                          title={translate("From the group {group}", {
+                            group: groupName,
+                          })}
                         >
                           {groupName}
                         </span>
@@ -681,7 +712,150 @@ export function ContactsView({ id }: { id?: string }) {
           }}
         />
       )}
+      {/* The right-click menu, and the one entry an administrator's session
+          has in it: where the card lives. */}
+      <Popover
+        anchor={menu.anchor}
+        onClose={menu.close}
+        trigger={menu.trigger}
+        width={230}
+      >
+        {menuCard && (
+          <MenuItem
+            icon={<FolderInput size={16} />}
+            label={translate("Move to…")}
+            onClick={() => {
+              setMoving(menuCard);
+              setMenuCard(null);
+            }}
+          />
+        )}
+      </Popover>
+      {moving && (
+        <MoveContactDialog
+          card={moving}
+          onClose={() => setMoving(null)}
+          onMoved={(newId) => {
+            setMoving(null);
+            clearPicked();
+            navigate(`/contacts/${newId}`);
+            toast.success(translate("Contact moved"));
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * Where a contact is moved to: a book, in one of the accounts the reader
+ * reaches, and a question only an administrator's session is asked at all
+ * (ADR 0018).
+ *
+ * Grouped by the account that owns the book, because that is what the move
+ * changes -- a book named "Team" in two groups is two destinations, and the
+ * account is the half a reader has to know. The reader's own books are offered
+ * only while the card is somewhere else: moving a card between two of your own
+ * books changes nothing about whose it is, and it is done in the editor.
+ *
+ * The move itself is the store's (`moveCardTo`), which copies the card into the
+ * target account and destroys the original, so the id changes and the caller
+ * navigates to the new one.
+ */
+function MoveContactDialog({
+  card,
+  onClose,
+  onMoved,
+}: {
+  card: ContactCard;
+  onClose: () => void;
+  onMoved: (newId: string) => void;
+}) {
+  const contacts = useContacts();
+  const mailAccounts = useMail((s) => s.mailAccounts);
+  const [busy, setBusy] = useState(false);
+  const fromAccount = contacts.accountOfCard(card.id) ?? contacts.accountId;
+  const ownBooks = Object.values(contacts.books).sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
+  );
+  /* The groups, each with its own books: a book nobody's member could write is
+     still listed, and the server refuses it in its own words rather than the
+     picker hiding a destination that exists. */
+  const groups = groupMailboxAccounts(mailAccounts).map((g) => ({
+    accountId: g.accountId,
+    accountName: g.name,
+    books: contacts.sharedBooks
+      .filter((b) => b.accountId === g.accountId)
+      .map((b) => b.book)
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
+  }));
+  const elsewhere = fromAccount !== contacts.accountId;
+
+  const move = async (accountId: string, bookId: string) => {
+    if (!fromAccount) return;
+    setBusy(true);
+    try {
+      const newId = await contacts.moveCardTo(card.id, fromAccount, accountId, bookId);
+      onMoved(newId);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={translate("Move {name} to…", { name: contactDisplayName(card) })}
+    >
+      {groups.map((g) => (
+        <div key={g.accountId}>
+          <div className="nav-section">
+            <span>{g.accountName}</span>
+          </div>
+          {g.books.length ? (
+            g.books.map((b) => (
+              <button
+                key={b.id}
+                className="menu-item"
+                disabled={busy}
+                onClick={() => void move(g.accountId, b.id)}
+              >
+                <Users size={16} />
+                <span className="grow truncate">{b.name}</span>
+              </button>
+            ))
+          ) : (
+            <p className="hint" style={{ padding: "4px 12px" }}>
+              {translate("This group keeps no address books.")}
+            </p>
+          )}
+        </div>
+      ))}
+      {elsewhere && (
+        <div>
+          <div className="nav-section">
+            <span>{translate("My address books")}</span>
+          </div>
+          {ownBooks.map((b) => (
+            <button
+              key={b.id}
+              className="menu-item"
+              disabled={busy}
+              onClick={() => void move(contacts.accountId ?? "", b.id)}
+            >
+              <FolderInput size={16} />
+              <span className="grow truncate">{b.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {!groups.length && !elsewhere && (
+        <p className="hint">{translate("There is nowhere else to move it.")}</p>
+      )}
+    </Dialog>
   );
 }
 

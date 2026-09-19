@@ -1637,6 +1637,15 @@ JMAP Contacts and JSContact.
   named by whoever may write it too (Rename on the group's own directory), and
   the write goes to the account that holds it. A colleague's read-only share is
   still read-only, and says so.
+- **Moving a contact between accounts is an administrator's** (ADR 0018). A card
+  lives in one account, and a group's card is the group's, so moving one from a
+  personal book into a group's — or back out, or from one group to another —
+  changes whose it is: a right-click on the row offers **Move to…** to an
+  installation administrator only, and the dialog names each group and the books
+  it owns. Filing a **new** contact into a group's book, editing one where it
+  lives and re-filing a card between two books of the same account are not moves
+  and are unchanged — a member does all three. It is a rule this client keeps,
+  not a boundary: another JMAP client moves the same card.
 
 ---
 

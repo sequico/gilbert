@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client } from "@/jmap/client";
 import type { AddressBook, ContactCard, Id, JmapSession } from "@/jmap/types";
 import { sharedKey, useContacts } from "@/store/contacts";
+import { useSession } from "@/store/session";
 
 /*
  * Moving a card between accounts must carry the reader's edits: a copy built
@@ -12,6 +13,11 @@ import { sharedKey, useContacts } from "@/store/contacts";
  * copy; here the editor hands the form object to `moveCardTo`, and these tests
  * pin that the copy is the card as edited, that the original is destroyed only
  * after the copy exists, and that a refused destroy keeps the source on screen.
+ *
+ * Every case here is an installation administrator's, because a move between
+ * accounts changes whose the card is (ADR 0018) — so the session says so, and
+ * what a refusal does is asserted in `contact-move-admin.test.ts` rather than
+ * twice.
  */
 
 const BOOK = (id: string) =>
@@ -132,7 +138,9 @@ beforeEach(() => {
     accounts: {},
     primaryAccounts: {},
     state: "s1",
+    gilbert: { isAdmin: true },
   } as unknown as JmapSession;
+  useSession.setState({ status: "authenticated", session: client.session });
   useContacts.setState({
     accountId: "a1",
     available: true,
@@ -151,6 +159,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  useSession.setState({ status: "loading", session: null, accountId: null });
 });
 
 describe("moving a card to a book in another account", () => {

@@ -12,12 +12,14 @@ import type {
   SetError,
   SetResponse,
 } from "@/jmap/types";
+import { type ContactMoveRefusal, contactMoveRefusal } from "@/lib/contactMove";
 import {
   contactDisplayName,
   contactEmails,
   groupRecipients,
   sortKey,
 } from "@/lib/contacts";
+import { t } from "@/lib/i18n";
 import { loadPlace, placeOwnerFrom, rememberPlace } from "@/lib/lastPlace";
 import { parseLdif, uidFromDn } from "@/lib/ldif";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
@@ -240,6 +242,24 @@ function accountOfBook(
 export interface BookSelection {
   accountId: Id | null;
   bookId: Id | "all";
+}
+
+/**
+ * What a refused move says, in the reader's language.
+ *
+ * The rule answers a code and the sentence is composed where it shows, which is
+ * here for the write the store performs: a string held in a library is a string
+ * no catalogue can translate. It names the one thing that makes the difference,
+ * because a reader who is refused a move has to know the move was the reason
+ * rather than the address book, which stays usable in every other way.
+ */
+function contactMoveSentence(code: ContactMoveRefusal): string {
+  switch (code) {
+    case "contact_move_admin":
+      return t(
+        "Moving a contact between your own address books and a group's is an installation administrator's, because the card belongs to the account it lands in. Editing it and filing new contacts where they are still work.",
+      );
+  }
 }
 
 /*
@@ -951,6 +971,19 @@ export const useContacts = create<ContactsState>((set, get) => ({
     const own = get().accountId;
     if (!fromAccountId || !toAccountId)
       throw new Error("That address book is not available");
+    /*
+     * Moving a card between accounts changes whose it is, so it is an
+     * installation administrator's (ADR 0018). The guard is here, on the
+     * effect, rather than on the menu that offers it: a form that changes a
+     * card's account reaches the same write, and a rule kept on the surface
+     * that draws the entry is a rule a second surface walks around.
+     */
+    const refusal = contactMoveRefusal({
+      fromAccountId,
+      toAccountId,
+      isAdmin: useSession.getState().session?.gilbert?.isAdmin === true,
+    });
+    if (refusal) throw new Error(contactMoveSentence(refusal));
     if (fromAccountId === toAccountId) {
       // Same account: a patch that adds the target book, mirroring updateCard.
       await get().updateCard(id, { addressBookIds: { [toBookId]: true } });

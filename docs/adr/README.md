@@ -158,3 +158,9 @@ is, not what a user sees.
   in its own document), and, where the installation asked for the rule, the
   session was signed in on a device marked as the person's own. The menu
   announces the decision and says why when it cannot; the server is the door.
+- **0018 — A contact is moved between accounts by an administrator only.** A card
+  is an object of one account and a group's card is the group's, so moving one
+  across that line changes whose it is: the guard sits on the write
+  (`moveCardTo`), the surfaces draw the entry from the same answer, and filing a
+  new card into a group's book, editing one where it lives and re-filing a card
+  inside one account are not moves and are unchanged.
