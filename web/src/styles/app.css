@@ -1781,7 +1781,17 @@ select optgroup { background-color: var(--bg-elev); color: var(--fg); }
 .contact-row { display: flex; align-items: center; gap: 12px; padding: 8px 14px; cursor: pointer; border-bottom: 1px solid var(--border); }
 .contact-row:hover { background: var(--bg-hover); }
 .contact-row.active { background: var(--selected-bg); }
-.contact-row .c-name { font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.contact-row .c-name { display: flex; align-items: baseline; gap: 6px; font-weight: 550; }
+/* Everything on the name line truncates, and the name gives up its width first
+   because it is the longest of them. The kind label keeps its own, so it is
+   never the part that is cut. */
+.contact-row .c-name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.contact-row .c-name > .hint { flex: 0 0 auto; }
+/* A group is a set of people rather than one, and the name says so on its own
+   -- set bold, where a person's name is not and an organisation's is followed
+   by the word. */
+.contact-row .c-name.is-group { font-weight: 700; }
+.contact-row .c-company { color: var(--fg-muted); font-size: .85em; font-weight: 400; }
 .contact-row .c-email { color: var(--fg-muted); font-size: .85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .contact-row.picked { background: var(--selected-bg); }
 .contacts-selbar { gap: 12px; padding-left: 14px; }

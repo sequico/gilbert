@@ -396,7 +396,6 @@ export const catalog: Catalog = {
     Members: "メンバー",
     "Members ({count})": "メンバー（{count}）",
     Group: "グループ",
-    "· group": "· グループ",
     Person: "個人",
     "First name": "名",
     "Last name": "姓",

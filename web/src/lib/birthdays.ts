@@ -8,6 +8,7 @@
  * derived when a view asks for a range, and vanish when the contact does.
  */
 import type { ContactCard } from "@/jmap/types";
+import { contactCompany } from "./contacts";
 
 export interface Birthday {
   /** Stable across renders and unique per occurrence, so React can key on it. */
@@ -86,7 +87,7 @@ const displayName = (c: ContactCard): string =>
     .filter(Boolean)
     .join(" ")
     .trim() ||
-  Object.values(c.organizations ?? {})[0]?.name?.trim() ||
+  contactCompany(c) ||
   "";
 
 /**

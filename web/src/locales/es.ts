@@ -399,7 +399,6 @@ export const catalog: Catalog = {
     Members: "Miembros",
     "Members ({count})": "Miembros ({count})",
     Group: "Grupo",
-    "· group": "· grupo",
     Person: "Persona",
     "First name": "Nombre",
     "Last name": "Apellidos",

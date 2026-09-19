@@ -23,6 +23,7 @@ import { setErrorMessage } from "@/jmap/client";
 import type { ContactCard } from "@/jmap/types";
 import { avatarColor } from "@/lib/address";
 import {
+  contactCompany,
   contactDisplayName,
   contactEmails,
   contactPhoto,
@@ -492,9 +493,20 @@ export function ContactsView({ id }: { id?: string }) {
               <div key={g.letter}>
                 <div className="contact-letter">{g.letter}</div>
                 {g.items.map((c) => {
+                  const name = contactDisplayName(c);
                   const email = contactEmails(c)[0]?.email;
+                  /*
+                   * The company beside a person's name, and never beside the
+                   * name it already is: a card with no person name of its own
+                   * is shown as its company, and saying it twice reads as two
+                   * facts. An organisation says what it is instead -- its own
+                   * name is the company.
+                   */
+                  const company = contactCompany(c);
+                  const beside = company && company !== name ? company : null;
                   // A card of a shared book lives in the account it came from.
-                  const photoAccount = contacts.accountOfCard(c.id) ?? contacts.accountId;
+                  const cardAccount = contacts.accountOfCard(c.id);
+                  const photoAccount = cardAccount ?? contacts.accountId;
                   const photo = photoAccount ? contactPhoto(c, photoAccount) : null;
                   return (
                     <div
@@ -520,7 +532,7 @@ export function ContactsView({ id }: { id?: string }) {
                         style={{
                           background: photo
                             ? "transparent"
-                            : avatarColor(email ?? contactDisplayName(c)),
+                            : avatarColor(email ?? name),
                         }}
                       >
                         {photo ? (
@@ -528,31 +540,29 @@ export function ContactsView({ id }: { id?: string }) {
                         ) : c.kind === "group" ? (
                           <Users size={16} />
                         ) : (
-                          contactDisplayName(c).slice(0, 1).toUpperCase()
+                          name.slice(0, 1).toUpperCase()
                         )}
                       </span>
                       <div className="grow" style={{ minWidth: 0 }}>
                         {/*
-                          What kind of entry this is, told at a glance: a
-                          group is a set of people, an organisation is a
-                          company, and everything else is a person. Written
-                          small, because it is a label rather than a title.
+                          What kind of entry this is, told without a word
+                          wherever a word is not needed: a group's name is set
+                          bold, an organisation says so, and a person's name
+                          carries the company they belong to beside it -- so an
+                          organisation and a person who works for one no longer
+                          read the same.
                         */}
-                        <div className="c-name">
-                          <span>{contactDisplayName(c)}</span>
-                          {c.kind === "group" ? (
-                            <span className="hint"> {translate("· group")}</span>
-                          ) : c.kind === "org" ? (
+                        <div className={`c-name ${c.kind === "group" ? "is-group" : ""}`}>
+                          <span>{name}</span>
+                          {c.kind === "org" && (
                             <span className="hint"> {translate("· organization")}</span>
-                          ) : (
-                            <span className="hint"> {translate("· person")}</span>
+                          )}
+                          {c.kind !== "org" && beside && (
+                            <span className="c-company">{beside}</span>
                           )}
                         </div>
                         <div className="c-email">
-                          {email ??
-                            Object.values(c.phones ?? {})[0]?.number ??
-                            Object.values(c.organizations ?? {})[0]?.name ??
-                            ""}
+                          {email ?? Object.values(c.phones ?? {})[0]?.number ?? ""}
                         </div>
                       </div>
                     </div>

@@ -29,16 +29,29 @@ export function contactDisplayName(c: ContactCard): string {
     if (s) return s;
   }
   if (c.kind === "group" || c.kind === "org") {
-    const org = Object.values(c.organizations ?? {})[0]?.name;
+    const org = contactCompany(c);
     if (org) return org;
   }
   const nick = Object.values(c.nicknames ?? {})[0]?.name;
   if (nick) return nick;
-  const org = Object.values(c.organizations ?? {})[0]?.name;
+  const org = contactCompany(c);
   if (org) return org;
   const email = primaryEmail(c);
   if (email) return email;
   return "(no name)";
+}
+
+/**
+ * The company a card belongs to, where it carries one.
+ *
+ * One accessor for the first organisation, because the company is read by
+ * several surfaces and a second spelling of where it lives is how two of them
+ * come to read two different fields: the list shows it beside a person's name,
+ * the detail pane and the editor read it as a field of its own, and the
+ * birthdays feed falls back to it as a name.
+ */
+export function contactCompany(c: ContactCard): string | undefined {
+  return Object.values(c.organizations ?? {})[0]?.name?.trim() || undefined;
 }
 
 export function nameParts(c: ContactCard): {

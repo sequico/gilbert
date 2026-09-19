@@ -603,7 +603,6 @@ export const catalog: Catalog = {
     "Members ({count})": "Membri ({count})",
     Group: "Gruppo",
 
-    "· group": "· gruppo",
     Person: "Persona",
 
     "First name": "Nome",

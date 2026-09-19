@@ -10,6 +10,7 @@ import type {
 import {
   buildName,
   cardsByUid,
+  contactCompany,
   contactDisplayName,
   nameParts,
   newKey,
@@ -73,9 +74,7 @@ export function ContactEditor({
   const [nickname, setNickname] = useState(
     Object.values(card.nicknames ?? {})[0]?.name ?? "",
   );
-  const [company, setCompany] = useState(
-    Object.values(card.organizations ?? {})[0]?.name ?? "",
-  );
+  const [company, setCompany] = useState(contactCompany(card as ContactCard) ?? "");
   const [jobTitle, setJobTitle] = useState(
     Object.values(card.titles ?? {})[0]?.name ?? "",
   );

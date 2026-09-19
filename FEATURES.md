@@ -1575,9 +1575,13 @@ JMAP Contacts and JSContact.
   since a member is named by a `uid` that means nothing outside its account.
   A group is a set of people rather than a person, so its entry has no email,
   phone, post, dates or links: those fields are not offered for it and not
-  written, wherever it is filed. Every row in the list says which kind it is —
-  *· person*, *· organization* or *· group* — so the three are told apart
-  without opening each card. **Email group** on a group's own page addresses
+  written, wherever it is filed. **Every row says which kind it is, without a
+  word wherever a word is not needed**: a group's name is set **bold**, a
+  person's carries the **company** they belong to beside it, and an
+  organisation is the one that still says so — *· organization* — because its
+  own name is the company and nothing else on the row would tell the two apart.
+  A card with no person name of its own is shown as its company, and says it
+  once. **Email group** on a group's own page addresses
   its members through the one resolution the composer uses (ADR 0004).
 - **Select and delete in bulk** — tick rows in the list, shift-click for a run,
   and delete the lot; or **Empty address book** from the book's own menu, which

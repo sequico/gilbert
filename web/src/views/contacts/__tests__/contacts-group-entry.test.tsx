@@ -10,14 +10,19 @@ import { ContactsView } from "../ContactsView";
 /**
  * How the three kinds of entry are told apart, and what a group one shows.
  *
- * A book holds people, organisations and groups. The list said which were
- * groups and left the other two to be guessed; and a group entry — a set of
- * people rather than a person — showed the email, phone, post, dates and
- * links that a card of that kind is not for.
+ * A book holds people, organisations and groups. The list says which is which
+ * without a word wherever a word is not needed — a group's name is set bold, a
+ * person's carries the company they belong to — and an organisation is the one
+ * that still says what it is, because its name is the company and nothing else
+ * on the row would say so. A group entry — a set of people rather than a person
+ * — still shows none of the email, phone, post, dates and links that a card of
+ * that kind is not for.
  */
 
 const card = (over: Partial<ContactCard>) =>
   ({ addressBookIds: { b1: true }, emails: {}, ...over }) as unknown as ContactCard;
+
+const NASA = { o1: { "@type": "Organization", name: "NASA" } } as never;
 
 const ADA = card({
   id: "c1",
@@ -26,8 +31,17 @@ const ADA = card({
   name: { full: "Ada Person" },
   emails: { e1: { address: "ada@example.org", contexts: {} } },
   phones: { p1: { number: "+1 555 0100" } },
+  organizations: NASA,
 });
 const ACME = card({ id: "c2", uid: "u2", kind: "org", name: { full: "Acme Ltd" } });
+/* A person whose card carries no name of its own: the company is what is shown,
+   and it is shown once. */
+const SOLO = card({
+  id: "c4",
+  uid: "u4",
+  kind: "individual",
+  organizations: { o1: { "@type": "Organization", name: "Solo Studio" } } as never,
+});
 const TEAM = card({
   id: "c3",
   uid: "u3",
@@ -64,7 +78,7 @@ describe("the contacts list and its group entries", () => {
       accountId: "own",
       available: true,
       books: {},
-      cards: { c1: ADA, c2: ACME, c3: TEAM },
+      cards: { c1: ADA, c2: ACME, c3: TEAM, c4: SOLO },
       loaded: true,
       loading: false,
       error: null,
@@ -86,12 +100,32 @@ describe("the contacts list and its group entries", () => {
     vi.unstubAllGlobals();
   });
 
-  it("says which kind every row is", async () => {
+  it("tells the three kinds apart without labelling a person or a group", async () => {
     await render();
     const text = rows().join(" | ");
-    expect(text).toContain("Ada Person · person");
+    // A person carries the company they belong to...
+    expect(text).toContain("Ada PersonNASA");
+    // ...an organisation still says what it is...
     expect(text).toContain("Acme Ltd · organization");
-    expect(text).toContain("Freight team · group");
+    // ...and a group says it in its own weight, with no word at all.
+    expect(text).toContain("Freight team");
+    expect(text).not.toContain("· person");
+    expect(text).not.toContain("· group");
+  });
+
+  it("sets a group's name apart by weight, and by nothing else", async () => {
+    await render();
+    const row = (name: string) =>
+      [...host.querySelectorAll(".contact-row .c-name")].find((r) =>
+        (r.textContent ?? "").startsWith(name),
+      )!;
+    expect(row("Freight team").className).toContain("is-group");
+    expect(row("Ada Person").className).not.toContain("is-group");
+  });
+
+  it("says a company once, when it is already the name", async () => {
+    await render();
+    expect(rows()).toContain("Solo Studio");
   });
 
   it("shows a person's email, phone, post, dates and links", async () => {
