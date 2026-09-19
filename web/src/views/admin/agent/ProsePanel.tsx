@@ -25,6 +25,7 @@
 import { useEffect, useState } from "react";
 import { fetchAgentProse, readDraft, saveAgentProse } from "@/lib/agents";
 import { t } from "@/lib/i18n";
+import { proseStampText } from "@/views/agent/agentText";
 import { AskReading } from "./AskReading";
 
 export function ProsePanel({
@@ -174,14 +175,9 @@ export function ProsePanel({
       >
         {busy ? t("Saving…") : t("Save")}
       </button>
-      {saved.at && (
-        <p className="hint" style={{ marginTop: 8 }}>
-          {t("Last written by {who} on {when}.", {
-            who: saved.by ?? t("an administrator"),
-            when: saved.at,
-          })}
-        </p>
-      )}
+      <p className="hint" style={{ marginTop: 8 }}>
+        {proseStampText({ updatedAt: saved.at, updatedBy: saved.by })}
+      </p>
     </section>
   );
 }

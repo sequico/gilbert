@@ -382,8 +382,15 @@ export async function openAgentSession(
   return { ok: false, code: "agent_unreachable", detail: imp.message };
 }
 
-/** The agent's store, or the honest reason there is nothing to read. */
-async function agentStore(
+/**
+ * The agent's own store, or the honest reason there is nothing to read.
+ *
+ * Exported because two callers outside this module need exactly this: the
+ * routes that read and write the installation's own prose (ADR 0019), which
+ * live in the agent's account and nowhere else. The address travels beside the
+ * store because a surface shows whose account it signed in as.
+ */
+export async function agentStore(
   admin: LiveSession,
 ): Promise<{ store: AgentStore; address: string }> {
   const address = agentAddress();
@@ -1243,12 +1250,16 @@ function isPrivateHost(hostname: string): boolean {
  * document already is. Read by every member of a group, on the member's own
  * route: what the agent is told is exactly what a member has to be able to
  * judge (ADR 0003 resolution 17), so the read is shared and the pen is not.
+ *
+ * The store is the scope: the agent's own account is the installation's rules,
+ * a group's account is that group's instruction. One pair of functions, because
+ * the document is one type at two reaches.
  */
 export async function readAgentProse(
-  access: { ctx: Ctx; accountId: string },
+  store: AgentStore,
   path: string,
 ): Promise<AgentProseView> {
-  const found = await new AgentStore(access.ctx, access.accountId).readProse(path);
+  const found = await store.readProse(path);
   return {
     text: found?.doc.text ?? "",
     updatedAt: found?.doc.updatedAt ?? null,
@@ -1265,7 +1276,7 @@ export async function readAgentProse(
  * back.
  */
 export async function saveAgentProse(
-  access: { ctx: Ctx; accountId: string },
+  store: AgentStore,
   path: string,
   text: string,
   by: string,
@@ -1280,7 +1291,6 @@ export async function saveAgentProse(
       },
       400,
     );
-  const store = new AgentStore(access.ctx, access.accountId);
   const found = await store.readProse(path);
   if (!trimmed) {
     if (found) await store.removeProse(path);
@@ -1700,7 +1710,7 @@ export async function memberAgentView(
     // (ADR 0005), and this route never impersonates and never borrows the agent's
     // credential. The policy is read the same way — who a run stops for is a
     // fact about the group that a member judges the agent by.
-    readAgentProse(access, AGENT_INSTRUCTION_FILE),
+    readAgentProse(store, AGENT_INSTRUCTION_FILE),
     readGroupPolicy(access),
     // The transcript is the group's own proof that the agent works here: the
     // greeting the agent posts when it takes the group's claim is readable by

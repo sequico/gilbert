@@ -340,6 +340,21 @@ export interface AgentGrantCatalog {
   order: string[];
 }
 
+/**
+ * Whether a catalogue is one a form can be written from.
+ *
+ * A schema with no areas and no actions is not a catalogue of nothing: it is a
+ * schema this build cannot read — an older server, or an answer that arrived
+ * before the routes did. The two must not render the same, because an empty
+ * grant section offers nothing to tick, so a save is refused for a reason the
+ * person cannot see and the form looks broken rather than incomplete.
+ */
+export function grantIsReadable(
+  grant: AgentGrantCatalog | null,
+): grant is AgentGrantCatalog {
+  return grant !== null && grant.areas.length > 0 && grant.order.length > 0;
+}
+
 /** `GET /api/admin/agent/rule-schema` — the published schema, as it is served. */
 export function fetchAgentRuleSchema(): Promise<Record<string, unknown>> {
   return apiFetch<Record<string, unknown>>("/api/admin/agent/rule-schema");

@@ -29,6 +29,7 @@ import { t } from "@/lib/i18n";
 import {
   AGENT_REVIEW_LABELS,
   AGENT_REVIEW_MEANING_LABELS,
+  proseStampText,
 } from "@/views/agent/agentText";
 
 export function GroupPolicy({ group }: { group: string }) {
@@ -166,14 +167,9 @@ export function GroupPolicy({ group }: { group: string }) {
           >
             {busy ? t("Saving…") : t("Save")}
           </button>
-          {saved.at && (
-            <p className="hint" style={{ marginTop: 8 }}>
-              {t("Last written by {who} on {when}.", {
-                who: saved.by ?? t("an administrator"),
-                when: saved.at,
-              })}
-            </p>
-          )}
+          <p className="hint" style={{ marginTop: 8 }}>
+            {proseStampText({ updatedAt: saved.at, updatedBy: saved.by })}
+          </p>
         </>
       )}
     </section>

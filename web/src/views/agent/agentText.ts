@@ -23,7 +23,6 @@ import {
   scheduleMinutesOf,
 } from "@gilbert/agent/documents";
 import type {
-  AgentProseView,
   AgentStatusMeter,
   AgentStatusReason,
   GroupPolicyView,
@@ -278,14 +277,20 @@ export function reviewText(policy: GroupPolicyView | undefined): string {
  * How far a document of prose has got, in one line, for the surfaces that show
  * one: who wrote it last and when, or that nobody has.
  *
- * One renderer for both scopes — the installation's rules and a group's
- * instruction — because they are one document type at two reaches.
+ * One renderer for every document of this kind — the installation's rules, a
+ * group's instruction, a group's policy, the notebook — because they are one
+ * thing a person writes and a surface reports, and four copies of the sentence
+ * are four chances for one of them to drift. It takes the two fields the
+ * sentence is made of rather than a whole view, so a caller that holds a
+ * stamp and not a document can still ask for the sentence.
  */
-export function proseStampText(prose: AgentProseView | undefined): string {
-  if (!prose?.updatedAt) return t("Nobody has written here yet.");
+export function proseStampText(
+  doc: { updatedAt?: string | null; updatedBy?: string | null } | undefined | null,
+): string {
+  if (!doc?.updatedAt) return t("Nobody has written here yet.");
   return t("Last written by {who} on {when}.", {
-    who: prose.updatedBy ?? t("an administrator"),
-    when: prose.updatedAt,
+    who: doc.updatedBy ?? t("an administrator"),
+    when: doc.updatedAt,
   });
 }
 

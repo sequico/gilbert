@@ -34,7 +34,7 @@ import {
   isAgentTriggerOn,
 } from "@gilbert/agent/documents";
 import { useState } from "react";
-import { type AgentGrantCatalog, readDraft } from "@/lib/agents";
+import { type AgentGrantCatalog, grantIsReadable, readDraft } from "@/lib/agents";
 import { t } from "@/lib/i18n";
 import { AGENT_TRIGGER_LABELS } from "@/views/agent/agentText";
 import { AskReading } from "./AskReading";
@@ -262,8 +262,12 @@ export function RuleForm({
           "The allowlist: the only actions this automation may run. The model is offered these and nothing else, and an answer outside them is refused.",
         )}
       </p>
-      {grant === null ? (
-        <p className="hint">{t("The capability catalogue has not been read yet.")}</p>
+      {!grantIsReadable(grant) ? (
+        <p className="hint">
+          {t(
+            "The capability catalogue has not been read, so there is nothing to grant here: a server that cannot answer with it is one this build cannot author against. Saving stays refused until it does.",
+          )}
+        </p>
       ) : (
         <>
           {grant.areas.map((entry) => (

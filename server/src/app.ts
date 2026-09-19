@@ -45,12 +45,18 @@ import {
   saveSystemSieveScript,
   setSystemSieveScriptActive,
 } from "./adminSieve.js";
-import { AGENT_INSTRUCTION_FILE, agentRuleJsonSchema } from "./agent/documents.js";
+import {
+  AGENT_INSTRUCTION_FILE,
+  AGENT_PREAMBLE_FILE,
+  agentRuleJsonSchema,
+} from "./agent/documents.js";
+import { AgentStore } from "./agent/store.js";
 import type { AgentGroupAnswer } from "./agent/views.js";
 import {
   AgentAdminError,
   addAgentLabels,
   agentStatus,
+  agentStore,
   emptyGroupDocuments,
   groupAgentView,
   groupAuditExport,
@@ -2238,6 +2244,39 @@ export function createApp(basePath = config.basePath): Hono<Env> {
     }
   });
 
+  /**
+   * The installation's own rules of prose (ADR 0019), written here and read by
+   * every group's runs.
+   *
+   * It is the same document type as a group's standing instruction, at the
+   * outermost reach, and it lives in the Master's account — which is the
+   * account the boot already holds a credential for, so the pair of routes
+   * differs from the group's only in whose files they reach.
+   */
+  api.get("/admin/agent/instruction", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    try {
+      const { store } = await agentStore(session);
+      return c.json(await readAgentProse(store, AGENT_PREAMBLE_FILE));
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  api.post("/admin/agent/instruction", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    try {
+      const body = await readJson<{ text?: string }>(c);
+      const text = typeof body?.text === "string" ? body.text : "";
+      const { store } = await agentStore(session);
+      return c.json(
+        await saveAgentProse(store, AGENT_PREAMBLE_FILE, text, session.username),
+      );
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
   api.post(
     "/admin/groups/:name/agent/labels",
     requireSession,
@@ -2315,7 +2354,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           need: "standing instruction",
         });
         if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
-        return c.json(await readAgentProse(access, AGENT_INSTRUCTION_FILE));
+        return c.json(
+          await readAgentProse(
+            new AgentStore(access.ctx, access.accountId),
+            AGENT_INSTRUCTION_FILE,
+          ),
+        );
       } catch (err) {
         return agentFailure(c, err);
       }
@@ -2337,7 +2381,12 @@ export function createApp(basePath = config.basePath): Hono<Env> {
         });
         if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
         return c.json(
-          await saveAgentProse(access, AGENT_INSTRUCTION_FILE, text, session.username),
+          await saveAgentProse(
+            new AgentStore(access.ctx, access.accountId),
+            AGENT_INSTRUCTION_FILE,
+            text,
+            session.username,
+          ),
         );
       } catch (err) {
         return agentFailure(c, err);

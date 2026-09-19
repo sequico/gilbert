@@ -32,7 +32,7 @@ import {
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { runAgentRule } from "@/lib/agents";
-import { formatListDate } from "@/lib/format";
+import { formatListDate, uid } from "@/lib/format";
 import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
 import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
@@ -349,10 +349,22 @@ export function RuleEditor({
                 }
                 onClick={() => {
                   setProblem(null);
-                  // A new automation gets its id here rather than in the form:
-                  // the form edits a document, and an id is what the group's
-                  // document list names it by.
-                  setDraft(blankRule(`rule-${crypto.randomUUID()}`, freeTriggers[0]));
+                  /*
+                   * A new automation gets its id here rather than in the form:
+                   * the form edits a document, and an id is what the group's
+                   * document list names it by.
+                   *
+                   * `uid` and not `crypto.randomUUID`: the latter exists only in
+                   * a secure context, and the administration is reachable over
+                   * plain http too (by server IP, which is the whole point of it
+                   * being reachable at all when DNS does not answer). There, the
+                   * call throws inside the click handler, React tears the panel
+                   * down and the button appears to do nothing at all — a dead
+                   * button with no message. `uid` is the client's own minting
+                   * (a prefix, some randomness and the clock), which is what this
+                   * name is: minted by the client and shown to nobody.
+                   */
+                  setDraft(blankRule(uid("rule-"), freeTriggers[0]));
                   setBaseline(null);
                 }}
               >
