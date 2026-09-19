@@ -6,30 +6,26 @@
  *  - `previewKind` — can the app render it in a dialog? Text is answered with
  *    `fetch`, which ignores Content-Disposition, so this is free to say yes to
  *    anything text-shaped.
- *  - `openableInTab` — will the *server* hand it back inline? That mirrors
- *    `isInlineSafe` in `server/src/app.ts`, which is the security boundary:
- *    everything else is served as an attachment with a sandbox CSP. Navigating
- *    to a blob the server will not inline just starts a download, so the
- *    "open in a new tab" affordance has to ask this and not the other one.
+ *  - `openableInTab` — will the *server* hand it back inline? It does not answer
+ *    that here: it is `@gilbert/shared/media`'s `isInlineSafe`, the rule the
+ *    server serves blobs by, because the client and the server giving different
+ *    answers is a button that starts a download instead of opening a tab.
+ *    Everything else is served as an attachment with a sandbox CSP.
  *
- * Keep the two in step by hand. They answer different questions and neither
- * can be derived from the other.
+ * The two answer different questions and neither can be derived from the other:
+ * a file the app can render is not always one the server will serve inline.
  */
 
 export type PreviewKind = "image" | "pdf" | "text";
 
 /**
  * Uploads arrive with whatever type the browser guessed, which for anything
- * unusual is one of these -- `files.ts` stores `f.type || "application/octet-stream"`.
- * A generic type is not evidence about the file, so fall through to the name.
+ * unusual is one of the generic types -- `files.ts` stores
+ * `f.type || "application/octet-stream"`. A generic type is not evidence about
+ * the file, so fall through to the name. The set is
+ * `@gilbert/shared/media`'s, which the server asks about the same types.
  */
-const GENERIC = new Set([
-  "",
-  "application/octet-stream",
-  "binary/octet-stream",
-  "application/unknown",
-  "unknown/unknown",
-]);
+import { GENERIC_TYPES, mediaType } from "@gilbert/shared/media";
 
 const BY_EXTENSION: Array<[RegExp, PreviewKind]> = [
   [/\.(png|jpe?g|gif|webp|avif|bmp|ico|heic|heif)$/i, "image"],
@@ -62,8 +58,8 @@ export function previewKind(
   type: string | null | undefined,
   name: string | null | undefined,
 ): PreviewKind | null {
-  const t = (type ?? "").split(";")[0]!.trim().toLowerCase();
-  if (t && !GENERIC.has(t)) {
+  const t = mediaType(type);
+  if (t && !GENERIC_TYPES.has(t)) {
     if (t === "image/svg+xml") return null;
     if (t.startsWith("image/")) return "image";
     if (t === "application/pdf") return "pdf";
@@ -77,19 +73,13 @@ export function previewKind(
   return null;
 }
 
-/** Mirrors `isInlineSafe` in `server/src/app.ts`; see the note at the top. */
-export function openableInTab(type: string | null | undefined): boolean {
-  const t = (type ?? "").split(";")[0]!.trim().toLowerCase();
-  return (
-    (t.startsWith("image/") && t !== "image/svg+xml") ||
-    t.startsWith("video/") ||
-    t.startsWith("audio/") ||
-    t === "application/pdf" ||
-    t === "text/plain" ||
-    t === "text/calendar" ||
-    t === "text/vcard"
-  );
-}
+/**
+ * Will the server hand this back inline? The server's own rule, asked here.
+ *
+ * Re-exported under the client's name for the question, so a surface importing
+ * this module reads what it asks for rather than the server's vocabulary.
+ */
+export { isInlineImage, isInlineSafe as openableInTab } from "@gilbert/shared/media";
 
 /**
  * Past this, a text file is not read in a dialog -- it is downloaded and opened

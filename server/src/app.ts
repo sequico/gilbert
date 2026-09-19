@@ -26,6 +26,7 @@ import {
   writeGroupLabels,
 } from "./account.js";
 import { type SecurityState } from "./shared/accountSecurity.js";
+import { GENERIC_TYPES, isInlineSafe, mediaType } from "./shared/media.js";
 import { administrationAllowed, gateAdministration } from "./adminGate.js";
 import {
   EMPTY_POLICY,
@@ -3527,7 +3528,7 @@ export function forwardedContentLength(headers: Headers): string | null {
 }
 
 function sanitizeContentType(ct: string): string {
-  const lower = ct.split(";")[0]!.trim().toLowerCase();
+  const lower = mediaType(ct);
   // Never let the browser render HTML/SVG/XML/JS served from the blob endpoint.
   if (
     lower === "text/html" ||
@@ -3546,19 +3547,12 @@ function sanitizeContentType(ct: string): string {
 /**
  * Whether a content type says nothing about the file.
  *
- * The set the client's `previewKind` treats as no evidence, for the same
- * reason: an uploader with no guess, or a store that kept none, leaves one of
- * these behind, and `application/octet-stream` is not a claim that a file is a
- * binary blob rather than, say, a PDF.
+ * The set is `@gilbert/shared/media`'s `GENERIC_TYPES`, which the client asks
+ * too: if the two disagreed, the type the server served a file as and the type
+ * the client previewed it as would come from different evidence.
  */
 function isGenericType(ct: string): boolean {
-  return (
-    ct === "" ||
-    ct === "application/octet-stream" ||
-    ct === "binary/octet-stream" ||
-    ct === "application/unknown" ||
-    ct === "unknown/unknown"
-  );
+  return GENERIC_TYPES.has(mediaType(ct));
 }
 
 /**
@@ -3568,11 +3562,12 @@ function isGenericType(ct: string): boolean {
  * file, the type the client declared is the only evidence left, and it is the
  * type the app is already showing the file as. Either way the answer goes
  * through `sanitizeContentType`, so nothing that must not render gets a type
- * that renders, and `isInlineSafe` still decides whether anything is served
- * inline at all. Exported so the choice is testable without an upstream.
+ * that renders, and `isInlineSafe` (`@gilbert/shared/media`, which the client
+ * asks before it offers "open in a new tab") still decides whether anything is
+ * served inline at all. Exported so the choice is testable without an upstream.
  */
 export function blobContentType(upstreamType: string | null, declared: string): string {
-  const up = (upstreamType ?? "").split(";")[0]!.trim().toLowerCase();
+  const up = mediaType(upstreamType);
   return sanitizeContentType(isGenericType(up) ? declared : up);
 }
 
@@ -3585,20 +3580,7 @@ export function securityHeadersFor(
   type: string,
   safeInline: boolean,
 ): "SAMEORIGIN" | "DENY" {
-  return safeInline && type.split(";")[0]!.trim() === "application/pdf"
+  return safeInline && mediaType(type) === "application/pdf"
     ? "SAMEORIGIN"
     : "DENY";
-}
-
-function isInlineSafe(type: string): boolean {
-  const t = type.split(";")[0]!.trim();
-  return (
-    (t.startsWith("image/") && t !== "image/svg+xml") ||
-    t.startsWith("video/") ||
-    t.startsWith("audio/") ||
-    t === "application/pdf" ||
-    t === "text/plain" ||
-    t === "text/calendar" ||
-    t === "text/vcard"
-  );
 }

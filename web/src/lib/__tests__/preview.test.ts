@@ -52,10 +52,12 @@ describe("previewKind", () => {
 
 describe("openableInTab", () => {
   /*
-   * This mirrors `isInlineSafe` in server/src/app.ts. If the two drift, the
-   * "open in a new tab" button silently starts downloading instead, because
-   * the server sends Content-Disposition: attachment for anything not on its
-   * list. These cases are the list.
+   * `openableInTab` is `@gilbert/shared/media`'s `isInlineSafe` — the rule the
+   * server serves blobs by, re-exported under the question the client asks. If
+   * the answer were wrong, the "open in a new tab" button would silently start
+   * downloading instead, because the server sends `Content-Disposition:
+   * attachment` for anything not on its list. These cases are the list, from
+   * this side of the boundary.
    */
   it("matches what the server will serve inline", () => {
     expect(openableInTab("image/png")).toBe(true);

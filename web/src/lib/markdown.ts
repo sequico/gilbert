@@ -1,3 +1,4 @@
+import { mediaType } from "@gilbert/shared/media";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { FORBID_ATTR, OURS_FORBID_TAGS } from "@/lib/html";
@@ -25,7 +26,7 @@ export function isMarkdown(
   type: string | null | undefined,
   name: string | null | undefined,
 ): boolean {
-  const t = (type ?? "").split(";")[0]!.trim().toLowerCase();
+  const t = mediaType(type);
   if (t === "text/markdown" || t === "text/x-markdown") return true;
   // A .md upload usually arrives as application/octet-stream, so the name is
   // the only evidence -- the same reason previewKind falls back to it.

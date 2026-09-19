@@ -55,7 +55,7 @@ import {
 import { tc, tNode, t as translate } from "@/lib/i18n";
 import { deleteEffect, finalFoldersOf, messageDeleteOffered } from "@/lib/mailDelete";
 import { mdnDecision, refusalText } from "@/lib/mdn";
-import { openableInTab, previewKind } from "@/lib/preview";
+import { isInlineImage, openableInTab, previewKind } from "@/lib/preview";
 import { remoteImagesAllowed } from "@/lib/remoteImages";
 import { formatScheduleTime } from "@/lib/schedule";
 import { canShare, canShareFiles, shareFile, shareText } from "@/lib/share";
@@ -1637,7 +1637,7 @@ function AttachmentList({
               }}
             >
               <span className="att-icon">
-                {a.type.startsWith("image/") && a.type !== "image/svg+xml" && a.blobId ? (
+                {isInlineImage(a.type) && a.blobId ? (
                   <img src={inlineUrl} alt="" loading="lazy" />
                 ) : (
                   attachmentIcon(a.type, a.name)

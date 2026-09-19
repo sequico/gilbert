@@ -19,6 +19,7 @@
  * they are the part that is decoded.
  */
 
+import { mediaType } from "@gilbert/shared/media";
 import { withoutBidiControls } from "@/lib/text";
 
 /** Little-endian, and every offset is checked before it is read. */
@@ -53,7 +54,7 @@ export function isTnef(
   type: string | null | undefined,
   name: string | null | undefined,
 ): boolean {
-  const t = (type ?? "").split(";")[0]!.trim().toLowerCase();
+  const t = mediaType(type);
   if (t === "application/ms-tnef" || t === "application/vnd.ms-tnef") return true;
   return (name ?? "").trim().toLowerCase() === "winmail.dat";
 }

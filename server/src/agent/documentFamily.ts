@@ -31,6 +31,7 @@ import mammoth from "mammoth";
 import { PDFDocument } from "pdf-lib";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { errorMessage } from "./audit.js";
+import { mediaType } from "../shared/media.js";
 
 /**
  * The five kinds this family reads.
@@ -172,7 +173,7 @@ export function documentKindOf(name: string, type?: string): DocumentKind | null
   if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) return "sheet";
   if (IMAGE_EXTENSIONS.some((extension) => lower.endsWith(extension))) return "image";
   if (TEXT_EXTENSIONS.some((extension) => lower.endsWith(extension))) return "text";
-  const media = ((type ?? "").toLowerCase().split(";")[0] ?? "").trim();
+  const media = mediaType(type);
   if (media === "application/pdf") return "pdf";
   if (media === "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     return "docx";

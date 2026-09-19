@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import { safeFetch, safeFetchStatus } from "./imageproxy.js";
+import { mediaType } from "./shared/media.js";
 
 /**
  * Fetching a calendar somebody has subscribed to.
@@ -45,7 +46,7 @@ export async function icsProxyHandler(c: Context) {
     res.resume();
     return c.json({ error: "fetch_failed", status: res.statusCode ?? 0 }, 502);
   }
-  const type = (res.headers["content-type"] ?? "").split(";")[0]!.trim().toLowerCase();
+  const type = mediaType(res.headers["content-type"]);
   if (!ACCEPTABLE.has(type)) {
     done();
     res.resume();

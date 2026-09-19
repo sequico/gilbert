@@ -5,6 +5,7 @@ import { isIP } from "node:net";
 import { Readable } from "node:stream";
 import type { Context } from "hono";
 import { config } from "./config.js";
+import { isInlineImage, mediaType } from "./shared/media.js";
 
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const UA = "Mozilla/5.0 (compatible; gilbert-image-proxy)";
@@ -295,8 +296,8 @@ export async function imageProxyHandler(c: Context) {
     res.resume();
     return c.json({ error: "fetch_failed" }, 502);
   }
-  const type = (res.headers["content-type"] ?? "").split(";")[0]!.trim().toLowerCase();
-  if (!type.startsWith("image/") || type === "image/svg+xml") {
+  const type = mediaType(res.headers["content-type"]);
+  if (!isInlineImage(type)) {
     done();
     res.resume();
     return c.json({ error: "not_image" }, 415);
