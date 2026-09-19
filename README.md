@@ -73,32 +73,29 @@ and the mail client is what they live in.
   for three things: *when* it reacts, *what it is asked to do* in prose, and
   *what it may do*, chosen as three areas (mail, chat, files and documents)
   plus sending, which no area can grant on its own. It can label and move a
-  message, save its attachments
-  into the right folder, read a PDF or a spreadsheet or a scan, split, merge
-  and extract PDF pages, prepare a reply in Drafts, write a text document,
-  post in the chat, and send.
+  message, save its attachments into the right folder, read a PDF or a
+  spreadsheet or a scan, split, merge and extract PDF pages, prepare a reply
+  in Drafts, write a text document, post in the chat, and send.
 - **A leash, not a promise.** What an automation may do is a short list of
   permissions checked in code on every answer, so neither the model nor a
   cleverly worded instruction can widen it. The group's own review policy can
-  pause a run
-  for a person; the pause becomes a question in the group's chat, answered in
-  words by any member. Sending outside the group always asks first, whatever
-  the policy says.
+  pause a run for a person; the pause becomes a question in the group's chat,
+  answered in words by any member. Sending outside the group always asks first,
+  whatever the policy says.
 - **A receipt for everything.** Every run is recorded — one line written
   *before* the effect, so an effect never exists without a line that accounts
   for it — in a monthly document per group, kept twelve months, readable by
   every member and exportable as JSON by an administrator before the oldest
   month is pruned. What the thinking cost is recorded in tokens, run by run.
 - **Agents that know the place.** What an agent is told has three levels: the
-  **installation's own rules** (written once in Admin → Master, carried into
-  every call of every group), a group's **standing instruction** (how
-  it works, in what language, in what tone) and each automation's own
-  instruction. Beside them a group keeps a **notebook** of facts nobody
-  should have to repeat — its clients' names, how its mail is filed. All of it
-  are
-  documents in the group's own account (the installation's rules in the
-  Master's), so a replacement agent, a restart or a
-  redeploy picks up exactly where the last one was.
+  **installation's own rules** — written once in Admin → Master and carried
+  into every call of every group — a group's **standing instruction** (how it
+  works, in what language, in what tone), and each automation's own
+  instruction. Beside them a group keeps a **notebook** of facts nobody should
+  have to repeat: its clients' names, how its mail is filed. Each of the three
+  is a document — two in the group's own account, one in the Master's — so a
+  replacement agent, a restart or a redeploy picks up exactly where the last
+  one was.
 - **Groups, as real accounts.** A group mailbox is an account of its own,
   owned by the group from creation: its mail, its calendars, its files, its
   label catalog, its agent's documents. Membership *is* the permission — set
@@ -125,9 +122,10 @@ and the mail client is what they live in.
   Sieve script. (This part began as upstream's — see
   [the line to upstream](#the-blocks-and-the-line-to-upstream).)
 - **Administration, three surfaces and no more.** **Master** configures the
-  installation once — the agent's identity, the one model and its bounds, which
-  groups it serves. **Group Agents** is one group's workspace: its automations,
-  its instruction, its notebook, its audit, and a button that runs one now.
+  installation once — the agent's identity, the one model and its bounds, the
+  rules that hold in every group, and which groups it serves. **Group Agents**
+  is one group's workspace: its automations, its standing instruction, who its
+  runs stop for, its notebook, its audit, and a button that runs one now.
   **Approvals** is the cross-group view of what is waiting for a person and
   what the fleet has done.
 - **Nothing sensitive in the browser.** The password somebody types at sign-in
@@ -194,10 +192,9 @@ person can read. The number is the installation's to set.
   durable byte.
 - **The permissions are code, not a prompt.** An automation's capability list
   is checked on every answer the model gives. Asking nicely does not widen it.
-- **A person can always stop it.** A group's review policy pauses runs,
-  approvals
-  happen in the group's chat, and an external send always needs an explicit
-  yes from a human.
+- **A person can always stop it.** A group's review policy pauses runs, the
+  approvals happen in the group's chat, and an external send always needs an
+  explicit yes from a human.
 - **It is auditable without a data warehouse.** The trail is a document per
   month per group in the group's own account: members can read it, and an
   administrator can export it as JSON before it ages out.
@@ -305,12 +302,12 @@ second switch in the product. So the whole of it is:
    `node server/dist/agent/agent.js` instead, with `agent.inProcess` false in
    the installation document.
 
-Then **Administration → Master** shows the groups the agent can see, holds the
-rules that apply in every one of them, and
-**Group Agents** is where each group's automations are written, beside its own
-standing instruction and the policy its runs are held to. A group the
-agent belongs to that has never heard from it gets one message — *"Hi all!
-Gilbert here, at your service."* — posted when the agent takes the group up,
+Then **Administration → Master** shows the groups the agent can see and holds
+the rules that apply in every one of them, and **Group Agents** is where each
+group's automations are written, beside its own standing instruction and the
+policy its runs are held to. A group the agent belongs to that has never heard
+from it gets one message — *"Hi all! Gilbert here, at your service."* — posted
+when the agent takes the group up,
 which is the proof it is working there, readable through any member's own
 session.
 
@@ -613,12 +610,14 @@ ever the browser's service worker, which is a different animal with a
 confusingly similar name.)
 
 **Admin → Master** shows the groups the agent is in, read from the Master's own
-session in Stalwart, and **Admin → Group Agents** narrows what it does inside
-them, one group at a time: the automations it runs there, what is waiting on a
-person, and the agents carrying them out. The pair of environment variables is
-what a boot cannot do without: a deployment that states neither, or whose pair
-Stalwart refuses, does not come up, and the boot names what is missing rather
-than serving an installation whose document nobody can read. An agent process
+session in Stalwart, and holds the rules that are true in all of them;
+**Admin → Group Agents** narrows what it does inside one, a group at a time: the
+automations it runs there, its standing instruction, who its runs stop for, what
+is waiting on a person, and the agents carrying them out. The pair of
+environment variables is what a boot cannot do without: a deployment that
+states neither, or whose pair Stalwart refuses, does not come up, and the boot
+names what is missing rather than serving an installation whose document nobody
+can read. An agent process
 started on its own is the other half of that sentence — with nothing named it
 warns once, keeps running and serves nothing rather than failing to come up.
 
@@ -635,20 +634,19 @@ and the branching between one kind of mail and another belongs in the prose. A
 group also keeps a **notebook** of durable facts about it, and the prose an
 agent works by has three levels: the **installation's own rules** (Admin →
 Master, carried into every call of every group), the group's **standing
-instruction** — the shape of an `AGENTS.md` — and the automation's own. An
-automation
-can also be **run now**, on the newest message in the group's inbox: that is how
-you see one work without waiting for mail to arrive, and the ask is recorded as
-an ask.
+instruction** — the shape of an `AGENTS.md` — and the automation's own. One can
+also be **run now**, on the newest message in the group's inbox: that is how you
+see one work without waiting for mail to arrive, and the ask is recorded as an
+ask.
 
 **What holds it back.** The automation's **capability allowlist** bounds every
 answer, checked in code rather than asked for in a prompt, so neither the model
-nor any of those instructions can widen it. What an automation is *asked* is a
-fact about the group: its own **review policy** — one document per group, two
-choices and no number — can pause every
-run, or any run below a confidence threshold; the approval happens **in the
-group's chat**, by any member, in words. Nothing that leaves the group is ever
-sent on a guessed approval.
+nor any of those instructions can widen it. How cautious a run is *asked* to be
+is a fact about the group rather than about one automation: the group's own
+**review policy** — one document for all of them, two choices and no number —
+can pause every run, or any run below a confidence threshold, and the approval
+happens **in the group's chat**, by any member, in words. Nothing that leaves
+the group is ever sent on a guessed approval.
 
 **What it leaves behind.** Every run is recorded in the group's **audit** — one
 document per month, kept twelve months, one line written before any effect so
@@ -661,9 +659,9 @@ refused rather than executed.
 
 **Every member sees it.** The group's chat carries an AI panel showing what the
 agent is told and what it has done — the standing instruction, the policy its
-runs are held to, each automation,
-and the recent audit — read through the member's own session, and editable by
-nobody but an administrator of that group.
+runs are held to, each automation, and the recent audit — read through the
+member's own session, and editable by nobody but an administrator of that
+group.
 
 ## The blocks, and the line to upstream
 
