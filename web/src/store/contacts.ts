@@ -533,74 +533,91 @@ export const useContacts = create<ContactsState>((set, get) => ({
       const groupIds = await groupMailboxIds();
       const books: SharedBook[] = [];
       const cards: Record<string, ContactCard> = {};
-      for (const [accountId, account] of accounts) {
-        try {
-          const res = await client.call<GetResponse<AddressBook>>("AddressBook/get", {
-            accountId,
-            ids: null,
-            properties: ADDRESS_BOOK_PROPS,
-          });
-          for (const book of res.list)
-            books.push({ accountId, accountName: account.name, book });
-          /*
-           * Cards come only from books the reader has added -- or books of a
-           * group mailbox the reader is a member of, where membership is the
-           * subscription (see `groupMailboxIds`).
-           *
-           * Stalwart hands back every book in a reachable account with full
-           * rights on each, shared or not -- an account linked for its files
-           * offered its address book too -- so `isSubscribed` is the only thing
-           * separating "shared with me" from "reachable" for a stranger's
-           * account. Loading the rest would put a stranger's contacts in the To
-           * field, which is the one place this must not guess.
-           */
-          const added = new Set(useSettings.getState().settings.addedShares);
-          const wanted = new Set(
-            res.list
-              .filter(
-                (b) =>
-                  b.isSubscribed ||
-                  added.has(sharedKey(accountId, b.id)) ||
-                  groupIds.has(accountId),
-              )
-              .map((b) => b.id),
-          );
-          if (!wanted.size) continue;
-          /*
-           * Shared contacts load by page up to a bound: 5000 is well past
-           * anything a working group keeps in its books, while still bounded
-           * so a huge shared book cannot hold the reader's own list hostage.
-           * Each get is capped at `maxObjectsInGet`, so the pages walk
-           * positions instead of asking for everything at once.
-           */
-          const sharedCardBound = 5000;
-          const page = client.maxObjectsInGet;
-          let fetched = 0;
-          for (let position = 0; fetched < sharedCardBound; ) {
-            const cardsRes = await client.chain([
-              ["ContactCard/query", { accountId, position, limit: page }, "q"],
-              [
-                "ContactCard/get",
-                {
-                  accountId,
-                  "#ids": { resultOf: "q", name: "ContactCard/query", path: "/ids" },
-                },
-                "g",
-              ],
-            ]);
-            const q = cardsRes.get("q")?.[0] as unknown as QueryResponse;
-            const g = cardsRes.get("g")?.[0] as unknown as GetResponse<ContactCard>;
-            for (const c of g.list) {
-              if (!Object.keys(c.addressBookIds ?? {}).some((id) => wanted.has(id)))
-                continue;
-              cards[sharedKey(accountId, c.id)] = c;
+      /*
+       * Every account at once. `client.call` batches the calls made in one tick
+       * into a single request, so the loop this replaces sent one request after
+       * another -- a shared account apiece, before the reader had opened
+       * anything.
+       */
+      await Promise.all(
+        accounts.map(async ([accountId, account]) => {
+          try {
+            const res = await client.call<GetResponse<AddressBook>>("AddressBook/get", {
+              accountId,
+              ids: null,
+              properties: ADDRESS_BOOK_PROPS,
+            });
+            for (const book of res.list)
+              books.push({ accountId, accountName: account.name, book });
+            /*
+             * Cards come only from books the reader has added -- or books of a
+             * group mailbox the reader is a member of, where membership is the
+             * subscription (see `groupMailboxIds`).
+             *
+             * Stalwart hands back every book in a reachable account with full
+             * rights on each, shared or not -- an account linked for its files
+             * offered its address book too -- so `isSubscribed` is the only thing
+             * separating "shared with me" from "reachable" for a stranger's
+             * account. Loading the rest would put a stranger's contacts in the To
+             * field, which is the one place this must not guess.
+             */
+            const added = new Set(useSettings.getState().settings.addedShares);
+            const wanted = new Set(
+              res.list
+                .filter(
+                  (b) =>
+                    b.isSubscribed ||
+                    added.has(sharedKey(accountId, b.id)) ||
+                    groupIds.has(accountId),
+                )
+                .map((b) => b.id),
+            );
+            // Nothing in this account is the reader's to read: a book they have
+            // not added, in an account they are not a member of.
+            if (!wanted.size) return;
+            /*
+             * Shared contacts load by page up to a bound: 5000 is well past
+             * anything a working group keeps in its books, while still bounded
+             * so a huge shared book cannot hold the reader's own list hostage.
+             * Each get is capped at `maxObjectsInGet`, so the pages walk
+             * positions instead of asking for everything at once.
+             */
+            const sharedCardBound = 5000;
+            const page = client.maxObjectsInGet;
+            let fetched = 0;
+            for (let position = 0; fetched < sharedCardBound; ) {
+              const cardsRes = await client.chain([
+                ["ContactCard/query", { accountId, position, limit: page }, "q"],
+                [
+                  "ContactCard/get",
+                  {
+                    accountId,
+                    "#ids": { resultOf: "q", name: "ContactCard/query", path: "/ids" },
+                  },
+                  "g",
+                ],
+              ]);
+              const q = cardsRes.get("q")?.[0] as unknown as QueryResponse;
+              const g = cardsRes.get("g")?.[0] as unknown as GetResponse<ContactCard>;
+              for (const c of g.list) {
+                if (!Object.keys(c.addressBookIds ?? {}).some((id) => wanted.has(id)))
+                  continue;
+                cards[sharedKey(accountId, c.id)] = c;
+              }
+              fetched += q.ids.length;
+              if (!q.ids.length || q.ids.length < page) break;
+              position += q.ids.length;
             }
-            fetched += q.ids.length;
-            if (!q.ids.length || q.ids.length < page) break;
-            position += q.ids.length;
-          }
-        } catch {}
-      }
+          } catch {}
+        }),
+      );
+      /*
+       * Answers arrive in any order, and the sidebar lists them in the session's
+       * order -- so the books are put back in it rather than left in whatever
+       * order the requests happened to finish.
+       */
+      const order = new Map(accounts.map(([id], i) => [id, i]));
+      books.sort((a, b) => (order.get(a.accountId) ?? 0) - (order.get(b.accountId) ?? 0));
       set({ sharedBooks: books, sharedCards: cards, sharedLoaded: true });
       restoreBookPlace();
     })();

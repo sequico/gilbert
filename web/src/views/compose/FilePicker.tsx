@@ -38,6 +38,9 @@ export function FilePicker({
      complete. Asking once more here is idempotent and cheap. */
   useEffect(() => {
     if (!files.initialized) void useFiles.getState().init();
+    // The picker lists shared accounts, so it asks which ones hold files --
+    // the same question the Files view asks when it opens.
+    void useFiles.getState().discoverShared();
   }, [files.initialized]);
 
   useEffect(() => {

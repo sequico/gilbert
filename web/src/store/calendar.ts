@@ -638,17 +638,22 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       set({ accountId, calendars: {}, events: {}, ranges: {} });
     set({ available });
     if (!available) return;
-    await get().loadCalendars();
-    void get().loadSharedCalendars();
-    try {
-      const res = await client.call<GetResponse<ParticipantIdentity>>(
-        "ParticipantIdentity/get",
-        { accountId, ids: null },
+    /*
+     * Side by side. None of the three waits on another, and calls made in one
+     * tick share a request -- so awaiting one before starting the next, as this
+     * did, cost a round trip apiece at sign-in.
+     */
+    const identities = client
+      .call<GetResponse<ParticipantIdentity>>("ParticipantIdentity/get", {
+        accountId,
+        ids: null,
+      })
+      .then(
+        (res) => set({ identities: res.list }),
+        () => set({ identities: [] }),
       );
-      set({ identities: res.list });
-    } catch {
-      set({ identities: [] });
-    }
+    void get().loadSharedCalendars();
+    await Promise.all([get().loadCalendars(), identities]);
   },
 
   /*
@@ -668,27 +673,38 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     const accounts = Object.entries(session.session?.accounts ?? {}).filter(
       ([id, a]) => a.isPersonal === false && id !== own,
     );
-    const found: SharedCalendar[] = [];
     const unread = new Set<string>();
-    for (const [accountId, account] of accounts) {
-      try {
-        const res = await client.call<GetResponse<Calendar>>("Calendar/get", {
-          accountId,
-          ids: null,
-          properties: CALENDAR_PROPS,
-        });
-        for (const calendar of res.list)
-          found.push({ accountId, accountName: account.name, calendar });
-      } catch (err) {
-        unread.add(accountId);
-        /* Named, because an account whose calendars cannot be read is
-           otherwise indistinguishable from one that has none -- and the
-           calendars a group owns live in exactly such an account. */
-        console.warn(
-          `[gilbert] calendars: could not read the shared account ${account.name} (${accountId}): ${(err as Error).message}`,
-        );
-      }
-    }
+    /*
+     * Every account at once: calls made in one tick share a request, where the
+     * loop this replaces sent one after another. `Promise.all` preserves the
+     * input order, so the list is still the session's.
+     */
+    const answers = await Promise.all(
+      accounts.map(async ([accountId, account]): Promise<SharedCalendar[]> => {
+        try {
+          const res = await client.call<GetResponse<Calendar>>("Calendar/get", {
+            accountId,
+            ids: null,
+            properties: CALENDAR_PROPS,
+          });
+          return res.list.map((calendar) => ({
+            accountId,
+            accountName: account.name,
+            calendar,
+          }));
+        } catch (err) {
+          unread.add(accountId);
+          /* Named, because an account whose calendars cannot be read is
+             otherwise indistinguishable from one that has none -- and the
+             calendars a group owns live in exactly such an account. */
+          console.warn(
+            `[gilbert] calendars: could not read the shared account ${account.name} (${accountId}): ${(err as Error).message}`,
+          );
+          return [];
+        }
+      }),
+    );
+    const found = answers.flat();
     if (!found.length && accounts.length > 0 && unread.size) return; // transient
     set((s) => ({
       /* An account that could not be read keeps the calendars it already had:

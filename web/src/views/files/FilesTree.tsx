@@ -33,6 +33,8 @@ import { ShareDialog } from "../settings/ShareDialog";
 async function refreshShares(force = false): Promise<void> {
   await refreshSessionShares(force);
   await useFiles.getState().init();
+  // This view lists shared accounts, so it is where the question belongs.
+  await useFiles.getState().discoverShared();
 }
 
 /**
