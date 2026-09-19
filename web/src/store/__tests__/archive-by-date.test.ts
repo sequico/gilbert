@@ -31,8 +31,13 @@ function server(initial: Array<Partial<Mailbox> & { id: string; name: string }> 
   fakeJmapServer()
     .on("Mailbox/set", ({ args }) => {
       const spec = (
-        args.create as Record<string, { name: string; parentId: string | null }>
-      ).n!;
+        args.create as
+          | Record<string, { name: string; parentId: string | null }>
+          | undefined
+      )?.n;
+      // A set that creates nothing (a rename, say) is not this suite's subject:
+      // it is answered like every other unregistered shape rather than crashed on.
+      if (!spec) return { accountId: "a1", updated: {}, notUpdated: {} };
       const newId = `mb-new-${++counter}`;
       created.push({ name: spec.name, parentId: spec.parentId });
       boxes.set(newId, {

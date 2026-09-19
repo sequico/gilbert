@@ -15,6 +15,7 @@
  * The two answer different questions and neither can be derived from the other:
  * a file the app can render is not always one the server will serve inline.
  */
+import { GENERIC_TYPES, mediaType } from "@gilbert/shared/media";
 
 export type PreviewKind = "image" | "pdf" | "text";
 
@@ -22,11 +23,9 @@ export type PreviewKind = "image" | "pdf" | "text";
  * Uploads arrive with whatever type the browser guessed, which for anything
  * unusual is one of the generic types -- `files.ts` stores
  * `f.type || "application/octet-stream"`. A generic type is not evidence about
- * the file, so fall through to the name. The set is
- * `@gilbert/shared/media`'s, which the server asks about the same types.
+ * the file, so fall through to the name. The set is `@gilbert/shared/media`'s,
+ * which the server asks about the same types.
  */
-import { GENERIC_TYPES, mediaType } from "@gilbert/shared/media";
-
 const BY_EXTENSION: Array<[RegExp, PreviewKind]> = [
   [/\.(png|jpe?g|gif|webp|avif|bmp|ico|heic|heif)$/i, "image"],
   [/\.pdf$/i, "pdf"],

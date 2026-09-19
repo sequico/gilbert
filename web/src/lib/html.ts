@@ -226,6 +226,13 @@ export function proxiedImageUrl(url: string): string {
  *   - the `style` **attribute** is forbidden in Markdown and kept in the
  *     composer. A signature keeps the look its author gave it; a file's inline
  *     styling is not wanted at all.
+ *
+ * The attribute *blocklist* is the same everywhere, and that widening is
+deliberate: the composer's own list named `srcdoc`, `formaction`, `ping` and
+nothing else, so a quoted message could carry `contenteditable`, `draggable`,
+`tabindex`, `autofocus`, `autoplay` or a `formaction` into a document that is
+live rather than quarantined. A signature has no use for any of them, and the
+reader already strips all six.
  */
 export const FORBID_TAGS: readonly string[] = [
   "script",
@@ -267,6 +274,11 @@ export const FORBID_ATTR: readonly string[] = [
   "contenteditable",
   "draggable",
   "tabindex",
+  // Named although DOMPurify strips every `on*` handler by itself: the two the
+  // composer's own list used to carry, kept so that a policy read here does not
+  // depend on that default staying what it is.
+  "onerror",
+  "onload",
 ];
 
 /** The shared list plus `style`, for the HTML that renders into our own document. */
