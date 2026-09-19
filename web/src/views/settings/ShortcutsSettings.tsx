@@ -4,16 +4,7 @@ import { keyboard } from "@/lib/keyboard";
 import { Kbd } from "@/ui/misc";
 
 export function ShortcutsSettings() {
-  const list = useMemo(() => keyboard.list(), []);
-  const groups = useMemo(() => {
-    const g = new Map<string, typeof list>();
-    for (const b of list) {
-      const arr = g.get(b.group) ?? [];
-      arr.push(b);
-      g.set(b.group, arr);
-    }
-    return [...g.entries()];
-  }, [list]);
+  const groups = useMemo(() => keyboard.groups(), []);
   return (
     <div>
       <h1>{t("Keyboard shortcuts")}</h1>

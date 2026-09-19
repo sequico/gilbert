@@ -116,16 +116,7 @@ export function ShortcutsDialog({
   open: boolean;
   onClose: () => void;
 }) {
-  const list = useMemo(() => (open ? keyboard.list() : []), [open]);
-  const groups = useMemo(() => {
-    const g = new Map<string, typeof list>();
-    for (const b of list) {
-      const arr = g.get(b.group) ?? [];
-      arr.push(b);
-      g.set(b.group, arr);
-    }
-    return [...g.entries()];
-  }, [list]);
+  const groups = useMemo(() => (open ? keyboard.groups() : []), [open]);
   return (
     <Dialog open={open} onClose={onClose} title={t("Keyboard shortcuts")} size="lg">
       <div className="shortcut-grid">

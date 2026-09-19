@@ -4,6 +4,13 @@
  */
 export type KeyHandler = (e: KeyboardEvent) => void | boolean;
 
+/** One binding as a surface shows it: what to press, under which heading. */
+export interface ShortcutHelp {
+  group: string;
+  keys: string;
+  description: string;
+}
+
 interface Binding {
   keys: string; // e.g. "j", "shift+i", "g i", "mod+enter"
   handler: KeyHandler;
@@ -37,9 +44,9 @@ class Keyboard {
   }
 
   /** All bindings with descriptions, for the help overlay. */
-  list(): Array<{ group: string; keys: string; description: string }> {
+  list(): ShortcutHelp[] {
     const seen = new Set<string>();
-    const out: Array<{ group: string; keys: string; description: string }> = [];
+    const out: ShortcutHelp[] = [];
     for (const s of [...this.scopes].reverse()) {
       for (const b of s.bindings) {
         if (!b.description || seen.has(b.keys)) continue;
@@ -48,6 +55,24 @@ class Keyboard {
       }
     }
     return out;
+  }
+
+  /**
+   * The same list, under the headings its bindings name, in the order the
+   * headings first appear.
+   *
+   * Two surfaces draw this list -- the dialog and Settings -- and each built
+   * the same map out of `list()`, so a change to how the list is grouped had to
+   * be made in both. The grouping is part of what the list is, and it lives here.
+   */
+  groups(): Array<[string, ShortcutHelp[]]> {
+    const byGroup = new Map<string, ShortcutHelp[]>();
+    for (const binding of this.list()) {
+      const group = byGroup.get(binding.group) ?? [];
+      group.push(binding);
+      byGroup.set(binding.group, group);
+    }
+    return [...byGroup.entries()];
   }
 
   private onKeyDown = (e: KeyboardEvent) => {
