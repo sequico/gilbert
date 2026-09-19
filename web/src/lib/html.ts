@@ -204,6 +204,74 @@ export function proxiedImageUrl(url: string): string {
   return withBase(`/api/image?url=${encodeURIComponent(url)}`);
 }
 
+/**
+ * The tags and attributes no sanitised surface renders — one definition.
+ *
+ * Three surfaces sanitise HTML somebody else wrote: a mail body, quarantined in
+ * a shadow root; the composer's quoted HTML; and a Markdown file, rendered
+ * inline. Each carried its own copy of these lists, and the copies drifted —
+ * the mail list had grown to forbid `option`, `slot` and `dialog`, the Markdown
+ * renderer's had not, and nothing in the tree said which was right. A blocklist
+ * is a policy, not a preference: it is one list now, and a surface that differs
+ * says so as a derivation, not as a second copy.
+ *
+ * Two derivations, each for a reason:
+ *
+ *   - `style` **elements** are forbidden wherever the sanitised HTML renders
+ *     into the app's own document (`OURS_FORBID_TAGS`). A mail body keeps its
+ *     stylesheet: it is scoped by the shadow root and by `.message-body`'s
+ *     containment, which the composer and the file viewer have no equivalent
+ *     of. A style block carried into either of those can restyle the app around
+ *     it;
+ *   - the `style` **attribute** is forbidden in Markdown and kept in the
+ *     composer. A signature keeps the look its author gave it; a file's inline
+ *     styling is not wanted at all.
+ */
+export const FORBID_TAGS: readonly string[] = [
+  "script",
+  "iframe",
+  "frame",
+  "frameset",
+  "object",
+  "embed",
+  "applet",
+  "form",
+  "input",
+  "button",
+  "textarea",
+  "select",
+  "option",
+  "meta",
+  "link",
+  "base",
+  "svg",
+  "math",
+  "video",
+  "audio",
+  "source",
+  "track",
+  "canvas",
+  "template",
+  "slot",
+  "dialog",
+  "noscript",
+];
+
+export const FORBID_ATTR: readonly string[] = [
+  "srcdoc",
+  "formaction",
+  "action",
+  "ping",
+  "autofocus",
+  "autoplay",
+  "contenteditable",
+  "draggable",
+  "tabindex",
+];
+
+/** The shared list plus `style`, for the HTML that renders into our own document. */
+export const OURS_FORBID_TAGS: readonly string[] = [...FORBID_TAGS, "style"];
+
 export function sanitizeEmailHtml(
   input: string,
   opts: SanitizeOptions = {},
@@ -226,46 +294,8 @@ export function sanitizeEmailHtml(
   const clean = DOMPurify.sanitize(input, {
     WHOLE_DOCUMENT: false,
     RETURN_DOM: true,
-    FORBID_TAGS: [
-      "script",
-      "iframe",
-      "frame",
-      "frameset",
-      "object",
-      "embed",
-      "applet",
-      "form",
-      "input",
-      "button",
-      "textarea",
-      "select",
-      "option",
-      "meta",
-      "link",
-      "base",
-      "svg",
-      "math",
-      "video",
-      "audio",
-      "source",
-      "track",
-      "canvas",
-      "template",
-      "slot",
-      "dialog",
-      "noscript",
-    ],
-    FORBID_ATTR: [
-      "srcdoc",
-      "formaction",
-      "action",
-      "ping",
-      "autofocus",
-      "autoplay",
-      "contenteditable",
-      "draggable",
-      "tabindex",
-    ],
+    FORBID_TAGS: [...FORBID_TAGS],
+    FORBID_ATTR: [...FORBID_ATTR],
     ALLOW_DATA_ATTR: false,
     ALLOW_ARIA_ATTR: false,
     USE_PROFILES: { html: true },
@@ -389,27 +419,18 @@ export function sanitizeEmailHtml(
   return { html: clean.innerHTML, remoteCount, bodyStyle };
 }
 
-/** Minimal sanitizer for signatures / composer HTML (no remote blocking, keeps images). */
+/**
+ * Minimal sanitizer for signatures / composer HTML (no remote blocking, keeps
+ * images). Its blocklist is the shared one, which is what the mail body's is:
+ * a signature is rendered inside the app's document, so it forbids `style`
+ * elements too, and a mail body is quarantined in a shadow root and keeps them.
+ */
 export function sanitizeEditorHtml(input: string): string {
   ensureHooks();
   return DOMPurify.sanitize(input, {
     USE_PROFILES: { html: true },
-    FORBID_TAGS: [
-      "script",
-      "iframe",
-      "object",
-      "embed",
-      "form",
-      "input",
-      "button",
-      "style",
-      "meta",
-      "link",
-      "base",
-      "svg",
-      "math",
-    ],
-    FORBID_ATTR: ["srcdoc", "formaction", "ping", "onerror", "onload"],
+    FORBID_TAGS: [...OURS_FORBID_TAGS],
+    FORBID_ATTR: [...FORBID_ATTR],
     ADD_ATTR: [
       "target",
       "bgcolor",

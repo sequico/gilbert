@@ -1,5 +1,6 @@
 import DOMPurify from "dompurify";
 import { marked } from "marked";
+import { FORBID_ATTR, OURS_FORBID_TAGS } from "@/lib/html";
 
 /**
  * Markdown, rendered for the file viewer.
@@ -12,7 +13,10 @@ import { marked } from "marked";
  *
  * Rendered inline rather than in a shadow root the way mail bodies are: this
  * output is ours, sanitised and styled by `.md-body`, where an email arrives
- * with a design of its own that has to be quarantined from the app's.
+ * with a design of its own that has to be quarantined from the app's. That is
+ * why its blocklist is the shared one with `style` added, the same policy the
+ * composer gets (`@/lib/html`), and why the `style` attribute is forbidden here
+ * as well: a file brings text, not the app's styling.
  */
 
 marked.use({ gfm: true, breaks: false });
@@ -34,34 +38,8 @@ export function renderMarkdown(source: string): string {
     WHOLE_DOCUMENT: false,
     RETURN_DOM: true,
     USE_PROFILES: { html: true },
-    FORBID_TAGS: [
-      "script",
-      "iframe",
-      "frame",
-      "frameset",
-      "object",
-      "embed",
-      "applet",
-      "form",
-      "input",
-      "button",
-      "textarea",
-      "select",
-      "meta",
-      "link",
-      "base",
-      "svg",
-      "math",
-      "video",
-      "audio",
-      "source",
-      "track",
-      "canvas",
-      "template",
-      "noscript",
-      "style",
-    ],
-    FORBID_ATTR: ["srcdoc", "formaction", "action", "ping", "autofocus", "style"],
+    FORBID_TAGS: [...OURS_FORBID_TAGS],
+    FORBID_ATTR: [...FORBID_ATTR, "style"],
     ALLOW_DATA_ATTR: false,
     ADD_ATTR: ["target", "rel"],
   }) as unknown as HTMLElement;
