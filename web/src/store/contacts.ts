@@ -1,7 +1,8 @@
 import { create } from "zustand";
-import { CAP, chunk, client, setErrorMessage } from "@/jmap/client";
+import { CAP, chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
 import type {
   AddressBook,
+  ChangesResponse,
   ContactCard,
   EmailAddress,
   GetResponse,
@@ -256,6 +257,8 @@ interface ContactsState {
   available: boolean;
   books: Record<Id, AddressBook>;
   cards: Record<Id, ContactCard>;
+  /** The server state `cards` was read at, for asking what changed since. */
+  cardState: string | null;
   loaded: boolean;
   loading: boolean;
   error: string | null;
@@ -272,6 +275,11 @@ interface ContactsState {
   init(): Promise<void>;
   loadBooks(): Promise<void>;
   loadAll(): Promise<void>;
+  /**
+   * Bring `cards` up to date with what changed on the server, or load them all
+   * when that cannot be worked out.
+   */
+  syncCards(): Promise<void>;
   /** Books and cards from accounts that shared with the reader. */
   loadShared(): Promise<void>;
   select(selection: BookSelection): void;
@@ -466,6 +474,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
   available: false,
   books: {},
   cards: {},
+  cardState: null,
   loaded: false,
   loading: false,
   error: null,
@@ -737,6 +746,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
       const cards: Record<Id, ContactCard> = {};
       let position = 0;
       const limit = 500;
+      let cardState: string | null = null;
       for (let guard = 0; guard < 50; guard++) {
         const res = await client.chain([
           [
@@ -756,12 +766,86 @@ export const useContacts = create<ContactsState>((set, get) => ({
         const q = res.get("q")?.[0] as unknown as QueryResponse;
         const g = res.get("g")?.[0] as unknown as GetResponse<ContactCard>;
         for (const c of g.list) cards[c.id] = c;
+        /*
+         * The first page's state, then left alone: a change made while the
+         * later pages were being read is reported again by the next sync rather
+         * than missed, and re-reporting is what a reconcile is built to absorb.
+         */
+        cardState ??= g.state;
         position += q.ids.length;
         if (q.ids.length < limit || (q.total != null && position >= q.total)) break;
       }
-      set({ cards, loaded: true, loading: false, error: null });
+      set({ cards, cardState, loaded: true, loading: false, error: null });
     } catch (err) {
       set({ loading: false, error: (err as Error).message });
+    }
+  },
+
+  /*
+   * What changed, rather than everything again.
+   *
+   * Every push that touched a card, and every edit or import made here, reloaded
+   * the whole address book -- up to fifty pages of five hundred cards with all
+   * their properties -- to pick up one change. `ContactCard/changes` names what
+   * happened since the state `cards` was read at, and only those cards are
+   * fetched. A server that cannot say (`cannotCalculateChanges`), or any other
+   * failure, falls back to the full load, which is what happened before.
+   */
+  async syncCards() {
+    const { accountId, cardState, loaded } = get();
+    if (!accountId || !loaded || !cardState) return get().loadAll();
+    try {
+      const changed = new Set<Id>();
+      const destroyed = new Set<Id>();
+      let since = cardState;
+      for (let guard = 0; guard < 50; guard++) {
+        const ch = await client.call<ChangesResponse>("ContactCard/changes", {
+          accountId,
+          sinceState: since,
+          maxChanges: 500,
+        });
+        for (const id of [...ch.created, ...ch.updated]) {
+          changed.add(id);
+          destroyed.delete(id);
+        }
+        for (const id of ch.destroyed) {
+          destroyed.add(id);
+          changed.delete(id);
+        }
+        since = ch.newState;
+        if (!ch.hasMoreChanges) break;
+      }
+      const fetched = await Promise.all(
+        chunk([...changed], client.maxObjectsInGet).map((part) =>
+          client.call<GetResponse<ContactCard>>("ContactCard/get", {
+            accountId,
+            ids: part,
+          }),
+        ),
+      );
+      // The account may have changed under us while the fetch was in flight.
+      if (get().accountId !== accountId) return;
+      set((s) => {
+        const cards = { ...s.cards };
+        for (const id of destroyed) delete cards[id];
+        for (const r of fetched) {
+          for (const c of r.list) cards[c.id] = c;
+          // Listed as changed, gone by the time it was asked for.
+          for (const id of r.notFound ?? []) delete cards[id];
+        }
+        return { cards, cardState: since, error: null };
+      });
+    } catch (err) {
+      /*
+       * A server that cannot compute changes is a normal answer, not a fault to
+       * report: the fallback is what this did before, and it works everywhere.
+       * Anything else is worth a line, because it means the sync path is not
+       * doing what it is here for.
+       */
+      if (!(err instanceof JmapMethodError) || err.type !== "cannotCalculateChanges")
+        console.warn("[gilbert] contact sync failed, reloading the books:", err);
+      set({ cardState: null });
+      await get().loadAll();
     }
   },
 
@@ -1022,7 +1106,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
           Object.values(res.notUpdated ?? {})[0];
       }
     } finally {
-      await get().loadAll();
+      await get().syncCards();
     }
     return { destroyed: gone.length, unfiled, refused };
   },
@@ -1084,7 +1168,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
     if (err) throw new Error(setErrorMessage(err));
     if (target === own) {
       await get().loadBooks();
-      await get().loadAll();
+      await get().syncCards();
     } else {
       await get().loadShared();
     }
@@ -1164,7 +1248,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
          matched on it rather than guessed at. */
       return { created, updated, alike: 0 };
     } finally {
-      if (accountId === get().accountId) await get().loadAll();
+      if (accountId === get().accountId) await get().syncCards();
       else await get().loadShared();
     }
   },
@@ -1252,7 +1336,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
         );
       return { created, updated, alike };
     } finally {
-      if (accountId === get().accountId) await get().loadAll();
+      if (accountId === get().accountId) await get().syncCards();
       else await get().loadShared();
     }
   },
@@ -1435,7 +1519,7 @@ export const useContacts = create<ContactsState>((set, get) => ({
       void get().loadBooks();
       void get().loadShared();
     }
-    if (types.has("ContactCard") && get().loaded) void get().loadAll();
+    if (types.has("ContactCard") && get().loaded) void get().syncCards();
   },
 }));
 

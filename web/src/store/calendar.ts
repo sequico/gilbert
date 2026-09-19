@@ -594,6 +594,34 @@ async function eventIdsByUid(accountId: Id, calendarId: Id): Promise<Map<string,
    reader's own, and the shared ones drawn beside them. */
 const calendarWindowsQueued = { own: false, shared: false };
 
+/**
+ * How many loaded windows are held.
+ *
+ * Every week or month the reader visited used to stay, and each was queried
+ * again whenever any event changed, and walked by every render. A window
+ * dropped here is simply loaded again if the reader goes back to it.
+ */
+export const RANGES_KEPT = 4;
+
+/** `ranges` with `key` set and moved to the end, trimmed to the most recent `RANGES_KEPT`. */
+export function keepRecent(
+  ranges: Record<string, Id[]>,
+  key: string,
+  ids: Id[],
+): Record<string, Id[]> {
+  const { [key]: _previous, ...rest } = ranges;
+  const entries = [...Object.entries(rest), [key, ids] as [string, Id[]]];
+  return Object.fromEntries(entries.slice(-RANGES_KEPT));
+}
+
+/** `map` restricted to the windows still held. */
+function onlyKeys<T>(
+  map: Record<string, T>,
+  held: Record<string, unknown>,
+): Record<string, T> {
+  return Object.fromEntries(Object.entries(map).filter(([k]) => k in held));
+}
+
 /* Shift an event's cached times by `deltaMs` for the optimistic copy of a
    move: the zoned `start`, and — when present — the utc pair that toInstance
    reads first. */
@@ -851,7 +879,13 @@ export const useCalendar = create<CalendarState>((set, get) => ({
     const accountId = get().accountId;
     if (!accountId) return;
     const key = `${start.getTime()}|${end.getTime()}`;
-    if (!force && get().ranges[key]) return;
+    const held = get().ranges[key];
+    if (!force && held) {
+      // Shown again, so the most recent: a window the reader comes back to is
+      // not the one dropped next.
+      set((s) => ({ ranges: keepRecent(s.ranges, key, held) }));
+      return;
+    }
     // Loading stands in only for a window with no data yet: a background
     // refresh (after a write or a push) must not flash "loading" over
     // content that is already on screen.
@@ -893,9 +927,11 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       set((s) => {
         const events = { ...s.events };
         for (const e of g.list) events[e.id] = e;
+        const ranges = keepRecent(s.ranges, key, q.ids);
         return {
           events,
-          ranges: { ...s.ranges, [key]: q.ids },
+          ranges,
+          sharedRanges: onlyKeys(s.sharedRanges, ranges),
           loading: false,
           error: null,
         };
@@ -959,6 +995,13 @@ export const useCalendar = create<CalendarState>((set, get) => ({
       sharedRanges,
       sharedCalendars,
     } = get();
+    /*
+     * Built once per call, not once per event. `instancesIn` runs on every
+     * render of the calendar, and the set it used to build sits inside the
+     * loop over every event in range -- a new Set per event, per render, over
+     * a list of settings that has not changed.
+     */
+    const addedShares = new Set(settings().addedShares);
     /*
      * Birthdays are derived here rather than fetched, and they go through the
      * same funnel as everything else so no view has to know they are different.
@@ -1037,11 +1080,13 @@ export const useCalendar = create<CalendarState>((set, get) => ({
          an account linked for its files offered its calendar too. `isSubscribed`
          is the only thing separating "shared with me" from "reachable", so
          nothing unsubscribed is drawn. */
-      const added = new Set(settings().addedShares);
       const theirs: Record<Id, Calendar> = {};
       for (const c of sharedCalendars) {
         if (c.accountId !== accountId) continue;
-        if (!c.calendar.isSubscribed && !added.has(sharedKey(c.accountId, c.calendar.id)))
+        if (
+          !c.calendar.isSubscribed &&
+          !addedShares.has(sharedKey(c.accountId, c.calendar.id))
+        )
           continue;
         theirs[c.calendar.id] = c.calendar;
       }

@@ -4167,7 +4167,57 @@ const handlers: Record<string, Handler> = {
       r.notCreated = { ...((r.notCreated as Obj) ?? {}), ...notCreated };
     if (Object.keys(notUpdated).length)
       r.notUpdated = { ...((r.notUpdated as Obj) ?? {}), ...notUpdated };
+    /*
+     * Recorded after the set, so the entry carries the state the write left
+     * behind: a client that read the old state and asks again is told about
+     * this write rather than about the one before it. And broadcast, the way a
+     * real server announces a ContactCard change -- a pushed change is what the
+     * client reconciles from, and a mock that stayed quiet would leave that
+     * path unexercised.
+     */
+    const createdIds = Object.values(
+      (r.created ?? {}) as Record<string, { id: string }>,
+    ).map((x) => x.id);
+    const updatedIds = Object.keys((r.updated ?? {}) as Obj);
+    const destroyedIds = (r.destroyed ?? []) as string[];
+    if (createdIds.length || updatedIds.length || destroyedIds.length) {
+      const account = String(a.accountId ?? ACCOUNT);
+      recordContactCardChange(
+        account,
+        { created: createdIds, updated: updatedIds, destroyed: destroyedIds },
+        stateOf("ContactCard"),
+      );
+      broadcast(["ContactCard"], account);
+    }
     return r;
+  },
+  "ContactCard/changes": (a) => {
+    /*
+     * Answered from the change log above, the way `Email/changes` and
+     * `FileNode/changes` are: a client reconciles by asking what happened since
+     * the state it read at, and an empty answer whatever happened would never
+     * exercise that path. `hasMoreChanges` is false because the log answers its
+     * whole window in one go -- a caller past the window gets an incomplete
+     * answer rather than a page, which is the one shape of this the mock does
+     * not reproduce (see `contactCardChanges`).
+     */
+    const since = Number(a.sinceState ?? 0);
+    const accountId = String(a.accountId ?? ACCOUNT);
+    const relevant = contactCardChanges.filter(
+      (c) => c.accountId === accountId && c.state > since,
+    );
+    const pick = (k: "created" | "updated" | "destroyed") => [
+      ...new Set(relevant.flatMap((c) => c[k])),
+    ];
+    return {
+      accountId: ACCOUNT,
+      oldState: String(a.sinceState ?? "1"),
+      newState: stateOf("ContactCard"),
+      hasMoreChanges: false,
+      created: pick("created"),
+      updated: pick("updated"),
+      destroyed: pick("destroyed"),
+    };
   },
   "ContactCard/parse": (a) => {
     const parsed: Obj = {};
@@ -4824,6 +4874,41 @@ function recordFileNodeChange(
   });
   if (fileNodeChanges.length > 200)
     fileNodeChanges.splice(0, fileNodeChanges.length - 200);
+}
+
+/**
+ * What contact cards were created, updated or destroyed, so
+ * `ContactCard/changes` can answer honestly.
+ *
+ * The same shape as `emailChanges` and `fileNodeChanges`, and there for the
+ * same reason: the store reconciles what it holds against a pushed change, and
+ * a mock that answers an empty list whatever happened leaves that path never
+ * exercised here -- so a bug living in it is unreproducible against the mock.
+ *
+ * A real server's state strings are opaque; these are the mock's own counters,
+ * which is what makes the comparison numeric.
+ */
+const contactCardChanges: Array<{
+  accountId: string;
+  state: number;
+  created: string[];
+  updated: string[];
+  destroyed: string[];
+}> = [];
+function recordContactCardChange(
+  accountId: string,
+  change: { created?: string[]; updated?: string[]; destroyed?: string[] },
+  state: string,
+) {
+  contactCardChanges.push({
+    accountId,
+    state: Number(state),
+    created: change.created ?? [],
+    updated: change.updated ?? [],
+    destroyed: change.destroyed ?? [],
+  });
+  if (contactCardChanges.length > 200)
+    contactCardChanges.splice(0, contactCardChanges.length - 200);
 }
 
 function broadcast(types: string[], accountId: string = ACCOUNT) {
