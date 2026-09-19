@@ -811,7 +811,7 @@ export const useMail = create<MailState>((set, get) => ({
         for (const r of results) {
           state = r.state;
           for (const e of r.list) {
-            next[e.id] = { ...next[e.id], ...e };
+            next[e.id] = mergeEmail(next[e.id], e);
             if (full) nextFull[e.id] = true;
           }
         }
@@ -864,7 +864,7 @@ export const useMail = create<MailState>((set, get) => ({
         const next = { ...s.emails };
         const nextFull = { ...s.fullIds };
         for (const e of emailsRes.list) {
-          next[e.id] = { ...next[e.id], ...e };
+          next[e.id] = mergeEmail(next[e.id], e);
           nextFull[e.id] = true;
         }
         const { [threadId]: _drop, ...rest } = s.loadingThreads;
@@ -2075,7 +2075,7 @@ export const useMail = create<MailState>((set, get) => ({
             set((s) => {
               const next = { ...s.emails };
               for (const r of results)
-                for (const e of r.list) next[e.id] = { ...next[e.id], ...e };
+                for (const e of r.list) next[e.id] = mergeEmail(next[e.id], e);
               return { emails: next };
             });
           }
@@ -2240,6 +2240,58 @@ function sortIdentities(list: Identity[], accountId: Id): Identity[] {
  * Keyed by nothing: a refusal is about the server, and there is only one.
  */
 let sortRefused = false;
+
+/**
+ * Fold freshly fetched properties into the copy already held.
+ *
+ * Returns the held object itself when nothing in `next` differs from it, which
+ * is the whole point: a refresh fetches every listed message again, and handing
+ * the store a new object for each one -- same data, new identity -- defeats the
+ * memo on every row of the list. One message changing would then re-render the
+ * whole visible list, and so would any store write that refreshed it.
+ *
+ * Compared property by property, because identity is compared per property and
+ * a shallow compare on the message alone cannot see that `keywords` is a new
+ * object holding the same flags. The comparison is shallow on each property
+ * with a serialized fallback, which is enough for every field a refresh brings
+ * back -- and a field that cannot be serialized simply reads as changed.
+ */
+function mergeEmail(prev: Email | undefined, next: Email): Email {
+  if (!prev) return next;
+  for (const key of Object.keys(next) as (keyof Email)[]) {
+    const a = prev[key];
+    const b = next[key];
+    if (a === b) continue;
+    if (a && b && typeof a === "object" && sameJson(a, b)) continue;
+    return { ...prev, ...next };
+  }
+  return prev;
+}
+
+/**
+ * Whether two values serialize to the same JSON whatever order their keys are
+ * in.
+ *
+ * `JSON.stringify` alone is not enough here, and the case is the common one:
+ * `keywords` and `mailboxIds` are maps of arbitrary names, and the server is
+ * free to answer them in any order -- so a shallow `JSON.stringify` comparison
+ * reports a change whenever the order moves, which is exactly the wasted render
+ * this is here to prevent.
+ */
+function sameJson(a: unknown, b: unknown): boolean {
+  return stableJson(a) === stableJson(b);
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).sort(([x], [y]) =>
+      x < y ? -1 : x > y ? 1 : 0,
+    );
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "undefined";
+}
 
 /** The discovery run already on its way, shared by every caller that joins it. */
 let discoverInFlight: Promise<void> | null = null;

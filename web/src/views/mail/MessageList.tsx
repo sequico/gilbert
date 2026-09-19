@@ -248,6 +248,30 @@ export function MessageList({
 
   // Infinite scroll
   const items = virtualizer.getVirtualItems();
+
+  /*
+   * Each row's conversation, computed once per list rather than per render.
+   *
+   * The rows are memoized, and an array built inline at the call site -- the
+   * thread's messages, mapped and filtered afresh every time -- is a new prop
+   * on every render, so every visible row re-rendered on every store write.
+   * A map built when the list or the messages change is one array per row that
+   * keeps its identity while neither has moved.
+   */
+  const threadEmailsByRow = useMemo(() => {
+    const byRow = new Map<Id, Email[]>();
+    for (const id of ids) {
+      const email = emails[id];
+      if (!email?.threadId) continue;
+      const thread = threads[email.threadId];
+      if (!thread) continue;
+      const scope = thread.emailIds
+        .map((x) => emails[x])
+        .filter((x): x is Email => Boolean(x));
+      byRow.set(id, scope);
+    }
+    return byRow;
+  }, [ids, emails, threads]);
   useEffect(() => {
     const last = items[items.length - 1];
     if (!last || !list) return;
@@ -304,6 +328,39 @@ export function MessageList({
       else window.getSelection()?.removeAllRanges();
     },
     [ids, select, selected, isMobile, onOpen],
+  );
+
+  /*
+   * One handler per row action, each with an identity that never changes.
+   *
+   * The row is memoized, so a handler built inline at the call site defeated
+   * the memo on every parent render: one click re-rendered every visible row.
+   * `select` and `actions` come from the store and keep their identity, which
+   * is what makes these stable.
+   */
+  const onSelectOne = useCallback(
+    (rowId: Id, on: boolean) => {
+      select([rowId], on);
+      lastClick.current = rowId;
+    },
+    [select],
+  );
+
+  const onStarOne = useCallback(
+    (rowId: Id, on: boolean) => void actions.star(on, [rowId]),
+    [actions],
+  );
+
+  const onArchiveOne = useCallback(
+    (rowId: Id) => void actions.archive([rowId]),
+    [actions],
+  );
+
+  const onTrashOne = useCallback((rowId: Id) => void actions.trash([rowId]), [actions]);
+
+  const onReadOne = useCallback(
+    (rowId: Id, read: boolean) => void actions.read(read, [rowId]),
+    [actions],
   );
 
   const onContext = useCallback(
@@ -825,7 +882,6 @@ export function MessageList({
                       style={{ position: "absolute", top: vi.start, height: vi.size }}
                     />
                   );
-                const thread = list?.collapseThreads ? threads[e.threadId] : undefined;
                 const strip = swiping?.id === id ? swiping : null;
                 return (
                   <Fragment key={id}>
@@ -849,13 +905,7 @@ export function MessageList({
                     )}
                     <Row
                       email={e}
-                      threadEmails={
-                        thread
-                          ? thread.emailIds
-                              .map((x) => emails[x])
-                              .filter((x): x is Email => Boolean(x))
-                          : undefined
-                      }
+                      threadEmails={threadEmailsByRow.get(id)}
                       top={vi.start}
                       height={vi.size}
                       selected={Boolean(selected[id])}
@@ -869,15 +919,11 @@ export function MessageList({
                       isSent={mailbox?.role === "sent"}
                       onClick={onRowClick}
                       onContext={onContext}
-                      onSelect={(rowId, on) => {
-                        select([rowId], on);
-                        lastClick.current = rowId;
-                      }}
-                      onStar={(rowId, on) => void actions.star(on, [rowId])}
-                      onArchive={(rowId) => void actions.archive([rowId])}
-                      onTrash={(rowId) => void actions.trash([rowId])}
-                      onRead={(rowId, read) => void actions.read(read, [rowId])}
-                      selectedIds={selected}
+                      onSelect={onSelectOne}
+                      onStar={onStarOne}
+                      onArchive={onArchiveOne}
+                      onTrash={onTrashOne}
+                      onRead={onReadOne}
                       touch={isTouch}
                       role={mailbox?.role ?? null}
                       finalFolders={finalFolders}
@@ -1072,7 +1118,6 @@ interface RowProps {
   isDrafts: boolean;
   isSent: boolean;
   mailboxId: Id | null;
-  selectedIds: Record<Id, true>;
   onClick: (e: MouseEvent, id: Id) => void;
   onContext: (e: MouseEvent, id: Id) => void;
   onSelect: (id: Id, on: boolean) => void;
@@ -1117,7 +1162,6 @@ const Row = memo(function Row({
   isDrafts,
   isSent,
   mailboxId,
-  selectedIds,
   onClick,
   onContext,
   onSelect,
@@ -1266,7 +1310,15 @@ const Row = memo(function Row({
   });
 
   const onDragStart = (ev: DragEvent) => {
-    const ids = selectedIds[e.id] ? Object.keys(selectedIds) : [e.id];
+    /*
+     * Read here rather than taken as a prop. The row is memoized, and handing
+     * every row the whole selection map gave each one a new prop on every
+     * selection change -- so a single click re-rendered the entire visible
+     * list, which is what the memo exists to prevent. A drag handler runs on
+     * demand, and what it reads is fresher than any prop would be.
+     */
+    const selectedNow = useMail.getState().selected;
+    const ids = selectedNow[e.id] ? Object.keys(selectedNow) : [e.id];
     // include thread emails in scope
     const all = new Set<Id>();
     for (const id of ids) {
