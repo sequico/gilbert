@@ -13,6 +13,7 @@ import {
   contactDisplayName,
   nameParts,
   newKey,
+  withPhoto,
 } from "@/lib/contacts";
 import { t } from "@/lib/i18n";
 import { isGroupMailboxAccount } from "@/lib/mailAccounts";
@@ -355,27 +356,12 @@ export function ContactEditor({
         kind === "group" && memberUids.length
           ? Object.fromEntries(memberUids.map((u) => [u, true]))
           : null;
-      if (photo) {
-        const m = /^data:([^;]+);base64,(.*)$/s.exec(photo.dataUrl);
-        if (m) {
-          const bin = atob(m[2]!);
-          const bytes = new Uint8Array(bin.length);
-          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-          const up = await client.upload(
-            bookAccount,
-            new Blob([bytes], { type: m[1]! }),
-            { type: m[1]! },
-          );
-          obj.media = {
-            [newKey("p")]: {
-              "@type": "Media",
-              kind: "photo",
-              blobId: up.blobId,
-              mediaType: m[1]!,
-            },
-          };
-        }
-      } else if (removePhoto) obj.media = null;
+      /*
+       * Inline, not uploaded: Stalwart refuses a `blobId` in `media`, which
+       * took the whole write down with it. See `withPhoto`.
+       */
+      if (photo) obj.media = withPhoto(card.media, photo);
+      else if (removePhoto) obj.media = withPhoto(card.media, null);
       if (isNew) {
         const id = await contacts.createCard(
           obj as Partial<ContactCard>,

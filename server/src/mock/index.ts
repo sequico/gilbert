@@ -4075,6 +4075,42 @@ const handlers: Record<string, Handler> = {
     )(a),
   "ContactCard/set": (a) => {
     checkIfInState(a, "ContactCard");
+    /*
+     * A `blobId` inside `media` is refused, and takes the whole call down with
+     * it -- "blobIds in media is not supported", `invalidProperties` on `media`
+     * (0.16.22, checked live on 2026-09-16). RFC 9610 lets a JMAP client put one
+     * there and this mock took anything, which is how a photo upload that never
+     * worked against a real server shipped. The `uri` form is the one that is
+     * accepted, and this mock takes it unchanged.
+     */
+    const refusesBlobMedia = (o: unknown): boolean =>
+      Object.values(((o as Obj)?.media as Record<string, Obj> | null) ?? {}).some(
+        (m) => m && "blobId" in m,
+      );
+    const mediaRefusal = {
+      type: "invalidProperties",
+      properties: ["media"],
+      description: "blobIds in media is not supported.",
+    };
+    const create = { ...((a.create as Obj | undefined) ?? {}) };
+    const update = { ...((a.update as Obj | undefined) ?? {}) };
+    const notCreated: Obj = {};
+    const notUpdated: Obj = {};
+    for (const [k, v] of Object.entries(create)) {
+      if (!refusesBlobMedia(v)) continue;
+      notCreated[k] = mediaRefusal;
+      delete create[k];
+    }
+    for (const [k, v] of Object.entries(update)) {
+      if (!refusesBlobMedia(v)) continue;
+      notUpdated[k] = mediaRefusal;
+      delete update[k];
+    }
+    const gated = {
+      ...a,
+      ...(a.create ? { create } : {}),
+      ...(a.update ? { update } : {}),
+    };
     const list =
       a.accountId === GROUP_ACCOUNT
         ? groupCards
@@ -4091,8 +4127,8 @@ const handlers: Record<string, Handler> = {
         type: "forbidden",
         description: "You are not allowed to modify this address book.",
       });
-      const created = (a.create as Obj | undefined) ? {} : undefined;
-      const updated = (a.update as Obj | undefined) ? {} : undefined;
+      const created = gated.create ? {} : undefined;
+      const updated = gated.update ? {} : undefined;
       const destroyed = (a.destroy as string[] | undefined) ? [] : undefined;
       return {
         accountId: a.accountId,
@@ -4102,7 +4138,7 @@ const handlers: Record<string, Handler> = {
           ? {
               created,
               notCreated: Object.fromEntries(
-                Object.keys(a.create as Obj).map((k) => [k, refuse(k)]),
+                Object.keys(gated.create as Obj).map((k) => [k, refuse(k)]),
               ),
             }
           : {}),
@@ -4110,7 +4146,7 @@ const handlers: Record<string, Handler> = {
           ? {
               updated,
               notUpdated: Object.fromEntries(
-                Object.keys(a.update as Obj).map((k) => [k, refuse(k)]),
+                Object.keys(gated.update as Obj).map((k) => [k, refuse(k)]),
               ),
             }
           : {}),
@@ -4124,7 +4160,14 @@ const handlers: Record<string, Handler> = {
           : {}),
       };
     }
-    return genericSet(list, "cc", undefined, "ContactCard")(a);
+    const r = genericSet(list, "cc", undefined, "ContactCard")(gated);
+    /* The media refusals join whatever the set itself answered, rather than
+       replacing it: one bad card must not hide the fate of the others. */
+    if (Object.keys(notCreated).length)
+      r.notCreated = { ...((r.notCreated as Obj) ?? {}), ...notCreated };
+    if (Object.keys(notUpdated).length)
+      r.notUpdated = { ...((r.notUpdated as Obj) ?? {}), ...notUpdated };
+    return r;
   },
   "ContactCard/parse": (a) => {
     const parsed: Obj = {};

@@ -22,9 +22,15 @@ export function Avatar({
   const email = typeof who === "string" ? who : (who?.email ?? "");
   const name = typeof who === "string" ? who : (who?.name ?? who?.email ?? "");
   const photo = useContacts((s) => {
-    if (!email || !s.loaded) return null;
+    if (!email) return null;
+    /*
+     * Whatever cards are held count, the reader's own or a shared book's, and
+     * the photo is fetched from the account the card belongs to rather than
+     * from whichever one happens to be selected.
+     */
     const c = s.lookupByEmail(email);
-    return c && s.accountId ? contactPhoto(c, s.accountId) : null;
+    const account = c ? (s.accountOfCard(c.id) ?? s.accountId) : null;
+    return c && account ? contactPhoto(c, account) : null;
   });
   return (
     <span
