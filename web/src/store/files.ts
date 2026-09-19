@@ -1,4 +1,5 @@
 import { isAppFolder } from "@gilbert/shared/appFolder";
+import { queryThenGet } from "@gilbert/shared/jmapQuery";
 import { create, type StoreApi } from "zustand";
 import { CAP, client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, QueryResponse, SetResponse } from "@/jmap/types";
@@ -966,27 +967,17 @@ export const useFiles = create<FilesState>((set, get) => ({
     const accountId = get().accountId;
     if (!accountId) return;
     try {
-      const res = await client.chain([
-        [
-          "FileNode/query",
-          {
-            accountId,
-            filter: { nodeType: "directory" },
-            sort: [{ property: "name", isAscending: true }],
-            limit: 1000,
-          },
-          "q",
-        ],
-        [
-          "FileNode/get",
-          {
-            accountId,
-            "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
-            properties: fileNodeProps(),
-          },
-          "g",
-        ],
-      ]);
+      const res = await client.chain(
+        queryThenGet({
+          query: "FileNode/query",
+          get: "FileNode/get",
+          accountId,
+          filter: { nodeType: "directory" },
+          sort: [{ property: "name", isAscending: true }],
+          limit: 1000,
+          properties: fileNodeProps(),
+        }),
+      );
       const g = res.get("g")?.[0] as unknown as GetResponse<FileNode>;
       // Filtered again here rather than trusted: a server that ignores the
       // nodeType filter answers with files as well, and the tree would draw
@@ -1009,30 +1000,20 @@ export const useFiles = create<FilesState>((set, get) => ({
     set({ loading: true });
     try {
       const filter = parentId ? { parentId } : { isTopLevel: true };
-      const res = await client.chain([
-        [
-          "FileNode/query",
-          {
-            accountId,
-            filter,
-            sort: [
-              { property: "nodeType", isAscending: false },
-              { property: "name", isAscending: true },
-            ],
-            limit: 1000,
-          },
-          "q",
-        ],
-        [
-          "FileNode/get",
-          {
-            accountId,
-            "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
-            properties: fileNodeProps(),
-          },
-          "g",
-        ],
-      ]);
+      const res = await client.chain(
+        queryThenGet({
+          query: "FileNode/query",
+          get: "FileNode/get",
+          accountId,
+          filter,
+          sort: [
+            { property: "nodeType", isAscending: false },
+            { property: "name", isAscending: true },
+          ],
+          limit: 1000,
+          properties: fileNodeProps(),
+        }),
+      );
       const q = res.get("q")?.[0] as unknown as QueryResponse;
       const g = res.get("g")?.[0] as unknown as GetResponse<FileNode>;
       const listed = withoutAppFolder(g.list);

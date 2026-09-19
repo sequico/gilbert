@@ -1,3 +1,4 @@
+import { queryThenGet } from "@gilbert/shared/jmapQuery";
 import { ChevronRight, Folder, HardDrive, Home, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { client, setErrorMessage } from "@/jmap/client";
@@ -96,27 +97,17 @@ export function SaveToFilesDialog({
     setFolders(null);
     void (async () => {
       try {
-        const res = await client.chain([
-          [
-            "FileNode/query",
-            {
-              accountId: destination,
-              filter: folder ? { parentId: folder } : { isTopLevel: true },
-              sort: [{ property: "name", isAscending: true }],
-              limit: 1000,
-            },
-            "q",
-          ],
-          [
-            "FileNode/get",
-            {
-              accountId: destination,
-              "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
-              properties: fileNodeProps(),
-            },
-            "g",
-          ],
-        ]);
+        const res = await client.chain(
+          queryThenGet({
+            query: "FileNode/query",
+            get: "FileNode/get",
+            accountId: destination,
+            filter: folder ? { parentId: folder } : { isTopLevel: true },
+            sort: [{ property: "name", isAscending: true }],
+            limit: 1000,
+            properties: fileNodeProps(),
+          }),
+        );
         const got = res.get("g")?.[0] as unknown as GetResponse<FileNode>;
         if (!live) return;
         setFolders(

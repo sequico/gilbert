@@ -121,6 +121,7 @@ import {
   STALWART_CAP,
 } from "./jmap.js";
 import { impersonationAuthorization, type LiveSession } from "./sessions.js";
+import { queryThenGet } from "./shared/jmapQuery.js";
 import { isRecord } from "./shared/json.js";
 import { AGENT_LABELS } from "./shared/labels.js";
 import {
@@ -1745,26 +1746,16 @@ async function readGroupMembers(
   const accountId = client.accountFor(STALWART_CAP);
   if (!accountId) return null;
   try {
-    const result = await client.chain([
-      [
-        "x:Account/query",
-        {
-          accountId,
-          filter: { memberGroupIds: groupAccountId },
-          limit: ROSTER_LIMIT,
-        },
-        "q",
-      ],
-      [
-        "x:Account/get",
-        {
-          accountId,
-          "#ids": { resultOf: "q", name: "x:Account/query", path: "/ids" },
-          properties: ["id", "@type", "emailAddress"],
-        },
-        "g",
-      ],
-    ]);
+    const result = await client.chain(
+      queryThenGet({
+        query: "x:Account/query",
+        get: "x:Account/get",
+        accountId,
+        filter: { memberGroupIds: groupAccountId },
+        limit: ROSTER_LIMIT,
+        properties: ["id", "@type", "emailAddress"],
+      }),
+    );
     const records = result.list<{ "@type"?: unknown; emailAddress?: unknown }>("g");
     const addresses = records
       // The group's own record has no `memberGroupIds` and is not a member of

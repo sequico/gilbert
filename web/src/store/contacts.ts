@@ -1,3 +1,4 @@
+import { queryThenGet } from "@gilbert/shared/jmapQuery";
 import { create } from "zustand";
 import { CAP, chunk, client, JmapMethodError, setErrorMessage } from "@/jmap/client";
 import type {
@@ -633,17 +634,15 @@ export const useContacts = create<ContactsState>((set, get) => ({
             const page = client.maxObjectsInGet;
             let fetched = 0;
             for (let position = 0; fetched < sharedCardBound; ) {
-              const cardsRes = await client.chain([
-                ["ContactCard/query", { accountId, position, limit: page }, "q"],
-                [
-                  "ContactCard/get",
-                  {
-                    accountId,
-                    "#ids": { resultOf: "q", name: "ContactCard/query", path: "/ids" },
-                  },
-                  "g",
-                ],
-              ]);
+              const cardsRes = await client.chain(
+                queryThenGet({
+                  query: "ContactCard/query",
+                  get: "ContactCard/get",
+                  accountId,
+                  position,
+                  limit: page,
+                }),
+              );
               const q = cardsRes.get("q")?.[0] as unknown as QueryResponse;
               const g = cardsRes.get("g")?.[0] as unknown as GetResponse<ContactCard>;
               for (const c of g.list) {

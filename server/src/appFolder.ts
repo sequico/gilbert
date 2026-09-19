@@ -34,6 +34,7 @@ import {
 } from "./shared/appFolder.js";
 import { sameBytes } from "./shared/bytes.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
+import { queryThenGet } from "./shared/jmapQuery.js";
 import type { UpstreamSession } from "./upstream.js";
 import { clientOf } from "./util.js";
 
@@ -112,18 +113,14 @@ export async function fileChildren(
 ): Promise<FileNodeLike[]> {
   const filter = parentId ? { parentId } : { isTopLevel: true };
   const res = await clientOf(ctx).chain(
-    [
-      ["FileNode/query", { accountId, filter, limit }, "q"],
-      [
-        "FileNode/get",
-        {
-          accountId,
-          "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
-          properties,
-        },
-        "g",
-      ],
-    ],
+    queryThenGet({
+      query: "FileNode/query",
+      get: "FileNode/get",
+      accountId,
+      filter,
+      limit,
+      properties,
+    }),
     [FILENODE_CAP],
   );
   return res.list<FileNodeLike>("g");

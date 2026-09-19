@@ -30,6 +30,7 @@ import {
   ensureAppFolderId,
   findAppFolderId,
 } from "@gilbert/shared/appFolder";
+import { queryThenGet } from "@gilbert/shared/jmapQuery";
 
 /*
  * The folder's name is the shared constant's, not this module's: the predicate
@@ -41,7 +42,6 @@ export { APP_FOLDER_NAME };
 import { client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, SetResponse } from "@/jmap/types";
 import { fileCreate } from "@/lib/filenode";
-
 /** Just enough to find the folder. */
 export const folderProps = (): string[] => ["id", "name", "nodeType", "parentId"];
 
@@ -102,27 +102,17 @@ export async function listChildrenWithState(
 }> {
   const filter =
     opts.scope === "account" ? undefined : parentId ? { parentId } : { isTopLevel: true };
-  const res = await client.chain([
-    [
-      "FileNode/query",
-      {
-        accountId,
-        ...(filter ? { filter } : {}),
-        position: opts.position ?? 0,
-        limit: opts.limit ?? 1000,
-      },
-      "q",
-    ],
-    [
-      "FileNode/get",
-      {
-        accountId,
-        "#ids": { resultOf: "q", name: "FileNode/query", path: "/ids" },
-        properties,
-      },
-      "g",
-    ],
-  ]);
+  const res = await client.chain(
+    queryThenGet({
+      query: "FileNode/query",
+      get: "FileNode/get",
+      accountId,
+      filter,
+      position: opts.position ?? 0,
+      limit: opts.limit ?? 1000,
+      properties,
+    }),
+  );
   const [g] = res.get("g") ?? [];
   const [q] = res.get("q") ?? [];
   const got = g as unknown as GetResponse<FileNode>;
