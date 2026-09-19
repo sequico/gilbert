@@ -37,11 +37,8 @@
  * can be exercised without a repository to stage.
  */
 import { readFileSync } from "node:fs";
-import { dirname, extname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { lineOf, walk } from "./lib/repoWalk.mjs";
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+import { extname, join } from "node:path";
+import { isEntryPoint, lineOf, ROOT, walk } from "./lib/repoWalk.mjs";
 
 /**
  * Names the installation no longer honours. The policy, the identity lock and
@@ -323,6 +320,6 @@ function main() {
   return 1;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (isEntryPoint(import.meta.url)) {
   process.exitCode = main();
 }

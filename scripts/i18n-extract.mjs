@@ -24,7 +24,7 @@ import { readFileSync, writeFileSync } from "node:fs";
  * loud rather than silent.
  */
 import ts from "typescript";
-import { ATTRS, CODE_TAGS, NOT_PROSE, optedOut } from "./lib/i18nSources.mjs";
+import { ATTRS, CODE_TAGS, NOT_PROSE, optedOut, sourceAst } from "./lib/i18nSources.mjs";
 
 /*
  * JSX decodes HTML entities in text; a JS string literal does not. Moving
@@ -59,13 +59,7 @@ const skipped = [];
 
 for (const file of files) {
   const text = readFileSync(file, "utf8");
-  const src = ts.createSourceFile(
-    file,
-    text,
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TSX,
-  );
+  const src = sourceAst(file, { text });
   /*
    * `t` is a natural name for a callback parameter, and several files already
    * use it -- `(t: SieveTest) => ...`, `.map((t) => ...)`. An import called

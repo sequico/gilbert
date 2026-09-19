@@ -29,6 +29,7 @@ import {
   componentFiles,
   NOT_PROSE,
   optedOut,
+  sourceAst,
 } from "./lib/i18nSources.mjs";
 
 const files = componentFiles();
@@ -38,13 +39,7 @@ let done = 0,
 
 for (const file of files) {
   const text = readFileSync(file, "utf8");
-  const src = ts.createSourceFile(
-    file,
-    text,
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TSX,
-  );
+  const src = sourceAst(file, { text });
   let left = 0;
   const wrapped =
     (text.match(/\bt\(\s*["'`]/g) || []).length +

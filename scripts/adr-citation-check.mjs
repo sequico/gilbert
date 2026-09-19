@@ -38,12 +38,9 @@
  * exercised without a repository to stage.
  */
 import { readdirSync, readFileSync } from "node:fs";
-import { dirname, extname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { extname, join } from "node:path";
 
-import { lineOf, walk } from "./lib/repoWalk.mjs";
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+import { isEntryPoint, lineOf, ROOT, walk } from "./lib/repoWalk.mjs";
 
 /** The ADR a file name owns: `0003-agent-fleet.md` -> `0003`. */
 const ADR_FILE = /^(\d{4})-[^/]*\.md$/;
@@ -323,6 +320,6 @@ function main() {
   return 1;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (isEntryPoint(import.meta.url)) {
   process.exitCode = main();
 }

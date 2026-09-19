@@ -38,17 +38,14 @@ is said properly in the README badge and KNOWN-ISSUES, where it can be precise
  * whoever builds is responsible for computing it -- see deploy.example.sh.
  */
 import { execFileSync } from "node:child_process";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+import { isEntryPoint, ROOT } from "./lib/repoWalk.mjs";
 
 /** What a build with nothing to go on reports, and it should look wrong. */
 export const UNVERSIONED = "0.0.0";
 
 function git(...args) {
   return execFileSync("git", args, {
-    cwd: root,
+    cwd: ROOT,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
   }).trim();
@@ -106,6 +103,6 @@ export function resolveVersion() {
 }
 
 // `node scripts/version.mjs` prints it, for shell scripts and CI.
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (isEntryPoint(import.meta.url)) {
   process.stdout.write(`${resolveVersion()}\n`);
 }

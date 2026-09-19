@@ -19,18 +19,8 @@ import { readFileSync } from "node:fs";
  * string that is neither -- one no catalogue has a key for, which therefore
  * cannot be translated at all, however many languages ship.
  */
-/*
- * The parser, not the compiler.
- *
- * These scripts read the tree rather than pattern-matching it, so they need a
- * compiler API: `ts.createSourceFile` turns a file into an AST, and the walk
- * below asks that AST what a node is -- something a regular expression cannot
- * answer. `typescript` is a devDependency of this repository and carries that
- * API. It is also what `npm run i18n:check` and CI run, so a break here is
- * loud rather than silent.
- */
 import ts from "typescript";
-import { catalogFiles, sourceFiles } from "./lib/i18nSources.mjs";
+import { catalogFiles, sourceAst, sourceFiles } from "./lib/i18nSources.mjs";
 
 /* Where a string literal in this position is shown to somebody. */
 const UI_PROPS = new Set([
@@ -99,13 +89,7 @@ for (const file of catalogFiles()) {
 
 const found = [];
 for (const file of sourceFiles()) {
-  const src = ts.createSourceFile(
-    file,
-    readFileSync(file, "utf8"),
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TSX,
-  );
+  const src = sourceAst(file);
   const report = (node, text) => {
     if (!looksLikeUi(text) || keys.has(text) || NEVER_TRANSLATED.has(text)) return;
     const { line } = src.getLineAndCharacterOfPosition(node.getStart(src));

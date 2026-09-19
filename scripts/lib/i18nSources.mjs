@@ -1,4 +1,4 @@
-import { globSync } from "node:fs";
+import { globSync, readFileSync } from "node:fs";
 import ts from "typescript";
 
 /**
@@ -111,3 +111,24 @@ export const optedOut = (node, src) => {
     ),
   );
 };
+
+/**
+ * A source file as these tools read it: a TypeScript AST.
+ *
+ * The parser, not the compiler. These scripts read the tree rather than
+ * pattern-match it, so they need a compiler API: `ts.createSourceFile` turns a
+ * file into an AST, and a walk asks that AST what a node is -- something a
+ * regular expression cannot answer. `typescript` is a devDependency of this
+ * repository and carries that API. It is also what `npm run i18n:check` and CI
+ * run, so a break here is loud rather than silent.
+ *
+ * One call site for the parse, because five scripts had written these seven
+ * lines out with their own idea of the script kind -- which is how one of them
+ * came to read a `.ts` file as TSX.
+ */
+export function sourceAst(
+  file,
+  { text = readFileSync(file, "utf8"), kind = ts.ScriptKind.TSX } = {},
+) {
+  return ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
+}

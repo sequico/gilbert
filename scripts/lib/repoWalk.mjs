@@ -1,5 +1,6 @@
 import { readdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /**
  * Walking this repository, once.
@@ -88,4 +89,18 @@ export function lineOf(text, index) {
   let line = 1;
   for (let i = 0; i < index; i++) if (text[i] === "\n") line++;
   return line;
+}
+
+/** This repository's root, for a module that lives under `scripts/`. */
+export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+/**
+ * Whether the module at `importMetaUrl` is the process's entry point.
+ *
+ * `node scripts/x.mjs` and `import("./x.mjs")` both run a module body, and only
+ * the first should do the work and set an exit code. Three checks and the
+ * version script each spelled this out for itself; it is spelled out here once.
+ */
+export function isEntryPoint(importMetaUrl) {
+  return Boolean(process.argv[1]) && fileURLToPath(importMetaUrl) === process.argv[1];
 }
