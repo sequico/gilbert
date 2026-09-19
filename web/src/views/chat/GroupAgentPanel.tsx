@@ -19,11 +19,12 @@
 import { AGENT_JOB_OPEN_STATES } from "@gilbert/agent/documents";
 import { Bot, X } from "lucide-react";
 import { useEffect } from "react";
-import type { GroupInstructionView, MemberAgentRule } from "@/lib/agents";
+import type { AgentProseView, MemberAgentRule } from "@/lib/agents";
 import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { agentViewKey, memberOperation, useAgents } from "@/store/agents";
 import {
+  automationText,
   jobStateText,
   outcomeText,
   reviewText,
@@ -109,6 +110,8 @@ export function GroupAgentPanel({
           </p>
           <h4>{t("Standing instruction")}</h4>
           <Instruction instruction={view.instruction} />
+          <h4>{t("Who its runs stop for")}</h4>
+          <p className="hint">{reviewText(view.policy)}</p>
           <h4>{t("What it follows")}</h4>
           {view.rules.length === 0 ? (
             <p className="hint">{t("No automation is set up for this group.")}</p>
@@ -160,7 +163,7 @@ export function GroupAgentPanel({
  * group that has none says so in words: a blank block would read the same as an
  * instruction nobody managed to write.
  */
-function Instruction({ instruction }: { instruction: GroupInstructionView }) {
+function Instruction({ instruction }: { instruction: AgentProseView }) {
   const text = instruction.text.trim();
   return (
     <div className="chat-agent-instruction">
@@ -183,17 +186,23 @@ function Instruction({ instruction }: { instruction: GroupInstructionView }) {
   );
 }
 
-/** One automation as a member reads it: what wakes it, and what it is asked to do. */
+/**
+ * One automation as a member reads it: what wakes it, and what it is asked to
+ * do.
+ *
+ * The policy is not repeated here: who this group's runs stop for is one
+ * document for the whole group, shown once above the list, rather than a line
+ * under every automation that would read as if each had its own.
+ */
 function RuleFacts({ rule }: { rule: MemberAgentRule }) {
   const instruction = ruleInstruction(rule);
   return (
     <div className="chat-agent-rule">
       <div className="agent-rule-head">
-        <b>{rule.name || t("Untitled automation")}</b>
+        <b>{automationText(rule)}</b>
         {!rule.enabled && <span className="agent-state off">{t("Disabled")}</span>}
       </div>
       <p className="hint">{triggerText(rule.trigger)}</p>
-      <p className="hint">{reviewText(rule.review)}</p>
       {instruction && <p className="agent-readonly-text">{instruction}</p>}
     </div>
   );

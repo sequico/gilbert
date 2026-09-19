@@ -30,6 +30,7 @@ import { toast } from "@/ui/toast";
 import { GroupAudit } from "./agent/GroupAudit";
 import { GroupInstruction } from "./agent/GroupInstruction";
 import { GroupMemory } from "./agent/GroupMemory";
+import { GroupPolicy } from "./agent/GroupPolicy";
 import { RuleEditor } from "./agent/RuleEditor";
 
 // Short tab labels on purpose: each panel's own heading says the full name
@@ -38,6 +39,7 @@ import { RuleEditor } from "./agent/RuleEditor";
 const GROUP_PARTS = [
   { id: "automations", label: "Automations" },
   { id: "instruction", label: "Instruction" },
+  { id: "review", label: "Review" },
   { id: "memory", label: "Memory" },
   { id: "audit", label: "Audit" },
   { id: "fleet", label: "Agents" },
@@ -95,7 +97,7 @@ export function GroupAgents() {
       <h1>{t("Group Agents")}</h1>
       <p className="lead">
         {t(
-          "What the agent does inside the group it has been granted, one group at a time: its automations, its standing instruction and memory, what it has done, and the agents carrying it out. Grants and the installation's own identity live in Master; what is waiting across every group lives in Approvals.",
+          "What the agent does inside the group it has been granted, one group at a time: its automations, its standing instruction, who its runs stop for, its memory, what it has done, and the agents carrying it out. The rules that hold everywhere live in Master; what is waiting across every group lives in Approvals.",
         )}
       </p>
       {groups.length === 0 ? (
@@ -151,6 +153,7 @@ export function GroupAgents() {
       </div>
       {part === "automations" && <RuleEditor groups={groups} group={group} />}
       {part === "instruction" && <GroupInstruction group={group} />}
+      {part === "review" && <GroupPolicy group={group} />}
       {part === "memory" && <GroupMemory group={group} known={known} />}
       {part === "audit" && <GroupAudit group={group} known={known} />}
       {part === "fleet" && <Fleet status={status} group={group} />}

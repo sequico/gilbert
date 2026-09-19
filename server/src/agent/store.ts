@@ -33,9 +33,9 @@ import {
   AGENT_CONFIG_FILE,
   AGENT_DECISIONS_DIR,
   AGENT_DIR,
-  AGENT_INSTRUCTION_FILE,
   AGENT_JOBS_DIR,
   AGENT_NOTEBOOK_FILE,
+  AGENT_POLICY_FILE,
   AGENT_RULES_FILE,
   AGENT_SCHEDULE_FILE,
   AGENT_STREAM_FILE,
@@ -47,10 +47,11 @@ import {
   type AgentClaim,
   type AgentConfigDoc,
   type AgentDecision,
-  type AgentInstructionDoc,
+  type AgentGroupPolicyDoc,
   type AgentJob,
   type AgentNotebookDoc,
   type AgentNotebookFact,
+  type AgentProseDoc,
   type AgentRule,
   type AgentRulesDoc,
   type AgentScheduleDoc,
@@ -65,9 +66,10 @@ import {
   isAgentClaim,
   isAgentConfigDoc,
   isAgentDecision,
-  isAgentInstructionDoc,
+  isAgentGroupPolicyDoc,
   isAgentJob,
   isAgentNotebookDoc,
+  isAgentProseDoc,
   isAgentRulesDoc,
   isAgentScheduleDoc,
   isAgentStreamClaim,
@@ -293,35 +295,59 @@ export class AgentStore {
     return found ? { doc: found.doc.rules, state: found.state } : null;
   }
 
-  /* ---------------- the group's standing instruction ---------------- */
+  /* ---------------- the prose an agent carries ---------------- */
 
-  async readInstruction(): Promise<AgentDoc<AgentInstructionDoc> | null> {
-    return this.readDoc<AgentInstructionDoc>(
-      this.path(AGENT_INSTRUCTION_FILE),
-      isAgentInstructionDoc,
-    );
+  /**
+   * The group's standing instruction — or, on the agent's own account, the
+   * installation's own rules. One reader for both: the two documents are one
+   * shape (`AgentProseDoc`), and which of them this is depends only on the
+   * account the store was built for.
+   */
+  async readProse(path: string): Promise<AgentDoc<AgentProseDoc> | null> {
+    return this.readDoc<AgentProseDoc>(this.path(path), isAgentProseDoc);
   }
 
-  async writeInstruction(
+  async writeProse(
+    path: string,
     text: string,
     by: string,
     opts: { ifInState?: string } = {},
-    notes?: string,
-  ): Promise<AgentInstructionDoc> {
-    const trimmed = (notes ?? "").trim();
-    const doc: AgentInstructionDoc = {
+  ): Promise<AgentProseDoc> {
+    const doc: AgentProseDoc = {
       v: 1,
       text,
-      // The author's remarks ride the document and never the prompt: an empty
-      // note is no note at all, so the field is absent rather than empty.
-      ...(trimmed ? { notes: trimmed } : {}),
+      updatedAt: new Date().toISOString(),
+      updatedBy: by,
+    };
+    await writeAppFileAt(this.ctx, this.accountId, this.path(path), doc, opts);
+    return doc;
+  }
+
+  /* ---------------- the group's policy ---------------- */
+
+  async readPolicy(): Promise<AgentDoc<AgentGroupPolicyDoc> | null> {
+    return this.readDoc<AgentGroupPolicyDoc>(
+      this.path(AGENT_POLICY_FILE),
+      isAgentGroupPolicyDoc,
+    );
+  }
+
+  async writePolicy(
+    policy: Pick<AgentGroupPolicyDoc, "review" | "allowExternal">,
+    by: string,
+    opts: { ifInState?: string } = {},
+  ): Promise<AgentGroupPolicyDoc> {
+    const doc: AgentGroupPolicyDoc = {
+      v: 1,
+      review: policy.review,
+      allowExternal: policy.allowExternal,
       updatedAt: new Date().toISOString(),
       updatedBy: by,
     };
     await writeAppFileAt(
       this.ctx,
       this.accountId,
-      this.path(AGENT_INSTRUCTION_FILE),
+      this.path(AGENT_POLICY_FILE),
       doc,
       opts,
     );
@@ -366,9 +392,9 @@ export class AgentStore {
     return doc;
   }
 
-  /** Remove the group's standing instruction. Absent is success. */
-  async removeInstruction(): Promise<void> {
-    await this.destroyDoc(this.path(AGENT_INSTRUCTION_FILE));
+  /** Remove a piece of prose an agent carries. Absent is success. */
+  async removeProse(path: string): Promise<void> {
+    await this.destroyDoc(this.path(path));
   }
 
   async writeRules(rules: AgentRule[], opts: { ifInState?: string } = {}): Promise<void> {

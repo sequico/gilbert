@@ -1,9 +1,9 @@
 /**
- * The per-group automation authoring surface (ADR 0003 "Admin surfaces").
+ * The per-group automation authoring surface (ADR 0003, ADR 0006).
  *
- * The rules of a group live in the group's own account — that is why members
- * can read them — and writing them carries ADR 0005's membership rule: an
- * admin who is not a member of the group has no act-as-the-group path, so the
+ * The automations of a group live in the group's own account — that is why
+ * members can read them — and writing them carries ADR 0005's membership rule:
+ * an admin who is not a member of the group has no act-as-the-group path, so the
  * surface says which membership it needs instead of failing at the door.
  *
  * The grant itself is never written here. Membership of the agent is granted in
@@ -13,8 +13,22 @@
  * The group is handed in rather than picked here: the section this editor lives
  * in owns one pick for all of its tabs, and a second picker inside a tab was a
  * second answer to the same question.
+ *
+ * **One automation per trigger** is enforced here as it is on the server
+ * (`rulesProblem`), and for the same reason: an automation carries no filter,
+ * so the executor runs every enabled automation on a trigger against every item
+ * that trigger produces. A second one would answer the same arrival twice. The
+ * editor therefore offers a trigger that is already taken as unavailable, and
+ * spells out the pair when a group already carries one.
  */
-import { type AgentJob, type AgentRule, ruleProblems } from "@gilbert/agent/documents";
+import {
+  AGENT_TRIGGERS,
+  type AgentJob,
+  type AgentRule,
+  type AgentTriggerOn,
+  ruleProblems,
+  rulesProblem,
+} from "@gilbert/agent/documents";
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { runAgentRule } from "@/lib/agents";
@@ -25,13 +39,13 @@ import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
 import { confirmDialog } from "@/ui/dialog";
 import { toast } from "@/ui/toast";
 import {
+  automationText,
   jobStateText,
   meterText,
-  reviewText,
   ruleInstruction,
   triggerText,
 } from "@/views/agent/agentText";
-import { type AgentRuleDraft, blankRule, RuleForm, ruleFromDraft } from "./RuleForm";
+import { blankRule, RuleForm } from "./RuleForm";
 
 export function RuleEditor({
   groups,
@@ -43,16 +57,16 @@ export function RuleEditor({
   const groupViews = useAgents((s) => s.groupViews);
   const busyReads = useAgents((s) => s.busy);
   const loadGroup = useAgents((s) => s.loadGroup);
-  const catalogue = useAgents((s) => s.catalogue);
-  const loadCatalogue = useAgents((s) => s.loadCatalogue);
+  const grant = useAgents((s) => s.grant);
+  const loadGrant = useAgents((s) => s.loadGrant);
   const saveRules = useAgents((s) => s.saveRules);
   // This group's own line, not a global one: a provider read in another panel
   // must not turn this panel's read failure into "Loading…".
   const loading = group ? busyReads[groupOperation(group)] === true : false;
   /** The rule being edited; null means the list is showing. */
-  const [draft, setDraft] = useState<AgentRuleDraft | null>(null);
+  const [draft, setDraft] = useState<AgentRule | null>(null);
   /** What it held when it was opened: the line "changed" is measured from. */
-  const [baseline, setBaseline] = useState<AgentRuleDraft | null>(null);
+  const [baseline, setBaseline] = useState<AgentRule | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   // The rule being asked for right now, and the one whose ask just landed: two
@@ -71,18 +85,25 @@ export function RuleEditor({
   // Why the document would be refused as it stands, if it would: the server's
   // own reason, so the form cannot drift from what the executor accepts
   // (ADR 0003, `ruleProblem`).
-  const draftProblem = draft ? draftProblemOf(draft) : null;
+  const draftProblem = draft ? problemOf(draft) : null;
   // Saving a rule that is identical to the one it was opened from writes back
   // what is already stored, which is not something to offer: a new automation
   // has no baseline and is always something to save, an edited one is compared
   // with the copy it started from.
   const changed = draft !== null && draft !== baseline;
+  /** The triggers this group's enabled automations already hold. */
+  const taken = new Set<AgentTriggerOn>(
+    rules.filter((rule) => rule.enabled).map((rule) => rule.trigger.on),
+  );
+  /** The pair already sharing a trigger, when the group carries one. */
+  const doubled = rulesProblem(rules);
+  const freeTriggers = AGENT_TRIGGERS.filter((on) => !taken.has(on));
 
-  // The capability catalogue is the server's, published with the rule schema:
-  // the form builds its allowlist from it rather than from a list of its own.
+  // The grant catalogue is the server's, published with the rule schema: the
+  // form builds its allowlist from it rather than from a list of its own.
   useEffect(() => {
-    void loadCatalogue();
-  }, [loadCatalogue]);
+    void loadGrant();
+  }, [loadGrant]);
 
   /*
    * The rules are a document in the group's own account; reading them is a
@@ -105,11 +126,10 @@ export function RuleEditor({
    *
    * What comes back is a job in the group's own account, which the agent that
    * holds the group picks up: nothing runs in this process, and the terms are
-   * the rule's own — its filter decides whether the message is one it acts on,
-   * and its review policy still pauses what needs a person. So the ask is
-   * marked rather than awaited, and the read follows it: a run already taken up
-   * reads as open, and one already finished leaves the group's audit as its
-   * record.
+   * the rule's own — its grant and the group's policy still decide, and a run
+   * the policy pauses still waits for a person. So the ask is marked rather than
+   * awaited, and the read follows it: a run already taken up reads as open, and
+   * one already finished leaves the group's audit as its record.
    */
   const ask = async (rule: AgentRule) => {
     if (!group) return;
@@ -129,39 +149,19 @@ export function RuleEditor({
 
   const save = async () => {
     if (!group || !draft) return;
-    const name = draft.name.trim();
-    if (!name) {
-      setProblem(t("Give the automation a name before saving it."));
-      return;
-    }
-    const refused = draftProblemOf(draft);
+    const refused = problemOf(draft);
     if (refused) {
       setProblem(
         t("This automation cannot run as it stands: {reason}", { reason: refused }),
       );
       return;
     }
-    const document = ruleFromDraft(draft);
-    if (!document) {
-      setProblem(t("no review policy has been chosen"));
-      return;
-    }
-    const existing = rules.find((r) => r.id === document.id);
-    // `version` and the stamps belong to the server, which returns the saved
-    // document; the surface therefore sends what it authored and keeps what
-    // comes back.
-    const next: AgentRule = { ...document, name };
-    const owed = problemOf(next);
-    if (owed) {
-      // Caught here rather than at the server: the schema is the same one the
-      // server enforces, so the round trip would only repeat this answer.
-      setProblem(owed);
-      return;
-    }
+    const existing = rules.find((r) => r.id === draft.id);
+    const next: AgentRule = draft;
     const sending = existing
       ? rules.map((r) => (r.id === next.id ? next : r))
       : [...rules, next];
-    // The server validates every document in the list it is handed, so an
+    // The server validates every document in the list it is handed, so one
     // automation that cannot run anywhere in it refuses this save as well.
     const neighbour = listProblem(sending);
     if (neighbour) {
@@ -197,7 +197,7 @@ export function RuleEditor({
       return;
     }
     const ok = await confirmDialog({
-      title: t("Delete “{name}”?", { name: rule.name || t("Untitled automation") }),
+      title: t("Delete the {name}?", { name: automationText(rule) }),
       message: t(
         "The automation document is removed from the group's own files. A job already running keeps the version it started on.",
       ),
@@ -224,7 +224,7 @@ export function RuleEditor({
       <h2>{t("Automations")}</h2>
       <p className="lead">
         {t(
-          "What the agent does in a group, as a form: when it reacts, which messages it looks at, and what it then does. The automation is stored in the group's own account, so every member can read it.",
+          "What the agent does in a group: when it reacts, and what it is asked to do about what it finds. The automation is stored in the group's own account, so every member can read it.",
         )}
       </p>
       <p className="hint" style={{ marginBottom: 12 }}>
@@ -240,7 +240,7 @@ export function RuleEditor({
       )}
       <p className="hint" style={{ marginBottom: 12 }}>
         {t(
-          "Two automations that write to the same message have no order between them — not even inside one kind of work — so write each one to hold whatever order it gets. The audit names the rule and its version per run, so the order they actually took can be read back afterwards.",
+          "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so a second one on the same trigger answers the same event twice. The branching between one case and another belongs in the instruction.",
         )}
       </p>
 
@@ -248,6 +248,15 @@ export function RuleEditor({
         <div className="warn-box" style={{ marginBottom: 12 }}>
           {t(
             "The agent is not in this group, so there is nothing to author here: no automation runs, and nobody can mention it in the group's chat. Give it the group in Stalwart's own administration, then come back.",
+          )}
+        </div>
+      )}
+
+      {doubled && (
+        <div className="warn-box" style={{ marginBottom: 12 }}>
+          {t(
+            "This group carries more than one enabled automation on a trigger, which this build does not accept: {reason}",
+            { reason: doubled },
           )}
         </div>
       )}
@@ -268,12 +277,7 @@ export function RuleEditor({
           )}
           {view?.granted && draft ? (
             <>
-              <RuleForm
-                rule={draft}
-                group={group}
-                catalogue={catalogue}
-                onChange={setDraft}
-              />
+              <RuleForm rule={draft} group={group} grant={grant} onChange={setDraft} />
               {problem && (
                 <div className="warn-box" style={{ marginBottom: 12 }}>
                   {problem}
@@ -330,20 +334,37 @@ export function RuleEditor({
                   />
                 ))
               )}
+              {/*
+               * A new automation starts on a trigger nothing holds: the four
+               * are the whole of what an automation can stand on, and offering
+               * one that is taken would be offering a save the server refuses.
+               */}
               <button
                 className="btn"
-                disabled={busy}
+                disabled={busy || freeTriggers.length === 0}
+                title={
+                  freeTriggers.length === 0
+                    ? t("Every trigger already has an automation in this group.")
+                    : undefined
+                }
                 onClick={() => {
                   setProblem(null);
                   // A new automation gets its id here rather than in the form:
                   // the form edits a document, and an id is what the group's
                   // document list names it by.
-                  setDraft({ ...blankRule(), id: `rule-${crypto.randomUUID()}` });
+                  setDraft(blankRule(`rule-${crypto.randomUUID()}`, freeTriggers[0]));
                   setBaseline(null);
                 }}
               >
                 <Plus size={16} /> {t("New automation")}
               </button>
+              {freeTriggers.length === 0 && (
+                <p className="hint" style={{ marginTop: 8 }}>
+                  {t(
+                    "Every trigger already has an automation in this group. Delete or disable one to write another kind.",
+                  )}
+                </p>
+              )}
             </>
           ) : null}
         </>
@@ -370,37 +391,24 @@ function problemOf(rule: AgentRule): string | null {
 }
 
 /**
- * Why the draft could not be saved, if it could not.
- *
- * The review policy has no default, so a draft nobody has decided that for is
- * not a document yet: the form says so rather than saving a policy the author
- * never chose (ADR 0003).
- */
-function draftProblemOf(draft: AgentRuleDraft): string | null {
-  const document = ruleFromDraft(draft);
-  if (!document) return t("no review policy has been chosen");
-  return problemOf(document);
-}
-
-/**
  * Why a whole list of automations would be refused, naming the one at fault.
  *
  * Every write hands the server the complete list, and it validates every
- * document in it, so one automation that cannot run makes saving and deleting
- * fail alike. Naming it is what turns that refusal into something a person can
- * act on — and the check is the server's own, so it is answered here instead of
- * by a round trip that says no more.
+ * document in it — including the one-enabled-automation-per-trigger rule — so
+ * one refusal makes saving and deleting fail alike. Naming it is what turns
+ * that refusal into something a person can act on, and the name is the trigger
+ * the automation stands on, which is what tells them which one to change.
  */
 function listProblem(rules: AgentRule[]): string | null {
   for (const rule of rules) {
     const owed = problemOf(rule);
     if (owed)
-      return t("“{name}” cannot be saved as it stands: {reason}", {
-        name: rule.name || t("Untitled automation"),
+      return t("The {name} cannot be saved as it stands: {reason}", {
+        name: automationText(rule),
         reason: owed,
       });
   }
-  return null;
+  return rulesProblem(rules);
 }
 
 /** One automation, as the admin reads it before opening the form. */
@@ -430,7 +438,7 @@ function RuleItem({
   return (
     <div className="card agent-rule-item">
       <div className="card-head">
-        <h3>{rule.name || t("Untitled automation")}</h3>
+        <h3>{automationText(rule)}</h3>
         {rule.enabled ? (
           <span className="agent-state ok">{t("Enabled")}</span>
         ) : (
@@ -471,7 +479,6 @@ function RuleItem({
               : t("Not scheduled while disabled.")}
         </p>
       )}
-      <p className="hint">{reviewText(rule.review)}</p>
       {instruction && <p className="agent-readonly-text">{instruction}</p>}
       {/* What became of an ask: the run while it is open, and where its outcome
           is read once it is not — the group's chat hears from the agent, and
@@ -492,7 +499,3 @@ function RuleItem({
     </div>
   );
 }
-
-/** A new automation starts on mail events, with nothing decided yet — its
- * review policy included, which is why the form refuses to save it until the
- * author chooses one. */

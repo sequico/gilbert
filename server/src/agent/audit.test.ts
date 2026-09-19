@@ -34,7 +34,12 @@ const session = await fetchUpstreamSession(AUTH, BASE);
 const ctx = { authorization: AUTH, session, username: "demo@example.com" };
 const store = new AgentStore(ctx, GROUP);
 
-const rule = { id: "r1", name: "File the invoices", version: 3 };
+/*
+ * An automation as the trail names it: its id, the trigger it stands on and the
+ * version the job pinned. There is no author-written name (ADR 0006) — the line
+ * is derived from the trigger — so this is what a `Pick<AgentRule, …>` is here.
+ */
+const rule = { id: "r1", trigger: { on: "email" } as const, version: 3 };
 
 after(() => {
   (mock as { server?: { close(): void } }).server?.close();
@@ -88,7 +93,7 @@ test("an entry names the job, the pinned rule version and the actor", () => {
   assert.equal(entry.ruleVersion, 2, "what ran, not what the rule says now");
   assert.equal(entry.outcome, "done");
   assert.equal(entry.by, "ada@example.org");
-  assert.equal(entry.detail, "File the invoices: ran");
+  assert.equal(entry.detail, "Mail automation: ran");
   assert.deepEqual(entry.actions, [{ do: "noop" }]);
 });
 

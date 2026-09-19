@@ -17,7 +17,7 @@ import { formatListDate } from "@/lib/format";
 import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
 import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
-import { outcomeText } from "@/views/agent/agentText";
+import { automationText, outcomeText } from "@/views/agent/agentText";
 
 /** How many of the most recent entries this table shows before pointing at the export. */
 const MAX_ROWS = 200;
@@ -43,8 +43,13 @@ export function GroupAudit({ group, known }: { group: string; known: boolean }) 
   const entries = view?.granted
     ? [...view.audit].sort((a, b) => (a.at < b.at ? 1 : -1))
     : [];
+  // The name of the automation a line belongs to: derived from the trigger the
+  // rule carries, or from the entry's own detail when the rule is gone (the
+  // trail already names what it was).
   const nameOf = (ruleId: string) =>
-    view?.granted ? (view.rules.find((r) => r.id === ruleId)?.name ?? "") : "";
+    view?.granted
+      ? automationText(view.rules.find((r) => r.id === ruleId) ?? { trigger: undefined })
+      : "";
 
   async function download() {
     if (!group) return;

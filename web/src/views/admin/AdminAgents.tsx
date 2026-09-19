@@ -2,15 +2,16 @@
  * The Gilbert admin "Master" section (ADR 0003 "Admin surfaces", restructured
  * by ADR 0003).
  *
- * The installation's own agent, the one model it runs on, and the groups it
- * has been granted — configured once, and rarely returned to. Everything that
- * is a fact about *one* group (its automations, its standing instruction and
- * memory, what it has done, the agents serving it) lives in Group Agents
- * instead; what is waiting across every group lives in Approvals. This page
- * answers three short questions in the order a person asks them — is there an
- * agent and how does it sign in, which model serves it, which groups does it
- * work in — as one page rather than tabs, because each answer is now short
- * enough to read at a glance.
+ * The installation's own agent, the one model it runs on, the rules that hold
+ * everywhere, and the groups it has been granted — configured once, and rarely
+ * returned to. Everything that is a fact about *one* group (its automations,
+ * its standing instruction, its policy, its memory, what it has done, the
+ * agents serving it) lives in Group Agents instead; what is waiting across
+ * every group lives in Approvals. This page answers four short questions in the
+ * order a person asks them — is there an agent and how does it sign in, which
+ * model serves it, what does it hold true everywhere, which groups does it work
+ * in — as one page rather than tabs, because each answer is now short enough to
+ * read at a glance.
  *
  * Nothing here grants anything, and nothing here names the agent. The
  * deployment names it in the environment it starts with, and a group's
@@ -27,6 +28,7 @@ import { t } from "@/lib/i18n";
 import { useAgents } from "@/store/agents";
 import { fleetMeterLines, fleetReasonText, rosterText } from "@/views/agent/agentText";
 import { AgentProviders } from "./agent/AgentProviders";
+import { ProsePanel } from "./agent/ProsePanel";
 
 /**
  * How often the fleet is re-read while this section is open.
@@ -85,6 +87,21 @@ export function AdminAgents() {
       <Identity status={status} />
       <section style={{ marginTop: 28 }}>
         <AgentProviders />
+      </section>
+      <section style={{ marginTop: 28 }}>
+        <ProsePanel
+          scope=""
+          heading={t("Rules")}
+          lead={t(
+            "What holds everywhere: the rules the agent carries into every call of every group, before anything is true of a group or of one automation. Written once here instead of repeated in each group's instruction, and read as data — a run's permission is its own capability list, and nothing written here widens it.",
+          )}
+          label={t("How this installation's agent works")}
+          placeholder={t(
+            "Always answer in the language the message was written in, and never send anything outside the group without a person.",
+          )}
+          readingAbout={t("the installation's own rules")}
+          canRead={false}
+        />
       </section>
       <section style={{ marginTop: 28 }}>
         <Groups status={status} />

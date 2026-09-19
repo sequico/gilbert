@@ -30,20 +30,23 @@ function memberView(overrides: Partial<MemberAgentView> = {}): MemberAgentView {
     rules: [
       {
         id: "r1",
-        name: "Label processed mail",
         enabled: true,
-        trigger: { on: "email", filter: { subject: "invoice" } },
-        review: { mode: "always" },
+        trigger: { on: "email" },
         instruction: "Label the invoice so the group can file it.",
       },
     ],
     instruction: {
       text: "Answer in Italian.\nAlways cite the invoice number.",
-      notes: "",
       updatedAt: "2026-09-10T09:00:00.000Z",
       updatedBy: "demo@example.com",
       max: 4000,
-      notesMax: 2000,
+    },
+    policy: {
+      review: "always",
+      allowExternal: false,
+      present: true,
+      updatedAt: "2026-09-10T09:00:00.000Z",
+      updatedBy: "demo@example.com",
     },
     jobs: [],
     audit: [],
@@ -122,14 +125,7 @@ describe("the group's agent panel", () => {
     useAgents.setState({
       memberViews: {
         [GROUP]: memberView({
-          instruction: {
-            text: "  ",
-            notes: "",
-            updatedAt: null,
-            updatedBy: null,
-            max: 4000,
-            notesMax: 2000,
-          },
+          instruction: { text: "  ", updatedAt: null, updatedBy: null, max: 4000 },
         }),
       },
     });
@@ -147,11 +143,14 @@ describe("the group's agent panel", () => {
     await renderPanel();
 
     const text = host.textContent ?? "";
-    expect(text).toContain("Label processed mail");
-    expect(text).toContain("An email arrives · subject contains invoice");
-    expect(text).toContain("Always ask a person first");
+    // Named by its trigger, which is what identifies it (ADR 0006) — there is
+    // no author-written name and no filter to render.
+    expect(text).toContain("Mail automation");
+    expect(text).toContain("An email arrives");
     expect(text).toContain("Label the invoice so the group can file it.");
-    expect(text).not.toContain("Add a label");
+    // The policy is one line for the group rather than one per automation.
+    expect(text).toContain("Who its runs stop for");
+    expect(text).toContain("Always ask a person first");
     expect(text).not.toContain("{");
   });
 

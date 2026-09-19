@@ -186,41 +186,7 @@ export const catalog: Catalog = {
     "Attach from Files": "Aus Dateien anhängen",
     "Remove attachment": "Anhang entfernen",
     "Has attachment": "Hat Anhang",
-    "Has the words": "Enthält die Wörter",
-    // The agent's automation filter fields (ADR 0003): a condition is read as
-    // a sentence, so the German keeps the same shape.
-    "Subject contains": "Betreff enthält",
-    "From contains": "Absender enthält",
-    "Has keyword": "Hat Schlagwort",
-    "Not keyword": "Hat Schlagwort nicht",
-    "To contains": "An enthält",
-    "Cc contains": "Cc enthält",
-    "Anywhere contains": "Irgendwo enthält",
-    "Body contains": "Text enthält",
-    "Received before": "Empfangen vor",
-    "Received after": "Empfangen nach",
-    "Larger than (bytes)": "Größer als (Bytes)",
-    "Smaller than (bytes)": "Kleiner als (Bytes)",
-    // The same filters inside the one-line description, where the value follows
-    // the words instead of standing in a field of its own.
-    "in mailbox {value}": "in Mailbox {value}",
-    "has keyword {value}": "hat Schlagwort {value}",
-    "without keyword {value}": "ohne Schlagwort {value}",
-    "subject contains {value}": "Betreff enthält {value}",
-    "anywhere contains {value}": "irgendwo enthält {value}",
-    "body contains {value}": "Text enthält {value}",
-    "from contains {value}": "Absender enthält {value}",
-    "to contains {value}": "An enthält {value}",
-    "cc contains {value}": "Cc enthält {value}",
-    "received before {value}": "empfangen vor {value}",
-    "received after {value}": "empfangen nach {value}",
-    "larger than {value} bytes": "größer als {value} Byte",
-    "smaller than {value} bytes": "kleiner als {value} Byte",
-    Match: "Übereinstimmung",
-    "All of these": "Alle davon",
-    "Any of these": "Eine davon",
-    "None of these": "Keine davon",
-    // The parameters an automation's action takes: the catalogue names each one
+    "Has the words": "Enthält die Wörter",    Match: "Übereinstimmung",    // The parameters an automation's action takes: the catalogue names each one
     // by the key the executor reads, the form names it for a person.
     Label: "Label",
     Mailbox: "Mailbox",
@@ -228,13 +194,7 @@ export const catalog: Catalog = {
     // The rest of the agent surfaces (ADR 0003): the outcome an audit entry
     // carries, the row a grouped filter's condition sits in, and the rotation
     // of the agent's own app password.
-    "Timed out": "Zeitüberschreitung",
-    "Condition {n}": "Bedingung {n}",
-    "The selector says how these conditions compose: all of them, any of them, or none of them.":
-      "Der Selektor sagt, wie diese Bedingungen zusammenspielen: alle, eine oder keine.",
-    "This condition uses something this form cannot spell out, so it is shown as the document holds it and left exactly as it is.":
-      "Diese Bedingung verwendet etwas, das dieses Formular nicht ausdrücken kann; sie wird daher so angezeigt, wie das Dokument sie enthält, und bleibt unverändert.",
-    "Header name": "Name der Kopfzeile",
+    "Timed out": "Zeitüberschreitung",    "Header name": "Name der Kopfzeile",
     "Show headers": "Kopfzeilen anzeigen",
     "Show original": "Original anzeigen",
     "Show details": "Details anzeigen",

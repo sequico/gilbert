@@ -19,17 +19,24 @@
  * no route hands them back.
  */
 
-import type { AgentJob, AgentNotebookFact, AgentRule } from "@gilbert/agent/documents";
+import {
+  AGENT_AREAS,
+  type AgentArea,
+  type AgentJob,
+  type AgentNotebookFact,
+  type AgentRule,
+} from "@gilbert/agent/documents";
 import type {
   AgentApprovalsView,
   AgentAuditExport,
   AgentGroupSurface,
+  AgentProseView,
   AgentProvidersView,
   AgentReadingView,
   AgentStatus,
-  GroupInstructionView,
   GroupMembersView,
   GroupNotebookView,
+  GroupPolicyView,
   MemberAgentView,
 } from "@gilbert/agent/views";
 import { apiFetch } from "@/jmap/client";
@@ -47,14 +54,15 @@ export type {
   AgentGroupDenied,
   AgentGroupSurface,
   AgentGroupView,
+  AgentProseView,
   AgentProvidersView,
   AgentProviderView,
   AgentStatus,
   AgentStatusGroup,
   AgentStatusWorker,
-  GroupInstructionView,
   GroupMembersView,
   GroupNotebookView,
+  GroupPolicyView,
   MemberAgentRule,
   MemberAgentView,
   PendingApproval,
@@ -148,27 +156,48 @@ export async function addAgentLabels(name: string): Promise<string[]> {
   return res.added;
 }
 
-/** `GET /api/admin/groups/:name/agent/instruction` — the group's instruction. */
-export async function fetchGroupInstruction(name: string): Promise<GroupInstructionView> {
-  return apiFetch<GroupInstructionView>(
-    `/api/admin/groups/${encodeURIComponent(name)}/agent/instruction`,
+/**
+ * One document of prose an agent carries, as the two surfaces reach it.
+ *
+ * The installation's own rules and a group's standing instruction are one
+ * document type at two reaches, so they are one pair of calls with the scope
+ * passed in: the empty scope is the installation's own route in Master, and a
+ * group name is that group's route. A third scope would add a route, not a
+ * second client function.
+ */
+function proseRoute(scope: string): string {
+  return scope
+    ? `/api/admin/groups/${encodeURIComponent(scope)}/agent/instruction`
+    : "/api/admin/agent/instruction";
+}
+
+export function fetchAgentProse(scope = ""): Promise<AgentProseView> {
+  return apiFetch<AgentProseView>(proseRoute(scope));
+}
+
+/** The same route, written. An empty text removes the document. */
+export function saveAgentProse(scope: string, text: string): Promise<AgentProseView> {
+  return apiFetch<AgentProseView>(proseRoute(scope), {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+}
+
+/** `GET /api/admin/groups/:name/agent/policy` — who the group's runs stop for. */
+export function fetchGroupPolicy(name: string): Promise<GroupPolicyView> {
+  return apiFetch<GroupPolicyView>(
+    `/api/admin/groups/${encodeURIComponent(name)}/agent/policy`,
   );
 }
 
-/**
- * `POST` the same route — replace it. An empty text removes it.
- *
- * `notes` ride the same document and are the author's own: they are carried
- * there and read by nobody's model (ADR 0003).
- */
-export async function saveGroupInstruction(
+/** `POST` the same route — replace the group's policy. */
+export function saveGroupPolicy(
   name: string,
-  text: string,
-  notes = "",
-): Promise<GroupInstructionView> {
-  return apiFetch<GroupInstructionView>(
-    `/api/admin/groups/${encodeURIComponent(name)}/agent/instruction`,
-    { method: "POST", body: JSON.stringify({ text, notes }) },
+  policy: Pick<GroupPolicyView, "review" | "allowExternal">,
+): Promise<GroupPolicyView> {
+  return apiFetch<GroupPolicyView>(
+    `/api/admin/groups/${encodeURIComponent(name)}/agent/policy`,
+    { method: "POST", body: JSON.stringify(policy) },
   );
 }
 
@@ -264,18 +293,36 @@ export function fetchAgentAuditExport(name: string): Promise<AgentAuditExport> {
 }
 
 /* ------------------------------------------------------------------ */
-/* The capability catalogue                                            */
+/* The areas an author grants                                          */
 /* ------------------------------------------------------------------ */
 
 /**
- * One capability, as the rule schema publishes it.
+ * One area, as the rule schema publishes it: its name, its English label and
+ * the actions it grants.
  *
- * The catalogue is the server's: the rule schema carries every action with the
- * label a person reads and the two flags that decide whether an action leaves
- * the group or cannot be undone. Building the allowlist from it is what keeps
- * the form and the executor's own check from being two lists.
+ * The catalogue is the server's — `agentRuleJsonSchema()` derives `x-areas` and
+ * `x-actions` from `AGENT_ACTION_SPECS` — so the editor offers exactly the
+ * grants the executor would honour. In particular the exclusion of anything
+ * that leaves the group or cannot be undone is the server's own rule
+ * (`areaActions`), computed from the catalogue's flags, rather than a second
+ * list kept here in step.
  */
-export interface AgentActionCatalogEntry {
+export interface AgentAreaCatalogEntry {
+  area: AgentArea;
+  label: string;
+  actions: string[];
+}
+
+/**
+ * One action that stands beside the areas rather than inside one, as the schema
+ * publishes it: sending, which `areaActions` excludes from the area it belongs
+ * to, and doing nothing, which is not a behaviour at all.
+ *
+ * It is derived, not listed: the editor reads `x-actions` and takes whatever no
+ * area grants, so a catalogue that grows a new flagged action offers it here
+ * without this module changing.
+ */
+export interface AgentStandaloneCatalogEntry {
   name: string;
   label: string;
   description: string;
@@ -283,33 +330,76 @@ export interface AgentActionCatalogEntry {
   irreversible: boolean;
 }
 
+/** The grant the editor offers, as the rule schema publishes it. */
+export interface AgentGrantCatalog {
+  areas: AgentAreaCatalogEntry[];
+  /** In catalogue order, which is also the order a grant is written in. */
+  standalone: AgentStandaloneCatalogEntry[];
+  /** Every action name the catalogue has, in catalogue order. */
+  order: string[];
+}
+
 /** `GET /api/admin/agent/rule-schema` — the published schema, as it is served. */
 export function fetchAgentRuleSchema(): Promise<Record<string, unknown>> {
   return apiFetch<Record<string, unknown>>("/api/admin/agent/rule-schema");
 }
 
-/** The catalogue a schema publishes, or an empty one for a schema without it. */
-export function actionCatalog(
-  schema: Record<string, unknown>,
-): AgentActionCatalogEntry[] {
-  const raw = schema["x-actions"];
-  if (!Array.isArray(raw)) return [];
-  const out: AgentActionCatalogEntry[] = [];
-  for (const entry of raw) {
-    if (!entry || typeof entry !== "object") continue;
-    const action = entry as Record<string, unknown>;
-    const name = typeof action.name === "string" ? action.name : "";
-    const label = typeof action.label === "string" ? action.label : "";
-    if (!name || !label) continue;
-    out.push({
-      name,
-      label,
-      description: typeof action.description === "string" ? action.description : "",
-      external: action.external === true,
-      irreversible: action.irreversible === true,
-    });
+/** Whether a value names an area this build knows. */
+function isAgentArea(x: unknown): x is AgentArea {
+  return typeof x === "string" && (AGENT_AREAS as ReadonlyArray<string>).includes(x);
+}
+
+function actionNames(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((name): name is string => typeof name === "string")
+    : [];
+}
+
+/**
+ * The grant a schema publishes: the areas, and whatever stands beside them.
+ *
+ * One reader of the published catalogue, so the editor's three areas, its
+ * sending entry and the order a grant is written in all come from the same
+ * place — and an empty catalogue (a schema read before the server answered) is
+ * an empty grant rather than a guess.
+ */
+export function grantCatalog(schema: Record<string, unknown>): AgentGrantCatalog {
+  const areas: AgentAreaCatalogEntry[] = [];
+  const rawAreas = schema["x-areas"];
+  if (Array.isArray(rawAreas)) {
+    for (const entry of rawAreas) {
+      if (!entry || typeof entry !== "object") continue;
+      const area = entry as { area?: unknown; label?: unknown; actions?: unknown };
+      if (!isAgentArea(area.area)) continue;
+      areas.push({
+        area: area.area,
+        label: typeof area.label === "string" ? area.label : area.area,
+        actions: actionNames(area.actions),
+      });
+    }
   }
-  return out;
+  const order: string[] = [];
+  const standalone: AgentStandaloneCatalogEntry[] = [];
+  const inAreas = new Set(areas.flatMap((entry) => entry.actions));
+  const rawActions = schema["x-actions"];
+  if (Array.isArray(rawActions)) {
+    for (const entry of rawActions) {
+      if (!entry || typeof entry !== "object") continue;
+      const action = entry as Record<string, unknown>;
+      const name = typeof action.name === "string" ? action.name : "";
+      if (!name) continue;
+      order.push(name);
+      if (inAreas.has(name)) continue;
+      standalone.push({
+        name,
+        label: typeof action.label === "string" ? action.label : name,
+        description: typeof action.description === "string" ? action.description : "",
+        external: action.external === true,
+        irreversible: action.irreversible === true,
+      });
+    }
+  }
+  return { areas, standalone, order };
 }
 
 /* ------------------------------------------------------------------ */

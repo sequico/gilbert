@@ -10,21 +10,24 @@
  */
 import {
   AGENT_ACTION_SPECS,
+  AGENT_SCHEDULE_PRESETS,
   type AgentAction,
   type AgentAuditOutcome,
   type AgentJobState,
   type AgentMeter,
-  type AgentReview,
   type AgentReviewMode,
   type AgentRule,
   type AgentTrigger,
   type AgentTriggerOn,
   agentActionSpec,
-  SUPPORTED_FILTER_KEYS,
+  automationLabel,
+  scheduleMinutesOf,
 } from "@gilbert/agent/documents";
 import type {
+  AgentProseView,
   AgentStatusMeter,
   AgentStatusReason,
+  GroupPolicyView,
   MemberAgentRule,
   RosterReadability,
 } from "@gilbert/agent/views";
@@ -215,8 +218,12 @@ export function rosterText(readability: RosterReadability): string {
 }
 
 /**
- * The trigger in one line: what wakes the automation, then the filters the
- * executor honours (the RFC 8621 subset `matchEmailFilter` implements).
+ * The trigger in one line: what wakes the automation, and how often for a
+ * scheduled one.
+ *
+ * There is nothing else to say about it. An automation carries no filter — the
+ * discrimination between one case and another belongs in its prose (ADR 0006) —
+ * so the line is the trigger and, for the clock, its cadence.
  *
  * A partial document renders as far as it can: an unknown event is shown as the
  * value it carries, and a trigger that is not there at all describes nothing
@@ -226,91 +233,64 @@ export function triggerText(trigger: AgentTrigger | undefined): string {
   const on = trigger?.on;
   if (!on) return "";
   const base = t(AGENT_TRIGGER_LABELS[on] ?? on);
-  const parts = filterParts(trigger?.filter);
-  if (on === "schedule" && typeof trigger?.everyMinutes === "number") {
-    parts.push(t("every {minutes} minutes", { minutes: trigger.everyMinutes }));
-  }
-  return parts.length ? `${base} · ${parts.join(", ")}` : base;
+  if (on !== "schedule") return base;
+  return `${base} · ${scheduleText({ trigger })}`;
 }
 
 /**
- * What each filter key reads as inside that line, for the keys whose wording is
- * worth choosing. The keys themselves come from `SUPPORTED_FILTER_KEYS`, so a
- * filter the matcher implements is always spoken; this table only says how, and
- * a key that arrives here without a phrase still renders (see `filterParts`)
- * rather than dropping quietly out of the sentence.
- */
-/**
- * One phrase per filter key, with the lookup written out.
+ * A cadence in words, from the same table the editor offers.
  *
- * The literal has to be at the call site for the catalogs to see it: passing a
- * key through a variable puts the string out of `i18n:check`'s reach, which
- * leaves thirteen translations reading "stale" with nothing changed. The table
- * is keyed by the canonical list, so a key the matcher gains without a phrase
- * here falls back to the plain line below rather than going unrendered.
+ * The preset names and the interval they stand for are one fact, so a value the
+ * select cannot produce — a document written by hand, or by a build that had
+ * other presets — is still said in minutes rather than dropped out of the
+ * sentence.
  */
-const FILTER_KEY_PHRASES: Record<string, (value: string) => string> = {
-  inMailbox: (value) => t("in mailbox {value}", { value }),
-  hasKeyword: (value) => t("has keyword {value}", { value }),
-  notKeyword: (value) => t("without keyword {value}", { value }),
-  subject: (value) => t("subject contains {value}", { value }),
-  text: (value) => t("anywhere contains {value}", { value }),
-  body: (value) => t("body contains {value}", { value }),
-  from: (value) => t("from contains {value}", { value }),
-  to: (value) => t("to contains {value}", { value }),
-  cc: (value) => t("cc contains {value}", { value }),
-  before: (value) => t("received before {value}", { value }),
-  after: (value) => t("received after {value}", { value }),
-  minSize: (value) => t("larger than {value} bytes", { value }),
-  maxSize: (value) => t("smaller than {value} bytes", { value }),
+const SCHEDULE_LABELS: Record<number, string> = {
+  60: "every hour",
+  1440: "every day",
+  10080: "every week",
 };
 
+export function scheduleText(rule: Pick<AgentRule, "trigger">): string {
+  const minutes = scheduleMinutesOf(rule);
+  const label = SCHEDULE_LABELS[minutes];
+  return label ? t(label) : t("every {minutes} minutes", { minutes });
+}
+
+/** The cadences a select offers, so the editor and this table cannot disagree. */
+export const AGENT_SCHEDULE_CHOICES: ReadonlyArray<number> = AGENT_SCHEDULE_PRESETS;
+
 /**
- * The filters that narrow a trigger, in the order the matcher declares them.
+ * The group's policy in one line, including the external-send consent floor.
  *
- * The keys are read from `SUPPORTED_FILTER_KEYS` rather than written here,
- * because this sentence promises what the executor honours: a key it implements
- * is said, with its own phrase where a phrase reads well and as a plain
- * "{key} is {value}" line where this table has no wording for it yet. A value
- * that is neither text nor a number is not comparable and describes nothing,
- * which is the reading the matcher gives it too.
+ * It is one line per group rather than one per automation, because it is one
+ * document per group: how cautious a group's runs are is a fact about the
+ * group (ADR 0006). The floor is the part a reader must not miss — without the
+ * group having raised it, an action that leaves the group waits whatever the
+ * mode says.
  */
-function filterParts(filter: Record<string, unknown> | undefined): string[] {
-  const f = filter ?? {};
-  const out: string[] = [];
-  for (const key of SUPPORTED_FILTER_KEYS) {
-    const value = f[key];
-    if (typeof value !== "string" && typeof value !== "number") continue;
-    const text = String(value);
-    if (!text.trim()) continue;
-    const phrase = FILTER_KEY_PHRASES[key];
-    out.push(phrase ? phrase(text) : t("{key} is {value}", { key, value: text }));
-  }
-  return out;
+export function reviewText(policy: GroupPolicyView | undefined): string {
+  const mode = policy?.review;
+  if (!mode) return "";
+  const base = t(AGENT_REVIEW_LABELS[mode] ?? mode);
+  return policy?.allowExternal
+    ? `${base} · ${t("sending outside the group allowed without a person")}`
+    : `${base} · ${t("sending outside the group always waits for a person")}`;
 }
 
 /**
- * The review policy in one line, including the external-send consent floor.
+ * How far a document of prose has got, in one line, for the surfaces that show
+ * one: who wrote it last and when, or that nobody has.
  *
- * A document that carries no mode describes nothing — there is no policy to
- * name — and an unknown one is shown as written, like the agent's other tables.
+ * One renderer for both scopes — the installation's rules and a group's
+ * instruction — because they are one document type at two reaches.
  */
-export function reviewText(review: AgentReview | undefined): string {
-  const mode = review?.mode;
-  if (!mode) return "";
-  const base = t(AGENT_REVIEW_LABELS[mode] ?? mode);
-  const threshold = review?.threshold;
-  const withNumber =
-    mode === "threshold" && typeof threshold === "number"
-      ? `${base} (${t("at {percent}% confidence or above", {
-          percent: Math.round(threshold * 100),
-        })})`
-      : base;
-  // The floor is the part a reader must not miss: without it an external
-  // action pauses whatever the mode says (ADR 0003 resolution 10).
-  return review?.allowExternal
-    ? `${withNumber} · ${t("sending outside the group allowed without a person")}`
-    : `${withNumber} · ${t("sending outside the group always waits for a person")}`;
+export function proseStampText(prose: AgentProseView | undefined): string {
+  if (!prose?.updatedAt) return t("Nobody has written here yet.");
+  return t("Last written by {who} on {when}.", {
+    who: prose.updatedBy ?? t("an administrator"),
+    when: prose.updatedAt,
+  });
 }
 
 /** One action as a sentence: the catalogue's label plus its parameters. */
@@ -339,4 +319,15 @@ function paramText(value: unknown): string {
  */
 export function ruleInstruction(rule: AgentRule | MemberAgentRule): string {
   return rule.instruction ?? "";
+}
+
+/**
+ * What to call an automation in a surface, in the reader's language.
+ *
+ * One function, so the editor, the member's panel and the audit see the same
+ * words: the English table is the key a catalogue looks up, and a language that
+ * has not translated it reads the English (ADR 0006).
+ */
+export function automationText(rule: { trigger?: AgentTrigger }): string {
+  return t(automationLabel(rule));
 }

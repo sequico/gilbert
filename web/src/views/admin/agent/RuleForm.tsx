@@ -1,162 +1,94 @@
 /**
- * The automation editor (ADR 0003): an automation is authored as a form —
- * "When [event] / If [filters] / then what it is asked to do" — and never as
- * raw JSON. One rule document in, one out; the caller owns saving.
+ * The automation editor (ADR 0003, ADR 0006): an automation is a trigger, a
+ * prose instruction and a grant — and nothing else.
  *
- * Every option comes from a canonical catalogue (`AGENT_TRIGGERS` in
- * `@gilbert/agent/documents`) or from the rule schema the server publishes
- * (`x-actions`, read into `@/lib/agents`' catalogue), so the editor cannot
- * offer a trigger the matcher does not know or a capability the executor does
- * not have.
+ * Three things an administrator decides, and every one of them is a choice
+ * rather than a field to fill in:
+ *
+ * - **When** the automation reacts: one of the four triggers. One enabled
+ *   automation per trigger is the rule (`rulesProblem`), because nothing in the
+ *   document tells two of them apart any more — the fan-out runs every enabled
+ *   automation on a trigger against every item that trigger produces.
+ * - **What it does**, in prose: the whole of what a run is asked to do, carried
+ *   into the prompt as it is written.
+ * - **What it may do**: three areas, plus sending, plus "nothing at all". The
+ *   areas expand to action names from the catalogue the server publishes, so
+ *   this form cannot offer a grant the executor does not have.
+ *
+ * The policy is not here: how cautious a group's runs are is a fact about the
+ * group (`GroupPolicyView`), authored once beside its standing instruction.
+ *
+ * Every option comes from a canonical catalogue (`AGENT_TRIGGERS`,
+ * `AGENT_SCHEDULE_PRESETS` in `@gilbert/agent/documents`, and the `x-areas` the
+ * rule schema publishes), so the editor cannot offer a trigger the matcher does
+ * not know or an area the executor does not have.
  */
 import {
+  AGENT_SCHEDULE_PRESETS,
   AGENT_TRIGGERS,
   type AgentActionName,
-  type AgentReview,
-  type AgentReviewMode,
   type AgentRule,
   type AgentTrigger,
+  type AgentTriggerOn,
+  automationLabel,
   isAgentTriggerOn,
 } from "@gilbert/agent/documents";
-import { isRecord } from "@gilbert/shared/json";
-import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { type AgentActionCatalogEntry, readDraft } from "@/lib/agents";
+import { type AgentGrantCatalog, readDraft } from "@/lib/agents";
 import { t } from "@/lib/i18n";
-import {
-  AGENT_REVIEW_LABELS,
-  AGENT_REVIEW_MEANING_LABELS,
-  AGENT_TRIGGER_LABELS,
-} from "@/views/agent/agentText";
+import { AGENT_TRIGGER_LABELS } from "@/views/agent/agentText";
 import { AskReading } from "./AskReading";
 
-/** The filter keys whose value is a number, and must be written as one. */
-const AGENT_FILTER_NUMBERS = new Set(["minSize", "maxSize"]);
-
-const REVIEW_MODES: ReadonlyArray<AgentReviewMode> = ["always", "threshold", "never"];
-
-function isReviewMode(x: string): x is AgentReviewMode {
-  return (REVIEW_MODES as ReadonlyArray<string>).includes(x);
-}
+/** A rule as the form holds it: the document itself, with nothing undecided. */
+export type AgentRuleDraft = AgentRule;
 
 /**
- * The filter fields the executor honours: one entry for every key in
- * `SUPPORTED_FILTER_KEYS`, in the order the form reads best, so a filter the
- * runtime would act on is a filter this form can write. A key that exists on
- * the server and not here is an automation nobody can author, which is how a
- * "form only" promise turns into a rule that cannot be written at all.
- */
-const AGENT_FILTER_LABELS: ReadonlyArray<{ key: string; label: string }> = [
-  { key: "inMailbox", label: "Mailbox" },
-  { key: "subject", label: "Subject contains" },
-  { key: "from", label: "From contains" },
-  { key: "to", label: "To contains" },
-  { key: "cc", label: "Cc contains" },
-  { key: "text", label: "Anywhere contains" },
-  { key: "body", label: "Body contains" },
-  { key: "before", label: "Received before" },
-  { key: "after", label: "Received after" },
-  { key: "minSize", label: "Larger than (bytes)" },
-  { key: "maxSize", label: "Smaller than (bytes)" },
-  { key: "hasKeyword", label: "Has keyword" },
-  { key: "notKeyword", label: "Not keyword" },
-];
-
-/** The keys above, as the set a condition's own keys are checked against. */
-const AGENT_FILTER_KEYS = new Set(AGENT_FILTER_LABELS.map((f) => f.key));
-
-/**
- * Whether this form can write a condition back.
+ * A new automation: a trigger, a grant of nothing, and no prose yet.
  *
- * A condition it can write is a flat object of the keys above with string or
- * number values. Anything else — a nested group, a key no matcher implements,
- * a value of another type — is a document this form cannot spell out, and it is
- * carried as it is instead of being flattened into something it never was.
+ * The id is handed in rather than minted here — the group's document list
+ * names an automation by it, and `RuleEditor` is where a new one is created.
+ * The name is derived from the trigger at every read (`automationLabel`), so
+ * there is nothing to fill in and nothing to keep in step.
  */
-function isWritableCondition(condition: unknown): condition is Record<string, unknown> {
-  if (!isRecord(condition)) {
-    return false;
-  }
-  for (const [key, value] of Object.entries(condition)) {
-    if (!AGENT_FILTER_KEYS.has(key)) return false;
-    if (typeof value !== "string" && typeof value !== "number") return false;
-  }
-  return true;
-}
-
-/** One condition's value for one field, as the input shows it. */
-function filterValue(condition: unknown, key: string): string {
-  if (!isWritableCondition(condition)) return "";
-  const value = condition[key];
-  if (typeof value === "string") return value;
-  if (typeof value === "number") return String(value);
-  return "";
-}
-
-/** The review half of a draft: unset until the author chooses a mode. */
-export interface AgentReviewInput {
-  mode?: AgentReviewMode;
-  threshold?: number;
-  allowExternal?: boolean;
-}
-
-/**
- * A rule as the form holds it: everything a document carries, except the review
- * policy, which may not be chosen yet.
- */
-export type AgentRuleDraft = Omit<AgentRule, "review"> & { review: AgentReviewInput };
-
-/** A new automation, with nothing decided yet — its review policy included. */
-export function blankRule(): AgentRuleDraft {
+export function blankRule(id: string, on: AgentTriggerOn = "email"): AgentRuleDraft {
   return {
     v: 1,
-    id: "",
+    id,
     version: 1,
-    name: "",
     enabled: true,
-    trigger: { on: "email" },
-    review: {},
+    trigger: on === "schedule" ? { on, everyMinutes: AGENT_SCHEDULE_PRESETS[0] } : { on },
     instruction: "",
     capabilities: [],
   };
 }
 
-/**
- * The document a draft describes, or null while it is not one yet.
- *
- * An automation is armed by a person's decision about who a run stops for, so
- * the review mode has no default: until it is chosen there is no document to
- * save (ADR 0003).
- */
-export function ruleFromDraft(draft: AgentRuleDraft): AgentRule | null {
-  const review = draft.review;
-  if (!review.mode) return null;
-  const settled: AgentReview = { mode: review.mode };
-  if (review.mode === "threshold") settled.threshold = review.threshold ?? 0.7;
-  if (review.allowExternal !== undefined) settled.allowExternal = review.allowExternal;
-  return { ...draft, review: settled };
-}
+/** The cadences, as the labels a select offers: one hour, one day, one week. */
+const SCHEDULE_LABELS: Record<number, string> = {
+  60: "Every hour",
+  1440: "Every day",
+  10080: "Every week",
+};
 
 export function RuleForm({
   rule,
   group,
-  catalogue,
+  grant,
   onChange,
 }: {
   rule: AgentRuleDraft;
   /** The group this automation belongs to, for the author's reading. */
   group: string;
-  /** The capability catalogue the rule schema publishes; null until it is read. */
-  catalogue: AgentActionCatalogEntry[] | null;
+  /** The catalogue the rule schema publishes; null until it is read. */
+  grant: AgentGrantCatalog | null;
   onChange(next: AgentRuleDraft): void;
 }) {
   const set = (patch: Partial<AgentRuleDraft>) => onChange({ ...rule, ...patch });
   /*
    * The author's reading (ADR 0003): the draft and what it is about go to the
-   * installation's model, which reads them beside the group's instruction and
-   * its notebook and answers in words about the gaps. Nothing is saved: the
-   * answer is shown beside the field it is about and forgotten when the panel
-   * closes.
+   * installation's model, which reads them beside the installation's rules, the
+   * group's instruction and its notebook, and answers in words about the gaps.
+   * Nothing is saved: the answer is shown beside the field it is about and
+   * forgotten when the panel closes.
    */
   const [reading, setReading] = useState<string | null>(null);
   const [readingBusy, setReadingBusy] = useState(false);
@@ -174,7 +106,9 @@ export function RuleForm({
     void readDraft(
       group,
       rule.instruction,
-      t('the automation "{name}"', { name: rule.name || t("unnamed") }),
+      t("the automation “{name}”", {
+        name: t(automationLabel(rule)),
+      }),
     )
       .then((answer) => {
         setReading(answer.text);
@@ -185,114 +119,42 @@ export function RuleForm({
   };
   const setTrigger = (patch: Partial<AgentTrigger>) =>
     set({ trigger: { ...rule.trigger, ...patch } });
-  const setReview = (patch: AgentReviewInput) =>
-    set({ review: { ...rule.review, ...patch } });
 
   /*
-   * A filter is written either flat — every key in it has to match — or as a
-   * group of conditions under one of the three operators. The form shows
-   * whichever shape the rule already has, and it models a group as the list it
-   * is: every condition is there, editing one leaves the others alone, and a
-   * condition this form cannot spell out is carried exactly as the document
-   * holds it rather than dropped on the next keystroke.
+   * The grant is a set of actions, and the form thinks in areas. Both
+   * directions go through the catalogue: ticking an area writes the actions it
+   * expands to, and an area reads as ticked when every action of it is already
+   * granted — so a rule written before this form existed shows the areas it
+   * covers instead of appearing to grant nothing.
    */
-  const filter = rule.trigger.filter;
-  const operator = typeof filter?.operator === "string" ? filter.operator : null;
-  const grouped = operator !== null;
-  const rawConditions = filter?.conditions;
-  const conditions: unknown[] = !grouped
-    ? [filter ?? {}]
-    : Array.isArray(rawConditions)
-      ? rawConditions
-      : rawConditions === undefined
-        ? []
-        : [rawConditions];
-  /** The conditions that carry something: an empty one narrows nothing. */
-  const written = conditions.filter(
-    (condition) => isWritableCondition(condition) && Object.keys(condition).length > 0,
-  );
-
-  /**
-   * Write the conditions back, in the shape the document already has.
-   *
-   * A flat filter is one condition and no operator: it goes when the last key in
-   * it goes. A group keeps its operator while it has a condition — an operator
-   * without one is read by the matcher as "everything" (`AND`, `NOT`) or as
-   * "nothing" (`OR`), and `filterProblems` refuses such a document — so the last
-   * condition to be removed takes the operator with it.
+  const capabilities = new Set<string>(rule.capabilities);
+  const areaState = (actions: ReadonlyArray<string>): "all" | "some" | "none" => {
+    const held = actions.filter((name) => capabilities.has(name)).length;
+    if (held === 0) return "none";
+    return held === actions.length ? "all" : "some";
+  };
+  /*
+   * The grant is written in catalogue order rather than click order, so two
+   * automations that allow the same actions read as the same list — and the
+   * order comes from the published catalogue, never from a list written here.
    */
-  const writeConditions = (next: unknown[]) => {
-    if (!grouped) {
-      const only = next[0];
-      const kept =
-        isWritableCondition(only) && Object.keys(only).length > 0 ? only : undefined;
-      setTrigger({ filter: kept });
-      return;
-    }
-    setTrigger({
-      filter: next.length ? { operator: filter?.operator, conditions: next } : undefined,
-    });
-  };
-  const setCondition = (index: number, key: string, raw: string) => {
-    writeConditions(
-      conditions.map((condition, i) => {
-        // The conditions around this one are carried through untouched, whether
-        // or not this form can write them.
-        if (i !== index || !isWritableCondition(condition)) return condition;
-        const next: Record<string, unknown> = { ...condition };
-        if (!raw.trim()) delete next[key];
-        // A size is a number, and the matcher compares numbers: a string here
-        // is a filter that is valid and never matches.
-        else if (AGENT_FILTER_NUMBERS.has(key)) next[key] = Number(raw);
-        else next[key] = raw;
-        return next;
-      }),
-    );
-  };
-  const addCondition = () => writeConditions([...conditions, {}]);
-  const removeCondition = (index: number) =>
-    writeConditions(conditions.filter((_, i) => i !== index));
-  /**
-   * Choose how the conditions compose. `All of these` on a filter that is not
-   * grouped yet is the shape the form already writes, so it leaves the document
-   * alone rather than rewriting it into a group of one — and an operator is
-   * never written over nothing, because a filter nobody wrote is what the
-   * server refuses: the selector moves once a condition carries something.
-   */
-  const setOperator = (next: string) => {
-    if (next === "AND" && !grouped) return;
-    if (!written.length) return;
-    setTrigger({ filter: { operator: next, conditions } });
-  };
-
-  const capabilities = new Set(rule.capabilities);
-  const toggleCapability = (name: string) => {
-    if (capabilities.has(name as AgentActionName))
-      capabilities.delete(name as AgentActionName);
-    else capabilities.add(name as AgentActionName);
-    // Kept in catalogue order rather than click order, so two rules that allow
-    // the same capabilities read the same way.
+  const writeCredits = (next: ReadonlySet<string>) =>
     set({
-      capabilities: (catalogue ?? [])
-        .map((entry) => entry.name)
-        .filter((candidate) =>
-          capabilities.has(candidate as AgentActionName),
-        ) as AgentActionName[],
+      capabilities: (grant?.order ?? []).filter((name) =>
+        next.has(name),
+      ) as AgentActionName[],
     });
+  const toggleActions = (actions: ReadonlyArray<string>, on: boolean) => {
+    const next = new Set(capabilities);
+    for (const name of actions) {
+      if (on) next.add(name);
+      else next.delete(name);
+    }
+    writeCredits(next);
   };
 
   return (
     <div className="agent-form">
-      <div className="field">
-        <label htmlFor="agent-rule-name">{t("Name")}</label>
-        <input
-          id="agent-rule-name"
-          className="input"
-          value={rule.name}
-          placeholder={t("File the invoices")}
-          onChange={(e) => set({ name: e.target.value })}
-        />
-      </div>
       <label className="agent-check">
         <input
           type="checkbox"
@@ -311,7 +173,17 @@ export function RuleForm({
           value={rule.trigger.on}
           onChange={(e) => {
             const on = e.target.value;
-            if (isAgentTriggerOn(on)) setTrigger({ on });
+            if (isAgentTriggerOn(on)) {
+              setTrigger(
+                on === "schedule"
+                  ? {
+                      on,
+                      everyMinutes:
+                        rule.trigger.everyMinutes ?? AGENT_SCHEDULE_PRESETS[0],
+                    }
+                  : { on },
+              );
+            }
           }}
         >
           {AGENT_TRIGGERS.map((on) => (
@@ -320,86 +192,28 @@ export function RuleForm({
             </option>
           ))}
         </select>
+        <p className="hint">
+          {t(
+            "One automation per trigger: the agent runs every enabled automation on a trigger against everything that trigger produces, so two of them would answer the same event twice.",
+          )}
+        </p>
       </div>
       {rule.trigger.on === "schedule" && (
         <div className="field">
-          <label htmlFor="agent-rule-every">{t("Run every (minutes)")}</label>
-          <input
+          <label htmlFor="agent-rule-every">{t("How often")}</label>
+          <select
             id="agent-rule-every"
-            className="input"
-            type="number"
-            min={5}
-            value={rule.trigger.everyMinutes ?? 60}
-            onChange={(e) => {
-              const minutes = Number(e.target.value);
-              if (Number.isFinite(minutes) && minutes >= 5) {
-                setTrigger({ everyMinutes: Math.floor(minutes) });
-              }
-            }}
-          />
-          <p className="hint">
-            {t("The smallest interval a scheduled automation may take is 5 minutes.")}
-          </p>
+            className="select"
+            value={String(rule.trigger.everyMinutes ?? AGENT_SCHEDULE_PRESETS[0])}
+            onChange={(e) => setTrigger({ everyMinutes: Number(e.target.value) })}
+          >
+            {AGENT_SCHEDULE_PRESETS.map((minutes) => (
+              <option key={minutes} value={String(minutes)}>
+                {t(SCHEDULE_LABELS[minutes] ?? t("Every {minutes} minutes", { minutes }))}
+              </option>
+            ))}
+          </select>
         </div>
-      )}
-      {rule.trigger.on === "email" && (
-        <>
-          <h3>{t("If")}</h3>
-          <p className="hint">
-            {grouped
-              ? t(
-                  "The selector says how these conditions compose: all of them, any of them, or none of them.",
-                )
-              : t("Every filter must match. An empty filter matches every message.")}
-          </p>
-          <div className="field">
-            <label htmlFor="agent-filter-operator">{t("Match")}</label>
-            <select
-              id="agent-filter-operator"
-              className="input"
-              value={operator ?? "AND"}
-              disabled={!grouped && !written.length}
-              onChange={(e) => setOperator(e.target.value)}
-            >
-              <option value="AND">{t("All of these")}</option>
-              <option value="OR">{t("Any of these")}</option>
-              <option value="NOT">{t("None of these")}</option>
-            </select>
-          </div>
-          {grouped ? (
-            <div className="agent-actions">
-              {conditions.map((condition, i) => (
-                <div className="agent-action" key={`condition-${i}`}>
-                  <div className="agent-action-head">
-                    <b>{t("Condition {n}", { n: i + 1 })}</b>
-                    <button
-                      type="button"
-                      className="icon-btn xs danger"
-                      aria-label={t("Remove condition")}
-                      onClick={() => removeCondition(i)}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                  <FilterFields
-                    condition={condition}
-                    idPrefix={`agent-filter-${i}`}
-                    onChange={(key, raw) => setCondition(i, key, raw)}
-                  />
-                </div>
-              ))}
-              <button type="button" className="btn btn-sm" onClick={addCondition}>
-                <Plus size={14} /> {t("Add condition")}
-              </button>
-            </div>
-          ) : (
-            <FilterFields
-              condition={conditions[0]}
-              idPrefix="agent-filter"
-              onChange={(key, raw) => setCondition(0, key, raw)}
-            />
-          )}
-        </>
       )}
 
       <h3>{t("What it does")}</h3>
@@ -408,7 +222,7 @@ export function RuleForm({
         <textarea
           id="agent-rule-instruction"
           className="textarea"
-          rows={6}
+          rows={8}
           value={rule.instruction}
           placeholder={t(
             "Read the message and say what should happen to it. Useful context, in plain words.",
@@ -417,12 +231,7 @@ export function RuleForm({
         />
         <p className="hint">
           {t(
-            "This prose is the whole of what a run is asked to do: every run hands it to the installation's model, which answers with actions from the capability list below.",
-          )}
-        </p>
-        <p className="hint">
-          {t(
-            "The capability list below is the whole grant. The instruction steers inside it and never widens it.",
+            "This prose is the whole of what a run is asked to do: every run hands it to the installation's model, which answers with actions from the areas below.",
           )}
         </p>
         <p className="hint">
@@ -432,26 +241,7 @@ export function RuleForm({
         </p>
         <p className="hint">
           {t(
-            "Say what this automation reacts to and what should happen to it — a bare box produces prose that guesses.",
-          )}
-        </p>
-      </div>
-
-      <div className="field">
-        <label htmlFor="agent-rule-notes">{t("Your notes beside it")}</label>
-        <textarea
-          id="agent-rule-notes"
-          className="textarea"
-          rows={3}
-          value={rule.notes ?? ""}
-          placeholder={t(
-            "Why this automation is written the way it is, and what it deliberately leaves out. Nobody's model reads this.",
-          )}
-          onChange={(e) => set({ notes: e.target.value })}
-        />
-        <p className="hint">
-          {t(
-            "Kept with the automation for whoever edits it next, and never sent to a model: a run carries the instruction and nothing beside it.",
+            "Write it for the cases as they arrive: the branching between one kind of mail and another belongs here, not in a second automation.",
           )}
         </p>
       </div>
@@ -463,173 +253,63 @@ export function RuleForm({
         onAsk={askReading}
       />
 
-      <h3>{t("Review")}</h3>
-      <div className="field">
-        <label htmlFor="agent-rule-review">{t("When a person has to agree")}</label>
-        <select
-          id="agent-rule-review"
-          className="select"
-          value={rule.review.mode ?? ""}
-          onChange={(e) => {
-            const mode = e.target.value;
-            if (!isReviewMode(mode)) return;
-            // A threshold mode without a number would auto-execute everything,
-            // which is the one reading nobody chose, so the switch supplies the
-            // starting number ADR 0003 resolution 10 gives a new automation.
-            setReview(
-              mode === "threshold"
-                ? { mode, threshold: rule.review.threshold ?? 0.7 }
-                : { mode },
-            );
-          }}
-        >
-          {rule.review.mode === undefined && <option value="">{t("Choose…")}</option>}
-          {REVIEW_MODES.map((mode) => (
-            <option key={mode} value={mode}>
-              {t(AGENT_REVIEW_LABELS[mode])}
-            </option>
-          ))}
-        </select>
-      </div>
-      {rule.review.mode === undefined ? (
-        <p className="hint">
-          {t(
-            "Nobody has chosen yet, and there is no default: who a run stops for is the author's decision, so nothing can be saved until it is made.",
-          )}
-        </p>
-      ) : (
-        <p className="hint">{t(AGENT_REVIEW_MEANING_LABELS[rule.review.mode])}</p>
-      )}
-      {rule.review.mode === "threshold" && (
-        <div className="field">
-          <label htmlFor="agent-rule-threshold">
-            {t("Confidence threshold (0 to 1)")}
-          </label>
-          <input
-            id="agent-rule-threshold"
-            className="input"
-            type="number"
-            min={0}
-            max={1}
-            step={0.05}
-            value={rule.review.threshold ?? 0.7}
-            onChange={(e) => {
-              const value = Number(e.target.value);
-              if (Number.isFinite(value) && value >= 0 && value <= 1) {
-                setReview({ threshold: value });
-              }
-            }}
-          />
-          <p className="hint">
-            {t(
-              "Above this confidence the run goes ahead unattended; below it the job waits for a person in the group's chat.",
-            )}
-          </p>
-        </div>
-      )}
-      <label className="agent-check">
-        <input
-          type="checkbox"
-          checked={rule.review.allowExternal === true}
-          onChange={(e) => setReview({ allowExternal: e.target.checked })}
-        />
-        <span>
-          {t(
-            "Allow sending outside the group without a person — this raises the external-send consent floor.",
-          )}
-        </span>
-      </label>
-      <p className="hint">
-        {t(
-          "Off, an action that reaches outside the group always waits for a person, whatever the review policy says.",
-        )}
-      </p>
-
-      <h3>{t("Capabilities")}</h3>
+      <h3>{t("What it may do")}</h3>
       <p className="hint">
         {t(
           "The allowlist: the only actions this automation may run. The model is offered these and nothing else, and an answer outside them is refused.",
         )}
       </p>
-      {catalogue === null ? (
+      {grant === null ? (
         <p className="hint">{t("The capability catalogue has not been read yet.")}</p>
       ) : (
-        catalogue.map((entry) => (
-          <label className="agent-check" key={entry.name}>
-            <input
-              type="checkbox"
-              checked={capabilities.has(entry.name as AgentActionName)}
-              onChange={() => toggleCapability(entry.name)}
-            />
-            <span>
-              {t(entry.label)}
-              {entry.external && <b className="agent-tag">{t("external")}</b>}
-              {entry.irreversible && <b className="agent-tag">{t("irreversible")}</b>}
-              {entry.description && (
-                <span className="hint" style={{ display: "block" }}>
-                  {t(entry.description)}
-                </span>
-              )}
-            </span>
-          </label>
-        ))
+        <>
+          {grant.areas.map((entry) => (
+            <label className="agent-check" key={entry.area}>
+              <input
+                type="checkbox"
+                checked={areaState(entry.actions) === "all"}
+                ref={(node) => {
+                  // A partially granted area is neither ticked nor empty: a rule
+                  // written by hand may hold one action of an area, and showing
+                  // that as granted would claim more than the document says.
+                  if (node) node.indeterminate = areaState(entry.actions) === "some";
+                }}
+                onChange={() =>
+                  toggleActions(entry.actions, areaState(entry.actions) !== "all")
+                }
+              />
+              <span>{t(entry.label)}</span>
+            </label>
+          ))}
+          {/*
+           * Whatever the areas do not grant: sending, which every area excludes
+           * by the catalogue's own flags, and doing nothing, which is not a
+           * behaviour. The list comes from the published catalogue, so a
+           * catalogue that grows a new flagged action offers it here.
+           */}
+          {grant.standalone.map((entry) => (
+            <label className="agent-check" key={entry.name}>
+              <input
+                type="checkbox"
+                checked={capabilities.has(entry.name)}
+                onChange={() =>
+                  toggleActions([entry.name], !capabilities.has(entry.name))
+                }
+              />
+              <span>
+                {t(entry.label)}
+                {entry.external && <b className="agent-tag">{t("external")}</b>}
+                {entry.irreversible && <b className="agent-tag">{t("irreversible")}</b>}
+                {entry.description && (
+                  <span className="hint" style={{ display: "block" }}>
+                    {t(entry.description)}
+                  </span>
+                )}
+              </span>
+            </label>
+          ))}
+        </>
       )}
     </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-
-/**
- * One condition's fields: every filter key the executor honours, each with a
- * field of its own.
- *
- * A condition this form cannot write — a nested group, a key no matcher
- * implements, a value that is neither text nor a number — is shown as the
- * document holds it and is read-only on purpose: the form's promise is that it
- * does not quietly reshape a document, and rewriting a condition it cannot
- * spell out would be exactly that.
- */
-function FilterFields({
-  condition,
-  idPrefix,
-  onChange,
-}: {
-  condition: unknown;
-  /** Distinguishes the fields of two conditions on one form. */
-  idPrefix: string;
-  onChange(key: string, raw: string): void;
-}) {
-  if (!isWritableCondition(condition)) {
-    return (
-      <>
-        <p className="hint">
-          {t(
-            "This condition uses something this form cannot spell out, so it is shown as the document holds it and left exactly as it is.",
-          )}
-        </p>
-        <pre className="mono small">{JSON.stringify(condition, null, 2)}</pre>
-      </>
-    );
-  }
-  return (
-    <>
-      {AGENT_FILTER_LABELS.map((f) => (
-        <div className="field" key={f.key}>
-          <label htmlFor={`${idPrefix}-${f.key}`}>{t(f.label)}</label>
-          <input
-            id={`${idPrefix}-${f.key}`}
-            className="input"
-            value={filterValue(condition, f.key)}
-            onChange={(e) => onChange(f.key, e.target.value)}
-          />
-          {f.key === "inMailbox" && (
-            <p className="hint">
-              {t("The mailbox id in the group's own account; it is matched exactly.")}
-            </p>
-          )}
-        </div>
-      ))}
-    </>
   );
 }

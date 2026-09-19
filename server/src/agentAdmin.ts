@@ -35,47 +35,47 @@ import { liveWorkers } from "./agent/agent.js";
 import { hasSpoken, readChat } from "./agent/chat.js";
 import {
   AGENT_CHAIN_HOPS_CEILING,
+  AGENT_INSTRUCTION_FILE,
   AGENT_INSTRUCTION_MAX,
   AGENT_JOB_OPEN_STATES,
   AGENT_NOTEBOOK_FACT_MAX,
   AGENT_NOTEBOOK_FACTS_MAX,
-  AGENT_NOTES_MAX,
   AGENT_PAGES_CEILING,
+  AGENT_PREAMBLE_FILE,
+  AGENT_REVIEW_MODES,
   type AgentAuditEntry,
   type AgentConfigDoc,
   type AgentJob,
   type AgentNotebookFact,
   type AgentProvider,
+  type AgentReviewMode,
   type AgentRule,
   type AgentWorkerRecord,
+  automationLabel,
   EMPTY_METER,
-  filterNeedsBody,
-  filterProblems,
-  instructionFor,
   isAgentBound,
   isAgentRule,
   isModelMaxOutput,
   MODEL_MAX_OUTPUT_CEILING,
   MODEL_MAX_OUTPUT_DEFAULT,
-  matchEmailFilter,
   meterOver,
   metersByAgent,
   monthOf,
   monthsSince,
   newJob,
   notebookFor,
-  notesProblem,
-  ruleNotesProblem,
+  policyOf,
+  proseFor,
   ruleProblems,
+  rulesProblem,
 } from "./agent/documents.js";
 import { AUDIT_RETENTION_MS } from "./agent/executor.js";
 import {
   assertUsableProvider,
   DATA_NOT_INSTRUCTIONS,
-  notebookBlock,
+  proseHead,
   providerFor,
   readProse,
-  standingBlock,
 } from "./agent/llm.js";
 import { AgentStore } from "./agent/store.js";
 // The shapes this API answers with have one definition, shared with the client
@@ -87,6 +87,7 @@ import type {
   AgentAuditExportMonth,
   AgentErrorReason,
   AgentGroupDocuments,
+  AgentProseView,
   AgentProvidersView,
   AgentReadingView,
   AgentStatus,
@@ -96,10 +97,10 @@ import type {
   AgentStatusWorker,
   AgentWithdrawal,
   GroupAccessDenied,
-  GroupInstructionView,
   GroupMembersView,
   GroupNeed,
   GroupNotebookView,
+  GroupPolicyView,
   MemberAgentView,
   PendingApproval,
   RosterReadability,
@@ -754,6 +755,26 @@ export async function saveRules(
       throw new AgentAdminError({ code: "duplicate_rule", id: rule.id }, 400);
     seen.add(rule.id);
   }
+  /*
+   * One enabled automation per trigger, refused before anything is written
+   * (ADR 0006 decision one). The check is over the whole list this save hands
+   * over, because that is the unit the rule is about: an automation carries no
+   * filter, so nothing in a document tells two of them on one trigger apart,
+   * and the executor runs every one of them against everything that trigger
+   * produces. A disabled automation is a draft and is not counted.
+   */
+  const doubled = rulesProblem(checked);
+  if (doubled)
+    throw new AgentAdminError(
+      {
+        code: "rule_cannot_run",
+        name: automationLabel(
+          checked.find((rule) => rule.enabled) ?? { trigger: { on: "email" } },
+        ),
+        problems: doubled,
+      },
+      400,
+    );
 
   const store = new AgentStore(access.ctx, accountId);
   for (let attempt = 0; ; attempt++) {
@@ -797,9 +818,9 @@ export async function saveRules(
  * the ones already in force: a run asked for by a person meets the rule it
  * names, it does not bypass it.
  *
- * What is deliberately *not* written is a refusal into the group's trail. A
- * message the filter does not match, an automation that is not armed, one asked
- * for that is not about mail: each is answered to the person who asked, who can
+ * What is deliberately *not* written is a refusal into the group's trail. An
+ * automation that is not armed, one asked for that is not about mail, a group
+ * with no message to run on: each is answered to the person who asked, who can
  * do something about it, and none of them is a run that happened — the audit
  * records what the agent did, not what somebody tried.
  *
@@ -819,42 +840,29 @@ export async function runRuleNow(
   const rule = rules.find((candidate) => candidate.id === ruleId);
   if (!rule)
     throw new AgentAdminError({ code: "manual_run_refused", why: "rule_not_found" }, 404);
+  const name = automationLabel(rule);
   if (!rule.enabled)
     throw new AgentAdminError(
-      { code: "manual_run_refused", why: "rule_not_armed", rule: rule.name },
+      { code: "manual_run_refused", why: "rule_not_armed", rule: name },
       409,
     );
   if (rule.trigger.on !== "email")
     throw new AgentAdminError(
-      { code: "manual_run_refused", why: "rule_not_email", rule: rule.name },
+      { code: "manual_run_refused", why: "rule_not_email", rule: name },
       409,
     );
 
   const client = new JmapClient(access.ctx);
   const named = typeof ask.emailId === "string" ? ask.emailId.trim() : "";
   const emailId = named || (await newestInboxMessage(client, accountId));
-  const view = emailId
-    ? await fetchEmailView(client, accountId, emailId, {
-        body: filterNeedsBody(rule.trigger.filter),
-      })
-    : null;
+  // Only the message's identity: the run fetches it itself, body included, when
+  // it builds the context it reads. Nothing here decides whether the run should
+  // look at it — an automation carries no filter, so every message in the group's
+  // inbox is one it acts on (ADR 0006).
+  const view = emailId ? await fetchEmailView(client, accountId, emailId) : null;
   if (!view)
     throw new AgentAdminError(
-      { code: "manual_run_refused", why: "no_message", rule: rule.name },
-      409,
-    );
-
-  // A filter this executor cannot evaluate is a fault of the rule rather than
-  // of the message, and it is refused in the words the form refuses it in.
-  const wired = filterProblems(rule.trigger.filter, "the filter");
-  if (wired.length)
-    throw new AgentAdminError(
-      { code: "rule_cannot_run", name: rule.name, problems: wired.join("; ") },
-      409,
-    );
-  if (!matchEmailFilter(rule.trigger.filter, view))
-    throw new AgentAdminError(
-      { code: "manual_run_refused", why: "message_not_matched", rule: rule.name },
+      { code: "manual_run_refused", why: "no_message", rule: name },
       409,
     );
 
@@ -914,19 +922,13 @@ async function newestInboxMessage(
  * fixing one per round trip is how a form becomes a chore.
  */
 function checkedRule(rule: unknown, index: number): AgentRule {
-  // The notes beside a rule's prose are bounded by the same number as the
-  // instruction's, and refused with the same code: a writer who typed two
-  // thousand characters of remarks is told which field and what its bound is,
-  // not handed a length complaint about the document (ADR 0003).
-  const notes = ruleNotesProblem(rule);
-  if (notes) throw new AgentAdminError(notes, 400);
   const problems = ruleProblems(rule);
   if (problems.length) {
+    // A document refused before it reads as one has no trigger to be named by,
+    // so the refusal names the position the save put it at instead.
     const name =
-      rule &&
-      typeof rule === "object" &&
-      typeof (rule as { name?: unknown }).name === "string"
-        ? String((rule as { name: string }).name)
+      rule && typeof rule === "object" && isAgentRule(rule)
+        ? automationLabel(rule)
         : `#${index + 1}`;
     throw new AgentAdminError(
       { code: "rule_cannot_run", name, problems: problems.join("; ") },
@@ -1201,50 +1203,51 @@ function isPrivateHost(hostname: string): boolean {
 }
 
 /* ------------------------------------------------------------------ */
-/* The group's standing instruction                                    */
+/* The prose an agent carries                                          */
 
 /**
- * The group's standing instruction, as the admin surface sees it.
+ * One document of prose an agent carries, as a surface reads it.
  *
- * Written by an administrator of the group — not by every member — because a
- * text handed to the model on every call is configuration, and configuration is
- * what the rules document already is. Read by every member of the group, on the
- * member's own route: what the agent is told is exactly what a member has to be
- * able to judge (ADR 0003 resolution 17), so the read is shared and the pen is
- * not.
+ * The two scopes it exists at — the installation's own rules, in the Master's
+ * account, and a group's standing instruction, in the group's — are one
+ * document type at two reaches, so they are read and written by one pair of
+ * functions that differ only in the account and the path handed to them. The
+ * caller that has a group names `AGENT_INSTRUCTION_FILE`; the one that has the
+ * installation names `AGENT_PREAMBLE_FILE` against the agent's own account.
+ *
+ * Written by an administrator — not by every member — because a text handed to
+ * the model on every call is configuration, and configuration is what the rules
+ * document already is. Read by every member of a group, on the member's own
+ * route: what the agent is told is exactly what a member has to be able to
+ * judge (ADR 0003 resolution 17), so the read is shared and the pen is not.
  */
-export async function readGroupInstruction(
-  access: GroupAccess,
-): Promise<GroupInstructionView> {
-  const store = new AgentStore(access.ctx, access.accountId);
-  const found = await store.readInstruction();
+export async function readAgentProse(
+  access: { ctx: Ctx; accountId: string },
+  path: string,
+): Promise<AgentProseView> {
+  const found = await new AgentStore(access.ctx, access.accountId).readProse(path);
   return {
     text: found?.doc.text ?? "",
-    notes: found?.doc.notes ?? "",
     updatedAt: found?.doc.updatedAt ?? null,
     updatedBy: found?.doc.updatedBy ?? null,
     max: AGENT_INSTRUCTION_MAX,
-    notesMax: AGENT_NOTES_MAX,
   };
 }
 
 /**
- * Replace the group's standing instruction. An empty text removes it.
+ * Replace one document of prose. An empty text removes it.
  *
- * The length bound is the document's own (`isAgentInstructionDoc`), applied
- * here so a person gets a sentence rather than a document that silently fails
- * to read back.
+ * The length bound is the document's own (`isAgentProseDoc`), applied here so a
+ * person gets a sentence rather than a document that silently fails to read
+ * back.
  */
-export async function saveGroupInstruction(
-  access: GroupAccess,
+export async function saveAgentProse(
+  access: { ctx: Ctx; accountId: string },
+  path: string,
   text: string,
   by: string,
-  notes = "",
-): Promise<GroupInstructionView> {
+): Promise<AgentProseView> {
   const trimmed = text.trim();
-  const remarks = notes.trim();
-  const tooLong = notesProblem(remarks);
-  if (tooLong) throw new AgentAdminError(tooLong, 400);
   if (trimmed.length > AGENT_INSTRUCTION_MAX)
     throw new AgentAdminError(
       {
@@ -1255,31 +1258,79 @@ export async function saveGroupInstruction(
       400,
     );
   const store = new AgentStore(access.ctx, access.accountId);
-  const found = await store.readInstruction();
+  const found = await store.readProse(path);
   if (!trimmed) {
-    if (found) await store.removeInstruction();
-    return {
-      text: "",
-      notes: "",
-      updatedAt: null,
-      updatedBy: null,
-      max: AGENT_INSTRUCTION_MAX,
-      notesMax: AGENT_NOTES_MAX,
-    };
+    if (found) await store.removeProse(path);
+    return { text: "", updatedAt: null, updatedBy: null, max: AGENT_INSTRUCTION_MAX };
   }
-  const doc = await store.writeInstruction(
+  const doc = await store.writeProse(
+    path,
     trimmed,
     by,
     found ? { ifInState: found.state } : {},
-    remarks,
   );
   return {
     text: doc.text,
-    notes: doc.notes ?? "",
     updatedAt: doc.updatedAt,
     updatedBy: doc.updatedBy,
     max: AGENT_INSTRUCTION_MAX,
-    notesMax: AGENT_NOTES_MAX,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* The group's policy                                                  */
+
+/**
+ * A group's policy, as a surface reads it.
+ *
+ * A group that has written none answers with the cautious default and
+ * `present: false`, so a form can say what it is running on rather than showing
+ * a reading nobody chose (ADR 0006).
+ */
+export async function readGroupPolicy(access: GroupAccess): Promise<GroupPolicyView> {
+  const found = await new AgentStore(access.ctx, access.accountId).readPolicy();
+  const policy = policyOf(found?.doc ?? null);
+  return {
+    review: policy.review,
+    allowExternal: policy.allowExternal,
+    present: found !== null,
+    updatedAt: found?.doc.updatedAt ?? null,
+    updatedBy: found?.doc.updatedBy ?? null,
+  };
+}
+
+/**
+ * Replace a group's policy.
+ *
+ * Two facts and no number: how cautious the group's runs are, and whether they
+ * may reach outside it without a person. A policy is always written whole — a
+ * group that has none gets one the first time this is called — because "nothing
+ * has said how cautious this group is" is answered by the default rather than
+ * by half a document.
+ */
+export async function saveGroupPolicy(
+  access: GroupAccess,
+  input: { review: unknown; allowExternal: unknown },
+  by: string,
+): Promise<GroupPolicyView> {
+  const review = input.review;
+  if (!(AGENT_REVIEW_MODES as ReadonlyArray<unknown>).includes(review))
+    throw new AgentAdminError({ code: "review_mode_unknown" }, 400);
+  if (typeof input.allowExternal !== "boolean")
+    throw new AgentAdminError({ code: "policy_not_an_object" }, 400);
+  const store = new AgentStore(access.ctx, access.accountId);
+  const found = await store.readPolicy();
+  const doc = await store.writePolicy(
+    { review: review as AgentReviewMode, allowExternal: input.allowExternal },
+    by,
+    found ? { ifInState: found.state } : {},
+  );
+  return {
+    review: doc.review,
+    allowExternal: doc.allowExternal,
+    present: true,
+    updatedAt: doc.updatedAt,
+    updatedBy: doc.updatedBy,
   };
 }
 
@@ -1366,8 +1417,15 @@ export async function readDraft(
       { code: "authoring_budget_spent", max: config.agent.authoringMonthlyMax },
       409,
     );
-  const [instruction, notebook] = await Promise.all([
-    group.readInstruction(),
+  /*
+   * The same prose a run carries, read the same way and in the same order: a
+   * reading is a judgement of a draft against what the agent would actually be
+   * told, and a reading asked under a different head would be a reading of
+   * something nobody runs. `proseHead` is the one builder of that order.
+   */
+  const [installation, instruction, notebook] = await Promise.all([
+    store.readProse(AGENT_PREAMBLE_FILE),
+    group.readProse(AGENT_INSTRUCTION_FILE),
     group.readNotebook(),
   ]);
   const system = [
@@ -1379,8 +1437,11 @@ export async function readDraft(
     "itself — and answer in one short paragraph.",
     "Do not rewrite the draft, do not propose an envelope, and ask for nothing.",
     input.envelope ? `The draft's envelope: ${input.envelope}` : "",
-    notebookBlock(notebookFor(notebook?.doc ?? null)),
-    standingBlock(instructionFor(instruction?.doc ?? null)),
+    ...proseHead({
+      preamble: proseFor(installation?.doc ?? null),
+      standing: proseFor(instruction?.doc ?? null),
+      notebook: notebookFor(notebook?.doc ?? null),
+    }),
   ]
     .filter(Boolean)
     .join("\n");
@@ -1607,15 +1668,17 @@ export async function memberAgentView(
   });
   if (!access.ok) return access;
   const store = new AgentStore(access.ctx, access.accountId);
-  const [rules, jobs, audit, instruction, chat] = await Promise.all([
+  const [rules, jobs, audit, instruction, policy, chat] = await Promise.all([
     store.readRules(),
     store.listJobs(),
     readRecentAudit(store),
-    // The same document the admin surface writes, read here with the member's
-    // own session: the member's own grant is what reaches a group's files (ADR
-    // 0005), and this route never impersonates and never borrows the agent's
-    // credential.
-    readGroupInstruction(access),
+    // The same two documents the admin surface writes, read here with the
+    // member's own session: a member's own grant is what reaches a group's files
+    // (ADR 0005), and this route never impersonates and never borrows the agent's
+    // credential. The policy is read the same way — who a run stops for is a
+    // fact about the group that a member judges the agent by.
+    readAgentProse(access, AGENT_INSTRUCTION_FILE),
+    readGroupPolicy(access),
     // The transcript is the group's own proof that the agent works here: the
     // greeting the agent posts when it takes the group's claim is readable by
     // the member's own session, where the grant list is not.
@@ -1640,16 +1703,12 @@ export async function memberAgentView(
     agentAddress: agentAddress(),
     rules: rulesDoc.map((r) => ({
       id: r.id,
-      name: r.name,
       enabled: r.enabled,
       trigger: r.trigger,
-      review: r.review,
       instruction: r.instruction,
     })),
-    // A member reads the prose and not the author's remarks beside it: the
-    // instruction's notes are for whoever edits it next, and the rule's notes
-    // are already kept off this door.
-    instruction: { ...instruction, notes: "" },
+    instruction,
+    policy,
     jobs: open,
     audit,
   };

@@ -144,14 +144,14 @@ declare it.
   groups it is holding in its heartbeat, and the surface reads one group's
   agents off that rather than listing a fleet with no group attached.
 - **An automation can be run now, on a message a person names.** *Run now*
-beside a rule asks for one run, on the newest message of the group's own inbox:
-the ask writes a job, and the agent holding the group runs it on the rule's own
-terms — the filter, the capability allowlist, the review policy and the consent
-floor all still decide, and the audit line says it was asked for. It answers the
-question the surface could not: an automation that is not armed, one that is not
-about mail, a message its filter passes over, and a group nobody is holding are
-four different sentences, and none of them is written into the group's audit,
-because none of them is a run that happened.
+beside an automation asks for one run, on the newest message of the group's own
+inbox: the ask writes a job, and the agent holding the group runs it on the
+automation's own terms — its capability allowlist and the group's review policy
+still decide, and the audit line says it was asked for. It answers the question
+the surface could not: an automation that is not armed, one that is not about
+mail, a group with no message to run on, and a group nobody is holding are four
+different sentences, and none of them is written into the group's audit, because
+none of them is a run that happened.
 - **A withdrawn grant is reported, and the group stops being served.** The
 agent re-reads its session at most once per poll interval — a minute, a third
 of a lease, so no new setting arrives with it — and an account it was serving
@@ -164,17 +164,43 @@ holding; what a withdrawal left unfinished stays in the group's own audit,
 which the agent can no longer read — the record never claims to know it. And
 nothing is written or deleted in the withdrawn group on the way out: the claim
 is left for its lease to lapse, which is how a withdrawal ends.
+- **Three levels of prose, and none of them grants anything.** What an agent is
+told is written in three places, in the order it reaches the model: the
+**installation's own rules** (Admin → Master, held in the Master's account,
+carried into every call of every group), a **group's standing instruction**
+(written for that group), and the **automation's own instruction** (written
+beside the trigger it belongs to). Each says how to work; none of them widens
+what a run may do, because the grant is the automation's capability list, checked
+on every answer the model gives. The installation's rules exist so the house
+rules a company states once do not have to be repeated in every group's
+instruction, and all three sit in the prompt's stable head, so carrying them into
+every call costs a cache hit rather than a miss.
 - **The group's standing instruction.** One text per group, written in the
 admin surface — which reaches a group's own files as the installation's agent,
 so an administrator needs the agent's grant on the group rather than their own
 membership — and handed to the model on
-**every** call the group's agent makes — first in the prompt, before the
-automation's own instruction and before the message it is reading. It says how
-the agent should work for this group (language, tone, conventions) so that does
-not have to be repeated in every automation. It can steer and it cannot grant:
+**every** call the group's agent makes: after the installation's own rules and
+the group's notebook, and before the automation's own instruction and the
+message it is reading. It says how the agent should work for this group
+(language, tone, conventions) so that does not have to be repeated in every
+automation. It can steer and it cannot grant:
 what an automation may do is its capability list, checked on every answer the
 model gives, and nothing written in the instruction widens it. An empty text
 removes it.
+- **A group sets who its runs stop for, once.** One document per group, written
+beside the standing instruction, with two choices: **when a person has to
+agree** (every run, below a confidence, or never) and whether a run may **reach
+outside the group without a person** — which is the group's own raise of the
+consent floor, off until somebody turns it on. One policy for the whole group
+rather than one per automation, because two automations of a group are the same
+team's work on the same correspondence and a policy repeated per automation is a
+policy that drifts apart. The threshold is not a field: "run it unattended when
+the model is confident" is the behaviour an author picks, and what that means is
+one constant rather than a decimal every author invented. Neither choice can
+lower a floor that is in code — an action that cannot be undone asks whatever is
+chosen, and one that reaches outside the group asks unless the group has said
+otherwise — and a group that has written no policy runs on the cautious reading,
+with every run stopping for a person.
 - **One bootstrap secret, and the deployment holds it.** The agent
 authenticates as the agent with the account's own password
 (`GILBERT_AGENT_ADDRESS`, `GILBERT_AGENT_PASSWORD`). Nothing derives it, nothing
@@ -192,10 +218,12 @@ group Stalwart no longer lists the agent for stops being served within it
 (below).
 - **Three admin surfaces, not one trying to answer everything (ADR 0003).**
   **Master** is the installation, configured once: identity, the one model and
-  its bounds, and the plain list of granted groups. **Group Agents** is one
+  its bounds, the rules that hold in every group, and the plain list of granted
+  groups. **Group Agents** is one
   group's own workspace behind a single picker: its automations, its standing
-  instruction, its memory, its audit trail and the agents serving it —
-  including a control that makes sure its reserved label catalogue exists.
+  instruction, who its runs stop for, its memory, its audit trail and the agents
+  serving it — including a control that makes sure its reserved label catalogue
+  exists.
   **Approvals** is cross-group oversight: what is waiting for a person and
   what the fleet has done, across every granted group at once, read-only by
   construction — an operator still answers a paused run in the group's own
@@ -207,14 +235,34 @@ group Stalwart no longer lists the agent for stops being served within it
   carry — because that is the one fact that decides whether the chat's `@`
   offers a group's members or the people who have already written (ADR 0005),
   and it is an operator's grant to give.
-- **Automations, not rules written in code.** The admin surface authors one
-document per automation, as a form — “When [event] / If [filters] / Then
-[actions]” — validated against the JMAP filter grammar (RFC 8621) and the
-named-action catalogue. The document is validated against a JSON Schema
+- **An automation is three choices and a paragraph.** The admin surface authors
+one document per automation, and what an administrator decides is: **when** it
+reacts (one of four triggers), **what it does** (prose, the whole of what a run
+is asked to do — the branching between one case of mail and another belongs in
+that prose, not in a second automation), and **what it may do** (three areas —
+mail, chat, files and documents — plus sending, which no area can ever grant).
+Nothing else is asked for: an automation is named by its trigger rather than by
+a field somebody fills in, it carries no filter to write, and the cadence of a
+scheduled one is a preset rather than a number to invent. Two entries answer for
+themselves instead of belonging to an area: **sending**, because every area
+excludes anything the catalogue marks as leaving the group or as irreversible —
+computed from those flags, so ticking "mail" can never be how a person grants
+sending — and **doing nothing**, which is granted to every automation and is not
+a behaviour at all. The document is validated against a JSON Schema
 Gilbert publishes (ADR 0003), with the same validator and the
-same schema on both sides, so what the form accepts the server accepts. No new
+same schema on both sides, so what the form accepts the server accepts, and the
+areas it paints come from that same catalogue. No new
 rule language, no JSON to type by hand, and Sieve keeps the delivery-time
 boundary.
+- **One enabled automation per trigger.** An automation carries no filter, so
+nothing in the document tells two of them on one trigger apart — and the
+executor runs **every** enabled automation on a trigger against **every** item
+that trigger produces. Two on one trigger would therefore answer the same
+arrival twice, which is the rule the server refuses a group's document for, the
+form prevents by offering only the triggers nothing holds, and the executor
+reports once into the log and the group's chat if a document written by hand or
+restored from a backup carries one anyway. A disabled automation is a draft and
+may sit beside the enabled one.
 - **An automation can be armed on a cadence.** A rule whose trigger is a time
   rides the same documents as any other: the next run of every armed rule is
   stored as a UTC instant in the group’s own scheduler document, so a restart, a
@@ -224,7 +272,7 @@ boundary.
   other’s runs, and the runs that vanish — the rule off, the rule gone — are
   recorded as missed runs rather than disappearing from the trail.
 - **One shape, and the model decides.** An automation is a trigger, an
-instruction, a capability allowlist and a review policy — nothing else, and no
+instruction and a capability allowlist — nothing else, and no
 compiled plan: every run hands the instruction to the installation's model,
 which answers with actions from the capability catalogue. The allowlist is what
 bounds it — an answer naming an action the automation was not granted is
@@ -258,12 +306,9 @@ administrator add, correct and remove one fact at a time; and it sits in the
 prompt's stable head, so carrying it into every call costs a cache hit rather
 than a miss. It steers and it never widens: what an automation may do is its
 own capability allowlist.
-- **Notes beside the prose, and a reading.** Beside the group's instruction and
-each automation's instruction the surface carries the author's **notes** — what
-the prose is for, what the automation reacts to, what it may do — kept in the
-same document so they survive a container, and read by no model: a run's prompt
-is the instruction and nothing beside it. Beside the same field, **Ask the model
-to read it** sends the draft and what it is about, the group's instruction
+- **A reading beside the prose.** Beside the instruction field, **Ask the model
+to read it** sends the draft and what it is about, the installation's rules, the
+group's instruction
 and its notebook to the installation's model, which answers in words about the
 gaps. It is not a run: nothing is compiled, nothing is stored, there is no job
 and no claim — a call with a timeout instead of a lease, thinking off — and its
@@ -347,12 +392,12 @@ longer the current one is recorded as a failure rather than run, because a run
 never executes a version nobody approved; and the audit records
 what a run was about to do before it does it, so an effect never exists without
 a line that accounts for it.
-- **Approvals happen in the group's chat.** An automation with a review policy
+- **Approvals happen in the group's chat.** A run the group's policy stops for
 pauses, writes a decision, prepares the draft in the group's own Drafts (kept
 unread so a person sees it) and posts the proposal in the chat. Any member may
 answer in words; the conversation is the interface, not a button. Nothing that
-leaves the group is ever sent on a guessed approval — an external send always
-needs explicit consent, whatever the policy says.
+leaves the group is ever sent on a guessed approval — a send reaches outside the
+group, so it always needs explicit consent, whatever the policy says.
 - **The agent is its own process.** The same image and codebase as the server,
 a second entrypoint (`node server/dist/agent/agent.js`), never a replica of the
 web tier. It

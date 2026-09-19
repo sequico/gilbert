@@ -59,11 +59,12 @@ for whoever serves that account next to take it over.
 
 ## Rules and durable state are Stalwart documents
 
-The agent's own configuration — its registration record and the single model
-provider (below) — lives in the Master's own `gilbert` app folder. Everything
-a group's members must be able to see — the rules, the jobs, the decisions,
-the audit — lives in the **group's own account** instead, because that is the
-account they can read. Every write into a group's documents happens **as the
+The agent's own configuration — its registration record, the single model
+provider (below) and the installation's own rules of prose (ADR 0019) — lives in
+the Master's own `gilbert` app folder. Everything
+a group's members must be able to see — the automations, the policy, the jobs,
+the decisions, the audit — lives in the **group's own account** instead, because
+that is the account they can read. Every write into a group's documents happens **as the
 agent**: it is the principal that executes them, using the deployment's own
 credential or impersonation from an administrator's session. The grant these
 surfaces need is therefore the agent's on the group, not the administrator's
@@ -139,14 +140,17 @@ and then answered in words is settled by what they actually did.
 
 ## An automation is an instruction a model carries out
 
-A rule has one shape: a **trigger**, a prose **instruction**, a **capability
-allowlist** and a **review policy**. There is no separate compiled form and
+An automation has one shape: a **trigger**, a prose **instruction** and a
+**capability allowlist** — and the group it belongs to carries the review
+policy, one per group (ADR 0006). There is no separate compiled form and
 no fixed action plan — every run hands the instruction to the model, which
 answers with actions drawn from the capability catalogue, and the answer is
-validated against the rule's own allowlist before anything executes
-(`planFor` → `decideActions`, in `executor.ts` and `llm.ts`). A rule without
-an instruction or without a capability is refused at authoring time rather
-than stored to match and do nothing.
+validated against the automation's own allowlist before anything executes
+(`planFor` → `decideActions`, in `executor.ts` and `llm.ts`). An automation
+without an instruction or without a capability is refused at authoring time
+rather than stored to match and do nothing, and a group may hold only one
+enabled automation per trigger, because nothing in the document distinguishes
+two of them (`rulesProblem`).
 
 The model proposes; the allowlist disposes. What the model decides is which
 granted action to take, never whether an ungranted one may run, and every
@@ -180,9 +184,14 @@ what is missing.
 
 ### Review policy and human approval
 
-Every automation carries a review policy — `always` (every run pauses),
+Every group carries one review policy — `always` (every run pauses),
 `threshold` (auto-execute at or above a confidence, else pause) or `never` —
-and every run returns a confidence between 0 and 1. Below the threshold, the
+and every run returns a confidence between 0 and 1. It is the group's own
+document rather than a field on each automation (ADR 0006): how cautious a
+group wants its agent to be is true of the group's work rather than of one
+automation, and a policy repeated per automation is a policy that drifts apart.
+"At or above a confidence" is one constant (`AGENT_REVIEW_THRESHOLD`) rather
+than a number every author invents. Below it the
 job pauses in `awaiting_approval` with a decision document; approval is
 conversational, posted and answered in the group's own chat rather than with
 buttons, and a pending outbound message is a draft in the group's Drafts,
@@ -200,19 +209,18 @@ group works in, exceptions its administrator wrote down. It lives in the
 group's own account, so it survives a container, a deploy and a replacement
 agent, and a person can read and correct it.
 
-The prompt is built in one fixed order and stays that way: the system
-preamble (data-not-instructions), the capability catalogue, the group's
-notebook, the group's standing instruction (an `AGENTS.md`-shaped document an
-administrator writes, carried into every call before the automation's own
-instruction), the rule's own instruction, and last the volatile content — the
-message, its thread, the chat slice. Nothing volatile goes before that tail,
-because the stable head is what a provider's context cache can serve nearly
-free; the volatile tail is what a run actually pays for. Beside the group's
-instruction and each automation's, a **notes** field explains what the prose
-is for and that it is read as data, never obeyed; a **reading** helper (a web
-tier call, not a job — no claim, no lease) can check a draft instruction for
-coherence against the group's own context, and reports gaps in words rather
-than editing the prose itself.
+The prompt is built in one fixed order and stays that way, and `proseHead` in
+`llm.ts` is the one function that produces the prose half of it: the system
+preamble (data-not-instructions), the capability catalogue, the installation's
+own rules (ADR 0019), the group's notebook, the group's standing instruction,
+the automation's own instruction, and last the volatile content — the message,
+its thread, the chat slice. Nothing volatile goes before that tail, because the
+stable head is what a provider's context cache can serve nearly free; the
+volatile tail is what a run actually pays for. The same builder serves a
+**reading** helper (a web tier call, not a job — no claim, no lease), which can
+check a draft instruction for coherence against the context the agent would
+actually be given, and reports gaps in words rather than editing the prose
+itself.
 
 Every call's token cost — input that hit a cache, input that missed, the
 answer — is recorded in the group's own monthly document, split by the agent
@@ -312,11 +320,14 @@ The agents admin area is three sections.
 
 - **Master** — the installation, configured once: the agent's identity
   (address, operational state, the environment variables it comes from), the
-  single provider/model configuration, and the plain list of groups the
+  single provider/model configuration, the rules that hold in every group (ADR
+  0019), and the plain list of groups the
   agent's own session reports. Membership is shown here, never written.
 - **Group Agents** — a per-group workspace behind one group picker, as tabs:
-  **Automations** (the rule editor, showing a scheduled rule's next due
-  time), **Standing instruction**, **Memory** (the notebook),
+  **Automations** (the editor, showing a scheduled automation's next due
+  time), **Standing instruction**, **Review** (who its runs stop for, and
+  whether they may reach outside the group without a person), **Memory** (the
+  notebook),
   **Audit** (a window on that group's own monthly audit, newest first, with
   the full month exportable as JSON), and **Agents** (who is serving that
   group, read from the process that hosts the agent, and which grants it has
@@ -378,7 +389,9 @@ grant and the page that carries it is the one that operator reads.
   document tools
 - `server/src/agent/llm.ts` — the model call: temperature, JSON format,
   token ceiling
-- `server/src/agent/documents.ts` — `FENCED_ACTIONS`, action specs
+- `server/src/agent/documents.ts` — `FENCED_ACTIONS`, action specs,
+  `rulesProblem` (one enabled automation per trigger), `AgentGroupPolicyDoc`
+  and `policyOf`, `AgentProseDoc` and `proseFor`
 - `server/src/agent/documentFamily.ts` — the readers (PDF, `.docx`, workbook,
   text) and the page work
 - `server/src/agent/scheduler.ts` — due times, catch-up

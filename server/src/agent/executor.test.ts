@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import { createServer, type IncomingMessage } from "node:http";
-import { after, before, test } from "node:test";
+import { after, before, beforeEach, test } from "node:test";
 import { sleep } from "../shared/async.js";
 import { blankPdf } from "../testkit.js";
-import type { AgentJob, AgentRule } from "./documents.js";
+import type {
+  AgentGroupPolicyDoc,
+  AgentJob,
+  AgentRule,
+  AgentTriggerOn,
+} from "./documents.js";
 import type { ScheduleGuard } from "./executor.js";
 
 /**
@@ -35,16 +40,17 @@ process.env.GILBERT_AGENT_VISION = "0";
 
 const mock = await import("../mock/index.js");
 const { fetchUpstreamSession } = await import("../upstream.js");
-const { filesAccountId, writeAppFileAt, writeBytesIntoVisibleFolder } = await import(
-  "../appFolder.js"
-);
+const { filesAccountId, FILENODE_CAP, writeAppFileAt, writeBytesIntoVisibleFolder } =
+  await import("../appFolder.js");
 const { JMAP_MAIL, JMAP_SUBMISSION, JmapClient } = await import("../jmap.js");
 const { GROUP_LABELS_FILE } = await import("../shared/labels.js");
-const { fetchEmailRecord, findMailboxByName } = await import("./actions.js");
+const { fetchEmailRecord, findMailboxByName, mailboxIdByRole } = await import(
+  "./actions.js"
+);
 const { postMessage, readChat } = await import("./chat.js");
-const { newDecision, newJob } = await import("./documents.js");
+const { automationLabel, newDecision, newJob } = await import("./documents.js");
 const { Executor, JOB_MAX_ATTEMPTS } = await import("./executor.js");
-const { claimAccount } = await import("./lease.js");
+const { claimAccount, saveClaimStates } = await import("./lease.js");
 const { AgentStore } = await import("./store.js");
 
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -52,10 +58,12 @@ const BASE = `http://127.0.0.1:${PORT}`;
  * The model every run asks. There is one shape now and no tier that runs
  * without a model (ADR 0003), so a run reaches this stub or it does not run.
  *
- * The answer is keyed by the automation's name, which is the one thing the
- * prompt states about which rule is being decided, so a test that needs a
- * particular answer — a mail to send, a malformed action — states it for its
- * own rule instead of moving the answer for every other test.
+ * The answer is keyed by the automation's label — which is its trigger
+ * (`automationLabel`), and the one thing the prompt states about which
+ * automation is being decided. With one enabled automation per trigger a group
+ * holds at most four, so a test that needs a particular answer — a mail to
+ * send, a malformed action — states it for the trigger its own rule stands on
+ * instead of moving the answer for every other test.
  */
 const MODEL_PORT = 18854;
 const answers = new Map<string, unknown>();
@@ -76,9 +84,27 @@ const DEFAULT_ANSWER = {
   actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
 };
 
-function answerFor(name: string, value: unknown): void {
-  answers.set(name, value);
+function answerFor(label: string, value: unknown): void {
+  answers.set(label, value);
 }
+
+/*
+ * Two things a test changes and the next one must not inherit.
+ *
+ * The model's answers are keyed by the automation's label, which is its trigger:
+ * within one test that identifies the run, across tests it does not — a
+ * malformed answer stated to prove one refusal would otherwise be the answer
+ * every later test's run received.
+ *
+ * And the group's policy is a document, like the rules: a test about who a run
+ * stops for changes it, and the change outlives the test. So it is put back to
+ * the suite's own reading — unattended — before every test, and a test that is
+ * about the gate states its own after this runs.
+ */
+beforeEach(async () => {
+  answers.clear();
+  await setPolicy({ review: "never" });
+});
 
 const modelStub = createServer(async (req: IncomingMessage, res) => {
   const chunks: Buffer[] = [];
@@ -169,14 +195,31 @@ function rule(overrides: Partial<AgentRule> = {}): AgentRule {
     v: 1,
     id: "file-invoices",
     version: 1,
-    name: "File the invoices",
     enabled: true,
-    trigger: { on: "email", filter: { subject: "invoice" } },
-    review: { mode: "threshold", threshold: 0.9 },
+    trigger: { on: "email" },
     instruction: "Label the invoice so the group can file it.",
     capabilities: ["keyword.add"],
     ...overrides,
   };
+}
+
+/**
+ * The group's policy: who its runs stop for (ADR 0006).
+ *
+ * It is one document per group rather than a field on an automation, so a test
+ * that cares about the gate states it here and every other test inherits the
+ * suite's own — written once in `before` as "run unattended", which is what the
+ * runs below are about.
+ */
+async function setPolicy(
+  over: Partial<Pick<AgentGroupPolicyDoc, "review" | "allowExternal">> = {},
+): Promise<void> {
+  const found = await store.readPolicy();
+  await store.writePolicy(
+    { review: over.review ?? "never", allowExternal: over.allowExternal ?? false },
+    "admin@example.com",
+    found ? { ifInState: found.state } : {},
+  );
 }
 
 async function claimFor() {
@@ -189,6 +232,44 @@ async function claimFor() {
   });
   assert.ok(claim, "the worker holds the account");
   return claim;
+}
+
+/**
+ * A claim that has already reconciled the account up to where it is now.
+ *
+ * A test that is about what a run's *own* effect wakes starts from "the state
+ * the worker has reconciled up to" — the anchor that tells a change this run
+ * caused from a change somebody else made after it (ADR 0003). That anchor is a
+ * fact about the claim **document**, and a pass cannot be relied on to leave
+ * one: a reconcile whose changes were all the worker's own bookkeeping
+ * deliberately does not advance it (`onlyBookkeeping` — advancing it would be a
+ * write that is itself the next change, for ever). And it is not only the
+ * bookkeeping: this suite runs against one account, so a claim left where an
+ * earlier test put it re-reads that test's records as changes of this pass.
+ *
+ * Stating both anchors is therefore what makes such a test about its own work:
+ * the changes the passes below see are the ones this test made, and nothing
+ * else. `claimFor()` is what a worker's own claim is; this is the same claim
+ * with the reading it would have had after a reconcile of everything so far.
+ */
+async function claimAnchoredOnTheAccount(): Promise<AgentClaim> {
+  const claim = await claimFor();
+  const states: Record<string, string> = {};
+  for (const type of ["Email", "FileNode"] as const) {
+    const res = await client.call<{ state?: unknown }>(
+      `${type}/get`,
+      { accountId: GROUP, ids: [] },
+      [type === "Email" ? JMAP_MAIL : FILENODE_CAP],
+    );
+    states[type] = typeof res.state === "string" ? res.state : "";
+  }
+  const at = new Date().toISOString();
+  const saved = await saveClaimStates(store, claim, states, {
+    Email: at,
+    FileNode: at,
+  });
+  assert.ok(saved, "the anchors are written into the claim the worker holds");
+  return saved;
 }
 
 async function jobsOf(ruleId: string): Promise<AgentJob[]> {
@@ -225,12 +306,20 @@ async function installConfig(
   });
 }
 
-/** The last call a run of this automation made, as the stub received it. */
-function lastCallFor(name: string): ModelCall {
+/**
+ * The last call a run of one trigger's automation made, as the stub received
+ * it.
+ *
+ * The key is the trigger, because that is what names an automation: two rules
+ * of this suite may share both their instruction and their answer, and the only
+ * thing that tells their runs apart is what woke them.
+ */
+function lastCallFor(on: AgentTriggerOn): ModelCall {
+  const label = automationLabel({ trigger: { on } });
   const call = [...calls]
     .reverse()
-    .find((entry) => entry.system.includes(`automation "${name}"`));
-  assert.ok(call, `the run of "${name}" asked the model`);
+    .find((entry) => entry.system.includes(`automation "${label}"`));
+  assert.ok(call, `the run of the ${label} asked the model`);
   return call;
 }
 
@@ -264,6 +353,12 @@ before(async () => {
     },
     [JMAP_MAIL],
   );
+  /*
+   * The group's policy, once for the suite. What most of these tests are about
+   * is the run itself rather than the gate, so the group runs unattended here
+   * and a test that is about who a run stops for states its own policy.
+   */
+  await setPolicy({ review: "never" });
 });
 
 after(() => {
@@ -335,36 +430,80 @@ test("a matching message is filed: the job runs, the audit records it, the claim
   );
 });
 
-test("a filter that does not match opens no job, and a rule without a filter matches", async () => {
-  const strict = rule({
-    id: "only-invoices",
-    trigger: { on: "email", filter: { subject: "not in this message" } },
-  });
-  const loose = rule({ id: "everything", trigger: { on: "email" } });
-  await store.writeRules([strict, loose]);
-  await createMessage("A message nobody filters for");
+test("every delivered message is one the mail automation reads", async () => {
+  /*
+   * An automation carries no filter, so the executor's own pre-filter is gone
+   * with the field it belonged to (ADR 0006). What it reads of a message is its
+   * identity — the run fetches the message itself, body included, when it builds
+   * the context it decides on.
+   *
+   * A draft is the one exclusion, and it is the account's own bookkeeping rather
+   * than a match: work in progress must not wake the run that prepares it.
+   */
+  const only = rule({ id: "everything" });
+  await store.writeRules([only]);
+  const delivered = await createMessage("A message nobody filtered for");
+  // A draft, which is work in progress rather than delivered mail: it is the
+  // one thing the reconcile leaves alone.
+  const drafts = await mailboxIdByRole(client, GROUP, "drafts");
+  assert.ok(drafts, "the suite's own setup gave the group a Drafts mailbox");
+  const madeDraft = await client.call<{ created?: Record<string, { id: string }> }>(
+    "Email/set",
+    {
+      accountId: GROUP,
+      create: {
+        d: {
+          mailboxIds: { [drafts]: true },
+          keywords: { $draft: true },
+          subject: "A draft nobody should wake a run for",
+          from: [{ email: ADA }],
+          bodyStructure: { partId: "t", type: "text/plain" },
+          bodyValues: { t: { value: "still writing" } },
+        },
+      },
+    },
+    [JMAP_MAIL],
+  );
+  const draftId = madeDraft.created?.d?.id;
+  assert.ok(draftId, "the mock created the draft");
 
   await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
 
-  assert.equal((await jobsOf("only-invoices")).length, 0);
-  assert.ok((await jobsOf("everything")).length >= 1);
+  const jobs = await jobsOf("everything");
+  assert.equal(
+    jobs.filter((job) => job.trigger.emailId === delivered).length,
+    1,
+    "the delivered message opened a job",
+  );
+  assert.equal(
+    jobs.filter((job) => job.trigger.emailId === draftId).length,
+    0,
+    "and the draft opened none",
+  );
 });
 
-test("a filter the executor cannot honour fails loudly instead of never firing", async () => {
-  const broken = rule({
-    id: "broken-filter",
-    trigger: { on: "email", filter: { mood: "sunny" } },
-  });
+test("an automation that could do nothing fails loudly instead of never running", async () => {
+  /*
+   * The form refuses a rule with no grant; one that reached storage by another
+   * road — written by hand, or restored from a backup — has to be refused when
+   * it runs as well, or the refusal is a formality. The failure is loud: the
+   * job fails with the reason, the group hears it, and nothing pretends an
+   * automation that can do nothing did something.
+   */
+  const broken = rule({ id: "no-grant", capabilities: [] });
   await store.writeRules([broken]);
+  const emailId = await createMessage("An invoice no automation can act on");
 
   await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
 
-  const jobs = await jobsOf("broken-filter");
+  const jobs = (await jobsOf("no-grant")).filter(
+    (job) => job.trigger.emailId === emailId,
+  );
   assert.equal(jobs.length, 1);
   assert.equal(jobs[0]!.state, "failed");
   assert.match(
     String(jobs[0]!.error),
-    /uses "mood", which no matcher implements/,
+    /needs at least one capability/,
     "and it refuses in the words the form uses, not in words of its own",
   );
   const audit = await store.readAuditAt(new Date());
@@ -383,10 +522,9 @@ test("a filter the executor cannot honour fails loudly instead of never firing",
 test("a G- label the group's catalog does not define refuses the run before it acts", async () => {
   const bad = rule({
     id: "unknown-label",
-    name: "Label wrongly",
     capabilities: ["keyword.add"],
   });
-  answerFor("Label wrongly", {
+  answerFor("Mail automation", {
     summary: "Labelled it.",
     confidence: 1,
     actions: [{ do: "keyword.add", with: { keyword: "G-nobody-defined-this" } }],
@@ -418,10 +556,9 @@ test("a G- label the group's catalog does not define refuses the run before it a
 test("duplicate delivery is harmless: the same record never opens a second job", async () => {
   const once = rule({
     id: "once-only",
-    name: "Touch the message once",
     capabilities: ["noop"],
   });
-  answerFor("Touch the message once", {
+  answerFor("Mail automation", {
     summary: "Left it alone.",
     confidence: 1,
     actions: [{ do: "noop" }],
@@ -467,9 +604,9 @@ test("a job whose pinned rule version is gone refuses instead of running another
 test("a run that must wait on a person pauses, and one conversational answer settles it", async () => {
   const waiting = rule({
     id: "ask-first",
-    name: "Ask before filing",
-    review: { mode: "always" },
   });
+  await setPolicy({ review: "always" });
+  // This test is about a run that stops for a person, so the group says so.
   await store.writeRules([waiting]);
   const emailId = await createMessage("An invoice needing approval");
 
@@ -532,12 +669,11 @@ test("a run that must wait on a person pauses, and one conversational answer set
 test("a malformed proposal fails loudly rather than pausing on nothing", async () => {
   const broken = rule({
     id: "no-action-params",
-    name: "Broken on purpose",
     capabilities: ["keyword.add"],
   });
   // The model answers with an action missing a parameter the catalogue
   // requires: the answer is refused before it can become an effect.
-  answerFor("Broken on purpose", {
+  answerFor("Mail automation", {
     summary: "Labelled it.",
     confidence: 1,
     actions: [{ do: "keyword.add", with: {} }],
@@ -556,11 +692,9 @@ test("a malformed proposal fails loudly rather than pausing on nothing", async (
 test("a proposal that would send mail leaves the draft in Drafts, unread, and a person sending it settles the decision", async () => {
   const proposer = rule({
     id: "draft-and-send",
-    name: "Reply to the invoice",
-    review: { mode: "always" },
     capabilities: ["mail.draft", "mail.send"],
   });
-  answerFor("Reply to the invoice", {
+  answerFor("Mail automation", {
     summary: "Replied to the invoice.",
     confidence: 1,
     actions: [
@@ -574,6 +708,8 @@ test("a proposal that would send mail leaves the draft in Drafts, unread, and a 
       },
     ],
   });
+  await setPolicy({ review: "always" });
+  // This test is about a run that stops for a person, so the group says so.
   await store.writeRules([proposer]);
   const emailId = await createMessage("An invoice that wants a reply");
 
@@ -627,11 +763,9 @@ test("a proposal that would send mail leaves the draft in Drafts, unread, and a 
 test("a draft that vanished is not an approval", async () => {
   const proposer = rule({
     id: "vanishing-draft",
-    name: "Reply and forget",
-    review: { mode: "always" },
     capabilities: ["mail.draft", "mail.send"],
   });
-  answerFor("Reply and forget", {
+  answerFor("Mail automation", {
     summary: "Replied to the invoice.",
     confidence: 1,
     actions: [
@@ -639,6 +773,8 @@ test("a draft that vanished is not an approval", async () => {
       { do: "mail.send", with: { to: ADA } },
     ],
   });
+  await setPolicy({ review: "always" });
+  // This test is about a run that stops for a person, so the group says so.
   await store.writeRules([proposer]);
   await createMessage("An invoice whose draft will vanish");
 
@@ -673,11 +809,9 @@ test("a draft moved to Trash is a rejection, not a send", async () => {
   assert.ok(trashId, "the mock assigns the Trash mailbox its own id");
   const proposer = rule({
     id: "trashed-draft",
-    name: "Reply and get discarded",
-    review: { mode: "always" },
     capabilities: ["mail.draft", "mail.send"],
   });
-  answerFor("Reply and get discarded", {
+  answerFor("Mail automation", {
     summary: "Replied to the invoice.",
     confidence: 1,
     actions: [
@@ -685,6 +819,8 @@ test("a draft moved to Trash is a rejection, not a send", async () => {
       { do: "mail.send", with: { to: ADA } },
     ],
   });
+  await setPolicy({ review: "always" });
+  // This test is about a run that stops for a person, so the group says so.
   await store.writeRules([proposer]);
   const emailId = await createMessage("An invoice whose reply will be rejected");
 
@@ -730,7 +866,7 @@ test("a draft moved to Trash is a rejection, not a send", async () => {
 });
 
 test("a failure retries to a point and then dead-letters, telling the group", async () => {
-  const flaky = rule({ id: "flaky", name: "Flaky automation" });
+  const flaky = rule({ id: "flaky" });
   await store.writeRules([flaky]);
   const emailId = await createMessage("An invoice for a flaky rule");
   const job = newJob({
@@ -773,16 +909,16 @@ test("a failure retries to a point and then dead-letters, telling the group", as
 test("the schedule fires what is due and moves the entry on", async () => {
   const scheduled = rule({
     id: "every-five",
-    name: "Every five minutes",
     trigger: { on: "schedule", everyMinutes: 5 },
     capabilities: ["noop"],
-    review: { mode: "never" },
   });
-  answerFor("Every five minutes", {
+  answerFor("Scheduled automation", {
     summary: "Looked at the clock.",
     confidence: 1,
     actions: [{ do: "noop" }],
   });
+  await setPolicy({ review: "never" });
+  // The clock's own test: the run goes ahead unattended.
   await store.writeRules([scheduled]);
   await store.writeSchedule([
     { ruleId: scheduled.id, at: new Date(Date.now() - 60_000).toISOString() },
@@ -818,16 +954,16 @@ test("the schedule fires what is due and moves the entry on", async () => {
 test("a fire the lock defers arms no timer, and the catch-up runs it", async () => {
   const scheduled = rule({
     id: "deferred-fire",
-    name: "Deferred fire",
     trigger: { on: "schedule", everyMinutes: 5 },
     capabilities: ["noop"],
-    review: { mode: "never" },
   });
-  answerFor("Deferred fire", {
+  answerFor("Scheduled automation", {
     summary: "Looked at the clock.",
     confidence: 1,
     actions: [{ do: "noop" }],
   });
+  await setPolicy({ review: "never" });
+  // The clock's own test: the run goes ahead unattended.
   await store.writeRules([scheduled]);
   await claimFor();
 
@@ -906,9 +1042,9 @@ test("a fire the lock defers arms no timer, and the catch-up runs it", async () 
 test("pruning drops finished documents and keeps open ones", async () => {
   const open = rule({
     id: "still-open",
-    name: "Still open",
-    review: { mode: "always" },
   });
+  await setPolicy({ review: "always" });
+  // This test is about a run that stops for a person, so the group says so.
   await store.writeRules([open]);
   await createMessage("An invoice that will wait for a person");
   await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
@@ -974,7 +1110,6 @@ test("a folder slice is one header line per message, never a body", async () => 
 test("a failure that could have sent mail is not retried", async () => {
   const sender = rule({
     id: "sender",
-    name: "Sender automation",
     actions: [{ do: "mail.send", with: { to: ADA, subject: "x", text: "y" } }],
     capabilities: ["mail.send"],
   });
@@ -1015,7 +1150,7 @@ test("a failure that could have sent mail is not retried", async () => {
 });
 
 test("a failure that stayed inside the group waits before trying again", async () => {
-  const internal = rule({ id: "internal", name: "Internal automation" });
+  const internal = rule({ id: "internal" });
   await store.writeRules([internal]);
   const emailId = await createMessage("An invoice for an internal retry");
   const job = newJob({
@@ -1055,7 +1190,7 @@ test("a failure that stayed inside the group waits before trying again", async (
 });
 
 test("a run nobody came back for is closed as a timeout, not a failure", async () => {
-  const abandoned = rule({ id: "abandoned", name: "Abandoned automation" });
+  const abandoned = rule({ id: "abandoned" });
   await store.writeRules([abandoned]);
   const emailId = await createMessage("An invoice for an abandoned run");
   const job = newJob({
@@ -1095,7 +1230,7 @@ test("a run nobody came back for is closed as a timeout, not a failure", async (
 });
 
 test("a run whose agent died is taken up again by the next pass", async () => {
-  const resume = rule({ id: "resume", name: "Resume automation" });
+  const resume = rule({ id: "resume" });
   await store.writeRules([resume]);
   const emailId = await createMessage("An invoice to resume");
   const job = newJob({
@@ -1132,7 +1267,7 @@ test("a run whose agent died is taken up again by the next pass", async () => {
 });
 
 test("a sweep leaves a job whose unit is somebody else's alone", async () => {
-  const fenced = rule({ id: "fenced", name: "Fenced automation" });
+  const fenced = rule({ id: "fenced" });
   await store.writeRules([fenced]);
   const emailId = await createMessage("An invoice only one worker may run");
   const job = newJob({
@@ -1187,9 +1322,9 @@ test("a sweep leaves a job whose unit is somebody else's alone", async () => {
 test("an approval on a rule that moved on is refused, and the answer is spoken", async () => {
   const movedOn = rule({
     id: "moved-on",
-    name: "Approved too late",
-    review: { mode: "always" },
   });
+  await setPolicy({ review: "always" });
+  // This test is about a run that stops for a person, so the group says so.
   await store.writeRules([movedOn]);
   const emailId = await createMessage("An invoice approved too late");
   await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
@@ -1224,25 +1359,34 @@ test("an approval on a rule that moved on is refused, and the answer is spoken",
   );
 });
 
-test("a filter the form refuses is refused when it runs too", async () => {
-  // A group with no conditions is not a filter: `AND` over nothing is true, so
-  // a rule written that way quietly matches every message in the account. The
-  // form refuses it; a rule that reached storage by another road has to be
-  // refused when it runs as well, or the refusal is a formality.
-  const empty = rule({
-    id: "empty-group",
-    name: "An empty group",
-    trigger: { on: "email", filter: { operator: "AND", conditions: [] } },
-  });
-  await store.writeRules([empty]);
-  await createMessage("An invoice the empty group would match");
+test("a group carrying two automations on one trigger is refused, and told why", async () => {
+  /*
+   * One enabled automation per trigger is a rule of the product (ADR 0006), and
+   * the fan-out is what it exists for: this pass starts a job for every enabled
+   * automation on the trigger, so a group with two of them answers one arrival
+   * twice. The save guard is the enforcer; a document written by hand, or
+   * restored from a backup, reaches the executor anyway — and a person has to
+   * hear about it rather than read two replies to one message.
+   */
+  const first = rule({ id: "double-a" });
+  const second = rule({ id: "double-b" });
+  await store.writeRules([first, second]);
+  await createMessage("An invoice two automations would both read");
+  const chatBefore = (await readChat(ctx, GROUP, client)).length;
 
   await executor.reconcile(GROUP, "Email", { ...(await claimFor()), states: {} });
 
-  const jobs = await jobsOf("empty-group");
-  assert.equal(jobs.length, 1);
-  assert.equal(jobs[0]!.state, "failed");
-  assert.match(String(jobs[0]!.error), /has none/);
+  const chat = await readChat(ctx, GROUP, client);
+  assert.ok(
+    chat.length > chatBefore,
+    "the group is told, rather than reading two replies to one message",
+  );
+  assert.ok(
+    chat.some((message) => message.text.includes("leave one enabled per trigger")),
+    "and the sentence names what to do about it",
+  );
+  const line = logLines.find((entry) => entry.includes("leave one enabled per trigger"));
+  assert.ok(line, "and the log carries it too, for whoever reads the log");
 });
 
 test("an extraction that fails is not retried, because it leaves a file behind", async () => {
@@ -1250,10 +1394,8 @@ test("an extraction that fails is not retried, because it leaves a file behind",
   // is dead-lettered rather than repeated (resolution 20).
   const extractor = rule({
     id: "extract",
-    name: "Save the attachments",
     actions: [{ do: "mail.extract", with: { folder: "invoices" } }],
     capabilities: ["mail.extract"],
-    review: { mode: "never" },
   });
   const proposal = {
     summary: "save the attachments",
@@ -1303,17 +1445,17 @@ test("a paused run whose unit was taken over leaves no draft", async () => {
   // actions are fenced by.
   const proposing = rule({
     id: "draft-on-approval",
-    name: "Ask before replying",
-    review: { mode: "always" },
     capabilities: ["mail.draft"],
   });
-  answerFor("Ask before replying", {
+  answerFor("Mail automation", {
     summary: "Drafted a reply.",
     confidence: 1,
     actions: [
       { do: "mail.draft", with: { to: ADA, subject: "Re: invoice", text: "Filed." } },
     ],
   });
+  await setPolicy({ review: "always" });
+  // This test is about a run that stops for a person, so the group says so.
   await store.writeRules([proposing]);
   const emailId = await createMessage("An invoice that would be drafted for approval");
   const claim = await claimFor();
@@ -1368,7 +1510,7 @@ test("a rules document nobody can read stops the group's runs and says so", asyn
   // it never acted on.
   await writeAppFileAt(ctx, GROUP, "agent/rules.json", {
     v: 1,
-    rules: [{ v: 1, id: "half", version: 1, name: "Half an automation" }],
+    rules: [{ v: 1, id: "half", version: 1 }],
   });
   const jobsBefore = (await store.listJobs()).length;
 
@@ -1418,7 +1560,7 @@ async function draftsInDrafts(): Promise<number> {
 }
 
 test("a job write carries the state it was read against, and a refusal writes nothing", async () => {
-  const movedRule = rule({ id: "moved", name: "Moved automation" });
+  const movedRule = rule({ id: "moved" });
   await store.writeRules([movedRule]);
   const emailId = await createMessage("An invoice that moves under the writer");
   const job = newJob({
@@ -1468,7 +1610,6 @@ test("a job write carries the state it was read against, and a refusal writes no
 test("an approval that was consumed and never ran is recorded, not left silent", async () => {
   const spent = rule({
     id: "spent-approval",
-    name: "Spent approval",
     actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
   });
   await store.writeRules([spent]);
@@ -1523,8 +1664,8 @@ test("an approval that was consumed and never ran is recorded, not left silent",
   assert.equal(reports.length, 1, "the trail carries the failure, with its reason");
   const chat = await readChat(ctx, GROUP, client);
   assert.ok(
-    chat.some((message) => message.text.includes("Spent approval")),
-    "the group's chat names the rule",
+    chat.some((message) => message.text.includes("Mail automation")),
+    "the group's chat names the automation",
   );
   const marked = await fetchEmailRecord(client, GROUP, emailId, {});
   assert.equal(
@@ -1552,7 +1693,7 @@ test("a run somebody asked for tells the group what it did", async () => {
   // group's own mail, chat or clock, and needs no announcement; a run somebody
   // asked for is a fact about the group's agent that its members should not
   // have to infer from a document they cannot open.
-  const asked = rule({ id: "asked", name: "Label on request" });
+  const asked = rule({ id: "asked" });
   await store.writeRules([asked]);
   const emailId = await createMessage("An invoice somebody asked about");
   const job = newJob({
@@ -1589,13 +1730,10 @@ test("a chain carries its lineage, and the run past the bound is refused loudly"
    */
   const filer = rule({
     id: "chain-first",
-    name: "Chain: file it",
-    trigger: { on: "email", filter: { subject: "chain" } },
     capabilities: ["file.write"],
   });
   const reader = rule({
     id: "chain-second",
-    name: "Chain: read it",
     trigger: { on: "filenode" },
     capabilities: ["file.write"],
   });
@@ -1604,29 +1742,29 @@ test("a chain carries its lineage, and the run past the bound is refused loudly"
     confidence: 1,
     actions: [{ do: "file.write", with: { folder: "Chain", name, text: "the note" } }],
   });
-  answerFor("Chain: file it", writes("first.txt"));
-  answerFor("Chain: read it", writes("again.txt"));
+  answerFor("Mail automation", writes("first.txt"));
+  answerFor("File automation", writes("again.txt"));
 
-  // The FileNode state the worker has reconciled up to is anchored before this
-  // test's own files exist, so the passes below see the chain and nothing else.
-  await executor.reconcile(GROUP, "FileNode", {
-    ...(await claimFor()),
-    states: {},
-  });
+  // Where the worker has reconciled up to, anchored before this test's own mail
+  // and files exist: what the passes below read is the chain this test made.
+  const claim = await claimAnchoredOnTheAccount();
+  await executor.reconcile(GROUP, "FileNode", claim);
   await store.writeRules([filer, reader]);
 
-  await createMessage("the chain starts here");
-  await executor.reconcile(GROUP, "Email", await claimFor());
+  const emailId = await createMessage("the chain starts here");
+  await executor.reconcile(GROUP, "Email", claim);
 
-  const first = (await jobsOf("chain-first")).at(-1);
-  assert.ok(first, "the arrival opened a run");
+  const first = (await jobsOf("chain-first")).find(
+    (job) => job.trigger.emailId === emailId,
+  );
+  assert.ok(first, "the arrival opened a run for this message");
   assert.equal(first.trigger.hop, 1, "what wakes a rule by itself is hop one");
   assert.equal(
     first.trigger.parentJobId,
     undefined,
     "and it records no parent, because nothing woke it but the mail",
   );
-  const readBefore = asked.filter((name) => name === "Chain: read it").length;
+  const readBefore = asked.filter((label) => label === "File automation").length;
 
   // The file changes, pass by pass: the run of each pass writes the file that
   // wakes the next one, up to the bound the installation set. The claim that
@@ -1650,18 +1788,25 @@ test("a chain carries its lineage, and the run past the bound is refused loudly"
     "each woken run records the job that woke it",
   );
   assert.equal(
-    asked.filter((name) => name === "Chain: read it").length - readBefore,
+    asked.filter((label) => label === "File automation").length - readBefore,
     1,
     "no run happens for the hop past the bound, so no model is asked about one",
   );
 
+  /*
+   * The trail is the group's month and this suite shares one account, so what
+   * is counted here is this automation's own refusals: another test's refusal is
+   * another automation's and says nothing about this one.
+   */
   const audit = await store.readAuditAt(new Date());
-  const refusals = (audit?.entries ?? []).filter((entry) => entry.outcome === "refused");
+  const refusals = (audit?.entries ?? []).filter(
+    (entry) => entry.outcome === "refused" && entry.ruleId === "chain-second",
+  );
   assert.equal(refusals.length, 1, "the refusal stands alone in the trail");
   assert.equal(refusals[0]!.ruleId, "chain-second");
   assert.match(
     String(refusals[0]!.detail),
-    /Chain: read it: .*past 2 hops/,
+    /File automation: .*past 2 hops/,
     "and names the automation and the bound it was refused past",
   );
 
@@ -1669,13 +1814,13 @@ test("a chain carries its lineage, and the run past the bound is refused loudly"
   assert.ok(
     chat.some(
       (message) =>
-        message.text.includes("Chain: read it") && message.text.includes("past 2 hops"),
+        message.text.includes("File automation") && message.text.includes("past 2 hops"),
     ),
     "the group is told which automation could not run, and which bound it passed",
   );
   assert.ok(
     logLines.some(
-      (line) => line.includes("Chain: read it") && line.includes("past 2 hops"),
+      (line) => line.includes("File automation") && line.includes("past 2 hops"),
     ),
     "and the log carries the same line",
   );
@@ -1686,7 +1831,9 @@ test("a chain carries its lineage, and the run past the bound is refused loudly"
   await executor.reconcile(GROUP, "FileNode", lastPass);
   const reread = await store.readAuditAt(new Date());
   assert.equal(
-    (reread?.entries ?? []).filter((entry) => entry.outcome === "refused").length,
+    (reread?.entries ?? []).filter(
+      (entry) => entry.outcome === "refused" && entry.ruleId === "chain-second",
+    ).length,
     1,
     "the refusal is recorded once, however often the change is read",
   );
@@ -1745,11 +1892,10 @@ test("a change somebody else made to a record a run wrote is hop one", async () 
 
   const watcher = rule({
     id: "watch-notes",
-    name: "Watch the notes",
     trigger: { on: "filenode" },
     capabilities: ["file.write"],
   });
-  answerFor("Watch the notes", writes("from-the-watch.txt"));
+  answerFor("File automation", writes("from-the-watch.txt"));
   await store.writeRules([watcher]);
   // Somebody writes that file again: the change names a record a deep run wrote,
   // and the run it wakes is the person's.
@@ -1789,7 +1935,10 @@ test("an unrelated shallow write does not reset a chain's own depth", async () =
    * interleaved with an unrelated, frequently-firing rule.
    */
   await store.writeRules([]);
-  await executor.reconcile(GROUP, "FileNode", { ...(await claimFor()), states: {} });
+  await executor.reconcile(GROUP, "FileNode", {
+    ...(await claimFor()),
+    states: {},
+  });
 
   const nodeId = await writeBytesIntoVisibleFolder(
     ctx,
@@ -1836,11 +1985,10 @@ test("an unrelated shallow write does not reset a chain's own depth", async () =
 
   const watcher = rule({
     id: "watch-attribution",
-    name: "Watch the shared file",
     trigger: { on: "filenode" },
     capabilities: ["file.write"],
   });
-  answerFor("Watch the shared file", {
+  answerFor("File automation", {
     summary: "Noted.",
     confidence: 1,
     actions: [
@@ -1937,11 +2085,10 @@ test("a job whose write no pass has read past is not pruned", async () => {
 test("a run of an installation without vision carries no page, and is told so", async () => {
   const reader = rule({
     id: "read-the-scan",
-    name: "Read the scan",
     trigger: { on: "filenode" },
     capabilities: ["document.read", "noop"],
   });
-  answerFor("Read the scan", {
+  answerFor("File automation", {
     summary: "Read it.",
     confidence: 1,
     actions: [{ do: "noop" }],
@@ -1949,7 +2096,10 @@ test("a run of an installation without vision carries no page, and is told so", 
   // No automation is armed while the pass catches up, and the state it settles
   // on is the one the file written below is measured against.
   await store.writeRules([]);
-  await executor.reconcile(GROUP, "FileNode", { ...(await claimFor()), states: {} });
+  await executor.reconcile(GROUP, "FileNode", {
+    ...(await claimFor()),
+    states: {},
+  });
   await store.writeRules([reader]);
   // One page with no text layer of its own: the page a model with eyes would be
   // handed as an image.
@@ -1963,7 +2113,7 @@ test("a run of an installation without vision carries no page, and is told so", 
   );
   await executor.reconcile(GROUP, "FileNode", await claimFor());
 
-  const call = lastCallFor("Read the scan");
+  const call = lastCallFor("filenode");
   const parts = userParts(call);
   assert.ok(
     parts.every((part) => part.type !== "image_url"),
@@ -1988,17 +2138,19 @@ test("a run of an installation without vision carries no page, and is told so", 
 test("a run's prompt states the installation's page bound, clamped to this build's ceiling", async () => {
   const reader = rule({
     id: "page-budget",
-    name: "Page budget",
     trigger: { on: "filenode" },
     capabilities: ["document.read", "noop"],
   });
-  answerFor("Page budget", {
+  answerFor("File automation", {
     summary: "Read it.",
     confidence: 1,
     actions: [{ do: "noop" }],
   });
   await store.writeRules([]);
-  await executor.reconcile(GROUP, "FileNode", { ...(await claimFor()), states: {} });
+  await executor.reconcile(GROUP, "FileNode", {
+    ...(await claimFor()),
+    states: {},
+  });
   await store.writeRules([reader]);
 
   try {
@@ -2012,7 +2164,7 @@ test("a run's prompt states the installation's page bound, clamped to this build
       "application/pdf",
     );
     await executor.reconcile(GROUP, "FileNode", await claimFor());
-    const set = lastCallFor("Page budget");
+    const set = lastCallFor("filenode");
     assert.match(set.system, /At most 3 pages/, "the bound the installation set");
     assert.match(
       userParts(set)
@@ -2035,7 +2187,7 @@ test("a run's prompt states the installation's page bound, clamped to this build
     );
     await executor.reconcile(GROUP, "FileNode", await claimFor());
     assert.match(
-      lastCallFor("Page budget").system,
+      lastCallFor("filenode").system,
       /At most 50 pages/,
       "a bound past the ceiling is held to the ceiling",
     );

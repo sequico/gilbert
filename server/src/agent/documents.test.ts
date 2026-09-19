@@ -8,32 +8,39 @@ import {
 } from "../shared/chat.js";
 import {
   AGENT_ACTION_SPECS,
+  AGENT_AREAS,
   AGENT_AUDIT_OUTCOMES,
+  AGENT_AUTOMATION_LABELS,
   AGENT_NOTEBOOK_FACT_MAX,
-  AGENT_NOTES_MAX,
+  AGENT_REVIEW_THRESHOLD,
+  AGENT_SCHEDULE_MINUTES_DEFAULT,
+  AGENT_SCHEDULE_PRESETS,
   AGENT_TRIGGERS,
   type AgentAction,
-  type AgentEmailView,
+  type AgentGroupPolicyDoc,
   type AgentNotebookDoc,
   type AgentRule,
   agentRuleJsonSchema,
+  areaActions,
+  automationLabel,
   CHAT_CONTEXT_DEFAULT,
   CHAT_CONTEXT_MAX,
   changeIdOf,
   clampChatContext,
   consentRequired,
+  effectiveCapabilities,
   FENCED_ACTIONS,
+  GONE_AUTOMATION_LABEL,
   hopOf,
   irreversible,
   isAgentAction,
+  isAgentGroupPolicyDoc,
   isAgentJob,
   isAgentNotebookDoc,
-  isAgentNotes,
   isAgentRule,
   isAgentRulesDoc,
   isAgentTriggerRecord,
   leavesTheProcess,
-  matchEmailFilter,
   meterOver,
   missingActionParams,
   monthOf,
@@ -41,14 +48,14 @@ import {
   newJob,
   nextRunAfter,
   notebookFor,
-  notesProblem,
+  policyOf,
   reviewOutcome,
-  ruleNotesProblem,
   ruleProblem,
   ruleProblems,
-  SUPPORTED_FILTER_KEYS,
+  rulesProblem,
+  scheduleMinutesOf,
   schemaProblems,
-  UnsupportedFilterError,
+  standaloneActions,
 } from "./documents.js";
 
 /* A rule that is valid as written, so each test can vary one thing at a time. */
@@ -57,29 +64,19 @@ function rule(over: Partial<AgentRule> = {}): AgentRule {
     v: 1,
     id: "r1",
     version: 1,
-    name: "Sort the invoices",
     enabled: true,
-    trigger: { on: "email", filter: { subject: "invoice" } },
-    review: { mode: "never" },
+    trigger: { on: "email" },
     instruction: "Label the invoice so the group can find it.",
     capabilities: ["keyword.add"],
     ...over,
   };
 }
 
-function email(over: Partial<AgentEmailView> = {}): AgentEmailView {
-  return {
-    id: "e1",
-    mailboxIds: { inbox: true },
-    keywords: {},
-    receivedAt: "2026-09-10T08:00:00Z",
-    size: 1200,
-    subject: "Invoice 42",
-    from: [{ name: "Ada", email: "ada@example.org" }],
-    to: [{ email: "team@example.org" }],
-    body: "please pay",
-    ...over,
-  };
+/** A group's policy, with the cautious default every test varies from. */
+function policy(
+  over: Partial<AgentGroupPolicyDoc> = {},
+): Pick<AgentGroupPolicyDoc, "review" | "allowExternal"> {
+  return { review: "never", allowExternal: false, ...over };
 }
 
 test("a rule carries the instruction it runs on and a capability to allow", () => {
@@ -92,14 +89,36 @@ test("a rule carries the instruction it runs on and a capability to allow", () =
   assert.equal(isAgentRule(noCapabilities), false);
 });
 
-test("a threshold review without a number is refused, not guessed", () => {
-  // Reading a missing threshold as 0 would auto-execute everything, which is
-  // the one reading the owner did not choose.
-  assert.equal(isAgentRule(rule({ review: { mode: "threshold" } })), false);
+test("an automation carries no review policy: that is the group's own document", () => {
+  // Who a run stops for is a fact about the group, written once (ADR 0006), so
+  // a field on the rule is not part of this shape and is not validated as one.
+  assert.equal(isAgentRule({ ...rule(), review: { mode: "never" } }), true);
+});
+
+test("a group's policy is a document of its own, and its default is caution", () => {
   assert.equal(
-    isAgentRule(rule({ review: { mode: "threshold", threshold: 0.7 } })),
+    isAgentGroupPolicyDoc({
+      v: 1,
+      review: "threshold",
+      allowExternal: true,
+      updatedAt: "2026-09-10T08:00:00Z",
+      updatedBy: "admin@example.org",
+    }),
     true,
   );
+  // A mode this build does not know, or a missing flag, is not a policy.
+  assert.equal(
+    isAgentGroupPolicyDoc({ v: 1, review: "sometimes", allowExternal: false }),
+    false,
+  );
+  assert.equal(isAgentGroupPolicyDoc({ v: 1, review: "never" }), false);
+  // A group that has written none runs on the cautious reading: every run
+  // stops for a person, and nothing has raised the external-send floor.
+  assert.deepEqual(policyOf(null), { review: "always", allowExternal: false });
+  assert.deepEqual(policyOf(policy({ review: "never", allowExternal: true })), {
+    review: "never",
+    allowExternal: true,
+  });
 });
 
 test("rules.json round-trips through its validator", () => {
@@ -130,9 +149,9 @@ test("sending reaches outside the group, so it needs consent", () => {
   // switch it off. `allowExternal` still governs the consent a *reversible*
   // external action needs; today `mail.send` is the only external action and it
   // is also irreversible, so the two coincide.
-  assert.equal(reviewOutcome({ mode: "never" }, [send], 1), "pause");
+  assert.equal(reviewOutcome(policy({ review: "never" }), [send], 1), "pause");
   assert.equal(
-    reviewOutcome({ mode: "never", allowExternal: true }, [send], 1),
+    reviewOutcome(policy({ review: "never", allowExternal: true }), [send], 1),
     "pause",
     "the irreversible floor is not a knob",
   );
@@ -197,21 +216,63 @@ test("every action the fence names is fenced, whatever its spec flags say", () =
   }
 });
 
-test("the review gate follows the mode, the confidence and the T0 convention", () => {
+test("the review gate follows the group's policy and the confidence", () => {
   const label: AgentAction[] = [{ do: "keyword.add", with: { keyword: "todo" } }];
-  assert.equal(reviewOutcome({ mode: "always" }, label, 1), "pause");
-  assert.equal(reviewOutcome({ mode: "never" }, label, 0), "execute");
+  assert.equal(reviewOutcome(policy({ review: "always" }), label, 1), "pause");
+  assert.equal(reviewOutcome(policy({ review: "never" }), label, 0), "execute");
+  /*
+   * The threshold is one constant rather than a field: an author picking "run
+   * it unattended when the model is confident" picks the behaviour, and the
+   * number is what "confident" means (ADR 0006).
+   */
   assert.equal(
-    reviewOutcome({ mode: "threshold", threshold: 0.6 }, label, 0.6),
+    reviewOutcome(policy({ review: "threshold" }), label, AGENT_REVIEW_THRESHOLD),
     "execute",
+    "at the threshold the run goes ahead",
   );
   assert.equal(
-    reviewOutcome({ mode: "threshold", threshold: 0.6 }, label, 0.59),
+    reviewOutcome(policy({ review: "threshold" }), label, AGENT_REVIEW_THRESHOLD - 0.01),
     "pause",
   );
-  // A deterministic run carries confidence 1, so a group wanting a person on
-  // a T0 automation picks `always`, not a threshold.
-  assert.equal(reviewOutcome({ mode: "threshold", threshold: 1 }, label, 1), "execute");
+});
+
+test("one enabled automation per trigger is refused as a list, not as a document", () => {
+  /*
+   * An automation carries no filter, so nothing in the document tells two of
+   * them on one trigger apart, and the executor runs every enabled automation
+   * on a trigger against every item that trigger produces: two of them answer
+   * the same arrival twice (ADR 0006 decision one).
+   */
+  assert.equal(rulesProblem([]), null);
+  assert.equal(rulesProblem([rule({ trigger: { on: "email" } })]), null);
+  assert.equal(
+    rulesProblem([
+      rule({ id: "a", trigger: { on: "email" } }),
+      rule({ id: "b", trigger: { on: "chat" } }),
+      rule({ id: "c", trigger: { on: "schedule", everyMinutes: 60 } }),
+      rule({ id: "d", trigger: { on: "filenode" } }),
+    ]),
+    null,
+    "one per trigger is the whole of what a group may hold",
+  );
+  const doubled = rulesProblem([
+    rule({ id: "a", trigger: { on: "email" } }),
+    rule({ id: "b", trigger: { on: "email" } }),
+  ]);
+  assert.match(doubled ?? "", /email/);
+  assert.match(doubled ?? "", /leave one enabled per trigger/);
+  /*
+   * A disabled automation wakes nothing, so it is a draft: it may sit beside
+   * the enabled one while its author decides to replace it — the count is of
+   * enabled automations, not of documents.
+   */
+  assert.equal(
+    rulesProblem([
+      rule({ id: "a", trigger: { on: "email" } }),
+      rule({ id: "b", enabled: false, trigger: { on: "email" } }),
+    ]),
+    null,
+  );
 });
 
 test("ruleProblem names what would stop a run", () => {
@@ -223,78 +284,132 @@ test("ruleProblem names what would stop a run", () => {
   );
 });
 
-test("the filter subset matches the way RFC 8621 says it should", () => {
-  assert.equal(matchEmailFilter(undefined, email()), true);
-  assert.equal(matchEmailFilter({ subject: "invoice" }, email()), true);
+test("a trigger is what wakes an automation, and there is nothing else to it", () => {
+  // The four triggers are the whole vocabulary, and an automation carries no
+  // filter: the discrimination between one case and another is its prose's job
+  // (ADR 0006), which is what makes the shape three choices and a paragraph.
+  assert.deepEqual([...AGENT_TRIGGERS], ["email", "filenode", "chat", "schedule"]);
+  for (const on of AGENT_TRIGGERS) {
+    // A trigger that is not the clock states nothing else; the clock states how
+    // often, because a schedule without an interval has no next instant.
+    const trigger = on === "schedule" ? { on, everyMinutes: 60 } : { on };
+    assert.equal(isAgentRule(rule({ trigger })), true, `${on} is a trigger`);
+  }
   assert.equal(
-    matchEmailFilter({ subject: "INVOICE" }, email()),
-    true,
-    "case-insensitive",
-  );
-  assert.equal(matchEmailFilter({ subject: "receipt" }, email()), false);
-  assert.equal(matchEmailFilter({ from: "ada" }, email()), true);
-  assert.equal(matchEmailFilter({ from: "grace" }, email()), false);
-  assert.equal(matchEmailFilter({ to: "team@example.org" }, email()), true);
-  assert.equal(matchEmailFilter({ inMailbox: "inbox" }, email()), true);
-  assert.equal(matchEmailFilter({ inMailbox: "archive" }, email()), false);
-  assert.equal(matchEmailFilter({ hasKeyword: "$seen" }, email()), false);
-  assert.equal(
-    matchEmailFilter({ hasKeyword: "$seen" }, email({ keywords: { $seen: true } })),
-    true,
-  );
-  assert.equal(matchEmailFilter({ notKeyword: "$seen" }, email()), true);
-  assert.equal(matchEmailFilter({ minSize: 1000, maxSize: 2000 }, email()), true);
-  assert.equal(matchEmailFilter({ minSize: 5000 }, email()), false);
-  assert.equal(matchEmailFilter({ before: "2026-09-11T00:00:00Z" }, email()), true);
-  assert.equal(matchEmailFilter({ before: "2026-09-09T00:00:00Z" }, email()), false);
-  assert.equal(matchEmailFilter({ after: "2026-09-10T00:00:00Z" }, email()), true);
-  assert.equal(matchEmailFilter({ body: "pay" }, email()), true);
-  assert.equal(matchEmailFilter({ text: "ada" }, email()), true);
-});
-
-test("the three operators compose, and NOT negates", () => {
-  assert.equal(
-    matchEmailFilter(
-      {
-        operator: "AND",
-        conditions: [{ subject: "invoice" }, { from: "ada" }],
-      },
-      email(),
-    ),
-    true,
-  );
-  assert.equal(
-    matchEmailFilter(
-      {
-        operator: "OR",
-        conditions: [{ subject: "receipt" }, { from: "ada" }],
-      },
-      email(),
-    ),
-    true,
-  );
-  assert.equal(
-    matchEmailFilter({ operator: "NOT", conditions: [{ subject: "invoice" }] }, email()),
+    isAgentRule(rule({ trigger: { on: "webhook" } as unknown as AgentTrigger })),
     false,
   );
+  // A scheduled automation states its interval, because the clock needs one.
+  assert.equal(isAgentRule(rule({ trigger: { on: "schedule" } })), false);
+  assert.equal(
+    isAgentRule(rule({ trigger: { on: "schedule", everyMinutes: 60 } })),
+    true,
+  );
 });
 
-test("a filter the executor cannot honour is refused loudly, never ignored", () => {
-  // A rule that silently never fires is the failure the ADR calls out: the
-  // operator would have no way to tell it apart from a rule that matches
-  // nothing.
-  assert.throws(
-    () => matchEmailFilter({ inThread: "t1" }, email()),
-    (err: unknown) => err instanceof UnsupportedFilterError && err.key === "inThread",
+test("a scheduled automation reads one cadence, from one place", () => {
+  /*
+   * A document that states no interval runs at the default rather than at zero
+   * or at whatever a caller guessed: one reader, so the schedule planner, the
+   * prompt's own sentence and every surface that shows the cadence agree
+   * (ADR 0006).
+   */
+  assert.equal(
+    scheduleMinutesOf({ trigger: { on: "schedule" } }),
+    AGENT_SCHEDULE_MINUTES_DEFAULT,
   );
-  assert.throws(
-    () => matchEmailFilter({ operator: "XOR", conditions: [] }, email()),
-    UnsupportedFilterError,
+  assert.equal(scheduleMinutesOf({ trigger: { on: "schedule", everyMinutes: 15 } }), 15);
+  // The presets the editor offers are intervals the planner accepts.
+  for (const minutes of AGENT_SCHEDULE_PRESETS) {
+    assert.equal(Number.isInteger(minutes) && minutes >= 5, true);
+  }
+});
+
+test("an automation is named by its trigger, in one place", () => {
+  for (const on of AGENT_TRIGGERS) {
+    assert.equal(automationLabel({ trigger: { on } }), AGENT_AUTOMATION_LABELS[on]);
+  }
+  /*
+   * A run outlives the rule it was pinned to — a job keeps a version a person
+   * may have deleted since — and the trail is read a year later. The honest
+   * name for that is that there is nothing left to name, not a stand-in.
+   */
+  assert.equal(automationLabel({ trigger: undefined }), GONE_AUTOMATION_LABEL);
+});
+
+test("an area grants a group of actions and never a flagged one", () => {
+  /*
+   * The areas are the authoring surface's whole vocabulary for a grant, and
+   * they are computed from the catalogue rather than listed beside it: an
+   * action belongs to whichever area it names, and one that leaves the group
+   * or cannot be undone is excluded from every area by the flags it carries.
+   */
+  const mail = areaActions("mail");
+  assert.deepEqual(mail.sort(), [
+    "keyword.add",
+    "keyword.remove",
+    "mail.draft",
+    "mail.extract",
+    "mail.move",
+  ]);
+  assert.equal(
+    mail.includes("mail.send"),
+    false,
+    "sending is excluded from the area it belongs to, so ticking Mail can never grant it",
   );
-  assert.throws(
-    () => matchEmailFilter({ operator: "AND" }, email()),
-    UnsupportedFilterError,
-  );
+  assert.deepEqual(areaActions("chat"), ["chat.post"]);
+  assert.deepEqual(areaActions("files").sort(), [
+    "document.extract",
+    "document.merge",
+    "document.read",
+    "document.split",
+    "file.write",
+  ]);
+  /*
+   * The exclusion is a rule about the catalogue, not a list of today's names:
+   * pointed at a catalogue with a new flagged action, the same function leaves
+   * it out.
+   */
+  const grown = [
+    ...AGENT_ACTION_SPECS,
+    {
+      name: "mail.forward" as const,
+      area: "mail" as const,
+      label: "Forward",
+      description: "",
+      params: [],
+      external: true,
+    },
+    {
+      name: "file.delete" as const,
+      area: "files" as const,
+      label: "Delete a file",
+      description: "",
+      params: [],
+      irreversible: true,
+    },
+  ];
+  assert.equal(areaActions("mail", grown).includes("mail.forward"), false);
+  assert.equal(areaActions("files", grown).includes("file.delete"), false);
+  /*
+   * Every action is accounted for: it is in exactly one area, or it is one of
+   * the entries that stand beside them. Nothing falls between.
+   */
+  const granted = new Set(AGENT_AREAS.flatMap((area) => areaActions(area)));
+  const standalone = standaloneActions();
+  assert.deepEqual(standalone.sort(), ["mail.send", "noop"]);
+  assert.equal(granted.size + standalone.length, AGENT_ACTION_SPECS.length);
+});
+
+test('"do nothing" is granted to every run and is not a permission', () => {
+  // A run may only answer with an action its rule allows, and declining is not
+  // a behaviour: the grant the executor checks is the rule's own plus this.
+  assert.deepEqual(effectiveCapabilities({ capabilities: ["keyword.add"] }).sort(), [
+    "keyword.add",
+    "noop",
+  ]);
+  // An explicit `noop` is not written twice.
+  assert.deepEqual(effectiveCapabilities({ capabilities: ["noop"] }), ["noop"]);
 });
 
 test("a job is born pending, with the rule version it started on", () => {
@@ -386,34 +501,46 @@ test("the published schema is the same catalogue the runtime reads", () => {
     required: string[];
     properties: Record<string, Node>;
     "x-actions": Array<{ name: string; params: unknown[] }>;
-    "x-filterKeys": string[];
+    "x-areas": Array<{ area: string; label: string; actions: string[] }>;
   };
   assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
   assert.ok(schema.required.includes("instruction"));
   assert.ok(schema.required.includes("capabilities"));
   assert.deepEqual(schema.properties.trigger?.properties?.on?.enum, [...AGENT_TRIGGERS]);
-  assert.deepEqual(schema.properties.review?.properties?.mode?.enum, [
-    "always",
-    "threshold",
-    "never",
-  ]);
+  /*
+   * The policy is not a field of a rule any more, and the schema says so by not
+   * having one: who a run stops for is the group's own document (ADR 0006).
+   */
+  assert.equal(schema.properties.review, undefined);
+  assert.equal(schema.required.includes("review"), false);
   const names = AGENT_ACTION_SPECS.map((spec) => spec.name);
   assert.deepEqual(
     schema.properties.capabilities?.items?.enum,
     names,
     "a rule may name exactly the catalogue's actions",
   );
-  assert.deepEqual(schema["x-filterKeys"], [...SUPPORTED_FILTER_KEYS]);
   assert.deepEqual(
     schema["x-actions"].map((action) => action.name),
     names,
   );
-  assert.ok(schema.required.includes("instruction"));
-  assert.ok(schema.required.includes("review"));
-  // The cross-field halves the schema can state: a schedule needs its
-  // interval, a threshold needs its number.
+  /*
+   * The areas the editor paints are the schema's, computed from the same
+   * catalogue the executor checks against — so an area cannot offer a grant the
+   * executor does not have, and the editor needs no list of its own.
+   */
+  assert.deepEqual(
+    schema["x-areas"].map((entry) => entry.area),
+    [...AGENT_AREAS],
+  );
+  for (const entry of schema["x-areas"]) {
+    assert.deepEqual(
+      entry.actions,
+      areaActions(entry.area as (typeof AGENT_AREAS)[number]),
+    );
+  }
+  // The one cross-field half the schema can state: a schedule needs its
+  // interval.
   assert.ok(Array.isArray(schema.properties.trigger?.allOf));
-  assert.ok(Array.isArray(schema.properties.review?.allOf));
 });
 
 test("a notebook is facts, and a fact the document cannot hold is refused", () => {
@@ -567,139 +694,19 @@ test("the published schema is what a save is refused against", () => {
   assert.ok(ruleProblems({ hello: "world" }).length > 0, "not a rule at all");
 });
 
-test("a filter that is valid and could never fire is refused, not accepted", () => {
-  // The failure this closes: `minSize: "1000"` is a supported key with a value
-  // the matcher compares as a number, so it is false for every message — an
-  // automation that looks armed and silently does nothing.
-  const typed = rule({
-    trigger: { on: "email", filter: { minSize: "1000" } },
-  });
-  assert.deepEqual(schemaProblems(typed), [], "the schema alone cannot see it");
-  assert.ok(
-    ruleProblems(typed).some((problem) => /number/.test(problem)),
-    "and the author is told before saving",
-  );
-
-  // A key beside `operator` is the same failure the other way: silently
-  // ignored rather than refused.
-  const sibling = rule({
-    trigger: {
-      on: "email",
-      filter: { operator: "OR", conditions: [{ subject: "x" }], minSize: 10 },
-    },
-  });
-  assert.ok(
-    ruleProblems(sibling).some((problem) => /minSize/.test(problem)),
-    "the key the matcher would never read is named",
-  );
-  assert.throws(
-    () =>
-      matchEmailFilter(
-        { operator: "OR", conditions: [{ subject: "x" }], minSize: 10 },
-        email(),
-      ),
-    /minSize beside OR/,
-    "and the executor refuses it too, rather than matching as if it were absent",
-  );
-
-  const fine = rule({
-    trigger: {
-      on: "email",
-      filter: { operator: "OR", conditions: [{ subject: "x" }, { minSize: 10 }] },
-    },
-  });
-  assert.deepEqual(ruleProblems(fine), []);
-});
-
-test("a group with no conditions is refused, whichever operator groups it", () => {
-  // An empty group is not "no filter": `AND` over nothing is true, `OR` over
-  // nothing is false, and `NOT` over nothing matches every message in the
-  // account. A rule like that is armed and does something nobody wrote, so the
-  // author is refused rather than left with a surprise in the trail.
-  for (const operator of ["AND", "OR", "NOT"]) {
-    const grouped = rule({
-      trigger: { on: "email", filter: { operator, conditions: [] } },
-    });
-    assert.ok(
-      ruleProblems(grouped).some((problem) => /has none/.test(problem)),
-      `${operator} with no conditions is refused`,
-    );
-  }
-
-  // The shape without a conditions list at all is the same defect, and refused
-  // the same way rather than reaching the matcher.
-  const missing = rule({ trigger: { on: "email", filter: { operator: "AND" } } });
-  assert.ok(
-    ruleProblems(missing).some((problem) => /has none/.test(problem)),
-    "an operator without its conditions is refused too",
-  );
-
-  const fine = rule({
-    trigger: { on: "email", filter: { operator: "NOT", conditions: [] } },
-  });
-  assert.deepEqual(
-    schemaProblems(fine),
-    [],
-    "the published schema still accepts the shape",
-  );
-  assert.ok(ruleProblems(fine).length > 0, "and the authoring rules are what refuses it");
-});
-
-test("the material a run needs is checked for being there, not just typed", () => {
-  // `""` is a string, so the schema is satisfied and the model is asked
-  // nothing; the emptiness is a rule the document cannot state.
-  assert.ok(
-    ruleProblems(rule({ instruction: "" })).some((problem) =>
-      /instruction/.test(problem),
-    ),
-  );
-  assert.ok(
-    ruleProblems(rule({ capabilities: [] })).some((problem) => /nothing/.test(problem)),
-  );
-});
-
-/**
- * One door for an author's notes (ADR 0003).
- *
- * The bound is one number and the refusal is one code, wherever a person writes
- * notes: the group's standing instruction answers with the code and the maximum,
- * and an automation's own notes are read through the same door rather than
- * coming back as a complaint about the shape of a document.
- */
-test("a note past the bound is refused with the code and the number it may be", () => {
-  const atBound = "x".repeat(AGENT_NOTES_MAX);
-  const over = "x".repeat(AGENT_NOTES_MAX + 1);
-  assert.equal(notesProblem(atBound), null, "a note at the bound fits");
-  assert.equal(notesProblem(undefined), null, "and no notes at all is no problem");
-  assert.deepEqual(notesProblem(over), {
-    code: "notes_too_long",
-    max: AGENT_NOTES_MAX,
-    length: AGENT_NOTES_MAX + 1,
-  });
-
-  // A rule arrives as an untyped document: this is what a save answers a person
-  // with, instead of a schema complaint about a length.
-  assert.deepEqual(ruleNotesProblem(rule({ notes: over })), {
-    code: "notes_too_long",
-    max: AGENT_NOTES_MAX,
-    length: AGENT_NOTES_MAX + 1,
-  });
-  assert.equal(
-    ruleNotesProblem(rule({ notes: atBound })),
-    null,
-    "a note at the bound fits here too",
-  );
-  assert.equal(
-    ruleNotesProblem({ hello: "world" }),
-    null,
-    "and a document that carries no notes field has no note to refuse",
-  );
-
-  // The validator reads the same door, so a note the door refuses is a document
-  // this build does not accept.
-  assert.equal(isAgentNotes(over), false);
-  assert.equal(isAgentNotes(atBound), true);
-  assert.equal(isAgentRule(rule({ notes: over })), false);
+test("a group that carries two automations on one trigger is refused, not run twice", () => {
+  /*
+   * The refusal a save meets. It is a property of the list rather than of a
+   * document — the shape of one automation is fine — so it is read here, the
+   * same place the admin API reads it before writing, and it names the trigger
+   * a person has to leave alone.
+   */
+  const doubled = [
+    rule({ id: "a", trigger: { on: "filenode" } }),
+    rule({ id: "b", trigger: { on: "filenode" } }),
+  ];
+  for (const single of doubled) assert.deepEqual(ruleProblems(single), []);
+  assert.match(rulesProblem(doubled) ?? "", /filenode/);
 });
 
 test("a retention window is the months it spans, oldest first", () => {

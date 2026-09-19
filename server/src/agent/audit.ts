@@ -17,16 +17,30 @@ import type {
   AgentDecision,
   AgentJob,
   AgentRule,
+  AgentTrigger,
   AgentTriggerRecord,
 } from "./documents.js";
-import { changeIdOf } from "./documents.js";
+import { automationLabel, changeIdOf } from "./documents.js";
 import type { AgentStore } from "./store.js";
 
 export { errorMessage };
 
-/** What one line of the trail needs to know about its rule. */
-export type AuditRule = Pick<AgentRule, "id" | "name" | "version">;
-
+/**
+ * What one line of the trail needs to know about its rule.
+ *
+ * The name is absent on purpose: an automation is named by its trigger
+ * (`automationLabel`), so the line is derived from what the document already
+ * carries rather than from a field an author fills in (ADR 0006). The trigger
+ * is optional because the document may be gone — see `automationLabel`.
+ */
+export type AuditRule = Pick<AgentRule, "id" | "version"> & {
+  /**
+   * The trigger the automation stands on. Absent when the document is gone:
+   * `automationLabel` then answers `GONE_AUTOMATION_LABEL`, and the caller's
+   * own sentence about what happened travels in the entry's detail.
+   */
+  trigger?: AgentTrigger;
+};
 /** What the builder takes: the run's identity, not the whole job document. */
 interface AuditSubject {
   jobId: string;
@@ -73,7 +87,7 @@ export type RunCost = Pick<AgentAuditEntry, "agent" | "reasoned" | "usage">;
 
 function build(
   subject: AuditSubject,
-  rule: AuditRule,
+  rule: AuditRule | null,
   outcome: AgentAuditOutcome,
   actions: ReadonlyArray<AgentAction>,
   detail?: string,
@@ -86,9 +100,18 @@ function build(
     ruleVersion: subject.ruleVersion,
     outcome,
     actions: [...actions],
-    // The rule's name keeps the trail readable a year later, when the rule
-    // document may read differently or be gone.
-    detail: [rule.name, detail].filter(Boolean).join(": "),
+    /*
+     * The automation's name keeps the trail readable a year later, when the
+     * rule document may read differently or be gone. It is derived from the
+     * trigger rather than read off a field, so a rule that no longer exists is
+     * still named by what it was — and an entry that is about no rule at all
+     * (`rule` null) carries the detail and nothing in front of it.
+     */
+    ...(rule
+      ? { detail: [automationLabel(rule), detail].filter(Boolean).join(": ") }
+      : detail
+        ? { detail }
+        : {}),
   };
   if (subject.by) entry.by = subject.by;
   if (cost?.agent) entry.agent = cost.agent;
@@ -207,6 +230,9 @@ export async function recordAudit(
  * The subject is the document itself, so the trail says which one a person has
  * to look at, and the outcome is `failed` — no run of the group happened, and
  * `missed` is the outcome for one the schedule moved past.
+ *
+ * The subject carries no rule, so the line names the document and nothing in
+ * front of it: what a reader has to look at is the path itself.
  */
 export function unreadableDocumentAuditEntry(
   document: string,
@@ -214,7 +240,7 @@ export function unreadableDocumentAuditEntry(
 ): AgentAuditEntry {
   return build(
     { jobId: document, ruleId: document, ruleVersion: 0 },
-    { id: document, name: document, version: 0 },
+    null,
     "failed",
     [],
     detail,

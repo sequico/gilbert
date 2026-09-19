@@ -52,7 +52,7 @@ const BASE = `http://127.0.0.1:${PORT}`;
 
 const mock = await import("./mock/index.js");
 const { config } = await import("./config.js");
-const { AGENT_INSTRUCTION_MAX, AGENT_NOTES_MAX } = await import("./agent/documents.js");
+const { AGENT_INSTRUCTION_MAX } = await import("./agent/documents.js");
 const { AGENT_CHAIN_HOPS_CEILING, AGENT_PAGES_CEILING } = await import(
   "./agent/documents.js"
 );
@@ -145,18 +145,16 @@ function failAgentSignIn(status: number): () => void {
   };
 }
 
-/** The rule the tests save and read back. */
+/** The automation the tests save and read back. */
 function rule(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     v: 1,
     id: "r1",
     version: 1,
-    name: "Label processed mail",
     enabled: true,
     trigger: { on: "email" },
     capabilities: ["keyword.add"],
     instruction: "Label the messages this automation was written for.",
-    review: { mode: "threshold", threshold: 0.8 },
     ...overrides,
   };
 }
@@ -639,9 +637,9 @@ test("a rule that could never run is refused with its code and its parameters", 
   });
   assert.equal(notARule.status, 400);
   // A code and its parameters, never a sentence: the surface composes the
-  // sentence in the reader's language (ADR 0003 resolution 21). A rule with no
-  // name to be named by is named by its position, and the position is a
-  // parameter too.
+  // sentence in the reader's language (ADR 0003 resolution 21). A document that
+  // does not read as an automation has no trigger to be named by, so it is
+  // named by its position — and the position is a parameter too.
   const nothing = notARule.body as { error: string; name: string; problems: string };
   assert.equal(nothing.error, "rule_cannot_run");
   assert.equal(nothing.name, "#1");
@@ -649,37 +647,15 @@ test("a rule that could never run is refused with its code and its parameters", 
 
   const unrunnable = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
-    body: JSON.stringify({
-      rules: [
-        rule({
-          id: "r2",
-          name: "Move invoices",
-          capabilities: [],
-        }),
-      ],
-    }),
+    body: JSON.stringify({ rules: [rule({ id: "r2", capabilities: [] })] }),
   });
   assert.equal(unrunnable.status, 400);
   const body = unrunnable.body as { error: string; name: string; problems: string };
   assert.equal(body.error, "rule_cannot_run");
-  assert.equal(body.name, "Move invoices");
+  // An automation is named by its trigger (`automationLabel`), which is what
+  // the refusal names: there is no author-written name to report (ADR 0006).
+  assert.equal(body.name, "Mail automation");
   assert.match(body.problems, /capabilities/, "in the validator's own words");
-
-  // Remarks past the bound are refused by the field they were typed in, with
-  // the number, rather than as a length complaint about the document: the same
-  // code the group's instruction answers with (ADR 0003).
-  const chatty = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
-    method: "POST",
-    body: JSON.stringify({
-      rules: [rule({ id: "r3", notes: "x".repeat(AGENT_NOTES_MAX + 1) })],
-    }),
-  });
-  assert.equal(chatty.status, 400);
-  assert.deepEqual(chatty.body, {
-    error: "notes_too_long",
-    max: AGENT_NOTES_MAX,
-    length: AGENT_NOTES_MAX + 1,
-  });
 
   const duplicate = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
     method: "POST",
@@ -687,6 +663,39 @@ test("a rule that could never run is refused with its code and its parameters", 
   });
   assert.equal(duplicate.status, 400);
   assert.equal((duplicate.body as { error: string }).error, "duplicate_rule");
+});
+
+test("two automations on one trigger are refused as the list they are", async () => {
+  configureAgent(mock.AGENT_ADDRESS);
+  /*
+   * One enabled automation per trigger is a rule of the product (ADR 0006), and
+   * it is a property of the group's whole document rather than of one
+   * automation: nothing in a document tells two of them on one trigger apart, so
+   * the server refuses the list before it writes it. A disabled one is a draft
+   * and is allowed beside the enabled one.
+   */
+  const doubled = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
+    method: "POST",
+    body: JSON.stringify({
+      rules: [rule({ id: "one" }), rule({ id: "two" })],
+    }),
+  });
+  assert.equal(doubled.status, 400);
+  const refusal = doubled.body as { error: string; name: string; problems: string };
+  assert.equal(refusal.error, "rule_cannot_run");
+  assert.match(refusal.problems, /leave one enabled per trigger/);
+
+  const withDraft = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
+    method: "POST",
+    body: JSON.stringify({
+      rules: [rule({ id: "one" }), rule({ id: "two", enabled: false })],
+    }),
+  });
+  assert.equal(
+    withDraft.status,
+    200,
+    "a disabled automation is a draft, not a second run",
+  );
 });
 
 test("a group the agent is not granted on answers with the refusal", async () => {
@@ -899,11 +908,18 @@ test("a member reads the group's standing instruction, and nobody else reads it"
   assert.equal(none.status, 200);
   assert.deepEqual((none.body as { instruction: unknown }).instruction, {
     text: "",
-    notes: "",
     updatedAt: null,
     updatedBy: null,
     max: AGENT_INSTRUCTION_MAX,
-    notesMax: AGENT_NOTES_MAX,
+  });
+  // And the group's policy reads as the cautious default, saying that nobody
+  // has written one: a member judges the agent by both (ADR 0006).
+  assert.deepEqual((none.body as { policy: unknown }).policy, {
+    review: "always",
+    allowExternal: false,
+    present: false,
+    updatedAt: null,
+    updatedBy: null,
   });
 
   // Written where it is written today: the admin surface, which reaches the
@@ -1065,11 +1081,18 @@ test("the rule schema is published, and it is the catalogue the runtime reads", 
     $schema: string;
     required: string[];
     "x-actions": Array<{ name: string }>;
+    "x-areas": Array<{ area: string; actions: string[] }>;
   };
   assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
   assert.ok(schema.required.includes("instruction"));
   assert.ok(schema.required.includes("capabilities"));
   assert.ok(schema["x-actions"].some((action) => action.name === "mail.send"));
+  // The areas the editor paints travel with the catalogue, because they are
+  // computed from it: a surface does not carry a second list of grants.
+  assert.deepEqual(
+    schema["x-areas"].map((entry) => entry.area),
+    ["mail", "chat", "files"],
+  );
 });
 
 test("the rule schema needs the admin shield", async () => {
@@ -1295,33 +1318,39 @@ test("an author's notes ride the document, and a reading answers in words", asyn
     method: "POST",
     body: JSON.stringify({
       text: "Answer in Italian, and always cite the invoice number.",
-      notes: "Italian is what the group speaks; the citation is for the auditor.",
     }),
   });
   assert.equal(written.status, 200, JSON.stringify(written.body));
   assert.equal(
-    (written.body as { notes?: string }).notes,
-    "Italian is what the group speaks; the citation is for the auditor.",
+    (written.body as { text?: string }).text,
+    "Answer in Italian, and always cite the invoice number.",
   );
-  const read = await call(`/api/admin/groups/${TEAM}/agent/instruction`);
-  assert.equal(
-    (read.body as { notes?: string }).notes,
-    "Italian is what the group speaks; the citation is for the auditor.",
-    "the note is in the document the group holds",
-  );
-
-  // A rule carries its own, and a save that does not name one keeps the one it
-  // has: the notes are part of what the document already is.
-  const withNotes = await call(`/api/admin/groups/${TEAM}/agent/rules`, {
+  /*
+   * The group's policy is its own document beside the instruction, written and
+   * read on its own route: two facts and no number, because "confident enough"
+   * is one constant rather than a decimal every author invented (ADR 0006).
+   */
+  const policy = await call(`/api/admin/groups/${TEAM}/agent/policy`, {
     method: "POST",
-    body: JSON.stringify({
-      rules: [{ ...rule(), notes: "Written for the 2026 audit; revisit in January." }],
-    }),
+    body: JSON.stringify({ review: "threshold", allowExternal: true }),
   });
-  assert.equal(withNotes.status, 200);
+  assert.equal(policy.status, 200, JSON.stringify(policy.body));
+  assert.deepEqual(
+    { ...(policy.body as object), updatedAt: null, updatedBy: null },
+    {
+      review: "threshold",
+      allowExternal: true,
+      present: true,
+      updatedAt: null,
+      updatedBy: null,
+    },
+  );
+  const readPolicy = await call(`/api/admin/groups/${TEAM}/agent/policy`);
+  assert.equal((readPolicy.body as { review?: string }).review, "threshold");
   assert.equal(
-    (withNotes.body as { rules: Array<{ notes?: string }> }).rules[0]?.notes,
-    "Written for the 2026 audit; revisit in January.",
+    (readPolicy.body as { allowExternal?: boolean }).allowExternal,
+    true,
+    "the group's own raise of the consent floor is in the document it holds",
   );
 
   // The reading: the draft goes out, the model's words come back, and the call

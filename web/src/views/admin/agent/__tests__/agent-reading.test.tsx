@@ -28,12 +28,10 @@ function draft(overrides: Partial<AgentRuleDraft> = {}): AgentRuleDraft {
     v: 1,
     id: "r1",
     version: 1,
-    name: "Label processed mail",
     enabled: true,
     trigger: { on: "email" },
     capabilities: ["keyword.add"],
     instruction: DRAFT,
-    review: { mode: "always" },
     ...overrides,
   };
 }
@@ -106,7 +104,7 @@ describe("the line a reading gets when the month did not count it", () => {
   it("says so under the answer the automation editor shows", async () => {
     stubApi(false);
     await render(
-      <RuleForm rule={draft()} group={GROUP} catalogue={null} onChange={() => {}} />,
+      <RuleForm rule={draft()} group={GROUP} grant={null} onChange={() => {}} />,
     );
     await ask();
 
@@ -118,7 +116,7 @@ describe("the line a reading gets when the month did not count it", () => {
   it("says nothing beside an answer the month did record", async () => {
     stubApi(true);
     await render(
-      <RuleForm rule={draft()} group={GROUP} catalogue={null} onChange={() => {}} />,
+      <RuleForm rule={draft()} group={GROUP} grant={null} onChange={() => {}} />,
     );
     await ask();
 

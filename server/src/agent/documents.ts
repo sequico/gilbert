@@ -144,6 +144,12 @@ export interface AgentActionParam {
 
 export interface AgentActionSpec {
   name: AgentActionName;
+  /**
+   * The area the authoring surface groups this action under, absent for the
+   * two entries that answer for themselves (`noop`, and sending, which is
+   * excluded from every area by its own flags rather than by a list).
+   */
+  area?: AgentArea;
   /** A short English label the admin surface shows. */
   label: string;
   /** What the action does, in one sentence, for the rule editor. */
@@ -180,6 +186,7 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
   },
   {
     name: "keyword.add",
+    area: "mail",
     label: "Add a label",
     description:
       "Apply a label to the message. `G-` labels must exist in the group's catalog.",
@@ -187,12 +194,14 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
   },
   {
     name: "keyword.remove",
+    area: "mail",
     label: "Remove a label",
     description: "Remove a label from the message.",
     params: [{ key: "keyword", required: true, kind: "keyword" }],
   },
   {
     name: "mail.move",
+    area: "mail",
     label: "Move the message",
     description: "Move the message to a mailbox of the group's own account.",
     params: [
@@ -202,6 +211,7 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
   },
   {
     name: "mail.extract",
+    area: "mail",
     label: "Save the attachments",
     description:
       "Write the message's attachments into a folder of the group's own Files — the folder this action names, or the one the model chose; empty means the needs-attention folder.",
@@ -210,6 +220,7 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
   },
   {
     name: "mail.draft",
+    area: "mail",
     label: "Prepare a draft",
     description: "Create a draft in the group's Drafts, for a person to read and send.",
     params: [
@@ -220,6 +231,7 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
   },
   {
     name: "mail.send",
+    area: "mail",
     label: "Send mail",
     description: "Submit mail from the group's own identity. Reaches outside the group.",
     params: [{ key: "to", required: true, kind: "text" }],
@@ -228,12 +240,14 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
   },
   {
     name: "chat.post",
+    area: "chat",
     label: "Write in the chat",
     description: "Post a message in the group's chat, as the agent.",
     params: [{ key: "text", required: true, kind: "text" }],
   },
   {
     name: "file.write",
+    area: "files",
     label: "Write a file",
     description: "Write a text document into a folder of the group's Files.",
     params: [
@@ -245,6 +259,7 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
   },
   {
     name: "document.read",
+    area: "files",
     label: "Read a document",
     description:
       "Read a file of the group's Files as text: a PDF's own text layer, a .docx, a spreadsheet's sheets (.xls, .xlsx, one block per sheet), or a text file (.csv, .txt and the other plain-text types). It answers with the text and names the pages that carry none — those are read by the model, as images, when a run is woken by the file — and says when a text or a workbook was longer than one reading carries. An image file (.png, .jpg/.jpeg, .gif, .webp) carries no text of its own and is handed to the model whole, as a picture, the same way a scanned page is.",
@@ -252,6 +267,7 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
   },
   {
     name: "document.split",
+    area: "files",
     label: "Split a PDF into pages",
     description:
       "Write every page of a PDF of the group's Files as a PDF of its own, into a folder of the group's Files.",
@@ -263,6 +279,7 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
   },
   {
     name: "document.extract",
+    area: "files",
     label: "Extract pages",
     description:
       'Cut pages out of a PDF of the group\'s Files into one new PDF: "2-4,7" is pages 2, 3, 4 and 7.',
@@ -276,6 +293,7 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
   },
   {
     name: "document.merge",
+    area: "files",
     label: "Merge PDFs",
     description:
       "Join PDFs of the group's Files, in the order given, into one new PDF: the paths one per line, in the order they are to be joined.",
@@ -287,6 +305,95 @@ export const AGENT_ACTION_SPECS: ReadonlyArray<AgentActionSpec> = [
     unrepeatable: true,
   },
 ];
+
+/* ------------------------------------------------------------------ */
+/* The areas an author grants                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The three groups of actions an administrator grants, plus the two entries
+ * that stand beside them.
+ *
+ * An area is a **grouping of the catalogue**, never a second list of actions:
+ * what it expands to is computed from `AGENT_ACTION_SPECS` by
+ * `areaActions`, so an action added to the catalogue is granted by whichever
+ * area it belongs to without this file being revisited, and an action that
+ * leaves the group or cannot be undone is excluded from every area by the
+ * flags it already carries.
+ */
+export type AgentArea = "mail" | "chat" | "files";
+
+export const AGENT_AREAS: ReadonlyArray<AgentArea> = ["mail", "chat", "files"];
+
+/**
+ * What each area is called, as English source text the surfaces translate.
+ *
+ * One table, read by the editor on both sides of the wire the way the action
+ * labels are: the English here is the key a catalogue looks up.
+ */
+export const AGENT_AREA_LABELS: Record<AgentArea, string> = {
+  mail: "Mail",
+  chat: "Chat",
+  files: "Files and documents",
+};
+
+/**
+ * The actions one area grants.
+ *
+ * An area never grants an action that reaches outside the group or cannot be
+ * undone: the exclusion is read off `external` and `irreversible`, so a future
+ * action carrying either flag leaves every area the same way without a list
+ * being kept in step. Ticking an area can therefore never be how a person
+ * grants sending — only the sending entry can.
+ *
+ * `specs` is a parameter so the rule is testable against a catalogue this
+ * build does not have: the exclusion is a property of the rule, not of the
+ * thirteen actions it happens to be pointed at today.
+ */
+export function areaActions(
+  area: AgentArea,
+  specs: ReadonlyArray<AgentActionSpec> = AGENT_ACTION_SPECS,
+): AgentActionName[] {
+  return specs
+    .filter(
+      (spec) =>
+        spec.area === area && spec.external !== true && spec.irreversible !== true,
+    )
+    .map((spec) => spec.name);
+}
+
+/**
+ * The actions no area grants, for the entries that answer for themselves.
+ *
+ * Derived the same way as an area: what stands beside the areas is a flag on
+ * the catalogue (`area` absent) and never a list kept here. Sending is in it
+ * because `areaActions` excludes it from the area it belongs to, not because
+ * this function knows its name.
+ */
+export function standaloneActions(
+  specs: ReadonlyArray<AgentActionSpec> = AGENT_ACTION_SPECS,
+): AgentActionName[] {
+  const inAreas = new Set(AGENT_AREAS.flatMap((area) => areaActions(area, specs)));
+  return specs.map((spec) => spec.name).filter((name) => !inAreas.has(name));
+}
+
+/**
+ * The grant a run actually carries: the rule's own, plus the answer "record the
+ * decision and change nothing".
+ *
+ * A run may only answer with an action its rule allows, and `noop` is not a
+ * behaviour — it is how a run says it decided nothing should happen. Leaving it
+ * out of the document rather than out of the grant is what keeps the allowlist
+ * the whole boundary: nothing here widens what the model may *do*, it only lets
+ * it decline. One function, read by the executor's check and by the prompt, so
+ * the two cannot disagree about what a run may answer.
+ */
+export function effectiveCapabilities(
+  rule: Pick<AgentRule, "capabilities">,
+): AgentActionName[] {
+  if (rule.capabilities.includes("noop")) return [...rule.capabilities];
+  return [...rule.capabilities, "noop"];
+}
 
 /**
  * The actions that leave the process: sending, posting, drafting, filing.
@@ -413,24 +520,75 @@ export function isAgentJobTriggerOn(x: unknown): x is AgentJobTriggerOn {
 
 export interface AgentTrigger {
   on: AgentTriggerOn;
-  /** A JMAP Email filter (RFC 8621, the subset `matchEmailFilter` implements). */
-  filter?: Record<string, unknown>;
   /** `schedule` only: how often the rule runs, in minutes (>= 5). */
   everyMinutes?: number;
 }
 
-export type AgentReviewMode = "always" | "threshold" | "never";
+/**
+ * What each trigger is called where a name is needed (ADR 0006).
+ *
+ * An automation is not named by its author: with one enabled automation per
+ * trigger (ADR 0006 decision one) the trigger *is* the name, and deriving it is
+ * what keeps a name from becoming a field nobody needs to fill in. English
+ * source text, translated where it is shown, like the action labels.
+ */
+export const AGENT_AUTOMATION_LABELS: Record<AgentTriggerOn, string> = {
+  email: "Mail automation",
+  filenode: "File automation",
+  chat: "Chat automation",
+  schedule: "Scheduled automation",
+};
 
-export interface AgentReview {
-  mode: AgentReviewMode;
-  /** `threshold` only: at or above it the run executes unattended. */
-  threshold?: number;
-  /**
-   * The owner's explicit raise of the external-send consent floor. Absent or
-   * false means an external action always pauses for a person, whatever the
-   * mode says.
-   */
-  allowExternal?: boolean;
+/**
+ * What an automation is called when its own document is gone.
+ *
+ * A run outlives the rule it was created from — a job is pinned to a version a
+ * person may have deleted since, and an approval is answered in the chat after
+ * the fact — and the trail is read a year later, when the document may be gone
+ * for good. The line still needs a name, and the honest one says that: what the
+ * automation *was* is in the trigger record the job carries, and the wording of
+ * what happened is in the entry's own detail.
+ */
+export const GONE_AUTOMATION_LABEL = "An automation that no longer exists";
+
+/**
+ * The name of an automation: the trigger it stands on.
+ *
+ * One function for every reader — the prompt, the log, the chat the agent
+ * speaks in, the audit's readable line, the member's panel — so an automation
+ * answers to one name everywhere (ADR 0006). A trigger is optional because a
+ * caller may be naming a run whose rule document is already gone:
+ * `GONE_AUTOMATION_LABEL` is what that answers, and it is the only other
+ * answer this function has.
+ */
+export function automationLabel(rule: { trigger?: AgentTrigger }): string {
+  const on = rule.trigger?.on;
+  if (!on) return GONE_AUTOMATION_LABEL;
+  return AGENT_AUTOMATION_LABELS[on];
+}
+
+/**
+ * The cadences an author may choose, in minutes.
+ *
+ * A scheduled automation is not asked "every how many minutes": three presets
+ * are the whole choice, because the interval is not what the automation is
+ * *about* (ADR 0006). The document still carries a number, so a rule written
+ * before this table or by hand keeps the interval it states.
+ */
+export const AGENT_SCHEDULE_PRESETS: ReadonlyArray<number> = [60, 1440, 10080];
+
+/** What a scheduled automation runs at when its document states no interval. */
+export const AGENT_SCHEDULE_MINUTES_DEFAULT = 60;
+
+/**
+ * The interval a scheduled automation runs at.
+ *
+ * One reader for the schedule planner, the prompt's own sentence and every
+ * surface that shows the cadence: a document that states none falls back here
+ * rather than at each call site, so "every hour" means one thing.
+ */
+export function scheduleMinutesOf(rule: Pick<AgentRule, "trigger">): number {
+  return rule.trigger.everyMinutes ?? AGENT_SCHEDULE_MINUTES_DEFAULT;
 }
 
 export interface AgentRule {
@@ -439,10 +597,8 @@ export interface AgentRule {
   id: string;
   /** Bumped on every edit: an in-flight job keeps the version it started on. */
   version: number;
-  name: string;
   enabled: boolean;
   trigger: AgentTrigger;
-  review: AgentReview;
   /**
    * The prose its administrator wrote, and the whole of what a run is asked to
    * do: every run hands it to the model, which answers with actions from the
@@ -452,38 +608,19 @@ export interface AgentRule {
   /**
    * The capability allowlist: the only actions this rule may run. The model is
    * offered these and nothing else, and an answer outside them is refused, so
-   * the instruction steers inside the grant and never widens it.
+   * the instruction steers inside the grant and never widens it. "Do nothing"
+   * is not listed: it is not a capability but the absence of one, and
+   * `effectiveCapabilities` adds it to every grant.
    */
   capabilities: AgentActionName[];
   updatedAt?: string;
   updatedBy?: string;
-  /**
-   * The author's remarks beside the prose: what it is for, what the automation
-   * reacts to, what it may do. Carried in the document so it survives a
-   * container, and never part of a run's call — the prompt carries the
-   * instruction and nothing beside it (ADR 0003).
-   */
-  notes?: string;
 }
 
 /** The parsed `agent/rules.json`. */
 export interface AgentRulesDoc {
   v: 1;
   rules: AgentRule[];
-}
-
-export function isAgentReview(x: unknown): x is AgentReview {
-  if (!x || typeof x !== "object") return false;
-  const r = x as Record<string, unknown>;
-  if (r.mode !== "always" && r.mode !== "threshold" && r.mode !== "never") return false;
-  if (r.threshold !== undefined) {
-    if (typeof r.threshold !== "number" || r.threshold < 0 || r.threshold > 1)
-      return false;
-  }
-  if (r.allowExternal !== undefined && typeof r.allowExternal !== "boolean") return false;
-  // A threshold mode without a number would auto-execute everything, which is
-  // the one reading the owner did not choose; refuse it rather than guess.
-  return r.mode !== "threshold" || typeof r.threshold === "number";
 }
 
 function isActionList(x: unknown): x is AgentAction[] {
@@ -494,9 +631,6 @@ export function isAgentTrigger(x: unknown): x is AgentTrigger {
   if (!x || typeof x !== "object") return false;
   const t = x as Record<string, unknown>;
   if (!isAgentTriggerOn(t.on)) return false;
-  if (t.filter !== undefined) {
-    if (!isRecord(t.filter)) return false;
-  }
   if (t.everyMinutes !== undefined) {
     if (typeof t.everyMinutes !== "number" || t.everyMinutes < 5) return false;
   }
@@ -510,14 +644,11 @@ export function isAgentRule(x: unknown): x is AgentRule {
   if (r.v !== 1) return false;
   if (typeof r.id !== "string" || !r.id) return false;
   if (typeof r.version !== "number" || r.version < 1) return false;
-  if (typeof r.name !== "string") return false;
   if (typeof r.enabled !== "boolean") return false;
   if (!isAgentTrigger(r.trigger)) return false;
-  if (!isAgentReview(r.review)) return false;
   if (typeof r.instruction !== "string") return false;
   if (!Array.isArray(r.capabilities)) return false;
   if (!r.capabilities.every(isAgentActionName)) return false;
-  if (!isAgentNotes(r.notes)) return false;
   return true;
 }
 
@@ -532,98 +663,6 @@ export function isAgentRulesDoc(x: unknown): x is AgentRulesDoc {
  * it saves (refuse early) and by the executor before it starts a job (refuse
  * loudly).
  */
-/**
- * Whether a filter reads the body: only then is the body fetched for matching.
- *
- * It lives here with the matcher and the problem list because it is a question
- * about a filter, and it has two readers: the executor, which fetches the mail
- * it is about to match, and the admin surface, which fetches a message a person
- * asked a run against. Two answers to "does this filter need the body" would
- * mean one of the two deciding a rule looks at nothing.
- */
-export function filterNeedsBody(filter: Record<string, unknown> | undefined): boolean {
-  if (!filter) return false;
-  if (typeof filter.text === "string" || typeof filter.body === "string") return true;
-  const conditions = filter.conditions;
-  if (!Array.isArray(conditions)) return false;
-  return conditions.some((condition) =>
-    filterNeedsBody(condition as Record<string, unknown>),
-  );
-}
-
-/**
- * Every way a trigger filter could not do what it says.
- *
- * `unsupportedFilterKey` answers "is this a key the matcher knows"; this
- * answers the rest, and both have to be asked, because a filter can be
- * *accepted and never match*: `minSize: "1000"` is a supported key with a
- * value the matcher compares as a number, so it is false for every message —
- * an automation that looks armed and silently does nothing. A key sitting
- * beside `operator` is the same failure in the other direction, silently
- * ignored rather than refused.
- *
- * One list, fed to `ruleProblems`, so the form and the executor refuse with the
- * same words.
- */
-export function filterProblems(
-  filter: Record<string, unknown> | undefined,
-  where = "the filter",
-): string[] {
-  if (!filter) return [];
-  const problems: string[] = [];
-  const unknown = unsupportedFilterKey(filter);
-  if (unknown) problems.push(`${where} uses "${unknown}", which no matcher implements`);
-  const operator = filter.operator;
-  if (operator !== undefined) {
-    for (const key of Object.keys(filter)) {
-      if (key !== "operator" && key !== "conditions") {
-        problems.push(
-          `${where} has "${key}" beside "${String(operator)}", where the matcher would never read it`,
-        );
-      }
-    }
-    const conditions = filter.conditions;
-    // An empty group is not "no filter": `AND` over nothing is true, `OR` over
-    // nothing is false, and `NOT` over nothing matches every message in the
-    // account. A rule like that is armed and does something nobody wrote, so it
-    // is refused here — where the form and the executor read the same words.
-    if (!Array.isArray(conditions) || !conditions.length) {
-      problems.push(
-        `${where} groups conditions with "${String(operator)}" and has none: ` +
-          "an empty group is not a filter, and it would match everything or nothing",
-      );
-      return problems;
-    }
-    if (Array.isArray(conditions)) {
-      for (const condition of conditions) {
-        if (isRecord(condition)) {
-          problems.push(
-            ...filterProblems(condition as Record<string, unknown>, where).filter(
-              (problem) => problem.startsWith(where),
-            ),
-          );
-        }
-      }
-    }
-    return problems;
-  }
-  for (const [key, want] of Object.entries(filter)) {
-    const kind = FILTER_KEY_KINDS[key];
-    if (!kind) continue;
-    if (kind === "string" && typeof want !== "string") {
-      problems.push(
-        `${where} asks for ${key} to be a string, and it is not, so nothing would match`,
-      );
-    }
-    if (kind === "number" && typeof want !== "number") {
-      problems.push(
-        `${where} asks for ${key} to be a number, and it is not, so nothing would match`,
-      );
-    }
-  }
-  return problems;
-}
-
 export function ruleProblem(rule: AgentRule): string | null {
   if (!rule.instruction.trim())
     return "the rule needs an instruction: it is what the model is asked to do";
@@ -632,13 +671,47 @@ export function ruleProblem(rule: AgentRule): string | null {
   return null;
 }
 
+/**
+ * Why a whole list of automations could not be stored, or null.
+ *
+ * An automation is a trigger, its prose and its grant — it carries no filter,
+ * so nothing in the document tells two automations on one trigger apart, and
+ * the executor runs **every** enabled automation on a trigger against **every**
+ * item that trigger produces (ADR 0006 decision one). Two enabled automations
+ * on one trigger are therefore not two halves of a job: both answer the same
+ * arrival, and a member reads two replies to one question. One per trigger is
+ * the only correct count, and this is where that is said — in one function the
+ * admin surface and the executor both ask.
+ *
+ * A disabled automation is a draft: it wakes nothing, so it may sit beside the
+ * enabled one while its author decides to replace it. The count is of enabled
+ * automations, not of documents.
+ */
+export function rulesProblem(rules: ReadonlyArray<AgentRule>): string | null {
+  const seen = new Map<AgentTriggerOn, number>();
+  for (const rule of rules) {
+    if (!rule.enabled) continue;
+    seen.set(rule.trigger.on, (seen.get(rule.trigger.on) ?? 0) + 1);
+  }
+  for (const on of AGENT_TRIGGERS) {
+    const count = seen.get(on) ?? 0;
+    if (count > 1)
+      return (
+        `${count} enabled automations share the "${on}" trigger, and the executor ` +
+        "runs every one of them on every item that trigger produces: " +
+        "leave one enabled per trigger"
+      );
+  }
+  return null;
+}
+
 /* ------------------------------------------------------------------ */
-/* Matching — the JMAP filter subset the executor honours              */
+/* A message, as a run reads it                                        */
 /* ------------------------------------------------------------------ */
 
 /**
- * The Email properties a filter may read. Deliberately the JMAP names, so a
- * rule document reads like the RFC 8621 filter it is.
+ * The Email properties a run reads of the message that woke it. Deliberately
+ * the JMAP names, so what the executor renders is the record the server sent.
  */
 export interface AgentEmailView {
   id: string;
@@ -659,185 +732,6 @@ export interface AgentAddress {
   email?: string;
 }
 
-const FILTER_OPERATORS = ["AND", "OR", "NOT"];
-
-/**
- * Whether an email matches a rule's filter.
- *
- * The supported keys are the RFC 8621 filter grammar's common half, plus the
- * three operators. An unknown key is **refused, not ignored**: a rule that
- * asks for something the executor cannot honour must fail loudly (an
- * operator would otherwise see a rule that never fires and never know why),
- * which is what `UnsupportedFilterError` is for.
- */
-export function matchEmailFilter(
-  filter: Record<string, unknown> | undefined,
-  email: AgentEmailView,
-): boolean {
-  if (!filter) return true;
-  const operator = filter.operator;
-  if (operator !== undefined) {
-    if (typeof operator !== "string" || !FILTER_OPERATORS.includes(operator))
-      throw new UnsupportedFilterError(`operator "${String(operator)}"`);
-    for (const key of Object.keys(filter)) {
-      if (key !== "operator" && key !== "conditions")
-        throw new UnsupportedFilterError(`${key} beside ${String(operator)}`);
-    }
-    const conditions = filter.conditions;
-    if (!Array.isArray(conditions))
-      throw new UnsupportedFilterError(`${operator} without conditions`);
-    const results = conditions.map((c) =>
-      matchEmailFilter(c as Record<string, unknown>, email),
-    );
-    if (operator === "AND") return results.every(Boolean);
-    if (operator === "OR") return results.some(Boolean);
-    return !results.some(Boolean);
-  }
-  for (const [key, want] of Object.entries(filter)) {
-    if (!matchesKey(key, want, email)) return false;
-  }
-  return true;
-}
-
-export class UnsupportedFilterError extends Error {
-  constructor(public readonly key: string) {
-    super(`this executor does not understand the filter "${key}"`);
-    this.name = "UnsupportedFilterError";
-  }
-}
-
-/**
- * The filter keys this executor honours.
- *
- * One list, read by both the matcher and `unsupportedFilterKey`: a rule whose
- * filter the executor cannot evaluate has to be refused, and a second list
- * would eventually let one path accept what the other rejects.
- */
-/**
- * What each supported key's value has to be for the matcher to compare it.
- *
- * The matcher is total (`matchesKey` answers false for a value of the wrong
- * type), which is right at match time and useless at authoring time: a rule
- * with the wrong type is valid and dead. This is the same knowledge, in the
- * shape validation needs, and it exists once — beside the keys themselves.
- */
-export const FILTER_KEY_KINDS: Record<string, "string" | "number"> = {
-  inMailbox: "string",
-  hasKeyword: "string",
-  notKeyword: "string",
-  subject: "string",
-  text: "string",
-  body: "string",
-  from: "string",
-  to: "string",
-  cc: "string",
-  before: "string",
-  after: "string",
-  minSize: "number",
-  maxSize: "number",
-};
-
-/**
- * The keys the matcher implements — derived, so it cannot disagree with the
- * kinds beside it about how many filters there are.
- */
-export const SUPPORTED_FILTER_KEYS: ReadonlyArray<string> = Object.keys(FILTER_KEY_KINDS);
-
-/**
- * The first key in a filter the executor cannot evaluate, or null.
- *
- * The executor refuses such a rule before it touches any message — a rule that
- * silently never fires is indistinguishable, to the person who wrote it, from
- * a rule that matches nothing.
- */
-export function unsupportedFilterKey(
-  filter: Record<string, unknown> | undefined,
-): string | null {
-  if (!filter) return null;
-  const operator = filter.operator;
-  if (operator !== undefined) {
-    if (typeof operator !== "string" || !FILTER_OPERATORS.includes(operator))
-      return String(operator);
-    const conditions = filter.conditions;
-    if (!Array.isArray(conditions)) return `${operator} without conditions`;
-    for (const condition of conditions) {
-      const bad = unsupportedFilterKey(condition as Record<string, unknown>);
-      if (bad) return bad;
-    }
-    return null;
-  }
-  for (const key of Object.keys(filter)) {
-    if (!SUPPORTED_FILTER_KEYS.includes(key)) return key;
-  }
-  return null;
-}
-
-function matchesKey(key: string, want: unknown, email: AgentEmailView): boolean {
-  const text = emailText(email);
-  if (!SUPPORTED_FILTER_KEYS.includes(key)) throw new UnsupportedFilterError(key);
-  switch (key) {
-    case "inMailbox":
-      return typeof want === "string" && email.mailboxIds?.[want] === true;
-    case "hasKeyword":
-      return typeof want === "string" && email.keywords?.[want] === true;
-    case "notKeyword":
-      return typeof want === "string" && email.keywords?.[want] !== true;
-    case "subject":
-      return contains(email.subject, want);
-    case "text":
-      return contains(text, want);
-    case "body":
-      return contains(email.body ?? "", want);
-    case "from":
-      return contains(addressesToText(email.from), want);
-    case "to":
-      return contains(addressesToText(email.to), want);
-    case "cc":
-      return contains(addressesToText(email.cc), want);
-    case "before":
-      return before(email.receivedAt, want);
-    case "after":
-      return after(email.receivedAt, want);
-    case "minSize":
-      return typeof want === "number" && (email.size ?? 0) >= want;
-    case "maxSize":
-      return typeof want === "number" && (email.size ?? 0) <= want;
-    default:
-      throw new UnsupportedFilterError(key);
-  }
-}
-
-function contains(haystack: string | null | undefined, needle: unknown): boolean {
-  if (typeof needle !== "string") return false;
-  return (haystack ?? "").toLowerCase().includes(needle.toLowerCase());
-}
-
-function addressesToText(list: ReadonlyArray<AgentAddress> | null | undefined): string {
-  return (list ?? [])
-    .map((a) => (a.name ? `${a.name} <${a.email ?? ""}>` : (a.email ?? "")))
-    .join(", ");
-}
-
-function emailText(email: AgentEmailView): string {
-  return [
-    email.subject ?? "",
-    addressesToText(email.from),
-    addressesToText(email.to),
-    addressesToText(email.cc),
-    email.body ?? "",
-  ].join("\n");
-}
-
-function before(receivedAt: string | null | undefined, want: unknown): boolean {
-  if (typeof want !== "string" || !receivedAt) return false;
-  return Date.parse(receivedAt) < Date.parse(want);
-}
-
-function after(receivedAt: string | null | undefined, want: unknown): boolean {
-  if (typeof want !== "string" || !receivedAt) return false;
-  return Date.parse(receivedAt) >= Date.parse(want);
-}
-
 /** The rules that react to one kind of trigger, in document order. */
 export function rulesFor(
   rules: ReadonlyArray<AgentRule>,
@@ -847,34 +741,119 @@ export function rulesFor(
 }
 
 /* ------------------------------------------------------------------ */
-/* The review gate                                                     */
+/* The review gate, and the group's policy document                     */
 /* ------------------------------------------------------------------ */
+
+/**
+ * The group's policy: who a run stops for, and whether it may reach outside.
+ *
+ * It is one document per group (`agent/policy.json` in the group's own
+ * account) rather than a field on every automation. The question it answers —
+ * how cautious this group wants its agent to be — is a fact about the group:
+ * two automations of one group are the same team's work on the same
+ * correspondence, and a policy repeated per automation is a policy that drifts
+ * apart. The grant of *what* an automation may do stays on the automation;
+ * this is only what happens before it does it.
+ */
+export interface AgentGroupPolicyDoc {
+  v: 1;
+  review: AgentReviewMode;
+  /**
+   * The group's explicit raise of the external-send consent floor. False means
+   * an action that reaches outside the group always pauses for a person,
+   * whatever the mode says.
+   */
+  allowExternal: boolean;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export const AGENT_POLICY_FILE = "agent/policy.json";
+
+export type AgentReviewMode = "always" | "threshold" | "never";
+
+export const AGENT_REVIEW_MODES: ReadonlyArray<AgentReviewMode> = [
+  "always",
+  "threshold",
+  "never",
+];
+
+/**
+ * The confidence a `threshold` policy treats as sure enough to go unattended.
+ *
+ * One number, not a field: an author choosing "run it unattended when the model
+ * is confident" is choosing the behaviour, not a decimal, and a form that asked
+ * for the decimal made every author invent one (ADR 0006). An installation that
+ * wants a different number changes this constant, and `planFor`'s prompt and
+ * the gate read it from here, so the two cannot disagree about what "confident"
+ * means.
+ */
+export const AGENT_REVIEW_THRESHOLD = 0.7;
+
+/**
+ * A group that has written no policy: the cautious reading, and the only
+ * honest one. Nothing has said a run of this group may go ahead unattended, so
+ * every run stops for a person; nothing has raised the external-send floor
+ * either. A group's policy is authored where its automations are, and this is
+ * what a group that has never opened that form answers with.
+ */
+export const EMPTY_GROUP_POLICY: Omit<AgentGroupPolicyDoc, "updatedAt" | "updatedBy"> = {
+  v: 1,
+  review: "always",
+  allowExternal: false,
+};
+
+export function isAgentGroupPolicyDoc(x: unknown): x is AgentGroupPolicyDoc {
+  if (!isRecord(x)) return false;
+  const d = x as Record<string, unknown>;
+  return (
+    d.v === 1 &&
+    (AGENT_REVIEW_MODES as ReadonlyArray<string>).includes(String(d.review)) &&
+    typeof d.allowExternal === "boolean" &&
+    typeof d.updatedAt === "string" &&
+    typeof d.updatedBy === "string"
+  );
+}
+
+/**
+ * The policy a run is held to, as a document or as the cautious default.
+ *
+ * One reader for the two shapes a caller has — the document or nothing — so the
+ * executor and the member's panel cannot read "no policy" two different ways.
+ */
+export function policyOf(
+  doc: AgentGroupPolicyDoc | null,
+): Pick<AgentGroupPolicyDoc, "review" | "allowExternal"> {
+  if (!doc)
+    return {
+      review: EMPTY_GROUP_POLICY.review,
+      allowExternal: EMPTY_GROUP_POLICY.allowExternal,
+    };
+  return { review: doc.review, allowExternal: doc.allowExternal };
+}
 
 export type ReviewOutcome = "execute" | "pause";
 
 /**
  * Whether a run may execute unattended.
  *
- * `threshold` is what a new automation starts at, confidence is what the model
- * answered with (there is no run without one, ADR 0003), and the external-send
- * floor holds whatever the mode says unless the owner has explicitly raised
- * it.
+ * The group's policy decides how cautious its runs are; the automated floors
+ * decide what no policy may relax. An action that reaches outside the group
+ * needs a person unless the group has raised that floor on purpose, and an
+ * action that cannot be undone asks whatever the policy says — today's only
+ * irreversible action also sends, and the two flags must not be able to drift
+ * apart into an irreversible effect nobody was asked about.
  */
 export function reviewOutcome(
-  review: AgentReview,
+  policy: Pick<AgentGroupPolicyDoc, "review" | "allowExternal">,
   actions: ReadonlyArray<AgentAction>,
   confidence: number,
 ): ReviewOutcome {
-  // Two reasons to ask a person, and they are different ones: an action that
-  // reaches outside the group needs consent unless the rule says otherwise,
-  // and an action that cannot be undone asks whatever the rule says — today's
-  // only irreversible action also sends, and the two flags must not be able to
-  // drift apart into an irreversible effect nobody was asked about.
-  if (consentRequired(actions) && review.allowExternal !== true) return "pause";
+  if (consentRequired(actions) && policy.allowExternal !== true) return "pause";
   if (irreversible(actions)) return "pause";
-  if (review.mode === "always") return "pause";
-  if (review.mode === "never") return "execute";
-  return confidence >= (review.threshold ?? 1) ? "execute" : "pause";
+  if (policy.review === "always") return "pause";
+  if (policy.review === "never") return "execute";
+  return confidence >= AGENT_REVIEW_THRESHOLD ? "execute" : "pause";
 }
 
 /* ------------------------------------------------------------------ */
@@ -1390,9 +1369,8 @@ export function isAgentScheduleDoc(x: unknown): x is AgentScheduleDoc {
 
 /** The next instant a `schedule` rule is due, from `now`. */
 export function nextRunAfter(rule: AgentRule, now: Date): Date | null {
-  const minutes = rule.trigger.everyMinutes;
   if (rule.trigger.on !== "schedule") return null;
-  if (minutes === undefined) return null;
+  const minutes = scheduleMinutesOf(rule);
   if (!Number.isFinite(minutes) || minutes < 1)
     throw new Error(`a schedule of every ${String(minutes)} minutes has no next run`);
   const ms = minutes * 60_000;
@@ -1401,7 +1379,7 @@ export function nextRunAfter(rule: AgentRule, now: Date): Date | null {
 }
 
 /* ------------------------------------------------------------------ */
-/* The group's standing instruction                                    */
+/* The prose an agent carries: house rules, group rules, a group's form */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -1418,6 +1396,17 @@ export function nextRunAfter(rule: AgentRule, now: Date): Date | null {
  */
 export const AGENT_INSTRUCTION_FILE = "agent/instruction.json";
 
+/**
+ * The installation's own rules, held in the Master's account.
+ *
+ * The third and outermost level of prose an automation runs under: what is
+ * true of Gilbert everywhere, before anything is true of a group or of one
+ * automation. It is written once, in Admin → Master, and carried into every
+ * call of every group the installation serves — so the house rules a company
+ * states once do not have to be repeated in each group's instruction.
+ */
+export const AGENT_PREAMBLE_FILE = "agent/preamble.json";
+
 /** The group's notebook: the facts its agent holds in every call (ADR 0003). */
 export const AGENT_NOTEBOOK_FILE = "agent/notebook.json";
 
@@ -1425,77 +1414,41 @@ export const AGENT_NOTEBOOK_FILE = "agent/notebook.json";
 export const AGENT_INSTRUCTION_MAX = 4000;
 
 /**
- * How long an author's notes may be, beside the prose they belong to.
+ * One piece of prose an agent carries: its text, and who last wrote it.
  *
- * Notes are the author's own: what the prose is for, what the automation reacts
- * to, what it may do. They are carried in the document so they survive a
- * container, and they are **not** part of any call a run makes — the prompt a
- * run sends is the instruction and nothing beside it (ADR 0003).
+ * One type for both documents that are prose and nothing else — the
+ * installation's rules and a group's standing instruction — because they are
+ * the same thing at two scopes: a person writes sentences, the agent reads
+ * them before it acts, and nothing about them is a field. They differ in where
+ * they are stored and in how far they reach, never in shape, so a reader, a
+ * bound and a validator serve both.
  */
-export const AGENT_NOTES_MAX = 2000;
-
-/** Whether an optional notes field is one this build accepts. */
-export function isAgentNotes(x: unknown): x is string | undefined {
-  return x === undefined || (typeof x === "string" && notesProblem(x) === null);
-}
-
-/**
- * Why an author's notes cannot be written, or null when they fit.
- *
- * One door for the two documents an author writes notes beside — the group's
- * standing instruction and each automation — because the bound is one number
- * (`AGENT_NOTES_MAX`) and the refusal is one code: a caller hands a person back
- * what this answers with, so a note past the bound is refused in the same words
- * wherever it was typed rather than as a length complaint about a document.
- */
-export function notesProblem(
-  notes: string | undefined,
-): { code: "notes_too_long"; max: number; length: number } | null {
-  const length = (notes ?? "").length;
-  if (length <= AGENT_NOTES_MAX) return null;
-  return { code: "notes_too_long", max: AGENT_NOTES_MAX, length };
-}
-
-/**
- * The same door, read for one automation.
- *
- * A rule arrives from a writer as an untyped document, and a note past the bound
- * is what makes it one this build does not accept (`isAgentRule`), so the field
- * is read off the document itself: a save can answer the person with the code
- * and the number rather than with a schema complaint about a length.
- */
-export function ruleNotesProblem(
-  rule: unknown,
-): { code: "notes_too_long"; max: number; length: number } | null {
-  if (!isRecord(rule)) return null;
-  const notes = (rule as { notes?: unknown }).notes;
-  return typeof notes === "string" ? notesProblem(notes) : null;
-}
-
-export interface AgentInstructionDoc {
+export interface AgentProseDoc {
   v: 1;
   text: string;
-  /** The author's remarks beside the prose; never sent to a model. */
-  notes?: string;
   updatedAt: string;
   updatedBy: string;
 }
 
-export function isAgentInstructionDoc(x: unknown): x is AgentInstructionDoc {
+export function isAgentProseDoc(x: unknown): x is AgentProseDoc {
   if (!x || typeof x !== "object") return false;
   const d = x as Record<string, unknown>;
   return (
     d.v === 1 &&
     typeof d.text === "string" &&
     d.text.length <= AGENT_INSTRUCTION_MAX &&
-    isAgentNotes(d.notes) &&
     typeof d.updatedAt === "string" &&
     typeof d.updatedBy === "string"
   );
 }
 
-/** The instruction a model call carries, or "" when the group has none. */
-export function instructionFor(doc: AgentInstructionDoc | null): string {
+/**
+ * The prose a model call carries, or "" when the document is absent.
+ *
+ * One renderer for both documents of this shape, so "what the agent was told"
+ * is read the same way wherever it sits in the prompt.
+ */
+export function proseFor(doc: AgentProseDoc | null): string {
   return (doc?.text ?? "").trim();
 }
 
@@ -1631,7 +1584,7 @@ export interface AgentAuditEntry {
   /** Who asked: the trigger's actor, when a person did. */
   by?: string;
   actions: AgentAction[];
-  /** The rule's name and the failure's message, for a readable trail. */
+  /** The automation's name and the failure's message, for a readable trail. */
   detail?: string;
   /** The agent that held the group and spent the call (ADR 0003). */
   agent?: string;
@@ -2077,9 +2030,6 @@ export function schemaProblems(rule: unknown): string[] {
 export function ruleProblems(rule: unknown): string[] {
   const problems = schemaProblems(rule);
   if (isAgentRule(rule)) {
-    if (rule.trigger.on === "email") {
-      problems.push(...filterProblems(rule.trigger.filter, "the mail filter"));
-    }
     const extra = ruleProblem(rule);
     if (extra) problems.push(extra);
   } else if (!problems.length) {
@@ -2131,18 +2081,17 @@ export interface AgentChatRequest {
  *
  * ADR 0003 asks for exactly this: an automation is a JSON
  * document validated against a standard schema — no new rule language — with
- * the JMAP filter grammar for matching and named, capability-gated actions for
- * effects. The schema is **derived** from the same constants the runtime
- * validator reads (triggers, and `AGENT_ACTION_SPECS` for the capability
- * names), so there is no second list of what a rule may say; the
- * drift is caught by the test that builds this and checks the enums against
- * those constants.
+ * one trigger, prose and named, capability-gated actions. The schema is
+ * **derived** from the same constants the runtime validator reads (the
+ * triggers, and `AGENT_ACTION_SPECS` for the capability names and the areas),
+ * so there is no second list of what a rule may say; the drift is caught by the
+ * test that builds this and checks the enums against those constants.
  *
- * What the schema cannot express is the *cross-field* half — a threshold needs
- * its number, and a filter has to be one the matcher implements — and that
- * stays in `isAgentRule` and `ruleProblem`, which is what the admin API
- * validates with. The schema is the published contract for anything
- * outside this codebase; the guards are the enforcer inside it.
+ * What the schema cannot express is the *cross-field* half — at least one
+ * capability, and one enabled automation per trigger — and that stays in
+ * `ruleProblem` and `rulesProblem`, which is what the admin API validates with.
+ * The schema is the published contract for anything outside this codebase; the
+ * guards are the enforcer inside it.
  */
 export function agentRuleJsonSchema(): Record<string, unknown> {
   return {
@@ -2152,23 +2101,12 @@ export function agentRuleJsonSchema(): Record<string, unknown> {
     description:
       "One automation: what wakes it, what it is asked to do, and what it may do about it (ADR 0003).",
     type: "object",
-    required: [
-      "v",
-      "id",
-      "version",
-      "name",
-      "enabled",
-      "trigger",
-      "instruction",
-      "capabilities",
-      "review",
-    ],
+    required: ["v", "id", "version", "enabled", "trigger", "instruction", "capabilities"],
     additionalProperties: true,
     properties: {
       v: { const: 1 },
       id: { type: "string", minLength: 1 },
       version: { type: "integer", minimum: 1 },
-      name: { type: "string" },
       enabled: { type: "boolean" },
       trigger: {
         type: "object",
@@ -2176,11 +2114,6 @@ export function agentRuleJsonSchema(): Record<string, unknown> {
         additionalProperties: false,
         properties: {
           on: { enum: [...AGENT_TRIGGERS] },
-          filter: {
-            type: "object",
-            description:
-              "A JMAP Email filter (RFC 8621). The executor honours the subset listed in `x-filterKeys`; a key outside it is refused loudly, never ignored.",
-          },
           everyMinutes: { type: "number", minimum: 5 },
         },
         allOf: [
@@ -2190,39 +2123,17 @@ export function agentRuleJsonSchema(): Record<string, unknown> {
           },
         ],
       },
-      review: {
-        type: "object",
-        required: ["mode"],
-        additionalProperties: false,
-        properties: {
-          mode: { enum: ["always", "threshold", "never"] },
-          threshold: { type: "number", minimum: 0, maximum: 1 },
-          allowExternal: { type: "boolean" },
-        },
-        allOf: [
-          {
-            if: { properties: { mode: { const: "threshold" } }, required: ["mode"] },
-            then: { required: ["threshold"] },
-          },
-        ],
-      },
       instruction: {
         type: "string",
         description:
           "The prose its administrator wrote: the whole of what a run is asked to do.",
-      },
-      notes: {
-        type: "string",
-        maxLength: AGENT_NOTES_MAX,
-        description:
-          "The author's remarks beside the prose. Carried in the document, never sent to a model.",
       },
       capabilities: {
         type: "array",
         minItems: 1,
         items: { enum: AGENT_ACTION_SPECS.map((spec) => spec.name) },
         description:
-          "The allowlist: the only actions this rule may run. A model answer outside it is refused.",
+          'The allowlist: the only actions this rule may run. A model answer outside it is refused. "Do nothing" is granted to every run and is not listed here.',
       },
       updatedAt: { type: "string" },
       updatedBy: { type: "string" },
@@ -2235,6 +2146,10 @@ export function agentRuleJsonSchema(): Record<string, unknown> {
       irreversible: spec.irreversible === true,
       params: spec.params,
     })),
-    "x-filterKeys": [...SUPPORTED_FILTER_KEYS],
+    "x-areas": AGENT_AREAS.map((area) => ({
+      area,
+      label: AGENT_AREA_LABELS[area],
+      actions: areaActions(area),
+    })),
   };
 }

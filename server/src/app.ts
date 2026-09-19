@@ -45,7 +45,7 @@ import {
   saveSystemSieveScript,
   setSystemSieveScriptActive,
 } from "./adminSieve.js";
-import { agentRuleJsonSchema } from "./agent/documents.js";
+import { AGENT_INSTRUCTION_FILE, agentRuleJsonSchema } from "./agent/documents.js";
 import type { AgentGroupAnswer } from "./agent/views.js";
 import {
   AgentAdminError,
@@ -58,15 +58,17 @@ import {
   memberAgentView,
   memberGroupMembers,
   pendingApprovals,
+  readAgentProse,
   readDraft,
-  readGroupInstruction,
   readGroupNotebook,
+  readGroupPolicy,
   readProviders,
   readRules,
   resolveGroupAccess,
   runRuleNow,
-  saveGroupInstruction,
+  saveAgentProse,
   saveGroupNotebook,
+  saveGroupPolicy,
   saveRules,
   writeProviders,
 } from "./agentAdmin.js";
@@ -2313,7 +2315,7 @@ export function createApp(basePath = config.basePath): Hono<Env> {
           need: "standing instruction",
         });
         if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
-        return c.json(await readGroupInstruction(access));
+        return c.json(await readAgentProse(access, AGENT_INSTRUCTION_FILE));
       } catch (err) {
         return agentFailure(c, err);
       }
@@ -2328,14 +2330,60 @@ export function createApp(basePath = config.basePath): Hono<Env> {
       const session = c.get("session");
       const name = c.req.param("name") ?? "";
       try {
-        const body = await readJson<{ text?: string; notes?: string }>(c);
+        const body = await readJson<{ text?: string }>(c);
         const text = typeof body?.text === "string" ? body.text : "";
-        const notes = typeof body?.notes === "string" ? body.notes : "";
         const access = await resolveGroupAccess(session, name, {
           need: "standing instruction",
         });
         if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
-        return c.json(await saveGroupInstruction(access, text, session.username, notes));
+        return c.json(
+          await saveAgentProse(access, AGENT_INSTRUCTION_FILE, text, session.username),
+        );
+      } catch (err) {
+        return agentFailure(c, err);
+      }
+    },
+  );
+
+  /**
+   * The group's policy: who its runs stop for, and whether they may reach
+   * outside the group without a person (ADR 0006).
+   *
+   * Its own route beside the instruction because it is its own document: a
+   * member reads it on the member door with the automations it governs, and an
+   * administrator writes it here. Read for everyone, written by an
+   * administrator, like every other document in this app folder.
+   */
+  api.get("/admin/groups/:name/agent/policy", requireSession, requireAdmin, async (c) => {
+    const session = c.get("session");
+    const name = c.req.param("name") ?? "";
+    try {
+      const access = await resolveGroupAccess(session, name, { need: "policy" });
+      if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+      return c.json(await readGroupPolicy(access));
+    } catch (err) {
+      return agentFailure(c, err);
+    }
+  });
+
+  api.post(
+    "/admin/groups/:name/agent/policy",
+    requireSession,
+    requireAdmin,
+    async (c) => {
+      const session = c.get("session");
+      const name = c.req.param("name") ?? "";
+      try {
+        const body = await readJson<{ review?: unknown; allowExternal?: unknown }>(c);
+        const access = await resolveGroupAccess(session, name, { need: "policy" });
+        if (!access.ok) return c.json({ error: access.error, need: access.need }, 403);
+        return c.json(
+          await saveGroupPolicy(
+            access,
+            { review: body?.review, allowExternal: body?.allowExternal },
+            session.username,
+          ),
+        );
       } catch (err) {
         return agentFailure(c, err);
       }

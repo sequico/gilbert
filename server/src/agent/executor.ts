@@ -79,7 +79,9 @@ import {
   AGENT_CHAIN_HOPS_CEILING,
   AGENT_DIR,
   AGENT_DOCUMENT_BYTES_MAX,
+  AGENT_INSTRUCTION_FILE,
   AGENT_PAGES_CEILING,
+  AGENT_PREAMBLE_FILE,
   AGENT_RULES_FILE,
   type AgentAction,
   type AgentClaim,
@@ -95,24 +97,25 @@ import {
   type AgentScheduleEntry,
   type AgentTriggerRecord,
   agentActionSpec,
+  automationLabel,
   CHAT_CONTEXT_DEFAULT,
   CHAT_CONTEXT_MAX,
   changeIdOf,
   claimEpoch,
-  filterNeedsBody,
-  filterProblems,
+  effectiveCapabilities,
   hopOf,
-  instructionFor,
   leaseExpired,
   leavesTheProcess,
-  matchEmailFilter,
   monthOf,
   newDecision,
   newJob,
   notebookFor,
+  policyOf,
+  proseFor,
   reviewOutcome,
   ruleProblem,
-  UnsupportedFilterError,
+  rulesProblem,
+  scheduleMinutesOf,
 } from "./documents.js";
 import { claimStillMine, saveClaimStates } from "./lease.js";
 import {
@@ -370,7 +373,26 @@ export class Executor {
     where: string,
   ): Promise<AgentRule[] | null> {
     try {
-      return (await store.readRules())?.doc ?? [];
+      const rules = (await store.readRules())?.doc ?? [];
+      /*
+       * One enabled automation per trigger is a rule of the product (ADR 0006
+       * decision one), enforced where automations are written — and the fan-out
+       * below is what it exists for: this pass starts a job for **every**
+       * enabled automation on the trigger, so a document that carries two would
+       * answer one arrival twice. The save guard is the enforcer; a document
+       * written by hand, restored from a backup, or written by a build that
+       * predates the guard reaches the executor anyway, and a person has to hear
+       * about it. The line is said once per process and cause, the way an
+       * unreadable document is: it is a state the next pass finds again, and the
+       * group's chat is not a place to repeat it every poll.
+       */
+      const doubled = rulesProblem(rules);
+      if (doubled && !this.reportedUnreadable.has(doubled)) {
+        this.reportedUnreadable.add(doubled);
+        this.deps.log(`${accountId}: ${where}: ${doubled}`);
+        await this.tellChat(accountId, `I am not running as written: ${doubled}`);
+      }
+      return rules;
     } catch (err) {
       // Anything that is not the unreadable document itself — a server that
       // could not answer, a refused read — keeps its own handling: this path is
@@ -450,7 +472,21 @@ export class Executor {
     return typeof res.state === "string" ? res.state : "";
   }
 
-  /** One job per (changed message × enabled rule that matches it). */
+  /**
+   * One job per changed message, under the one automation on this trigger.
+   *
+   * An automation carries no filter, so every delivered message is one a mail
+   * automation reads: the discrimination between cases lives in its prose, and
+   * the executor's own pre-filter is gone with the field it belonged to
+   * (ADR 0006). What remains a condition of the trigger is the account's own
+   * bookkeeping — a draft is work in progress and must not wake the run that
+   * prepares it.
+   *
+   * The count of automations is settled before the pass by `rulesProblem`, so
+   * what this reads is either the one enabled mail automation or nothing: the
+   * "every rule on the trigger" fan-out is what the guard exists to keep at
+   * one.
+   */
   private async emailRecords(
     store: AgentStore,
     accountId: string,
@@ -463,38 +499,17 @@ export class Executor {
       (rule) => rule.enabled && rule.trigger.on === "email",
     );
     if (!candidates.length) return;
-    // A filter this executor cannot evaluate is a fault of the rule, not of the
-    // message: it is refused once, before any record is considered. Failing per
-    // message would bury the one cause under a failed job for every arrival.
-    const usable: AgentRule[] = [];
-    for (const rule of candidates) {
-      // A filter this executor cannot evaluate is a fault of the rule, not of
-      // the message, and the list asked here is the one the form asks, so an
-      // automation refused when it is written is refused when it runs.
-      const problems = filterProblems(rule.trigger.filter, "the filter");
-      if (!problems.length) {
-        usable.push(rule);
-        continue;
-      }
-      await this.refuseTrigger(
-        store,
-        accountId,
-        rule,
-        { on: "email", at: this.deps.now().toISOString() },
-        problems.join("; "),
-      );
-    }
-    if (!usable.length) return;
-    const needsBody = usable.some((rule) => filterNeedsBody(rule.trigger.filter));
     for (const id of ids) {
-      const view = await fetchEmailView(this.deps.client, accountId, id, {
-        body: needsBody,
-      });
+      // Only what the trigger record needs: the instant the message arrived and
+      // who sent it. The run fetches the message itself, body included, when it
+      // builds its own context — nothing here reads a message to decide whether
+      // to look at it.
+      const view = await fetchEmailView(this.deps.client, accountId, id);
       if (!view) continue;
       // A draft is work in progress, not delivered mail: without this, a run
       // that prepares a draft would wake itself on the draft it created.
       if (view.keywords?.$draft === true) continue;
-      for (const rule of usable) {
+      for (const rule of candidates) {
         const trigger: AgentTriggerRecord = {
           on: "email",
           emailId: view.id,
@@ -502,15 +517,6 @@ export class Executor {
         };
         const sender = view.from?.[0];
         if (sender?.email) trigger.by = sender.email;
-        let matched: boolean;
-        try {
-          matched = matchEmailFilter(rule.trigger.filter, view);
-        } catch (err) {
-          if (!(err instanceof UnsupportedFilterError)) throw err;
-          await this.refuseTrigger(store, accountId, rule, trigger, errorMessage(err));
-          continue;
-        }
-        if (!matched) continue;
         await this.startJob(store, accountId, rule, trigger, pass, claim);
       }
     }
@@ -802,7 +808,7 @@ export class Executor {
     if (refused.some((entry) => entry.outcome === "refused" && entry.jobId === subject))
       return;
     const line =
-      `I did not run "${rule.name}": it was woken ${hop} hops into a chain ` +
+      `I did not run "${automationLabel(rule)}": it was woken ${hop} hops into a chain ` +
       `started by ${describeTrigger(trigger)}, and this installation refuses a run ` +
       `past ${bound} hops.`;
     await recordAudit(
@@ -888,11 +894,19 @@ export class Executor {
       // second time by the worker that replaced it.
       if (!(await claimStillMine(store, this.deps.workerId, claimEpoch(claim)))) {
         this.deps.log(
-          `${rule.name}: ${job.id} was taken over while it was deciding, so nothing is run`,
+          `${automationLabel(rule)}: ${job.id} was taken over while it was deciding, so nothing is run`,
         );
         return;
       }
-      if (reviewOutcome(rule.review, plan.actions, plan.confidence) === "execute") {
+      /*
+       * The gate: the group's own policy decides how cautious its runs are, and
+       * it is read here — after the plan and before anything runs — so a policy
+       * a member changed while a run was deciding applies to that run rather
+       * than to the next one. A document nobody has written reads as the cautious
+       * default (`policyOf`), which is the one reading nobody had to choose.
+       */
+      const policy = policyOf((await store.readPolicy())?.doc ?? null);
+      if (reviewOutcome(policy, plan.actions, plan.confidence) === "execute") {
         await this.execute(store, accountId, planned, rule, plan, claim);
       } else {
         await this.pause(store, accountId, planned, rule, plan, claim);
@@ -967,20 +981,29 @@ export class Executor {
     // for the page work (ADR 0003).
     const pages = await this.maxPages();
     const context = await this.contextFor(accountId, job, rule, pages);
-    // The group's standing instruction rides every model call this group's
-    // agent makes (ADR 0003 resolution 17): read once per run, first in the
-    // prompt.
-    const standing = instructionFor((await store.readInstruction())?.doc ?? null);
-    // The group's notebook rides every call too, before the standing
-    // instruction: what is true about the group, then how it wants work done.
-    const notebook = notebookFor((await store.readNotebook())?.doc ?? null);
+    //
+    // The prose this run carries, read once per run: the installation's own
+    // rules from the agent's account, then the group's facts, then the group's
+    // standing instruction. The order they reach the prompt in is `proseHead`'s
+    // (ADR 0003, ADR 0019), not this call site's.
+    const [preambleDoc, instructionDoc, notebookDoc] = await Promise.all([
+      this.agentStore.readProse(AGENT_PREAMBLE_FILE),
+      store.readProse(AGENT_INSTRUCTION_FILE),
+      store.readNotebook(),
+    ]);
     const answer = await decideActions(
       this.usableProvider(configDoc),
       rule,
       context,
-      rule.capabilities,
-      standing,
-      notebook,
+      // What the model is offered, and what its answer is checked against: the
+      // rule's grant plus the answer "change nothing", which every automation
+      // has. One function, so the prompt and the check cannot disagree about it.
+      effectiveCapabilities(rule),
+      {
+        preamble: proseFor(preambleDoc?.doc ?? null),
+        standing: proseFor(instructionDoc?.doc ?? null),
+        notebook: notebookFor(notebookDoc?.doc ?? null),
+      },
       // The call's own shape: the installation's ceiling on an answer, how many
       // pages it may hand over, and the agent's own decision about paying for a
       // chain of thought. The page bound is stated in the prompt from this same
@@ -1077,7 +1100,9 @@ export class Executor {
         store,
         auditEntry(closed, rule, "done", plan.actions, plan.summary),
       );
-      this.deps.log(`${rule.name}: ${job.id} had already run everything it planned`);
+      this.deps.log(
+        `${automationLabel(rule)}: ${job.id} had already run everything it planned`,
+      );
       return;
     }
     const landed: string[] = [...applied];
@@ -1117,7 +1142,7 @@ export class Executor {
     if (!done) return;
     await recordAudit(store, auditEntry(done, rule, "done", plan.actions, plan.summary));
     this.deps.log(
-      `${rule.name}: ${describeActions(results)} for ${describeTrigger(job.trigger)}`,
+      `${automationLabel(rule)}: ${describeActions(results)} for ${describeTrigger(job.trigger)}`,
     );
     /*
      * A run somebody asked for says so where the group reads (ADR 0003). Every
@@ -1130,7 +1155,7 @@ export class Executor {
     if (done.trigger.on === "manual")
       await this.tellChat(
         accountId,
-        `I ran "${rule.name}" as asked: ${describeActionsInWords(results)}`,
+        `I ran "${automationLabel(rule)}" as asked: ${describeActionsInWords(results)}`,
       );
   }
 
@@ -1206,7 +1231,7 @@ export class Executor {
       job.trigger.on === "chat" ? job.trigger.chatId : undefined,
     );
     await store.writeDecision({ ...open, chatId });
-    this.deps.log(`${rule.name}: waiting for a person (${job.id})`);
+    this.deps.log(`${automationLabel(rule)}: waiting for a person (${job.id})`);
   }
 
   /**
@@ -1325,9 +1350,9 @@ export class Executor {
       return context;
     }
     return {
-      text: `The automation "${rule.name}" runs on its own, every ${
-        rule.trigger.everyMinutes ?? 0
-      } minutes.`,
+      text: `The automation "${automationLabel(rule)}" runs on its own, every ${scheduleMinutesOf(
+        rule,
+      )} minutes.`,
     };
   }
 
@@ -1564,7 +1589,7 @@ export class Executor {
     // report is not a write onto the document.
     if (!failed)
       this.deps.log(
-        `${rule.name}: the job document moved under the failing run, so its failure is not written onto it`,
+        `${automationLabel(rule)}: the job document moved under the failing run, so its failure is not written onto it`,
       );
     await recordAudit(
       store,
@@ -1576,33 +1601,17 @@ export class Executor {
         `${message} (attempt ${job.attempts || 1} of ${JOB_MAX_ATTEMPTS})`,
       ),
     );
-    this.deps.log(`${rule.name} failed: ${message}`);
+    this.deps.log(`${automationLabel(rule)} failed: ${message}`);
     if (!final) return;
     await this.labelQuietly(
       store.accountId,
       { do: "keyword.add", with: { keyword: AGENT_LABEL.needAttention } },
       job.trigger.on === "email" ? job.trigger.emailId : undefined,
     );
-    await this.tellChat(store.accountId, `I could not finish "${rule.name}": ${message}`);
-  }
-
-  /** A rule the executor cannot honour still fails loudly, not silently. */
-  private async refuseTrigger(
-    store: AgentStore,
-    accountId: string,
-    rule: AgentRule,
-    trigger: AgentTriggerRecord,
-    message: string,
-  ): Promise<void> {
-    const job = newJob({
-      id: randomUUID(),
-      accountId,
-      rule,
-      trigger,
-      now: this.deps.now().toISOString(),
-    });
-    await store.writeJob(job);
-    await this.failLoudly(store, job, rule, message, { deadLetter: true });
+    await this.tellChat(
+      store.accountId,
+      `I could not finish "${automationLabel(rule)}": ${message}`,
+    );
   }
 
   private async labelQuietly(
@@ -1683,9 +1692,18 @@ export class Executor {
     const jobFound = await store.readJob(decided.jobId);
     const job = jobFound?.doc ?? null;
     const rule = await this.ruleOf(store, decided.ruleId);
+    /*
+     * A decision outlives the rule it was made under: the document may be gone
+     * by the time a person answers, and the trail still needs to name what was
+     * approved. The job's own trigger record is what the run pinned, so the line
+     * is named by the automation that actually ran rather than by a stand-in.
+     */
+    // A decision outlives the rule it was made under: the document may be gone
+    // by the time a person answers, and the trail still names what was approved
+    // — by the automation when it is still there, and by its absence when it is
+    // not (`automationLabel`).
     const auditRule: AuditRule = rule ?? {
       id: decided.ruleId,
-      name: "the rule is gone",
       version: decided.ruleVersion,
     };
     if (!approved) {
@@ -1769,7 +1787,7 @@ export class Executor {
         // is recorded by the pass the sweep makes.
         if (!marked) {
           this.deps.log(
-            `${auditRule.name}: the job document moved under the approval, so nothing is run`,
+            `${automationLabel(auditRule)}: the job document moved under the approval, so nothing is run`,
           );
           return;
         }
@@ -1940,7 +1958,6 @@ export class Executor {
     const rule = await this.ruleOf(store, decision.ruleId);
     const auditRule: AuditRule = rule ?? {
       id: decision.ruleId,
-      name: "the rule is gone",
       version: decision.ruleVersion,
     };
     const actions = decision.actions.filter(
@@ -2266,11 +2283,7 @@ export class Executor {
   ): Promise<void> {
     for (const entry of unrunEntries(due, rules)) {
       const found = rules.find((candidate) => candidate.id === entry.ruleId);
-      const rule: AuditRule = found ?? {
-        id: entry.ruleId,
-        name: "the rule is gone",
-        version: 0,
-      };
+      const rule: AuditRule = found ?? { id: entry.ruleId, version: 0 };
       await recordAudit(
         store,
         missedAuditEntry(
@@ -2335,7 +2348,7 @@ export class Executor {
       const claim = (await store.readClaim())?.doc;
       if (claim?.worker !== this.deps.workerId) {
         this.deps.log(
-          `${rule.name}: the account's automation is not held by this worker, so the run due at ${entry.at} is not started`,
+          `${automationLabel(rule)}: the account's automation is not held by this worker, so the run due at ${entry.at} is not started`,
         );
         continue;
       }
@@ -2386,7 +2399,7 @@ export class Executor {
     const claim = (await store.readClaim())?.doc;
     if (claim?.worker !== this.deps.workerId) {
       this.deps.log(
-        `${rule.name}: the account's automation is not held by this worker, so the run due at ${entry.at} is left to its holder`,
+        `${automationLabel(rule)}: the account's automation is not held by this worker, so the run due at ${entry.at} is left to its holder`,
       );
       return;
     }
@@ -2469,7 +2482,6 @@ export class Executor {
       if (job.state === "running") continue;
       const rule = rules.find((candidate) => candidate.id === decision.ruleId) ?? {
         id: decision.ruleId,
-        name: "the rule is gone",
         version: decision.ruleVersion,
       };
       const at =
@@ -2591,11 +2603,7 @@ export class Executor {
     await this.failLoudly(
       store,
       job,
-      rule ?? {
-        id: job.ruleId,
-        name: "the deleted automation",
-        version: job.ruleVersion,
-      },
+      rule ?? { id: job.ruleId, version: job.ruleVersion },
       why,
       { outcome: "timeout", deadLetter: true },
     );
@@ -2975,8 +2983,8 @@ function renderChatMessage(message: ChatMessage): string {
 /** The proposal a member reads in the chat, and answers. */
 function proposalText(rule: AgentRule, job: AgentJob): string {
   const proposal = job.proposal;
-  if (!proposal) return `"${rule.name}" has something to ask.`;
-  const lines = [`"${rule.name}" suggests: ${proposal.summary}`];
+  if (!proposal) return `"${automationLabel(rule)}" has something to ask.`;
+  const lines = [`"${automationLabel(rule)}" suggests: ${proposal.summary}`];
   if (proposal.rationale) lines.push(proposal.rationale);
   lines.push(
     `What it would do: ${proposal.actions.map((action) => action.do).join(", ")}.`,

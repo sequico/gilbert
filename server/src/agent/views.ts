@@ -21,6 +21,7 @@ import type {
   AgentJob,
   AgentMeter,
   AgentNotebookFact,
+  AgentReviewMode,
   AgentRule,
   AgentScheduleEntry,
 } from "./documents.js";
@@ -216,7 +217,8 @@ export type AgentErrorReason =
   | { code: "notebook_too_many"; max: number }
   | { code: "notebook_fact_too_long"; max: number }
   | { code: "instruction_too_long"; max: number; length: number }
-  | { code: "notes_too_long"; max: number; length: number }
+  | { code: "review_mode_unknown" }
+  | { code: "policy_not_an_object" }
   | { code: "no_provider" }
   | { code: "reading_failed"; detail: string }
   | { code: "envelope_too_long"; max: number; length: number }
@@ -356,6 +358,7 @@ export interface AgentAuditExport {
 export type GroupNeed =
   | "labels"
   | "automations"
+  | "policy"
   | "standing instruction"
   | "notebook"
   | "approvals"
@@ -423,6 +426,40 @@ export interface AgentProvidersView {
 /* ------------------------------------------------------------------ */
 
 /**
+ * One piece of prose an agent carries, as a surface reads it.
+ *
+ * The same shape for both scopes it exists at — the installation's own rules
+ * (Admin → Master) and a group's standing instruction (Group Agents) — because
+ * they are one document type (`AgentProseDoc`) at two reaches: a surface that
+ * renders one renders the other, and the ceiling stated here is the one the
+ * document is validated against rather than a second number written down in a
+ * form.
+ */
+export interface AgentProseView {
+  text: string;
+  updatedAt: string | null;
+  updatedBy: string | null;
+  /** The ceiling the document is validated against, in characters. */
+  max: number;
+}
+
+/**
+ * A group's policy as a surface reads it: who its runs stop for, and whether
+ * they may reach outside the group without a person.
+ *
+ * `present` says whether the group has written one at all, so the form can say
+ * what a group that has never opened it is running on rather than showing the
+ * default as if somebody had chosen it.
+ */
+export interface GroupPolicyView {
+  review: AgentReviewMode;
+  allowExternal: boolean;
+  present: boolean;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
+/**
  * The group's notebook as a surface reads it: the facts themselves — the same
  * shape the document stores, never a second spelling of one — the stamps, and
  * the bounds the document enforces, so a form can say them.
@@ -456,22 +493,6 @@ export interface AgentApprovalsView {
   approvals: PendingApproval[];
 }
 
-export interface GroupInstructionView {
-  text: string;
-  /**
-   * The author's remarks beside the prose. Carried in the document so they
-   * survive a container, and read by nobody's model: a run's prompt is the
-   * instruction and nothing beside it (ADR 0003).
-   */
-  notes: string;
-  updatedAt: string | null;
-  updatedBy: string | null;
-  /** The ceiling the document is validated against, in characters. */
-  max: number;
-  /** The ceiling on the remarks, in characters. */
-  notesMax: number;
-}
-
 /**
  * What an author's reading answered: prose, and whether the month recorded it.
  *
@@ -496,17 +517,22 @@ export interface AgentReadingView {
 
 /**
  * The rules a member reads: what the automation is, whether it is on, what
- * wakes it, how it is reviewed, and the instruction it carries.
+ * wakes it, and the instruction it carries.
  *
  * The instruction is here (resolution 17) because a member who can read that
  * an automation exists but not what it does cannot judge what the agent does in
  * their name. `capabilities`, `version` and the authorship stamps stay out —
  * the allowlist is what a run is checked against, and a member reads the
- * outcome rather than the grant.
+ * outcome rather than the grant. The name is out too: it is derived from the
+ * trigger, which the member reads beside it (ADR 0006).
+ *
+ * `review` stays out as well: who a run stops for is the group's own policy, a
+ * document of its own (`AgentGroupPolicyDoc`), read once for the group rather
+ * than repeated on every automation.
  */
 export type MemberAgentRule = Pick<
   AgentRule,
-  "id" | "name" | "enabled" | "trigger" | "review" | "instruction"
+  "id" | "enabled" | "trigger" | "instruction"
 >;
 
 /**
@@ -544,7 +570,14 @@ export interface MemberAgentView {
    * ceiling is and who last wrote it — which is how a member sees that this
    * document is an administrator's, not theirs.
    */
-  instruction: GroupInstructionView;
+  instruction: AgentProseView;
+  /**
+   * The group's policy: who its runs stop for, and whether they may reach
+   * outside it without a person. A member reads it beside the automations it
+   * governs — what the agent may do unattended is exactly what a member has to
+   * be able to judge (ADR 0006).
+   */
+  policy: GroupPolicyView;
   jobs: AgentJob[];
   audit: AgentAuditEntry[];
 }

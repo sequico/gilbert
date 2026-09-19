@@ -23,12 +23,11 @@ import { errorMessage } from "@gilbert/shared/errors";
 import { create } from "zustand";
 import { push } from "@/jmap/push";
 import {
-  type AgentActionCatalogEntry,
+  type AgentGrantCatalog,
   type AgentGroupSurface,
   type AgentProvidersInput,
   type AgentProvidersView,
   type AgentStatus,
-  actionCatalog,
   fetchAgentGroup,
   fetchAgentProviders,
   fetchAgentRuleSchema,
@@ -36,6 +35,7 @@ import {
   fetchGroupMembers,
   fetchMemberAgentView,
   fetchPendingApprovals,
+  grantCatalog,
   type MemberAgentView,
   type PendingApproval,
   saveAgentProviders,
@@ -92,8 +92,8 @@ interface AgentsState {
   busy: Record<string, boolean>;
   problems: Record<string, string | null>;
   providers: AgentProvidersView | null;
-  /** The catalogue the rule schema publishes; null until it is read. */
-  catalogue: AgentActionCatalogEntry[] | null;
+  /** The grant the rule schema publishes; null until it is read. */
+  grant: AgentGrantCatalog | null;
   loadStatus: () => Promise<void>;
   loadGroup: (name: string) => Promise<void>;
   /** The member door: the same documents, read with this session's own grant. */
@@ -109,8 +109,8 @@ interface AgentsState {
   loadProviders: () => Promise<void>;
   /** Rejects when the server refused the write; a key is never posted back. */
   saveProviders: (providers: AgentProvidersInput) => Promise<void>;
-  /** The capability catalogue, read from the rule schema the server publishes. */
-  loadCatalogue: () => Promise<void>;
+  /** The grant catalogue, read from the rule schema the server publishes. */
+  loadGrant: () => Promise<void>;
   loadApprovals: () => Promise<void>;
   reset: () => void;
 }
@@ -157,7 +157,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
   busy: {},
   problems: {},
   providers: null,
-  catalogue: null,
+  grant: null,
 
   loadStatus: async () => {
     set(markBusy("status", true));
@@ -254,11 +254,11 @@ export const useAgents = create<AgentsState>((set, get) => ({
     }
   },
 
-  loadCatalogue: async () => {
+  loadGrant: async () => {
     set(markBusy("catalogue", true));
     set(markProblem("catalogue", null));
     try {
-      set({ catalogue: actionCatalog(await fetchAgentRuleSchema()) });
+      set({ grant: grantCatalog(await fetchAgentRuleSchema()) });
     } catch (err) {
       set(markProblem("catalogue", errorMessage(err)));
     } finally {
@@ -305,7 +305,7 @@ export const useAgents = create<AgentsState>((set, get) => ({
       busy: {},
       problems: {},
       providers: null,
-      catalogue: null,
+      grant: null,
     }),
 }));
 

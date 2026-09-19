@@ -2,74 +2,74 @@
 
 Status: Accepted
 
-Implementation: Partly built. The code carries the rule shape, the four triggers
-and the review policy, with the consent floor no mode can lower (`AGENT_TRIGGERS`,
-`consentRequired`, `reviewOutcome` in `server/src/agent/documents.ts`). Decided
-here and not built: the three-area capability checklist, the two speeds of
-context, and a guard refusing a second enabled rule on one trigger.
+Implementation: Partly built. Decisions one, two and four are built: the rule
+shape the editor writes (`server/src/agent/documents.ts` — `AgentRule`,
+`AGENT_TRIGGERS`, `rulesProblem`, `areaActions`), the three areas with the two
+entries that stand beside them (`AGENT_AREAS`, `standaloneActions`,
+`agentRuleJsonSchema`'s `x-areas`) and the group's policy document
+(`AgentGroupPolicyDoc`, `policyOf`, `AgentReviewMode`). Decision three is
+decided here and not built: the two speeds of context.
 
 The surface this is about is **Admin → Group Agents → Automations** — the
-editor that writes a group's rule documents. ADR 0003 gives a rule one shape —
-trigger, prose instruction, capability allowlist, review policy — and nothing
-in that shape requires an administrator to author more than the smallest
-number of rules a group actually needs, or to read every one of the
-catalogue's actions one at a time. The editor as it stands offers the other
+editor that writes a group's automations. ADR 0003 gives an automation one
+shape — trigger, prose instruction, capability allowlist, review policy — and
+nothing in that shape requires an administrator to author more than the
+smallest number of automations a group actually needs, or to read every one of
+the catalogue's actions one at a time. The editor once offered the other
 extreme: a flat checklist of thirteen individually-named actions to weigh on
-every rule, and nothing that says a group needs one rule per trigger rather
-than one per business case. Neither is what the schema asks for. This record
-names the minimum the schema already allows — one rule per trigger, three
-grouped choices instead of thirteen, and a context a run reads without either
-starving the model of what it needs or paying full price for what it does not
-— so "does this need to be this complicated" has a written answer instead of
-being re-litigated at every reading of the Automations tab.
+every automation, and nothing that said a group needs one automation per
+trigger rather than one per business case. Neither is what the schema asks for.
+This record names the minimum the schema allows — one automation per trigger,
+three grouped choices instead of thirteen, a policy written once for the group,
+and a context a run reads without either starving the model of what it needs or
+paying full price for what it does not — so "does this need to be this
+complicated" has a written answer instead of being re-litigated at every
+reading of the Automations tab.
 
-**What is built, and what is only decided.** Decision one describes behaviour
-the code already has, verified against `executor.ts` and `documents.ts` below:
-it is a recipe, not a change. Decisions two and three are **not implemented** —
-this record is the design they are built against, and a reader should take
-their tense as the design's, never the tree's.
+**What is built, and what is only decided.** Decisions one, two and four are
+built, and the files are named in each of them. Decision three is **not
+implemented** — this record is the design it is built against, and a reader
+should take its tense as the design's, never the tree's.
 
 ## Decision one — one automation per trigger, not per case
 
-**A group authors one enabled automation per trigger it actually uses, not
-one per case that trigger can produce.** `AGENT_TRIGGERS` is four values —
-`email`, `filenode`, `chat`, `schedule` (`server/src/agent/documents.ts`) —
-and four is also the practical ceiling on how many enabled automations a
-well-run group needs, because the branching between cases belongs in the
-instruction's prose, not in the document count. "When an email arrives, file
-invoices under Accounting, archive newsletters, and leave anything else for a
-person to read" is one rule with one broad instruction, not three narrow ones
-— the model already resolves the branch, the same way it resolves everything
-else `planFor` hands it (ADR 0003, "An automation is an instruction a model
-carries out").
+**A group authors one enabled automation per trigger it uses, not one per case
+that trigger can produce.** `AGENT_TRIGGERS` is four values — `email`,
+`filenode`, `chat`, `schedule` (`server/src/agent/documents.ts`) — and four is
+also the ceiling on how many enabled automations a well-run group needs, because
+the branching between cases belongs in the instruction's prose, not in the
+document count. "When an email arrives, file invoices under Accounting, archive
+newsletters, and leave anything else for a person to read" is one automation
+with one broad instruction, not three narrow ones — the model resolves the
+branch, the same way it resolves everything else `planFor` hands it (ADR 0003,
+"An automation is an instruction a model carries out").
 
-Two fields the form offers are optional exactly because the minimum does not
-need them, and an administrator following this recipe leaves them alone:
+**An automation carries no filter, and that is what makes the count the rule
+rather than a recipe.** The fan-out is what decides it: `emailRecords` in
+`executor.ts` walks every changed message and starts a job for every enabled
+automation on the trigger, and `fileRecords` does the same for every chat
+mention and every file node. Two enabled automations on one trigger therefore do
+not divide the work between them — both answer the same arrival, and a member
+reads two replies to one question. Nothing in a document tells them apart: the
+discrimination between one case and another is the prose's, and there is no
+second field for it to be read out of.
 
-- **The filter.** `RuleForm.tsx` renders the "If" section only when
-  `rule.trigger.on === "email"` — a `chat`, `filenode` or `schedule` rule has
-  no filter to write, in the form or in the document it saves. Even on an
-  email trigger, **no filter at all is not a degraded rule**: `matchEmailFilter`
-  answers true for an absent filter, and `filterProblems` has nothing to say
-  about one. The form's own default is that absence — a condition emptied of
-  its last key is dropped rather than written — so the recipe's answer is to
-  leave the filter alone and let the instruction's prose carry whatever
-  discrimination the group needs. An **empty group** is a different thing and
-  is refused: `{operator, conditions: []}` matches everything or nothing
-  depending on the operator, and `filterProblems` will not have it.
-- **The count of rules on one trigger.** Nothing stops two enabled rules from
-  sharing a trigger, and for `email` that is sometimes right — two filters
-  aimed at two disjoint slices of mail are two rules by construction, because
-  a filter is what tells them apart. For `chat`, `filenode` and `schedule`,
-  which carry no filter, this is never right: `fileRecords` in `executor.ts`
-  runs `for (const rule of chatRules) await this.startJob(...)` over **every**
-  enabled rule on the trigger against **every** item that trigger produces —
-  every message that addresses the agent, every file node, every due instant —
-  and the three paths fan out identically. Two enabled chat rules do not
-  divide the work between them; both answer the same mention, and a member
-  reads two replies to one question. The minimal recipe is therefore also the
-  only correct one on these three triggers: at most one enabled automation
-  each.
+The count is therefore enforced, in three places, at the seam each one owns:
+
+- **The save** refuses a document that carries more than one enabled automation
+  on a trigger — `rulesProblem` in `documents.ts`, read by `saveRules` in
+  `agentAdmin.ts`, which is what the editor's own check calls.
+- **The editor** offers only the triggers nothing holds, so the refusal is not
+  something a person has to discover by trying (`web/src/views/admin/agent/RuleEditor.tsx`).
+- **The executor** says so once, in the log and in the group's chat, when it
+  reads a document that carries two anyway — written by hand, restored from a
+  backup, or written by a build that predates the guard. It does not silently
+  run one of them, because choosing one would be this product deciding which of
+  two automations a person meant.
+
+A **disabled** automation is a draft: it wakes nothing, so it may sit beside the
+enabled one while its author decides to replace it. The count is of enabled
+automations, not of documents.
 
 ## Decision two — three areas, and the two entries that stand alone
 
@@ -77,8 +77,8 @@ The catalogue stays what it is: `AgentRule.capabilities` holds the same
 `AgentActionName[]` it always has, and nothing is removed from
 `AGENT_ACTION_SPECS` (`server/src/agent/documents.ts`). What changes is what an
 administrator looks at while choosing: **three areas, one checkbox each,
-instead of eleven individually-named actions** — and all thirteen of the
-catalogue's actions are accounted for, none of them silently.
+instead of thirteen individually-named actions** — and every entry of the
+catalogue is accounted for, none of them silently.
 
 | Area | Expands to | What it is |
 |---|---|---|
@@ -86,34 +86,38 @@ catalogue's actions are accounted for, none of them silently.
 | **Chat** | `chat.post` | writes in the group's own chat |
 | **Files and documents** | `file.write`, `document.read`, `document.split`, `document.merge`, `document.extract` | writes and reshapes the group's own Files |
 
-**Two entries stand beside the areas rather than inside one**, and they are
-two different kinds of exception:
+**The expansion is computed, not listed.** Each entry of the catalogue carries
+the area it belongs to (`AgentActionSpec.area`), and `areaActions(area)` returns
+that area's members **minus** everything the catalogue marks `external` or
+`irreversible`. The exclusion is therefore a rule about the catalogue rather
+than a table kept in step by hand: an action added later lands in its area by
+declaring one, and an action carrying either flag leaves every area the same
+way without this record being revisited. It is tested against a catalogue this
+build does not have — the point of the rule is what it does to a future entry,
+not what it does to today's thirteen.
 
-- **`mail.send` stays its own checkbox**, on principle rather than by a list
-  kept in sync by hand: it is the one entry in `AGENT_ACTION_SPECS` marked both
-  `external` and `irreversible`. The rule is general, not a special case pinned
-  to today's one dangerous action — an area's expansion is built by excluding
-  whatever the catalogue marks `external` or `irreversible`, so a future action
-  carrying either flag is excluded from every area the same way, without this
-  table needing to be revisited. Ticking "Mail" can never be how a person
-  grants sending; only the sending entry can.
-- **`noop` gets no area either, and keeps its own entry**, because it is not a
-  behaviour: it is the answer "record the decision and change nothing", and an
-  area is a group of *things a run does*. It has to stay reachable, because a
-  run may only answer with an action its rule allows: a rule that does not
-  grant `noop` cannot have a run decide that nothing should happen. Leaving it
-  out of the editor would be a behaviour change smuggled in as a layout — the
-  exact thing this record refuses elsewhere.
+**Two entries stand beside the areas rather than inside one**, and they are two
+different kinds of exception — both derived the same way, from what the areas do
+not grant (`standaloneActions`):
 
-This is a UI grouping, not a new document shape: when it is built,
-`AGENT_ACTION_SPECS` gains one optional tag per entry (which area it belongs
-to, absent for anything that stands alone) for `RuleForm.tsx` to group by.
-`AgentRule` on disk is unchanged, so an existing rule's `capabilities` array
-reads exactly as it always did, and nothing about `decideActions` or the
-allowlist check in `executor.ts` moves. A rule authored before this decision
-and one authored after it are the same document; only the editor that writes
-`capabilities` changes, grouping eleven of the thirteen checkboxes into three
-toggles and leaving `mail.send` and `noop` to answer for themselves.
+- **`mail.send` stays its own entry**, on principle rather than by a list kept
+  in sync by hand: it is the one entry in `AGENT_ACTION_SPECS` marked both
+  `external` and `irreversible`, so no area can grant it. Ticking "Mail" can
+  never be how a person grants sending; only the sending entry can.
+- **`noop` gets no area either**, because it is not a behaviour: it is the
+  answer "record the decision and change nothing", and an area is a group of
+  *things a run does*. It is not a permission at all — a run may always decline,
+  so every automation has it — and leaving it out of what a run may answer
+  would be a behaviour change smuggled in as a layout, which is the thing this
+  record refuses elsewhere. It is granted by `effectiveCapabilities(rule)` to
+  the prompt and to the allowlist check alike, so the two cannot disagree about
+  what a run may answer.
+
+`AgentRule` is unchanged by this decision: a rule's `capabilities` array reads
+exactly as it always did, and nothing about `decideActions` or the allowlist
+check in `executor.ts` moved. What the editor paints comes from the published
+schema — `agentRuleJsonSchema()` derives `x-areas` from the same constant the
+executor reads — so an area cannot offer a grant the executor does not have.
 
 ### Rejected — a model that writes the rule from prose
 
@@ -204,55 +208,62 @@ named and narrow in the tail — never raw and wholesale in either.
 
 ## What stays mandatory, and why it is not the same complexity
 
-- **The capability allowlist**, chosen by area once decision two is built,
-  stays mandatory: `ruleProblem` refuses a rule with none, since with none it
-  could do nothing. This is the one boundary a run cannot cross regardless of
-  what its prose says or what the mail it read tried to say (ADR 0003, "Content
-  is data, never instruction") — an inbox is adversarial input by
-  construction, and the allowlist is enforced by `decideActions` in code, not
-  by the model's own restraint. Grouping the choice into areas shrinks how many
-  things an administrator weighs; it does not shrink what any one rule ends up
+- **The capability allowlist**, chosen by area, stays mandatory: `ruleProblem`
+  refuses an automation with none, since with none it could do nothing. This is
+  the one boundary a run cannot cross regardless of what its prose says or what
+  the mail it read tried to say (ADR 0003, "Content is data, never
+  instruction") — an inbox is adversarial input by construction, and the
+  allowlist is enforced by the check in `executor.ts`, not by the model's own
+  restraint. Grouping the choice into areas shrinks how many things an
+  administrator weighs; it does not shrink what any one automation ends up
   granted below what its job needs.
-- **The review policy.** One choice — `always`, `threshold`, `never` — plus a
-  number when the mode asks for one. `reviewOutcome` already holds the floor a
-  rule's own choice cannot lower: an external or irreversible action pauses for
-  a person whatever the mode says (`consentRequired`, `irreversible`), so the
-  dropdown decides only how cautious the *rest* of the run is, never whether
-  sending mail asks first. One decision per rule, made once, is the whole of
-  what this costs an administrator.
+- **The group's review policy**, and it is the group's own document rather than
+  a field on every automation: two choices — when a person has to agree, and
+  whether a run may reach outside the group without one — and no number.
+  `reviewOutcome` holds the floors a group's own choice cannot lower: an action
+  that cannot be undone pauses for a person whatever the policy says, and one
+  that reaches outside the group pauses unless the group has raised that floor on
+  purpose (`consentRequired`, `irreversible`), so the policy decides only how
+  cautious the *rest* of a run is, never whether sending mail asks first. One
+  decision per group, made once, is the whole of what this costs an
+  administrator; a group that has written none runs on the cautious reading,
+  with every run stopping for a person.
+- **The prose**, in three places rather than one: the installation's own rules,
+  the group's standing instruction, and the automation's own instruction. ADR
+  0019 is where the three levels are decided; what this record adds is that none
+  of them is a place a grant lives.
 
 ## What this does not change
 
-No field is added to or removed from `AgentRule`, `AgentTrigger`, `AgentReview`
-or `AgentAction`; `capabilities` still stores `AgentActionName[]`, exactly the
-granularity `decideActions` checks against; no branch of `executor.ts` changes.
-The area tag decision two adds to `AGENT_ACTION_SPECS` is metadata the
-catalogue would carry for the editor, not a new kind of document, and existing
-rules need no migration — they already hold the action names an area merely
-groups.
+`capabilities` still stores `AgentActionName[]`, exactly the granularity the
+allowlist check asks about, and the area is metadata the catalogue carries for
+the editor rather than a field of a document. `decideActions` narrows nothing by
+area: it is handed the rule's grant, and it refuses an answer outside it. What
+this record does change in the shape of a document is what it *removes* — the
+filter, the author-written name, the per-automation review policy — and each of
+those is ADR 0003's record to state, because that is where the rule shape is
+written down.
 
 ## Consequences
 
-- An administrator opening the Automations tab has a target rule count —
-  roughly the number of triggers the group's work actually needs, one to four
-  — and a target number of grants to weigh per rule — one to three areas plus,
-  rarely, sending — instead of an open-ended rule count and a flat list of
-  thirteen.
-- The chat/file-node/schedule fan-out (every enabled rule on the trigger runs,
-  unfiltered) is a documented reason a second rule on one of these triggers is
-  a mistake to catch at authoring time, not a latent duplicate-reply bug
-  discovered in a group's chat. Guarding it in the admin surface — refusing or
-  warning on a second enabled rule sharing one of these three triggers — is a
-  follow-up this record does not itself implement.
+- An administrator opening the Automations tab has a target automation count —
+  the number of triggers the group's work actually needs, one to four — and a
+  target number of grants to weigh — one to three areas plus, rarely, sending —
+  instead of an open-ended count and a flat list of thirteen. Nothing else is
+  asked for: no name, no filter, no per-automation policy, no cadence to invent.
+- The fan-out (every enabled automation on a trigger runs, against everything
+  that trigger produces) is why a second enabled automation on one trigger is
+  refused rather than tolerated: it is decided in decision one, and the refusal
+  reaches the save, the editor and the executor alike.
 - Nothing marked `external` or `irreversible` in the catalogue can ever be
   granted as a side effect of ticking an area: the exclusion is computed from
   those two flags, not from a second list that could drift from them.
 - The standing instruction (`agent/instruction.json`, ADR 0003) keeps its own
-  job — facts true of the whole group, prepended before any rule's instruction
-  — and does not absorb a rule's per-trigger logic; a rule that says "follow
-  the group's standing instruction" and nothing else is a legal, if
-  unhelpfully thin, instruction, since `ruleProblem` only asks that the field
-  be non-empty.
+  job — facts true of the whole group, carried before any automation's
+  instruction — and does not absorb one automation's logic; an automation that
+  says "follow the group's standing instruction" and nothing else is a legal, if
+  unhelpfully thin, instruction, since `ruleProblem` only asks that the field be
+  non-empty.
 - The fleet meter's own `inputHitTokens`/`inputMissTokens` split (Master, ADR
   0003) is what confirms decision three is working, rather than something to
   assume: a notebook that is edited too often to stay in the cached head, or a
@@ -266,19 +277,27 @@ groups.
   review gate, the reading helper's propose-then-confirm shape, the notebook,
   the fixed prompt order and why it is cache-friendly, the standing
   instruction's place in it
+- ADR 0019 — the three levels of prose an agent carries
 - `server/src/agent/documents.ts` — `AGENT_TRIGGERS`, `AGENT_ACTION_SPECS` (the
-  thirteen actions an area groups), `ruleProblem`, `filterProblems`,
-  `matchEmailFilter`, `consentRequired`, `irreversible`, `reviewOutcome`
-- `server/src/agent/executor.ts` — `fileRecords`, the unfiltered fan-out over
-  every enabled rule on a `chat`, `filenode` or `schedule` trigger;
-  `decideActions`, the allowlist check a chosen area cannot widen;
-  `contextFor`, `folderRequest`/`folderSlice`, the pattern a named-item lookup
-  generalizes
+  actions an area groups and the flags that keep one out of every area),
+  `AgentArea`/`AGENT_AREAS`, `areaActions`, `standaloneActions`,
+  `effectiveCapabilities`, `automationLabel`, `AgentGroupPolicyDoc`, `policyOf`,
+  `AGENT_REVIEW_THRESHOLD`, `ruleProblem`, `rulesProblem`, `consentRequired`,
+  `irreversible`, `reviewOutcome`, `agentRuleJsonSchema`'s `x-areas`
+- `server/src/agent/executor.ts` — `emailRecords`/`fileRecords`, the fan-out
+  every enabled automation on a trigger runs through; `rulesOrReport`, where a
+  document carrying two is reported once; the allowlist check a chosen area
+  cannot widen; `contextFor`, `folderRequest`/`folderSlice`, the pattern a
+  named-item lookup generalizes
+- `server/src/agentAdmin.ts` — `saveRules`, where the count is refused before
+  anything is written; `runRuleNow`, which meets the same automation on the
+  same terms
 - `server/src/agent/llm.ts` — `decideActions`'s one call to an
-  OpenAI-compatible endpoint, the fixed system-prompt assembly order,
-  `usageOf`'s `prompt_cache_hit_tokens`/`prompt_cache_miss_tokens` read
-- `web/src/views/admin/agent/RuleForm.tsx` — the editor this decision is
-  about: the filter section gated on `rule.trigger.on === "email"`, the flat
-  checklist of thirteen actions that decision two would group into areas, the
-  `external`/`irreversible` tags shown beside an action, and the review mode
-  selector
+  OpenAI-compatible endpoint, `proseHead`, the one builder of the prompt's
+  stable head, and the `prompt_cache_hit_tokens`/`prompt_cache_miss_tokens`
+  read the meter is built from
+- `web/src/views/admin/agent/RuleForm.tsx` — the editor this decision is about:
+  the trigger, the instruction and the areas, and the areas derived from the
+  schema (`x-areas`) rather than listed in the client
+- `web/src/views/admin/agent/GroupPolicy.tsx` — the group's policy, written
+  once beside its standing instruction

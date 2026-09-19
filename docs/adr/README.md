@@ -54,22 +54,29 @@ is, not what a user sees.
 - **0005 — Group chat and the group label catalog.** Both are layers on the
   group account's own JMAP Files, owned by the group from creation.
 - **0006 — The minimal automation.** A group authors one enabled automation
-  per trigger it actually uses — up to the four `AGENT_TRIGGERS`, never one
-  per business case — with no filter and the branching carried in prose. The
-  capability checklist is chosen as three areas (Mail, Chat, Files and
-  documents) instead of eleven individual actions; whatever the catalogue
-  marks `external` or `irreversible` — today only `mail.send` — is excluded
-  from every area and keeps its own entry, as does `noop`, so ticking an area
-  can never grant sending as a side effect and a rule can still answer that
-  it changes nothing. `AgentRule.capabilities` is unchanged; the area is
-  metadata the editor would group by, not a new document field. New context
-  belongs in one of two speeds — distilled into the group's notebook by an
-  infrequent process, staying in the prompt's cached head, or fetched
+  per trigger it uses — up to the four `AGENT_TRIGGERS`, never one
+  per business case — and the count is enforced, because an automation carries
+  no filter and nothing else tells two of them on one trigger apart: the save
+  refuses a second, the editor offers only the triggers nothing holds, and the
+  executor says so once if a document carries one anyway. A disabled automation
+  is a draft and is allowed. The grant is chosen as three areas (Mail, Chat,
+  Files and documents) instead of thirteen individual actions, and the
+  expansion is computed from the catalogue — one tag per entry, minus anything
+  marked `external` or `irreversible` — so a future flagged action leaves every
+  area without a list being kept in step; `mail.send` is excluded from the area
+  it belongs to and keeps its own entry, so ticking an area can never grant
+  sending as a side effect. Doing nothing is not a permission but the absence of
+  one, granted to every automation by `effectiveCapabilities`. How cautious a
+  group's runs are is the **group's own policy document** rather than a field on
+  every automation — two choices, no number, with the floors in code — and a
+  group that has written none runs with every run stopping for a person. New
+  context belongs in one of two speeds — distilled into the group's notebook by
+  an infrequent process, staying in the prompt's cached head, or fetched
   narrowly and by name into the volatile tail — never attached wholesale
   (a full mailbox, an unbounded document set), which would defeat the
   provider's own prompt caching and widen the untrusted-content surface at
-  once. The rule recipe is what the code does; the areas and the two speeds
-  of context are decided here and not built.
+  once. The one-automation-per-trigger rule, the areas and the policy are what
+  the code does; the two speeds of context are decided here and not built.
 - **0007 — Identity administration.** An administrator sets a person's or a
   group's identity through the same doors impersonation and the agent
   already open; a locked account has no path of its own to change it, and the
@@ -164,3 +171,16 @@ is, not what a user sees.
   (`moveCardTo`), the surfaces draw the entry from the same answer, and filing a
   new card into a group's book, editing one where it lives and re-filing a card
   inside one account are not moves and are unchanged.
+- **0019 — The three levels of prose.** What an agent is told is written in
+  three places, and they are one shape at three reaches: the **installation's
+  own rules** (a document in the Master's account, written once in Admin →
+  Master, carried into every call of every group), a **group's standing
+  instruction** (the group's own account), and the **automation's own
+  instruction** (a field of the rule, authored with the trigger it belongs to).
+  They reach the model in that order — outermost first, after the capability
+  catalogue and the group's notebook, before anything volatile — and one
+  builder produces that order for both callers, a run's decision and an
+  administrator's reading of a draft. None of them grants anything: the grant is
+  the automation's capability allowlist, checked on every answer. The two
+  documents are one type and one pair of readers, and the remarks that used to
+  sit beside each of them — prose read by no model — are gone with them.

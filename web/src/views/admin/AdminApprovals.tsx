@@ -18,7 +18,11 @@ import { useEffect, useState } from "react";
 import { formatListDate } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { agentViewKey, groupOperation, useAgents } from "@/store/agents";
-import { AGENT_OUTCOME_LABELS, outcomeText } from "@/views/agent/agentText";
+import {
+  AGENT_OUTCOME_LABELS,
+  automationText,
+  outcomeText,
+} from "@/views/agent/agentText";
 import { AgentApprovals } from "./agent/AgentApprovals";
 
 const PARTS = [
@@ -124,7 +128,11 @@ function CrossGroupAudit() {
       if (!view?.granted) return [];
       return view.audit.map((entry) => ({
         group: name,
-        ruleName: view.rules.find((r) => r.id === entry.ruleId)?.name ?? entry.ruleId,
+        // The name of the automation a line belongs to, derived from the
+        // trigger it names — the same words the group's own panels show.
+        ruleName: automationText(
+          view.rules.find((r) => r.id === entry.ruleId) ?? { trigger: undefined },
+        ),
         ...entry,
       }));
     })

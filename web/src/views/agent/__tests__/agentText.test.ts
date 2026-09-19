@@ -1,8 +1,10 @@
 import type { AgentRule, AgentTrigger } from "@gilbert/agent/documents";
+import type { GroupPolicyView } from "@gilbert/agent/views";
 import { afterEach, describe, expect, it } from "vitest";
 import { type Catalog, setCatalog } from "@/lib/i18n";
 import {
   actionText,
+  automationText,
   fleetMeterLines,
   fleetReasonText,
   jobStateText,
@@ -14,57 +16,87 @@ import {
 
 /**
  * The shared wording is what both agent surfaces show, so what it says about a
- * document — the filters the executor honours, the confidence threshold, the
- * external-send floor — is worth pinning.
+ * document — what wakes an automation, how often, and who its runs stop for —
+ * is worth pinning.
  */
 describe("triggerText", () => {
   it("names the event alone when nothing narrows it", () => {
     expect(triggerText({ on: "chat" })).toBe("Someone writes in the chat");
   });
 
-  it("lists the filters the executor honours, in the matcher's own order", () => {
-    expect(
-      triggerText({
-        on: "email",
-        filter: { subject: "invoice", inMailbox: "mb-1", notKeyword: "spam" },
-      }),
-    ).toBe(
-      "An email arrives · in mailbox mb-1, without keyword spam, subject contains invoice",
-    );
-  });
-
-  it("renders every key the matcher implements, not only the five with wording", () => {
-    expect(triggerText({ on: "email", filter: { to: "someone" } })).toBe(
-      "An email arrives · to contains someone",
-    );
-    // A size is a number, and the matcher compares it as one.
-    expect(triggerText({ on: "email", filter: { minSize: 1000 } })).toBe(
-      "An email arrives · larger than 1000 bytes",
-    );
-  });
-
-  it("ignores a filter key the matcher does not implement", () => {
-    expect(triggerText({ on: "email", filter: { webhook: "x" } })).toBe(
-      "An email arrives",
-    );
+  it("says nothing about a message: an automation carries no filter", () => {
+    // The line is the trigger and nothing else. What the automation acts on
+    // among the messages that arrive is its instruction's business (ADR 0006),
+    // so there is no filter to render — and a document that still carries one
+    // from an older shape says nothing about it rather than half a sentence.
+    expect(triggerText({ on: "email" })).toBe("An email arrives");
+    expect(triggerText({ on: "filenode" })).toBe("A file or folder changes");
   });
 
   it("says how often a scheduled automation runs", () => {
+    expect(triggerText({ on: "schedule", everyMinutes: 60 })).toBe(
+      "On a schedule · every hour",
+    );
+    expect(triggerText({ on: "schedule", everyMinutes: 10080 })).toBe(
+      "On a schedule · every week",
+    );
+  });
+
+  it("still renders a cadence the presets do not offer, in minutes", () => {
+    // A document written by hand, or by a build that had other presets, is said
+    // rather than dropped out of the sentence.
     expect(triggerText({ on: "schedule", everyMinutes: 15 })).toBe(
       "On a schedule · every 15 minutes",
+    );
+  });
+
+  it("describes nothing for a trigger that is not there", () => {
+    expect(triggerText(undefined)).toBe("");
+  });
+});
+
+describe("automationText", () => {
+  it("names an automation by the trigger it stands on", () => {
+    expect(automationText({ trigger: { on: "email" } })).toBe("Mail automation");
+    expect(automationText({ trigger: { on: "schedule", everyMinutes: 60 } })).toBe(
+      "Scheduled automation",
+    );
+  });
+
+  it("names a run whose automation is gone as exactly that", () => {
+    // A job outlives the rule it was pinned to, and the trail is read a year
+    // later: the honest name is that there is nothing left to name.
+    expect(automationText({ trigger: undefined })).toBe(
+      "An automation that no longer exists",
     );
   });
 });
 
 describe("reviewText", () => {
-  it("carries the threshold a reader has to know", () => {
-    expect(reviewText({ mode: "threshold", threshold: 0.7 })).toBe(
-      "Ask a person below a confidence threshold (at 70% confidence or above) · sending outside the group always waits for a person",
+  it("reads the group's own policy, not a rule's", () => {
+    expect(
+      reviewText({
+        review: "threshold",
+        allowExternal: false,
+        present: true,
+        updatedAt: null,
+        updatedBy: null,
+      }),
+    ).toBe(
+      "Ask a person below a confidence threshold · sending outside the group always waits for a person",
     );
   });
 
   it("says when the external-send floor has been raised", () => {
-    expect(reviewText({ mode: "never", allowExternal: true })).toBe(
+    expect(
+      reviewText({
+        review: "never",
+        allowExternal: true,
+        present: true,
+        updatedAt: null,
+        updatedBy: null,
+      }),
+    ).toBe(
       "Never ask — run it unattended · sending outside the group allowed without a person",
     );
   });
@@ -151,21 +183,28 @@ describe("fleetMeterLines", () => {
  * value with no label here is shown as it was written.
  */
 describe("a partial or unfamiliar document", () => {
-  it("renders without a trigger or a review, and shows an unknown value raw", () => {
+  it("renders without a trigger, and shows an unknown value raw", () => {
     const foreign = {
       v: 1,
       id: "r-newer",
       version: 1,
-      name: "Filed by a newer version",
       enabled: true,
     } as unknown as AgentRule;
 
     expect(triggerText(foreign.trigger)).toBe("");
-    expect(reviewText(foreign.review)).toBe("");
+    // An automation with no trigger left to name it is named for what it is: a
+    // run whose document is gone, which the trail is read against a year later.
+    expect(automationText(foreign)).toBe("An automation that no longer exists");
     expect(jobStateText("paused")).toBe("paused");
     expect(outcomeText("deferred")).toBe("deferred");
     // An event this build cannot name is shown as the document spells it.
     expect(triggerText({ on: "webhook" } as unknown as AgentTrigger)).toBe("webhook");
+    // A policy this build cannot read is shown as the document spells it, and
+    // the consent floor is still said beside it: an unknown mode is not a
+    // licence to reach outside the group.
+    expect(reviewText({ review: "sometimes" } as unknown as GroupPolicyView)).toBe(
+      "sometimes · sending outside the group always waits for a person",
+    );
   });
 });
 

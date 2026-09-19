@@ -26,7 +26,9 @@ import {
   type AgentActionName,
   type AgentConfigDoc,
   type AgentProvider,
+  type AgentTrigger,
   agentActionSpec,
+  automationLabel,
   baseUrlProblem,
   isAgentAction,
   MODEL_MAX_OUTPUT_DEFAULT,
@@ -315,6 +317,48 @@ function rationaleOf(answer: Record<string, unknown>): { rationale?: string } {
 }
 
 /**
+ * The installation's own rules, as everything the model reads, first.
+ *
+ * The outermost level of prose an agent carries: what is true of Gilbert
+ * everywhere, written once in Admin → Master, before anything is true of a
+ * group or of one automation. Like the two blocks below it, it says how to
+ * work and never what may be done — the capability list is the whole of that —
+ * and it sits in the prompt's stable head, so carrying it into every call of
+ * every group costs a cache hit rather than a miss (ADR 0003).
+ */
+export function preambleBlock(preamble?: string): string {
+  const text = (preamble ?? "").trim();
+  if (!text) return "";
+  return [
+    "The installation's own rules, from whoever runs it:",
+    text,
+    "They say how to work everywhere, not what you are allowed to do: what you",
+    "may do is the capability list above, and nothing here changes it.",
+  ].join("\n");
+}
+
+/**
+ * The three prose blocks a call carries, in the order the architecture
+ * declares them: the installation, the group's facts, the group's rules.
+ *
+ * One builder for both callers — a run's decision and an administrator's
+ * reading of a draft — so "in what order is the agent told things" has one
+ * answer in the code. The caller's own sentence (an automation's instruction,
+ * the draft being read) is the caller's, and comes after these.
+ */
+export function proseHead(head: {
+  preamble?: string;
+  notebook?: string;
+  standing?: string;
+}): string[] {
+  return [
+    preambleBlock(head.preamble),
+    notebookBlock(head.notebook),
+    standingBlock(head.standing),
+  ].filter(Boolean);
+}
+
+/**
  * The group's notebook, as something the model holds in every call.
  *
  * It sits before the standing instruction because it is the more general of the
@@ -323,7 +367,6 @@ function rationaleOf(answer: Record<string, unknown>): { rationale?: string } {
  * side — and it lives in the prompt's stable head, so carrying it into every
  * call costs a cache hit rather than a miss (ADR 0003).
  */
-/** The group's notebook, as the prompt carries it. One renderer, two callers. */
 export function notebookBlock(notebook?: string): string {
   const text = (notebook ?? "").trim();
   if (!text) return "";
@@ -360,15 +403,16 @@ export function providerFor(config: AgentConfigDoc | null): AgentProvider {
 }
 
 /**
- * The group's standing instruction, as the first thing the model reads.
+ * The group's standing instruction, as the first thing the model reads of this
+ * group's own.
  *
- * Precedence is stated by position: the group's own rules of the house, then
- * the instruction this automation carries, then the item being looked at. It is
- * also the one channel that **is** meant to be obeyed — `DATA_NOT_INSTRUCTIONS`
- * says the same thing from the other side, about mail and chat content, which
- * is never an instruction however it is written.
+ * Precedence is stated by position: the installation's rules, the group's
+ * facts, the group's rules of the house, then the instruction this automation
+ * carries, then the item being looked at. It is also the one channel that **is**
+ * meant to be obeyed — `DATA_NOT_INSTRUCTIONS` says the same thing from the
+ * other side, about mail and chat content, which is never an instruction
+ * however it is written.
  */
-/** The group's standing instruction, as the prompt carries it. */
 export function standingBlock(standing?: string): string {
   const text = (standing ?? "").trim();
   if (!text) return "";
@@ -417,12 +461,17 @@ function pageBudget(maxPages: number): string {
  */
 export async function decideActions(
   provider: AgentProvider,
-  rule: { name: string; instruction?: string },
+  rule: { trigger: AgentTrigger; instruction?: string },
   context: ModelContext,
   allowed: ReadonlyArray<AgentActionName>,
-  standing?: string,
-  /** The group's notebook, as `notebookFor` renders it; "" when it has none. */
-  notebook?: string,
+  prose: {
+    /** The installation's own rules, carried into every call of every group. */
+    preamble?: string;
+    /** The group's notebook, as `notebookFor` renders it; "" when it has none. */
+    notebook?: string;
+    /** The group's standing instruction, as `proseFor` renders it. */
+    standing?: string;
+  } = {},
   /** The call's own shape: the installation's ceiling and the agent's thinking. */
   options: {
     maxOutputTokens?: number;
@@ -431,13 +480,14 @@ export async function decideActions(
     maxPages?: number;
   } = {},
 ): Promise<DecisionAnswer> {
+  const label = automationLabel(rule);
   if (!allowed.length)
     throw new Error(
-      `the rule "${rule.name}" allows no capability, so there is nothing to decide`,
+      `the automation "${label}" allows no capability, so there is nothing to decide`,
     );
   const system = [
     DATA_NOT_INSTRUCTIONS,
-    `You decide what the automation "${rule.name}" does about the item you are given.`,
+    `You decide what the automation "${label}" does about the item you are given.`,
     'Answer with one JSON object: {"summary": string, "confidence": number, "rationale": string, "actions": [{"do": string, "with": object}]}.',
     '"summary" is one sentence a member of the group reads in its chat.',
     '"confidence" is a number from 0 to 1.',
@@ -445,11 +495,10 @@ export async function decideActions(
     ...capabilityLines(allowed),
     'Parameters a capability does not take are refused; leave "with" out when the capability takes none.',
     pageBudget(options.maxPages ?? AGENT_MAX_PAGES_DEFAULT),
-    // The stable head ends here and the group's own context begins, in the
-    // order ADR 0003 declares it: the notebook, then the group's standing
-    // instruction, then the rule's — and nothing volatile before the tail.
-    notebookBlock(notebook),
-    standingBlock(standing),
+    // The stable head ends here and the prose an agent carries begins, in the
+    // order `proseHead` declares: the installation, the group's facts, the
+    // group's rules, then the rule's own — and nothing volatile before the tail.
+    ...proseHead(prose),
     rule.instruction ? `The instruction it carries: ${rule.instruction}` : "",
   ]
     .filter(Boolean)
