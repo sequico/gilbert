@@ -18,6 +18,10 @@
  */
 
 import { localDateTime } from "../shared/localDateTime.js";
+import {
+  OCCURRENCE_INHERITED,
+  OCCURRENCE_REJECTED,
+} from "../shared/calendarOccurrence.js";
 
 export type Obj = Record<string, unknown>;
 
@@ -236,41 +240,12 @@ export function eventGetView(
 
 /* ---------- what a single occurrence will not take ---------- */
 
-/** Refused outright, with `invalidProperties`. */
-export const OCCURRENCE_REJECTED = new Set([
-  "baseEventId",
-  "calendarIds",
-  "isDraft",
-  "isOrigin",
-  "utcStart",
-  "utcEnd",
-  "useDefaultAlerts",
-  "mayInviteSelf",
-  "mayInviteOthers",
-  "hideAttendees",
-]);
-
-/**
- * Dropped from the patch, with the response still reporting success.
- *
- * This is the half that has to be reproduced most carefully. A mock that
- * *applied* these would agree with a client that sends them, and the belief
- * would ship — which is exactly the road #26 took to a live server.
+/*
+ * The two lists are the wire contract rather than the mock's opinion of it, so
+ * they are the client's too: `@gilbert/shared/calendarOccurrence`. A second copy
+ * here would be a mock that agrees with the client instead of with the server,
+ * which is how #26 and #30 reached a live instance.
  */
-export const OCCURRENCE_INHERITED = new Set([
-  "@type",
-  "method",
-  "organizerCalendarAddress",
-  "privacy",
-  "prodId",
-  "recurrenceId",
-  "recurrenceIdTimeZone",
-  "sentBy",
-  "uid",
-  "recurrenceOverrides",
-  "recurrenceRule",
-  "relatedTo",
-]);
 
 /**
  * Split a per-occurrence patch the way the server's validator does.

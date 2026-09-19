@@ -1,4 +1,8 @@
 import { create } from "zustand";
+import {
+  OCCURRENCE_INHERITED,
+  OCCURRENCE_REJECTED,
+} from "@gilbert/shared/calendarOccurrence";
 import { CAP, chunk, client, setErrorMessage } from "@/jmap/client";
 import type {
   BusyPeriod,
@@ -139,36 +143,12 @@ export function isOccurrence(event: CalendarEvent): boolean {
  * before it is sent — rejected properties throw, inherited ones are reported to
  * the caller — rather than being posted hopefully and believed.
  *
+ * Which properties are in which group is `@gilbert/shared/calendarOccurrence`:
+ * the mock splits a patch by the same two lists, so a client that stopped asking
+ * them meets the refusal there instead of on a live instance.
+ *
  * [#26]: https://github.com/Coffey-Labs/ihasmail/issues/26
  */
-const OCCURRENCE_REJECTED = new Set([
-  "baseEventId",
-  "calendarIds",
-  "isDraft",
-  "isOrigin",
-  "utcStart",
-  "utcEnd",
-  "useDefaultAlerts",
-  "mayInviteSelf",
-  "mayInviteOthers",
-  "hideAttendees",
-]);
-
-/** Applied to the series and never to one date; dropped in silence if sent. */
-const OCCURRENCE_INHERITED = new Set([
-  "@type",
-  "method",
-  "organizerCalendarAddress",
-  "privacy",
-  "prodId",
-  "recurrenceId",
-  "recurrenceIdTimeZone",
-  "sentBy",
-  "uid",
-  "recurrenceOverrides",
-  "recurrenceRule",
-  "relatedTo",
-]);
 
 /**
  * A `notUpdated`/`notDestroyed` entry, kept whole rather than flattened.
