@@ -54,7 +54,7 @@ describe("what the worker does with the list", () => {
   });
 
   it("does nothing ahead when the reader asked the browser to save data", () => {
-    expect(WORKER).toContain("self.navigator.connection.saveData) return;");
+    expect(WORKER).toContain("self.navigator.connection?.saveData) return;");
   });
 
   it("refreshes that copy from every navigation, and falls back to it", () => {

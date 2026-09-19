@@ -261,7 +261,7 @@ async function refreshShell(res) {
 
 async function precache(html, cache) {
   // A reader who has asked the browser to save data has said what they want.
-  if (self.navigator.connection && self.navigator.connection.saveData) return;
+  if (self.navigator.connection?.saveData) return;
   const wanted = [];
   for (const path of precacheList(html)) {
     if (!(await cache.match(path))) wanted.push(path);

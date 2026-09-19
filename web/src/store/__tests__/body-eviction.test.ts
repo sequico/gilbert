@@ -1,12 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { client } from "@/jmap/client";
 import type { Email, Id } from "@/jmap/types";
-import {
-  BODIES_KEPT,
-  LIST_PROPS,
-  resetBodyOrder,
-  useMail,
-} from "@/store/mail";
+import { BODIES_KEPT, LIST_PROPS, resetBodyOrder, useMail } from "@/store/mail";
 
 /**
  * How much of the mail store's memory the bodies account for.

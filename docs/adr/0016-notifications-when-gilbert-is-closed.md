@@ -375,7 +375,10 @@ What the source says is that the delivery is degraded to a plain state change;
 what it does not say, anywhere this tree has read, is which name that state
 change wears. Everything about group notifications that is already built rests
 on the answer, which is why it is a probe of its own rather than a note inside
-the one above.
+the one above — `scripts/probe-degraded-statechange.mjs`, run by hand against a
+real instance, which asks it two ways: the event stream filtered to
+`EmailDelivery`, and a subscription registering that type alone with no
+`emailPush` entry so every delivery it could receive arrives degraded.
 
 Until they are answered the five items are the record's debt, and the
 implementation marks them where the code owes them (the repository's
@@ -419,6 +422,9 @@ implementation marks them where the code owes them (the repository's
   per-device registration and its release
 - `web/src/lib/webpushEnable.ts` — `registerThisBrowser()`, `renewWebPush()`,
   `webPushActive()`
+- `scripts/probe-degraded-statechange.mjs` — the fifth item of debt, asked two
+  ways (the filtered event stream, and a subscription naming `EmailDelivery`
+  alone with no `emailPush` entry)
 - `web/src/lib/swFacts.ts`, `web/public/sw.js` — the briefing, the push handler,
   the `VERIFY_KEY` handshake, `runAction`
 - `web/src/store/mail.ts` — `notifyNewMail()`, the per-account folder trees
