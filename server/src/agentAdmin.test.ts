@@ -833,9 +833,11 @@ test("a member reads the group's agent surface, and never a provider", async () 
     body: JSON.stringify({
       rules: [
         rule(),
+        // A second automation, on a trigger of its own: one enabled automation
+        // per trigger is the rule (ADR 0006), so two on mail would be refused.
         rule({
           id: "r2",
-          name: "Triage incoming mail",
+          trigger: { on: "chat" },
           instruction: "Decide what it is and act.",
         }),
       ],
@@ -865,17 +867,23 @@ test("a member reads the group's agent surface, and never a provider", async () 
   // them (`updatedAt`, before the rule has been edited), so a key list would
   // only ever describe the first fixture.
   const [memberRule] = view.rules;
-  for (const key of ["id", "name", "enabled", "trigger", "review", "instruction"]) {
+  for (const key of ["id", "enabled", "trigger", "instruction"]) {
     assert.ok(key in (memberRule ?? {}), `a member reads the automation's ${key}`);
   }
-  for (const key of ["v", "version", "capabilities", "updatedAt", "updatedBy"]) {
+  // The name is derived from the trigger rather than carried as a field, and the
+  // review policy is the group's own document beside the rules, not a field of
+  // each of them (ADR 0006).
+  for (const key of [
+    "v",
+    "version",
+    "name",
+    "review",
+    "capabilities",
+    "updatedAt",
+    "updatedBy",
+  ]) {
     assert.ok(!(key in (memberRule ?? {})), `${key} stays on the admin surface`);
   }
-  assert.deepEqual(
-    memberRule?.review,
-    { mode: "threshold", threshold: 0.8 },
-    "the review policy is part of what a member judges",
-  );
   assert.equal(
     memberRule?.instruction,
     "Label the messages this automation was written for.",
@@ -1115,7 +1123,11 @@ test("the save path refuses against the published schema, in the schema's words"
   assert.equal(bad.status, 400);
   const refusal = bad.body as { error: string; name?: string; problems?: string };
   assert.equal(refusal.error, "rule_cannot_run", "the refusal names the automation");
-  assert.equal(refusal.name, "Label processed mail", "by name, as a parameter");
+  assert.equal(
+    refusal.name,
+    "Mail automation",
+    "by the trigger it stands on, which is what names it (ADR 0006)",
+  );
   assert.match(
     String(refusal.problems),
     /capabilit/i,
@@ -1247,7 +1259,7 @@ test("an ask that cannot run is answered, and writes nothing", async () => {
   assert.deepEqual(unarmed.body, {
     error: "manual_run_refused",
     why: "rule_not_armed",
-    rule: "Label processed mail",
+    rule: "Mail automation",
   });
 
   const chat = await call(`/api/admin/groups/${TEAM}/agent/run`, {

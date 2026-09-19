@@ -181,7 +181,10 @@ export function RuleForm({
                       everyMinutes:
                         rule.trigger.everyMinutes ?? AGENT_SCHEDULE_PRESETS[0],
                     }
-                  : { on },
+                  : // The cadence belongs to the clock and to nothing else: a
+                    // document that states one on a trigger with no clock is a
+                    // number no reader of it would ever look at.
+                    { on, everyMinutes: undefined },
               );
             }
           }}

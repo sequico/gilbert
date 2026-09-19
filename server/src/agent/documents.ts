@@ -2151,5 +2151,21 @@ export function agentRuleJsonSchema(): Record<string, unknown> {
       label: AGENT_AREA_LABELS[area],
       actions: areaActions(area),
     })),
+    /*
+     * What the areas do not grant, derived here and published rather than left
+     * for a surface to work out by subtracting one list from another: sending,
+     * which every area excludes by the catalogue's own flags, and doing nothing,
+     * which is not a behaviour.
+     */
+    "x-standalone": standaloneActions().map((name) => {
+      const spec = agentActionSpec(name)!;
+      return {
+        name: spec.name,
+        label: spec.label,
+        description: spec.description,
+        external: spec.external === true,
+        irreversible: spec.irreversible === true,
+      };
+    }),
   };
 }

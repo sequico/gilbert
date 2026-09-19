@@ -10,7 +10,6 @@
  */
 import {
   AGENT_ACTION_SPECS,
-  AGENT_SCHEDULE_PRESETS,
   type AgentAction,
   type AgentAuditOutcome,
   type AgentJobState,
@@ -256,9 +255,6 @@ export function scheduleText(rule: Pick<AgentRule, "trigger">): string {
   const label = SCHEDULE_LABELS[minutes];
   return label ? t(label) : t("every {minutes} minutes", { minutes });
 }
-
-/** The cadences a select offers, so the editor and this table cannot disagree. */
-export const AGENT_SCHEDULE_CHOICES: ReadonlyArray<number> = AGENT_SCHEDULE_PRESETS;
 
 /**
  * The group's policy in one line, including the external-send consent floor.

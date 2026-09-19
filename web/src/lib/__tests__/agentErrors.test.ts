@@ -65,7 +65,9 @@ describe("the sentence an admin refusal reads as", () => {
     );
     expect(
       agentErrorSentence({ error: "instruction_too_long", max: 2000, length: 2100 }),
-    ).toBe("One piece of prose an agent carries is at most 2000 characters; this one is 2100.");
+    ).toBe(
+      "One piece of prose an agent carries is at most 2000 characters; this one is 2100.",
+    );
   });
 
   it("answers null for a code it does not know, rather than inventing one", () => {

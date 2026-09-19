@@ -50,6 +50,7 @@ import {
   type AgentProvider,
   type AgentReviewMode,
   type AgentRule,
+  type AgentTriggerOn,
   type AgentWorkerRecord,
   automationLabel,
   EMPTY_METER,
@@ -764,17 +765,22 @@ export async function saveRules(
    * produces. A disabled automation is a draft and is not counted.
    */
   const doubled = rulesProblem(checked);
-  if (doubled)
+  if (doubled) {
+    // The automation the refusal is about is one on the trigger that carries
+    // two: naming the first enabled one in the list would name one that may not
+    // be involved at all.
+    const crowded = firstDoubledTrigger(checked);
     throw new AgentAdminError(
       {
         code: "rule_cannot_run",
-        name: automationLabel(
-          checked.find((rule) => rule.enabled) ?? { trigger: { on: "email" } },
-        ),
+        name: automationLabel({
+          trigger: { on: crowded ?? ("email" as const) },
+        }),
         problems: doubled,
       },
       400,
     );
+  }
 
   const store = new AgentStore(access.ctx, accountId);
   for (let attempt = 0; ; attempt++) {
@@ -1117,6 +1123,23 @@ export async function writeProviders(admin: LiveSession, input: unknown): Promis
       if (!isStateMismatch(err) || attempt > 0) throw err;
     }
   }
+}
+
+/**
+ * The first trigger two enabled automations share, or null.
+ *
+ * `rulesProblem` says what is wrong with the list; this says which trigger to
+ * name it by, so the refusal points at the pair a person has to choose between
+ * rather than at whichever automation happens to come first.
+ */
+function firstDoubledTrigger(rules: ReadonlyArray<AgentRule>): AgentTriggerOn | null {
+  const seen = new Set<AgentTriggerOn>();
+  for (const rule of rules) {
+    if (!rule.enabled) continue;
+    if (seen.has(rule.trigger.on)) return rule.trigger.on;
+    seen.add(rule.trigger.on);
+  }
+  return null;
 }
 
 /** The installation's model as the editor sends it; null when it is cleared. */

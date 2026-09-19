@@ -315,12 +315,13 @@ export interface AgentAreaCatalogEntry {
 
 /**
  * One action that stands beside the areas rather than inside one, as the schema
- * publishes it: sending, which `areaActions` excludes from the area it belongs
- * to, and doing nothing, which is not a behaviour at all.
+ * publishes it: sending, which every area excludes by the catalogue's own flags,
+ * and doing nothing, which is not a behaviour at all.
  *
- * It is derived, not listed: the editor reads `x-actions` and takes whatever no
- * area grants, so a catalogue that grows a new flagged action offers it here
- * without this module changing.
+ * It is read from the server's own answer (`x-standalone`) rather than worked
+ * out here by subtracting one published list from another: which actions an area
+ * grants is the server's rule, and a client that re-derived it could disagree
+ * with the executor about a grant.
  */
 export interface AgentStandaloneCatalogEntry {
   name: string;
@@ -378,18 +379,24 @@ export function grantCatalog(schema: Record<string, unknown>): AgentGrantCatalog
       });
     }
   }
+  /* The order a grant is written in is the catalogue's, one name per action. */
   const order: string[] = [];
-  const standalone: AgentStandaloneCatalogEntry[] = [];
-  const inAreas = new Set(areas.flatMap((entry) => entry.actions));
   const rawActions = schema["x-actions"];
   if (Array.isArray(rawActions)) {
     for (const entry of rawActions) {
       if (!entry || typeof entry !== "object") continue;
+      const name = (entry as { name?: unknown }).name;
+      if (typeof name === "string" && name) order.push(name);
+    }
+  }
+  const standalone: AgentStandaloneCatalogEntry[] = [];
+  const rawStandalone = schema["x-standalone"];
+  if (Array.isArray(rawStandalone)) {
+    for (const entry of rawStandalone) {
+      if (!entry || typeof entry !== "object") continue;
       const action = entry as Record<string, unknown>;
       const name = typeof action.name === "string" ? action.name : "";
       if (!name) continue;
-      order.push(name);
-      if (inAreas.has(name)) continue;
       standalone.push({
         name,
         label: typeof action.label === "string" ? action.label : name,

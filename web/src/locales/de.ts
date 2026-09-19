@@ -186,7 +186,8 @@ export const catalog: Catalog = {
     "Attach from Files": "Aus Dateien anhängen",
     "Remove attachment": "Anhang entfernen",
     "Has attachment": "Hat Anhang",
-    "Has the words": "Enthält die Wörter",    Match: "Übereinstimmung",    // The parameters an automation's action takes: the catalogue names each one
+    "Has the words": "Enthält die Wörter",
+    Match: "Übereinstimmung", // The parameters an automation's action takes: the catalogue names each one
     // by the key the executor reads, the form names it for a person.
     Label: "Label",
     Mailbox: "Mailbox",
@@ -194,7 +195,8 @@ export const catalog: Catalog = {
     // The rest of the agent surfaces (ADR 0003): the outcome an audit entry
     // carries, the row a grouped filter's condition sits in, and the rotation
     // of the agent's own app password.
-    "Timed out": "Zeitüberschreitung",    "Header name": "Name der Kopfzeile",
+    "Timed out": "Zeitüberschreitung",
+    "Header name": "Name der Kopfzeile",
     "Show headers": "Kopfzeilen anzeigen",
     "Show original": "Original anzeigen",
     "Show details": "Details anzeigen",
