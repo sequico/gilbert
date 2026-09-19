@@ -128,8 +128,9 @@ export function RecipientPicker({
         if (bookKey !== "all" && !c.addressBookIds?.[bookKey]) continue;
         push(
           c,
-          contacts.books[Object.keys(c.addressBookIds ?? {})[0] ?? ""]?.name ??
-            "Contacts",
+          // Named through the store, so the book a card is in is resolved the
+          // same way here as everywhere else.
+          contacts.bookNamesOf(c)[0] ?? "Contacts",
           contacts.accountId ?? "",
         );
       }

@@ -897,9 +897,7 @@ function ContactDetail({
   const name = contactDisplayName(c);
   const org = Object.values(c.organizations ?? {})[0];
   const title = Object.values(c.titles ?? {})[0];
-  const books = Object.keys(c.addressBookIds ?? {})
-    .map((id) => contacts.books[id]?.name)
-    .filter(Boolean);
+  const books = contacts.bookNamesOf(c);
   /*
    * A group's members live where the group does: a uid means nothing outside
    * the account holding the card, so the cards to look through are that

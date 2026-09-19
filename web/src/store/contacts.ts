@@ -308,6 +308,21 @@ interface ContactsState {
   /** The account a card belongs to, null for the reader's own. */
   accountOfCard(id: Id): Id | null;
   /**
+   * What the books holding this card are called, in the reader's terms.
+   *
+   * Resolved through the account that **holds the card**, because a book id is
+   * only unambiguous inside one: a default book is seeded per account, so the
+   * reader's own book and a group's may carry the same id, and looking an id up
+   * in the reader's own books alone names their book for a card that is in a
+   * group's. A book in another account is named as the composer names one --
+   * `book · account` -- since two groups may each keep a book of the same name.
+   *
+   * One place, because the question is asked by more than one surface and a
+   * second spelling of "which book is this card in" is how one of them comes to
+   * name the wrong one.
+   */
+  bookNamesOf(card: ContactCard): string[];
+  /**
    * Whether the reader may write this card where it lives.
    *
    * Not "is it in the reader's own account": a group's address book is in the
@@ -720,6 +735,27 @@ export const useContacts = create<ContactsState>((set, get) => ({
     if (get().cards[id]) return null;
     const hit = Object.entries(get().sharedCards).find(([key]) => key.endsWith(`:${id}`));
     return hit ? hit[0].slice(0, hit[0].length - id.length - 1) : null;
+  },
+
+  bookNamesOf(card) {
+    const st = get();
+    const accountId = st.accountOfCard(card.id);
+    const names: string[] = [];
+    for (const id of Object.keys(card.addressBookIds ?? {})) {
+      /* The reader's own card: their own books are the ones that answer, and an
+         id none of them carries is a book this client has not read rather than
+         one to name. */
+      if (!accountId) {
+        const own = st.books[id]?.name;
+        if (own) names.push(own);
+        continue;
+      }
+      const held = st.sharedBooks.find(
+        (b) => b.accountId === accountId && b.book.id === id,
+      );
+      if (held) names.push(`${held.book.name} · ${held.accountName}`);
+    }
+    return names;
   },
 
   cardWritable(card) {
