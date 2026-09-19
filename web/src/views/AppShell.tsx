@@ -19,11 +19,19 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Link, useLocation } from "wouter";
 import { DEFAULT_APP_NAME } from "@/lib/brand";
 import { formatSize } from "@/lib/format";
 import { t } from "@/lib/i18n";
+import { lazyView } from "@/lib/lazyView";
 import { toggleTarget } from "@/lib/palette";
 import { collectShare } from "@/lib/shareTarget";
 import { draftFromMailto, useCompose } from "@/store/compose";
@@ -35,15 +43,29 @@ import { Avatar, useIsMobile } from "@/ui/misc";
 import { MenuItem, MenuSep, Popover, useMenu } from "@/ui/popover";
 import { Splitter } from "@/ui/Splitter";
 import { TranslateBoundary } from "@/ui/TranslateBoundary";
-import { CalendarSidebar } from "./calendar/CalendarSidebar";
 import { ChatLauncher } from "./chat/ChatLauncher";
-import { ContactsSidebar } from "./contacts/ContactsSidebar";
-import { FilesTree } from "./files/FilesTree";
 import { MailboxPicker } from "./mail/MailboxPicker";
 import { MailboxTree } from "./mail/MailboxTree";
 import { SearchBar } from "./SearchBar";
 import { offerShare } from "./ShareOffer";
 import { ShortcutsDialog, useGlobalShortcuts } from "./Shortcuts";
+
+/*
+ * The other sections' sidebars, loaded with the section they belong to.
+ *
+ * `lazyView` rather than `lazy`: a chunk that hangs reaches the crash boundary
+ * instead of leaving a spinner forever, which is the convention every route view
+ * in this app already follows.
+ */
+const CalendarSidebar = lazyView(() =>
+  import("./calendar/CalendarSidebar").then((m) => ({ default: m.CalendarSidebar })),
+);
+const ContactsSidebar = lazyView(() =>
+  import("./contacts/ContactsSidebar").then((m) => ({ default: m.ContactsSidebar })),
+);
+const FilesTree = lazyView(() =>
+  import("./files/FilesTree").then((m) => ({ default: m.FilesTree })),
+);
 
 /*
  * How far the sidebar edge can be dragged. Below about 240px the module bar
@@ -495,9 +517,17 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
           <div className="sidebar-scroll">
             {(section === "mail" || section === "search") && <MailboxTree />}
-            {section === "calendar" && <CalendarSidebar />}
-            {section === "contacts" && <ContactsSidebar />}
-            {section === "files" && <FilesTree />}
+            {/*
+              The other sections' sidebars load with the section, the way their
+              views already do: each is only drawn under one section, and
+              keeping all three in the main chunk is what made a mail-only
+              session carry the calendar, contacts and files trees.
+            */}
+            <Suspense fallback={null}>
+              {section === "calendar" && <CalendarSidebar />}
+              {section === "contacts" && <ContactsSidebar />}
+              {section === "files" && <FilesTree />}
+            </Suspense>
             {section === "settings" && (
               <div className="nav-section">
                 <span>{t("Settings")}</span>
