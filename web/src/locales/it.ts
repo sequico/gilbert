@@ -1544,6 +1544,11 @@ export const catalog: Catalog = {
 
     // ── Composer status, calendar title ────────────────────────────────
     "New message": "Nuovo messaggio",
+    "Start a new message with what was shared?":
+      "Iniziare un nuovo messaggio con quanto condiviso?",
+    "Start a message": "Inizia un messaggio",
+    "Something was shared with Gilbert. Nothing is sent until you choose Send. If you did not just share this, discard it.":
+      "Qualcosa è stato condiviso con Gilbert. Nulla viene inviato finché non scegli Invia. Se non hai appena condiviso questo, scartalo.",
 
     "Sending…": "Invio…",
 

@@ -2775,3 +2775,7 @@ button.dp-open:disabled { cursor: default; opacity: .5; }
 .agent-action-params { margin-top: 6px; }
 .agent-rule-item .card-head { flex-wrap: wrap; gap: 8px; }
 .agent-rule-item .card-head h3 { flex: 0 1 auto; }
+
+/* What arrived from the operating system's share sheet, shown before it is opened. */
+.share-summary { margin: 0 0 8px; padding-left: 1ex; border-left: 2px solid var(--border-strong); color: var(--fg-muted); overflow-wrap: anywhere; }
+.share-summary-files { margin: 0 0 8px; padding-left: 1.2em; color: var(--fg-muted); overflow-wrap: anywhere; }

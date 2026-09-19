@@ -245,7 +245,13 @@ export function ConfirmHost() {
         )
       }
     >
-      {req.message && <p style={{ marginTop: 0 }}>{req.message}</p>}
+      {/* A paragraph for text; a block for anything carrying blocks of its own. */}
+      {req.message &&
+        (typeof req.message === "string" ? (
+          <p style={{ marginTop: 0 }}>{req.message}</p>
+        ) : (
+          <div style={{ marginTop: 0 }}>{req.message}</div>
+        ))}
       {req.kind === "choice" && (
         <div className="dialog-choices">
           {req.choices?.map((c) => (

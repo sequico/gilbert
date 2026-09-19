@@ -975,6 +975,10 @@ export const catalog: Catalog = {
 
     // ── Composer status, calendar title ────────────────────────────────
     "New message": "新邮件",
+    "Start a new message with what was shared?": "用分享的内容开始新邮件？",
+    "Start a message": "开始写邮件",
+    "Something was shared with Gilbert. Nothing is sent until you choose Send. If you did not just share this, discard it.":
+      "有内容分享给了 Gilbert。在你选择“发送”之前不会发出任何东西。如果你刚刚没有分享这个，请丢弃。",
     "New mail": "新邮件",
     "Could not do that — open Gilbert and try again": "无法执行 — 请打开 Gilbert 后重试",
     "Sending…": "正在发送…",

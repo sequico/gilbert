@@ -42,6 +42,7 @@ import { FilesTree } from "./files/FilesTree";
 import { MailboxPicker } from "./mail/MailboxPicker";
 import { MailboxTree } from "./mail/MailboxTree";
 import { SearchBar } from "./SearchBar";
+import { offerShare } from "./ShareOffer";
 import { ShortcutsDialog, useGlobalShortcuts } from "./Shortcuts";
 
 /*
@@ -260,11 +261,12 @@ export function AppShell({ children }: { children: ReactNode }) {
    * session is in place. AppShell only exists once there is one.
    */
   useEffect(() => {
-    void collectShare().then((share) => {
+    void collectShare().then(async (share) => {
       if (!share) return;
-      openShare(share);
       if (new URLSearchParams(window.location.search).has("share"))
         navigate("/mail", { replace: true });
+      // Asked about first, not opened straight away: see `offerShare`.
+      await offerShare(share, openShare);
     });
   }, [openShare, navigate]);
 

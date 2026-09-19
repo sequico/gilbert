@@ -998,6 +998,11 @@ export const catalog: Catalog = {
 
     // ── Composer status, calendar title ────────────────────────────────
     "New message": "新規メール",
+    "Start a new message with what was shared?":
+      "共有された内容で新規メッセージを開始しますか？",
+    "Start a message": "メッセージを開始",
+    "Something was shared with Gilbert. Nothing is sent until you choose Send. If you did not just share this, discard it.":
+      "Gilbert に何かが共有されました。送信を選ぶまで何も送信されません。心当たりがなければ破棄してください。",
     "New mail": "新着メール",
     "Could not do that — open Gilbert and try again":
       "実行できませんでした - Gilbert を開いてやり直してください",
