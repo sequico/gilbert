@@ -29,7 +29,7 @@ import { after, test } from "node:test";
  * files as parallel child processes, each binding its own mock.
  */
 
-const PORT = 18846;
+const PORT = 18873;
 process.env.MOCK_PORT = String(PORT);
 process.env.MOCK_USER = "demo@example.com";
 process.env.MOCK_PASS = "demo-password";
