@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
 import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
@@ -50,9 +51,72 @@ const devUrlHint = (): Plugin => ({
   },
 });
 
+/*
+ * Write the build's own asset list into the app page.
+ *
+ * The page is where a browser learns what a build consists of, and the service
+ * worker reads the list back to fetch the rest of a build in the background
+ * (`web/public/sw.js`). Without it the worker only ever learns about the files
+ * a reader happened to ask for, so the first time after a deploy that somebody
+ * opened the composer, settings or a viewer, they waited on the server for that
+ * code -- which this build makes worth avoiding, since the lazy views are
+ * hundreds of kilobytes each.
+ *
+ * Language catalogs are deliberately left out: they are one per language at
+ * 80-125 KB, and a reader uses one of them.
+ */
+const ASSET_LIST_ID = "gilbert-assets";
+
+/*
+ * Which chunks are language catalogs, derived from the catalogues themselves.
+ *
+ * Vite names a chunk `<entry>-<hash>.js`, and every hash is eight characters --
+ * so a pattern for "a name and a hash" matches *every* chunk in the build,
+ * which is what an earlier version of this got wrong and what this avoids:
+ * the language codes come from the directory rather than from a guess about
+ * the shape of a file name.
+ */
+const localeCodes = new Set(
+  readdirSync(fileURLToPath(new URL("./src/locales", import.meta.url)))
+    .filter((f) => f.endsWith(".ts"))
+    .map((f) => f.replace(/\.ts$/, "")),
+);
+const isLocaleChunk = (name: string): boolean => {
+  const base = name.split("/").pop() ?? "";
+  return localeCodes.has(base.replace(/-[A-Za-z0-9_-]{8}\.js$/, ""));
+};
+
+const assetList = (): Plugin => ({
+  name: "gilbert-asset-list",
+  apply: "build",
+  /*
+   * `post`, because the list is the bundle's own file names: the default order
+   * runs before there is a bundle, and `ctx.bundle` is then undefined.
+   */
+  transformIndexHtml: {
+    order: "post",
+    handler(html, ctx) {
+      const files = (ctx.bundle ? Object.keys(ctx.bundle) : []).filter(
+        (name) => name.endsWith(".js") && !isLocaleChunk(name),
+      );
+      if (!files.length) return html;
+      /*
+       * Prefixed with `base`, because a deployment is mounted under one: the
+       * shell's own asset URLs are `/webmail/assets/…` and a list of
+       * `/assets/…` would have the worker fetch 404s for the whole build.
+       */
+      const payload = JSON.stringify({ precache: files.map((f) => `${base}${f}`) });
+      return html.replace(
+        "</head>",
+        `    <script type="application/json" id="${ASSET_LIST_ID}">${payload}</script>\n  </head>`,
+      );
+    },
+  },
+});
+
 export default defineConfig({
   base,
-  plugins: [react(), devUrlHint()],
+  plugins: [react(), devUrlHint(), assetList()],
   define: { __GILBERT_VERSION__: JSON.stringify(version) },
   resolve: {
     alias: {

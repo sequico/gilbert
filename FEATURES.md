@@ -2120,6 +2120,16 @@ needed nothing in either half.
   fifteen were gone. A registration now finds the row it already has, extends
   its `expires` where the server accepts it, releases any duplicate of its own,
   and starts a fresh one only when the endpoint actually changed.
+- **The rest of a build is fetched in the background.** The app page carries
+  the list of its own scripts (written at build time, prefixed with the mount),
+  and the service worker reads it back and fetches what it does not hold, three
+  at a time, on each navigation — so the first time after a deploy that a reader
+  opens the composer, settings or a viewer, that code is already here rather
+  than waited for. The build's lazy views are hundreds of kilobytes each, which
+  is what makes it worth doing. Language catalogs are left out (one per
+  language, used one at a time), and nothing is fetched ahead when the reader
+  has asked the browser to save data. The kept copy of the app page is refreshed
+  from every navigation and is used only when the network is not there.
 - **Stale build reload** — when the server starts serving a build the open tab
   did not come from, the tab reloads itself rather than going on talking to a
   newer server with older JavaScript. The reload is unconditional once the

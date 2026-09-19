@@ -182,11 +182,102 @@ self.addEventListener("fetch", (event) => {
 
   // Navigations & everything else: network-first, fall back to cached shell.
   if (req.mode === "navigate") {
-    event.respondWith(fetch(req).catch(() => caches.match(`${BASE}/`)));
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          /*
+           * Every navigation refreshes the kept copy of the app page and, from
+           * the list the page carries, fetches the rest of the build quietly.
+           * An app page fetched for a reader's own tab must be the page's own
+           * bytes, so the response is cloned rather than consumed.
+           */
+          if ((res.headers.get("content-type") ?? "").startsWith("text/html"))
+            event.waitUntil(refreshShell(res.clone()));
+          return res;
+        })
+        .catch(() => caches.match(SHELL_KEY)),
+    );
     return;
   }
   event.respondWith(fetch(req).catch(() => caches.match(req)));
 });
+
+/*
+ * Keep the offline copy of the app page current, and fetch the rest of the
+ * build behind it.
+ *
+ * The app page lists every script of its build (the asset-list plugin in
+ * `vite.config.ts`). Without that list the worker only ever learned about the
+ * files a reader happened to ask for, so the first time after a deploy that
+ * somebody opened the composer, settings or a viewer, they waited on the server
+ * for that code -- and the lazy views are hundreds of kilobytes each.
+ *
+ * Best effort throughout: a load cut short is carried on at the next
+ * navigation, which calls this again, and a build changing over mid-fetch costs
+ * a 404 that is simply skipped.
+ */
+const SHELL_KEY = `${BASE}/__shell`;
+const PRECACHE_PARALLEL = 3;
+
+/*
+ * The kept copy is under its own key rather than under `${BASE}/`.
+ *
+ * The cache is keyed by request, and `${BASE}/` is the app root -- storing the
+ * shell page there would answer a *request for the root* out of the cache, in
+ * front of the network-first handler that is supposed to decide for itself. A
+ * key nothing ever requests keeps the copy a fallback and nothing else.
+ */
+
+/** The scripts the page names, minus the language catalogs. */
+function precacheList(html) {
+  const m = html.match(
+    /<script type="application\/json" id="gilbert-assets">([^<]*)<\/script>/,
+  );
+  if (!m) return [];
+  try {
+    const list = JSON.parse(m[1]).precache;
+    return Array.isArray(list)
+      ? list.filter((p) => typeof p === "string" && p.startsWith(`${BASE}/assets/`))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+async function refreshShell(res) {
+  const html = await res.text();
+  const cache = await caches.open(VERSION);
+  const prev = await cache.match(SHELL_KEY);
+  if (!prev || (await prev.text()) !== html) {
+    await cache.put(
+      SHELL_KEY,
+      new Response(html, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      }),
+    );
+  }
+  await precache(html, cache);
+}
+
+async function precache(html, cache) {
+  // A reader who has asked the browser to save data has said what they want.
+  if (self.navigator.connection && self.navigator.connection.saveData) return;
+  const wanted = [];
+  for (const path of precacheList(html)) {
+    if (!(await cache.match(path))) wanted.push(path);
+  }
+  const next = async () => {
+    for (let path = wanted.shift(); path; path = wanted.shift()) {
+      try {
+        const res = await fetch(path, { credentials: "same-origin" });
+        if (res.ok) await cache.put(path, res);
+      } catch {
+        /* offline, or a deploy changing over: the next navigation tries again */
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: PRECACHE_PARALLEL }, next));
+}
 
 /* ------------------------------------------------------------------ */
 /* Web Push                                                            */
