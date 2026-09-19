@@ -11,6 +11,7 @@ import {
   localeOptions,
   withPrefs,
 } from "@/lib/datetime";
+import { downloadFile } from "@/lib/download";
 import { t, tNode } from "@/lib/i18n";
 import { MAX_LEVELS, type SortField, type SortPreset } from "@/lib/listSort";
 import {
@@ -361,11 +362,7 @@ export function GeneralSettings() {
         <button
           className="btn"
           onClick={() => {
-            const blob = new Blob([exportJson()], { type: "application/json" });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = "gilbert-settings.json";
-            a.click();
+            downloadFile(exportJson(), "application/json", "gilbert-settings.json");
           }}
         >
           {t("Export settings")}

@@ -28,6 +28,7 @@ import {
   toLocalDateOnly,
 } from "@/lib/dates";
 import { formatMonthYear, formatWeekday } from "@/lib/datetime";
+import { downloadFile } from "@/lib/download";
 import { plural, t } from "@/lib/i18n";
 import { groupMailboxAccounts } from "@/lib/mailAccounts";
 import { sharedKey } from "@/lib/sharedKey";
@@ -76,12 +77,11 @@ export function CalendarSidebar() {
   const exportFile = async (c: Calendar) => {
     try {
       const { text, count } = await cal.exportIcs(c.id);
-      const url = URL.createObjectURL(new Blob([text], { type: "text/calendar" }));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${c.name.replace(/[^\w.-]+/g, "_") || "calendar"}.ics`;
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadFile(
+        text,
+        "text/calendar",
+        `${c.name.replace(/[^\w.-]+/g, "_") || "calendar"}.ics`,
+      );
       toast.success(
         plural(count, { one: "Exported {n} event", other: "Exported {n} events" }),
       );

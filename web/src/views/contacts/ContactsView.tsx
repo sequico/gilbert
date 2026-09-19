@@ -32,6 +32,7 @@ import {
   toVCard,
 } from "@/lib/contacts";
 import { formatDate, formatDateLong } from "@/lib/datetime";
+import { downloadFile } from "@/lib/download";
 import { plural, t as translate } from "@/lib/i18n";
 import { useCompose } from "@/store/compose";
 import { useContacts } from "@/store/contacts";
@@ -220,12 +221,7 @@ export function ContactsView({ id }: { id?: string }) {
       toast.error(translate("There is nothing in it to export"));
       return;
     }
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(
-      new Blob([cards.map(toVCard).join("")], { type: "text/vcard" }),
-    );
-    a.download = "contacts.vcf";
-    a.click();
+    downloadFile(cards.map(toVCard).join(""), "text/vcard", "contacts.vcf");
   };
 
   const importFile = async (f: File, intoBookId?: string) => {
@@ -683,10 +679,11 @@ function ContactDetail({
         <button
           className="btn btn-sm"
           onClick={() => {
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(new Blob([toVCard(c)], { type: "text/vcard" }));
-            a.download = `${name.replace(/[^\w.-]+/g, "_")}.vcf`;
-            a.click();
+            downloadFile(
+              toVCard(c),
+              "text/vcard",
+              `${name.replace(/[^\w.-]+/g, "_")}.vcf`,
+            );
           }}
         >
           <Download size={14} /> {translate("vCard")}

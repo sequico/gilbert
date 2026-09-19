@@ -12,6 +12,7 @@
 import { Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { fetchAgentAuditExport } from "@/lib/agents";
+import { downloadFile } from "@/lib/download";
 import { formatListDate } from "@/lib/format";
 import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
@@ -51,13 +52,11 @@ export function GroupAudit({ group, known }: { group: string; known: boolean }) 
     setDownloadProblem(null);
     try {
       const trail = await fetchAgentAuditExport(group);
-      const blob = new Blob([JSON.stringify(trail, null, 2)], {
-        type: "application/json",
-      });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `${group.replace(/[^\w.-]+/g, "_")}.audit.json`;
-      a.click();
+      downloadFile(
+        JSON.stringify(trail, null, 2),
+        "application/json",
+        `${group.replace(/[^\w.-]+/g, "_")}.audit.json`,
+      );
     } catch (err) {
       setDownloadProblem(err instanceof Error ? err.message : String(err));
     } finally {
