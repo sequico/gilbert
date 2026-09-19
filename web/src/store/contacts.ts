@@ -369,6 +369,9 @@ interface ContactsState {
    * than what was asked for. Nothing is thrown for a refusal -- a partial one
    * has a count worth telling somebody about, and `refused` says why the rest
    * did not go.
+   *
+   * A selection may span accounts, so the calls are grouped by the one holding
+   * each card and the count is what the server confirmed across them.
    */
   destroyCards(ids: Id[]): Promise<{ destroyed: number; refused?: SetError }>;
   /**
@@ -1046,45 +1049,62 @@ export const useContacts = create<ContactsState>((set, get) => ({
    * `maxObjectsInSet` is refused whole, so "select all" over a big address book
    * would delete nothing and say why in JMAP's words.
    *
+   * Grouped by the account that holds each card, because `ContactCard/set` names
+   * one account per call and a selection can span several: "All contacts" holds
+   * the reader's own cards and every group's (membership is the subscription),
+   * so sending the whole selection to the account of its *first* id would delete
+   * nothing from the others and report the rest as refused.
+   *
    * The ids that actually went are what leaves the list, rather than everything
-   * that was asked for. A batch that fails after earlier ones succeeded must
-   * not leave deleted contacts on screen, and must not take live ones off it.
+   * that was asked for. A batch that fails after earlier ones succeeded must not
+   * leave deleted contacts on screen, and must not take live ones off it -- so
+   * what went is remembered per account, which is also what says where each one
+   * leaves the cache from.
    */
   async destroyCards(ids) {
     const own = get().accountId;
-    const first = ids[0];
-    const accountId = !first
-      ? null
-      : get().cards[first]
-        ? own
-        : (get().accountOfCard(first) ?? own);
+    /* An id nobody answers for is the reader's own: `accountOfCard` says null
+       both for their cards and for anything it has not read, and a bare id
+       resolves to their own account everywhere else in this store. */
+    const byAccount = new Map<Id, Id[]>();
+    for (const id of ids) {
+      const accountId = (get().cards[id] ? own : get().accountOfCard(id)) ?? own;
+      if (!accountId) continue;
+      const held = byAccount.get(accountId);
+      if (held) held.push(id);
+      else byAccount.set(accountId, [id]);
+    }
     const gone: Id[] = [];
+    const goneByAccount = new Map<Id, Id[]>();
     let refused: SetError | undefined;
     try {
-      if (accountId)
-        for (const part of chunk(ids, client.maxObjectsInSet)) {
+      for (const [accountId, part] of byAccount)
+        for (const batch of chunk(part, client.maxObjectsInSet)) {
           const res = await client.call<SetResponse>("ContactCard/set", {
             accountId,
-            destroy: part,
+            destroy: batch,
           });
-          gone.push(...(res.destroyed ?? []));
+          const destroyed = res.destroyed ?? [];
+          if (destroyed.length) {
+            gone.push(...destroyed);
+            const went = goneByAccount.get(accountId);
+            if (went) went.push(...destroyed);
+            else goneByAccount.set(accountId, [...destroyed]);
+          }
           refused ??= Object.values(res.notDestroyed ?? {})[0];
         }
     } finally {
-      if (gone.length) {
-        if (accountId && accountId !== own)
-          set((s) => {
-            const sharedCards = { ...s.sharedCards };
-            for (const id of gone) delete sharedCards[sharedKey(accountId, id)];
-            return { sharedCards };
-          });
-        else
-          set((s) => {
-            const cards = { ...s.cards };
-            for (const id of gone) delete cards[id];
-            return { cards };
-          });
-      }
+      if (gone.length)
+        set((s) => {
+          const cards = { ...s.cards };
+          const sharedCards = { ...s.sharedCards };
+          for (const [accountId, went] of goneByAccount)
+            for (const id of went) {
+              if (accountId === own) delete cards[id];
+              else delete sharedCards[sharedKey(accountId, id)];
+            }
+          return { cards, sharedCards };
+        });
     }
     /* Answered rather than thrown. A refusal that took half the selection with
        it still deleted the other half, and an error that says only "it failed"

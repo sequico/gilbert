@@ -2,9 +2,12 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AddressBook, ContactCard } from "@/jmap/types";
+import { downloadFile } from "@/lib/download";
 import { useContacts } from "@/store/contacts";
 import { useMail } from "@/store/mail";
 import { ContactsView } from "../ContactsView";
+
+vi.mock("@/lib/download", () => ({ downloadFile: vi.fn() }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -102,6 +105,7 @@ describe("All contacts, and the group a card came from", () => {
   };
 
   beforeEach(() => {
+    vi.mocked(downloadFile).mockClear();
     vi.stubGlobal("matchMedia", (query: string) => ({
       matches: false,
       media: query,
@@ -146,5 +150,22 @@ describe("All contacts, and the group a card came from", () => {
     await render();
     expect(names()).toEqual(["Freight team"]);
     expect(badges()).toEqual([]);
+  });
+
+  it("exports what All contacts shows, the groups included", async () => {
+    await arrange({ accountId: null, bookId: "all" });
+    await render();
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent("ihm:contacts-export", {
+          detail: { accountId: null, bookId: "all" },
+        }),
+      );
+    });
+    const written = vi.mocked(downloadFile).mock.calls[0]?.[0];
+    expect(String(written)).toContain("Ada Person");
+    expect(String(written)).toContain("Freight team");
+    // The colleague's share is not in this list, so it is not in the file.
+    expect(String(written)).not.toContain("A colleague's friend");
   });
 });

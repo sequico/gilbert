@@ -1595,12 +1595,17 @@ JMAP Contacts and JSContact.
   is the operation a migration asks for when an import needs doing again. A card
   filed in two books is only ever removed from the one being emptied, since
   deleting it would empty a book nobody asked about, and what is reported
-  afterwards is what the server confirmed rather than what was asked for.
+  afterwards is what the server confirmed rather than what was asked for. A
+  selection may span accounts — *All contacts* holds your own cards and every
+  group's — so each account is asked for the cards it holds and the count is
+  what the server confirmed across them.
 - **Letter index** down the list, with `#` for everything that does not start
   with a letter.
 - **Search** across name, address, organisation and notes, in one book or all.
 - **vCard import** through `ContactCard/parse` (a file of any number of cards),
-  and **export** of one card or the whole book as `.vcf`.
+  and **export** of one card, a whole book, or **everything** as `.vcf` —
+  *Export all contacts* being what the *All contacts* list holds, the groups
+  included.
 - **LDIF import**, for address books coming from SOGo, Thunderbird or an LDAP
   directory. Nothing on the server reads LDIF, so the file is read here:
   RFC 2849 for the syntax, [Mozilla's address book schema][ldif-schema] for what

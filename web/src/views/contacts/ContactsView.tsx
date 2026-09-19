@@ -158,6 +158,30 @@ export function ContactsView({ id }: { id?: string }) {
     () => groupMailboxAccounts(mailAccounts),
     [mailAccounts],
   );
+  /*
+   * **All contacts**: the reader's own cards and the cards of every group they
+   * belong to, because a group's books need nobody to add them -- membership of
+   * the group is the subscription, the same rule the composer's suggestions and
+   * `loadShared` follow. Each row says which group it came from, so the two are
+   * still told apart without opening anything.
+   *
+   * A colleague's shared book is not a group's and stays out: that one the
+   * reader adds deliberately, and it has a section of its own in the sidebar for
+   * it. `cardsIn` reads the groups' cards rather than the whole shared cache, so
+   * what `loadShared` left unloaded (a stranger's account) cannot arrive here by
+   * the back door.
+   *
+   * The one source for that set: the list draws it and "Export all contacts"
+   * writes it, so what is exported is what is on screen rather than the half of
+   * it that happens to live in the reader's own account.
+   */
+  const allCards = useMemo(
+    () => [
+      ...Object.values(contacts.cards),
+      ...groupCardAccounts.flatMap((g) => contacts.cardsIn(g.accountId)),
+    ],
+    [contacts, groupCardAccounts],
+  );
 
   const list = useMemo(() => {
     // A shared book lists that account's cards; anything else lists the
@@ -171,29 +195,12 @@ export function ContactsView({ id }: { id?: string }) {
         .filter((c) => bookId === "all" || c.addressBookIds?.[bookId]);
       return contacts.filterCards(theirs, q);
     }
-    /*
-     * **All contacts** is the reader's own cards and the cards of every group
-     * they belong to, because a group's books need nobody to add them --
-     * membership of the group is the subscription, the same rule the composer's
-     * suggestions and `loadShared` follow. Each row says which group it came
-     * from, so the two are still told apart without opening anything.
-     *
-     * A colleague's shared book is not a group's, and stays out: that one the
-     * reader adds deliberately, and it has a section of its own in the sidebar
-     * for it. `cardsIn` reads the groups' cards rather than the whole shared
-     * cache, so what `loadShared` left unloaded (a stranger's account) can not
-     * arrive here by the back door.
-     */
-    if (bookId === "all") {
-      const cards = [
-        ...Object.values(contacts.cards),
-        ...groupCardAccounts.flatMap((g) => contacts.cardsIn(g.accountId)),
-      ];
-      return contacts.filterCards(cards, q);
-    }
-    const mine = contacts.search(q);
-    return mine.filter((c) => c.addressBookIds?.[bookId]);
-  }, [contacts, q, bookId, sel.accountId, groupCardAccounts]);
+    /* One book of the reader's own: a book is one account's, and a group's book
+       is read under the group's own section. */
+    if (bookId !== "all")
+      return contacts.search(q).filter((c) => c.addressBookIds?.[bookId]);
+    return contacts.filterCards(allCards, q);
+  }, [contacts, allCards, q, bookId, sel.accountId]);
 
   /*
    * The group a row came from, named on the row itself and nowhere else: only
@@ -271,6 +278,10 @@ export function ContactsView({ id }: { id?: string }) {
    * Exporting the current list would let a search box with something in it
    * quietly narrow the export, which is wrong for an action opened from a book
    * in the sidebar.
+   *
+   * "All contacts" is the one case with more than one account behind it, and it
+   * reads the set the list itself draws (`allCards`): the reader's own cards and
+   * every group's, so exporting everything exports what "everything" shows.
    */
   const cardsOf = (accountId: string | null, book: string) => {
     if (accountId) {
@@ -281,7 +292,7 @@ export function ContactsView({ id }: { id?: string }) {
         .filter((c) => book === "all" || c.addressBookIds?.[book]);
     }
     const mine = Object.values(contacts.cards);
-    return book === "all" ? mine : mine.filter((c) => c.addressBookIds?.[book]);
+    return book === "all" ? allCards : mine.filter((c) => c.addressBookIds?.[book]);
   };
 
   const exportBook = (accountId: string | null, book: string) => {
