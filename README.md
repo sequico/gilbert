@@ -210,10 +210,11 @@ person can read. The number is the installation's to set.
 ```bash
 npm install
 npm run dev:mock        # complete Gilbert, mock Stalwart, demo@example.com / demo
-npm run dev:mock:agent  # the same, plus an agent process
 ```
 
-Then http://localhost:5173. For a real server, keep reading.
+Then http://localhost:5173. An agent-included stack, a real server, and the
+scripts this repository is worked with are in [Development](#development) below,
+where the commands are listed once.
 
 ---
 
