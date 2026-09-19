@@ -115,7 +115,20 @@ export function parseLocalDateTime(
 }
 
 const dtfCache = new Map<string, Intl.DateTimeFormat>();
-function dtf(tz: string): Intl.DateTimeFormat | null {
+
+/**
+ * A formatter that reads a zone's clock at an instant, or null when `Intl` does
+ * not know the zone.
+ *
+ * One construction, two readers. This module reads an instant's wall-clock
+ * parts with it to answer an offset, and `ics.ts` asks for the same formatter to
+ * derive a zone's transitions for the calendar it exports — one question (what
+ * does the clock in that zone read at this instant?) and so one reading of the
+ * options: `hourCycle: "h23"`, the parts back by name, and `% 24` in the callers
+ * turning a "24" hour into "0". Cached, because building one costs more than
+ * reading it.
+ */
+export function zoneFormatter(tz: string): Intl.DateTimeFormat | null {
   let f = dtfCache.get(tz);
   if (f) return f;
   try {
@@ -136,9 +149,18 @@ function dtf(tz: string): Intl.DateTimeFormat | null {
   }
 }
 
-/** Offset (ms) of timezone `tz` at instant `date`. */
+/**
+ * Offset (ms) of timezone `tz` at instant `date`.
+ *
+ * Formatting the instant into the zone and reading the clock back is the
+ * portable way to ask this: `timeZoneName: "longOffset"` is newer than some
+ * browsers this has to run in, and the difference between the two readings is
+ * the offset by definition. A zone `Intl` does not know answers with the
+ * browser's own offset rather than not at all — the caller that must not guess
+ * (`ics.ts`, writing a VTIMEZONE) asks `zoneFormatter` first.
+ */
 export function tzOffsetMs(date: Date, tz: string): number {
-  const f = dtf(tz);
+  const f = zoneFormatter(tz);
   if (!f) return -date.getTimezoneOffset() * 60_000;
   const parts = f.formatToParts(date);
   const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? "0");
@@ -170,7 +192,7 @@ export function zonedToDate(local: string, tz: string | null | undefined): Date 
 /** Format an instant as LocalDateTime in timezone `tz` (browser local if null). */
 export function dateToZonedLocal(d: Date, tz: string | null | undefined): string {
   if (!tz) return toLocalDateTime(d);
-  const f = dtf(tz);
+  const f = zoneFormatter(tz);
   if (!f) return toLocalDateTime(d);
   const parts = f.formatToParts(d);
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
@@ -195,7 +217,7 @@ export function zonedDay(
   dow: number;
 } {
   if (!tz) return { day: d.getDate(), dow: d.getDay() };
-  const f = dtf(tz);
+  const f = zoneFormatter(tz);
   if (!f) return { day: d.getDate(), dow: d.getDay() };
   const parts = f.formatToParts(d);
   const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);

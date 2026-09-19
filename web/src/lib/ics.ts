@@ -23,6 +23,7 @@ import type {
   JSCalendarParticipant,
   JSCalendarRecurrenceRule,
 } from "@/jmap/types";
+import { tzOffsetMs, zoneFormatter } from "./dates";
 import { foldLine, unfoldLines } from "./contentLines";
 
 export interface IcsEvent {
@@ -699,39 +700,17 @@ export function vtimezone(tzid: string, fromYear: number, toYear: number): strin
 }
 
 /**
- * Minutes east of UTC at an instant, from the zone database `Intl` carries.
+ * Minutes east of UTC at an instant, for a zone `Intl` knows.
  *
- * Formatting the instant into the zone and reading the clock back is the
- * portable way to ask this: `timeZoneName: "longOffset"` is newer than some
- * browsers this has to run in, and the difference between the two readings is
- * the offset by definition.
+ * The reading is `@/lib/dates`': `zoneFormatter` builds the clock format and
+ * `tzOffsetMs` turns it into an offset, and this is the same reading in minutes
+ * rather than milliseconds. It throws for a zone `Intl` does not know, which is
+ * what the caller catches to leave the TZID on the events with no VTIMEZONE
+ * beside it.
  */
 function offsetFinder(tzid: string): (d: Date) => number {
-  const dtf = new Intl.DateTimeFormat("en-US", {
-    timeZone: tzid,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-  // Throws RangeError here, on construction, if the zone is not known.
-  dtf.format(new Date());
-  return (d: Date) => {
-    const p: Record<string, string> = {};
-    for (const part of dtf.formatToParts(d)) p[part.type] = part.value;
-    const asUTC = Date.UTC(
-      Number(p.year),
-      Number(p.month) - 1,
-      Number(p.day),
-      Number(p.hour) % 24,
-      Number(p.minute),
-      Number(p.second),
-    );
-    return Math.round((asUTC - d.getTime()) / 60_000);
-  };
+  if (!zoneFormatter(tzid)) throw new RangeError(`unknown time zone: ${tzid}`);
+  return (d) => Math.round(tzOffsetMs(d, tzid) / 60_000);
 }
 
 /** TZNAME, or nothing at all where there is no name worth writing. */
