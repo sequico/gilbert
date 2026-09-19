@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { waitForPort } from "./testkit.js";
 import { isAppFolder } from "./shared/appFolder.js";
+import { waitForPort } from "./testkit.js";
 
 /**
  * The write funnel's no-op rule, against the mock Stalwart.

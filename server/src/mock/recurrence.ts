@@ -17,11 +17,11 @@
  * dropped here, in silence, on purpose.
  */
 
-import { localDateTime } from "../shared/localDateTime.js";
 import {
   OCCURRENCE_INHERITED,
   OCCURRENCE_REJECTED,
 } from "../shared/calendarOccurrence.js";
+import { localDateTime } from "../shared/localDateTime.js";
 
 export type Obj = Record<string, unknown>;
 

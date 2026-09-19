@@ -364,14 +364,8 @@ test("the session list carries the fields the security page reads", async () => 
 test("the security answer carries the fields the security page reads", async () => {
   const res = await call("/api/account/security");
   assert.equal(res.status, 200);
-  assert.deepEqual(
-    Object.keys(res.body).sort(),
-    Object.keys(SECURITY_FIELDS).sort(),
-  );
+  assert.deepEqual(Object.keys(res.body).sort(), Object.keys(SECURITY_FIELDS).sort());
   for (const row of (res.body as SecurityState).appPasswords) {
-    assert.deepEqual(
-      Object.keys(row).sort(),
-      Object.keys(APP_PASSWORD_FIELDS).sort(),
-    );
+    assert.deepEqual(Object.keys(row).sort(), Object.keys(APP_PASSWORD_FIELDS).sort());
   }
 });

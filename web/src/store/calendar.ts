@@ -1,8 +1,8 @@
-import { create } from "zustand";
 import {
   OCCURRENCE_INHERITED,
   OCCURRENCE_REJECTED,
 } from "@gilbert/shared/calendarOccurrence";
+import { create } from "zustand";
 import { CAP, chunk, client, setErrorMessage } from "@/jmap/client";
 import type {
   BusyPeriod,

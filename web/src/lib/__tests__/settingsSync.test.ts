@@ -1,4 +1,5 @@
 import { appDocumentJson } from "@gilbert/shared/appDocument";
+import { isAppFolder } from "@gilbert/shared/appFolder";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP, client, JmapMethodError } from "@/jmap/client";
 import type { JmapSession } from "@/jmap/types";
@@ -12,7 +13,6 @@ import {
   syncedPart,
 } from "@/store/settings";
 import { toast } from "@/ui/toast";
-import { isAppFolder } from "@gilbert/shared/appFolder";
 import * as appFolder from "../appFolder";
 import { APP_FOLDER_NAME } from "../appFolder";
 import {

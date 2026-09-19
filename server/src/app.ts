@@ -25,8 +25,6 @@ import {
   setPasswordChangeDirective,
   writeGroupLabels,
 } from "./account.js";
-import { type SecurityState } from "./shared/accountSecurity.js";
-import { GENERIC_TYPES, isInlineSafe, mediaType } from "./shared/media.js";
 import { administrationAllowed, gateAdministration } from "./adminGate.js";
 import {
   EMPTY_POLICY,
@@ -124,7 +122,9 @@ import {
   SessionStore,
   type SessionTtls,
 } from "./sessions.js";
+import type { SecurityState } from "./shared/accountSecurity.js";
 import { CAPABILITIES } from "./shared/capabilities.js";
+import { GENERIC_TYPES, isInlineSafe, mediaType } from "./shared/media.js";
 import type { PublishJob, PublishUnreached } from "./shared/publishJob.js";
 import type { SystemSieveScriptWrite } from "./shared/sieveViews.js";
 import { staticHandler } from "./static.js";
@@ -3580,7 +3580,5 @@ export function securityHeadersFor(
   type: string,
   safeInline: boolean,
 ): "SAMEORIGIN" | "DENY" {
-  return safeInline && mediaType(type) === "application/pdf"
-    ? "SAMEORIGIN"
-    : "DENY";
+  return safeInline && mediaType(type) === "application/pdf" ? "SAMEORIGIN" : "DENY";
 }

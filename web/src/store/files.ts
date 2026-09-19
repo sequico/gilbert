@@ -1,5 +1,5 @@
-import { create, type StoreApi } from "zustand";
 import { isAppFolder } from "@gilbert/shared/appFolder";
+import { create, type StoreApi } from "zustand";
 import { CAP, client, setErrorMessage } from "@/jmap/client";
 import type { FileNode, GetResponse, Id, QueryResponse, SetResponse } from "@/jmap/types";
 import { listChildrenWithState } from "@/lib/appFolder";

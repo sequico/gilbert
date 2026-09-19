@@ -8,10 +8,7 @@ import {
 } from "./appFolder.js";
 import { config } from "./config.js";
 import { type Invocation, JMAP_MAIL, STALWART_CAP } from "./jmap.js";
-import {
-  type AppPasswordRow,
-  type SecurityState,
-} from "./shared/accountSecurity.js";
+import type { SecurityState } from "./shared/accountSecurity.js";
 import {
   GROUP_LABELS_FILE,
   isLabelCatalog,

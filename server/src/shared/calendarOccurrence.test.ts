@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  OCCURRENCE_INHERITED,
-  OCCURRENCE_REJECTED,
-} from "./calendarOccurrence.js";
+import { OCCURRENCE_INHERITED, OCCURRENCE_REJECTED } from "./calendarOccurrence.js";
 
 /**
  * The contract, pinned.

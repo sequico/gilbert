@@ -30,8 +30,8 @@ import { PDFiumLibrary, type PDFiumPage as PdfPage } from "@hyzyla/pdfium";
 import mammoth from "mammoth";
 import { PDFDocument } from "pdf-lib";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
-import { errorMessage } from "./audit.js";
 import { mediaType } from "../shared/media.js";
+import { errorMessage } from "./audit.js";
 
 /**
  * The five kinds this family reads.

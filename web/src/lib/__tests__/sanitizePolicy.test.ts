@@ -54,8 +54,7 @@ const surfaces: Surface[] = [
 ];
 
 /** A specimen around one hostile element, with text either side of it. */
-const specimen = (element: string): string =>
-  `<p>before</p>${element}<p>after</p>`;
+const specimen = (element: string): string => `<p>before</p>${element}<p>after</p>`;
 
 const parse = (html: string): Document =>
   new DOMParser().parseFromString(html, "text/html");
@@ -76,12 +75,8 @@ describe("the sanitising policy", () => {
 
       for (const attr of surface.forbidAttrs) {
         it(`keeps no ${attr} attribute`, () => {
-          const out = surface.sanitize(
-            specimen(`<div id="probe" ${attr}="v">x</div>`),
-          );
-          expect(parse(out).querySelector("#probe")?.hasAttribute(attr)).toBe(
-            false,
-          );
+          const out = surface.sanitize(specimen(`<div id="probe" ${attr}="v">x</div>`));
+          expect(parse(out).querySelector("#probe")?.hasAttribute(attr)).toBe(false);
         });
       }
 

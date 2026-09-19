@@ -141,9 +141,7 @@ export async function listChildrenWithState(
  * asks as well: this is that rule over this tier's transport.
  */
 export async function findAppFolder(accountId: Id): Promise<Id | null> {
-  return findAppFolderId((parentId) =>
-    children(accountId, parentId, folderProps()),
-  );
+  return findAppFolderId((parentId) => children(accountId, parentId, folderProps()));
 }
 
 /** The account's own app folder, creating it when missing. */

@@ -23,8 +23,8 @@ import type {
   JSCalendarParticipant,
   JSCalendarRecurrenceRule,
 } from "@/jmap/types";
-import { tzOffsetMs, zoneFormatter } from "./dates";
 import { foldLine, unfoldLines } from "./contentLines";
+import { tzOffsetMs, zoneFormatter } from "./dates";
 
 export interface IcsEvent {
   uid: string;

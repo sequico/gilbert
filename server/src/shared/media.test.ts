@@ -1,11 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  GENERIC_TYPES,
-  isInlineImage,
-  isInlineSafe,
-  mediaType,
-} from "./media.js";
+import { GENERIC_TYPES, isInlineImage, isInlineSafe, mediaType } from "./media.js";
 
 /**
  * The rule that decides what a browser is handed, and what a picture is.

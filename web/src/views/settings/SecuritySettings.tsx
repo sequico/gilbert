@@ -1,8 +1,8 @@
-import {
-  type AppPasswordRow,
-  type SecurityState,
-  type SessionList,
-  type SessionSummary,
+import type {
+  AppPasswordRow,
+  SecurityState,
+  SessionList,
+  SessionSummary,
 } from "@gilbert/shared/accountSecurity";
 import { Copy, KeyRound, ShieldCheck, Smartphone } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";

@@ -162,11 +162,7 @@ export async function ensureAppFolder(ctx: Ctx, accountId: string): Promise<stri
     async () => {
       const created = await clientOf(ctx).call<{
         created?: Record<string, { id?: string }>;
-      }>(
-        "FileNode/set",
-        { accountId, create: { d: appFolderCreate() } },
-        [FILENODE_CAP],
-      );
+      }>("FileNode/set", { accountId, create: { d: appFolderCreate() } }, [FILENODE_CAP]);
       const id = created.created?.d?.id;
       if (!id)
         throw new AppFolderError(
