@@ -10,7 +10,7 @@ import { mailboxDisplayName } from "@/lib/mailboxName";
 import { isUnknownMailbox } from "@/lib/mailboxRoute";
 import { deleteEffect, finalFoldersOf } from "@/lib/mailDelete";
 import { anyCarries, type CarriesKeywords, rowScope } from "@/lib/rowScope";
-import { buildFilter, describeFilter, parseQuery } from "@/lib/search";
+import { buildFilter, describeFilter, parseQuery } from "@gilbert/shared/search";
 import { REPLY_KEYS, useCompose } from "@/store/compose";
 import { DEFAULT_SORT, type ListQuery, useMail } from "@/store/mail";
 import { scheduledMailboxIdFrom, useScheduled } from "@/store/scheduled";

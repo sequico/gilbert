@@ -939,6 +939,9 @@ export const AGENT_LOOKUP_TEXT_MAX = 2000;
 /** The longest name, keyword, address or path a lookup may carry. */
 export const AGENT_LOOKUP_PARAM_MAX = 200;
 
+/** The longest search query a lookup may carry. */
+export const AGENT_LOOKUP_QUERY_MAX = 500;
+
 /** The most nodes one whole-tree `files` listing hands a run. */
 export const AGENT_LOOKUP_FILES_MAX = 200;
 
@@ -957,23 +960,13 @@ export const AGENT_LOOKUP_DEPTH_MAX = 4;
  * them writes anything (ADR 0020).
  */
 export type AgentLookup =
-  | {
-      kind: "mail";
-      mailbox?: string;
-      keyword?: string;
-      from?: string;
-      text?: string;
-      unread?: boolean;
-      /** The group's starred mail (`$flagged`), named the way a member names it. */
-      starred?: boolean;
-      limit?: number;
-    }
+  | { kind: "mail"; query?: string; limit?: number }
   | { kind: "message"; id: string }
   | { kind: "mailboxes" }
   | { kind: "labels" }
-  | { kind: "files"; folder?: string; deep?: boolean }
+  | { kind: "files"; folder?: string; deep?: boolean; name?: string }
   | { kind: "file"; path: string }
-  | { kind: "chat"; text?: string; from?: string; limit?: number };
+  | { kind: "chat"; query?: string; limit?: number };
 
 export type AgentLookupKind = AgentLookup["kind"];
 
@@ -999,6 +992,17 @@ function optionalParam(x: Record<string, unknown>, key: string): boolean {
   return x[key] === undefined || lookupParam(x[key]) !== null;
 }
 
+/** An optional search query: absent is fine, present must be a query this build reads. */
+function optionalQuery(x: Record<string, unknown>, key: string): boolean {
+  const value = x[key];
+  if (value === undefined) return true;
+  return (
+    typeof value === "string" &&
+    value.trim().length > 0 &&
+    value.length <= AGENT_LOOKUP_QUERY_MAX
+  );
+}
+
 /** An optional count: absent is fine, present must be within the listing bound. */
 function optionalLimit(x: Record<string, unknown>): boolean {
   const value = x.limit;
@@ -1015,15 +1019,7 @@ export function isAgentLookup(x: unknown): x is AgentLookup {
   if (!isRecord(x)) return false;
   switch (x.kind) {
     case "mail":
-      return (
-        optionalParam(x, "mailbox") &&
-        optionalParam(x, "keyword") &&
-        optionalParam(x, "from") &&
-        optionalParam(x, "text") &&
-        (x.unread === undefined || typeof x.unread === "boolean") &&
-        (x.starred === undefined || typeof x.starred === "boolean") &&
-        optionalLimit(x)
-      );
+      return optionalQuery(x, "query") && optionalLimit(x);
     case "message":
       return lookupParam(x.id) !== null;
     case "mailboxes":
@@ -1032,12 +1028,13 @@ export function isAgentLookup(x: unknown): x is AgentLookup {
     case "files":
       return (
         optionalParam(x, "folder") &&
+        optionalParam(x, "name") &&
         (x.deep === undefined || typeof x.deep === "boolean")
       );
     case "file":
       return lookupParam(x.path) !== null;
     case "chat":
-      return optionalParam(x, "text") && optionalParam(x, "from") && optionalLimit(x);
+      return optionalQuery(x, "query") && optionalLimit(x);
     default:
       return false;
   }
@@ -1052,16 +1049,8 @@ export function isAgentLookup(x: unknown): x is AgentLookup {
  */
 export function lookupLabel(lookup: AgentLookup): string {
   switch (lookup.kind) {
-    case "mail": {
-      const filters: string[] = [];
-      if (lookup.mailbox) filters.push(`in “${lookup.mailbox}”`);
-      if (lookup.keyword) filters.push(`labelled “${lookup.keyword}”`);
-      if (lookup.from) filters.push(`from ${lookup.from}`);
-      if (lookup.text) filters.push(`matching “${lookup.text}”`);
-      if (lookup.unread) filters.push("unread");
-      if (lookup.starred) filters.push("starred");
-      return filters.length ? `the mail ${filters.join(", ")}` : "the group's mail";
-    }
+    case "mail":
+      return lookup.query ? `the mail matching “${lookup.query}”` : "the group's mail";
     case "message":
       return `the message ${lookup.id}`;
     case "mailboxes":
@@ -1072,18 +1061,15 @@ export function lookupLabel(lookup: AgentLookup): string {
       const where = lookup.folder
         ? `the group's Files in “${lookup.folder}”`
         : "the group's Files";
-      return lookup.deep ? `${where}, the whole tree` : where;
+      const tree = lookup.deep ? `${where}, the whole tree` : where;
+      return lookup.name ? `${tree}, matching “${lookup.name}”` : tree;
     }
     case "file":
       return `the file “${lookup.path}”`;
-    case "chat": {
-      const filters: string[] = [];
-      if (lookup.from) filters.push(`from ${lookup.from}`);
-      if (lookup.text) filters.push(`matching “${lookup.text}”`);
-      return filters.length
-        ? `the group's chat ${filters.join(", ")}`
+    case "chat":
+      return lookup.query
+        ? `the group's chat matching “${lookup.query}”`
         : "the group's chat";
-    }
   }
 }
 

@@ -175,11 +175,10 @@ The decision is therefore **two speeds of memory, not one list that grows**:
   at cache-hit prices instead of the correspondence at full price.
 - **The volatile tail stays narrow and named, never broad and implicit.** A run
   reads the item its trigger is about, the chat window `conversationContext`
-  already bounds, and — when a request names one — the messages it names. The
-  chat's own `folderRequest`/`folderSlice` is one way in; the other is the run
-  asking, through the closed lookup catalogue ADR 0020 decides (`AgentLookup`,
-  the bounded loop in `planFor`), so the tail grows by one named read rather
-  than by every item that might be relevant.
+  already bounds, and whatever it asks for through the closed lookup catalogue
+  ADR 0020 decides (`AgentLookup`, the shared search grammar, the bounded loop
+  in `planFor`), so the tail grows by one named read rather than by every item
+  that might be relevant.
 
 **Rejected — attaching received and sent mail as standing context.** Beyond the
 caching cost above, a run's context is also the one place untrusted content
@@ -286,8 +285,8 @@ written down.
 - `server/src/agent/executor.ts` — `emailRecords`/`fileRecords`, the fan-out
   every enabled automation on a trigger runs through; `rulesOrReport`, where a
   document carrying two is reported once; the allowlist check a chosen area
-  cannot widen; `contextFor`, `folderRequest`/`folderSlice`, the pattern a
-  named-item lookup generalizes
+  cannot widen; `contextFor`, `lookupSlice` and the lookup readers, the named
+  reads a run asks for
 - `server/src/agentAdmin.ts` — `saveRules`, where the count is refused before
   anything is written; `runRuleNow`, which meets the same automation on the
   same terms

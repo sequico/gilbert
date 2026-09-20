@@ -39,7 +39,8 @@ import {
   mentionsName,
   participantsOf,
 } from "../shared/chat.js";
-import { AGENT_LABEL, SEEN_KEYWORD, STARRED_KEYWORD } from "../shared/labels.js";
+import { AGENT_LABEL, SEEN_KEYWORD } from "../shared/labels.js";
+import { buildFilter, parseQuery, resolveMailbox } from "../shared/search.js";
 import {
   type ActionOpts,
   type ActionResult,
@@ -47,7 +48,6 @@ import {
   type EmailRecord,
   fetchEmailRecord,
   fetchEmailView,
-  findMailboxByName,
   mailboxIdByRole,
   runActions,
   undefinedAgentLabels,
@@ -65,13 +65,11 @@ import {
 } from "./audit.js";
 import {
   conversationContext,
-  folderRequest,
   indexChat,
   pendingRequests,
   postMessage,
   readApproval,
   readChat,
-  starredRequest,
   widenRequested,
 } from "./chat.js";
 import {
@@ -204,15 +202,6 @@ export const AUDIT_RETENTION_MS = 365 * 24 * 60 * 60 * 1000;
 
 /** How many messages of a thread a run reads as context: bounded, never bulk. */
 export const THREAD_CONTEXT_MAX = 20;
-
-/**
- * How many of a group's starred messages a chat run is handed with their text.
- *
- * The newest few, because a person asking about starred mail is asking what is
- * in it; the rest of the slice travels as headers. Bounded like every other
- * read, so "what are they about" costs a few messages and not a mailbox.
- */
-export const STARRED_DETAIL_MAX = 6;
 
 /** What the model decided to do, before the review gate saw it. */
 interface RunPlan {
@@ -1136,60 +1125,6 @@ export class Executor {
   }
 
   /**
-   * The group's starred mail, handed to a chat run (ADR 0020).
-   *
-   * "Starred" is `$flagged` on a message in the group's own account, and a
-   * person who says the word is asking about what those messages say. The
-   * newest few arrive with their text and the rest as headers, so a question
-   * about content is answered from the messages themselves rather than from a
-   * claim about where a star lives.
-   */
-  private async starredSlice(accountId: string): Promise<string> {
-    const result = await this.deps.client.chain(
-      [
-        [
-          "Email/query",
-          {
-            accountId,
-            filter: { hasKeyword: STARRED_KEYWORD },
-            sort: [{ property: "receivedAt", isAscending: false }],
-            limit: AGENT_LOOKUP_MESSAGES_MAX,
-            calculateTotal: true,
-          },
-          "q",
-        ],
-        [
-          "Email/get",
-          {
-            accountId,
-            "#ids": { resultOf: "q", name: "Email/query", path: "/ids" },
-            properties: ["id", "from", "subject", "receivedAt", "keywords"],
-          },
-          "g",
-        ],
-      ],
-      [JMAP_MAIL],
-    );
-    const raw = result.raw("q");
-    const list =
-      raw && raw[0] === "Email/query" ? (raw[1] as Record<string, unknown>) : {};
-    const rows = result.list<AgentEmailView>("g");
-    const total = typeof list.total === "number" ? list.total : rows.length;
-    const views: AgentEmailView[] = [];
-    for (const [index, view] of rows.entries()) {
-      if (index >= STARRED_DETAIL_MAX || !view.id) {
-        views.push(view);
-        continue;
-      }
-      const full = await fetchEmailView(this.deps.client, accountId, view.id, {
-        body: true,
-      });
-      views.push(full ?? view);
-    }
-    return renderStarred(total, views);
-  }
-
-  /**
    * The newest mail a run asked about: headers and ids, never bodies.
    *
    * The listing is the index the run then reads from — a `message` lookup by
@@ -1200,22 +1135,19 @@ export class Executor {
     accountId: string,
     lookup: Extract<AgentLookup, { kind: "mail" }>,
   ): Promise<string> {
-    const filter: Record<string, unknown> = {};
-    if (lookup.mailbox) {
-      const mailboxId = await findMailboxByName(
-        this.deps.client,
-        accountId,
-        lookup.mailbox,
-      );
-      if (!mailboxId)
-        return `${lookupHeading(lookup)}: this account has no folder called “${lookup.mailbox}”`;
-      filter.inMailbox = mailboxId;
-    }
-    if (lookup.keyword) filter.hasKeyword = lookup.keyword;
-    if (lookup.starred) filter.hasKeyword = STARRED_KEYWORD;
-    if (lookup.unread) filter.notKeyword = SEEN_KEYWORD;
-    if (lookup.from) filter.from = lookup.from;
-    if (lookup.text) filter.text = lookup.text;
+    // One grammar for the whole product: `is:starred`, `from:`, `in:`,
+    // `has:attachment`, dates, sizes — parsed here by the same module the mail
+    // client's search box reads, so the two cannot mean different things
+    // (ADR 0020).
+    const parsed = parseQuery(lookup.query ?? "");
+    const mailboxes = await this.accountMailboxes(accountId);
+    if (
+      parsed.in &&
+      !resolveMailbox(parsed.in, mailboxes) &&
+      !["anywhere", "all"].includes(parsed.in.toLowerCase())
+    )
+      return `${lookupHeading(lookup)}: this account has no folder called “${parsed.in}”`;
+    const filter = buildFilter(parsed, mailboxes) as Record<string, unknown>;
     const limit = Math.min(
       lookup.limit ?? AGENT_LOOKUP_MESSAGES_MAX,
       AGENT_LOOKUP_MESSAGES_MAX,
@@ -1299,6 +1231,27 @@ export class Executor {
     return renderItemList(lookup, rows.length, rows);
   }
 
+  /** The account's mailboxes as the shared search grammar resolves a name against. */
+  private async accountMailboxes(
+    accountId: string,
+  ): Promise<Record<string, { id: string; name: string; role?: string | null }>> {
+    const res = await this.deps.client.call<{
+      list?: Array<{ id?: unknown; name?: unknown; role?: unknown }>;
+    }>("Mailbox/get", { accountId, ids: null, properties: ["id", "name", "role"] }, [
+      JMAP_MAIL,
+    ]);
+    const map: Record<string, { id: string; name: string; role?: string | null }> = {};
+    for (const mailbox of res.list ?? []) {
+      if (typeof mailbox.id !== "string" || typeof mailbox.name !== "string") continue;
+      map[mailbox.id] = {
+        id: mailbox.id,
+        name: mailbox.name,
+        role: typeof mailbox.role === "string" ? mailbox.role : null,
+      };
+    }
+    return map;
+  }
+
   /** The group's visible Files: what is in the top level, or in one folder. */
   private async filesLookup(
     accountId: string,
@@ -1314,7 +1267,7 @@ export class Executor {
       // wrong folder" is a question about the shape of the tree, and a listing
       // that stopped at one level would make the run ask a person to walk it
       // folder by folder (ADR 0020).
-      await this.walkVisible(accountId, folderId, folder, 0, rows);
+      await this.walkVisible(accountId, folderId, folder, 0, rows, lookup.name);
       if (rows.length >= AGENT_LOOKUP_FILES_MAX)
         rows.push(
           `…(more than ${AGENT_LOOKUP_FILES_MAX} entries; list one folder to see the rest)`,
@@ -1333,6 +1286,7 @@ export class Executor {
     // as the group's files (ADR 0003).
     for (const node of nodes) {
       if (node.name === APP_FOLDER_NAME) continue;
+      if (!matchesName(node, lookup.name)) continue;
       rows.push(fileLine(node, ""));
     }
     return renderItemList(lookup, rows.length, rows);
@@ -1352,6 +1306,7 @@ export class Executor {
     prefix: string,
     depth: number,
     rows: string[],
+    nameFilter?: string,
   ): Promise<void> {
     if (depth > AGENT_LOOKUP_DEPTH_MAX || rows.length >= AGENT_LOOKUP_FILES_MAX) return;
     const nodes = await fileChildren(
@@ -1365,7 +1320,7 @@ export class Executor {
       if (rows.length >= AGENT_LOOKUP_FILES_MAX) return;
       const name = String(node.name ?? "");
       if (!name || name === APP_FOLDER_NAME) continue;
-      rows.push(fileLine(node, prefix));
+      if (matchesName(node, nameFilter)) rows.push(fileLine(node, prefix));
       if (node.nodeType === "directory" && node.id)
         await this.walkVisible(
           accountId,
@@ -1373,6 +1328,7 @@ export class Executor {
           prefix ? `${prefix}/${name}` : name,
           depth + 1,
           rows,
+          nameFilter,
         );
     }
   }
@@ -1402,12 +1358,20 @@ export class Executor {
     lookup: Extract<AgentLookup, { kind: "chat" }>,
   ): Promise<string> {
     const messages = await this.readChatOf(accountId);
-    const text = lookup.text?.toLowerCase();
-    const from = lookup.from?.toLowerCase();
+    // The same grammar, applied to what a transcript can mean: the words a
+    // message says, who wrote it, and when. A field a chat has no use for (a
+    // size, an attachment) narrows nothing.
+    const parsed = parseQuery(lookup.query ?? "");
+    const text = parsed.text.join(" ").toLowerCase();
+    const from = parsed.from?.toLowerCase();
+    const after = parsed.after;
+    const before = parsed.before;
     const matching = messages.filter(
       (message) =>
         (!from || message.from.toLowerCase() === from) &&
-        (!text || message.text.toLowerCase().includes(text)),
+        (!text || message.text.toLowerCase().includes(text)) &&
+        (!after || message.created >= after) &&
+        (!before || message.created <= before),
     );
     const limit = Math.min(
       lookup.limit ?? AGENT_LOOKUP_MESSAGES_MAX,
@@ -1741,13 +1705,9 @@ export class Executor {
         trigger.chatId,
       );
       const parts = [window.map(renderChatMessage).join("\n")];
-      // A person naming the group's starred mail gets it handed over, bodies
-      // and all: what a member means by "starred" is the `$flagged` keyword in
-      // the group's own account, and a run should not have to guess that or
-      // answer that it cannot see it (ADR 0020).
-      if (starredRequest(asked)) parts.push(await this.starredSlice(accountId));
-      const folder = folderRequest(asked);
-      if (folder) parts.push(await this.folderSlice(accountId, folder));
+      // The transcript is the run's context. Everything else about the group is
+      // a lookup the model asks for, through the same grammar the search box
+      // reads, so a new kind of question is not a new branch here (ADR 0020).
       const context: ModelContext = {
         text: parts.filter(Boolean).join("\n\n"),
       };
@@ -2518,42 +2478,6 @@ export class Executor {
       answered.push(decision.id);
     }
     return answered;
-  }
-
-  /**
-   * One folder slice, for a run a person asked to widen (ADR 0003 resolution
-   * 11). Bounded twice: the newest `CHAT_CONTEXT_DEFAULT` messages of that
-   * folder, and headers only — a folder can hold years of a group's mail, and
-   * the smallest slice that answers the question is the right one.
-   */
-  private async folderSlice(accountId: string, name: string): Promise<string> {
-    const mailboxId = await findMailboxByName(this.deps.client, accountId, name);
-    if (!mailboxId) return `(there is no folder called "${name}" in this account)`;
-    const result = await this.deps.client.chain(
-      [
-        [
-          "Email/query",
-          {
-            accountId,
-            filter: { inMailbox: mailboxId },
-            sort: [{ property: "receivedAt", isAscending: false }],
-            limit: CHAT_CONTEXT_DEFAULT,
-          },
-          "q",
-        ],
-        [
-          "Email/get",
-          {
-            accountId,
-            "#ids": { resultOf: "q", name: "Email/query", path: "/ids" },
-            properties: ["id", "from", "subject", "receivedAt"],
-          },
-          "g",
-        ],
-      ],
-      [JMAP_MAIL],
-    );
-    return renderFolderSlice(name, result.list<AgentEmailView>("g"));
   }
 
   private async ruleOf(store: AgentStore, ruleId: string): Promise<AgentRule | null> {
@@ -3391,24 +3315,6 @@ function describeTrigger(trigger: AgentTriggerRecord): string {
   return `the schedule of ${trigger.at}`;
 }
 
-/**
- * A folder's messages as context: one header line each, never their bodies.
- *
- * The slice is a hint about what the group's mail looks like, not a second
- * read of it: the run that needs a message reads that message.
- */
-export function renderFolderSlice(
-  name: string,
-  views: ReadonlyArray<AgentEmailView>,
-): string {
-  if (!views.length) return `FOLDER "${name}": no messages`;
-  const lines = views.map((view) => {
-    const from = (view.from ?? []).map((a) => a.email ?? a.name ?? "").join(", ");
-    return `- ${view.receivedAt ?? "unknown"}  ${from}  ${view.subject ?? "(no subject)"}`;
-  });
-  return `FOLDER "${name}" (the ${views.length} most recent):\n\n${lines.join("\n")}`;
-}
-
 /** What a lookup reads as in the run's own context. */
 function lookupHeading(lookup: AgentLookup): string {
   return `LOOKED UP — ${lookupLabel(lookup)}`;
@@ -3441,29 +3347,17 @@ export function renderItem(lookup: AgentLookup, text: string): string {
 }
 
 /**
- * The group's starred mail as a chat run reads it (ADR 0020).
+ * Whether a visible-tree node answers to a listing's name filter.
  *
- * The newest `STARRED_DETAIL_MAX` carry their own text, because a person asking
- * about starred mail is asking what is in it; the rest travel as headers, so the
- * slice is a bounded read and not a mailbox. One renderer, so the slice a run is
- * handed and a test of it read the same.
+ * One filter for both listings — the whole tree and one level — so "where is
+ * the packing list" and "what is in this folder that says packing" mean the
+ * same thing.
  */
-export function renderStarred(
-  total: number,
-  views: ReadonlyArray<AgentEmailView>,
-): string {
-  if (!views.length) return "STARRED MESSAGES: none in this group's account.";
-  const header =
-    total > views.length
-      ? `STARRED MESSAGES (the ${views.length} most recent of ${total}):`
-      : `STARRED MESSAGES (${views.length}):`;
-  const detailed = views
-    .slice(0, STARRED_DETAIL_MAX)
-    .map((view) => renderEmail("", { ...view, body: boundedText(view.body) }));
-  const rest = views.slice(STARRED_DETAIL_MAX).map(mailListLine);
-  const parts = [header, detailed.join("\n\n")];
-  if (rest.length) parts.push(`The rest, by header only:\n${rest.join("\n")}`);
-  return parts.join("\n\n");
+function matchesName(node: FileNodeLike, name?: string): boolean {
+  if (!name) return true;
+  return String(node.name ?? "")
+    .toLowerCase()
+    .includes(name.toLowerCase());
 }
 
 /** One visible-tree node as a listing line: its path under `prefix`, kind and size. */

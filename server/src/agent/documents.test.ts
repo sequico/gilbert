@@ -13,6 +13,7 @@ import {
   AGENT_AUTOMATION_LABELS,
   AGENT_LOOKUP_KINDS,
   AGENT_LOOKUP_MESSAGES_MAX,
+  AGENT_LOOKUP_QUERY_MAX,
   AGENT_NOTEBOOK_FACT_MAX,
   AGENT_REVIEW_THRESHOLD,
   AGENT_SCHEDULE_MINUTES_DEFAULT,
@@ -877,14 +878,17 @@ test("a lookup is one of the group's own reads, and nothing else", () => {
     "mailboxes",
     "message",
   ]);
-  assert.equal(isAgentLookup({ kind: "mail", unread: true, limit: 5 }), true);
-  assert.equal(isAgentLookup({ kind: "mail", mailbox: "Inbox" }), true);
+  assert.equal(isAgentLookup({ kind: "mail", query: "is:starred", limit: 5 }), true);
   assert.equal(
-    isAgentLookup({ kind: "mail", starred: true }),
+    isAgentLookup({ kind: "mail" }),
     true,
-    "starred is a filter of the one mail lookup, not a kind of its own",
+    "no query is the newest mail, which is what a butler asked for nothing means",
   );
-  assert.equal(isAgentLookup({ kind: "mail", starred: "yes" }), false);
+  assert.equal(isAgentLookup({ kind: "mail", query: "" }), false);
+  assert.equal(
+    isAgentLookup({ kind: "mail", query: "x".repeat(AGENT_LOOKUP_QUERY_MAX + 1) }),
+    false,
+  );
   assert.equal(
     isAgentLookup({ kind: "mail", limit: AGENT_LOOKUP_MESSAGES_MAX + 1 }),
     false,
@@ -896,6 +900,7 @@ test("a lookup is one of the group's own reads, and nothing else", () => {
   assert.equal(isAgentLookup({ kind: "file", path: "Clients/report.pdf" }), true);
   assert.equal(isAgentLookup({ kind: "file", path: "" }), false);
   assert.equal(isAgentLookup({ kind: "files", folder: "Clients" }), true);
+  assert.equal(isAgentLookup({ kind: "files", name: "packing" }), true);
   assert.equal(
     isAgentLookup({ kind: "files", deep: true }),
     true,
@@ -904,17 +909,18 @@ test("a lookup is one of the group's own reads, and nothing else", () => {
   assert.equal(isAgentLookup({ kind: "files", deep: "yes" }), false);
   assert.equal(isAgentLookup({ kind: "mailboxes" }), true);
   assert.equal(isAgentLookup({ kind: "labels" }), true);
-  assert.equal(isAgentLookup({ kind: "chat", text: "invoice" }), true);
+  assert.equal(isAgentLookup({ kind: "chat", query: "invoice" }), true);
+  assert.equal(isAgentLookup({ kind: "chat", text: "invoice" }), false);
   assert.equal(isAgentLookup({ kind: "everything" }), false);
   assert.equal(isAgentLookup("mail"), false);
   // One renderer, so the trail and the prompt name a read the same way.
   assert.equal(
-    lookupLabel({ kind: "mail", mailbox: "Inbox", unread: true }),
-    "the mail in “Inbox”, unread",
+    lookupLabel({ kind: "mail", query: "is:starred from:ada" }),
+    "the mail matching “is:starred from:ada”",
   );
-  assert.equal(lookupLabel({ kind: "mail", starred: true }), "the mail starred");
+  assert.equal(lookupLabel({ kind: "mail" }), "the group's mail");
   assert.equal(
-    lookupLabel({ kind: "files", deep: true }),
-    "the group's Files, the whole tree",
+    lookupLabel({ kind: "files", deep: true, name: "packing" }),
+    "the group's Files, the whole tree, matching “packing”",
   );
 });

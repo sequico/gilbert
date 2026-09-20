@@ -17,6 +17,7 @@
 
 import { countOrNull } from "../shared/counts.js";
 import { isRecord } from "../shared/json.js";
+import { SEARCH_GRAMMAR } from "../shared/search.js";
 import type { PageImage } from "./documentFamily.js";
 import type { AgentUsage } from "./documents.js";
 import {
@@ -464,15 +465,15 @@ function pageBudget(maxPages: number): string {
  */
 function lookupLines(): string[] {
   const examples: Record<AgentLookupKind, string> = {
-    mail: '{"kind": "mail", "starred": true} — the newest mail, optionally in a "mailbox", with a "keyword" label, "from" an address, "text" it matches, "unread", "starred" (`$flagged`), and a "limit"',
+    mail: '{"kind": "mail", "query": "is:starred from:ada", "limit": 20} — the newest mail matching a search query',
     message:
-      '{"kind": "message", "id": "M123"} — one message\'s own text, by the id a mail lookup listed',
+      '{"kind": "message", "id": "M123"} — one message\'s own text, by the id a mail listing gave',
     mailboxes: '{"kind": "mailboxes"} — the account\'s folders',
     labels: '{"kind": "labels"} — the group\'s labels',
     files:
-      '{"kind": "files", "folder": "Clients", "deep": true} — the group\'s Files: one level, or with "deep" the whole tree under a folder, as paths and sizes',
+      '{"kind": "files", "folder": "Clients", "deep": true, "name": "packing"} — the group\'s Files: one level, or with "deep" the whole tree under a folder; "name" keeps what matches',
     file: '{"kind": "file", "path": "Clients/report.pdf"} — one file\'s own text',
-    chat: '{"kind": "chat", "text": "invoice"} — the group\'s chat, optionally "from" an address or "text" it matches',
+    chat: '{"kind": "chat", "query": "invoice from:ada"} — the group\'s chat, narrowed by the same grammar',
   };
   return AGENT_LOOKUP_KINDS.map((kind) => `- ${examples[kind]}`);
 }
@@ -541,6 +542,7 @@ export async function decideActions(
     pageBudget(options.maxPages ?? AGENT_MAX_PAGES_DEFAULT),
     'You may read the group\'s own state before deciding: answer {"lookup": {"kind": ...}} instead of actions, and you are asked again with what came back. The kinds, and their parameters:',
     ...lookupLines(),
+    `The "query" a mail or chat lookup takes is ${SEARCH_GRAMMAR}.`,
     "A lookup is a read of this group's own account and changes nothing; it is not one of the capabilities above.",
     // A model that does not know something about the group must go and read it,
     // not narrate a limitation: the catalogue is the group's own state, and
@@ -552,7 +554,6 @@ export async function decideActions(
     // non-answer the loop exists to make impossible (ADR 0020).
     'A listing is an index: ids, senders, subjects, dates and sizes. When the answer needs what a message says, read it before you answer — answer with {"lookup": {"kind": "message", "id": "<the id the listing named>"}} and you are asked again with its text. The same two steps read a file: list with `files`, then read a path with `file`.',
     "Never answer that you have no body, no content or no access when a read in the catalogue would get it: your answer is the thing a member acts on, and a question about their own mail deserves the mail, not a note about what you were handed.",
-    'A message\'s starred flag is the `$flagged` keyword, which a mail lookup reads with "starred": true or "keyword": "$flagged".',
     // The stable head ends here and the prose an agent carries begins, in the
     // order `proseHead` declares: the installation, the group's facts, the
     // group's rules, then the rule's own — and nothing volatile before the tail.

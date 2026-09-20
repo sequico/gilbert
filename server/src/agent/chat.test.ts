@@ -187,27 +187,7 @@ test("only a person saying so widens the run's context", async () => {
   assert.equal(widenRequested("@gilbert summarise all the messages"), true);
 });
 
-test("a folder is read only when a person names one", async () => {
-  const { folderRequest } = await import("./chat.js");
-  assert.equal(folderRequest("@gilbert file this?"), null);
-  assert.equal(folderRequest("@gilbert read the Inbox folder"), "Inbox");
-  assert.equal(folderRequest("@gilbert read folder Archive"), "Archive");
-  assert.equal(folderRequest("@gilbert look in the Clients folder, please"), "Clients");
-  assert.equal(folderRequest("@gilbert tell me about the movie folder"), "movie");
-});
 
-test("a person saying starred is asking about the group's flagged mail", async () => {
-  // ADR 0020: starred is the `$flagged` keyword in the group's own account, so
-  // the run hands the messages over rather than leaving the model to reason
-  // about where a star lives.
-  const { starredRequest } = await import("./chat.js");
-  assert.equal(starredRequest("@gilbert what are the starred emails about"), true);
-  assert.equal(starredRequest("@gilbert is:starred"), true);
-  assert.equal(starredRequest("@gilbert has:flag"), true);
-  assert.equal(starredRequest("@gilbert any flagged mail?"), true);
-  assert.equal(starredRequest("@gilbert file this invoice"), false);
-  assert.equal(starredRequest("@gilbert what is the starting date"), false);
-});
 
 test("the message being answered is always in the context, or the run is refused", () => {
   const at = (n: number) => new Date(Date.UTC(2026, 0, 1, 12, n)).toISOString();

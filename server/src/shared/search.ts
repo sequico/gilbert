@@ -1,4 +1,19 @@
-import type { EmailFilter, EmailFilterCondition, Mailbox } from "@/jmap/types";
+/**
+ * The search grammar: one definition, read by the mail client and by an agent.
+ *
+ * A person types `from:ada is:unread has:attachment invoice` into the client's
+ * search box, and an agent asks for the same thing in a lookup. Both mean the
+ * same thing because both come through here: `parseQuery` turns the text into a
+ * shape, `buildFilter` turns that shape into a JMAP filter, and neither tier
+ * owns a copy of the other's idea of what `is:starred` means.
+ *
+ * This is a **control** surface and not a permission one: the filter it builds
+ * is handed to `Email/query` inside the session that asked, so a query can only
+ * narrow what that session could already read (ADR 0003, ADR 0020).
+ */
+
+/** The folder-ish names a query may use without a mailbox of that name. */
+import { SEEN_KEYWORD, STARRED_KEYWORD } from "./labels.js";
 
 export interface ParsedQuery {
   text: string[];
@@ -19,6 +34,55 @@ export interface ParsedQuery {
   smaller?: number;
   notLabel?: string[];
 }
+
+/**
+ * A mailbox as the grammar needs it: an id, a name, and the role it answers to.
+ *
+ * Declared here rather than imported from either tier, because the grammar is
+ * shared and must not depend on one tier's account model.
+ */
+export interface SearchMailbox {
+  id: string;
+  name: string;
+  role?: string | null;
+}
+
+export interface SearchFilterCondition {
+  inMailbox?: string;
+  before?: string;
+  after?: string;
+  minSize?: number;
+  maxSize?: number;
+  hasKeyword?: string;
+  notKeyword?: string;
+  hasAttachment?: boolean;
+  text?: string;
+  from?: string;
+  to?: string;
+  cc?: string;
+  subject?: string;
+  body?: string;
+}
+
+export interface SearchFilterOperator {
+  operator: "AND" | "OR" | "NOT";
+  conditions: SearchFilterCondition[];
+}
+
+export type SearchFilter = SearchFilterCondition | SearchFilterOperator;
+
+/**
+ * The grammar in one line, for the places that have to describe it.
+ *
+ * A prompt that offered a syntax this module does not parse would be a promise
+ * the server refuses, so the sentence a model is given is written here, beside
+ * the parser that keeps it true (ADR 0020).
+ */
+export const SEARCH_GRAMMAR =
+  'the mail search grammar: bare words match text, and "from:", "to:", "cc:", ' +
+  '"subject:", "body:", "in:" (a folder name or role), "label:"/"keyword:", ' +
+  '"-label:", "is:unread", "is:read", "is:starred"/"is:flagged", ' +
+  '"has:attachment", "before:", "after:", "larger:", "smaller:"';
 
 const SIZE_RE = /^(\d+(?:\.\d+)?)\s*([kmg]?b?)$/i;
 function parseSize(s: string): number | undefined {
@@ -148,11 +212,11 @@ export function parseQuery(q: string): ParsedQuery {
 
 export function buildFilter(
   p: ParsedQuery,
-  mailboxes: Record<string, Mailbox>,
+  mailboxes: Record<string, SearchMailbox>,
   currentMailbox?: string | null,
-): EmailFilter {
-  const conds: EmailFilterCondition[] = [];
-  const c: EmailFilterCondition = {};
+): SearchFilter {
+  const conds: SearchFilterCondition[] = [];
+  const c: SearchFilterCondition = {};
   if (p.text.length) c.text = p.text.join(" ");
   if (p.from) c.from = p.from;
   if (p.to) c.to = p.to;
@@ -160,8 +224,8 @@ export function buildFilter(
   if (p.subject) c.subject = p.subject;
   if (p.body) c.body = p.body;
   if (p.hasAttachment) c.hasAttachment = true;
-  if (p.unread) c.notKeyword = "$seen";
-  if (p.read) c.hasKeyword = "$seen";
+  if (p.unread) c.notKeyword = SEEN_KEYWORD;
+  if (p.read) c.hasKeyword = SEEN_KEYWORD;
   if (p.before) c.before = p.before;
   if (p.after) c.after = p.after;
   if (p.larger != null) c.minSize = p.larger;
@@ -173,8 +237,8 @@ export function buildFilter(
     c.inMailbox = currentMailbox;
   }
   conds.push(c);
-  if (p.starred) conds.push({ hasKeyword: "$flagged" });
-  for (const l of p.label ?? []) conds.push({ hasKeyword: l.startsWith("$") ? l : l });
+  if (p.starred) conds.push({ hasKeyword: STARRED_KEYWORD });
+  for (const l of p.label ?? []) conds.push({ hasKeyword: l });
   for (const l of p.notLabel ?? []) conds.push({ notKeyword: l });
   if (conds.length === 1) return conds[0]!;
   return { operator: "AND", conditions: conds };
@@ -182,8 +246,8 @@ export function buildFilter(
 
 export function resolveMailbox(
   name: string,
-  mailboxes: Record<string, Mailbox>,
-): Mailbox | undefined {
+  mailboxes: Record<string, SearchMailbox>,
+): SearchMailbox | undefined {
   const n = name.toLowerCase();
   const list = Object.values(mailboxes);
   const byRole = list.find(

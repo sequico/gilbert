@@ -313,19 +313,21 @@ an automation may do is its own capability allowlist.
 - **A run can look the group's state up.** The deciding call may answer with a
   lookup instead of actions, and the agent reads it in the group's own account
   before deciding (ADR 0020). The catalogue is the whole group, not one label:
-  its **mail** by folder, label, sender, text, unread or **starred** state, one
-  **message** by the id a listing named, its **folders**, its **labels**, its
-  visible **Files** — one level, or the whole tree under a folder — and one
-  **file** by the path a listing named, and its **chat**. Listings hand over names, ids and headers and reads hand over one
-  item's text, each capped — the index is cheap and the content is bought only
-  where it is needed — and the prompt states the two steps, so a run reads what
-  it listed instead of answering a question about mail with a sentence about its
-  own fields. A person who says **starred** in the group's chat is handed the
-  group's `$flagged` messages directly, the newest few with their text, because
-  that is a question a member asks in words. The prompt's system message is
-  byte-identical on every call, so the provider's cached prefix survives the
-  whole run. The lookups a run made ride its job and its audit line, so "what
-  did it read" is answered from a document.
+  its **mail** and its **chat** by the **search grammar the client's own search
+  box speaks** — `is:starred`, `is:unread`, `from:`, `in:`, `label:`,
+  `has:attachment`, dates, sizes, quoted words — one **message** by the id a
+  listing gave, its **folders**, its **labels**, its visible **Files** (one
+  level, or the whole tree under a folder, filtered by name) and one **file** by
+  the path a listing gave. The grammar is one definition in
+  `server/src/shared/search.ts`, read by the client and the agent alike, so a
+  new kind of question is a query rather than a new branch of code. Listings
+  hand over names, ids and headers and reads hand over one item's text, each
+  capped — the index is cheap and the content is bought only where it is needed
+  — and the prompt states the two steps, so a run reads what it listed instead
+  of answering a question about mail with a sentence about its own fields. The
+  prompt's system message is byte-identical on every call, so the provider's
+  cached prefix survives the whole run. The lookups a run made ride its job and
+  its audit line, so "what did it read" is answered from a document.
 - **A reading beside the prose.** Beside the instruction field, **Ask the model
 to read it** sends the draft and what it is about, the installation's rules, the
 group's instruction

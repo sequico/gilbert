@@ -1111,56 +1111,7 @@ async function submissionCount(): Promise<number> {
   return res.total ?? 0;
 }
 
-test("a folder slice is one header line per message, never a body", async () => {
-  const { renderFolderSlice } = await import("./executor.js");
-  const view = (id: string, subject: string, body: string) => ({
-    id,
-    subject,
-    body,
-    receivedAt: "2026-09-10T09:00:00Z",
-    from: [{ name: "Ada", email: "ada@example.org" }],
-  });
-  const rendered = renderFolderSlice("Inbox", [view("e1", "Invoice 42", "pay me")]);
-  assert.match(rendered, /FOLDER "Inbox" \(the 1 most recent\)/);
-  assert.match(rendered, /ada@example\.org {2}Invoice 42/);
-  assert.equal(
-    rendered.includes("pay me"),
-    false,
-    "the slice names the mail; a run that needs it reads that message",
-  );
-  assert.equal(renderFolderSlice("Archive", []), 'FOLDER "Archive": no messages');
-});
 
-test("a person asking about starred mail is handed what it says", async () => {
-  // ADR 0020: the newest starred messages travel with their text, because the
-  // question is what they are about; the rest are headers, so the slice stays
-  // bounded and is never a mailbox.
-  const { renderStarred, STARRED_DETAIL_MAX } = await import("./executor.js");
-  const view = (id: string, subject: string, body: string) => ({
-    id,
-    subject,
-    body,
-    receivedAt: "2026-09-10T09:00:00Z",
-    from: [{ name: "Ada", email: "ada@example.org" }],
-  });
-  const one = renderStarred(1, [view("e1", "Open issue", "the invoice is unpaid")]);
-  assert.match(one, /STARRED MESSAGES \(1\)/);
-  assert.match(one, /the invoice is unpaid/);
-  assert.equal(renderStarred(0, []), "STARRED MESSAGES: none in this group's account.");
-
-  const many = Array.from({ length: STARRED_DETAIL_MAX + 2 }, (_, i) =>
-    view(`e${i}`, `Subject ${i}`, `body ${i}`),
-  );
-  const rendered = renderStarred(many.length + 5, many);
-  assert.match(rendered, /the 8 most recent of 13/);
-  assert.match(rendered, /body 0/, "the newest few carry their own text");
-  assert.equal(
-    rendered.includes(`body ${STARRED_DETAIL_MAX + 1}`),
-    false,
-    "the rest are headers, not bodies",
-  );
-  assert.match(rendered, /The rest, by header only/);
-});
 
 test("an approval shows what the run would do, never why", async () => {
   /*
@@ -1216,7 +1167,7 @@ test("a run may look something up, and reads what it asked for", async () => {
   // The index first, then the one item it listed: a listing is cheap and a
   // read is bounded, so a broad question does not pay for every body.
   answerSequence("Mail automation", [
-    { lookup: { kind: "mail", starred: true } },
+    { lookup: { kind: "mail", query: "is:starred" } },
     { lookup: { kind: "message", id: starred } },
     {
       summary: "Labelled it after reading the starred mail.",
@@ -1251,7 +1202,7 @@ test("a run may look something up, and reads what it asked for", async () => {
   // The job records what it read, so that is a question about a document.
   const written = await store.readJob("lookup-job");
   assert.deepEqual(written?.doc.lookups, [
-    { kind: "mail", starred: true },
+    { kind: "mail", query: "is:starred" },
     { kind: "message", id: starred },
   ]);
 });

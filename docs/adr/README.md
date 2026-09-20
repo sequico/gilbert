@@ -187,12 +187,14 @@ is, not what a user sees.
   documents are one type and one pair of readers, and the remarks that used to
   sit beside each of them — prose read by no model — are gone with them.
 - **0020 — A run may look something up.** The deciding call may answer with a
-  lookup from a closed catalogue — the group's mail by folder, label, sender,
-  text or unread state, one message, its folders, its labels, its visible Files
-  and one file, and its chat — instead of actions; the run performs the read in
-  the group's own account, appends bounded results to the volatile tail and
-  asks again, at most `AGENT_LOOKUP_ROUNDS` times. A listing is an index and a
-  read is bounded, the system message is byte-identical across the calls so the
-  provider's cache holds, nothing the model writes is a query, a lookup writes
-  no state, and the allowlist and the review gate are untouched: it is the
-  named, narrow half of ADR 0006 decision three.
+  lookup from a closed catalogue instead of actions: the group's mail and its
+  chat by the **search grammar the mail client already speaks**
+  (`server/src/shared/search.ts`), one message or one file by the id/path a
+  listing gave, its folders, its labels, and its visible Files one level deep or
+  as a whole tree. The run performs the read in the group's own account, appends
+  bounded results to the volatile tail and asks again, at most
+  `AGENT_LOOKUP_ROUNDS` times. A listing is an index and a read is bounded, the
+  system message is byte-identical across the calls so the provider's cache
+  holds, the model writes a query and never a JMAP filter, a lookup writes no
+  state, and the allowlist and the review gate are untouched: it is the named,
+  narrow half of ADR 0006 decision three, with no per-question heuristic.

@@ -29,10 +29,12 @@ already holds.
 
 ADR 0006 decision three settles where new context belongs — distilled and
 infrequent in the stable head, or named and narrow in the volatile tail, never
-raw and wholesale — and leaves the named half to build. The folder slice is
-that half attempting to exist before the model can ask: it is decided by a
-pattern in the person's message, and it hands over headers rather than text,
-so a run told to read a folder still cannot answer about what is in it.
+raw and wholesale — and leaves the named half to build. A tail built from
+patterns in the person's message does not build it: a folder is read only when
+somebody says "folder", starred mail only when somebody says "starred", and each
+new kind of question is a new branch in the code. The vocabulary a person
+already uses to ask — the search box's grammar — is the general answer, and it
+was in the tree the whole time.
 
 ## Decision
 
@@ -42,7 +44,7 @@ performs it and asks again.**
 One answer is one of two shapes:
 
 ```
-{"lookup": {"kind": "mail", "unread": true}}
+{"lookup": {"kind": "mail", "query": "is:starred from:ada", "limit": 20}}
 {"summary": string, "confidence": number, "actions": [...]}
 ```
 
@@ -57,21 +59,30 @@ model never writes a query, a filter or a JMAP method: it chooses a kind and its
 parameters, and nothing else. The catalogue is **the group's own state**, not
 one label of it, because the context a butler needs is the group's:
 
-- `mail` `{ mailbox?, keyword?, from?, text?, unread?, starred?, limit? }` —
-  the newest messages matching what it says, **headers and ids only**. `starred`
-  is the group's `$flagged` mail under the name a member uses for it.
-- `message` `{ id }` — one message's own text, by the id a `mail` lookup listed.
+- `mail` `{ query?, limit? }` — the newest messages matching a search query,
+  **headers and ids only**. No query is the newest mail; `is:starred` is a
+  member's starred mail, `is:unread` the unread one, `in:` a folder, `from:` a
+  sender, `has:attachment` a message carrying one.
+- `message` `{ id }` — one message's own text, by the id a listing gave.
 - `mailboxes` `{}` — the account's folders, so a run can name one.
 - `labels` `{}` — the group's label catalog.
-- `files` `{ folder?, deep? }` — the group's visible Files, at the top level or
-  in a folder: paths, kinds and sizes. `deep` walks the whole tree under the
-  folder, bounded by `AGENT_LOOKUP_FILES_MAX` nodes and `AGENT_LOOKUP_DEPTH_MAX`
-  levels, because "which file is in the wrong folder" is a question about the
-  shape of the tree and a listing that stopped at one level would make a run ask
-  a person to walk it folder by folder.
-- `file` `{ path }` — one file's own text, by the path a `files` lookup listed.
-- `chat` `{ text?, from?, limit? }` — the group's chat, narrowed by sender or by
-  what a message says.
+- `files` `{ folder?, deep?, name? }` — the group's visible Files: one level, or
+  with `deep` the whole tree under a folder, as paths, kinds and sizes, and
+  `name` keeps what matches. The walk is bounded by `AGENT_LOOKUP_FILES_MAX`
+  nodes and `AGENT_LOOKUP_DEPTH_MAX` levels, because "which file is in the wrong
+  folder" is a question about the shape of the tree and a listing that stopped
+  at one level would make a run ask a person to walk it folder by folder.
+- `file` `{ path }` — one file's own text, by the path a `files` listing gave.
+- `chat` `{ query?, limit? }` — the group's chat, narrowed by the same grammar
+  where it means something (what a message says, who wrote it, when).
+
+**One grammar, shared with the mail client.** A `query` is parsed by
+`server/src/shared/search.ts` — the module the client's own search box reads —
+and the server validates a lookup by parsing it. The model writes a query in a
+grammar the product already speaks, never a JMAP filter: `is:`, `has:`, `in:`,
+`label:`, `from:`, `to:`, `subject:`, `text:`, `before:`, `after:`, `larger:`,
+`smaller:` and quoted words. A question type that grammar can express needs no
+new code here.
 
 **The listing is an index and the read is bounded, and the prompt says so.**
 What lists hands over names, ids and headers; what reads hands over one item's
@@ -119,10 +130,10 @@ for one listing plus at most one read of what it names, not for a mailbox.
   question a member asks in words becomes a read whose kind the server chose
   the vocabulary for, and the catalogue covers the group's mail, its labels, its
   folders, its Files and its chat alike.
-- The chat's own pre-filtered slices stay what they are — a person who names a
-  folder gets it without the run spending a round, and one who says **starred**
-  is handed the group's `$flagged` messages, the newest few with their text —
-  and the loop is what covers everything the pattern did not anticipate.
+- There are no per-question heuristics: starred, unread, a label, a sender, a
+  date, an attachment, a folder, a name inside a folder — each is a query the
+  grammar already reads, so a new kind of question is not a new branch in the
+  executor.
 - Cost is bounded by construction: a run's extra calls are at most
   `AGENT_LOOKUP_ROUNDS`, each answer is capped by the installation's own token
   ceiling, listings carry no bodies, and each read is capped twice. The meter
@@ -143,6 +154,8 @@ for one listing plus at most one read of what it names, not for a mailbox.
 - ADR 0006 — one enabled automation per trigger; decision three, the two speeds
   of context and what building the named tail costs
 - ADR 0019 — the three levels of prose an agent carries
+- `server/src/shared/search.ts` — `parseQuery`, `buildFilter`, `SEARCH_GRAMMAR`:
+  the one grammar the mail client and a run both read
 - `server/src/agent/documents.ts` — `AgentLookup`, `AGENT_LOOKUP_*`,
   `isAgentLookup`
 - `server/src/agent/llm.ts` — `decideActions`, the lookup answer and the prompt

@@ -330,7 +330,8 @@ test("a call may answer with a lookup instead of a decision", async () => {
   // answering about its own fields, and starred is offered by name.
   assert.match(system, /A listing is an index/);
   assert.match(system, /"kind": "message"/);
-  assert.match(system, /"starred": true/);
+  assert.match(system, /is:starred/);
+  assert.match(system, /the mail search grammar/);
   assert.match(system, /Never answer that you have no body/);
   assert.match(system, /"deep": true/);
   // And the capabilities are still the only thing it may do.

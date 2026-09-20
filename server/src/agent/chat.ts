@@ -250,67 +250,8 @@ const WIDEN_PATTERNS: ReadonlyArray<RegExp> = [
   /\bfrom\s+the\s+(beginning|start)\b/i,
 ];
 
-/**
- * The folder a person named when asking for more context, or null.
- *
- * The second widening step (ADR 0003 resolution 11) is one folder slice, and
- * like the first step it is decided by a closed set of shapes rather than by a
- * model: "the Inbox folder", "folder Archive". A message that names no folder
- * leaves the run on the conversation it already has — the agent asks for more
- * or reads what it was told to read, and never guesses.
- */
-/** `folder Archive` / `folder "Archive"` — the explicit form. */
-const FOLDER_AFTER =
-  /\bfolder\s+[\u201c"']?([\w][\w .'-]{0,40}?)[\u201d"']?(?:[.,!?;]|$)/i;
-/** `the Archive folder` — the same request said the other way round. */
-const FOLDER_BEFORE = /([\w][\w.'-]*(?:\s+[\w][\w.'-]*)?)\s+folder\b/gi;
-
-function cleanFolderName(name: string): string {
-  return name.replace(/^the\s+/i, "").trim();
-}
-
-/**
- * The folder a person named when asking for more context, or null.
- *
- * The second widening step (ADR 0003 resolution 11) is one folder slice, and
- * like the first step it is decided by a closed set of shapes rather than by a
- * model: "folder Archive", "the Archive folder". Where both forms could match,
- * the name nearest the word is the one meant — a sentence says "@gilbert read
- * the Inbox folder", not "@gilbert read the Inbox" about a folder called
- * "gilbert read the Inbox". A message that names no folder leaves the run on
- * the conversation it already has: the agent asks for more, or reads what it
- * was told to read, and never guesses.
- */
-export function folderRequest(text: string): string | null {
-  const after = FOLDER_AFTER.exec(text)?.[1];
-  if (after) return cleanFolderName(after);
-  let last: string | null = null;
-  for (const match of text.matchAll(FOLDER_BEFORE)) last = match[1] ?? last;
-  return last ? cleanFolderName(last) : null;
-}
-
 export function widenRequested(text: string): boolean {
   return WIDEN_PATTERNS.some((pattern) => pattern.test(text));
-}
-
-/**
- * Whether a person asked about the group's starred mail (ADR 0020).
- *
- * "Starred" is the `$flagged` keyword on a message in the group's own account,
- * so it is a fact the agent can read — and a person saying the word is asking
- * about it. The vocabulary is closed and deterministic, the same shape as
- * `folderRequest`: the run hands the starred messages over instead of leaving
- * the model to reason about them. The `is:`/`has:` forms are the mail search's
- * own spelling of the same question.
- */
-const STARRED_PATTERNS: ReadonlyArray<RegExp> = [
-  /\bstar(red|s)?\b/i,
-  /\bflagged?\b/i,
-  /\b(?:is|has):(?:star|starred|flag|flagged)\b/i,
-];
-
-export function starredRequest(text: string): boolean {
-  return STARRED_PATTERNS.some((pattern) => pattern.test(text));
 }
 
 export function readApproval(text: string): "yes" | "no" | "unclear" {
