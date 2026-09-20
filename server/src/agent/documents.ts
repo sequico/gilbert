@@ -2008,9 +2008,28 @@ function ruleValidator(): Validator {
   return ruleSchemaValidator;
 }
 
-/** Every way a document breaks the published schema, as readable lines. */
+/**
+ * Every way a document breaks the published schema, as readable lines.
+ *
+ * A validator answers; it never throws, because this is asked while a surface
+ * draws the draft it is editing and an exception there takes the whole tree
+ * down. A document is JSON, and a value JSON cannot carry at all — an
+ * `undefined` a caller built in memory, which the validator refuses to walk
+ * rather than call invalid — is reported as the one problem it is. That is the
+ * honest reading of "cannot be stored", and it is what turns the class of
+ * mistake that once rendered a blank page into a sentence beside the field.
+ */
 export function schemaProblems(rule: unknown): string[] {
-  const result = ruleValidator().validate(rule);
+  let result: ReturnType<Validator["validate"]>;
+  try {
+    result = ruleValidator().validate(rule);
+  } catch (err) {
+    return [
+      `the document carries a value that is not JSON: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    ];
+  }
   if (result.valid) return [];
   return result.errors.map((error) => {
     const where = error.instanceLocation || "/";

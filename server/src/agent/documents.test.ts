@@ -694,6 +694,26 @@ test("the published schema is what a save is refused against", () => {
   assert.ok(ruleProblems({ hello: "world" }).length > 0, "not a rule at all");
 });
 
+test("a value JSON cannot carry is refused as a document, never thrown", () => {
+  /*
+   * The editor validates the draft while it draws it, so a validator that threw
+   * here unmounted the whole panel — the blank page a trigger change once
+   * produced. A document is JSON: a property holding `undefined` is a property
+   * JSON does not have, and the honest answer is the one problem it is.
+   */
+  const withUndefined = rule({
+    trigger: { on: "chat", everyMinutes: undefined },
+  });
+  let problems: string[] = [];
+  assert.doesNotThrow(() => {
+    problems = schemaProblems(withUndefined);
+  });
+  assert.equal(problems.length, 1);
+  assert.match(problems[0] ?? "", /not JSON/);
+  // And the same door answers rather than throws, which is what a surface asks.
+  assert.doesNotThrow(() => ruleProblems(withUndefined));
+});
+
 test("a group that carries two automations on one trigger is refused, not run twice", () => {
   /*
    * The refusal a save meets. It is a property of the list rather than of a

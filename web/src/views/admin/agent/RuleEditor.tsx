@@ -18,8 +18,8 @@
  * (`rulesProblem`), and for the same reason: an automation carries no filter,
  * so the executor runs every enabled automation on a trigger against every item
  * that trigger produces. A second one would answer the same arrival twice. The
- * editor therefore offers a trigger that is already taken as unavailable, and
- * spells out the pair when a group already carries one.
+ * editor therefore does not offer a trigger that is already taken, and spells
+ * out the pair when a group already carries one.
  */
 import {
   AGENT_TRIGGERS,
@@ -277,7 +277,13 @@ export function RuleEditor({
           )}
           {view?.granted && draft ? (
             <>
-              <RuleForm rule={draft} group={group} grant={grant} onChange={setDraft} />
+              <RuleForm
+                rule={draft}
+                group={group}
+                grant={grant}
+                taken={taken}
+                onChange={setDraft}
+              />
               {problem && (
                 <div className="warn-box" style={{ marginBottom: 12 }}>
                   {problem}

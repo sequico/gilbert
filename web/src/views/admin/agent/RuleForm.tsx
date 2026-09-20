@@ -69,10 +69,29 @@ const SCHEDULE_LABELS: Record<number, string> = {
   10080: "Every week",
 };
 
+/**
+ * The trigger a chosen event carries, with no cadence but the clock's.
+ *
+ * The cadence belongs to `schedule` and to nothing else: switching away from
+ * the clock writes a trigger with no `everyMinutes` key at all rather than one
+ * holding `undefined` — which is not JSON, which the shared validator refuses
+ * outright, and which therefore turned the next render of this form into a
+ * blank page (the draft is validated while it is drawn).
+ */
+function triggerFor(
+  on: AgentTriggerOn,
+  everyMinutes: number | undefined,
+): AgentTrigger {
+  return on === "schedule"
+    ? { on, everyMinutes: everyMinutes ?? AGENT_SCHEDULE_PRESETS[0] }
+    : { on };
+}
+
 export function RuleForm({
   rule,
   group,
   grant,
+  taken,
   onChange,
 }: {
   rule: AgentRuleDraft;
@@ -80,6 +99,15 @@ export function RuleForm({
   group: string;
   /** The catalogue the rule schema publishes; null until it is read. */
   grant: AgentGrantCatalog | null;
+  /**
+   * The triggers this group's other enabled automations already hold.
+   *
+   * One enabled automation per trigger is the rule (`rulesProblem`), so the
+   * select offers the ones nothing holds plus the one this automation already
+   * stands on — the refusal is not something a person has to discover by
+   * trying.
+   */
+  taken: ReadonlySet<AgentTriggerOn>;
   onChange(next: AgentRuleDraft): void;
 }) {
   const set = (patch: Partial<AgentRuleDraft>) => onChange({ ...rule, ...patch });
@@ -119,6 +147,15 @@ export function RuleForm({
   };
   const setTrigger = (patch: Partial<AgentTrigger>) =>
     set({ trigger: { ...rule.trigger, ...patch } });
+  /*
+   * The triggers a person may pick: every one this group does not already
+   * stand on, plus the one this automation itself carries — editing an
+   * automation must not force its author off the trigger it already has, and
+   * a document refused for a pair written by hand must stay repairable here.
+   */
+  const offeredTriggers = AGENT_TRIGGERS.filter(
+    (on) => on === rule.trigger.on || !taken.has(on),
+  );
 
   /*
    * The grant is a set of actions, and the form thinks in areas. Both
@@ -174,22 +211,11 @@ export function RuleForm({
           onChange={(e) => {
             const on = e.target.value;
             if (isAgentTriggerOn(on)) {
-              setTrigger(
-                on === "schedule"
-                  ? {
-                      on,
-                      everyMinutes:
-                        rule.trigger.everyMinutes ?? AGENT_SCHEDULE_PRESETS[0],
-                    }
-                  : // The cadence belongs to the clock and to nothing else: a
-                    // document that states one on a trigger with no clock is a
-                    // number no reader of it would ever look at.
-                    { on, everyMinutes: undefined },
-              );
+              set({ trigger: triggerFor(on, rule.trigger.everyMinutes) });
             }
           }}
         >
-          {AGENT_TRIGGERS.map((on) => (
+          {offeredTriggers.map((on) => (
             <option key={on} value={on}>
               {t(AGENT_TRIGGER_LABELS[on])}
             </option>
