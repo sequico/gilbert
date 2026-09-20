@@ -10,8 +10,9 @@ entries that stand beside them (`AGENT_AREAS`, `standaloneActions`,
 (`AgentGroupPolicyDoc`, `policyOf`, `AgentReviewMode`). Decision three, the two
 speeds of context: the distilled head is the notebook, which a run may now write
 (`notebook.write`, `server/src/agent/actions.ts`), and the narrow tail is the
-named lookup a run asks for and gets (`AgentLookup`, `server/src/agent/llm.ts`,
-`server/src/agent/executor.ts`, ADR 0020).
+named lookup a run asks for and gets (`AgentLookup` in
+`server/src/agent/documents.ts`, the answer in `server/src/agent/llm.ts`, the
+reads in `server/src/agent/executor.ts`, ADR 0020).
 
 The surface this is about is **Admin → Group Agents → Automations** — the
 editor that writes a group's automations. ADR 0003 gives an automation one

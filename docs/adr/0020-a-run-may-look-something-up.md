@@ -1,6 +1,6 @@
 # ADR 0020 — A run may look something up
 
-Status: Proposed
+Status: Accepted
 
 Implementation: Built. The closed catalogue, its validation and the lookup
 renderer are in `server/src/agent/documents.ts` (`AgentLookup`,
