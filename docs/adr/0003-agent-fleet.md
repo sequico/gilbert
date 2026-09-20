@@ -88,13 +88,13 @@ own membership.
 
 ## Time-based triggers
 
-A scheduler document (`next-runs`, beside the rules it schedules) holds due
-times as UTC instants. The agent holding a group's claim arms a timer from
-that document and updates it when a run fires or the schedule changes, so a
-replacement agent picks the schedule up from Stalwart after any crash rather
-than from a cron entry. A due run is started under the same claim every
-other run passes; an entry no live claim covers is carried over exactly as
-it stands rather than re-planned, and a run whose rule is off or gone is
+A scheduler document (`agent/schedule.json`, beside the rules it schedules)
+holds due times as UTC instants. The agent holding a group's claim arms a
+timer from that document and updates it when a run fires or the schedule
+changes, so a replacement agent picks the schedule up from Stalwart after any
+crash rather than from a cron entry. A due run is started under the same claim
+every other run passes; an entry no live claim covers is carried over exactly
+as it stands rather than re-planned, and a run whose rule is off or gone is
 recorded as a missed run.
 
 ## Coordination: claims and fencing
@@ -118,22 +118,23 @@ are the ones nobody is holding, and the next process adopts them.
 
 Claims carry an epoch, incremented on takeover and never on a pass over a claim
 that is already one's own, and a run checks `claimStillMine` immediately before
-any action that leaves the process — sending, posting, filing, drafting. That
-fenced set is one explicit list, `FENCED_ACTIONS` (`mail.send`, `chat.post`,
-`mail.draft`, `file.write`, `mail.extract`), read by both the fence and the
-retry decision, so an action cannot be fenced in one and repeatable in the
-other. An agent that finds its claim taken from it stops rather than writing
-results the successor will write again.
+any action that leaves the process — sending, posting, filing, drafting, or
+reshaping a document into a new file. That fenced set is one explicit list,
+`FENCED_ACTIONS` (`mail.send`, `chat.post`, `mail.draft`, `file.write`,
+`mail.extract`, `document.split`, `document.merge`, `document.extract`), read
+by both the fence and the retry decision, so an action cannot be fenced in one
+and repeatable in the other. An agent that finds its claim taken from it stops
+rather than writing results the successor will write again.
 
 Nothing supervises the agents, and nothing inside one manages processes: the
 documents are the only coordinator. A job left `running` past its lease is
 picked up by the next pass of any agent — a run whose lease expires with
 nobody coming back for it ends with the audit outcome `timeout`, distinct
 from `failed`, because nothing reported a failure; the process that would
-have is the one that is gone. An action already marked `unrepeatable`
-(sending, `mail.extract`, `file.write` — anything that leaves a trace a
-person will find) is dead-lettered rather than retried, with backoff between
-attempts elsewhere. An approval is consumed once, in the same conditional
+have is the one that is gone. A plan that holds an action which leaves the
+process — the same `FENCED_ACTIONS` set the fence reads, `leavesTheProcess` —
+is dead-lettered rather than retried, with backoff between attempts
+elsewhere. An approval is consumed once, in the same conditional
 write that closes the job, before any effect runs — and a draft that left
 Drafts is checked before the chat is read, so a member who sent the draft
 and then answered in words is settled by what they actually did.
@@ -155,10 +156,10 @@ two of them (`rulesProblem`).
 The model proposes; the allowlist disposes. What the model decides is which
 granted action to take, never whether an ungranted one may run, and every
 run is audited with the rule and version it used. Attention is tracked with
-reserved `G-` label keywords (`G-needattention`, `G-processed`, and others as
-needed) — agent-owned, read-only to humans by product convention, applied
-per message rather than per thread, since a reply in an already-processed
-thread is a fresh, unlabelled event.
+the four reserved `G-` label keywords the catalog defines (`G-needattention`,
+`G-processed`, `G-awaiting`, `G-rejected`) — agent-owned, read-only to humans
+by product convention, applied per message rather than per thread, since a
+reply in an already-processed thread is a fresh, unlabelled event.
 
 ### The model call
 
@@ -244,11 +245,15 @@ one whenever nothing in the retained audit window explains an earlier
 effect.
 
 A person can also ask for a run directly — **Run now** on the Automations
-tab resolves the group, the rule and a message, evaluates the rule's own
-filter, and writes an ordinary job under the trigger value `manual`,
-executed on the rule's own terms (allowlist, review policy, version pin,
-audit). A refusal — the rule is off, there is no message to run on, the
-filter does not match — is answered to whoever asked and never enters the
+tab resolves the group, the automation and a message (the one named, or the
+newest in the group's own inbox), and writes an ordinary job under the
+trigger value `manual`, executed on the automation's own terms (allowlist,
+the group's review policy, version pin, audit). An automation carries no
+filter, so the message is not matched against anything but the automation its
+author asked for. A refusal — there is no such automation in the group any
+more, it is not armed, it is not about mail (a chat automation is asked for
+in the group's chat and a timed one runs on its own clock), or there is no
+message to run it on — is answered to whoever asked and never enters the
 group's audit, since nothing ran.
 
 ### Document tools
@@ -302,8 +307,8 @@ a diagnostic.
 Mail, files and chat the agent reads are data; nothing inside them is
 followed as an instruction. The capability allowlist and the review policy
 are the only gate on what a run may do, whatever the content says. An
-irreversible or external action always asks a person, regardless of the
-rule's mode.
+irreversible or external action always asks a person, whatever the group's
+policy says.
 
 ## No cross-rule ordering guarantee
 
@@ -335,18 +340,21 @@ The agents admin area is three sections.
   control here also defines the group's label catalog.
 - **Approvals** — cross-group oversight, read-only by construction: a
   **Pending** tab shows every group's paused decisions at once, and an
-  **Audit** tab merges every granted group's trail, filterable by group,
-  rule and outcome. There is no approve or reject control on this surface —
+  **Audit** tab merges every granted group's trail, filterable by group and
+  outcome. There is no approve or reject control on this surface —
   an operator answers a paused run as a member, in the group's own chat,
   which is where the conversation, the draft and the arbiter live.
 
 The member door is the other half of this. `/api/agent/group/:name` answers
 what every member reads — the automations, the standing instruction, the
-notebook's facts and the recent audit — with the member's own session on the
-group's account, never an administrator's. One fact it answers is not a
-document of the group at all: its **roster**, read as the Master through
-Stalwart's registry (`x:Account/query` filtered by `memberGroupIds`, then
-`x:Account/get` on the ids that named). A member's own credential cannot open
+group's policy, the runs still open and the recent audit — with the member's
+own session on the group's account, never an administrator's. The notebook
+stays in the administration: it is configuration the model is given, and a
+member reads what the agent is told and what it did rather than rewriting it.
+One fact it answers is not a document of the group at all: its **roster**,
+read as the Master through Stalwart's registry (`x:Account/query` filtered by
+`memberGroupIds`, then `x:Account/get` on the ids that named). A member's own
+credential cannot open
 that door — `sysAccountGet` and `sysAccountQuery` are not in the built-in user
 role, and the Group role does not carry them either — and the Master is the
 one principal of an installation with a reason to ask. The read is cached per

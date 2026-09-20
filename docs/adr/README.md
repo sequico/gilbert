@@ -37,11 +37,11 @@ is, not what a user sees.
   nothing flows back, and no mirror branch is kept.
 - **0003 — The agent fleet.** One installation-wide agent identity, its own
   process or embedded in the server, coordinated by lease documents with no
-  supervisor. An automation is a trigger, a prose instruction, a capability
-  allowlist and a review policy; every run asks a model and the allowlist
-  bounds what it may do. Covers the notebook, chaining, metering, the
-  document tools, and the three-part admin surface (Master, Group Agents,
-  Approvals).
+  supervisor. An automation is a trigger, a prose instruction and a capability
+  allowlist, with the review policy carried once per group (ADR 0006); every
+  run asks a model and the allowlist bounds what it may do. Covers the
+  notebook, chaining, metering, the document tools, and the three-part admin
+  surface (Master, Group Agents, Approvals).
 - **0004 — A contact group is not a recipient.** A group card
   (`kind: "group"`, its `members` named by `uid`, no address of its own) is a
   client-side convenience over addresses: the composer's To/Cc/Bcc
