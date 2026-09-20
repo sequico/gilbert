@@ -1131,6 +1131,37 @@ test("a folder slice is one header line per message, never a body", async () => 
   assert.equal(renderFolderSlice("Archive", []), 'FOLDER "Archive": no messages');
 });
 
+test("a person asking about starred mail is handed what it says", async () => {
+  // ADR 0020: the newest starred messages travel with their text, because the
+  // question is what they are about; the rest are headers, so the slice stays
+  // bounded and is never a mailbox.
+  const { renderStarred, STARRED_DETAIL_MAX } = await import("./executor.js");
+  const view = (id: string, subject: string, body: string) => ({
+    id,
+    subject,
+    body,
+    receivedAt: "2026-09-10T09:00:00Z",
+    from: [{ name: "Ada", email: "ada@example.org" }],
+  });
+  const one = renderStarred(1, [view("e1", "Open issue", "the invoice is unpaid")]);
+  assert.match(one, /STARRED MESSAGES \(1\)/);
+  assert.match(one, /the invoice is unpaid/);
+  assert.equal(renderStarred(0, []), "STARRED MESSAGES: none in this group's account.");
+
+  const many = Array.from({ length: STARRED_DETAIL_MAX + 2 }, (_, i) =>
+    view(`e${i}`, `Subject ${i}`, `body ${i}`),
+  );
+  const rendered = renderStarred(many.length + 5, many);
+  assert.match(rendered, /the 8 most recent of 13/);
+  assert.match(rendered, /body 0/, "the newest few carry their own text");
+  assert.equal(
+    rendered.includes(`body ${STARRED_DETAIL_MAX + 1}`),
+    false,
+    "the rest are headers, not bodies",
+  );
+  assert.match(rendered, /The rest, by header only/);
+});
+
 test("an approval shows what the run would do, never why", async () => {
   /*
    * What a member answers in the group's chat (ADR 0003). The output is the
@@ -1185,7 +1216,7 @@ test("a run may look something up, and reads what it asked for", async () => {
   // The index first, then the one item it listed: a listing is cheap and a
   // read is bounded, so a broad question does not pay for every body.
   answerSequence("Mail automation", [
-    { lookup: { kind: "mail", keyword: "$flagged" } },
+    { lookup: { kind: "mail", starred: true } },
     { lookup: { kind: "message", id: starred } },
     {
       summary: "Labelled it after reading the starred mail.",
@@ -1220,7 +1251,7 @@ test("a run may look something up, and reads what it asked for", async () => {
   // The job records what it read, so that is a question about a document.
   const written = await store.readJob("lookup-job");
   assert.deepEqual(written?.doc.lookups, [
-    { kind: "mail", keyword: "$flagged" },
+    { kind: "mail", starred: true },
     { kind: "message", id: starred },
   ]);
 });
@@ -1261,6 +1292,56 @@ test("a run that would rather keep looking than decide is stopped by the bound",
  * anything that left the process: a second pass either repeats an effect
  * nobody can take back or runs a plan nobody approved.
  */
+test("a whole-tree file listing answers which file is where", async () => {
+  /*
+   * ADR 0020: "which file is in the wrong folder" is a question about the shape
+   * of the tree, so a `files` listing with `deep` walks it — bounded — and a run
+   * does not ask a person to open it folder by folder. The group's private app
+   * folder is not part of it.
+   */
+  await writeBytesIntoVisibleFolder(
+    ctx,
+    GROUP,
+    "Deliveries/MS2",
+    "packing-list.txt",
+    new TextEncoder().encode("ok"),
+    "text/plain",
+  );
+  const heard = await createMessage("where is the packing list?");
+  const looker = rule({ id: "tree", capabilities: ["keyword.add"] });
+  await store.writeRules([looker]);
+  answerSequence("Mail automation", [
+    { lookup: { kind: "files", deep: true } },
+    {
+      summary: "Looked at the tree.",
+      confidence: 1,
+      actions: [{ do: "keyword.add", with: { keyword: "G-processed" } }],
+    },
+  ]);
+  const claim = await claimFor();
+  const job = newJob({
+    id: "tree-job",
+    accountId: GROUP,
+    rule: { id: "tree", version: 1 },
+    trigger: { on: "email", emailId: heard, at: new Date().toISOString() },
+  });
+  await store.writeJob(job);
+
+  await executor.runJob(GROUP, job, looker, claim);
+
+  const user = JSON.stringify(calls[calls.length - 1]?.messages ?? []);
+  assert.match(
+    user,
+    /Deliveries\/MS2\/packing-list\.txt/,
+    "the path is in the tree the run was handed",
+  );
+  assert.equal(
+    /-\s*gilbert \(folder\)/.test(user),
+    false,
+    "the group's own app folder is not a place in its Files",
+  );
+});
+
 test("a failure that could have sent mail is not retried", async () => {
   const sender = rule({
     id: "sender",

@@ -915,7 +915,7 @@ export function reviewOutcome(
  * trusted (ADR 0020). The count is of lookups, not of calls: one more call is
  * made with the last lookup's result, and its prompt says the budget is spent.
  */
-export const AGENT_LOOKUP_ROUNDS = 2;
+export const AGENT_LOOKUP_ROUNDS = 3;
 
 /**
  * The most messages one lookup lists.
@@ -939,6 +939,12 @@ export const AGENT_LOOKUP_TEXT_MAX = 2000;
 /** The longest name, keyword, address or path a lookup may carry. */
 export const AGENT_LOOKUP_PARAM_MAX = 200;
 
+/** The most nodes one whole-tree `files` listing hands a run. */
+export const AGENT_LOOKUP_FILES_MAX = 200;
+
+/** How deep a whole-tree `files` listing walks, from the folder it starts at. */
+export const AGENT_LOOKUP_DEPTH_MAX = 4;
+
 /**
  * Something a run asked to read, from the closed catalogue in `AGENT_LOOKUP_KINDS`.
  *
@@ -958,12 +964,14 @@ export type AgentLookup =
       from?: string;
       text?: string;
       unread?: boolean;
+      /** The group's starred mail (`$flagged`), named the way a member names it. */
+      starred?: boolean;
       limit?: number;
     }
   | { kind: "message"; id: string }
   | { kind: "mailboxes" }
   | { kind: "labels" }
-  | { kind: "files"; folder?: string }
+  | { kind: "files"; folder?: string; deep?: boolean }
   | { kind: "file"; path: string }
   | { kind: "chat"; text?: string; from?: string; limit?: number };
 
@@ -1013,6 +1021,7 @@ export function isAgentLookup(x: unknown): x is AgentLookup {
         optionalParam(x, "from") &&
         optionalParam(x, "text") &&
         (x.unread === undefined || typeof x.unread === "boolean") &&
+        (x.starred === undefined || typeof x.starred === "boolean") &&
         optionalLimit(x)
       );
     case "message":
@@ -1021,7 +1030,10 @@ export function isAgentLookup(x: unknown): x is AgentLookup {
     case "labels":
       return true;
     case "files":
-      return optionalParam(x, "folder");
+      return (
+        optionalParam(x, "folder") &&
+        (x.deep === undefined || typeof x.deep === "boolean")
+      );
     case "file":
       return lookupParam(x.path) !== null;
     case "chat":
@@ -1047,6 +1059,7 @@ export function lookupLabel(lookup: AgentLookup): string {
       if (lookup.from) filters.push(`from ${lookup.from}`);
       if (lookup.text) filters.push(`matching “${lookup.text}”`);
       if (lookup.unread) filters.push("unread");
+      if (lookup.starred) filters.push("starred");
       return filters.length ? `the mail ${filters.join(", ")}` : "the group's mail";
     }
     case "message":
@@ -1055,10 +1068,12 @@ export function lookupLabel(lookup: AgentLookup): string {
       return "the group's folders";
     case "labels":
       return "the group's labels";
-    case "files":
-      return lookup.folder
+    case "files": {
+      const where = lookup.folder
         ? `the group's Files in “${lookup.folder}”`
         : "the group's Files";
+      return lookup.deep ? `${where}, the whole tree` : where;
+    }
     case "file":
       return `the file “${lookup.path}”`;
     case "chat": {

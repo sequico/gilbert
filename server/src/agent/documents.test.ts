@@ -880,6 +880,12 @@ test("a lookup is one of the group's own reads, and nothing else", () => {
   assert.equal(isAgentLookup({ kind: "mail", unread: true, limit: 5 }), true);
   assert.equal(isAgentLookup({ kind: "mail", mailbox: "Inbox" }), true);
   assert.equal(
+    isAgentLookup({ kind: "mail", starred: true }),
+    true,
+    "starred is a filter of the one mail lookup, not a kind of its own",
+  );
+  assert.equal(isAgentLookup({ kind: "mail", starred: "yes" }), false);
+  assert.equal(
     isAgentLookup({ kind: "mail", limit: AGENT_LOOKUP_MESSAGES_MAX + 1 }),
     false,
     "a listing past the ceiling is refused rather than clamped silently",
@@ -890,6 +896,12 @@ test("a lookup is one of the group's own reads, and nothing else", () => {
   assert.equal(isAgentLookup({ kind: "file", path: "Clients/report.pdf" }), true);
   assert.equal(isAgentLookup({ kind: "file", path: "" }), false);
   assert.equal(isAgentLookup({ kind: "files", folder: "Clients" }), true);
+  assert.equal(
+    isAgentLookup({ kind: "files", deep: true }),
+    true,
+    "a whole-tree listing is the same lookup with deep set",
+  );
+  assert.equal(isAgentLookup({ kind: "files", deep: "yes" }), false);
   assert.equal(isAgentLookup({ kind: "mailboxes" }), true);
   assert.equal(isAgentLookup({ kind: "labels" }), true);
   assert.equal(isAgentLookup({ kind: "chat", text: "invoice" }), true);
@@ -899,5 +911,10 @@ test("a lookup is one of the group's own reads, and nothing else", () => {
   assert.equal(
     lookupLabel({ kind: "mail", mailbox: "Inbox", unread: true }),
     "the mail in “Inbox”, unread",
+  );
+  assert.equal(lookupLabel({ kind: "mail", starred: true }), "the mail starred");
+  assert.equal(
+    lookupLabel({ kind: "files", deep: true }),
+    "the group's Files, the whole tree",
   );
 });

@@ -57,23 +57,31 @@ model never writes a query, a filter or a JMAP method: it chooses a kind and its
 parameters, and nothing else. The catalogue is **the group's own state**, not
 one label of it, because the context a butler needs is the group's:
 
-- `mail` `{ mailbox?, keyword?, from?, text?, unread?, limit? }` — the newest
-  messages matching what it says, **headers and ids only**.
+- `mail` `{ mailbox?, keyword?, from?, text?, unread?, starred?, limit? }` —
+  the newest messages matching what it says, **headers and ids only**. `starred`
+  is the group's `$flagged` mail under the name a member uses for it.
 - `message` `{ id }` — one message's own text, by the id a `mail` lookup listed.
 - `mailboxes` `{}` — the account's folders, so a run can name one.
 - `labels` `{}` — the group's label catalog.
-- `files` `{ folder? }` — the group's visible Files, at the top level or in a
-  folder: names, kinds and sizes.
+- `files` `{ folder?, deep? }` — the group's visible Files, at the top level or
+  in a folder: paths, kinds and sizes. `deep` walks the whole tree under the
+  folder, bounded by `AGENT_LOOKUP_FILES_MAX` nodes and `AGENT_LOOKUP_DEPTH_MAX`
+  levels, because "which file is in the wrong folder" is a question about the
+  shape of the tree and a listing that stopped at one level would make a run ask
+  a person to walk it folder by folder.
 - `file` `{ path }` — one file's own text, by the path a `files` lookup listed.
 - `chat` `{ text?, from?, limit? }` — the group's chat, narrowed by sender or by
   what a message says.
 
-**The listing is an index and the read is bounded.** What lists hands over names,
-ids and headers; what reads hands over one item's own text. That split is what
-keeps a broad question ("what is unread in the inbox") from paying for every
-body: the index is cheap, and the content is bought only for the one item the
-run actually needs. A mail listing therefore carries the id a `message` lookup
-names back, and a Files listing the path a `file` lookup names back.
+**The listing is an index and the read is bounded, and the prompt says so.**
+What lists hands over names, ids and headers; what reads hands over one item's
+own text. That split is what keeps a broad question ("what is unread in the
+inbox") from paying for every body: the index is cheap, and the content is
+bought only for the one item the run actually needs. A mail listing therefore
+carries the id a `message` lookup names back, and a Files listing the path a
+`file` lookup names back — and the prompt states the two steps as a rule, so a
+model does not stop at the headers and answer a question about mail with a
+sentence about its own fields.
 
 A lookup is a **read** and nothing else. It writes no document, takes no claim,
 changes no state and is not an action: it is not offered against the capability
@@ -111,9 +119,10 @@ for one listing plus at most one read of what it names, not for a mailbox.
   question a member asks in words becomes a read whose kind the server chose
   the vocabulary for, and the catalogue covers the group's mail, its labels, its
   folders, its Files and its chat alike.
-- The chat's own pre-filtered folder slice stays what it is — a person who names
-  a folder gets it without the run spending a round — and the loop is what
-  covers everything the pattern did not anticipate.
+- The chat's own pre-filtered slices stay what they are — a person who names a
+  folder gets it without the run spending a round, and one who says **starred**
+  is handed the group's `$flagged` messages, the newest few with their text —
+  and the loop is what covers everything the pattern did not anticipate.
 - Cost is bounded by construction: a run's extra calls are at most
   `AGENT_LOOKUP_ROUNDS`, each answer is capped by the installation's own token
   ceiling, listings carry no bodies, and each read is capped twice. The meter

@@ -19,6 +19,7 @@ import {
   AppFolderError,
   type Ctx,
   destroyAppNode,
+  type FileNodeLike,
   FILENODE_CAP,
   fileChildren,
   filesAccountId,
@@ -38,7 +39,7 @@ import {
   mentionsName,
   participantsOf,
 } from "../shared/chat.js";
-import { AGENT_LABEL, SEEN_KEYWORD } from "../shared/labels.js";
+import { AGENT_LABEL, SEEN_KEYWORD, STARRED_KEYWORD } from "../shared/labels.js";
 import {
   type ActionOpts,
   type ActionResult,
@@ -70,6 +71,7 @@ import {
   postMessage,
   readApproval,
   readChat,
+  starredRequest,
   widenRequested,
 } from "./chat.js";
 import {
@@ -85,6 +87,8 @@ import {
   AGENT_DIR,
   AGENT_DOCUMENT_BYTES_MAX,
   AGENT_INSTRUCTION_FILE,
+  AGENT_LOOKUP_DEPTH_MAX,
+  AGENT_LOOKUP_FILES_MAX,
   AGENT_LOOKUP_MESSAGES_MAX,
   AGENT_LOOKUP_ROUNDS,
   AGENT_LOOKUP_TEXT_MAX,
@@ -200,6 +204,15 @@ export const AUDIT_RETENTION_MS = 365 * 24 * 60 * 60 * 1000;
 
 /** How many messages of a thread a run reads as context: bounded, never bulk. */
 export const THREAD_CONTEXT_MAX = 20;
+
+/**
+ * How many of a group's starred messages a chat run is handed with their text.
+ *
+ * The newest few, because a person asking about starred mail is asking what is
+ * in it; the rest of the slice travels as headers. Bounded like every other
+ * read, so "what are they about" costs a few messages and not a mailbox.
+ */
+export const STARRED_DETAIL_MAX = 6;
 
 /** What the model decided to do, before the review gate saw it. */
 interface RunPlan {
@@ -1123,6 +1136,60 @@ export class Executor {
   }
 
   /**
+   * The group's starred mail, handed to a chat run (ADR 0020).
+   *
+   * "Starred" is `$flagged` on a message in the group's own account, and a
+   * person who says the word is asking about what those messages say. The
+   * newest few arrive with their text and the rest as headers, so a question
+   * about content is answered from the messages themselves rather than from a
+   * claim about where a star lives.
+   */
+  private async starredSlice(accountId: string): Promise<string> {
+    const result = await this.deps.client.chain(
+      [
+        [
+          "Email/query",
+          {
+            accountId,
+            filter: { hasKeyword: STARRED_KEYWORD },
+            sort: [{ property: "receivedAt", isAscending: false }],
+            limit: AGENT_LOOKUP_MESSAGES_MAX,
+            calculateTotal: true,
+          },
+          "q",
+        ],
+        [
+          "Email/get",
+          {
+            accountId,
+            "#ids": { resultOf: "q", name: "Email/query", path: "/ids" },
+            properties: ["id", "from", "subject", "receivedAt", "keywords"],
+          },
+          "g",
+        ],
+      ],
+      [JMAP_MAIL],
+    );
+    const raw = result.raw("q");
+    const list =
+      raw && raw[0] === "Email/query" ? (raw[1] as Record<string, unknown>) : {};
+    const rows = result.list<AgentEmailView>("g");
+    const total = typeof list.total === "number" ? list.total : rows.length;
+    const views: AgentEmailView[] = [];
+    for (const [index, view] of rows.entries()) {
+      if (index >= STARRED_DETAIL_MAX || !view.id) {
+        views.push(view);
+        continue;
+      }
+      const full = await fetchEmailView(this.deps.client, accountId, view.id, {
+        body: true,
+      });
+      views.push(full ?? view);
+    }
+    return renderStarred(total, views);
+  }
+
+  /**
    * The newest mail a run asked about: headers and ids, never bodies.
    *
    * The listing is the index the run then reads from — a `message` lookup by
@@ -1145,6 +1212,7 @@ export class Executor {
       filter.inMailbox = mailboxId;
     }
     if (lookup.keyword) filter.hasKeyword = lookup.keyword;
+    if (lookup.starred) filter.hasKeyword = STARRED_KEYWORD;
     if (lookup.unread) filter.notKeyword = SEEN_KEYWORD;
     if (lookup.from) filter.from = lookup.from;
     if (lookup.text) filter.text = lookup.text;
@@ -1240,6 +1308,19 @@ export class Executor {
     const folderId = await findVisibleFolder(this.deps.ctx, accountId, folder);
     if (folderId === undefined)
       return `${lookupHeading(lookup)}: this group has no folder called “${folder}”`;
+    const rows: string[] = [];
+    if (lookup.deep) {
+      // One listing for the whole tree, paths and all: "which file is in the
+      // wrong folder" is a question about the shape of the tree, and a listing
+      // that stopped at one level would make the run ask a person to walk it
+      // folder by folder (ADR 0020).
+      await this.walkVisible(accountId, folderId, folder, 0, rows);
+      if (rows.length >= AGENT_LOOKUP_FILES_MAX)
+        rows.push(
+          `…(more than ${AGENT_LOOKUP_FILES_MAX} entries; list one folder to see the rest)`,
+        );
+      return renderItemList(lookup, rows.length, rows);
+    }
     const nodes = await fileChildren(
       this.deps.ctx,
       accountId,
@@ -1250,14 +1331,50 @@ export class Executor {
     // The app folder is not a place in a member's Files, so a listing never
     // names it: the agent's own documents are not something a run reads back
     // as the group's files (ADR 0003).
-    const rows = nodes
-      .filter((node) => node.name !== APP_FOLDER_NAME)
-      .map((node) => {
-        const kind = node.nodeType === "directory" ? "folder" : "file";
-        const size = typeof node.size === "number" ? `, ${node.size} bytes` : "";
-        return `- ${String(node.name ?? "(unnamed)")} (${kind}${size})`;
-      });
+    for (const node of nodes) {
+      if (node.name === APP_FOLDER_NAME) continue;
+      rows.push(fileLine(node, ""));
+    }
     return renderItemList(lookup, rows.length, rows);
+  }
+
+  /**
+   * The visible tree under one folder, depth first, as listing lines.
+   *
+   * Bounded twice — `AGENT_LOOKUP_FILES_MAX` nodes across the walk and
+   * `AGENT_LOOKUP_DEPTH_MAX` levels down — so "the whole tree" is a slice a run
+   * pays for once and never an account's lifetime of files. The app folder and
+   * everything under it is skipped: it is not a place in a member's Files.
+   */
+  private async walkVisible(
+    accountId: string,
+    folderId: string | null,
+    prefix: string,
+    depth: number,
+    rows: string[],
+  ): Promise<void> {
+    if (depth > AGENT_LOOKUP_DEPTH_MAX || rows.length >= AGENT_LOOKUP_FILES_MAX) return;
+    const nodes = await fileChildren(
+      this.deps.ctx,
+      accountId,
+      folderId,
+      undefined,
+      AGENT_LOOKUP_FILES_MAX,
+    );
+    for (const node of nodes) {
+      if (rows.length >= AGENT_LOOKUP_FILES_MAX) return;
+      const name = String(node.name ?? "");
+      if (!name || name === APP_FOLDER_NAME) continue;
+      rows.push(fileLine(node, prefix));
+      if (node.nodeType === "directory" && node.id)
+        await this.walkVisible(
+          accountId,
+          String(node.id),
+          prefix ? `${prefix}/${name}` : name,
+          depth + 1,
+          rows,
+        );
+    }
   }
 
   /** One file of the group's visible Files, as the text this build reads. */
@@ -1624,6 +1741,11 @@ export class Executor {
         trigger.chatId,
       );
       const parts = [window.map(renderChatMessage).join("\n")];
+      // A person naming the group's starred mail gets it handed over, bodies
+      // and all: what a member means by "starred" is the `$flagged` keyword in
+      // the group's own account, and a run should not have to guess that or
+      // answer that it cannot see it (ADR 0020).
+      if (starredRequest(asked)) parts.push(await this.starredSlice(accountId));
       const folder = folderRequest(asked);
       if (folder) parts.push(await this.folderSlice(accountId, folder));
       const context: ModelContext = {
@@ -3316,6 +3438,41 @@ export function renderItemList(
 /** What one read item hands the run: its own text, bounded and labelled. */
 export function renderItem(lookup: AgentLookup, text: string): string {
   return `${lookupHeading(lookup)}:\n\n${text}`;
+}
+
+/**
+ * The group's starred mail as a chat run reads it (ADR 0020).
+ *
+ * The newest `STARRED_DETAIL_MAX` carry their own text, because a person asking
+ * about starred mail is asking what is in it; the rest travel as headers, so the
+ * slice is a bounded read and not a mailbox. One renderer, so the slice a run is
+ * handed and a test of it read the same.
+ */
+export function renderStarred(
+  total: number,
+  views: ReadonlyArray<AgentEmailView>,
+): string {
+  if (!views.length) return "STARRED MESSAGES: none in this group's account.";
+  const header =
+    total > views.length
+      ? `STARRED MESSAGES (the ${views.length} most recent of ${total}):`
+      : `STARRED MESSAGES (${views.length}):`;
+  const detailed = views
+    .slice(0, STARRED_DETAIL_MAX)
+    .map((view) => renderEmail("", { ...view, body: boundedText(view.body) }));
+  const rest = views.slice(STARRED_DETAIL_MAX).map(mailListLine);
+  const parts = [header, detailed.join("\n\n")];
+  if (rest.length) parts.push(`The rest, by header only:\n${rest.join("\n")}`);
+  return parts.join("\n\n");
+}
+
+/** One visible-tree node as a listing line: its path under `prefix`, kind and size. */
+function fileLine(node: FileNodeLike, prefix: string): string {
+  const name = String(node.name ?? "(unnamed)");
+  const path = prefix ? `${prefix}/${name}` : name;
+  const kind = node.nodeType === "directory" ? "folder" : "file";
+  const size = typeof node.size === "number" ? `, ${node.size} bytes` : "";
+  return `- ${path} (${kind}${size})`;
 }
 
 /** One message as a listing line: the id a `message` lookup names it by. */

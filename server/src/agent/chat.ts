@@ -293,6 +293,26 @@ export function widenRequested(text: string): boolean {
   return WIDEN_PATTERNS.some((pattern) => pattern.test(text));
 }
 
+/**
+ * Whether a person asked about the group's starred mail (ADR 0020).
+ *
+ * "Starred" is the `$flagged` keyword on a message in the group's own account,
+ * so it is a fact the agent can read — and a person saying the word is asking
+ * about it. The vocabulary is closed and deterministic, the same shape as
+ * `folderRequest`: the run hands the starred messages over instead of leaving
+ * the model to reason about them. The `is:`/`has:` forms are the mail search's
+ * own spelling of the same question.
+ */
+const STARRED_PATTERNS: ReadonlyArray<RegExp> = [
+  /\bstar(red|s)?\b/i,
+  /\bflagged?\b/i,
+  /\b(?:is|has):(?:star|starred|flag|flagged)\b/i,
+];
+
+export function starredRequest(text: string): boolean {
+  return STARRED_PATTERNS.some((pattern) => pattern.test(text));
+}
+
 export function readApproval(text: string): "yes" | "no" | "unclear" {
   if (APPROVAL_NO.test(text)) return "no";
   if (APPROVAL_YES.test(text)) return "yes";
