@@ -453,7 +453,10 @@ export async function readGroupLabels(
       ? { state: "catalog", labels: parsed.labels }
       : { state: "unreadable" };
   } catch {
-    return { state: "absent" };
+    // The node is there and its bytes would not read: that is an unreadable
+    // catalog, not an absent one, and a writer that took it for absent would
+    // overwrite somebody's labels (ADR 0005).
+    return { state: "unreadable" };
   }
 }
 

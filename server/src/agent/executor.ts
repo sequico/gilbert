@@ -16,6 +16,7 @@
 import { randomUUID } from "node:crypto";
 import { readGroupLabels } from "../account.js";
 import {
+  AppFolderError,
   type Ctx,
   destroyAppNode,
   FILENODE_CAP,
@@ -29,6 +30,7 @@ import {
 } from "../appFolder.js";
 import { config } from "../config.js";
 import { isStateMismatch, JMAP_MAIL, type JmapClient, JmapError } from "../jmap.js";
+import { APP_FOLDER_NAME } from "../shared/appFolder.js";
 import {
   CHAT_FOLDER,
   type ChatMessage,
@@ -1043,29 +1045,37 @@ export class Executor {
     let text = context.text;
     let usage: AgentUsage | undefined;
     const lookups: AgentLookup[] = [];
-    for (let round = 0; round <= AGENT_LOOKUP_ROUNDS; round++) {
-      const answer = await decideActions(
-        provider,
-        rule,
-        { ...context, text },
-        allowed,
-        prose,
-        { ...call, lookupsLeft: AGENT_LOOKUP_ROUNDS - round },
-      );
-      usage = addUsage(usage, answer.usage);
-      if (answer.kind === "lookup") {
-        lookups.push(answer.lookup);
-        text = `${text}\n\n${await this.lookupSlice(accountId, answer.lookup)}`;
-        continue;
+    try {
+      for (let round = 0; round <= AGENT_LOOKUP_ROUNDS; round++) {
+        const answer = await decideActions(
+          provider,
+          rule,
+          { ...context, text },
+          allowed,
+          prose,
+          { ...call, lookupsLeft: AGENT_LOOKUP_ROUNDS - round },
+        );
+        usage = addUsage(usage, answer.usage);
+        if (answer.kind === "lookup") {
+          lookups.push(answer.lookup);
+          text = `${text}\n\n${await this.lookupSlice(accountId, answer.lookup)}`;
+          continue;
+        }
+        await this.guardLabels(accountId, answer.actions);
+        if (lookups.length) await this.recordLookups(store, job, lookups);
+        return {
+          actions: answer.actions,
+          confidence: answer.confidence,
+          summary: answer.summary,
+          ...(usage ? { usage } : {}),
+        };
       }
-      await this.guardLabels(accountId, answer.actions);
+    } catch (err) {
+      // A run that read something and then failed still says what it read: the
+      // reads happened, and a trail that hid them would make "why did it say
+      // that" unanswerable (ADR 0020).
       if (lookups.length) await this.recordLookups(store, job, lookups);
-      return {
-        actions: answer.actions,
-        confidence: answer.confidence,
-        summary: answer.summary,
-        ...(usage ? { usage } : {}),
-      };
+      throw err;
     }
     // The last call has no lookups left, so a lookup answer is refused inside
     // `decideActions`; reaching here is a bug in that bound, and it is loud.
@@ -1084,21 +1094,31 @@ export class Executor {
    * mailbox ever being attached wholesale (ADR 0006 decision three).
    */
   private async lookupSlice(accountId: string, lookup: AgentLookup): Promise<string> {
-    switch (lookup.kind) {
-      case "mail":
-        return this.mailLookup(accountId, lookup);
-      case "message":
-        return this.messageLookup(accountId, lookup);
-      case "mailboxes":
-        return this.mailboxesLookup(accountId, lookup);
-      case "labels":
-        return this.labelsLookup(accountId, lookup);
-      case "files":
-        return this.filesLookup(accountId, lookup);
-      case "file":
-        return this.fileLookup(accountId, lookup);
-      case "chat":
-        return this.chatLookup(accountId, lookup);
+    try {
+      switch (lookup.kind) {
+        case "mail":
+          return await this.mailLookup(accountId, lookup);
+        case "message":
+          return await this.messageLookup(accountId, lookup);
+        case "mailboxes":
+          return await this.mailboxesLookup(accountId, lookup);
+        case "labels":
+          return await this.labelsLookup(accountId, lookup);
+        case "files":
+          return await this.filesLookup(accountId, lookup);
+        case "file":
+          return await this.fileLookup(accountId, lookup);
+        case "chat":
+          return await this.chatLookup(accountId, lookup);
+      }
+    } catch (err) {
+      // A path or a document the model chose can be refused by the layer that
+      // owns it — the app folder is not a destination in Files, a library
+      // cannot read a kind — and that is an answer to the run, not a failure of
+      // it: the run is told what it could not read and carries on (ADR 0020).
+      if (err instanceof AppFolderError || err instanceof DocumentError)
+        return `${lookupHeading(lookup)}: ${errorMessage(err)}`;
+      throw err;
     }
   }
 
@@ -1227,11 +1247,16 @@ export class Executor {
       undefined,
       AGENT_LOOKUP_MESSAGES_MAX,
     );
-    const rows = nodes.map((node) => {
-      const kind = node.nodeType === "directory" ? "folder" : "file";
-      const size = typeof node.size === "number" ? `, ${node.size} bytes` : "";
-      return `- ${String(node.name ?? "(unnamed)")} (${kind}${size})`;
-    });
+    // The app folder is not a place in a member's Files, so a listing never
+    // names it: the agent's own documents are not something a run reads back
+    // as the group's files (ADR 0003).
+    const rows = nodes
+      .filter((node) => node.name !== APP_FOLDER_NAME)
+      .map((node) => {
+        const kind = node.nodeType === "directory" ? "folder" : "file";
+        const size = typeof node.size === "number" ? `, ${node.size} bytes` : "";
+        return `- ${String(node.name ?? "(unnamed)")} (${kind}${size})`;
+      });
     return renderItemList(lookup, rows.length, rows);
   }
 

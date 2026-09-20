@@ -1392,6 +1392,15 @@ export interface AgentDecision {
   /** The chat message carrying the proposal, so a reply can be matched. */
   chatId?: string;
   draft?: AgentDraftRef | null;
+  /**
+   * What the job looked up before it proposed this, copied when the decision
+   * opened (ADR 0020).
+   *
+   * The decision is what a person answers, and it outlives the job: an approval
+   * line in the trail has to be able to say what the run read, not only the
+   * paused line before it.
+   */
+  lookups?: AgentLookup[];
   decidedBy?: string;
   decidedAt?: string;
   createdAt: string;
@@ -1414,6 +1423,11 @@ export function isAgentDecision(x: unknown): x is AgentDecision {
   if (!isActionList(d.actions)) return false;
   if (typeof d.confidence !== "number") return false;
   if (d.chatId !== undefined && typeof d.chatId !== "string") return false;
+  if (
+    d.lookups !== undefined &&
+    (!Array.isArray(d.lookups) || !d.lookups.every(isAgentLookup))
+  )
+    return false;
   if (d.appliedAt !== undefined && typeof d.appliedAt !== "string") return false;
   if (d.draft !== undefined && d.draft !== null) {
     const ref = d.draft as Record<string, unknown>;
@@ -1445,6 +1459,7 @@ export function newDecision(job: AgentJob, chatId?: string): AgentDecision {
   };
   if (chatId) doc.chatId = chatId;
   if (p.draft) doc.draft = p.draft;
+  if (job.lookups?.length) doc.lookups = job.lookups;
   return doc;
 }
 
@@ -1697,7 +1712,9 @@ export interface AgentNotebookFact {
   id: string;
   /** The fact itself, in the author's words. */
   text: string;
+  /** When this fact was last written — added, or corrected since. */
   addedAt?: string;
+  /** Who last wrote it. */
   addedBy?: string;
 }
 

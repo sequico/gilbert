@@ -216,7 +216,11 @@ export function decisionAuditEntry(
   actions: ReadonlyArray<AgentAction>,
   detail?: string,
 ): AgentAuditEntry {
-  return build(subjectOfDecision(decision), rule, outcome, actions, detail);
+  const entry = build(subjectOfDecision(decision), rule, outcome, actions, detail);
+  // The decision copied the job's lookups when it opened, so the line a person
+  // answering it writes still says what the run read (ADR 0020).
+  if (decision.lookups?.length) entry.lookups = decision.lookups;
+  return entry;
 }
 
 /** Append an entry to the month its own instant falls in. */

@@ -16,7 +16,7 @@
 
 import type { AgentNotebookFact } from "@gilbert/agent/documents";
 import { Plus, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchGroupNotebook, saveAgentNotebook } from "@/lib/agents";
 import { groupAccessSentence } from "@/lib/groupAccess";
 import { t } from "@/lib/i18n";
@@ -38,6 +38,10 @@ export function GroupMemory({ group, known }: { group: string; known: boolean })
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [changed, setChanged] = useState(false);
+  // The group the picker holds now. A read that lands after the picker moved on
+  // belongs to a group nobody is looking at, and writing it down would show one
+  // group's memory under another's name.
+  const picked = useRef(group);
 
   const load = useCallback(async () => {
     if (!group) return;
@@ -45,6 +49,7 @@ export function GroupMemory({ group, known }: { group: string; known: boolean })
     setProblem(null);
     try {
       const view = await fetchGroupNotebook(group);
+      if (picked.current !== group) return;
       setFacts(
         view.facts.map((fact: AgentNotebookFact) => ({ id: fact.id, text: fact.text })),
       );
@@ -52,9 +57,10 @@ export function GroupMemory({ group, known }: { group: string; known: boolean })
       setBounds({ maxFact: view.maxFact, maxFacts: view.maxFacts });
       setChanged(false);
     } catch (err) {
-      setProblem(err instanceof Error ? err.message : String(err));
+      if (picked.current === group)
+        setProblem(err instanceof Error ? err.message : String(err));
     } finally {
-      setBusy(false);
+      if (picked.current === group) setBusy(false);
     }
   }, [group]);
 
@@ -63,6 +69,7 @@ export function GroupMemory({ group, known }: { group: string; known: boolean })
   // group that is picked and known reads its memory on the spot, because a
   // document a person has to ask for twice is a document nobody reads.
   useEffect(() => {
+    picked.current = group;
     setFacts(null);
     setChanged(false);
     setProblem(null);
