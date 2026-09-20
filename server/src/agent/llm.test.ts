@@ -301,7 +301,7 @@ test("a call may answer with a lookup instead of a decision", async () => {
   // model asks for rather than a pattern the run guesses (ADR 0020): the answer
   // is the lookup, and the prompt offers the catalogue it may name. The
   // catalogue is the group's whole state, not one label's.
-  answerWith({ lookup: { kind: "mail", unread: true } });
+  answerWith({ lookup: { kind: "mail", query: "is:unread" } });
   const answer = await decideActions(
     provider,
     decisionRule,
@@ -312,7 +312,7 @@ test("a call may answer with a lookup instead of a decision", async () => {
   );
   assert.deepEqual(answer, {
     kind: "lookup",
-    lookup: { kind: "mail", unread: true },
+    lookup: { kind: "mail", query: "is:unread" },
   });
   const messages = seen?.body.messages as Array<{ role: string; content: string }>;
   const system = messages[0]?.content ?? "";

@@ -16,9 +16,8 @@ run read rides its job and its audit line (`AgentJob.lookups`,
 A run reads one context, built by `contextFor` before the deciding call, and
 then asks the model once: the trigger's item, the conversation around it, the
 group's notebook and standing instruction, and — when a person's chat message
-names a folder — one slice of that folder. Everything a run might need must
-therefore be in the prompt already, and the model has no way to ask for what is
-not.
+named a folder — one slice of that folder. Everything a run might need had to be
+in the prompt already, and the model had no way to ask for what was not.
 
 That is the hole behind "it has no context". A member asks what the starred
 messages are about, and the run's context carries neither the starred messages
@@ -55,9 +54,10 @@ run decides once, at the end, and everything after that — the review gate, the
 allowlist, the audit — is untouched.
 
 The catalogue is closed and the server validates every request against it. The
-model never writes a query, a filter or a JMAP method: it chooses a kind and its
-parameters, and nothing else. The catalogue is **the group's own state**, not
-one label of it, because the context a butler needs is the group's:
+model never writes a filter or a JMAP method: it chooses a kind, its parameters,
+and — for mail and chat — a query in the product's own search grammar, which the
+server parses and validates by parsing. The catalogue is **the group's own
+state**, not one label of it, because the context a butler needs is the group's:
 
 - `mail` `{ query?, limit? }` — the newest messages matching a search query,
   **headers and ids only**. No query is the newest mail; `is:starred` is a
@@ -80,9 +80,9 @@ one label of it, because the context a butler needs is the group's:
 `server/src/shared/search.ts` — the module the client's own search box reads —
 and the server validates a lookup by parsing it. The model writes a query in a
 grammar the product already speaks, never a JMAP filter: `is:`, `has:`, `in:`,
-`label:`, `from:`, `to:`, `subject:`, `text:`, `before:`, `after:`, `larger:`,
-`smaller:` and quoted words. A question type that grammar can express needs no
-new code here.
+`label:`, `from:`, `to:`, `subject:`, `body:`, `before:`, `after:`, `larger:`,
+`smaller:` and their aliases, plus quoted words. A question type that grammar
+can express needs no new code here.
 
 **The listing is an index and the read is bounded, and the prompt says so.**
 What lists hands over names, ids and headers; what reads hands over one item's

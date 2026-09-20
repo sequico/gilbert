@@ -992,15 +992,23 @@ function optionalParam(x: Record<string, unknown>, key: string): boolean {
   return x[key] === undefined || lookupParam(x[key]) !== null;
 }
 
-/** An optional search query: absent is fine, present must be a query this build reads. */
+/** An optional search query: absent or empty is the unfiltered listing. */
 function optionalQuery(x: Record<string, unknown>, key: string): boolean {
   const value = x[key];
   if (value === undefined) return true;
-  return (
-    typeof value === "string" &&
-    value.trim().length > 0 &&
-    value.length <= AGENT_LOOKUP_QUERY_MAX
-  );
+  return typeof value === "string" && value.length <= AGENT_LOOKUP_QUERY_MAX;
+}
+
+/**
+ * Whether an answer names only the fields its kind has.
+ *
+ * A parameter this build no longer reads must be refused rather than ignored:
+ * a lookup that carried yesterday's `starred` and is accepted as "no query"
+ * answers a question about starred mail from the whole mailbox, which is the
+ * silent widening every answer here exists to prevent (ADR 0020).
+ */
+function onlyKeys(x: Record<string, unknown>, allowed: ReadonlyArray<string>): boolean {
+  return Object.keys(x).every((key) => allowed.includes(key));
 }
 
 /** An optional count: absent is fine, present must be within the listing bound. */
@@ -1019,22 +1027,31 @@ export function isAgentLookup(x: unknown): x is AgentLookup {
   if (!isRecord(x)) return false;
   switch (x.kind) {
     case "mail":
-      return optionalQuery(x, "query") && optionalLimit(x);
+      return (
+        onlyKeys(x, ["kind", "query", "limit"]) &&
+        optionalQuery(x, "query") &&
+        optionalLimit(x)
+      );
     case "message":
-      return lookupParam(x.id) !== null;
+      return onlyKeys(x, ["kind", "id"]) && lookupParam(x.id) !== null;
     case "mailboxes":
     case "labels":
-      return true;
+      return onlyKeys(x, ["kind"]);
     case "files":
       return (
+        onlyKeys(x, ["kind", "folder", "deep", "name"]) &&
         optionalParam(x, "folder") &&
         optionalParam(x, "name") &&
         (x.deep === undefined || typeof x.deep === "boolean")
       );
     case "file":
-      return lookupParam(x.path) !== null;
+      return onlyKeys(x, ["kind", "path"]) && lookupParam(x.path) !== null;
     case "chat":
-      return optionalQuery(x, "query") && optionalLimit(x);
+      return (
+        onlyKeys(x, ["kind", "query", "limit"]) &&
+        optionalQuery(x, "query") &&
+        optionalLimit(x)
+      );
     default:
       return false;
   }

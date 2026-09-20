@@ -12,7 +12,6 @@
  * narrow what that session could already read (ADR 0003, ADR 0020).
  */
 
-/** The folder-ish names a query may use without a mailbox of that name. */
 import { SEEN_KEYWORD, STARRED_KEYWORD } from "./labels.js";
 
 export interface ParsedQuery {
@@ -80,9 +79,11 @@ export type SearchFilter = SearchFilterCondition | SearchFilterOperator;
  */
 export const SEARCH_GRAMMAR =
   'the mail search grammar: bare words match text, and "from:", "to:", "cc:", ' +
-  '"subject:", "body:", "in:" (a folder name or role), "label:"/"keyword:", ' +
-  '"-label:", "is:unread", "is:read", "is:starred"/"is:flagged", ' +
-  '"has:attachment", "before:", "after:", "larger:", "smaller:"';
+  '"subject:", "body:", "in:"/"folder:" (a folder name or role), ' +
+  '"label:"/"keyword:" and "-label:"/"-keyword:", "is:unread", "is:read", ' +
+  '"is:starred"/"is:flagged", "has:star"/"has:flag"/"has:attachment", ' +
+  '"before:"/"older:", "after:"/"since:"/"newer:", "larger:"/"size:", ' +
+  '"smaller:"';
 
 const SIZE_RE = /^(\d+(?:\.\d+)?)\s*([kmg]?b?)$/i;
 function parseSize(s: string): number | undefined {

@@ -1140,14 +1140,17 @@ export class Executor {
     // client's search box reads, so the two cannot mean different things
     // (ADR 0020).
     const parsed = parseQuery(lookup.query ?? "");
-    const mailboxes = await this.accountMailboxes(accountId);
+    // The mailbox list is read only when the query names a folder: a lookup
+    // that needs no mailbox must not depend on a `Mailbox/get` answering.
+    const mailboxes = parsed.in ? await this.accountMailboxes(accountId) : null;
     if (
       parsed.in &&
+      mailboxes &&
       !resolveMailbox(parsed.in, mailboxes) &&
       !["anywhere", "all"].includes(parsed.in.toLowerCase())
     )
       return `${lookupHeading(lookup)}: this account has no folder called “${parsed.in}”`;
-    const filter = buildFilter(parsed, mailboxes) as Record<string, unknown>;
+    const filter = buildFilter(parsed, mailboxes ?? {}) as Record<string, unknown>;
     const limit = Math.min(
       lookup.limit ?? AGENT_LOOKUP_MESSAGES_MAX,
       AGENT_LOOKUP_MESSAGES_MAX,
@@ -1267,12 +1270,12 @@ export class Executor {
       // wrong folder" is a question about the shape of the tree, and a listing
       // that stopped at one level would make the run ask a person to walk it
       // folder by folder (ADR 0020).
+      const truncated = rows.length >= AGENT_LOOKUP_FILES_MAX;
       await this.walkVisible(accountId, folderId, folder, 0, rows, lookup.name);
-      if (rows.length >= AGENT_LOOKUP_FILES_MAX)
-        rows.push(
-          `…(more than ${AGENT_LOOKUP_FILES_MAX} entries; list one folder to see the rest)`,
-        );
-      return renderItemList(lookup, rows.length, rows);
+      const rendered = renderItemList(lookup, rows.length, rows);
+      return truncated
+        ? `${rendered}\n…(more than ${AGENT_LOOKUP_FILES_MAX} entries; list one folder to see the rest)`
+        : rendered;
     }
     const nodes = await fileChildren(
       this.deps.ctx,
@@ -1363,16 +1366,22 @@ export class Executor {
     // size, an attachment) narrows nothing.
     const parsed = parseQuery(lookup.query ?? "");
     const text = parsed.text.join(" ").toLowerCase();
+    // `from:` is what JMAP's own filter is: a case-insensitive match on the
+    // sender, so the grammar's own example (`from:ada`) finds
+    // `ada@example.com`. The window is half-open — `after` inclusive,
+    // `before` exclusive — exactly as `Email/query` reads it.
     const from = parsed.from?.toLowerCase();
-    const after = parsed.after;
-    const before = parsed.before;
-    const matching = messages.filter(
-      (message) =>
-        (!from || message.from.toLowerCase() === from) &&
+    const after = parsed.after ? Date.parse(parsed.after) : undefined;
+    const before = parsed.before ? Date.parse(parsed.before) : undefined;
+    const matching = messages.filter((message) => {
+      const at = Date.parse(message.created);
+      return (
+        (!from || message.from.toLowerCase().includes(from)) &&
         (!text || message.text.toLowerCase().includes(text)) &&
-        (!after || message.created >= after) &&
-        (!before || message.created <= before),
-    );
+        (after === undefined || at >= after) &&
+        (before === undefined || at < before)
+      );
+    });
     const limit = Math.min(
       lookup.limit ?? AGENT_LOOKUP_MESSAGES_MAX,
       AGENT_LOOKUP_MESSAGES_MAX,
@@ -1692,8 +1701,8 @@ export class Executor {
     if (trigger.on === "chat" && trigger.chatId) {
       const messages = await this.readChatOf(accountId);
       const anchor = messages.find((message) => message.id === trigger.chatId);
-      // Only a person asking widens the window; the run never does it itself.
-      // The second step is one folder slice, and only when one is named.
+      // Only a person asking widens the window; the run never does it
+      // itself.
       const asked = anchor ? anchor.text : "";
       const requested = widenRequested(asked) ? CHAT_CONTEXT_MAX : undefined;
       // The anchor is named, not inferred: the run answers *this* message, and

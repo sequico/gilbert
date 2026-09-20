@@ -17,6 +17,19 @@ const mb = (id: string, name: string, role: Mailbox["role"] = null): Mailbox => 
 });
 
 describe("parseQuery", () => {
+  it("reads the aliases the grammar names", () => {
+    // The prompt tells a model what the grammar is, so every alias the
+    // sentence names has to parse to the same field as its canonical form.
+    expect(parseQuery("in:Inbox folder:Work").in).toBe("Work");
+    expect(parseQuery("since:2024-01-02").after).toBeDefined();
+    expect(parseQuery("newer:2024-01-02").after).toBeDefined();
+    expect(parseQuery("older:2024-01-02").before).toBeDefined();
+    expect(parseQuery("size:2M").larger).toBe(2 * 1024 * 1024);
+    expect(parseQuery("has:star").starred).toBe(true);
+    expect(parseQuery("has:flag").starred).toBe(true);
+    expect(parseQuery("-keyword:x").notLabel).toEqual(["x"]);
+  });
+
   it("parses gmail-style operators", () => {
     const p = parseQuery(
       'from:ada subject:"q3 plan" has:attachment is:unread in:work before:2024-01-02 larger:2M hello world',

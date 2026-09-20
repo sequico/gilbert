@@ -542,7 +542,8 @@ export async function decideActions(
     pageBudget(options.maxPages ?? AGENT_MAX_PAGES_DEFAULT),
     'You may read the group\'s own state before deciding: answer {"lookup": {"kind": ...}} instead of actions, and you are asked again with what came back. The kinds, and their parameters:',
     ...lookupLines(),
-    `The "query" a mail or chat lookup takes is ${SEARCH_GRAMMAR}.`,
+    `The "query" a mail lookup takes is ${SEARCH_GRAMMAR}.`,
+    'A chat lookup reads the same query where a transcript can mean it: bare words, "from:", "before:" and "after:".',
     "A lookup is a read of this group's own account and changes nothing; it is not one of the capabilities above.",
     // A model that does not know something about the group must go and read it,
     // not narrate a limitation: the catalogue is the group's own state, and

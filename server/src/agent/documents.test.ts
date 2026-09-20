@@ -867,7 +867,7 @@ test("a lookup is one of the group's own reads, and nothing else", () => {
    * ADR 0020: the model names a kind from a closed catalogue and the server
    * validates it. The catalogue is the group's whole state — its mail, its
    * folders, its labels, its Files and its chat — so a butler is not limited to
-   * one label, and it never writes a query.
+   * one label, and it writes at most a search query, never a filter.
    */
   assert.deepEqual([...AGENT_LOOKUP_KINDS].sort(), [
     "chat",
@@ -884,7 +884,18 @@ test("a lookup is one of the group's own reads, and nothing else", () => {
     true,
     "no query is the newest mail, which is what a butler asked for nothing means",
   );
-  assert.equal(isAgentLookup({ kind: "mail", query: "" }), false);
+  assert.equal(
+    isAgentLookup({ kind: "mail", query: "" }),
+    true,
+    "an empty query is the unfiltered listing, not a malformed answer",
+  );
+  assert.equal(
+    isAgentLookup({ kind: "mail", starred: true }),
+    false,
+    "a field this build no longer reads is refused rather than ignored: it would widen the read",
+  );
+  assert.equal(isAgentLookup({ kind: "mail", query: "x", starred: true }), false);
+  assert.equal(isAgentLookup({ kind: "files", folder: "Clients", root: true }), false);
   assert.equal(
     isAgentLookup({ kind: "mail", query: "x".repeat(AGENT_LOOKUP_QUERY_MAX + 1) }),
     false,
